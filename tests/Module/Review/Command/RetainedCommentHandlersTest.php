@@ -10,8 +10,6 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\MarkCommentAddressedOutcome;
 use App\Module\Review\Command\MarkCommentsAddressedCommand;
 use App\Module\Review\Command\MarkCommentsAddressedHandler;
-use App\Module\Review\Command\PurgeCommentCommand;
-use App\Module\Review\Command\PurgeCommentHandler;
 use App\Module\Review\Command\ReopenCommentCommand;
 use App\Module\Review\Command\ReopenCommentHandler;
 use App\Module\Review\Command\ReplyToCommentCommand;
@@ -40,7 +38,6 @@ final class RetainedCommentHandlersTest extends KernelTestCase
     private Comment $root;
     private Comment $reply;
     private RestoreCommentHandler $restore;
-    private PurgeCommentHandler $purge;
 
     #[\Override]
     protected function setUp(): void
@@ -50,7 +47,6 @@ final class RetainedCommentHandlersTest extends KernelTestCase
         $this->comments = self::getContainer()->get(CommentRepository::class);
         $this->audit = RecordingAuditor::installedIn(self::getContainer());
         $this->restore = new RestoreCommentHandler($this->em, $this->comments, $this->audit->auditor);
-        $this->purge = new PurgeCommentHandler($this->em, $this->comments, $this->audit->auditor);
         $owner = new User('Thread owner', 'thread-'.uniqid().'@example.com', 'x');
         $project = new Project($owner, 'Thread lifecycle');
         $document = new Document($owner, $project, 'Document');
@@ -117,41 +113,13 @@ final class RetainedCommentHandlersTest extends KernelTestCase
         self::assertTrue($this->em->isOpen());
     }
 
-    public function test_purge_removes_only_the_retained_thread_and_audits_each_row_once(): void
-    {
-        $this->retain();
-        $other = new Comment($this->root->version, $this->root->author, 'Other thread', Anchor::unanchored());
-        $this->em->persist($other);
-        $this->em->flush();
-        $rootId = $this->root->id;
-        $replyId = $this->reply->id;
-        $otherId = $other->id;
-        $handler = $this->purge;
-        $command = new PurgeCommentCommand($this->root, 1);
-        $handler($command);
-        $handler($command);
-        $this->em->clear();
-
-        self::assertNull($this->em->find(Comment::class, $rootId));
-        self::assertNull($this->em->find(Comment::class, $replyId));
-        self::assertNotNull($this->em->find(Comment::class, $otherId));
-        $records = $this->audit->records('review.comment_purged');
-        self::assertCount(2, $records);
-        self::assertSame((string) $rootId, $records[0]->subject?->id);
-        self::assertSame((string) $replyId, $records[1]->subject?->id);
-        self::assertSame(1, $records[0]->context['replyCount']);
-        self::assertStringNotContainsString('Root body', json_encode($records, JSON_THROW_ON_ERROR));
-        self::assertStringNotContainsString('Reply body', json_encode($records, JSON_THROW_ON_ERROR));
-    }
-
-    #[DataProvider('recoveryOperations')]
-    public function test_old_forms_cannot_act_on_a_later_deletion(string $operation): void
+    public function test_an_old_undo_form_cannot_act_on_a_later_deletion(): void
     {
         $this->retain();
         $this->em->getConnection()->executeStatement('UPDATE comments SET deletion_sequence = 2 WHERE id = :id', ['id' => (string) $this->root->id]);
 
         try {
-            $this->recover($operation, $this->root, 1);
+            ($this->restore)(new RestoreCommentCommand($this->root, 1));
             self::fail('The old deletion sequence must be refused.');
         } catch (DomainErrors $error) {
             self::assertSame(['deletionSequence' => 'comment.error.stale_deletion'], $error->errors);
@@ -159,36 +127,20 @@ final class RetainedCommentHandlersTest extends KernelTestCase
         self::assertTrue($this->em->isOpen());
         self::assertSame(2, $this->root->deletionSequence);
         self::assertTrue($this->root->isDeleted);
-        self::assertCount(2, $this->comments->findDeletedByDocument($this->root->version->document));
+        self::assertCount(2, $this->comments->findByAuthor($this->root->author));
         self::assertSame([], $this->audit->operations());
     }
 
-    #[DataProvider('recoveryOperations')]
-    public function test_recovery_targets_the_root_not_a_reply(string $operation): void
+    public function test_restore_targets_the_root_not_a_reply(): void
     {
         $this->retain();
         try {
-            $this->recover($operation, $this->reply, 1);
-            self::fail('A reply cannot be restored or purged independently.');
+            ($this->restore)(new RestoreCommentCommand($this->reply, 1));
+            self::fail('A reply cannot be restored independently.');
         } catch (DomainErrors $error) {
             self::assertSame(['deletionSequence' => 'comment.error.thread_required'], $error->errors);
         }
-        self::assertCount(2, $this->comments->findDeletedByDocument($this->root->version->document));
-        self::assertSame([], $this->audit->operations());
-    }
-
-    public function test_a_stale_purge_form_cannot_remove_a_restored_thread(): void
-    {
-        $this->retain();
-        ($this->restore)(new RestoreCommentCommand($this->root, 1));
-        $this->audit->forget();
-        try {
-            $this->recover('purge', $this->root, 1);
-            self::fail('An active thread cannot be purged.');
-        } catch (DomainErrors $error) {
-            self::assertSame(['deletionSequence' => 'comment.error.not_deleted'], $error->errors);
-        }
-        self::assertCount(2, $this->comments->findByVersion($this->root->version));
+        self::assertCount(2, $this->comments->findByAuthor($this->root->author));
         self::assertSame([], $this->audit->operations());
     }
 
@@ -244,13 +196,6 @@ final class RetainedCommentHandlersTest extends KernelTestCase
     }
 
     /** @return iterable<string, array{string}> */
-    public static function recoveryOperations(): iterable
-    {
-        yield 'restore' => ['restore'];
-        yield 'purge' => ['purge'];
-    }
-
-    /** @return iterable<string, array{string}> */
     public static function ordinaryWrites(): iterable
     {
         yield 'reply' => ['reply'];
@@ -272,15 +217,6 @@ final class RetainedCommentHandlersTest extends KernelTestCase
             'resolve' => self::getContainer()->get(ResolveCommentHandler::class)(new ResolveCommentCommand($this->root)),
             'reopen' => self::getContainer()->get(ReopenCommentHandler::class)(new ReopenCommentCommand($this->root)),
             default => throw new \LogicException('Unknown write.'),
-        };
-    }
-
-    private function recover(string $operation, Comment $comment, int $sequence): void
-    {
-        match ($operation) {
-            'restore' => ($this->restore)(new RestoreCommentCommand($comment, $sequence)),
-            'purge' => ($this->purge)(new PurgeCommentCommand($comment, $sequence)),
-            default => throw new \LogicException('Unknown recovery action.'),
         };
     }
 }

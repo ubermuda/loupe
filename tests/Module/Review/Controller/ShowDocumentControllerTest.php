@@ -83,44 +83,9 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorExists('.lp-review-doc');
         self::assertSelectorExists('.lp-review-margin');
         self::assertSelectorExists('.lp-review-doc__back[aria-label="Back to documents"]');
-        self::assertSelectorTextContains('.lp-review-view-tabs', 'Document');
-        self::assertSelectorTextContains('.lp-review-view-tabs', 'History');
-        self::assertSelectorExists('.lp-review-view-tabs__item[aria-current="page"]');
-    }
-
-    public function test_review_summary_keeps_thread_content_and_escapes_markup(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $owner = $this->createUser($em, 'summary', 'summary@example.com');
-        $project = $this->project($em, $owner);
-        $document = new Document(owner: $owner, project: $project, title: 'Summary & review');
-        $version = $document->addVersion('# Content', '<h1>Content</h1>');
-        $em->persist($document);
-        $root = new Comment($version, $owner, '<img src=x> Keep & compare.', new Anchor('Content', '', '', 0));
-        $root->status = CommentStatus::Resolved;
-        $root->orphaned = true;
-        $em->persist($root);
-        $em->persist(new Comment($version, $owner, 'Reply <script>alert(1)</script>', $root->anchor, parent: $root));
-        $em->persist(new Comment($version, $owner, 'Plainer wording.', $root->anchor, replacement: 'Replacement & text'));
-        $em->persist(new Comment($version, $owner, '', $root->anchor, replacement: ''));
-        $em->flush();
-        $url = '/projects/'.$project->id.'/documents/'.$document->id.'/review';
-        $em->clear();
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, $url);
-
-        self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('#review-summary-comments', '[Resolved] Comment · Summary');
-        self::assertSelectorTextContains('#review-summary-comments', 'Unanchored');
-        self::assertSelectorTextContains('#review-summary-comments', '> Content');
-        self::assertSelectorTextContains('#review-summary-comments', '<img src=x> Keep & compare.');
-        self::assertSelectorTextContains('#review-summary-comments', 'Summary: Reply <script>alert(1)</script>');
-        self::assertSelectorTextContains('#review-summary-comments', 'Suggested: Replacement & text');
-        self::assertSelectorTextContains('#review-summary-comments', 'Strike · Summary');
-        self::assertSelectorNotExists('#review-summary-comments img');
-        self::assertSelectorNotExists('#review-summary-comments script');
-        self::assertSelectorExists('[data-review-summary-header-value^="Summary & review · v1"]');
+        self::assertSelectorTextContains('.lp-review-workspace-nav .lp-tabs', 'Document');
+        self::assertSelectorTextContains('.lp-review-workspace-nav .lp-tabs', 'History');
+        self::assertSelectorExists('.lp-review-workspace-nav .lp-tabs__tab[aria-current="page"]');
     }
 
     public function test_details_show_the_card_linked_to_the_document(): void
@@ -148,10 +113,13 @@ final class ShowDocumentControllerTest extends WebTestCase
         );
 
         self::assertResponseIsSuccessful();
-        $link = $crawler->filter('[data-margin-panel="details"] .lp-review-details__card');
-        self::assertCount(1, $link);
-        self::assertStringContainsString('#1 Implement the document', $link->text());
-        self::assertSame('card-drawer-frame', $link->attr('data-turbo-frame'));
+        $card = $crawler->filter('[data-margin-panel="details"] .lp-board-card--static');
+        self::assertCount(1, $card);
+        self::assertStringContainsString('#1', $card->text());
+        self::assertStringContainsString('Ready', $card->filter('.lp-board-card__status')->text());
+        self::assertCount(0, $card->filter('[data-board-drag-target], form'), 'the card does not drag outside the board');
+        self::assertSame('card-drawer-frame', $card->filter('.lp-board-card__title')->attr('data-turbo-frame'));
+        self::assertStringContainsString('Implement the document', $card->filter('.lp-board-card__title')->text());
     }
 
     public function test_review_page_renders_the_document_tags(): void
@@ -687,7 +655,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // The history page is the way back — a route with no entry point would
         // leave the discussion exactly as unreachable as before.
         $historyUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/history';
-        self::assertCount(1, $latest->filter('.lp-review-view-tabs a[href="'.$historyUrl.'"]'));
+        self::assertCount(1, $latest->filter('.lp-review-workspace-nav .lp-tabs a[href="'.$historyUrl.'"]'));
 
         $versionUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/versions/1';
         $history = $client->request(Request::METHOD_GET, $historyUrl);
@@ -891,7 +859,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.lp-review-view-tabs a[href="/projects/'.$projectId.'/documents/'.$id.'/review/history"]'));
+        self::assertCount(1, $crawler->filter('.lp-review-workspace-nav .lp-tabs a[href="/projects/'.$projectId.'/documents/'.$id.'/review/history"]'));
         self::assertCount(0, $crawler->filter('[data-version-note]'));
     }
 
@@ -1164,7 +1132,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/';
         self::assertSame(
             [$base.'2/3'],
-            $crawler->filter('.lp-review-view-tabs a[href="'.$base.'2/3"]')->each(
+            $crawler->filter('.lp-review-workspace-nav .lp-tabs a[href="'.$base.'2/3"]')->each(
                 static fn (\Symfony\Component\DomCrawler\Crawler $node): string => (string) $node->attr('href'),
             ),
             'the Diff tab compares the current version with its predecessor',

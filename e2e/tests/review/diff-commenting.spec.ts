@@ -205,7 +205,7 @@ async function reviewState(
     return (await response.json()) as ReviewState;
 }
 
-for (const view of ['rendered', 'side-by-side']) {
+for (const view of ['rendered']) {
     test(`Dismiss selection returns focus to the ${view} diff`, async ({
         page,
     }) => {
@@ -237,7 +237,7 @@ for (const view of ['rendered', 'side-by-side']) {
     });
 }
 
-for (const view of ['document', 'rendered', 'side-by-side']) {
+for (const view of ['document', 'rendered']) {
     test(`a stale ${view} keeps the comment draft and rejects the write`, async ({
         page,
     }) => {
@@ -357,7 +357,7 @@ test('a comment made on an inserted run lands on the current version', async ({
         .toEqual({ text: INSERTED, stamped: true, deleted: false });
 });
 
-test('side-by-side comments anchor only to the new side and stay below the comparison', async ({
+test('side-by-side takes no comment and carries no comment column', async ({
     page,
 }) => {
     const { projectId, documentId } = await seedDocument(page, 'columns', [
@@ -365,70 +365,23 @@ test('side-by-side comments anchor only to the new side and stay below the compa
     ]);
     const reviewPath = `/projects/${projectId}/documents/${documentId}/review`;
     await page.goto(`${reviewPath}/diff/1/2?view=side-by-side`);
+    await expect(page.locator('.lp-diff-columns')).toBeVisible();
+
+    // Both columns need the width, so the comparison offers no annotation
+    // surface at all and says where the comments are instead.
+    await expect(page.locator(DOC)).toHaveCount(0);
+    await expect(page.locator(TOOLBAR)).toHaveCount(0);
+    await expect(page.locator('.lp-review-margin')).toHaveCount(0);
+    await expect(page.locator('#comment-threads')).toHaveCount(0);
+    await expect(page.locator('#diff-columns-notice')).toContainText(
+        'no comment column',
+    );
+
+    // Rendered keeps every comment path for the same pair.
+    await page.goto(`${reviewPath}/diff/1/2`);
     await expect(page.locator(DOC)).toBeVisible();
-    await expect(
-        page.locator('[data-diff-side="old"] [data-diff-offset]'),
-    ).toHaveCount(0);
-
-    await selectPhrase(page, 'The rollout takes', undefined, 'old');
-    await expect(page.locator(ACTION_ERROR)).toContainText(
-        'You cannot comment on this selection',
-    );
-    await expect(page.locator(TOOLBAR)).toBeHidden();
-    await selectPhrase(page, DELETED, undefined, 'old');
-    await expect(page.locator(ACTION_ERROR)).toContainText(
-        'text this revision removed',
-    );
-    await expect(page.locator(TOOLBAR)).toBeHidden();
-
-    await selectPhrase(page, INSERTED, undefined, 'new');
+    await selectPhrase(page, INSERTED);
     await expect(page.locator(TOOLBAR)).toBeVisible();
-    await page.getByRole('button', { name: 'Comment', exact: true }).click();
-    await page.locator(COMPOSER_BODY).fill('Check the new steps.');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(page.locator('#comment-threads')).toContainText(
-        'Check the new steps.',
-    );
-    expect((await reviewState(page, documentId)).storedAnchors[0].quote).toBe(
-        INSERTED,
-    );
-    await page.reload();
-    await expect
-        .poll(() => paintedAnchor(page))
-        .toEqual({ text: INSERTED, stamped: true, deleted: false });
-    await expect(page.locator('.lp-review-margin')).toHaveCSS(
-        'position',
-        'static',
-    );
-    const grid = await page.locator('.lp-diff-columns').boundingBox();
-    const thread = await page.locator('.lp-comment-thread').boundingBox();
-    expect(grid).not.toBeNull();
-    expect(thread).not.toBeNull();
-    expect(thread!.y).toBeGreaterThanOrEqual(grid!.y + grid!.height);
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    await selectPhrase(page, 'The rollout takes', undefined, 'new');
-    await expect(page.locator(TOOLBAR)).toBeVisible();
-    await page.getByRole('button', { name: 'Comment', exact: true }).click();
-    await page
-        .locator(COMPOSER_BODY)
-        .fill('Retained text also accepts comments.');
-    await page.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(page.locator('#comment-threads')).toContainText(
-        'Retained text also accepts comments.',
-    );
-    expect(
-        (await reviewState(page, documentId)).storedAnchors.map(
-            (anchor) => anchor.quote,
-        ),
-    ).toEqual(expect.arrayContaining([INSERTED, 'The rollout takes']));
-    await page.goto(reviewPath);
-    await expect(page.locator('#comment-threads')).toContainText(
-        'Check the new steps.',
-    );
-    await expect(page.locator('#comment-threads')).toContainText(
-        'Retained text also accepts comments.',
-    );
 });
 
 test('a selection that touches deleted text is refused', async ({ page }) => {
@@ -492,7 +445,7 @@ test('a diff whose newer side is not the current version offers no commenting', 
     await expect(page.locator(TOOLBAR)).toHaveCount(0);
     await expect(page.locator('[data-diff-offset]')).toHaveCount(0);
     await expect(page.locator('#diff-columns-notice')).toContainText(
-        'This comparison is read-only',
+        'no comment column',
     );
 
     // The pair that does end at the current version still accepts one.

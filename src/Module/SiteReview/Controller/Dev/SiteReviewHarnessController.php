@@ -25,6 +25,9 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Pass `?hide=target-two` to leave that element out of the page, so a reload finds a
  * saved multi-anchor comment with one anchor that no longer resolves.
+ *
+ * Pass `?oauth=1` to embed the widget by project with no token, so it signs in
+ * through the OAuth popup. The page's own origin joins the allowed sites.
  */
 #[Route(
     '/dev/site-review-harness',
@@ -44,10 +47,13 @@ final class SiteReviewHarnessController extends AppController
         $view = ($this->prepareHarness)(new PrepareHarnessCommand(
             email: $request->query->getString('email'),
             keepComments: $request->query->getBoolean('keep'),
+            oauthOrigin: $request->query->getBoolean('oauth') ? $request->getSchemeAndHttpHost() : null,
         ));
 
         return $this->render('@SiteReview/dev/site_review_harness.html.twig', [
             'token' => $view->rawToken,
+            'projectId' => $view->projectId,
+            'oauth' => $request->query->getBoolean('oauth'),
             'hide' => $request->query->getString('hide'),
         ]);
     }

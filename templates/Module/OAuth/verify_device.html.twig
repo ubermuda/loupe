@@ -2,6 +2,9 @@
 
 {% block title %}{{ 'oauth.device.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
+{# One frame only: the shell's card holds the rows, which draw no frame. #}
+{% block auth_shell_class 'auth-shell--wide' %}
+
 {% block auth_body %}
 {% if result is not null %}
 <div class="lp-consent" data-testid="oauth-device-{{ result }}">

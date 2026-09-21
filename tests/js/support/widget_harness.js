@@ -23,6 +23,7 @@ export function bootWidget({
     respond,
     demo = false,
     context = null,
+    project = null,
 } = {}) {
     window.matchMedia = () => ({
         matches: false,
@@ -47,7 +48,9 @@ export function bootWidget({
     // a demo boot must not set one: the widget reads the attribute, not the
     // flag, when it decides whether it has a credential.
     if (demo) script.setAttribute('data-demo', '');
-    else script.setAttribute('data-token', token);
+    else if (token !== null) script.setAttribute('data-token', token);
+    // An OAuth embed names its project and carries no token.
+    if (project !== null) script.setAttribute('data-project', project);
     // The marker a preview page proposes. Absent on an ordinary deployment.
     if (context !== null) script.setAttribute('data-context', context);
     Object.defineProperty(document, 'currentScript', {
@@ -58,7 +61,7 @@ export function bootWidget({
     // navigation rather than keeping the element it booted from.
     document.head.appendChild(script);
 
-    const fetchMock = vi.fn(async () => respond());
+    const fetchMock = vi.fn(async (...request) => respond(...request));
     globalThis.fetch = fetchMock;
 
     new Function(SOURCE)();

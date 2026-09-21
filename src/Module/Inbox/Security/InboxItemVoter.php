@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Security;
 
 use App\Module\Inbox\Entity\InboxItem;
-use App\Module\Inbox\Repository\InboxReviewRepository;
+use App\Module\Inbox\Service\InboxReviewLookup;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
@@ -13,17 +13,16 @@ use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
- * @extends Voter<'inbox_item.answer'|'inbox_item.review_document'|'inbox_item.reply', InboxItem>
+ * @extends Voter<'inbox_item.answer'|'inbox_item.review_document', InboxItem>
  */
 final class InboxItemVoter extends Voter
 {
     /** Answering, marking done and declining: every write the owner makes on an item. */
     public const string ANSWER = 'inbox_item.answer';
     public const string REVIEW_DOCUMENT = 'inbox_item.review_document';
-    public const string REPLY = 'inbox_item.reply';
 
     public function __construct(
-        private readonly InboxReviewRepository $inboxReviews,
+        private readonly InboxReviewLookup $inboxReviews,
         private readonly AuthorizationCheckerInterface $authorization,
     ) {
     }
@@ -31,7 +30,7 @@ final class InboxItemVoter extends Voter
     #[\Override]
     protected function supports(string $attribute, mixed $subject): bool
     {
-        return \in_array($attribute, [self::ANSWER, self::REVIEW_DOCUMENT, self::REPLY], true) && $subject instanceof InboxItem;
+        return \in_array($attribute, [self::ANSWER, self::REVIEW_DOCUMENT], true) && $subject instanceof InboxItem;
     }
 
     #[\Override]
@@ -43,7 +42,7 @@ final class InboxItemVoter extends Voter
         if (self::REVIEW_DOCUMENT !== $attribute) {
             return true;
         }
-        $document = $this->inboxReviews->findOneBy(['item' => $subject])?->document;
+        $document = $this->inboxReviews->forItem($subject)?->document;
 
         return null === $document || $this->authorization->isGranted(DocumentVoter::CONTRIBUTE, $document);
     }

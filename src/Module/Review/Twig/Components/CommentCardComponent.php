@@ -59,23 +59,6 @@ final class CommentCardComponent
     /** @var list<array{author: string, body: string, age: string}> */
     public array $replies = [];
 
-    /**
-     * The status pill's label, which is not always the status: a general comment
-     * and a strike both read as their kind while still pending.
-     */
-    public function statusLabel(): string
-    {
-        if ('pending' !== $this->status) {
-            return $this->status;
-        }
-
-        if ('' === $this->quote) {
-            return 'general';
-        }
-
-        return 'strike' === $this->kind ? 'strike' : $this->status;
-    }
-
     public function isGeneral(): bool
     {
         return '' === $this->quote;

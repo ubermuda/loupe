@@ -32,6 +32,7 @@ final readonly class ProjectExporter implements UserDataExporterInterface
                 'domain' => $project->domain,
                 'searchLanguage' => $project->searchLanguage->value,
                 'forwardsToAgent' => $project->forwardsToAgent,
+                'allowedOrigins' => $project->allowedOrigins,
                 'createdAt' => $project->createdAt->format(\DateTimeInterface::ATOM),
             ];
         }

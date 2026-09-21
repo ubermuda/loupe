@@ -14,6 +14,18 @@ enum CardType: string
     case Docs = 'docs';
     case Idea = 'idea';
 
+    public function tone(): LabelTone
+    {
+        return match ($this) {
+            self::Feature => LabelTone::Lime,
+            self::Bug => LabelTone::Amber,
+            self::Security => LabelTone::Red,
+            self::Tooling => LabelTone::Neutral,
+            self::Docs => LabelTone::Green,
+            self::Idea => LabelTone::Purple,
+        };
+    }
+
     /** @return list<string> */
     public static function values(): array
     {

@@ -30,10 +30,27 @@ final readonly class ClientMetadataFetcher
     ) {
     }
 
-    /** @throws ClientMetadataRefused */
-    public function fetch(ClientIdUrl $url): FetchedClientMetadata
+    /**
+     * The one address every request for this client connects to. DNS has no
+     * timeout in PHP, so a host is resolved once per authorization, never
+     * once per request.
+     *
+     * @throws ClientMetadataRefused
+     */
+    public function vettedAddress(ClientIdUrl $url): string
     {
-        [$body, $headers] = $this->get($url->url, $url->host, self::MAX_BYTES, 'application/json', 'The client metadata document');
+        $addresses = $this->resolver->resolve($url->host);
+        if ([] === $addresses || !array_all($addresses, PublicAddressPolicy::isPublic(...))) {
+            throw new ClientMetadataRefused('The client metadata host does not resolve to public addresses only.');
+        }
+
+        return array_find($addresses, static fn (string $address): bool => false !== filter_var($address, \FILTER_VALIDATE_IP, \FILTER_FLAG_IPV4)) ?? $addresses[0];
+    }
+
+    /** @throws ClientMetadataRefused */
+    public function fetch(ClientIdUrl $url, string $ip): FetchedClientMetadata
+    {
+        [$body, $headers] = $this->get($url->url, $url->host, $ip, self::MAX_BYTES, 'application/json', 'The client metadata document');
 
         $contentType = self::contentType($headers);
         if ('application/json' !== $contentType) {
@@ -59,10 +76,10 @@ final readonly class ClientMetadataFetcher
      * client likes, so it is never fetched. Null when there is no usable icon:
      * the consent page then shows what it shows today.
      */
-    public function fetchIcon(ClientIdUrl $url): ?FetchedIcon
+    public function fetchIcon(ClientIdUrl $url, string $ip): ?FetchedIcon
     {
         try {
-            [$body, $headers] = $this->get('https://'.$url->host.'/favicon.ico', $url->host, self::MAX_ICON_BYTES, 'image/*', 'The client icon');
+            [$body, $headers] = $this->get('https://'.$url->host.'/favicon.ico', $url->host, $ip, self::MAX_ICON_BYTES, 'image/*', 'The client icon');
         } catch (ClientMetadataRefused) {
             return null;
         }
@@ -77,15 +94,8 @@ final readonly class ClientMetadataFetcher
      *
      * @throws ClientMetadataRefused
      */
-    private function get(string $url, string $host, int $maxBytes, string $accept, string $subject): array
+    private function get(string $url, string $host, string $ip, int $maxBytes, string $accept, string $subject): array
     {
-        $addresses = $this->resolver->resolve($host);
-        if ([] === $addresses || !array_all($addresses, PublicAddressPolicy::isPublic(...))) {
-            throw new ClientMetadataRefused('The client metadata host does not resolve to public addresses only.');
-        }
-
-        $ip = array_find($addresses, static fn (string $address): bool => false !== filter_var($address, \FILTER_VALIDATE_IP, \FILTER_FLAG_IPV4)) ?? $addresses[0];
-
         try {
             $response = $this->http->request('GET', $url, [
                 'resolve' => [$host => $ip],

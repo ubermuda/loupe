@@ -7,6 +7,7 @@ namespace App\Module\Project\Repository;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Service\SiteOrigins;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
@@ -26,6 +27,25 @@ class ProjectRepository extends ServiceEntityRepository
     public function findByOwner(User $owner): array
     {
         return $this->findBy(['owner' => $owner], ['createdAt' => 'DESC']);
+    }
+
+    /**
+     * Whether any project lists this origin among the sites its sign-in widget
+     * may run on. The query returns the exact entries and every wildcard one,
+     * which SiteOrigins then judges. A wildcard cannot be matched in SQL, and
+     * there are few of them.
+     */
+    public function anyAllowsOrigin(string $origin): bool
+    {
+        $candidates = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            <<<'SQL'
+                SELECT DISTINCT entry FROM projects, jsonb_array_elements_text(allowed_origins) AS entry
+                WHERE entry = :origin OR entry LIKE '%://*.%'
+                SQL,
+            ['origin' => $origin],
+        );
+
+        return SiteOrigins::allows(array_values(array_map(strval(...), $candidates)), $origin);
     }
 
     /**

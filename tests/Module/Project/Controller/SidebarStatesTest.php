@@ -9,10 +9,12 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Search\Install\SearchInstallFlags;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class SidebarStatesTest extends WebTestCase
 {
@@ -43,6 +45,7 @@ final class SidebarStatesTest extends WebTestCase
         $owner = $this->user($em, 'sidebar-remember@example.com');
         $project = new Project($owner, 'remembered');
         $em->persist($project);
+        static::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()[SearchInstallFlags::FLAG_TOPBAR_ENABLED]->value = true;
         $em->flush();
         $id = (string) $project->id;
         $em->clear();

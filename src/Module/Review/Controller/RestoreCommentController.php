@@ -13,7 +13,6 @@ use App\Module\Review\Form\CommentRecoveryFormType;
 use App\Module\Review\Form\CommentRecoveryRequest;
 use App\Module\Review\Security\CommentVoter;
 use App\Module\Review\Twig\ReviewExtension;
-use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -51,6 +50,7 @@ final class RestoreCommentController extends AppController
             ['action' => $this->generateUrl('app_comment_restore', ['id' => $commentId]), 'method' => 'POST'],
         );
         $form->handleRequest($request);
+        $errors = ['deletionSequence' => 'comment.error.stale_deletion'];
 
         if ($form->isSubmitted() && $form->isValid() && null !== $data->deletionSequence) {
             try {
@@ -63,17 +63,18 @@ final class RestoreCommentController extends AppController
                     '_fragment' => 'comment-thread-'.$commentId,
                 ]);
             } catch (DomainErrors $e) {
-                foreach ($e->errors as $field => $translationKey) {
-                    $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
-                }
+                $errors = $e->errors;
             }
         }
 
-        return $this->forward(ListDeletedCommentsController::class, [
+        // No page renders this form, so a bound 422 re-render has nowhere to go.
+        foreach ($errors as $translationKey) {
+            $this->addFlash('error', $this->translator->trans($translationKey));
+        }
+
+        return $this->redirectToRoute('app_document_review_version', [
             ...$parameters,
-            'recoveryForm' => $form->createView(),
-            'failedCommentId' => $commentId,
-            'failedAction' => 'restore',
-        ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
+            'versionNumber' => $comment->version->versionNumber,
+        ]);
     }
 }

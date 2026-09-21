@@ -119,6 +119,7 @@ module "app" {
   extra_env = merge(
     var.admin_email == "" ? {} : { ADMIN_EMAIL = { value = var.admin_email } },
     var.mcp_allowed_hosts == "" ? {} : { MCP_ALLOWED_HOSTS = { value = var.mcp_allowed_hosts } },
+    var.oauth_trusted_client_ids == "" ? {} : { OAUTH_TRUSTED_CLIENT_IDS = { value = var.oauth_trusted_client_ids } },
     # Kept alongside the private ranges rather than replacing them: on App
     # Platform the app's immediate peer is always the platform's own private
     # ingress, so trusting only the operator's public proxy would leave the

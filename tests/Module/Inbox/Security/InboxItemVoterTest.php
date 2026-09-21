@@ -10,6 +10,7 @@ use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\Repository\InboxReviewRepository;
 use App\Module\Inbox\Security\InboxItemVoter;
+use App\Module\Inbox\Service\InboxReviewLookup;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Security\DocumentVoter;
@@ -33,14 +34,14 @@ final class InboxItemVoterTest extends TestCase
         $reviews->method('findOneBy')->willReturn(new InboxReview($item, $document));
         $authorization = $this->createMock(AuthorizationCheckerInterface::class);
         $authorization->expects($this->once())->method('isGranted')->with(DocumentVoter::CONTRIBUTE, $document)->willReturn($granted);
-        $voter = new InboxItemVoter($reviews, $authorization);
+        $voter = new InboxItemVoter(new InboxReviewLookup($reviews), $authorization);
         self::assertSame($granted ? VoterInterface::ACCESS_GRANTED : VoterInterface::ACCESS_DENIED,
             $voter->vote(self::token($owner), $item, [InboxItemVoter::REVIEW_DOCUMENT]));
     }
 
     private function voter(): InboxItemVoter
     {
-        return new InboxItemVoter($this->createStub(InboxReviewRepository::class), $this->createStub(AuthorizationCheckerInterface::class));
+        return new InboxItemVoter(new InboxReviewLookup($this->createStub(InboxReviewRepository::class)), $this->createStub(AuthorizationCheckerInterface::class));
     }
 
     public function test_the_project_owner_may_answer(): void

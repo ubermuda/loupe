@@ -1,0 +1,693 @@
+/* Document review, aligned with the approved redesign. Unlayered, because the
+   typography plugin's `prose` rules sit in the utilities layer. Every rule is
+   scoped under .lp-review, so the landing page's review mock keeps its look. */
+
+/* ── Header ─────────────────────────────────────────────────────── */
+.lp-review .lp-review-doc__head {
+    @apply mb-5 gap-0;
+}
+.lp-review .lp-review-doc__heading {
+    @apply mb-4 flex items-center justify-between gap-5;
+}
+/* The back button lines up with the title row, not with the title and the
+   byline together. */
+.lp-review .lp-review-doc__identity {
+    @apply flex min-w-0 items-start gap-3;
+}
+.lp-review .lp-review-doc__back {
+    @apply size-8 rounded-lg;
+}
+.lp-review .lp-review-doc__identity-text {
+    @apply min-w-0;
+}
+.lp-review .lp-review-doc__title-row {
+    @apply min-h-8 gap-2.5;
+}
+.lp-review .lp-review-doc__title {
+    @apply text-2xl leading-snug font-bold tracking-tight break-words;
+}
+.lp-review .lp-review-doc__version {
+    @apply rounded-md bg-surface-3 px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold text-fg-dim;
+}
+.lp-review .lp-review-doc__byline {
+    @apply mt-1.75 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-fg-dim;
+}
+.lp-review .lp-review-doc__middot {
+    @apply shrink-0 text-fg-faint;
+}
+.lp-review .lp-review-doc__author {
+    @apply inline-flex items-center gap-1.5;
+}
+.lp-review .lp-review-doc__avatar {
+    @apply inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-bold text-fg-mute;
+}
+.lp-review .lp-review-doc__actions {
+    @apply ml-0 flex shrink-0 flex-wrap items-center justify-end gap-2;
+}
+.lp-review .lp-review-doc__actions svg {
+    @apply size-4 shrink-0;
+}
+@media (width < 37.5rem) {
+    .lp-review .lp-review-doc__heading {
+        @apply flex-col items-stretch gap-3;
+    }
+    .lp-review .lp-review-doc__actions {
+        @apply ml-11 justify-start;
+    }
+}
+
+/* ── View tabs and margin controls ──────────────────────────────── */
+
+/* One rule under both columns: the view tabs sit over the paper and the
+   margin controls over the comment column. */
+.lp-review .lp-review-workspace-nav {
+    @apply mt-0 gap-0 border-b border-line;
+}
+@media (width > 43.75rem) {
+    .lp-review .lp-review-workspace-nav {
+        @apply items-stretch justify-between;
+        gap: var(--doc-margin-gap, calc(var(--spacing) * 6));
+    }
+}
+.lp-review .lp-review-workspace-nav .lp-tabs,
+.lp-review .lp-tabs {
+    @apply mt-0 gap-6 self-stretch border-b-0;
+}
+.lp-review .lp-tabs__tab {
+    @apply -mb-px inline-flex min-h-12 items-center gap-1.75 px-0 py-2.5 font-medium text-fg-dim;
+}
+.lp-review .lp-tabs__tab svg {
+    @apply size-4 shrink-0;
+}
+.lp-review .lp-tabs__tab[aria-current='page'] {
+    @apply border-review-tab font-semibold text-review-tab-ink;
+}
+.lp-review .lp-review-margin-tabs {
+    @apply gap-1.5 py-1.25;
+}
+.lp-review .lp-review-margin-tablist {
+    @apply flex-1 gap-0.75;
+}
+/* Inactive views are named icons; the selected one grows to show its label.
+   The width and the label swap in one frame, so the colours must too. A fade
+   leaves the accent on the tab the reader just left, at the new icon width,
+   which reads as a flicker. */
+.lp-review .lp-review-margin-tabs__item {
+    @apply min-h-9 w-8 flex-none justify-center gap-1.25 rounded-md p-1.75 font-normal text-fg-dim transition-none;
+}
+.lp-review .lp-review-margin-tabs__item--active {
+    @apply w-auto flex-auto border-accent-border bg-accent-soft font-semibold text-review-tab-ink;
+}
+/* Present so the row keeps its shape, and plainly not a way in. The title
+   says why. Pointer events stay on, or the tooltip never appears. */
+.lp-review .lp-review-margin-tabs__item--disabled {
+    @apply cursor-not-allowed text-fg-faint hover:bg-transparent hover:text-fg-faint;
+}
+.lp-review .lp-review-margin-tabs__count {
+    @apply hidden;
+}
+.lp-review .lp-review-margin-tabs__item--active .lp-review-margin-tabs__count {
+    @apply inline-flex min-w-4.5 items-center justify-center rounded-sm bg-surface-2 px-1 text-xs text-fg-dim;
+}
+.lp-review .lp-review-margin-tabs__item--icon {
+    @apply h-9 w-8 p-1.75;
+}
+.lp-review .lp-review-margin-tabs__item--filtered {
+    @apply bg-review-addressed text-review-addressed-ink;
+}
+.lp-review .lp-review-margin-filter__menu {
+    @apply w-52 rounded-lg p-1.5 shadow-card;
+}
+.lp-review .lp-review-margin-filter__menu button {
+    @apply min-h-9.5 rounded-md px-2.25 py-2 text-fg-mute;
+}
+.lp-review .lp-review-margin-filter__menu [data-filter-count] {
+    @apply text-xs text-fg-dim;
+}
+
+/* ── Paper ──────────────────────────────────────────────────────── */
+.lp-review .lp-review-doc__prose {
+    @apply min-h-0 rounded-lg px-8.5 py-7 leading-7.5 text-fg-mute;
+}
+@media (width >= 93.75rem) {
+    .lp-review .lp-review-doc__prose {
+        @apply px-12 py-8.5;
+    }
+}
+@media (width < 71.875rem) {
+    .lp-review .lp-review-doc__prose {
+        @apply p-6;
+    }
+}
+@media (width < 37.5rem) {
+    .lp-review .lp-review-doc__prose {
+        @apply p-5;
+    }
+}
+.lp-review .lp-review-doc__prose > :first-child,
+.lp-review
+    .lp-review-doc__prose
+    > .lp-section-head:first-child
+    > :is(h1, h2, h3, h4, h5, h6) {
+    @apply mt-0;
+}
+/* Sections are separated by whitespace, never by a rule. */
+.lp-review .lp-review-doc__prose hr {
+    @apply my-10 border-0;
+}
+.lp-review .lp-review-doc__prose :is(h1, h2) {
+    @apply mt-11 mb-2.5 font-display text-lg leading-normal font-bold tracking-tight text-ink;
+}
+.lp-review .lp-review-doc__prose h1 {
+    @apply text-xl;
+}
+.lp-review .lp-review-doc__prose :is(h3, h4, h5, h6) {
+    @apply mt-8 mb-2 font-display text-base leading-normal font-bold text-ink;
+}
+.lp-review .lp-review-doc__prose :is(p, li) {
+    @apply leading-7.5;
+}
+.lp-review
+    .lp-review-doc__prose
+    :is(.lp-section-head, h1, h2, h3, h4, h5, h6)
+    + :is(p, ul, ol) {
+    @apply mt-0;
+}
+/* A code block reads as a quiet inset of the paper, not a dark slab. */
+.lp-review .lp-review-doc__prose pre {
+    @apply rounded-lg border border-line bg-surface-2 px-4 py-3.5 text-sm leading-relaxed text-ink;
+}
+.lp-review .lp-review-doc__prose pre code {
+    @apply bg-transparent p-0 text-ink;
+}
+/* Transparent at rest and when approved: the icon colour carries the state. */
+.lp-review .lp-section-approve__button,
+.lp-review .lp-section-approve__button:hover,
+.lp-review .lp-section-approve__button--approved:hover {
+    @apply bg-transparent;
+}
+.lp-review .lp-section-approve__button {
+    @apply text-fg-faint hover:text-review-tab;
+}
+.lp-review .lp-section-approve__button--approved {
+    @apply text-review-resolved-ink;
+}
+.lp-review .lp-section-approve__icon {
+    @apply size-4.5;
+}
+
+/* ── Decision blocks ────────────────────────────────────────────── */
+.lp-review .lp-decision {
+    @apply mt-6 mb-0 rounded-lg border border-review-decision-line bg-review-decision p-5;
+}
+/* The question leads as a heading, and the kind of answer it takes sits at
+   its right as a quiet chip. Still generated content, so it never joins the
+   text every comment anchor is measured against. */
+.lp-review .lp-decision__prompt {
+    @apply mb-3.5 flex items-start justify-between gap-3 font-display text-base leading-normal font-bold text-ink;
+}
+.lp-review .lp-decision__prompt::before {
+    content: 'Pick one';
+    @apply order-2 mb-0 shrink-0 rounded-md bg-surface-1 px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold tracking-normal text-fg-dim normal-case;
+}
+.lp-review
+    .lp-decision[data-decision-type='multiple']
+    .lp-decision__prompt::before {
+    content: 'Pick any';
+}
+.lp-review .lp-decision__options {
+    @apply gap-2.5;
+}
+.lp-review .lp-decision__option {
+    @apply rounded-lg border border-line bg-surface-1 px-4 py-3.5 text-base font-normal text-ink;
+}
+.lp-review .lp-decision__option:has(input:checked) {
+    @apply border-accent-border bg-accent-faint;
+}
+.lp-review .lp-decision__option input:checked {
+    @apply border-review-tab bg-review-tab;
+}
+.lp-review .lp-decision__save {
+    @apply mt-4;
+}
+
+/* ── Comment cards ──────────────────────────────────────────────── */
+.lp-review .lp-comment-thread {
+    @apply gap-2.5 rounded-lg p-4;
+}
+.lp-review .lp-comment-thread__header {
+    @apply items-center gap-1.75;
+}
+.lp-review .lp-comment-status {
+    @apply ml-auto rounded-md px-1.75 py-0.75 text-xs leading-4 font-semibold tracking-normal normal-case;
+}
+.lp-review .lp-comment-status--pending {
+    @apply bg-review-open text-review-open-ink;
+}
+.lp-review .lp-comment-status--addressed {
+    @apply bg-review-addressed text-review-addressed-ink;
+}
+.lp-review .lp-comment-status--resolved {
+    @apply bg-review-resolved text-review-resolved-ink;
+}
+.lp-review .lp-comment-body {
+    @apply leading-relaxed text-fg-mute;
+}
+.lp-review .lp-comment-quote {
+    @apply rounded-none border-l-2 border-review-decision-line bg-review-decision px-2.5 py-2 text-sm leading-relaxed text-fg-mute;
+}
+.lp-review .lp-comment-quote--struck {
+    @apply border-review-strike-ink/40 bg-review-strike text-review-strike-ink;
+}
+.lp-review .lp-comment-quote--struck del {
+    @apply decoration-review-strike-ink decoration-1;
+}
+.lp-review .lp-comment-quote--inserted {
+    @apply rounded-md border-l-0 bg-review-resolved p-2.5 text-review-resolved-ink;
+}
+.lp-review .lp-comment-replies {
+    @apply mt-1.5 gap-4;
+}
+.lp-review .lp-comment--reply {
+    @apply gap-2;
+}
+.lp-review .lp-comment-reply__head {
+    @apply items-center gap-1.75;
+}
+/* Delete at left; Reply and Resolve at right, spaced by margin alone. */
+.lp-review .lp-comment-thread__footer {
+    @apply mt-1.5 gap-1.5 border-t-0 pt-0;
+}
+.lp-review .lp-comment-action {
+    @apply min-h-8.5 gap-1 px-1 py-1.5 font-medium;
+}
+.lp-review .lp-comment-reply-form {
+    @apply mt-3.5 items-end border-t border-line-faint pt-3.5;
+}
+.lp-review .lp-comment-reply-form textarea {
+    @apply min-h-16 border border-line bg-surface-1;
+}
+
+/* ── Comment margin states ──────────────────────────────────────── */
+.lp-review .lp-review-margin-empty {
+    @apply text-sm leading-relaxed text-fg-dim;
+}
+.lp-review .lp-review-margin-empty[hidden],
+.lp-review .lp-review-margin-empty [hidden] {
+    @apply hidden;
+}
+.lp-review .lp-review-margin-empty p {
+    @apply m-0 pt-1.25 pb-3;
+}
+
+/* ── Outline, decisions and details ─────────────────────────────── */
+
+/* The selected tab already names the panel, so its heading drops to a quiet
+   label that keeps the live counts the streams update. */
+.lp-review .lp-review-context-panel {
+    @apply gap-0;
+}
+.lp-review .lp-review-context-panel h2 {
+    @apply mb-2 font-sans text-sm font-medium text-fg-dim;
+}
+.lp-review .lp-review-context-panel h2 span {
+    @apply ml-1.5 font-sans;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__item {
+    @apply items-center gap-1.25 border-b border-line-faint py-1.5;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__link {
+    @apply order-1 whitespace-normal px-0 py-1.25 text-sm leading-normal text-fg-mute;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__link:hover {
+    @apply bg-transparent text-ink;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__link--current {
+    @apply bg-transparent font-semibold text-ink;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__tick {
+    @apply order-2 block size-4 text-fg-faint;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__tick--on {
+    @apply text-review-resolved-ink;
+}
+.lp-review
+    .lp-review-context-panel
+    :is(.lp-section-approvals__approved, .lp-section-approvals__pending) {
+    @apply hidden;
+}
+.lp-review .lp-review-context-panel .lp-decision-summary__item {
+    @apply grid grid-cols-1 gap-1 border-b border-line py-3.5;
+}
+.lp-review .lp-review-context-panel .lp-decision-summary__item > svg {
+    @apply hidden;
+}
+.lp-review .lp-review-context-panel .lp-decision-summary__link {
+    @apply text-sm leading-normal font-semibold text-ink;
+}
+.lp-review
+    .lp-review-context-panel
+    :is(.lp-decision-summary__answer, .lp-decision-summary__pending) {
+    @apply ml-0 text-xs text-fg-dim;
+}
+.lp-review .lp-review-context-panel__hint {
+    @apply pt-3 text-sm leading-relaxed text-fg-dim;
+}
+.lp-review .lp-review-details {
+    @apply gap-5 divide-y-0 rounded-none border-0 bg-transparent;
+}
+.lp-review .lp-review-details > div {
+    @apply gap-2 p-0;
+}
+.lp-review .lp-review-details > div > dt {
+    @apply text-xs font-semibold uppercase tracking-wide text-fg-dim;
+}
+.lp-review .lp-review-details > div > dd {
+    @apply text-sm text-ink;
+}
+/* The linked card is the board card itself, minus the drag. It opens in the
+   drawer over this page, so the reader keeps their place in the document. */
+.lp-review .lp-board-card--static {
+    @apply gap-2.5 rounded-lg border border-line px-3 py-3.5 cursor-default select-text hover:border-line-strong;
+}
+.lp-review .lp-board-card--static .lp-board-card__identity {
+    @apply pr-0;
+}
+.lp-review .lp-board-card--static .lp-board-card__title {
+    @apply pr-0 text-sm leading-snug font-bold tracking-tight;
+}
+.lp-review .lp-board-card__status {
+    @apply ml-0 self-start border-transparent bg-surface-3 text-fg-mute;
+}
+.lp-review .lp-board-card--static .lp-board-card__meta {
+    @apply border-t border-line-faint pt-2.5;
+}
+.lp-review [data-margin-panel='details'] > h2 {
+    @apply sr-only;
+}
+.lp-review .lp-review-context-panel > .lp-btn,
+.lp-review .lp-review-context-panel [data-controller='review-summary'] {
+    @apply mt-3 self-start;
+}
+.lp-review .lp-review-context-panel > .lp-btn {
+    @apply mt-6;
+}
+
+/* A card is placed by measurement, so before the first pass it has no top and
+   every card resolves to the same static spot at the head of the margin, over
+   the tab row. One frame of that is what a page switch used to show. */
+@media (width >= 59.375rem) {
+    .lp-review .lp-review-block--placing .lp-comment-thread {
+        @apply invisible;
+    }
+}
+
+/* ── Diff toolbar ───────────────────────────────────────────────── */
+.lp-review .lp-diff-bar {
+    @apply gap-x-4 gap-y-3 border-b-0 pt-3.5 pb-0;
+}
+/* Below the two-column breakpoint there is no comment column to line up with,
+   so the wrapper steps out of the way and the bar wraps as one row again. */
+.lp-review .lp-diff-bar__main {
+    @apply contents;
+}
+.lp-review .lp-version-compare {
+    @apply w-auto gap-2;
+}
+.lp-review .lp-version-compare__label {
+    @apply text-sm text-fg-dim;
+}
+.lp-review .lp-version-compare__arrow {
+    @apply size-4 shrink-0 text-fg-faint;
+}
+.lp-review .lp-version-compare select {
+    @apply min-h-9 w-auto min-w-18;
+}
+/* The three views read as one segmented control, sized like the buttons
+   beside it. */
+.lp-review .lp-diff-views {
+    @apply gap-1 rounded-lg bg-surface-3 p-1;
+}
+.lp-review .lp-diff-views__link {
+    @apply border-transparent bg-transparent font-semibold text-fg-mute hover:bg-tint hover:text-ink;
+}
+.lp-review .lp-diff-views__link[aria-current] {
+    @apply border-line bg-surface-1 text-ink shadow-xs;
+}
+/* The view switch ends where the paper ends, and the change count sits over
+   the comment column beside it. The row never wraps, so the count cannot drop
+   below the switch and move it. */
+@media (width >= 59.375rem) {
+    .lp-review .lp-diff-bar {
+        @apply flex-nowrap;
+    }
+    /* The document's column. Its own contents wrap when the window is narrow,
+       which keeps the count beside them rather than under them. */
+    .lp-review .lp-diff-bar__main {
+        @apply flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-3;
+    }
+    .lp-review .lp-diff-views {
+        @apply ml-auto;
+    }
+    .lp-review .lp-diff-nav {
+        @apply flex-none justify-end;
+        width: var(--doc-margin);
+        /* The row's own gap makes up the rest of the gutter. */
+        margin-left: calc(var(--doc-margin-gap) - var(--spacing) * 4);
+    }
+}
+.lp-review .lp-diff-nav__count {
+    @apply font-sans text-sm tracking-normal text-fg-dim normal-case;
+}
+.lp-review .lp-diff-nav .lp-btn--icon {
+    @apply border-transparent bg-transparent text-fg-mute;
+}
+.lp-review .lp-diff-notes {
+    @apply m-0 mt-2 max-w-none rounded-none border-0 bg-transparent p-0 text-sm text-fg-dim;
+}
+.lp-review .lp-diff-notes__title {
+    @apply min-h-7 font-sans text-sm leading-7 tracking-normal text-fg-dim normal-case;
+}
+.lp-review .lp-diff-notes__entry {
+    @apply my-2 leading-relaxed;
+}
+.lp-review .lp-diff-notes__entry .lp-version-pill {
+    @apply bg-transparent p-0 pr-1 font-semibold text-review-tab-ink;
+}
+.lp-review .lp-diff-notes + .lp-review-doc__prose,
+.lp-review .lp-diff-notes + .lp-diff,
+.lp-review .lp-diff-notes + .lp-diff-columns {
+    @apply mt-4;
+}
+.lp-review .lp-diff-notice {
+    @apply mt-3;
+}
+/* The toolbar spans both columns, like the tabs above it, so the change
+   count and its jumps stay on the row with the pickers. */
+@media (width >= 59.375rem) {
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) > .lp-doc-meta-bar {
+        width: calc(100% + var(--doc-margin) + var(--doc-margin-gap));
+    }
+}
+
+/* ── Finish review dialog ───────────────────────────────────────── */
+.lp-review .lp-review-verdict-choice {
+    @apply items-start gap-3.5 px-4 py-3.5 transition-colors;
+}
+.lp-review .lp-review-verdict-choice + .lp-review-verdict-choice {
+    @apply mt-2.5;
+}
+.lp-review .lp-review-verdict-choice:has(input:checked) {
+    @apply border-accent-border bg-accent-faint;
+}
+.lp-review .lp-review-verdict-choice input {
+    @apply mt-0.5;
+}
+.lp-review .lp-review-verdict-choice__text {
+    @apply flex flex-col gap-0.5;
+}
+.lp-review .lp-review-verdict-choice__label {
+    @apply text-base font-semibold text-ink;
+}
+.lp-review .lp-review-verdict-choice__hint {
+    @apply text-sm text-fg-dim;
+}
+
+/* ── Composers ──────────────────────────────────────────────────── */
+.lp-review .lp-comment-composer {
+    @apply rounded-lg bg-surface-1;
+}
+.lp-review .lp-comment-composer--untargeted {
+    @apply mb-5 border-line;
+}
+.lp-review .lp-composer-general {
+    @apply text-sm font-medium tracking-normal text-fg-dim normal-case;
+}
+.lp-review .lp-comment-composer textarea {
+    @apply border border-line bg-surface-1;
+}
+.lp-review .lp-composer-hint {
+    @apply font-sans;
+}
+
+/* ── Pointers ───────────────────────────────────────────────────── */
+
+/* Preflight gives a button the default arrow, so every control the reader can
+   press says so. */
+.lp-review
+    :is(
+        .lp-review-margin-tabs__item,
+        .lp-review-margin-filter__menu button,
+        .lp-section-approve__button,
+        .lp-comment-action,
+        .lp-decision__option,
+        .lp-decision__option input,
+        .lp-review-verdict-choice,
+        .lp-history__action,
+        .lp-diff-views__link
+    ) {
+    @apply cursor-pointer;
+}
+/* The whole option row answers a click, not the words alone. The label covers
+   the row through a pseudo-element, so the native input still does the work. */
+.lp-review .lp-decision__option {
+    @apply relative;
+}
+.lp-review .lp-decision__option label::after {
+    @apply absolute inset-0;
+    content: '';
+}
+/* Above that cover, so a click or a test that targets the control itself
+   reaches the control rather than the label over it. */
+.lp-review .lp-decision__option input {
+    @apply relative z-1;
+}
+
+/* ── Margin panel scrolling ─────────────────────────────────────── */
+
+/* The panel is placed level with the paper, and its contents stay on screen
+   while the document scrolls under them. */
+/* The panel spans the rest of the column, which is the room its contents need
+   to stay put while the document scrolls under them. */
+@media (width >= 59.375rem) {
+    .lp-review .lp-review-context-panel {
+        bottom: 0;
+    }
+}
+.lp-review .lp-review-context-panel__inner {
+    @apply flex flex-col gap-0 overflow-y-auto;
+    position: sticky;
+    top: calc(var(--spacing) * 4);
+    max-height: calc(100dvh - var(--spacing) * 24);
+    scrollbar-width: thin;
+}
+@media (width < 59.375rem) {
+    /* The panel spans the rest of the column, which is the room its contents need
+   to stay put while the document scrolls under them. */
+    @media (width >= 59.375rem) {
+        .lp-review .lp-review-context-panel {
+            bottom: 0;
+        }
+    }
+    .lp-review .lp-review-context-panel__inner {
+        position: static;
+        max-height: none;
+    }
+}
+/* The list ends with its last row, not with a rule under it. */
+.lp-review .lp-review-context-panel .lp-review-contents__item:last-child,
+.lp-review .lp-review-context-panel .lp-decision-summary__item:last-child {
+    @apply border-b-0;
+}
+
+/* ── Diff pane ──────────────────────────────────────────────────── */
+
+/* The comparison is one changed block after another, so it reads tighter than
+   a document a person is reading through. */
+.lp-review .lp-diff-doc :is(h1, h2) {
+    @apply mt-7;
+}
+.lp-review .lp-diff-doc :is(h3, h4, h5, h6) {
+    @apply mt-5;
+}
+.lp-review .lp-diff-doc :is(p, ul, ol, pre) {
+    @apply my-3;
+}
+.lp-review .lp-diff-doc .lp-decision {
+    @apply mt-4;
+}
+/* A changed block carries its own tint, so it needs less air around it than a
+   paragraph of prose. */
+.lp-review .lp-diff-doc > :is(ins, del) {
+    @apply my-2;
+}
+
+.lp-review .lp-comment-reply-form__actions {
+    @apply flex items-center justify-end gap-2;
+}
+
+/* The general composer opens under the header control that asked for it. */
+.lp-review .lp-comment-composer--anchored {
+    @apply absolute z-20 mb-0 border-0 shadow-composer;
+}
+
+/* ── Review log, under the version table ────────────────────────── */
+.lp-review .lp-history-title--log {
+    @apply mt-9 mb-4.5;
+}
+.lp-review .lp-history-log {
+    @apply flex flex-col gap-4 px-4.5 py-4;
+}
+.lp-review .lp-history-log .lp-history__review + .lp-history__review {
+    @apply border-t border-line-faint pt-4;
+}
+.lp-review .lp-history__version {
+    @apply font-mono text-xs text-fg-dim;
+}
+.lp-review .lp-history__empty {
+    @apply m-0 text-sm text-fg-dim;
+}
+
+/* ── Side-by-side comparison ────────────────────────────────────── */
+
+/* One paper holding both columns, the way the reading view holds one. A card
+   per block turned a document into a stack of cards. */
+.lp-review .lp-diff-columns {
+    @apply gap-0 overflow-hidden rounded-lg border border-line bg-surface-1;
+}
+.lp-review .lp-diff-columns__title {
+    @apply bg-surface-2 px-6 py-3 font-sans text-xs font-semibold tracking-normal text-fg-dim normal-case;
+}
+.lp-review .lp-diff-columns__cell {
+    @apply px-6 py-3;
+}
+.lp-review .lp-diff-columns__cell > .lp-diff-doc {
+    @apply rounded-none border-0 bg-transparent p-0 shadow-none;
+}
+/* The one rule the comparison needs: which version a column belongs to. The
+   blocks pair by row, so nothing has to be drawn between them. */
+@media (width >= 64rem) {
+    .lp-review .lp-diff-columns__title + .lp-diff-columns__title,
+    .lp-review .lp-diff-columns__cell[data-diff-side='new'] {
+        @apply border-l border-line;
+    }
+}
+.lp-review .lp-diff-columns__cell--void {
+    @apply min-h-0 rounded-none border-0 bg-surface-2 p-0 px-6 py-4;
+}
+
+/* The Markdown comparison reads on the same paper as the other two views. */
+.lp-review .lp-diff {
+    @apply rounded-lg border border-line bg-surface-1 px-4 py-4;
+}
+@media (width >= 93.75rem) {
+    .lp-review .lp-diff {
+        @apply px-6 py-5;
+    }
+}
+
+/* The filter belongs to Comments alone, and its space stays reserved so the
+   tabs beside it do not move when the reader switches view. */
+.lp-review .lp-review-margin-filter--inactive {
+    @apply pointer-events-none invisible;
+}

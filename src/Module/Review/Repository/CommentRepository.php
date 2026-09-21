@@ -159,38 +159,6 @@ class CommentRepository extends ServiceEntityRepository
     }
 
     /** @return list<Comment> */
-    public function findRepliesIncludingDeleted(Comment $parent): array
-    {
-        return $this->createQueryBuilder('c')
-            // Replies render their author too — same reason as findByVersion().
-            ->addSelect('author')
-            ->join('c.author', 'author')
-            ->where('c.parent = :parent')
-            ->setParameter('parent', $parent)
-            ->orderBy('c.id', 'ASC')
-            ->getQuery()
-            ->getResult();
-    }
-
-    /** @return list<Comment> */
-    public function findDeletedByDocument(Document $document): array
-    {
-        return $this->createQueryBuilder('c')
-            ->addSelect('author', 'version')
-            ->join('c.author', 'author')
-            ->join('c.version', 'version')
-            ->leftJoin('c.parent', 'p')
-            ->where('version.document = :document')
-            ->andWhere('c.deletedAt IS NOT NULL OR p.deletedAt IS NOT NULL')
-            ->setParameter('document', $document)
-            ->orderBy('version.versionNumber', 'DESC')
-            ->addOrderBy('c.anchor.offsetHint', 'ASC')
-            ->addOrderBy('c.id', 'ASC')
-            ->getQuery()
-            ->getResult();
-    }
-
-    /** @return list<Comment> */
     public function findByAuthor(User $author): array
     {
         return $this->findBy(['author' => $author]);

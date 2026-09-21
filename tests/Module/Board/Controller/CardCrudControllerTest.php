@@ -13,6 +13,7 @@ use App\Module\Board\Form\AttachSiteReviewCommentFormType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Security\CardFeedbackVoter;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,6 +23,7 @@ use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
+use Symfony\Component\Uid\Uuid;
 
 final class CardCrudControllerTest extends WebTestCase
 {
@@ -29,7 +31,7 @@ final class CardCrudControllerTest extends WebTestCase
 
     #[TestWith([false])]
     #[TestWith([true])]
-    public function test_feedback_replies_refuse_a_foreign_owner_or_project(bool $foreignProject): void
+    public function test_feedback_actions_refuse_a_foreign_owner_or_project(bool $foreignProject): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -45,24 +47,23 @@ final class CardCrudControllerTest extends WebTestCase
         $em->persist($link);
         $em->flush();
         $token = new UsernamePasswordToken($foreignProject ? $owner : $stranger, 'main', ['ROLE_USER']);
-        foreach ([CardFeedbackVoter::REPLY, CardFeedbackVoter::RESOLVE, CardFeedbackVoter::REOPEN] as $attribute) {
+        foreach ([CardFeedbackVoter::RESOLVE, CardFeedbackVoter::REOPEN] as $attribute) {
             self::assertSame(VoterInterface::ACCESS_DENIED, new CardFeedbackVoter()->vote($token, $link, [$attribute]));
         }
         $em->clear();
         $client->loginUser($foreignProject ? $owner : $stranger);
-        $name = 'site_reply_feedback_'.$comment->id;
-        $client->request(Request::METHOD_POST, '/board/feedback/'.$link->id.'/feedback/reply', [
-            $name => ['body' => 'Must not be saved.', 'submissionId' => '01995498-93aa-7000-8000-000000000001', '_token' => 'forged'],
-        ]);
+        $client->request(Request::METHOD_POST, '/board/feedback/'.$link->id.'/feedback/resolve', ['_csrf_token' => 'forged']);
         self::assertResponseStatusCodeSame(403);
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM site_review_replies'));
+        $em->clear();
+        $stored = $em->find(SiteReviewComment::class, $comment->id);
+        self::assertInstanceOf(SiteReviewComment::class, $stored);
+        self::assertSame('pending', $stored->status->value);
     }
 
-    #[TestWith(['conversation'])]
-    #[TestWith(['feedback'])]
-    public function test_card_feedback_status_actions_update_the_original_and_preserve_the_tab(string $surface): void
+    public function test_card_feedback_status_actions_update_the_original_and_preserve_the_tab(): void
     {
+        $surface = 'feedback';
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
@@ -80,6 +81,9 @@ final class CardCrudControllerTest extends WebTestCase
         foreach (['resolve' => 'resolved', 'reopen' => 'pending'] as $action => $status) {
             $crawler = $client->request(Request::METHOD_GET, $url);
             self::assertResponseIsSuccessful();
+            // Feedback holds the capture; Conversation holds the inbox requests.
+            self::assertCount(1, $crawler->filter('#card-panel-feedback [data-site-feedback="'.$comment->id.'"]'));
+            self::assertCount(0, $crawler->filter('#card-panel-conversation [data-site-feedback]'));
             $actionUrl = '/board/feedback/'.$link->id.'/'.$surface.'/'.$action;
             $form = $crawler->filter('form[action="'.$actionUrl.'"]')->form();
             $client->request(Request::METHOD_POST, $actionUrl, ['_csrf_token' => 'forged']);
@@ -96,47 +100,6 @@ final class CardCrudControllerTest extends WebTestCase
             self::assertSame('Original capture', $saved->body);
             self::assertSame('https://example.com', $saved->url);
         }
-    }
-
-    #[TestWith(['conversation'])]
-    #[TestWith(['feedback'])]
-    public function test_card_feedback_replies_share_the_site_record_and_keep_the_selected_tab(string $surface): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
-        $owner = $this->user($em, 'card-feedback-reply@example.com');
-        $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Reply to the capture');
-        $comment = new SiteReviewComment($project, 0, 'Move the control', 'https://example.com');
-        $em->persist($comment);
-        $em->persist(new CardSiteReviewComment($card, $comment));
-        $em->flush();
-        $em->clear();
-        $client->loginUser($owner);
-        $url = '/projects/'.$project->id.'/board/cards/'.$card->id;
-        $crawler = $client->request(Request::METHOD_GET, $url.'?tab='.$surface);
-        self::assertResponseIsSuccessful();
-        $name = 'site_reply_'.$surface.'_'.$comment->id;
-        $form = $crawler->filter('form[name="'.$name.'"]')->form([$name.'[body]' => 'The shared reply.']);
-        $client->submit($form);
-        self::assertResponseRedirects($url.'?tab='.$surface);
-        $client->followRedirect();
-        self::assertSelectorTextContains('#card-panel-conversation [data-site-review-reply]', 'The shared reply.');
-        self::assertSelectorTextContains('#card-panel-feedback [data-site-review-reply]', 'The shared reply.');
-        $client->submit($form);
-        self::assertResponseRedirects($url.'?tab='.$surface);
-        $form[$name.'[body]'] = 'Keep this conflicting draft.';
-        $client->submit($form);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorExists('[data-panel-tabs-active-value="'.$surface.'"]');
-        self::assertSelectorTextContains('textarea[name="'.$name.'[body]"]', 'Keep this conflicting draft.');
-        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
-        self::assertSelectorCount(1, '[data-site-review-reply]');
-        self::assertSelectorTextContains('[data-site-review-reply]', 'The shared reply.');
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $em->clear();
-        self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM site_review_replies WHERE comment_id = ?', [(string) $comment->id]));
     }
 
     public function test_the_owner_attaches_unlinked_feedback_to_an_open_card(): void
@@ -156,10 +119,11 @@ final class CardCrudControllerTest extends WebTestCase
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString(
-            'Create card and attach',
-            $crawler->filter('.lp-feedback-detail__panel a.lp-btn')->text(),
-        );
+        $create = $crawler->filter('.lp-feedback-attach__create');
+        self::assertStringContainsString('Create card and attach', $create->text());
+        // The form opens in the drawer, and its href stays the page a reader without JavaScript gets.
+        self::assertSame('card-drawer-frame', $create->attr('data-turbo-frame'));
+        self::assertSame('/projects/'.$project->id.'/board/cards/new?feedback='.$comment->id, $create->attr('href'));
 
         $client->submitForm('Attach to card', [
             AttachSiteReviewCommentFormType::nameFor($comment).'[card]' => (string) $card->id,
@@ -171,6 +135,11 @@ final class CardCrudControllerTest extends WebTestCase
         $link = $links->findOneBy(['comment' => $comment->id]);
         self::assertNotNull($link);
         self::assertSame((string) $card->id, (string) $link->card->id);
+
+        // The create form's Cancel returns to the site review, not to the board.
+        $form = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/new?feedback='.$comment->id);
+        self::assertResponseIsSuccessful();
+        self::assertSame('/projects/'.$project->id.'/site-review', $form->filter('.lp-form a.lp-btn--ghost')->attr('href'));
     }
 
     public function test_the_owner_creates_a_card_with_pull_request_links(): void
@@ -188,6 +157,8 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         // The default column is chosen, and the labels are translated.
         self::assertSame('Backlog', trim($crawler->filter('select[name="create_card_form[column]"] option[selected]')->text()));
+        // No feedback means the board opened the form, so Cancel goes back to it.
+        self::assertSame('/projects/'.$project->id.'/board', $crawler->filter('.lp-form a.lp-btn--ghost')->attr('href'));
 
         $client->submitForm('Create card', [
             'create_card_form[title]' => 'Ship the board',
@@ -231,6 +202,19 @@ final class CardCrudControllerTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
         self::assertSame('Next', trim($crawler->filter('select[name="create_card_form[column]"] option[selected]')->text()));
+        // As a full page, the frame hands its navigation to the page, so the URL follows the redirect.
+        self::assertSame('_top', $crawler->filter('turbo-frame#card-drawer-frame')->attr('target'));
+
+        // The board opens the same form in its card drawer, so it renders in that frame.
+        $crawler = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$project->id.'/board/cards/new?column='.$next->id,
+            server: ['HTTP_TURBO_FRAME' => 'card-drawer-frame'],
+        );
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame form[name="create_card_form"]'));
+        self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame a[data-action="card-drawer#close"]:contains("Cancel")'));
+        self::assertNull($crawler->filter('turbo-frame#card-drawer-frame')->attr('target'));
     }
 
     public function test_the_owner_creates_a_card_from_feedback_and_attaches_it(): void
@@ -304,6 +288,11 @@ final class CardCrudControllerTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
         self::assertSame('Before', $crawler->filter('#create_card_form_title')->attr('value'));
+        // Edit swaps the drawer's content in place, and Cancel returns to the card inside it.
+        self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame form[name="create_card_form"]'));
+        $cancel = $crawler->filter('turbo-frame#card-drawer-frame a:contains("Cancel")');
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$cardId, $cancel->attr('href'));
+        self::assertNull($cancel->attr('data-turbo-frame'));
 
         $client->submitForm('Save card', [
             'create_card_form[title]' => 'After',
@@ -379,7 +368,10 @@ final class CardCrudControllerTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame .lp-card-drawer'));
-        self::assertCount(3, $crawler->filter('[role="tab"]'));
+        // Overview, Details, Conversation and Feedback.
+        self::assertCount(4, $crawler->filter('[role="tab"]'));
+        // A missing translation renders its key, and the gate does not fail on that.
+        self::assertDoesNotMatchRegularExpression('/\\bboard\\.card\\.[a-z_.]+/', $crawler->filter('main')->text());
         self::assertCount(1, $crawler->filter('a[data-action="card-drawer#close"]'));
 
         $client->submit($crawler->filter('form[action$="/delete"]')->form());
@@ -422,12 +414,38 @@ final class CardCrudControllerTest extends WebTestCase
         $owner = $this->user($em, 'card-move-page@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Reachable by keyboard');
+        $quiet = $this->card($em, $project, 'No runs yet');
         $cardId = $card->id;
+        $run = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v7(),
+            sessionId: Uuid::v4(),
+            cardId: $card->id ?? throw new \LogicException('card id after flush'),
+            cardNumber: $card->number,
+            ruleName: 'plan the card',
+            startedAt: new \DateTimeImmutable('-2 hours'),
+            endedAt: new \DateTimeImmutable('-2 hours +3 minutes'),
+            exitCode: 1,
+        );
+        $em->persist($run);
+        $em->flush();
+        $runId = (string) $run->id;
         $em->clear();
 
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$cardId);
         self::assertResponseIsSuccessful();
+        // The overview names its linked work and shows the card's dates, never a raw key.
+        self::assertSelectorTextContains('.lp-card-docs', 'Linked work');
+        self::assertStringNotContainsString('board.', $crawler->filter('.lp-card-overview')->text());
+        self::assertSame(['Status', 'Type', 'Reporter', 'Created', 'Updated'], $crawler->filter('.lp-card-fields dt')->each(static fn (Crawler $term): string => $term->text()));
+        // Each agent run links to its own drawer on the run history page.
+        $row = $crawler->filter('[data-card-runs] [data-card-run="'.$runId.'"]');
+        self::assertSame('/projects/'.$project->id.'/worker-runs?search='.$runId, $row->attr('href'));
+        self::assertStringContainsString('plan the card', $row->text());
+        self::assertStringContainsString('Failed', $row->filter('.lp-status-chip')->text());
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$cardId.'/edit', $crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('href'));
+        self::assertNull($crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('data-turbo-frame'));
 
         $name = 'move_card_'.$cardId;
         // Turbo is off on this form. Its answer is a redirect to the board
@@ -443,6 +461,10 @@ final class CardCrudControllerTest extends WebTestCase
         $moved = static::getContainer()->get(CardRepository::class)->find($cardId);
         self::assertInstanceOf(Card::class, $moved);
         self::assertSame('in-progress', $moved->column->slug);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$quiet->id);
+        self::assertCount(0, $crawler->filter('[data-card-runs] [data-card-run]'));
+        self::assertSelectorTextContains('[data-card-runs]', 'No agent has run on this card yet.');
     }
 
     public function test_a_stranger_cannot_reach_a_card(): void

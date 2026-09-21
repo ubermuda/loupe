@@ -9,6 +9,8 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\OAuth\ClientMetadata\ClientIdUrl;
+use App\Module\OAuth\Command\PrepareWidgetAuthorizationCommand;
+use App\Module\OAuth\Command\PrepareWidgetAuthorizationHandler;
 use App\Module\OAuth\Command\RegisterClientMetadataDocumentCommand;
 use App\Module\OAuth\Command\RegisterClientMetadataDocumentHandler;
 use App\Module\OAuth\Command\ResolveAuthorizationCommand;
@@ -19,6 +21,8 @@ use App\Module\OAuth\Form\ConsentFormType;
 use App\Module\OAuth\Form\ConsentRequest;
 use App\Module\OAuth\Service\McpResource;
 use App\Module\OAuth\Service\ResourceParameter;
+use App\Module\OAuth\Widget\WidgetAuthorizationRefused;
+use App\Module\OAuth\Widget\WidgetClient;
 use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
@@ -62,6 +66,7 @@ final class AuthorizeController extends AppController
         private readonly ResponseFactoryInterface $psrResponses,
         private readonly ShowConsentHandler $showConsent,
         private readonly ResolveAuthorizationHandler $resolveAuthorization,
+        private readonly PrepareWidgetAuthorizationHandler $prepareWidget,
         private readonly TranslatorInterface $translator,
         private readonly McpResource $mcpResource,
         private readonly RegisterClientMetadataDocumentHandler $registerClientMetadata,
@@ -92,6 +97,9 @@ final class AuthorizeController extends AppController
             }
 
             $authorizationRequest = $this->server->validateAuthorizationRequest($psrRequest);
+            $widget = WidgetClient::ID === $authorizationRequest->getClient()->getIdentifier()
+                ? ($this->prepareWidget)(new PrepareWidgetAuthorizationCommand($authorizationRequest, $user, $request->query->getString('project'), $request->query->getString('origin')))
+                : null;
             $scope = $this->requestedScope($authorizationRequest);
             if (!$this->mcpResource->accepts(ResourceParameter::values((string) $request->server->get('QUERY_STRING')), ApiTokenScope::Mcp === $scope)) {
                 throw new OAuthServerException('The resource is not one this server protects for the requested scope.', 0, 'invalid_target', 400, null, $this->errorRedirect($authorizationRequest));
@@ -101,7 +109,7 @@ final class AuthorizeController extends AppController
             $form = $this->createForm(ConsentFormType::class, new ConsentRequest(), [
                 'action' => $request->getRequestUri(),
                 'projects' => $view->projects,
-                'needs_project' => $view->needsProject,
+                'needs_project' => $view->needsProject && null === $widget,
             ]);
             $form->handleRequest($request);
 
@@ -115,17 +123,19 @@ final class AuthorizeController extends AppController
                             scope: $scope,
                             user: $user,
                             approved: !$denied,
-                            projectId: $form->getData()?->project,
+                            projectId: $widget?->project->id?->toRfc4122() ?? $form->getData()?->project,
                         )));
                     } catch (DomainErrors $e) {
                         foreach ($e->errors as $field => $translationKey) {
-                            $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
+                            ($form->has($field) ? $form->get($field) : $form)->addError(new FormError($this->translator->trans($translationKey)));
                         }
                     }
                 }
             }
 
-            return $this->renderFormResponse('@OAuth/authorize.html.twig', $form, ['view' => $view]);
+            return $this->renderFormResponse('@OAuth/authorize.html.twig', $form, ['view' => $view, 'widget' => $widget]);
+        } catch (WidgetAuthorizationRefused $e) {
+            return $this->render('@OAuth/authorize.html.twig', ['refusal' => $e->reasonKey], new Response(status: $e->status));
         } catch (OAuthServerException $e) {
             // League builds an invalid_client response from the request, and only its own throws set it.
             $e->setServerRequest($psrRequest);

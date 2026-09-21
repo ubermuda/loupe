@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\Command;
 
+use App\Module\Bridge\Service\BridgeLiveness;
 use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\View\AccountInboxDetailView;
@@ -15,6 +16,7 @@ final readonly class ShowAccountInboxHandler
     public function __construct(
         private InboxAskRepository $inboxAsks,
         private InboxItemRepository $inboxItems,
+        private BridgeLiveness $bridgeLiveness,
     ) {
     }
 
@@ -22,10 +24,14 @@ final readonly class ShowAccountInboxHandler
     {
         $projects = [];
         $asks = [];
+        $bridgeIds = [];
         foreach ($this->inboxAsks->findOpenByOwner($command->owner) as $ask) {
             $key = (string) $ask->project->id;
             $projects[$key] = $ask->project;
             $asks[$key][] = $ask;
+            if (null !== $ask->bridgeId) {
+                $bridgeIds[$ask->bridgeId->toRfc4122()] = $ask->bridgeId;
+            }
         }
 
         $looseItems = [];
@@ -43,6 +49,6 @@ final readonly class ShowAccountInboxHandler
             $groups[] = new AccountInboxProjectGroup($project, $asks[$key] ?? [], $looseItems[$key] ?? [], $counts[$key] ?? 0);
         }
 
-        return new AccountInboxDetailView($groups);
+        return new AccountInboxDetailView($groups, $this->bridgeLiveness->forOwner($command->owner, array_values($bridgeIds)));
     }
 }

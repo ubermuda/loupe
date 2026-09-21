@@ -1,0 +1,15 @@
+{# The change count and the two jumps through the comparison.
+   Params: changeCount. #}
+<div class="lp-diff-nav">
+    <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': changeCount}) }}</p>
+    <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="previousButton" data-action="diff-navigation#previous"{% if changeCount == 0 %} disabled{% endif %}
+            aria-label="{{ 'review.document.diff.nav.previous'|trans }}"
+            title="{{ 'review.document.diff.nav.previous'|trans }}">
+        <twig:ux:icon name="lucide:arrow-up" class="w-4 h-4 shrink-0" />
+    </button>
+    <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="nextButton" data-action="diff-navigation#next"{% if changeCount == 0 %} disabled{% endif %}
+            aria-label="{{ 'review.document.diff.nav.next'|trans }}"
+            title="{{ 'review.document.diff.nav.next'|trans }}">
+        <twig:ux:icon name="lucide:arrow-down" class="w-4 h-4 shrink-0" />
+    </button>
+</div>

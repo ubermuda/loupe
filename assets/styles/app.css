@@ -9,6 +9,7 @@
 @import '../../vendor/ubermuda/admin-bundle/assets/admin.css';
 @import './redesign-core.css' layer(components);
 @import './redesign-secondary.css';
+@import './redesign-document.css';
 
 /* ── Content sources for Tailwind v4 ──────────────────────────────── */
 
@@ -171,6 +172,20 @@
     --color-status-danger-border: var(--status-danger-border);
     --color-status-ok-ink: var(--status-ok-ink);
     --color-status-danger-chip: var(--status-danger-chip);
+    --color-status-active: var(--status-active);
+    --color-status-active-bg: var(--status-active-bg);
+    --color-tone-teal: var(--tone-teal);
+    --color-tone-teal-bg: var(--tone-teal-bg);
+    --color-tone-sky: var(--tone-sky);
+    --color-tone-sky-bg: var(--tone-sky-bg);
+    --color-tone-blue: var(--tone-blue);
+    --color-tone-blue-bg: var(--tone-blue-bg);
+    --color-tone-indigo: var(--tone-indigo);
+    --color-tone-indigo-bg: var(--tone-indigo-bg);
+    --color-tone-pink: var(--tone-pink);
+    --color-tone-pink-bg: var(--tone-pink-bg);
+    --color-tone-orange: var(--tone-orange);
+    --color-tone-orange-bg: var(--tone-orange-bg);
     --color-strike: var(--strike);
     --color-strike-on-chrome: var(--strike-on-chrome);
 
@@ -180,6 +195,22 @@
     --color-code-dark-text: var(--code-dark-text);
 
     --color-danger: var(--status-danger);
+    --color-review-anchor: var(--review-anchor);
+    --color-review-anchor-strong: var(--review-anchor-strong);
+    --color-review-anchor-line: var(--review-anchor-line);
+    --color-review-suggestion: var(--review-suggestion);
+    --color-review-strike: var(--review-strike);
+    --color-review-strike-ink: var(--review-strike-ink);
+    --color-review-tab: var(--review-tab);
+    --color-review-tab-ink: var(--review-tab-ink);
+    --color-review-decision: var(--review-decision);
+    --color-review-decision-line: var(--review-decision-line);
+    --color-review-open: var(--review-open);
+    --color-review-open-ink: var(--review-open-ink);
+    --color-review-addressed: var(--review-addressed);
+    --color-review-addressed-ink: var(--review-addressed-ink);
+    --color-review-resolved: var(--review-resolved);
+    --color-review-resolved-ink: var(--review-resolved-ink);
 
     /* Shadows — reserved for surfaces that float above the page: the selection
        toolbar, the floating composer, and menus and overlays (`--shadow-card`).
@@ -264,6 +295,22 @@
     --status-danger-deep: #8c1e14;
     --status-danger-bg: #fbe9e7;
     --status-danger-border: #f8d7d2;
+    /* Purple rung: running and in-progress work, and card or column labels. */
+    --status-active: #984482;
+    --status-active-bg: #f3e8f1;
+    /* More label hues for board columns: a pale fill with an ink at WCAG AA or better. */
+    --tone-teal: #1f6f65;
+    --tone-teal-bg: #e3f4f1;
+    --tone-sky: #1d6a8f;
+    --tone-sky-bg: #e4f2fa;
+    --tone-blue: #2f58b0;
+    --tone-blue-bg: #e8eefb;
+    --tone-indigo: #4a45a8;
+    --tone-indigo-bg: #ecebfa;
+    --tone-pink: #a8325f;
+    --tone-pink-bg: #fbe8ef;
+    --tone-orange: #a14a14;
+    --tone-orange-bg: #fdede2;
 
     /* Ink dark enough to sit on the -border rung, which the design uses as a
        solid chip fill (Approved, Changes requested) as well as a hairline. The
@@ -294,6 +341,27 @@
     --code-dark-header: #0f0f0d;
     --code-dark-bg: #0f0f0d;
     --code-dark-text: #e8e8e2;
+
+    /* Document review tones from the approved redesign. The anchor rungs are
+       warmer than the status ladder so a highlighted passage never reads as a
+       status chip. */
+    --review-anchor: #faf0bd;
+    --review-anchor-strong: #f2df88;
+    --review-anchor-line: #c3a344;
+    --review-suggestion: #f1e3f0;
+    --review-suggestion-line: #b881ad;
+    --review-strike: #fbe9e4;
+    --review-strike-ink: #a24738;
+    --review-tab: #789344;
+    --review-tab-ink: #334925;
+    --review-decision: #f7faef;
+    --review-decision-line: #dfe8ca;
+    --review-open: #fbf0d8;
+    --review-open-ink: #986a1e;
+    --review-addressed: #f3e8f1;
+    --review-addressed-ink: #984482;
+    --review-resolved: #e7f3eb;
+    --review-resolved-ink: #367858;
 }
 
 /* ── Global resets ──────────────────────────────────────────────────── */
@@ -488,6 +556,11 @@
     .auth-forgot {
         @apply self-center text-xs text-fg-mute;
     }
+    /* The auth card, widened for a page whose content needs more than a form
+       column: max-w-lg less the 32px padding and the border leaves 446px. */
+    .auth-shell--wide {
+        @apply w-full max-w-lg bg-surface-1 border border-line rounded-xl shadow-md px-8 pt-8 pb-7 flex flex-col gap-5;
+    }
     /* Accent links on the light authentication surfaces. */
     .auth-link {
         @apply text-accent-ink hover:underline;
@@ -523,11 +596,12 @@
     .lp-consent__question {
         @apply font-display text-2xl font-bold tracking-tight text-fg m-0 leading-tight;
     }
+    /* A plain list inside the auth card: the card is the only frame here. */
     .lp-consent__rows {
-        @apply w-full flex flex-col rounded-xl border border-line bg-surface-1 px-6 shadow-sm;
+        @apply w-full flex flex-col;
     }
     .lp-consent__row {
-        @apply flex items-start gap-4 py-4 border-b border-line-faint;
+        @apply flex items-start gap-4 py-4.5 border-b border-line-faint;
     }
     .lp-consent__row:last-child {
         @apply border-b-0;
@@ -548,6 +622,10 @@
     .lp-consent__row-strong {
         @apply font-semibold;
     }
+    /* The rest of an unvouched client id, beside its emphasised host. */
+    .lp-consent__row-muted {
+        @apply text-fg-label break-all;
+    }
     .lp-consent__row-mono {
         @apply font-mono break-all;
     }
@@ -558,6 +636,7 @@
     .lp-consent__row-second {
         @apply text-sm text-fg-label m-0 leading-normal break-words;
     }
+
     .lp-consent__picker-label {
         @apply block text-base font-medium text-fg mb-1.5;
     }
@@ -771,9 +850,6 @@
     .lp-redesign-projects .lp-page-header {
         @apply flex-wrap;
     }
-    .lp-section-tabs__item > span {
-        @apply inline-flex items-center justify-center min-w-5 rounded-full bg-surface-3 px-1.5 py-0.5 text-xs;
-    }
     .lp-inbox-section {
         scroll-margin-top: calc(var(--spacing) * 20);
     }
@@ -785,9 +861,6 @@
     }
     .lp-inbox-ask__source {
         @apply text-sm font-bold text-ink;
-    }
-    .lp-inbox-ask__session {
-        @apply truncate text-xs text-fg-mute;
     }
     .lp-inbox-item {
         @apply bg-surface-1;
@@ -854,24 +927,77 @@
         .lp-needs-you__header-actions {
             @apply w-full justify-between;
         }
-        .lp-inbox-ask__session {
-            @apply hidden;
-        }
     }
 }
 
 @layer components {
+    /* One quiet scrollbar for every pane the app scrolls: thin, no track, and a
+       muted thumb from the design tokens. No reserved gutter, so a pane that
+       does not scroll reads flush. */
+    .lp-quiet-scroll,
+    .lp-split-pane,
+    .lp-board__group,
+    .lp-sidebar--drawer {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+    }
+    /* Holds the page's controllers around a frame and a drawer, and leaves the
+       layout to them. */
+    .lp-site-review-shell {
+        @apply contents;
+    }
+    /* A master-detail page holds its header still and scrolls each pane on its
+       own, so reading one pane never moves the other. Below the stacking
+       breakpoint the panes sit one above the other and the page scrolls. */
+    .lp-split-page {
+        @apply flex flex-col min-h-0 h-full;
+    }
+    .lp-split-page > *:not(.lp-split-region) {
+        @apply shrink-0;
+    }
+    .lp-split-page > .lp-split-region {
+        @apply flex-1 min-h-0;
+    }
+    .lp-split-region > * {
+        @apply min-h-0 h-full;
+    }
+    /* The pane is positioned, so an absolute child such as an .sr-only label
+       cannot escape the clip and stretch the page. */
+    .lp-split-pane {
+        @apply relative min-h-0 overflow-y-auto;
+    }
+    @media (width <= 42.5rem) {
+        .lp-split-page {
+            @apply h-auto;
+        }
+        .lp-split-page > .lp-split-region,
+        .lp-split-region > * {
+            @apply flex-none h-auto;
+        }
+        .lp-split-pane {
+            @apply overflow-visible;
+        }
+    }
     .lp-feedback-receipt {
-        @apply flex items-center gap-3 rounded-xl bg-tint px-4 py-3 mb-5;
+        @apply flex items-center gap-4 rounded-xl border border-accent-border bg-accent-soft px-5.5 py-5 mb-6;
+    }
+    .lp-feedback-receipt__icon {
+        @apply grid place-items-center size-9.5 shrink-0 rounded-lg bg-surface-1 text-accent-ink;
+    }
+    .lp-feedback-receipt__icon svg {
+        @apply size-4.5;
     }
     .lp-feedback-receipt div {
         @apply min-w-0 mr-auto;
     }
     .lp-feedback-receipt h2 {
-        @apply text-sm font-bold text-ink m-0;
+        @apply text-sm font-semibold text-ink m-0;
     }
     .lp-feedback-receipt p {
-        @apply text-sm text-fg-mute m-0 mt-0.5;
+        @apply text-sm leading-relaxed text-fg-mute m-0 mt-1 max-w-3xl;
+    }
+    .lp-feedback-receipt .lp-tag {
+        @apply gap-1.5 shrink-0;
     }
     .lp-feedback-workspace {
         @apply grid grid-cols-1 min-h-96 rounded-2xl border border-line bg-surface-1 overflow-hidden;
@@ -891,112 +1017,149 @@
             @apply col-span-3;
         }
     }
-    .lp-feedback-list__head {
-        @apply flex items-center justify-between gap-3 px-4 py-3 border-b border-line text-xs font-semibold text-fg-dim;
-    }
     .lp-feedback-list__item {
-        @apply flex items-start gap-3 w-full px-4 py-4 border-b border-line text-left transition-colors hover:bg-surface-1;
+        @apply block w-full px-5.5 py-5.5 border-b border-line text-left transition-colors hover:bg-accent-faint;
     }
     .lp-feedback-list__item[aria-current='true'] {
-        @apply bg-surface-1;
+        @apply bg-accent-soft;
     }
-    .lp-feedback-list__copy {
-        @apply flex flex-col flex-1 min-w-0;
+    .lp-feedback-list__meta {
+        @apply flex items-center gap-2.5 mb-3 text-xs text-fg-dim;
     }
-    .lp-feedback-list__copy strong {
-        @apply text-sm text-ink;
+    .lp-feedback-list__number {
+        @apply font-semibold text-fg-mute;
     }
-    .lp-feedback-list__copy > span {
-        @apply text-sm text-fg-mute truncate;
+    .lp-feedback-list__title {
+        @apply block text-base font-semibold leading-normal text-ink break-words;
     }
-    .lp-feedback-list__copy time {
-        @apply text-xs text-fg-dim mt-1;
+    .lp-feedback-list__body {
+        @apply block mt-2 mb-3.5 text-sm leading-relaxed text-fg-mute line-clamp-2;
+    }
+    .lp-feedback-list__source,
+    .lp-feedback-list__card {
+        @apply flex items-center gap-2 text-xs text-fg-dim break-all;
+    }
+    .lp-feedback-list__card {
+        @apply mt-2.5 font-semibold;
+    }
+    .lp-feedback-list__source svg,
+    .lp-feedback-list__card svg {
+        @apply size-3.5 shrink-0;
     }
     .lp-feedback-detail {
         @apply min-w-0;
     }
     .lp-feedback-detail__panel {
-        @apply p-6;
+        @apply px-8 py-7;
     }
     .lp-feedback-detail__panel[hidden] {
         @apply hidden;
     }
     .lp-feedback-detail__header {
-        @apply flex items-start justify-between gap-4 mb-5;
+        @apply flex items-center justify-between gap-4 mb-5;
     }
     .lp-feedback-detail__eyebrow {
-        @apply text-xs font-semibold text-accent-ink m-0 mb-1;
-    }
-    .lp-feedback-detail__header h2 {
-        @apply font-display text-2xl font-extrabold tracking-tight text-ink m-0;
+        @apply m-0 text-xs font-bold uppercase tracking-widest text-fg-dim;
     }
     .lp-feedback-detail__message {
-        @apply rounded-xl bg-surface-2 px-4 py-4 text-base leading-relaxed text-ink m-0 mb-6;
+        @apply m-0 mb-7 text-xl leading-relaxed text-ink whitespace-pre-line break-words;
     }
     .lp-feedback-detail__section {
-        @apply py-4 border-t border-line;
+        @apply py-5 border-t border-line;
     }
     .lp-feedback-detail__section h3 {
-        @apply text-sm font-bold text-ink m-0 mb-2;
+        @apply text-base font-bold text-ink m-0 mb-3;
     }
-    .lp-feedback-detail__section a {
-        @apply inline-flex items-center gap-2 text-sm text-accent-ink break-all;
+    .lp-feedback-detail__section-head {
+        @apply flex flex-wrap items-center justify-between gap-x-4 gap-y-1 mb-3;
     }
-    .lp-feedback-anchors {
-        @apply flex flex-col gap-2;
+    .lp-feedback-detail__section-head h3 {
+        @apply mb-0;
     }
-    .lp-feedback-anchors details {
-        @apply rounded-lg bg-surface-2 px-3 py-2;
+    .lp-feedback-detail__url {
+        @apply m-0 text-sm text-accent-ink break-all;
     }
-    .lp-feedback-anchors summary {
-        @apply cursor-pointer text-sm font-medium text-ink;
+    .lp-feedback-detail__muted {
+        @apply m-0 mb-3 text-sm text-fg-mute;
     }
-    .lp-feedback-anchors code {
-        @apply block mt-2 text-xs text-fg-mute break-all;
+    .lp-feedback-detail__section .lp-inbox-linked-table-wrap {
+        @apply mt-0;
+    }
+    /* Unlinked feedback leads with the two ways to give it a home, so neither
+       hides among the sections below. */
+    .lp-feedback-attach {
+        @apply flex flex-wrap items-center gap-3 mt-5 rounded-xl border border-accent-border bg-accent-soft px-5 py-4;
+    }
+    .lp-feedback-attach h3 {
+        @apply basis-full m-0 text-base font-bold text-ink;
+    }
+    .lp-feedback-attach p {
+        @apply basis-full m-0 -mt-2 text-sm text-fg-mute;
+    }
+    /* The form lays its children out in the panel's own rows, so the select
+       takes one row and both buttons sit together on the next one. */
+    .lp-feedback-attach .lp-site-review-attach {
+        display: contents;
+    }
+    .lp-feedback-attach .lp-select {
+        @apply basis-full;
+    }
+    .lp-feedback-attach .lp-btn {
+        @apply shrink-0;
+    }
+    .lp-feedback-attach__create {
+        @apply bg-surface-1;
+    }
+    /* One captured element: what it said, then its selector behind a disclosure. */
+    .lp-feedback-anchor {
+        @apply mt-3 first-of-type:mt-0 rounded-lg border border-line bg-surface-2 p-4;
+    }
+    .lp-feedback-anchor__label {
+        @apply flex items-center gap-2 text-xs text-fg-dim;
+    }
+    .lp-feedback-anchor__label svg {
+        @apply size-3.5 shrink-0;
+    }
+    .lp-feedback-anchor__text {
+        @apply m-0 my-3 text-base leading-relaxed text-ink whitespace-pre-line break-words;
+    }
+    .lp-feedback-anchor__selector {
+        @apply text-sm text-fg-mute;
+    }
+    .lp-feedback-anchor__selector summary {
+        @apply cursor-pointer py-1.5;
+    }
+    .lp-feedback-anchor__selector code {
+        @apply block mt-1 rounded-md border border-line bg-surface-1 p-3 font-mono text-xs leading-relaxed break-all;
+    }
+    /* A link that reads as an action: accent ink, no underline, trailing icon. */
+    .lp-text-link {
+        @apply inline-flex items-center gap-1.5 text-sm font-semibold text-accent-ink no-underline transition-colors hover:text-ink;
+    }
+    .lp-text-link svg {
+        @apply size-3.5 shrink-0;
     }
     .lp-feedback-detail__actions {
-        @apply flex items-center justify-end gap-2 pt-5 border-t border-line;
+        @apply flex flex-wrap items-center justify-end gap-2 pt-5 border-t border-line;
     }
-    .lp-feedback-detail__source {
-        @apply flex items-center gap-2 m-0 mt-4 pb-4 border-b border-line text-xs text-fg-dim;
+    .lp-feedback-detail__empty {
+        @apply m-6;
     }
-    .lp-feedback-detail__source svg {
-        @apply w-3.5 h-3.5 shrink-0;
+    /* Site review follows the handoff ladder: addressed is purple, resolved green. */
+    .lp-feedback-workspace .lp-status-chip--addressed {
+        @apply bg-status-active-bg text-status-active border-transparent;
     }
-    /* Replies under a piece of site feedback, then the one-line composer. */
-    .lp-feedback-replies {
-        @apply flex flex-col gap-3 mt-4;
+    .lp-feedback-workspace .lp-status-chip--resolved {
+        @apply bg-status-ok-bg text-status-ok-deep border-transparent;
     }
-    .lp-feedback-replies__meta {
-        @apply m-0 text-xs text-fg-dim;
-    }
-    .lp-feedback-replies__body {
-        @apply m-0 text-sm text-ink whitespace-pre-line;
-    }
-    .lp-reply-composer {
-        @apply flex items-start gap-2;
-    }
-    .lp-reply-composer textarea.lp-input {
-        @apply flex-1 min-h-10 resize-y;
-    }
-    /* Doubled class: .lp-btn--icon is declared later and clears the border. */
-    .lp-reply-composer__send.lp-reply-composer__send {
-        @apply shrink-0 border-line bg-surface-1 text-fg-mute;
+    .lp-feedback-workspace .lp-status-chip--pending {
+        @apply border-transparent;
     }
 }
 
 @layer components {
     .lp-card-drawer {
         @apply flex flex-col max-w-5xl min-h-screen mx-auto bg-surface-1 border-x border-line shadow-xl;
-    }
-    .lp-card-drawer-overlay {
-        @apply fixed inset-y-0 right-0 left-auto m-0 p-0 w-full max-w-xl h-full max-h-none overflow-hidden border-0 bg-surface-1 shadow-2xl;
-    }
-    .lp-card-drawer-overlay::backdrop {
-        @apply bg-ink/40 backdrop-blur-xs;
-    }
-    .lp-card-drawer-overlay[open] {
-        animation: lp-card-drawer-enter 200ms ease-out both;
     }
     .lp-card-drawer-overlay > turbo-frame {
         @apply block h-full;
@@ -1022,14 +1185,6 @@
     .lp-card-drawer-overlay__loading svg {
         @apply animate-spin;
     }
-    @keyframes lp-card-drawer-enter {
-        from {
-            translate: 100% 0;
-        }
-        to {
-            translate: 0 0;
-        }
-    }
     .lp-card-drawer__header,
     .lp-card-drawer__footer {
         @apply flex items-center justify-between gap-4 px-6 border-b border-line bg-surface-1;
@@ -1054,22 +1209,29 @@
     .lp-card-drawer__title {
         @apply font-display text-3xl font-extrabold tracking-tight text-ink m-0 mb-4;
     }
-    .lp-card-tabs {
+    /* The one tab strip: role="tab" buttons (aria-selected), page links
+       (aria-current) or view toggles (aria-pressed) share the underline. */
+    .lp-tabs {
         @apply flex items-center gap-1 overflow-x-auto border-b border-line mb-6;
         scrollbar-width: none;
     }
-    .lp-card-tabs::-webkit-scrollbar {
+    .lp-tabs::-webkit-scrollbar {
         display: none;
     }
-    .lp-card-tabs__tab {
-        @apply px-3 py-2.5 border-b-2 border-transparent text-sm font-semibold text-fg-mute whitespace-nowrap transition-colors;
+    .lp-tabs__tab {
+        @apply inline-flex items-center gap-2 px-3 py-2.5 border-b-2 border-transparent text-sm font-semibold text-fg-mute no-underline whitespace-nowrap cursor-pointer transition-colors;
     }
-    .lp-card-tabs__tab:hover,
-    .lp-card-tabs__tab:focus-visible {
+    .lp-tabs__tab:hover,
+    .lp-tabs__tab:focus-visible {
         @apply text-ink;
     }
-    .lp-card-tabs__tab[aria-selected='true'] {
+    .lp-tabs__tab[aria-selected='true'],
+    .lp-tabs__tab[aria-current='page'],
+    .lp-tabs__tab[aria-pressed='true'] {
         @apply border-accent text-ink;
+    }
+    .lp-tabs__count {
+        @apply inline-flex items-center justify-center min-w-5 rounded-md bg-surface-3 px-1.5 py-0.5 text-xs text-fg-dim;
     }
     .lp-card-panel[hidden] {
         @apply hidden;
@@ -1077,26 +1239,41 @@
     .lp-card-panel__title {
         @apply font-display text-lg font-extrabold tracking-tight text-ink m-0;
     }
-    .lp-card-overview-grid {
-        @apply grid grid-cols-1 lg:grid-cols-3 gap-8;
+    /* The card overview reads top to bottom, like the drawer it sits in:
+       description, the field grid, linked work, then agent runs. */
+    .lp-card-overview {
+        @apply flex flex-col gap-7;
     }
-    .lp-card-overview-grid__main {
-        @apply lg:col-span-2 flex flex-col gap-7;
+    .lp-card-overview__section {
+        @apply flex flex-col gap-3;
     }
-    .lp-card-overview-grid__facts {
-        @apply flex flex-col gap-6 rounded-xl bg-surface-2 p-4;
+    .lp-card-fields {
+        @apply grid grid-cols-2 gap-x-6 gap-y-4 m-0 rounded-xl bg-surface-2 p-4;
     }
-    .lp-card-fact-list {
-        @apply flex flex-col m-0;
+    .lp-card-field {
+        @apply flex flex-col gap-1 min-w-0;
     }
-    .lp-card-fact-list div {
-        @apply flex items-center justify-between gap-4 py-2.5 border-b border-line last:border-0;
+    .lp-card-field--wide {
+        @apply col-span-2;
     }
-    .lp-card-fact-list dt {
-        @apply text-sm font-medium text-fg-mute;
+    .lp-card-field dt {
+        @apply text-xs font-semibold text-fg-mute;
     }
-    .lp-card-fact-list dd {
-        @apply text-sm font-semibold text-ink m-0 text-right;
+    .lp-card-field dd {
+        @apply m-0 text-sm font-semibold text-ink whitespace-nowrap;
+    }
+    /* One agent run on the card: rule, when and how long, outcome. */
+    .lp-card-run {
+        @apply flex items-center gap-3 rounded-lg border border-line px-3 py-2.5 text-sm text-ink no-underline transition-colors hover:bg-surface-2;
+    }
+    .lp-card-run__rule {
+        @apply min-w-0 truncate font-semibold;
+    }
+    .lp-card-run__meta {
+        @apply shrink-0 text-xs text-fg-mute;
+    }
+    .lp-card-run__chevron {
+        @apply size-4 shrink-0 text-fg-dim;
     }
     .lp-card-linked-list,
     .lp-card-feedback-list {
@@ -1182,6 +1359,9 @@
     }
     .lp-choice input {
         @apply w-4 h-4 shrink-0 cursor-pointer accent-accent-ink;
+    }
+    .lp-choice:has(input:checked) {
+        @apply bg-accent-soft border-accent-border;
     }
     .lp-choice:has(input:focus-visible) {
         @apply outline-2 outline-offset-1 outline-accent-ink;
@@ -1305,6 +1485,87 @@
 
     .lp-tag {
         @apply inline-flex items-center py-1 px-2.5 rounded-md text-xs font-semibold bg-surface-3 text-fg-mute;
+    }
+    /* Label tones for card types and board columns; LabelTone names each one. */
+    .lp-tag--neutral {
+        @apply bg-surface-3 text-fg-mute;
+    }
+    .lp-tag--lime {
+        @apply bg-accent-soft text-accent-ink;
+    }
+    .lp-tag--purple {
+        @apply bg-status-active-bg text-status-active;
+    }
+    .lp-tag--green {
+        @apply bg-status-ok-bg text-status-ok-deep;
+    }
+    .lp-tag--amber {
+        @apply bg-status-pending-bg text-status-pending-deep;
+    }
+    .lp-tag--red {
+        @apply bg-status-danger-bg text-status-danger-deep;
+    }
+    .lp-tag--teal {
+        @apply bg-tone-teal-bg text-tone-teal;
+    }
+    .lp-tag--sky {
+        @apply bg-tone-sky-bg text-tone-sky;
+    }
+    .lp-tag--blue {
+        @apply bg-tone-blue-bg text-tone-blue;
+    }
+    .lp-tag--indigo {
+        @apply bg-tone-indigo-bg text-tone-indigo;
+    }
+    .lp-tag--pink {
+        @apply bg-tone-pink-bg text-tone-pink;
+    }
+    .lp-tag--orange {
+        @apply bg-tone-orange-bg text-tone-orange;
+    }
+    /* The column header's colour mark, in the same tone as its labels. */
+    .lp-tone-dot {
+        @apply inline-block size-2 shrink-0 rounded-full bg-fg-faint;
+    }
+    .lp-tone-dot--lime {
+        @apply bg-accent-ink;
+    }
+    .lp-tone-dot--purple {
+        @apply bg-status-active;
+    }
+    .lp-tone-dot--green {
+        @apply bg-status-ok;
+    }
+    .lp-tone-dot--amber {
+        @apply bg-status-pending;
+    }
+    .lp-tone-dot--red {
+        @apply bg-status-danger;
+    }
+    .lp-tone-dot--teal {
+        @apply bg-tone-teal;
+    }
+    .lp-tone-dot--sky {
+        @apply bg-tone-sky;
+    }
+    .lp-tone-dot--blue {
+        @apply bg-tone-blue;
+    }
+    .lp-tone-dot--indigo {
+        @apply bg-tone-indigo;
+    }
+    .lp-tone-dot--pink {
+        @apply bg-tone-pink;
+    }
+    .lp-tone-dot--orange {
+        @apply bg-tone-orange;
+    }
+    /* The colour picker: each choice shows its tone's dot beside its name. */
+    .lp-tone-picker {
+        @apply grid grid-cols-2 gap-2 sm:grid-cols-3;
+    }
+    .lp-tone-picker .lp-tone-dot {
+        @apply size-3;
     }
 
     /* A series chip carries a position, so it reads in the accent ink to
@@ -1618,14 +1879,9 @@
     .lp-list-filters {
         @apply flex flex-wrap items-center gap-2 mt-6;
     }
-    .lp-filter-chip {
-        @apply inline-flex items-center gap-1.5 h-8.5 rounded-full bg-surface-3 text-fg-mute no-underline transition-colors text-sm font-semibold px-3.5;
-    }
-    .lp-filter-chip:hover {
-        @apply bg-tint-strong text-ink;
-    }
-    .lp-filter-chip--on {
-        @apply bg-ink text-accent;
+    /* A labelled on/off filter, such as Show archived. */
+    .lp-filter-switch {
+        @apply inline-flex items-center gap-2 h-8.5 px-1 text-sm font-semibold text-fg-mute cursor-pointer;
     }
     /* Borderless "Clear" — an escape hatch, not a filter of its own. */
     .lp-filter-clear {
@@ -1713,25 +1969,49 @@
         @apply bg-status-ok;
     }
 
-    /* About page. One card per fact, so the AGPL offer reads as a statement
-       with its own edge rather than a paragraph among others. */
+    /* About page: a warm hero with the lead and the planner mascot, then one
+       card per fact, so the AGPL offer reads as a statement of its own. */
+    .lp-about-hero {
+        @apply relative flex items-center gap-6 overflow-hidden rounded-2xl border border-line-warm bg-warm px-8 py-8 mb-6;
+    }
+    .lp-about-hero__copy {
+        @apply relative z-10 min-w-0 max-w-2xl;
+    }
+    .lp-about-hero__eyebrow {
+        @apply m-0 mb-2 text-xs font-bold uppercase tracking-widest text-fg-dim;
+    }
+    .lp-about-hero__lead {
+        @apply m-0 font-display text-2xl font-extrabold leading-snug tracking-tight text-ink;
+    }
+    .lp-about-hero__facts {
+        @apply flex flex-wrap gap-2 m-0 mt-5 p-0 list-none;
+    }
+    .lp-about-hero__facts .lp-tag {
+        @apply gap-1.5;
+    }
+    .lp-about-hero__mascot {
+        @apply hidden sm:block ml-auto h-40 w-40 shrink-0 -rotate-6 object-contain;
+    }
     .lp-about-cards {
-        @apply flex flex-col gap-4 max-w-170;
+        @apply grid grid-cols-1 lg:grid-cols-3 gap-4;
     }
     .lp-about-card {
-        @apply flex items-start gap-4 rounded-xl bg-surface-2 py-5 px-5.5;
+        @apply flex flex-col items-start gap-4 rounded-xl border border-line bg-surface-1 p-6;
     }
     .lp-about-card__glyph {
-        @apply inline-flex items-center justify-center shrink-0 w-9.5 h-9.5 rounded-lg bg-accent-soft text-accent-hover;
+        @apply inline-flex items-center justify-center shrink-0 w-9.5 h-9.5 rounded-lg bg-accent-soft text-accent-ink;
     }
     .lp-about-card__main {
-        @apply flex flex-col items-start gap-2 min-w-0;
+        @apply flex flex-1 flex-col items-start gap-2 min-w-0;
     }
     .lp-about-card__title {
         @apply font-display font-extrabold text-lg text-ink m-0 tracking-tight;
     }
     .lp-about-card__text {
         @apply text-fg-mute m-0 text-sm leading-relaxed;
+    }
+    .lp-about-card__action {
+        @apply mt-auto;
     }
     .lp-about-card__value {
         @apply font-mono text-base text-ink m-0;
@@ -1914,14 +2194,20 @@
     .lp-dialog--document {
         @apply max-w-3xl;
     }
-    /** Read-only details for a reported worker attempt. */
-    .lp-dialog.lp-run-drawer {
-        @apply w-full max-w-2xl m-0 ml-auto rounded-none p-0 overflow-hidden;
+    /* The right-hand drawer shell for the card, run and activity drawers.
+       The modal controller slides it; the dialog itself stays still. */
+    /* z-50 carries the modeless case, which sits outside the top layer. */
+    .lp-drawer {
+        @apply fixed inset-y-0 right-0 left-auto z-50 m-0 p-0 w-full max-w-142.5 overflow-hidden rounded-none border-0 bg-surface-1 shadow-2xl;
         height: 100dvh;
         max-height: 100dvh;
     }
-    .lp-run-drawer[open] {
+    .lp-drawer[open] {
         @apply flex flex-col;
+    }
+    .lp-drawer::backdrop {
+        @apply bg-ink/40 backdrop-blur-xs;
+        animation: lp-dialog-backdrop-in 200ms ease;
     }
     .lp-run-drawer__header {
         @apply flex items-start justify-between gap-3 p-6 border-b border-line shrink-0;
@@ -1994,14 +2280,6 @@
         @apply flex flex-wrap gap-3 py-4;
     }
     /** Recent project events in the topbar's right-hand drawer. */
-    .lp-activity-drawer {
-        @apply fixed inset-y-0 right-0 left-auto m-0 ml-auto w-full max-w-142.5 rounded-none border-0 bg-surface-1 p-0;
-        height: 100dvh;
-        max-height: 100dvh;
-    }
-    .lp-activity-drawer[open] {
-        @apply flex flex-col;
-    }
     .lp-activity-drawer__header {
         @apply flex shrink-0 items-center justify-between gap-4 min-h-15.5 border-b border-line px-6;
     }
@@ -2100,22 +2378,7 @@
         @apply min-w-0;
     }
 
-    /* Document-scoped recovery list, outside the anchored review margin. */
-    .lp-deleted-threads {
-        @apply mx-auto flex w-full max-w-3xl flex-col gap-4 px-5 py-6;
-    }
-    .lp-deleted-threads__thread {
-        @apply flex min-w-0 flex-col gap-3 border-t border-line pt-5;
-    }
-    .lp-deleted-threads__meta {
-        @apply flex flex-wrap items-center gap-3 text-sm text-fg-mute;
-    }
-    .lp-deleted-threads__actions {
-        @apply flex flex-wrap items-start justify-between gap-3;
-    }
-    .lp-deleted-threads .lp-comment-thread {
-        @apply static;
-    }
+    /* The undo notice that replaces a thread the moment it is deleted. */
     .lp-thread-recovery {
         @apply mb-4 flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-2 p-3 text-sm;
     }
@@ -2151,6 +2414,9 @@
     .lp-review-verdict-choice {
         @apply flex items-center gap-3 rounded-lg border border-line p-3 text-sm text-ink;
     }
+    .lp-review-verdict-choice:has(input:checked) {
+        @apply bg-accent-soft border-accent-border;
+    }
     .lp-review-verdict-choice input {
         @apply size-4 accent-accent;
     }
@@ -2173,105 +2439,8 @@
     .lp-review-doc__version {
         @apply shrink-0 font-mono text-sm text-fg-dim;
     }
-    /* Primary document workspace views. */
-    .lp-review-view-tabs {
-        @apply mt-3 flex items-center gap-1 overflow-x-auto border-b border-line;
-        scrollbar-width: none;
-    }
-    .lp-review-view-tabs::-webkit-scrollbar {
-        display: none;
-    }
-    .lp-review-view-tabs__item {
-        @apply whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm font-semibold text-fg-mute no-underline transition-colors hover:text-ink;
-    }
-    .lp-review-view-tabs__item[aria-current='page'] {
-        @apply border-accent text-ink;
-    }
-
-    /* The side-by-side comparison, which renders no comment rail and takes the
-       gutter and the comment column back for its second reading measure. Both
-       modifiers come after their base class, or the base would win. */
-    .lp-review-block--wide {
-        @apply max-w-280;
-    }
-    .lp-review-doc--wide {
-        @apply max-w-280;
-    }
-
-    /* ── Contents and decisions rail ────────────────────────────────────
-       Left of the reading column on a wide window. 236px wide with a 40px
-       gutter, which is the 276px the block's extra left margin opens.
-       Absolute, like the comment column: the reading column is exactly as wide
-       with a rail as without one. */
-    .lp-review-rail {
-        @apply hidden absolute -left-69 top-0 bottom-0 w-59;
-    }
-    /* 100rem, not the 2xl token: the rail costs 276px and the block is 972px
-       wide, so the row needs 1296px of pane. A 1536px window leaves 1290 and
-       overflows by six. */
-    @media (width >= 100rem) {
-        .lp-review-rail {
-            @apply block;
-        }
-        /* Only a block that holds a rail. A diff page renders none, and a wide
-           side-by-side diff shifted by 324px overflows its own pane. */
-        .lp-review-block:has(.lp-review-rail) {
-            @apply ml-81;
-        }
-    }
-    /* The wrapper spans the block, so the list inside it can stick. It clears
-       the metadata bar, which is sticky at the same edge. */
-    .lp-review-rail__inner {
-        @apply sticky top-13 flex flex-col gap-0.5 overflow-y-auto;
-        max-height: calc(100dvh - 8rem);
-    }
-    .lp-review-rail__title {
-        @apply flex items-baseline gap-2 m-0 mb-1.5 uppercase font-mono text-fg-dim text-xs tracking-wider;
-    }
-    .lp-review-rail__title:not(:first-child) {
-        @apply mt-5.5;
-    }
-    .lp-review-rail__count {
-        @apply font-mono text-fg-dim text-xs normal-case tracking-normal;
-    }
-    /* A row in the rail is a tick and a heading, and the tick carries the
-       state: a "not approved" line under every heading is the state of most of
-       the list, so it reads as noise and buries the rows that did change. A
-       236px column also has no room for a label and its state side by side, and
-       a heading truncated to three words names nothing. */
-    .lp-review-rail .lp-review-contents__item,
-    .lp-review-rail .lp-decision-summary__item {
-        @apply items-start gap-2 py-0;
-    }
-    /* self-start, against the base class's self-center: a two-line heading must
-       keep its tick level with the first line, not with the middle of the row. */
-    .lp-review-rail .lp-review-contents__tick {
-        @apply block self-start mt-1.5;
-    }
-    .lp-review-rail .lp-review-contents__link,
-    .lp-review-rail .lp-decision-summary__link {
-        @apply block flex-1 min-w-0 whitespace-normal overflow-visible rounded-lg no-underline py-1 px-2 transition-colors;
-        text-overflow: clip;
-    }
-    /* A decision reads as a heading here, not as the bolder thing the panel
-       makes of it. */
-    .lp-review-rail .lp-decision-summary__link {
-        @apply font-normal text-fg-mute;
-    }
-    .lp-review-rail .lp-review-contents__link:hover,
-    .lp-review-rail .lp-decision-summary__link:hover {
-        @apply bg-tint text-fg no-underline;
-    }
-    /* The section the reader is in, marked by contents_rail_controller. */
-    .lp-review-rail .lp-review-contents__link--current {
-        @apply bg-surface-3 text-ink font-semibold;
-    }
-    .lp-review-rail .lp-section-approvals__approved,
-    .lp-review-rail .lp-section-approvals__pending,
-    .lp-review-rail .lp-decision-summary__answer,
-    .lp-review-rail .lp-decision-summary__pending {
-        @apply hidden;
-    }
+    /* Primary document workspace views. Side by side keeps the block's own
+       width, so its toolbar holds the same columns as the other views. */
 
     /* Comment cards share the margin on wide screens and stack below on phones. */
     .lp-review-margin {
@@ -2334,33 +2503,10 @@
     .lp-doc-meta__count {
         @apply font-mono text-fg-dim text-xs;
     }
-    .lp-doc-meta__caret {
-        @apply w-3.5 h-3.5 shrink-0 text-fg-dim transition-transform duration-100;
-    }
-    .lp-doc-meta__tab[aria-expanded='true'] .lp-doc-meta__caret {
-        @apply rotate-90;
-    }
-    /* The rail stands both lists open, so their tabs would open a second copy
-       of what is already on screen. Only a block that has a rail: a diff page
-       renders none, and the tab is the one way to its contents there. */
-    @media (width >= 100rem) {
-        .lp-review-block:has(.lp-review-rail) .lp-doc-meta__tab--railed {
-            @apply hidden;
-        }
-    }
-    /* Names the pair the pane holds, on the green status tint: comparing is a
-       state the reader turned on, not a failure. The stop control rides the chip
-       rather than the row, so the row stays the view switch and the jumps. */
-    .lp-doc-meta__compare {
-        @apply inline-flex items-center gap-1.5 shrink-0 rounded-full bg-status-ok-bg text-status-ok-deep font-semibold text-xs py-1 pl-2.5 pr-1;
-    }
     /* Reads as an invitation rather than as a tab: the reader has not asked for
        the comparison, and the row beside it is what the page already holds. */
     .lp-doc-meta__unread {
         @apply inline-flex items-center gap-2 shrink-0 h-7 px-2.75 rounded-full no-underline bg-accent-faint-2 border border-accent-border text-accent-ink text-xs font-semibold transition-colors hover:bg-accent-faint;
-    }
-    .lp-doc-meta__compare-stop {
-        @apply inline-flex items-center justify-center shrink-0 w-5 h-5 rounded-full text-status-ok-deep no-underline transition-colors hover:bg-status-ok-border;
     }
     /* Chips in the bar itself below lg, where the tab that holds them is
        display:none and the review menu carries no tags row. */
@@ -2375,36 +2521,12 @@
     .lp-doc-tags__list {
         @apply flex flex-wrap items-center gap-1.5;
     }
-    .lp-doc-meta__series {
-        @apply flex items-center gap-1.5 ml-auto;
-    }
-    /* Flex splits the free space between two auto margins, which would strand
-       the series mid-bar. The series leads the group and takes the one margin. */
-    .lp-doc-meta__series + .lp-doc-meta__tags {
-        @apply ml-0;
-    }
-    .lp-doc-meta__panel {
-        @apply rounded-xl bg-surface-2 p-3.5 mt-2.5;
-        animation: lp-appear 120ms ease-out both;
-    }
-    .lp-doc-meta__panel[hidden] {
-        @apply hidden;
-    }
-    /* Below lg the four tabs are rows of the review menu instead. A display
-       utility outside this query would outrank the UA [hidden] rule above and
-       hold every panel open on desktop. */
+    /* Below lg the tabs are rows of the review menu instead. */
     @media (width < 59.375rem) {
-        .lp-doc-meta__tab,
-        .lp-doc-meta__panel {
+        .lp-doc-meta__tab {
             @apply hidden;
         }
-        .lp-doc-meta:not(
-            :has(
-                .lp-doc-meta__series,
-                .lp-doc-meta__tags,
-                .lp-doc-meta__compare
-            )
-        ) {
+        .lp-doc-meta:not(:has(.lp-doc-meta__tags)) {
             @apply hidden;
         }
     }
@@ -2429,34 +2551,6 @@
         @apply static;
     }
 
-    /* ── Review action row ──────────────────────────────────────────────
-       "Add general comment" plus the hint that select-to-comment exists, with
-       the resolved toggle pushed out over the comment column. */
-    .lp-review-actions {
-        @apply flex flex-wrap items-center gap-x-3 gap-y-2 mt-5.5 mb-5.5;
-    }
-    .lp-review-actions__hint {
-        @apply text-sm text-fg-mute;
-    }
-    /* Sits above the comment column, so it reads as a control on the comments
-       rather than on the prose. It carries no display: this is a .lp-btn, and
-       the two rules that hide it are unlayered, below the coarse-pointer block. */
-    .lp-review-actions__resolved {
-        @apply absolute whitespace-nowrap;
-    }
-    /* One icon of the pair at a time, chosen by the state the controller writes
-       onto the button. Specificity, not source order, does the picking. */
-    .lp-review-actions__resolved-icon--show {
-        @apply hidden;
-    }
-    .lp-review-actions__resolved[data-resolved-hidden='1']
-        .lp-review-actions__resolved-icon--hide {
-        @apply hidden;
-    }
-    .lp-review-actions__resolved[data-resolved-hidden='1']
-        .lp-review-actions__resolved-icon--show {
-        @apply block;
-    }
     /* Resolved threads are hidden rather than removed, so the toggle is instant
        and costs no round trip. */
     .lp-review-block--hide-resolved .lp-comment-thread--resolved {
@@ -2591,32 +2685,6 @@
     .lp-general-comments__list.open {
         @apply flex;
     }
-    /* One row per version so each entry can carry its description beneath the
-       pill, rather than a single wrapping line of pills. */
-    .lp-version-switcher {
-        @apply flex flex-col items-start gap-1.5 mt-2;
-    }
-    .lp-version-entry {
-        @apply flex flex-col items-start gap-1;
-    }
-    /* Pill, date and compare link on one line. The compare link used to sit
-       under the note, where it reads as the heading of the entry below it. */
-    .lp-version-entry__row {
-        @apply flex flex-wrap items-center gap-2.5;
-    }
-    .lp-version-entry__date {
-        @apply text-fg-dim text-xs;
-    }
-    .lp-version-entry__description {
-        @apply text-fg-dim m-0 text-xs;
-    }
-    /* Way into the diff between a version and the one before it. */
-    .lp-version-entry__diff {
-        @apply font-mono text-fg-dim no-underline transition-colors text-xs hover:text-accent;
-    }
-    .lp-version-entry__diff[aria-current] {
-        @apply text-accent;
-    }
     /** Version selection shared by the diff toolbar, history and review menu. */
     .lp-version-compare {
         @apply flex flex-wrap items-center gap-2 w-full;
@@ -2624,79 +2692,78 @@
     .lp-diff-bar .lp-version-compare {
         @apply w-auto;
     }
-    /* Way out of the panel and into the full history. */
-    .lp-version-switcher__all {
-        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors text-xs hover:text-accent;
-    }
 
     /* ── Version history page ───────────────────────────────────────────
-       Every version on a page of its own, newest first. A vertical rule with
-       one marker per row carries the order; the marker is filled for the
-       current version. */
-    .lp-history {
-        @apply list-none flex flex-col m-0 mt-8 p-0;
+       Every version in one table, newest first, with the reviews it received
+       and the ways to read it or compare it with the one before. */
+    .lp-history-tools {
+        @apply flex flex-wrap items-center justify-between gap-4 mt-7 mb-4.5;
     }
-    /* The rule joins one node to the next, so it starts at the first node's
-       centre and stops at the last one's. A border would run the whole height of
-       every row, overshooting above the first node and stopping a row short of
-       the last. The offset is the node's own: 8px down, half of a 10px dot. */
-    .lp-history__row {
-        @apply relative flex flex-col gap-1.5 pl-6 pb-6;
-        background-image: linear-gradient(var(--color-line), var(--color-line));
-        background-repeat: no-repeat;
-        background-position: left top;
-        background-size: 1px 100%;
-    }
-    .lp-history__row:first-child {
-        background-position: left calc(var(--spacing) * 3.25);
-        background-size: 1px calc(100% - var(--spacing) * 3.25);
-    }
-    .lp-history__row:last-child {
-        @apply pb-0;
-        background-size: 1px calc(var(--spacing) * 3.25);
-    }
-    .lp-history__row::before {
-        content: '';
-        @apply absolute left-0 top-2 w-2.5 h-2.5 -translate-x-1/2 rounded-full border border-line bg-surface-3;
-    }
-    .lp-history__row--current::before {
-        @apply border-accent bg-accent;
-    }
-    .lp-history__head {
-        @apply flex flex-wrap items-center gap-3;
-    }
-    .lp-history a.lp-version-pill {
-        @apply no-underline;
-    }
-    .lp-history__date {
-        @apply text-fg-dim text-xs;
-    }
-    /* Pushed to the right end of its own row rather than under the note. */
-    .lp-history__compare {
-        @apply ml-auto font-mono text-fg-dim no-underline transition-colors text-xs hover:text-accent;
-    }
-    .lp-history__note {
-        @apply text-fg-mute m-0 max-w-prose text-sm;
-    }
-    /** The version list heading sits below the shared document navigation. */
     .lp-history-title {
         @apply m-0 font-display text-lg font-bold text-ink;
     }
-    /** Verdict entries stay with the version that received them. */
+    .lp-history-surface {
+        @apply overflow-x-auto rounded-xl border border-line bg-surface-1;
+    }
+    .lp-history {
+        @apply w-full border-collapse text-left;
+    }
+    .lp-history th {
+        @apply bg-surface-2 px-4.5 py-3.25 text-xs font-semibold text-fg-dim;
+    }
+    .lp-history td {
+        @apply border-t border-line px-4.5 py-4.5 align-middle text-sm text-fg-mute;
+    }
+    .lp-history td:last-child {
+        @apply whitespace-nowrap;
+    }
+    .lp-history__version {
+        @apply inline-flex rounded-md bg-surface-3 px-1.75 py-0.75 text-xs leading-4 font-semibold text-fg-dim;
+    }
+    .lp-history__row--current .lp-history__version {
+        @apply bg-accent-soft text-accent-ink;
+    }
+    .lp-history__note {
+        @apply block text-sm leading-relaxed font-semibold text-ink;
+    }
+    .lp-history__note--empty {
+        @apply font-medium text-fg-mute;
+    }
+    .lp-history__date {
+        @apply text-xs text-fg-dim;
+    }
     .lp-history__reviews {
-        @apply list-none flex flex-col gap-3 m-0 mt-2 p-0;
+        @apply m-0 flex list-none flex-col gap-3 p-0;
     }
     .lp-history__review {
-        @apply flex flex-col gap-1 text-sm text-fg-mute;
+        @apply flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-fg-mute;
     }
     .lp-history__verdict {
-        @apply font-medium text-fg;
+        @apply font-semibold text-fg;
+    }
+    .lp-history__verdict--approved {
+        @apply text-status-ok-deep;
+    }
+    .lp-history__verdict--changes-requested {
+        @apply text-status-danger-deep;
     }
     .lp-history__review-note {
-        @apply m-0 max-w-prose whitespace-pre-wrap break-words;
+        @apply m-0 basis-full max-w-prose whitespace-pre-wrap break-words;
     }
-    .lp-history-compare {
-        @apply flex flex-col gap-2 mt-8;
+    .lp-history__actions {
+        @apply flex items-center gap-4;
+    }
+    .lp-history__action {
+        @apply inline-flex items-center gap-1.5 text-sm font-semibold text-fg-mute no-underline transition-colors hover:text-ink;
+    }
+    .lp-history__action svg {
+        @apply size-4 shrink-0;
+    }
+    @media (width < 43.75rem) {
+        .lp-history th,
+        .lp-history td {
+            @apply px-3.5;
+        }
     }
 
     /* ── Version diff ───────────────────────────────────────────────────
@@ -2941,8 +3008,8 @@
             @apply flex-row items-end gap-9;
         }
     }
-    .lp-review-workspace-nav .lp-review-view-tabs {
-        @apply mt-0 min-w-0 flex-1;
+    .lp-review-workspace-nav .lp-tabs {
+        @apply mb-0 min-w-0 flex-1;
     }
     .lp-review-margin-tabs {
         @apply flex min-w-0 max-w-full shrink-0 scroll-mb-24 items-center justify-start gap-1;
@@ -3033,7 +3100,6 @@
             width: calc(100% + var(--doc-margin) + var(--doc-margin-gap));
         }
         .lp-review-margin,
-        .lp-review-actions__resolved,
         .lp-review-context-panel {
             left: calc(100% + var(--doc-margin-gap));
             width: var(--doc-margin);
@@ -3060,23 +3126,14 @@
     .lp-review-details {
         @apply m-0 flex flex-col divide-y divide-line rounded-xl border border-line bg-surface-2;
     }
-    .lp-review-details div {
+    .lp-review-details > div {
         @apply flex flex-col gap-1 px-3.5 py-3;
     }
-    .lp-review-details dt {
+    .lp-review-details > div > dt {
         @apply text-xs font-semibold uppercase tracking-wide text-fg-dim;
     }
-    .lp-review-details dd {
+    .lp-review-details > div > dd {
         @apply m-0 text-sm text-fg;
-    }
-    .lp-review-details__card {
-        @apply flex items-center gap-2 rounded-lg border border-line bg-surface-1 px-3 py-2 text-sm font-semibold text-ink no-underline hover:bg-tint;
-    }
-    .lp-review-details__card + .lp-review-details__card {
-        @apply mt-2;
-    }
-    .lp-review-details__card > :first-child {
-        @apply min-w-0 flex-1;
     }
     .lp-review-doc__prose {
         @apply mt-0 min-h-96 rounded-xl border border-line bg-surface-1 px-8.5 py-7 text-base leading-7 text-prose break-words;
@@ -3384,12 +3441,6 @@
     .lp-comment-status {
         @apply ml-auto uppercase text-xs font-bold tracking-wide text-fg-mute;
     }
-    .lp-comment-status--strike {
-        @apply text-danger;
-    }
-    .lp-comment-status--answered {
-        @apply text-status-ok-deep;
-    }
     /* The quoted text is gone from the current version, so there is no anchor to
        ring and the card has to say so itself. */
     .lp-comment-orphan-pill {
@@ -3679,7 +3730,8 @@
        which a viewport media query would pin to the window. The closed panel is
        `visibility: hidden`, so it is untabbable and untappable off-canvas. */
     .lp-sidebar--drawer {
-        @apply fixed inset-y-0 left-0 z-50 overflow-y-auto bg-sidebar invisible -translate-x-full lg:static lg:visible lg:translate-x-0 lg:overflow-visible;
+        @apply fixed inset-y-0 left-0 z-50 min-h-0 overflow-y-auto bg-sidebar invisible -translate-x-full lg:static lg:visible lg:translate-x-0;
+        /* The shell is one viewport tall, so a longer rail scrolls itself. */
         /* `translate`, not `transform`: that is the property -translate-x-full
            writes. Hiding waits out the slide, so the panel does not vanish
            mid-motion. */
@@ -4665,20 +4717,25 @@
 
     /* The input stays a real checkbox so form binding and keyboard access are
        untouched; only its box is redrawn as a track and knob. */
-    .admin-switch {
+    .admin-switch,
+    .lp-switch {
         @apply relative shrink-0 w-10 h-6 mt-px appearance-none rounded-full bg-line-strong cursor-pointer transition-colors;
     }
-    .admin-switch::after {
+    .admin-switch::after,
+    .lp-switch::after {
         @apply absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-surface-1 transition-all;
         content: '';
     }
-    .admin-switch:checked {
+    .admin-switch:checked,
+    .lp-switch:checked {
         @apply bg-accent;
     }
-    .admin-switch:checked::after {
+    .admin-switch:checked::after,
+    .lp-switch:checked::after {
         @apply left-4.5;
     }
-    .admin-switch:focus-visible {
+    .admin-switch:focus-visible,
+    .lp-switch:focus-visible {
         @apply outline-2 outline-offset-2 outline-accent-ink;
     }
 
@@ -5432,16 +5489,29 @@
         @apply flex items-start justify-between gap-4 mb-7;
     }
     .lp-board {
-        @apply flex flex-col gap-2;
+        @apply flex flex-col gap-2 min-h-0 h-full;
     }
+    /* A board is a viewport-sized surface at every width: the columns keep the
+       room the page leaves, rather than stacking as a split page does. */
+    .lp-core-board.lp-split-page,
+    .lp-core-board .lp-split-region,
+    .lp-core-board .lp-split-region > * {
+        @apply flex-1 min-h-0 h-full;
+    }
+    /* Everything above the strip keeps its height, whatever the strip needs. */
+    .lp-board > *:not(.lp-board__columns) {
+        @apply shrink-0;
+    }
+    /* The strip fills what the page leaves and scrolls sideways. Each column
+       holds its own head and Add card still, and scrolls its cards. */
     .lp-board__columns {
-        @apply flex items-start gap-4 overflow-x-auto pb-4;
+        @apply flex flex-1 items-stretch gap-4 min-h-72 overflow-x-auto pb-4;
     }
     .lp-board__message {
         @apply text-sm font-semibold text-danger m-0 empty:hidden;
     }
     .lp-board__column {
-        @apply flex flex-col gap-3 grow basis-0 min-w-64 rounded-xl bg-surface-2 p-3.5;
+        @apply flex flex-col gap-3 grow basis-0 min-w-64 min-h-0 rounded-xl bg-surface-2 p-3.5 pr-2;
     }
     .lp-board__column-head {
         @apply flex items-center justify-between gap-2;
@@ -5480,11 +5550,6 @@
     }
     .lp-board__column-menu-panel[hidden] {
         @apply hidden;
-    }
-    /* The row scrolls sideways, which clips anything below it too, so an open
-       menu gets room below the columns rather than a scrollbar. */
-    .lp-board__columns:has(.lp-board__column-menu-panel:not([hidden])) {
-        @apply pb-80;
     }
     .lp-board__column-menu-item {
         @apply w-full px-2 py-1.5 rounded-lg text-left text-sm font-semibold text-ink transition-colors hover:bg-surface-2;
@@ -5535,14 +5600,27 @@
     }
     /* A group is a drop target, so it keeps a minimum height even when empty:
        an empty column with no area under it cannot be dropped into. */
+    /* pr-1.5 keeps the bar off the card edges, which are rounded boxes. The
+       column gives back the same amount, so a short column reads flush. */
     .lp-board__group {
-        @apply flex flex-col gap-2 min-h-12 rounded-lg transition-colors;
+        @apply flex flex-col flex-1 gap-2 min-h-12 pr-1.5 rounded-lg overflow-y-auto transition-colors;
     }
-    .lp-board__group:not(:has(.lp-board-card)) {
-        @apply min-h-6;
+    /* An empty group takes no room: the negative margin cancels the column gap
+       above it. The drag controller hit-tests the whole column, so it stays a target. */
+    .lp-board__group:not(:has(.lp-board-card, .lp-board__placeholder)) {
+        @apply min-h-0 -mt-3;
     }
     .lp-board__placeholder {
         @apply rounded-xl border-2 border-dashed border-accent-border bg-accent-faint;
+    }
+    /* The dragged card's own slot, shown as a faded copy. A drop marker next to
+       it would mark the same place twice, so the marker hides there. */
+    .lp-board__ghost {
+        @apply opacity-40 pointer-events-none;
+    }
+    .lp-board__ghost + .lp-board__placeholder,
+    .lp-board__placeholder:has(+ .lp-board-card--dragging + .lp-board__ghost) {
+        @apply hidden;
     }
     /* Text selection during a drag would highlight every card the pointer
        crosses, so it is suppressed for the length of the gesture only. */
@@ -5597,20 +5675,12 @@
 
     /* The move controls, on the card's own page. The board face carries the
        same form with no controls, because dragging is its one interaction. */
-    .lp-card-move {
-        @apply mt-8;
-    }
-    .lp-card-move__title {
-        @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
-    }
+    /* Status is the move control: a column select and Move. */
     .lp-card-move__form {
-        @apply flex flex-wrap items-end gap-4 rounded-xl bg-surface-2 py-4 px-5;
+        @apply flex flex-wrap items-center gap-2;
     }
-    .lp-card-move__field {
-        @apply flex flex-col gap-1;
-    }
-    .lp-card-move__submit {
-        @apply shrink-0;
+    .lp-card-move__form .lp-card-move__select {
+        @apply w-auto min-w-40;
     }
 
     /* ── Card detail and card form ──────────────────────────────────── */
@@ -5627,9 +5697,6 @@
     }
     /* The documents a card's work is written up in. Read only here: a
        document is written and revised through its own screens. */
-    .lp-card-docs {
-        @apply mt-8;
-    }
     .lp-card-docs__title {
         @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
     }
@@ -5641,9 +5708,6 @@
     }
     .lp-card-docs__link {
         @apply text-sm;
-    }
-    .lp-card-pulls {
-        @apply mt-8;
     }
     .lp-card-pulls__title {
         @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
@@ -5778,9 +5842,6 @@
     .lp-inbox-section__title {
         @apply m-0 text-sm font-bold uppercase tracking-widest text-fg-mute;
     }
-    .lp-inbox-section__note {
-        @apply m-0 text-sm text-fg-dim;
-    }
     .lp-inbox-ask {
         @apply flex flex-col gap-3 rounded-xl bg-surface-2 py-4 px-4.5 scroll-mt-16;
     }
@@ -5793,15 +5854,36 @@
     .lp-inbox-ask__time {
         @apply ml-auto;
     }
-    /* When an open ask's bridge last sent a heartbeat. The amber variant warns that no resume will come. */
-    .lp-inbox-ask__bridge {
-        @apply flex items-start gap-2 m-0 text-xs text-fg-dim leading-normal;
+    .lp-inbox-linked-table__version {
+        @apply text-xs font-semibold text-fg-mute whitespace-nowrap;
     }
-    .lp-inbox-ask__bridge--quiet {
-        @apply rounded-lg bg-status-pending-bg px-3 py-2 text-sm font-semibold text-status-pending-deep;
+    .lp-inbox-ask__title {
+        @apply m-0 font-display text-xl font-extrabold tracking-tight text-ink;
     }
-    .lp-inbox-ask__bridge-icon {
-        @apply shrink-0 text-status-pending mt-0.5;
+    /* The agent's avatar with a dot for its bridge: green live, amber quiet,
+       grey with no bridge. Hover or focus shows the tooltip. */
+    .lp-presence {
+        @apply relative inline-flex shrink-0 rounded-full outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
+    }
+    .lp-presence__dot {
+        @apply absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-surface-2 bg-fg-faint;
+    }
+    .lp-presence--live .lp-presence__dot {
+        @apply bg-status-ok;
+    }
+    .lp-presence--quiet .lp-presence__dot {
+        @apply bg-status-pending;
+    }
+    /* A small text bubble under its anchor, shown on hover and on keyboard focus. */
+    .lp-tooltip {
+        @apply invisible absolute left-0 top-full z-20 mt-2 flex w-72 flex-col gap-1 rounded-lg bg-ink px-3 py-2 text-xs font-medium leading-snug text-chrome-fg opacity-0 shadow-lg transition-opacity;
+    }
+    .lp-presence:hover .lp-tooltip,
+    .lp-presence:focus-visible .lp-tooltip {
+        @apply visible opacity-100;
+    }
+    .lp-tooltip__line--quiet {
+        @apply break-all text-chrome-mute;
     }
     .lp-inbox-ask__context {
         @apply max-w-none text-sm;
@@ -5852,22 +5934,28 @@
     .lp-inbox-item__jump {
         @apply self-start text-sm font-semibold text-accent-ink no-underline hover:underline;
     }
-    /* The account inbox: one heading per project above its open asks. The
-       link to an ask's block on the project page sits at the end of its head. */
-    .lp-account-inbox-project__head {
-        @apply flex flex-wrap items-baseline gap-3;
+    /* The account inbox points at the project inboxes and answers nothing
+       itself, so a row carries only what chooses between them. */
+    .lp-account-inbox__grid {
+        @apply flex flex-col gap-3 mt-2;
     }
-    .lp-account-inbox-project__title {
-        @apply m-0 text-lg font-semibold;
+    .lp-account-inbox-card {
+        @apply flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-1 px-5 py-4 no-underline transition-colors hover:border-accent-border hover:bg-accent-faint;
     }
-    .lp-account-inbox-project__link {
-        @apply text-ink no-underline hover:underline;
+    .lp-account-inbox-card__avatar {
+        @apply inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-status-danger text-xs font-bold text-white;
     }
-    .lp-account-inbox-project__count {
+    .lp-account-inbox-card__name {
+        @apply font-display text-base font-extrabold tracking-tight text-ink;
+    }
+    .lp-account-inbox-card__count {
+        @apply text-sm font-semibold text-accent-ink;
+    }
+    .lp-account-inbox-card__wait {
         @apply text-sm text-fg-dim;
     }
-    .lp-inbox-ask__link {
-        @apply ml-auto font-sans text-sm font-semibold text-accent-ink no-underline hover:underline;
+    .lp-account-inbox-card__go {
+        @apply ml-auto size-4 shrink-0 text-fg-dim;
     }
     .lp-inbox-item__actions {
         @apply flex flex-col gap-3;
@@ -5887,22 +5975,6 @@
         @apply hidden;
     }
     .lp-inbox-answer__clear {
-        @apply mt-2;
-    }
-    /* The reply composer: one field with its send button beside it. */
-    .lp-inbox-composer {
-        @apply flex-row items-end gap-2;
-    }
-    .lp-inbox-composer .lp-input {
-        @apply flex-1;
-    }
-    .lp-inbox-composer__send {
-        @apply shrink-0 px-2.5;
-    }
-    .lp-inbox-decline__summary {
-        @apply cursor-pointer select-none text-sm font-semibold text-fg-dim hover:text-ink;
-    }
-    .lp-inbox-decline__form {
         @apply mt-2;
     }
 
@@ -5973,53 +6045,53 @@
    must be text-decoration and never box-shadow. */
 
 ::highlight(lp-anchor) {
-    background-color: var(--status-pending-bg);
+    background-color: var(--review-anchor);
 }
 ::highlight(lp-anchor-active) {
-    background-color: var(--accent-soft);
+    background-color: var(--review-anchor-strong);
     text-decoration-line: underline;
-    text-decoration-color: var(--accent);
+    text-decoration-color: var(--review-anchor-line);
     @apply decoration-2;
 }
-/* An open comment is the loud one — it is the only anchor state that is asking
-   the reader for something. */
+/* Open and addressed threads share the warm tint, because both still ask the
+   reader for something. The underline tells them apart, in the colour of the
+   card's status badge. */
 ::highlight(lp-anchor-pending) {
-    background-color: var(--accent-soft);
+    background-color: var(--review-anchor);
+    text-decoration-line: underline;
+    text-decoration-color: var(--review-anchor-line);
 }
 ::highlight(lp-anchor-addressed) {
-    background-color: var(--status-ok-bg);
+    background-color: var(--review-anchor);
     text-decoration-line: underline;
-    text-decoration-color: var(--status-ok);
+    text-decoration-color: var(--review-addressed-ink);
     @apply decoration-2;
 }
-/* A resolved thread gets no treatment at all: the conversation is over, and
-   leaving a mark on the passage would keep drawing the eye back to it. The rung
-   stays registered so resolving is a change of state rather than a change of
-   code path. */
+/* Shown only when the filter lets resolved threads back into the margin, so a
+   quiet grey is enough to pair the passage with its card. */
 ::highlight(lp-anchor-resolved) {
-    background-color: transparent;
+    background-color: var(--surface-3);
 }
-/* A rewording. Declares only its own tint, so a struck or hovered passage still
-   layers its decoration on top. */
+/* A rewording is a different kind of mark, so it takes its own hue. */
 ::highlight(lp-anchor-suggestion) {
-    background-color: var(--status-ok-bg);
+    background-color: var(--review-suggestion);
+    text-decoration-line: underline;
+    text-decoration-color: var(--review-suggestion-line);
 }
-/* Struck passages, painted on top of whichever status highlight already covers
-   them: highlights overlay rather than replace each other, so the status tint
-   survives and this adds only the line-through. */
 /* A struck passage carries this rung INSTEAD of its status rung — see
    #highlightAnchors, which routes it here and skips the status highlight. */
 ::highlight(lp-anchor-struck) {
-    color: var(--text-mute);
+    background-color: var(--review-strike);
+    color: var(--review-strike-ink);
     text-decoration-line: line-through;
-    text-decoration-color: var(--strike);
-    text-decoration-thickness: 3px;
+    text-decoration-color: var(--review-strike-ink);
+    @apply decoration-2;
 }
 /* The passage whose card the pointer is on (or the reverse). Deliberately a
    stronger fill rather than a ring: ::highlight() honours neither outline nor
    box-shadow, so the card carries the ring and the passage carries this. */
 ::highlight(lp-anchor-hover) {
-    background-color: var(--accent);
+    background-color: var(--review-anchor-strong);
 }
 
 /* The agent's own marks. The wavy underline carries the rung: under tritanopia
@@ -6138,10 +6210,6 @@
         transition: none;
     }
 
-    .lp-card-drawer-overlay[open] {
-        animation: none;
-    }
-
     @keyframes lp-appear {
         from {
             opacity: 0;
@@ -6201,21 +6269,6 @@
        display would reveal it below sm: and min-width never applies to inline. */
     .lp-landing-nav__link {
         @apply px-2 py-3;
-    }
-}
-
-/* The resolved-threads toggle is a .lp-btn, so the block above gives it a
-   display, and an unlayered rule beats @layer components at any specificity.
-   Both rules therefore live here, after it. The attribute is how the controller
-   reveals the button once a thread resolves; below lg the review menu carries
-   the only copy of the control. */
-.lp-review-actions__resolved[hidden] {
-    display: none;
-}
-
-@media (width < 59.375rem) {
-    .lp-review-actions__resolved {
-        display: none;
     }
 }
 
@@ -6338,10 +6391,7 @@
         @apply flex flex-wrap items-center justify-between gap-3 text-xs text-fg-dim;
     }
     .lp-workshop-work-card__badge {
-        @apply min-w-0 max-w-full break-words rounded-md bg-accent-soft px-2 py-1 font-semibold text-accent-ink;
-    }
-    .lp-workshop-work-card__badge--quiet {
-        @apply bg-surface-3 text-fg-dim;
+        @apply min-w-0 max-w-full break-words;
     }
     .lp-workshop-work-card h3 {
         @apply mt-3 break-words font-display text-base leading-normal font-bold text-ink;
@@ -6427,15 +6477,14 @@
         @apply flex lg:flex-col gap-1 overflow-x-auto;
         scrollbar-width: none;
     }
-    .lp-settings-nav::-webkit-scrollbar,
-    .lp-section-tabs::-webkit-scrollbar {
+    .lp-settings-nav::-webkit-scrollbar {
         display: none;
     }
     .lp-settings-nav__item {
         @apply inline-flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-xs font-normal text-fg-mute no-underline whitespace-nowrap transition-colors;
     }
     .lp-settings-nav__item:hover {
-        @apply bg-tint text-ink;
+        @apply bg-tint-strong text-ink;
     }
     .lp-settings-nav__item--active {
         @apply bg-accent-soft text-accent-ink;
@@ -6507,22 +6556,6 @@
     }
     .lp-settings-section .lp-form {
         @apply mt-6;
-    }
-
-    .lp-section-tabs {
-        @apply flex gap-1 overflow-x-auto mb-8 border-b border-line;
-        scrollbar-width: none;
-    }
-    .lp-section-tabs__item {
-        @apply px-3 py-3 text-sm font-semibold text-fg-mute no-underline whitespace-nowrap border-b-2 border-transparent transition-colors;
-    }
-    .lp-section-tabs__item:hover,
-    .lp-section-tabs__item:focus-visible {
-        @apply text-ink border-accent;
-    }
-    /* After the base class, or the base border colour wins at equal specificity. */
-    .lp-section-tabs__item--active {
-        @apply border-accent text-ink;
     }
 
     .lp-orchestration-header {

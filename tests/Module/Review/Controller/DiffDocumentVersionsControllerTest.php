@@ -77,7 +77,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('.lp-review-doc'));
-        self::assertCount(1, $crawler->filter('.lp-doc-meta'));
+        self::assertCount(1, $crawler->filter('.lp-diff-bar'));
         self::assertSelectorTextContains('.lp-review-doc__title', 'Diffed Doc');
 
         // Rendered HTML, not Markdown source: the heading is an <h1>, and the
@@ -602,9 +602,9 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('.lp-diff-doc'));
         self::assertSelectorTextContains('.lp-empty', 'too large to compare');
-        // The versions themselves are still readable, which is what the message
-        // points the reviewer at.
-        self::assertGreaterThan(0, $crawler->filter('.lp-version-pill--link')->count());
+        // The versions themselves are still readable from History, which is what
+        // the message points the reviewer at.
+        self::assertCount(1, $crawler->filter('.lp-tabs__tab[href$="/review/history"]'));
     }
 
     /**
@@ -750,16 +750,15 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $diff = $client->request(Request::METHOD_GET, $base);
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $diff->filter('.lp-review-contents'));
-        // The rail carries the same rows beside the reading column on a wide
-        // window, the way it does on the review page.
-        self::assertCount(1, $diff->filter('.lp-review-rail'));
+        // The margin's Outline view lists the diff's headings, the way it does
+        // on the review page.
+        self::assertCount(1, $diff->filter('[data-margin-panel="outline"]'));
 
         // Removed headings are listed too: they are on the page the reader has,
         // in the order the merged render holds them.
         self::assertSame(
             ['First', 'Gone', 'Renamed', 'Arrived', 'Second!'],
-            $diff->filter('.lp-review-contents .lp-review-contents__link')->each(
+            $diff->filter('[data-margin-panel="outline"] .lp-review-contents__link')->each(
                 static fn (Crawler $link): string => $link->text(),
             ),
         );
@@ -777,17 +776,16 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // The Markdown view lists headings too. Its ids are minted from the
         // source lines, because it renders no heading element to read one from.
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
-        self::assertCount(1, $source->filter('.lp-review-contents'));
+        self::assertCount(1, $source->filter('[data-margin-panel="outline"]'));
         $this->assertContentsRowsResolve($source);
 
-        // The columns pair by position, so Gone shares a row with Arrived and
-        // both are on screen there. The order therefore differs from the merged
-        // render's above, and reading only the newer cell of a row would drop
-        // Gone from the list while it is still on the page.
+        // The columns take the margin's width, so the review menu lists their
+        // headings. They pair by position, so Gone shares a row with Arrived,
+        // and reading only the newer cell would drop Gone from the list.
         $columns = $client->request(Request::METHOD_GET, $base.'?view=side-by-side');
         self::assertSame(
             ['First', 'Gone', 'Arrived', 'Renamed', 'Second', 'Second!'],
-            $columns->filter('.lp-review-contents .lp-review-contents__link')->each(
+            $columns->filter('.lp-review-menu__section[href^="#"]')->each(
                 static fn (Crawler $link): string => $link->text(),
             ),
         );
@@ -805,7 +803,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
                 'diff-old-heading-second',
                 'heading-second',
             ],
-            $columns->filter('.lp-review-contents .lp-review-contents__link')->each(
+            $columns->filter('.lp-review-menu__section[href^="#"]')->each(
                 static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
             ),
         );
@@ -855,7 +853,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(
             ['heading-alpha', 'diff-old-heading-second', 'heading-second-2'],
-            $columns->filter('.lp-review-contents .lp-review-contents__link')->each(
+            $columns->filter('.lp-review-menu__section[href^="#"]')->each(
                 static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
             ),
         );
@@ -900,10 +898,9 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         );
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $source->filter('.lp-review-contents'));
-        self::assertCount(1, $source->filter('.lp-review-rail'));
+        self::assertCount(1, $source->filter('[data-margin-panel="outline"]'));
 
-        $rows = $source->filter('.lp-review-contents .lp-review-contents__link');
+        $rows = $source->filter('[data-margin-panel="outline"] .lp-review-contents__link');
         self::assertSame(
             ['Guide', 'Removed', 'Added', 'Stable'],
             $rows->each(static fn (Crawler $link): string => $link->text()),
@@ -925,9 +922,9 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
             self::assertStringContainsString($label, $source->filter($href)->text(), $href.' names another line.');
         }
 
-        // A diff approves nothing here either, and the count is the rail's own.
+        // A diff approves nothing here either, so the count is the headings alone.
         self::assertCount(0, $source->filter('.lp-review-contents__tick'));
-        self::assertSame('4', trim($source->filter('#review-rail-sections-count')->text()));
+        self::assertSame('4', trim($source->filter('#section-summary-count')->text()));
     }
 
     /**
@@ -937,7 +934,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
      */
     private function assertContentsRowsResolve(Crawler $page): void
     {
-        $targets = $page->filter('.lp-review-contents__link')->each(
+        $targets = $page->filter('.lp-review-contents__link, .lp-review-menu__section[href^="#"]')->each(
             static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
         );
 
@@ -1005,15 +1002,12 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-doc-meta__compare', 'Comparing v1 with v2');
-        self::assertSame(
-            '/projects/'.$projectId.'/documents/'.$id.'/review',
-            $crawler->filter('.lp-doc-meta__compare-stop')->attr('href'),
+        self::assertSame('1', $crawler->filter('#diff-from option[selected]')->attr('value'));
+        self::assertSame('2', $crawler->filter('#diff-to option[selected]')->attr('value'));
+        $return = $crawler->filter('.lp-review-doc__actions a')->reduce(
+            static fn (Crawler $link): bool => str_contains($link->text(), 'Return to document'),
         );
-        self::assertSame(
-            'Stop comparing',
-            $crawler->filter('.lp-doc-meta__compare-stop')->attr('aria-label'),
-        );
+        self::assertSame('/projects/'.$projectId.'/documents/'.$id.'/review', $return->attr('href'));
         self::assertSelectorNotExists('.lp-version-banner');
     }
 
@@ -1075,7 +1069,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSame('1', $spanning->filter('#diff-from option[selected]')->attr('value'));
     }
 
-    public function test_the_side_by_side_view_pairs_blocks_and_accepts_current_version_comments(): void
+    public function test_the_side_by_side_view_pairs_blocks_and_carries_no_comment_column(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -1110,9 +1104,10 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSame(0, $cells->count() % 2);
         self::assertGreaterThan(0, $columns->filter('.lp-diff-columns__cell--void')->count());
 
-        self::assertCount(1, $columns->filter('.lp-review-margin'));
-        self::assertCount(1, $columns->filter('[data-comment-anchor-target="doc"]'));
-        self::assertCount(1, $columns->filter('[data-comment-anchor-diff-value="true"]'));
+        // The columns take the width the comment column would, so this view
+        // carries none and accepts no comment.
+        self::assertCount(0, $columns->filter('.lp-review-margin'));
+        self::assertCount(0, $columns->filter('[data-comment-anchor-target="doc"]'));
         self::assertCount(0, $columns->filter('[data-diff-side="old"] [data-diff-offset]'));
         self::assertCount(1, $columns->filter('#diff-columns-notice'));
         self::assertCount(1, $columns->filter('.lp-review-block--wide'));

@@ -4,7 +4,6 @@
         <p>{{ 'inbox.review.stale_draft'|trans }}</p>
         <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="form-draft#discard">{{ 'inbox.answer.discard_draft'|trans }}</button>
     </div>
-    <a class="lp-inbox-item__jump" href="{{ path('app_document_review', {projectId: review.item.project.id, documentId: review.document.id}) }}" data-turbo-frame="_top">{{ review.document.title }} · {{ 'inbox.review.version'|trans({'%version%': form.versionNumber.vars.value}) }}</a>
     <div class="lp-field-errors">{{ form_errors(form) }}</div>
     {{ form_widget(form.versionNumber, {type: 'hidden', attr: {'data-form-draft-target': 'guard'}}) }}
     <div class="lp-field-errors">{{ form_errors(form.versionNumber) }}</div>
@@ -19,8 +18,8 @@
     </fieldset>
     <div class="lp-form-field">
         {{ form_label(form.note, null, {label_attr: {class: 'lp-label'}}) }}
-        {{ form_widget(form.note, {attr: {class: 'lp-input', rows: 3, 'data-form-draft-target': 'text', 'data-action': 'input->form-draft#remember'}}) }}
+        {{ form_widget(form.note, {attr: {class: 'lp-input', rows: 3, 'data-form-draft-target': 'text', 'data-inbox-decline-target': 'note', 'data-action': 'input->form-draft#remember'}}) }}
         <div class="lp-field-errors">{{ form_errors(form.note) }}</div>
     </div>
-    <div class="lp-inbox-item__buttons"><button type="submit" class="lp-btn lp-btn--primary">{{ 'inbox.review.submit'|trans }}</button></div>
+    <div class="lp-inbox-item__buttons">{% include '@Inbox/_decline_button.html.twig' with {formId: declineFormId, label: declineLabel} only %}<button type="submit" class="lp-btn lp-btn--primary">{{ 'inbox.review.submit'|trans }}</button></div>
 {{ form_end(form) }}

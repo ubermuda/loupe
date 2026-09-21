@@ -350,7 +350,12 @@ for (const target of ['document', 'pull-request']) {
         ).toHaveText('Changes requested');
         await recovery.getByRole('button', { name: 'Discard draft' }).click();
         await expect(recovery).toBeHidden();
-        await expect(draftItem.getByRole('heading')).toBeFocused();
+        // A one-item ask shows its title once, as the ask's heading.
+        await expect(
+            draftPage.locator(
+                `.lp-inbox-ask:has(#inbox-item-${number}) .lp-inbox-ask__title`,
+            ),
+        ).toBeFocused();
         await expect(draftItem.locator('[data-inbox-response]')).toContainText(
             'Explain retries before implementation.',
         );
@@ -461,7 +466,12 @@ test('an unavailable pull request keeps its unsent review recoverable', async ({
     ).toHaveCount(0);
     await recovery.getByRole('button', { name: 'Discard draft' }).click();
     await expect(recovery).toBeHidden();
-    await expect(item.getByRole('heading')).toBeFocused();
+    // A one-item ask shows its title once, as the ask's heading.
+    await expect(
+        page.locator(
+            `.lp-inbox-ask:has(#inbox-item-${number}) .lp-inbox-ask__title`,
+        ),
+    ).toBeFocused();
 });
 
 for (const surface of ['page', 'drawer']) {
@@ -573,50 +583,23 @@ for (const surface of ['page', 'drawer']) {
         await expect(question.locator('[data-inbox-response]')).toContainText(
             'The importer reads CSV.',
         );
-        const replyDraft = question.getByLabel('Reply to this thread');
-        await replyDraft.fill('Keep the existing column order.');
-        await page.route(
-            '**/inbox/items/*/reply*',
-            async (route) => {
-                await route.fetch();
-                await route.abort('failed');
-            },
-            { times: 1 },
-        );
-        await question.getByRole('button', { name: 'Post reply' }).click();
-        await expect(question.getByRole('alert')).toContainText(
-            'Your reply could not be confirmed.',
-        );
-        await expect(replyDraft).toHaveValue('Keep the existing column order.');
-        await question.getByRole('button', { name: 'Post reply' }).click();
-        await expect(question.locator('[data-inbox-reply]')).toHaveCount(1);
-        await expect(question.locator('[data-inbox-reply]')).toContainText(
-            'Keep the existing column order.',
-        );
-        await expect(page).toHaveURL(
-            surface === 'drawer' ? boardUrl : `${cardUrl}?tab=conversation`,
-        );
-        await question.locator('.lp-inbox-decline__summary').click();
+        // Decline carries whatever stands in the item's own answer field.
         await question
-            .getByLabel('A note for the agent (optional)')
+            .getByLabel('Your answer')
             .fill('Wait for the new importer.');
         if (surface === 'drawer') {
             await drawer.getByRole('link', { name: 'Close card' }).click();
             await expect(drawer).toBeHidden();
             await page.getByRole('link', { name: /Ship the export/ }).click();
             await drawer.getByRole('tab', { name: 'Conversation' }).click();
-            await expect(
-                question.getByLabel('A note for the agent (optional)'),
-            ).toBeVisible();
-            await expect(
-                question.getByLabel('A note for the agent (optional)'),
-            ).toHaveValue('Wait for the new importer.');
+            await expect(question.getByLabel('Your answer')).toBeVisible();
+            await expect(question.getByLabel('Your answer')).toHaveValue(
+                'Wait for the new importer.',
+            );
         }
-        await question
-            .getByRole('button', { name: 'Decline this item' })
-            .click();
+        await question.getByRole('button', { name: 'Close this item' }).click();
         await expect(page.locator('.lp-flash')).toContainText(
-            `Item ${questionNumber} is declined.`,
+            `Item ${questionNumber} is closed.`,
         );
         await expect(question.locator('[data-inbox-response]')).toContainText(
             'Wait for the new importer.',
@@ -638,12 +621,9 @@ for (const surface of ['page', 'drawer']) {
         await page.goto(
             `/projects/${projectId}/inbox#inbox-item-${questionNumber}`,
         );
-        const inboxReply = page.locator(
-            `#inbox-item-${questionNumber} [data-inbox-reply]`,
-        );
-        await expect(inboxReply).toHaveCount(1);
-        await expect(inboxReply).toContainText(
-            'Keep the existing column order.',
-        );
+        // The decline replaced the answer, and the inbox reads the same record.
+        await expect(
+            page.locator(`#inbox-item-${questionNumber} [data-inbox-response]`),
+        ).toContainText('Wait for the new importer.');
     });
 }

@@ -10,6 +10,7 @@ use App\Module\OAuth\ClientMetadata\ClientMetadataFetcher;
 use App\Module\OAuth\ClientMetadata\ClientMetadataRefused;
 use App\Module\OAuth\ClientMetadata\FetchedClientMetadata;
 use App\Module\OAuth\ClientMetadata\FetchedIcon;
+use App\Module\OAuth\ClientMetadata\TrustedClientIds;
 use App\Module\OAuth\Entity\ClientMetadataDocument;
 use App\Module\OAuth\Repository\ClientMetadataDocumentRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -38,12 +39,16 @@ final readonly class RegisterClientMetadataDocumentHandler
 {
     public function __construct(
         private ClientMetadataFetcher $fetcher,
+        private TrustedClientIds $trustedClientIds,
         private ClientMetadataDocumentRepository $clientMetadataDocuments,
         private ClientManagerInterface $clients,
         private EntityManagerInterface $em,
 
         #[Autowire(service: 'limiter.oauth_client_metadata_fetch')]
         private RateLimiterFactoryInterface $limiter,
+
+        #[Autowire(service: 'limiter.oauth_client_metadata_fetch_global')]
+        private RateLimiterFactoryInterface $globalLimiter,
         private ClockInterface $clock,
         private Auditor $auditor,
     ) {
@@ -57,20 +62,23 @@ final readonly class RegisterClientMetadataDocumentHandler
             return;
         }
 
-        if (!$this->limiter->create('user:'.$command->user->id?->toRfc4122())->consume()->isAccepted()) {
+        if (!$this->globalLimiter->create('oauth_client_metadata')->consume()->isAccepted()
+            || !$this->limiter->create('user:'.$command->user->id?->toRfc4122())->consume()->isAccepted()) {
             throw new OAuthServerException('Too many client metadata fetches. Try again later.', 0, 'temporarily_unavailable', 429);
         }
 
         try {
-            $fetched = $this->fetcher->fetch($url);
+            $ip = $this->fetcher->vettedAddress($url);
+            $fetched = $this->fetcher->fetch($url, $ip);
         } catch (ClientMetadataRefused $e) {
             $this->auditor->record('oauth.client_metadata_refused', AuditOutcome::Refused, ['url' => $url->url, 'reason' => $e->getMessage()], new AuditSubject('oauth_client', $url->identifier));
 
             throw self::invalidClient($e->getMessage());
         }
 
-        // After the document, because a missing icon must not refuse the client.
-        $icon = $this->fetcher->fetchIcon($url);
+        // Only for a client the operator vouches for: an icon from a shared
+        // host would dress an attacker's document in that host's brand.
+        $icon = $this->trustedClientIds->isTrusted($url) ? $this->fetcher->fetchIcon($url, $ip) : null;
 
         $this->em->wrapInTransaction(function () use ($url, $fetched, $icon): void {
             $this->clientMetadataDocuments->lockForRegistration($url->identifier);

@@ -201,7 +201,7 @@ Roughly in the order an agent uses them:
 | `tag_list` | The project's existing tag vocabulary |
 | `series_list` | The project's series, each with its document count and highest position |
 | `series_rename` | Rename a series; every document in it keeps its position |
-| `site_review_get` | Widget comments, their page context, and replies written in Loupe |
+| `site_review_get` | Widget comments and their page context |
 | `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
 | `card_create` | Put a card on the project board (off by default — see below) |
 | `card_list` | Read a page of the board, filtered by status, type or reporter, with the board's columns |
@@ -429,10 +429,6 @@ The target document or PR card is linked automatically, alongside any context li
 It is null for other item kinds. An unanswered review has a null verdict.
 `review.withdrawal` separately records a document verdict withdrawal without changing the completed answer.
 PR results stay in Loupe and do not submit a code-host review.
-
-`inbox_get` also returns `replies`, ordered from oldest to newest.
-Each reply contains `replyId`, `authorId`, `authorName`, `body`, and `createdAt`.
-Replies add context without changing the recorded answer or triggering another resume.
 
 Every card id and document id an item links to must belong to the token's
 project, or the call is refused. An item closes as `obsolete` when every card it

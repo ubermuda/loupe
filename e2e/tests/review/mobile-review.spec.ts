@@ -29,7 +29,6 @@ const ACTIVE_THREAD = '.lp-comment-thread.lp-comment-thread--active';
 const MARGIN = '.lp-review-margin';
 const MENU_TRIGGER = '.lp-review-menu__trigger';
 const MENU_ROW = '.lp-review-menu__row';
-const IN_PAGE_RESOLVED = '.lp-review-actions__resolved';
 
 const PHONE = { width: 375, height: 812 };
 const DESKTOP = { width: 1440, height: 900 };
@@ -367,8 +366,10 @@ test('phone readers can open document details from the margin tabs', async ({
     await detailsTab.click();
     const details = page.locator('#review-margin-panel-details');
     await expect(details).toBeVisible();
-    await expect(details).toContainText('No linked board card is available');
-    await expect(details).toContainText('Tags');
+    // The panel lists only what the document has, and this one has nothing.
+    await expect(details).toContainText(
+        'Nothing is linked to this document yet.',
+    );
     await expect(
         page.getByLabel('Filter comments', { exact: true }),
     ).toBeHidden();
@@ -597,20 +598,19 @@ test('hiding resolved cards leaves the document text unchanged', async ({
     await postComment(page);
     await expectThreadVisible(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
-    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
+    await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
         timeout: coverageScaled(10000),
     });
-    // Above lg the action row keeps its own toggle, and it is the only one:
-    // the review menu does not exist at this width.
-    await expect(page.locator(IN_PAGE_RESOLVED)).toBeVisible();
-
     await givePhoneWidthReadingArea(page);
     await expect(page.locator(MARGIN)).toBeVisible();
     const proseBefore = await page.locator(DOC).textContent();
 
-    // Below lg the review menu carries the only resolved toggle. The row is
-    // revealed once a thread resolves, and it closes the menu as it fires.
-    await expect(page.locator(IN_PAGE_RESOLVED)).toBeHidden();
+    // Below lg the review menu carries the resolved toggle. Open is the
+    // default view, so the row offers to show the resolved card, and hiding it
+    // again must leave the prose exactly as it was.
+    await page.locator(MENU_TRIGGER).click();
+    await page.locator(MENU_ROW, { hasText: 'Show resolved' }).click();
+    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible();
     await page.locator(MENU_TRIGGER).click();
     await page.locator(MENU_ROW, { hasText: 'Hide resolved' }).click();
 
@@ -619,7 +619,7 @@ test('hiding resolved cards leaves the document text unchanged', async ({
     await expect(page.locator(DOC).locator(THREAD)).toHaveCount(0);
 });
 
-test('the action row still hides resolved threads above lg', async ({
+test('the margin filter still hides resolved threads above lg', async ({
     page,
 }) => {
     await page.setViewportSize(DESKTOP);
@@ -627,14 +627,19 @@ test('the action row still hides resolved threads above lg', async ({
     await expectThreadVisible(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
     const resolved = page.locator('.lp-comment-thread--resolved');
-    await expect(resolved).toBeVisible({ timeout: coverageScaled(10000) });
+    await expect(resolved).toHaveCount(1, { timeout: coverageScaled(10000) });
 
     // The review menu is the phone copy of this control, so the desktop one
-    // has to keep working on its own.
+    // has to keep working on its own. Open is the default, so the card is
+    // already out of the column.
     await expect(page.locator(MENU_TRIGGER)).toBeHidden();
-    await page.locator(IN_PAGE_RESOLVED).click();
     await expect(resolved).toBeHidden();
-
-    await page.locator(IN_PAGE_RESOLVED).click();
+    const filter = page.locator('[data-review-margin-target="filter"]');
+    await filter.locator('summary').click();
+    await filter.getByRole('button', { name: /^All/ }).click();
     await expect(resolved).toBeVisible();
+
+    await filter.locator('summary').click();
+    await filter.getByRole('button', { name: /^Open/ }).click();
+    await expect(resolved).toBeHidden();
 });

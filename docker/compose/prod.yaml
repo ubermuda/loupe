@@ -78,6 +78,7 @@ x-app-environment: &app-environment
   # Must list the instance's real hostname or every MCP call is rejected by the
   # DNS-rebinding guard.
   MCP_ALLOWED_HOSTS: "${MCP_ALLOWED_HOSTS:?set it in docker/compose/prod.env to the instance's hostname}"
+  OAUTH_TRUSTED_CLIENT_IDS: "${OAUTH_TRUSTED_CLIENT_IDS:-https://claude.ai/oauth/claude-code-client-metadata}"
   # Gates the first-run install wizard, which fails closed in production: with no
   # token /install returns 404 and there is no way to create the first
   # administrator.

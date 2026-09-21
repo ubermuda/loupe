@@ -1,36 +1,77 @@
-import { Controller } from '@hotwired/stimulus';
+import ModalController from './modal_controller.js';
+import { prefersReducedMotion } from '../lib/smooth_scroll.js';
 
 /* stimulusFetch: 'eager' */
-export default class extends Controller {
+export default class extends ModalController {
     static targets = ['dialog', 'frame', 'loading', 'error'];
+    static values = {
+        reopen: Boolean,
+        drawer: { type: Boolean, default: true },
+        // The board, or the list behind it, stays usable while a card is open.
+        modeless: { type: Boolean, default: true },
+    };
 
     connect() {
+        super.connect();
         this.invoker = null;
+        this.focusFrameOnLoad = false;
         this.onBeforeCache = () => this.#reset();
         document.addEventListener('turbo:before-cache', this.onBeforeCache);
     }
 
     disconnect() {
+        super.disconnect();
         document.removeEventListener('turbo:before-cache', this.onBeforeCache);
     }
 
+    dialogTargetConnected(dialog) {
+        super.dialogTargetConnected(dialog);
+        dialog.addEventListener('close', this.#onClosed);
+    }
+
+    dialogTargetDisconnected(dialog) {
+        super.dialogTargetDisconnected(dialog);
+        dialog.removeEventListener('close', this.#onClosed);
+    }
+
+    /** A card link keeps its own click, which Turbo turns into the frame load. */
     prepare(event) {
         this.invoker = event.currentTarget;
         this.#startLoading();
         if (!this.dialogTarget.open) {
-            this.dialogTarget.showModal();
+            this.open();
         }
+        this.returnFocusTo = this.invoker;
     }
 
     loaded(event) {
         if (event.target !== this.frameTarget || !this.dialogTarget.open)
             return;
+        const replacing = this.frameTarget.hidden === false;
         this.loadingTarget.hidden = true;
         this.errorTarget.hidden = true;
         this.frameTarget.hidden = false;
-        const focusTarget = this.frameTarget.querySelector(
-            '[data-panel-tabs-target="tab"][aria-selected="true"], a, button',
-        );
+        if (replacing && !prefersReducedMotion()) {
+            this.frameTarget.animate?.([{ opacity: 0 }, { opacity: 1 }], {
+                duration: 150,
+                easing: 'ease',
+            });
+        }
+        const opening = this.focusFrameOnLoad;
+        this.focusFrameOnLoad = false;
+        // A reader who already works in the new content keeps their focus.
+        if (this.frameTarget.contains(document.activeElement)) return;
+        // A form in the frame re-renders it too, and the drawer is modeless, so
+        // work outside it is real work. Take only focus the render dropped.
+        const active = document.activeElement;
+        if (!opening && active && active !== document.body) return;
+        // A flash renders above the header, so it holds the frame's first
+        // button and would take the focus the card's own content deserves.
+        const focusTarget = [
+            ...this.frameTarget.querySelectorAll(
+                'form input:not([type="hidden"]), [data-panel-tabs-target="tab"][aria-selected="true"], a, button',
+            ),
+        ].find((candidate) => !candidate.closest('.lp-flash'));
         focusTarget?.focus();
     }
 
@@ -52,48 +93,60 @@ export default class extends Controller {
 
     retry() {
         this.#startLoading();
-        this.loadingTarget.querySelector('button').focus();
+        // The loading state carries no control, so the status takes the focus
+        // the hidden Retry button had.
+        this.loadingTarget.focus();
         this.frameTarget.reload();
     }
 
+    /** The board listens for card-drawer:saved, so a created or edited card shows on it at once. */
+    submitted(event) {
+        if (!event.detail.success) return;
+        if (!event.target.closest?.('[data-card-drawer-saves-card]')) return;
+        this.dispatch('saved');
+    }
+
+    close(event) {
+        if (!this.dialogTarget.open) return;
+        super.close(event);
+    }
+
+    restoreFocus() {
+        this.#repairReturnFocus();
+        super.restoreFocus();
+        this.invoker = null;
+    }
+
     #startLoading() {
+        this.focusFrameOnLoad = true;
         this.loadingTarget.hidden = false;
         this.errorTarget.hidden = true;
         this.frameTarget.hidden = true;
     }
 
-    cancel(event) {
-        event.preventDefault();
-        this.close(event);
-    }
-
-    backdropClick(event) {
-        if (event.target === this.dialogTarget) {
-            this.close(event);
+    // A board reload replaces the link that opened the drawer; its twin keeps the place.
+    #repairReturnFocus() {
+        const href = this.invoker?.getAttribute('href');
+        if (href && !this.returnFocusTo?.isConnected) {
+            this.returnFocusTo = [
+                ...this.element.querySelectorAll('a[href]'),
+            ].find((link) => link.getAttribute('href') === href);
         }
     }
 
-    close(event) {
-        event?.preventDefault();
-        if (!this.dialogTarget.open) {
-            return;
-        }
-
-        const returnTarget = this.invoker;
-        this.#reset();
-        if (returnTarget?.isConnected) {
-            returnTarget.focus();
-        }
-    }
+    #onClosed = () => {
+        this.focusFrameOnLoad = false;
+        this.loadingTarget.hidden = false;
+        this.errorTarget.hidden = true;
+        this.frameTarget.removeAttribute('src');
+        this.frameTarget.replaceChildren();
+    };
 
     #reset() {
         if (this.dialogTarget.open) {
             this.dialogTarget.close();
         }
-        this.loadingTarget.hidden = false;
-        this.errorTarget.hidden = true;
-        this.frameTarget.removeAttribute('src');
-        this.frameTarget.replaceChildren();
+        this.#onClosed();
         this.invoker = null;
     }
 }

@@ -1,47 +1,78 @@
 <div class="lp-review-doc__head">
-    <div class="lp-review-doc__title-row">
+    <div class="lp-review-doc__heading">
+    <div class="lp-review-doc__identity">
         <a class="lp-review-doc__back" href="{{ path('app_project_documents', {id: document.project.id}) }}"
-           aria-label="{{ 'review.document.navigation.back'|trans }}">
+           aria-label="{{ 'review.document.navigation.back'|trans }}"
+           title="{{ 'review.document.navigation.back'|trans }}">
             <twig:ux:icon name="lucide:arrow-left" />
         </a>
-        <h1 class="lp-review-doc__title" id="review-document-title">{{ document.title }}</h1>
-        <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
-        {% if showDocumentActions %}
-        <div class="lp-review-doc__actions">
-            {% include '@Review/_revise_document.html.twig' with {form: reviseDocumentForm, document: document} only %}
-            {% if document.status.value in ['draft', 'in-review'] %}
-            <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">
-                {{ 'review.document.finish.title'|trans }}
-            </button>
-            {% endif %}
+        <div class="lp-review-doc__identity-text">
+            <div class="lp-review-doc__title-row">
+                <h1 class="lp-review-doc__title" id="review-document-title">{{ document.title }}</h1>
+                <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
+            </div>
+            <div class="lp-review-doc__byline">
+                <span class="lp-badge lp-badge--{{ document.status.value }}">{{ ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans }}</span>
+                <span class="lp-review-doc__middot" aria-hidden="true">·</span>
+                <span class="lp-review-doc__author">
+                    <span class="lp-review-doc__avatar" aria-hidden="true">{{ document.owner.fullName|first|upper }}</span>
+                    {{ document.owner.fullName }}
+                </span>
+                <span class="lp-review-doc__middot" aria-hidden="true">·</span>
+                <span>{{ 'review.document.byline_updated'|trans({'%updated%': version.createdAt|relative_time}) }}</span>
+                {% if totalSections is not null %}
+                <span class="lp-review-doc__middot" aria-hidden="true">·</span>
+                <span id="section-byline-count">{{ 'review.document.sections.progress'|trans({
+                    '%approved%': approvedSections,
+                    '%total%': totalSections,
+                }) }}</span>
+                {% endif %}
+            </div>
         </div>
+    </div>
+    {% if showDocumentActions or canComment or returnToDocument %}
+    <div class="lp-review-doc__actions">
+        {% if canComment %}
+        <button type="button" class="lp-btn lp-btn--ghost" data-action="comment-anchor#startUntargeted">
+            <twig:ux:icon name="lucide:message-square-plus" />
+            {{ 'review.document.comment.untargeted'|trans }}
+        </button>
+        {% endif %}
+        {% if returnToDocument %}
+        <a class="lp-btn" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
+            <twig:ux:icon name="lucide:file-text" />
+            {{ 'review.document.diff.return'|trans }}
+        </a>
+        {% endif %}
+        {% if showDocumentActions %}
+        {% include '@Review/_revise_document.html.twig' with {form: reviseDocumentForm, document: document} only %}
+        {% if document.status.value in ['draft', 'in-review'] %}
+        <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">
+            <twig:ux:icon name="lucide:check" />
+            {{ 'review.document.finish.title'|trans }}
+        </button>
+        {% endif %}
         {% endif %}
     </div>
-    <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({
-        '%status%': ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans,
-        '%version%': version.versionNumber,
-        '%author%': document.owner.fullName,
-        '%updated%': version.createdAt|relative_time,
-    }) }} · <span id="section-byline-count">{{ 'review.document.sections.progress'|trans({
-        '%approved%': approvedSections,
-        '%total%': totalSections,
-    }) }}</span></p>
+    {% endif %}
+    </div>
     <div class="lp-review-workspace-nav">
-    <nav class="lp-review-view-tabs" aria-label="{{ 'review.document.navigation.label'|trans }}">
-        <a class="lp-review-view-tabs__item" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"
-           {% if activeView == 'document' %}aria-current="page"{% endif %}>{{ 'review.document.navigation.document'|trans }}</a>
+    <nav class="lp-tabs" aria-label="{{ 'review.document.navigation.label'|trans }}">
+        <a class="lp-tabs__tab" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"
+           {% if activeView == 'document' %}aria-current="page"{% endif %}><twig:ux:icon name="lucide:file-text" />{{ 'review.document.navigation.document'|trans }}</a>
         {% if versionCount > 1 %}
-        <a class="lp-review-view-tabs__item" href="{{ path('app_document_review_diff', {
+        <a class="lp-tabs__tab" href="{{ path('app_document_review_diff', {
             projectId: document.project.id,
             documentId: document.id,
             fromVersionNumber: version.versionNumber > 1 ? version.versionNumber - 1 : 1,
             toVersionNumber: version.versionNumber > 1 ? version.versionNumber : 2,
-        }) }}" {% if activeView == 'diff' %}aria-current="page"{% endif %}>{{ 'review.document.navigation.diff'|trans }}</a>
+        }) }}" {% if activeView == 'diff' %}aria-current="page"{% endif %}><twig:ux:icon name="lucide:git-compare" />{{ 'review.document.navigation.diff'|trans }}</a>
         {% endif %}
-        <a class="lp-review-view-tabs__item" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}" {% if activeView == 'history' %}aria-current="page"{% endif %}>{{ 'review.document.navigation.history'|trans }}</a>
+        <a class="lp-tabs__tab" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}" {% if activeView == 'history' %}aria-current="page"{% endif %}><twig:ux:icon name="lucide:history" />{{ 'review.document.navigation.history'|trans }}</a>
     </nav>
     {% if showMarginControls %}
     <div class="lp-review-margin-tabs">
+        {% if 'comments' in marginTabs %}
         <details class="lp-review-margin-filter" data-review-margin-target="filter" data-action="keydown.esc->review-margin#closeFilter">
             <summary class="lp-review-margin-tabs__item lp-review-margin-tabs__item--icon"
                      aria-label="{{ 'review.document.margin.filter'|trans }}"
@@ -50,33 +81,34 @@
             </summary>
             <div class="lp-review-margin-filter__menu">
                 {% for filterName in ['open', 'resolved', 'unanchored', 'all'] %}
-                <button type="button" data-review-margin-target="option" data-review-margin-filter-param="{{ filterName }}" data-action="review-margin#filter" aria-pressed="{{ filterName == 'all' ? 'true' : 'false' }}">{{ ('review.document.margin.filter_' ~ filterName)|trans }} <span data-filter-count>0</span></button>
+                <button type="button" data-review-margin-target="option" data-review-margin-filter-param="{{ filterName }}" data-action="review-margin#filter" aria-pressed="{{ filterName == 'open' ? 'true' : 'false' }}">{{ ('review.document.margin.filter_' ~ filterName)|trans }} <span data-filter-count>0</span></button>
                 {% endfor %}
             </div>
         </details>
+        {% endif %}
         <div class="lp-review-margin-tablist" role="tablist" aria-label="{{ 'review.document.margin.label'|trans }}">
-        {% for marginTab in [
-            {name: 'comments', icon: 'lucide:message-square'},
-            {name: 'outline', icon: 'lucide:list-tree'},
-            {name: 'decisions', icon: 'lucide:circle-help'},
-            {name: 'details', icon: 'lucide:info'},
-        ] %}
+        {% for marginTab in marginTabs %}
+        {# A tab with nothing behind it stays in the row and says why, so the
+           row keeps its shape between the document and a comparison. #}
+        {% set tabReason = marginTabReasons[marginTab]|default(null) %}
         <button type="button" role="tab"
-                id="review-margin-tab-{{ marginTab.name }}"
-                aria-controls="review-margin-panel-{{ marginTab.name }}"
+                id="review-margin-tab-{{ marginTab }}"
+                aria-controls="review-margin-panel-{{ marginTab }}"
                 tabindex="{{ loop.first ? '0' : '-1' }}"
-                class="lp-review-margin-tabs__item{{ loop.first ? ' lp-review-margin-tabs__item--active' }}"
+                class="lp-review-margin-tabs__item{{ loop.first ? ' lp-review-margin-tabs__item--active' }}{{ tabReason ? ' lp-review-margin-tabs__item--disabled' }}"
                 aria-selected="{{ loop.first ? 'true' : 'false' }}"
-                aria-label="{{ ('review.document.margin.' ~ marginTab.name)|trans }}"
-                title="{{ ('review.document.margin.' ~ marginTab.name)|trans }}"
+                {% if tabReason %}aria-disabled="true"{% endif %}
+                aria-label="{{ ('review.document.margin.' ~ marginTab)|trans }}"
+                title="{{ tabReason ? tabReason|trans : ('review.document.margin.' ~ marginTab)|trans }}"
                 data-review-margin-target="tab"
-                data-review-margin-name-param="{{ marginTab.name }}"
+                data-review-margin-name-param="{{ marginTab }}"
                 data-action="click->review-margin#select keydown->review-margin#navigate">
-            {% if marginTab.name == 'comments' %}<twig:ux:icon name="lucide:message-square" />{% endif %}
-            {% if marginTab.name == 'outline' %}<twig:ux:icon name="lucide:list-tree" />{% endif %}
-            {% if marginTab.name == 'decisions' %}<twig:ux:icon name="lucide:circle-help" />{% endif %}
-            {% if marginTab.name == 'details' %}<twig:ux:icon name="lucide:info" />{% endif %}
-            <span>{{ ('review.document.margin.' ~ marginTab.name)|trans }}</span>
+            {% if marginTab == 'comments' %}<twig:ux:icon name="lucide:message-square" />{% endif %}
+            {% if marginTab == 'outline' %}<twig:ux:icon name="lucide:list" />{% endif %}
+            {% if marginTab == 'decisions' %}<twig:ux:icon name="lucide:clipboard-check" />{% endif %}
+            {% if marginTab == 'details' %}<twig:ux:icon name="lucide:file-text" />{% endif %}
+            <span>{{ ('review.document.margin.' ~ marginTab)|trans }}</span>
+            {% if marginTab == 'comments' and commentCount is not null %}<span class="lp-review-margin-tabs__count" data-review-margin-target="count">{{ commentCount }}</span>{% endif %}
         </button>
         {% endfor %}
         </div>

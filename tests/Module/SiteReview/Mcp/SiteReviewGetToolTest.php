@@ -8,13 +8,11 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
-use App\Module\SiteReview\Entity\SiteReviewReply;
 use App\Module\SiteReview\Mcp\SiteReviewGetTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Uid\Uuid;
 
 final class SiteReviewGetToolTest extends KernelTestCase
 {
@@ -102,22 +100,14 @@ final class SiteReviewGetToolTest extends KernelTestCase
         }
     }
 
-    public function test_replies_keep_their_author_and_comment_identity(): void
+    public function test_a_comment_carries_no_replies_field(): void
     {
-        [$project, $comments] = $this->projectWithPendingComments('site-replies-mcp@example.com');
-        $reply = new SiteReviewReply($comments[0], $project->owner, 'Additional context.', Uuid::v4());
-        $this->em->persist($reply);
-        $this->em->flush();
+        [$project] = $this->projectWithPendingComments('site-replies-mcp@example.com');
         $this->actAsMcpTokenBoundTo($project);
+
         $result = ($this->tool)();
-        self::assertSame([[
-            'id' => (string) $reply->id,
-            'authorId' => (string) $project->owner->id,
-            'authorName' => $project->owner->fullName,
-            'body' => 'Additional context.',
-            'createdAt' => $reply->createdAt->format(\DATE_ATOM),
-        ]], $result['comments'][0]['replies']);
-        self::assertSame([], $result['comments'][1]['replies']);
+
+        self::assertArrayNotHasKey('replies', $result['comments'][0]);
     }
 
     public function test_a_comment_reports_its_anchors_and_no_scalar_selector(): void

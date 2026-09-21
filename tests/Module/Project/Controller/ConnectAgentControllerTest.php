@@ -148,7 +148,7 @@ final class ConnectAgentControllerTest extends WebTestCase
         // to put in it, so none of it is shown until one exists: no endpoint field,
         // no .mcp.json snippet, no tool list.
         self::assertCount(0, $crawler->filter('.lp-connect-field__value'));
-        self::assertCount(0, $crawler->filter('.lp-code-dark'));
+        self::assertCount(0, $crawler->filter('#agent-connection .lp-code-dark'));
         self::assertCount(0, $crawler->filter('.lp-tools__name'));
     }
 
@@ -196,9 +196,8 @@ final class ConnectAgentControllerTest extends WebTestCase
         self::assertNotEmpty(array_filter($fieldValues, static fn (string $value): bool => str_contains($value, '/mcp')));
 
         // The three copyable configurations the token unlocks: the plugin install,
-        // the CLI one-liner, and the .mcp.json block. The widget step has no token
-        // here, so its snippet is not among them.
-        self::assertCount(3, $crawler->filter('.lp-code-dark'));
+        // the CLI one-liner, and the .mcp.json block.
+        self::assertCount(3, $crawler->filter('#agent-connection .lp-code-dark'));
 
         // Each sits behind its own disclosure, and every one of them starts shut:
         // the step opens as a list of choices, not three stacked code blocks.
@@ -295,7 +294,7 @@ final class ConnectAgentControllerTest extends WebTestCase
         // The rest of the step still renders, so the fallback is a working page
         // rather than one that stopped short of the token row.
         self::assertGreaterThanOrEqual(1, $crawler->filter('form[action*="/revoke"]')->count());
-        self::assertCount(3, $crawler->filter('.lp-code-dark'));
+        self::assertCount(3, $crawler->filter('#agent-connection .lp-code-dark'));
     }
 
     public function test_non_owner_is_denied(): void
