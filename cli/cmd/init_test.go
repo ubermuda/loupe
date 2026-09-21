@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/mcpjson"
 	"github.com/ubermuda/loupe/cli/internal/projectfile"
 )
 
@@ -200,5 +201,166 @@ func TestInitRefusesToReplaceAMalformedFileWithoutForce(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "--force") {
 		t.Fatalf("error must say how to replace it, got %v", err)
+	}
+}
+
+// mcpState reads what .mcp.json in dir says about the loupe server.
+func mcpState(t *testing.T, dir string) mcpjson.State {
+	t.Helper()
+	state, _, err := mcpjson.Read(dir)
+	if err != nil {
+		t.Fatalf("mcpjson.Read: %v", err)
+	}
+
+	return state
+}
+
+func TestInitWritesTheMcpEntryWhenAskedByFlag(t *testing.T) {
+	dir := inRepo(t, "")
+
+	out, err := runInit(t, "", "--project", firstProject, "--mcp")
+	if err != nil {
+		t.Fatalf("init --mcp: %v", err)
+	}
+	if got := mcpState(t, dir); mcpjson.Current != got {
+		t.Fatalf("mcp state: got %v, want Current. Output was %q", got, out)
+	}
+}
+
+func TestInitLeavesTheMcpFileAloneWhenTold(t *testing.T) {
+	dir := inRepo(t, "")
+
+	// A yes on stdin, so an ignored --no-mcp writes the file rather than
+	// falling through to a prompt nobody answers.
+	if _, err := runInit(t, "y\n", "--project", firstProject, "--no-mcp"); err != nil {
+		t.Fatalf("init --no-mcp: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, mcpjson.Name)); !os.IsNotExist(err) {
+		t.Fatalf("--no-mcp must write no %s, stat gave %v", mcpjson.Name, err)
+	}
+}
+
+// A script pipes stdin, so nothing answers the prompt. Writing a file the
+// script never asked for is the failure to avoid.
+func TestInitLeavesTheMcpFileAloneWhenNobodyAnswers(t *testing.T) {
+	dir := inRepo(t, "")
+
+	if _, err := runInit(t, "", "--project", firstProject); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, mcpjson.Name)); !os.IsNotExist(err) {
+		t.Fatalf("an unanswered prompt must write no %s, stat gave %v", mcpjson.Name, err)
+	}
+}
+
+func TestInitWritesTheMcpEntryWhenTheAnswerIsYes(t *testing.T) {
+	dir := inRepo(t, "")
+
+	if _, err := runInit(t, "y\n", "--project", firstProject); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if got := mcpState(t, dir); mcpjson.Current != got {
+		t.Fatalf("mcp state: got %v, want Current", got)
+	}
+}
+
+func TestInitLeavesTheMcpFileAloneWhenTheAnswerIsNo(t *testing.T) {
+	dir := inRepo(t, "")
+
+	out, err := runInit(t, "n\n", "--project", firstProject)
+	if err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, mcpjson.Name)); !os.IsNotExist(err) {
+		t.Fatalf("a no must write no %s, stat gave %v", mcpjson.Name, err)
+	}
+	if !strings.Contains(out, "--mcp") {
+		t.Fatalf("output must say how to write it later, got %q", out)
+	}
+}
+
+func TestInitKeepsAnotherServerWhenItWritesTheMcpEntry(t *testing.T) {
+	dir := inRepo(t, "")
+	body := `{"mcpServers":{"other":{"command":"other","args":["serve"]}}}`
+	if err := os.WriteFile(filepath.Join(dir, mcpjson.Name), []byte(body), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	if _, err := runInit(t, "", "--project", firstProject, "--mcp"); err != nil {
+		t.Fatalf("init --mcp: %v", err)
+	}
+
+	written, err := os.ReadFile(filepath.Join(dir, mcpjson.Name))
+	if err != nil {
+		t.Fatalf("read %s: %v", mcpjson.Name, err)
+	}
+	if !strings.Contains(string(written), `"other"`) {
+		t.Fatalf("init dropped the other server, file is %s", written)
+	}
+}
+
+func TestInitSaysNothingToDoWhenTheEntryIsAlreadyThere(t *testing.T) {
+	dir := inRepo(t, "")
+	if err := mcpjson.Write(dir); err != nil {
+		t.Fatalf("mcpjson.Write: %v", err)
+	}
+
+	out, err := runInit(t, "", "--project", firstProject)
+	if err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if !strings.Contains(out, "already starts") {
+		t.Fatalf("output must say the entry is already there, got %q", out)
+	}
+}
+
+// The message printed when somebody declines the offer tells them to run this.
+// It must reach the offer rather than stopping at the existing project file.
+func TestInitWithMcpOnAnInitialisedRepositoryWritesTheEntry(t *testing.T) {
+	dir := inRepo(t, "")
+	if err := projectfile.Write(dir, firstProject); err != nil {
+		t.Fatalf("projectfile.Write: %v", err)
+	}
+
+	if _, err := runInit(t, "", "--mcp"); err != nil {
+		t.Fatalf("init --mcp on an initialised repository: %v", err)
+	}
+	if got := mcpState(t, dir); mcpjson.Current != got {
+		t.Fatalf("mcp state: got %v, want Current", got)
+	}
+
+	file, err := projectfile.Load(dir)
+	if err != nil {
+		t.Fatalf("projectfile.Load: %v", err)
+	}
+	if file.Project != firstProject {
+		t.Fatalf("Project: got %q, want the file left alone", file.Project)
+	}
+}
+
+func TestMcpAndNoMcpTogetherAreRefused(t *testing.T) {
+	inRepo(t, "")
+
+	if _, err := runInit(t, "", "--project", firstProject, "--mcp", "--no-mcp"); err == nil {
+		t.Fatal("init --mcp --no-mcp: got no error")
+	}
+}
+
+func TestConfirmReadsTheAnswer(t *testing.T) {
+	for answer, want := range map[string]bool{
+		"\n":     true,
+		"y\n":    true,
+		"Y\n":    true,
+		"yes\n":  true,
+		"n\n":    false,
+		"N\n":    false,
+		"no\n":   false,
+		"":       false,
+		"what\n": false,
+	} {
+		var out bytes.Buffer
+		if got := confirm(&out, strings.NewReader(answer), "Add it?"); got != want {
+			t.Errorf("confirm(%q): got %v, want %v", answer, got, want)
+		}
 	}
 }

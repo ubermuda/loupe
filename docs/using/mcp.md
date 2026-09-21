@@ -109,8 +109,8 @@ cd ~/code/my-project
 loupe init                   # writes .loupe.yaml, choosing from your projects
 ```
 
-Then point the agent at the command. For Claude Code, a committed `.mcp.json`
-in the repository:
+`loupe init` then offers to name the command in `.mcp.json`, which is what makes
+an agent in this repository start it. Answer yes and the file gets this entry:
 
 ```json
 {
@@ -119,6 +119,15 @@ in the repository:
   }
 }
 ```
+
+Every other server already in the file is kept, and so is every other top-level
+key. An entry under `loupe` that says something else is shown to you before it
+is replaced.
+
+Pass `--mcp` or `--no-mcp` to answer without being asked, which a script must
+do, because an unanswered prompt leaves the file alone. `loupe init --mcp` in a
+repository that already has a `.loupe.yaml` writes `.mcp.json` alone, so you can
+say no now and change your mind later.
 
 The file holds no credential, so committing it is safe. `.loupe.yaml` holds the
 project id, which is not a secret either.

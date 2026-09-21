@@ -125,11 +125,23 @@ belongs to.
 loupe init                       # choose from the projects your login covers
 loupe init --project <uuid>      # name the project yourself
 loupe init --force               # replace an existing file
+loupe init --mcp                 # write .mcp.json without being asked
+loupe init --no-mcp              # leave .mcp.json alone without being asked
 ```
 
 With no `--project` it lists the projects your login covers and asks which one.
 A login that covers exactly one project needs no answer. It refuses to replace
 an existing file unless you pass `--force`.
+
+It then offers to name `loupe mcp` in `.mcp.json`, which is what makes an agent
+in this repository start it. Every other server in that file is kept, and so is
+every other top-level key. An entry under `loupe` that says something else is
+shown to you before it is replaced.
+
+An unanswered prompt leaves the file alone, so a script must pass `--mcp` or
+`--no-mcp`. `loupe init --mcp` in a repository that already has a `.loupe.yaml`
+writes `.mcp.json` alone and keeps the project file, so you can decline the
+offer now and take it later.
 
 The file holds one key:
 
