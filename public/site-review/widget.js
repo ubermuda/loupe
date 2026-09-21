@@ -4239,9 +4239,11 @@
             if (selection && selection.isCollapsed && selection.rangeCount > 0)
                 return;
         }
+        // `state.target` and `state.drawing` are absent on purpose. A mode that
+        // owns the pointer only hides the offer and promises it back, so an
+        // event that lands during one must leave the pick alone.
         if (
             state.fatal ||
-            state.target ||
             !state.open ||
             state.editId != null ||
             hidden.matches
