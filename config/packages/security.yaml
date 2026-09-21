@@ -95,6 +95,10 @@ security:
         # bearer token, so the webhook endpoint must be reachable anonymously.
         # The controller rejects anything it cannot verify.
         - { path: ^/webhooks/stripe$, roles: PUBLIC_ACCESS }
+        # A forge authenticates with a request signature or a shared token, not
+        # a session, so its webhook endpoint must be reachable anonymously. The
+        # adapter rejects anything it cannot verify.
+        - { path: ^/webhooks/forge/, roles: PUBLIC_ACCESS }
         # The /dev/* controllers are #[When('dev')] only, so this path 404s in
         # prod and this rule is inert there. It exists so the e2e seeding endpoint
         # is reachable unauthenticated in the dev environment.

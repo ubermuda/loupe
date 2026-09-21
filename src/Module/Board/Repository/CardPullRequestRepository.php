@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Repository;
 
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\Forge;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
@@ -34,6 +35,45 @@ class CardPullRequestRepository extends ServiceEntityRepository
             ->setParameter('project', $project)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * Every card linked to one pull request. A pull request can be linked from
+     * more than one card, so a delivery can concern several.
+     *
+     * @return list<CardPullRequest>
+     */
+    public function findForPullRequest(Forge $forge, string $repository, int $number): array
+    {
+        return $this->createQueryBuilder('link')
+            ->addSelect('card')
+            ->join('link.card', 'card')
+            ->andWhere('link.forge = :forge')
+            ->andWhere('LOWER(link.repository) = :repository')
+            ->andWhere('link.number = :number')
+            ->setParameter('forge', $forge)
+            ->setParameter('repository', mb_strtolower($repository))
+            ->setParameter('number', $number)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Points every link of one repository at its new path, and answers how many
+     * moved. The stored path is the key a later delivery joins on.
+     */
+    public function repoint(Forge $forge, string $from, string $to): int
+    {
+        return (int) $this->createQueryBuilder('link')
+            ->update()
+            ->set('link.repository', ':to')
+            ->andWhere('link.forge = :forge')
+            ->andWhere('LOWER(link.repository) = :from')
+            ->setParameter('to', $to)
+            ->setParameter('forge', $forge)
+            ->setParameter('from', mb_strtolower($from))
+            ->getQuery()
+            ->execute();
     }
 
     public function findUrlForUpdate(CardPullRequest $link): ?string

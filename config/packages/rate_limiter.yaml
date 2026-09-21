@@ -9,6 +9,16 @@ framework:
             limit: 60
             interval: '1 minute'
 
+        # Bounds the forge webhook, which is anonymous by design: it
+        # authenticates a delivery by signature, so anyone may reach it. Keyed
+        # per client address, because a forge signs but does not identify
+        # itself before the adapter reads the body. Generous, because a busy
+        # repository can burst on a push.
+        forge_deliveries:
+            policy: 'sliding_window'
+            limit: 300
+            interval: '1 minute'
+
         # Bounds the whole MCP endpoint, not only writes: every JSON-RPC message
         # rides POST, including initialize, tools/list and ping. Keyed per token
         # alone, unlike the widget limiter above — see RateLimitMcpRequests.
@@ -109,6 +119,10 @@ when@dev:
     framework:
         rate_limiter:
             api_authentication:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
+            forge_deliveries:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'
