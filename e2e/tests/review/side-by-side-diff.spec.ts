@@ -7,14 +7,22 @@
  * container, because that is where a column wider than the screen shows up.
  */
 
-import { test, expect, type Page } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
-import { coverageScaled } from '../timeouts';
+import { expect, type Page } from '@playwright/test';
+import { createTest, suppressToolbar, suppressWidget } from '../fixtures';
 
-test.use({ storageState: { cookies: [], origins: [] } });
+// One login per worker rather than one per test. Every test seeds its own
+// comparison and navigates by the document id that seed returns, so the
+// documents this file leaves in the shared harness project are never read
+// back by title or by count.
+const test = createTest({
+    email: 'e2e-side-by-side-diff@example.com',
+    password: 'E2eSideBySide1!',
+});
 
-const RUN = Date.now();
-const PASSWORD = 'E2eSideBySide1!';
+test.beforeEach(async ({ page }) => {
+    await suppressToolbar(page);
+    await suppressWidget(page);
+});
 
 // The shapes the view has to get right: a reworded paragraph, a section removed
 // with unchanged text after it, a code fence rewritten in place, and a section
@@ -76,7 +84,6 @@ const VIEWS = '.lp-diff-views';
 test('comparison controls share the standard desktop metrics', async ({
     page,
 }) => {
-    await signIn(page, `e2e-sbs-controls-${RUN}@example.com`);
     const reviewPath = await seedComparison(page);
     await page.goto(`${reviewPath}/diff/1/2`);
     const controls = page.locator(
@@ -100,7 +107,6 @@ test('comparison controls share the standard desktop metrics', async ({
 test('the visible picker compares equal versions and keeps the view', async ({
     page,
 }) => {
-    await signIn(page, `e2e-sbs-equal-${RUN}@example.com`);
     const reviewPath = await seedComparison(page);
     await page.goto(`${reviewPath}/diff/1/2?view=source`);
     const toolbar = page.locator('.lp-diff-bar');
@@ -133,23 +139,6 @@ test('the visible picker compares equal versions and keeps the view', async ({
     await expect(notes).toHaveAttribute('open');
     await expect(notes.locator('.lp-diff-notes__entry')).toBeVisible();
 });
-
-async function signIn(page: Page, email: string): Promise<void> {
-    const registered = await page.request.post('/dev/register-and-verify', {
-        form: { fullName: 'E2E Side By Side', email, password: PASSWORD },
-    });
-    expect(registered.status()).toBe(200);
-
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/welcome', {
-        timeout: coverageScaled(15000),
-    });
-    await suppressToolbar(page);
-    await suppressWidget(page);
-}
 
 async function seedComparison(page: Page): Promise<string> {
     const seeded = await page.request.post('/dev/seed/document', {
@@ -214,7 +203,6 @@ test('the two columns pair the blocks and carry no comment column', async ({
     page,
 }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await signIn(page, `e2e-sbs-pair-${RUN}@example.com`);
     const reviewPath = await seedComparison(page);
 
     await page.goto(`${reviewPath}/diff/1/2`);
@@ -338,7 +326,6 @@ test('the toolbar holds the same two columns in every view', async ({
     page,
 }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await signIn(page, `e2e-sbs-switch-${RUN}@example.com`);
     const reviewPath = await seedComparison(page);
 
     const span = async (selector: string) => {
@@ -378,7 +365,6 @@ test('the jump controls still walk the changes across the two columns', async ({
     page,
 }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await signIn(page, `e2e-sbs-jump-${RUN}@example.com`);
     const reviewPath = await seedComparison(page);
 
     await page.goto(`${reviewPath}/diff/1/2?view=side-by-side`);
@@ -427,7 +413,6 @@ test('the columns stack at a phone width instead of overflowing', async ({
     page,
 }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await signIn(page, `e2e-sbs-phone-${RUN}@example.com`);
     const reviewPath = await seedComparison(page);
 
     await page.goto(`${reviewPath}/diff/1/2?view=side-by-side`);
