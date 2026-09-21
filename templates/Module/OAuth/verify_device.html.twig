@@ -2,6 +2,9 @@
 
 {% block title %}{{ 'oauth.device.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
+{# One frame only: the shell's card holds the rows, which draw no frame. #}
+{% block auth_shell_class 'auth-shell--wide' %}
+
 {% block auth_body %}
 {% if result is not null %}
 <div class="lp-consent" data-testid="oauth-device-{{ result }}">
@@ -18,29 +21,19 @@
     </div>
 </div>
 {% elseif view is not null %}
-<div class="lp-consent" data-testid="oauth-device-consent">
-    <div class="auth-icon-badge">
-        <twig:UX:Icon name="lucide:terminal" class="w-5 h-5" aria-hidden="true" />
-    </div>
-    <div>
-        <h1 class="lp-consent__title">{{ 'oauth.consent.heading'|trans({'%client%': view.clientName}) }}</h1>
-        <p class="lp-consent__lead">{{ 'oauth.consent.signed_in_as'|trans({'%email%': app.user.userIdentifier}) }}</p>
-    </div>
+<div class="lp-consent lp-consent--rows" data-testid="oauth-device-consent">
+    <h1 class="lp-consent__question">{{ 'oauth.device.question'|trans({'%client%': view.clientName}) }}</h1>
 
-    <dl class="lp-consent__facts">
-        <div class="lp-consent__fact">
-            <dt class="lp-consent__label">{{ 'oauth.device.code.label'|trans }}</dt>
-            <dd class="lp-consent__value lp-consent__value--mono" data-testid="oauth-device-user-code">{{ view.displayUserCode }}</dd>
+    <div class="lp-consent__rows">
+        <div class="lp-consent__row">
+            <twig:UX:Icon name="lucide:terminal" class="lp-consent__row-icon" aria-hidden="true" />
+            <div class="lp-consent__row-body">
+                <p class="lp-consent__row-primary">{{ 'oauth.device.row.code'|trans({'%code%': '<span class="lp-consent__row-code" data-testid="oauth-device-user-code">' ~ view.displayUserCode|e ~ '</span>'})|raw }}</p>
+                <p class="lp-consent__row-second">{{ 'oauth.device.warning'|trans }}</p>
+            </div>
         </div>
-        <div class="lp-consent__fact">
-            <dt class="lp-consent__label">{{ 'oauth.consent.scope.label'|trans }}</dt>
-            <dd class="lp-consent__value">{{ ('oauth.consent.scope.' ~ view.scope.value|replace({'-': '_'}))|trans }}</dd>
-        </div>
-    </dl>
 
-    <div class="lp-connect-alert lp-consent__alert">
-        <twig:UX:Icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
-        <p class="lp-connect-alert__text">{{ 'oauth.device.warning'|trans }}</p>
+        {% include '@OAuth/_consent_scope_row.html.twig' with {scope: view.scope} only %}
     </div>
 
     {{ form_start(form, {'attr': {'class': 'lp-form lp-consent__form', 'novalidate': 'novalidate'}}) }}
@@ -50,6 +43,11 @@
             {{ form_widget(form.approve, {'attr': {'class': 'lp-btn lp-btn--primary'}}) }}
         </div>
     {{ form_end(form) }}
+
+    <p class="lp-consent__footnote">
+        {{ 'oauth.consent.footnote'|trans({'%email%': app.user.userIdentifier}) }}
+        <a href="{{ path('app_account_connected_apps') }}" class="auth-link">{{ 'oauth.consent.footnote_link'|trans }}</a>
+    </p>
 </div>
 {% else %}
 <div class="lp-consent" data-testid="oauth-device-entry">
@@ -69,7 +67,7 @@
              data-device-code-input-group-value="4"
              data-device-code-input-character-label-value="{{ 'oauth.form.device_code_entry_form.user_code.character'|trans }}">
             {{ form_label(form.userCode, null, {'label_attr': {'class': 'lp-label', 'id': 'device-code-label'}}) }}
-            {{ form_widget(form.userCode, {'attr': {'class': 'lp-input lp-consent__value--mono', 'data-device-code-input-target': 'field'}}) }}
+            {{ form_widget(form.userCode, {'attr': {'class': 'lp-input lp-input--mono', 'data-device-code-input-target': 'field'}}) }}
             <div class="lp-code-field" role="group" aria-labelledby="device-code-label" data-device-code-input-target="boxes" hidden></div>
             <div class="lp-field-errors">{{ form_errors(form.userCode) }}</div>
         </div>
