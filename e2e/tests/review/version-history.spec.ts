@@ -1,51 +1,62 @@
-import { randomUUID } from 'node:crypto';
-import { test, expect } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expect } from '@playwright/test';
+import { createTest, suppressToolbar, suppressWidget } from '../fixtures';
 
-// Guest by default, and self-registering through the dev endpoints — the same
-// shape as the other review specs, which seed their own document.
-test.use({ storageState: { cookies: [], origins: [] } });
+const TITLE = 'Versioned Plan';
+const FULL_NAME = 'E2E History';
 
-const PASSWORD = 'e2e_password_123';
+// One login for the file, held by the worker fixture the other specs use. Both
+// tests below seed their own document, so neither can disturb the other.
+const base = createTest({
+    email: 'e2e-version-history@example.com',
+    password: 'e2e_password_123',
+    fullName: FULL_NAME,
+});
 
-test('the History tab compares two distant versions', async ({ page }) => {
-    const email = `e2e-history-${randomUUID()}@example.com`;
-    const register = await page.request.post('/dev/register-and-verify', {
-        form: { fullName: 'E2E History', email, password: PASSWORD },
-    });
-    expect(register.status()).toBe(200);
+interface SeededHistory {
+    documentId: string;
+    reviewUrl: string;
+}
 
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/welcome');
-    await suppressToolbar(page);
-    await suppressWidget(page);
+const test = base.extend<{ seeded: SeededHistory }>({
+    seeded: async ({ page }, use) => {
+        await suppressToolbar(page);
+        await suppressWidget(page);
 
-    const seeded = await page.request.post('/dev/seed/document', {
-        form: {
-            title: 'Versioned Plan',
-            markdown: '# Plan\n\nThe rollout takes one step.',
-            revisions: JSON.stringify([
-                '# Plan\n\nThe rollout takes two steps.',
-                '# Plan\n\nThe rollout takes three steps.',
-                '# Plan\n\nThe rollout takes four careful steps.',
-            ]),
-        },
-    });
-    expect(seeded.status()).toBe(201);
-    const { projectId, documentId } = await seeded.json();
+        const seeded = await page.request.post('/dev/seed/document', {
+            form: {
+                title: TITLE,
+                markdown: '# Plan\n\nThe rollout takes one step.',
+                revisions: JSON.stringify([
+                    '# Plan\n\nThe rollout takes two steps.',
+                    '# Plan\n\nThe rollout takes three steps.',
+                    '# Plan\n\nThe rollout takes four careful steps.',
+                ]),
+            },
+        });
+        expect(seeded.status()).toBe(201);
+        const { projectId, documentId } = await seeded.json();
 
-    await page.goto(`/projects/${projectId}/documents/${documentId}/review`);
+        await use({
+            documentId,
+            reviewUrl: `/projects/${projectId}/documents/${documentId}/review`,
+        });
+    },
+});
+
+test('the History tab records a verdict and its withdrawal', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(seeded.reviewUrl);
     await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(page).toHaveURL(`${seeded.reviewUrl}/history`);
     await expect(
         page.locator(
             '.lp-review-workspace-nav .lp-tabs__tab[aria-current="page"]',
         ),
     ).toHaveText('History');
     await expect(
-        page.getByRole('heading', { name: 'Versioned Plan', exact: true }),
+        page.getByRole('heading', { name: TITLE, exact: true }),
     ).toBeVisible();
     await expect(page.locator('.lp-review-doc__version')).toHaveText('v4');
     await expect(page.locator('.lp-review-margin-tabs')).toHaveCount(0);
@@ -75,24 +86,24 @@ test('the History tab compares two distant versions', async ({ page }) => {
         reviewDialog.getByRole('radio', { name: 'Approve', exact: true }),
     ).toBeChecked();
     await reviewDialog.getByRole('button', { name: 'Submit review' }).click();
-    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    // The allowance review-loop gives the same assertion. This one missed its
+    // 5 second default once on a loaded machine, at a measured 2.8 seconds.
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible({
+        timeout: 20000,
+    });
     await page
         .locator('.lp-verdict-bar')
         .getByRole('button', { name: 'Undo', exact: true })
         .click();
     await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
 
-    await page.getByRole('link', { name: 'History', exact: true }).click();
-    await expect(page).toHaveURL(
-        `/projects/${projectId}/documents/${documentId}/review/history`,
-    );
+    // A visit rather than a click on the tab, which the undo re-render can
+    // swallow. The click above already proved the tab navigates.
+    await page.goto(`${seeded.reviewUrl}/history`);
     await expect(
         page.getByRole('heading', { name: 'Version history' }),
     ).toBeVisible();
     await expect(page.locator('.lp-history__row')).toHaveCount(4);
-    const currentVersion = page.locator(
-        '.lp-history__row[data-version-number="4"]',
-    );
     // Verdicts read as one log under the table, so the row itself reports its
     // discussion instead.
     const log = page.locator('.lp-history-log');
@@ -101,21 +112,45 @@ test('the History tab compares two distant versions', async ({ page }) => {
         'Verdict withdrawn',
     ]);
     await expect(log).toContainText('Ready for the rollout.');
-    await expect(log).toContainText('E2E History');
+    await expect(log).toContainText(FULL_NAME);
     await expect(
         page.locator('.lp-history__row[data-version-number="3"]'),
     ).toContainText('No threads');
     await page.reload();
     await expect(log.locator('.lp-history__review')).toHaveCount(2);
 
+    // A new version leaves the verdicts where they were, on v4. The dialog that
+    // writes one is the next test's subject, so this one revises over the API.
+    const revised = await page.request.post(
+        `/dev/review/${seeded.documentId}/revise`,
+        {
+            form: {
+                markdown: '# Plan\n\nThe rollout takes five verified steps.',
+                description: 'Add the verification step.',
+            },
+        },
+    );
+    expect(revised.status()).toBe(200);
+    await page.reload();
+    await expect(page.locator('.lp-history__row')).toHaveCount(5);
+    await expect(log.locator('.lp-history__review')).toHaveCount(2);
+});
+
+test('the History tab compares two distant versions', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(`${seeded.reviewUrl}/history`);
+    await expect(
+        page.getByRole('heading', { name: 'Version history' }),
+    ).toBeVisible();
+
     // v1 against v4: a pair the per-version compare controls never offer.
     await page.locator('#history-compare-from').selectOption('1');
     await page.locator('#history-compare-to').selectOption('4');
     await page.getByRole('button', { name: 'Compare', exact: true }).click();
 
-    await expect(page).toHaveURL(
-        `/projects/${projectId}/documents/${documentId}/review/diff/1/4`,
-    );
+    await expect(page).toHaveURL(`${seeded.reviewUrl}/diff/1/4`);
     await expect(page.locator('#diff-from')).toHaveValue('1');
     await expect(page.locator('#diff-to')).toHaveValue('4');
     await expect(
@@ -135,13 +170,15 @@ test('the History tab compares two distant versions', async ({ page }) => {
             }
         });
     });
+    // Only the visit below, or the delay also slows the last navigation.
     await page.route(
-        `**/documents/${documentId}/review/history`,
+        `**/documents/${seeded.documentId}/review/history`,
         async (route) => {
             const response = await route.fetch();
             await new Promise((resolve) => setTimeout(resolve, 500));
             await route.fulfill({ response });
         },
+        { times: 1 },
     );
     await page.getByRole('link', { name: 'History', exact: true }).click();
     await expect(
@@ -159,7 +196,7 @@ test('the History tab compares two distant versions', async ({ page }) => {
     await page.getByRole('button', { name: 'Revise', exact: true }).click();
     const reviseDialog = page.getByRole('dialog', { name: 'Revise document' });
     await expect(reviseDialog.getByLabel('Title', { exact: true })).toHaveValue(
-        'Versioned Plan',
+        TITLE,
     );
     await reviseDialog
         .getByLabel('Markdown', { exact: true })
@@ -183,10 +220,7 @@ test('the History tab compares two distant versions', async ({ page }) => {
         .getByRole('button', { name: 'Save new version', exact: true })
         .click();
     await expect(page.locator('.lp-review-doc__version')).toHaveText('v5');
-    await page.getByRole('link', { name: 'History', exact: true }).click();
+    // A visit rather than a click, which the save re-render can swallow.
+    await page.goto(`${seeded.reviewUrl}/history`);
     await expect(page.locator('.lp-history__row')).toHaveCount(5);
-    // A new version leaves the verdicts where they were, on v4.
-    await expect(
-        page.locator('.lp-history-log').locator('.lp-history__review'),
-    ).toHaveCount(2);
 });

@@ -14,8 +14,8 @@
             <span class="lp-identity-row__name">{{ app.clientName }}</span>
             {% for grant in app.grants %}
             <span class="lp-identity-row__meta lp-identity-row__meta--plain">
-                {{ ('oauth.consent.scope.' ~ grant.scope.value|replace({'-': '_'}))|trans }}
-                {%- if grant.project %} · {{ grant.project.name }}{% endif %}
+                {% for scope in grant.scopes %}{{ loop.first ? '' : ', ' }}{{ ('oauth.consent.scope.' ~ scope.value|replace({'-': '_'}))|trans }}{% endfor %}
+                {%- if grant.project %} · {{ grant.project.name }}{% elseif grant.allProjects %} · {{ 'oauth.connected_apps.all_projects'|trans }}{% endif %}
             </span>
             {% endfor %}
         </span>

@@ -53,7 +53,8 @@ final readonly class ShowDeviceConsentHandler
             displayUserCode: UserCode::display($pending->userCode),
             clientId: $pending->clientId,
             clientName: $pending->clientName,
-            scope: $granted->scope,
+            scopes: $granted->scopes,
+            allProjects: $granted->allProjects,
         );
     }
 }

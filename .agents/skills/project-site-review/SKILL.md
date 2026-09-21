@@ -248,6 +248,12 @@ end of the add-another hold. `widget.spec.ts` tests each one, plus the dropped
 arm. A test must wait for the widget to read the collapse, and
 `afterSelectionRead` does that.
 
+A mode that owns the pointer hides the offer in `renderQuoteButton` and must
+never clear the pick in `readSelection`. A `selectionchange` can land at any
+point during the mode, the drag's own trailing event included, and the exit
+promises the offer back. `state.target` sat in both lists and cost the second
+appearance of this race.
+
 ## Common mistakes
 
 | Mistake | Reality |

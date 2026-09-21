@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\OAuth\Service;
 
+use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\UserDataExporterInterface;
 use App\Module\OAuth\Repository\GrantRepository;
@@ -34,8 +35,9 @@ final readonly class ConnectedAppsExporter implements UserDataExporterInterface
             yield [
                 'clientId' => $row['clientId'],
                 'clientName' => $row['clientName'],
-                'scope' => $granted?->scope->value,
+                'scopes' => null === $granted ? [] : array_map(static fn (ApiTokenScope $scope): string => $scope->value, $granted->scopes),
                 'projectId' => $granted?->projectId?->toRfc4122(),
+                'allProjects' => null !== $granted && $granted->allProjects,
             ];
         }
     }

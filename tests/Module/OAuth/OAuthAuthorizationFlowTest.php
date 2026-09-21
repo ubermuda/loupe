@@ -11,6 +11,8 @@ use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\ProjectDeleter;
 use App\Tests\Support\OAuthScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
+use League\Bundle\OAuth2ServerBundle\ValueObject\Scope;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -83,6 +85,17 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         self::assertSame(401, $this->callMcp($tokens['access_token']), 'a refresh revokes the old access token');
         self::assertSame(200, $this->callMcp($refreshed['access_token']));
 
+        // The grace window accepts the rotated token once, so a client whose
+        // refresh response was lost recovers. The second reuse is refused.
+        $recovered = OAuthScenario::postToken($this->browser, [
+            'grant_type' => 'refresh_token',
+            'client_id' => OAuthScenario::CLIENT_ID,
+            'refresh_token' => $tokens['refresh_token'],
+        ]);
+        self::assertResponseStatusCodeSame(200);
+        self::assertIsString($recovered['refresh_token']);
+        self::assertNotSame($tokens['refresh_token'], $recovered['refresh_token']);
+
         $replay = OAuthScenario::postToken($this->browser, [
             'grant_type' => 'refresh_token',
             'client_id' => OAuthScenario::CLIENT_ID,
@@ -107,7 +120,7 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         $afterRevoke = OAuthScenario::postToken($this->browser, [
             'grant_type' => 'refresh_token',
             'client_id' => OAuthScenario::CLIENT_ID,
-            'refresh_token' => $refreshed['refresh_token'],
+            'refresh_token' => $recovered['refresh_token'],
         ]);
         self::assertSame('invalid_grant', $afterRevoke['error']);
     }
@@ -131,6 +144,18 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
 
         self::assertResponseRedirects();
         self::assertNotEmpty(OAuthScenario::redirectQuery((string) $this->browser->getResponse()->headers->get('Location'))['code'] ?? null);
+    }
+
+    /** The device page draws the same row from the same partial, so both pages must keep it. */
+    public function test_the_scope_row_states_the_scope_and_its_bounds(): void
+    {
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('agent'));
+
+        $row = $crawler->filter('[data-testid="oauth-consent-scope"]')->closest('.lp-consent__row');
+        self::assertNotNull($row);
+        self::assertStringContainsString('It can list your projects', $row->text());
+        self::assertStringContainsString('It cannot reach your account', $row->text());
     }
 
     public function test_the_project_picker_gates_the_allow_button(): void
@@ -203,13 +228,50 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         self::assertSame($this->issuer(), $query['iss']);
     }
 
-    public function test_more_than_one_base_scope_is_refused(): void
+    /**
+     * One credential reaches several firewalls, so a grant may carry several
+     * base scopes. The client's own registered list is what bounds them.
+     */
+    public function test_several_registered_base_scopes_are_accepted(): void
     {
         $this->browser->loginUser($this->user);
         $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('mcp agent'));
 
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-testid="oauth-consent-scope"]');
+    }
+
+    /**
+     * The client asks for every project and the screen says so, in place of the
+     * picker. A picker there would let the person narrow a grant the client
+     * needs whole, and `loupe mcp` would then reach one repository only.
+     */
+    public function test_an_all_projects_request_says_so_and_offers_no_picker(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $clients = static::getContainer()->get(ClientManagerInterface::class);
+        self::assertInstanceOf(ClientManagerInterface::class, $clients);
+        $client = $clients->find(OAuthScenario::CLIENT_ID);
+        self::assertNotNull($client);
+        $client->setScopes(new Scope('mcp'), new Scope('projects'));
+        $clients->save($client);
+
+        $this->browser->loginUser($this->user);
+        $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('mcp projects'));
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-testid="oauth-consent-all-projects"]');
+        self::assertSelectorNotExists('.lp-consent__picker-label');
+    }
+
+    public function test_a_scope_the_client_is_not_registered_for_is_refused(): void
+    {
+        $this->browser->loginUser($this->user);
+        $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('mcp projects'));
+
         $query = OAuthScenario::redirectQuery((string) $this->browser->getResponse()->headers->get('Location'));
-        self::assertSame('invalid_scope', $query['error']);
+        self::assertSame('invalid_scope', $query['error'], 'the scenario client is registered for mcp, site-review and agent, never projects');
     }
 
     public function test_plain_pkce_is_refused(): void
@@ -241,6 +303,25 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
     {
         $this->browser->loginUser($this->user);
         $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('mcp', ['redirect_uri' => 'https://evil.example/callback']));
+
+        self::assertResponseStatusCodeSame(401);
+        self::assertFalse($this->browser->getResponse()->headers->has('Location'));
+    }
+
+    public function test_a_loopback_redirect_matches_on_any_port_through_the_code_exchange(): void
+    {
+        $this->scenario->createClient('native-client', ['http://localhost/callback']);
+        $redirectUri = 'http://localhost:53712/callback';
+
+        $tokens = $this->scenario->grantTokens($this->browser, $this->user, $this->project, ['client_id' => 'native-client', 'redirect_uri' => $redirectUri]);
+
+        self::assertSame(200, $this->callMcp($tokens['access_token']));
+    }
+
+    public function test_a_public_redirect_on_another_port_gets_no_redirect(): void
+    {
+        $this->browser->loginUser($this->user);
+        $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('mcp', ['redirect_uri' => 'https://client.example:444/callback']));
 
         self::assertResponseStatusCodeSame(401);
         self::assertFalse($this->browser->getResponse()->headers->has('Location'));

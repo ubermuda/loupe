@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Module\OAuth\Security;
 
+use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\OAuth\Scope\GrantedScope;
+use App\Module\OAuth\Service\McpResource;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Security\AuthenticatedCredential;
 use App\Security\BearerToken;
+use League\Bundle\OAuth2ServerBundle\Manager\AccessTokenManagerInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\ResourceServer;
 use Monolog\Attribute\WithMonologChannel;
@@ -51,6 +54,8 @@ final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
         private readonly HttpMessageFactoryInterface $psrRequests,
         private readonly UserRepository $users,
         private readonly ProjectRepository $projects,
+        private readonly AccessTokenManagerInterface $accessTokens,
+        private readonly McpResource $mcpResource,
         private readonly LoggerInterface $logger,
         private readonly Auditor $auditor,
     ) {
@@ -83,14 +88,21 @@ final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
             throw new AuthenticationException('Invalid OAuth access token.', 0, $e);
         }
 
-        $clientId = $validated->getAttribute('oauth_client_id');
+        // League reports the first audience as the client id. An mcp token's audience is the MCP endpoint.
+        $audience = $validated->getAttribute('oauth_client_id');
+        $tokenId = $validated->getAttribute('oauth_access_token_id');
         $userId = $validated->getAttribute('oauth_user_id');
         $scopes = $validated->getAttribute('oauth_scopes');
-        if (!\is_string($clientId) || !\is_string($userId) || !Uuid::isValid($userId) || !\is_array($scopes)) {
+        $clientId = \is_string($tokenId) ? $this->accessTokens->find($tokenId)?->getClient()->getIdentifier() : null;
+        if (!\is_string($audience) || null === $clientId || !\is_string($userId) || !Uuid::isValid($userId) || !\is_array($scopes)) {
             throw new AuthenticationException('Malformed OAuth access token.');
         }
 
         $granted = GrantedScope::fromScopes(array_values(array_filter($scopes, \is_string(...))));
+        if ($audience !== (true === $granted?->allows(ApiTokenScope::Mcp) ? $this->mcpResource->uri : $clientId)) {
+            throw new AuthenticationException('The OAuth access token is for another audience.');
+        }
+
         $user = $this->users->find(Uuid::fromString($userId));
         if (null === $granted || null === $user) {
             throw new AuthenticationException('The OAuth grant no longer applies.');
@@ -106,8 +118,9 @@ final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
         $passport = new SelfValidatingPassport(new UserBadge($user->getUserIdentifier(), static fn (): User => $user));
         $passport->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential(
             self::credentialId($clientId, $userId, $granted->projectId),
-            $granted->scope->role(),
+            $granted->roles(),
             $granted->projectId,
+            $granted->allProjects,
         ));
 
         return $passport;
@@ -122,7 +135,7 @@ final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
             throw new \LogicException('credential missing on passport after authentication.');
         }
 
-        $token = new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), $credential->scopeRole]);
+        $token = new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), ...$credential->roles]);
         $token->setAttribute(AuthenticatedCredential::ATTRIBUTE, $credential);
 
         return $token;

@@ -165,7 +165,7 @@ final class ApiTokenAuthenticatorTest extends TestCase
         $credential = AuthenticatedCredential::of($securityToken);
         self::assertNotNull($credential);
         self::assertSame((string) $tokenId, $credential->id);
-        self::assertSame('ROLE_API_SITE_REVIEW', $credential->scopeRole);
+        self::assertSame(['ROLE_API_SITE_REVIEW'], $credential->roles);
         self::assertNull($credential->projectId, 'a static token names no project; the project binds the token');
         self::assertContains('ROLE_API_SITE_REVIEW', $securityToken->getRoleNames());
         self::assertSame((string) $tokenId, $securityToken->getAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR));

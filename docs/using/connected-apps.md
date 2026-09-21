@@ -19,6 +19,20 @@ necessary. The consent page then shows three facts:
 - The access the app asks for.
 - The address that receives the answer.
 
+An app can identify itself with a URL, such as Claude Code with
+`https://claude.ai/oauth/claude-code-client-metadata`. What the consent page
+shows then depends on whether the operator vouches for that exact URL, through
+`OAUTH_TRUSTED_CLIENT_IDS`. See [Environment variables](../reference/environment.md).
+
+- A client the operator vouches for shows its host alone, with the host's icon.
+- Every other client shows its whole `client_id`, with the host in heavy type
+  and the rest of the URL in light type, and with no icon. A document on a
+  shared host, such as a CDN, is one of these: the host says nothing about who
+  wrote the document.
+
+The name an app gives itself always shows below that line. Loupe cannot check
+that name, and the page says so for a client it does not vouch for.
+
 When every address of the app is on the user's own computer, such as
 `localhost` or `127.0.0.1`, the page shows a warning. Loupe cannot check which
 app listens there, so approve only a connection that you started yourself.
@@ -89,3 +103,24 @@ Access tokens are JWTs that live for one hour. Send them in an
 An operator registers each app with `league:oauth2-server:create-client`. See
 [Commands](../reference/commands.md). Loupe has no dynamic client
 registration.
+
+An MCP client can skip the registration with a Client ID Metadata Document:
+
+- The `client_id` is the https URL of a JSON document. The URL has a path, and
+  no port, query, fragment or user name. Its host is a DNS name.
+- The document's `client_id` equals that URL, and `token_endpoint_auth_method`
+  is `none`. It lists from one to ten `redirect_uris`. Each is https, or http
+  on `localhost`, `127.0.0.1` or `[::1]`.
+- Loupe fetches the document when a user starts to connect the app. The
+  document must be at most 5 KB of `application/json`, with no redirect. Loupe
+  keeps it for its `Cache-Control` max-age, from five minutes to one day.
+- Such an app can ask for the `mcp` scope only.
+
+The `mcp` scope binds the token to the MCP endpoint (RFC 8707). Send
+`resource=https://<host>/mcp` to `/oauth/authorize` and `/oauth/token`, or
+leave it out. Any other value gets `invalid_target`. The token's `aud` claim is
+that URI, and `/mcp` refuses a token for another audience. The protected
+resource metadata is at `/.well-known/oauth-protected-resource/mcp` (RFC 9728).
+
+An http redirect address on `localhost`, `127.0.0.1` or `[::1]` matches on any
+port (RFC 8252). Every other address must match exactly.

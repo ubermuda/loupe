@@ -71,6 +71,17 @@ final class OAuthDeviceFlowTest extends WebTestCase
         self::assertSame(200, $this->callAgentApi($refreshed['access_token']));
         self::assertSame(401, $this->callAgentApi($tokens['access_token']), 'a refresh revokes the old access token');
 
+        // The grace window accepts the rotated token once, so a CLI whose
+        // refresh response was lost recovers. The second reuse is refused.
+        $recovered = OAuthScenario::postToken($this->browser, [
+            'grant_type' => 'refresh_token',
+            'client_id' => self::CLIENT_ID,
+            'refresh_token' => $tokens['refresh_token'],
+        ]);
+        self::assertResponseStatusCodeSame(200);
+        self::assertIsString($recovered['refresh_token']);
+        self::assertNotSame($tokens['refresh_token'], $recovered['refresh_token']);
+
         $replay = OAuthScenario::postToken($this->browser, [
             'grant_type' => 'refresh_token',
             'client_id' => self::CLIENT_ID,
@@ -78,6 +89,35 @@ final class OAuthDeviceFlowTest extends WebTestCase
         ]);
         self::assertResponseStatusCodeSame(400);
         self::assertSame('invalid_grant', $replay['error']);
+    }
+
+    public function test_the_consent_answers_the_question_in_two_rows(): void
+    {
+        $start = $this->startDeviceFlow();
+
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->verificationPath($start['verification_uri_complete']));
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('[data-testid="oauth-device-consent"] .lp-consent__question', 'Loupe CLI');
+        $rows = $crawler->filter('[data-testid="oauth-device-consent"] .lp-consent__row');
+        self::assertCount(2, $rows);
+        self::assertStringContainsString(substr($start['user_code'], 0, 4).'-'.substr($start['user_code'], 4), $rows->eq(0)->text());
+        self::assertStringContainsString('It can list your projects', $rows->eq(1)->text(), 'the scope row reads as it does on the consent page');
+    }
+
+    /** The consent footnote sends the reader to Connected apps, so a device grant must arrive there. */
+    public function test_an_approved_device_appears_under_connected_apps(): void
+    {
+        $start = $this->startDeviceFlow();
+
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->verificationPath($start['verification_uri_complete']));
+        $this->browser->submit($crawler->selectButton('device_consent_form_approve')->form());
+        self::assertIsString($this->poll($start['device_code'])['access_token'] ?? null);
+
+        $this->browser->request(Request::METHOD_GET, '/account/connected-apps');
+        self::assertSelectorTextContains('[data-connected-app="'.self::CLIENT_ID.'"]', 'Loupe CLI');
     }
 
     public function test_the_entry_form_normalises_the_code_and_leads_to_the_consent(): void

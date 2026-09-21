@@ -57,17 +57,21 @@ export default class extends ModalController {
                 easing: 'ease',
             });
         }
-        // A reader who already works in the new content keeps their focus.
-        if (this.frameTarget.contains(document.activeElement)) return;
         const opening = this.focusFrameOnLoad;
         this.focusFrameOnLoad = false;
+        // A reader who already works in the new content keeps their focus.
+        if (this.frameTarget.contains(document.activeElement)) return;
         // A form in the frame re-renders it too, and the drawer is modeless, so
         // work outside it is real work. Take only focus the render dropped.
         const active = document.activeElement;
         if (!opening && active && active !== document.body) return;
-        const focusTarget = this.frameTarget.querySelector(
-            'form input:not([type="hidden"]), [data-panel-tabs-target="tab"][aria-selected="true"], a, button',
-        );
+        // A flash renders above the header, so it holds the frame's first
+        // button and would take the focus the card's own content deserves.
+        const focusTarget = [
+            ...this.frameTarget.querySelectorAll(
+                'form input:not([type="hidden"]), [data-panel-tabs-target="tab"][aria-selected="true"], a, button',
+            ),
+        ].find((candidate) => !candidate.closest('.lp-flash'));
         focusTarget?.focus();
     }
 

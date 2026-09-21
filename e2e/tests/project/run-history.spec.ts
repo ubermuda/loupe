@@ -8,14 +8,15 @@ const test = createTest({
 });
 
 // Ten viewport passes, two font sizes by five widths, each opening and closing
-// the attempt drawer and writing a screenshot. It measures 25s on a developer
-// machine against the suite's 30s default, so a loaded CI runner decides it by
-// luck. The budget is the fix rather than dropping a pass.
+// the attempt drawer. The body alone measures 24s on a CI runner against the
+// suite's 30s default, so that default would decide it by luck. Every pass
+// asserts layout that holds only at its own width and font size, so the budget
+// is the fix rather than dropping a pass.
 test.setTimeout(60_000);
 
 test('completed reports retain outcomes and escaped output at enlarged text sizes', async ({
     page,
-}, testInfo) => {
+}) => {
     await suppressWidget(page);
     const seed = await page.request.post('/dev/seed/document', {
         form: { title: 'Run history', markdown: '# Runs' },
@@ -162,10 +163,6 @@ test('completed reports retain outcomes and escaped output at enlarged text size
             expect(badge.height).toBeCloseTo(badge.contentHeight, 1);
             await outcome.scrollIntoViewIfNeeded();
             await expect(outcome).toBeInViewport({ ratio: 1 });
-            await page.screenshot({
-                path: testInfo.outputPath(`runs-${width}-${fontSize}.png`),
-                animations: 'disabled',
-            });
             const open = page
                 .getByRole('button', { name: 'View attempt' })
                 .first();
@@ -191,12 +188,6 @@ test('completed reports retain outcomes and escaped output at enlarged text size
                         ),
                 ).toBeLessThanOrEqual(1);
             }
-            await page.screenshot({
-                path: testInfo.outputPath(
-                    `run-drawer-${width}-${fontSize}.png`,
-                ),
-                animations: 'disabled',
-            });
             await page.keyboard.press('Escape');
             await expect(drawer).toBeHidden();
             await expect(open).toBeFocused();

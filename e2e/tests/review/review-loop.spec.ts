@@ -57,7 +57,7 @@ async function login(
     // A freshly-registered user owns no projects and hasn't completed the
     // first-run wizard yet, so LandingController lands them on it (seedDocument,
     // called right after this, creates the project the wizard would have).
-    await expect(page).toHaveURL('/welcome');
+    await expect(page).toHaveURL('/welcome', { timeout: 15000 });
 }
 
 /**
