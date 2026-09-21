@@ -219,137 +219,6 @@ func mcpState(t *testing.T, dir string) mcpjson.State {
 	return state
 }
 
-func TestInitWritesTheMcpEntryWhenAskedByFlag(t *testing.T) {
-	dir := inRepo(t, "")
-
-	out, err := runInit(t, "", "--project", firstProject, "--mcp")
-	if err != nil {
-		t.Fatalf("init --mcp: %v", err)
-	}
-	if got := mcpState(t, dir); mcpjson.Current != got {
-		t.Fatalf("mcp state: got %v, want Current. Output was %q", got, out)
-	}
-}
-
-func TestInitLeavesTheMcpFileAloneWhenTold(t *testing.T) {
-	dir := inRepo(t, "")
-
-	// A yes on stdin, so an ignored --no-mcp writes the file rather than
-	// falling through to a prompt nobody answers.
-	if _, err := runInit(t, "y\n", "--project", firstProject, "--no-mcp"); err != nil {
-		t.Fatalf("init --no-mcp: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, mcpjson.Name)); !os.IsNotExist(err) {
-		t.Fatalf("--no-mcp must write no %s, stat gave %v", mcpjson.Name, err)
-	}
-}
-
-// A script pipes stdin, so nothing answers the prompt. Writing a file the
-// script never asked for is the failure to avoid.
-func TestInitLeavesTheMcpFileAloneWhenNobodyAnswers(t *testing.T) {
-	dir := inRepo(t, "")
-
-	if _, err := runInit(t, "", "--project", firstProject); err != nil {
-		t.Fatalf("init: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, mcpjson.Name)); !os.IsNotExist(err) {
-		t.Fatalf("an unanswered prompt must write no %s, stat gave %v", mcpjson.Name, err)
-	}
-}
-
-func TestInitWritesTheMcpEntryWhenTheAnswerIsYes(t *testing.T) {
-	dir := inRepo(t, "")
-
-	if _, err := runInit(t, "y\n", "--project", firstProject); err != nil {
-		t.Fatalf("init: %v", err)
-	}
-	if got := mcpState(t, dir); mcpjson.Current != got {
-		t.Fatalf("mcp state: got %v, want Current", got)
-	}
-}
-
-func TestInitLeavesTheMcpFileAloneWhenTheAnswerIsNo(t *testing.T) {
-	dir := inRepo(t, "")
-
-	out, err := runInit(t, "n\n", "--project", firstProject)
-	if err != nil {
-		t.Fatalf("init: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, mcpjson.Name)); !os.IsNotExist(err) {
-		t.Fatalf("a no must write no %s, stat gave %v", mcpjson.Name, err)
-	}
-	if !strings.Contains(out, "--mcp") {
-		t.Fatalf("output must say how to write it later, got %q", out)
-	}
-}
-
-func TestInitKeepsAnotherServerWhenItWritesTheMcpEntry(t *testing.T) {
-	dir := inRepo(t, "")
-	body := `{"mcpServers":{"other":{"command":"other","args":["serve"]}}}`
-	if err := os.WriteFile(filepath.Join(dir, mcpjson.Name), []byte(body), 0o644); err != nil {
-		t.Fatalf("write fixture: %v", err)
-	}
-
-	if _, err := runInit(t, "", "--project", firstProject, "--mcp"); err != nil {
-		t.Fatalf("init --mcp: %v", err)
-	}
-
-	written, err := os.ReadFile(filepath.Join(dir, mcpjson.Name))
-	if err != nil {
-		t.Fatalf("read %s: %v", mcpjson.Name, err)
-	}
-	if !strings.Contains(string(written), `"other"`) {
-		t.Fatalf("init dropped the other server, file is %s", written)
-	}
-}
-
-func TestInitSaysNothingToDoWhenTheEntryIsAlreadyThere(t *testing.T) {
-	dir := inRepo(t, "")
-	if err := mcpjson.Write(dir); err != nil {
-		t.Fatalf("mcpjson.Write: %v", err)
-	}
-
-	out, err := runInit(t, "", "--project", firstProject)
-	if err != nil {
-		t.Fatalf("init: %v", err)
-	}
-	if !strings.Contains(out, "already starts") {
-		t.Fatalf("output must say the entry is already there, got %q", out)
-	}
-}
-
-// The message printed when somebody declines the offer tells them to run this.
-// It must reach the offer rather than stopping at the existing project file.
-func TestInitWithMcpOnAnInitialisedRepositoryWritesTheEntry(t *testing.T) {
-	dir := inRepo(t, "")
-	if err := projectfile.Write(dir, firstProject); err != nil {
-		t.Fatalf("projectfile.Write: %v", err)
-	}
-
-	if _, err := runInit(t, "", "--mcp"); err != nil {
-		t.Fatalf("init --mcp on an initialised repository: %v", err)
-	}
-	if got := mcpState(t, dir); mcpjson.Current != got {
-		t.Fatalf("mcp state: got %v, want Current", got)
-	}
-
-	file, err := projectfile.Load(dir)
-	if err != nil {
-		t.Fatalf("projectfile.Load: %v", err)
-	}
-	if file.Project != firstProject {
-		t.Fatalf("Project: got %q, want the file left alone", file.Project)
-	}
-}
-
-func TestMcpAndNoMcpTogetherAreRefused(t *testing.T) {
-	inRepo(t, "")
-
-	if _, err := runInit(t, "", "--project", firstProject, "--mcp", "--no-mcp"); err == nil {
-		t.Fatal("init --mcp --no-mcp: got no error")
-	}
-}
-
 func TestConfirmReadsTheAnswer(t *testing.T) {
 	for answer, want := range map[string]bool{
 		"\n":     true,
@@ -369,9 +238,9 @@ func TestConfirmReadsTheAnswer(t *testing.T) {
 	}
 }
 
-// shadowLoupe makes Claude Code's configuration name its own loupe server for
-// dir, which is the entry that hides the .mcp.json init writes.
-func shadowLoupe(t *testing.T, dir string) {
+// declareOther makes Claude Code start something other than `loupe mcp` for
+// dir, which is the case init has to report and offer to replace.
+func declareOther(t *testing.T, dir string) {
 	t.Helper()
 	resolved, err := filepath.EvalSymlinks(dir)
 	if err != nil {
@@ -385,31 +254,189 @@ func shadowLoupe(t *testing.T, dir string) {
 	}
 }
 
-func TestInitSaysWhenClaudeCodeHidesTheFileItWrote(t *testing.T) {
-	dir := inRepo(t, "")
-	shadowLoupe(t, dir)
+// fakeClaude puts a claude command on PATH whose body is the given shell.
+func fakeClaude(t *testing.T, body string) string {
+	t.Helper()
+	dir := t.TempDir()
+	log := filepath.Join(dir, "argv.log")
+	script := "#!/bin/sh\necho \"$@\" >> " + log + "\n" + body + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "claude"), []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake claude: %v", err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	// No, so the test never runs the real claude command.
-	out, err := runInit(t, "n\n", "--project", firstProject, "--mcp")
+	return log
+}
+
+// declareShim makes Claude Code already start `loupe mcp` for every project,
+// which is the state init must leave alone.
+func declareShim(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", home)
+	body := `{"mcpServers":{"loupe":{"type":"stdio","command":"loupe","args":["mcp"],"env":{}}}}`
+	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte(body), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+}
+
+func TestInitDoesNothingWhenClaudeCodeAlreadyStartsTheShim(t *testing.T) {
+	inRepo(t, "")
+	declareShim(t)
+	log := fakeClaude(t, "exit 1")
+
+	out, err := runInit(t, "", "--project", firstProject, "--mcp")
 	if err != nil {
 		t.Fatalf("init --mcp: %v", err)
 	}
-	if !strings.Contains(out, "claude mcp remove loupe -s local") {
-		t.Fatalf("output must name the command that removes it, got %q", out)
+	if !strings.Contains(out, "Nothing to change") {
+		t.Fatalf("output must say there is nothing to do, got %q", out)
+	}
+	if _, err := os.Stat(log); !os.IsNotExist(err) {
+		t.Fatal("init must not run claude when the server is already correct")
+	}
+}
+
+func TestInitDeclaresTheShimWhenNothingDoes(t *testing.T) {
+	inRepo(t, "")
+	home := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", home)
+	entry := `{"mcpServers":{"loupe":{"type":"stdio","command":"loupe","args":["mcp"]}}}`
+	log := fakeClaude(t, "cat > "+filepath.Join(home, ".claude.json")+" <<'EOF'\n"+entry+"\nEOF")
+
+	out, err := runInit(t, "", "--project", firstProject, "--mcp")
+	if err != nil {
+		t.Fatalf("init --mcp: %v", err)
+	}
+
+	argv, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatalf("read argv: %v", err)
+	}
+	if !strings.Contains(string(argv), "--scope user") {
+		t.Fatalf("init must declare it for every project, argv was %q", argv)
+	}
+	if !strings.Contains(out, "Restart your agent") {
+		t.Fatalf("output must say to restart, got %q", out)
+	}
+}
+
+// A script that passed no flag must change nothing, because nothing answers the
+// prompt.
+func TestInitDeclaresNothingWhenNobodyAnswers(t *testing.T) {
+	inRepo(t, "")
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	log := fakeClaude(t, "exit 0")
+
+	if _, err := runInit(t, "", "--project", firstProject); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if _, err := os.Stat(log); !os.IsNotExist(err) {
+		t.Fatal("an unanswered prompt must not run claude")
+	}
+}
+
+// --mcp may create what is missing. Replacing a declaration somebody made by
+// hand always asks, so a script can never drop it.
+func TestInitNeverReplacesADeclarationWithoutAsking(t *testing.T) {
+	dir := inRepo(t, "")
+	declareOther(t, dir)
+	log := fakeClaude(t, "exit 0")
+
+	out, err := runInit(t, "", "--project", firstProject, "--mcp")
+	if err != nil {
+		t.Fatalf("init --mcp: %v", err)
+	}
+	if _, err := os.Stat(log); !os.IsNotExist(err) {
+		t.Fatal("--mcp must not remove an existing declaration")
+	}
+	if !strings.Contains(out, "claude mcp remove loupe") {
+		t.Fatalf("output must name the command to remove it, got %q", out)
 	}
 	if strings.Contains(out, "Bearer") {
 		t.Fatalf("output must carry no credential, got %q", out)
 	}
 }
 
-func TestInitSaysNothingAboutClaudeCodeWhenNothingHidesTheFile(t *testing.T) {
+func TestInitWritesTheRepositoryFileWhenAsked(t *testing.T) {
+	dir := inRepo(t, "")
+
+	if _, err := runInit(t, "", "--project", firstProject, "--mcp-json", "--mcp"); err != nil {
+		t.Fatalf("init --mcp-json: %v", err)
+	}
+
+	state, _, err := mcpjson.Read(dir)
+	if err != nil {
+		t.Fatalf("mcpjson.Read: %v", err)
+	}
+	if mcpjson.Current != state {
+		t.Fatalf("mcp state: got %v, want Current", state)
+	}
+}
+
+// The file is the lowest scope, so it can be written correctly and still do
+// nothing. Saying so is the difference between a working setup and a puzzle.
+func TestInitSaysTheRepositoryFileIsOutranked(t *testing.T) {
+	dir := inRepo(t, "")
+	declareOther(t, dir)
+
+	out, err := runInit(t, "", "--project", firstProject, "--mcp-json", "--mcp")
+	if err != nil {
+		t.Fatalf("init --mcp-json: %v", err)
+	}
+	if !strings.Contains(out, "no effect yet") {
+		t.Fatalf("output must say the file is outranked, got %q", out)
+	}
+}
+
+func TestInitLeavesEverythingAloneWhenTold(t *testing.T) {
+	dir := inRepo(t, "")
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	log := fakeClaude(t, "exit 0")
+
+	// A yes on stdin, so an ignored --no-mcp acts rather than falling through
+	// to a prompt nobody answers.
+	if _, err := runInit(t, "y\n", "--project", firstProject, "--no-mcp"); err != nil {
+		t.Fatalf("init --no-mcp: %v", err)
+	}
+	if _, err := os.Stat(log); !os.IsNotExist(err) {
+		t.Fatal("--no-mcp must not run claude")
+	}
+	if _, err := os.Stat(filepath.Join(dir, mcpjson.Name)); !os.IsNotExist(err) {
+		t.Fatalf("--no-mcp must write no %s", mcpjson.Name)
+	}
+}
+
+// The message printed when somebody declines tells them to run this, so it must
+// reach the offer rather than stopping at the existing project file.
+func TestInitWithMcpOnAnInitialisedRepositoryReachesTheOffer(t *testing.T) {
+	dir := inRepo(t, "")
+	if err := projectfile.Write(dir, firstProject); err != nil {
+		t.Fatalf("projectfile.Write: %v", err)
+	}
+	declareShim(t)
+
+	out, err := runInit(t, "", "--mcp")
+	if err != nil {
+		t.Fatalf("init --mcp on an initialised repository: %v", err)
+	}
+	if !strings.Contains(out, "Nothing to change") {
+		t.Fatalf("output must reach the server check, got %q", out)
+	}
+
+	file, err := projectfile.Load(dir)
+	if err != nil {
+		t.Fatalf("projectfile.Load: %v", err)
+	}
+	if file.Project != firstProject {
+		t.Fatalf("Project: got %q, want the file left alone", file.Project)
+	}
+}
+
+func TestMcpAndNoMcpTogetherAreRefused(t *testing.T) {
 	inRepo(t, "")
 
-	out, err := runInit(t, "", "--project", firstProject, "--mcp")
-	if err != nil {
-		t.Fatalf("init --mcp: %v", err)
-	}
-	if strings.Contains(out, "Claude Code") {
-		t.Fatalf("output must not mention Claude Code, got %q", out)
+	if _, err := runInit(t, "", "--project", firstProject, "--mcp", "--no-mcp"); err == nil {
+		t.Fatal("init --mcp --no-mcp: got no error")
 	}
 }

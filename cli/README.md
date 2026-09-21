@@ -125,30 +125,34 @@ belongs to.
 loupe init                       # choose from the projects your login covers
 loupe init --project <uuid>      # name the project yourself
 loupe init --force               # replace an existing file
-loupe init --mcp                 # write .mcp.json without being asked
-loupe init --no-mcp              # leave .mcp.json alone without being asked
+loupe init --mcp                 # declare `loupe mcp` to Claude Code without asking
+loupe init --no-mcp              # leave the MCP server alone without asking
+loupe init --mcp-json            # write .mcp.json instead, to commit the server
 ```
 
 With no `--project` it lists the projects your login covers and asks which one.
 A login that covers exactly one project needs no answer. It refuses to replace
 an existing file unless you pass `--force`.
 
-It then offers to name `loupe mcp` in `.mcp.json`, which is what makes an agent
-in this repository start it. Every other server in that file is kept, and so is
-every other top-level key. An entry under `loupe` that says something else is
-shown to you before it is replaced.
+It then checks how Claude Code starts the `loupe` MCP server, across all three
+scopes, and does nothing when that is already `loupe mcp`. When nothing declares
+it, it offers `claude mcp add --scope user loupe -- loupe mcp`. One declaration
+serves every repository, because Claude Code starts the command with the
+repository as its working directory and `loupe mcp` reads `.loupe.yaml` from
+there.
 
-An unanswered prompt leaves the file alone, so a script must pass `--mcp` or
-`--no-mcp`. `loupe init --mcp` in a repository that already has a `.loupe.yaml`
-writes `.mcp.json` alone and keeps the project file, so you can decline the
-offer now and take it later.
+When something else answers to the name, it says what that starts and offers to
+remove it. Removing always asks, whatever flags you passed, so a script never
+drops a declaration you made by hand. `--mcp` and `--no-mcp` answer the create
+offer alone.
 
-`.mcp.json` is the lowest of Claude Code's three scopes, so both a local-scope
-and a user-scope entry of the same name hide it, and nothing reports the
-conflict. `loupe init` reads Claude Code's configuration and
-offers to remove such an entry. It never edits that file: removal runs
-`claude mcp remove loupe -s local`, so Claude Code edits its own. That offer is
-always asked, so `--mcp` in a script changes nothing there.
+It never edits Claude Code's configuration file. Every change runs `claude mcp`,
+so Claude Code edits its own file, which it also rewrites while it runs and
+keeps backups of.
+
+`--mcp-json` writes `.mcp.json` instead, which commits the server to the
+repository. That file is the lowest of the three scopes, and an agent asks you to
+approve it once, so `loupe init` reports when a higher declaration hides it.
 
 The file holds one key:
 

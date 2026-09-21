@@ -109,8 +109,33 @@ cd ~/code/my-project
 loupe init                   # writes .loupe.yaml, choosing from your projects
 ```
 
-`loupe init` then offers to name the command in `.mcp.json`, which is what makes
-an agent in this repository start it. Answer yes and the file gets this entry:
+`loupe init` then checks how Claude Code starts the `loupe` server. When nothing
+does, it offers to declare it for every project:
+
+```bash
+claude mcp add --scope user loupe -- loupe mcp
+```
+
+One declaration serves every repository. Claude Code starts the command with the
+repository as its working directory, and `loupe mcp` reads `.loupe.yaml` from
+there, so the project comes from the repository rather than from the
+declaration. A worktree gets it for free. A repository with no `.loupe.yaml`
+still starts the server, with no project: your login then acts on your single
+project, or refuses and asks which one when you own several.
+
+When something else already answers to the name, `loupe init` says what it
+starts and offers to remove it. Removing always asks, whatever flags you passed,
+so a script never drops a declaration you made by hand. `--mcp` and `--no-mcp`
+answer the create offer without being asked.
+
+`loupe init` never edits Claude Code's configuration file. Claude Code owns it,
+rewrites it while it runs, and keeps its own backups beside it, so every change
+runs `claude mcp` and lets Claude Code edit its own file.
+
+### Committing the server to the repository
+
+`loupe init --mcp-json` writes `.mcp.json` instead, so everyone who clones the
+repository gets the server:
 
 ```json
 {
@@ -120,39 +145,15 @@ an agent in this repository start it. Answer yes and the file gets this entry:
 }
 ```
 
-Every other server already in the file is kept, and so is every other top-level
-key. An entry under `loupe` that says something else is shown to you before it
-is replaced.
-
-Pass `--mcp` or `--no-mcp` to answer without being asked, which a script must
-do, because an unanswered prompt leaves the file alone. `loupe init --mcp` in a
-repository that already has a `.loupe.yaml` writes `.mcp.json` alone, so you can
-say no now and change your mind later.
-
-An agent asks you to approve the server the first time it reads the file. A
-`.mcp.json` names programs to run and travels with the repository, so approval
-is per machine and is recorded outside the repository.
-
-### Claude Code can hide the file
-
-Claude Code resolves a server name across three scopes, and `.mcp.json` is the
-lowest of them. A local-scope entry wins, and so does a user-scope one. So a
-`loupe` server you added earlier with `claude mcp add` keeps running, the new
-`.mcp.json` has no effect, and neither of them says so. The agent starts,
-connects to the other server, and looks correct.
-
-`loupe init` reads Claude Code's configuration, says when such an entry exists,
-and offers to remove it. It never edits that file. Claude Code owns it, rewrites
-it while it runs, and keeps its own backups beside it, so removal runs
-`claude mcp remove loupe -s local` and lets Claude Code edit its own file. The
-offer is always asked, so `--mcp` in a script changes nothing there.
-
-The entry is filed under one directory, so a git worktree of the same repository
-has none. The same `.mcp.json` therefore takes effect in the worktree and does
-nothing in the main checkout until you remove the entry.
-
+Every other server in that file is kept, and so is every other top-level key.
 The file holds no credential, so committing it is safe. `.loupe.yaml` holds the
 project id, which is not a secret either.
+
+Two things come with it. An agent asks you to approve the server the first time,
+because the file names programs to run and travels with the repository. And
+`.mcp.json` is the lowest of Claude Code's three scopes, so a local or user
+declaration of the same name hides it. `loupe init` reports that rather than
+leaving you to find it.
 
 The command adds one thing a direct HTTP connection cannot. Loupe keeps each MCP
 session for an hour in one web container's cache directory, so a session ends on

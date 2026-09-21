@@ -1,17 +1,21 @@
-// Package claudecode reads what Claude Code has configured for a directory, and
-// asks Claude Code to change it.
+// Package claudecode works out how Claude Code starts an MCP server for a
+// directory, and asks Claude Code to change it.
 //
-// Claude Code resolves a server name across three scopes, and .mcp.json is the
-// lowest of them. A local-scope entry wins, and so does a user-scope one. So a
-// .mcp.json this CLI writes has no effect while an entry of the same name
-// exists in either, and nothing says so: the agent starts, connects to the
-// other server, and looks correct.
+// Claude Code resolves one server name across three scopes. A local entry wins,
+// then a user entry, and the repository's .mcp.json is the lowest of the three.
+// So a correct .mcp.json has no effect while an entry of the same name exists
+// above it, and nothing says so: the agent starts, connects to the other
+// server, and looks correct.
 //
-// This package reads the configuration file to find that entry. It never writes
-// it. The file holds every project's configuration and other services'
-// credentials, Claude Code rewrites it while it runs, and it keeps its own
-// backups beside it. A read-modify-write from here would race that. Removal
-// therefore runs `claude mcp remove`, so Claude Code edits its own file.
+// A user entry is enough for every repository. Claude Code starts a stdio
+// server with the repository as its working directory, and `loupe mcp` reads
+// .loupe.yaml from there, so one entry serves every project.
+//
+// This package never writes Claude Code's configuration file. That file holds
+// every project's configuration and other services' credentials, Claude Code
+// rewrites it while it runs, and it keeps its own backups beside it. A
+// read-modify-write from here would race that. So it reads the file, and every
+// change runs `claude mcp`, which lets Claude Code edit its own file.
 package claudecode
 
 import (
@@ -23,66 +27,47 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/ubermuda/loupe/cli/internal/mcpjson"
 )
 
 // configName is the file, in the home directory or in CLAUDE_CONFIG_DIR.
 const configName = ".claude.json"
 
 // maxSize caps the file the reader buffers. The file grows with history, so the
-// cap is generous, and it exists to bound a pathological read rather than to
-// judge the file.
+// cap is generous, and it bounds a pathological read rather than judging the
+// file.
 const maxSize = 128 << 20
 
 // ErrNoClaude says the claude command is not on PATH, so this CLI cannot ask
 // Claude Code to change anything.
 var ErrNoClaude = errors.New("claude is not on PATH")
 
-// Scope names where Claude Code keeps an entry, and is what `claude mcp remove`
-// takes. Both of these beat .mcp.json.
+// Scope is where Claude Code keeps an entry, and what `claude mcp` takes. The
+// order here is the order Claude Code resolves them in.
 type Scope string
 
 const (
 	// ScopeLocal is private to one project, and wins over every other scope.
 	ScopeLocal Scope = "local"
-	// ScopeUser applies to every project, and wins over .mcp.json.
+	// ScopeUser applies to every project, and wins over the repository's file.
 	ScopeUser Scope = "user"
+	// ScopeProject is the repository's .mcp.json, which every other scope beats.
+	ScopeProject Scope = "project"
 )
 
-// Shadow is a Claude Code server entry that hides the .mcp.json entry of the
-// same name.
-type Shadow struct {
-	// Scope is where Claude Code keeps it, which decides how it is removed.
-	Scope Scope
-	// Summary names what the entry starts or connects to, for showing to the
-	// person who has to decide about it. It carries no header and no token,
-	// because the entry commonly holds an Authorization header.
-	Summary string
-	// Path is the project path Claude Code filed a local entry under, which is
-	// the working directory with its symbolic links resolved. A user entry
-	// belongs to no project, so it carries none.
-	Path string
-}
-
-// Where says where the entry lives, for showing to a person.
-func (s Shadow) Where() string {
-	if ScopeUser == s.Scope {
-		return "every project"
-	}
-
-	return s.Path
-}
-
-// entry is the part of a server declaration worth showing. Claude Code writes
+// Entry is the part of a server declaration worth reading. Claude Code writes
 // several shapes, and a key this package does not name is left unread.
-type entry struct {
+type Entry struct {
 	Type    string   `json:"type"`
 	URL     string   `json:"url"`
 	Command string   `json:"command"`
 	Args    []string `json:"args"`
 }
 
-// summary says what the entry points at, and never what it authenticates with.
-func (e entry) summary() string {
+// Summary says what the entry points at, and never what it authenticates with,
+// because an entry commonly carries an Authorization header.
+func (e Entry) Summary() string {
 	if e.URL != "" {
 		return e.URL
 	}
@@ -96,13 +81,56 @@ func (e entry) summary() string {
 	return "another server"
 }
 
-// Shadowing reports the local-scope entry named server that hides dir's
-// .mcp.json, or nil when there is none. A missing configuration file is not an
-// error, because Claude Code may not be installed at all.
-func Shadowing(dir, server string) (*Shadow, error) {
+// StartsMcpShim reports whether the entry starts `loupe mcp`. The command may be
+// an absolute path, so only its last element is compared, and the type and the
+// environment are left out because `claude mcp add` fills them in.
+func (e Entry) StartsMcpShim() bool {
+	if filepath.Base(e.Command) != "loupe" {
+		return false
+	}
+
+	return 1 == len(e.Args) && "mcp" == e.Args[0]
+}
+
+// Resolution is the entry Claude Code uses for a server name in a directory.
+type Resolution struct {
+	// Scope is empty when no scope declares the server at all.
+	Scope Scope
+	Entry Entry
+	// Path is the project path a local entry is filed under, which is the
+	// working directory with its symbolic links resolved.
+	Path string
+}
+
+// Declared reports whether any scope declares the server.
+func (r Resolution) Declared() bool {
+	return r.Scope != ""
+}
+
+// Correct reports whether the server Claude Code would start is `loupe mcp`.
+func (r Resolution) Correct() bool {
+	return r.Declared() && r.Entry.StartsMcpShim()
+}
+
+// Where names what the entry covers, for showing to a person.
+func (r Resolution) Where() string {
+	switch r.Scope {
+	case ScopeUser:
+		return "every project"
+	case ScopeProject:
+		return mcpjson.Name + " in this repository"
+	default:
+		return r.Path
+	}
+}
+
+// Effective reports the entry Claude Code resolves for server in dir, across
+// all three scopes. An undeclared server is not an error: Claude Code may not
+// be installed at all.
+func Effective(dir, server string) (Resolution, error) {
 	path, err := configPath()
 	if err != nil {
-		return nil, err
+		return Resolution{}, err
 	}
 
 	// Claude Code files a project under its resolved path, so /tmp and
@@ -113,54 +141,111 @@ func Shadowing(dir, server string) (*Shadow, error) {
 	}
 
 	raw, err := read(path)
-	if err != nil || raw == nil {
-		return nil, err
+	if err != nil {
+		return Resolution{}, err
 	}
 
 	var doc struct {
-		McpServers map[string]entry `json:"mcpServers"`
+		McpServers map[string]Entry `json:"mcpServers"`
 		Projects   map[string]struct {
-			McpServers map[string]entry `json:"mcpServers"`
+			McpServers map[string]Entry `json:"mcpServers"`
 		} `json:"projects"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+	if raw != nil {
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			return Resolution{}, fmt.Errorf("%s: %w", path, err)
+		}
 	}
 
-	// Local first, because it wins over user, and removing the user entry
-	// alone would leave the local one still hiding the file.
 	if found, ok := doc.Projects[resolved].McpServers[server]; ok {
-		return &Shadow{Scope: ScopeLocal, Summary: found.summary(), Path: resolved}, nil
+		return Resolution{Scope: ScopeLocal, Entry: found, Path: resolved}, nil
 	}
 	if found, ok := doc.McpServers[server]; ok {
-		return &Shadow{Scope: ScopeUser, Summary: found.summary()}, nil
+		return Resolution{Scope: ScopeUser, Entry: found}, nil
 	}
 
-	return nil, nil
+	return fromRepository(dir, server)
 }
 
-// Remove asks Claude Code to drop the entry named server from scope. Claude
-// Code edits its own file, so nothing here races the writes it makes while it
-// runs.
-func Remove(ctx context.Context, dir, server string, scope Scope) error {
-	binary, err := exec.LookPath("claude")
+// fromRepository reads the lowest scope, the repository's own file.
+func fromRepository(dir, server string) (Resolution, error) {
+	state, entry, err := mcpjson.Read(dir)
 	if err != nil {
-		return ErrNoClaude
+		return Resolution{}, err
+	}
+	if mcpjson.Absent == state {
+		return Resolution{}, nil
 	}
 
-	cmd := exec.CommandContext(ctx, binary, "mcp", "remove", server, "-s", string(scope))
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
+	return Resolution{Scope: ScopeProject, Entry: Entry{Command: entry.Command, Args: entry.Args}}, nil
+}
+
+// Add asks Claude Code to declare server as `loupe mcp` in scope, and confirms
+// it afterwards.
+//
+// The confirmation is the point. `claude mcp add` refuses a name that already
+// exists, says so, and exits 0, so the exit status alone reports success for a
+// call that changed nothing.
+func Add(ctx context.Context, dir, server string, scope Scope) error {
+	if _, err := run(ctx, dir, "add", "--scope", string(scope), server, "--", "loupe", "mcp"); err != nil {
+		return err
+	}
+
+	got, err := Effective(dir, server)
 	if err != nil {
-		return fmt.Errorf("%s: %w", strings.TrimSpace(string(out)), err)
+		return err
+	}
+	if !got.Correct() {
+		return fmt.Errorf("%s still starts %s", server, got.Entry.Summary())
 	}
 
 	return nil
 }
 
-// RemoveCommand is what somebody runs by hand to do what Remove does.
+// Remove asks Claude Code to drop server from scope, and confirms that the
+// scope no longer declares it.
+func Remove(ctx context.Context, dir, server string, scope Scope) error {
+	if _, err := run(ctx, dir, "remove", server, "-s", string(scope)); err != nil {
+		return err
+	}
+
+	got, err := Effective(dir, server)
+	if err != nil {
+		return err
+	}
+	if got.Declared() && got.Scope == scope {
+		return fmt.Errorf("%s is still declared in %s scope", server, scope)
+	}
+
+	return nil
+}
+
+// AddCommand and RemoveCommand are what somebody runs by hand to do what Add
+// and Remove do.
+func AddCommand(server string, scope Scope) string {
+	return "claude mcp add --scope " + string(scope) + " " + server + " -- loupe mcp"
+}
+
 func RemoveCommand(server string, scope Scope) string {
 	return "claude mcp remove " + server + " -s " + string(scope)
+}
+
+// run invokes the claude command with dir as its working directory, which is
+// what selects the project a local-scope change applies to.
+func run(ctx context.Context, dir string, args ...string) (string, error) {
+	binary, err := exec.LookPath("claude")
+	if err != nil {
+		return "", ErrNoClaude
+	}
+
+	cmd := exec.CommandContext(ctx, binary, append([]string{"mcp"}, args...)...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", strings.TrimSpace(string(out)), err)
+	}
+
+	return string(out), nil
 }
 
 // configPath is CLAUDE_CONFIG_DIR's file when that is set, and the one in the
