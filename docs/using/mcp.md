@@ -109,8 +109,33 @@ cd ~/code/my-project
 loupe init                   # writes .loupe.yaml, choosing from your projects
 ```
 
-Then point the agent at the command. For Claude Code, a committed `.mcp.json`
-in the repository:
+`loupe init` then checks how Claude Code starts the `loupe` server. When nothing
+does, it offers to declare it for every project:
+
+```bash
+claude mcp add --scope user loupe -- loupe mcp
+```
+
+One declaration serves every repository. Claude Code starts the command with the
+repository as its working directory, and `loupe mcp` reads `.loupe.yaml` from
+there, so the project comes from the repository rather than from the
+declaration. A worktree gets it for free. A repository with no `.loupe.yaml`
+still starts the server, with no project: your login then acts on your single
+project, or refuses and asks which one when you own several.
+
+When something else already answers to the name, `loupe init` says what it
+starts and offers to remove it. Removing always asks, whatever flags you passed,
+so a script never drops a declaration you made by hand. `--mcp` and `--no-mcp`
+answer the create offer without being asked.
+
+`loupe init` never edits Claude Code's configuration file. Claude Code owns it,
+rewrites it while it runs, and keeps its own backups beside it, so every change
+runs `claude mcp` and lets Claude Code edit its own file.
+
+### Committing the server to the repository
+
+`loupe init --mcp-json` writes `.mcp.json` instead, so everyone who clones the
+repository gets the server:
 
 ```json
 {
@@ -120,8 +145,15 @@ in the repository:
 }
 ```
 
+Every other server in that file is kept, and so is every other top-level key.
 The file holds no credential, so committing it is safe. `.loupe.yaml` holds the
 project id, which is not a secret either.
+
+Two things come with it. An agent asks you to approve the server the first time,
+because the file names programs to run and travels with the repository. And
+`.mcp.json` is the lowest of Claude Code's three scopes, so a local or user
+declaration of the same name hides it. `loupe init` reports that rather than
+leaving you to find it.
 
 The command adds one thing a direct HTTP connection cannot. Loupe keeps each MCP
 session for an hour in one web container's cache directory, so a session ends on
