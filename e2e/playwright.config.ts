@@ -67,7 +67,7 @@ function forShard(projects: Projects): Projects {
 export default defineConfig({
     globalSetup: './global-setup.ts',
     testDir: './tests',
-    fullyParallel: false,
+    fullyParallel: true,
     timeout: collectingCoverage ? 120_000 : 30_000,
     expect: { timeout: collectingCoverage ? 20_000 : 5_000 },
     // Files run in parallel. A spec that flips a global flag or shares a fixed
@@ -80,7 +80,7 @@ export default defineConfig({
     // not run" beside the failure, which reads as a deliberate skip: one red
     // test withheld three suites for hours and nobody noticed. The bound is per
     // process, so a sharded CI run reports at most one failure per shard.
-    maxFailures: 1,
+    maxFailures: 0,
     reporter: [
         ['html', { open: 'never' }],
         // `just ci-report e2e-timing` reads this file from CI.
