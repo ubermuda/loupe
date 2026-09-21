@@ -9,17 +9,27 @@ use Symfony\Component\Uid\Uuid;
 
 /**
  * What one OAuth grant allows: exactly one base scope, the same set a static
- * API token carries, plus the project it is bound to. The project travels as a
- * scope, project:<uuid>, so it survives every refresh with no extra table.
- * The mcp and site-review scopes need a project, and agent takes none.
+ * API token carries, plus the projects it may act on. The binding travels as a
+ * scope, so it survives every refresh with no extra table.
+ *
+ * Two bindings exist. project:<uuid> names one project and freezes it at
+ * consent. `projects` means every project the user owns, read per request, so a
+ * project created after the grant is included and a deleted one disappears. A
+ * grant carries one binding or the other, never both.
+ *
+ * The mcp and site-review scopes need a binding, and agent takes none.
  */
 final readonly class GrantedScope
 {
     public const string PROJECT_PREFIX = 'project:';
 
+    /** Every project the user owns, resolved per request rather than at consent. */
+    public const string ALL_PROJECTS = 'projects';
+
     private function __construct(
         public ApiTokenScope $scope,
         public ?Uuid $projectId,
+        public bool $allProjects = false,
     ) {
     }
 
@@ -49,13 +59,24 @@ final readonly class GrantedScope
     /**
      * Null when the scopes do not form one valid grant.
      *
+     * `projects` is a binding rather than a scope a token carries, so it is
+     * taken out before the base scopes are parsed. Left in, it reaches
+     * ApiTokenScope::tryFrom(), comes back null, and refuses every grant that
+     * names it.
+     *
      * @param list<string> $scopes
      */
     public static function fromScopes(array $scopes): ?self
     {
         $base = [];
         $projects = [];
+        $allProjects = false;
         foreach (array_unique($scopes) as $scope) {
+            if (self::ALL_PROJECTS === $scope) {
+                $allProjects = true;
+                continue;
+            }
+
             $projectId = self::projectIdOf($scope);
             if (null !== $projectId) {
                 $projects[] = $projectId;
@@ -70,10 +91,15 @@ final readonly class GrantedScope
         }
 
         $projectId = $projects[0] ?? null;
-        if (self::needsProject($base[0]) !== (null !== $projectId)) {
+        // One binding or the other. Both would leave two answers to the
+        // question of which project a request acts on.
+        if ($allProjects && null !== $projectId) {
+            return null;
+        }
+        if (self::needsProject($base[0]) !== (null !== $projectId || $allProjects)) {
             return null;
         }
 
-        return new self($base[0], $projectId);
+        return new self($base[0], $projectId, $allProjects);
     }
 }

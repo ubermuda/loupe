@@ -12,6 +12,11 @@ parameters:
     # shared host would borrow the trust of every other document there.
     app.oauth.trusted_client_ids: '%env(csv:OAUTH_TRUSTED_CLIENT_IDS)%'
 
+    # How long a rotated refresh token is still accepted, once. It recovers a
+    # login whose refresh response was lost on the way back, because the client
+    # then holds a token the server has already refused. 0 switches it off.
+    app.oauth.refresh_grace_seconds: '%env(int:OAUTH_REFRESH_GRACE_SECONDS)%'
+
     # CSP is static configuration, so an unset external origin needs to resolve
     # to a valid token rather than an empty one. Repeating 'self' is a no-op.
     app.default_csp_origin: "'self'"

@@ -71,6 +71,17 @@ final class OAuthDeviceFlowTest extends WebTestCase
         self::assertSame(200, $this->callAgentApi($refreshed['access_token']));
         self::assertSame(401, $this->callAgentApi($tokens['access_token']), 'a refresh revokes the old access token');
 
+        // The grace window accepts the rotated token once, so a CLI whose
+        // refresh response was lost recovers. The second reuse is refused.
+        $recovered = OAuthScenario::postToken($this->browser, [
+            'grant_type' => 'refresh_token',
+            'client_id' => self::CLIENT_ID,
+            'refresh_token' => $tokens['refresh_token'],
+        ]);
+        self::assertResponseStatusCodeSame(200);
+        self::assertIsString($recovered['refresh_token']);
+        self::assertNotSame($tokens['refresh_token'], $recovered['refresh_token']);
+
         $replay = OAuthScenario::postToken($this->browser, [
             'grant_type' => 'refresh_token',
             'client_id' => self::CLIENT_ID,
