@@ -31,6 +31,35 @@ final class GrantedScopeTest extends TestCase
         self::assertNull($granted->projectId);
     }
 
+    public function test_the_projects_binding_covers_every_project_of_the_owner(): void
+    {
+        $granted = GrantedScope::fromScopes(['mcp', 'projects']);
+
+        self::assertNotNull($granted);
+        self::assertSame(ApiTokenScope::Mcp, $granted->scope);
+        self::assertTrue($granted->allProjects);
+        self::assertNull($granted->projectId);
+    }
+
+    public function test_a_project_bound_grant_does_not_cover_every_project(): void
+    {
+        $granted = GrantedScope::fromScopes(['mcp', 'project:'.self::PROJECT]);
+
+        self::assertNotNull($granted);
+        self::assertFalse($granted->allProjects);
+    }
+
+    public function test_the_projects_binding_is_not_read_as_a_base_scope(): void
+    {
+        // `projects` is no ApiTokenScope case. Read as one it comes back null
+        // and refuses the grant, whichever order the scopes arrive in.
+        $granted = GrantedScope::fromScopes(['projects', 'site-review']);
+
+        self::assertNotNull($granted);
+        self::assertSame(ApiTokenScope::SiteReview, $granted->scope);
+        self::assertTrue($granted->allProjects);
+    }
+
     /** @param list<string> $scopes */
     #[DataProvider('invalidGrants')]
     public function test_an_invalid_grant_is_refused(array $scopes): void
@@ -49,6 +78,9 @@ final class GrantedScopeTest extends TestCase
         yield 'two projects' => [['mcp', 'project:'.self::PROJECT, 'project:0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c']];
         yield 'unknown scope' => [['email']];
         yield 'a project alone' => [['project:'.self::PROJECT]];
+        yield 'both bindings at once' => [['mcp', 'projects', 'project:'.self::PROJECT]];
+        yield 'agent with every project' => [['agent', 'projects']];
+        yield 'every project alone' => [['projects']];
     }
 
     public function test_only_a_canonical_uuid_is_a_project_scope(): void

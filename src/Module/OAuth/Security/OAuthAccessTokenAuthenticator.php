@@ -120,6 +120,7 @@ final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
             self::credentialId($clientId, $userId, $granted->projectId),
             $granted->scope->role(),
             $granted->projectId,
+            $granted->allProjects,
         ));
 
         return $passport;
