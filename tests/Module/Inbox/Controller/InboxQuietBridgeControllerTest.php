@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Controller;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Service\HeartbeatInterval;
@@ -13,6 +11,7 @@ use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Inbox\InboxScenario;
+use App\Tests\Support\AgentCredential;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -106,9 +105,7 @@ final class InboxQuietBridgeControllerTest extends WebTestCase
     public function test_a_heartbeat_sent_through_the_endpoint_marks_the_ask_heard(): void
     {
         $ask = $this->openAsk($bridgeId = Uuid::v4());
-        [$token, $raw] = ApiToken::issue($this->owner, 'bridge', ApiTokenScope::Agent);
-        $this->em->persist($token);
-        $this->em->flush();
+        $raw = AgentCredential::agentToken(static::getContainer(), $this->client, $this->owner);
 
         $this->client->request(
             Request::METHOD_PUT,

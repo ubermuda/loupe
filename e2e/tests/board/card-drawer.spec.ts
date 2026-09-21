@@ -1,11 +1,17 @@
 import { expect, type Page } from '@playwright/test';
-import { createTest, suppressToolbar, suppressWidget } from '../fixtures';
+import {
+    createTest,
+    signWidgetIn,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 
 const EMAIL = 'e2e-card-drawer@example.com';
+const PASSWORD = 'E2eCardDrawer1!';
 const RUN = Date.now();
 const test = createTest({
     email: EMAIL,
-    password: 'E2eCardDrawer1!',
+    password: PASSWORD,
     name: 'Card Drawer Reviewer',
 });
 
@@ -108,11 +114,20 @@ test('site review opens a linked card in the drawer on its Feedback tab', async 
         '/dev/site-review-harness?email=' + encodeURIComponent(EMAIL),
     );
     expect(harness.ok()).toBeTruthy();
-    const token = /data-token="([^"]+)"/.exec(await harness.text())?.[1];
-    expect(token).toBeTruthy();
+    const harnessProject = /data-project="([^"]+)"/.exec(
+        await harness.text(),
+    )?.[1];
+    expect(harnessProject).toBeTruthy();
+    // The page carries no credential now, so the capture is written with the
+    // grant the widget's own sign-in produces.
+    const { accessToken } = await signWidgetIn(
+        page,
+        { email: EMAIL, password: PASSWORD },
+        harnessProject!,
+    );
     const body = `Drawer capture ${RUN}`;
     const created = await page.request.post('/api/site-review/comments', {
-        headers: { Authorization: 'Bearer ' + token },
+        headers: { Authorization: 'Bearer ' + accessToken },
         data: {
             body,
             url: 'https://example.com/drawer-page',

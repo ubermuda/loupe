@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Billing\EventListener;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Billing\Command\Admin\GrantCompCommand;
 use App\Module\Billing\Command\Admin\GrantCompHandler;
 use App\Module\Project\Entity\Project;
+use App\Tests\Support\AgentCredential;
 use App\Tests\Support\BillingScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -62,12 +61,21 @@ final class CompedAccountMcpAccessTest extends WebTestCase
         $scenario->enableBilling();
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
         $user = $scenario->verifiedUser($prefix);
-        $scenario->profile($user, new \DateTimeImmutable('-1 day'));
-        $em->persist(new Project($user, $prefix.'-site'));
+        $profile = $scenario->profile($user, new \DateTimeImmutable('+14 days'));
+        $project = new Project($user, $prefix.'-site');
+        $em->persist($project);
+        $em->flush();
 
-        [$token, $raw] = ApiToken::issue($user, 'tok', ApiTokenScope::Mcp);
-        $em->persist($token);
+        // The paywall covers the consent page, so the grant has to happen
+        // while the trial runs. The trial then moves into the past.
+        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $user, 'mcp', $project);
+
+        $user = AgentCredential::managed($em, $user, $user->id);
+        foreach (AgentCredential::managed($em, $profile, $profile->id)->subscriptions as $subscription) {
+            $subscription->endsAt = new \DateTimeImmutable('-1 day');
+        }
         $em->flush();
 
         if ($comped) {

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Security;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Tests\Support\AcceptedTerms;
+use App\Tests\Support\AgentCredential;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -17,9 +17,9 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Splitting ROLE_API_SITE_REVIEW in two must not touch the widget. A widget
- * token is embedded in page HTML that is already deployed, so an owner cannot
- * roll it without editing every page that carries it.
+ * The two scopes the widget and the agent hold must stay apart. A site-review
+ * credential reaches every path the embedded widget calls, and no other. An
+ * agent credential reaches the agent paths, and no widget path.
  *
  * The assertion is deliberately "not 401 and not 403" rather than a success
  * code. Four of these paths are writes that need a real body, so a 400, 404 or
@@ -60,7 +60,8 @@ final class WidgetTokenSurfaceTest extends WebTestCase
     public function test_a_widget_token_still_reaches_every_widget_path(string $method, string $path): void
     {
         $client = static::createClient();
-        $raw = $this->issueWidgetToken('widget-surface@example.com', 'widget-surface-site');
+        $client->disableReboot();
+        $raw = $this->widgetToken($client, 'widget-surface@example.com', 'widget-surface-site');
 
         $this->call($client, $method, $path, $raw);
 
@@ -73,7 +74,8 @@ final class WidgetTokenSurfaceTest extends WebTestCase
     public function test_an_agent_token_reaches_no_widget_path(string $method, string $path): void
     {
         $client = static::createClient();
-        $raw = $this->issueAccountToken(ApiTokenScope::Agent, 'agent-on-widget@example.com');
+        $client->disableReboot();
+        $raw = $this->agentToken($client, 'agent-on-widget@example.com');
 
         $this->call($client, $method, $path, $raw);
 
@@ -89,7 +91,8 @@ final class WidgetTokenSurfaceTest extends WebTestCase
     public function test_a_widget_token_reaches_no_agent_path(string $method, string $path): void
     {
         $client = static::createClient();
-        $raw = $this->issueWidgetToken('widget-on-agent@example.com', 'widget-on-agent-site');
+        $client->disableReboot();
+        $raw = $this->widgetToken($client, 'widget-on-agent@example.com', 'widget-on-agent-site');
 
         $this->call($client, $method, $path, $raw);
 
@@ -104,7 +107,8 @@ final class WidgetTokenSurfaceTest extends WebTestCase
     public function test_an_agent_token_reaches_every_agent_path(string $method, string $path): void
     {
         $client = static::createClient();
-        $raw = $this->issueAccountToken(ApiTokenScope::Agent, 'agent-on-agent@example.com');
+        $client->disableReboot();
+        $raw = $this->agentToken($client, 'agent-on-agent@example.com');
 
         $this->call($client, $method, $path, $raw);
 
@@ -121,39 +125,49 @@ final class WidgetTokenSurfaceTest extends WebTestCase
         ], content: '{}');
     }
 
-    /** @param non-empty-string $email */
-    private function issueWidgetToken(string $email, string $siteName): string
+    /**
+     * A site-review credential bound to one site, which is what the widget holds.
+     *
+     * @param non-empty-string $email
+     */
+    private function widgetToken(KernelBrowser $client, string $email, string $siteName): string
     {
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-
-        $user = new User(fullName: 'Owner', email: $email, password: 'x');
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        $em->persist($user);
-        [$token, $raw] = ApiToken::issue($user, 'widget-tok', ApiTokenScope::SiteReview);
-        $em->persist($token);
+        $em = $this->em();
+        $user = $this->user($em, $email);
         $project = new Project($user, $siteName);
-        $project->widgetToken = $token;
         $em->persist($project);
         $em->flush();
 
-        return $raw;
+        return AgentCredential::tokenFor(static::getContainer(), $client, $user, 'site-review', $project);
     }
 
     /** @param non-empty-string $email */
-    private function issueAccountToken(ApiTokenScope $scope, string $email): string
+    private function agentToken(KernelBrowser $client, string $email): string
+    {
+        $em = $this->em();
+        $user = $this->user($em, $email);
+        $em->persist(new Project($user, 'account-'.substr(md5($email), 0, 8)));
+        $em->flush();
+
+        return AgentCredential::agentToken(static::getContainer(), $client, $user);
+    }
+
+    private function em(): EntityManagerInterface
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
 
+        return $em;
+    }
+
+    /** @param non-empty-string $email */
+    private function user(EntityManagerInterface $em, string $email): User
+    {
         $user = new User(fullName: 'Owner', email: $email, password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($user, static::getContainer());
         $em->persist($user);
-        [$token, $raw] = ApiToken::issue($user, 'account-tok', $scope);
-        $em->persist($token);
-        $em->persist(new Project($user, 'account-'.substr(md5($email), 0, 8)));
-        $em->flush();
 
-        return $raw;
+        return $user;
     }
 }

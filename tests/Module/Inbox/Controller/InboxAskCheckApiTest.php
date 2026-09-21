@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Controller;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Inbox\InboxScenario;
+use App\Tests\Support\AgentCredential;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -145,10 +144,7 @@ final class InboxAskCheckApiTest extends WebTestCase
     {
         [$owner, $project] = $this->ownerAndProject('ask-check-widget');
         $ask = $this->closedAskReadUpTo($project, 1);
-        [$token, $raw] = ApiToken::issue($owner, 'widget', ApiTokenScope::SiteReview);
-        $this->em->persist($token);
-        $project->widgetToken = $token;
-        $this->em->flush();
+        $raw = AgentCredential::tokenFor(static::getContainer(), $this->client, $owner, 'site-review', $project);
         $this->setInboxFlag(true);
 
         $this->check($raw, (string) $project->id, (string) $ask->id);
@@ -161,10 +157,7 @@ final class InboxAskCheckApiTest extends WebTestCase
     {
         [$owner, $project] = $this->ownerAndProject('ask-check-mcp');
         $ask = $this->closedAskReadUpTo($project, 1);
-        [$token, $raw] = ApiToken::issue($owner, 'mcp', ApiTokenScope::Mcp);
-        $this->em->persist($token);
-        $project->mcpToken = $token;
-        $this->em->flush();
+        $raw = AgentCredential::tokenFor(static::getContainer(), $this->client, $owner, 'mcp', $project);
         $this->setInboxFlag(true);
 
         $this->check($raw, (string) $project->id, (string) $ask->id);
@@ -223,8 +216,12 @@ final class InboxAskCheckApiTest extends WebTestCase
         ));
         [$owner, $project] = $this->ownerAndProject('ask-check-limit');
         $ask = $this->closedAskReadUpTo($project, 1);
+        [$other, $otherProject] = $this->ownerAndProject('ask-check-limit-other');
+        $otherAsk = $this->closedAskReadUpTo($otherProject, 1);
         $first = $this->agentToken($owner);
-        $second = $this->agentToken($owner);
+        // Two access tokens of one grant share a bucket, so the second budget
+        // needs a second account.
+        $second = $this->agentToken($other);
         $this->setInboxFlag(true);
 
         $this->check($first, (string) $project->id, (string) $ask->id, '203.0.113.7');
@@ -233,7 +230,7 @@ final class InboxAskCheckApiTest extends WebTestCase
         $this->check($first, (string) $project->id, (string) $ask->id, '198.51.100.4');
         self::assertResponseStatusCodeSame(429);
 
-        $this->check($second, (string) $project->id, (string) $ask->id, '203.0.113.7');
+        $this->check($second, (string) $otherProject->id, (string) $otherAsk->id, '203.0.113.7');
         self::assertResponseStatusCodeSame(200);
     }
 
@@ -261,11 +258,7 @@ final class InboxAskCheckApiTest extends WebTestCase
 
     private function agentToken(User $owner): string
     {
-        [$token, $raw] = ApiToken::issue($owner, 'bridge', ApiTokenScope::Agent);
-        $this->em->persist($token);
-        $this->em->flush();
-
-        return $raw;
+        return AgentCredential::agentToken(static::getContainer(), $this->client, $owner);
     }
 
     private function path(string $handle, string $askId): string

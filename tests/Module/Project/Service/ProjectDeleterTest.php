@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Project\Service;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Event\ProjectDeleting;
@@ -45,8 +43,6 @@ final class ProjectDeleterTest extends KernelTestCase
         $em->flush();
         $doomedId = $doomed->id;
         $sparedId = $spared->id;
-        $doomedWidgetTokenId = $doomed->widgetToken->id ?? throw new \LogicException('widget token seeded');
-        $doomedMcpTokenId = $doomed->mcpToken->id ?? throw new \LogicException('mcp token seeded');
         $em->clear();
 
         // Captured before the delete: once the documents are gone, a join-table
@@ -102,12 +98,6 @@ final class ProjectDeleterTest extends KernelTestCase
         ] as $table => $sql) {
             self::assertSame(0, (int) $conn->fetchOne($sql, ['id' => (string) $doomedId]), sprintf('orphans left in %s', $table));
         }
-        // Both bound tokens are gone — assert by the captured token IDs, not by
-        // name pattern (prevents false passes from unrelated rows).
-        foreach ([$doomedWidgetTokenId, $doomedMcpTokenId] as $tokenId) {
-            self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM api_tokens WHERE id = :id', ['id' => (string) $tokenId]));
-        }
-
         // The sibling project and its whole graph survive.
         $spared = $em->find(Project::class, $sparedId);
         self::assertNotNull($spared);
@@ -119,8 +109,6 @@ final class ProjectDeleterTest extends KernelTestCase
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM tags WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM series WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM document_tags WHERE document_id = :id', ['id' => $sparedDocumentId]));
-        self::assertNotNull($spared->widgetToken);
-        self::assertNotNull($spared->mcpToken);
     }
 
     public function test_two_projects_delete_in_one_session(): void
@@ -286,13 +274,6 @@ final class ProjectDeleterTest extends KernelTestCase
 
         $em->persist(new SiteReviewComment(project: $project, position: 0, body: 'widget comment', url: 'https://example.test/')->addAnchor('body', 'x'));
         $em->persist(new OutboxEvent($project, 'test.event', 'topic', '{}'));
-
-        [$widgetToken] = ApiToken::issue($owner, $slug.'-widget', ApiTokenScope::SiteReview);
-        [$mcpToken] = ApiToken::issue($owner, $slug.'-mcp', ApiTokenScope::Mcp);
-        $project->widgetToken = $widgetToken;
-        $project->mcpToken = $mcpToken;
-        $em->persist($widgetToken);
-        $em->persist($mcpToken);
 
         return $project;
     }

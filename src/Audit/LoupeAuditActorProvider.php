@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Audit;
 
-use App\Module\Account\Entity\ApiTokenScope;
-use App\Module\Account\Security\AuthenticatedApiTokenResolver;
+use App\Module\Account\Entity\User;
+use App\Module\OAuth\Repository\GrantedCredentialRepository;
+use App\Module\OAuth\Scope\ApiScope;
+use App\Security\AuthenticatedCredential;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Ubermuda\AuditBundle\AuditActorContext;
 use Ubermuda\AuditBundle\AuditActorInterface;
 use Ubermuda\AuditBundle\AuditActorProviderInterface;
+use Ubermuda\AuditBundle\AuditCredentialInterface;
 
 /**
  * Reads the acting identity straight from TokenStorage, which nothing else in
@@ -27,7 +30,7 @@ final readonly class LoupeAuditActorProvider implements AuditActorProviderInterf
 {
     public function __construct(
         private TokenStorageInterface $tokenStorage,
-        private AuthenticatedApiTokenResolver $apiTokens,
+        private GrantedCredentialRepository $grantedCredentials,
         private AuditContext $auditContext,
     ) {
     }
@@ -36,15 +39,11 @@ final readonly class LoupeAuditActorProvider implements AuditActorProviderInterf
     public function currentActor(): AuditActorContext
     {
         $securityToken = $this->tokenStorage->getToken();
-        $apiToken = $this->apiTokens->forSecurityToken($securityToken);
+        $credential = AuthenticatedCredential::of($securityToken);
         $user = $securityToken?->getUser();
 
         $channel = $this->auditContext->channel ?? match (true) {
-            null !== $apiToken => match ($apiToken->scope) {
-                ApiTokenScope::Mcp => AuditChannel::Mcp,
-                ApiTokenScope::Agent => AuditChannel::Agent,
-                ApiTokenScope::SiteReview => AuditChannel::Widget,
-            },
+            null !== $credential => $this->channelOf($credential),
             null !== $securityToken => AuditChannel::Session,
             default => AuditChannel::System,
         };
@@ -61,7 +60,7 @@ final readonly class LoupeAuditActorProvider implements AuditActorProviderInterf
 
         return new AuditActorContext(
             $actor,
-            $apiToken,
+            $user instanceof User && null !== $credential ? $this->recordOf($credential, $user) : null,
             $channel->value,
             $this->auditContext->ambientContext,
         );
@@ -70,5 +69,24 @@ final readonly class LoupeAuditActorProvider implements AuditActorProviderInterf
     public function currentChannel(): AuditChannel
     {
         return AuditChannel::from($this->currentActor()->channel);
+    }
+
+    /**
+     * One credential reaches several firewalls, so the narrowest surface it
+     * carries names the channel. A widget grant is the narrowest of the three.
+     */
+    private function channelOf(AuthenticatedCredential $credential): AuditChannel
+    {
+        return match (true) {
+            $credential->hasRole(ApiScope::SiteReview->role()) => AuditChannel::Widget,
+            $credential->hasRole(ApiScope::Mcp->role()) => AuditChannel::Mcp,
+            $credential->hasRole(ApiScope::Agent->role()) => AuditChannel::Agent,
+            default => AuditChannel::Session,
+        };
+    }
+
+    private function recordOf(AuthenticatedCredential $credential, User $owner): AuditCredentialInterface
+    {
+        return $this->grantedCredentials->findOrCreate($credential->id, $owner);
     }
 }

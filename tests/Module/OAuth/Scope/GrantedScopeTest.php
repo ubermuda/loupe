@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\OAuth\Scope;
 
-use App\Module\Account\Entity\ApiTokenScope;
+use App\Module\OAuth\Scope\ApiScope;
 use App\Module\OAuth\Scope\GrantedScope;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -18,7 +18,7 @@ final class GrantedScopeTest extends TestCase
         $granted = GrantedScope::fromScopes(['mcp', 'project:'.self::PROJECT]);
 
         self::assertNotNull($granted);
-        self::assertSame([ApiTokenScope::Mcp], $granted->scopes);
+        self::assertSame([ApiScope::Mcp], $granted->scopes);
         self::assertSame(self::PROJECT, $granted->projectId?->toRfc4122());
     }
 
@@ -27,7 +27,7 @@ final class GrantedScopeTest extends TestCase
         $granted = GrantedScope::fromScopes(['agent']);
 
         self::assertNotNull($granted);
-        self::assertSame([ApiTokenScope::Agent], $granted->scopes);
+        self::assertSame([ApiScope::Agent], $granted->scopes);
         self::assertNull($granted->projectId);
     }
 
@@ -36,7 +36,7 @@ final class GrantedScopeTest extends TestCase
         $granted = GrantedScope::fromScopes(['mcp', 'projects']);
 
         self::assertNotNull($granted);
-        self::assertSame([ApiTokenScope::Mcp], $granted->scopes);
+        self::assertSame([ApiScope::Mcp], $granted->scopes);
         self::assertTrue($granted->allProjects);
         self::assertNull($granted->projectId);
     }
@@ -51,12 +51,12 @@ final class GrantedScopeTest extends TestCase
 
     public function test_the_projects_binding_is_not_read_as_a_base_scope(): void
     {
-        // `projects` is no ApiTokenScope case. Read as one it comes back null
+        // `projects` is no ApiScope case. Read as one it comes back null
         // and refuses the grant, whichever order the scopes arrive in.
         $granted = GrantedScope::fromScopes(['projects', 'site-review']);
 
         self::assertNotNull($granted);
-        self::assertSame([ApiTokenScope::SiteReview], $granted->scopes);
+        self::assertSame([ApiScope::SiteReview], $granted->scopes);
         self::assertTrue($granted->allProjects);
     }
 
@@ -65,10 +65,10 @@ final class GrantedScopeTest extends TestCase
         $granted = GrantedScope::fromScopes(['agent', 'mcp', 'projects']);
 
         self::assertNotNull($granted);
-        self::assertSame([ApiTokenScope::Agent, ApiTokenScope::Mcp], $granted->scopes);
-        self::assertTrue($granted->allows(ApiTokenScope::Mcp));
-        self::assertTrue($granted->allows(ApiTokenScope::Agent));
-        self::assertFalse($granted->allows(ApiTokenScope::SiteReview));
+        self::assertSame([ApiScope::Agent, ApiScope::Mcp], $granted->scopes);
+        self::assertTrue($granted->allows(ApiScope::Mcp));
+        self::assertTrue($granted->allows(ApiScope::Agent));
+        self::assertFalse($granted->allows(ApiScope::SiteReview));
         self::assertTrue($granted->allProjects);
     }
 

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\OAuth\Command;
 
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\OAuth\Device\UserCode;
+use App\Module\OAuth\Scope\ApiScope;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -32,7 +32,7 @@ final readonly class ShowAuthorizationServerMetadataHandler
             'authorization_endpoint' => $issuer.$this->urls->generate('oauth2_authorize'),
             'token_endpoint' => $issuer.$this->urls->generate('oauth2_token'),
             'device_authorization_endpoint' => $issuer.$this->urls->generate('oauth2_device_authorization'),
-            'scopes_supported' => array_map(static fn (ApiTokenScope $scope): string => $scope->value, ApiTokenScope::cases()),
+            'scopes_supported' => array_map(static fn (ApiScope $scope): string => $scope->value, ApiScope::cases()),
             'response_types_supported' => ['code'],
             'grant_types_supported' => ['authorization_code', 'refresh_token', UserCode::DEVICE_GRANT],
             'code_challenge_methods_supported' => ['S256'],

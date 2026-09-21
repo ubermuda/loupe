@@ -197,20 +197,13 @@ variable "site_review_widget_context" {
 variable "site_review_widget_project" {
   type        = string
   default     = ""
-  description = "SITE_REVIEW_WIDGET_PROJECT: id of the project site-review comments should file into. The reviewer signs in through the OAuth popup, so no credential is in the page source. It wins over site_review_widget_token."
+  description = "SITE_REVIEW_WIDGET_PROJECT: id of the project site-review comments should file into. The reviewer signs in through the OAuth popup, so no credential is in the page source."
 }
 
 variable "site_review_widget_public" {
   type        = string
   default     = ""
   description = "SITE_REVIEW_WIDGET_PUBLIC: leave empty (the default) to show the site-review widget to administrators only. Set to 1 to offer it to every visitor — its comments are instructions an agent may act on, so only do that where you trust everyone who can reach the site."
-}
-
-variable "site_review_widget_token" {
-  type        = string
-  sensitive   = true
-  default     = ""
-  description = "SITE_REVIEW_WIDGET_TOKEN: the widget token of the project site-review comments should file into. Optional; empty serves no widget unless site_review_widget_project is set, which takes precedence. The widget is shown to administrators only unless SITE_REVIEW_WIDGET_PUBLIC is set, which production should leave alone."
 }
 
 variable "analytics_script_url" {

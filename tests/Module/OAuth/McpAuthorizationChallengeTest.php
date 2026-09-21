@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\OAuth;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Tests\Support\OAuthScenario;
-use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -51,13 +48,11 @@ final class McpAuthorizationChallengeTest extends WebTestCase
     public function test_a_token_without_the_mcp_scope_gets_insufficient_scope(): void
     {
         $scenario = new OAuthScenario(static::getContainer());
+        $scenario->createClient();
         $user = $scenario->createUser('riley@example.com');
-        [$token, $raw] = ApiToken::issue($user, 'widget', ApiTokenScope::SiteReview);
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $em->persist($token);
-        $em->flush();
+        $project = $scenario->createProject($user, 'Riley site');
 
-        $this->postMcp($raw);
+        $this->postMcp($scenario->accessTokenFor($this->browser, $user, 'site-review', $project));
 
         self::assertResponseStatusCodeSame(403);
         self::assertSame(

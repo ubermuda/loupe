@@ -53,7 +53,7 @@ doctrine:
         # maps once these are declared.
         resolve_target_entities:
             Ubermuda\AuditBundle\AuditActorInterface: App\Module\Account\Entity\User
-            Ubermuda\AuditBundle\AuditCredentialInterface: App\Module\Account\Entity\ApiToken
+            Ubermuda\AuditBundle\AuditCredentialInterface: App\Module\OAuth\Entity\GrantedCredential
         mappings:
             App:
                 type: attribute

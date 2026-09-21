@@ -91,7 +91,7 @@ Assert first that it happened, *then* that the specific effect is absent.
 self::assertNotEmpty($statements);
 self::assertSame([], array_values(array_filter(
     $statements,
-    static fn (string $sql): bool => str_contains($sql, 'UPDATE api_tokens'),
+    static fn (string $sql): bool => str_contains($sql, 'UPDATE oauth_credentials'),
 )));
 ```
 

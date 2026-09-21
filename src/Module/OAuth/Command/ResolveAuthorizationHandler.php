@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\OAuth\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Account\Entity\ApiTokenScope;
+use App\Module\OAuth\Scope\ApiScope;
 use App\Module\OAuth\Scope\GrantedScope;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
@@ -78,7 +78,7 @@ final readonly class ResolveAuthorizationHandler
         $this->auditor->record(
             'oauth.client_authorized',
             AuditOutcome::Success,
-            ['clientId' => $clientId, 'scopes' => implode(' ', array_map(static fn (ApiTokenScope $scope): string => $scope->value, $command->scopes)), 'allProjects' => $allProjects, 'projectId' => null === $project ? null : (string) $project->id],
+            ['clientId' => $clientId, 'scopes' => implode(' ', array_map(static fn (ApiScope $scope): string => $scope->value, $command->scopes)), 'allProjects' => $allProjects, 'projectId' => null === $project ? null : (string) $project->id],
             new AuditSubject('oauth_client', $clientId),
         );
 

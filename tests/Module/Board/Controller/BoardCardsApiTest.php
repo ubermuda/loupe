@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
-use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
+use App\Tests\Support\AgentCredential;
+use App\Tests\Support\OAuthScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -26,9 +25,8 @@ final class BoardCardsApiTest extends WebTestCase
     public function test_a_reviewer_creates_a_card_and_it_records_who_raised_it(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'cards-api-create@example.com');
-        $this->enableBoard($em);
+        [$raw, $project] = $this->projectWithToken($client, 'cards-api-create@example.com');
+        $this->enableBoard();
 
         $this->api($client, Request::METHOD_POST, '/api/board/cards', $raw, [
             'title' => 'Footer overlaps the launcher',
@@ -56,9 +54,9 @@ final class BoardCardsApiTest extends WebTestCase
     public function test_the_picker_lists_open_cards_newest_first_and_can_narrow_them(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'cards-api-list@example.com');
-        $this->enableBoard($em);
+        [$raw, $project] = $this->projectWithToken($client, 'cards-api-list@example.com');
+        $em = $this->em();
+        $this->enableBoard();
 
         $em->persist(new Card($project, $this->column($project, 'backlog'), 'Footer overlaps the launcher', '', 1));
         $em->persist(new Card($project, $this->column($project, 'backlog'), 'Rotate the signing key', '', 2));
@@ -91,9 +89,9 @@ final class BoardCardsApiTest extends WebTestCase
     public function test_a_wildcard_in_the_search_matches_only_a_literal_one(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'cards-api-wildcard@example.com');
-        $this->enableBoard($em);
+        [$raw, $project] = $this->projectWithToken($client, 'cards-api-wildcard@example.com');
+        $em = $this->em();
+        $this->enableBoard();
 
         $backlog = $this->column($project, 'backlog');
         $em->persist(new Card($project, $backlog, 'Rotate the signing key', '', 1));
@@ -117,8 +115,7 @@ final class BoardCardsApiTest extends WebTestCase
     public function test_both_endpoints_are_absent_while_the_board_is_switched_off(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->projectWithToken($em, 'cards-api-flag@example.com');
+        [$raw] = $this->projectWithToken($client, 'cards-api-flag@example.com');
 
         $this->api($client, Request::METHOD_GET, '/api/board/cards', $raw);
         self::assertResponseStatusCodeSame(404);
@@ -130,13 +127,11 @@ final class BoardCardsApiTest extends WebTestCase
     public function test_an_account_token_cannot_reach_the_board(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $user = new User(fullName: 'U', email: 'cards-api-mcp@example.com', password: 'x');
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        $em->persist($user);
-        [$token, $raw] = ApiToken::issue($user, 'mcp', ApiTokenScope::Mcp);
-        $em->persist($token);
-        $em->flush();
+        $scenario = new OAuthScenario(static::getContainer());
+        $scenario->createClient();
+        $user = $scenario->createUser('cards-api-mcp@example.com');
+        $project = $scenario->createProject($user, 'cards-api-mcp');
+        $raw = $scenario->accessTokenFor($client, $user, 'mcp', $project);
 
         $this->api($client, Request::METHOD_GET, '/api/board/cards', $raw);
 
@@ -148,9 +143,8 @@ final class BoardCardsApiTest extends WebTestCase
     public function test_the_widget_can_call_it_from_another_origin(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->projectWithToken($em, 'cards-api-cors@example.com');
-        $this->enableBoard($em);
+        [$raw] = $this->projectWithToken($client, 'cards-api-cors@example.com');
+        $this->enableBoard();
 
         $this->api($client, Request::METHOD_GET, '/api/board/cards', $raw);
 
@@ -164,32 +158,41 @@ final class BoardCardsApiTest extends WebTestCase
     }
 
     /**
+     * A project with a site-review credential of its owner. The helper takes
+     * the credential last, because the authorization flow detaches every
+     * entity the test holds before it.
+     *
      * @param non-empty-string $email
      *
      * @return array{0: string, 1: Project}
      */
-    private function projectWithToken(EntityManagerInterface $em, string $email, string $name = 'cards-api'): array
+    private function projectWithToken(KernelBrowser $client, string $email, string $name = 'cards-api'): array
     {
-        $user = new User(fullName: 'U', email: $email, password: 'x');
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        $em->persist($user);
-        [$token, $raw] = ApiToken::issue($user, 'widget', ApiTokenScope::SiteReview);
-        $em->persist($token);
-        $project = new Project($user, $name);
-        $project->widgetToken = $token;
-        $em->persist($project);
+        $scenario = new OAuthScenario(static::getContainer());
+        $scenario->createClient();
+        $user = $scenario->createUser($email);
+        $project = $scenario->createProject($user, $name);
         $this->seedColumns($project);
-        $em->flush();
+        $this->em()->flush();
+        $raw = $scenario->accessTokenFor($client, $user, 'site-review', $project);
 
-        return [$raw, $project];
+        return [$raw, AgentCredential::managed($this->em(), $project, $project->id)];
     }
 
-    private function enableBoard(EntityManagerInterface $em): void
+    private function em(): EntityManagerInterface
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+
+        return $em;
+    }
+
+    private function enableBoard(): void
     {
         $flags = static::getContainer()->get(FeatureFlagRepository::class);
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
         $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
-        $em->flush();
+        $this->em()->flush();
     }
 
     /** @param array<string, mixed>|null $json */

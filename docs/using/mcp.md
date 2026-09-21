@@ -1,12 +1,12 @@
 ---
 title: "The MCP endpoint"
-description: "How an AI agent creates and revises documents, and how its token is scoped."
+description: "How an AI agent creates and revises documents, and how it signs in."
 ---
 
-`POST /mcp` is a Model Context Protocol endpoint. An agent authenticates with a
-project-scoped API token and calls tools that create documents, revise them, and
-read back what humans said — so a long-form plan gets considered review instead
-of scrolling past in a terminal.
+`POST /mcp` is a Model Context Protocol endpoint. An agent signs in with OAuth
+and calls tools that create documents, revise them, and read back what humans
+said. A long-form plan then gets considered review instead of scrolling past in
+a terminal.
 
 ## Connecting by URL
 
@@ -43,7 +43,7 @@ A client finds the sign-in in three steps:
    and redirect addresses.
 
 Loupe has no Dynamic Client Registration. A client that supports only that
-cannot connect by URL. Give it a token instead.
+cannot connect by URL. Connect it through the Loupe CLI instead, below.
 
 For a self-hosted instance:
 
@@ -54,45 +54,29 @@ For a self-hosted instance:
   that client. The fetch goes to public addresses only. An instance with no
   internet access cannot connect a new client, and every other feature works.
 
-## Getting a token
+## There is no static token
 
-Use a token for CI, for scripts, and for a client without OAuth.
+Loupe issues no static API token. No page mints one, and the server accepts
+none. Every connection is an OAuth sign-in, and the client refreshes it by
+itself.
 
-Mint one from the project: `/projects/{id}/mcp-token`, and
-`/projects/{id}/mcp-token/regenerate` to roll it. Tokens are stored hashed and
-scoped — an MCP token is not a site-review token and cannot be used as one. Any
-token can be revoked from `/account/api-tokens/{tokenId}/revoke`.
+Each sign-in needs a person at a browser once. An MCP client opens the consent
+page. The Loupe CLI prints a device code for a page you open. A machine where
+nobody can open a browser cannot get a credential, so CI and scripts cannot
+reach `/mcp` or `/api`.
 
-The first-run wizard mints one for you at `/welcome/connect`.
+A connection carries one scope. The `mcp` scope binds to the one project you
+pick on the consent page, so every tool call knows which project it acts on.
+The `agent` scope reaches the CLI endpoints and binds to no project. The
+`site-review` scope reaches the comments of one project, which is what the
+site-review widget uses. See [Connected apps](connected-apps.md) for the whole
+table and for how to revoke a connection.
 
-The API tokens section of your account settings, at `/account/api-tokens`,
-mints an account-level token. Give it a name and copy the value from the page:
-Loupe stores only a hash, so the page shows the raw token once and never again.
-The same page lists every token you own and revokes any of them.
+`403 insufficient_scope` means the sign-in is valid and carries the wrong scope
+for that endpoint. Connect the client again with the scope the endpoint needs.
 
-Open the API tokens section and select Revoke beside a token.
-Confirm the dialog to revoke it. Cancel or Escape keeps the token active.
-Revocation immediately prevents authentication with that token. It cannot be undone.
-
-An account-level token always gets the agent scope, which is what the Loupe CLI
-needs. That scope reaches `/api/projects`, `/api/events` and
-`/api/projects/{handle}/board/columns`, and nothing else. It does not reach the
-site-review or board card endpoints the widget calls: those take a
-project-bound widget token, which a project mints on its own Connect page.
-
-The page mints no MCP token, because an MCP tool reads its project from the
-token that is bound to it, and only the project's Connect page writes that
-binding. An account-level MCP token would authenticate and then fail on every
-tool call.
-
-An account-level token minted before the agent scope existed carries the
-site-review scope, and the CLI endpoints now answer it with
-`403 insufficient_scope`. Mint a replacement at `/account/api-tokens` and revoke the old
-one. No upgrade converts the stored scope. A stored site-review token that is
-bound to no project cannot be told apart from a widget token whose binding was
-cleared, and a widget token sits in page HTML that anyone can read, so a
-conversion could hand a page visitor your project list and your event streams.
-No widget token is affected, and no widget deployment changes.
+A project's Connect page shows the command for each way on this page. The
+first-run wizard shows the same commands at `/welcome/connect`.
 
 ## Connecting through the CLI
 
@@ -191,8 +175,8 @@ It installs eight skills, each covering one part of working a Loupe project:
 The plugin carried an MCP server until version 0.2.0, as an HTTP endpoint plus a
 project API token you typed at install. Two things were wrong with it. A plugin
 holds one set of config values per user, so that was one token across every
-project you work in, and Loupe's tokens are per project. And the token sat in
-your configuration for as long as the plugin was installed.
+project you work in, and an MCP credential binds to one project. And the token
+sat in your configuration for as long as the plugin was installed.
 
 `loupe mcp` has neither problem. The project comes from `.loupe.yaml` in the
 repository, so one setup serves every project, and the credential is an OAuth
@@ -474,5 +458,5 @@ must contain the hostname agents actually use, or every call is rejected with a
 An unauthenticated `POST /mcp` answers **401, not 404**, with a
 `WWW-Authenticate` header that points at the protected resource metadata. A 404
 means the route did not register. A 403 with a plain-text body is the rebinding
-guard. A 403 with `insufficient_scope` means the token is valid but is not an
-MCP token.
+guard. A 403 with `insufficient_scope` means the sign-in is valid and does
+not carry the `mcp` scope.

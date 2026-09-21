@@ -1,9 +1,5 @@
-{# widget.js reads data-token first, so an embed that carries both never signs
-   in: a configured project must emit data-project and nothing else. #}
-{% if (site_review_widget_project or site_review_widget_token) and (site_review_widget_public or is_granted('ROLE_ADMIN')) %}
+{% if site_review_widget_project and (site_review_widget_public or is_granted('ROLE_ADMIN')) %}
 <script src="{{ site_review_widget_backend|trim('/', 'right') }}/site-review/widget.js"
-    {%- if site_review_widget_project %} data-project="{{ site_review_widget_project }}"
-    {%- else %} data-token="{{ site_review_widget_token }}"
-    {%- endif %}
+    data-project="{{ site_review_widget_project }}"
     {%- if site_review_widget_context %} data-context="{{ site_review_widget_context }}"{% endif %}></script>
 {% endif %}

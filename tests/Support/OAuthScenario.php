@@ -48,11 +48,14 @@ final readonly class OAuthScenario
      */
     public function createClient(string $identifier = self::CLIENT_ID, array $redirectUris = [self::REDIRECT_URI]): Client
     {
-        $client = new Client(self::CLIENT_NAME, $identifier, null);
+        $manager = $this->container->get(ClientManagerInterface::class);
+        // A test that takes two credentials seeds the row twice, and the second
+        // save is an insert of an identifier the identity map already holds.
+        $client = $manager->find($identifier) ?? new Client(self::CLIENT_NAME, $identifier, null);
         $client->setRedirectUris(...array_map(static fn (string $uri): RedirectUri => new RedirectUri($uri), $redirectUris));
         $client->setGrants(new Grant('authorization_code'), new Grant('refresh_token'));
-        $client->setScopes(new Scope('mcp'), new Scope('site-review'), new Scope('agent'));
-        $this->container->get(ClientManagerInterface::class)->save($client);
+        $client->setScopes(new Scope('mcp'), new Scope('site-review'), new Scope('agent'), new Scope('projects'));
+        $manager->save($client);
 
         return $client;
     }
@@ -137,6 +140,40 @@ final readonly class OAuthScenario
         }
 
         return ['access_token' => $tokens['access_token'], 'refresh_token' => $tokens['refresh_token']];
+    }
+
+    /**
+     * One access token for any scope set, through consent and the code exchange.
+     *
+     * The picker is on the consent form only where a scope needs one project,
+     * so a grant over every project of the owner passes no project at all.
+     *
+     * It clears the cookie jar rather than restarting the browser, so the
+     * caller keeps the entity manager it already holds. A restart reboots the
+     * kernel, and every entity the test loaded before it is then detached.
+     */
+    public function accessTokenFor(KernelBrowser $browser, User $user, string $scope, ?Project $project = null): string
+    {
+        $browser->loginUser($user);
+        $crawler = $browser->request(Request::METHOD_GET, $this->authorizeUrl($scope));
+        $form = $crawler->selectButton('consent_form_approve')->form();
+        if (null !== $project) {
+            $form['consent_form[project]'] = (string) $project->id;
+        }
+        $browser->submit($form);
+        $query = self::redirectQuery((string) $browser->getResponse()->headers->get('Location'));
+        $browser->getCookieJar()->clear();
+        $tokens = self::postToken($browser, [
+            'grant_type' => 'authorization_code',
+            'client_id' => self::CLIENT_ID,
+            'redirect_uri' => self::REDIRECT_URI,
+            'code' => $query['code'] ?? '',
+            'code_verifier' => $this->codeVerifier,
+        ]);
+
+        return \is_string($tokens['access_token'] ?? null)
+            ? $tokens['access_token']
+            : throw new \LogicException('the token endpoint issued no access token: '.json_encode($tokens));
     }
 
     /**
