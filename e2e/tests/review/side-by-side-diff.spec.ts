@@ -9,6 +9,12 @@
 
 import { expect, type Page } from '@playwright/test';
 import { createTest, suppressToolbar, suppressWidget } from '../fixtures';
+import { coverageScaled } from '../timeouts';
+
+// Switching view is a Turbo visit, and a loaded dev server answers one in more
+// than the 5 s default: a trace of a failed run measured 6.6 s for a single
+// navigation. Every toHaveURL below follows such a click.
+const VISIT = { timeout: coverageScaled(15_000) };
 
 // One login per worker rather than one per test. Every test seeds its own
 // comparison and navigates by the document id that seed returns, so the
@@ -117,7 +123,7 @@ test('the visible picker compares equal versions and keeps the view', async ({
         .getByLabel('Compare from version', { exact: true })
         .selectOption('2');
     await toolbar.getByRole('button', { name: 'Compare', exact: true }).click();
-    await expect(page).toHaveURL(`${reviewPath}/diff/2/2?view=source`);
+    await expect(page).toHaveURL(`${reviewPath}/diff/2/2?view=source`, VISIT);
     await expect(page.locator('.lp-empty')).toContainText('identical');
     await expect(
         toolbar.getByRole('button', { name: 'Next change', exact: true }),
@@ -132,7 +138,7 @@ test('the visible picker compares equal versions and keeps the view', async ({
         .getByLabel('Compare from version', { exact: true })
         .selectOption('1');
     await toolbar.getByRole('button', { name: 'Compare', exact: true }).click();
-    await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=source`);
+    await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=source`, VISIT);
     const notes = page.locator('.lp-diff-notes');
     await expect(notes).not.toHaveAttribute('open');
     await notes.locator('summary').click();
@@ -213,7 +219,10 @@ test('the two columns pair the blocks and carry no comment column', async ({
         .locator(VIEWS)
         .getByRole('link', { name: 'Side by side' })
         .click();
-    await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=side-by-side`);
+    await expect(page).toHaveURL(
+        `${reviewPath}/diff/1/2?view=side-by-side`,
+        VISIT,
+    );
     await expect(page.locator('.lp-diff-views__link[aria-current]')).toHaveText(
         'Side by side',
     );
@@ -314,7 +323,7 @@ test('the two columns pair the blocks and carry no comment column', async ({
         .locator(VIEWS)
         .getByRole('link', { name: 'Rendered', exact: true })
         .click();
-    await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=rendered`);
+    await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=rendered`, VISIT);
     await expect(page.locator(MARGIN)).toHaveCount(1);
     await expect(
         page.getByRole('button', { name: 'Add general comment' }),
