@@ -17,11 +17,18 @@ No host Go toolchain is needed; both recipes run in a throwaway container.
 
 ```bash
 just cli-test                  # go vet + go test
+just cli-install               # build for this machine and put it in ~/bin
+just cli-install ~/.local/bin  # or wherever you keep binaries
 just cli-build                 # darwin/arm64 → cli/dist/loupe-darwin-arm64
 just cli-build linux amd64     # any GOOS/GOARCH pair
 ```
 
-Put the resulting binary somewhere on your `PATH` (e.g. `~/bin/loupe`).
+`just cli-install` reads the platform from `uname`, so it needs no arguments on
+a Mac or a Linux box. It runs the installed binary afterwards to prove it works,
+and it warns when the directory is not on your `PATH`, or when another `loupe`
+earlier on `PATH` would be used instead.
+
+`just cli-build` leaves the binary in `cli/dist/` for you to place yourself.
 
 `just cli-test` also runs as its own leg of CI, so a broken CLI fails a pull
 request the same way broken PHP does.
