@@ -67,7 +67,7 @@ final class RateLimitAgentColumnReadsTest extends TestCase
             $securityToken = $this->createStub(TokenInterface::class);
             $securityToken->method('hasAttribute')->willReturn(true);
             $securityToken->method('getAttribute')->willReturnCallback(
-                static fn (string $name): ?AuthenticatedCredential => AuthenticatedCredential::ATTRIBUTE === $name ? new AuthenticatedCredential($apiTokenId, 'ROLE_API_AGENT') : null,
+                static fn (string $name): ?AuthenticatedCredential => AuthenticatedCredential::ATTRIBUTE === $name ? new AuthenticatedCredential($apiTokenId, ['ROLE_API_AGENT']) : null,
             );
             $tokenStorage->setToken($securityToken);
         }

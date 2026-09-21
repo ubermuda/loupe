@@ -71,8 +71,9 @@ final class GrantRepositoryTest extends KernelTestCase
         self::assertSame([[
             'clientId' => OAuthScenario::CLIENT_ID,
             'clientName' => OAuthScenario::CLIENT_NAME,
-            'scope' => 'mcp',
+            'scopes' => ['mcp'],
             'projectId' => (string) $this->project->id,
+            'allProjects' => false,
         ]], $rows);
     }
 

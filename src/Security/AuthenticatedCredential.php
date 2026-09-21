@@ -16,20 +16,30 @@ use Symfony\Component\Uid\Uuid;
  * `allProjects` covers every project the owner owns, read per request. It is
  * exclusive with `projectId`: one names a set and the other names a member, so
  * a credential carrying both would answer the same question twice.
+ *
+ * `roles` holds one role per base scope the credential carries. One credential
+ * reaches several firewalls, because the CLI needs the bridge endpoints and the
+ * MCP endpoint from one login.
  */
 final readonly class AuthenticatedCredential
 {
     public const string ATTRIBUTE = 'authenticatedCredential';
 
+    /** @param non-empty-list<string> $roles */
     public function __construct(
         public string $id,
-        public string $scopeRole,
+        public array $roles,
         public ?Uuid $projectId = null,
         public bool $allProjects = false,
     ) {
         if ($allProjects && null !== $projectId) {
             throw new \LogicException('a credential covers one project or every project of its owner, never both.');
         }
+    }
+
+    public function hasRole(string $role): bool
+    {
+        return \in_array($role, $this->roles, true);
     }
 
     public static function of(?TokenInterface $securityToken): ?self

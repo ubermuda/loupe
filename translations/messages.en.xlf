@@ -6095,6 +6095,14 @@
             <trans-unit id="oauth.widget.callback.page.title"><source>oauth.widget.callback.page.title</source><target>Signing in</target></trans-unit>
             <trans-unit id="oauth.widget.callback.done"><source>oauth.widget.callback.done</source><target>You are signed in. Go back to the page to review it.</target></trans-unit>
             <trans-unit id="oauth.widget.callback.lost"><source>oauth.widget.callback.lost</source><target>This window cannot reach the review widget. Close it, then sign in again from the page.</target></trans-unit>
+            <trans-unit id="oauth.consent.row.all_projects">
+                <source>oauth.consent.row.all_projects</source>
+                <target>Every project you own</target>
+            </trans-unit>
+            <trans-unit id="oauth.consent.row.all_projects_hint">
+                <source>oauth.consent.row.all_projects_hint</source>
+                <target>Including projects you create later. It reads the project from each request, so it never acts on more than one at a time.</target>
+            </trans-unit>
             <trans-unit id="oauth.consent.row.widget_project"><source>oauth.consent.row.widget_project</source><target>It reviews %project%</target></trans-unit>
             <trans-unit id="oauth.consent.row.widget_project_hint"><source>oauth.consent.row.widget_project_hint</source><target>The widget on this page names this project, and you own it.</target></trans-unit>
             <trans-unit id="oauth.consent.row.widget_site"><source>oauth.consent.row.widget_site</source><target>It runs on %origin%</target></trans-unit>
@@ -6122,6 +6130,10 @@
             <trans-unit id="oauth.connected_apps.heading"><source>oauth.connected_apps.heading</source><target>Connected apps</target></trans-unit>
             <trans-unit id="oauth.connected_apps.intro"><source>oauth.connected_apps.intro</source><target>These apps can use your Loupe account. Revoke an app to remove its access at once.</target></trans-unit>
             <trans-unit id="oauth.connected_apps.empty"><source>oauth.connected_apps.empty</source><target>No app is connected to your account.</target></trans-unit>
+            <trans-unit id="oauth.connected_apps.all_projects">
+                <source>oauth.connected_apps.all_projects</source>
+                <target>every project you own</target>
+            </trans-unit>
             <trans-unit id="oauth.connected_apps.action.revoke"><source>oauth.connected_apps.action.revoke</source><target>Revoke</target></trans-unit>
             <trans-unit id="oauth.connected_apps.revoke.title"><source>oauth.connected_apps.revoke.title</source><target>Revoke this app?</target></trans-unit>
             <trans-unit id="oauth.connected_apps.revoke.description"><source>oauth.connected_apps.revoke.description</source><target>%client% loses its access at once. To connect again, the app must ask you again.</target></trans-unit>

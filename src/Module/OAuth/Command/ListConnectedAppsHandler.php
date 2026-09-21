@@ -29,7 +29,8 @@ final readonly class ListConnectedAppsHandler
 
             $apps[$row['clientId']]['name'] = $row['clientName'];
             $apps[$row['clientId']]['grants'][] = [
-                'scope' => $granted->scope,
+                'scopes' => $granted->scopes,
+                'allProjects' => $granted->allProjects,
                 'project' => null === $granted->projectId ? null : $this->projects->find($granted->projectId),
             ];
         }
