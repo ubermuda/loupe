@@ -57,6 +57,34 @@ about it.
 event your forge sends for a rename, a transfer and an owner rename, or the
 breakage is silent.
 
+## The GitHub adapter
+
+Point a webhook at `https://<instance>/webhooks/forge/github`, set a secret, and
+put that secret in `GITHUB_WEBHOOK_SECRET`. An unset secret refuses every
+delivery, so the endpoint is inert until you set it.
+
+Subscribe to these events. The permissions you grant decide which ones GitHub
+offers, so the two move together.
+
+| Event | Repository permission | Why |
+|---|---|---|
+| Pull request | Pull requests, read | the merge arrives here, as `closed` with `merged` true |
+| Pull request review | Pull requests, read | the review verdict |
+| Check suite | Checks, read | the aggregate conclusion |
+| Repository | none | a rename changes the path a delivery joins on |
+
+A merge has no event of its own, and a check suite is the aggregate of a run. A
+check run fires once per check, and this repository gates on thirteen of them.
+
+A GitHub App configures its webhook once, at the App level, so it covers every
+repository an installation holds. A hook a person adds in repository settings
+signs its body the same way, so the adapter serves both and the App is a
+convenience rather than a dependency.
+
+Only a rename repoints a link. A transfer reports its old owner in a shape this
+adapter has never seen a real delivery of, so it does nothing rather than
+repoint every card onto a path nobody owns.
+
 ## What the endpoint answers
 
 | Status | When |

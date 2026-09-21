@@ -401,6 +401,13 @@ variable "stripe_webhook_secret" {
   description = "STRIPE_WEBHOOK_SECRET used to verify inbound webhook signatures."
 }
 
+variable "github_webhook_secret" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "GITHUB_WEBHOOK_SECRET used to verify inbound forge webhook signatures."
+}
+
 variable "oauth_google_id" {
   type        = string
   default     = ""
