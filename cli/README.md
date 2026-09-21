@@ -58,11 +58,16 @@ repository, so a human confirms the CLI is what changed before it ships.
 Signs the bridge in so it can subscribe to your stream.
 
 ```bash
-loupe login                                   # sign in in a browser
-loupe login --url https://loupe.example.com   # defaults to https://loupe.dev.localhost
+loupe login                                   # sign in to https://loupe.ac in a browser
+loupe login --url https://loupe.example.com   # a self-hosted instance
+LOUPE_URL=https://loupe.example.com loupe login   # the same, from the environment
 loupe login --token <token>                   # CI and scripts: a static API token
 LOUPE_TOKEN=<token> loupe login               # the same, from the environment
 ```
+
+The instance comes from `--url`, else `LOUPE_URL`, else `https://loupe.ac`. If
+you are working on Loupe itself, set `LOUPE_URL=https://loupe.dev.localhost`
+once rather than passing the flag every time.
 
 With no token, `loupe login` prints a link and a code such as `BCDF-GHJK`.
 Open the link in a browser where you are signed in to Loupe. Check that the
