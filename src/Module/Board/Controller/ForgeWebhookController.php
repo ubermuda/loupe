@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Controller;
 
+use App\Audit\AuditChannel;
+use App\Audit\AuditContext;
 use App\Controller\AppController;
 use App\Module\Board\Command\RecordForgeDeliveryCommand;
 use App\Module\Board\Command\RecordForgeDeliveryHandler;
@@ -15,8 +17,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Ubermuda\AuditBundle\AuditChannel;
-use Ubermuda\AuditBundle\AuditContext;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\Auditor;
 
