@@ -58,11 +58,14 @@ const (
 const AskClosedType = "inbox.ask_closed"
 
 // The actors the server names. Reviewer is someone using the site-review
-// widget, whom the app cannot authenticate.
+// widget, whom the app cannot authenticate. System is the app acting on a
+// person's approval, which nobody judged as a move of its own: it neither
+// spends a card's chain budget nor resets it.
 const (
 	ActorHuman    = "human"
 	ActorAgent    = "agent"
 	ActorReviewer = "reviewer"
+	ActorSystem   = "system"
 )
 
 // ErrUnknownType marks an event this build does not handle. A newer server
@@ -167,7 +170,7 @@ func checkCommon(e Event) error {
 		return fmt.Errorf("%s event has a subject id that is not a uuid", e.Type)
 	}
 	switch e.Actor {
-	case ActorHuman, ActorAgent, ActorReviewer:
+	case ActorHuman, ActorAgent, ActorReviewer, ActorSystem:
 	default:
 		return fmt.Errorf("%s event has an unknown actor %q", e.Type, e.Actor)
 	}

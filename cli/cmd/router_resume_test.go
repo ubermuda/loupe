@@ -191,7 +191,7 @@ func TestAnAskClosedForAnotherBridgeIsDropped(t *testing.T) {
 func TestAMalformedAskForAnotherBridgeLogsNothing(t *testing.T) {
 	h := newHarnessWith(t, resumeRules, rules.Defaults{})
 	other := foreignBridge
-	payload := strings.Replace(ask{card: 87, bridge: &other}.payload(), `"actor":"human"`, `"actor":"system"`, 1)
+	payload := strings.Replace(ask{card: 87, bridge: &other}.payload(), `"actor":"human"`, `"actor":"widget"`, 1)
 
 	h.send(payload)
 

@@ -339,10 +339,14 @@ inside one column fires nothing, because it carries that column on both sides.
 A rule can name an event type whose fields the bridge does not know. Such a rule
 matches on `project` alone, and it cannot set `to` or `from`.
 
-The server names the actor of every event: `human`, `agent` or `reviewer`. A
-reviewer is someone using the site-review widget, whom Loupe cannot
+The server names the actor of every event: `human`, `agent`, `reviewer` or
+`system`. A reviewer is someone using the site-review widget, whom Loupe cannot
 authenticate. A rule skips a reviewer's event unless it sets
 `allowUntrusted: true`. The skip is final: a later rule never catches the event.
+
+`system` is the app acting on a person's approval, such as the move that follows
+an approved document. A rule matches it like any other event. It is neither a
+person's act nor an agent's, so it spends no chain budget and resets none.
 
 #### Placeholders
 
@@ -439,7 +443,7 @@ on the card. That covers every `board.card_moved` event, and an event of another
 type that some rule names, whether its rule matches or not. The bridge drops an
 event of a type no rule names before it reads the actor, so that event resets
 nothing. A column or project event has no card, so it resets nothing either. A
-reviewer's event resets nothing.
+reviewer's event resets nothing, and neither does a `system` event.
 
 A run that a person's event started does not count. An event that replaces a
 waiting one adds nothing, because the count follows runs. The counts live in the
