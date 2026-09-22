@@ -16,10 +16,10 @@ path skips this.
 2. `just ci` is check-only. It reports style and rector violations but never
    rewrites files; `just cs` is the step that applies them. Fix every failure,
    including ones that pre-date your change.
-3. Run a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-astra"`.
+3. Run a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-sol"`.
    Always pass the model explicitly. This Codex account rejects the model the
    tool picks by default.
-   `gpt-6-astra` needs Codex CLI 0.154.0 or later. An older CLI answers "requires
+   `gpt-6-sol` needs Codex CLI 0.155.1 or later. An older CLI answers "requires
    a newer version of Codex", so run `npm install -g @openai/codex@latest`.
 
 Review against `origin/main`, never `main`. A worktree's local `main` is often
@@ -72,11 +72,26 @@ it. Known cause: `codex-cli` is registered per-project in the user's own
 configuration rather than in a committed `.mcp.json`, so a session running from
 a worktree path may not pick it up.
 
+A usage limit is the other way this step fails, and it reads like a fault in the
+wiring when it is not:
+
+```
+ERROR: You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage
+to purchase more credits or try again at <date>.
+```
+
+The limit belongs to the account, not to a model or a tool. The `codex exec`
+fallback below answers the same error, and so does a different model, so trying
+either proves nothing. Tell the owner the date it resets, say on the gate line
+that the review could not run, and let him decide whether a branch merges
+without it. Two sessions burned an afternoon establishing this separately on
+2026-09-22.
+
 A `codex review` with no output for ~5 minutes at near-zero CPU is hung,
 typically at MCP startup. Kill it and fall back to:
 
 ```bash
-codex exec -c model="gpt-6-astra" "Review the diff of this branch against origin/main (git diff origin/main...HEAD) for correctness bugs and convention violations. Actionable findings only."
+codex exec -c model="gpt-6-sol" "Review the diff of this branch against origin/main (git diff origin/main...HEAD) for correctness bugs and convention violations. Actionable findings only."
 ```
 
 ## A check is a fault until you have seen it fail
