@@ -143,8 +143,16 @@ export async function accessToken(
     const path = projectId
         ? `/dev/oauth/access-token/${projectId}`
         : '/dev/oauth/access-token';
-    const response = await page.request.post(path, { form: { scopes } });
-    expect(response.status()).toBe(200);
+    // Redirects off, so a page with no session fails here as a 302 rather than
+    // following to the login page and handing back its HTML as JSON.
+    const response = await page.request.post(path, {
+        form: { scopes },
+        maxRedirects: 0,
+    });
+    expect(
+        response.status(),
+        'the mint needs a signed-in page; 302 means this one carries no session',
+    ).toBe(200);
 
     return (await response.json()).accessToken;
 }

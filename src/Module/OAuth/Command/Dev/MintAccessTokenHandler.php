@@ -95,7 +95,10 @@ final readonly class MintAccessTokenHandler
         $token->setIdentifier(bin2hex(random_bytes(40)));
         $token->setExpiryDateTime(new \DateTimeImmutable('+1 hour'));
         $this->accessTokens->persistNewAccessToken($token);
-        $token->setPrivateKey(new CryptKey($this->privateKeyPath, '' !== $this->privateKeyPassphrase ? $this->privateKeyPassphrase : null));
+        // The third argument switches off league's key permission check, as the
+        // bundle does for its own key. Dev turns its notice into an exception,
+        // and the file ships at 0666 in a container.
+        $token->setPrivateKey(new CryptKey($this->privateKeyPath, '' !== $this->privateKeyPassphrase ? $this->privateKeyPassphrase : null, false));
 
         $jwt = $token->toString();
 

@@ -70,6 +70,15 @@ const registerUser = async (page: Page): Promise<string> => {
     );
     expect(registerResponse.status()).toBe(200);
 
+    // The mint needs a session, and /dev/register-and-verify creates none. The
+    // firewall on ^/api is stateless, so the cookie this leaves cannot stand in
+    // for the bearer the widget sends.
+    await page.goto('/login');
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Password').fill(E2E_PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).not.toHaveURL(/\/login$/, { timeout: 15_000 });
+
     const harness = await page.request.get(harnessUrl());
     expect(harness.ok()).toBeTruthy();
     const projectId = /data-project="([^"]+)"/.exec(await harness.text())?.[1];
