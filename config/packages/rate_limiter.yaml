@@ -154,6 +154,10 @@ when@dev:
 when@test:
     framework:
         rate_limiter:
+            forge_deliveries:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
             api_authentication:
                 policy: 'sliding_window'
                 limit: 100000

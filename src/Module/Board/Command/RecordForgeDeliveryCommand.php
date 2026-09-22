@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Module\Board\Forge\ForgeDelivery;
+use App\Forge\ForgeDelivery;
 
 final readonly class RecordForgeDeliveryCommand
 {
