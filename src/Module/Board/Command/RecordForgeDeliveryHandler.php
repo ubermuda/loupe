@@ -21,7 +21,7 @@ use Psr\Log\LoggerInterface;
 final readonly class RecordForgeDeliveryHandler
 {
     public function __construct(
-        private CardPullRequestRepository $links,
+        private CardPullRequestRepository $cardPullRequests,
         private EntityManagerInterface $em,
         private OutboxWriter $outbox,
         private LoggerInterface $logger,
@@ -53,7 +53,7 @@ final readonly class RecordForgeDeliveryHandler
             return;
         }
 
-        $moved = $this->links->repoint($delivery->forge, $delivery->repository, $delivery->movedTo);
+        $moved = $this->cardPullRequests->repoint($delivery->forge, $delivery->repository, $delivery->movedTo);
         if ($moved > 0) {
             $this->logger->info('board.forge_repository_moved', [
                 'forge' => $delivery->forge->value,
@@ -70,7 +70,7 @@ final readonly class RecordForgeDeliveryHandler
             return;
         }
 
-        foreach ($this->links->findForPullRequest($delivery->forge, $delivery->repository, $delivery->number) as $link) {
+        foreach ($this->cardPullRequests->findForPullRequest($delivery->forge, $delivery->repository, $delivery->number) as $link) {
             $card = $link->card;
             $project = $card->project;
 
