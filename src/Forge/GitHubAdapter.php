@@ -164,8 +164,9 @@ final readonly class GitHubAdapter implements ForgeAdapterInterface
     }
 
     /**
-     * @param array<mixed> $payload
-     * @param array<mixed> $pullRequest
+     * @param ForgeEventType::* $type
+     * @param array<mixed>      $payload
+     * @param array<mixed>      $pullRequest
      *
      * @return list<ForgeDelivery>
      */

@@ -134,12 +134,12 @@ final class GitHubAdapterTest extends TestCase
         $this->expectException(InvalidForgeSignature::class);
 
         $body = json_encode(['action' => 'closed'], \JSON_THROW_ON_ERROR);
-        $request = Request::create('/webhooks/forge/github', 'POST', server: [
+        $request = Request::create('/webhooks/forge/github', Request::METHOD_POST, server: [
             'HTTP_X_GITHUB_EVENT' => 'pull_request',
             'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', 'a different body', self::SECRET),
         ], content: $body);
 
-        (new GitHubAdapter(self::SECRET))->translate($request);
+        new GitHubAdapter(self::SECRET)->translate($request);
     }
 
     /**
@@ -151,24 +151,24 @@ final class GitHubAdapterTest extends TestCase
         $this->expectException(InvalidForgeSignature::class);
 
         $body = json_encode(['action' => 'closed'], \JSON_THROW_ON_ERROR);
-        $request = Request::create('/webhooks/forge/github', 'POST', server: [
+        $request = Request::create('/webhooks/forge/github', Request::METHOD_POST, server: [
             'HTTP_X_GITHUB_EVENT' => 'pull_request',
             'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $body, ''),
         ], content: $body);
 
-        (new GitHubAdapter(''))->translate($request);
+        new GitHubAdapter('')->translate($request);
     }
 
     public function test_it_refuses_a_verified_body_that_is_not_json(): void
     {
         $this->expectException(InvalidForgeSignature::class);
 
-        $request = Request::create('/webhooks/forge/github', 'POST', server: [
+        $request = Request::create('/webhooks/forge/github', Request::METHOD_POST, server: [
             'HTTP_X_GITHUB_EVENT' => 'pull_request',
             'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', 'not json', self::SECRET),
         ], content: 'not json');
 
-        (new GitHubAdapter(self::SECRET))->translate($request);
+        new GitHubAdapter(self::SECRET)->translate($request);
     }
 
     /**
@@ -179,11 +179,11 @@ final class GitHubAdapterTest extends TestCase
     private function translate(string $event, array $payload): array
     {
         $body = json_encode($payload, \JSON_THROW_ON_ERROR);
-        $request = Request::create('/webhooks/forge/github', 'POST', server: [
+        $request = Request::create('/webhooks/forge/github', Request::METHOD_POST, server: [
             'HTTP_X_GITHUB_EVENT' => $event,
             'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $body, self::SECRET),
         ], content: $body);
 
-        return (new GitHubAdapter(self::SECRET))->translate($request);
+        return new GitHubAdapter(self::SECRET)->translate($request);
     }
 }
