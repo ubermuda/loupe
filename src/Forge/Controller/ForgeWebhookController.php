@@ -2,16 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\Controller;
+namespace App\Forge\Controller;
 
 use App\Audit\AuditChannel;
 use App\Audit\AuditContext;
 use App\Controller\AppController;
-use App\Module\Board\Command\RecordForgeDeliveryCommand;
-use App\Module\Board\Command\RecordForgeDeliveryHandler;
-use App\Module\Board\Forge\ForgeAdapters;
-use App\Module\Board\Forge\InvalidForgeSignature;
-use App\Module\Board\Service\BoardAvailability;
+use App\Forge\Event\ForgeDeliveryReceived;
+use App\Forge\ForgeAdapters;
+use App\Forge\InvalidForgeSignature;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -44,8 +43,7 @@ final class ForgeWebhookController extends AppController
 {
     public function __construct(
         private readonly ForgeAdapters $adapters,
-        private readonly RecordForgeDeliveryHandler $recordDelivery,
-        private readonly BoardAvailability $board,
+        private readonly EventDispatcherInterface $events,
         private readonly LoggerInterface $logger,
         private readonly AuditContext $auditContext,
         private readonly Auditor $auditor,
@@ -59,7 +57,7 @@ final class ForgeWebhookController extends AppController
         $this->auditContext->channel = AuditChannel::Webhook;
 
         $adapter = $this->adapters->forSlug($forge);
-        if (null === $adapter || !$this->board->isEnabled()) {
+        if (null === $adapter) {
             return new JsonResponse(['error' => 'unknown forge'], Response::HTTP_NOT_FOUND);
         }
 
@@ -83,7 +81,7 @@ final class ForgeWebhookController extends AppController
         }
 
         if ([] !== $deliveries) {
-            ($this->recordDelivery)(new RecordForgeDeliveryCommand($deliveries));
+            $this->events->dispatch(new ForgeDeliveryReceived($deliveries));
         }
 
         return new JsonResponse(['received' => true]);

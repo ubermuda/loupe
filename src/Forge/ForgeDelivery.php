@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\Forge;
+namespace App\Forge;
 
-use App\Module\Board\Entity\Forge;
 
 /**
  * One fact an adapter read out of a verified delivery, in the neutral
@@ -18,6 +17,8 @@ final readonly class ForgeDelivery
 {
     /**
      * @param ForgeEventType::* $type
+     * @param non-empty-string  $forge      the forge's own slug, such as `github`. A string rather
+     *                                      than an enum, so this package names no Loupe type
      * @param string            $repository the path the pull request lives under, such as `owner/repo`.
      *                                      GitLab nests groups, so it may hold more than one slash
      * @param ?int              $number     null on REPOSITORY_MOVED, which names no single pull request
@@ -25,7 +26,7 @@ final readonly class ForgeDelivery
      */
     public function __construct(
         public string $type,
-        public Forge $forge,
+        public string $forge,
         public string $repository,
         public ?int $number = null,
         public ?string $movedTo = null,

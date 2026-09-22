@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\Forge;
+namespace App\Forge;
 
 /**
  * What a forge told Loupe, in Loupe's words.

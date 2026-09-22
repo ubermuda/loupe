@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\Forge;
+namespace App\Forge;
 
-use App\Module\Board\Entity\Forge;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -22,7 +21,8 @@ use Symfony\Component\HttpFoundation\Request;
 #[AutoconfigureTag('app.forge_adapter')]
 interface ForgeAdapterInterface
 {
-    public function forge(): Forge;
+    /** @return non-empty-string the slug its deliveries arrive under, such as `github` */
+    public function forge(): string;
 
     /**
      * @return list<ForgeDelivery> empty when the delivery carries no signal the
