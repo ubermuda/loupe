@@ -633,6 +633,10 @@ test('a wrong-scope 403 names the access the sign-in is missing', async ({
 
     await page.getByRole('button', { name: 'Review' }).click();
     const panel = page.locator('#lp-panel');
+    // Assert the panel before its contents. `panel.getByText()` resolves to
+    // zero either way, so without this a failure cannot say whether the panel
+    // opened and stayed non-fatal or never rendered at all. Board card 191.
+    await expect(panel).toBeVisible();
     await expect(panel.getByText(/can.t connect/i)).toBeVisible();
     await expect(panel.getByText(/does not cover site review/i)).toBeVisible();
 });
