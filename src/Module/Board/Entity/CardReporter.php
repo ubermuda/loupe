@@ -20,6 +20,13 @@ enum CardReporter: string
      */
     case Reviewer = 'reviewer';
 
+    /**
+     * The app itself, moving a card because a person approved the document it
+     * hangs off. Distinct from Human, which claims the person did the move, and
+     * from Agent, which claims a worker judged the card ready.
+     */
+    case System = 'system';
+
     /** @return list<string> */
     public static function values(): array
     {
