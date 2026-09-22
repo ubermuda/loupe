@@ -5958,6 +5958,9 @@
             <trans-unit id="oauth.connected_apps.heading"><source>oauth.connected_apps.heading</source><target>Connected apps</target></trans-unit>
             <trans-unit id="oauth.connected_apps.intro"><source>oauth.connected_apps.intro</source><target>These apps can use your Loupe account. Revoke an app to remove its access at once.</target></trans-unit>
             <trans-unit id="oauth.connected_apps.empty"><source>oauth.connected_apps.empty</source><target>No app is connected to your account.</target></trans-unit>
+            <trans-unit id="oauth.admin.connected_apps.title"><source>oauth.admin.connected_apps.title</source><target>Connected apps</target></trans-unit>
+            <trans-unit id="oauth.admin.connected_apps.subtitle"><source>oauth.admin.connected_apps.subtitle</source><target>The apps this account has given access to, and what each one reaches.</target></trans-unit>
+            <trans-unit id="oauth.admin.connected_apps.empty"><source>oauth.admin.connected_apps.empty</source><target>This account has connected no app.</target></trans-unit>
             <trans-unit id="oauth.connected_apps.all_projects">
                 <source>oauth.connected_apps.all_projects</source>
                 <target>every project you own</target>
