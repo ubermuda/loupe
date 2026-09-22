@@ -35,7 +35,6 @@ final class LifecycleStagesTest extends TestCase
         yield 'product' => [['product'], $product];
         yield 'product beside an unrelated tag' => [['product', 'billing'], $product];
         yield 'tech design' => [['design', 'decisions'], $techDesign];
-        yield 'tag case is ignored' => [['Design', 'DECISIONS'], $techDesign];
         yield 'design alone names no stage' => [['design'], null];
         yield 'decisions alone names no stage' => [['decisions'], null];
         yield 'no tags' => [[], null];
@@ -45,7 +44,13 @@ final class LifecycleStagesTest extends TestCase
         yield 'both stages is ambiguous' => [['product', 'design', 'decisions'], null];
     }
 
-    /** @param list<string> $names */
+    /**
+     * Tag::normalizeName lowercases a name, so a document cannot carry a tag
+     * whose case differs. A test for that here would pass with the mapping's
+     * own lowercasing removed, which is why there is none.
+     *
+     * @param list<string> $names
+     */
     private function documentTagged(array $names): Document
     {
         $project = $this->createStub(Project::class);

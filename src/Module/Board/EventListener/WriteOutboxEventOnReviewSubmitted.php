@@ -15,8 +15,13 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
  * Turns a verdict on a document into a durable outbox row, so the agent bound
- * to the project can act on it. Every verdict writes one, because the rule that
- * picks the verdicts worth acting on belongs to whatever reads the outbox.
+ * to the project can act on it. It writes one for every verdict it hears,
+ * because the rule that picks the verdicts worth acting on belongs to whatever
+ * reads the outbox.
+ *
+ * It hears an approval and a changes-requested verdict alone. SubmitReviewHandler
+ * refuses a withdrawal before its transaction, and UndoVerdictHandler dispatches
+ * nothing, so taking a verdict back writes no row and moves no card.
  *
  * It lives in Board rather than Review because the payload names the cards the
  * document hangs off, and no module outside Board may read a card.

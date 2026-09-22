@@ -127,7 +127,7 @@ final class CardListToolTest extends KernelTestCase
         $this->boardWith('card-list-bad-reporter');
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('Unknown reporter "robot". Use one of: human, agent, reviewer.');
+        $this->expectExceptionMessage('Unknown reporter "robot". Use one of: human, agent, reviewer, system.');
         ($this->tool)(reporter: 'robot');
     }
 
