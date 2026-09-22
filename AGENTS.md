@@ -131,7 +131,7 @@ CI catches the rest. `DeploymentConfigParityCheck` cross-checks a new environmen
 
 Invoke the `working-with-prs` skill before you open, gate or merge a pull request. It carries the full gate, the merge protocol, the ruleset facts and the wave rules. This is the irreducible summary, so that a session which skips the skill still does the right thing:
 
-- The gate is `just cs`, then `just ci`, then `just e2e`, then a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-astra"`, against `origin/main`. Fix every failure, including pre-existing ones. If the Codex MCP is missing, stop and tell the owner rather than routing around it.
+- The gate is `just cs`, then `just ci`, then a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-astra"`, against `origin/main`. Fix every failure, including pre-existing ones. e2e is not in the local gate: push, then read the `e2e` check on the pull request, and fix every failure it reports. If the Codex MCP is missing, stop and tell the owner rather than routing around it.
 - A branch whose every changed file ends in `.md` runs steps 1 and 2 only, and says so in the body. Verify with `git diff --name-only origin/main...HEAD | grep -v '\.md$'`. Any output means the full gate applies.
 - `main` is protected and takes `--squash` only. **Put the reasoning in the commit messages, not only in the PR body.** GitHub's squash default concatenates the branch's commit messages, so what survives in `git log` is what the commits said; the body survives only on the pull request page unless you pass `gh pr merge <n> --squash --body-file <file>`. A branch with substantive commit messages loses only the body's framing. A branch with thin ones loses everything. It requires one approving review and thirteen CI checks. On 2026-09-21 the ruleset named `lint`, `cs-check`, `phpstan`, `arkitect`, `gamache`, `audit`, `phpunit`, `e2e`, `js-test`, `cli-test`, `e2e-chromium`, `e2e-rest` and `e2e-chromium-2`. `e2e` registers last, so a reading that counts twelve checks looks settled and is not. Read that list from the ruleset rather than from here, because nothing in the repository fails when it goes stale. `working-with-prs` carries the command. An approval in chat is not a GitHub approval.
 - Never approve your own work, because the review stays with a human. Merging does not: a PR that is approved with all required checks green is good to merge, without asking. Never merge one that is unapproved, has a failing or pending check, or would need `--admin`.
@@ -236,7 +236,7 @@ From inside the php-fpm container (`just shell`), use the `database` Docker serv
 
 ## End-to-end tests
 
-CI's `e2e` check is the gate. The suite runs as three jobs, `e2e-chromium`, `e2e-chromium-2` and `e2e-rest`, and `e2e` fans them in. Push, read the check, and fix every failure it reports, including pre-existing ones. A red `e2e` names no test, so open the shard job. Do not run the full suite locally before you open a PR, because a local run is slower, destructive and less truthful. Run it locally for a named spec you are working on, with `just e2e tests/<area>/<spec>.spec.ts`, or for a branch you cannot push yet.
+CI's `e2e` check is the gate. The suite runs as three jobs, `e2e-chromium`, `e2e-chromium-2` and `e2e-rest`, and `e2e` fans them in. Push, read the check, and fix every failure it reports, including pre-existing ones. A red `e2e` names no test, so open the shard job. Never run the full suite on this machine. A local run is slower, destructive and less truthful, and every worktree shares one `php-fpm` container. Run one named spec when you are debugging it, with `just e2e tests/<area>/<spec>.spec.ts`. A `PreToolUse` hook, `.agents/hooks/no-full-e2e.sh`, refuses a full run and lets a named spec through.
 
 `just e2e-up` creates the disposable target the suite runs against: an `app_e2e` database and an nginx sidecar at `e2e.<project>.dev.localhost` serving this checkout. `just e2e` defaults there and refuses to start when it is not up. Tear it down with `just e2e-down`. Never point the suite at the dev host. The suite is destructive by design: the `install-reset` project truncates every table, and `trial-end-lifecycle` flips global feature flags and disables every expired-trial account. One run against `loupe.dev.localhost` wipes your development database.
 
@@ -263,8 +263,8 @@ just phpunit-coverage         # PHPUnit coverage report at var/phpunit-coverage/
 just migrate-diff             # Generate migrations from entities
 just migrate-run              # Run migrations
 just js-test                  # Run Vitest over tests/js (needs Node alone)
-just e2e                      # Run Playwright e2e tests
-just e2e-coverage             # Run e2e with per-request PHP coverage, merged to var/coverage/html
+just e2e tests/<area>/<x>.spec.ts  # Run ONE Playwright spec; a hook refuses the full suite
+just ci-report e2e-coverage   # Fetch the e2e coverage report from a CI run
 just open-coverage            # Open the merged HTML coverage report
 just ci-report <report> [RUN] # Fetch a CI report: mutation, phpunit-coverage, e2e-coverage, e2e-timing, phpunit-timing
 just browser-sync             # Live-reload proxy for template changes
