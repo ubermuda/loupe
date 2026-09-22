@@ -2347,7 +2347,7 @@
             </trans-unit>
             <trans-unit id="project.connect.loupe_cli.sub">
                 <source>project.connect.loupe_cli.sub</source>
-                <target>Sign in once, then write the config into the repository. The project comes from .loupe.yaml.</target>
+                <target>Sign in once, then write the config into the repository. Each repository names its own project in .loupe.yaml, so one login serves them all.</target>
             </trans-unit>
             <trans-unit id="project.connect.loupe_cli.label">
                 <source>project.connect.loupe_cli.label</source>
@@ -2359,7 +2359,7 @@
             </trans-unit>
             <trans-unit id="project.connect.cli.sub">
                 <source>project.connect.cli.sub</source>
-                <target>Add the server, then sign in. The browser opens the consent page.</target>
+                <target>Add the server by URL, then sign in. This binds the connection to one project.</target>
             </trans-unit>
             <trans-unit id="project.connect.cli.label">
                 <source>project.connect.cli.label</source>

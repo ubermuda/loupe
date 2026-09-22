@@ -28,21 +28,21 @@
     this line. -#}
 {%- set methods = [
     {
-        icon: 'lucide:code',
-        heading: 'project.connect.cli.heading',
-        id: 'cli',
-        sub: 'project.connect.cli.sub',
-        label: 'project.connect.cli.label',
-        command: claudeCommand,
-        recommended: true,
-    },
-    {
         icon: 'lucide:terminal',
         heading: 'project.connect.loupe_cli.heading',
         id: 'loupe_cli',
         sub: 'project.connect.loupe_cli.sub',
         label: 'project.connect.loupe_cli.label',
         command: loupeCommand,
+        recommended: true,
+    },
+    {
+        icon: 'lucide:code',
+        heading: 'project.connect.cli.heading',
+        id: 'cli',
+        sub: 'project.connect.cli.sub',
+        label: 'project.connect.cli.label',
+        command: claudeCommand,
         recommended: false,
     },
     {
