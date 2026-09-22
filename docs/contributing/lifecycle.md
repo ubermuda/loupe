@@ -6,8 +6,13 @@ description: "The board columns a card passes, and the bridge rules that run a w
 A card on the Loupe project board moves through six columns. When a person
 moves a card into a column with a worker, `loupe bridge` starts an unattended
 `claude -p` worker in this repository. The worker runs the stage skill for that
-column, reports one result line, and stops. A person approves each document
-and moves each card. The worker never moves a card.
+column, reports one result line, and stops. A person approves each document.
+
+A card move either reports an agent's own state or carries a person's
+judgement. An agent makes the first kind and never the second. So the
+implementation worker moves its own card to In review, because only it knows
+the pull request is ready. Every move that carries an approval stays with the
+person who approves.
 
 ## Columns
 
@@ -20,9 +25,11 @@ and moves each card. The worker never moves a card.
 | In review | `in-review` | | none |
 | Done | `done` | terminal | none |
 
-A card moves from Implementation to In review when its pull request opens as
-ready. A person makes that move by hand today, and an automation makes it
-later. After the pull request merges, the card moves from In review to Done.
+A card moves from Implementation to In review when its pull request is ready.
+The implementation worker makes that move itself, and the `Board` section of
+`.loupe/lifecycle.md` names the column it moves to. After the pull request
+merges, the card moves from In review to Done, by hand until a forge webhook
+reports the merge.
 Pull request fix rounds, for review feedback and failing checks, run while the
 card is in In review. No rule starts a worker when a card enters In review.
 
@@ -107,8 +114,10 @@ that change from one setup to the next.
 
 1. The repository profile, `.loupe/lifecycle.md`, belongs to the repository. Its
    sections are `Instruction files`, `Worktree`, `Gate`, `Code review`,
-   `Changelog` and `Pull request`. The profile of this repository names
-   `just cs`, `just ci`, the Codex review and `changelog.d/`.
+   `Changelog`, `Pull request` and `Board`. The profile of this repository names
+   `just cs`, `just ci`, the Codex review, `changelog.d/` and the `in-review`
+   column. The slug lives there because a stage skill never reads the column
+   list, which can be missing.
 2. A harness adapter maps the steps of a worker to the tools of one agent
    harness: connect to Loupe, load an instruction, bind writes to a worktree,
    run a long command, dispatch a sub-agent, and write and run a plan. The
@@ -179,17 +188,19 @@ it, and the worker runs page at `/projects/{id}/worker-runs` shows it.
 5. Start the bridge with `loupe bridge run --max-workers 1`.
 6. Do one acceptance run with a small card. Move it through Product design,
    an approval, Tech design, an approval and Implementation. Run one document
-   fix round in a design column. When the implementation worker opens the pull
-   request, move the card to In review. Run one pull request fix round there.
-   After the merge, move the card to Done by hand. Record the `STAGE RESULT` of
-   each worker run on the card.
+   fix round in a design column. Check that the implementation worker moves the
+   card to In review itself once its pull request is ready. Run one pull request
+   fix round there. After the merge, move the card to Done by hand. Record the
+   `STAGE RESULT` of each worker run on the card.
 
 ## What comes later
 
-These pieces are planned after this one.
+These pieces are planned after this one. Entries 2 and 3 now have an approved
+design, "An automated card lifecycle", and cards on the board.
 
 1. The bridge gets roles and bindings, with one worktree for each card.
-2. Automations run when a person approves a document.
-3. A GitHub webhook reports reviews, checks and merges to Loupe.
+2. An approval moves the card, and reaches the agent as its own event.
+3. A forge adapter reports reviews, checks and merges to Loupe. The adapter is
+   per forge, and the events it emits name no forge.
 4. A workspace page shows the work in progress.
 5. The lifecycle is packaged for use in other projects.

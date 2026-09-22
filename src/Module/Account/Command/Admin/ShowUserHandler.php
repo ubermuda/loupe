@@ -6,7 +6,6 @@ namespace App\Module\Account\Command\Admin;
 
 use App\Module\Account\Admin\AdminUserPanel;
 use App\Module\Account\Admin\AdminUserPanelInterface;
-use App\Module\Account\Repository\ApiTokenRepository;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\DataExportRepository;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
@@ -16,7 +15,6 @@ final readonly class ShowUserHandler
     /** @param iterable<AdminUserPanelInterface> $panelContributors */
     public function __construct(
         private ConnectedAccountRepository $connectedAccounts,
-        private ApiTokenRepository $apiTokens,
         private DataExportRepository $dataExports,
 
         #[AutowireIterator('app.admin_user_panel')]
@@ -37,7 +35,6 @@ final readonly class ShowUserHandler
         return new UserDetailView(
             user: $command->target,
             connectedAccounts: $this->connectedAccounts->findByUser($command->target),
-            apiTokenCount: $this->apiTokens->countActiveByOwner($command->target),
             dataExports: $this->dataExports->findByUser($command->target),
             panels: $panels,
         );

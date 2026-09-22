@@ -69,7 +69,7 @@ final class PaywallRedirectTest extends WebTestCase
         $client->loginUser($user);
         $client->request(Request::METHOD_GET, '/account');
         self::assertResponseRedirects('/account/profile');
-        foreach (['/account/api-tokens', '/account/data', '/account/profile'] as $path) {
+        foreach (['/account/connected-apps', '/account/data', '/account/profile'] as $path) {
             $client->request(Request::METHOD_GET, $path);
             self::assertResponseIsSuccessful($path);
         }

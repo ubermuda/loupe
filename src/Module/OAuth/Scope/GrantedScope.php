@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\OAuth\Scope;
 
-use App\Module\Account\Entity\ApiTokenScope;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * What one OAuth grant allows: one or more base scopes, the same values a
- * static API token carries, plus the projects it may act on. The binding
- * travels as a scope, so it survives every refresh with no extra table.
+ * What one OAuth grant allows: one or more base scopes, plus the projects it
+ * may act on. The binding travels as a scope, so it survives every refresh with
+ * no extra table.
  *
  * A grant carries several base scopes because one credential has to reach
  * several firewalls. The CLI needs `agent` for the bridge endpoints and `mcp`
@@ -30,7 +29,7 @@ final readonly class GrantedScope
     /** Every project the user owns, resolved per request rather than at consent. */
     public const string ALL_PROJECTS = 'projects';
 
-    /** @param non-empty-list<ApiTokenScope> $scopes */
+    /** @param non-empty-list<ApiScope> $scopes */
     private function __construct(
         public array $scopes,
         public ?Uuid $projectId,
@@ -38,7 +37,7 @@ final readonly class GrantedScope
     ) {
     }
 
-    public function allows(ApiTokenScope $scope): bool
+    public function allows(ApiScope $scope): bool
     {
         return \in_array($scope, $this->scopes, true);
     }
@@ -46,19 +45,19 @@ final readonly class GrantedScope
     /** @return non-empty-list<string> */
     public function roles(): array
     {
-        return array_values(array_unique(array_map(static fn (ApiTokenScope $scope): string => $scope->role(), $this->scopes)));
+        return array_values(array_unique(array_map(static fn (ApiScope $scope): string => $scope->role(), $this->scopes)));
     }
 
-    public static function needsProject(ApiTokenScope $scope): bool
+    public static function needsProject(ApiScope $scope): bool
     {
-        return ApiTokenScope::Agent !== $scope;
+        return ApiScope::Agent !== $scope;
     }
 
     /**
      * A grant needs a binding when any of its scopes does. The agent scope
      * alone takes none, and it rides along with one that does.
      *
-     * @param list<ApiTokenScope> $scopes
+     * @param list<ApiScope> $scopes
      */
     public static function anyNeedsProject(array $scopes): bool
     {
@@ -88,7 +87,7 @@ final readonly class GrantedScope
      *
      * `projects` is a binding rather than a scope a token carries, so it is
      * taken out before the base scopes are parsed. Left in, it reaches
-     * ApiTokenScope::tryFrom(), comes back null, and refuses every grant that
+     * ApiScope::tryFrom(), comes back null, and refuses every grant that
      * names it.
      *
      * @param list<string> $scopes
@@ -110,7 +109,7 @@ final readonly class GrantedScope
                 continue;
             }
 
-            $parsed = ApiTokenScope::tryFrom($scope);
+            $parsed = ApiScope::tryFrom($scope);
             if (null === $parsed) {
                 return null;
             }

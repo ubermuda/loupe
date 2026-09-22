@@ -50,11 +50,12 @@ repository, so a human confirms the CLI is what changed before it ships.
 ## Requirements
 
 - **`claude`** on your `PATH`. The bridge refuses to start without it.
-- A login with the **agent** scope. `loupe login` gets one in a browser. For CI,
-  mint an API token with the agent scope from your account settings page at
-  `/account`. A project's widget token carries the site-review scope
-  instead. That token is embedded in page HTML and public by design, so the
-  firewall refuses it on every endpoint the bridge needs.
+- A login with the **agent** scope. `loupe login` gets one in a browser, and a
+  browser is the only way in. A machine with no browser anywhere cannot get a
+  credential, and there is no replacement for CI. A project's widget token
+  carries the site-review scope instead. That token is embedded in page HTML and
+  public by design, so the firewall refuses it on every endpoint the bridge
+  needs.
 - A rule file, `rules.yaml`, beside `config.json`. See
   [The rule file](#the-rule-file). `loupe mcp` needs no rule file.
 - The Loupe MCP server configured for `claude` in each project's `dir`. A prompt
@@ -67,25 +68,30 @@ Signs the bridge in so it can subscribe to your stream.
 ```bash
 loupe login                                   # sign in to https://loupe.ac in a browser
 loupe login --url https://loupe.example.com   # a self-hosted instance
-LOUPE_URL=https://loupe.example.com loupe login   # the same, from the environment
-loupe login --token <token>                   # CI and scripts: a static API token
-LOUPE_TOKEN=<token> loupe login               # the same, from the environment
+LOUPE_URL=https://loupe.example.com loupe login   # the same instance, from the environment
 ```
 
 The instance comes from `--url`, else `LOUPE_URL`, else `https://loupe.ac`. If
 you are working on Loupe itself, set `LOUPE_URL=https://loupe.dev.localhost`
 once rather than passing the flag every time.
 
-With no token, `loupe login` prints a link and a code such as `BCDF-GHJK`.
-Open the link in a browser where you are signed in to Loupe. Check that the
-page shows the same code, then choose **Allow**. The CLI does not open the
-browser for you. It asks the server every few seconds and stops when you answer
-or when the code expires after ten minutes. `Ctrl-C` stops it.
+`loupe login` prints a link and a code such as `BCDF-GHJK`. Open the link in a
+browser where you are signed in to Loupe. Check that the page shows the same
+code, then choose **Allow**. The CLI does not open the browser for you. It asks
+the server every few seconds and stops when you answer or when the code expires
+after ten minutes. `Ctrl-C` stops it.
 
-The device login stores an access token, a refresh token and the expiry in
-`loupe/config.json` at `0600`. The access token lives for an hour. Every
+A browser is the only way in. Loupe issues no credential a person cannot see,
+so a machine with no browser anywhere cannot sign in. There is no static API
+token and no replacement for CI.
+
+The login stores an access token, a refresh token and the expiry in
+`loupe/config.json` at `0600`. That file sits in your OS config directory
+(`~/Library/Application Support` on macOS, `$XDG_CONFIG_HOME` or `~/.config` on
+Linux), with the directory at `0700`. The access token lives for an hour. Every
 command refreshes it before it expires, and again after a `401`, then retries
 the request once. Each refresh gives a new refresh token and ends the old one.
+
 Several processes can share one config: a bridge, a second bridge, a
 `loupe login`. Each refresh takes an exclusive lock on `loupe/config.lock`,
 reads the file again, and skips the refresh when another process already did
@@ -95,26 +101,13 @@ When the refresh token no longer works, the command stops with a message that
 asks you to run `loupe login` again. That happens when you revoke *Loupe CLI*
 on the *Connected apps* page of your account.
 
-A static token from `--token` or `LOUPE_TOKEN` is validated against the API
-*before* it is written to disk. It never refreshes, and a new login of either
-kind replaces the old one.
-
-A static token goes to your **OS keychain** (Keychain Access on macOS, the Secret
-Service on Linux, Credential Manager on Windows), keyed by the Loupe base URL so
-two instances can coexist. The base URL itself is written to `loupe/config.json`
-inside your OS config directory (`~/Library/Application Support` on macOS,
-`$XDG_CONFIG_HOME` or `~/.config` on Linux), with the directory at `0700`.
-
-Where no keychain is reachable — a container, or a Linux box with no D-Bus
-session — the token falls back into that same file at `0600`.
-
 The same file holds `bridgeId`, the uuid that names this bridge in its
 [rule health reports](#rule-health-reports). A new login keeps it.
 
-Upgrading from a version that kept the token in `config.json` needs no action:
-the next command that reads it moves the token into the keychain and rewrites
-the file without it. On a host with no keychain, nothing changes and the file
-stays authoritative.
+An older version kept a static API token in `config.json` or in your OS
+keychain. Loupe refuses such a token now, so that file reports you as logged
+out. Run `loupe login`, which clears the keychain entry as it writes the new
+login.
 
 ## `loupe init`
 
@@ -346,10 +339,14 @@ inside one column fires nothing, because it carries that column on both sides.
 A rule can name an event type whose fields the bridge does not know. Such a rule
 matches on `project` alone, and it cannot set `to` or `from`.
 
-The server names the actor of every event: `human`, `agent` or `reviewer`. A
-reviewer is someone using the site-review widget, whom Loupe cannot
+The server names the actor of every event: `human`, `agent`, `reviewer` or
+`system`. A reviewer is someone using the site-review widget, whom Loupe cannot
 authenticate. A rule skips a reviewer's event unless it sets
 `allowUntrusted: true`. The skip is final: a later rule never catches the event.
+
+`system` is the app acting on a person's approval, such as the move that follows
+an approved document. A rule matches it like any other event. It is neither a
+person's act nor an agent's, so it spends no chain budget and resets none.
 
 #### Placeholders
 
@@ -446,7 +443,7 @@ on the card. That covers every `board.card_moved` event, and an event of another
 type that some rule names, whether its rule matches or not. The bridge drops an
 event of a type no rule names before it reads the actor, so that event resets
 nothing. A column or project event has no card, so it resets nothing either. A
-reviewer's event resets nothing.
+reviewer's event resets nothing, and neither does a `system` event.
 
 A run that a person's event started does not count. An event that replaces a
 waiting one adds nothing, because the count follows runs. The counts live in the
@@ -716,8 +713,8 @@ build time, so the binary matches no commit.
 
 ## How it works
 
-`loupe login` checks the token with `GET /api/projects`, which lists your
-projects with their id, slug and name. The bridge reads that list only to name
+`loupe login` checks its new access token with `GET /api/projects`, which
+lists your projects with their id, slug and name. The bridge reads that list only to name
 your slugs when a rule file names one you do not own. A path handle is a project
 id or a project slug, and a project name does not resolve.
 

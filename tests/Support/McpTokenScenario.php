@@ -4,50 +4,40 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Security\ApiTokenAuthenticator;
+use App\Module\OAuth\Scope\ApiScope;
 use App\Module\Project\Entity\Project;
 use App\Security\AuthenticatedCredential;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
 
 /**
- * KernelTestCase helper: simulate a request authenticated by an MCP-scope
- * ApiToken, the way ApiTokenAuthenticator would: the credential and the ApiToken
- * id travel as security-token attributes that AuthenticatedProjectResolver reads back.
- *
- * Requires an `$em` EntityManagerInterface property on the using class.
+ * KernelTestCase helper: simulate a request authenticated by an MCP credential,
+ * the way OAuthAccessTokenAuthenticator would. The credential travels as a
+ * security-token attribute that AuthenticatedProjectResolver reads back.
  */
 trait McpTokenScenario
 {
-    /** Simulates a request authenticated by an MCP token bound to $project. */
+    /** Simulates a request by a credential bound to $project. */
     private function actAsMcpTokenBoundTo(Project $project): void
     {
-        [$token] = ApiToken::issue($project->owner, 'mcp', ApiTokenScope::Mcp);
-        $this->em->persist($token);
-        $project->mcpToken = $token;
-        $this->em->flush();
-
-        $this->setSecurityTokenForApiToken($project->owner, $token);
+        $this->setSecurityTokenForCredential($project->owner, $project->id);
     }
 
-    /** Simulates a request authenticated by an MCP token bound to NO project. */
+    /** Simulates a request by a credential that names no project at all. */
     private function actAsUnboundMcpToken(User $user): void
     {
-        [$token] = ApiToken::issue($user, 'mcp-unbound', ApiTokenScope::Mcp);
-        $this->em->persist($token);
-        $this->em->flush();
-
-        $this->setSecurityTokenForApiToken($user, $token);
+        $this->setSecurityTokenForCredential($user, null);
     }
 
-    private function setSecurityTokenForApiToken(User $user, ApiToken $apiToken): void
+    private function setSecurityTokenForCredential(User $user, ?\Symfony\Component\Uid\Uuid $projectId): void
     {
-        $securityToken = new PostAuthenticationToken($user, 'api', $user->getRoles());
-        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $apiToken->id, [$apiToken->scope->role()]));
-        $securityToken->setAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR, (string) $apiToken->id);
+        $securityToken = new PostAuthenticationToken($user, 'mcp', [...$user->getRoles(), ApiScope::Mcp->role()]);
+        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential(
+            'oauth:test:'.$user->id.':'.($projectId?->toRfc4122() ?? '-'),
+            [ApiScope::Mcp->role()],
+            $projectId,
+        ));
         $tokenStorage = self::getContainer()->get('security.token_storage');
         self::assertInstanceOf(TokenStorageInterface::class, $tokenStorage);
         $tokenStorage->setToken($securityToken);

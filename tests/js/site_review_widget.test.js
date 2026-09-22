@@ -10,7 +10,7 @@ import {
     rejected,
     resetWidget,
     settle,
-    TOKEN,
+    ACCESS_TOKEN,
 } from './support/widget_harness.js';
 
 let originalHistory;
@@ -315,14 +315,14 @@ describe('navigating to a page that names a different card', () => {
 });
 
 describe('boot', () => {
-    it('reads the backend from its own src and sends the data-token', async () => {
+    it('reads the backend from its own src and sends the stored grant', async () => {
         const fetchMock = bootWidget({ respond: () => ok({ comments: [] }) });
         await settle();
 
         const [url, options] = fetchMock.mock.calls[0];
         expect(url).toBe(`${BACKEND}/api/site-review/review`);
         expect(options.method).toBe('GET');
-        expect(options.headers.Authorization).toBe(`Bearer ${TOKEN}`);
+        expect(options.headers.Authorization).toBe(`Bearer ${ACCESS_TOKEN}`);
     });
 
     it('attaches its own shadow roots to the document element', async () => {
@@ -364,51 +364,37 @@ describe('boot', () => {
     });
 });
 
-describe('a rejected token', () => {
-    it('names a revoked token for a 401 with no readable body', async () => {
+describe('a refused credential', () => {
+    it('asks the reviewer to sign in again after a 401 it cannot refresh', async () => {
         bootWidget({ respond: () => rejected(401) });
         await settle();
+        await settle();
+        openPanel();
 
-        expect(alerting()).toBe(true);
-        expect(fatalDetail()).toContain('invalid or was revoked');
+        expect(panelRoot().getElementById('lp-fatal').style.display).toBe(
+            'block',
+        );
+        expect(panelRoot().getElementById('lp-sign-in')).not.toBeNull();
     });
 
-    it('names the wrong token type for insufficient_scope', async () => {
+    it('names the missing scope for insufficient_scope', async () => {
         bootWidget({
             respond: () => rejected(403, { error: 'insufficient_scope' }),
         });
         await settle();
 
-        expect(fatalDetail()).toContain('not another API token');
+        expect(fatalDetail()).toContain('does not cover site review');
     });
 
-    it('names an unlinked site for token_not_bound_to_site', async () => {
-        bootWidget({
-            respond: () => rejected(403, { error: 'token_not_bound_to_site' }),
-        });
-        await settle();
-
-        expect(fatalDetail()).toContain('linked to a site');
-    });
-
-    it('falls back to the generic message for a 403 with no code', async () => {
+    it('names the account for a 403 with no code', async () => {
         bootWidget({ respond: () => rejected(403) });
         await settle();
 
-        expect(fatalDetail()).toContain('token was rejected');
-    });
-
-    it('prefers the body code over the status', async () => {
-        bootWidget({
-            respond: () => rejected(401, { error: 'token_not_bound_to_site' }),
-        });
-        await settle();
-
-        expect(fatalDetail()).toContain('linked to a site');
+        expect(fatalDetail()).toContain('cannot review this project');
     });
 
     it('hides the comment list behind the critical panel', async () => {
-        bootWidget({ respond: () => rejected(401) });
+        bootWidget({ respond: () => rejected(403) });
         await settle();
         openPanel();
 

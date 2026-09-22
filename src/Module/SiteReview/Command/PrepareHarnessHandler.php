@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Command;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Project\Command\EnsureHarnessProjectCommand;
 use App\Module\Project\Command\EnsureHarnessProjectHandler;
@@ -38,20 +36,13 @@ final readonly class PrepareHarnessHandler
             }
         }
 
-        // …and a fresh bound token (the old one, if any, is discarded).
-        $previous = $project->widgetToken;
-        [$token, $raw] = ApiToken::issue($user, 'e2e site-review', ApiTokenScope::SiteReview);
-        $project->widgetToken = $token;
+        // …and a project the harness page may sign in against.
         $project->forwardsToAgent = false;
-        if (null !== $command->oauthOrigin && !\in_array($command->oauthOrigin, $project->allowedOrigins, true)) {
-            $project->allowedOrigins = [...$project->allowedOrigins, $command->oauthOrigin];
-        }
-        $this->em->persist($token);
-        if (null !== $previous) {
-            $this->em->remove($previous);
+        if (!\in_array($command->origin, $project->allowedOrigins, true)) {
+            $project->allowedOrigins = [...$project->allowedOrigins, $command->origin];
         }
         $this->em->flush();
 
-        return new PrepareHarnessView($raw, (string) $project->id);
+        return new PrepareHarnessView((string) $project->id);
     }
 }

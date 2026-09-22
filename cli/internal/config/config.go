@@ -1,18 +1,15 @@
-// Package config persists the bridge's credentials. The Loupe base URL lives in
-// a JSON file under the user's config dir; the API token goes to the OS
-// keychain, falling back to that same file (mode 0600) wherever no keychain is
-// reachable — a headless container or a Linux box with no D-Bus session.
+// Package config persists the bridge's credentials in a JSON file (mode 0600)
+// under the user's config dir.
 //
-// A token an older version left in the file migrates to the keychain on the
-// next read, so an installation that never logs in again still stops keeping
-// the secret on disk.
+// A device login keeps its access token, refresh token and expiry in that file.
+// Refresh tokens rotate, so every refresh rewrites all three, and one rename
+// under the config lock keeps them consistent.
 //
-// The bridge id sits in that same file. It names a bridge and grants nothing,
-// so it is not a secret and the keychain does not hold it.
+// The bridge id sits in the same file. It names a bridge and grants nothing, so
+// it is not a secret.
 //
-// A device login keeps its access token, refresh token and expiry in the file,
-// never in the keychain. Refresh tokens rotate, so every refresh rewrites all
-// three, and one rename under the config lock keeps them consistent.
+// An older version kept a static API token in the OS keychain. Loupe accepts no
+// such token any more, so Save clears that entry and nothing reads it.
 package config
 
 import (
@@ -38,13 +35,11 @@ const configFileName = "config.json"
 // ErrNotLoggedIn is returned by Load when no usable credentials are stored.
 var ErrNotLoggedIn = errors.New("not logged in: run `loupe login` first")
 
-// Config is the persisted credential set. Token is a static API token, and is
-// empty on disk whenever the keychain accepted it. OAuth is a device login, and
-// replaces Token when set. BridgeID names this machine's bridge to the server,
-// and EnsureBridgeID rather than Load is what guarantees a value.
+// Config is the persisted credential set. OAuth is a device login. BridgeID
+// names this machine's bridge to the server, and EnsureBridgeID rather than
+// Load is what guarantees a value.
 type Config struct {
 	BaseURL  string       `json:"baseUrl"`
-	Token    string       `json:"token,omitempty"`
 	OAuth    *OAuthTokens `json:"oauth,omitempty"`
 	BridgeID string       `json:"bridgeId,omitempty"`
 }
@@ -84,61 +79,16 @@ func Load() (Config, error) {
 	if c.BaseURL == "" {
 		return c, ErrNotLoggedIn
 	}
-	if c.OAuth != nil {
-		if c.OAuth.RefreshToken == "" {
-			return c, ErrNotLoggedIn
-		}
-
-		return c, nil
-	}
-	if c.Token == "" {
-		// An empty token on disk means Save handed it to the keychain. A
-		// keychain that has since become unreachable is indistinguishable from
-		// one that never held it, and both mean the same to the caller.
-		if token, err := keyring.Get(keyringService, c.BaseURL); err == nil {
-			c.Token = token
-		}
-	} else {
-		migrateTokenToKeyring(d, c)
-	}
-
-	if c.Token == "" {
+	if c.OAuth == nil || c.OAuth.RefreshToken == "" {
 		return c, ErrNotLoggedIn
 	}
 
 	return c, nil
 }
 
-// migrateTokenToKeyring moves a token an older version left in the config file
-// into the keychain, so the secret stops living on disk without the user having
-// to log in again. The file is rewritten only once the keychain confirms the
-// write — losing the token from both places would log the user out. Where no
-// keychain is reachable this is a silent no-op and the file stays authoritative.
-func migrateTokenToKeyring(d string, c Config) {
-	if err := keyring.Set(keyringService, c.BaseURL, c.Token); err != nil {
-		return
-	}
-
-	// Re-read under the lock, so a bridge id another writer stored in the
-	// meantime survives. A file that now holds other credentials belongs to a
-	// later write, so clearing it here would throw the newer one away. A failed
-	// rewrite leaves the token in both places, and the next command tries again.
-	_ = withConfigLock(d, func() error {
-		cleared, err := readStoredConfig(d)
-		if err != nil || cleared.BaseURL != c.BaseURL || cleared.Token != c.Token {
-			return nil
-		}
-		cleared.Token = ""
-
-		return writeConfig(d, cleared)
-	})
-}
-
-// Save writes credentials, creating the config dir if needed. A static token
-// goes to the OS keychain when one is reachable, and into the config file
-// otherwise. A device login goes to the file. Load reads it before any static
-// token, and the keychain entry of an earlier static token is removed where a
-// keychain is reachable.
+// Save writes credentials to the config file, creating the config dir if
+// needed. It also clears the keychain entry an older version wrote, so the dead
+// secret stops living on the machine.
 func Save(c Config) error {
 	d, err := Dir()
 	if err != nil {
@@ -149,12 +99,7 @@ func Save(c Config) error {
 	}
 
 	stored := c
-	if c.OAuth != nil {
-		stored.Token = ""
-		_ = keyring.Delete(keyringService, c.BaseURL)
-	} else if err := keyring.Set(keyringService, c.BaseURL, c.Token); err == nil {
-		stored.Token = ""
-	}
+	_ = keyring.Delete(keyringService, c.BaseURL)
 
 	return withConfigLock(d, func() error {
 		if stored.BridgeID == "" {
@@ -228,7 +173,7 @@ func writeConfig(d string, c Config) error {
 	// A write in place truncates first, so a full disk leaves the credentials
 	// half written. os.CreateTemp opens at 0600, and the rename replaces the
 	// file in one step, which also sets the mode of an existing config that
-	// held world-readable permissions and an API token.
+	// held world-readable permissions.
 	f, err := os.CreateTemp(d, configFileName+".*")
 	if err != nil {
 		return fmt.Errorf("write config: %w", err)

@@ -43,11 +43,8 @@ func TestSaveKeepsAnOAuthLoginInTheFileAt0600(t *testing.T) {
 	if got.OAuth == nil || got.OAuth.AccessToken != "access-1" || got.OAuth.RefreshToken != "refresh-1" || !got.OAuth.ExpiresAt.Equal(expires) {
 		t.Fatalf("Load gives %+v, want the OAuth login", got.OAuth)
 	}
-	if got.Token != "" {
-		t.Fatalf("Load gives static token %q beside the OAuth login", got.Token)
-	}
 	if _, err := keyring.Get(keyringService, oauthBase); !errors.Is(err, keyring.ErrNotFound) {
-		t.Fatalf("keychain still holds the static token (err %v): a device login must replace it", err)
+		t.Fatalf("keychain still holds the static token (err %v): Save must clear it", err)
 	}
 
 	info, err := os.Stat(storedConfigPath(t))
@@ -59,23 +56,26 @@ func TestSaveKeepsAnOAuthLoginInTheFileAt0600(t *testing.T) {
 	}
 }
 
-func TestSaveOfAStaticTokenEndsAnOAuthLogin(t *testing.T) {
+// TestSaveOfASecondLoginEndsTheFirst pins that Save replaces the login rather
+// than merging into it. A refresh token the server has ended must not stay on
+// disk.
+func TestSaveOfASecondLoginEndsTheFirst(t *testing.T) {
 	keyring.MockInit()
 	useTempConfigHome(t)
 
 	if err := Save(oauthLogin("access-1", "refresh-1", time.Now().Add(time.Hour))); err != nil {
-		t.Fatalf("Save OAuth: %v", err)
+		t.Fatalf("first Save: %v", err)
 	}
-	if err := Save(Config{BaseURL: oauthBase, Token: "sk-static"}); err != nil {
-		t.Fatalf("Save static: %v", err)
+	if err := Save(oauthLogin("access-2", "refresh-2", time.Now().Add(time.Hour))); err != nil {
+		t.Fatalf("second Save: %v", err)
 	}
 
 	got, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.OAuth != nil || got.Token != "sk-static" {
-		t.Fatalf("Load gives %+v, want the static token alone", got)
+	if got.OAuth == nil || got.OAuth.RefreshToken != "refresh-2" {
+		t.Fatalf("Load gives %+v, want the second login", got.OAuth)
 	}
 	b, err := os.ReadFile(storedConfigPath(t))
 	if err != nil {
@@ -160,12 +160,10 @@ func TestRotateRefreshesAnExpiredStoredToken(t *testing.T) {
 	}
 }
 
-func TestRotateRefusesWhenTheFileHoldsAnotherLogin(t *testing.T) {
+func TestRotateRefusesWhenTheFileHoldsNoOAuthLogin(t *testing.T) {
 	keyring.MockInit()
 	useTempConfigHome(t)
-	if err := Save(Config{BaseURL: oauthBase, Token: "sk-static"}); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
+	seedConfigFile(t, `{"baseUrl":"`+oauthBase+`","token":"sk-legacy"}`)
 
 	_, err := RotateOAuth(oauthBase, "access-1", time.Now(), func(string) (OAuthTokens, error) {
 		t.Fatal("refresh called for a file that holds no OAuth login")

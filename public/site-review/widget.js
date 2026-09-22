@@ -17,15 +17,14 @@
         /(^|\.)localhost$/.test(BACKEND_HOST) ||
         /^127\./.test(BACKEND_HOST) ||
         /\.local$/.test(BACKEND_HOST);
-    const TOKEN = script.getAttribute('data-token') || '';
     // The landing page runs this widget over itself with no project behind it, so
     // a visitor can try the flow before signing up. It swaps the transport and
-    // nothing else — every behaviour below is the widget customers embed.
+    // nothing else. Every behaviour below is the widget customers embed.
     const DEMO = script.hasAttribute('data-demo');
-    // An embed that names a project and carries no token signs the reviewer in
-    // with OAuth instead, so no credential sits in the page source.
+    // The embed names a project. The reviewer signs in with OAuth, so no
+    // credential sits in the page source.
     const PROJECT = script.getAttribute('data-project') || '';
-    const OAUTH = !DEMO && !TOKEN && !!PROJECT;
+    const OAUTH = !DEMO && !!PROJECT;
     // Opaque to the widget and to the API alike: it is echoed onto every comment
     // this page produces, and only the module that set it knows what it means.
     // The attribute is absent on an ordinary deployment, which is why an empty
@@ -352,7 +351,7 @@
     };
 
     const accessToken = async () => {
-        if (!OAUTH) return TOKEN;
+        if (!OAUTH) return '';
         if (!grant) throw signedOutError();
         if (grant.expiresAt - OAUTH_EXPIRY_MARGIN_MS <= Date.now())
             await refreshGrant();
@@ -2398,21 +2397,20 @@
         return 'Couldn’t apply that change. Please try again.';
     };
 
-    // Detail line for the fatal panel, tailored to how the token was rejected. Keyed on the
-    // server's error code (from the response body) with a status fallback: the three cases
-    // have distinct fixes, so a generic "token rejected" would send embedders down the wrong
-    // path (e.g. "regenerate" doesn't help when the wrong token type was pasted in).
+    // Detail line for the fatal panel, keyed on the server's error code with a
+    // status fallback. Each case has its own fix, so one generic wording would
+    // send the reader down the wrong path.
     const fatalDetail = ({ status, code }) => {
-        if ('token_not_bound_to_site' === code) {
-            return 'This widget’s token isn’t linked to a site. Regenerate the widget token on the Connect page and update the embed snippet.';
-        }
         if ('insufficient_scope' === code) {
-            return 'This token can’t post site reviews. Make sure the embed uses the site’s widget token, not another API token.';
+            return 'This sign-in does not cover site review. Sign in again, and allow the site-review access the page asks for.';
+        }
+        if (403 === status) {
+            return 'This account cannot review this project. Sign in as a person the project allows.';
         }
         if (401 === status || 'unauthorized' === code) {
-            return 'This widget’s access token is invalid or was revoked. Update the embed snippet with a current token.';
+            return 'This sign-in expired or was revoked. Sign in again to carry on.';
         }
-        return 'This widget’s token was rejected. Check the embed snippet uses the site’s current widget token.';
+        return 'The server refused this sign-in. Check that the embed names the right project, and that the project allows this page’s address.';
     };
 
     // ---- panel render ----

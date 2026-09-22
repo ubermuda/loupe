@@ -713,6 +713,36 @@ func TestTheChainCapStopsAnAgentLoopUntilAPersonActs(t *testing.T) {
 	}
 }
 
+// The app moves a card when a person approves a document. Nobody judged that
+// move as a move, so it starts a run, spends no chain budget and resets none.
+func TestASystemMoveNeitherSpendsNorResetsTheChain(t *testing.T) {
+	h := newHarnessWith(t, chainRules, rules.Defaults{})
+
+	h.send(movedPayload(87, "backlog", "next", "system"))
+	h.send(movedPayload(87, "backlog", "next", "system"))
+	h.send(movedPayload(87, "backlog", "next", "system"))
+	if h.runs() != 3 {
+		t.Fatalf("a system move hit the cap: %d runs", h.runs())
+	}
+
+	h.send(movedPayload(87, "backlog", "next", "agent"))
+	h.send(movedPayload(87, "backlog", "next", "agent"))
+	if h.runs() != 5 {
+		t.Fatalf("the agent runs after a system move did not start: %d runs", h.runs())
+	}
+
+	h.send(movedPayload(87, "backlog", "next", "agent"))
+	if h.runs() != 5 {
+		t.Fatalf("the agent chain was not capped: %d runs", h.runs())
+	}
+
+	h.send(movedPayload(87, "backlog", "next", "system"))
+	h.send(movedPayload(87, "backlog", "next", "agent"))
+	if h.runs() != 6 {
+		t.Fatalf("a system move reset the cap, so only a person's move must: %d runs", h.runs())
+	}
+}
+
 // Each rule counts its own runs, and a person's move resets every rule's count
 // on that card.
 func TestEachRuleCountsItsOwnChain(t *testing.T) {

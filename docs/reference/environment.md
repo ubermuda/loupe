@@ -99,16 +99,14 @@ A new key pair makes every issued access token invalid. The apps then refresh, s
 | `SITE_REVIEW_WIDGET_BACKEND` | Overrides the instance the widget talks to. Empty means the host that served the script, which is what you want unless the widget is embedded from somewhere else. | No |
 | `SITE_REVIEW_WIDGET_CONTEXT` | An opaque marker saying what this deployment serves. It is stored on every comment the widget files, and reported by `site_review_get`. Leave it empty on a real deployment, which stores nothing. A preview instance sets it so a comment carries the work it was made against. | No |
 | `ANALYTICS_SCRIPT_URL`, `ANALYTICS_WEBSITE_ID`, `ANALYTICS_ORIGIN`, `ANALYTICS_COLLECT_ORIGIN` | A self-hosted analytics tag. Nothing is emitted unless both of the first two are set **and** the `analytics.enabled` flag is on, so the page calls nowhere by default. The last two go in the content security policy: the script's origin in `script-src`, the origin events post to in `connect-src`. Umami Cloud splits those (`cloud.umami.is` and `gateway.umami.is`); a self-hosted Umami uses one value for both. | No |
-| `SITE_REVIEW_WIDGET_PROJECT` | Only for dogfooding the review widget on Loupe's own pages. It names the project comments file into, and the reviewer signs in through the OAuth popup, so the page source carries no credential. Set it and it replaces `SITE_REVIEW_WIDGET_TOKEN`, which an embed carrying both would otherwise use. The project must allow the page's origin under its allowed sites, and only its owner can sign in. | No — `site_review_widget_project` in `terraform.tfvars`, or a slot in `docker/compose/prod.env.example` |
-| `SITE_REVIEW_WIDGET_TOKEN` | The older embed for the same job. It appears in the page source anyone can view without an account, so use a dedicated SiteReview-scoped token, never an MCP or production credential. Prefer `SITE_REVIEW_WIDGET_PROJECT`. | No — `site_review_widget_token` in `terraform.tfvars`, or a slot in `docker/compose/prod.env.example` |
+| `SITE_REVIEW_WIDGET_PROJECT` | Only for dogfooding the review widget on Loupe's own pages. It names the project comments file into. The reviewer signs in through the OAuth popup, so the page source carries no credential. The project must allow the page's origin under its allowed sites, and only its owner can sign in. | No — `site_review_widget_project` in `terraform.tfvars`, or a slot in `docker/compose/prod.env.example` |
 
 ## How the Terraform root sets things
 
-Every variable on this page is wired on both topologies — nothing needs adding
-to `extra_env` by hand, including `SITE_REVIEW_WIDGET_TOKEN` (`site_review_widget_token`,
-emitted as a `SECRET`) and `TRUSTED_PROXIES` (`trusted_proxies`, appended to the
-private ranges rather than replacing them). Adding either by hand would produce
-a duplicate key and fail the apply.
+Every variable on this page is wired on both topologies. Nothing needs adding
+to `extra_env` by hand, including `TRUSTED_PROXIES` (`trusted_proxies`, appended
+to the private ranges rather than replacing them). Adding it by hand would
+produce a duplicate key and fail the apply.
 
 `APP_SOURCE_URL` is wired the same way — `app_source_url` in
 `terraform/variables.tf` feeds an `extra_env` entry, and

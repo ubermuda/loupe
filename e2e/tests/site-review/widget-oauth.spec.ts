@@ -3,11 +3,11 @@
  * reviewer signs in through Loupe's OAuth popup, and the widget then saves
  * comments with the access token it received.
  *
- * The harness's `oauth=1` mode embeds the widget with data-project and adds the
- * harness's own origin to the project's allowed sites. The page and Loupe
- * share one origin here, so this spec proves the popup, the consent, the
- * callback's postMessage and the token exchange, but not a cross-origin page.
- * The PHPUnit flow test and the Vitest origin checks cover that part.
+ * The harness embeds the widget with data-project and adds its own origin to
+ * the project's allowed sites. The page and Loupe share one origin here, so
+ * this spec proves the popup, the consent, the callback's postMessage and the
+ * token exchange, but not a cross-origin page. The PHPUnit flow test and the
+ * Vitest origin checks cover that part.
  *
  * The fixture signs the file's own user in, and the popup shares its session,
  * so the popup opens straight on the consent page.
@@ -25,7 +25,7 @@ test('a reviewer signs in through the popup and saves a comment', async ({
 }) => {
     await suppressToolbar(page);
     await page.goto(
-        `/dev/site-review-harness?oauth=1&email=${encodeURIComponent(EMAIL)}`,
+        `/dev/site-review-harness?email=${encodeURIComponent(EMAIL)}`,
     );
 
     await page.getByRole('button', { name: 'Review' }).click();

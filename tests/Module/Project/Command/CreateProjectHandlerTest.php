@@ -53,8 +53,6 @@ final class CreateProjectHandlerTest extends KernelTestCase
         self::assertSame($owner, $project->owner);
         self::assertSame('my-app', $project->name);
         self::assertSame('my-app.example.com', $project->domain);
-        self::assertNull($project->widgetToken);
-        self::assertNull($project->mcpToken);
     }
 
     public function test_creates_project_without_domain(): void

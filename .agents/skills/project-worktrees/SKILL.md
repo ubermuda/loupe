@@ -322,8 +322,8 @@ suspect the branch.
 | nginx exits with `host not found in upstream "php-fpm"` | The container reached the shared network *after* start. Attach every network at creation; this is why the sidecar is a compose file, not `docker run` + `docker network connect`. |
 | A class added in the worktree renders unstyled | `var/tailwind` must be a real directory per worktree, not a symlink to main's. `just worktree-up` fixes it; `just worktree-tailwind` watches. |
 | Layout looks like an older design; a hover/position spec fails but the page logs nothing | The `tailwind-worktrees` service is down. It polls every worktree and rebuilds any whose `assets/` or `templates/` are newer than its `var/tailwind/app.built.css`, which is what keeps a worktree from serving its provision-time CSS while its Twig and PHP are current. Check `docker compose logs tailwind-worktrees`, and `docker compose up -d tailwind-worktrees` if it is not running. A one-off rebuild is `bin/worktrees/compose-exec.sh bin/console tailwind:build`, under a second. Diff the compiled sheet for a class the design introduced before blaming the branch. |
-| The site-review widget shows its rejected-token state (a red `!` on the launcher) | `SITE_REVIEW_WIDGET_TOKEN` does not resolve **at the backend the widget actually talks to**, which is `SITE_REVIEW_WIDGET_BACKEND`, not the host serving the page. A worktree keeps the main checkout's token, which production knows, so suspect an `.env.local` that carries no token, one copied before production regenerated its token, or a widget branch pointed at its own tree with a token it never minted. See "Which backend the widget talks to". |
-| The widget does not appear **at all**, no launcher and no error badge | The `<script>` failed to load, so nothing ever ran. A rejected token still renders the widget; an unreachable script renders nothing. Check the backend host resolves and serves `/site-review/widget.js`: a `SERVFAIL` on `loupe.ac` from the machine's own resolver produces exactly this, while the same request succeeds through `1.1.1.1`. |
+| The site-review widget shows a red `!` on the launcher, and "This review widget can't connect" | The embed names a project that does not resolve **at the backend the widget actually talks to**, which is `SITE_REVIEW_WIDGET_BACKEND`, not the host serving the page. A worktree keeps the main checkout's project id, which production knows, so suspect an `.env.local` that carries no `SITE_REVIEW_WIDGET_PROJECT`, a production project that does not list `https://<slug>.loupe.dev.localhost` under its allowed sites, or a widget branch pointed at its own tree with the production project id. See "Which backend the widget talks to". |
+| The widget does not appear **at all**, no launcher and no error badge | The `<script>` failed to load, so nothing ever ran. A refused sign-in still renders the widget; an unreachable script renders nothing. Check the backend host resolves and serves `/site-review/widget.js`: a `SERVFAIL` on `loupe.ac` from the machine's own resolver produces exactly this, while the same request succeeds through `1.1.1.1`. |
 | Mail-asserting specs never see their message, or read another run's | Each worktree has its own sidecar, so a run must be pointed at it. Suspect a run launched without `just e2e` (which exports `MAILPIT_URL`) or with `E2E_BASE_URL` set alone, which falls back to the shared instance: the worktree's app then sends where nothing is reading, every registration/login/verification spec times out, and it looks like an auth regression. Set `MAILPIT_URL=https://mailpit-<slug>.<project>.dev.localhost` alongside it. `bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line. |
 | A spec fails, then passes on a quiet re-run | Something else was loading the shared php-fpm, such as a sibling agent running `just ci` or `composer install`. Check what is in flight **before** investigating the branch; this produced a false "regression" nearly filed against a clean PR. |
 | `worktree-up` fails with an "Unrecognized option" or missing-class error | The new worktree seeded its `vendor/` from a stale main checkout. Fast-forwarding the main checkout does **not** update its `vendor/`, so every worktree created afterwards inherits the old commit's dependencies. Run `composer install` in the main checkout, then re-run `just worktree-up`. |
@@ -338,7 +338,7 @@ step is the most common way a worktree's widget breaks.
 
 ```twig
 <script src="{{ site_review_widget_backend }}/site-review/widget.js"
-        data-token="{{ site_review_widget_token }}"></script>
+        data-project="{{ site_review_widget_project }}"></script>
 ```
 
 `widget.js` then does `BACKEND = new URL(script.src).origin`. **The widget posts
@@ -346,18 +346,24 @@ to wherever its script came from, never to the host serving the page.** So a pag
 on `https://<slug>.loupe.dev.localhost` whose script comes from
 `https://loupe.ac` sends its comments to production. That is deliberate: it is
 how the app is dogfooded, with the local UI annotated and the comments landing in
-hosted Loupe where an agent reads them over MCP. It also means the token must
-belong to the **backend**, not to the local database.
+hosted Loupe where an agent reads them over MCP. It also means the project must
+live on the **backend**, not in the local database.
 
 ### The rule for a worktree
 
-A worktree points at production, with the production token, so annotating a
+A worktree points at production, with the production project, so annotating a
 branch works the way it does everywhere else:
 
 ```
 SITE_REVIEW_WIDGET_BACKEND=https://loupe.ac
-SITE_REVIEW_WIDGET_TOKEN=<the production widget token, same one the main checkout uses>
+SITE_REVIEW_WIDGET_PROJECT=<the production project id, same one the main checkout uses>
 ```
+
+The embed carries no credential. The reviewer presses **Sign in with Loupe**,
+and a pop-up opens on the backend. That project must list the page's origin
+under its allowed sites, or the consent page refuses the sign-in. One wildcard
+entry covers every worktree at once: `https://*.loupe.dev.localhost`. Only the
+owner of the project can sign in.
 
 The exception is a branch that changes the widget itself: anything under
 `public/site-review/` or `src/Module/SiteReview/` that alters widget behaviour.
@@ -366,7 +372,7 @@ exercised:
 
 ```
 SITE_REVIEW_WIDGET_BACKEND=https://<slug>.loupe.dev.localhost
-SITE_REVIEW_WIDGET_TOKEN=<a local token you mint by hand, see below>
+SITE_REVIEW_WIDGET_PROJECT=<the worktree's own project id, see below>
 ```
 
 Judge that by what the diff touches, not by the branch name. A change to
@@ -375,39 +381,46 @@ Judge that by what the diff touches, not by the branch name. A change to
 ### Bootstrap keeps the pair in step
 
 `worktree-bootstrap.sh` copies `.env.local` from the main checkout and leaves
-both `SITE_REVIEW_WIDGET_BACKEND` and `SITE_REVIEW_WIDGET_TOKEN` as it found
-them. A worktree therefore talks to production with the token production knows,
-and a worktree page's site-review comments land in the real project. That is the
-point: you annotate the branch you are working on, and read the comments back
-over MCP like any other site.
+both `SITE_REVIEW_WIDGET_BACKEND` and `SITE_REVIEW_WIDGET_PROJECT` as it found
+them. A worktree therefore talks to production with the project production
+knows, and a worktree page's site-review comments land in the real project. That
+is the point: you annotate the branch you are working on, and read the comments
+back over MCP like any other site.
 
-Bootstrap mints no local token. The seed still creates one for the worktree's
-own database, but nothing captures the raw value.
+Bootstrap captures no local project id. It runs `app:dev:seed`, which creates a
+project in the worktree's own database and prints the id, and it sends that
+output to `/dev/null`.
 
 A widget branch needs both values changed by hand after provisioning, because
-bootstrap restores neither. Point the backend at the worktree host, then mint a
-local token and read the raw value from the output:
+bootstrap restores neither. Point the backend at the worktree host, then re-run
+the seed and read the project id it prints:
 
 ```bash
 ( cd .worktrees/<name> \
-  && bin/worktrees/compose-exec.sh bin/console app:dev:seed --reissue-widget-token )
+  && bin/worktrees/compose-exec.sh bin/console app:dev:seed \
+  | grep SITE_REVIEW_WIDGET_PROJECT )
 ```
 
-To diagnose a rejected token, check the pair together and test the token against
-the backend the page actually names:
+The seed is idempotent, so it prints the id of the project it already made. Then
+add `https://<slug>.loupe.dev.localhost` to that project's allowed sites, on the
+worktree's own Connect page. Sign in as `dev@loupe.test`, which owns the seeded
+project. The consent page refuses every other account.
+
+To diagnose a refused sign-in, read the embed the page actually serves:
 
 ```bash
-tag=$(curl -sk https://<slug>.loupe.dev.localhost/login \
-      | grep -oE '<script src="[^"]*site-review/widget\.js" data-token="[a-f0-9]+"')
-origin=$(echo "$tag" | sed -E 's|.*src="(https?://[^/]+).*|\1|')
-token=$(echo "$tag"  | sed -E 's/.*data-token="([a-f0-9]+)".*/\1/')
-curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $token" \
-     "$origin/api/site-review/review"
+curl -sk https://<slug>.loupe.dev.localhost/login \
+  | grep -A1 'site-review/widget\.js'
 ```
 
-Testing the token against `localhost` instead proves nothing:
-`/api/site-review/*` exists on both hosts, so a local token returns 200 there
-while the widget, which is talking to production, still fails.
+That needs `SITE_REVIEW_WIDGET_PUBLIC` set, because
+`templates/_site_review_widget.html.twig` otherwise serves the tag to an
+administrator alone. Read the page in a signed-in browser instead.
+
+Read the two lines together. The origin in `src` says which instance answers,
+and `data-project` must name a project that instance holds. A local id against
+production, and a production id against the worktree, both end at "This review
+widget can't connect".
 
 ## Writing worktree tooling
 

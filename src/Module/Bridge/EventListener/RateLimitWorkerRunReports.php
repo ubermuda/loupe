@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\EventListener;
 
-use App\Security\ApiTokenRateLimitKey;
+use App\Security\CredentialRateLimitKey;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -24,7 +24,7 @@ final readonly class RateLimitWorkerRunReports
     public function __construct(
         #[Autowire(service: 'limiter.agent_worker_runs')]
         private RateLimiterFactoryInterface $limiter,
-        private ApiTokenRateLimitKey $key,
+        private CredentialRateLimitKey $key,
     ) {
     }
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\OAuth\Command;
 
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\OAuth\ClientMetadata\ClientIdUrl;
 use App\Module\OAuth\ClientMetadata\ClientMetadataFetcher;
 use App\Module\OAuth\ClientMetadata\ClientMetadataRefused;
@@ -13,6 +12,7 @@ use App\Module\OAuth\ClientMetadata\FetchedIcon;
 use App\Module\OAuth\ClientMetadata\TrustedClientIds;
 use App\Module\OAuth\Entity\ClientMetadataDocument;
 use App\Module\OAuth\Repository\ClientMetadataDocumentRepository;
+use App\Module\OAuth\Scope\ApiScope;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
 use League\Bundle\OAuth2ServerBundle\Model\AbstractClient;
@@ -100,7 +100,7 @@ final readonly class RegisterClientMetadataDocumentHandler
         $client->setName($fetched->clientName);
         $client->setRedirectUris(...array_map(static fn (string $uri): RedirectUri => new RedirectUri($uri), $fetched->redirectUris));
         $client->setGrants(new Grant('authorization_code'), new Grant('refresh_token'));
-        $client->setScopes(new Scope(ApiTokenScope::Mcp->value));
+        $client->setScopes(new Scope(ApiScope::Mcp->value));
         $this->clients->save($client);
     }
 

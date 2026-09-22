@@ -36,7 +36,7 @@ export async function suppressToolbar(page: Page): Promise<void> {
 
 /**
  * Prevents the dogfooding site-review widget from mounting. The widget only
- * loads in envs where `SITE_REVIEW_WIDGET_TOKEN` is set (dev/e2e), and its
+ * loads in envs where `SITE_REVIEW_WIDGET_PROJECT` is set (dev/e2e), and its
  * launcher is a `position:fixed` bottom-right shadow host that overlaps the
  * review console's bottom-pinned verdict bar — a dev-only overlay, like the
  * debug toolbar. Set the widget's own idempotency flag before its script runs
@@ -64,6 +64,26 @@ export async function signedInPage(
     email: string,
     password: string,
 ): Promise<Page> {
+    const page = await submitLogin(browser, email, password);
+    // The first sign-in lands on /welcome, and a later one on the last project.
+    // A cold worktree takes more than the default 5 seconds to answer the first one.
+    await expect(page).not.toHaveURL(/\/login$/, {
+        timeout: coverageScaled(15_000),
+    });
+
+    return page;
+}
+
+/**
+ * A page of its own, with the login form filled in and submitted. The caller
+ * says what proves the sign-in, because a page that asserts the landing page
+ * also asserts whatever that page happens to render.
+ */
+async function submitLogin(
+    browser: Browser,
+    email: string,
+    password: string,
+): Promise<Page> {
     const { baseURL, extraHTTPHeaders, ignoreHTTPSErrors } =
         base.info().project.use;
     const context = await browser.newContext({
@@ -73,9 +93,9 @@ export async function signedInPage(
         storageState: { cookies: [], origins: [] },
         viewport: { width: 1600, height: 900 },
     });
-    const appOrigin = new URL(baseURL ?? '').origin;
+    const origin = new URL(baseURL ?? '').origin;
     await context.route(
-        (url) => url.origin === appOrigin,
+        (url) => url.origin === origin,
         (route) =>
             route.continue({
                 headers: { ...route.request().headers(), ...extraHTTPHeaders },
@@ -88,14 +108,100 @@ export async function signedInPage(
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    // The first sign-in lands on /welcome, and a later one on the last project.
-    // A cold worktree takes more than the default 5 seconds to answer the first one.
-    await expect(page).not.toHaveURL(/\/login$/, {
-        timeout: coverageScaled(15_000),
-    });
+    // The submit rides Turbo, so nothing navigates. Wait for the answer, or a
+    // caller that reads the session next reads it before the sign-in lands.
+    await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.url().endsWith('/login') &&
+                'POST' === response.request().method(),
+            { timeout: coverageScaled(30_000) },
+        ),
+        page.getByRole('button', { name: 'Sign in' }).click(),
+    ]);
 
     return page;
+}
+
+const appOrigin = (): string =>
+    new URL(base.info().project.use.baseURL ?? '').origin;
+
+/**
+ * An access token for the user `page` is signed in as, from the dev-only mint
+ * at `/dev/oauth/access-token`.
+ *
+ * The three flows that issue a token in production are covered by PHPUnit,
+ * under `tests/Module/OAuth/`. Driving one of them here would cost a consent
+ * page for every test that calls an API, and would test the flow again rather
+ * than the endpoint the test is about.
+ */
+export async function accessToken(
+    page: Page,
+    scopes: string,
+    projectId?: string,
+): Promise<string> {
+    const path = projectId
+        ? `/dev/oauth/access-token/${projectId}`
+        : '/dev/oauth/access-token';
+    // Redirects off, so a page with no session fails here as a 302 rather than
+    // following to the login page and handing back its HTML as JSON.
+    const response = await page.request.post(path, {
+        form: { scopes },
+        maxRedirects: 0,
+    });
+    expect(
+        response.status(),
+        'the mint needs a signed-in page; 302 means this one carries no session',
+    ).toBe(200);
+
+    return (await response.json()).accessToken;
+}
+
+/** An `agent mcp` token, which is what the bridge and the MCP shim carry. */
+export const agentAccessToken = (page: Page): Promise<string> =>
+    accessToken(page, 'agent mcp');
+
+export type SiteReviewGrant = {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+};
+
+/** The session storage key the widget keeps its grant under. */
+export const siteReviewGrantKey = (projectId: string): string =>
+    `loupe-site-review:oauth:${appOrigin()}:${projectId}`;
+
+/**
+ * Signs the site-review widget in on `page`, as the popup would. The grant
+ * lands in session storage before any widget script runs, so the next
+ * navigation boots signed in.
+ *
+ * The refresh token is a dead value. The mint issues none, and a widget that
+ * refreshes therefore signs the reviewer out, which is what the tests about a
+ * refused credential assert.
+ */
+export async function signWidgetIn(
+    page: Page,
+    projectId: string,
+): Promise<SiteReviewGrant> {
+    const grant: SiteReviewGrant = {
+        accessToken: await accessToken(page, 'site-review', projectId),
+        refreshToken: 'no-refresh-token-from-the-dev-mint',
+        expiresAt: Date.now() + 3600 * 1000,
+    };
+
+    await page.addInitScript(
+        ([key, value]) => {
+            try {
+                window.sessionStorage.setItem(key, value);
+            } catch {
+                /* the widget then asks the reviewer to sign in */
+            }
+        },
+        [siteReviewGrantKey(projectId), JSON.stringify(grant)] as const,
+    );
+
+    return grant;
 }
 
 type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>;

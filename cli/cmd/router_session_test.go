@@ -10,7 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
-	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/ubermuda/loupe/cli/internal/directive"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
@@ -119,7 +118,7 @@ func TestTheFlagsOfTheFirstEventsCallReachTheFirstWorker(t *testing.T) {
 	fake := &fakeLoupe{sse: "data: " + cardMoved(87) + "\n\n", flags: `{"inbox.enabled":true,"some.other":60}`}
 	server := httptest.NewServer(http.HandlerFunc(fake.serve))
 	t.Cleanup(server.Close)
-	cfg := config.Config{BaseURL: server.URL, Token: "t"}
+	cfg := testLogin(server.URL)
 
 	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\nrules:\n  - on: board.card_moved\n    project: loupe\n    to: next\n    prompt: go\n"
 	set, err := rules.Parse([]byte(body), rules.Defaults{})
