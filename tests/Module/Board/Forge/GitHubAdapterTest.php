@@ -79,6 +79,20 @@ final class GitHubAdapterTest extends TestCase
         self::assertSame(ForgeEventType::CHECKS_CONCLUDED, $deliveries[0]->type);
     }
 
+    /**
+     * A verified body can still be shaped wrong. A foreach over a non-array
+     * raises a warning, which Symfony turns into a 500 in dev and test, and a
+     * 500 makes GitHub retry the delivery for days.
+     */
+    public function test_a_check_suite_with_a_malformed_pull_request_list_says_nothing(): void
+    {
+        self::assertSame([], $this->translate('check_suite', [
+            'action' => 'completed',
+            'repository' => ['full_name' => 'ubermuda/loupe'],
+            'check_suite' => ['pull_requests' => 'not-a-list'],
+        ]));
+    }
+
     public function test_a_check_suite_still_running_says_nothing(): void
     {
         self::assertSame([], $this->translate('check_suite', [

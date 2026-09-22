@@ -116,8 +116,13 @@ final readonly class GitHubAdapter implements ForgeAdapterInterface
             return [];
         }
 
+        $pullRequests = $suite['pull_requests'] ?? [];
+        if (!\is_array($pullRequests)) {
+            return [];
+        }
+
         $deliveries = [];
-        foreach ($suite['pull_requests'] ?? [] as $pullRequest) {
+        foreach ($pullRequests as $pullRequest) {
             if (\is_array($pullRequest)) {
                 $deliveries = [...$deliveries, ...$this->one(ForgeEventType::CHECKS_CONCLUDED, $payload, $pullRequest)];
             }
