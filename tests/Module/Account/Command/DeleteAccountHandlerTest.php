@@ -11,8 +11,6 @@ use App\Module\Account\Command\DeleteAccountHandler;
 use App\Module\Account\Deletion\AccountDataPurgerInterface;
 use App\Module\Account\Deletion\AccountDeletionCleanup;
 use App\Module\Account\Deletion\AccountPurger;
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\ConnectedAccount;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\SocialProvider;
@@ -20,6 +18,8 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Messenger\CancelSubscriptionMessage;
+use App\Module\OAuth\Entity\GrantedCredential;
+use App\Module\OAuth\Security\OAuthAccessTokenAuthenticator;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\DecisionSelection;
@@ -258,6 +258,10 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $archiveKey = DataExport::computeArchiveKey($fixture['exportId']);
         self::assertTrue($storage->fileExists($archiveKey));
 
+        $conn = self::getContainer()->get(Connection::class);
+        self::assertInstanceOf(Connection::class, $conn);
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM oauth_credentials WHERE owner_id = :id', ['id' => (string) $ownerId]));
+
         $handler = self::getContainer()->get(DeleteAccountHandler::class);
         self::assertInstanceOf(DeleteAccountHandler::class, $handler);
         $handler(new DeleteAccountCommand($token));
@@ -283,15 +287,13 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         self::assertSame('cus_delete_me', $cancelMessages[0]->stripeCustomerId);
         self::assertSame((string) $ownerId, $cancelMessages[0]->deletedUserId);
 
-        $conn = self::getContainer()->get(Connection::class);
-        self::assertInstanceOf(Connection::class, $conn);
         foreach ([
             'users' => 'id',
             'projects' => 'owner_id',
             'documents' => 'owner_id',
             'comments' => 'author_id',
             'reviews' => 'reviewer_id',
-            'api_tokens' => 'owner_id',
+            'oauth_credentials' => 'owner_id',
             'connected_accounts' => 'user_id',
             'data_exports' => 'user_id',
             'billing_profiles' => 'user_id',
@@ -528,9 +530,10 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // delete fails on the foreign key.
         $otherDocument->references->add($foreignDocument);
 
-        // A loose API token not bound to any project's widget/mcp slots.
-        [$looseToken] = ApiToken::issue($owner, 'loose-token', ApiTokenScope::Mcp);
-        $em->persist($looseToken);
+        $em->persist(new GrantedCredential(
+            OAuthAccessTokenAuthenticator::credentialId('test-client', (string) $owner->id, null),
+            $owner,
+        ));
 
         $connectedAccount = new ConnectedAccount($owner, SocialProvider::Github, 'gh-'.uniqid(), 'owner@github.example');
         $em->persist($connectedAccount);
@@ -593,13 +596,6 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $em->persist(new Review(version: $version, verdict: Verdict::Approved, reviewer: $owner));
 
         $em->persist(new SiteReviewComment(project: $project, position: 0, body: 'widget comment', url: 'https://example.test/')->addAnchor('body', 'x'));
-
-        [$widgetToken] = ApiToken::issue($owner, $slug.'-widget', ApiTokenScope::SiteReview);
-        [$mcpToken] = ApiToken::issue($owner, $slug.'-mcp', ApiTokenScope::Mcp);
-        $project->widgetToken = $widgetToken;
-        $project->mcpToken = $mcpToken;
-        $em->persist($widgetToken);
-        $em->persist($mcpToken);
 
         return $project;
     }

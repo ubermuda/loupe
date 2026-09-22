@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Export;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Inbox\Entity\InboxItem;
@@ -18,30 +16,42 @@ use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Tests\Support\AcceptedTerms;
+use App\Tests\Support\AgentCredential;
+use App\Tests\Support\OAuthScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
-use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Uid\Uuid;
 
 /**
  * Builds the archive through the real, container-wired tagged exporters
- * against a full object graph — the unit tests per exporter prove each file's
- * shape, this proves they all run together and nothing (e.g. an API token
- * hash) leaks across the boundary.
+ * against a full object graph. The unit tests per exporter prove each file's
+ * shape, this proves they all run together and no OAuth token material crosses
+ * the boundary.
  */
-final class DataExportArchiveIntegrationTest extends KernelTestCase
+final class DataExportArchiveIntegrationTest extends WebTestCase
 {
     public function test_builds_the_complete_archive_from_a_full_object_graph(): void
     {
-        self::bootKernel();
+        $client = static::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
 
         $user = new User('Alice A', 'alice@example.com', 'hashed');
+        $user->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($user, self::getContainer());
         $em->persist($user);
 
         $project = new Project($user, 'My project', 'example.com');
         $em->persist($project);
+        $em->flush();
+
+        // The grant comes first, because the consent flow detaches everything
+        // the test holds. The rest of the graph then points at managed rows.
+        $raw = AgentCredential::agentToken(self::getContainer(), $user);
+        $user = AgentCredential::managed($em, $user, $user->id);
+        $project = AgentCredential::managed($em, $project, $project->id);
 
         $document = new Document($user, $project, 'My doc');
         $em->persist($document);
@@ -64,9 +74,6 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
 
         $siteComment = new SiteReviewComment($project, 0, 'Fix this', 'https://example.com/')->addAnchor('.hero h1', 'Hello world');
         $em->persist($siteComment);
-
-        [$apiToken] = ApiToken::issue($user, 'My agent', ApiTokenScope::Mcp);
-        $em->persist($apiToken);
 
         $em->flush();
 
@@ -95,7 +102,7 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
             }
             sort($names);
             self::assertSame(
-                ['api_tokens.json', 'audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'connected_apps.json', 'documents.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'site_reviews.json', 'worker_runs.json'],
+                ['audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'connected_apps.json', 'documents.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'site_reviews.json', 'worker_runs.json'],
                 $names,
             );
 
@@ -120,6 +127,15 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
             self::assertSame((string) $parentComment->id, $replyRow['parentId']);
             self::assertSame('2026-09-16T20:00:00+00:00', $replyRow['deletedAt']);
 
+            // The positive control for the leak assertion below: the grant is
+            // in the archive, so the archive really did cover it.
+            $rawApps = $zip->getFromName('connected_apps.json');
+            self::assertIsString($rawApps);
+            $apps = json_decode($rawApps, true, flags: \JSON_THROW_ON_ERROR);
+            self::assertCount(1, $apps);
+            // The client the mint grants through, which is the one the CLI uses.
+            self::assertSame('loupe-cli', $apps[0]['clientId']);
+
             $allJson = '';
             for ($i = 0; $i < $zip->numFiles; ++$i) {
                 $name = $zip->getNameIndex($i);
@@ -128,7 +144,12 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
                 self::assertIsString($content);
                 $allJson .= $content;
             }
-            self::assertStringNotContainsString($apiToken->tokenHash, $allJson);
+
+            // The jti is the database identifier of the access token, and it is
+            // the one value of the raw bearer the export could reach.
+            $jti = OAuthScenario::claimsOf($raw)['jti'] ?? null;
+            self::assertIsString($jti);
+            self::assertStringNotContainsString($jti, $allJson);
 
             $zip->close();
         } finally {

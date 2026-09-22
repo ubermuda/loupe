@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\OAuth\Service;
 
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\UserDataExporterInterface;
 use App\Module\OAuth\Repository\GrantRepository;
+use App\Module\OAuth\Scope\ApiScope;
 use App\Module\OAuth\Scope\GrantedScope;
 
 /** The apps that hold a live grant for the user. Token values never leave the database. */
@@ -35,7 +35,7 @@ final readonly class ConnectedAppsExporter implements UserDataExporterInterface
             yield [
                 'clientId' => $row['clientId'],
                 'clientName' => $row['clientName'],
-                'scopes' => null === $granted ? [] : array_map(static fn (ApiTokenScope $scope): string => $scope->value, $granted->scopes),
+                'scopes' => null === $granted ? [] : array_map(static fn (ApiScope $scope): string => $scope->value, $granted->scopes),
                 'projectId' => $granted?->projectId?->toRfc4122(),
                 'allProjects' => null !== $granted && $granted->allProjects,
             ];

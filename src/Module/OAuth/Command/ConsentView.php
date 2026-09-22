@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\OAuth\Command;
 
-use App\Module\Account\Entity\ApiTokenScope;
+use App\Module\OAuth\Scope\ApiScope;
 use App\Module\Project\Entity\Project;
 
 final readonly class ConsentView
@@ -24,7 +24,7 @@ final readonly class ConsentView
         public ?string $clientIdPath,
         public bool $clientTrusted,
         public ?string $clientIconUrl,
-        /** @var non-empty-list<ApiTokenScope> */
+        /** @var non-empty-list<ApiScope> */
         public array $scopes,
         public bool $needsProject,
         public bool $allProjects,

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\OAuth\Token;
 
-use App\Module\Account\Entity\ApiTokenScope;
+use App\Module\OAuth\Scope\ApiScope;
 use App\Module\OAuth\Service\McpResource;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
@@ -31,7 +31,7 @@ final readonly class ResourceBoundAccessTokenRepository implements AccessTokenRe
     public function getNewToken(ClientEntityInterface $clientEntity, array $scopes, ?string $userIdentifier = null): AccessTokenEntityInterface
     {
         $identifiers = array_map(static fn (ScopeEntityInterface $scope): string => $scope->getIdentifier(), $scopes);
-        if (!\in_array(ApiTokenScope::Mcp->value, $identifiers, true)) {
+        if (!\in_array(ApiScope::Mcp->value, $identifiers, true)) {
             return $this->inner->getNewToken($clientEntity, $scopes, $userIdentifier);
         }
 

@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Controller;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Bridge\Controller\Api\ReportWorkerRunRequest;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\AgentCredential;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -29,7 +28,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-create@example.com');
         $project = $this->project($em, $owner, 'Runs App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $bridgeId = (string) Uuid::v7();
         $sessionId = (string) Uuid::v4();
         $cardId = (string) Uuid::v7();
@@ -76,7 +75,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-retry@example.com');
         $project = $this->project($em, $owner, 'Retry Runs');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $payload = $this->payload();
         $path = '/api/projects/'.$project->id.'/worker-runs';
 
@@ -102,7 +101,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-offset@example.com');
         $project = $this->project($em, $owner, 'Offset Runs');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $path = '/api/projects/'.$project->id.'/worker-runs';
         $payload = $this->payload();
 
@@ -137,7 +136,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-fraction@example.com');
         $project = $this->project($em, $owner, 'Fraction Runs');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $payload = $this->payload([
             'startedAt' => '2026-09-13T10:00:00.750+00:00',
             'endedAt' => '2026-09-13T10:00:21.250+00:00',
@@ -162,7 +161,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-second@example.com');
         $project = $this->project($em, $owner, 'Second Runs');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $payload = $this->payload();
         $path = '/api/projects/'.$project->id.'/worker-runs';
 
@@ -185,7 +184,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-clock@example.com');
         $project = $this->project($em, $owner, 'Clock App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $before = new \DateTimeImmutable('-1 minute');
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload([
@@ -209,7 +208,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-search@example.com');
         $project = $this->project($em, $owner, 'Search App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload([
             'cardNumber' => 137,
@@ -238,7 +237,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-spawn@example.com');
         $project = $this->project($em, $owner, 'Spawn App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload([
             'exitCode' => null,
@@ -258,7 +257,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-noreason@example.com');
         $project = $this->project($em, $owner, 'No Reason App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
 
         foreach ([null, '', '   '] as $reason) {
             $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload([
@@ -278,7 +277,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-bothfaults@example.com');
         $project = $this->project($em, $owner, 'Both App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload([
             'exitCode' => 1,
@@ -321,7 +320,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-invalid'.md5(serialize($overrides)).'@example.com');
         $project = $this->project($em, $owner, 'Invalid App '.substr(md5(serialize($overrides)), 0, 6));
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload($overrides));
 
@@ -336,7 +335,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-nosession@example.com');
         $project = $this->project($em, $owner, 'No Session Runs');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $payload = $this->payload();
         unset($payload['sessionId']);
 
@@ -357,7 +356,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-cap@example.com');
         $project = $this->project($em, $owner, 'Cap App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload([
             'output' => str_repeat('x', WorkerRun::MAX_OUTPUT_LENGTH),
@@ -373,7 +372,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-slug@example.com');
         $this->project($em, $owner, 'Slugged Runs');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
 
         $this->post($client, '/api/projects/slugged-runs/worker-runs', $raw, $this->payload());
 
@@ -385,8 +384,8 @@ final class WorkerRunsApiTest extends WebTestCase
         $client = static::createClient();
         $em = $this->em();
         $caller = $this->user($em, 'runs-api-caller@example.com');
-        $raw = $this->agentToken($em, $caller);
         $other = $this->project($em, $this->user($em, 'runs-api-other@example.com'), 'Private Runs');
+        $raw = $this->agentToken($client, $caller);
 
         foreach ([(string) $other->id, 'private-runs', (string) Uuid::v7()] as $handle) {
             $this->post($client, '/api/projects/'.rawurlencode($handle).'/worker-runs', $raw, $this->payload());
@@ -408,7 +407,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-flag@example.com');
         $project = $this->project($em, $owner, 'Flagged Runs');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         // The flag ships on (a migration seeds it), so this case turns it off: a
         // valid report refused only because the instance does not do push.
         $em->getConnection()->executeStatement(
@@ -428,10 +427,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-widget@example.com');
         $project = $this->project($em, $owner, 'Widget Runs');
-        [$token, $raw] = ApiToken::issue($owner, 'widget', ApiTokenScope::SiteReview);
-        $em->persist($token);
-        $project->widgetToken = $token;
-        $em->flush();
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'site-review', $project);
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload());
 
@@ -449,10 +445,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-mcp@example.com');
         $project = $this->project($em, $owner, 'Mcp Runs');
-        [$token, $raw] = ApiToken::issue($owner, 'mcp', ApiTokenScope::Mcp);
-        $em->persist($token);
-        $project->mcpToken = $token;
-        $em->flush();
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'mcp', $project);
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload());
 
@@ -492,8 +485,12 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-limit@example.com');
         $project = $this->project($em, $owner, 'Limited Runs');
-        $first = $this->agentToken($em, $owner);
-        $second = $this->agentToken($em, $owner);
+        $other = $this->user($em, 'runs-api-limit-other@example.com');
+        $otherProject = $this->project($em, $other, 'Other Limited Runs');
+        $first = $this->agentToken($client, $owner);
+        // Two access tokens of one grant share a bucket, so the second budget
+        // needs a second account.
+        $second = $this->agentToken($client, $other);
         $path = '/api/projects/'.$project->id.'/worker-runs';
 
         $this->post($client, $path, $first, $this->payload(), '203.0.113.7');
@@ -502,7 +499,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $this->post($client, $path, $first, $this->payload(), '198.51.100.4');
         self::assertResponseStatusCodeSame(429);
 
-        $this->post($client, $path, $second, $this->payload(), '203.0.113.7');
+        $this->post($client, '/api/projects/'.$otherProject->id.'/worker-runs', $second, $this->payload(), '203.0.113.7');
         self::assertResponseStatusCodeSame(201);
     }
 

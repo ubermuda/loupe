@@ -27,7 +27,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 2. Run `just cs`, and commit what it changes.
 3. Run `just ci`. It is long, so run it as the harness adapter says for a long command.
 4. Never start `just ci` again over a killed run. PHPUnit keeps running in the shared php-fpm container. Stop it as `project-worktrees` says.
-5. Never run the full e2e suite locally. The CI `e2e` check gates it. Read a failed one in its shard job, `e2e-chromium` or `e2e-rest`.
+5. Never run the full e2e suite on this machine, and a hook refuses it. The CI `e2e` check gates it. Read a failed one in its shard job, `e2e-chromium` or `e2e-rest`. One named spec is still fine while you debug it.
 6. Fix every failure, including one that pre-dates the branch.
 7. The required checks come from the ruleset command in `working-with-prs` "What the ruleset actually requires".
 
@@ -50,3 +50,9 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 2. Write the title as `<type>(<area>): <summary>`.
 3. Keep the body and the `## Preview` section to the rules of `working-with-prs` "Keep the body brief" and "Make the branch testable, not just reviewable".
 4. Never merge it, and never use `--admin` or `--no-verify`.
+
+## Board
+
+1. The column that holds a pull request waiting for review is `in-review`.
+2. Move a card there yourself only when your own procedure says to. A move that carries an approval is the app's, never an agent's.
+3. Never read the column list to find this slug. `board_columns` can be missing, which is why the slug is written here.

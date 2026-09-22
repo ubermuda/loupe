@@ -74,7 +74,7 @@ Deleting an account removes what that account did, and keeps what was done to
 it.
 
 - Records the account is the actor of are deleted.
-- Records written with the account's API tokens are deleted.
+- Records written by an app the account connected are deleted.
 - Records that only name the account as a subject are kept whole. Such a record
   holds a subject type and an id, never a name, and it carries the acting
   party's name instead. Deleting it would erase an admin's own record of what

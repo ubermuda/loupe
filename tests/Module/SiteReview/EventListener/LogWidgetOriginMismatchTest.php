@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\SiteReview\EventListener;
 
-use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Repository\ApiTokenRepository;
-use App\Module\Account\Security\AuthenticatedApiTokenResolver;
+use App\Module\OAuth\Scope\ApiScope;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
@@ -95,18 +93,12 @@ final class LogWidgetOriginMismatchTest extends TestCase
         $project = new Project(new User('Riley Chen', 'riley@example.com', 'x'), 'Loupe', $domain);
 
         $projects = $this->createStub(ProjectRepository::class);
-        $projects->method('findOneByWidgetToken')->willReturn($project);
+        $projects->method('find')->willReturn($project);
 
-        $apiTokens = $this->createStub(ApiTokenRepository::class);
-        $apiTokens->method('find')->willReturn($this->createStub(ApiToken::class));
-
-        $apiTokenId = (string) Uuid::v7();
         $securityToken = $this->createStub(TokenInterface::class);
         $securityToken->method('hasAttribute')->willReturn(true);
-        $securityToken->method('getAttribute')->willReturnCallback(
-            static fn (string $name): AuthenticatedCredential|string => AuthenticatedCredential::ATTRIBUTE === $name
-                ? new AuthenticatedCredential($apiTokenId, ['ROLE_API_SITE_REVIEW'])
-                : $apiTokenId,
+        $securityToken->method('getAttribute')->willReturn(
+            new AuthenticatedCredential('grant-widget', [ApiScope::SiteReview->role()], Uuid::v7()),
         );
 
         $tokenStorage = new TokenStorage();
@@ -124,7 +116,7 @@ final class LogWidgetOriginMismatchTest extends TestCase
         };
 
         $listener = new LogWidgetOriginMismatch(
-            new AuthenticatedProjectResolver($tokenStorage, new AuthenticatedApiTokenResolver($tokenStorage, $apiTokens), $projects, new RequestStack(), new NullLogger()),
+            new AuthenticatedProjectResolver($tokenStorage, $projects, new RequestStack(), new NullLogger()),
             $seen ?? new ArrayAdapter(),
             $logger,
         );

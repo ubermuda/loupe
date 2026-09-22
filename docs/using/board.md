@@ -448,7 +448,7 @@ comment and its status, and the site-review screen still owns that status.
 
 Nothing is linked while the board is switched off, and a comment naming a card
 of another project is refused. The marker travels through a page, so anyone able
-to load it can name any card, and a widget token belongs to one project.
+to load it can name any card, and a widget sign-in belongs to one project.
 
 `card_update` reads an omitted field as "leave it alone". `pullRequestUrls` is
 the one field where an omitted list and an empty list differ. Omit it and the

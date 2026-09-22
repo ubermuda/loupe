@@ -146,7 +146,6 @@ test('no authenticated page scrolls sideways at 375px', async ({
         `/projects/${projectId}/connect`,
         `/projects/${projectId}/edit`,
         '/account/profile',
-        '/account/api-tokens',
         '/account/connected-apps',
         '/account/data',
         '/about',
@@ -182,7 +181,6 @@ test('account panels fit narrow screens and enlarged text', async ({
     test.slow();
     const sections = [
         { path: '/account/profile', panelCount: 1 },
-        { path: '/account/api-tokens', panelCount: 1 },
         { path: '/account/connected-apps', panelCount: 1 },
         { path: '/account/data', panelCount: 2 },
     ];
@@ -206,7 +204,7 @@ test('account panels fit narrow screens and enlarged text', async ({
                 ).toBeLessThanOrEqual(1);
             }
             const navItems = page.locator('.lp-settings-nav__item');
-            await expect(navItems).toHaveCount(4);
+            await expect(navItems).toHaveCount(3);
             for (const item of await navItems.all()) {
                 const icon = (await item.locator('svg').boundingBox())!;
                 const label = (await item.boundingBox())!;

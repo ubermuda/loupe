@@ -196,8 +196,6 @@ final class ProjectsPageTest extends WebTestCase
         self::assertNotNull($project);
         self::assertResponseRedirects('/projects/'.$project->id);
         self::assertSame('my-app.example.com', $project->domain);
-        self::assertNull($project->widgetToken);
-        self::assertNull($project->mcpToken);
         $client->followRedirect();
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('[data-workshop]');

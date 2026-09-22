@@ -48,7 +48,10 @@
         {% endif %}
     </div>
 
-    {{ form_start(form, {'attr': {'class': 'lp-form lp-consent__form', 'novalidate': 'novalidate'}}) }}
+    {#- Turbo drops a 200 answer to a form submit, and the answer here is the
+        result panel rather than a redirect. The browser consent form opts out
+        for the same reason. -#}
+    {{ form_start(form, {'attr': {'class': 'lp-form lp-consent__form', 'novalidate': 'novalidate', 'data-turbo': 'false'}}) }}
         {{ form_errors(form) }}
         <div class="lp-consent__actions">
             {{ form_widget(form.deny, {'attr': {'class': 'lp-btn lp-btn--ghost'}}) }}

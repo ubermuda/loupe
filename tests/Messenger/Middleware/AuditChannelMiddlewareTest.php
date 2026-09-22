@@ -10,8 +10,7 @@ use App\Audit\LoupeAuditActorProvider;
 use App\Messenger\Middleware\AuditChannelMiddleware;
 use App\Messenger\Stamp\AuditChannelStamp;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Repository\ApiTokenRepository;
-use App\Module\Account\Security\AuthenticatedApiTokenResolver;
+use App\Module\OAuth\Repository\GrantedCredentialRepository;
 use App\Tests\Support\FakeAuditSink;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
@@ -41,12 +40,9 @@ final class AuditChannelMiddlewareTest extends TestCase
         $this->auditContext = new AuditContext();
         $this->sink = new FakeAuditSink();
 
-        $apiTokens = $this->createStub(ApiTokenRepository::class);
-        $apiTokens->method('find')->willReturn(null);
-
         $provider = new LoupeAuditActorProvider(
             $this->tokenStorage,
-            new AuthenticatedApiTokenResolver($this->tokenStorage, $apiTokens),
+            $this->createStub(GrantedCredentialRepository::class),
             $this->auditContext,
         );
 

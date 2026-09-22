@@ -1,6 +1,5 @@
 import { expect } from '@playwright/test';
-import { createTest } from '../fixtures';
-import { submitRedirectingForm } from '../helpers';
+import { agentAccessToken, createTest } from '../fixtures';
 
 const test = createTest({
     email: `e2e-workshop-crew-${Date.now()}@example.com`,
@@ -23,17 +22,7 @@ test('Workshop shows reported connections and opens the matching details', async
     await empty.click();
     await expect(page).toHaveURL(`${workshopUrl}/connect`);
 
-    await page.goto('/account?tab=api-tokens');
-    const form = page.getByTestId('mint-api-token-form');
-    await form.getByLabel('Name').fill(`Workshop crew ${Date.now()}`);
-    await submitRedirectingForm(
-        page,
-        form.getByRole('button', { name: 'Create token' }),
-        '/account/api-tokens',
-    );
-    const secret = page.getByTestId('minted-api-token-value');
-    await expect(secret).toBeVisible();
-    const token = (await secret.textContent())!.trim();
+    const token = await agentAccessToken(page);
     const bridgeId = crypto.randomUUID();
     const version = 'v'.repeat(100);
     const heartbeat = await page.request.put(

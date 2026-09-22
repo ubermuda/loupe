@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\SiteReview\Controller;
 
 use App\Mercure\UserTopicBuilder;
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Outbox\AgentPush;
@@ -14,6 +12,8 @@ use App\Outbox\Command\DrainOutboxCommand;
 use App\Outbox\Command\DrainOutboxHandler;
 use App\Outbox\OutboxWriter;
 use App\Outbox\Repository\OutboxEventRepository;
+use App\Tests\Support\AcceptedTerms;
+use App\Tests\Support\AgentCredential;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -34,12 +34,13 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_returns_the_callers_own_topic_its_projects_and_a_jwt_for_that_topic_alone(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
         $em = $this->em();
-        [$raw, $user, $first] = $this->issue($em, ApiTokenScope::Agent, 'events@example.com');
+        [$raw, $user, $first] = $this->issue($client, 'events@example.com');
         $second = new Project($user, 'Second Events Site');
         $em->persist($second);
-        [$foreignRaw, $foreignUser, $foreign] = $this->issue($em, ApiTokenScope::Agent, 'events-other@example.com');
         $em->flush();
+        [$foreignRaw, $foreignUser, $foreign] = $this->issue($client, 'events-other@example.com');
 
         $data = $this->events($client, $raw);
 
@@ -71,17 +72,19 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_an_event_of_any_owned_project_is_published_on_the_topic_the_endpoint_returns(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
         $em = $this->em();
-        [$raw, $user, $first] = $this->issue($em, ApiTokenScope::Agent, 'events-drain@example.com');
+        [$raw, $user, $first] = $this->issue($client, 'events-drain@example.com');
         $second = new Project($user, 'Second Drained Site');
         $em->persist($second);
-        [, , $foreign] = $this->issue($em, ApiTokenScope::Agent, 'events-drain-other@example.com');
+        $em->flush();
+        [, , $foreign] = $this->issue($client, 'events-drain-other@example.com');
         $topic = $this->events($client, $raw)['topic'];
 
         $writer = static::getContainer()->get(OutboxWriter::class);
         self::assertInstanceOf(OutboxWriter::class, $writer);
         foreach ([$first, $second, $foreign] as $project) {
-            $writer->write($project, 'test.event', ['projectId' => (string) $project->id]);
+            $writer->write(AgentCredential::managed($em, $project, $project->id), 'test.event', ['projectId' => (string) $project->id]);
         }
         $em->flush();
 
@@ -125,13 +128,11 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_a_caller_with_no_project_gets_an_empty_list_and_still_its_own_topic(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
         $em = $this->em();
-        $user = new User(fullName: 'U', email: 'events-empty@example.com', password: 'x');
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        $em->persist($user);
-        [$token, $raw] = ApiToken::issue($user, 'tok', ApiTokenScope::Agent);
-        $em->persist($token);
+        $user = $this->user($em, 'events-empty@example.com');
         $em->flush();
+        $raw = AgentCredential::agentToken(static::getContainer(), $user);
 
         $data = $this->events($client, $raw);
 
@@ -143,9 +144,10 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_the_inbox_flag_reads_as_off_when_it_has_no_row(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
         $em = $this->em();
         $em->getConnection()->executeStatement('DELETE FROM feature_flag WHERE name = ?', [self::INBOX_FLAG]);
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-flags-none@example.com');
+        [$raw] = $this->issue($client, 'events-flags-none@example.com');
 
         self::assertSame(false, $this->flags($client, $raw)[self::INBOX_FLAG]);
     }
@@ -153,9 +155,10 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_the_flags_map_carries_the_inbox_flag_when_it_is_on(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
         $em = $this->em();
         $this->storeInboxFlag($em, 'true');
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-flags-on@example.com');
+        [$raw] = $this->issue($client, 'events-flags-on@example.com');
 
         self::assertSame(true, $this->flags($client, $raw)[self::INBOX_FLAG]);
     }
@@ -164,9 +167,10 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_the_flags_map_names_no_flag_outside_the_allowlist(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
         $em = $this->em();
         $this->storeInboxFlag($em, 'true');
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-flags-allowlist@example.com');
+        [$raw] = $this->issue($client, 'events-flags-allowlist@example.com');
 
         $flags = $this->flags($client, $raw);
 
@@ -178,9 +182,10 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_the_heartbeat_interval_reads_as_sixty_seconds_when_it_has_no_row(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
         $em = $this->em();
         $em->getConnection()->executeStatement('DELETE FROM feature_flag WHERE name = ?', [self::HEARTBEAT_FLAG]);
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-heartbeat-none@example.com');
+        [$raw] = $this->issue($client, 'events-heartbeat-none@example.com');
 
         self::assertSame(60, $this->flags($client, $raw)[self::HEARTBEAT_FLAG]);
     }
@@ -188,9 +193,10 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_the_heartbeat_interval_carries_the_stored_value_as_an_integer(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
         $em = $this->em();
         $this->storeHeartbeatFlag($em, '90');
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-heartbeat-stored@example.com');
+        [$raw] = $this->issue($client, 'events-heartbeat-stored@example.com');
 
         self::assertSame(90, $this->flags($client, $raw)[self::HEARTBEAT_FLAG]);
     }
@@ -208,9 +214,10 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_a_heartbeat_interval_below_ten_seconds_reads_as_the_default(string $stored, int $shared): void
     {
         $client = static::createClient();
+        $client->disableReboot();
         $em = $this->em();
         $this->storeHeartbeatFlag($em, $stored);
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-heartbeat-floor-'.$stored.'@example.com');
+        [$raw] = $this->issue($client, 'events-heartbeat-floor-'.$stored.'@example.com');
 
         self::assertSame($shared, $this->flags($client, $raw)[self::HEARTBEAT_FLAG]);
     }
@@ -218,13 +225,14 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_push_disabled_hides_the_endpoint(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
         $em = $this->em();
         // The flag ships on through a migration, so this case turns it off.
         $em->getConnection()->executeStatement(
             "UPDATE feature_flag SET value = 'false' WHERE name = ?",
             [AgentPush::FLAG],
         );
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-off@example.com');
+        [$raw] = $this->issue($client, 'events-off@example.com');
 
         $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -235,7 +243,8 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_the_per_project_stream_route_is_gone(): void
     {
         $client = static::createClient();
-        [$raw, , $project] = $this->issue($this->em(), ApiTokenScope::Agent, 'events-old-path@example.com');
+        $client->disableReboot();
+        [$raw, , $project] = $this->issue($client, 'events-old-path@example.com');
 
         foreach (['/api/projects/'.$project->id.'/stream', '/api/projects/'.$project->slug.'/stream', '/api/agent/stream'] as $path) {
             $client->request(Request::METHOD_GET, $path, server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
@@ -247,7 +256,13 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_mcp_token_is_forbidden(): void
     {
         $client = static::createClient();
-        [$raw] = $this->issue($this->em(), ApiTokenScope::Mcp, 'mcp-events@example.com');
+        $client->disableReboot();
+        $em = $this->em();
+        $user = $this->user($em, 'mcp-events@example.com');
+        $project = new Project($user, 'mcp-events-site');
+        $em->persist($project);
+        $em->flush();
+        $raw = AgentCredential::tokenFor(static::getContainer(), $user, 'mcp', $project);
 
         $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -266,31 +281,16 @@ final class ShowEventsControllerTest extends WebTestCase
     public function test_site_bound_widget_token_is_forbidden(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
         $em = $this->em();
 
-        // A widget token is embedded in public page HTML, so it must never mint
-        // subscriber JWTs, not even for its own project.
-        $user = new User(fullName: 'U', email: 'events-widget@example.com', password: 'x');
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        $em->persist($user);
-        [$token, $raw] = ApiToken::issue($user, 'widget-tok', ApiTokenScope::SiteReview);
-        $em->persist($token);
+        // A widget credential holds one site and the site-review scope. It must
+        // never mint subscriber JWTs, not even for its own project.
+        $user = $this->user($em, 'events-widget@example.com');
         $project = new Project($user, 'events-widget-site');
-        $project->widgetToken = $token;
         $em->persist($project);
         $em->flush();
-
-        $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-
-        self::assertResponseStatusCodeSame(403);
-        self::assertJsonStringEqualsJsonString('{"error":"insufficient_scope"}', (string) $client->getResponse()->getContent());
-    }
-
-    /** Scope alone decides, so the project binding is not what keeps a widget token out. */
-    public function test_unbound_site_review_token_is_forbidden(): void
-    {
-        $client = static::createClient();
-        [$raw] = $this->issue($this->em(), ApiTokenScope::SiteReview, 'events-unbound@example.com');
+        $raw = AgentCredential::tokenFor(static::getContainer(), $user, 'site-review', $project);
 
         $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -345,23 +345,40 @@ final class ShowEventsControllerTest extends WebTestCase
         return $data;
     }
 
+    /** @param non-empty-string $email */
+    private function user(EntityManagerInterface $em, string $email): User
+    {
+        $user = new User(fullName: 'U', email: $email, password: 'x');
+        $user->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($user, static::getContainer());
+        $em->persist($user);
+
+        return $user;
+    }
+
     /**
+     * An agent credential for a new owner who holds one project. The flow signs
+     * the user in, so both entities come back managed.
+     *
      * @param non-empty-string $email
      *
      * @return array{0: string, 1: User, 2: Project}
      */
-    private function issue(EntityManagerInterface $em, ApiTokenScope $scope, string $email): array
+    private function issue(KernelBrowser $client, string $email): array
     {
-        $user = new User(fullName: 'U', email: $email, password: 'x');
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        $em->persist($user);
-        [$token, $raw] = ApiToken::issue($user, 'tok', $scope);
-        $em->persist($token);
+        $em = $this->em();
+        $user = $this->user($em, $email);
         $project = new Project($user, 'site-'.substr(md5($email), 0, 8));
         $em->persist($project);
         $em->flush();
 
-        return [$raw, $user, $project];
+        $raw = AgentCredential::agentToken(static::getContainer(), $user);
+
+        return [
+            $raw,
+            AgentCredential::managed($em, $user, $user->id),
+            AgentCredential::managed($em, $project, $project->id),
+        ];
     }
 
     /** @return array<string, mixed> */

@@ -85,7 +85,7 @@ final class BoardSubjectResolverTest extends KernelTestCase
     public function test_a_filter_refuses_a_reporter_that_is_not_a_value(): void
     {
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('Unknown reporter "robot". Use one of: human, agent, reviewer.');
+        $this->expectExceptionMessage('Unknown reporter "robot". Use one of: human, agent, reviewer, system.');
         $this->resolver->requireReporter('robot');
     }
 

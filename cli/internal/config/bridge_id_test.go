@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/zalando/go-keyring"
 )
@@ -221,20 +222,20 @@ func TestEnsureBridgeIDKeepsTheBaseURL(t *testing.T) {
 	}
 }
 
-// TestEnsureBridgeIDKeepsAFileToken covers the headless host, where the config
-// file holds the token itself.
-func TestEnsureBridgeIDKeepsAFileToken(t *testing.T) {
-	keyring.MockInitWithError(errors.New("no keychain here"))
-	t.Cleanup(keyring.MockInit)
+// TestEnsureBridgeIDKeepsAnOAuthLogin pins that the heal writes the credentials
+// back. A heal that dropped them would log the operator out.
+func TestEnsureBridgeIDKeepsAnOAuthLogin(t *testing.T) {
+	keyring.MockInit()
 	useTempConfigHome(t)
-	seedConfigFile(t, `{"baseUrl":"https://example.test","token":"sk-fallback"}`)
+	seedConfigFile(t, `{"baseUrl":"https://example.test","oauth":{"accessToken":"access-1","refreshToken":"refresh-1","expiresAt":"2099-01-01T00:00:00Z"}}`)
 
 	if _, err := EnsureBridgeID(); err != nil {
 		t.Fatalf("EnsureBridgeID: %v", err)
 	}
 
-	if got := readStoredForTest(t).Token; got != "sk-fallback" {
-		t.Fatalf("token is %q after the heal, want it untouched", got)
+	got := readStoredForTest(t)
+	if got.OAuth == nil || got.OAuth.RefreshToken != "refresh-1" {
+		t.Fatalf("login is %+v after the heal, want it untouched", got.OAuth)
 	}
 }
 
@@ -347,8 +348,7 @@ func TestEnsureBridgeIDIsSafeForConcurrentCallers(t *testing.T) {
 // once. Either order must leave both the credentials and the id, because Save
 // carries an id forward and EnsureBridgeID keeps the fields it reads.
 func TestSaveAndEnsureBridgeIDDoNotOverwriteEachOther(t *testing.T) {
-	keyring.MockInitWithError(errors.New("no keychain here"))
-	t.Cleanup(keyring.MockInit)
+	keyring.MockInit()
 	useTempConfigHome(t)
 
 	for attempt := range 25 {
@@ -361,7 +361,7 @@ func TestSaveAndEnsureBridgeIDDoNotOverwriteEachOther(t *testing.T) {
 		var saveErr, ensureErr error
 		go func() {
 			defer wg.Done()
-			saveErr = Save(Config{BaseURL: "https://example.test", Token: "sk-tok"})
+			saveErr = Save(oauthLogin("access-1", "refresh-1", time.Now().Add(time.Hour)))
 		}()
 		go func() {
 			defer wg.Done()
@@ -383,28 +383,9 @@ func TestSaveAndEnsureBridgeIDDoNotOverwriteEachOther(t *testing.T) {
 		if onDisk.BaseURL != "https://example.test" {
 			t.Fatalf("attempt %d: config file holds base URL %q, want the saved one", attempt, onDisk.BaseURL)
 		}
-		if onDisk.Token != "sk-tok" {
-			t.Fatalf("attempt %d: config file holds token %q, want the saved one", attempt, onDisk.Token)
+		if onDisk.OAuth == nil || onDisk.OAuth.RefreshToken != "refresh-1" {
+			t.Fatalf("attempt %d: config file holds login %+v, want the saved one", attempt, onDisk.OAuth)
 		}
-	}
-}
-
-// TestMigrateLeavesANewerTokenAlone pins the check the re-read needs. The
-// migration secures the token it was given, so a file that has moved on since
-// holds a token the keychain does not have.
-func TestMigrateLeavesANewerTokenAlone(t *testing.T) {
-	keyring.MockInit()
-	useTempConfigHome(t)
-	seedConfigFile(t, `{"baseUrl":"https://example.test","token":"sk-newer"}`)
-
-	d, err := Dir()
-	if err != nil {
-		t.Fatalf("Dir: %v", err)
-	}
-	migrateTokenToKeyring(d, Config{BaseURL: "https://example.test", Token: "sk-older"})
-
-	if got := readStoredForTest(t).Token; got != "sk-newer" {
-		t.Fatalf("config file holds token %q, want the newer one", got)
 	}
 }
 
@@ -418,7 +399,7 @@ func TestWriteConfigLeavesNoTemporaryFile(t *testing.T) {
 	if _, err := EnsureBridgeID(); err != nil {
 		t.Fatalf("EnsureBridgeID: %v", err)
 	}
-	if err := Save(Config{BaseURL: "https://example.test", Token: "sk-tok"}); err != nil {
+	if err := Save(oauthLogin("access-1", "refresh-1", time.Now().Add(time.Hour))); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
@@ -468,17 +449,17 @@ func TestEnsureBridgeIDReportsAnUnparseableConfig(t *testing.T) {
 func TestEnsureBridgeIDReportsASecondBadField(t *testing.T) {
 	keyring.MockInit()
 	useTempConfigHome(t)
-	seedConfigFile(t, `{"bridgeId":123,"token":456}`)
+	seedConfigFile(t, `{"bridgeId":123,"oauth":456}`)
 
 	if _, err := EnsureBridgeID(); err == nil {
-		t.Fatal("EnsureBridgeID accepted a token of the wrong type")
+		t.Fatal("EnsureBridgeID accepted a login of the wrong type")
 	}
 
 	b, err := os.ReadFile(storedConfigPath(t))
 	if err != nil {
 		t.Fatalf("read config: %v", err)
 	}
-	if string(b) != `{"bridgeId":123,"token":456}` {
+	if string(b) != `{"bridgeId":123,"oauth":456}` {
 		t.Fatalf("config file now reads %s, want it left alone", b)
 	}
 }
@@ -495,7 +476,7 @@ func TestSaveKeepsAnExistingBridgeID(t *testing.T) {
 		t.Fatalf("EnsureBridgeID: %v", err)
 	}
 
-	if err := Save(Config{BaseURL: "https://example.test", Token: "sk-tok"}); err != nil {
+	if err := Save(oauthLogin("access-1", "refresh-1", time.Now().Add(time.Hour))); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
@@ -519,7 +500,9 @@ func TestSaveTakesTheBridgeIDItIsGiven(t *testing.T) {
 	seedConfigFile(t, `{"baseUrl":"https://example.test","bridgeId":"`+seededID+`"}`)
 
 	replacement := "7c9e6679-7425-40de-944b-e07fc1f90ae7"
-	if err := Save(Config{BaseURL: "https://example.test", Token: "sk-tok", BridgeID: replacement}); err != nil {
+	login := oauthLogin("access-1", "refresh-1", time.Now().Add(time.Hour))
+	login.BridgeID = replacement
+	if err := Save(login); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 

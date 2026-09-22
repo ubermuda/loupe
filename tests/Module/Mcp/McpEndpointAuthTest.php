@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Mcp;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
-use App\Module\Account\Entity\User;
+use App\Module\OAuth\Repository\GrantRepository;
 use App\Module\Review\Mcp\DocumentHighlightTool;
+use App\Tests\Support\OAuthScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class McpEndpointAuthTest extends WebTestCase
@@ -37,14 +37,15 @@ final class McpEndpointAuthTest extends WebTestCase
     public function test_revoked_token_is_rejected(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $user = new User(fullName: 'Agent', email: 'agent-revoked@example.com', password: 'hashed-placeholder');
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        [$token, $raw] = ApiToken::issue($user, 'test', ApiTokenScope::Mcp);
-        $token->revoke();
-        $em->persist($user);
-        $em->persist($token);
-        $em->flush();
+        $scenario = new OAuthScenario(static::getContainer());
+        $scenario->createClient();
+        $user = $scenario->createUser('agent-revoked@example.com');
+        $project = $scenario->createProject($user, 'Revoked Agent');
+        $raw = $scenario->accessTokenFor($client, $user, 'mcp', $project);
+        $grants = static::getContainer()->get(GrantRepository::class);
+        self::assertInstanceOf(GrantRepository::class, $grants);
+        self::assertInstanceOf(Uuid::class, $user->id);
+        self::assertSame(1, $grants->revokeForUserAndClient($user->id, OAuthScenario::CLIENT_ID));
 
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
             'CONTENT_TYPE' => 'application/json',
@@ -56,7 +57,7 @@ final class McpEndpointAuthTest extends WebTestCase
     public function test_valid_token_authenticates(): void
     {
         $client = static::createClient();
-        $raw = $this->persistValidToken();
+        $raw = $this->persistValidToken($client);
 
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
             'CONTENT_TYPE' => 'application/json',
@@ -69,7 +70,7 @@ final class McpEndpointAuthTest extends WebTestCase
     public function test_request_on_the_app_host_is_not_blocked_by_dns_rebinding(): void
     {
         $client = static::createClient();
-        $raw = $this->persistValidToken();
+        $raw = $this->persistValidToken($client);
 
         // The MCP SDK's DNS-rebinding protection allows only localhost by default;
         // MCP_ALLOWED_HOSTS adds the app host so real clients can connect.
@@ -85,7 +86,7 @@ final class McpEndpointAuthTest extends WebTestCase
     public function test_tools_list_returns_every_registered_tool(): void
     {
         $client = static::createClient();
-        $raw = $this->persistValidToken();
+        $raw = $this->persistValidToken($client);
 
         self::assertSame([
             'document_archive',
@@ -113,7 +114,7 @@ final class McpEndpointAuthTest extends WebTestCase
     public function test_tools_list_advertises_document_highlight_once_the_flag_is_on(): void
     {
         $client = static::createClient();
-        $raw = $this->persistValidToken();
+        $raw = $this->persistValidToken($client);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         static::getContainer()->get(FeatureFlagRepository::class)
@@ -152,7 +153,7 @@ final class McpEndpointAuthTest extends WebTestCase
     public function test_request_on_an_unlisted_host_is_rejected_with_a_self_diagnosing_body(): void
     {
         $client = static::createClient();
-        $raw = $this->persistValidToken();
+        $raw = $this->persistValidToken($client);
 
         $client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/mcp', server: [
             'HTTP_HOST' => 'evil.example.com',
@@ -171,7 +172,7 @@ final class McpEndpointAuthTest extends WebTestCase
     public function test_request_with_an_unlisted_origin_is_rejected_with_a_self_diagnosing_body(): void
     {
         $client = static::createClient();
-        $raw = $this->persistValidToken();
+        $raw = $this->persistValidToken($client);
 
         // Origin is checked before Host and short-circuits it, so this is a
         // second rejection path an operator can land on.
@@ -192,7 +193,7 @@ final class McpEndpointAuthTest extends WebTestCase
     public function test_rejected_origin_is_echoed_truncated(): void
     {
         $client = static::createClient();
-        $raw = $this->persistValidToken();
+        $raw = $this->persistValidToken($client);
 
         // The echoed value is attacker-controlled, so it is bounded. (Control
         // characters are stripped as well, but HttpFoundation removes those
@@ -213,16 +214,13 @@ final class McpEndpointAuthTest extends WebTestCase
         );
     }
 
-    private function persistValidToken(): string
+    /** An access token with the mcp scope, bound to a project of its own owner. */
+    private function persistValidToken(KernelBrowser $client): string
     {
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $user = new User(fullName: 'Agent', email: 'agent@example.com', password: 'hashed-placeholder');
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        [$token, $raw] = ApiToken::issue($user, 'test', ApiTokenScope::Mcp);
-        $em->persist($user);
-        $em->persist($token);
-        $em->flush();
+        $scenario = new OAuthScenario(static::getContainer());
+        $scenario->createClient();
+        $user = $scenario->createUser('agent@example.com');
 
-        return $raw;
+        return $scenario->accessTokenFor($client, $user, 'mcp', $scenario->createProject($user, 'Agent App'));
     }
 }

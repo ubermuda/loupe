@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Project\Security;
 
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Security\AuthenticatedApiTokenResolver;
+use App\Module\OAuth\Scope\ApiScope;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Security\AuthenticatedCredential;
@@ -34,7 +33,6 @@ final readonly class AuthenticatedProjectResolver
 
     public function __construct(
         private TokenStorageInterface $tokenStorage,
-        private AuthenticatedApiTokenResolver $apiTokens,
         private ProjectRepository $projects,
         private RequestStack $requests,
         private LoggerInterface $logger,
@@ -44,7 +42,7 @@ final readonly class AuthenticatedProjectResolver
     /** The project whose site-review credential authenticated this request. */
     public function resolveWidgetProject(): ?Project
     {
-        return $this->resolve($this->tokenStorage->getToken(), ApiTokenScope::SiteReview);
+        return $this->resolve($this->tokenStorage->getToken(), ApiScope::SiteReview);
     }
 
     /** The project whose MCP credential authenticated this request. */
@@ -56,7 +54,7 @@ final readonly class AuthenticatedProjectResolver
     /** The project this MCP request acts on, or why it has none. */
     public function mcpResolution(): ProjectResolution
     {
-        return $this->resolution($this->tokenStorage->getToken(), ApiTokenScope::Mcp);
+        return $this->resolution($this->tokenStorage->getToken(), ApiScope::Mcp);
     }
 
     /**
@@ -69,15 +67,15 @@ final readonly class AuthenticatedProjectResolver
      */
     public function resolveMcpProjectFor(?TokenInterface $securityToken): ?Project
     {
-        return $this->resolve($securityToken, ApiTokenScope::Mcp);
+        return $this->resolve($securityToken, ApiScope::Mcp);
     }
 
-    private function resolve(?TokenInterface $securityToken, ApiTokenScope $scope): ?Project
+    private function resolve(?TokenInterface $securityToken, ApiScope $scope): ?Project
     {
         return $this->resolution($securityToken, $scope)->project;
     }
 
-    private function resolution(?TokenInterface $securityToken, ApiTokenScope $scope): ProjectResolution
+    private function resolution(?TokenInterface $securityToken, ApiScope $scope): ProjectResolution
     {
         $credential = AuthenticatedCredential::of($securityToken);
         if (null === $credential) {
@@ -94,7 +92,7 @@ final readonly class AuthenticatedProjectResolver
 
         return $credential->allProjects
             ? $this->acrossOwnedProjects($securityToken, $requested)
-            : $this->withinOneProject($securityToken, $credential, $scope, $requested);
+            : $this->withinOneProject($credential, $requested);
     }
 
     /**
@@ -125,9 +123,9 @@ final readonly class AuthenticatedProjectResolver
     }
 
     /** A credential bound to one project. A header may confirm it, never change it. */
-    private function withinOneProject(?TokenInterface $securityToken, AuthenticatedCredential $credential, ApiTokenScope $scope, ?Uuid $requested): ProjectResolution
+    private function withinOneProject(AuthenticatedCredential $credential, ?Uuid $requested): ProjectResolution
     {
-        $bound = $this->boundProject($securityToken, $credential, $scope);
+        $bound = null !== $credential->projectId ? $this->projects->find($credential->projectId) : null;
         if (null === $bound) {
             return ProjectResolution::refused(ProjectRefusal::Unbound);
         }
@@ -136,24 +134,6 @@ final readonly class AuthenticatedProjectResolver
         }
 
         return ProjectResolution::of($bound);
-    }
-
-    private function boundProject(?TokenInterface $securityToken, AuthenticatedCredential $credential, ApiTokenScope $scope): ?Project
-    {
-        if (null !== $credential->projectId) {
-            return $this->projects->find($credential->projectId);
-        }
-
-        // A static token names no project. The project column that holds the
-        // token is the binding, and that column already implies the scope.
-        $apiToken = $this->apiTokens->forSecurityToken($securityToken);
-        if (null === $apiToken) {
-            return null;
-        }
-
-        return ApiTokenScope::Mcp === $scope
-            ? $this->projects->findOneByMcpToken($apiToken)
-            : $this->projects->findOneByWidgetToken($apiToken);
     }
 
     /**

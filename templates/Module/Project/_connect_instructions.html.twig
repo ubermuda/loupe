@@ -1,25 +1,21 @@
 {#- MCP connect instructions: the endpoint, the three ways to wire it up, and the
     two agent skills. Shared by the full connect page and the first-run wizard's
-    connect step. Props: mcpServerName (string), mintedMcpToken (string|null —
-    raw token to embed once, placeholder otherwise). -#}
+    connect step. Props: mcpServerName (string). -#}
 {%- set mcpUrl = url('_mcp_endpoint') -%}
-{%- set mcpTokenValue = mintedMcpToken ?: 'YOUR_TOKEN' -%}
-{%- set claudeCommand = 'claude mcp add --transport http ' ~ mcpServerName ~ ' ' ~ mcpUrl ~ ' --header "Authorization: Bearer ' ~ mcpTokenValue ~ '"' -%}
-{%- set pluginCommand = [
-    'claude plugin marketplace add ubermuda/loupe',
-    'claude plugin install loupe@loupe \\',
-    '  --config server_url=' ~ mcpUrl ~ ' \\',
-    '  --config api_token=' ~ mcpTokenValue
+{%- set claudeCommand = [
+    'claude mcp add --transport http ' ~ mcpServerName ~ ' ' ~ mcpUrl,
+    'claude mcp login ' ~ mcpServerName
+]|join("\n") -%}
+{%- set loupeCommand = [
+    'loupe login --url ' ~ url('app_home')|trim('/', 'right'),
+    'loupe init'
 ]|join("\n") -%}
 {%- set mcpJson = [
     "{",
     "  \"mcpServers\": {",
     "    \"" ~ mcpServerName ~ "\": {",
     "      \"type\": \"http\",",
-    "      \"url\": \"" ~ mcpUrl ~ "\",",
-    "      \"headers\": {",
-    "        \"Authorization\": \"Bearer " ~ mcpTokenValue ~ "\"",
-    "      }",
+    "      \"url\": \"" ~ mcpUrl ~ "\"",
     "    }",
     "  }",
     "}"
@@ -32,21 +28,21 @@
     this line. -#}
 {%- set methods = [
     {
+        icon: 'lucide:terminal',
+        heading: 'project.connect.loupe_cli.heading',
+        id: 'loupe_cli',
+        sub: 'project.connect.loupe_cli.sub',
+        label: 'project.connect.loupe_cli.label',
+        command: loupeCommand,
+        recommended: true,
+    },
+    {
         icon: 'lucide:code',
         heading: 'project.connect.cli.heading',
         id: 'cli',
         sub: 'project.connect.cli.sub',
         label: 'project.connect.cli.label',
         command: claudeCommand,
-        recommended: true,
-    },
-    {
-        icon: 'lucide:package',
-        heading: 'project.connect.plugin.heading',
-        id: 'plugin',
-        sub: 'project.connect.plugin.sub',
-        label: 'project.connect.plugin.label',
-        command: pluginCommand,
         recommended: false,
     },
     {
@@ -60,7 +56,7 @@
     },
 ] -%}
 
-{# ── MCP endpoint (global; project inferred from the bearer token) ── #}
+{# ── MCP endpoint (global; a request names the project it acts on) ── #}
 <div class="lp-connect-block">
     <p class="lp-eyebrow">{{ 'project.connect.endpoint.eyebrow'|trans }}</p>
     <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mcpUrl }}"
