@@ -50,3 +50,9 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 2. Write the title as `<type>(<area>): <summary>`.
 3. Keep the body and the `## Preview` section to the rules of `working-with-prs` "Keep the body brief" and "Make the branch testable, not just reviewable".
 4. Never merge it, and never use `--admin` or `--no-verify`.
+
+## Board
+
+1. The column that holds a pull request waiting for review is `in-review`.
+2. Move a card there yourself only when your own procedure says to. A move that carries an approval is the app's, never an agent's.
+3. Never read the column list to find this slug. `board_columns` can be missing, which is why the slug is written here.
