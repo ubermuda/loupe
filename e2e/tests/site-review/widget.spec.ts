@@ -41,6 +41,12 @@ const E2E_PASSWORD = 'E2eSiteReview1!';
 const e2eEmail = (): string =>
     `e2e-site-review-${test.info().parallelIndex}@example.com`;
 
+/**
+ * The widget appends `?context=` when the page names a card, so a glob without
+ * the trailing star silently misses that form and the real endpoint answers.
+ */
+const REVIEW_ROUTE = '**/api/site-review/review*';
+
 const harnessUrl = (): string =>
     `/dev/site-review-harness?email=${encodeURIComponent(e2eEmail())}`;
 
@@ -502,7 +508,7 @@ test('a comment the agent already addressed can no longer be edited', async ({
             body: JSON.stringify({ error: 'not_found' }),
         });
     });
-    await page.route('**/api/site-review/review', (route) => {
+    await page.route(REVIEW_ROUTE, (route) => {
         void route.fulfill({
             status: 200,
             contentType: 'application/json',
@@ -543,7 +549,7 @@ test('a 403 on the boot load drops the widget into a critical, dead-end state', 
     // The very first call the widget makes on boot — GET /review — 403s. Installing the
     // route before navigating means the widget hits it on load, so it must catch the
     // rejection immediately.
-    await page.route('**/api/site-review/review', (route) => {
+    await page.route(REVIEW_ROUTE, (route) => {
         void route.fulfill({
             status: 403,
             contentType: 'application/json',
@@ -579,7 +585,7 @@ test('a 401 the refresh cannot mend signs the reviewer out', async ({
 
     // The widget refreshes once and tries again, because an access token can die
     // before its expiry. The second rejection ends the grant.
-    await page.route('**/api/site-review/review', (route) => {
+    await page.route(REVIEW_ROUTE, (route) => {
         void route.fulfill({
             status: 401,
             contentType: 'application/json',
@@ -616,7 +622,7 @@ test('a wrong-scope 403 names the access the sign-in is missing', async ({
     // A grant from another sign-in authenticates but lacks the site-review scope:
     // the firewall returns 403 with `insufficient_scope`. The message must point
     // at the scope, not at the account.
-    await page.route('**/api/site-review/review', (route) => {
+    await page.route(REVIEW_ROUTE, (route) => {
         void route.fulfill({
             status: 403,
             contentType: 'application/json',
@@ -680,7 +686,7 @@ test('a boot rejection landing after the user entered pick mode still surfaces f
     const bootGate = new Promise<void>((resolve) => {
         releaseBoot = resolve;
     });
-    await page.route('**/api/site-review/review', async (route) => {
+    await page.route(REVIEW_ROUTE, async (route) => {
         await bootGate;
         await route.fulfill({
             status: 403,
@@ -2797,7 +2803,7 @@ test('an instance with drawing off offers no Draw, and still renders saved strok
     const drawn = await waitForInk(page);
 
     // Come back to an instance that no longer offers drawing.
-    await page.route('**/api/site-review/review', async (route) => {
+    await page.route(REVIEW_ROUTE, async (route) => {
         const response = await route.fetch();
         const payload = (await response.json()) as Record<string, unknown>;
         await route.fulfill({
@@ -3196,7 +3202,7 @@ test('the launcher drops its quick draw when drawing is off', async ({
     // budget is too tight for that when the app host is busy.
     test.slow();
     await openHarness(page);
-    await page.route('**/api/site-review/review', async (route) => {
+    await page.route(REVIEW_ROUTE, async (route) => {
         const response = await route.fetch();
         const payload = (await response.json()) as Record<string, unknown>;
         await route.fulfill({
