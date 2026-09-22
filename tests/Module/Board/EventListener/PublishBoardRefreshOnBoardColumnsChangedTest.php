@@ -250,9 +250,20 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         ]));
     }
 
+    /**
+     * Counts refreshes on the board topic alone. A column change also writes an
+     * outbox row, and the outbox now publishes when its transaction commits, so
+     * counting every update would count that too.
+     */
     private function assertPublishedCount(int $expected): void
     {
-        self::assertCount($expected, $this->published);
+        $boardTopic = $this->topics()->forBoard($this->project->id ?? throw new \LogicException('Project has no id.'));
+        $refreshes = array_filter(
+            $this->published,
+            static fn (Update $update): bool => \in_array($boardTopic, $update->getTopics(), true),
+        );
+
+        self::assertCount($expected, $refreshes);
     }
 
     /** Ends the request the way the kernel does, then counts every publish so far. */
