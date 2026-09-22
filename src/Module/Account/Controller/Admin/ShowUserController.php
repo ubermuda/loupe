@@ -82,7 +82,6 @@ final class ShowUserController extends AppController
         return $this->renderFormResponse('@Account/admin/users/show_user.html.twig', $form, [
             'user' => $view->user,
             'connectedAccounts' => $view->connectedAccounts,
-            'apiTokenCount' => $view->apiTokenCount,
             'dataExports' => $view->dataExports,
             'panels' => $view->panels,
         ]);

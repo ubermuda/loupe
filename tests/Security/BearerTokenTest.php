@@ -4,12 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Security;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
-use App\Module\Account\Entity\User;
-use App\Module\Account\Repository\ApiTokenRepository;
 use App\Module\Account\Repository\UserRepository;
-use App\Module\Account\Security\ApiTokenAuthenticator;
 use App\Module\OAuth\Security\OAuthAccessTokenAuthenticator;
 use App\Module\OAuth\Service\McpResource;
 use App\Module\Project\Repository\ProjectRepository;
@@ -22,53 +17,44 @@ use Symfony\Bridge\PsrHttpMessage\HttpMessageFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * The two bearer authenticators share the token firewalls, and the first one
- * that supports a request answers its failure. Their supports() must split
- * every bearer between them with no overlap.
+ * One authenticator holds the token firewalls, so it must answer every bearer.
+ * A bearer it declined would reach no authenticator at all, and the firewall
+ * would answer it without the audit record a refusal owes.
  */
 final class BearerTokenTest extends TestCase
 {
     private const string JWT = 'eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl';
 
-    public function test_a_static_token_goes_to_the_api_token_authenticator_only(): void
+    public function test_every_bearer_reaches_the_oauth_authenticator(): void
     {
-        [, $raw] = ApiToken::issue(new User(fullName: 'A', email: 'a@example.com', password: 'x'), 'label', ApiTokenScope::Mcp);
-        $request = self::bearer($raw);
-
-        self::assertTrue($this->apiTokenAuthenticator()->supports($request));
-        self::assertFalse($this->oauthAuthenticator()->supports($request));
+        self::assertTrue($this->authenticator()->supports(self::bearer(self::JWT)));
+        self::assertTrue($this->authenticator()->supports(self::bearer(str_repeat('a', 64))));
+        self::assertTrue($this->authenticator()->supports(self::bearer('garbage')));
     }
 
-    public function test_a_jwt_goes_to_the_oauth_authenticator_only(): void
+    public function test_a_request_with_no_bearer_is_left_alone(): void
     {
-        $request = self::bearer(self::JWT);
-
-        self::assertFalse($this->apiTokenAuthenticator()->supports($request));
-        self::assertTrue($this->oauthAuthenticator()->supports($request));
+        self::assertFalse($this->authenticator()->supports(new Request()));
+        self::assertNull(BearerToken::of(new Request()));
     }
 
-    public function test_no_bearer_goes_to_neither(): void
+    public function test_the_bearer_is_read_after_the_scheme(): void
     {
-        $request = new Request();
-
-        self::assertFalse($this->apiTokenAuthenticator()->supports($request));
-        self::assertFalse($this->oauthAuthenticator()->supports($request));
-        self::assertFalse(ApiTokenAuthenticator::carriesBearerToken($request));
+        self::assertSame(self::JWT, BearerToken::of(self::bearer(self::JWT)));
     }
 
-    public function test_any_bearer_is_charged_by_the_authentication_limiter(): void
+    private function authenticator(): OAuthAccessTokenAuthenticator
     {
-        self::assertTrue(ApiTokenAuthenticator::carriesBearerToken(self::bearer(self::JWT)));
-        self::assertTrue(ApiTokenAuthenticator::carriesBearerToken(self::bearer('garbage')));
-    }
-
-    public function test_the_jwt_shape(): void
-    {
-        self::assertTrue(BearerToken::isJwt(self::JWT));
-        self::assertFalse(BearerToken::isJwt(str_repeat('a', 64)));
-        self::assertFalse(BearerToken::isJwt('a.b'));
-        self::assertFalse(BearerToken::isJwt('a.b.c.d'));
-        self::assertFalse(BearerToken::isJwt('a b.c.d'));
+        return new OAuthAccessTokenAuthenticator(
+            static fn () => throw new \LogicException('supports() must decide before the resource server is built.'),
+            $this->createMock(HttpMessageFactoryInterface::class),
+            $this->createMock(UserRepository::class),
+            $this->createMock(ProjectRepository::class),
+            $this->createMock(AccessTokenManagerInterface::class),
+            new McpResource('https://loupe.example'),
+            new NullLogger(),
+            SilentAuditor::create(),
+        );
     }
 
     private static function bearer(string $token): Request
@@ -77,24 +63,5 @@ final class BearerTokenTest extends TestCase
         $request->headers->set('Authorization', 'Bearer '.$token);
 
         return $request;
-    }
-
-    private function apiTokenAuthenticator(): ApiTokenAuthenticator
-    {
-        return new ApiTokenAuthenticator($this->createStub(ApiTokenRepository::class), new NullLogger(), SilentAuditor::create());
-    }
-
-    private function oauthAuthenticator(): OAuthAccessTokenAuthenticator
-    {
-        return new OAuthAccessTokenAuthenticator(
-            static fn () => throw new \LogicException('supports() must not build the resource server'),
-            $this->createStub(HttpMessageFactoryInterface::class),
-            $this->createStub(UserRepository::class),
-            $this->createStub(ProjectRepository::class),
-            $this->createStub(AccessTokenManagerInterface::class),
-            new McpResource('https://loupe.example'),
-            new NullLogger(),
-            SilentAuditor::create(),
-        );
     }
 }

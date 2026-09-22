@@ -1,6 +1,5 @@
 import { expect } from '@playwright/test';
-import { createTest, suppressWidget } from '../fixtures';
-import { submitRedirectingForm } from '../helpers';
+import { agentAccessToken, createTest, suppressWidget } from '../fixtures';
 
 const test = createTest({
     email: `e2e-run-history-${Date.now()}@example.com`,
@@ -23,17 +22,7 @@ test('completed reports retain outcomes and escaped output at enlarged text size
     });
     expect(seed.status()).toBe(201);
     const { projectId } = await seed.json();
-    await page.goto('/account/api-tokens');
-    const form = page.getByTestId('mint-api-token-form');
-    await form.getByLabel('Name').fill('Run history reports');
-    await submitRedirectingForm(
-        page,
-        form.getByRole('button', { name: 'Create token' }),
-        '/account/api-tokens',
-    );
-    const secret = page.getByTestId('minted-api-token-value');
-    await expect(secret).toBeVisible();
-    const token = (await secret.textContent())!.trim();
+    const token = await agentAccessToken(page);
     const output =
         '<img src=x onerror="window.runOutputExecuted=true">\n' +
         'Long output '.repeat(200);

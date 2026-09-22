@@ -18,8 +18,8 @@ use Symfony\Component\Uid\Uuid;
  * human in the web UI.
  *
  * What keeps it that way is routing and firewall configuration: no tool calls
- * the resolve path, and ApiTokenAuthenticator is registered only on the `mcp`
- * and `api` firewalls, so a Bearer token cannot authenticate against the
+ * the resolve path, and the bearer authenticator is registered only on the
+ * `mcp` and `api` firewalls, so a Bearer token cannot authenticate against the
  * resolve route at all (that route additionally carries a session-backed CSRF
  * token). SiteReviewCommentVoter would not stop one — an MCP request
  * authenticates as the project owner, which is its entire rule.

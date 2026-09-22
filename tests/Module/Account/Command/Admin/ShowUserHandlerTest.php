@@ -10,7 +10,6 @@ use App\Module\Account\Command\Admin\ShowUserCommand;
 use App\Module\Account\Command\Admin\ShowUserHandler;
 use App\Module\Account\Command\Admin\UserDetailView;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Repository\ApiTokenRepository;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\DataExportRepository;
 use PHPUnit\Framework\TestCase;
@@ -82,13 +81,10 @@ final class ShowUserHandlerTest extends TestCase
         $connectedAccounts = self::createStub(ConnectedAccountRepository::class);
         $connectedAccounts->method('findByUser')->willReturn([]);
 
-        $apiTokens = self::createStub(ApiTokenRepository::class);
-        $apiTokens->method('countActiveByOwner')->willReturn(0);
-
         $dataExports = self::createStub(DataExportRepository::class);
         $dataExports->method('findByUser')->willReturn([]);
 
-        $handler = new ShowUserHandler($connectedAccounts, $apiTokens, $dataExports, $contributors);
+        $handler = new ShowUserHandler($connectedAccounts, $dataExports, $contributors);
 
         return $handler(new ShowUserCommand(new User(fullName: 'Trillian Astra', email: 'panels@example.com', password: 'x')));
     }

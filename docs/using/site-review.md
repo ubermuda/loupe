@@ -18,34 +18,25 @@ covered by any release promise, and the pieces around it — the hub, the
 The Site review header links to Widget setup. The action moves below the title
 when a narrow screen or enlarged text needs more space.
 
-Mint a widget token from the project (`/projects/{id}/widget-token`, and
-`/regenerate` to roll it), then paste the snippet the project page gives you:
-
-```html
-<script src="https://your-instance/site-review/widget.js" data-token="..."></script>
-```
-
-The widget derives its backend from its own `script.src`, so the host it is
-served from is the instance it talks to.
-
-**Install it on staging and preview environments only, never a public site.**
-The token appears in page source, so anyone who can view the page holds it — and
-that credential reads, edits, resolves and deletes every pending comment on the
-project, not only the ones its holder wrote. Keeping the widget off public pages is what
-bounds who that is. Use a dedicated site-review-scoped token, never an MCP token
-or a production credential.
-
-### Signing in instead of a token
-
-An embed can name the project instead of carrying a token. The reviewer then
-signs in with a Loupe account, and no credential is in the page source:
+The embed names the project. It carries no credential, so the reviewer signs in
+with a Loupe account before they comment. Paste the snippet the project page
+gives you:
 
 ```html
 <script src="https://your-instance/site-review/widget.js" data-project="PROJECT-ID"></script>
 ```
 
+The widget derives its backend from its own `script.src`, so the host it is
+served from is the instance it talks to.
+
 The project's Connections page shows this snippet with the project ID filled in.
 The ID is the project's UUID, the same one that is in the project's URLs.
+
+**Install it on staging and preview environments only.** This is a preview, and
+only the owner of the project can sign in. A public page therefore shows a
+launcher that no visitor can use.
+
+### Allowing a site and signing in
 
 1. On the Connections page, add each site that embeds the widget to **Allowed sites**.
    Write one origin on each line, such as `https://staging.example.com`, with no path.
@@ -72,9 +63,6 @@ from that site. Revoke the app to end a sign-in that already exists.
 A pop-up blocker must allow pop-ups for the site. Sign in to Loupe with a password
 in the pop-up: a social sign-in provider can cut the link between the pop-up and
 the page, and the widget then gets no answer.
-
-A token in the snippet always wins. An embed with both `data-token` and
-`data-project` uses the token.
 
 ## Retrying a save
 

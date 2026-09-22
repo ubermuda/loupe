@@ -65,7 +65,7 @@ whole rule is `$subject->project->owner === $token->getUser()`. Every
 ownership-based voter therefore returns true for an MCP call by construction.
 
 Routing and firewall config stop an agent from resolving a comment, not
-authorization. No tool calls the resolve path, and `ApiTokenAuthenticator` runs
+authorization. No tool calls the resolve path, and `OAuthAccessTokenAuthenticator` runs
 only on the `mcp` and `api` firewalls, so a Bearer token cannot reach the
 resolve route on `main` at all.
 
@@ -138,23 +138,30 @@ and `/api/events` serve the loupe CLI. `/api/events` returns the caller's own
 user topic and a subscriber JWT for that one topic. `DrainOutboxHandler`
 publishes each event on its project topic and on the project owner's user
 topic, so the URL and the JWT keep one size however many projects a user owns.
-The firewall grants each route by its own rule to `ROLE_API_AGENT`, which a
-widget token does not carry, so a widget token gets `insufficient_scope`. They
-keep their `ShowEventsController` and
+The firewall grants each route by its own rule to `ROLE_API_AGENT`, which the
+`site-review` scope does not carry, so a widget sign-in gets
+`insufficient_scope`. They keep their `ShowEventsController` and
 `ListSitesController` classes here because their command handlers do.
 
-The last two widget routes are Board paths on a widget token, and `config/packages/security.yaml`
+The last two widget routes are Board paths on the `site-review` scope, and `config/packages/security.yaml`
 grants them in their own `access_control` line rather than under the
 `^/api/site-review` prefix, so the grant is visible to anyone reading that file.
 `WidgetApiPaths` is what keeps CORS and the write rate limit covering them: both
 listeners tested one prefix before, and a listener that tests one prefix
 silently exempts every other endpoint the widget reaches.
 
-Widget tokens are project-bound and public, because they ship in page source.
-Widget-scoped endpoints reject account-level tokens, and account-scoped
-endpoints reject widget tokens. `/api/events` refuses widget tokens outright.
+The widget carries no credential. The embed names a project with
+`data-project`, and the reviewer signs in through an OAuth pop-up. The grant is
+bound to that one project, carries the `site-review` scope, and lives in the
+tab's session storage. Only the owner of the project can sign in, and the
+page's origin must be on the project's allowed sites.
+`PrepareWidgetAuthorizationHandler` holds both checks.
 
-## Accepted: a widget token reads, edits and deletes every pending comment
+Widget-scoped endpoints reject a token with the `agent` scope, and
+account-scoped endpoints reject the `site-review` scope. `/api/events` refuses
+it outright.
+
+## Accepted: the site-review scope reads, edits and deletes every pending comment
 
 The owner accepted this exposure. It is not an open finding.
 
@@ -164,8 +171,8 @@ The owner accepted this exposure. It is not an open finding.
   decision.
 
 The acceptance covers the staging-and-preview-only deployment model and no
-further. A deployment that serves the widget to the public has handed that
-access out, and falls outside it.
+further. Sign-in is owner-only for now, so the holder is the project's owner.
+Expect the acceptance to carry more weight when sign-in widens past the owner.
 
 `references/accepted-exposure.md` records exactly what is accepted, why it is
 possible, what bounds it, the attribution half, and the deferred per-project

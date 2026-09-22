@@ -10,8 +10,7 @@ use App\Audit\LoupeAuditActorProvider;
 use App\Messenger\Middleware\AuditChannelMiddleware;
 use App\Messenger\Stamp\AuditChannelStamp;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Repository\ApiTokenRepository;
-use App\Module\Account\Security\AuthenticatedApiTokenResolver;
+use App\Module\OAuth\Repository\GrantedCredentialRepository;
 use App\Tests\Support\FakeAuditSink;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
@@ -65,13 +64,10 @@ final class AuditChannelBusTest extends TestCase
         $this->outerMessage = new \stdClass();
         $this->innerMessage = new \ArrayObject();
 
-        $apiTokens = $this->createStub(ApiTokenRepository::class);
-        $apiTokens->method('find')->willReturn(null);
-
         $clock = $this->createStub(ClockInterface::class);
         $clock->method('now')->willReturn(new \DateTimeImmutable('2026-08-29 12:00:00'));
 
-        $this->auditor = new Auditor([$this->sink], $this->provider($apiTokens), new NullLogger(), $clock);
+        $this->auditor = new Auditor([$this->sink], $this->provider(), new NullLogger(), $clock);
     }
 
     public function test_a_message_queued_by_a_signed_in_person_is_handled_as_theirs(): void
@@ -187,7 +183,7 @@ final class AuditChannelBusTest extends TestCase
         }]);
 
         $bus = new MessageBus([
-            new AuditChannelMiddleware($this->auditContext, $this->provider($this->createStub(ApiTokenRepository::class))),
+            new AuditChannelMiddleware($this->auditContext, $this->provider()),
             new SendMessageMiddleware(new SendersLocator([$this->outerMessage::class => ['sync']], $senders)),
             new HandleMessageMiddleware(new HandlersLocator([
                 $this->outerMessage::class => [fn () => $this->auditor->record('mail.sent', AuditOutcome::Success)],
@@ -210,7 +206,7 @@ final class AuditChannelBusTest extends TestCase
         $sendersMap = array_fill_keys(array_keys($handlers), ['async']);
 
         return new MessageBus([
-            new AuditChannelMiddleware($this->auditContext, $this->provider($this->createStub(ApiTokenRepository::class))),
+            new AuditChannelMiddleware($this->auditContext, $this->provider()),
             new SendMessageMiddleware(new SendersLocator($sendersMap, $senders)),
             new HandleMessageMiddleware(new HandlersLocator($handlers)),
         ]);
@@ -231,11 +227,11 @@ final class AuditChannelBusTest extends TestCase
         new Worker([$receiver => $this->transport], $bus, $dispatcher)->run(['sleep' => 0]);
     }
 
-    private function provider(ApiTokenRepository $apiTokens): LoupeAuditActorProvider
+    private function provider(): LoupeAuditActorProvider
     {
         return new LoupeAuditActorProvider(
             $this->tokenStorage,
-            new AuthenticatedApiTokenResolver($this->tokenStorage, $apiTokens),
+            $this->createStub(GrantedCredentialRepository::class),
             $this->auditContext,
         );
     }

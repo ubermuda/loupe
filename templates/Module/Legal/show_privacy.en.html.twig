@@ -33,8 +33,8 @@
         <h3>Documents, comments and review data</h3>
         <p>We store the documents your agent submits, every version of them, and the comments, suggestions, decisions and tags created against them — including the quoted passage each comment is anchored to. We store the comments left through the site review widget together with the page URL and the element selector they were placed on. This is the service (legal basis: performance of a contract).</p>
 
-        <h3>API tokens</h3>
-        <p>MCP and site-review tokens are stored as a <strong>one-way hash</strong>, never in a form we can read back. A newly minted token is shown <strong>once</strong>, when you create it; if it is lost, you mint a new one and revoke the old.</p>
+        <h3>Connected apps</h3>
+        <p>When you connect an app, we store <strong>the app, the access you granted it, and the identifier, the scope and the expiry of each token it holds</strong>. An access token is a signed token that lives for one hour, and we do not keep its value. A client secret is stored as a <strong>one-way hash</strong>. <strong>Revoke</strong>, on the Connected apps page of your account settings, stops every token that app holds.</p>
 
         <h3>Billing data</h3>
         <p>Payments are handled by Stripe. <strong>We never see or store your card details.</strong> We keep the Stripe customer and subscription identifiers, your plan, and your trial and renewal dates, so we know what you are entitled to (legal basis: performance of a contract).</p>

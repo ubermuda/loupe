@@ -11,6 +11,7 @@ import {
 } from 'vitest';
 import {
     BACKEND,
+    PROJECT,
     bootWidget,
     ok,
     openPanel,
@@ -18,10 +19,10 @@ import {
     rejected,
     resetWidget,
     settle,
+    storageKeyFor,
 } from './support/widget_harness.js';
 
-const PROJECT = '01a0baf7-f542-7ce5-9b75-9dcbf05cf8c9';
-const STORAGE_KEY = `loupe-site-review:oauth:${BACKEND}:${PROJECT}`;
+const STORAGE_KEY = storageKeyFor(PROJECT);
 
 let originalHistory;
 let popup;
@@ -107,8 +108,8 @@ const bearerOf = (fetchMock, path) =>
 describe('an embed with a project and no token', () => {
     it('asks the reviewer to sign in and calls nothing before that', async () => {
         const fetchMock = bootWidget({
-            token: null,
             project: PROJECT,
+            signedIn: false,
             respond: router({}),
         });
         await settle();
@@ -122,7 +123,7 @@ describe('an embed with a project and no token', () => {
     });
 
     it('opens the authorize page for the widget client with S256 PKCE', async () => {
-        bootWidget({ token: null, project: PROJECT, respond: router({}) });
+        bootWidget({ project: PROJECT, signedIn: false, respond: router({}) });
         await settle();
         openPanel();
 
@@ -145,8 +146,8 @@ describe('an embed with a project and no token', () => {
 
     it('exchanges the code with the verifier behind the challenge, then loads', async () => {
         const fetchMock = bootWidget({
-            token: null,
             project: PROJECT,
+            signedIn: false,
             respond: router({
                 '/oauth/token': () => tokens('access-1', 'refresh-1'),
                 '/api/site-review/review': () => ok({ comments: [] }),
@@ -188,8 +189,8 @@ describe('an embed with a project and no token', () => {
 
     it('ignores an answer from another origin', async () => {
         const fetchMock = bootWidget({
-            token: null,
             project: PROJECT,
+            signedIn: false,
             respond: router({}),
         });
         await settle();
@@ -205,8 +206,8 @@ describe('an embed with a project and no token', () => {
 
     it('ignores an answer carrying another state', async () => {
         const fetchMock = bootWidget({
-            token: null,
             project: PROJECT,
+            signedIn: false,
             respond: router({}),
         });
         await settle();
@@ -221,8 +222,8 @@ describe('an embed with a project and no token', () => {
 
     it('refuses an answer from an unexpected issuer', async () => {
         const fetchMock = bootWidget({
-            token: null,
             project: PROJECT,
+            signedIn: false,
             respond: router({}),
         });
         await settle();
@@ -239,7 +240,7 @@ describe('an embed with a project and no token', () => {
     });
 
     it('says so when the reviewer denies the sign-in', async () => {
-        bootWidget({ token: null, project: PROJECT, respond: router({}) });
+        bootWidget({ project: PROJECT, signedIn: false, respond: router({}) });
         await settle();
         openPanel();
         await signInAndWaitForPopup();
@@ -265,8 +266,8 @@ describe('a stored grant', () => {
             expiresAt: Date.now() + 3600_000,
         });
         const fetchMock = bootWidget({
-            token: null,
             project: PROJECT,
+            signedIn: false,
             respond: router({
                 '/api/site-review/review': () => ok({ comments: [] }),
             }),
@@ -286,8 +287,8 @@ describe('a stored grant', () => {
             expiresAt: Date.now() + 1000,
         });
         const fetchMock = bootWidget({
-            token: null,
             project: PROJECT,
+            signedIn: false,
             respond: router({
                 '/oauth/token': () => tokens('new', 'refresh-new'),
                 '/api/site-review/review': () => ok({ comments: [] }),
@@ -311,8 +312,8 @@ describe('a stored grant', () => {
             expiresAt: Date.now() + 3600_000,
         });
         const fetchMock = bootWidget({
-            token: null,
             project: PROJECT,
+            signedIn: false,
             respond: router({
                 '/oauth/token': () => tokens('fresh', 'refresh-2'),
                 '/api/site-review/review': (options) =>
@@ -339,8 +340,8 @@ describe('a stored grant', () => {
             expiresAt: Date.now() + 3600_000,
         });
         bootWidget({
-            token: null,
             project: PROJECT,
+            signedIn: false,
             respond: router({
                 '/oauth/token': () => rejected(400, { error: 'invalid_grant' }),
                 '/api/site-review/review': () =>
@@ -353,19 +354,5 @@ describe('a stored grant', () => {
 
         expect(window.sessionStorage.getItem(STORAGE_KEY)).toBeNull();
         expect(signInShown()).toBe(true);
-    });
-});
-
-describe('an embed with a token', () => {
-    it('keeps the static token even when it also names a project', async () => {
-        const fetchMock = bootWidget({
-            project: PROJECT,
-            respond: () => ok({ comments: [] }),
-        });
-        await settle();
-
-        expect(bearerOf(fetchMock, '/api/site-review/review')).toEqual([
-            'Bearer wt_test_token',
-        ]);
     });
 });

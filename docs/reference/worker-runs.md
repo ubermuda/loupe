@@ -16,10 +16,10 @@ row per run, and it never changes the row afterwards. The project's
 
 `POST /api/projects/{handle}/worker-runs`
 
-The bridge authenticates with an account-level API token that carries the agent
-scope. Mint one at `/account/api-tokens`. A project's widget token carries a different
-scope and the firewall refuses it here. The handle is a project id or a project
-slug. A project name does not resolve.
+The bridge authenticates with an OAuth token that carries the agent scope.
+`loupe login` gets one. The firewall refuses a token that carries the
+`site-review` or the `mcp` scope. The handle is a project id or a project slug.
+A project name does not resolve.
 
 ```json
 {
@@ -84,7 +84,7 @@ to start does. The bridge in `cli/` logs `report_folded` when the server answers
 | 201 | `{"id":"<uuid>"}` | the run is stored |
 | 200 | `{"id":"<uuid>"}` | the server already held this report, and the body changed nothing |
 | 401 | | the request carries no token |
-| 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | | agent push is switched off on the instance |
 | 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |

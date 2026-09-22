@@ -5,7 +5,7 @@ description: "Use when an agent needs a decision, an answer or a review from the
 
 # Asking the owner through the Loupe inbox
 
-An item is one question or one to-do for the project owner. An ask is the set of items one session hands over. An ask closes when every blocking item in it closes, so an ask with no blocking item closes at once. The tools act on the project your token is bound to. When the flag is off, every tool answers "The inbox is switched off on this instance."
+An item is one question or one to-do for the project owner. An ask is the set of items one session hands over. An ask closes when every blocking item in it closes, so an ask with no blocking item closes at once. The tools act on the project the connection is bound to. When the flag is off, every tool answers "The inbox is switched off on this instance."
 
 ## Search before you ask
 

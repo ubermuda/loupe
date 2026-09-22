@@ -7,9 +7,9 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { suppressToolbar } from '../fixtures';
+import { signWidgetIn, suppressToolbar } from '../fixtures';
 
-// The test starts as a guest (widget flow) and logs in itself mid-test.
+// The test signs in itself, so it starts from no stored session.
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const E2E_EMAIL = 'e2e-site-page@example.com';
@@ -34,11 +34,27 @@ test('a saved comment is live and resolvable on the site page', async ({
     );
     expect(registerResponse.status()).toBe(200);
 
+    // The reviewer signs in before the widget will save anything. The popup
+    // itself is site-review/widget-oauth.spec.ts; here the grant is minted, so
+    // this test stays about the loop from the widget to the site page.
+    await page.goto('/login');
+    await page.getByLabel('Email').fill(E2E_EMAIL);
+    await page.getByLabel('Password').fill(E2E_PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).not.toHaveURL(/\/login$/, { timeout: 15_000 });
+
+    const harnessUrl = `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`;
+    const harness = await page.request.get(harnessUrl);
+    expect(harness.ok()).toBeTruthy();
+    const harnessProject = /data-project="([^"]+)"/.exec(
+        await harness.text(),
+    )?.[1];
+    expect(harnessProject).toBeTruthy();
+    await signWidgetIn(page, harnessProject!);
+
     // Annotate via the widget on the harness page. The harness clears the site's
     // comments on load, so it holds exactly this one afterwards.
-    await page.goto(
-        `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}`,
-    );
+    await page.goto(harnessUrl);
     await page.getByRole('button', { name: 'Review' }).click();
     await page
         .locator('#lp-panel')
@@ -67,21 +83,8 @@ test('a saved comment is live and resolvable on the site page', async ({
     // The save is the whole transaction — nothing else is clicked from here on.
     await expect(page.locator('#lp-head-count')).toHaveText('1');
 
-    // Log in and open the harness site's page.
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(E2E_EMAIL);
-    await page.getByLabel('Password').fill(E2E_PASSWORD);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    // The harness created the `e2e-harness` project above, so this owner has
-    // exactly one project and LandingController lands them on its documents
-    // dashboard. Capture the project id from that URL to reach the site-review
-    // page (which has no nav link yet — that arrives in a later Loop PR).
-    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+\/documents$/);
-    const projectId = /\/projects\/([0-9a-f-]+)\/documents$/.exec(
-        page.url(),
-    )?.[1];
-    expect(projectId).toBeTruthy();
-    await page.goto(`/projects/${projectId}/site-review`);
+    // The site-review page has no nav link yet, so it is reached by its URL.
+    await page.goto(`/projects/${harnessProject}/site-review`);
 
     // The comment is already on the page, Pending, with no send step in between.
     const comment = page.locator('[data-comment-id]', {

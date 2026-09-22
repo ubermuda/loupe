@@ -9,7 +9,7 @@ Each project in Loupe has one board, and each board has its own columns. A card
 carries a title, a Markdown body, a type, a status and a reporter.
 The status is the slug of the column the card sits in.
 
-The tools act on the project your token is bound to. An instance can switch the
+The tools act on the project the connection is bound to. An instance can switch the
 board off, and every tool then answers "The board is switched off on this
 instance."
 
@@ -97,7 +97,7 @@ A row carries seven fields: `cardId`, `number`, `title`, `type`, `status`,
 Pass `full` to get the whole card on every row, with its Markdown body, its pull
 request links, its documents and its site-review comments. A full page is much
 larger than a summary page, and a whole board of full cards once overran a
-caller's token limit. Read the board as summaries, then call `card_get` for the
+caller's context limit. Read the board as summaries, then call `card_get` for the
 one card you want.
 
 `documentIds` links the documents the work is written up in, on `card_create`

@@ -2,10 +2,11 @@
  * End-to-end tests for the server-backed site-review annotation widget.
  *
  * The dev-only harness page (/dev/site-review-harness) finds-or-creates the
- * `e2e-harness` site for the user, deletes its comments and mints a fresh
- * site-bound token on every load — so each test starts from a clean site
- * simply by loading the harness. No comment ever lives in the browser; the one
- * thing the widget keeps there is which corner the launcher sits in.
+ * `e2e-harness` site for the user, deletes its comments and allows the page's
+ * own origin on every load — so each test starts from a clean site by loading
+ * the harness. The page carries no credential: the widget signs in with OAuth
+ * and keeps the grant in session storage. The other thing the widget keeps
+ * there is which corner the launcher sits in.
  *
  * There is no send step. Every saved comment POSTs to
  * /api/site-review/comments and is Pending — live for the agent — from that
@@ -14,17 +15,19 @@
  * the agent addresses one the widget's PATCH/DELETE 404s by design.
  *
  * User creation uses the dev-only /dev/register-and-verify endpoint (registers and
- * immediately marks the email as verified). No login is needed: the harness is
- * PUBLIC_ACCESS and looks the user up by the e2e email passed in the query string.
+ * immediately marks the email as verified). The harness is PUBLIC_ACCESS and looks
+ * the user up by the e2e email passed in the query string. `signWidgetIn` runs the
+ * sign-in the popup would run, in a context of its own, so the harness page itself
+ * stays a guest page.
  *
  * The tests in this file run in parallel. Each worker owns its own user, so the
- * harness's find-or-create site, its token and its comment purge are that
+ * harness's find-or-create site, its grant and its comment purge are that
  * worker's alone. One shared user would have workers deleting each other's
  * comments on every harness load.
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { suppressToolbar } from '../fixtures';
+import { signWidgetIn, siteReviewGrantKey, suppressToolbar } from '../fixtures';
 import { coverageScaled } from '../timeouts';
 
 // Guest flow — no session cookie should be carried in.
@@ -45,10 +48,14 @@ const keepHarnessUrl = (): string => `${harnessUrl()}&keep=1`;
 
 /**
  * Register this worker's e2e user (idempotent — re-registering is handled by the dev
- * endpoint) without loading the harness. Tests that need to intercept the widget's boot
- * request install their route between this and their own `page.goto(harnessUrl())`.
+ * endpoint) and sign the widget in, without loading the harness. Tests that need to
+ * intercept the widget's boot request install their route between this and their own
+ * `page.goto(harnessUrl())`. Returns the harness project's id.
+ *
+ * The first harness call is a plain request rather than a navigation, because the
+ * grant has to be in session storage before the widget script runs.
  */
-const registerUser = async (page: Page): Promise<void> => {
+const registerUser = async (page: Page): Promise<string> => {
     await suppressToolbar(page);
     const email = e2eEmail();
     const registerResponse = await page.request.post(
@@ -62,14 +69,34 @@ const registerUser = async (page: Page): Promise<void> => {
         },
     );
     expect(registerResponse.status()).toBe(200);
+
+    // The mint needs a session, and /dev/register-and-verify creates none. The
+    // firewall on ^/api is stateless, so the cookie this leaves cannot stand in
+    // for the bearer the widget sends.
+    await page.goto('/login');
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Password').fill(E2E_PASSWORD);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page).not.toHaveURL(/\/login$/, { timeout: 15_000 });
+
+    const harness = await page.request.get(harnessUrl());
+    expect(harness.ok()).toBeTruthy();
+    const projectId = /data-project="([^"]+)"/.exec(await harness.text())?.[1];
+    expect(projectId).toBeTruthy();
+    await signWidgetIn(page, projectId!);
+
+    return projectId!;
 };
 
 /**
- * Seed the user and load the harness. Every load clears the site's comments.
+ * Seed the user, sign the widget in and load the harness. Every load clears
+ * the site's comments.
  */
-const openHarness = async (page: Page): Promise<void> => {
-    await registerUser(page);
+const openHarness = async (page: Page): Promise<string> => {
+    const projectId = await registerUser(page);
     await page.goto(harnessUrl());
+
+    return projectId;
 };
 
 /**
@@ -109,9 +136,9 @@ const addGeneralNote = async (
 
 /**
  * Read the site's live comments straight from the API using the widget's own
- * token (from the script tag). This proves server persistence without
- * reloading — a harness reload deliberately purges them, so "survives reload"
- * cannot be asserted against the harness.
+ * access token (from the grant in session storage). This proves server
+ * persistence without reloading — a harness reload deliberately purges them,
+ * so "survives reload" cannot be asserted against the harness.
  */
 type ReviewAnchor = {
     selector: string;
@@ -127,12 +154,13 @@ const fetchReviewComments = (
     Array<{ body: string; selector: string; anchors: ReviewAnchor[] }>
 > =>
     page.evaluate(async () => {
-        const script = document.querySelector(
+        const script = document.querySelector<HTMLScriptElement>(
             'script[src*="site-review/widget.js"]',
         )!;
-        const token = script.getAttribute('data-token')!;
+        const key = `loupe-site-review:oauth:${new URL(script.src).origin}:${script.dataset.project}`;
+        const { accessToken } = JSON.parse(sessionStorage.getItem(key)!);
         const response = await fetch('/api/site-review/review', {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${accessToken}` },
         });
         const { comments } = (await response.json()) as {
             comments: Array<{
@@ -314,9 +342,9 @@ test('a keep=1 reload rehydrates the live comments into pins and list', async ({
     await expect(page.locator('#lp-head-count')).toHaveText('1');
     await addGeneralNote(page, 'A general note about the page', '2');
 
-    // Reload the harness with keep=1: the comments survive (only the token is
-    // re-minted; they belong to the site, not the token) and the widget
-    // boots by rehydrating from GET /api/site-review/review.
+    // Reload the harness with keep=1: the comments survive, because they belong
+    // to the site rather than to the grant, and the widget boots by rehydrating
+    // from GET /api/site-review/review.
     await page.goto(keepUrl);
 
     // The launcher badge shows the rehydrated count without any interaction.
@@ -512,14 +540,14 @@ test('a 403 on the boot load drops the widget into a critical, dead-end state', 
 }) => {
     await registerUser(page);
 
-    // The very first call the widget makes on boot — GET /review — 403s with the unbound
-    // token code. Installing the route before navigating means the widget hits it on load,
-    // so it must catch the rejection immediately.
+    // The very first call the widget makes on boot — GET /review — 403s. Installing the
+    // route before navigating means the widget hits it on load, so it must catch the
+    // rejection immediately.
     await page.route('**/api/site-review/review', (route) => {
         void route.fulfill({
             status: 403,
             contentType: 'application/json',
-            body: JSON.stringify({ error: 'token_not_bound_to_site' }),
+            body: JSON.stringify({ error: 'forbidden' }),
         });
     });
     await page.goto(harnessUrl());
@@ -529,11 +557,10 @@ test('a 403 on the boot load drops the widget into a critical, dead-end state', 
 
     await page.getByRole('button', { name: 'Review' }).click();
     const panel = page.locator('#lp-panel');
-    // The panel is replaced by the critical state, and the message is tailored to the
-    // *unbound* code — "regenerate the widget token" — not a generic rejection.
+    // The panel is replaced by the critical state, and the message names the account
+    // rather than the grant: signing in again with this one changes nothing.
     await expect(panel.getByText(/can.t connect/i)).toBeVisible();
-    await expect(panel.getByText(/isn.t linked to a site/i)).toBeVisible();
-    await expect(panel.getByText(/regenerate the widget token/i)).toBeVisible();
+    await expect(panel.getByText(/cannot review this project/i)).toBeVisible();
 
     // It is a dead end: the whole normal UI (composer + actions) is gone, and there is no
     // retry that would just 403 again.
@@ -545,11 +572,13 @@ test('a 403 on the boot load drops the widget into a critical, dead-end state', 
     await expect(panel.getByRole('button', { name: 'Dismiss' })).toHaveCount(0);
 });
 
-test('a 401 on the boot load reports an invalid / revoked token', async ({
+test('a 401 the refresh cannot mend signs the reviewer out', async ({
     page,
 }) => {
-    await registerUser(page);
+    const projectId = await registerUser(page);
 
+    // The widget refreshes once and tries again, because an access token can die
+    // before its expiry. The second rejection ends the grant.
     await page.route('**/api/site-review/review', (route) => {
         void route.fulfill({
             status: 401,
@@ -561,18 +590,32 @@ test('a 401 on the boot load reports an invalid / revoked token', async ({
 
     await page.getByRole('button', { name: 'Review' }).click();
     const panel = page.locator('#lp-panel');
-    await expect(panel.getByText(/can.t connect/i)).toBeVisible();
-    await expect(panel.getByText(/invalid or was revoked/i)).toBeVisible();
+    await expect(panel.getByText(/Sign in to review this page/i)).toBeVisible();
+    await expect(
+        panel.getByRole('button', { name: 'Sign in with Loupe' }),
+    ).toBeVisible();
+    // A sign-in the reviewer can complete is not an alarm, so the collapsed
+    // launcher carries no danger badge.
+    await expect(page.locator('#lp-launch-alert')).toBeHidden();
+    // The dead grant is gone from session storage, so a reload asks again.
+    await expect
+        .poll(() =>
+            page.evaluate(
+                (key) => sessionStorage.getItem(key),
+                siteReviewGrantKey(projectId),
+            ),
+        )
+        .toBeNull();
 });
 
-test('a wrong-scope 403 tells the embedder to use the widget token', async ({
+test('a wrong-scope 403 names the access the sign-in is missing', async ({
     page,
 }) => {
     await registerUser(page);
 
-    // A non-widget token (e.g. an MCP token) authenticates but lacks the site-review
-    // scope: the firewall returns 403 with `insufficient_scope`. The message must point at
-    // the token *type*, not tell them to regenerate the (correct) widget token.
+    // A grant from another sign-in authenticates but lacks the site-review scope:
+    // the firewall returns 403 with `insufficient_scope`. The message must point
+    // at the scope, not at the account.
     await page.route('**/api/site-review/review', (route) => {
         void route.fulfill({
             status: 403,
@@ -585,10 +628,10 @@ test('a wrong-scope 403 tells the embedder to use the widget token', async ({
     await page.getByRole('button', { name: 'Review' }).click();
     const panel = page.locator('#lp-panel');
     await expect(panel.getByText(/can.t connect/i)).toBeVisible();
-    await expect(panel.getByText(/not another API token/i)).toBeVisible();
+    await expect(panel.getByText(/does not cover site review/i)).toBeVisible();
 });
 
-test('a token revoked mid-session goes fatal and clears the on-page pins', async ({
+test('a grant revoked mid-session signs the reviewer out and clears the on-page pins', async ({
     page,
 }) => {
     await openHarness(page);
@@ -604,7 +647,7 @@ test('a token revoked mid-session goes fatal and clears the on-page pins', async
     await clickSave(page);
     await expect(page.locator('.pin')).toHaveText('1');
 
-    // The token is revoked between load and the next save: that POST 401s.
+    // The grant is revoked between load and the next save: that POST 401s.
     await page.route('**/api/site-review/comments', (route) => {
         void route.fulfill({
             status: 401,
@@ -619,10 +662,10 @@ test('a token revoked mid-session goes fatal and clears the on-page pins', async
     await page.getByPlaceholder(/Describe the issue/).fill('Second note');
     await clickSave(page);
 
-    // The widget flips to the critical state AND the stale pin is gone — no interactive
+    // The widget asks for a fresh sign-in AND the stale pin is gone — no interactive
     // dead-end left on the page.
     const panel = page.locator('#lp-panel');
-    await expect(panel.getByText(/can.t connect/i)).toBeVisible();
+    await expect(panel.getByText(/Sign in to review this page/i)).toBeVisible();
     await expect(page.locator('.pin')).toHaveCount(0);
 });
 
@@ -642,7 +685,7 @@ test('a boot rejection landing after the user entered pick mode still surfaces f
         await route.fulfill({
             status: 403,
             contentType: 'application/json',
-            body: JSON.stringify({ error: 'token_not_bound_to_site' }),
+            body: JSON.stringify({ error: 'forbidden' }),
         });
     });
     await page.goto(harnessUrl());
@@ -731,7 +774,7 @@ test('re-executing the script does not stack a second widget', async ({
             new Promise<void>((resolve) => {
                 const s = document.createElement('script');
                 s.src = '/site-review/widget.js';
-                s.setAttribute('data-token', 'x');
+                s.setAttribute('data-project', 'x');
                 s.onload = () => resolve();
                 document.body.appendChild(s);
             }),
@@ -2461,7 +2504,7 @@ const drawStroke = async (
     await page.mouse.up();
 };
 
-/** The stored strokes of the site's live comments, read with the widget's token. */
+/** The stored strokes of the site's live comments, read with the widget's grant. */
 const fetchReviewStrokes = (
     page: Page,
 ): Promise<
@@ -2471,13 +2514,13 @@ const fetchReviewStrokes = (
     }>
 > =>
     page.evaluate(async () => {
-        const script = document.querySelector(
+        const script = document.querySelector<HTMLScriptElement>(
             'script[src*="site-review/widget.js"]',
         )!;
+        const key = `loupe-site-review:oauth:${new URL(script.src).origin}:${script.dataset.project}`;
+        const { accessToken } = JSON.parse(sessionStorage.getItem(key)!);
         const response = await fetch('/api/site-review/review', {
-            headers: {
-                Authorization: `Bearer ${script.getAttribute('data-token')!}`,
-            },
+            headers: { Authorization: `Bearer ${accessToken}` },
         });
         const { comments } = (await response.json()) as {
             comments: Array<{

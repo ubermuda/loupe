@@ -39,7 +39,7 @@ func inRepo(t *testing.T, baseURL string) string {
 	t.Helper()
 	useLoginConfigHome(t)
 	if baseURL != "" {
-		if err := config.Save(config.Config{BaseURL: baseURL, Token: "t0ken"}); err != nil {
+		if err := config.Save(testLogin(baseURL)); err != nil {
 			t.Fatalf("save config: %v", err)
 		}
 	}

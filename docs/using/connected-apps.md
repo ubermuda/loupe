@@ -7,8 +7,9 @@ Loupe is an OAuth 2.1 authorization server. An app can ask a user for access,
 and the user approves it on a consent page. The app then gets a short-lived
 access token and a refresh token. Nobody copies a token by hand.
 
-Static API tokens still work. Use them for CI and for scripts. See
-[MCP](mcp.md) for the token page.
+There is no other way in. Loupe issues no static API token, so a machine where
+nobody can open a browser cannot get a credential. CI and scripts therefore
+cannot reach `/mcp` or `/api`. See [MCP](mcp.md).
 
 ## The consent page
 
@@ -50,12 +51,12 @@ project itself.
 
 ## Signing in the CLI with a code
 
-`loupe login` with no token uses the device flow (RFC 8628), because the CLI has
-no browser of its own. It prints a link to `/oauth/device` and a code of eight
-letters, such as `BCDF-GHJK`. Open the link in a browser where you are signed in
-to Loupe. The page shows the app, the access and the code. Choose **Allow** only
-if you started `loupe login` yourself and the code is the code in your
-terminal. The CLI then gets its tokens and stores them.
+`loupe login` uses the device flow (RFC 8628), because the CLI has no browser of
+its own. It prints a link to `/oauth/device` and a code of eight letters, such
+as `BCDF-GHJK`. Open the link in a browser where you are signed in to Loupe. The
+page shows the app, the access and the code. Choose **Allow** only if you
+started `loupe login` yourself and the code is the code in your terminal. The
+CLI then gets its tokens and stores them.
 
 The page also takes a code that you type at `/oauth/device`. Case, spaces and
 dashes do not matter. A code expires after ten minutes, and it takes one answer

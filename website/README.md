@@ -67,16 +67,17 @@ it invalidates on.
 
 ## Site-review widget
 
-Off unless `website/.env` carries a `PUBLIC_SITE_REVIEW_TOKEN`; see
-`.env.example`. Two guards, deliberately belt and braces: the token file is
-gitignored, so a deploy would not have one — and the injection is restricted to
+Off unless `website/.env` carries a `PUBLIC_SITE_REVIEW_PROJECT`; see
+`.env.example`. Two guards, deliberately belt and braces. The env file is
+gitignored, so a deploy would not have one. The injection is also restricted to
 the dev server, so no build output can carry the widget whatever the
 environment holds. `just docs-preview` therefore shows the site without it.
 
-Use a token from a project of its own. The token is what decides where comments
-land, so sharing Loupe's own would merge docs feedback into feedback on the app.
-The config reads the environment at startup, so restart `just docs` after
-changing it.
+Name a project of its own. The project decides where comments land, so sharing
+Loupe's own would merge docs feedback into feedback on the app. The reviewer
+signs in through the OAuth popup, and the project must allow this site's
+address under its allowed sites. The config reads the environment at startup,
+so restart `just docs` after you change it.
 
 ## Not wired up yet
 

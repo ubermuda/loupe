@@ -15,7 +15,7 @@ final class ShowAccountSettingsControllerTest extends WebTestCase
 {
     #[TestWith(['/account', '/account/profile'])]
     #[TestWith(['/account?tab=profile', '/account/profile'])]
-    #[TestWith(['/account?tab=api-tokens', '/account/api-tokens'])]
+    #[TestWith(['/account?tab=connected-apps', '/account/connected-apps'])]
     #[TestWith(['/account?tab=data', '/account/data'])]
     #[TestWith(['/account?tab=unknown', '/account/profile'])]
     public function test_the_account_root_and_legacy_tab_links_redirect_to_a_section(string $from, string $to): void

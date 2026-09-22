@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\OAuth\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\OAuth\Repository\PendingDeviceCodeRepository;
+use App\Module\OAuth\Scope\ApiScope;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -37,7 +37,7 @@ final readonly class ResolveDeviceAuthorizationHandler
         $this->auditor->record(
             $command->approved ? 'oauth.device_approved' : 'oauth.device_denied',
             AuditOutcome::Success,
-            ['clientId' => $view->clientId, 'scopes' => implode(' ', array_map(static fn (ApiTokenScope $scope): string => $scope->value, $view->scopes))],
+            ['clientId' => $view->clientId, 'scopes' => implode(' ', array_map(static fn (ApiScope $scope): string => $scope->value, $view->scopes))],
             new AuditSubject('oauth_client', $view->clientId),
         );
     }

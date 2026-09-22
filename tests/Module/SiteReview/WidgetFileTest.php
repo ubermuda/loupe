@@ -15,7 +15,7 @@ final class WidgetFileTest extends TestCase
 
         $src = (string) file_get_contents($path);
         self::assertStringContainsString('attachShadow', $src);
-        self::assertStringContainsString('data-token', $src);
+        self::assertStringContainsString('data-project', $src);
         self::assertStringContainsString('data-context', $src);
         // Read once per request and carried through the answer, never re-read
         // when it lands: an SPA swap can change it in between.

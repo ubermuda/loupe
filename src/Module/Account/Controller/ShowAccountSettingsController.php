@@ -18,7 +18,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class ShowAccountSettingsController extends AppController
 {
     private const array SECTION_ROUTES = [
-        'api-tokens' => 'app_account_api_tokens',
+        'connected-apps' => 'app_account_connected_apps',
         'data' => 'app_account_data',
     ];
 

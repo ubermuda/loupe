@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Security;
 
 use App\Module\Account\Entity\User;
-use App\Security\ApiTokenRateLimitKey;
 use App\Security\AuthenticatedCredential;
+use App\Security\CredentialRateLimitKey;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
 
-final class ApiTokenRateLimitKeyTest extends TestCase
+final class CredentialRateLimitKeyTest extends TestCase
 {
     public function test_keys_on_the_credential_id(): void
     {
@@ -26,7 +26,7 @@ final class ApiTokenRateLimitKeyTest extends TestCase
         self::assertSame('ip:203.0.113.7', $this->keyFor(null)->forRequest($this->request()));
     }
 
-    private function keyFor(?AuthenticatedCredential $credential): ApiTokenRateLimitKey
+    private function keyFor(?AuthenticatedCredential $credential): CredentialRateLimitKey
     {
         $tokenStorage = new TokenStorage();
         $user = new User(fullName: 'U', email: 'rate-key@example.com', password: 'x');
@@ -36,7 +36,7 @@ final class ApiTokenRateLimitKeyTest extends TestCase
         }
         $tokenStorage->setToken($securityToken);
 
-        return new ApiTokenRateLimitKey($tokenStorage);
+        return new CredentialRateLimitKey($tokenStorage);
     }
 
     private function request(): Request

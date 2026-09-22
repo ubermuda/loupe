@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Account\Entity;
+namespace App\Module\OAuth\Scope;
 
-enum ApiTokenScope: string
+enum ApiScope: string
 {
     case Mcp = 'mcp';
     case SiteReview = 'site-review';

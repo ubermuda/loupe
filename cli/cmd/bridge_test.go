@@ -19,7 +19,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
-	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
@@ -257,7 +256,7 @@ func TestOneTopicServesEveryProject(t *testing.T) {
 	fake := &fakeLoupe{sse: sse}
 	server := httptest.NewServer(http.HandlerFunc(fake.serve))
 	t.Cleanup(server.Close)
-	cfg := config.Config{BaseURL: server.URL, Token: "t"}
+	cfg := testLogin(server.URL)
 
 	loupeDir, otherDir := t.TempDir(), t.TempDir()
 	body := "projects:\n  loupe:\n    dir: " + loupeDir + "\n  other:\n    dir: " + otherDir + "\nrules:\n" +
@@ -337,7 +336,7 @@ func TestTheBridgeReportsRuleHealthAtStartAndOnAChange(t *testing.T) {
 	fake := &fakeLoupe{sse: "data: " + rename + "\n\n"}
 	server := httptest.NewServer(http.HandlerFunc(fake.serve))
 	t.Cleanup(server.Close)
-	cfg := config.Config{BaseURL: server.URL, Token: "t"}
+	cfg := testLogin(server.URL)
 
 	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\n  other:\n    dir: " + t.TempDir() + "\nrules:\n" +
 		"  - name: plan\n    on: board.card_moved\n    project: loupe\n    to: next\n    prompt: SECRET go\n" +
@@ -403,7 +402,7 @@ func TestTheBridgeSendsAHeartbeatAtStart(t *testing.T) {
 	fake := &fakeLoupe{flags: `{"bridge.heartbeat_interval_seconds":3600}`}
 	server := httptest.NewServer(http.HandlerFunc(fake.serve))
 	t.Cleanup(server.Close)
-	cfg := config.Config{BaseURL: server.URL, Token: "t"}
+	cfg := testLogin(server.URL)
 
 	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\n  other:\n    dir: " + t.TempDir() + "\nrules:\n" +
 		"  - name: plan\n    on: board.card_moved\n    project: loupe\n    to: next\n    prompt: go\n"

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Project\Entity;
 
 use App\Doctrine\SearchLanguage;
-use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Security\ProjectScopedSubject;
@@ -30,29 +29,9 @@ class Project implements ProjectScopedSubject
     public private(set) ?Uuid $id = null;
 
     /**
-     * The site-review widget token bound to this project. Nullable: a project
-     * without one cannot receive widget comments until it is minted. Revoking the
-     * token (Account UI) keeps the ApiToken row (see ApiToken::revoke()) and clears
-     * this binding explicitly in RevokeApiTokenHandler — the database's ON DELETE
-     * SET NULL cascade below only backstops the hard-delete paths (regenerate,
-     * project deletion).
-     */
-    #[ORM\JoinColumn(name: 'widget_token_id', onDelete: 'SET NULL')]
-    #[ORM\OneToOne(targetEntity: ApiToken::class)]
-    public ?ApiToken $widgetToken = null;
-
-    /**
-     * The MCP token bound to this project. The MCP tools resolve their project
-     * from this binding — an MCP-scope token without one is rejected.
-     */
-    #[ORM\JoinColumn(name: 'mcp_token_id', onDelete: 'SET NULL')]
-    #[ORM\OneToOne(targetEntity: ApiToken::class)]
-    public ?ApiToken $mcpToken = null;
-
-    /**
      * Whether a site-review submission may reach the owner's agent. Off by
-     * default: the widget token sits in the page markup, so anyone who can view
-     * the page holds it. A new, regenerated or revoked widget token resets it.
+     * default, because a reviewer who can open the page can then reach the
+     * owner's agent.
      */
     #[ORM\Column(options: ['default' => false])]
     public bool $forwardsToAgent = false;

@@ -33,16 +33,14 @@ final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface
     }
 
     /**
-     * Defensive, and deliberately kept. ApiTokenAuthenticator builds its
-     * passport from the token's owner, so every token-authenticated record
-     * carries that owner as its actor and purge() already removes it. Nothing
-     * writes a credential-only row today.
+     * Defensive, and deliberately kept. Every machine credential authenticates
+     * as its owner, so a credential-bound record carries that owner as its
+     * actor and purge() already removes it. Nothing writes a credential-only
+     * row today.
      *
-     * It runs here rather than at slot 35 because the link would be gone by
-     * then: audit_log.credential_id is ON DELETE SET NULL, and
-     * ProjectAccountPurger deletes each project's bound tokens at the first
-     * slot. This is the last moment a credential still resolves, so a provider
-     * that did leave the actor null would still be covered.
+     * It runs here rather than at slot 35 because the credential rows go with
+     * the owner. This is the last moment a credential still resolves, so a
+     * provider that did leave the actor null is still covered.
      */
     #[\Override]
     public function prepare(User $user, AccountDeletionCleanup $cleanup): void
@@ -50,7 +48,7 @@ final readonly class AuditLogAccountPurger implements AccountDataPurgerInterface
         $id = (string) ($user->id ?? throw new \LogicException('a persisted user always has an id'));
 
         $this->em->getConnection()->executeStatement(
-            'DELETE FROM audit_log WHERE credential_id IN (SELECT id FROM api_tokens WHERE owner_id = :id)',
+            'DELETE FROM audit_log WHERE credential_id IN (SELECT id FROM oauth_credentials WHERE owner_id = :id)',
             ['id' => $id],
         );
     }
