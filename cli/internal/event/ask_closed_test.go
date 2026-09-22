@@ -49,7 +49,7 @@ func TestParseRejectsAMalformedAskClosed(t *testing.T) {
 		"number with no card":    strings.Replace(askClosedPayload, `"cardId":"0192F3A1-7777-7D3E-8F10-A2B3C4D5E6F7"`, `"cardId":null`, 1),
 		"negative card number":   strings.Replace(askClosedPayload, `"cardNumber":33`, `"cardNumber":-1`, 1),
 		"subject not a uuid":     strings.Replace(askClosedPayload, `"id":"01a0a1b2-0000-7c3d-8e4f-5a6b7c8d9e0f"`, `"id":"ask"`, 1),
-		"unknown actor":          strings.Replace(askClosedPayload, `"actor":"human"`, `"actor":"system"`, 1),
+		"unknown actor":          strings.Replace(askClosedPayload, `"actor":"human"`, `"actor":"widget"`, 1),
 		"bridge id not a string": strings.Replace(askClosedPayload, `"bridgeId":"7D1E2F3A-4B5C-4D6E-9F0A-1B2C3D4E5F6A"`, `"bridgeId":7`, 1),
 	} {
 		t.Run(name, func(t *testing.T) {
