@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Forge;
 
-
 /**
  * One fact an adapter read out of a verified delivery, in the neutral
  * vocabulary of ForgeEventType.

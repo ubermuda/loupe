@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\EventListener;
+namespace App\Forge\EventListener;
 
-use App\Module\Board\Controller\ForgeWebhookController;
+use App\Forge\Controller\ForgeWebhookController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -22,8 +22,6 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 4)]
 final readonly class RateLimitForgeDeliveries
 {
-    public const string ROUTE = 'webhook_forge';
-
     public function __construct(
         #[Autowire(service: 'limiter.forge_deliveries')]
         private RateLimiterFactoryInterface $limiter,
@@ -37,11 +35,11 @@ final readonly class RateLimitForgeDeliveries
         }
 
         $request = $event->getRequest();
-        if (self::ROUTE !== $request->attributes->get('_route')) {
+        if (ForgeWebhookController::ROUTE !== $request->attributes->get('_route')) {
             return;
         }
 
-        $key = ForgeWebhookController::class.':'.($request->getClientIp() ?? 'unknown');
+        $key = ForgeWebhookController::ROUTE.':'.($request->getClientIp() ?? 'unknown');
         if (!$this->limiter->create($key)->consume()->isAccepted()) {
             throw new TooManyRequestsHttpException(message: 'Too many forge deliveries. Please slow down.');
         }

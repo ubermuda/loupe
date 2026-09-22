@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Module\Board\Entity\CardReporter;
 use App\Forge\ForgeDelivery;
 use App\Forge\ForgeEventType;
+use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Outbox\OutboxWriter;
-use App\Module\Board\Entity\Forge;
 use Doctrine\ORM\EntityManagerInterface;
-use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 /**
  * Turns what a forge said into outbox rows an agent can act on.
