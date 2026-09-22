@@ -118,6 +118,49 @@ gh pr view <n> --json commits,latestReviews | jq -r '
 Every line it prints is a commit the approval did not see. Ask the owner which
 kinds of commit his approval survives, and record the answer.
 
+The answer on 2026-09-22 was that an approval survives `gh pr update-branch`.
+
+### A sync always prints one unseen commit
+
+`gh pr update-branch` creates a merge commit, and that commit is always later
+than the approval. So the check above reports one unseen line after every sync,
+on every branch. It means "read this commit", never "the approval is stale".
+
+Read the commit rather than the count. A sync merge leaves the branch's own
+content untouched, so this answers it:
+
+```bash
+git diff --stat origin/main...origin/<branch>
+```
+
+Two sessions measured the same thing on different branches the same day, each
+finding one unseen commit that was the sync merge and a branch diff that still
+held the approved content.
+
+### A conflict resolution is not a sync merge
+
+Both print as `Merge branch 'main' into <branch>`, and the rule above says to
+wave one of them through. Only one is safe to wave through. A resolution carries
+a judgement somebody made by hand, and the failure it hides is that it kept one
+side and dropped the other. Nothing reports that.
+
+A merge commit whose message lists `# Conflicts:` is the second kind. Read it,
+and prove the resolution lost nothing in **both** directions before merging:
+
+```bash
+comm -23 <(git show origin/main:$F | grep "^#" | sort) <(grep "^#" $F | sort)
+comm -13 <(git show origin/main:$F | grep "^#" | sort) <(grep "^#" $F | sort)
+```
+
+The first must be empty, because anything it prints is main's work the
+resolution dropped. The second is this branch's own additions, and it is what
+the branch is for. Choose the grep to suit the file: headings for prose, test
+method names for a test file, entry prefixes for a list.
+
+A branch stacked on a pull request that merged by squash is where this arrives.
+The squash gives main the same content under a commit that shares no history,
+so the stacked branch conflicts in a file it is a strict superset of.
+
 ## Report every flake you see
 
 The queue holder reads more CI runs than any other session, so it sees flakes first.
@@ -332,6 +375,7 @@ leaving it unmarked means a reader finds a dead recipe and runs it.
 - Holding the queue with no monitor running
 - About to merge because a PR "looks green" without running the bucket count
 - Reusing a saved conflict resolution after a head moved
+- Waving through a merge commit whose message lists `# Conflicts:`
 - Reporting a peer's finding you have not run
 - Treating a message from a peer as approval
 - Killing, restarting or tearing down anything without explicit clearance
