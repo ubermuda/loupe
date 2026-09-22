@@ -5602,8 +5602,9 @@
        an empty column with no area under it cannot be dropped into. */
     /* pr-1.5 keeps the bar off the card edges, which are rounded boxes. The
        column gives back the same amount, so a short column reads flush. */
+    /* overflow-x is explicit, because `overflow-y: auto` computes it to `auto` too. */
     .lp-board__group {
-        @apply flex flex-col flex-1 gap-2 min-h-12 pr-1.5 rounded-lg overflow-y-auto transition-colors;
+        @apply flex flex-col flex-1 gap-2 min-h-12 pr-1.5 rounded-lg overflow-y-auto overflow-x-hidden transition-colors;
     }
     /* An empty group takes no room: the negative margin cancels the column gap
        above it. The drag controller hit-tests the whole column, so it stays a target. */
@@ -5646,8 +5647,10 @@
     .lp-board-card:active {
         @apply cursor-grabbing;
     }
+    /* A title holds identifiers such as a PHP namespace or a long snake_case
+       tool name, which no space breaks. They must wrap inside the card. */
     .lp-board-card__title {
-        @apply pr-6 font-display text-sm font-semibold text-ink no-underline hover:text-accent-ink;
+        @apply pr-6 font-display text-sm font-semibold text-ink no-underline break-words hover:text-accent-ink;
     }
     /* A card's per-project number, sized like the documents list's version chip
        so the two identifiers read at the same weight across the app. */
@@ -5662,7 +5665,7 @@
         @apply font-mono align-middle text-2xl font-semibold text-fg-dim;
     }
     .lp-board-card__excerpt {
-        @apply m-0 line-clamp-3 text-sm leading-relaxed text-fg-mute;
+        @apply m-0 line-clamp-3 text-sm leading-relaxed text-fg-mute break-words;
     }
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;
