@@ -2,12 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Board\Forge;
+namespace App\Tests\Forge;
 
-use App\Module\Board\Entity\Forge;
-use App\Module\Board\Forge\ForgeEventType;
-use App\Module\Board\Forge\GitHubAdapter;
-use App\Module\Board\Forge\InvalidForgeSignature;
+use App\Forge\ForgeEventType;
+use App\Forge\GitHubAdapter;
+use App\Forge\InvalidForgeSignature;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,7 +28,7 @@ final class GitHubAdapterTest extends TestCase
         self::assertSame(ForgeEventType::MERGED, $deliveries[0]->type);
         self::assertSame('ubermuda/loupe', $deliveries[0]->repository);
         self::assertSame(541, $deliveries[0]->number);
-        self::assertSame(Forge::GitHub, $deliveries[0]->forge);
+        self::assertSame('github', $deliveries[0]->forge);
     }
 
     /** A pull request closed without merging is not a merge. */
@@ -175,7 +174,7 @@ final class GitHubAdapterTest extends TestCase
     /**
      * @param array<mixed> $payload
      *
-     * @return list<\App\Module\Board\Forge\ForgeDelivery>
+     * @return list<\App\Forge\ForgeDelivery>
      */
     private function translate(string $event, array $payload): array
     {

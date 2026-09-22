@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\Forge;
+namespace App\Forge;
 
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
@@ -19,7 +19,7 @@ final readonly class ForgeAdapters
     public function forSlug(string $slug): ?ForgeAdapterInterface
     {
         foreach ($this->adapters as $adapter) {
-            if ($adapter->forge()->value === $slug) {
+            if ($adapter->forge() === $slug) {
                 return $adapter;
             }
         }

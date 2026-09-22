@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Forge\ForgeDelivery;
-use App\Module\Board\Forge\ForgeEventType;
+use App\Forge\ForgeDelivery;
+use App\Forge\ForgeEventType;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Outbox\OutboxWriter;
+use App\Module\Board\Entity\Forge;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\Auditor;
 
 /**
  * Turns what a forge said into outbox rows an agent can act on.
@@ -24,7 +26,7 @@ final readonly class RecordForgeDeliveryHandler
         private CardPullRequestRepository $cardPullRequests,
         private EntityManagerInterface $em,
         private OutboxWriter $outbox,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -53,10 +55,11 @@ final readonly class RecordForgeDeliveryHandler
             return;
         }
 
-        $moved = $this->cardPullRequests->repoint($delivery->forge, $delivery->repository, $delivery->movedTo);
+        $forge = Forge::tryFrom($delivery->forge) ?? Forge::Other;
+        $moved = $this->cardPullRequests->repoint($forge, $delivery->repository, $delivery->movedTo);
         if ($moved > 0) {
-            $this->logger->info('board.forge_repository_moved', [
-                'forge' => $delivery->forge->value,
+            $this->auditor->record('board.forge_repository_moved', AuditOutcome::Success, [
+                'forge' => $forge->value,
                 'from' => $delivery->repository,
                 'to' => $delivery->movedTo,
                 'links' => $moved,
@@ -70,7 +73,8 @@ final readonly class RecordForgeDeliveryHandler
             return;
         }
 
-        foreach ($this->cardPullRequests->findForPullRequest($delivery->forge, $delivery->repository, $delivery->number) as $link) {
+        $forge = Forge::tryFrom($delivery->forge) ?? Forge::Other;
+        foreach ($this->cardPullRequests->findForPullRequest($forge, $delivery->repository, $delivery->number) as $link) {
             $card = $link->card;
             $project = $card->project;
 
@@ -83,7 +87,7 @@ final readonly class RecordForgeDeliveryHandler
                 'subject' => ['type' => 'card', 'id' => (string) $card->id],
                 'projectId' => (string) $project->id,
                 'cardNumber' => $card->number,
-                'forge' => $delivery->forge->value,
+                'forge' => $forge->value,
                 'actor' => CardReporter::System->value,
             ]);
         }

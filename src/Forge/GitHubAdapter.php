@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\Forge;
+namespace App\Forge;
 
-use App\Module\Board\Entity\Forge;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -17,6 +16,9 @@ use Symfony\Component\HttpFoundation\Request;
  */
 final readonly class GitHubAdapter implements ForgeAdapterInterface
 {
+    /** The slug its deliveries arrive under, at /webhooks/forge/github. */
+    private const string SLUG = 'github';
+
     private const string SIGNATURE_HEADER = 'X-Hub-Signature-256';
     private const string EVENT_HEADER = 'X-GitHub-Event';
 
@@ -27,9 +29,9 @@ final readonly class GitHubAdapter implements ForgeAdapterInterface
     }
 
     #[\Override]
-    public function forge(): Forge
+    public function forge(): string
     {
-        return Forge::GitHub;
+        return self::SLUG;
     }
 
     #[\Override]
@@ -158,7 +160,7 @@ final readonly class GitHubAdapter implements ForgeAdapterInterface
 
         $old = $owner.'/'.$from;
 
-        return $old === $to ? [] : [new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, Forge::GitHub, $old, movedTo: $to)];
+        return $old === $to ? [] : [new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, self::SLUG, $old, movedTo: $to)];
     }
 
     /**
@@ -175,7 +177,7 @@ final readonly class GitHubAdapter implements ForgeAdapterInterface
             return [];
         }
 
-        return [new ForgeDelivery($type, Forge::GitHub, $repository, $number)];
+        return [new ForgeDelivery($type, self::SLUG, $repository, $number)];
     }
 
     /** @param array<mixed> $payload */
