@@ -1,0 +1,25 @@
+{# Admin view of the apps one user has connected. Read-only: revoking stays with the user, on /account/connected-apps. #}
+<div class="admin-card p-6 flex flex-col gap-4" data-testid="connected-apps-panel">
+    <div>
+        <h2 class="admin-section-title">{{ 'oauth.admin.connected_apps.title'|trans }}</h2>
+        <p class="admin-section-subtitle">{{ 'oauth.admin.connected_apps.subtitle'|trans }}</p>
+    </div>
+
+    <div>
+        {% for app in apps %}
+            <div class="admin-action-item admin-action-row" data-connected-app="{{ app.name }}">
+                <div class="grow">
+                    <div class="admin-action-title mb-1.5">{{ app.name }}</div>
+                    {% for grant in app.grants %}
+                        <p class="admin-action-help">
+                            {% for scope in grant.scopes %}{{ loop.first ? '' : ', ' }}{{ ('oauth.consent.scope.' ~ scope|replace({'-': '_'}))|trans }}{% endfor %}
+                            {%- if grant.project %} · {{ grant.project }}{% elseif grant.allProjects %} · {{ 'oauth.connected_apps.all_projects'|trans }}{% endif %}
+                        </p>
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <p class="admin-action-help" data-testid="connected-apps-panel-empty">{{ 'oauth.admin.connected_apps.empty'|trans }}</p>
+        {% endfor %}
+    </div>
+</div>
