@@ -563,6 +563,10 @@ test('a 403 on the boot load drops the widget into a critical, dead-end state', 
 
     await page.getByRole('button', { name: 'Review' }).click();
     const panel = page.locator('#lp-panel');
+    // Assert the panel before its contents: `panel.getByText()` resolves to
+    // zero whether the panel opened without the expected state or never opened
+    // at all, and board card 191 turns on telling those apart.
+    await expect(panel).toBeVisible();
     // The panel is replaced by the critical state, and the message names the account
     // rather than the grant: signing in again with this one changes nothing.
     await expect(panel.getByText(/can.t connect/i)).toBeVisible();
@@ -596,6 +600,10 @@ test('a 401 the refresh cannot mend signs the reviewer out', async ({
 
     await page.getByRole('button', { name: 'Review' }).click();
     const panel = page.locator('#lp-panel');
+    // Assert the panel before its contents: `panel.getByText()` resolves to
+    // zero whether the panel opened without the expected state or never opened
+    // at all, and board card 191 turns on telling those apart.
+    await expect(panel).toBeVisible();
     await expect(panel.getByText(/Sign in to review this page/i)).toBeVisible();
     await expect(
         panel.getByRole('button', { name: 'Sign in with Loupe' }),
@@ -675,6 +683,10 @@ test('a grant revoked mid-session signs the reviewer out and clears the on-page 
     // The widget asks for a fresh sign-in AND the stale pin is gone — no interactive
     // dead-end left on the page.
     const panel = page.locator('#lp-panel');
+    // Assert the panel before its contents: `panel.getByText()` resolves to
+    // zero whether the panel opened without the expected state or never opened
+    // at all, and board card 191 turns on telling those apart.
+    await expect(panel).toBeVisible();
     await expect(panel.getByText(/Sign in to review this page/i)).toBeVisible();
     await expect(page.locator('.pin')).toHaveCount(0);
 });
