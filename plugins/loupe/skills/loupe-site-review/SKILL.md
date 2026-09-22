@@ -16,7 +16,7 @@ in the codebase.
 ## The loop
 
 1. Call `site_review_get`. It returns every unaddressed comment for the project
-   your token is bound to.
+   the connection is bound to.
 2. Fix them. Use `url` and the `anchors` to find what the reviewer meant.
 3. Call `site_review_mark_comment_addressed` with the ids you actually fixed.
 
@@ -32,7 +32,8 @@ site_review_mark_comment_addressed(commentIds: string[])
 ```
 
 `site_review_get` takes an optional `site` (id or name). It must match the
-project your token is already bound to.
+project the connection already acts on. Call `project_current` when you are not
+sure which that is.
 
 ## A comment can point at several elements
 

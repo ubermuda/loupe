@@ -45,20 +45,22 @@ test.describe('first-run wizard', () => {
             page.getByRole('button', { name: 'Skip setup' }),
         ).toBeVisible();
 
-        await page.getByRole('button', { name: 'Generate token' }).click();
-        await expect(
-            page.locator('[data-testid="minted-mcp-token"]'),
-        ).toBeVisible();
+        // The step mints nothing. It names the MCP endpoint, and an agent
+        // authorizes itself against it.
+        await expect(page.locator('code.lp-connect-field__value')).toHaveText(
+            /\/mcp$/,
+        );
 
         await page.getByRole('link', { name: 'Continue' }).click();
         await expect(page).toHaveURL(/\/welcome\/widget$/);
         await expect(page.locator('ol[data-wizard-step="3"]')).toBeVisible();
 
-        await page.getByRole('button', { name: 'Generate token' }).click();
-        await expect(
-            page.locator('[data-testid="minted-widget-token"]'),
-        ).toBeVisible();
-        await expect(page.getByText('site-review/widget.js')).toBeVisible();
+        // The embed carries the project and no credential, so the reviewer
+        // signs in through the widget's own pop-up.
+        const snippet = page.locator('[data-testid="wizard-widget-snippet"]');
+        await expect(snippet).toContainText('site-review/widget.js');
+        await expect(snippet).toContainText('data-project=');
+        await expect(snippet).not.toContainText('data-token=');
 
         await page.getByRole('link', { name: 'Continue' }).click();
         await expect(page).toHaveURL(/\/welcome\/done$/);

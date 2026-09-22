@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Project\Controller;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Inbox\Install\InboxInstallFlags;
@@ -54,11 +52,6 @@ final class ConnectAgentControllerTest extends WebTestCase
         $installedFlags[DocumentHighlightTool::FLAG]->value = true;
         $installedFlags[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         $installedFlags[InboxInstallFlags::FLAG_INBOX_ENABLED]->value = true;
-        // The tool list only renders once a token exists; without one the page
-        // shows the mint step instead and this would compare against nothing.
-        [$token] = ApiToken::issue($owner, 'MCP: connect-site-tools', ApiTokenScope::Mcp);
-        $project->mcpToken = $token;
-        $em->persist($token);
         $em->flush();
         $em->clear();
 
@@ -100,9 +93,6 @@ final class ConnectAgentControllerTest extends WebTestCase
         $owner = $this->user($em, 'connect-gated@example.com');
         $project = new Project($owner, 'connect-site-gated');
         $em->persist($project);
-        [$token] = ApiToken::issue($owner, 'MCP: connect-site-gated', ApiTokenScope::Mcp);
-        $project->mcpToken = $token;
-        $em->persist($token);
         $em->flush();
         $em->clear();
 
@@ -119,40 +109,7 @@ final class ConnectAgentControllerTest extends WebTestCase
         self::assertNotContains(DocumentHighlightTool::NAME, $listed);
     }
 
-    public function test_without_a_token_the_step_offers_only_a_way_to_create_one(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->user($em, 'connect-a@example.com');
-        $project = new Project($owner, 'connect-site-a');
-        $em->persist($project);
-        $em->flush();
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/connect');
-
-        self::assertResponseIsSuccessful();
-
-        // Both cards rendered, so what is missing below is the template's choice
-        // rather than a page that never got as far as drawing them.
-        self::assertCount(1, $crawler->filter('#agent-connection'));
-        self::assertCount(1, $crawler->filter('#site-review-widget'));
-
-        // No MCP token yet → the creation form is present, no revoke form.
-        self::assertCount(1, $crawler->filter('form[action$="/mcp-token"]'));
-        self::assertCount(0, $crawler->filter('form[action*="/revoke"]'));
-
-        // Everything an agent would be configured with is useless without a token
-        // to put in it, so none of it is shown until one exists: no endpoint field,
-        // no .mcp.json snippet, no tool list.
-        self::assertCount(0, $crawler->filter('.lp-connect-field__value'));
-        self::assertCount(0, $crawler->filter('#agent-connection .lp-code-dark'));
-        self::assertCount(0, $crawler->filter('.lp-tools__name'));
-    }
-
-    public function test_an_existing_mcp_token_unlocks_the_endpoint_snippet_and_tool_list(): void
+    public function test_the_agent_step_shows_the_endpoint_the_methods_and_the_skills(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -160,141 +117,35 @@ final class ConnectAgentControllerTest extends WebTestCase
         $owner = $this->user($em, 'connect-b@example.com');
         $project = new Project($owner, 'connect-site-b');
         $em->persist($project);
-
-        [$token] = ApiToken::issue($owner, 'MCP: connect-site-b', ApiTokenScope::Mcp);
-        $project->mcpToken = $token;
-        $em->persist($token);
         $em->flush();
-        $tail = (string) $token->tokenTail;
         $em->clear();
 
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/connect');
 
         self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#agent-connection'));
+        self::assertCount(1, $crawler->filter('#site-review-widget'));
 
-        // Token bound → the masked value identifies it, a revoke form is present,
-        // and there is no way to create a second one. The label is what the screen
-        // fell back to before a tail was stored; it is no longer shown.
-        self::assertStringContainsString(
-            '••••••••••••'.$tail,
-            $crawler->filter('[data-testid="mcp-token-identity"]')->text(),
-        );
-        self::assertStringNotContainsString('MCP: connect-site-b', $crawler->text());
-        self::assertGreaterThanOrEqual(1, $crawler->filter('form[action*="/revoke"]')->count());
-        self::assertCount(0, $crawler->filter('form[action$="/mcp-token"]'));
-
-        // The token's scope is stated on its own meta line.
-        self::assertStringContainsString('project scoped', $crawler->filter('[data-testid="mcp-token-identity"] small')->text());
-
-        // The global MCP endpoint path renders somewhere among the fields (the host
-        // differs under test, so only the path is matched, and the field's position
-        // among the others is not part of the promise).
+        // The global MCP endpoint path renders among the fields. The host differs
+        // under test, so only the path is matched.
         $fieldValues = $crawler->filter('.lp-connect-field__value')->each(
             static fn (\Symfony\Component\DomCrawler\Crawler $node): string => $node->text(),
         );
         self::assertNotEmpty(array_filter($fieldValues, static fn (string $value): bool => str_contains($value, '/mcp')));
 
-        // The three copyable configurations the token unlocks: the plugin install,
-        // the CLI one-liner, and the .mcp.json block.
+        // Three copyable configurations, each behind a disclosure that starts
+        // shut. The step opens as a list of choices, not three stacked blocks.
         self::assertCount(3, $crawler->filter('#agent-connection .lp-code-dark'));
-
-        // Each sits behind its own disclosure, and every one of them starts shut:
-        // the step opens as a list of choices, not three stacked code blocks.
         self::assertCount(3, $crawler->filter('details.lp-install'));
         self::assertCount(0, $crawler->filter('details.lp-install[open]'));
 
-        // Only the plugin brings the skills, so they are named outside it — a
-        // reader who takes either hand-wired route still meets them.
+        // No page may hand out a credential any more, so no snippet carries one.
+        self::assertStringNotContainsString('YOUR_TOKEN', $crawler->text());
+        self::assertStringNotContainsString('Authorization: Bearer', $crawler->text());
+
         self::assertCount(2, $crawler->filter('.lp-skills__name'));
-
-        // The tool list renders here; which tools belong on it is asserted once,
-        // against the server's registry, in the parity test above. Restating the
-        // names in a second place is what let them go stale to begin with.
         self::assertNotEmpty($crawler->filter('.lp-tools__name'));
-    }
-
-    public function test_revoked_mcp_token_disappears_and_mint_form_reappears(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->user($em, 'connect-d@example.com');
-        $project = new Project($owner, 'connect-site-d');
-        $em->persist($project);
-
-        [$token] = ApiToken::issue($owner, 'MCP: connect-site-d', ApiTokenScope::Mcp);
-        $project->mcpToken = $token;
-        $em->persist($token);
-        $em->flush();
-        $projectId = $project->id;
-        $tokenId = $token->id;
-        $tail = (string) $token->tokenTail;
-        $em->clear();
-
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects');
-
-        $client->request(Request::METHOD_POST, '/account/api-tokens/'.(string) $tokenId.'/revoke', [
-            '_csrf_token' => 'csrf-token',
-        ]);
-        self::assertResponseRedirects();
-        // Consume the "has been revoked" flash on an unrelated page first — it
-        // legitimately echoes the old label once, which would otherwise pollute
-        // the assertion below on the very next page rendered.
-        $client->followRedirect();
-
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/connect');
-        self::assertResponseIsSuccessful();
-
-        // Revoked → the token row still exists but is no longer bound to the
-        // project, so the page reverts to the mint form exactly as if no token had
-        // ever been minted: no masked value, no label, no revoke form.
-        self::assertStringNotContainsString('••••••••••••'.$tail, $crawler->text());
-        self::assertStringNotContainsString('MCP: connect-site-d', $crawler->text());
-        self::assertCount(1, $crawler->filter('form[action$="/mcp-token"]'));
-        self::assertCount(0, $crawler->filter('form[action*="/revoke"]'));
-    }
-
-    /**
-     * A token issued before token_tail existed has no recoverable tail, so the
-     * screen must keep working from its label rather than rendering a mask with a
-     * hole in it.
-     */
-    public function test_a_token_with_no_stored_tail_falls_back_to_its_label(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        $owner = $this->user($em, 'connect-e@example.com');
-        $project = new Project($owner, 'connect-site-e');
-        $em->persist($project);
-
-        [$token] = ApiToken::issue($owner, 'MCP: connect-site-e', ApiTokenScope::Mcp);
-        $project->mcpToken = $token;
-        $em->persist($token);
-        $em->flush();
-
-        // issue() always records a tail and the property is readonly, so a
-        // pre-migration row can only be reproduced in SQL.
-        $em->getConnection()->executeStatement(
-            'UPDATE api_tokens SET token_tail = NULL WHERE id = ?',
-            [(string) $token->id],
-        );
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/connect');
-
-        self::assertResponseIsSuccessful();
-        $identity = $crawler->filter('[data-testid="mcp-token-identity"]');
-        self::assertCount(1, $identity);
-        self::assertStringContainsString('MCP: connect-site-e', $identity->text());
-        self::assertStringNotContainsString('••••', $identity->text());
-        // The rest of the step still renders, so the fallback is a working page
-        // rather than one that stopped short of the token row.
-        self::assertGreaterThanOrEqual(1, $crawler->filter('form[action*="/revoke"]')->count());
-        self::assertCount(3, $crawler->filter('#agent-connection .lp-code-dark'));
     }
 
     public function test_non_owner_is_denied(): void

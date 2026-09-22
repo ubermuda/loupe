@@ -7,9 +7,9 @@ namespace App\Tests\Audit;
 use App\Audit\AuditLogAccountPurger;
 use App\Module\Account\Deletion\AccountDeletionCleanup;
 use App\Module\Account\Deletion\AccountPurger;
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\OAuth\Entity\GrantedCredential;
+use App\Module\OAuth\Security\OAuthAccessTokenAuthenticator;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\ProjectDeleter;
 use Doctrine\DBAL\Connection;
@@ -74,45 +74,38 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
     }
 
     /**
-     * ApiTokenAccountPurger at 40 hard-deletes the tokens, and the foreign key
-     * is ON DELETE SET NULL: a record naming only the credential it was made
-     * with would survive with nothing left to resolve it.
+     * OAuthGrantAccountPurger at 45 hard-deletes the credential rows. A record
+     * naming only the credential it was made with would survive with nothing
+     * left to resolve it.
      */
-    public function test_it_removes_a_record_attributed_only_to_the_departed_accounts_token(): void
+    public function test_it_removes_a_record_attributed_only_to_the_departed_accounts_credential(): void
     {
         $departing = $this->user('credential', 'Departing Person');
         $other = $this->user('other-owner', 'Other Person');
 
-        $this->record('audit.by_the_departing_token', null, null, credential: $this->token($departing));
-        $this->record('audit.by_another_token', null, null, credential: $this->token($other));
+        $this->record('audit.by_the_departing_credential', null, null, credential: $this->credential($departing));
+        $this->record('audit.by_another_credential', null, null, credential: $this->credential($other));
 
-        self::assertSame(['audit.by_another_token', 'audit.by_the_departing_token'], $this->operations());
+        self::assertSame(['audit.by_another_credential', 'audit.by_the_departing_credential'], $this->operations());
 
         $this->prepare($departing);
 
-        self::assertSame(['audit.by_another_token'], $this->operations());
+        self::assertSame(['audit.by_another_credential'], $this->operations());
     }
 
     /**
      * The whole ordered chain, because the interaction that breaks the
-     * credential sweep is three classes away from it. ProjectAccountPurger at
-     * slot 10 deletes each project's bound tokens through ProjectDeleter, and
-     * ON DELETE SET NULL blanks credential_id — so by slot 35 a record written
-     * with a project's token names nobody at all.
+     * credential sweep belongs to another class. OAuthGrantAccountPurger at
+     * slot 45 deletes the credential rows, so the preparer phase is the last
+     * moment the link resolves.
      */
-    public function test_the_ordered_chain_removes_a_record_written_with_a_project_bound_token(): void
+    public function test_the_ordered_chain_removes_a_record_written_with_a_credential(): void
     {
         $departing = $this->user('chain', 'Departing Person');
 
-        $token = $this->token($departing);
-        $project = new Project($departing, 'chain-project');
-        $project->widgetToken = $token;
-        $this->em->persist($project);
-        $this->em->flush();
+        $this->record('audit.by_the_credential', null, null, credential: $this->credential($departing));
 
-        $this->record('audit.by_the_widget_token', null, null, credential: $token);
-
-        self::assertSame(['audit.by_the_widget_token'], $this->operations());
+        self::assertSame(['audit.by_the_credential'], $this->operations());
 
         $accountPurger = static::getContainer()->get(AccountPurger::class);
         self::assertInstanceOf(AccountPurger::class, $accountPurger);
@@ -122,28 +115,27 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
     }
 
     /**
-     * The property that rules out a preRemove listener on ApiToken. A live user
-     * who deletes one project keeps their trail: the record loses the link to
-     * the token, and nothing else.
+     * A credential belongs to its owner, never to one project. A live user who
+     * deletes one project keeps their trail whole, with the credential link
+     * still on it.
      */
     public function test_ordinary_project_deletion_leaves_the_trail_alone(): void
     {
         $owner = $this->user('live', 'Live Person');
 
-        $token = $this->token($owner);
+        $credential = $this->credential($owner);
         $project = new Project($owner, 'live-project');
-        $project->widgetToken = $token;
         $this->em->persist($project);
         $this->em->flush();
 
-        $this->record('audit.by_the_widget_token', null, null, credential: $token);
+        $this->record('audit.by_the_credential', null, null, credential: $credential);
 
         $projectDeleter = static::getContainer()->get(ProjectDeleter::class);
         self::assertInstanceOf(ProjectDeleter::class, $projectDeleter);
         $projectDeleter->delete($project);
 
-        self::assertSame(['audit.by_the_widget_token'], $this->operations());
-        self::assertNull($this->row('audit.by_the_widget_token')['credential_id']);
+        self::assertSame(['audit.by_the_credential'], $this->operations());
+        self::assertSame((string) $credential->id, (string) $this->row('audit.by_the_credential')['credential_id']);
     }
 
     /** A purger that is not tagged never runs, and no test of its statements would notice. */
@@ -210,13 +202,14 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
         return array_values(array_filter($services, is_object(...)));
     }
 
-    private function token(User $owner): ApiToken
+    private function credential(User $owner): GrantedCredential
     {
-        [$token] = ApiToken::issue($owner, 'tok', ApiTokenScope::Mcp);
-        $this->em->persist($token);
+        $handle = OAuthAccessTokenAuthenticator::credentialId('test-client', (string) $owner->id, null);
+        $credential = new GrantedCredential($handle, $owner);
+        $this->em->persist($credential);
         $this->em->flush();
 
-        return $token;
+        return $credential;
     }
 
     private function purge(User $user): void
@@ -238,7 +231,7 @@ final class AuditLogAccountPurgerTest extends KernelTestCase
         return $user;
     }
 
-    private function record(string $operation, ?User $actor, ?string $actorLabel, ?Uuid $subjectId = null, ?ApiToken $credential = null): void
+    private function record(string $operation, ?User $actor, ?string $actorLabel, ?Uuid $subjectId = null, ?GrantedCredential $credential = null): void
     {
         $this->connection->executeStatement(
             'INSERT INTO audit_log (id, operation, outcome, category, channel, occurred_at, context, actor_id, actor_label, credential_id, subject_type, subject_id)'

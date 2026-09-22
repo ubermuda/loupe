@@ -15,8 +15,8 @@ use Ubermuda\AuditBundle\AuditSubject;
 /**
  * Hard-deletes a project and everything under it in one transaction.
  * Cross-module subtrees (Review, SiteReview) are deleted by listeners on
- * ProjectDeleting; this service then removes the project row and its two
- * bound ApiTokens. Reused by account deletion, through ProjectAccountPurger.
+ * ProjectDeleting; this service then removes the project row. Reused by
+ * account deletion, through ProjectAccountPurger.
  */
 final readonly class ProjectDeleter
 {
@@ -34,15 +34,7 @@ final readonly class ProjectDeleter
         $this->em->wrapInTransaction(function () use ($project): void {
             $this->eventDispatcher->dispatch(new ProjectDeleting($project));
 
-            $widgetToken = $project->widgetToken;
-            $mcpToken = $project->mcpToken;
-
             $this->em->remove($project);
-            foreach ([$widgetToken, $mcpToken] as $token) {
-                if (null !== $token) {
-                    $this->em->remove($token);
-                }
-            }
             $this->em->flush();
         });
 

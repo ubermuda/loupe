@@ -16,16 +16,16 @@ const base = '/loupe';
 // widget is simply not injected — see .env.example.
 const env = loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), '');
 const widgetHost = env.PUBLIC_SITE_REVIEW_HOST ?? 'https://loupe.dev.localhost';
-// Dev server only. The token lives in a gitignored .env so a deploy would not
-// have one anyway, but this makes it impossible rather than merely unlikely:
-// no build output can carry the widget, whatever the environment holds.
+// Dev server only. The project id lives in a gitignored .env so a deploy would
+// not have one anyway. This makes it impossible rather than merely unlikely: no
+// build output can carry the widget, whatever the environment holds.
 const isDevServer = process.argv.includes('dev');
-const siteReviewWidget = isDevServer && env.PUBLIC_SITE_REVIEW_TOKEN
+const siteReviewWidget = isDevServer && env.PUBLIC_SITE_REVIEW_PROJECT
   ? [{
       tag: 'script',
       attrs: {
         src: `${widgetHost}/site-review/widget.js`,
-        'data-token': env.PUBLIC_SITE_REVIEW_TOKEN,
+        'data-project': env.PUBLIC_SITE_REVIEW_PROJECT,
       },
     }]
   : [];

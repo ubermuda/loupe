@@ -823,66 +823,6 @@
 
 
             <!-- API Tokens -->
-            <trans-unit id="account.api_token.action.revoke">
-                <source>account.api_token.action.revoke</source>
-                <target>Revoke</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.flash.revoked">
-                <source>account.api_token.flash.revoked</source>
-                <target>Token "%label%" has been revoked.</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.scope.site_review_warning">
-                <source>account.api_token.scope.site_review_warning</source>
-                <target>A widget token is embedded in your app's page source and visible to anyone who can view-source. Use a dedicated dev token, never a production credential.</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.mask">
-                <source>account.api_token.mask</source>
-                <target>••••••••%tail%</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.created">
-                <source>account.api_token.created</source>
-                <target>created %date%</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.one_time_warning">
-                <source>account.api_token.one_time_warning</source>
-                <target>Copy this token now. We store only a hash of it, so this is the only time you can see it. If you lose it, mint a new one.</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.cli.label">
-                <source>account.api_token.cli.label</source>
-                <target>Authenticate the loupe CLI</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.cli.hint">
-                <source>account.api_token.cli.hint</source>
-                <target>Run this in your terminal. It validates the token before saving it to your OS keychain. The token is on the command line, so clear that entry from your shell history afterwards, or run loupe login on its own and paste the token at the hidden prompt.</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.copy">
-                <source>account.api_token.copy</source>
-                <target>Copy</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.copied">
-                <source>account.api_token.copied</source>
-                <target>Copied</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.scope.choice.mcp">
-                <source>account.api_token.scope.choice.mcp</source>
-                <target>Agent (MCP)</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.scope.choice.site_review">
-                <source>account.api_token.scope.choice.site_review</source>
-                <target>Site review</target>
-            </trans-unit>
-            <trans-unit id="account.api_token.scope.choice.agent">
-                <source>account.api_token.scope.choice.agent</source>
-                <target>Agent (CLI)</target>
-            </trans-unit>
-            <trans-unit id="account.form.mint_api_token_form.label.label">
-                <source>account.form.mint_api_token_form.label.label</source>
-                <target>Name</target>
-            </trans-unit>
-            <trans-unit id="account.form.mint_api_token_form.label.placeholder">
-                <source>account.form.mint_api_token_form.label.placeholder</source>
-                <target>What you use this token for, for example "Laptop CLI"</target>
-            </trans-unit>
 
             <!-- Account settings page -->
             <trans-unit id="account.settings.page.title">
@@ -955,26 +895,6 @@
             </trans-unit>
 
             <!-- Account settings page — API tokens -->
-            <trans-unit id="account.settings.api_tokens.heading">
-                <source>account.settings.api_tokens.heading</source>
-                <target>API tokens</target>
-            </trans-unit>
-            <trans-unit id="account.settings.api_tokens.intro">
-                <source>account.settings.api_tokens.intro</source>
-                <target>Create a token here to connect the loupe CLI. It carries the agent scope, which lists your sites and subscribes to their event streams. Keep it secret and revoke it as soon as you stop using it. This list also shows the tokens your projects use.</target>
-            </trans-unit>
-            <trans-unit id="account.settings.api_tokens.empty">
-                <source>account.settings.api_tokens.empty</source>
-                <target>You have no API tokens yet.</target>
-            </trans-unit>
-            <trans-unit id="account.settings.api_tokens.mint_button">
-                <source>account.settings.api_tokens.mint_button</source>
-                <target>Create token</target>
-            </trans-unit>
-            <trans-unit id="account.settings.api_tokens.mint_hint">
-                <source>account.settings.api_tokens.mint_hint</source>
-                <target>The new token gets Agent access, which the loupe CLI needs. The review widget and an MCP agent each need a project token instead, which you mint from the project's Connect page.</target>
-            </trans-unit>
 
             <!-- Account settings page — delete account danger zone -->
             <trans-unit id="account.delete.danger.heading">
@@ -2318,21 +2238,9 @@
                 <target>I understand — delete this project</target>
             </trans-unit>
 
-            <trans-unit id="project.token.mint">
-                <source>project.token.mint</source>
-                <target>Create a token</target>
-            </trans-unit>
             <trans-unit id="project.token.snippet_heading">
                 <source>project.token.snippet_heading</source>
                 <target>index.html</target>
-            </trans-unit>
-            <trans-unit id="project.error.widget_token_already_minted">
-                <source>project.error.widget_token_already_minted</source>
-                <target>This project already has a widget token. Revoke it first.</target>
-            </trans-unit>
-            <trans-unit id="project.error.widget_token_missing">
-                <source>project.error.widget_token_missing</source>
-                <target>This project has no widget token, so there is nothing to forward.</target>
             </trans-unit>
             <trans-unit id="project.connect.forwarding.label">
                 <source>project.connect.forwarding.label</source>
@@ -2375,18 +2283,6 @@
                 <source>project.connect.forwarding.flash.disabled</source>
                 <target>Reviews will be collected only. Your agent reads them when you ask it to.</target>
             </trans-unit>
-            <trans-unit id="project.mcp_token.hint">
-                <source>project.mcp_token.hint</source>
-                <target>This project has no token yet. Creating one lets an agent read and revise its documents.</target>
-            </trans-unit>
-            <trans-unit id="project.mcp_token.mint">
-                <source>project.mcp_token.mint</source>
-                <target>Create a token</target>
-            </trans-unit>
-            <trans-unit id="project.error.mcp_token_already_minted">
-                <source>project.error.mcp_token_already_minted</source>
-                <target>This project already has an MCP token. Revoke it first.</target>
-            </trans-unit>
 
             <!-- Connect agent (handoff §5) -->
             <trans-unit id="project.connect.card.agent.title"><source>project.connect.card.agent.title</source><target>Agent connection</target></trans-unit>
@@ -2404,18 +2300,6 @@
             <trans-unit id="project.connect.endpoint.eyebrow">
                 <source>project.connect.endpoint.eyebrow</source>
                 <target>MCP endpoint</target>
-            </trans-unit>
-            <trans-unit id="project.connect.token.eyebrow">
-                <source>project.connect.token.eyebrow</source>
-                <target>Your token</target>
-            </trans-unit>
-            <trans-unit id="project.connect.token.one_time_warning">
-                <source>project.connect.token.one_time_warning</source>
-                <target>Copy this token now — it will not be shown again.</target>
-            </trans-unit>
-            <trans-unit id="project.connect.token.regenerate">
-                <source>project.connect.token.regenerate</source>
-                <target>Regenerate</target>
             </trans-unit>
             <trans-unit id="project.connect.mcp_json.heading">
                 <source>project.connect.mcp_json.heading</source>
@@ -2437,25 +2321,13 @@
                 <source>project.connect.methods.recommended</source>
                 <target>Recommended</target>
             </trans-unit>
-            <trans-unit id="project.connect.plugin.heading">
-                <source>project.connect.plugin.heading</source>
-                <target>Claude Code plugin</target>
-            </trans-unit>
-            <trans-unit id="project.connect.plugin.sub">
-                <source>project.connect.plugin.sub</source>
-                <target>One command, and it ships the skills. Holds a single token, so it suits one project.</target>
-            </trans-unit>
-            <trans-unit id="project.connect.plugin.label">
-                <source>project.connect.plugin.label</source>
-                <target>claude · terminal</target>
-            </trans-unit>
             <trans-unit id="project.connect.skills.heading">
                 <source>project.connect.skills.heading</source>
-                <target>Don't skip the two agent skills</target>
+                <target>Do not skip the two agent skills</target>
             </trans-unit>
             <trans-unit id="project.connect.skills.hint">
                 <source>project.connect.skills.hint</source>
-                <target>The endpoint gives an agent the tools; these teach it how to use them well. Without them you get documents formatted for a terminal and site-review comments answered in the wrong file.</target>
+                <target>The endpoint gives an agent the tools. These teach it how to use them well. Without them you get documents formatted for a terminal, and site-review comments answered in the wrong file.</target>
             </trans-unit>
             <trans-unit id="project.connect.skills.documents">
                 <source>project.connect.skills.documents</source>
@@ -2467,7 +2339,19 @@
             </trans-unit>
             <trans-unit id="project.connect.skills.manual">
                 <source>project.connect.skills.manual</source>
-                <target>The plugin above installs both. If you wired the server up by hand, copy plugins/loupe/skills/ from the Loupe repository into your project's .claude/skills/.</target>
+                <target>The Loupe plugin installs both. Run claude plugin marketplace add ubermuda/loupe, then claude plugin install loupe@loupe. You can also copy plugins/loupe/skills/ from the Loupe repository into your project's .claude/skills/.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.loupe_cli.heading">
+                <source>project.connect.loupe_cli.heading</source>
+                <target>Loupe CLI</target>
+            </trans-unit>
+            <trans-unit id="project.connect.loupe_cli.sub">
+                <source>project.connect.loupe_cli.sub</source>
+                <target>Sign in once, then write the config into the repository. Each repository names its own project in .loupe.yaml, so one login serves them all.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.loupe_cli.label">
+                <source>project.connect.loupe_cli.label</source>
+                <target>loupe · terminal</target>
             </trans-unit>
             <trans-unit id="project.connect.cli.heading">
                 <source>project.connect.cli.heading</source>
@@ -2475,7 +2359,7 @@
             </trans-unit>
             <trans-unit id="project.connect.cli.sub">
                 <source>project.connect.cli.sub</source>
-                <target>One claude mcp add line, scoped to this project — which is what a per-project token needs.</target>
+                <target>Add the server by URL, then sign in. This binds the connection to one project.</target>
             </trans-unit>
             <trans-unit id="project.connect.cli.label">
                 <source>project.connect.cli.label</source>
@@ -2667,26 +2551,6 @@
                 <source>project.wizard.connect.lead</source>
                 <target>Point your coding agent at this project over MCP so it can submit documents for review.</target>
             </trans-unit>
-            <trans-unit id="project.wizard.connect.mint">
-                <source>project.wizard.connect.mint</source>
-                <target>Generate token</target>
-            </trans-unit>
-            <trans-unit id="project.wizard.connect.token_shown_once">
-                <source>project.wizard.connect.token_shown_once</source>
-                <target>Copy it now — it is shown only once.</target>
-            </trans-unit>
-            <trans-unit id="project.wizard.connect.token_exists">
-                <source>project.wizard.connect.token_exists</source>
-                <target>This project already has an MCP token.</target>
-            </trans-unit>
-            <trans-unit id="project.wizard.connect.step.token.heading">
-                <source>project.wizard.connect.step.token.heading</source>
-                <target>Get your token</target>
-            </trans-unit>
-            <trans-unit id="project.wizard.connect.step.token.purpose">
-                <source>project.wizard.connect.step.token.purpose</source>
-                <target>A scoped credential your agent sends with every request. It identifies this project, so no project id goes in the config.</target>
-            </trans-unit>
             <trans-unit id="project.wizard.connect.step.point.heading">
                 <source>project.wizard.connect.step.point.heading</source>
                 <target>Point your agent at it</target>
@@ -2706,22 +2570,6 @@
             <trans-unit id="project.wizard.widget.lead">
                 <source>project.wizard.widget.lead</source>
                 <target>Drop one script tag into your site to comment on live pages the way you comment on documents. You can skip this and add it later.</target>
-            </trans-unit>
-            <trans-unit id="project.wizard.widget.mint">
-                <source>project.wizard.widget.mint</source>
-                <target>Generate token</target>
-            </trans-unit>
-            <trans-unit id="project.wizard.widget.token_exists">
-                <source>project.wizard.widget.token_exists</source>
-                <target>This project already has a site-review token.</target>
-            </trans-unit>
-            <trans-unit id="project.wizard.widget.step.token.heading">
-                <source>project.wizard.widget.step.token.heading</source>
-                <target>Get your widget token</target>
-            </trans-unit>
-            <trans-unit id="project.wizard.widget.step.token.purpose">
-                <source>project.wizard.widget.step.token.purpose</source>
-                <target>A separate credential from the agent&apos;s: it only accepts review comments, and it is visible in your page source.</target>
             </trans-unit>
             <trans-unit id="project.wizard.widget.step.embed.heading">
                 <source>project.wizard.widget.step.embed.heading</source>
@@ -3303,10 +3151,6 @@
                 <source>account.admin.users.detail.connected_accounts</source>
                 <target>Connected accounts</target>
             </trans-unit>
-            <trans-unit id="account.admin.users.detail.api_tokens">
-                <source>account.admin.users.detail.api_tokens</source>
-                <target>Active API tokens</target>
-            </trans-unit>
             <trans-unit id="account.admin.users.detail.data_exports">
                 <source>account.admin.users.detail.data_exports</source>
                 <target>Data exports</target>
@@ -3842,18 +3686,6 @@
                 <source>project.connect.step.widget.purpose_no_domain</source>
                 <target>So you can comment on live pages of your site, anchored to what you clicked.</target>
             </trans-unit>
-            <trans-unit id="project.connect.token.mask">
-                <source>project.connect.token.mask</source>
-                <target>••••••••••••%tail%</target>
-            </trans-unit>
-            <trans-unit id="project.connect.token.meta">
-                <source>project.connect.token.meta</source>
-                <target>Created %date% · project scoped</target>
-            </trans-unit>
-            <trans-unit id="project.connect.widget_token.meta">
-                <source>project.connect.widget_token.meta</source>
-                <target>Created %date% · public, ships in your page source</target>
-            </trans-unit>
             <trans-unit id="project.connect.tools.summary">
                 <source>project.connect.tools.summary</source>
                 <target>What the agent can do once connected — %count% tools</target>
@@ -4146,11 +3978,11 @@
             </trans-unit>
             <trans-unit id="landing.feature.tokens.title">
                 <source>landing.feature.tokens.title</source>
-                <target>Scoped API tokens</target>
+                <target>Scoped OAuth access</target>
             </trans-unit>
             <trans-unit id="landing.feature.tokens.text">
                 <source>landing.feature.tokens.text</source>
-                <target>Separate MCP, agent and site-review scopes, stored hashed. Give an agent exactly the reach it needs and no more.</target>
+                <target>An agent signs in through your browser and you choose what it reaches. Separate MCP, agent and site-review scopes, and no credential to copy.</target>
             </trans-unit>
             <trans-unit id="landing.feature.decisions.title">
                 <source>landing.feature.decisions.title</source>
@@ -5826,10 +5658,6 @@
                 <source>account.settings.nav.profile</source>
                 <target>Profile</target>
             </trans-unit>
-            <trans-unit id="account.settings.nav.tokens">
-                <source>account.settings.nav.tokens</source>
-                <target>API tokens</target>
-            </trans-unit>
             <trans-unit id="account.settings.nav.data">
                 <source>account.settings.nav.data</source>
                 <target>Data</target>
@@ -6006,10 +5834,6 @@
             <trans-unit id="review.deleted_threads.flash.restored"><source>review.deleted_threads.flash.restored</source><target>Thread restored.</target></trans-unit>
             <trans-unit id="review.deleted_threads.deleted"><source>review.deleted_threads.deleted</source><target>Thread deleted. Select Undo to restore it.</target></trans-unit>
             <trans-unit id="review.deleted_threads.undo"><source>review.deleted_threads.undo</source><target>Undo</target></trans-unit>
-            <trans-unit id="account.api_token.revoke.title"><source>account.api_token.revoke.title</source><target>Revoke this token?</target></trans-unit>
-            <trans-unit id="account.api_token.revoke.description"><source>account.api_token.revoke.description</source><target>Connections that use “%label%” lose access immediately. You cannot restore this token.</target></trans-unit>
-            <trans-unit id="account.api_token.revoke.cancel"><source>account.api_token.revoke.cancel</source><target>Cancel</target></trans-unit>
-            <trans-unit id="account.api_token.revoke.confirm"><source>account.api_token.revoke.confirm</source><target>Revoke token</target></trans-unit>
             <trans-unit id="inbox.review.error.not_a_review"><source>inbox.review.error.not_a_review</source><target>This request does not accept a review verdict.</target></trans-unit>
             <trans-unit id="inbox.review.error.not_a_pull_request"><source>inbox.review.error.not_a_pull_request</source><target>This request does not target a pull request.</target></trans-unit>
             <trans-unit id="inbox.review.error.target_unavailable"><source>inbox.review.error.target_unavailable</source><target>The review target is no longer available.</target></trans-unit>
@@ -6134,6 +5958,9 @@
             <trans-unit id="oauth.connected_apps.heading"><source>oauth.connected_apps.heading</source><target>Connected apps</target></trans-unit>
             <trans-unit id="oauth.connected_apps.intro"><source>oauth.connected_apps.intro</source><target>These apps can use your Loupe account. Revoke an app to remove its access at once.</target></trans-unit>
             <trans-unit id="oauth.connected_apps.empty"><source>oauth.connected_apps.empty</source><target>No app is connected to your account.</target></trans-unit>
+            <trans-unit id="oauth.admin.connected_apps.title"><source>oauth.admin.connected_apps.title</source><target>Connected apps</target></trans-unit>
+            <trans-unit id="oauth.admin.connected_apps.subtitle"><source>oauth.admin.connected_apps.subtitle</source><target>The apps this account has given access to, and what each one reaches.</target></trans-unit>
+            <trans-unit id="oauth.admin.connected_apps.empty"><source>oauth.admin.connected_apps.empty</source><target>This account has connected no app.</target></trans-unit>
             <trans-unit id="oauth.connected_apps.all_projects">
                 <source>oauth.connected_apps.all_projects</source>
                 <target>every project you own</target>

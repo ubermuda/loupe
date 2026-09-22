@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Tests\Support\AgentCredential;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -25,7 +24,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'columns-api-list@example.com');
         $project = $this->project($em, $owner, 'Columns App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
 
         $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
@@ -51,14 +50,13 @@ final class ProjectColumnsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'columns-api-order@example.com');
         $project = $this->project($em, $owner, 'Ordered App');
-        $raw = $this->agentToken($em, $owner);
-        $this->enableBoard();
-
         foreach (['done' => 0, 'in-progress' => 1, 'next' => 2, 'backlog' => 3] as $slug => $position) {
             $this->column($project, $slug)->position = $position;
         }
         $this->column($project, 'next')->label = 'Ready for review';
         $em->flush();
+        $raw = $this->agentToken($client, $owner);
+        $this->enableBoard();
 
         $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
 
@@ -75,7 +73,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'columns-api-slug@example.com');
         $project = $this->project($em, $owner, 'Slugged App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
 
         $this->get($client, '/api/projects/slugged-app/board/columns', $raw);
@@ -92,7 +90,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'columns-api-name@example.com');
         $this->project($em, $owner, 'Named App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
 
         $this->get($client, '/api/projects/'.rawurlencode('Named App').'/board/columns', $raw);
@@ -110,8 +108,8 @@ final class ProjectColumnsApiTest extends WebTestCase
         $client = static::createClient();
         $em = $this->em();
         $caller = $this->user($em, 'columns-api-caller@example.com');
-        $raw = $this->agentToken($em, $caller);
         $other = $this->project($em, $this->user($em, 'columns-api-other@example.com'), 'Private App');
+        $raw = $this->agentToken($client, $caller);
         $this->enableBoard();
 
         foreach ([(string) $other->id, 'private-app', (string) Uuid::v7()] as $handle) {
@@ -132,7 +130,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'columns-api-flag@example.com');
         $project = $this->project($em, $owner, 'Flagged App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
 
         $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
 
@@ -149,10 +147,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'columns-api-widget@example.com');
         $project = $this->project($em, $owner, 'Widget App');
-        [$token, $raw] = ApiToken::issue($owner, 'widget', ApiTokenScope::SiteReview);
-        $em->persist($token);
-        $project->widgetToken = $token;
-        $em->flush();
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'site-review', $project);
         $this->enableBoard();
 
         $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
@@ -191,8 +186,12 @@ final class ProjectColumnsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'columns-api-limit@example.com');
         $project = $this->project($em, $owner, 'Limited App');
-        $first = $this->agentToken($em, $owner);
-        $second = $this->agentToken($em, $owner);
+        $other = $this->user($em, 'columns-api-limit-other@example.com');
+        $otherProject = $this->project($em, $other, 'Other Limited App');
+        $first = $this->agentToken($client, $owner);
+        // Two access tokens of one grant share a bucket, so the second budget
+        // needs a second account.
+        $second = $this->agentToken($client, $other);
         $this->enableBoard();
         $path = '/api/projects/'.$project->id.'/board/columns';
 
@@ -202,7 +201,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $this->get($client, $path, $first, '198.51.100.4');
         self::assertResponseStatusCodeSame(429);
 
-        $this->get($client, $path, $second, '203.0.113.7');
+        $this->get($client, '/api/projects/'.$otherProject->id.'/board/columns', $second, '203.0.113.7');
         self::assertResponseIsSuccessful();
     }
 
@@ -214,13 +213,9 @@ final class ProjectColumnsApiTest extends WebTestCase
         return $em;
     }
 
-    private function agentToken(EntityManagerInterface $em, User $owner): string
+    private function agentToken(KernelBrowser $browser, User $owner): string
     {
-        [$token, $raw] = ApiToken::issue($owner, 'bridge', ApiTokenScope::Agent);
-        $em->persist($token);
-        $em->flush();
-
-        return $raw;
+        return AgentCredential::agentToken(static::getContainer(), $owner);
     }
 
     private function get(KernelBrowser $client, string $path, string $raw, string $clientIp = '127.0.0.1'): void

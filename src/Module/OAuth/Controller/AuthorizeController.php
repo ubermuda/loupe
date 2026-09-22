@@ -6,7 +6,6 @@ namespace App\Module\OAuth\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\OAuth\ClientMetadata\ClientIdUrl;
 use App\Module\OAuth\Command\PrepareWidgetAuthorizationCommand;
@@ -19,6 +18,7 @@ use App\Module\OAuth\Command\ShowConsentCommand;
 use App\Module\OAuth\Command\ShowConsentHandler;
 use App\Module\OAuth\Form\ConsentFormType;
 use App\Module\OAuth\Form\ConsentRequest;
+use App\Module\OAuth\Scope\ApiScope;
 use App\Module\OAuth\Scope\GrantedScope;
 use App\Module\OAuth\Service\McpResource;
 use App\Module\OAuth\Service\ResourceParameter;
@@ -102,7 +102,7 @@ final class AuthorizeController extends AppController
                 ? ($this->prepareWidget)(new PrepareWidgetAuthorizationCommand($authorizationRequest, $user, $request->query->getString('project'), $request->query->getString('origin')))
                 : null;
             $scopes = $this->requestedScopes($authorizationRequest);
-            if (!$this->mcpResource->accepts(ResourceParameter::values((string) $request->server->get('QUERY_STRING')), \in_array(ApiTokenScope::Mcp, $scopes, true))) {
+            if (!$this->mcpResource->accepts(ResourceParameter::values((string) $request->server->get('QUERY_STRING')), \in_array(ApiScope::Mcp, $scopes, true))) {
                 throw new OAuthServerException('The resource is not one this server protects for the requested scope.', 0, 'invalid_target', 400, null, $this->errorRedirect($authorizationRequest));
             }
 
@@ -158,7 +158,7 @@ final class AuthorizeController extends AppController
      * The base scopes the request asks for. A binding scope is not one of them,
      * so it is taken out before they are read.
      *
-     * @return non-empty-list<ApiTokenScope>
+     * @return non-empty-list<ApiScope>
      */
     private function requestedScopes(AuthorizationRequestInterface $authorizationRequest): array
     {
@@ -182,7 +182,7 @@ final class AuthorizeController extends AppController
                 continue;
             }
 
-            $scope = ApiTokenScope::tryFrom($identifier);
+            $scope = ApiScope::tryFrom($identifier);
             if (null === $scope) {
                 throw OAuthServerException::invalidScope(implode(' ', $requested), $this->errorRedirect($authorizationRequest));
             }

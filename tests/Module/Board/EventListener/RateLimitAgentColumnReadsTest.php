@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\EventListener\RateLimitAgentColumnReads;
-use App\Security\ApiTokenRateLimitKey;
 use App\Security\AuthenticatedCredential;
+use App\Security\CredentialRateLimitKey;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -77,7 +77,7 @@ final class RateLimitAgentColumnReadsTest extends TestCase
                 ['id' => 'agent_board_columns', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '1 minute'],
                 $storage ?? new InMemoryStorage(),
             ),
-            new ApiTokenRateLimitKey($tokenStorage),
+            new CredentialRateLimitKey($tokenStorage),
         );
     }
 

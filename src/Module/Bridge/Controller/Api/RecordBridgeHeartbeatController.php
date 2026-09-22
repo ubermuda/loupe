@@ -9,7 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\RecordBridgeHeartbeatCommand;
 use App\Module\Bridge\Command\RecordBridgeHeartbeatHandler;
 use App\Outbox\AgentPush;
-use App\Security\ApiTokenRateLimitKey;
+use App\Security\CredentialRateLimitKey;
 use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -39,7 +39,7 @@ final class RecordBridgeHeartbeatController extends AppController
 {
     public function __construct(
         private readonly RecordBridgeHeartbeatHandler $recordHeartbeat,
-        public readonly ApiTokenRateLimitKey $rateLimitKey,
+        public readonly CredentialRateLimitKey $rateLimitKey,
     ) {
     }
 

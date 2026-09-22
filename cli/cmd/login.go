@@ -35,46 +35,22 @@ func resolveBaseURL(flag, env string) string {
 }
 
 func newLoginCmd() *cobra.Command {
-	var baseURL, token string
+	var baseURL string
 
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Sign the bridge in to Loupe",
 		Long: "Signs the bridge in to Loupe, so it can subscribe to your site's event stream.\n\n" +
-			"With no token, login prints a link and a code. Open the link in a browser where you " +
-			"are signed in to Loupe, check the code, and choose Allow. The CLI then stores an " +
-			"access token and a refresh token, and refreshes the access token by itself.\n\n" +
-			"For CI and scripts, pass an API token with the agent scope in --token or the " +
-			"LOUPE_TOKEN env var. Mint one from your account settings page. The token is " +
-			"validated against the API before it is saved.",
+			"login prints a link and a code. Open the link in a browser where you are signed in " +
+			"to Loupe, check the code, and choose Allow. The CLI then stores an access token and " +
+			"a refresh token, and refreshes the access token by itself.\n\n" +
+			"A browser is the only way in. Loupe issues no credential a person cannot see, so a " +
+			"machine with no browser anywhere cannot sign in.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if token == "" {
-				token = os.Getenv("LOUPE_TOKEN")
-			}
-			token = strings.TrimSpace(token)
-			base := resolveBaseURL(baseURL, os.Getenv("LOUPE_URL"))
-			if token == "" {
-				return deviceLogin(cmd, base)
-			}
-
-			cfg := config.Config{BaseURL: base, Token: token}
-
-			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
-			defer cancel()
-			if _, err := api.New(cfg.BaseURL, cfg.Token, nil).Sites(ctx); err != nil {
-				return err
-			}
-
-			if err := config.Save(cfg); err != nil {
-				return err
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Logged in. Token saved.")
-
-			return nil
+			return deviceLogin(cmd, resolveBaseURL(baseURL, os.Getenv("LOUPE_URL")))
 		},
 	}
 	cmd.Flags().StringVar(&baseURL, "url", "", "Loupe base URL (else LOUPE_URL env, else "+DefaultBaseURL+")")
-	cmd.Flags().StringVar(&token, "token", "", "API token for CI and scripts (else LOUPE_TOKEN env, else sign in in a browser)")
 
 	return cmd
 }

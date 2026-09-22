@@ -16,13 +16,9 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/projectfile"
 )
 
-// tokenSource gives the bearer token for cfg, whichever way the user logged in.
+// tokenSource gives the bearer token for cfg.
 func tokenSource(cfg config.Config, hc *http.Client) api.TokenSource {
-	if cfg.OAuth != nil {
-		return oauth.NewSource(cfg.BaseURL, *cfg.OAuth, hc)
-	}
-
-	return api.StaticToken(cfg.Token)
+	return oauth.NewSource(cfg.BaseURL, *cfg.OAuth, hc)
 }
 
 func newMcpCmd() *cobra.Command {

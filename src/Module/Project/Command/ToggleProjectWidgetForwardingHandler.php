@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Project\Command;
 
-use App\Exception\DomainErrors;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -23,11 +22,6 @@ final readonly class ToggleProjectWidgetForwardingHandler
      */
     public function __invoke(ToggleProjectWidgetForwardingCommand $command): bool
     {
-        $token = $command->project->widgetToken;
-        if (null === $token) {
-            throw new DomainErrors(['forwarding' => 'project.error.widget_token_missing']);
-        }
-
         $command->project->forwardsToAgent = !$command->project->forwardsToAgent;
         $this->em->flush();
 
@@ -36,10 +30,9 @@ final readonly class ToggleProjectWidgetForwardingHandler
             AuditOutcome::Success,
             [
                 'projectId' => (string) $command->project->id,
-                'tokenId' => (string) $token->id,
                 'forwardsToAgent' => $command->project->forwardsToAgent,
             ],
-            new AuditSubject('api_token', (string) $token->id),
+            new AuditSubject('project', (string) $command->project->id),
         );
 
         return $command->project->forwardsToAgent;

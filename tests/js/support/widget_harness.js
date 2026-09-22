@@ -4,7 +4,25 @@ import { vi } from 'vitest';
 const SOURCE = readFileSync('public/site-review/widget.js', 'utf8');
 
 export const BACKEND = 'https://loupe.example';
-export const TOKEN = 'wt_test_token';
+export const PROJECT = '01a0baf7-f542-7ce5-9b75-9dcbf05cf8c9';
+export const ACCESS_TOKEN = 'wt_test_token';
+
+/** Where the widget keeps the grant of one backend and project. */
+export function storageKeyFor(project) {
+    return `loupe-site-review:oauth:${BACKEND}:${project}`;
+}
+
+/** Puts a live grant where the widget reads one, so a boot starts signed in. */
+export function signIn(project = PROJECT, accessToken = ACCESS_TOKEN) {
+    window.sessionStorage.setItem(
+        storageKeyFor(project),
+        JSON.stringify({
+            accessToken,
+            refreshToken: 'wt_test_refresh',
+            expiresAt: Date.now() + 3600 * 1000,
+        }),
+    );
+}
 
 /**
  * Boots public/site-review/widget.js in jsdom.
@@ -19,11 +37,11 @@ export const TOKEN = 'wt_test_token';
  * assert.
  */
 export function bootWidget({
-    token = TOKEN,
     respond,
     demo = false,
     context = null,
-    project = null,
+    project = PROJECT,
+    signedIn = true,
 } = {}) {
     window.matchMedia = () => ({
         matches: false,
@@ -44,13 +62,11 @@ export function bootWidget({
 
     const script = document.createElement('script');
     script.src = `${BACKEND}/site-review/widget.js`;
-    // The landing page's demo carries no token and swaps the transport out, so
-    // a demo boot must not set one: the widget reads the attribute, not the
-    // flag, when it decides whether it has a credential.
+    // The landing page's demo names no project and swaps the transport out.
     if (demo) script.setAttribute('data-demo', '');
-    else if (token !== null) script.setAttribute('data-token', token);
-    // An OAuth embed names its project and carries no token.
+    // Every other embed names its project. The reviewer signs in with OAuth.
     if (project !== null) script.setAttribute('data-project', project);
+    if (!demo && project !== null && signedIn) signIn(project);
     // The marker a preview page proposes. Absent on an ordinary deployment.
     if (context !== null) script.setAttribute('data-context', context);
     Object.defineProperty(document, 'currentScript', {
