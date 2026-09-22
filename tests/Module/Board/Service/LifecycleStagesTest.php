@@ -23,7 +23,7 @@ final class LifecycleStagesTest extends TestCase
     #[DataProvider('documents')]
     public function test_it_reads_the_stage_from_the_tags(array $tags, ?array $expected): void
     {
-        self::assertSame($expected, (new LifecycleStages())->forDocument($this->documentTagged($tags)));
+        self::assertSame($expected, new LifecycleStages()->forDocument($this->documentTagged($tags)));
     }
 
     /** @return iterable<string, array{list<string>, array{from: string, to: string}|null}> */

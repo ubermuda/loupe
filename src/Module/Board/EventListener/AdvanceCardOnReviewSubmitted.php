@@ -36,7 +36,7 @@ final readonly class AdvanceCardOnReviewSubmitted
 {
     public function __construct(
         private CardDocumentRepository $cardDocuments,
-        private BoardColumnRepository $columns,
+        private BoardColumnRepository $boardColumns,
         private LifecycleStages $stages,
         private UpdateCardHandler $updateCard,
         private BoardAvailability $board,
@@ -79,7 +79,7 @@ final readonly class AdvanceCardOnReviewSubmitted
 
     private function columnOf(Project $project, string $slug): ?BoardColumn
     {
-        foreach ($this->columns->findForProject($project) as $column) {
+        foreach ($this->boardColumns->findForProject($project) as $column) {
             if ($column->slug === $slug) {
                 return $column;
             }
