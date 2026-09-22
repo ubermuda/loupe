@@ -375,22 +375,21 @@ included.
 Run it locally when you are working on a spec, not when you are finishing a
 branch. These cases earn it:
 
-1. A named spec you are changing or debugging: `just e2e
-   tests/<area>/<spec>.spec.ts`. It is fast, and the only way to iterate.
-2. A branch you cannot push yet, or one whose CI run you need to pre-empt for a
-   reason you can state.
+One case earns it: a named spec you are changing or debugging, with
+`just e2e tests/<area>/<spec>.spec.ts`. It is fast, and it is the only way to
+iterate on a selector, which neither `just lint` nor `just phpstan` exercises.
 
-Neither case is the full suite before opening a PR.
+Nothing earns a full local run, including a branch you cannot push yet. The
+`.agents/hooks/no-full-e2e.sh` hook refuses one.
 
 ### Aiming a local run at a sibling worktree
 
-This is still the right tool for the two cases above when the branch lives in
-another tree. Set both variables:
+Name the spec here too. Set both variables:
 
 ```bash
 E2E_BASE_URL=https://<slug>.loupe.dev.localhost \
 MAILPIT_URL=https://mailpit-<slug>.loupe.dev.localhost \
-just e2e --workers=1
+just e2e tests/<area>/<spec>.spec.ts --workers=1
 ```
 
 `E2E_BASE_URL` alone suppresses worktree detection, so the run reads the

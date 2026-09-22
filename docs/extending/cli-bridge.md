@@ -273,7 +273,9 @@ resume keys on its session id and the bridge logs `report_skipped` for its run.
 The resume waits in the per-card queue, so it never runs beside a worker of
 its card. The ask check holds the card and no worker slot, so a check never
 delays another card. An event with `actor: human` resets the card's chain counts, and one
-with `actor: agent` counts toward the rule's `maxChain`.
+with `actor: agent` counts toward the rule's `maxChain`. An event with
+`actor: system`, which the app writes when it acts on a person's approval, does
+neither.
 
 When the queue releases the resume, the bridge calls the
 [ask check endpoint](#ask-check-endpoint) with the event's project id and a

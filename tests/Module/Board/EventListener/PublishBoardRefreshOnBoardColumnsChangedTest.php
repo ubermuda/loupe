@@ -101,7 +101,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $projectId = $this->project->id;
         self::assertNotNull($projectId);
         $boardTopic = $this->topics()->forBoard($projectId);
-        foreach ($this->published as $update) {
+        foreach ($this->boardRefreshes() as $update) {
             self::assertSame([$boardTopic], $update->getTopics());
             self::assertTrue($update->isPrivate());
             // No label: what a board shows depends on who looks at it.
@@ -212,7 +212,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $this->assertPublishedAtTerminate(1);
         $projectId = $this->project->id;
         self::assertNotNull($projectId);
-        self::assertSame([$this->topics()->forBoard($projectId)], $this->published[0]->getTopics());
+        self::assertSame([$this->topics()->forBoard($projectId)], $this->boardRefreshes()[0]->getTopics());
     }
 
     public function test_a_hub_that_fails_is_logged_and_the_change_stands(): void
@@ -252,7 +252,24 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
 
     private function assertPublishedCount(int $expected): void
     {
-        self::assertCount($expected, $this->published);
+        self::assertCount($expected, $this->boardRefreshes());
+    }
+
+    /**
+     * The refreshes alone. A column change also writes an outbox row, and the
+     * outbox now publishes when its transaction commits, so every assertion
+     * here would otherwise see that row's update as well.
+     *
+     * @return list<Update>
+     */
+    private function boardRefreshes(): array
+    {
+        $boardTopic = $this->topics()->forBoard($this->project->id ?? throw new \LogicException('Project has no id.'));
+
+        return array_values(array_filter(
+            $this->published,
+            static fn (Update $update): bool => \in_array($boardTopic, $update->getTopics(), true),
+        ));
     }
 
     /** Ends the request the way the kernel does, then counts every publish so far. */

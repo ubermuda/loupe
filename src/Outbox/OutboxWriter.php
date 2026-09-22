@@ -9,16 +9,12 @@ use App\Module\Project\Entity\Project;
 use App\Outbox\Entity\OutboxEvent;
 use Doctrine\ORM\EntityManagerInterface;
 
-/**
- * Persists one outbox row on the project's topic. It never flushes: a producer
- * calls it inside the transaction of the change it reports, and that
- * transaction's flush writes the row.
- */
 final readonly class OutboxWriter
 {
     public function __construct(
         private ProjectTopicBuilder $topics,
         private EntityManagerInterface $em,
+        private ImmediateOutboxPublisher $publisher,
     ) {
     }
 
@@ -31,5 +27,9 @@ final readonly class OutboxWriter
             topic: $this->topics->forProject($project->id ?? throw new \LogicException('Project has no id.')),
             payload: json_encode($payload, \JSON_THROW_ON_ERROR),
         ));
+
+        // Marks only. The publish runs at terminate, once this transaction has
+        // committed, because a rollback must take its event with it.
+        $this->publisher->rowWritten();
     }
 }
