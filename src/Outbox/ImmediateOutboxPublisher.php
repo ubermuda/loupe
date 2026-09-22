@@ -27,6 +27,15 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 final class ImmediateOutboxPublisher implements ResetInterface
 {
+    /**
+     * How many rows one request publishes before it leaves the rest to the
+     * cron. Each row is an HTTP call to the hub, and this runs in the request's
+     * own process, so an unbounded drain lets one request publish a whole
+     * backlog while a worker waits on it. A request writes one or two rows, so
+     * this covers its own work with headroom and nothing more.
+     */
+    private const int LIMIT = 8;
+
     private bool $pending = false;
 
     /**
@@ -59,7 +68,7 @@ final class ImmediateOutboxPublisher implements ResetInterface
         $this->pending = false;
 
         try {
-            ($this->drainOutbox)()(new DrainOutboxCommand());
+            ($this->drainOutbox)()(new DrainOutboxCommand(self::LIMIT));
         } catch (\Throwable $e) {
             $this->logger->warning('outbox.immediate_publish_failed', ['error' => $e->getMessage()]);
         }
