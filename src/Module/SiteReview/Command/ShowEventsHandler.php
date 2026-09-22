@@ -8,6 +8,7 @@ use App\Mercure\UserTopicBuilder;
 use App\Module\Bridge\Service\HeartbeatInterval;
 use App\Module\Project\Repository\ProjectRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\AutowireServiceClosure;
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
@@ -27,8 +28,16 @@ final readonly class ShowEventsHandler
         private FeatureFlagService $featureFlags,
         private HeartbeatInterval $heartbeatInterval,
 
-        #[Autowire(service: 'mercure.hub.default.jwt.factory')]
-        private TokenFactoryInterface $tokenFactory,
+        /**
+         * A closure, because the factory reads MERCURE_JWT_SECRET, which an
+         * instance with no hub does not set. Injected directly, the container
+         * cannot build this controller at all, and the request dies in
+         * ControllerResolver before RequireFeatureFlag can answer 404.
+         *
+         * @var \Closure(): TokenFactoryInterface
+         */
+        #[AutowireServiceClosure('mercure.hub.default.jwt.factory')]
+        private \Closure $tokenFactory,
 
         #[Autowire(env: 'MERCURE_PUBLIC_URL')]
         private string $hubUrl,
@@ -42,7 +51,7 @@ final readonly class ShowEventsHandler
 
         return new ShowEventsView(
             hubUrl: $this->hubUrl,
-            jwt: $this->tokenFactory->create(
+            jwt: ($this->tokenFactory)()->create(
                 [$topic],
                 [],
                 ['exp' => new \DateTimeImmutable('+'.self::JWT_TTL_SECONDS.' seconds')],
