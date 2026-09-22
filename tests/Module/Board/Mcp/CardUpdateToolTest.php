@@ -168,6 +168,36 @@ final class CardUpdateToolTest extends KernelTestCase
         ($this->tool)($created['cardId'], status: 'parked');
     }
 
+    public function test_a_change_by_number_applies_to_that_card(): void
+    {
+        $first = $this->card('card-update-number');
+        $second = ($this->createTool)('Second', 'Body', 'feature');
+
+        $card = ($this->tool)(number: 2, title: 'Renamed');
+
+        self::assertSame($second['cardId'], $card['cardId']);
+        self::assertSame('Renamed', $card['title']);
+        self::assertSame('Ship it', ($this->tool)($first['cardId'])['title']);
+    }
+
+    public function test_both_handles_are_refused(): void
+    {
+        $created = $this->card('card-update-both');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Pass cardId or number, not both.');
+        ($this->tool)($created['cardId'], 1, title: 'Renamed');
+    }
+
+    public function test_neither_handle_is_refused(): void
+    {
+        $this->card('card-update-neither');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Pass cardId or number.');
+        ($this->tool)(title: 'Renamed');
+    }
+
     /** @return array<string, true> */
     private function publishedParameters(): array
     {

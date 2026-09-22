@@ -10,6 +10,7 @@ use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 
 /**
@@ -17,7 +18,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type CardSummary from CardPayload
  */
-#[McpTool(name: self::NAME, description: 'Read one card from the project board, with its full Markdown body and every pull request linked to it. Use a card id from card_list or card_create. The response also carries a number, the short label that counts from 1 inside this project. Use the number to name the card to a person. Pass the cardId here, never the number.')]
+#[McpTool(name: self::NAME, description: 'Read one card from the project board, with its full Markdown body and every pull request linked to it. Use a card id from card_list or card_create. The response also carries a number, the short label that counts from 1 inside this project. Use the number to name the card to a person. Pass the cardId or the number to read a card, never both.')]
 final readonly class CardGetTool implements FlagGatedToolInterface
 {
     public const string NAME = 'card_get';
@@ -43,17 +44,18 @@ final readonly class CardGetTool implements FlagGatedToolInterface
     }
 
     /**
-     * @param string $cardId the id of the card to read, from card_list or card_create
+     * @param string|null $cardId the id of the card to read, from card_list or card_create; pass it or number, never both
+     * @param int|null    $number the card number, the short label that counts from 1 inside this project; pass it instead of cardId
      *
      * @return CardSummary
      */
-    public function __invoke(string $cardId): array
+    public function __invoke(?string $cardId = null, #[Schema(minimum: 1)] ?int $number = null): array
     {
         $this->gate->requireEnabled();
 
         try {
             $view = ($this->showCard)(new ShowCardCommand(
-                $this->subjects->requireCard($cardId, McpBoundProjectVoter::CARD_READ),
+                $this->subjects->requireCardByIdOrNumber($cardId, $number, McpBoundProjectVoter::CARD_READ),
             ));
 
             return $this->payload->forCard($view->card, $view->siteReviewLinks);
