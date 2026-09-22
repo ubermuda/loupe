@@ -24,7 +24,6 @@ security:
             stateless: true
             user_checker: App\Module\Account\Security\AccountStatusChecker
             custom_authenticators:
-                - App\Module\Account\Security\ApiTokenAuthenticator
                 - App\Module\OAuth\Security\OAuthAccessTokenAuthenticator
             access_denied_handler: App\Module\OAuth\Security\McpAccessDeniedHandler
         api:
@@ -32,7 +31,6 @@ security:
             stateless: true
             user_checker: App\Module\Account\Security\AccountStatusChecker
             custom_authenticators:
-                - App\Module\Account\Security\ApiTokenAuthenticator
                 - App\Module\OAuth\Security\OAuthAccessTokenAuthenticator
             access_denied_handler: App\Module\Account\Security\ApiAccessDeniedHandler
         # The OAuth token and device authorization endpoints and the discovery

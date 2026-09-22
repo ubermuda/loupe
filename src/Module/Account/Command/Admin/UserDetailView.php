@@ -25,7 +25,6 @@ final readonly class UserDetailView
     public function __construct(
         public User $user,
         public array $connectedAccounts,
-        public int $apiTokenCount,
         public array $dataExports,
         public array $panels = [],
     ) {

@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Controller;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Controller\Api\RecordBridgeHeartbeatRequest;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\AgentCredential;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -33,7 +32,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'heartbeat-create@example.com');
         $project = $this->project($em, $owner, 'Heartbeat App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $bridgeId = (string) Uuid::v4();
 
         $this->put($client, $bridgeId, $raw, [
@@ -59,7 +58,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $owner = $this->user($em, 'heartbeat-replace@example.com');
         $first = $this->project($em, $owner, 'First Heartbeat');
         $second = $this->project($em, $owner, 'Second Heartbeat');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $bridgeId = (string) Uuid::v4();
         $this->seedBridge($em, $owner, Uuid::fromString($bridgeId), [(string) $first->id], 'old', new \DateTimeImmutable('2026-09-14 16:00:30'));
 
@@ -87,7 +86,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $first = $this->user($em, 'heartbeat-first-account@example.com');
         $second = $this->user($em, 'heartbeat-second-account@example.com');
         $secondProject = $this->project($em, $second, 'Second Account Heartbeat');
-        $raw = $this->agentToken($em, $second);
+        $raw = $this->agentToken($client, $second);
         $bridgeId = Uuid::v4();
         $seenAt = new \DateTimeImmutable('2026-01-01 10:00:00');
         $this->seedBridge($em, $first, $bridgeId, [], 'first', $seenAt);
@@ -120,7 +119,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $stranger = $this->user($em, 'heartbeat-stranger@example.com');
         $own = $this->project($em, $owner, 'Own Heartbeat');
         $foreign = $this->project($em, $stranger, 'Foreign Heartbeat');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $bridgeId = (string) Uuid::v4();
 
         $this->put($client, $bridgeId, $raw, [
@@ -137,7 +136,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $client = static::createClient();
         $em = $this->em();
         $owner = $this->user($em, 'heartbeat-empty@example.com');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $bridgeId = (string) Uuid::v4();
 
         $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
@@ -169,7 +168,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $client = static::createClient();
         $em = $this->em();
         $owner = $this->user($em, 'heartbeat-invalid@example.com');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
 
         $this->put($client, (string) Uuid::v4(), $raw, array_merge(['projects' => [], 'cliVersion' => 'b4e39aa7'], $overrides));
 
@@ -183,7 +182,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $client = static::createClient();
         $em = $this->em();
         $owner = $this->user($em, 'heartbeat-trim@example.com');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $bridgeId = (string) Uuid::v4();
 
         $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => '  b4e39aa7  ']);
@@ -196,7 +195,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
     {
         $client = static::createClient();
         $em = $this->em();
-        $raw = $this->agentToken($em, $this->user($em, 'heartbeat-baduuid@example.com'));
+        $raw = $this->agentToken($client, $this->user($em, 'heartbeat-baduuid@example.com'));
 
         $this->put($client, 'not-a-uuid', $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
 
@@ -208,7 +207,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
     {
         $client = static::createClient();
         $em = $this->em();
-        $raw = $this->agentToken($em, $this->user($em, 'heartbeat-flag@example.com'));
+        $raw = $this->agentToken($client, $this->user($em, 'heartbeat-flag@example.com'));
         $em->getConnection()->executeStatement(
             "UPDATE feature_flag SET value = 'false' WHERE name = ?",
             [AgentPush::FLAG],
@@ -226,10 +225,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'heartbeat-widget@example.com');
         $project = $this->project($em, $owner, 'Widget Heartbeat');
-        [$token, $raw] = ApiToken::issue($owner, 'widget', ApiTokenScope::SiteReview);
-        $em->persist($token);
-        $project->widgetToken = $token;
-        $em->flush();
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'site-review', $project);
 
         $this->put($client, (string) Uuid::v4(), $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
 
@@ -242,9 +238,8 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $client = static::createClient();
         $em = $this->em();
         $owner = $this->user($em, 'heartbeat-mcp@example.com');
-        [$token, $raw] = ApiToken::issue($owner, 'mcp', ApiTokenScope::Mcp);
-        $em->persist($token);
-        $em->flush();
+        $project = $this->project($em, $owner, 'Heartbeat MCP');
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'mcp', $project);
 
         $this->put($client, (string) Uuid::v4(), $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
 
@@ -268,8 +263,9 @@ final class BridgeHeartbeatApiTest extends WebTestCase
     }
 
     /**
-     * With the token unresolved, the listener would key on the address, and the
-     * second heartbeat below would pass. A 429 proves the firewall ran first.
+     * With the credential unresolved, the listener would key on the address,
+     * and the second heartbeat below would pass. A 429 proves the firewall ran
+     * first, and the third proves a second account keeps its own budget.
      */
     public function test_the_limit_counts_per_token_because_the_firewall_runs_first(): void
     {
@@ -281,8 +277,9 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         ));
         $em = $this->em();
         $owner = $this->user($em, 'heartbeat-limit@example.com');
-        $first = $this->agentToken($em, $owner);
-        $second = $this->agentToken($em, $owner);
+        $other = $this->user($em, 'heartbeat-limit-other@example.com');
+        $first = $this->agentToken($client, $owner);
+        $second = $this->agentToken($client, $other);
         $body = ['projects' => [], 'cliVersion' => 'b4e39aa7'];
 
         $this->put($client, (string) Uuid::v4(), $first, $body, '203.0.113.7');
@@ -301,7 +298,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $client = static::createClient();
         $client->disableReboot();
         $em = $this->em();
-        $raw = $this->agentToken($em, $this->user($em, 'heartbeat-capacity@example.com'));
+        $raw = $this->agentToken($client, $this->user($em, 'heartbeat-capacity@example.com'));
         $body = ['projects' => [], 'cliVersion' => 'b4e39aa7'];
 
         for ($heartbeat = 1; $heartbeat <= 60; ++$heartbeat) {
@@ -323,7 +320,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
             new InMemoryStorage(),
         ));
         $em = $this->em();
-        $raw = $this->agentToken($em, $this->user($em, 'heartbeat-limit-order@example.com'));
+        $raw = $this->agentToken($client, $this->user($em, 'heartbeat-limit-order@example.com'));
 
         $this->put($client, (string) Uuid::v4(), $raw, ['projects' => 'loupe']);
         self::assertResponseStatusCodeSame(422);

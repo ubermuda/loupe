@@ -40,7 +40,7 @@ hand.
 |---|---|
 | `app:review:rerender-versions` | Re-renders stored HTML for every document version from its Markdown source. For after a renderer change. |
 | `league:oauth2-server:create-client` | Registers an OAuth client. For a public client, pass `--public`, one `--redirect-uri` for each address, `--grant-type=authorization_code --grant-type=refresh_token`, and the scopes it may ask for. `league:oauth2-server:list-clients` and `league:oauth2-server:delete-client` list and remove clients. Do not delete `loupe-cli`: a migration registers it for `loupe login`, and deleting it signs out every CLI. |
-| `app:dev:seed` | Seeds an empty **development** database with a verified user, a project and a widget token. Not for production. |
+| `app:dev:seed` | Seeds an empty **development** database with a verified user and a project. It prints `SITE_REVIEW_WIDGET_PROJECT=<project id>` for you to copy. Not for production. |
 
 ## Symfony commands worth knowing
 

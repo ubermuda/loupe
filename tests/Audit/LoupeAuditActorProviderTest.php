@@ -8,12 +8,11 @@ use App\Audit\AuditChannel;
 use App\Audit\AuditContext;
 use App\Audit\EventListener\SetConsoleAuditChannelListener;
 use App\Audit\LoupeAuditActorProvider;
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Repository\ApiTokenRepository;
-use App\Module\Account\Security\ApiTokenAuthenticator;
-use App\Module\Account\Security\AuthenticatedApiTokenResolver;
+use App\Module\OAuth\Entity\GrantedCredential;
+use App\Module\OAuth\Repository\GrantedCredentialRepository;
+use App\Module\OAuth\Scope\ApiScope;
+use App\Security\AuthenticatedCredential;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
@@ -43,7 +42,7 @@ final class LoupeAuditActorProviderTest extends TestCase
 
     public function test_a_session_request_is_attributed_to_the_signed_in_user(): void
     {
-        $this->tokenStorage->setToken($this->securityTokenWithoutApiToken());
+        $this->tokenStorage->setToken($this->securityTokenWithoutCredential());
 
         $actor = $this->provider()->currentActor();
 
@@ -52,27 +51,34 @@ final class LoupeAuditActorProviderTest extends TestCase
         self::assertNull($actor->credential);
     }
 
-    public function test_an_mcp_token_is_its_own_channel(): void
+    public function test_an_mcp_credential_is_its_own_channel(): void
     {
-        $apiToken = $this->apiTokenWithScope(ApiTokenScope::Mcp);
-        $this->tokenStorage->setToken($this->securityTokenWithApiToken());
+        $record = $this->record();
+        $this->tokenStorage->setToken($this->securityTokenWithCredential(ApiScope::Mcp));
 
-        $actor = $this->provider($apiToken)->currentActor();
+        $actor = $this->provider($record)->currentActor();
 
         self::assertSame(AuditChannel::Mcp->value, $actor->channel);
         self::assertSame($this->user, $actor->actor);
-        self::assertSame($apiToken, $actor->credential);
+        self::assertSame($record, $actor->credential);
     }
 
-    public function test_a_site_review_token_is_the_widget_channel(): void
+    public function test_a_site_review_credential_is_the_widget_channel(): void
     {
-        $apiToken = $this->apiTokenWithScope(ApiTokenScope::SiteReview);
-        $this->tokenStorage->setToken($this->securityTokenWithApiToken());
+        $record = $this->record();
+        $this->tokenStorage->setToken($this->securityTokenWithCredential(ApiScope::SiteReview));
 
-        $actor = $this->provider($apiToken)->currentActor();
+        $actor = $this->provider($record)->currentActor();
 
         self::assertSame(AuditChannel::Widget->value, $actor->channel);
-        self::assertSame($apiToken, $actor->credential);
+        self::assertSame($record, $actor->credential);
+    }
+
+    public function test_an_agent_credential_is_the_agent_channel(): void
+    {
+        $this->tokenStorage->setToken($this->securityTokenWithCredential(ApiScope::Agent));
+
+        self::assertSame(AuditChannel::Agent->value, $this->provider()->currentActor()->channel);
     }
 
     /**
@@ -110,7 +116,7 @@ final class LoupeAuditActorProviderTest extends TestCase
 
     public function test_a_declared_channel_beats_a_detected_one(): void
     {
-        $this->tokenStorage->setToken($this->securityTokenWithoutApiToken());
+        $this->tokenStorage->setToken($this->securityTokenWithoutCredential());
         $this->auditContext->channel = AuditChannel::Webhook;
 
         self::assertSame(AuditChannel::Webhook->value, $this->provider()->currentActor()->channel);
@@ -123,34 +129,36 @@ final class LoupeAuditActorProviderTest extends TestCase
         self::assertSame(['async' => true], $this->provider()->currentActor()->context);
     }
 
-    private function provider(?ApiToken $apiToken = null): LoupeAuditActorProvider
+    private function provider(?GrantedCredential $record = null): LoupeAuditActorProvider
     {
-        $apiTokens = $this->createStub(ApiTokenRepository::class);
-        $apiTokens->method('find')->willReturn($apiToken);
+        $grantedCredentials = $this->createStub(GrantedCredentialRepository::class);
+        $grantedCredentials->method('findOrCreate')->willReturn($record ?? $this->record());
 
         return new LoupeAuditActorProvider(
             $this->tokenStorage,
-            new AuthenticatedApiTokenResolver($this->tokenStorage, $apiTokens),
+            $grantedCredentials,
             $this->auditContext,
         );
     }
 
-    private function apiTokenWithScope(ApiTokenScope $scope): ApiToken
+    private function record(): GrantedCredential
     {
-        return ApiToken::issue($this->user, 'Test token', $scope)[0];
+        return new GrantedCredential('oauth:test-client:'.Uuid::v7().':-', $this->user);
     }
 
-    private function securityTokenWithApiToken(): TokenInterface&Stub
+    private function securityTokenWithCredential(ApiScope $scope): TokenInterface&Stub
     {
+        $credential = new AuthenticatedCredential('oauth:test-client:'.Uuid::v7().':-', [$scope->role()]);
+
         $securityToken = $this->securityToken();
         $securityToken->method('hasAttribute')
-            ->willReturnCallback(static fn (string $name): bool => ApiTokenAuthenticator::API_TOKEN_ID_ATTR === $name);
-        $securityToken->method('getAttribute')->willReturn((string) Uuid::v7());
+            ->willReturnCallback(static fn (string $name): bool => AuthenticatedCredential::ATTRIBUTE === $name);
+        $securityToken->method('getAttribute')->willReturn($credential);
 
         return $securityToken;
     }
 
-    private function securityTokenWithoutApiToken(): TokenInterface&Stub
+    private function securityTokenWithoutCredential(): TokenInterface&Stub
     {
         $securityToken = $this->securityToken();
         $securityToken->method('hasAttribute')->willReturn(false);

@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Project\Security;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
-use App\Module\Account\Security\ApiTokenAuthenticator;
+use App\Module\OAuth\Scope\ApiScope;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Project\Security\ProjectRefusal;
@@ -39,42 +37,12 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         $this->tokenStorage = $tokenStorage;
     }
 
-    public function test_a_static_widget_token_resolves_the_project_that_binds_it(): void
-    {
-        $project = $this->project('static-widget');
-        [$token] = ApiToken::issue($project->owner, 'Widget', ApiTokenScope::SiteReview);
-        $this->em->persist($token);
-        $project->widgetToken = $token;
-        $this->em->flush();
-
-        $this->tokenStorage->setToken($this->staticTokenCredential($project->owner, $token));
-
-        self::assertSame($project, $this->resolver->resolveWidgetProject());
-        self::assertNull($this->resolver->resolveMcpProject());
-    }
-
-    public function test_a_static_mcp_token_resolves_the_project_that_binds_it(): void
-    {
-        $project = $this->project('static-mcp');
-        [$token] = ApiToken::issue($project->owner, 'MCP', ApiTokenScope::Mcp);
-        $this->em->persist($token);
-        $project->mcpToken = $token;
-        $this->em->flush();
-
-        $securityToken = $this->staticTokenCredential($project->owner, $token);
-        $this->tokenStorage->setToken($securityToken);
-
-        self::assertSame($project, $this->resolver->resolveMcpProject());
-        self::assertSame($project, $this->resolver->resolveMcpProjectFor($securityToken));
-        self::assertNull($this->resolver->resolveWidgetProject());
-    }
-
     public function test_a_credential_that_names_its_project_resolves_it_for_its_own_scope_only(): void
     {
         $project = $this->project('named-mcp');
         $this->em->flush();
 
-        $securityToken = $this->credentialNaming($project, ApiTokenScope::Mcp);
+        $securityToken = $this->credentialNaming($project, ApiScope::Mcp);
         $this->tokenStorage->setToken($securityToken);
 
         self::assertSame($project, $this->resolver->resolveMcpProject());
@@ -87,27 +55,12 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         $project = $this->project('named-widget');
         $this->em->flush();
 
-        $securityToken = $this->credentialNaming($project, ApiTokenScope::SiteReview);
+        $securityToken = $this->credentialNaming($project, ApiScope::SiteReview);
         $this->tokenStorage->setToken($securityToken);
 
         self::assertSame($project, $this->resolver->resolveWidgetProject());
         self::assertNull($this->resolver->resolveMcpProject());
         self::assertNull($this->resolver->resolveMcpProjectFor($securityToken));
-    }
-
-    public function test_an_api_token_id_without_a_credential_resolves_nothing(): void
-    {
-        $project = $this->project('no-credential');
-        [$token] = ApiToken::issue($project->owner, 'MCP', ApiTokenScope::Mcp);
-        $this->em->persist($token);
-        $project->mcpToken = $token;
-        $this->em->flush();
-
-        $securityToken = new PostAuthenticationToken($project->owner, 'api', $project->owner->getRoles());
-        $securityToken->setAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR, (string) $token->id);
-        $this->tokenStorage->setToken($securityToken);
-
-        self::assertNull($this->resolver->resolveMcpProject());
     }
 
     public function test_a_grant_covering_every_project_takes_the_one_the_header_names(): void
@@ -181,7 +134,7 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         $project = $this->project('bound-same');
         $this->em->flush();
 
-        $this->tokenStorage->setToken($this->credentialNaming($project, ApiTokenScope::Mcp));
+        $this->tokenStorage->setToken($this->credentialNaming($project, ApiScope::Mcp));
         $this->requestNaming($project);
 
         self::assertSame($project, $this->resolver->resolveMcpProject());
@@ -193,7 +146,7 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         $other = $this->project('bound-other');
         $this->em->flush();
 
-        $this->tokenStorage->setToken($this->credentialNaming($bound, ApiTokenScope::Mcp));
+        $this->tokenStorage->setToken($this->credentialNaming($bound, ApiScope::Mcp));
         $this->requestNaming($other);
 
         $resolution = $this->resolver->mcpResolution();
@@ -202,20 +155,14 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         self::assertSame(ProjectRefusal::HeaderNotCovered, $resolution->refusal);
     }
 
-    /**
-     * The widget path goes through the same table, so a stray header on a
-     * widget request now refuses rather than being ignored.
-     */
-    public function test_a_widget_token_refuses_a_header_naming_another_project(): void
+    /** A stray header on a widget request refuses rather than being ignored. */
+    public function test_a_widget_grant_refuses_a_header_naming_another_project(): void
     {
         $project = $this->project('widget-header');
-        [$token] = ApiToken::issue($project->owner, 'Widget', ApiTokenScope::SiteReview);
-        $this->em->persist($token);
-        $project->widgetToken = $token;
         $other = $this->project('widget-other');
         $this->em->flush();
 
-        $this->tokenStorage->setToken($this->staticTokenCredential($project->owner, $token));
+        $this->tokenStorage->setToken($this->credentialNaming($project, ApiScope::SiteReview));
 
         self::assertSame($project, $this->resolver->resolveWidgetProject());
 
@@ -231,6 +178,20 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         self::assertNull($this->resolver->resolveMcpProjectFor(null));
     }
 
+    /** A credential that names neither one project nor every project of its owner. */
+    public function test_a_credential_bound_to_nothing_resolves_nothing(): void
+    {
+        $project = $this->project('unbound');
+        $this->em->flush();
+
+        $securityToken = new PostAuthenticationToken($project->owner, 'api', $project->owner->getRoles());
+        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential('grant-unbound', [ApiScope::Mcp->role()]));
+        $this->tokenStorage->setToken($securityToken);
+
+        self::assertNull($this->resolver->resolveMcpProject());
+        self::assertSame(ProjectRefusal::Unbound, $this->resolver->mcpResolution()->refusal);
+    }
+
     private function project(string $name): Project
     {
         $owner = new User(fullName: 'U', email: 'resolver-'.$name.'@example.com', password: 'x');
@@ -241,20 +202,10 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         return $project;
     }
 
-    /** The two attributes ApiTokenAuthenticator leaves on the security token. */
-    private function staticTokenCredential(User $owner, ApiToken $token): PostAuthenticationToken
-    {
-        $securityToken = new PostAuthenticationToken($owner, 'api', $owner->getRoles());
-        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $token->id, [$token->scope->role()]));
-        $securityToken->setAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR, (string) $token->id);
-
-        return $securityToken;
-    }
-
     private function credentialCoveringEveryProject(User $owner): PostAuthenticationToken
     {
         $securityToken = new PostAuthenticationToken($owner, 'api', $owner->getRoles());
-        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential('grant-all', [ApiTokenScope::Mcp->role()], null, true));
+        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential('grant-all', [ApiScope::Mcp->role()], null, true));
 
         return $securityToken;
     }
@@ -273,7 +224,7 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         $requests->push($request);
     }
 
-    private function credentialNaming(Project $project, ApiTokenScope $scope): PostAuthenticationToken
+    private function credentialNaming(Project $project, ApiScope $scope): PostAuthenticationToken
     {
         $securityToken = new PostAuthenticationToken($project->owner, 'api', $project->owner->getRoles());
         $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential('grant-'.$project->name, [$scope->role()], $project->id));

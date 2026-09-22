@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Project\Entity\Project;
+use App\Tests\Support\AgentCredential;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -32,7 +31,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-store@example.com');
         $project = $this->project($em, $owner, 'Rules App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
         $bridge = (string) Uuid::v4();
 
@@ -49,7 +48,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-slug@example.com');
         $project = $this->project($em, $owner, 'Slug Rules App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
         $bridge = (string) Uuid::v4();
 
@@ -68,7 +67,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-replace@example.com');
         $project = $this->project($em, $owner, 'Replace App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
         $bridge = (string) Uuid::v4();
         $path = $this->path((string) $project->id, $bridge);
@@ -95,7 +94,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-bridges@example.com');
         $project = $this->project($em, $owner, 'Two Bridges App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
         $first = (string) Uuid::v4();
         $second = (string) Uuid::v4();
@@ -118,7 +117,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $owner = $this->user($em, 'rules-api-cap@example.com');
         $project = $this->project($em, $owner, 'Capped App');
         $other = $this->project($em, $owner, 'Uncapped App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
 
         $this->put($client, $this->path((string) $other->id, (string) Uuid::v4()), $raw, ['rules' => [self::LIVE_RULE]]);
@@ -152,7 +151,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-long-slug@example.com');
         $project = $this->project($em, $owner, 'Long Slug App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
         $bridge = (string) Uuid::v4();
         $slug = rtrim(str_repeat('ab-', 600), '-');
@@ -170,7 +169,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-flag-invalid@example.com');
         $project = $this->project($em, $owner, 'Flag Invalid App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
 
         $this->put($client, $this->path((string) $project->id, (string) Uuid::v4()), $raw, ['rules' => 'not a list']);
 
@@ -185,7 +184,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-prompt@example.com');
         $project = $this->project($em, $owner, 'Prompt App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
         $bridge = (string) Uuid::v4();
 
@@ -209,8 +208,8 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $client = static::createClient();
         $em = $this->em();
         $caller = $this->user($em, 'rules-api-caller@example.com');
-        $raw = $this->agentToken($em, $caller);
         $other = $this->project($em, $this->user($em, 'rules-api-other@example.com'), 'Private Rules App');
+        $raw = $this->agentToken($client, $caller);
         $this->enableBoard();
 
         foreach ([(string) $other->id, 'private-rules-app', (string) Uuid::v7(), 'Private Rules App'] as $handle) {
@@ -229,7 +228,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-flag@example.com');
         $project = $this->project($em, $owner, 'Flag Rules App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
 
         $this->put($client, $this->path((string) $project->id, (string) Uuid::v4()), $raw, ['rules' => [self::LIVE_RULE]]);
 
@@ -261,7 +260,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-invalid@example.com');
         $project = $this->project($em, $owner, 'Invalid Rules App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
 
         $this->put($client, $this->path((string) $project->id, (string) Uuid::v4()), $raw, $body);
@@ -280,7 +279,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-bridge-id@example.com');
         $project = $this->project($em, $owner, 'Bridge Id App');
-        $raw = $this->agentToken($em, $owner);
+        $raw = $this->agentToken($client, $owner);
         $this->enableBoard();
 
         $this->put($client, $this->path((string) $project->id, 'my-laptop'), $raw, ['rules' => [self::LIVE_RULE]]);
@@ -294,10 +293,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-widget@example.com');
         $project = $this->project($em, $owner, 'Widget Rules App');
-        [$token, $raw] = ApiToken::issue($owner, 'widget', ApiTokenScope::SiteReview);
-        $em->persist($token);
-        $project->widgetToken = $token;
-        $em->flush();
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'site-review', $project);
         $this->enableBoard();
 
         $this->put($client, $this->path((string) $project->id, (string) Uuid::v4()), $raw, ['rules' => [self::LIVE_RULE]]);
@@ -312,9 +308,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-mcp@example.com');
         $project = $this->project($em, $owner, 'Mcp Rules App');
-        [$token, $raw] = ApiToken::issue($owner, 'mcp', ApiTokenScope::Mcp);
-        $em->persist($token);
-        $em->flush();
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'mcp', $project);
         $this->enableBoard();
 
         $this->put($client, $this->path((string) $project->id, (string) Uuid::v4()), $raw, ['rules' => [self::LIVE_RULE]]);
@@ -346,8 +340,12 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-limit@example.com');
         $project = $this->project($em, $owner, 'Limited Rules App');
-        $first = $this->agentToken($em, $owner);
-        $second = $this->agentToken($em, $owner);
+        $other = $this->user($em, 'rules-api-limit-other@example.com');
+        $otherProject = $this->project($em, $other, 'Other Limited Rules App');
+        $first = $this->agentToken($client, $owner);
+        // Two access tokens of one grant share a bucket, so the second budget
+        // needs a second account.
+        $second = $this->agentToken($client, $other);
         $this->enableBoard();
         $path = $this->path((string) $project->id, (string) Uuid::v4());
 
@@ -357,7 +355,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $this->put($client, $path, $first, ['rules' => []], '198.51.100.4');
         self::assertResponseStatusCodeSame(429);
 
-        $this->put($client, $path, $second, ['rules' => []], '203.0.113.7');
+        $this->put($client, $this->path((string) $otherProject->id, (string) Uuid::v4()), $second, ['rules' => []], '203.0.113.7');
         self::assertResponseStatusCodeSame(204);
     }
 
@@ -393,13 +391,9 @@ final class BridgeRuleReportApiTest extends WebTestCase
         return $em;
     }
 
-    private function agentToken(EntityManagerInterface $em, User $owner): string
+    private function agentToken(KernelBrowser $browser, User $owner): string
     {
-        [$token, $raw] = ApiToken::issue($owner, 'bridge', ApiTokenScope::Agent);
-        $em->persist($token);
-        $em->flush();
-
-        return $raw;
+        return AgentCredential::agentToken(static::getContainer(), $owner);
     }
 
     /** @param array<string, mixed> $body */

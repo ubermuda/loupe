@@ -13,21 +13,17 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Dev-only page that loads the site-review widget against a freshly issued site-bound
- * SiteReview API token. Used exclusively by Playwright e2e tests — not available in
- * production (When('dev')). Issues a bound token for the `e2e-harness` project and
- * deletes its comments on every load so each e2e run starts from a clean state.
+ * Dev-only page that embeds the site-review widget by project, so the reviewer
+ * signs in through the OAuth popup. Used exclusively by Playwright e2e tests,
+ * and not available in production (When('dev')). It deletes the `e2e-harness`
+ * project's comments on every load, so each run starts from a clean state, and
+ * adds the page's own origin to the allowed sites.
  *
- * Pass `?keep=1` to skip the purge, so a test can reload the harness and assert the
- * widget rehydrates the project's existing comments. A fresh token is still minted on
- * every load (the raw value of the previous one is unrecoverable from its hash); that is
- * fine because the comments belong to the project, not the token.
+ * Pass `?keep=1` to skip the purge, so a test can reload the harness and assert
+ * the widget rehydrates the project's existing comments.
  *
- * Pass `?hide=target-two` to leave that element out of the page, so a reload finds a
- * saved multi-anchor comment with one anchor that no longer resolves.
- *
- * Pass `?oauth=1` to embed the widget by project with no token, so it signs in
- * through the OAuth popup. The page's own origin joins the allowed sites.
+ * Pass `?hide=target-two` to leave that element out of the page, so a reload
+ * finds a saved multi-anchor comment with one anchor that no longer resolves.
  */
 #[Route(
     '/dev/site-review-harness',
@@ -47,13 +43,11 @@ final class SiteReviewHarnessController extends AppController
         $view = ($this->prepareHarness)(new PrepareHarnessCommand(
             email: $request->query->getString('email'),
             keepComments: $request->query->getBoolean('keep'),
-            oauthOrigin: $request->query->getBoolean('oauth') ? $request->getSchemeAndHttpHost() : null,
+            origin: $request->getSchemeAndHttpHost(),
         ));
 
         return $this->render('@SiteReview/dev/site_review_harness.html.twig', [
-            'token' => $view->rawToken,
             'projectId' => $view->projectId,
-            'oauth' => $request->query->getBoolean('oauth'),
             'hide' => $request->query->getString('hide'),
         ]);
     }

@@ -33,11 +33,10 @@ mapped project is deleted or stops being yours, the bridge logs `project_gone`
 once, with the rules that stop working.
 
 The bridge authenticates with a token that carries the agent scope. `loupe
-login` with no token gets one through the OAuth device flow: it prints a link
-and a code, and you choose **Allow** on that page. The CLI then refreshes the
-access token by itself. For CI and scripts, `loupe login --token <token>` or
-`LOUPE_TOKEN` stores an account-level API token instead. Mint one at
-`/account/api-tokens`. See [Connected apps](../using/connected-apps.md) for the
+login` gets one through the OAuth device flow: it prints a link and a code, and
+you choose **Allow** on that page. The CLI then refreshes the access token by
+itself. There is no static token, so a machine where nobody can open a browser
+cannot run the bridge. See [Connected apps](../using/connected-apps.md) for the
 device flow. The token reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
 `POST /api/projects/{handle}/worker-runs`,
@@ -48,8 +47,8 @@ The worker runs endpoint records a finished worker run, and the
 [Worker run API](../reference/worker-runs.md) page covers it. The heartbeat
 endpoint records that the bridge runs, and the
 [Bridge heartbeat API](../reference/bridge-heartbeat.md) page covers it. The
-rule health endpoint is below. A project's widget token carries a different scope and the
-firewall refuses it here.
+rule health endpoint is below. The firewall refuses a token that carries the
+`site-review` or the `mcp` scope.
 
 The handle is a project id or a project slug. A project name does not resolve.
 The bridge reads the columns by the slug in `rules.yaml`.
@@ -318,7 +317,7 @@ Loupe records no read before the ask closes.
 |---|---|---|
 | 200 | the object above | the user owns the project and the project holds the ask |
 | 401 | | the request carries no token |
-| 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | `{"error":"ask_not_found"}` | the project holds no ask with that id, and an ask of another project counts as none |
 | 404 | | the inbox is switched off on the instance, or `askId` is not a uuid |
@@ -348,7 +347,7 @@ person typed comes back as typed. `project.slug` is the project's slug.
 |---|---|---|
 | 200 | the object above | the user owns the project |
 | 401 | | the request carries no token |
-| 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |
 | 429 | | more than 60 reads in one minute from one token |
@@ -396,7 +395,7 @@ of the bridge id, and the full id is in the tooltip on those characters.
 |---|---|---|
 | 204 | | the report is stored |
 | 401 | | the request carries no token |
-| 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |
 | 404 | | `bridgeId` is not a uuid |

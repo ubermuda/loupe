@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Migrations;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Connection;
@@ -14,10 +12,18 @@ use Doctrine\ORM\EntityManagerInterface;
 use DoctrineMigrations\Version20260919164809;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 require_once __DIR__.'/../../migrations/Version20260919164809.php';
 
-/** Runs down() and up() inside the test's own transaction, which Postgres rolls back with the DDL. */
+/**
+ * Runs down() and up() inside the test's own transaction, which Postgres rolls
+ * back with the DDL.
+ *
+ * The api_tokens rows are written in SQL, because no entity maps that table any
+ * more. The table itself survives one more release, so the migration this test
+ * covers still has something to move.
+ */
 final class ProjectForwardsToAgentMigrationTest extends KernelTestCase
 {
     private EntityManagerInterface $em;
@@ -95,20 +101,35 @@ final class ProjectForwardsToAgentMigrationTest extends KernelTestCase
 
     private function projectWithWidgetToken(string $name): Project
     {
-        $project = $this->project($name);
-        [$token] = ApiToken::issue($project->owner, 'Widget', ApiTokenScope::SiteReview);
-        $this->em->persist($token);
-        $project->widgetToken = $token;
-
-        return $project;
+        return $this->projectWithToken($name, 'widget_token_id', 'site-review');
     }
 
     private function projectWithMcpToken(string $name): Project
     {
+        return $this->projectWithToken($name, 'mcp_token_id', 'mcp');
+    }
+
+    /** @param 'mcp_token_id'|'widget_token_id' $column */
+    private function projectWithToken(string $name, string $column, string $scope): Project
+    {
         $project = $this->project($name);
-        [$token] = ApiToken::issue($project->owner, 'MCP', ApiTokenScope::Mcp);
-        $this->em->persist($token);
-        $project->mcpToken = $token;
+        $this->em->flush();
+        $tokenId = (string) Uuid::v7();
+        $this->connection->executeStatement(
+            'INSERT INTO api_tokens (id, owner_id, label, scope, token_hash, created_at, forwards_to_agent)
+             VALUES (:id, :ownerId, :label, :scope, :hash, NOW(), false)',
+            [
+                'id' => $tokenId,
+                'ownerId' => (string) $project->owner->id,
+                'label' => $name,
+                'scope' => $scope,
+                'hash' => hash('sha256', $tokenId),
+            ],
+        );
+        $this->connection->executeStatement(
+            'UPDATE projects SET '.$column.' = :tokenId WHERE id = :id',
+            ['tokenId' => $tokenId, 'id' => (string) $project->id],
+        );
 
         return $project;
     }

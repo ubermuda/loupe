@@ -261,10 +261,10 @@ in_worktree bin/console doctrine:migrations:migrate --no-interaction --allow-no-
 # var/oauth/. var/ is per worktree, so each one gets its own.
 in_worktree bin/console league:oauth2-server:generate-keypair --skip-if-exists >/dev/null
 
-# SITE_REVIEW_WIDGET_BACKEND stays at production, so the widget token must be
-# one production knows. That is the main checkout's token, copied with
-# .env.local above. Do not reissue it here: a token minted in this worktree's
-# database exists nowhere else, and production answers 401.
+# SITE_REVIEW_WIDGET_BACKEND stays at production, so SITE_REVIEW_WIDGET_PROJECT
+# must name a project production knows. That is the main checkout's project id,
+# copied with .env.local above. The seed prints this worktree's own id, which
+# production has never seen, so use it only when the backend points here too.
 in_worktree bin/console app:dev:seed >/dev/null
 
 # Build this worktree's own CSS now that var/tailwind is local to it.

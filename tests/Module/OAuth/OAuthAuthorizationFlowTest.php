@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\OAuth;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\ProjectDeleter;
@@ -187,17 +185,6 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         self::assertSame(0, $this->countRows('oauth2_authorization_code'));
     }
 
-    public function test_a_static_token_still_authenticates_beside_oauth(): void
-    {
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$token, $raw] = ApiToken::issue($this->user, 'static', ApiTokenScope::Mcp);
-        $this->project->mcpToken = $token;
-        $em->persist($token);
-        $em->flush();
-
-        self::assertSame(200, $this->callMcp($raw));
-    }
-
     public function test_consent_refuses_a_project_the_user_does_not_own(): void
     {
         $stranger = $this->scenario->createUser('stranger@example.com');
@@ -248,14 +235,7 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
      */
     public function test_an_all_projects_request_says_so_and_offers_no_picker(): void
     {
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-        $clients = static::getContainer()->get(ClientManagerInterface::class);
-        self::assertInstanceOf(ClientManagerInterface::class, $clients);
-        $client = $clients->find(OAuthScenario::CLIENT_ID);
-        self::assertNotNull($client);
-        $client->setScopes(new Scope('mcp'), new Scope('projects'));
-        $clients->save($client);
+        $this->registerScopes(new Scope('mcp'), new Scope('projects'));
 
         $this->browser->loginUser($this->user);
         $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('mcp projects'));
@@ -267,11 +247,13 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
 
     public function test_a_scope_the_client_is_not_registered_for_is_refused(): void
     {
+        $this->registerScopes(new Scope('mcp'));
+
         $this->browser->loginUser($this->user);
         $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('mcp projects'));
 
         $query = OAuthScenario::redirectQuery((string) $this->browser->getResponse()->headers->get('Location'));
-        self::assertSame('invalid_scope', $query['error'], 'the scenario client is registered for mcp, site-review and agent, never projects');
+        self::assertSame('invalid_scope', $query['error'], 'this client is registered for mcp alone, never projects');
     }
 
     public function test_plain_pkce_is_refused(): void
@@ -456,6 +438,17 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertStringNotContainsString('not bound to a project', $body);
         self::assertStringContainsString('"documents"', $body);
+    }
+
+    /** Narrows the scenario client to the scopes a test needs it registered for. */
+    private function registerScopes(Scope ...$scopes): void
+    {
+        $clients = static::getContainer()->get(ClientManagerInterface::class);
+        self::assertInstanceOf(ClientManagerInterface::class, $clients);
+        $client = $clients->find(OAuthScenario::CLIENT_ID);
+        self::assertNotNull($client);
+        $client->setScopes(...$scopes);
+        $clients->save($client);
     }
 
     private function issuer(): string

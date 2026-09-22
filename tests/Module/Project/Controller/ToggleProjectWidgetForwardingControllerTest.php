@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Project\Controller;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
@@ -21,9 +19,6 @@ final class ToggleProjectWidgetForwardingControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'fwd-toggle-a@example.com');
         $project = new Project($owner, 'forwarding-toggle');
-        [$token] = ApiToken::issue($owner, 'Widget: forwarding-toggle', ApiTokenScope::SiteReview);
-        $project->widgetToken = $token;
-        $em->persist($token);
         $em->persist($project);
         $em->flush();
         $projectId = $project->id;
@@ -47,9 +42,6 @@ final class ToggleProjectWidgetForwardingControllerTest extends WebTestCase
         $owner = $this->user($em, 'fwd-toggle-b@example.com');
         $other = $this->user($em, 'fwd-toggle-c@example.com');
         $project = new Project($owner, 'not-yours-forwarding');
-        [$token] = ApiToken::issue($owner, 'Widget: not-yours-forwarding', ApiTokenScope::SiteReview);
-        $project->widgetToken = $token;
-        $em->persist($token);
         $em->persist($project);
         $em->flush();
         $projectId = $project->id;

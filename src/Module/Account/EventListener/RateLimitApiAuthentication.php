@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Account\EventListener;
 
-use App\Module\Account\Security\ApiTokenAuthenticator;
+use App\Security\BearerToken;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,14 +15,14 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Security\Http\Event\LoginFailureEvent;
 
 /**
- * Bounds failed API-token authentications on the two token firewalls, ^/api and
+ * Bounds failed bearer authentications on the two token firewalls, ^/api and
  * ^/mcp, so a flood of rejected tokens cannot fill the audit table. Each such
  * failure writes a durable record that the retention window keeps.
  *
  * Peek and charge are split, and both halves live here so the bucket key cannot
  * drift between them. An arriving request only reads the bucket. A token is
  * spent when an authentication fails, which is exactly when a record is written.
- * The site-review widget token rides on every page view of a customer's site, so
+ * The site-review widget calls on every page view of a customer's site, so
  * charging a successful read would throttle a whole NAT of unrelated visitors.
  *
  * The priority is the whole point. Symfony's Firewall subscribes to
@@ -34,7 +34,7 @@ use Symfony\Component\Security\Http\Event\LoginFailureEvent;
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 12)]
 final readonly class RateLimitApiAuthentication
 {
-    /** The stateless firewalls ApiTokenAuthenticator serves, named as in security.yaml. */
+    /** The stateless bearer-token firewalls, named as in security.yaml. */
     private const array TOKEN_FIREWALLS = ['api', 'mcp'];
 
     public function __construct(
@@ -52,7 +52,7 @@ final readonly class RateLimitApiAuthentication
         }
 
         $request = $event->getRequest();
-        if (!$this->isTokenFirewallPath($request->getPathInfo()) || !ApiTokenAuthenticator::carriesBearerToken($request)) {
+        if (!$this->isTokenFirewallPath($request->getPathInfo()) || null === BearerToken::of($request)) {
             return;
         }
 
@@ -67,9 +67,9 @@ final readonly class RateLimitApiAuthentication
     }
 
     /**
-     * ApiTokenAuthenticator::onAuthenticationFailure() writes the record this
-     * limit exists to bound, and the authenticator manager calls it immediately
-     * before it dispatches this event.
+     * OAuthAccessTokenAuthenticator::onAuthenticationFailure() writes the
+     * record this limit exists to bound, and the authenticator manager calls it
+     * immediately before it dispatches this event.
      */
     #[AsEventListener]
     public function chargeFailure(LoginFailureEvent $event): void

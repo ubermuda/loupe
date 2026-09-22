@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Mcp;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
-use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Tests\Support\AgentCredential;
+use App\Tests\Support\OAuthScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -26,7 +25,7 @@ final class McpProjectHeaderTest extends WebTestCase
     public function test_a_bound_token_answers_a_header_naming_its_own_project(): void
     {
         $client = static::createClient();
-        [$raw, $project] = $this->boundToken('own');
+        [$raw, $project] = $this->boundToken($client, 'own');
 
         $answer = $this->callBoundTool($client, $raw, (string) $project->id);
 
@@ -37,10 +36,10 @@ final class McpProjectHeaderTest extends WebTestCase
     public function test_a_bound_token_is_refused_a_header_naming_another_project(): void
     {
         $client = static::createClient();
-        [$raw, $project] = $this->boundToken('other');
+        [$raw, $project] = $this->boundToken($client, 'other');
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
-        $elsewhere = new Project($project->owner, 'Elsewhere');
+        $elsewhere = new Project(AgentCredential::managed($em, $project->owner, $project->owner->id), 'Elsewhere');
         $em->persist($elsewhere);
         $em->flush();
 
@@ -55,7 +54,7 @@ final class McpProjectHeaderTest extends WebTestCase
     public function test_a_header_that_is_not_a_project_id_is_refused(): void
     {
         $client = static::createClient();
-        [$raw] = $this->boundToken('malformed');
+        [$raw] = $this->boundToken($client, 'malformed');
 
         $answer = $this->callBoundTool($client, $raw, 'the-board');
 
@@ -67,7 +66,7 @@ final class McpProjectHeaderTest extends WebTestCase
     public function test_no_header_leaves_the_bound_project_in_place(): void
     {
         $client = static::createClient();
-        [$raw] = $this->boundToken('none');
+        [$raw] = $this->boundToken($client, 'none');
 
         $answer = $this->callBoundTool($client, $raw, null);
 
@@ -75,23 +74,19 @@ final class McpProjectHeaderTest extends WebTestCase
         self::assertSame([], $answer['result']['structuredContent']['tags']);
     }
 
-    /** @return array{string, Project} */
-    private function boundToken(string $suffix): array
+    /**
+     * An access token bound to one project, with the project it names.
+     *
+     * @return array{string, Project}
+     */
+    private function boundToken(KernelBrowser $client, string $suffix): array
     {
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $scenario = new OAuthScenario(static::getContainer());
+        $scenario->createClient();
+        $user = $scenario->createUser('header-'.$suffix.'@example.com');
+        $project = $scenario->createProject($user, 'Bound '.$suffix);
 
-        $user = new User(fullName: 'Agent', email: 'header-'.$suffix.'@example.com', password: 'hashed-placeholder');
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        $project = new Project($user, 'Bound '.$suffix);
-        [$token, $raw] = ApiToken::issue($user, 'mcp', ApiTokenScope::Mcp);
-        $project->mcpToken = $token;
-        $em->persist($user);
-        $em->persist($token);
-        $em->persist($project);
-        $em->flush();
-
-        return [$raw, $project];
+        return [$scenario->accessTokenFor($client, $user, 'mcp', $project), $project];
     }
 
     /**

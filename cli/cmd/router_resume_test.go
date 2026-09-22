@@ -13,7 +13,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
-	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/ubermuda/loupe/cli/internal/directive"
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/rules"
@@ -777,7 +776,7 @@ func TestTheBridgeChecksTheAskBeforeItResumes(t *testing.T) {
 	fake.sse = "data: " + ask{card: 87, bridge: &id}.payload() + "\n\n"
 	server := httptest.NewServer(http.HandlerFunc(fake.serve))
 	t.Cleanup(server.Close)
-	cfg := config.Config{BaseURL: server.URL, Token: "t"}
+	cfg := testLogin(server.URL)
 
 	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\nrules:\n  - name: resume\n    on: inbox.ask_closed\n    project: loupe\n    resume: true\n    prompt: go\n"
 	set, err := rules.Parse([]byte(body), rules.Defaults{})

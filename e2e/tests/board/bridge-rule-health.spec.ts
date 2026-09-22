@@ -1,6 +1,6 @@
 /**
  * Browser coverage for bridge rule health. A report is sent through the real
- * endpoint with an agent token minted on the account page, so no bridge runs.
+ * endpoint with an agent token from the device flow, so no bridge runs.
  * The board then shows a banner for the dead rule, and the rename and delete
  * dialogs of a watched column warn before they save.
  */
@@ -11,7 +11,7 @@ import {
     type APIRequestContext,
     type Page,
 } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { agentAccessToken, suppressToolbar, suppressWidget } from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eBridgeRules1!';
@@ -49,18 +49,6 @@ async function seedProject(page: Page): Promise<string> {
     return (await response.json()).projectId as string;
 }
 
-async function mintAgentToken(page: Page): Promise<string> {
-    await page.goto('/account/api-tokens');
-    const form = page.getByTestId('mint-api-token-form');
-    await form.getByLabel('Name').fill('E2E bridge');
-    await form.getByRole('button', { name: 'Create token' }).click();
-
-    const value = page.getByTestId('minted-api-token-value');
-    await expect(value).toBeVisible();
-
-    return (await value.textContent())?.trim() ?? '';
-}
-
 test.use({
     storageState: { cookies: [], origins: [] },
     viewport: { width: 1600, height: 900 },
@@ -78,7 +66,7 @@ test('connection health remains accessible at enlarged text sizes', async ({
     await suppressWidget(page);
     await registerAndLogin(page, `e2e+bridge-health+${RUN}@example.com`);
     const projectId = await seedProject(page);
-    const token = await mintAgentToken(page);
+    const token = await agentAccessToken(page);
     const bridgeId = crypto.randomUUID();
     const heartbeat = await page.request.put(
         `/api/bridges/${bridgeId}/heartbeat`,
@@ -160,7 +148,7 @@ test('a dead rule shows a banner and a watched column warns before a rename or a
     await registerAndLogin(page, `e2e+bridge-rules+${RUN}@example.com`);
 
     const projectId = await seedProject(page);
-    const token = await mintAgentToken(page);
+    const token = await agentAccessToken(page);
     expect(token).not.toBe('');
 
     const report = await page.request.put(

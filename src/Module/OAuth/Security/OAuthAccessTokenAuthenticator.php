@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\OAuth\Security;
 
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\OAuth\Scope\ApiScope;
 use App\Module\OAuth\Scope\GrantedScope;
 use App\Module\OAuth\Service\McpResource;
 use App\Module\Project\Repository\ProjectRepository;
@@ -29,18 +29,22 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
 use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
+use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
 use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 
 /**
- * Accepts an OAuth access token on the token firewalls, beside the static
- * ApiTokenAuthenticator. League checks the signature, the expiry and the
- * revoked flag in the database. The grant then maps to the same role a static
- * token of that scope carries.
+ * The one authenticator on the token firewalls. League checks the signature,
+ * the expiry and the revoked flag in the database, and the grant then maps to
+ * one role per scope it carries.
+ *
+ * It supports every bearer credential rather than only a well-formed token, so
+ * a malformed one is refused here, with the audit record and the JSON body,
+ * instead of falling through to a framework answer.
  */
 #[WithMonologChannel('app_security')]
-final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
+final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
     /**
      * @param \Closure(): ResourceServer $resourceServer lazy, so a missing key
@@ -74,9 +78,7 @@ final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
     #[\Override]
     public function supports(Request $request): bool
     {
-        $bearer = BearerToken::of($request);
-
-        return null !== $bearer && BearerToken::isJwt($bearer);
+        return null !== BearerToken::of($request);
     }
 
     #[\Override]
@@ -99,7 +101,7 @@ final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
         }
 
         $granted = GrantedScope::fromScopes(array_values(array_filter($scopes, \is_string(...))));
-        if ($audience !== (true === $granted?->allows(ApiTokenScope::Mcp) ? $this->mcpResource->uri : $clientId)) {
+        if ($audience !== (true === $granted?->allows(ApiScope::Mcp) ? $this->mcpResource->uri : $clientId)) {
             throw new AuthenticationException('The OAuth access token is for another audience.');
         }
 
@@ -163,6 +165,13 @@ final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
             'reason' => $exception->getMessage(),
         ]);
 
+        return new Response('{"error":"unauthorized"}', Response::HTTP_UNAUTHORIZED, ['Content-Type' => 'application/json']);
+    }
+
+    /** An unauthenticated request on a machine firewall, which gets no HTML. */
+    #[\Override]
+    public function start(Request $request, ?AuthenticationException $authException = null): Response
+    {
         return new Response('{"error":"unauthorized"}', Response::HTTP_UNAUTHORIZED, ['Content-Type' => 'application/json']);
     }
 }

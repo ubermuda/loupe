@@ -92,7 +92,6 @@ x-app-environment: &app-environment
   SITE_REVIEW_WIDGET_PROJECT: "${SITE_REVIEW_WIDGET_PROJECT:-}"
   # Optional: the widget token of the project site-review comments file into.
   # Empty serves no widget on its own; when set it is shown to admins only.
-  SITE_REVIEW_WIDGET_TOKEN: "${SITE_REVIEW_WIDGET_TOKEN:-}"
   # Empty shows the widget to administrators only. "1" offers it to every
   # visitor, whose comments an agent may then act on.
   SITE_REVIEW_WIDGET_PUBLIC: "${SITE_REVIEW_WIDGET_PUBLIC:-}"

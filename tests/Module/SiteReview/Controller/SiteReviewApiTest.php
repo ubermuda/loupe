@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\SiteReview\Controller;
 
-use App\Module\Account\Entity\ApiToken;
-use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Install\BoardInstallFlags;
@@ -15,6 +13,8 @@ use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Module\SiteReview\SiteReviewDrawing;
 use App\Tests\Module\Board\BoardColumnFixtures;
+use App\Tests\Support\AcceptedTerms;
+use App\Tests\Support\AgentCredential;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -27,24 +27,41 @@ final class SiteReviewApiTest extends WebTestCase
 {
     use BoardColumnFixtures;
 
-    /**
-     * @param non-empty-string $email
-     *
-     * @return array{0: string, 1: Project} raw token + its project
-     */
-    private function projectWithToken(EntityManagerInterface $em, string $email, string $name = 'api-site'): array
+    private function em(): EntityManagerInterface
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+
+        return $em;
+    }
+
+    /** @param non-empty-string $email */
+    private function user(EntityManagerInterface $em, string $email): User
     {
         $user = new User(fullName: 'U', email: $email, password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($user, static::getContainer());
         $em->persist($user);
-        [$token, $raw] = ApiToken::issue($user, 'widget', ApiTokenScope::SiteReview);
-        $em->persist($token);
+
+        return $user;
+    }
+
+    /**
+     * @param non-empty-string $email
+     *
+     * @return array{0: string, 1: Project} an access token the widget carries, and the project it is bound to
+     */
+    private function projectWithToken(KernelBrowser $client, string $email, string $name = 'api-site'): array
+    {
+        $em = $this->em();
+        $user = $this->user($em, $email);
         $project = new Project($user, $name);
-        $project->widgetToken = $token;
         $em->persist($project);
         $em->flush();
 
-        return [$raw, $project];
+        $raw = AgentCredential::tokenFor(static::getContainer(), $user, 'site-review', $project);
+
+        return [$raw, AgentCredential::managed($em, $project, $project->id)];
     }
 
     /** @param array<string, mixed>|null $json */
@@ -58,8 +75,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_add_comment_creates_a_pending_comment(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-a@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-a@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
             ['body' => 'too big', 'selector' => '.card', 'text' => 'Save', 'url' => 'https://app/x']);
@@ -76,8 +93,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_delivery_retries_keep_one_comment_and_refuse_changed_content(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-delivery@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-delivery@example.com');
         $payload = ['body' => 'Original delivery', 'url' => 'https://example.com', 'deliveryId' => (string) Uuid::v4()];
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, $payload);
         self::assertResponseStatusCodeSame(201);
@@ -91,7 +108,7 @@ final class SiteReviewApiTest extends WebTestCase
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, array_replace($payload, ['body' => 'Conflicting retry']));
         self::assertResponseStatusCodeSame(409);
         self::assertJsonStringEqualsJsonString('{"error":"delivery_conflict"}', (string) $client->getResponse()->getContent());
-        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em = $this->em();
         self::assertTrue($em->isOpen());
         $em->clear();
         $stored = $em->find(SiteReviewComment::class, $commentId);
@@ -103,8 +120,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_invalid_delivery_identity_is_rejected_before_writing(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-invalid-delivery@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-invalid-delivery@example.com');
         $payload = ['body' => 'A valid comment', 'url' => 'https://example.com'];
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, $payload);
         self::assertResponseStatusCodeSame(201);
@@ -116,8 +133,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_the_embed_context_reaches_the_comment_and_a_blank_one_stores_null(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-context@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-context@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
             'body' => 'on the preview',
@@ -151,8 +168,9 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_the_boot_load_names_what_the_page_marker_resolves_to(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-ctx-label@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-ctx-label@example.com');
+        $em = $this->em();
 
         $flags = static::getContainer()->get(FeatureFlagRepository::class);
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
@@ -182,8 +200,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_a_comment_can_point_at_several_elements(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-anchors@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-anchors@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
             'body' => 'These two belong side by side',
@@ -206,8 +224,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_a_comment_can_carry_a_freehand_drawing(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-strokes@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-strokes@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
             'body' => 'Move this to the right',
@@ -240,8 +258,9 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_strokes_are_refused_while_drawing_is_off(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-drawing-off@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-drawing-off@example.com');
+        $em = $this->em();
         // The migration seeds the row, so this moves it rather than creating it.
         $flags = static::getContainer()->get(FeatureFlagRepository::class);
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
@@ -279,8 +298,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_an_anchor_space_stroke_needs_an_anchor(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-orphan-stroke@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-orphan-stroke@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
             'body' => 'Look here',
@@ -306,8 +325,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_the_boot_load_reports_drawing_on_for_an_untouched_instance(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->projectWithToken($em, 'api-drawing-default@example.com');
+        $client->disableReboot();
+        [$raw] = $this->projectWithToken($client, 'api-drawing-default@example.com');
 
         // Nothing has moved the flag, so this reads the value the migration
         // and the install seeder both write.
@@ -320,8 +339,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_a_comment_with_no_drawing_stores_null(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-no-strokes@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-no-strokes@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
             ['body' => 'a page note', 'url' => 'https://app/x']);
@@ -346,8 +365,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_a_malformed_drawing_is_refused(array $stroke): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->projectWithToken($em, 'api-bad-strokes@example.com');
+        $client->disableReboot();
+        [$raw] = $this->projectWithToken($client, 'api-bad-strokes@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
             'body' => 'Look here',
@@ -376,8 +395,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_a_legacy_selector_body_becomes_one_anchor(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-legacy@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-legacy@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
             ['body' => 'old widget', 'selector' => '.hero h1', 'text' => 'Hello', 'url' => 'https://app/x']);
@@ -393,8 +412,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_a_legacy_body_with_an_empty_selector_gets_no_anchor(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-legacy-note@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-legacy-note@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
             ['body' => 'a page note', 'selector' => '', 'text' => '', 'url' => 'https://app/x']);
@@ -407,8 +426,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_anchors_win_over_a_legacy_selector_in_the_same_body(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-both@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-both@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
             'body' => 'both shapes',
@@ -433,8 +452,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_the_widget_shape_does_not_double_the_first_anchor(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-widget-shape@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-widget-shape@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
             'body' => 'These two belong side by side',
@@ -457,8 +476,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_more_than_ten_anchors_is_rejected(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->projectWithToken($em, 'api-cap@example.com');
+        $client->disableReboot();
+        [$raw] = $this->projectWithToken($client, 'api-cap@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
             'body' => 'too many',
@@ -472,8 +491,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_an_anchor_with_a_blank_selector_is_rejected(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->projectWithToken($em, 'api-blank-anchor@example.com');
+        $client->disableReboot();
+        [$raw] = $this->projectWithToken($client, 'api-blank-anchor@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
             ['body' => 'blank', 'url' => 'https://app/x', 'anchors' => [['selector' => '', 'text' => 'E']]]);
@@ -488,8 +507,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_the_rehydrate_response_carries_anchors_and_the_legacy_scalars(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->projectWithToken($em, 'api-rehydrate@example.com');
+        $client->disableReboot();
+        [$raw] = $this->projectWithToken($client, 'api-rehydrate@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
             'body' => 'two elements',
@@ -512,19 +531,27 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertSame('', $data['comments'][1]['text']);
     }
 
-    public function test_unbound_site_review_token_is_forbidden(): void
+    /**
+     * A grant names one project, and the header names another of the same
+     * owner. The resolver refuses rather than ignoring the header, so the API
+     * answers with the code the widget reads rather than an error page.
+     */
+    public function test_a_header_naming_another_project_reaches_no_site(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $user = new User(fullName: 'U', email: 'api-b@example.com', password: 'x');
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        $em->persist($user);
-        [$token, $raw] = ApiToken::issue($user, 'unbound', ApiTokenScope::SiteReview);
-        $em->persist($token);
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-b@example.com');
+        $em = $this->em();
+        $elsewhere = new Project($project->owner, 'api-b-elsewhere');
+        $em->persist($elsewhere);
         $em->flush();
 
-        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
-            ['body' => 'x', 'url' => 'https://app/x']);
+        $client->request(Request::METHOD_POST, '/api/site-review/comments', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ORIGIN' => 'https://app.localhost',
+            'HTTP_X_LOUPE_PROJECT' => (string) $elsewhere->id,
+        ], content: json_encode(['body' => 'x', 'url' => 'https://app/x'], \JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(403);
         self::assertSame('token_not_bound_to_site', json_decode((string) $client->getResponse()->getContent(), true)['error'] ?? null);
@@ -533,8 +560,9 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_saved_comments_are_immediately_live(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-c@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-c@example.com');
+        $em = $this->em();
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
         self::assertSame(
@@ -562,8 +590,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_the_submit_route_is_gone(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->projectWithToken($em, 'api-e@example.com');
+        $client->disableReboot();
+        [$raw] = $this->projectWithToken($client, 'api-e@example.com');
 
         // The GET on the same prefix must keep working — only the POST is gone.
         $this->api($client, Request::METHOD_POST, '/api/site-review/review/submit', $raw);
@@ -575,8 +603,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_edit_and_delete_pending_comment(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->projectWithToken($em, 'api-d@example.com');
+        $client->disableReboot();
+        [$raw] = $this->projectWithToken($client, 'api-d@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'orig', 'url' => 'https://app/x']);
         $id = json_decode((string) $client->getResponse()->getContent(), true)['commentId'];
@@ -602,8 +630,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_resolve_takes_a_comment_out_of_the_pending_list(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, $project] = $this->projectWithToken($em, 'api-resolve@example.com');
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-resolve@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'done with this', 'url' => 'https://app/x']);
         $id = json_decode((string) $client->getResponse()->getContent(), true)['commentId'];
@@ -628,8 +656,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_resolving_twice_reports_not_found(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->projectWithToken($em, 'api-resolve-twice@example.com');
+        $client->disableReboot();
+        [$raw] = $this->projectWithToken($client, 'api-resolve-twice@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'once', 'url' => 'https://app/x']);
         $id = json_decode((string) $client->getResponse()->getContent(), true)['commentId'];
@@ -648,8 +676,8 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_a_comment_body_of_zero_is_saved_and_editable(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->projectWithToken($em, 'api-zero@example.com');
+        $client->disableReboot();
+        [$raw] = $this->projectWithToken($client, 'api-zero@example.com');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => '0', 'url' => 'https://app/x']);
         self::assertResponseStatusCodeSame(201);
@@ -665,9 +693,9 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_cross_site_comment_is_not_reachable(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$rawA] = $this->projectWithToken($em, 'api-e@example.com', 'site-a');
-        [$rawB] = $this->projectWithToken($em, 'api-f@example.com', 'site-b');
+        $client->disableReboot();
+        [$rawA] = $this->projectWithToken($client, 'api-e@example.com', 'site-a');
+        [$rawB] = $this->projectWithToken($client, 'api-f@example.com', 'site-b');
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $rawA, ['body' => 'mine', 'url' => 'https://app/x']);
         $id = json_decode((string) $client->getResponse()->getContent(), true)['commentId'];
@@ -685,31 +713,32 @@ final class SiteReviewApiTest extends WebTestCase
     public function test_auth_matrix_and_validation(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $client->disableReboot();
+        $em = $this->em();
 
-        // No token → 401.
+        // No credential answers 401.
         $client->request(Request::METHOD_POST, '/api/site-review/comments', server: ['CONTENT_TYPE' => 'application/json'], content: '{"body":"x","url":"u"}');
         self::assertResponseStatusCodeSame(401);
 
-        // MCP-scoped token → 403 (firewall access_control, before the controller).
-        $user = new User(fullName: 'U', email: 'api-g@example.com', password: 'x');
-        $user->emailVerifiedAt = new \DateTimeImmutable();
-        $em->persist($user);
-        [$token, $mcpRaw] = ApiToken::issue($user, 'mcp', ApiTokenScope::Mcp);
-        $em->persist($token);
+        // An MCP credential answers 403, from the firewall before the controller.
+        $user = $this->user($em, 'api-g@example.com');
+        $mcpProject = new Project($user, 'api-g-site');
+        $em->persist($mcpProject);
         $em->flush();
+        $mcpRaw = AgentCredential::tokenFor(static::getContainer(), $user, 'mcp', $mcpProject);
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $mcpRaw, ['body' => 'x', 'url' => 'u']);
         self::assertResponseStatusCodeSame(403);
-        // The wrong-scope 403 is JSON with a machine-readable code (not the framework's HTML
-        // error page), so the widget can distinguish it from an unbound-token 403.
+        // The wrong-scope 403 carries a machine-readable JSON code rather than
+        // the framework's HTML error page, so the widget tells it apart from the
+        // 403 of a credential that reaches no site.
         self::assertSame('insufficient_scope', json_decode((string) $client->getResponse()->getContent(), true)['error'] ?? null);
 
-        // Blank body → 422; malformed comment id → 404.
-        [$raw] = $this->projectWithToken($em, 'api-h@example.com');
+        // A blank body answers 422, and a malformed comment id answers 404.
+        [$raw] = $this->projectWithToken($client, 'api-h@example.com');
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => '  ', 'url' => 'https://app/x']);
         self::assertResponseStatusCodeSame(422);
 
-        // Non-http(s) URL (javascript: scheme) → 422 (stored-XSS guard).
+        // The stored-XSS guard answers 422 for a javascript: URL.
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'x', 'url' => 'javascript:alert(1)']);
         self::assertResponseStatusCodeSame(422);
         $this->api($client, Request::METHOD_PATCH, '/api/site-review/comments/not-a-uuid', $raw, ['body' => 'x']);

@@ -17,9 +17,9 @@ nothing to do.
 
 `PUT /api/bridges/{bridgeId}/heartbeat`
 
-The bridge authenticates with an account-level API token that carries the agent
-scope, as it does for [worker runs](worker-runs.md). A project's widget token
-carries a different scope, and the firewall refuses it here.
+The bridge authenticates with an OAuth token that carries the agent scope, as
+it does for [worker runs](worker-runs.md). The firewall refuses a token that
+carries the `site-review` or the `mcp` scope.
 
 `bridgeId` is the uuid the bridge generates on its first start and keeps in
 `config.json`. The server takes it as a lower-case uuid of version 1 or 3 to 8.
@@ -58,7 +58,7 @@ heartbeat never delays a run report.
 |---|---|---|
 | 204 | | the heartbeat is accepted |
 | 401 | | the request carries no token |
-| 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | | `bridgeId` is not a uuid the server accepts, or agent push is switched off on the instance |
 | 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
 | 429 | | more than 60 heartbeats in one minute from one token. The `Retry-After` header gives the seconds to wait |

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/zalando/go-keyring"
@@ -18,10 +19,18 @@ func useLoginConfigHome(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 	t.Setenv("HOME", dir)
-	t.Setenv("LOUPE_TOKEN", "")
 }
 
-func TestLoginWithNoTokenRunsTheDeviceFlow(t *testing.T) {
+// testLogin is the device login a command test stands on. The expiry is an hour
+// out, so the token source answers without a refresh call.
+func testLogin(baseURL string) config.Config {
+	return config.Config{
+		BaseURL: baseURL,
+		OAuth:   &config.OAuthTokens{AccessToken: "access-1", RefreshToken: "refresh-1", ExpiresAt: time.Now().Add(time.Hour)},
+	}
+}
+
+func TestLoginRunsTheDeviceFlow(t *testing.T) {
 	useLoginConfigHome(t)
 	var apiAuth string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -66,33 +75,6 @@ func TestLoginWithNoTokenRunsTheDeviceFlow(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if stored.BaseURL != server.URL || stored.OAuth == nil || stored.OAuth.RefreshToken != "refresh-1" {
-		t.Fatalf("stored %+v", stored)
-	}
-}
-
-func TestLoginWithATokenKeepsTheStaticPath(t *testing.T) {
-	useLoginConfigHome(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/projects" {
-			t.Errorf("unexpected path %s: a token login must not start the device flow", r.URL.Path)
-		}
-		fmt.Fprint(w, `{"sites":[]}`)
-	}))
-	t.Cleanup(server.Close)
-	t.Setenv("LOUPE_TOKEN", "sk-static")
-
-	cmd := newLoginCmd()
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetArgs([]string{"--url", server.URL})
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("login: %v", err)
-	}
-
-	stored, err := config.Load()
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if stored.Token != "sk-static" || stored.OAuth != nil {
 		t.Fatalf("stored %+v", stored)
 	}
 }
