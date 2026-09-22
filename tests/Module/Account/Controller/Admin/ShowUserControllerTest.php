@@ -18,8 +18,11 @@ final class ShowUserControllerTest extends WebTestCase
 {
     private const string KNOWN_HASH = '$2y$13$xNOTAREALHASHxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 
-    /** Edit form, actions and danger zone. A contributed panel adds one each. */
-    private const int MAIN_COLUMN_CARDS = 3;
+    /**
+     * Edit form, actions, danger zone, and OAuth's connected-apps panel, which
+     * contributes for every user. A test fixture panel adds one each.
+     */
+    private const int MAIN_COLUMN_CARDS = 4;
 
     public function test_admin_gets_200(): void
     {
