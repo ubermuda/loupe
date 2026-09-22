@@ -219,7 +219,7 @@ final class BoardSubjectResolverTest extends KernelTestCase
         }
     }
 
-    public function test_a_refused_number_vote_is_reported_as_a_missing_card(): void
+    public function test_a_refused_number_vote_is_reported_as_not_accessible(): void
     {
         $this->enableBoard();
         $project = $this->makeProject('resolver-number-refused');
@@ -236,7 +236,7 @@ final class BoardSubjectResolverTest extends KernelTestCase
         $resolver = new BoardSubjectResolver($projects, $cards, $columns, $this->refusingAuthorization());
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage(\sprintf('This project has no card %d.', $card->number));
+        $this->expectExceptionMessage(\sprintf('Card %d is not accessible.', $card->number));
         $resolver->requireCardByIdOrNumber(null, $card->number, McpBoundProjectVoter::CARD_READ);
     }
 

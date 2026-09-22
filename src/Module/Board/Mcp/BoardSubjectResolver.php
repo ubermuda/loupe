@@ -87,8 +87,12 @@ final readonly class BoardSubjectResolver
 
         $card = $this->cards->findOneByProjectAndNumber($this->requireBoundProject($this->projectResolver), $number);
 
-        if (null === $card || !$this->authorization->isGranted($attribute, $card)) {
+        if (null === $card) {
             throw new ToolCallException(\sprintf('This project has no card %d.', $number));
+        }
+
+        if (!$this->authorization->isGranted($attribute, $card)) {
+            throw new ToolCallException(\sprintf('Card %d is not accessible.', $number));
         }
 
         return $card;
