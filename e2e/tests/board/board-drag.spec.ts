@@ -30,9 +30,32 @@ const GROUP = '[data-board-drag-target="group"]';
 // The drag controller sets this when it connects. A grab before that reaches no
 // listener, so every drag waits for it rather than for the cards alone.
 const READY = '#board[data-board-drag-ready="true"]';
+// Stamped on the board on screen, so a wait can tell it from the replacement
+// the server sends back.
+const MARK = 'data-e2e-board-generation';
 
 async function waitForDragReady(page: Page): Promise<void> {
     await expect(page.locator(READY)).toBeAttached();
+}
+
+async function markBoard(page: Page): Promise<void> {
+    await page
+        .locator('#board')
+        .evaluate((board, mark) => board.setAttribute(mark, '1'), MARK);
+}
+
+/**
+ * Resolves when the answer to a move has replaced the board, and the drag
+ * controller on the replacement has connected.
+ *
+ * A move answers with the whole board, and `movePosted` resolves as soon as
+ * that answer arrives rather than when Turbo renders it. A second drag started
+ * in between grabs a card the replacement is about to detach, and the new board
+ * carries no drag listener until its controller connects. The grab then reaches
+ * nothing, no move is posted, and the wait for one times out.
+ */
+async function boardReplaced(page: Page): Promise<void> {
+    await expect(page.locator(`${READY}:not([${MARK}])`)).toBeAttached();
 }
 
 async function setBoardFlag(
@@ -307,15 +330,21 @@ test('a drag into another column lands where the marker stood', async ({
     page,
     board,
 }) => {
-    // Bravo goes to Next first, so Alpha has somewhere to land above it.
+    // Bravo goes to Next first, so Alpha has somewhere to land above it. Each
+    // drag waits for the board the move answered with, because the second drag
+    // otherwise races that replacement.
+    await markBoard(page);
     let written = movePosted(page);
     await dragCardTo(page, 'Bravo', await centreOfGroup(page, NEXT));
     await written;
+    await boardReplaced(page);
     await expect.poll(() => titlesIn(page, NEXT)).toEqual(['Bravo']);
 
+    await markBoard(page);
     written = movePosted(page);
     await dragCardTo(page, 'Alpha', await topEdgeOf(page, 'Bravo'));
     await written;
+    await boardReplaced(page);
 
     await expect.poll(() => titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
     await page.goto(board.boardUrl);

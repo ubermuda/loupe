@@ -74,6 +74,18 @@ test('the comparison chrome is one toolbar row', async ({ page }) => {
     const next = page.getByRole('button', { name: 'Next change' });
     const previous = page.getByRole('button', { name: 'Previous change' });
     await expect(next).toBeVisible();
+
+    // The two clicks below need the scroll animation off: `smoothScrollTo`
+    // animates for 250 to 400 ms and the second lands on a moving page.
+    // Not `reducedMotion` in `test.use`, which does not reach the page under
+    // this config; the assertion is what catches that.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(
+        await page.evaluate(
+            () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+        ),
+    ).toBe(true);
+
     await next.click();
     await expect(counter).toHaveText('Change 1 of 2');
     await next.click();
