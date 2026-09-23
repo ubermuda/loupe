@@ -35,7 +35,7 @@ type Event struct {
 }
 
 // Subject names the aggregate an event is about. The id is what an MCP tool
-// takes; the card number identifies the card to a human and not to card_get.
+// takes. card_get also takes the card number, but only inside one project.
 type Subject struct {
 	Type string `json:"type"`
 	ID   string `json:"id"`
@@ -164,8 +164,8 @@ func checkCommon(e Event) error {
 	if !uuidPattern.MatchString(e.ProjectID) {
 		return fmt.Errorf("%s event has a projectId that is not a uuid", e.Type)
 	}
-	// card_get takes this id and rejects the project-scoped number, so a
-	// prompt without it instructs the worker to do something it cannot.
+	// The worker prompt names the card by this id, so a prompt without it
+	// instructs the worker to do something it cannot.
 	if !uuidPattern.MatchString(e.Subject.ID) {
 		return fmt.Errorf("%s event has a subject id that is not a uuid", e.Type)
 	}

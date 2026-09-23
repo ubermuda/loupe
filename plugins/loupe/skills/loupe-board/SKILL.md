@@ -60,7 +60,8 @@ When no column fits a role, leave the card where it is and tell the owner.
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status puts the card at the end of the column it arrives in. |
 
 `card_get` and `card_update` take a `cardId`, which you read from `card_list`,
-`card_search` or `card_create`.
+`card_search` or `card_create`. They also take the card `number` in place of the
+`cardId`.
 
 ## Search before you write a card
 
@@ -211,9 +212,11 @@ Every card has a short number, unique inside its project and counting from 1. A
 person says "card 42" and means that number. The tools report the number in
 their responses.
 
-The number and the `cardId` are different things. `cardId` is a UUID, and it is
-what `card_get` and `card_update` take. No tool looks a card up by its number,
-so read the board with `card_list` when you hold a number and need the id.
+The number and the `cardId` are different things. `cardId` is a UUID. When you
+hold a number, pass it as `number` to `card_get` or `card_update`. Never send
+`number` together with `cardId`, because the tool refuses a call with both. A
+number resolves only inside the project your connection is bound to. The other
+tools take no number.
 
 ## Move the card as the work moves
 
@@ -313,7 +316,7 @@ An agent or a person moves the card to a terminal column.
 | Carding a lesson so it is not lost | Nobody can finish it. Write it into the skill. |
 | Sending only the new URL in `pullRequestUrls` | The field replaces the whole set, so the older links go. |
 | Sending an empty `pullRequestUrls` to leave the links alone | An empty list clears them. Omit the field instead. |
-| Passing a card number as `cardId` | `cardId` is a UUID. Find it with `card_list` or `card_search`. |
+| Passing a card number as `cardId` | `cardId` is a UUID. Pass the number as `number` instead. |
 | Writing a card without checking for one | Call `card_search` first. A duplicate card costs someone a triage pass. |
 | Expecting `card_search` to match a substring | It matches whole stemmed words. `pag` finds neither `page` nor `paging`. |
 | Reading one `card_list` call as the whole board | It answers one page. Walk the pages while `hasMore` is true. |

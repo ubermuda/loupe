@@ -402,8 +402,9 @@ links stay, send `[]` and every link is removed.
 
 Every card carries a `number` beside its `cardId`. The number counts from 1
 inside one project, so a person can say "card 42" and an agent can name a branch
-after it. Two projects each have a card 1. The tools still take the `cardId`,
-never the number.
+after it. Two projects each have a card 1. `card_get` and `card_update` take
+either `cardId` or `number`, never both. A number resolves only inside the
+project that the connection is bound to. The other tools take no number.
 
 The `inbox_*` tools are behind the `inbox.enabled` feature flag, seeded
 **off**. The gate behaves the same way as the board gate: while the flag is off

@@ -14,6 +14,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 
 /**
@@ -24,7 +25,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type CardSummary from CardPayload
  */
-#[McpTool(name: self::NAME, description: 'Change a card on the project board. Every field but the card id is optional, and a field you leave out keeps the value it has. status takes the slug of a column on this board. Each board has its own columns, and board_columns lists them. A terminal column is where finished work goes. Moving a card to a terminal column stamps its completion time; moving it back to a column that is not terminal clears that stamp. A change of status appends the card to the end of the column it arrives in. pullRequestUrls and documentIds are the fields where leaving one out and sending an empty list differ: leave one out and those links stay, send an empty list and every link of that kind is removed. A documentId naming no document of this project is refused. Reporter cannot be changed, because it records who first raised the card. To finish a card, move it to a terminal column rather than asking for it to be deleted. The card number does not change, and you cannot set it. It is the short label that counts from 1 inside this project, and the cardId stays the value you pass here.')]
+#[McpTool(name: self::NAME, description: 'Change a card on the project board. Pass one of cardId or number to name the card. Every other field is optional, and a field you leave out keeps the value it has. status takes the slug of a column on this board. Each board has its own columns, and board_columns lists them. A terminal column is where finished work goes. Moving a card to a terminal column stamps its completion time; moving it back to a column that is not terminal clears that stamp. A change of status appends the card to the end of the column it arrives in. pullRequestUrls and documentIds are the fields where leaving one out and sending an empty list differ: leave one out and those links stay, send an empty list and every link of that kind is removed. A documentId naming no document of this project is refused. Reporter cannot be changed, because it records who first raised the card. To finish a card, move it to a terminal column rather than asking for it to be deleted. The card number does not change, and you cannot set it. It is the short label that counts from 1 inside this project. This tool takes the cardId or the number, never both.')]
 final readonly class CardUpdateTool implements FlagGatedToolInterface
 {
     public const string NAME = 'card_update';
@@ -58,7 +59,8 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
      * The null default is what lets an omitted list mean "leave the links
      * alone" while an empty list clears them.
      *
-     * @param string        $cardId          the id of the card to change, from card_list or card_create
+     * @param string|null   $cardId          the id of the card to change, from card_list or card_create; pass it or number, never both
+     * @param int|null      $number          the card number, the short label that counts from 1 inside this project; pass it instead of cardId
      * @param string|null   $title           a new title
      * @param string|null   $body            a new Markdown body, replacing the old one
      * @param string|null   $type            a new type: feature, bug, security, tooling, docs or idea
@@ -68,12 +70,12 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
      *
      * @return CardSummary
      */
-    public function __invoke(string $cardId, ?string $title = null, ?string $body = null, ?string $type = null, ?string $status = null, ?array $pullRequestUrls = null, ?array $documentIds = null): array
+    public function __invoke(?string $cardId = null, #[Schema(minimum: 1)] ?int $number = null, ?string $title = null, ?string $body = null, ?string $type = null, ?string $status = null, ?array $pullRequestUrls = null, ?array $documentIds = null): array
     {
         $this->gate->requireEnabled();
 
         try {
-            $card = $this->subjects->requireCard($cardId, McpBoundProjectVoter::CARD_WRITE);
+            $card = $this->subjects->requireCardByIdOrNumber($cardId, $number, McpBoundProjectVoter::CARD_WRITE);
 
             $card = ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
