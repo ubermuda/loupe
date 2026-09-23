@@ -1081,7 +1081,7 @@ func TestAWorkerTheBridgeKilledLogsFinished(t *testing.T) {
 	h.router.ctx = ctx
 	h.worker.started = make(chan workerSpec, 1)
 	h.worker.block = make(chan struct{})
-	h.worker.result = workerResult{exitCode: -1, output: "working"}
+	h.worker.result = workerResult{exitCode: -1, output: "working", killed: true}
 
 	h.router.onData([]byte(cardMoved(87)))
 	<-h.worker.started
@@ -1095,6 +1095,28 @@ func TestAWorkerTheBridgeKilledLogsFinished(t *testing.T) {
 	}
 	if got := h.events(t, "worker_no_result"); len(got) != 0 {
 		t.Fatalf("a killed worker logged worker_no_result: %v", got)
+	}
+}
+
+// A worker that exits on its own while the bridge shuts down is judged by its
+// own result, not by the cancelled context.
+func TestAWorkerThatFinishedDuringShutdownKeepsItsOutcome(t *testing.T) {
+	h := newHarness(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	h.router.ctx = ctx
+	h.worker.started = make(chan workerSpec, 1)
+	h.worker.block = make(chan struct{})
+	h.worker.result = workerResult{output: "STAGE RESULT: ready", hasResult: true}
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	cancel()
+	close(h.worker.block)
+	h.router.wg.Wait()
+
+	finished := h.only(t, "worker_finished")
+	if str(t, finished, "level") != "INFO" || num(t, finished, "exit") != 0 {
+		t.Fatalf("worker_finished = %v", finished)
 	}
 }
 

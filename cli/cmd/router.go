@@ -698,7 +698,7 @@ func (r *router) logResult(p pending, res workerResult, elapsed time.Duration) {
 		"output", res.output,
 	)
 	switch {
-	case r.workerContext().Err() != nil:
+	case res.killed:
 		r.log.Error("worker_finished", args...)
 	case !res.hasResult:
 		// claude -p can end a worker mid-task and still exit 0.

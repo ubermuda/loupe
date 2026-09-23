@@ -30,11 +30,13 @@ const ceilingEnv = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"
 
 // workerResult is one finished worker. err is set when the process never ran,
 // which is a different fault from a process that ran and failed. hasResult
-// says whether the output held a result line.
+// says whether the output held a result line, and killed that the bridge's
+// context ended the process.
 type workerResult struct {
 	exitCode  int
 	output    string
 	hasResult bool
+	killed    bool
 	err       error
 }
 
@@ -114,7 +116,11 @@ func runWorker(ctx context.Context, spec workerSpec) workerResult {
 	setProcessGroup(cmd)
 
 	err := cmd.Run()
-	res := workerResult{output: captured.text(), hasResult: scanner.matched}
+	res := workerResult{
+		output:    captured.text(),
+		hasResult: scanner.matched,
+		killed:    err != nil && ctx.Err() != nil,
+	}
 
 	var exitErr *exec.ExitError
 	switch {
