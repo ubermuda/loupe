@@ -5345,8 +5345,6 @@
             <trans-unit id="bridge.worker_runs.details.session"><source>bridge.worker_runs.details.session</source><target>Session</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.unreported"><source>bridge.worker_runs.details.unreported</source><target>The bridge does not report the agent identity or the triggering event.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.timeline"><source>bridge.worker_runs.details.timeline</source><target>Reported timeline</target></trans-unit>
-            <trans-unit id="bridge.worker_runs.details.started"><source>bridge.worker_runs.details.started</source><target>Attempt started</target></trans-unit>
-            <trans-unit id="bridge.worker_runs.details.ended"><source>bridge.worker_runs.details.ended</source><target>Attempt ended</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.received"><source>bridge.worker_runs.details.received</source><target>Report received</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.copy"><source>bridge.worker_runs.details.copy</source><target>Copy output</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.copied"><source>bridge.worker_runs.details.copied</source><target>Output copied.</target></trans-unit>
@@ -5391,21 +5389,57 @@
                 <source>bridge.worker_runs.filter.count</source>
                 <target>{0} no runs|{1} 1 run|]1,Inf[ %count% runs</target>
             </trans-unit>
-            <trans-unit id="bridge.worker_runs.outcome.succeeded">
-                <source>bridge.worker_runs.outcome.succeeded</source>
+            <trans-unit id="bridge.worker_runs.state.queued">
+                <source>bridge.worker_runs.state.queued</source>
+                <target>Queued</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.replaced">
+                <source>bridge.worker_runs.state.replaced</source>
+                <target>Replaced</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.resumed">
+                <source>bridge.worker_runs.state.resumed</source>
+                <target>Resumed</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.skipped">
+                <source>bridge.worker_runs.state.skipped</source>
+                <target>Skipped</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.running">
+                <source>bridge.worker_runs.state.running</source>
+                <target>Running</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.waiting_for_person">
+                <source>bridge.worker_runs.state.waiting_for_person</source>
+                <target>Waiting for a person</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.dropped">
+                <source>bridge.worker_runs.state.dropped</source>
+                <target>Dropped</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.succeeded">
+                <source>bridge.worker_runs.state.succeeded</source>
                 <target>Succeeded</target>
             </trans-unit>
-            <trans-unit id="bridge.worker_runs.outcome.failed">
-                <source>bridge.worker_runs.outcome.failed</source>
+            <trans-unit id="bridge.worker_runs.state.failed">
+                <source>bridge.worker_runs.state.failed</source>
                 <target>Failed</target>
             </trans-unit>
-            <trans-unit id="bridge.worker_runs.outcome.not_started">
-                <source>bridge.worker_runs.outcome.not_started</source>
+            <trans-unit id="bridge.worker_runs.state.not_started">
+                <source>bridge.worker_runs.state.not_started</source>
                 <target>Never started</target>
             </trans-unit>
-            <trans-unit id="bridge.worker_runs.outcome.no_result">
-                <source>bridge.worker_runs.outcome.no_result</source>
+            <trans-unit id="bridge.worker_runs.state.no_result">
+                <source>bridge.worker_runs.state.no_result</source>
                 <target>No result</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.timed_out">
+                <source>bridge.worker_runs.state.timed_out</source>
+                <target>Timed out</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.lost">
+                <source>bridge.worker_runs.state.lost</source>
+                <target>Lost</target>
             </trans-unit>
             <trans-unit id="bridge.worker_runs.card_number">
                 <source>bridge.worker_runs.card_number</source>

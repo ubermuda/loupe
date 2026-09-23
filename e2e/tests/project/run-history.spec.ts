@@ -97,7 +97,10 @@ test('completed reports retain outcomes and escaped output at enlarged text size
         await expect(drawer.locator('.lp-status-chip')).toHaveText(
             report.outcome,
         );
-        await expect(drawer.locator('time')).toHaveCount(3);
+        // Running, the outcome and the arrival; a run that never started has no running time.
+        await expect(drawer.locator('time')).toHaveCount(
+            report.exitCode === null ? 2 : 3,
+        );
         await expect(drawer.locator('pre')).toHaveText(output);
         await expect(drawer).toContainText(
             report.failureReason ?? `exit ${report.exitCode}`,

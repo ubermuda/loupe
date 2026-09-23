@@ -67,23 +67,11 @@
                     </div>
                     {% else %}<h2 class="lp-card-panel__title">{{ 'board.card.linked_work.title'|trans }}</h2><p class="lp-card-detail__empty">{{ 'board.card.linked_work.empty'|trans }}</p>{% endif %}
                 </section>
-                {% set runs = card_worker_runs(card.project, card.id ~ '') %}
-                <section class="lp-card-overview__section" data-card-runs>
-                    <div class="lp-section-heading">
-                        <h2 class="lp-card-panel__title">{{ 'board.card.runs.title'|trans }}</h2>
-                        {% if runs is not empty %}<a class="lp-workshop-text-link" href="{{ path('app_project_worker_runs', {id: card.project.id}) }}" data-turbo-frame="_top">{{ 'board.card.runs.all'|trans }}</a>{% endif %}
-                    </div>
-                    {% for item in runs %}
-                    <a class="lp-card-run" href="{{ path('app_project_worker_runs', {id: card.project.id, search: item.run.id}) }}" data-turbo-frame="_top" data-card-run="{{ item.run.id }}">
-                        <span class="lp-card-run__rule">{{ item.run.ruleName }}</span>
-                        <span class="lp-card-run__meta"><time datetime="{{ item.run.startedAt|date('c') }}">{{ item.run.startedAt|relative_time }}</time> · {{ item.duration() }}</span>
-                        <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }}">{{ item.outcome.translationKey()|trans }}</span>
-                        <twig:ux:icon name="lucide:chevron-right" class="lp-card-run__chevron" />
-                    </a>
-                    {% else %}
-                    <p class="lp-card-detail__empty">{{ 'board.card.runs.empty'|trans }}</p>
-                    {% endfor %}
-                </section>
+                {# In the board drawer the board page subscribes, and a frame response would replace its cookie. #}
+                {% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' %}{% do mercure_subscribe(worker_runs_topic(card.project)) %}{% endif %}
+                <div class="lp-live-frame" data-controller="worker-run-refresh" data-worker-run-refresh-url-value="{{ path('app_project_card_worker_runs', {id: card.project.id, cardId: card.id}) }}">
+                    {% include '@Bridge/_card_worker_runs.html.twig' with {project: card.project, cardId: card.id ~ ''} only %}
+                </div>
             </div>
         </section>
         <section class="lp-card-panel" id="card-panel-details" role="tabpanel" aria-labelledby="card-tab-details" data-panel-tabs-target="panel" data-panel-panel="details" hidden>

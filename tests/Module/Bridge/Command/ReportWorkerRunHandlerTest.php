@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\Command;
 use App\Module\Bridge\Command\ReportWorkerRunCommand;
 use App\Module\Bridge\Command\ReportWorkerRunHandler;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -46,6 +47,7 @@ final class ReportWorkerRunHandlerTest extends KernelTestCase
         $stored = $em->find(WorkerRun::class, $id);
         self::assertInstanceOf(WorkerRun::class, $stored);
         self::assertFalse($stored->hasResult);
+        self::assertSame(WorkerRunState::NoResult, $stored->state);
 
         $context = $audit->record('bridge.worker_run_recorded')->context;
         self::assertArrayHasKey('hasResult', $context);

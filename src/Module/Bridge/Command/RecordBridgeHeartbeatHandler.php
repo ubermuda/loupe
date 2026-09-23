@@ -37,10 +37,7 @@ final readonly class RecordBridgeHeartbeatHandler
         // Two first heartbeats of one bridge would otherwise both miss the read
         // and one would trip the primary key.
         [$bridge, $created] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
-            $this->em->getConnection()->executeStatement(
-                'SELECT pg_advisory_xact_lock(hashtext(?))',
-                ['bridge:'.$ownerId.':'.$command->bridgeId->toRfc4122()],
-            );
+            $this->bridges->lockForWrite($ownerId, $command->bridgeId);
 
             $now = $this->clock->now();
             $bridge = $this->bridges->findOneByOwnerAndId($command->owner, $command->bridgeId);

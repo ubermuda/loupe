@@ -27,7 +27,7 @@ func TestRunWorkerLiftsTheCeilingAndReadsBothStreams(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"})
+	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, nil)
 	if res.err != nil || res.exitCode != 0 {
 		t.Fatalf("runWorker = %+v", res)
 	}
@@ -46,13 +46,13 @@ func TestRunWorkerSaysWhetherTheBridgeKilledIt(t *testing.T) {
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	if res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}); res.killed {
+	if res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, nil); res.killed {
 		t.Fatalf("a worker that exited on its own reads as killed: %+v", res)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
-	res := runWorker(ctx, workerSpec{dir: t.TempDir(), permissionMode: "plan", sessionID: testSession, prompt: "go"})
+	res := runWorker(ctx, workerSpec{dir: t.TempDir(), permissionMode: "plan", sessionID: testSession, prompt: "go"}, nil)
 	if !res.killed {
 		t.Fatalf("a worker the context ended does not read as killed: %+v", res)
 	}

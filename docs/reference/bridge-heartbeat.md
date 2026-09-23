@@ -92,6 +92,19 @@ The project inbox page reads the interval too. It warns on an open ask when its
 bridge sent no heartbeat in the last three intervals. See
 [When a bridge goes quiet](../using/inbox.md#when-a-bridge-goes-quiet).
 
+## Open runs of a quiet bridge
+
+A bridge that stops sending its heartbeat can no longer report how its runs
+end. A task runs each minute and marks each open run of a quiet bridge
+`timed-out`. A bridge is quiet when its last heartbeat is older than three
+intervals, and a lowered flag never shortens that wait. A later report from the
+bridge replaces the timeout.
+
+The bridge also sends the runs it holds to `PUT /api/bridges/{bridgeId}/runs`
+each time it connects to the hub. The server marks `lost` each open or timed-out
+run of that bridge that the list does not name. See
+[Timed out and lost](worker-runs.md#timed-out-and-lost).
+
 ## Deletion and export
 
 Deleting an account deletes the rows of its bridges. The data export holds them

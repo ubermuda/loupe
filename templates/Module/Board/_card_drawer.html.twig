@@ -1,3 +1,5 @@
+{# The drawer lists the card's runs, and a frame response cannot add a topic to the page that hosts it. #}
+{% if project is defined and project %}{% do mercure_subscribe(worker_runs_topic(project)) %}{% endif %}
 {% embed '_drawer.html.twig' with {
     class: 'lp-card-drawer-overlay',
     attributes: {

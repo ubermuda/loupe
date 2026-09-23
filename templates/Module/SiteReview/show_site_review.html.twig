@@ -166,7 +166,7 @@
     {% endif %}
 </turbo-frame>
 {% if is_feature_enabled('board.enabled') %}
-    {% include '@Board/_card_drawer.html.twig' with {} only %}
+    {% include '@Board/_card_drawer.html.twig' with {project: project} only %}
 {% endif %}
 </div>
 {% endblock %}

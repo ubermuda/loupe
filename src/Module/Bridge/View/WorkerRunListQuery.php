@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\View;
 
-use App\Module\Bridge\ValueObject\WorkerRunOutcome;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\Uid\Uuid;
 
@@ -22,7 +22,7 @@ final readonly class WorkerRunListQuery
     public function __construct(
         public int $page = 1,
         public ?string $search = null,
-        public ?WorkerRunOutcome $outcome = null,
+        public ?WorkerRunState $state = null,
         public ?Uuid $bridgeId = null,
     ) {
     }
@@ -37,8 +37,9 @@ final readonly class WorkerRunListQuery
             page: max(1, $query->getInt('page', 1)),
             search: '' === $search ? null : $search,
             // An unknown value is dropped rather than refused: a hand-edited URL
-            // should show the unfiltered list, not a 404.
-            outcome: WorkerRunOutcome::tryFrom($query->getString('outcome')),
+            // should show the unfiltered list, not a 404. The query word stays
+            // `outcome`, so a saved link keeps working.
+            state: WorkerRunState::tryFrom($query->getString('outcome')),
             bridgeId: Uuid::isValid($bridgeId) ? Uuid::fromString($bridgeId) : null,
         );
     }
@@ -56,7 +57,7 @@ final readonly class WorkerRunListQuery
     /** Whether the reader has narrowed the list, which separates "no runs yet" from "nothing matched". */
     public function isNarrowed(): bool
     {
-        return null !== $this->search || null !== $this->outcome || null !== $this->bridgeId;
+        return null !== $this->search || null !== $this->state || null !== $this->bridgeId;
     }
 
     /** @return array{page: int, search?: string, outcome?: string, bridge?: string} */
@@ -68,8 +69,8 @@ final readonly class WorkerRunListQuery
             $params['search'] = $this->search;
         }
 
-        if (null !== $this->outcome) {
-            $params['outcome'] = $this->outcome->value;
+        if (null !== $this->state) {
+            $params['outcome'] = $this->state->value;
         }
 
         if (null !== $this->bridgeId) {

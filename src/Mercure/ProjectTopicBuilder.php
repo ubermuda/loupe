@@ -40,12 +40,29 @@ final readonly class ProjectTopicBuilder
     /** The project a forBoard() topic names, or null for any other string. */
     public function projectIdFromBoardTopic(string $topic): ?Uuid
     {
+        return $this->projectIdFrom($topic, '/board');
+    }
+
+    /** The topic the worker run pages of a project listen on. The message names no run. */
+    public function forWorkerRuns(Uuid $projectId): string
+    {
+        return rtrim($this->appUrl, '/').'/projects/'.$projectId.'/worker-runs';
+    }
+
+    /** The project a forWorkerRuns() topic names, or null for any other string. */
+    public function projectIdFromWorkerRunsTopic(string $topic): ?Uuid
+    {
+        return $this->projectIdFrom($topic, '/worker-runs');
+    }
+
+    private function projectIdFrom(string $topic, string $suffix): ?Uuid
+    {
         $prefix = rtrim($this->appUrl, '/').'/projects/';
-        if (!str_starts_with($topic, $prefix) || !str_ends_with($topic, '/board')) {
+        if (!str_starts_with($topic, $prefix) || !str_ends_with($topic, $suffix)) {
             return null;
         }
 
-        $projectId = substr($topic, \strlen($prefix), -\strlen('/board'));
+        $projectId = substr($topic, \strlen($prefix), -\strlen($suffix));
 
         return Uuid::isValid($projectId) ? Uuid::fromString($projectId) : null;
     }

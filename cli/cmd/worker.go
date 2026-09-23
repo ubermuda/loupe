@@ -57,7 +57,9 @@ type workerSpec struct {
 // routing and the in-flight bookkeeping need no claude binary, and sessionID so
 // a test knows the id each worker gets.
 type workerOps struct {
-	run       func(ctx context.Context, spec workerSpec) workerResult
+	// run calls onStart once the process exists. A process that never starts
+	// never calls it, so the run never reads as running.
+	run       func(ctx context.Context, spec workerSpec, onStart func()) workerResult
 	sessionID func() string
 }
 
@@ -99,7 +101,7 @@ func workerEnv(environ []string) []string {
 
 // runWorker runs `claude -p --session-id <id> -- <prompt>`, or `--resume <id>`,
 // in the spec's dir and waits for it.
-func runWorker(ctx context.Context, spec workerSpec) workerResult {
+func runWorker(ctx context.Context, spec workerSpec, onStart func()) workerResult {
 	args := workerArgs(spec)
 
 	// One writer value for both streams, so os/exec drains them through one pipe
@@ -127,7 +129,13 @@ func runWorker(ctx context.Context, spec workerSpec) workerResult {
 		return err
 	}
 
-	err := cmd.Run()
+	if err := cmd.Start(); err != nil {
+		return workerResult{output: captured.text(), err: err}
+	}
+	if onStart != nil {
+		onStart()
+	}
+	err := cmd.Wait()
 	res := workerResult{
 		output:    captured.text(),
 		hasResult: scanner.matched,

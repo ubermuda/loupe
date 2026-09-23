@@ -79,7 +79,11 @@ test('a column renamed in one browser shows in another without a reload', async 
     await openBoard(watcher, boardUrl);
     const renewed = await renewal;
     expect(renewed.status()).toBe(200);
-    expect((await renewed.json()).topics).toHaveLength(1);
+    // The board topic, and the run topic of the card drawer the board hosts.
+    const topics: string[] = (await renewed.json()).topics;
+    expect(topics).toHaveLength(2);
+    expect(topics.some((topic) => topic.endsWith('/board'))).toBe(true);
+    expect(topics.some((topic) => topic.endsWith('/worker-runs'))).toBe(true);
 
     // A full navigation would drop this marker, and a frame reload keeps it.
     await watcher.evaluate(() => {

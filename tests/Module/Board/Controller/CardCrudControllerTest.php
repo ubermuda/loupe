@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
+use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
@@ -14,8 +15,10 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Security\CardFeedbackVoter;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Module\Board\CardMovedOutbox;
+use App\Tests\Support\MercureCookies;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -28,6 +31,7 @@ use Symfony\Component\Uid\Uuid;
 final class CardCrudControllerTest extends WebTestCase
 {
     use BoardScenario;
+    use MercureCookies;
 
     #[TestWith([false])]
     #[TestWith([true])]
@@ -419,10 +423,11 @@ final class CardCrudControllerTest extends WebTestCase
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            sessionId: Uuid::v4(),
             cardId: $card->id ?? throw new \LogicException('card id after flush'),
             cardNumber: $card->number,
             ruleName: 'plan the card',
+            state: WorkerRunState::Failed,
+            sessionId: Uuid::v4(),
             startedAt: new \DateTimeImmutable('-2 hours'),
             endedAt: new \DateTimeImmutable('-2 hours +3 minutes'),
             exitCode: 1,
@@ -465,6 +470,55 @@ final class CardCrudControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$quiet->id);
         self::assertCount(0, $crawler->filter('[data-card-runs] [data-card-run]'));
         self::assertSelectorTextContains('[data-card-runs]', 'No agent has run on this card yet.');
+    }
+
+    /** A queued run has no session, no start and no end yet, and the card still lists it. */
+    public function test_the_card_page_lists_a_run_that_has_not_started(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'card-queued-run@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Waits for a worker');
+        $run = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v7(),
+            cardId: $card->id ?? throw new \LogicException('card id after flush'),
+            cardNumber: $card->number,
+            ruleName: 'queued rule',
+            state: WorkerRunState::Queued,
+            runKey: Uuid::v7(),
+            receivedAt: new \DateTimeImmutable('2026-03-04 05:06:00'),
+        );
+        $em->persist($run);
+        $em->flush();
+        $runId = (string) $run->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
+
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('[data-card-runs] [data-card-run="'.$runId.'"]');
+        self::assertSame('Queued', $row->filter('.lp-status-chip')->text());
+        self::assertSame('2026-03-04T05:06:00+00:00', $row->filter('time')->attr('datetime'));
+        self::assertStringNotContainsString('·', $row->filter('.lp-card-run__meta')->text());
+        // A live update reloads the section from the Bridge fragment, not the whole card.
+        $refresh = $crawler->filter('[data-controller="worker-run-refresh"]');
+        self::assertSame('/projects/'.$project->id.'/worker-runs/card/'.$card->id, $refresh->attr('data-worker-run-refresh-url-value'));
+        self::assertCount(1, $refresh->filter('turbo-frame#card-worker-runs[data-worker-run-refresh-target="frame"] [data-card-runs]'));
+        self::assertNull($refresh->filter('turbo-frame#card-worker-runs')->attr('src'));
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
+        $runTopic = $topics->forWorkerRuns($project->id ?? throw new \LogicException('project id after flush'));
+        self::assertContains($runTopic, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value')));
+
+        // In the board drawer the board page holds the topic, so the frame response leaves the cookie alone.
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id, server: ['HTTP_TURBO_FRAME' => 'card-drawer-frame']);
+        self::assertResponseIsSuccessful();
+        self::assertNotContains($runTopic, self::subscribedTopics($client->getResponse()) ?? []);
     }
 
     public function test_a_stranger_cannot_reach_a_card(): void

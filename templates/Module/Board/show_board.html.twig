@@ -56,6 +56,6 @@
         </turbo-frame>
     </div>
 
-    {% include '@Board/_card_drawer.html.twig' with {} only %}
+    {% include '@Board/_card_drawer.html.twig' with {project: board.project} only %}
 </div>
 {% endblock %}

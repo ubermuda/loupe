@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\EventListener;
 
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Service\ProjectDeleter;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -37,6 +39,25 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         $remaining = $this->allRuns();
         self::assertCount(1, $remaining);
         self::assertSame((string) $keptRunId, (string) $remaining[0]->id);
+    }
+
+    /** The listener deletes with DQL, which skips the ORM, so only the foreign key can take the history. */
+    public function test_deleting_a_project_takes_the_state_history_of_its_runs(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $doomed = $this->project($em, $this->user($em, 'runs-history-delete@example.com'), 'Doomed History');
+        $run = $this->seedRun($em, $doomed);
+        $em->persist(new WorkerRunStateChange($run, WorkerRunState::Succeeded, new \DateTimeImmutable()));
+        $em->flush();
+        $connection = $em->getConnection();
+        self::assertSame(1, (int) $connection->fetchOne('SELECT COUNT(*) FROM bridge_worker_run_states'));
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM bridge_worker_run_states'));
     }
 
     /**
