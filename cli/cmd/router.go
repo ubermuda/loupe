@@ -866,6 +866,7 @@ func (r *router) enqueueReport(p pending, res workerResult, began time.Time, ela
 	}
 	if res.err == nil {
 		run.ExitCode = &res.exitCode
+		run.HasResult = &res.hasResult
 	} else {
 		reason := res.err.Error()
 		run.FailureReason = &reason
@@ -889,13 +890,17 @@ func (r *router) logResult(p pending, res workerResult, elapsed time.Duration) {
 		"duration_ms", elapsed.Milliseconds(),
 		"output", res.output,
 	)
-	if res.exitCode != 0 {
+	switch {
+	case res.killed:
 		r.log.Error("worker_finished", args...)
-
-		return
+	case !res.hasResult:
+		// claude -p can end a worker mid-task and still exit 0.
+		r.log.Error("worker_no_result", args...)
+	case res.exitCode != 0:
+		r.log.Error("worker_finished", args...)
+	default:
+		r.log.Info("worker_finished", args...)
 	}
-
-	r.log.Info("worker_finished", args...)
 }
 
 func (r *router) workerContext() context.Context {

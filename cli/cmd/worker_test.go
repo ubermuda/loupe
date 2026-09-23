@@ -2,9 +2,84 @@ package cmd
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
+
+const ceilingVar = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="
+
+// claude -p ends a worker at its background wait ceiling and exits 0. The
+// bridge lifts the ceiling unless the operator set it.
+func TestWorkerEnvLiftsTheWaitCeiling(t *testing.T) {
+	base := make([]string, 1, 2)
+	base[0] = "HOME=/home/a"
+
+	got := workerEnv(base)
+	if !slices.Equal(got, []string{"HOME=/home/a", ceilingVar + "0"}) {
+		t.Fatalf("workerEnv = %q", got)
+	}
+	if extended := base[:2]; extended[1] != "" {
+		t.Fatalf("workerEnv wrote into the caller's array: %q", extended)
+	}
+}
+
+func TestWorkerEnvKeepsTheOperatorsCeiling(t *testing.T) {
+	for _, set := range []string{ceilingVar + "5000", ceilingVar + "0", ceilingVar} {
+		base := []string{"HOME=/home/a", set}
+		if got := workerEnv(base); !slices.Equal(got, base) {
+			t.Fatalf("workerEnv(%q) = %q", base, got)
+		}
+	}
+}
+
+func scan(chunks ...string) bool {
+	s := &resultScanner{}
+	for _, c := range chunks {
+		if n, err := s.Write([]byte(c)); n != len(c) || err != nil {
+			panic("short write")
+		}
+	}
+
+	return s.matched
+}
+
+func TestResultScannerFindsAResultLine(t *testing.T) {
+	long := strings.Repeat("x", 4100) + "\n"
+	for name, chunks := range map[string][]string{
+		"first line":            {"STAGE RESULT: done"},
+		"later line":            {"working\nSTAGE RESULT: done\n"},
+		"split in two":          {"work\nSTAGE RES", "ULT: done"},
+		"split byte by byte":    strings.Split("a\nSTAGE RESULT: x", ""),
+		"split at the newline":  {"work", "\n", "STAGE RESULT:"},
+		"after the output cap":  {long, long, "STAGE RESULT: done"},
+		"after a miss":          {"xSTAGE RESULT: no\nSTAGE RESULT: yes"},
+		"after a partial reset": {"STAGE", "\nSTAGE RESULT: x"},
+		"after an indented one": {" STAGE RESULT: no\nSTAGE RESULT: yes"},
+		"stays matched":         {"STAGE RESULT: x\n", "more output"},
+	} {
+		if !scan(chunks...) {
+			t.Errorf("%s: no result found in %q", name, chunks)
+		}
+	}
+}
+
+func TestResultScannerIgnoresAnythingElse(t *testing.T) {
+	for name, chunks := range map[string][]string{
+		"empty":             {},
+		"mid-line":          {"xSTAGE RESULT: done"},
+		"indented":          {" STAGE RESULT: done"},
+		"tab-indented":      {"\tSTAGE RESULT: done"},
+		"mid-line, split":   {"work STAGE RES", "ULT: done"},
+		"partial then line": {"STAGE RES\nULT: done"},
+		"lower case":        {"stage result: done"},
+		"no colon":          {"STAGE RESULT done"},
+	} {
+		if scan(chunks...) {
+			t.Errorf("%s: found a result in %q", name, chunks)
+		}
+	}
+}
 
 // TestCapWriterBoundsWhatItKeeps pins the memory bound: a chatty worker must
 // not be buffered whole just to report 4 KB of it.

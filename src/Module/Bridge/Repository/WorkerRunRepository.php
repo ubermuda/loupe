@@ -141,7 +141,8 @@ class WorkerRunRepository extends ServiceEntityRepository
 
         if (null !== $outcome) {
             match ($outcome) {
-                WorkerRunOutcome::Succeeded => $qb->andWhere('r.exitCode = 0'),
+                WorkerRunOutcome::Succeeded => $qb->andWhere('r.exitCode = 0 AND (r.hasResult IS NULL OR r.hasResult = true)'),
+                WorkerRunOutcome::NoResult => $qb->andWhere('r.exitCode = 0 AND r.hasResult = false'),
                 WorkerRunOutcome::Failed => $qb->andWhere('r.exitCode IS NOT NULL AND r.exitCode <> 0'),
                 WorkerRunOutcome::NotStarted => $qb->andWhere('r.exitCode IS NULL'),
             };

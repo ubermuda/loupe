@@ -3,4 +3,5 @@ twig_component:
     defaults:
         # Namespace & directory for components, per owning module
         App\Module\Billing\Twig\Components\: 'Module/Billing/components/'
+        App\Module\GitHub\Twig\Components\: 'Module/GitHub/components/'
         App\Module\Review\Twig\Components\: 'Module/Review/components/'

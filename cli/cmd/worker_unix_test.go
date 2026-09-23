@@ -3,12 +3,60 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 	"testing"
+	"time"
 )
+
+// A stand-in claude prints the ceiling it got on stdout and its result line on
+// stderr, so the test sees the environment and the shared stream wiring.
+func TestRunWorkerLiftsTheCeilingAndReadsBothStreams(t *testing.T) {
+	bin := t.TempDir()
+	script := "#!/bin/sh\necho \"ceiling=$" + ceilingEnv + "\"\necho 'STAGE RESULT: done' >&2\n"
+	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv(ceilingEnv, "")
+	if err := os.Unsetenv(ceilingEnv); err != nil {
+		t.Fatal(err)
+	}
+
+	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"})
+	if res.err != nil || res.exitCode != 0 {
+		t.Fatalf("runWorker = %+v", res)
+	}
+	if !res.hasResult || res.output != "ceiling=0\nSTAGE RESULT: done" {
+		t.Fatalf("runWorker = %+v", res)
+	}
+}
+
+// A claude that the bridge's context kills reads as killed, and one that ends
+// on its own does not.
+func TestRunWorkerSaysWhetherTheBridgeKilledIt(t *testing.T) {
+	bin := t.TempDir()
+	script := "#!/bin/sh\n[ \"$1\" = -p ] && exit 0\nexec sleep 30\n"
+	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	if res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}); res.killed {
+		t.Fatalf("a worker that exited on its own reads as killed: %+v", res)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	res := runWorker(ctx, workerSpec{dir: t.TempDir(), permissionMode: "plan", sessionID: testSession, prompt: "go"})
+	if !res.killed {
+		t.Fatalf("a worker the context ended does not read as killed: %+v", res)
+	}
+}
 
 // TestSetProcessGroupIsWired keeps the group kill in place. Without Setpgid and
 // a Cancel of its own, cancelling the bridge kills claude and leaves the tools

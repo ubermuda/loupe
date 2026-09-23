@@ -338,14 +338,19 @@ empty.
 Two identical URLs in one call are stored once, a blank entry is dropped, and
 the links read back in the order they were added.
 
-### Loupe reads no forge
+### What GitHub tells a card
 
-This version makes no outbound call to GitHub or to any other host. Loupe never
-asks whether a linked pull request is open, merged or closed.
+The project owner connects the project's GitHub repositories on the Connections
+tab. [Projects](projects.md#repositories) describes how. After that, a merge, a
+review or a check result in a connected repository reaches each card of that
+project which links the pull request. Your agent receives it as an event.
 
-A merged pull request therefore does not move its card. Nothing watches the
-forge, and there is no webhook to point at Loupe. Move the card to a terminal
-column yourself, or have your agent move it with `card_update`.
+A card in another project gets nothing, even when it links the same pull
+request.
+
+Loupe does not ask GitHub about a pull request. It learns only what GitHub
+sends. A card does not move by itself when its pull request merges. Move it to
+a terminal column yourself, or have your agent move it with `card_update`.
 
 ## The MCP tools
 

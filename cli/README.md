@@ -505,6 +505,19 @@ took. It owns the worker's streams, so it reports what the worker said as well,
 on a clean exit and on a failure alike. Output past 4 KB is dropped and the
 report says so.
 
+The bridge sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` in each worker's
+environment. Without it, `claude -p` ends a worker 600 seconds after its main
+turn when a background subagent still runs, and exits 0. A hung subagent
+therefore holds its worker slot until you stop the `claude` process. To keep a ceiling,
+set the variable in the bridge's own environment. The bridge then passes your
+value unchanged, and an empty value counts as set.
+
+Every prompt ends with a request to finish the final reply with a line that
+starts with `STAGE RESULT:`. The bridge reads the whole output of both streams
+for that line, past the 4 KB it keeps. A worker that exits with no such line
+logs `worker_no_result`, whatever its exit code. The worker run report carries
+the check as `hasResult`.
+
 One bridge gives a card one worker at a time, on purpose: two agents working one
 card in one checkout undo each other's work. The bridge keys a card by its id,
 the event's `subject.id`, which every event type carries. Card numbers repeat
@@ -767,7 +780,8 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `worker_started` | `card`, `project`, `rule`, `session_id`, and `ask` for a resume |
 | `resume_skipped` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `message`: the session read every item of its ask, so no worker ran |
 | `resume_check_failed` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `error`, `message`: the ask check failed, and the session resumes. Level `WARN` |
-| `worker_finished` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output` |
+| `worker_finished` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`. Level `ERROR` for a non-zero `exit` |
+| `worker_no_result` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`: the output held no `STAGE RESULT:` line. Level `ERROR` |
 | `worker_failed` | `card`, `project`, `rule`, `error`: the process never ran |
 | `queue_dropped` | `count`, `dropped`: a list of `{card, rule}`, with `ask` for a resume, and `reason`: `reload` when a reload dropped the events |
 | `control_listening` | `socket`: the path that `loupe bridge reload` reaches |
@@ -784,6 +798,13 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 `queue_depth` counts the accepted events waiting at that moment, the new one
 included. `worker_failed` and `worker_finished` name two different faults: a
 process that never ran, and a process that ran and returned a non-zero code.
+`worker_no_result` names a third: a process that ran and printed no result
+line, so a clean exit does not prove the work finished. A worker writes one of
+`worker_finished` and `worker_no_result`, never both.
+
+When the bridge itself shuts down, for example on Ctrl-C, it stops its running
+workers. Each of those logs `worker_finished` at `ERROR`, with or without a
+result line.
 
 Read a live run with `jq`:
 

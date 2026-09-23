@@ -114,6 +114,16 @@ only witness of those, so it posts a record of each run to
 start and end times, the exit code and the output. One bridge follows several
 projects, so the handle is the id of the project the event carried.
 
+A clean exit does not prove that the work finished. Every prompt asks the
+worker to end its final reply with a line that starts with `STAGE RESULT:`. The
+bridge reads the whole output for that line. A worker with no such line logs
+`worker_no_result` at `ERROR`, and its record carries `hasResult: false`.
+
+The bridge sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` for each worker. Without
+it, `claude -p` ends a worker 600 seconds after its main turn when a background
+subagent still runs, and exits 0. An operator who sets the variable, even to an
+empty value, keeps that value.
+
 Loupe records a run against a card. A rule can name an event type that carries
 no card number, and the bridge logs `report_skipped` for such a run rather than
 sending it. That run has no record, and the log line is the only sign of it.

@@ -47,10 +47,10 @@ final class BearerTokenTest extends TestCase
     {
         return new OAuthAccessTokenAuthenticator(
             static fn () => throw new \LogicException('supports() must decide before the resource server is built.'),
-            $this->createMock(HttpMessageFactoryInterface::class),
-            $this->createMock(UserRepository::class),
-            $this->createMock(ProjectRepository::class),
-            $this->createMock(AccessTokenManagerInterface::class),
+            self::createStub(HttpMessageFactoryInterface::class),
+            self::createStub(UserRepository::class),
+            self::createStub(ProjectRepository::class),
+            self::createStub(AccessTokenManagerInterface::class),
             new McpResource('https://loupe.example'),
             new NullLogger(),
             SilentAuditor::create(),
