@@ -1,6 +1,6 @@
 {#- A card as a row of a linked items table. Props: card (Card), href (string), drawer (bool: open it in the card drawer), kind (optional CardLinkKind: adds a first cell that names the link). -#}
 <tr data-linked-card="{{ card.id }}">
-    {% if kind is defined and kind is not null %}<td><span class="lp-tag">{{ kind.translationKey()|trans }}</span></td>{% endif %}
+    {%- if kind is defined and kind is not null %}<td><span class="lp-tag">{{ kind.translationKey()|trans }}</span></td>{% endif %}
     <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:layout-list" class="w-4 h-4" />{{ 'inbox.linked_items.card'|trans }}</span><strong>#{{ card.number }} {{ card.title }}</strong></td>
     <td>{% include '@Board/_column_tag.html.twig' with {column: card.column} only %}</td>
     <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ href }}"{% if drawer %} data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare"{% endif %} aria-label="{{ 'inbox.linked_items.open_card'|trans({'%title%': card.title}) }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></a></td>
