@@ -25,8 +25,10 @@ use Symfony\Component\Uid\Uuid;
  * a different question from the one CardVoter answers: the token authenticates
  * as the project owner, so an ownership check alone would let a token bound to
  * one of a user's projects reach cards in another. The voter also writes the
- * audit record a refusal leaves, which a project-scoped query cannot, because
- * it returns nothing and the vote never runs.
+ * audit record a refusal leaves, which a project-scoped query cannot.
+ *
+ * A number is unique only inside a project, so it is looked up in the bound
+ * project. The vote still runs on the result, so both paths share one check.
  */
 final readonly class BoardSubjectResolver
 {
@@ -59,6 +61,38 @@ final readonly class BoardSubjectResolver
             // another project", so a tool cannot probe what exists outside the
             // token's project.
             throw new ToolCallException(\sprintf('Card "%s" not found or not accessible.', $cardId));
+        }
+
+        return $card;
+    }
+
+    /** @param McpBoundProjectVoter::CARD_READ|McpBoundProjectVoter::CARD_WRITE $attribute */
+    public function requireCardByIdOrNumber(?string $cardId, ?int $number, string $attribute): Card
+    {
+        if (null !== $cardId && null !== $number) {
+            throw new ToolCallException('Pass cardId or number, not both.');
+        }
+
+        if (null !== $cardId) {
+            return $this->requireCard($cardId, $attribute);
+        }
+
+        if (null === $number) {
+            throw new ToolCallException('Pass cardId or number.');
+        }
+
+        if ($number < 1) {
+            throw new ToolCallException(\sprintf('Card numbers count from 1, so %d is not a card number.', $number));
+        }
+
+        $card = $this->cards->findOneByProjectAndNumber($this->requireBoundProject($this->projectResolver), $number);
+
+        if (null === $card) {
+            throw new ToolCallException(\sprintf('This project has no card %d.', $number));
+        }
+
+        if (!$this->authorization->isGranted($attribute, $card)) {
+            throw new ToolCallException(\sprintf('Card %d is not accessible.', $number));
         }
 
         return $card;
@@ -153,7 +187,9 @@ final readonly class BoardSubjectResolver
         try {
             return Uuid::fromString($id);
         } catch (\InvalidArgumentException $e) {
-            throw new ToolCallException(\sprintf('"%s" is not a valid card ID.', $id), previous: $e);
+            $hint = ctype_digit($id) ? ' To read a card by its number, pass number instead.' : '';
+
+            throw new ToolCallException(\sprintf('"%s" is not a valid card ID.%s', $id, $hint), previous: $e);
         }
     }
 }

@@ -30,6 +30,11 @@ class CardRepository extends ServiceEntityRepository
         parent::__construct($registry, Card::class);
     }
 
+    public function findOneByProjectAndNumber(Project $project, int $number): ?Card
+    {
+        return $this->findOneBy(['project' => $project, 'number' => $number]);
+    }
+
     /**
      * Open cards of a project for the widget's picker, newest first, optionally
      * narrowed by a substring of the title.

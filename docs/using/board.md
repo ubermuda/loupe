@@ -294,16 +294,20 @@ The field was called `origin` until this release. `card_create` still accepts
 `origin` for one release, so an agent written against the old name keeps
 working. Move to `reporter`. When a call sends both, `reporter` wins.
 
-### The number is for people, the id is for tools
+### The number and the id
 
 The number is the handle a person uses. Say "card 42" in conversation, in a pull
 request body, or in a branch name. It counts from 1 inside one project, so two
 projects each have a card 1.
 
-The MCP tools do not take the number. `cardId` is the card's UUID, and every
-tool that reads or writes a card wants that value. `card_create`, `card_get`,
-`card_list` and `card_update` all report the number in what they return. No tool
-looks a card up by its number.
+`cardId` is the card's UUID. `card_get` and `card_update` take either `cardId`
+or `number`. Send exactly one of them, because a call with both or with neither
+is refused. A number resolves only inside the project that the MCP connection is
+bound to. An unknown number gives the error "This project has no card 42."
+
+The other tools take no number. `card_create`, `card_list` and `card_search`
+report both `cardId` and `number` in what they return. The card page URL still
+takes the UUID alone.
 
 ## Pull request links
 
@@ -359,8 +363,8 @@ An agent drives the board through the MCP endpoint. See
 | `card_create` | `title`, `body` and `type` are required. `status`, `reporter` and `pullRequestUrls` are optional. `origin` is the old name for `reporter` and is deprecated. |
 | `card_list` | `status`, `type` and `reporter`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
 | `card_search` | `query` is required. `page` and `perPage` are optional. |
-| `card_get` | `cardId`. |
-| `card_update` | `cardId` is required. `title`, `body`, `type`, `status` and `pullRequestUrls` are optional. |
+| `card_get` | Exactly one of `cardId` and `number`. |
+| `card_update` | Exactly one of `cardId` and `number` is required. `title`, `body`, `type`, `status` and `pullRequestUrls` are optional. |
 
 `board_columns` lists the columns of the board in board order. Each entry
 carries `slug`, `label`, `terminal` and `default`. `card_list` returns the same
@@ -407,7 +411,7 @@ row is the same summary `card_list` returns, so call `card_get` for a body.
 
 `card_get` returns one card with its full Markdown body, every pull request
 linked to it, and every site-review comment pointing at it. Use a card id that
-`card_list`, `card_search` or `card_create` gave you.
+`card_list`, `card_search` or `card_create` gave you, or the card number.
 
 ## Cards raised from the review widget
 

@@ -9,6 +9,7 @@ use App\Module\Board\Mcp\CardGetTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class CardGetToolTest extends KernelTestCase
@@ -88,5 +89,62 @@ final class CardGetToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('"not-a-uuid" is not a valid card ID.');
         ($this->tool)('not-a-uuid');
+    }
+
+    public function test_a_card_reads_back_by_its_number(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-number'));
+        ($this->createTool)('First', 'Body', 'feature');
+        $second = ($this->createTool)('Second', 'Body', 'feature');
+
+        $card = ($this->tool)(number: 2);
+
+        self::assertSame($second['cardId'], $card['cardId']);
+        self::assertSame(2, $card['number']);
+    }
+
+    public function test_a_number_reads_the_card_of_the_bound_project(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-number-theirs'));
+        $theirs = ($this->createTool)('Theirs', 'Body', 'feature');
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-number-mine'));
+        $mine = ($this->createTool)('Mine', 'Body', 'feature');
+        self::assertSame($theirs['number'], $mine['number']);
+
+        $card = ($this->tool)(number: 1);
+
+        self::assertSame($mine['cardId'], $card['cardId']);
+    }
+
+    public function test_an_unknown_number_is_refused_with_the_number(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-number-unknown'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('This project has no card 7.');
+        ($this->tool)(number: 7);
+    }
+
+    /** @return iterable<string, array{?string, ?int, string}> */
+    public static function refusedHandles(): iterable
+    {
+        yield 'zero' => [null, 0, 'Card numbers count from 1, so 0 is not a card number.'];
+        yield 'negative' => [null, -3, 'Card numbers count from 1, so -3 is not a card number.'];
+        yield 'both' => ['01920000-0000-7000-8000-000000000000', 1, 'Pass cardId or number, not both.'];
+        yield 'neither' => [null, null, 'Pass cardId or number.'];
+    }
+
+    #[DataProvider('refusedHandles')]
+    public function test_a_bad_handle_is_refused(?string $cardId, ?int $number, string $message): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-refused'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage($message);
+        ($this->tool)($cardId, $number);
     }
 }
