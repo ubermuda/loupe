@@ -8,6 +8,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\BridgeLiveness;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -27,6 +28,7 @@ final readonly class TimeOutQuietWorkerRunsHandler
         private BridgeLiveness $liveness,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
+        private WorkerRunChangedPublisher $publisher,
     ) {
     }
 
@@ -41,7 +43,8 @@ final readonly class TimeOutQuietWorkerRunsHandler
 
         // The locked read keeps only the runs still open, so a report that
         // closed a run after the first read wins.
-        return $this->em->wrapInTransaction(function () use ($ids, $now): array {
+        /** @var list<WorkerRun> $timedOut */
+        $timedOut = $this->em->wrapInTransaction(function () use ($ids, $now): array {
             $runs = $this->workerRuns->findOpenByIdsForUpdate($ids);
             foreach ($runs as $run) {
                 $run->moveTo(WorkerRunState::TimedOut);
@@ -51,5 +54,11 @@ final readonly class TimeOutQuietWorkerRunsHandler
 
             return $runs;
         });
+
+        foreach ($timedOut as $run) {
+            $this->publisher->runsChanged($run->project);
+        }
+
+        return $timedOut;
     }
 }

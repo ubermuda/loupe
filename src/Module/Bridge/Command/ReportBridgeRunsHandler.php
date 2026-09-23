@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Command;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -23,13 +24,15 @@ final readonly class ReportBridgeRunsHandler
         private WorkerRunRepository $workerRuns,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
+        private WorkerRunChangedPublisher $publisher,
     ) {
     }
 
     /** @return list<WorkerRun> the runs whose state changed */
     public function __invoke(ReportBridgeRunsCommand $command): array
     {
-        return $this->em->wrapInTransaction(function () use ($command): array {
+        /** @var list<WorkerRun> $changed */
+        $changed = $this->em->wrapInTransaction(function () use ($command): array {
             $now = $this->clock->now();
             $changed = [];
             foreach ($this->workerRuns->findOpenOrTimedOutOfBridge($command->owner, $command->bridgeId) as $run) {
@@ -51,5 +54,11 @@ final readonly class ReportBridgeRunsHandler
 
             return $changed;
         });
+
+        foreach ($changed as $run) {
+            $this->publisher->runsChanged($run->project);
+        }
+
+        return $changed;
     }
 }

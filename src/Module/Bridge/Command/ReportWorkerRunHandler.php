@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Command;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
@@ -32,6 +33,7 @@ final readonly class ReportWorkerRunHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private ClockInterface $clock,
+        private WorkerRunChangedPublisher $publisher,
     ) {
     }
 
@@ -86,6 +88,7 @@ final readonly class ReportWorkerRunHandler
         });
 
         if ($result->created && null !== $result->run) {
+            $this->publisher->runsChanged($result->run->project);
             $this->auditor->record(
                 'bridge.worker_run_recorded',
                 AuditOutcome::Success,

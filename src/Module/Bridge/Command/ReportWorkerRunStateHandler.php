@@ -8,6 +8,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
@@ -35,6 +36,7 @@ final readonly class ReportWorkerRunStateHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private ClockInterface $clock,
+        private WorkerRunChangedPublisher $publisher,
     ) {
     }
 
@@ -88,6 +90,10 @@ final readonly class ReportWorkerRunStateHandler
         });
 
         [$result, $closes] = $outcome;
+        // A repeat of a state the run already held changes nothing a page shows.
+        if ($result->newState && null !== $result->run) {
+            $this->publisher->runsChanged($result->run->project);
+        }
         if ($closes && null !== $result->run) {
             $this->audit($result->run);
         }
