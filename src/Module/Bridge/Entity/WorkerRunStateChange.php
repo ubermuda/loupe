@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Entity;
 
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -23,6 +24,10 @@ class WorkerRunStateChange
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
     #[ORM\Id]
     public private(set) ?Uuid $id = null;
+
+    /** The insertion order. Two states of one second read in the order they were written. */
+    #[ORM\Column(type: Types::BIGINT, unique: true, insertable: false, updatable: false, generated: 'INSERT')]
+    public private(set) ?string $sequence = null;
 
     public function __construct(
         // The cascade lives in the database, because the retention sweep and

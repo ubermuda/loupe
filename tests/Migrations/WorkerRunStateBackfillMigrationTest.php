@@ -11,6 +11,7 @@ use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Doctrine\DBAL\Schema\Schema;
 use DoctrineMigrations\Version20260923185847;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -57,44 +58,33 @@ final class WorkerRunStateBackfillMigrationTest extends KernelTestCase
         );
     }
 
-    /** A run that started and ended in one second still reads its start first. */
-    public function test_two_states_of_one_second_read_in_the_order_they_happen(): void
+    /** @return iterable<string, array{list<WorkerRunState>}> */
+    public static function oneSecond(): iterable
+    {
+        yield 'a start and an end' => [[WorkerRunState::Running, WorkerRunState::Succeeded]];
+        yield 'a timeout and its reopening' => [[WorkerRunState::TimedOut, WorkerRunState::Running]];
+        yield 'a report and the loss after it' => [[WorkerRunState::Running, WorkerRunState::Lost]];
+        yield 'a loss and the outcome after it' => [[WorkerRunState::Lost, WorkerRunState::Failed]];
+    }
+
+    /**
+     * Two states of one second read in the order they were written.
+     *
+     * @param list<WorkerRunState> $written
+     */
+    #[DataProvider('oneSecond')]
+    public function test_two_states_of_one_second_read_in_the_order_they_were_written(array $written): void
     {
         self::bootKernel();
         $em = $this->em();
         $owner = $this->user($em, 'state-same-second@example.com');
         $project = $this->project($em, $owner, 'Same second');
         $run = $this->seedRun($em, $project);
-        $at = new \DateTimeImmutable('2026-01-01 10:00:00');
-        // The outcome first, so the insert order cannot be what puts the start first.
-        $em->persist(new WorkerRunStateChange($run, WorkerRunState::Succeeded, $at, $at));
-        $em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, $at, $at));
-        $em->flush();
-        $em->clear();
-
-        $repository = self::getContainer()->get(WorkerRunStateChangeRepository::class);
-        self::assertInstanceOf(WorkerRunStateChangeRepository::class, $repository);
-        $reloaded = $em->find(WorkerRun::class, $run->id);
-        self::assertInstanceOf(WorkerRun::class, $reloaded);
-
-        self::assertSame(
-            [WorkerRunState::Running, WorkerRunState::Succeeded],
-            array_map(static fn (WorkerRunStateChange $change): WorkerRunState => $change->state, $repository->findForRun($reloaded)),
-        );
-    }
-
-    /** A run that reopens in the second it timed out reads the timeout first. */
-    public function test_a_timeout_and_its_reopening_in_one_second_read_in_that_order(): void
-    {
-        self::bootKernel();
-        $em = $this->em();
-        $owner = $this->user($em, 'state-reopen-second@example.com');
-        $project = $this->project($em, $owner, 'Reopen second');
-        $run = $this->seedRun($em, $project);
         $at = new \DateTimeImmutable('2026-01-01 10:10:00');
-        $em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, $at, $at));
-        $em->persist(new WorkerRunStateChange($run, WorkerRunState::TimedOut, $at, $at));
-        $em->flush();
+        foreach ($written as $state) {
+            $em->persist(new WorkerRunStateChange($run, $state, $at, $at));
+            $em->flush();
+        }
         $em->clear();
 
         $repository = self::getContainer()->get(WorkerRunStateChangeRepository::class);
@@ -103,7 +93,7 @@ final class WorkerRunStateBackfillMigrationTest extends KernelTestCase
         self::assertInstanceOf(WorkerRun::class, $reloaded);
 
         self::assertSame(
-            [WorkerRunState::TimedOut, WorkerRunState::Running],
+            $written,
             array_map(static fn (WorkerRunStateChange $change): WorkerRunState => $change->state, $repository->findForRun($reloaded)),
         );
     }

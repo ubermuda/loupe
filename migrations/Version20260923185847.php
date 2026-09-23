@@ -29,7 +29,8 @@ final class Version20260923185847 extends AbstractMigration
         $this->addSql('CREATE UNIQUE INDEX uniq_bridge_worker_run_report ON bridge_worker_runs (project_id, bridge_id, card_id, started_at) WHERE (run_key IS NULL)');
         $this->addSql('CREATE UNIQUE INDEX uniq_bridge_worker_run_key ON bridge_worker_runs (project_id, bridge_id, run_key)');
 
-        $this->addSql('CREATE TABLE bridge_worker_run_states (id UUID NOT NULL, state VARCHAR(20) NOT NULL, at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, received_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, run_id UUID NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE TABLE bridge_worker_run_states (id UUID NOT NULL, sequence BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL, state VARCHAR(20) NOT NULL, at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, received_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, run_id UUID NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE UNIQUE INDEX UNIQ_5B6BE21D5286D72B ON bridge_worker_run_states (sequence)');
         $this->addSql('CREATE INDEX IDX_5B6BE21D84E3FEC4 ON bridge_worker_run_states (run_id)');
         $this->addSql('ALTER TABLE bridge_worker_run_states ADD CONSTRAINT FK_5B6BE21D84E3FEC4 FOREIGN KEY (run_id) REFERENCES bridge_worker_runs (id) ON DELETE CASCADE NOT DEFERRABLE');
         // Every run so far reported once, when it ended, so it gets the rows the old report writes today:

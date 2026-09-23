@@ -16,13 +16,6 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class WorkerRunStateChangeRepository extends ServiceEntityRepository
 {
-    /**
-     * Two states of one second read in the order they happen. A server guess
-     * comes first, because only a later bridge report replaces it. The bridge
-     * states follow the order of WorkerRunState::rank().
-     */
-    private const string RANK = "CASE WHEN c.state IN ('timed-out', 'lost') THEN 0 WHEN c.state = 'queued' THEN 1 WHEN c.state = 'resumed' THEN 2 WHEN c.state = 'running' THEN 3 ELSE 4 END";
-
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, WorkerRunStateChange::class);
@@ -30,7 +23,7 @@ class WorkerRunStateChangeRepository extends ServiceEntityRepository
 
     /**
      * The run's states, oldest first. Two states can carry the same second, such
-     * as a start and an end, so the state order breaks the tie, then arrival.
+     * as a start and an end, so the order they were written breaks the tie.
      *
      * @return list<WorkerRunStateChange>
      */
@@ -39,11 +32,8 @@ class WorkerRunStateChangeRepository extends ServiceEntityRepository
         return array_values($this->createQueryBuilder('c')
             ->andWhere('c.run = :run')
             ->setParameter('run', $run)
-            ->addSelect(self::RANK.' AS HIDDEN stateRank')
             ->orderBy('c.at', 'ASC')
-            ->addOrderBy('stateRank', 'ASC')
-            ->addOrderBy('c.receivedAt', 'ASC')
-            ->addOrderBy('c.id', 'ASC')
+            ->addOrderBy('c.sequence', 'ASC')
             ->getQuery()
             ->getResult());
     }
@@ -66,11 +56,8 @@ class WorkerRunStateChangeRepository extends ServiceEntityRepository
         $changes = $this->createQueryBuilder('c')
             ->andWhere('c.run IN (:runs)')
             ->setParameter('runs', $runs)
-            ->addSelect(self::RANK.' AS HIDDEN stateRank')
             ->orderBy('c.at', 'ASC')
-            ->addOrderBy('stateRank', 'ASC')
-            ->addOrderBy('c.receivedAt', 'ASC')
-            ->addOrderBy('c.id', 'ASC')
+            ->addOrderBy('c.sequence', 'ASC')
             ->getQuery()
             ->getResult();
 
@@ -112,11 +99,8 @@ class WorkerRunStateChangeRepository extends ServiceEntityRepository
             ->join('r.project', 'p')
             ->andWhere('p.owner = :user')
             ->setParameter('user', $user)
-            ->addSelect(self::RANK.' AS HIDDEN stateRank')
             ->orderBy('c.at', 'ASC')
-            ->addOrderBy('stateRank', 'ASC')
-            ->addOrderBy('c.receivedAt', 'ASC')
-            ->addOrderBy('c.id', 'ASC')
+            ->addOrderBy('c.sequence', 'ASC')
             ->getQuery()
             ->getResult());
     }
