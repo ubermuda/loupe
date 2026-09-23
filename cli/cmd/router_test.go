@@ -197,15 +197,22 @@ func newHarnessWith(t *testing.T, body string, defaults rules.Defaults) *harness
 	set, dir := loadRules(t, body, defaults)
 	w := &fakeWorker{result: workerResult{hasResult: true}}
 	h := &harness{worker: w, log: &syncBuffer{}, dir: dir}
-	h.router = &router{
+	h.router = withRules(&router{
 		log:        newBridgeLogger(h.log),
-		rules:      set,
 		maxWorkers: defaultMaxWorkers,
 		worker:     w.ops(),
 		bridgeID:   testBridgeID,
-	}
+	}, set)
 
 	return h
+}
+
+// withRules stores the rule set in a router literal, which cannot set an
+// atomic pointer.
+func withRules(r *router, set *rules.Set) *router {
+	r.set.Store(set)
+
+	return r
 }
 
 // lines parses the log. Every line must be one JSON object, so a test never
@@ -1436,7 +1443,7 @@ func TestTheVerdictKey(t *testing.T) {
 		"no card":        {0, testDocument},
 	} {
 		t.Run(name, func(t *testing.T) {
-			e, err := event.Parse([]byte(verdictPayload(tc.number, "approved")), h.router.rules.ExtraTypes())
+			e, err := event.Parse([]byte(verdictPayload(tc.number, "approved")), h.router.rules().ExtraTypes())
 			if err != nil {
 				t.Fatal(err)
 			}

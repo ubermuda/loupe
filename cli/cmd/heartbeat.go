@@ -37,12 +37,12 @@ type heartbeater struct {
 	queue    outbound.Queue
 	client   heartbeatSender
 	bridgeID string
-	body     api.Heartbeat
 	log      *slog.Logger
 	// after is time.After, and a field so a test waits for no real interval.
 	after func(time.Duration) <-chan time.Time
 
 	mu       sync.Mutex
+	body     api.Heartbeat
 	interval time.Duration
 	// reset wakes the loop to arm its timer with a new interval.
 	reset chan struct{}
@@ -109,6 +109,16 @@ func (h *heartbeater) setInterval(d time.Duration) {
 	}
 }
 
+// setBody applies a new body, and sends it at once, so the server reads the
+// new projects before the next interval.
+func (h *heartbeater) setBody(b api.Heartbeat) {
+	h.mu.Lock()
+	h.body = b
+	h.mu.Unlock()
+
+	h.send()
+}
+
 func (h *heartbeater) currentInterval() time.Duration {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -134,8 +144,12 @@ func (h *heartbeater) loop() {
 
 // send hands one heartbeat to the queue.
 func (h *heartbeater) send() {
+	h.mu.Lock()
+	body := h.body
+	h.mu.Unlock()
+
 	h.queue.SendLatest(heartbeatLane, func(ctx context.Context) error {
-		return h.client.Heartbeat(ctx, h.bridgeID, h.body)
+		return h.client.Heartbeat(ctx, h.bridgeID, body)
 	}, h.record)
 }
 

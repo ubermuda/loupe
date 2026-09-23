@@ -97,7 +97,7 @@ func TestATokenThatCannotRefreshGivesAMessageThatSaysToLogInAgain(t *testing.T) 
 }
 
 func TestARefusedProjectSaysWhichProjectWasAskedFor(t *testing.T) {
-	_, err := post(t, &Credentials{Tokens: api.StaticToken("static"), ProjectID: "01a0c0d9-905c-7922-a586-ccc8ce043704"}, func(w http.ResponseWriter, _ *http.Request) {
+	_, err := post(t, &Credentials{Tokens: api.StaticToken("static"), Project: fixed("01a0c0d9-905c-7922-a586-ccc8ce043704")}, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte("this login does not cover that project"))
 	})
@@ -112,6 +112,61 @@ func TestARefusedProjectSaysWhichProjectWasAskedFor(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "this login does not cover that project") {
 		t.Fatalf("message must carry the server's reason, got %v", err)
+	}
+}
+
+func fixed(project string) func() string {
+	return func() string { return project }
+}
+
+// A project that changes between two reads must not split one request: the
+// refusal names the project the request sent.
+func TestARequestReadsTheProjectOnce(t *testing.T) {
+	var calls int
+	projects := []string{"01a0c0d9-905c-7922-a586-ccc8ce043704", "0192f3c4-5d6e-7f80-9123-456789abcdef"}
+	var mu sync.Mutex
+	var sent []string
+	_, err := post(t, &Credentials{Tokens: api.StaticToken("static"), Project: func() string {
+		calls++
+
+		return projects[min(calls-1, 1)]
+	}}, func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		sent = append(sent, r.Header.Get(ProjectHeader))
+		mu.Unlock()
+		w.WriteHeader(http.StatusForbidden)
+	})
+	if calls != 1 {
+		t.Fatalf("Project calls: got %d, want 1", calls)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(sent) != 1 || sent[0] != projects[0] {
+		t.Fatalf("headers sent: %v", sent)
+	}
+	if err == nil || !strings.Contains(err.Error(), projects[0]) {
+		t.Fatalf("message must name the project the request sent, got %v", err)
+	}
+}
+
+func TestAnEmptyProjectSendsNoHeader(t *testing.T) {
+	for name, project := range map[string]func() string{"nil": nil, "empty": fixed("")} {
+		var mu sync.Mutex
+		var header []string
+		resp, err := post(t, &Credentials{Tokens: api.StaticToken("static"), Project: project}, func(_ http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			defer mu.Unlock()
+			header = r.Header.Values(ProjectHeader)
+		})
+		if err != nil {
+			t.Fatalf("%s: RoundTrip: %v", name, err)
+		}
+		resp.Body.Close()
+		mu.Lock()
+		defer mu.Unlock()
+		if len(header) != 0 {
+			t.Fatalf("%s: header = %v, want none", name, header)
+		}
 	}
 }
 

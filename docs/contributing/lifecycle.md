@@ -43,8 +43,8 @@ rule on the old slug stops working.
 
 The rule file is `rules.yaml`. It lives beside `config.json`:
 `~/Library/Application Support/loupe/` on macOS, and `$XDG_CONFIG_HOME/loupe/`
-or `~/.config/loupe/` on Linux. The bridge reads it at start only, so restart
-the bridge after a change.
+or `~/.config/loupe/` on Linux. After a change, run `loupe bridge reload` to
+apply the file to the running bridge.
 
 ```yaml
 projects:

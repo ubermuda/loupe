@@ -39,6 +39,12 @@ declaration. A worktree gets it for free. A repository with no `.loupe.yaml`
 still starts the server, with no project: your login then acts on your single
 project, or refuses and asks which one when you own several.
 
+`loupe mcp` reads `.loupe.yaml` again when the file changes, so a new project
+reaches the agent at its next request. A file that fails to parse keeps the last
+good project. A removed file sends no project, as if the repository had no
+file. Each change writes one line to stderr, which an agent shows as this
+server's log. With `--project`, the command never reads the file.
+
 When something else already answers to the name, `loupe init` says what it
 starts and offers to remove it. Removing always asks, whatever flags you passed,
 so a script never drops a declaration you made by hand. `--mcp` and `--no-mcp`

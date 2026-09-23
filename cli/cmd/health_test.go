@@ -174,9 +174,9 @@ func TestARejectedReportSaysWhatToFix(t *testing.T) {
 		reply  string
 		want   string
 	}{
-		"unknown project": {http.StatusNotFound, `{"error":"project_not_found"}`, "the server knows no project loupe of yours: fix the projects map in rules.yaml and restart the bridge"},
+		"unknown project": {http.StatusNotFound, `{"error":"project_not_found"}`, "the server knows no project loupe of yours: fix the projects map in rules.yaml and run loupe bridge reload"},
 		"old server":      {http.StatusNotFound, ``, "upgrade Loupe"},
-		"invalid field":   {http.StatusUnprocessableEntity, `{"violations":[{"propertyPath":"rules[0].name","title":"This value is too long."}]}`, "the server refused field name of rule plan of project loupe: fix rules.yaml and restart the bridge"},
+		"invalid field":   {http.StatusUnprocessableEntity, `{"violations":[{"propertyPath":"rules[0].name","title":"This value is too long."}]}`, "the server refused field name of rule plan of project loupe: fix rules.yaml and run loupe bridge reload"},
 		"no violations":   {http.StatusUnprocessableEntity, `{}`, "the server refused the report of project loupe: fix rules.yaml"},
 		"wrong scope":     {http.StatusForbidden, `{"error":"insufficient_scope"}`, "agent scope"},
 	} {

@@ -39,9 +39,9 @@ The path holds no project, because one bridge follows several projects.
 
 The server drops a project id it cannot match to one of the user's projects. It
 does not refuse the heartbeat. A project deleted while a bridge runs stays in
-that bridge's list until it restarts, and a refusal would make a running bridge
-look silent. Another user's project and a project that does not exist read the
-same.
+that bridge's list until you remove it from the rule file and reload or restart
+the bridge. A refusal would make a running bridge look silent. Another user's
+project and a project that does not exist read the same.
 
 The row keeps a deleted project's id until the next heartbeat drops it. Deleting
 a project does not touch the rows of the bridges that follow it.
