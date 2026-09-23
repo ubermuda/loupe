@@ -33,9 +33,11 @@ final readonly class ReportBridgeRunsHandler
     {
         /** @var list<WorkerRun> $changed */
         $changed = $this->em->wrapInTransaction(function () use ($command): array {
+            $runs = $this->workerRuns->findOpenOrTimedOutOfBridge($command->owner, $command->bridgeId);
+            // Read after the lock, so the row never predates a report that won it.
             $now = $this->clock->now();
             $changed = [];
-            foreach ($this->workerRuns->findOpenOrTimedOutOfBridge($command->owner, $command->bridgeId) as $run) {
+            foreach ($runs as $run) {
                 $held = $command->runs[$run->runKey?->toRfc4122() ?? ''] ?? null;
                 $state = match (true) {
                     null === $held => WorkerRunState::Lost,

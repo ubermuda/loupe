@@ -44,11 +44,13 @@ final readonly class TimeOutQuietWorkerRunsHandler
         // The locked read keeps only the runs still open, so a report that
         // closed a run after the first read wins.
         /** @var list<WorkerRun> $timedOut */
-        $timedOut = $this->em->wrapInTransaction(function () use ($ids, $now): array {
+        $timedOut = $this->em->wrapInTransaction(function () use ($ids): array {
             $runs = $this->workerRuns->findOpenByIdsForUpdate($ids);
+            // Read after the lock, so the row never predates a report that won it.
+            $at = $this->clock->now();
             foreach ($runs as $run) {
                 $run->moveTo(WorkerRunState::TimedOut);
-                $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::TimedOut, $now, $now));
+                $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::TimedOut, $at, $at));
             }
             $this->em->flush();
 

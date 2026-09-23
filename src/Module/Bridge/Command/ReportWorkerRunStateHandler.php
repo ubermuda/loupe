@@ -51,8 +51,10 @@ final readonly class ReportWorkerRunStateHandler
                 return [new ReportWorkerRunStateResult(null, newState: false), false];
             }
 
-            $receivedAt = $this->clock->now();
             $run = $this->workerRuns->findOneByRunKey($project, $command->bridgeId, $command->runKey);
+            // Read after the run lock, so a reopening never predates a timeout
+            // that the sweep wrote while this report waited.
+            $receivedAt = $this->clock->now();
             if (null === $run) {
                 $run = new WorkerRun(
                     project: $project,
