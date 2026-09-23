@@ -15,7 +15,8 @@ use Symfony\Component\Uid\Uuid;
 /**
  * Replaces every link that touches a card, whichever card wrote it. A pair
  * matches its row by the other card alone, so a change of kind or direction
- * updates the row in place. The caller holds the project lock and flushes.
+ * updates the row in place. The caller holds the project lock. The sync
+ * flushes, so a later sync never detaches a change it has not written.
  */
 final readonly class CardLinkSync
 {
@@ -82,5 +83,7 @@ final readonly class CardLinkSync
         foreach ($rows as $row) {
             $this->em->remove($row);
         }
+
+        $this->em->flush();
     }
 }

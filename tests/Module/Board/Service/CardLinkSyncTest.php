@@ -78,6 +78,19 @@ final class CardLinkSyncTest extends KernelTestCase
         self::assertSame([(string) $a->id, (string) $b->id, 'blocks'], $this->rowsOf($a)[(string) $b->id]);
     }
 
+    public function test_a_second_sync_keeps_what_the_first_one_wrote(): void
+    {
+        $project = $this->makeProject('sync-twice');
+        [$a, $b, $c] = [$this->cardIn($project), $this->cardIn($project), $this->cardIn($project)];
+        [$a, $b, $c] = [$this->reload($a), $this->reload($b), $this->reload($c)];
+
+        $this->sync->sync($a, [[$b, CardLinkKind::Blocks]]);
+        $this->sync->sync($c, [[$b, CardLinkKind::RelatesTo]]);
+        $this->em->clear();
+
+        self::assertSame(2, $this->links->count([]));
+    }
+
     public function test_blocked_by_stores_the_other_card_as_the_blocking_source(): void
     {
         $project = $this->makeProject('sync-insert');
