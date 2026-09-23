@@ -17,7 +17,7 @@ final class Version20260923153209 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        // The default fills a row that the previous image writes during a deploy or after a rollback.
+        // The previous image writes no state during a deploy or after a rollback. The trigger below corrects its rows.
         $this->addSql("ALTER TABLE bridge_worker_runs ADD state VARCHAR(20) DEFAULT 'failed' NOT NULL");
         $this->addSql('ALTER TABLE bridge_worker_runs ADD run_key UUID DEFAULT NULL');
         $this->addSql("UPDATE bridge_worker_runs SET state = CASE WHEN exit_code IS NULL THEN 'not-started' WHEN exit_code = 0 THEN 'succeeded' ELSE 'failed' END");
@@ -34,11 +34,27 @@ final class Version20260923153209 extends AbstractMigration
         $this->addSql('ALTER TABLE bridge_worker_run_states ADD CONSTRAINT FK_5B6BE21D84E3FEC4 FOREIGN KEY (run_id) REFERENCES bridge_worker_runs (id) ON DELETE CASCADE NOT DEFERRABLE');
         // Every run so far reported once, when it ended, so its outcome is its one known state.
         $this->addSql('INSERT INTO bridge_worker_run_states (id, run_id, state, at, received_at) SELECT gen_random_uuid(), id, state, ended_at, received_at FROM bridge_worker_runs');
+
+        // The previous image writes no state, so the default would call its every run failed.
+        // This image writes failed only with an exit code other than 0, so the trigger leaves its rows alone.
+        $this->addSql(<<<'SQL'
+            CREATE FUNCTION bridge_worker_runs_legacy_state() RETURNS trigger AS $$
+            BEGIN
+                IF NEW.run_key IS NULL AND NEW.state = 'failed' AND (NEW.exit_code IS NULL OR NEW.exit_code = 0) THEN
+                    NEW.state := CASE WHEN NEW.exit_code IS NULL THEN 'not-started' ELSE 'succeeded' END;
+                END IF;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+            SQL);
+        $this->addSql('CREATE TRIGGER bridge_worker_runs_legacy_state BEFORE INSERT ON bridge_worker_runs FOR EACH ROW EXECUTE FUNCTION bridge_worker_runs_legacy_state()');
     }
 
     #[\Override]
     public function down(Schema $schema): void
     {
+        $this->addSql('DROP TRIGGER IF EXISTS bridge_worker_runs_legacy_state ON bridge_worker_runs');
+        $this->addSql('DROP FUNCTION IF EXISTS bridge_worker_runs_legacy_state()');
         $this->addSql('DROP TABLE bridge_worker_run_states');
         // The old columns hold no run that never started or never ended.
         $this->addSql('DELETE FROM bridge_worker_runs WHERE started_at IS NULL OR ended_at IS NULL OR session_id IS NULL');
