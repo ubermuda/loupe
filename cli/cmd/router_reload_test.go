@@ -116,7 +116,7 @@ func TestAReloadThatFailsToParseKeepsTheSet(t *testing.T) {
 func TestAReloadOfAMissingFileIsOneProblem(t *testing.T) {
 	h := newHarness(t)
 
-	res := h.router.reload(context.Background(), newReloadSource(filepath.Join(t.TempDir(), "rules.yaml"), rules.Defaults{}, config.Config{}))
+	res := h.router.reload(context.Background(), newReloadSource(filepath.Join(t.TempDir(), "rules.yaml"), rules.Defaults{}, config.Config{}, nil))
 
 	if res.OK || res.Stage != "parse" || len(res.Problems) != 1 || !strings.Contains(res.Problems[0], "does not exist") {
 		t.Fatalf("result = %+v", res)

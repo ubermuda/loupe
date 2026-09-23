@@ -12,7 +12,7 @@ import (
 )
 
 // reloadResult says what a reload changed, or why it changed nothing. Stage
-// names the step that failed: parse, check or server.
+// names the step that failed: lock, parse, check or server.
 type reloadResult struct {
 	OK       bool     `json:"ok"`
 	Added    []string `json:"added,omitempty"`
@@ -24,21 +24,29 @@ type reloadResult struct {
 	Stage    string   `json:"stage,omitempty"`
 }
 
-// reloadSource gives a reload what it needs from the disk and the server; tests replace it.
+// reloadSource gives a reload what it needs from the disk and the server; tests
+// replace it. A nil lock takes no lock.
 type reloadSource struct {
+	lock   func() (done func(applied bool), err error)
 	load   func() (*rules.Set, error)
 	check  func(ctx context.Context, set *rules.Set) error
 	events func(ctx context.Context) (api.Events, error)
 }
 
 // newReloadSource reads the rule file at path with the bridge flags as
-// defaults, and checks it against the server of cfg.
-func newReloadSource(path string, defaults rules.Defaults, cfg config.Config) reloadSource {
-	return reloadSource{
+// defaults, and checks it against the server of cfg. A reload moves lock
+// when the path resolves to a new file.
+func newReloadSource(path string, defaults rules.Defaults, cfg config.Config, lock *bridgeLock) reloadSource {
+	src := reloadSource{
 		load:   func() (*rules.Set, error) { return rules.Load(path, defaults) },
 		check:  func(ctx context.Context, set *rules.Set) error { return set.Check(ctx, apiClient(cfg)) },
 		events: func(ctx context.Context) (api.Events, error) { return apiClient(cfg).Events(ctx) },
 	}
+	if lock != nil {
+		src.lock = lock.follow
+	}
+
+	return src
 }
 
 // reload builds a new rule set and swaps it in. It runs one at a time. It
@@ -64,6 +72,16 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 		r.mu.Unlock()
 	}()
 
+	done := func(bool) {}
+	if src.lock != nil {
+		var err error
+		if done, err = src.lock(); err != nil {
+			r.log.Error("reload_failed", "stage", "lock", "problems", []string{err.Error()})
+
+			return reloadResult{Stage: "lock", Problems: []string{err.Error()}}
+		}
+	}
+
 	timeout := r.buildTimeout
 	if timeout <= 0 {
 		timeout = reloadBuildTimeout
@@ -72,13 +90,16 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 	set, stage, err := buildSet(buildCtx, src)
 	cancel()
 	if err != nil {
+		done(false)
 		problems := problemsOf(err)
 		r.log.Error("reload_failed", "stage", stage, "problems", problems)
 
 		return reloadResult{Stage: stage, Problems: problems}
 	}
+	res := r.swap(set)
+	done(res.OK)
 
-	return r.swap(set)
+	return res
 }
 
 func shuttingDown() reloadResult {

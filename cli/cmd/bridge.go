@@ -150,7 +150,7 @@ func newBridgeRunCmd() *cobra.Command {
 				worker:     defaultWorkerOps(),
 				bridgeID:   bridgeID,
 				control:    control,
-				source:     newReloadSource(path, defaults, cfg),
+				source:     newReloadSource(path, defaults, cfg, lock),
 			}
 			r.set.Store(set)
 			r.log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath, "bridge_id", bridgeID)

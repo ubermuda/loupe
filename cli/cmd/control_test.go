@@ -177,6 +177,95 @@ func TestLockBridgeAllowsOneBridgePerRuleFile(t *testing.T) {
 	again.Close()
 }
 
+// lockTaken reports whether a bridge holds the lock of rulesPath.
+func lockTaken(t *testing.T, rulesPath string) bool {
+	t.Helper()
+	lock, err := lockBridge(rulesPath, "/tmp/probe.sock")
+	if err != nil {
+		return true
+	}
+	lock.Close()
+
+	return false
+}
+
+// repoint makes link name target.
+func repoint(t *testing.T, link, target string) {
+	t.Helper()
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A reload after a repoint reads the new target, so the lock moves there. A
+// reload that fails keeps the old lock.
+func TestAReloadMovesTheLockToTheNewTarget(t *testing.T) {
+	file, other, link := symlinkedRules(t)
+	h := newHarness(t)
+	lock, err := lockBridge(link, "/tmp/bridge.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Close()
+	repoint(t, link, other)
+
+	src := h.source("projects: {}\nrules: []\n")
+	src.lock = lock.follow
+	if res := h.router.reload(context.Background(), src); res.OK || res.Stage != "parse" {
+		t.Fatalf("result = %+v, want a parse failure", res)
+	}
+	if !lockTaken(t, file) || lockTaken(t, other) {
+		t.Fatal("a failed reload must keep the old lock and free the new one")
+	}
+
+	src = h.source(twoRuleFile)
+	src.lock = lock.follow
+	if res := h.router.reload(context.Background(), src); !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+	if lockTaken(t, file) || !lockTaken(t, other) {
+		t.Fatal("an applied reload must hold the new lock and free the old one")
+	}
+}
+
+func TestAReloadOntoTheRuleFileOfAnotherBridgeFails(t *testing.T) {
+	file, other, link := symlinkedRules(t)
+	h := newHarness(t)
+	old := h.router.rules()
+	lock, err := lockBridge(link, "/tmp/bridge.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Close()
+	second, err := lockBridge(other, "/tmp/second.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second.Close()
+	repoint(t, link, other)
+
+	src := h.source(twoRuleFile)
+	src.lock = lock.follow
+	res := h.router.reload(context.Background(), src)
+
+	if res.OK || res.Stage != "lock" || len(res.Problems) != 1 || !strings.Contains(res.Problems[0], "another bridge") {
+		t.Fatalf("result = %+v, want a lock failure", res)
+	}
+	if runtime.GOOS != "windows" && !strings.Contains(res.Problems[0], "/tmp/second.sock") {
+		t.Fatalf("problem = %q, want it to name the other bridge", res.Problems[0])
+	}
+	if h.router.rules() != old {
+		t.Fatal("a failed reload swapped the set")
+	}
+	second.Close()
+	if !lockTaken(t, file) {
+		t.Fatal("a failed reload must keep the old lock")
+	}
+}
+
 // A bridge that crashed leaves its socket file behind. Nothing listens on it,
 // so the next bridge removes it and starts.
 func TestListenControlRemovesAStaleSocket(t *testing.T) {
@@ -343,6 +432,41 @@ func TestBridgeReloadNeedsARunningBridge(t *testing.T) {
 	}
 }
 
+// A bridge that got a link listens on the socket of the link. A reload that
+// names the target finds that socket in the lock file.
+func TestBridgeReloadFindsTheBridgeThroughTheLock(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows refuses a read of a locked file")
+	}
+	file, _, link := symlinkedRules(t)
+	sock, _ := socketPath(link)
+	ln, err := listenControl(sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	served := serveControl(ctx, ln, func(context.Context) reloadResult {
+		return reloadResult{OK: true, Projects: []string{"loupe"}}
+	})
+	t.Cleanup(func() {
+		cancel()
+		<-served
+	})
+	lock, err := lockBridge(link, sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if out, _, err := reloadCmd(t, "--rules", file); err != nil || !strings.HasPrefix(out, "reloaded "+file+"\n") {
+		t.Fatalf("err = %v, stdout = %q", err, out)
+	}
+	// A lock file that no bridge holds names no bridge, even when its socket answers.
+	lock.Close()
+	if _, _, err := reloadCmd(t, "--rules", file); err == nil || err.Error() != "no running bridge reads "+file {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 // A running bridge answers a reload on its socket, and removes the socket when
 // it stops.
 func TestTheBridgeAnswersAReloadOnItsSocket(t *testing.T) {
@@ -369,7 +493,7 @@ func TestTheBridgeAnswersAReloadOnItsSocket(t *testing.T) {
 		t.Fatal(err)
 	}
 	log := &syncBuffer{}
-	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: (&fakeWorker{}).ops(), control: control, source: newReloadSource(path, rules.Defaults{}, cfg)}, set)
+	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: (&fakeWorker{}).ops(), control: control, source: newReloadSource(path, rules.Defaults{}, cfg, nil)}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
