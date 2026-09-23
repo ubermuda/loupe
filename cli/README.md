@@ -313,6 +313,7 @@ Each entry in `rules` takes these fields:
 | `maxChain` | no | The agent-triggered runs in a row this rule starts for one card. Defaults to `3`. At least 1. See [The chain cap](#the-chain-cap) |
 | `allowUntrusted` | no | Defaults to `false`. See below |
 | `resume` | for `inbox.ask_closed` | `true` resumes the session that asked. A rule on `inbox.ask_closed` needs it, and no other rule can set it. See [Resuming a session](#resuming-a-session) |
+| `verdict` | no | `approved` or `changes-requested`. Omitted, either verdict matches. Only a rule on `document.review_submitted` can set it. See [A review verdict](#a-review-verdict) |
 
 A field the format does not define stops the bridge at start, so a misspelt key
 never passes in silence. So does a `permissionMode` or a `model` that holds
@@ -339,6 +340,34 @@ inside one column fires nothing, because it carries that column on both sides.
 A rule can name an event type whose fields the bridge does not know. Such a rule
 matches on `project` alone, and it cannot set `to` or `from`.
 
+#### A review verdict
+
+Loupe writes `document.review_submitted` when a person approves a document or
+requests changes. The event names the stage card: the linked card in the column
+where the document's stage starts. This rule starts a fix round when a person
+requests changes on a design document:
+
+```yaml
+rules:
+  - name: fix-round
+    on: document.review_submitted
+    project: my-app
+    verdict: changes-requested
+    permissionMode: acceptEdits
+    prompt: |
+      Use the loupe-stage-fix-round skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}), column {column}.
+      A person requested changes on document {documentId}.
+      If the card is no longer in {column}, stop.
+```
+
+The bridge parses this type only when a rule names it. It accepts the verdicts
+`approved` and `changes-requested`, and logs any other as `event_malformed`.
+Every rule on this type skips an event that names no stage card, and logs
+nothing for it. An older version matched every verdict of the project, with or
+without a card. A server older than this bridge sends no card, so such a rule
+starts nothing.
+
 The server names the actor of every event: `human`, `agent`, `reviewer` or
 `system`. A reviewer is someone using the site-review widget, whom Loupe cannot
 authenticate. A rule skips a reviewer's event unless it sets
@@ -355,14 +384,17 @@ wrote on the board:
 
 | Placeholder | Value | Event types |
 |---|---|---|
-| `{cardId}` | The card's id, which `card_get` takes | `board.card_moved` |
-| `{cardNumber}` | The card's number in its project. For a resume with no known card, the word `unknown` | `board.card_moved`, `inbox.ask_closed` |
+| `{cardId}` | The card's id, which `card_get` takes | `board.card_moved`, `document.review_submitted` |
+| `{cardNumber}` | The card's number in its project. For a resume with no known card, the word `unknown` | `board.card_moved`, `inbox.ask_closed`, `document.review_submitted` |
 | `{projectId}` | The project's id | all |
 | `{project}` | The project's slug | all |
 | `{from}` | The column slug the card left | `board.card_moved` |
 | `{to}` | The column slug the card entered | `board.card_moved` |
 | `{askId}` | The id of the inbox ask that closed | `inbox.ask_closed` |
 | `{sessionId}` | The id of the session that asked | `inbox.ask_closed` |
+| `{column}` | The column slug of the stage card when the person gave the verdict | `document.review_submitted` |
+| `{documentId}` | The id of the reviewed document, which `document_get` takes | `document.review_submitted` |
+| `{verdict}` | `approved` or `changes-requested` | `document.review_submitted` |
 
 A placeholder the rule's event type cannot fill stops the bridge at start. Other
 braces, such as a JSON example, stay as written. The bridge adds this line to the
@@ -415,7 +447,11 @@ across projects, and an event of a type the bridge knows no fields of may carry
 none, so the id is the one key that names a card the same way in every event.
 The chain counts below use the same key. The subject of `inbox.ask_closed` is an
 ask, so a resume keys on its card instead, as
-[Resuming a session](#resuming-a-session) says.
+[Resuming a session](#resuming-a-session) says. The subject of
+`document.review_submitted` is a document, so a verdict also keys on its stage
+card, like `inbox.ask_closed`. Its run waits behind a worker of that card,
+coalesces with a waiting verdict of the same rule, and reports against the card.
+A person's verdict resets the chain counts of the card.
 
 An event for a card that already has a worker waits in the queue and runs after
 that worker exits. A card waits at most once for each rule. A newer event for
@@ -640,7 +676,8 @@ terminal view alone.
 
 Every line carries `time`, `level` and `event`. Select on `event`. A worker line
 names `card`, or `subject` for an event with no card number. For a resume with
-no card, `subject` is the ask id.
+no card, `subject` is the ask id. A worker line for a review verdict also names
+`document` and `verdict`.
 
 | `event` | Fields |
 |---|---|
@@ -743,11 +780,11 @@ id or a project slug, and a project name does not resolve.
    runs, at start and at each interval.
 
 A prompt carries only validated identifiers and slugs: the project id and slug,
-the card id and number, and the two column slugs. It never carries text a
-person wrote, such as a card title or a card body. Anyone who can write to the
-board controls that text, so it never reaches an auto-submitted prompt. The
-agent fetches the content itself through `card_get`, and the footer tells it to
-treat what it reads as data.
+the card id and number, the column slugs, the document id and the verdict. It
+never carries text a person wrote, such as a card title or a card body. Anyone
+who can write to the board controls that text, so it never reaches an
+auto-submitted prompt. The agent fetches the content itself through `card_get`,
+and the footer tells it to treat what it reads as data.
 
 Dropped connections are retried with capped backoff. Every retry calls
 `GET /api/events` for a **fresh subscriber JWT**. The JWT is short-lived, so a

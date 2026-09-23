@@ -700,3 +700,135 @@ func TestThePromptCarriesOnlyValidatedValues(t *testing.T) {
 		t.Fatalf("the prompt varies with fields it must ignore\n%q\n%q", a, b)
 	}
 }
+
+const documentID = "01a0a1b2-5555-7c3d-8e4f-5a6b7c8d9e0f"
+
+// verdictRules holds a rule for each verdict, then a rule for any verdict.
+const verdictRules = `
+projects:
+  loupe:
+    dir: {dir}
+rules:
+  - name: approved
+    on: document.review_submitted
+    project: loupe
+    verdict: approved
+    prompt: approved {cardNumber}
+  - name: any
+    on: document.review_submitted
+    project: loupe
+    prompt: any {cardNumber}
+`
+
+// reviewSubmitted is a verdict on card 33 in its tech-design column. Card 0
+// names no card, as the server does when no stage card exists.
+func reviewSubmitted(verdict string, cardNumber int) event.Event {
+	e := event.Event{
+		Type:      event.ReviewSubmittedType,
+		Subject:   event.Subject{Type: "document", ID: documentID},
+		ProjectID: projectID,
+		Verdict:   verdict,
+		Actor:     event.ActorHuman,
+	}
+	if cardNumber > 0 {
+		e.CardID, e.CardNumber, e.Column = cardID, cardNumber, "tech-design"
+	}
+
+	return e
+}
+
+func TestParseRefusesAMisplacedVerdict(t *testing.T) {
+	rule := func(fields string) string {
+		return "projects:\n  loupe:\n    dir: {dir}\nrules:\n  - " + strings.ReplaceAll(strings.TrimSpace(fields), "\n", "\n    ") + "\n"
+	}
+	for name, tc := range map[string]struct {
+		body string
+		want string
+	}{
+		"verdict on card_moved":     {rule("on: board.card_moved\nproject: loupe\nto: ready\nverdict: approved\nprompt: x"), "verdict applies to document.review_submitted only, and this rule is on board.card_moved"},
+		"verdict on a generic type": {rule("on: board.card_created\nproject: loupe\nverdict: approved\nprompt: x"), "verdict applies to document.review_submitted only"},
+		"an unknown verdict":        {rule("on: document.review_submitted\nproject: loupe\nverdict: withdrawn\nprompt: x"), `verdict "withdrawn" is not approved or changes-requested`},
+		"a verdict with a column":   {rule("on: document.review_submitted\nproject: loupe\nto: ready\nprompt: x"), "apply to board.card_moved only"},
+		"card_moved {verdict}":      {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: 'Verdict {verdict}'"), "{verdict} has no value for board.card_moved"},
+		"generic {column}":          {rule("on: board.card_created\nproject: loupe\nprompt: 'Column {column}'"), "{column} has no value for board.card_created"},
+		"review {to}":               {rule("on: document.review_submitted\nproject: loupe\nprompt: 'To {to}'"), "{to} has no value for document.review_submitted"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			text, _ := file(t, tc.body)
+			_, err := Parse([]byte(text), Defaults{})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestParseAcceptsAVerdictRule(t *testing.T) {
+	s := parse(t, verdictRules)
+	if r := s.Rules()[0]; r.Verdict != event.VerdictApproved || r.On != event.ReviewSubmittedType {
+		t.Fatalf("rule = %+v", r)
+	}
+	if got := s.ExtraTypes(); !got[event.ReviewSubmittedType] {
+		t.Fatalf("ExtraTypes = %v, want the parser to read document.review_submitted", got)
+	}
+}
+
+func TestMatchAVerdict(t *testing.T) {
+	s := checked(t, verdictRules)
+	for name, tc := range map[string]struct {
+		event event.Event
+		skip  Skip
+		rule  string
+	}{
+		"an approval":                      {reviewSubmitted(event.VerdictApproved, 33), Run, "approved"},
+		"a mismatch falls to the any rule": {reviewSubmitted(event.VerdictChangesRequested, 33), Run, "any"},
+		"an approval with no card":         {reviewSubmitted(event.VerdictApproved, 0), NoRule, ""},
+		"a change request with no card":    {reviewSubmitted(event.VerdictChangesRequested, 0), NoRule, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			m := s.Match(tc.event)
+			if m.Skip != tc.skip || m.Rule != tc.rule {
+				t.Fatalf("Match = %+v, want skip %d rule %q", m, tc.skip, tc.rule)
+			}
+		})
+	}
+}
+
+// A rule with no verdict matches either verdict.
+func TestARuleWithNoVerdictMatchesBoth(t *testing.T) {
+	s := checked(t, strings.Replace(verdictRules, "    verdict: approved\n", "", 1))
+	for _, verdict := range []string{event.VerdictApproved, event.VerdictChangesRequested} {
+		if m := s.Match(reviewSubmitted(verdict, 33)); m.Skip != Run || m.Rule != "approved" {
+			t.Fatalf("%s: Match = %+v", verdict, m)
+		}
+	}
+}
+
+func TestMatchRendersEachVerdictPlaceholder(t *testing.T) {
+	body := `
+projects:
+  loupe:
+    dir: {dir}
+rules:
+  - on: document.review_submitted
+    project: loupe
+    prompt: "PLACEHOLDER"
+`
+	for placeholder, want := range map[string]string{
+		"{cardId}":     cardID,
+		"{cardNumber}": "33",
+		"{column}":     "tech-design",
+		"{documentId}": documentID,
+		"{verdict}":    "changes-requested",
+		"{projectId}":  projectID,
+		"{project}":    "loupe",
+	} {
+		t.Run(placeholder, func(t *testing.T) {
+			s := checked(t, strings.Replace(body, "PLACEHOLDER", "value "+placeholder, 1))
+			got := s.Match(reviewSubmitted(event.VerdictChangesRequested, 33)).Prompt
+			if got != "value "+want+"\n\n"+directive.Footer {
+				t.Fatalf("prompt = %q", got)
+			}
+		})
+	}
+}

@@ -19,7 +19,7 @@ Answer one round of feedback on the current stage of a card.
 
 ### Design round
 
-1. Find the document among the linked documents. The product document has the tag `product`, or a title that starts `Product design`. The tech design has the tags `design` and `decisions`, or a title that starts `Tech design`.
+1. When the prompt names a document id, the document is the linked document with that id. Otherwise find the document among the linked documents. The product document has the tag `product`, or a title that starts `Product design`. The tech design has the tags `design` and `decisions`, or a title that starts `Tech design`.
 2. When the card links no such document, stop with `STAGE RESULT: no linked <document>`. Skip the contract's `document_list` search, and never create a document.
 3. When its `status` is `approved`, stop with `STAGE RESULT: <document> already approved`.
 4. When the `verdict` is `changes-requested`, check the triggers of `review-round.md` first: an open comment, an answered decision without a matching `**Decided:**` line, or an uncovered requirement. Stop with `STAGE RESULT: blocked: changes requested with no comment` only when none holds.
