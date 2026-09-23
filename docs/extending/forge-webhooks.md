@@ -3,22 +3,47 @@ title: "Forge webhooks"
 description: "How Loupe receives what a forge says about a pull request, and turns it into events an agent acts on. Preview, unreleased."
 ---
 
-Loupe learns nothing from a forge on its own. A merge, a review and a green
-check reach a board only because a person reads the forge and drags a card.
-A forge webhook closes that gap.
+A forge webhook tells Loupe about a merge, a review and a check result. Loupe
+then writes an event for each card that links the pull request. Without it, a
+person reads the forge and moves the card.
 
-The endpoint is `POST /webhooks/forge/<forge>`, where `<forge>` is `github`,
-`gitlab` or `bitbucket`. It is anonymous on purpose. A forge signs its body, or
-sends a shared token, rather than carrying a session or a bearer token.
+A project owner connects repositories on the Connections tab of the project.
+[Projects](../using/projects.md#repositories) describes that page. This page
+describes the contract behind it, and what the operator sets up for GitHub.
 
-## One adapter for each forge, one vocabulary behind them
+## The Forge module and a forge module
 
-An adapter does three things and nothing else. It verifies the delivery, it
-decides whether the delivery is a signal the lifecycle uses, and it says so in
-Loupe's own words. Everything after that point is forge-blind.
+The `Forge` module holds what every forge shares: repository ownership, the
+neutral event vocabulary and the rate limit. A forge module, such as `GitHub`,
+verifies a delivery and translates it. The `Board` module reads the result and
+knows no forge.
+
+A forge module writes ownership through `ForgeRepositories` only.
+
+| Method | Does |
+|---|---|
+| `claim($project, $forge, $externalId, $path)` | Makes the project the owner of the repository, or confirms it. It returns `Owned`, `AlreadyOwned` or `Refused`. `Refused` names no owner. When the owner claims under a new path, the row takes the new path and the claim reports the old one. |
+| `release($project, $forge, $externalId)` | Removes the row, when the project owns it. |
+| `accepted($repository, $now)` | Records the time of the last accepted delivery, at most once a minute. The repository state on the Connections tab reads it. |
+| `ownerOf($forge, $externalId)` | Reads the row. |
+
+Each write flushes. A `claim()` that throws closes the EntityManager, because
+it runs in a transaction.
+
+After a claim that is not `Refused`, the forge module dispatches
+`ForgeDeliveryReceived`. It carries the id of the owning project and a
+non-empty list of `ForgeDelivery`. A listener acts inside that project only.
+
+A route that receives deliveries sets two defaults, and the rate limiter reads
+them. `_forge_webhook: true` marks the route. `_forge_webhook_key` selects the
+key: `address` for the client address, or `hook-key` for the `hookKey` path
+segment.
+
+## One vocabulary for every forge
 
 No event name carries a forge, because a rule file and a bridge must not learn
-a new event type for each forge an instance connects.
+a new event type for each forge an instance connects. `ForgeEventType` holds
+four values.
 
 | Event | Meaning |
 |---|---|
@@ -27,73 +52,132 @@ a new event type for each forge an instance connects.
 | `pull_request.merged` | the pull request merged |
 | `pull_request.repository_moved` | the repository path changed |
 
-The payload carries identifiers and the forge, never forge-shaped fields. A
-review note and a commit message are text a person wrote, and the outbox never
-carries that to an agent.
+The payload carries identifiers and the forge, and no field in the shape of one
+forge. A review note and a commit message are text a person wrote, and the
+outbox never gives that text to an agent.
 
 Every event names `system` as its actor, because the fact arrived from outside
 Loupe and nobody here judged the card. A bridge older than that actor reads the
 event as malformed and drops it, so upgrade the CLI before you connect a forge.
 
-## How a delivery finds a card
+## Ownership
+
+A repository belongs to one project. Loupe keys it on the forge and on the
+stable id the forge gives it, which is `repository.id` on GitHub. A path is not
+a key, because a path changes.
+
+A delivery for a repository that another project owns is dropped. The endpoint
+still answers 200, and the log names the claiming project only.
 
 `CardPullRequest` stores the repository path and the number of each pull
-request a card links. A delivery names both, so a card resolves with no mapping
-table of its own.
+request that a card links. A delivery names both, so it finds its cards with no
+separate mapping table. Only the cards of the owning project match. Another
+project can link the same pull request, and gets nothing.
 
-The path may hold more than one slash. GitLab nests groups, so nothing may
-assume two segments.
+A rename or a transfer keeps the id, so the owner stays the same. The first
+delivery under the new path moves the row, and Loupe writes
+`pull_request.repository_moved` before the other facts in that delivery. That
+event repoints the pull request links of the owning project only.
 
-One pull request can be linked from several cards, and a delivery then concerns
-all of them.
+## The GitHub routes
 
-## A moved repository
-
-The stored path is the key every later delivery joins on. A rename or a
-transfer therefore orphans every card of that repository unless Loupe hears
-about it.
-
-`pull_request.repository_moved` repoints those links. Subscribe to whatever
-event your forge sends for a rename, a transfer and an owner rename, or the
-breakage is silent.
-
-## The GitHub adapter
-
-Point a webhook at `https://<instance>/webhooks/forge/github`, set a secret, and
-put that secret in `GITHUB_WEBHOOK_SECRET`. An unset secret refuses every
-delivery, so the endpoint is inert until you set it.
-
-Subscribe to these events. The permissions you grant decide which ones GitHub
-offers, so the two move together.
-
-| Event | Repository permission | Why |
+| Route | Signed with | Rate limit key |
 |---|---|---|
-| Pull request | Pull requests, read | the merge arrives here, as `closed` with `merged` true |
-| Pull request review | Pull requests, read | the review verdict |
-| Check suite | Checks, read | the aggregate conclusion |
-| Repository | none | a rename changes the path a delivery joins on |
+| `POST /webhooks/forge/github/{hookKey}` | the secret of that project's webhook | the hook key |
+| `POST /webhooks/forge/github` | `GITHUB_APP_WEBHOOK_SECRET` | the client address |
 
-A merge has no event of its own, and a check suite is the aggregate of a run. A
-check run fires once per check, and this repository gates on thirteen of them.
+Both routes are anonymous, because GitHub signs the body and sends no token.
+Each allows 300 deliveries a minute for one key. GitHub delivers for every
+customer from one shared pool of addresses, so a per-project webhook uses its
+hook key as the key.
 
-A GitHub App configures its webhook once, at the App level, so it covers every
-repository an installation holds. A hook a person adds in repository settings
-signs its body the same way, so the adapter serves both and the App is a
-convenience rather than a dependency.
-
-Only a rename repoints a link. A transfer reports its old owner in a shape this
-adapter has never seen a real delivery of, so it does nothing rather than
-repoint every card onto a path nobody owns.
-
-## What the endpoint answers
+The per-project webhook claims each repository it reports for its project. The
+App route reads the installation id in the body, and the installation names the
+project. A delivery with no installation, or for an installation Loupe does not
+know, is dropped.
 
 | Status | When |
 |---|---|
-| 200 | the delivery is verified, whether or not it named a card Loupe knows |
-| 400 | the signature or the token did not verify |
-| 404 | no adapter serves that forge, or the board is switched off |
-| 429 | more than 300 deliveries in one minute from one address |
+| 200 | the delivery verified. This includes a dropped delivery, an event Loupe does not use, and a project whose board is off. |
+| 400 | the signature did not verify, the secret is empty, or the body is not JSON |
+| 404 | no webhook has that hook key |
+| 429 | the key sent more than 300 deliveries in one minute |
 
-Every recognised outcome answers 200, because a forge retries anything else for
-days. A delivery about a repository this instance does not know is not an error
-to fix.
+Every recognised outcome answers 200, because GitHub retries anything else for
+days.
+
+## Registering the GitHub App
+
+A per-project webhook needs nothing from the operator except
+`APP_ENCRYPTION_KEY`, which encrypts its secret. The GitHub App is optional.
+Register it on GitHub under Settings, Developer settings, GitHub Apps.
+
+| Setting | Value |
+|---|---|
+| Callback URL | `https://<host>/github/app/callback` |
+| Request user authorization (OAuth) during installation | off |
+| Setup URL | `https://<host>/github/app/setup` |
+| Redirect on update | off |
+| Webhook | active |
+| Webhook URL | `https://<host>/webhooks/forge/github` |
+| Webhook secret | the value of `GITHUB_APP_WEBHOOK_SECRET` |
+
+Grant these repository permissions, all read-only.
+
+| Permission | Why |
+|---|---|
+| Pull requests | the merge and the review verdict |
+| Checks | the aggregate check conclusion |
+| Metadata | GitHub requires it, and it carries the Repository event |
+
+Subscribe to these events. The permissions decide which events GitHub offers.
+GitHub sends the installation events without a subscription.
+
+| Event | Why |
+|---|---|
+| Pull request | the merge arrives as `closed` with `merged` true |
+| Pull request review | the review verdict |
+| Check suite | the aggregate conclusion of a run |
+| Repository | a rename or a transfer changes the path |
+
+A merge has no event of its own. A check run fires once for each check, so
+Loupe reads the check suite instead.
+
+Then set four variables. [Environment variables](../reference/environment.md)
+describes each one.
+
+- `GITHUB_APP_SLUG`, the last segment of `https://github.com/apps/<slug>`
+- `GITHUB_APP_CLIENT_ID`
+- `GITHUB_APP_CLIENT_SECRET`
+- `GITHUB_APP_WEBHOOK_SECRET`
+
+Set all four or none. While one is empty, the App is not offered, and the
+*GitHub App* row on `/admin/status` names the empty variables.
+
+The install runs in this order. The owner selects Install on GitHub, and GitHub
+shows its install page. GitHub then sends the owner to the setup URL. Loupe asks
+GitHub to authorize the user, with a state and PKCE. The callback accepts the
+installation only when `GET /user/installations` lists it for that user.
+
+## Open questions to verify against a real App
+
+Nobody has run these cases against a registered App yet. The code works
+whatever each answer is.
+
+- Does GitHub send `state` back to the setup URL after an install? Loupe checks
+  it when it arrives, and relies on the session when it does not.
+- Does a new repository under an "All repositories" installation send
+  `installation_repositories`? If not, Loupe claims the repository on its first
+  delivery.
+- Does the `ping` of a repository webhook carry `repository`? Loupe claims
+  nothing from a `ping` in either case.
+
+## Upgrading from the instance-wide secret
+
+An earlier version verified every delivery with one instance secret,
+`GITHUB_WEBHOOK_SECRET`. Loupe no longer reads it. The old URL,
+`/webhooks/forge/github`, now receives the App and verifies with
+`GITHUB_APP_WEBHOOK_SECRET`. A delivery from an old webhook therefore reaches
+no card after the upgrade. Its signature fails, or it names no installation. Each project owner must connect
+the project's repositories again, with a webhook or with the App. Then remove
+the old webhook from each repository on GitHub.
