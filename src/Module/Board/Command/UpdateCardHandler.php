@@ -27,6 +27,7 @@ use Ubermuda\AuditBundle\AuditSubject;
 final readonly class UpdateCardHandler
 {
     public const string COLUMN_GONE = 'board.card.error.column_gone';
+    public const string LINKED_CARD_GONE = 'board.card.error.linked_card_unknown';
 
     public function __construct(
         private CardRepository $cards,
@@ -96,6 +97,9 @@ final readonly class UpdateCardHandler
             if (!\in_array($column, $columns, true)) {
                 return self::COLUMN_GONE;
             }
+            if (null !== $relatedCards && $this->cardLinkSync->anyCardGone($relatedCards)) {
+                return self::LINKED_CARD_GONE;
+            }
             // A rank is a move of its own: a card dropped elsewhere in the
             // column it already sits in does not change its column.
             $move = $column !== $card->column || null !== $command->position
@@ -150,7 +154,7 @@ final readonly class UpdateCardHandler
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
         if (\is_string($outcome)) {
-            throw new DomainErrors(['column' => $outcome]);
+            throw new DomainErrors([self::LINKED_CARD_GONE === $outcome ? 'relatedCards' : 'column' => $outcome]);
         }
 
         // After the commit, never inside it: the sink drains at kernel.terminate,

@@ -88,6 +88,9 @@ final readonly class CreateCardHandler
             if (!\in_array($column, $columns, true)) {
                 return UpdateCardHandler::COLUMN_GONE;
             }
+            if ($this->cardLinkSync->anyCardGone($relatedCards)) {
+                return UpdateCardHandler::LINKED_CARD_GONE;
+            }
 
             $card = new Card(
                 project: $command->project,
@@ -131,7 +134,7 @@ final readonly class CreateCardHandler
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
         if (\is_string($card)) {
-            throw new DomainErrors(['column' => $card]);
+            throw new DomainErrors([UpdateCardHandler::LINKED_CARD_GONE === $card ? 'relatedCards' : 'column' => $card]);
         }
 
         // After the commit, never inside it: the sink drains at kernel.terminate,

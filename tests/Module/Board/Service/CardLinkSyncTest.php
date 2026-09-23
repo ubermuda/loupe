@@ -42,6 +42,21 @@ final class CardLinkSyncTest extends KernelTestCase
         $this->links = $links;
     }
 
+    public function test_a_card_deleted_after_it_was_resolved_counts_as_gone(): void
+    {
+        $project = $this->makeProject('sync-gone');
+        [$b, $c] = [$this->cardIn($project), $this->cardIn($project)];
+
+        self::assertFalse($this->sync->anyCardGone([[$b, CardLinkKind::Blocks], [$c, CardLinkKind::RelatesTo]]));
+
+        $this->em->createQuery('DELETE '.Card::class.' c WHERE c.id = :id')
+            ->setParameter('id', $c->id?->toRfc4122())
+            ->execute();
+
+        self::assertTrue($this->sync->anyCardGone([[$b, CardLinkKind::Blocks], [$c, CardLinkKind::RelatesTo]]));
+        self::assertFalse($this->sync->anyCardGone([]));
+    }
+
     public function test_blocked_by_stores_the_other_card_as_the_blocking_source(): void
     {
         $project = $this->makeProject('sync-insert');

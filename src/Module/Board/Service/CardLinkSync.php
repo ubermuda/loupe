@@ -8,7 +8,9 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Repository\CardLinkRepository;
+use App\Module\Board\Repository\CardRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Replaces every link that touches a card, whichever card wrote it. A pair
@@ -19,8 +21,23 @@ final readonly class CardLinkSync
 {
     public function __construct(
         private CardLinkRepository $cardLinks,
+        private CardRepository $cards,
         private EntityManagerInterface $em,
     ) {
+    }
+
+    /**
+     * The pairs are resolved before the project lock, so a card deleted since
+     * then would fail the foreign key at the flush. Call it under the lock.
+     *
+     * @param list<array{Card, CardLinkKind}> $wanted
+     */
+    public function anyCardGone(array $wanted): bool
+    {
+        $ids = array_map(static fn (array $pair): Uuid => $pair[0]->id ?? throw new \LogicException('A resolved card has an id.'), $wanted);
+
+        // The resolver refuses a card named twice, so the ids are distinct.
+        return $this->cards->countByIds($ids) < \count($ids);
     }
 
     /** @param list<array{Card, CardLinkKind}> $wanted each other card with the kind the card reads it by */

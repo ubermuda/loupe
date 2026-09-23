@@ -30,6 +30,21 @@ class CardRepository extends ServiceEntityRepository
         parent::__construct($registry, Card::class);
     }
 
+    /** @param list<Uuid> $ids */
+    public function countByIds(array $ids): int
+    {
+        if ([] === $ids) {
+            return 0;
+        }
+
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->andWhere('c.id IN (:ids)')
+            ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     public function findOneByProjectAndNumber(Project $project, int $number): ?Card
     {
         return $this->findOneBy(['project' => $project, 'number' => $number]);
