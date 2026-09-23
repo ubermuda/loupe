@@ -82,4 +82,29 @@ final class WorkerRunStateBackfillMigrationTest extends KernelTestCase
             array_map(static fn (WorkerRunStateChange $change): WorkerRunState => $change->state, $repository->findForRun($reloaded)),
         );
     }
+
+    /** A run that reopens in the second it timed out reads the timeout first. */
+    public function test_a_timeout_and_its_reopening_in_one_second_read_in_that_order(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'state-reopen-second@example.com');
+        $project = $this->project($em, $owner, 'Reopen second');
+        $run = $this->seedRun($em, $project);
+        $at = new \DateTimeImmutable('2026-01-01 10:10:00');
+        $em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, $at, $at));
+        $em->persist(new WorkerRunStateChange($run, WorkerRunState::TimedOut, $at, $at));
+        $em->flush();
+        $em->clear();
+
+        $repository = self::getContainer()->get(WorkerRunStateChangeRepository::class);
+        self::assertInstanceOf(WorkerRunStateChangeRepository::class, $repository);
+        $reloaded = $em->find(WorkerRun::class, $run->id);
+        self::assertInstanceOf(WorkerRun::class, $reloaded);
+
+        self::assertSame(
+            [WorkerRunState::TimedOut, WorkerRunState::Running],
+            array_map(static fn (WorkerRunStateChange $change): WorkerRunState => $change->state, $repository->findForRun($reloaded)),
+        );
+    }
 }

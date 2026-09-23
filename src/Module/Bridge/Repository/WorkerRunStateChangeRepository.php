@@ -16,8 +16,12 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class WorkerRunStateChangeRepository extends ServiceEntityRepository
 {
-    /** The order of WorkerRunState::rank(), so two states of one moment read in the order they happen. */
-    private const string RANK = "CASE WHEN c.state = 'queued' THEN 0 WHEN c.state = 'resumed' THEN 1 WHEN c.state = 'running' THEN 2 ELSE 3 END";
+    /**
+     * Two states of one second read in the order they happen. A server guess
+     * comes first, because only a later bridge report replaces it. The bridge
+     * states follow the order of WorkerRunState::rank().
+     */
+    private const string RANK = "CASE WHEN c.state IN ('timed-out', 'lost') THEN 0 WHEN c.state = 'queued' THEN 1 WHEN c.state = 'resumed' THEN 2 WHEN c.state = 'running' THEN 3 ELSE 4 END";
 
     public function __construct(ManagerRegistry $registry)
     {
