@@ -26,17 +26,19 @@ final readonly class GitHubAppCheck implements DiagnosticInterface
     #[\Override]
     public function __invoke(): Diagnostic
     {
-        $missing = $this->configuration->missingVariables();
+        if ($this->configuration->isConfigured()) {
+            return new Diagnostic('github_app', DiagnosticState::Ok, 'github.system_status.app.configured');
+        }
 
-        return match (\count($missing)) {
-            0 => new Diagnostic('github_app', DiagnosticState::Ok, 'github.system_status.app.configured'),
-            4 => new Diagnostic('github_app', DiagnosticState::Ok, 'github.system_status.app.not_offered'),
-            default => new Diagnostic(
-                'github_app',
-                DiagnosticState::Failed,
-                'github.system_status.app.incomplete',
-                ['%variables%' => implode(', ', $missing)],
-            ),
-        };
+        if ($this->configuration->isUnset()) {
+            return new Diagnostic('github_app', DiagnosticState::Ok, 'github.system_status.app.not_offered');
+        }
+
+        return new Diagnostic(
+            'github_app',
+            DiagnosticState::Failed,
+            'github.system_status.app.incomplete',
+            ['%variables%' => implode(', ', $this->configuration->missingVariables())],
+        );
     }
 }

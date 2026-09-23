@@ -29,17 +29,26 @@ final readonly class GitHubAppConfiguration
         return [] === $this->missingVariables();
     }
 
+    public function isUnset(): bool
+    {
+        return \count($this->missingVariables()) === \count($this->values());
+    }
+
     /** @return list<non-empty-string> the names of the unset variables, never their values */
     public function missingVariables(): array
     {
-        $values = [
+        return array_keys(array_filter($this->values(), fn (?string $value): bool => null === $value || '' === $value));
+    }
+
+    /** @return array<non-empty-string, ?string> */
+    private function values(): array
+    {
+        return [
             'GITHUB_APP_SLUG' => $this->slug,
             'GITHUB_APP_CLIENT_ID' => $this->clientId,
             'GITHUB_APP_CLIENT_SECRET' => $this->clientSecret,
             'GITHUB_APP_WEBHOOK_SECRET' => $this->webhookSecret,
         ];
-
-        return array_keys(array_filter($values, fn (?string $value): bool => null === $value || '' === $value));
     }
 
     public function installUrl(string $state): string
