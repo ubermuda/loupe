@@ -14,8 +14,11 @@ vi.mock('../../assets/lib/mercure.js', () => ({
     },
 }));
 
-const { default: WorkerRunRefreshController, DEBOUNCE_MILLISECONDS } =
-    await import('../../assets/controllers/worker_run_refresh_controller.js');
+const {
+    default: WorkerRunRefreshController,
+    DEBOUNCE_MILLISECONDS,
+    BLUR_RELOAD_MILLISECONDS,
+} = await import('../../assets/controllers/worker_run_refresh_controller.js');
 
 let application;
 
@@ -155,6 +158,14 @@ it('leaves a frame alone while the reader uses a control in it', async () => {
 
     expect(bridges.reload).not.toHaveBeenCalled();
     expect(runs.reload).toHaveBeenCalledOnce();
+
+    await signal();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
+    document.getElementById('bridge').blur();
+    await vi.advanceTimersByTimeAsync(BLUR_RELOAD_MILLISECONDS - 1);
+    expect(bridges.reload).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(bridges.reload).toHaveBeenCalledOnce();
 });
 
 it('reloads the whole page when it has no filters to keep', async () => {

@@ -4,6 +4,9 @@ import { subscribe } from '../lib/mercure.js';
 /** A report often arrives with the next state of the same run close behind it. */
 export const DEBOUNCE_MILLISECONDS = 300;
 
+/** Longer than the 300 ms a filter change waits before it submits. */
+export const BLUR_RELOAD_MILLISECONDS = 1000;
+
 /**
  * Reloads a frame of worker runs when the Mercure hub reports a change, and
  * after each reconnect for any change it missed. An open run drawer holds the
@@ -16,6 +19,8 @@ export default class extends Controller {
     connect() {
         this.hasOpened = false;
         this.held = false;
+        this.blurTimeouts = [];
+        this.heldFrames = new Set();
         // A dialog's close event does not bubble, so the listener captures it.
         this.onDialogClose = () => {
             if (this.held) {
@@ -39,6 +44,7 @@ export default class extends Controller {
 
     disconnect() {
         clearTimeout(this.timeout);
+        this.blurTimeouts.forEach((timeout) => clearTimeout(timeout));
         this.element.removeEventListener('close', this.onDialogClose, true);
         this.unsubscribe?.();
         this.unsubscribe = undefined;
@@ -62,11 +68,40 @@ export default class extends Controller {
         const others = this.framesValue
             .map((id) => document.getElementById(id))
             .filter((frame) => frame !== null);
-        // A control the reader is using keeps its value until the next signal.
-        others
-            .filter((frame) => !frame.contains(document.activeElement))
-            .concat(this.frameTarget)
-            .forEach((frame) => this.load(frame));
+        [this.frameTarget, ...others].forEach((frame) => {
+            if (
+                frame !== this.frameTarget &&
+                frame.contains(document.activeElement)
+            ) {
+                this.holdUntilBlur(frame);
+                return;
+            }
+            this.load(frame);
+        });
+    }
+
+    /**
+     * A control the reader is using keeps its value. The frame reloads once
+     * focus leaves it, after a filter change has had time to submit.
+     */
+    holdUntilBlur(frame) {
+        if (this.heldFrames.has(frame)) {
+            return;
+        }
+        this.heldFrames.add(frame);
+        frame.addEventListener(
+            'focusout',
+            () => {
+                this.heldFrames.delete(frame);
+                this.blurTimeouts.push(
+                    setTimeout(
+                        () => this.load(frame),
+                        BLUR_RELOAD_MILLISECONDS,
+                    ),
+                );
+            },
+            { once: true },
+        );
     }
 
     load(frame) {
