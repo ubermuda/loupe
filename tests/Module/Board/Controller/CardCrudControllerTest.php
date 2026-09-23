@@ -423,11 +423,11 @@ final class CardCrudControllerTest extends WebTestCase
         $run = new WorkerRun(
             project: $project,
             bridgeId: Uuid::v7(),
-            sessionId: Uuid::v4(),
             cardId: $card->id ?? throw new \LogicException('card id after flush'),
             cardNumber: $card->number,
             ruleName: 'plan the card',
             state: WorkerRunState::Failed,
+            sessionId: Uuid::v4(),
             startedAt: new \DateTimeImmutable('-2 hours'),
             endedAt: new \DateTimeImmutable('-2 hours +3 minutes'),
             exitCode: 1,

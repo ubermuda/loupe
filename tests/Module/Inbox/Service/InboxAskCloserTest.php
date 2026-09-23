@@ -506,11 +506,11 @@ final class InboxAskCloserTest extends KernelTestCase
         $this->em->persist(new WorkerRun(
             project: $project ?? $this->managedProject(),
             bridgeId: Uuid::v7(),
-            sessionId: $sessionId,
             cardId: $card->id ?? throw new \LogicException('The card has no id.'),
             cardNumber: $card->number,
             ruleName: 'plan',
             state: WorkerRunState::Succeeded,
+            sessionId: $sessionId,
             startedAt: $startedAt,
             endedAt: $startedAt->modify('+5 minutes'),
             exitCode: 0,
