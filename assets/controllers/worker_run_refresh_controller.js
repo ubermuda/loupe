@@ -94,10 +94,13 @@ export default class extends Controller {
             () => {
                 this.heldFrames.delete(frame);
                 this.blurTimeouts.push(
-                    setTimeout(
-                        () => this.load(frame),
-                        BLUR_RELOAD_MILLISECONDS,
-                    ),
+                    setTimeout(() => {
+                        if (frame.contains(document.activeElement)) {
+                            this.holdUntilBlur(frame);
+                            return;
+                        }
+                        this.load(frame);
+                    }, BLUR_RELOAD_MILLISECONDS),
                 );
             },
             { once: true },
