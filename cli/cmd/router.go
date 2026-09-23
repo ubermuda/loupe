@@ -721,17 +721,19 @@ func (r *router) start(p pending) {
 	if p.spec.resume && !p.checked {
 		r.emitLocked(p, api.RunStateReport{State: api.RunResumed, AskID: askOf(p.event)})
 	}
-	began := time.Now()
-	onStart := func() {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		r.emitLocked(p, api.RunStateReport{State: api.RunRunning, SessionID: p.spec.sessionID, StartedAt: began})
-	}
-
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
 
+		// The spawn time stands in for a process that never starts, because the
+		// old report needs a start. onStart runs on this goroutine, before run returns.
+		began := time.Now()
+		onStart := func() {
+			began = time.Now()
+			r.mu.Lock()
+			defer r.mu.Unlock()
+			r.emitLocked(p, api.RunStateReport{State: api.RunRunning, SessionID: p.spec.sessionID, StartedAt: began})
+		}
 		res := r.worker.run(r.workerContext(), p.spec, onStart)
 		r.report(p, res, began, time.Since(began))
 		r.finish(p.key)
