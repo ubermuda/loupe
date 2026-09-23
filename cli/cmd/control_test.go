@@ -266,6 +266,43 @@ func TestAReloadOntoTheRuleFileOfAnotherBridgeFails(t *testing.T) {
 	}
 }
 
+// The link moves again after the reload takes the new lock, so the loaded file
+// may not be the locked one. The reload fails and keeps the old lock.
+func TestAReloadWhoseRuleFileMovesFails(t *testing.T) {
+	file, other, link := symlinkedRules(t)
+	h := newHarness(t)
+	old := h.router.rules()
+	lock, err := lockBridge(link, "/tmp/bridge.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Close()
+	repoint(t, link, other)
+	calls := 0
+	lock.resolve = func(path string) (string, error) {
+		calls++
+		if calls > 1 {
+			return lockPath(file)
+		}
+
+		return lockPath(path)
+	}
+
+	src := h.source(twoRuleFile)
+	src.lock = lock.follow
+	res := h.router.reload(context.Background(), src)
+
+	if res.OK || res.Stage != "lock" || len(res.Problems) != 1 || !strings.Contains(res.Problems[0], "moved during the reload") {
+		t.Fatalf("result = %+v, want a lock failure", res)
+	}
+	if h.router.rules() != old {
+		t.Fatal("a failed reload swapped the set")
+	}
+	if !lockTaken(t, file) || lockTaken(t, other) {
+		t.Fatal("a failed reload must keep the old lock and free the new one")
+	}
+}
+
 // A bridge that crashed leaves its socket file behind. Nothing listens on it,
 // so the next bridge removes it and starts.
 func TestListenControlRemovesAStaleSocket(t *testing.T) {
@@ -428,41 +465,6 @@ func TestBridgeReloadNeedsARunningBridge(t *testing.T) {
 
 	_, _, err := reloadCmd(t, "--rules", "rules.yaml")
 	if err == nil || err.Error() != "no running bridge reads "+abs {
-		t.Fatalf("err = %v", err)
-	}
-}
-
-// A bridge that got a link listens on the socket of the link. A reload that
-// names the target finds that socket in the lock file.
-func TestBridgeReloadFindsTheBridgeThroughTheLock(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows refuses a read of a locked file")
-	}
-	file, _, link := symlinkedRules(t)
-	sock, _ := socketPath(link)
-	ln, err := listenControl(sock)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	served := serveControl(ctx, ln, func(context.Context) reloadResult {
-		return reloadResult{OK: true, Projects: []string{"loupe"}}
-	})
-	t.Cleanup(func() {
-		cancel()
-		<-served
-	})
-	lock, err := lockBridge(link, sock)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if out, _, err := reloadCmd(t, "--rules", file); err != nil || !strings.HasPrefix(out, "reloaded "+file+"\n") {
-		t.Fatalf("err = %v, stdout = %q", err, out)
-	}
-	// A lock file that no bridge holds names no bridge, even when its socket answers.
-	lock.Close()
-	if _, _, err := reloadCmd(t, "--rules", file); err == nil || err.Error() != "no running bridge reads "+file {
 		t.Fatalf("err = %v", err)
 	}
 }

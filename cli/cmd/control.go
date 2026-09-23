@@ -88,6 +88,8 @@ func bridgeFile(key, ext string) (string, error) {
 type bridgeLock struct {
 	rulesPath, sock, path string
 	f                     *os.File
+	// resolve names the lock file of a rule path; tests replace it.
+	resolve func(rulesPath string) (string, error)
 }
 
 // lockBridge takes the lock of the bridge that reads rulesPath and writes sock
@@ -103,26 +105,34 @@ func lockBridge(rulesPath, sock string) (*bridgeLock, error) {
 		return nil, err
 	}
 
-	return &bridgeLock{rulesPath: rulesPath, sock: sock, path: path, f: f}, nil
+	return &bridgeLock{rulesPath: rulesPath, sock: sock, path: path, f: f, resolve: lockPath}, nil
 }
 
 // follow takes the lock of the file that the rule path resolves to now, when
-// that file changed. The caller then calls done with whether it applied the
+// that file changed. After the load, check fails when the path resolves to
+// another file again. The caller then calls done with whether it applied the
 // reload, and done releases the lock that the bridge no longer needs.
-func (l *bridgeLock) follow() (done func(applied bool), err error) {
-	path, err := lockPath(l.rulesPath)
+func (l *bridgeLock) follow() (check func() error, done func(applied bool), err error) {
+	path, err := l.resolve(l.rulesPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	check = func() error {
+		if now, err := l.resolve(l.rulesPath); err != nil || now != path {
+			return fmt.Errorf("the rule file %s moved during the reload: run the reload again", l.rulesPath)
+		}
+
+		return nil
 	}
 	if path == l.path {
-		return func(bool) {}, nil
+		return check, func(bool) {}, nil
 	}
 	f, err := lockFileAt(path, l.sock)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return func(applied bool) {
+	return check, func(applied bool) {
 		if !applied {
 			f.Close()
 
@@ -164,30 +174,6 @@ func lockFileAt(path, sock string) (*os.File, error) {
 	}
 
 	return f, nil
-}
-
-// lockedSocket gives the socket that the bridge which holds the lock of
-// rulesPath wrote into the lock file. It gives "" when no bridge holds the
-// lock, or when the read fails, as it does on Windows.
-func lockedSocket(rulesPath string) string {
-	path, err := lockPath(rulesPath)
-	if err != nil {
-		return ""
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return ""
-	}
-	defer f.Close()
-	if err := tryLockFile(f); !lockHeld(err) {
-		return ""
-	}
-	sock, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-
-	return string(sock)
 }
 
 // listenControl listens on path. The caller holds the bridge lock. A bridge
@@ -331,11 +317,6 @@ func newBridgeReloadCmd() *cobra.Command {
 				return err
 			}
 			res, err := requestReload(sock)
-			if connRefused(err) || errors.Is(err, fs.ErrNotExist) {
-				if other := lockedSocket(abs); other != "" && other != sock {
-					res, err = requestReload(other)
-				}
-			}
 			if connRefused(err) || errors.Is(err, fs.ErrNotExist) {
 				return fmt.Errorf("no running bridge reads %s", abs)
 			}

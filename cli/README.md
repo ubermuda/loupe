@@ -281,8 +281,9 @@ flight.
 The bridge listens on a local socket, `bridge-<hash>.sock` in your config
 directory. The hash comes from the absolute path of the rule file as you give
 it, so a symlink that you repoint keeps the socket.
-[`loupe bridge reload`](#loupe-bridge-reload) reaches the bridge there. The
-bridge logs a `control_listening` line with the socket path when it starts.
+Give [`loupe bridge reload`](#loupe-bridge-reload) the same path to reach the
+bridge there. The bridge logs a `control_listening` line with the socket path
+when it starts.
 
 The bridge also holds a lock on `bridge-<hash>.lock` in your config directory
 while it runs. This hash comes from the absolute path with symlinks resolved,
@@ -291,7 +292,8 @@ so two paths to one file count as the same rule file. A second
 lock file and, except on Windows, the socket of the first bridge. The OS
 releases the lock when the bridge stops or crashes. When you repoint a symlink,
 the next reload moves the lock to the new file. That reload fails when another
-bridge already holds the lock of the new file.
+bridge already holds the lock of the new file, or when the symlink moves again
+before the bridge applies the file.
 
 The flags stay fixed for the life of the process. To change `--max-workers`,
 `--permission-mode`, `--model` or `--log-file`, restart the bridge. The bridge
@@ -818,12 +820,9 @@ loupe bridge reload --rules ~/loupe/other-project.yaml
 | `--rules` | `rules.yaml` in your config dir | Reload the bridge that reads this rule file |
 
 The command reaches the bridge over its local socket, `bridge-<hash>.sock` in
-your config directory. The hash comes from the path as given. When nothing
-listens there, the command reads the socket path from the lock file of the rule
-file, so a bridge that got another path to the same file also answers. Windows
-refuses that read, so there you give `--rules` the path that the bridge got.
-The bridge first moves its lock when the rule path now resolves to another
-file. It then parses the file, runs the
+your config directory. Give `--rules` the path that the bridge got, because the
+hash comes from that path as given. The bridge first moves its lock when the
+rule path now resolves to another file. It then parses the file, runs the
 [start checks](#start-checks) against the server, and confirms that
 `GET /api/events` lists each mapped project. It applies the file only when every
 step passes.
@@ -851,9 +850,8 @@ On failure, the command writes one line to stderr for each problem, as
 nothing, and the bridge keeps its old rules and its lock.
 
 When no bridge reads the file, the command writes
-`error: no running bridge reads <path>` and exits with status 1. On Windows,
-the command writes the same error when a bridge reads the file through another
-path.
+`error: no running bridge reads <path>` and exits with status 1. The command
+writes the same error when a bridge reads the file through another path.
 
 A reload does these things to the running bridge:
 

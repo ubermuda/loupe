@@ -27,7 +27,7 @@ type reloadResult struct {
 // reloadSource gives a reload what it needs from the disk and the server; tests
 // replace it. A nil lock takes no lock.
 type reloadSource struct {
-	lock   func() (done func(applied bool), err error)
+	lock   func() (check func() error, done func(applied bool), err error)
 	load   func() (*rules.Set, error)
 	check  func(ctx context.Context, set *rules.Set) error
 	events func(ctx context.Context) (api.Events, error)
@@ -72,13 +72,11 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 		r.mu.Unlock()
 	}()
 
-	done := func(bool) {}
+	check, done := func() error { return nil }, func(bool) {}
 	if src.lock != nil {
 		var err error
-		if done, err = src.lock(); err != nil {
-			r.log.Error("reload_failed", "stage", "lock", "problems", []string{err.Error()})
-
-			return reloadResult{Stage: "lock", Problems: []string{err.Error()}}
+		if check, done, err = src.lock(); err != nil {
+			return r.lockFailed(err)
 		}
 	}
 
@@ -96,10 +94,21 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 
 		return reloadResult{Stage: stage, Problems: problems}
 	}
+	if err := check(); err != nil {
+		done(false)
+
+		return r.lockFailed(err)
+	}
 	res := r.swap(set)
 	done(res.OK)
 
 	return res
+}
+
+func (r *router) lockFailed(err error) reloadResult {
+	r.log.Error("reload_failed", "stage", "lock", "problems", []string{err.Error()})
+
+	return reloadResult{Stage: "lock", Problems: []string{err.Error()}}
 }
 
 func shuttingDown() reloadResult {
