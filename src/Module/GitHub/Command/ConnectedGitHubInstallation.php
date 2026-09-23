@@ -11,6 +11,7 @@ final readonly class ConnectedGitHubInstallation
     public function __construct(
         public GitHubInstallation $installation,
         public int $refusedRepositories,
+        public bool $repositoryListComplete,
     ) {
     }
 }

@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace App\Module\GitHub\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Forge\Service\ForgeClaimOutcome;
-use App\Module\Forge\Service\ForgeRepositories;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\GitHub\Entity\GitHubInstallation;
-use App\Module\GitHub\GitHubDelivery;
 use App\Module\GitHub\Repository\GitHubInstallationRepository;
 use App\Module\GitHub\Security\GitHubConnectionVoter;
+use App\Module\GitHub\Service\DeliveryAnnouncer;
 use App\Module\GitHub\Service\GitHubUserApi;
 use App\Module\GitHub\Service\GitHubUserApiFailed;
 use App\Module\Project\Entity\Project;
@@ -35,7 +34,7 @@ final readonly class ConnectGitHubInstallationHandler
         private AuthorizationCheckerInterface $authorization,
         private GitHubUserApi $gitHubUserApi,
         private GitHubInstallationRepository $gitHubInstallations,
-        private ForgeRepositories $forgeRepositories,
+        private DeliveryAnnouncer $announcer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private LoggerInterface $logger,
@@ -58,7 +57,7 @@ final readonly class ConnectGitHubInstallationHandler
                 throw new DomainErrors(['installation' => 'github.app.flash.installation_not_listed']);
             }
 
-            $repositories = $this->gitHubUserApi->installationRepositories($token, $command->installationId);
+            $listing = $this->gitHubUserApi->installationRepositories($token, $command->installationId);
         } catch (GitHubUserApiFailed $e) {
             $this->logger->warning('github.user_api_failed', [
                 'projectId' => (string) $project->id,
@@ -93,15 +92,19 @@ final readonly class ConnectGitHubInstallationHandler
             throw new DomainErrors(['installation' => 'github.app.flash.installation_elsewhere']);
         }
 
+        $repositories = $listing->repositories;
+        if (!$listing->complete) {
+            $this->logger->warning('github.repository_list_truncated', [
+                'projectId' => (string) $project->id,
+                'installationId' => $command->installationId,
+                'repositories' => \count($repositories),
+            ]);
+        }
+
         $refused = 0;
         foreach ($repositories as $repository) {
-            $claim = $this->forgeRepositories->claim($project, GitHubDelivery::FORGE, $repository->externalId(), $repository->fullName);
-            if (ForgeClaimOutcome::Refused === $claim->outcome) {
+            if (null === $this->announcer->claim($project, $repository, ForgeRepositorySource::Installation, $command->installationId)) {
                 ++$refused;
-                $this->logger->info('github.repository_refused', [
-                    'installationId' => $command->installationId,
-                    'repositoryId' => $repository->id,
-                ]);
             }
         }
 
@@ -117,7 +120,7 @@ final readonly class ConnectGitHubInstallationHandler
             new AuditSubject('project', (string) $project->id),
         );
 
-        return new ConnectedGitHubInstallation($installation, $refused);
+        return new ConnectedGitHubInstallation($installation, $refused, $listing->complete);
     }
 
     private function belongsTo(GitHubInstallation $installation, Project $project): bool

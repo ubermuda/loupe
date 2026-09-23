@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Forge\Service;
 
 use App\Module\Forge\Entity\ForgeRepository;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,30 +27,44 @@ final readonly class ForgeRepositories
     ) {
     }
 
-    public function claim(Project $project, string $forge, string $externalId, string $path): ForgeClaim
+    /**
+     * A hook claim never refuses, because a hook signature proves nothing about
+     * who owns the repository. It keeps this project's row alone. An
+     * installation claim refuses when another project holds an installation
+     * row, and otherwise turns this project's row into an installation row.
+     */
+    public function claim(Project $project, string $forge, string $externalId, string $path, ForgeRepositorySource $source, ?string $sourceRef = null): ForgeClaim
     {
         // Two first claims of one repository would otherwise both miss the read
         // and one would trip the unique key.
-        return $this->em->wrapInTransaction(function () use ($project, $forge, $externalId, $path): ForgeClaim {
+        return $this->em->wrapInTransaction(function () use ($project, $forge, $externalId, $path, $source, $sourceRef): ForgeClaim {
             $this->forgeRepositories->lockForClaim($forge, $externalId);
 
-            $existing = $this->forgeRepositories->findOneByForgeAndExternalId($forge, $externalId);
+            if (ForgeRepositorySource::Installation === $source) {
+                $installed = $this->forgeRepositories->findInstallationRow($forge, $externalId);
+                if (null !== $installed && !$this->isOwnedBy($installed, $project)) {
+                    // The owning project stays out of the log, so the refusal tells nobody who owns it.
+                    $this->logger->info('forge.repository_claim_refused', [
+                        'forge' => $forge,
+                        'externalId' => $externalId,
+                        'projectId' => (string) $project->id,
+                    ]);
+
+                    return ForgeClaim::refused();
+                }
+            }
+
+            $existing = $this->forgeRepositories->findOneForProject($project, $forge, $externalId);
             if (null === $existing) {
-                $repository = new ForgeRepository($project, $forge, $externalId, $path);
+                $repository = new ForgeRepository($project, $forge, $externalId, $path, $source, ForgeRepositorySource::Installation === $source ? $sourceRef : null);
                 $this->em->persist($repository);
 
                 return ForgeClaim::owned($repository);
             }
 
-            if (!$this->isOwnedBy($existing, $project)) {
-                // The owning project stays out of the log, so the refusal tells nobody who owns it.
-                $this->logger->info('forge.repository_claim_refused', [
-                    'forge' => $forge,
-                    'externalId' => $externalId,
-                    'projectId' => (string) $project->id,
-                ]);
-
-                return ForgeClaim::refused();
+            if (ForgeRepositorySource::Installation === $source) {
+                $existing->source = ForgeRepositorySource::Installation;
+                $existing->sourceRef = $sourceRef;
             }
 
             $movedFrom = null;
@@ -69,14 +84,30 @@ final readonly class ForgeRepositories
         });
     }
 
+    /** Removes this project's row, whatever its source. */
     public function release(Project $project, string $forge, string $externalId): void
     {
-        $existing = $this->forgeRepositories->findOneByForgeAndExternalId($forge, $externalId);
-        if (null === $existing || !$this->isOwnedBy($existing, $project)) {
+        $existing = $this->forgeRepositories->findOneForProject($project, $forge, $externalId);
+        if (null === $existing) {
             return;
         }
 
         $this->em->remove($existing);
+        $this->em->flush();
+    }
+
+    /**
+     * Removes the rows one installation holds, or its row for one repository.
+     * A later hook delivery creates a hook row again.
+     */
+    public function releaseInstallation(string $forge, string $sourceRef, ?string $externalId = null): void
+    {
+        foreach ($this->forgeRepositories->findByInstallation($forge, $sourceRef) as $repository) {
+            if (null === $externalId || $repository->externalId === $externalId) {
+                $this->em->remove($repository);
+            }
+        }
+
         $this->em->flush();
     }
 
@@ -92,9 +123,10 @@ final readonly class ForgeRepositories
         $this->em->flush();
     }
 
-    public function ownerOf(string $forge, string $externalId): ?ForgeRepository
+    /** The one row that makes a repository exclusive, when an installation holds it. */
+    public function installationOwnerOf(string $forge, string $externalId): ?ForgeRepository
     {
-        return $this->forgeRepositories->findOneByForgeAndExternalId($forge, $externalId);
+        return $this->forgeRepositories->findInstallationRow($forge, $externalId);
     }
 
     private function isOwnedBy(ForgeRepository $repository, Project $project): bool

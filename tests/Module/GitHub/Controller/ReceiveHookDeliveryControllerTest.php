@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\GitHub\Controller;
 
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\EventListener\RateLimitForgeDeliveries;
 use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\GitHub\Entity\GitHubHookHealth;
@@ -64,7 +65,7 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame($hook->hookKey, $client->getRequest()->attributes->get('hookKey'), 'The rate limiter keys by this attribute.');
         self::assertSame(GitHubHookHealth::Working, $this->storedHook($hook)->health());
-        self::assertNull($this->ownerOf(501));
+        self::assertNull($this->rowOf($hook->project, 501));
     }
 
     public function test_a_delivery_claims_the_repository_and_reaches_only_the_owning_project(): void
@@ -83,28 +84,32 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame([(string) $ownCard->id], $this->outboxSubjects($owner));
         self::assertSame([], $this->outboxSubjects($stranger));
-        $row = $this->ownerOf(502);
+        $row = $this->rowOf($owner, 502);
         self::assertNotNull($row);
-        self::assertEquals($owner->id, $row->project->id);
+        self::assertSame(ForgeRepositorySource::Hook, $row->source);
         self::assertNotNull($row->lastAcceptedAt);
+        self::assertNull($this->installationOwnerOf(502), 'A hook row makes nobody the exclusive owner.');
     }
 
-    public function test_a_repository_another_project_owns_is_dropped(): void
+    /** An installation of another project makes the repository exclusive on the App route alone. */
+    public function test_a_repository_another_project_installed_still_feeds_the_hook_project(): void
     {
         $client = static::createClient();
         $client->disableReboot();
         $this->enableBoard();
         $claimant = $this->project('claimant');
         $holder = $this->project('holder');
-        $this->owned($holder, 503, 'acme/held');
+        $this->owned($holder, 503, 'acme/held', ForgeRepositorySource::Installation, 1);
         $hook = $this->hook($claimant);
-        $this->linkedCard($claimant, 'acme/held', 1);
+        $claimantCard = $this->linkedCard($claimant, 'acme/held', 1);
+        $this->linkedCard($holder, 'acme/held', 1);
 
         $this->deliver($client, '/webhooks/forge/github/'.$hook->hookKey, 'pull_request', $this->merged(503, 'acme/held', 1), $hook->secret);
 
         self::assertResponseIsSuccessful();
-        self::assertSame([], $this->outboxSubjects($claimant));
-        self::assertEquals($holder->id, $this->ownerOf(503)?->project->id);
+        self::assertSame([(string) $claimantCard->id], $this->outboxSubjects($claimant));
+        self::assertSame([], $this->outboxSubjects($holder));
+        self::assertEquals($holder->id, $this->installationOwnerOf(503)?->project->id);
     }
 
     /** Ownership keys on the id, so both actions reach Board as a move of the owning project's links. */
@@ -129,7 +134,7 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(['neworg/new'], $this->linkPaths($ownCard));
         self::assertSame(['acme/old'], $this->linkPaths($strangerCard));
-        self::assertSame('neworg/new', $this->ownerOf(504)?->path);
+        self::assertSame('neworg/new', $this->rowOf($owner, 504)?->path);
     }
 
     /** @return iterable<string, array{string}> */

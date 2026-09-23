@@ -6038,6 +6038,7 @@
             <trans-unit id="github.app.flash.github_unavailable"><source>github.app.flash.github_unavailable</source><target>Loupe could not reach GitHub. Try the install again in a few minutes.</target></trans-unit>
             <trans-unit id="github.app.flash.installation_elsewhere"><source>github.app.flash.installation_elsewhere</source><target>This installation belongs to another project.</target></trans-unit>
             <trans-unit id="github.app.flash.connected"><source>github.app.flash.connected</source><target>Loupe is connected to the GitHub App on %account%.</target></trans-unit>
+            <trans-unit id="github.app.flash.repositories_incomplete"><source>github.app.flash.repositories_incomplete</source><target>GitHub listed more repositories than Loupe reads at one time, so the repository list may be incomplete. When the App can reach all repositories, a missing repository joins the list on its first delivery.</target></trans-unit>
             <trans-unit id="github.app.flash.repositories_elsewhere"><source>github.app.flash.repositories_elsewhere</source><target>{0}No repository belongs to another project.|{1}1 repository belongs to another project, so Loupe did not connect it.|]1,Inf[%count% repositories belong to another project, so Loupe did not connect them.</target></trans-unit>
         </body>
     </file>

@@ -17,9 +17,9 @@ final class Version20260923133401 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('CREATE TABLE forge_repositories (id UUID NOT NULL, last_accepted_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, forge VARCHAR(50) NOT NULL, external_id VARCHAR(255) NOT NULL, path VARCHAR(255) NOT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE TABLE forge_repositories (id UUID NOT NULL, last_accepted_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, forge VARCHAR(50) NOT NULL, external_id VARCHAR(255) NOT NULL, path VARCHAR(255) NOT NULL, source VARCHAR(20) NOT NULL, source_ref VARCHAR(255) DEFAULT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_E041F9EE166D1F9C ON forge_repositories (project_id)');
-        $this->addSql('CREATE UNIQUE INDEX uniq_forge_repositories_forge_external_id ON forge_repositories (forge, external_id)');
+        $this->addSql('CREATE UNIQUE INDEX uniq_forge_repositories_forge_external_id_project ON forge_repositories (forge, external_id, project_id)');
         $this->addSql('CREATE TABLE github_hooks (id UUID NOT NULL, last_accepted_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, last_refused_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, last_refused_reason VARCHAR(50) DEFAULT NULL, hook_key VARCHAR(26) NOT NULL, secret TEXT NOT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE UNIQUE INDEX UNIQ_D757503FEA2DCEF7 ON github_hooks (hook_key)');
         $this->addSql('CREATE UNIQUE INDEX UNIQ_D757503F166D1F9C ON github_hooks (project_id)');

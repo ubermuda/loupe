@@ -6,7 +6,9 @@ namespace App\Tests\Module\Forge\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgeRepository;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
+use App\Module\Forge\Service\ForgeClaim;
 use App\Module\Forge\Service\ForgeClaimOutcome;
 use App\Module\Forge\Service\ForgeRepositories;
 use App\Module\Project\Entity\Project;
@@ -36,29 +38,28 @@ final class ForgeRepositoriesTest extends KernelTestCase
         $this->repositories = $repositories;
     }
 
-    public function test_a_first_claim_owns_the_repository(): void
+    public function test_a_first_claim_creates_the_row_of_the_project(): void
     {
         $project = $this->project('first');
 
-        $claim = $this->repositories->claim($project, 'github', '1001', 'acme/widgets');
+        $claim = $this->hook($project, '1001', 'acme/widgets');
 
         self::assertSame(ForgeClaimOutcome::Owned, $claim->outcome);
         self::assertNull($claim->movedFrom);
-        self::assertNotNull($claim->repository);
-        $this->em->clear();
-        $owner = $this->repositories->ownerOf('github', '1001');
-        self::assertNotNull($owner);
-        self::assertEquals($project->id, $owner->project->id);
-        self::assertSame('acme/widgets', $owner->path);
-        self::assertNull($owner->lastAcceptedAt);
+        $row = $this->rowOf($project, '1001');
+        self::assertNotNull($row);
+        self::assertSame('acme/widgets', $row->path);
+        self::assertSame(ForgeRepositorySource::Hook, $row->source);
+        self::assertNull($row->sourceRef);
+        self::assertNull($row->lastAcceptedAt);
     }
 
     public function test_a_second_claim_by_the_same_project_is_already_owned(): void
     {
         $project = $this->project('again');
-        $first = $this->repositories->claim($project, 'github', '1002', 'acme/widgets');
+        $first = $this->hook($project, '1002', 'acme/widgets');
 
-        $claim = $this->repositories->claim($project, 'github', '1002', 'ACME/Widgets');
+        $claim = $this->hook($project, '1002', 'ACME/Widgets');
 
         self::assertSame(ForgeClaimOutcome::AlreadyOwned, $claim->outcome);
         self::assertSame($first->repository, $claim->repository);
@@ -66,31 +67,73 @@ final class ForgeRepositoriesTest extends KernelTestCase
         self::assertSame(1, $this->rowCount('1002'));
     }
 
-    public function test_a_claim_by_another_project_is_refused_and_names_no_owner(): void
+    /** A hook signature proves only that the project owner or GitHub signed, so it blocks nobody. */
+    public function test_a_hook_claim_never_refuses_and_never_blocks(): void
+    {
+        $installed = $this->project('installed');
+        $hooked = $this->project('hooked');
+        $this->installation($installed, '1003', 'acme/widgets', '1');
+
+        $hookClaim = $this->hook($hooked, '1003', 'acme/widgets');
+        $installationClaim = $this->installation($this->project('later'), '1014', 'acme/other', '2');
+        $afterHook = $this->installation($this->project('after-hook'), '1003', 'acme/widgets', '3');
+
+        self::assertSame(ForgeClaimOutcome::Owned, $hookClaim->outcome);
+        self::assertSame(ForgeClaimOutcome::Owned, $installationClaim->outcome);
+        self::assertSame(ForgeClaimOutcome::Refused, $afterHook->outcome, 'The first installation row still holds.');
+        self::assertSame(2, $this->rowCount('1003'));
+        self::assertEquals($installed->id, $this->repositories->installationOwnerOf('github', '1003')?->project->id);
+    }
+
+    public function test_a_hook_row_does_not_block_an_installation(): void
+    {
+        $this->hook($this->project('hook-first'), '1015', 'acme/widgets');
+        $installed = $this->project('installed');
+
+        $claim = $this->installation($installed, '1015', 'acme/widgets', '4');
+
+        self::assertSame(ForgeClaimOutcome::Owned, $claim->outcome);
+        self::assertEquals($installed->id, $this->repositories->installationOwnerOf('github', '1015')?->project->id);
+    }
+
+    public function test_an_installation_claim_refuses_when_another_project_holds_an_installation_row(): void
     {
         $owner = $this->project('owner');
-        $this->repositories->claim($owner, 'github', '1003', 'acme/widgets');
+        $this->installation($owner, '1016', 'acme/widgets', '5');
+        $stranger = $this->project('stranger');
 
-        $claim = $this->repositories->claim($this->project('stranger'), 'github', '1003', 'acme/widgets');
+        $claim = $this->installation($stranger, '1016', 'acme/gadgets', '6');
 
         self::assertSame(ForgeClaimOutcome::Refused, $claim->outcome);
         self::assertNull($claim->repository);
         self::assertNull($claim->movedFrom);
-        $row = $this->repositories->ownerOf('github', '1003');
-        self::assertNotNull($row);
-        self::assertSame($owner, $row->project);
+        self::assertNull($this->rowOf($stranger, '1016'));
+        self::assertSame('acme/widgets', $this->rowOf($owner, '1016')?->path);
     }
 
-    public function test_a_refused_claim_under_another_path_leaves_the_owner_path(): void
+    public function test_an_installation_claim_upgrades_the_hook_row_of_the_project(): void
     {
-        $owner = $this->project('path-owner');
-        $this->repositories->claim($owner, 'github', '1011', 'acme/widgets');
+        $project = $this->project('upgrade');
+        $this->hook($project, '1017', 'acme/widgets');
 
-        $claim = $this->repositories->claim($this->project('path-stranger'), 'github', '1011', 'acme/gadgets');
+        $claim = $this->installation($project, '1017', 'acme/widgets', '7');
 
-        self::assertSame(ForgeClaimOutcome::Refused, $claim->outcome);
-        $this->em->clear();
-        self::assertSame('acme/widgets', $this->repositories->ownerOf('github', '1011')?->path);
+        self::assertSame(ForgeClaimOutcome::AlreadyOwned, $claim->outcome);
+        self::assertSame(1, $this->rowCount('1017'));
+        $row = $this->rowOf($project, '1017');
+        self::assertNotNull($row);
+        self::assertSame(ForgeRepositorySource::Installation, $row->source);
+        self::assertSame('7', $row->sourceRef);
+    }
+
+    public function test_a_hook_claim_keeps_an_installation_row(): void
+    {
+        $project = $this->project('keep');
+        $this->installation($project, '1018', 'acme/widgets', '8');
+
+        $this->hook($project, '1018', 'acme/widgets');
+
+        self::assertSame(ForgeRepositorySource::Installation, $this->rowOf($project, '1018')?->source);
     }
 
     public function test_a_refused_claim_logs_the_claiming_project_and_never_the_owner(): void
@@ -98,10 +141,10 @@ final class ForgeRepositoriesTest extends KernelTestCase
         $logger = new RecordingLogger();
         $repositories = $this->withLogger($logger);
         $owner = $this->project('log-owner');
-        $repositories->claim($owner, 'github', '1012', 'acme/widgets');
+        $repositories->claim($owner, 'github', '1012', 'acme/widgets', ForgeRepositorySource::Installation, '9');
         $stranger = $this->project('log-stranger');
 
-        $repositories->claim($stranger, 'github', '1012', 'acme/widgets');
+        $repositories->claim($stranger, 'github', '1012', 'acme/widgets', ForgeRepositorySource::Installation, '10');
 
         self::assertSame([[
             'level' => 'info',
@@ -116,9 +159,9 @@ final class ForgeRepositoriesTest extends KernelTestCase
         $logger = new RecordingLogger();
         $repositories = $this->withLogger($logger);
         $project = $this->project('log-move');
-        $repositories->claim($project, 'github', '1013', 'acme/widgets');
+        $repositories->claim($project, 'github', '1013', 'acme/widgets', ForgeRepositorySource::Hook);
 
-        $repositories->claim($project, 'github', '1013', 'acme/gadgets');
+        $repositories->claim($project, 'github', '1013', 'acme/gadgets', ForgeRepositorySource::Hook);
 
         self::assertSame([[
             'level' => 'info',
@@ -129,98 +172,136 @@ final class ForgeRepositoriesTest extends KernelTestCase
 
     public function test_the_same_external_id_on_another_forge_is_a_different_repository(): void
     {
-        $this->repositories->claim($this->project('github'), 'github', '1004', 'acme/widgets');
+        $this->installation($this->project('github'), '1004', 'acme/widgets', '11');
 
-        $claim = $this->repositories->claim($this->project('gitlab'), 'gitlab', '1004', 'acme/widgets');
+        $claim = $this->repositories->claim($this->project('gitlab'), 'gitlab', '1004', 'acme/widgets', ForgeRepositorySource::Installation, '12');
 
         self::assertSame(ForgeClaimOutcome::Owned, $claim->outcome);
     }
 
-    public function test_a_claim_under_a_new_path_moves_the_repository(): void
+    public function test_a_claim_under_a_new_path_moves_only_the_row_of_the_project(): void
     {
         $project = $this->project('moved');
-        $this->repositories->claim($project, 'github', '1005', 'acme/widgets');
+        $other = $this->project('unmoved');
+        $this->hook($project, '1005', 'acme/widgets');
+        $this->hook($other, '1005', 'acme/widgets');
 
-        $claim = $this->repositories->claim($project, 'github', '1005', 'acme/gadgets');
+        $claim = $this->hook($project, '1005', 'acme/gadgets');
 
         self::assertSame(ForgeClaimOutcome::AlreadyOwned, $claim->outcome);
         self::assertSame('acme/widgets', $claim->movedFrom);
-        $this->em->clear();
-        self::assertSame('acme/gadgets', $this->repositories->ownerOf('github', '1005')?->path);
+        self::assertSame('acme/gadgets', $this->rowOf($project, '1005')?->path);
+        self::assertSame('acme/widgets', $this->rowOf($other, '1005')?->path);
     }
 
-    public function test_release_removes_the_row_of_its_owner(): void
+    public function test_release_removes_the_row_of_the_project_only(): void
     {
         $project = $this->project('release');
-        $this->repositories->claim($project, 'github', '1006', 'acme/widgets');
-        self::assertSame(1, $this->rowCount('1006'));
+        $keeper = $this->project('keeper');
+        $this->hook($project, '1006', 'acme/widgets');
+        $this->hook($keeper, '1006', 'acme/widgets');
 
         $this->repositories->release($project, 'github', '1006');
 
-        self::assertSame(0, $this->rowCount('1006'));
+        self::assertNull($this->rowOf($project, '1006'));
+        self::assertNotNull($this->rowOf($keeper, '1006'));
     }
 
-    public function test_release_by_another_project_leaves_the_row(): void
+    public function test_release_installation_removes_the_rows_of_that_installation_only(): void
     {
-        $this->repositories->claim($this->project('keeper'), 'github', '1007', 'acme/widgets');
+        $project = $this->project('uninstalled');
+        $this->installation($project, '1007', 'acme/one', '13');
+        $this->installation($project, '1019', 'acme/two', '13');
+        $this->installation($project, '1020', 'acme/three', '14');
+        $this->hook($project, '1021', 'acme/four');
 
-        $this->repositories->release($this->project('intruder'), 'github', '1007');
+        $this->repositories->releaseInstallation('github', '13', '1019');
+        self::assertNotNull($this->rowOf($project, '1007'));
+        self::assertNull($this->rowOf($project, '1019'));
 
-        self::assertSame(1, $this->rowCount('1007'));
+        $this->repositories->releaseInstallation('github', '13');
+        self::assertNull($this->rowOf($project, '1007'));
+        self::assertNotNull($this->rowOf($project, '1020'));
+        self::assertNotNull($this->rowOf($project, '1021'));
     }
 
     public function test_accepted_stamps_a_repository_that_has_no_stamp(): void
     {
-        $repository = $this->claimed('1008');
+        [$project, $repository] = $this->claimed('1008');
         $now = new \DateTimeImmutable('2026-09-23 12:00:00');
 
         $this->repositories->accepted($repository, $now);
 
-        $this->em->clear();
-        self::assertEquals($now, $this->repositories->ownerOf('github', '1008')?->lastAcceptedAt);
+        self::assertEquals($now, $this->rowOf($project, '1008')?->lastAcceptedAt);
     }
 
     public function test_accepted_skips_a_stamp_under_a_minute_old(): void
     {
-        $repository = $this->claimed('1009');
+        [$project, $repository] = $this->claimed('1009');
         $first = new \DateTimeImmutable('2026-09-23 12:00:00');
         $this->repositories->accepted($repository, $first);
 
         $this->repositories->accepted($repository, $first->modify('+59 seconds'));
 
-        $this->em->clear();
-        self::assertEquals($first, $this->repositories->ownerOf('github', '1009')?->lastAcceptedAt);
+        self::assertEquals($first, $this->rowOf($project, '1009')?->lastAcceptedAt);
     }
 
     public function test_accepted_restamps_after_a_minute(): void
     {
-        $repository = $this->claimed('1010');
+        [$project, $repository] = $this->claimed('1010');
         $first = new \DateTimeImmutable('2026-09-23 12:00:00');
         $this->repositories->accepted($repository, $first);
 
         $this->repositories->accepted($repository, $first->modify('+60 seconds'));
 
-        $this->em->clear();
-        self::assertEquals($first->modify('+60 seconds'), $this->repositories->ownerOf('github', '1010')?->lastAcceptedAt);
+        self::assertEquals($first->modify('+60 seconds'), $this->rowOf($project, '1010')?->lastAcceptedAt);
     }
 
-    public function test_owner_of_an_unknown_repository_is_null(): void
+    public function test_no_installation_owns_a_repository_that_only_hooks_hold(): void
     {
-        self::assertNull($this->repositories->ownerOf('github', 'no-such-repository'));
+        $this->hook($this->project('hook-only'), '1022', 'acme/widgets');
+
+        self::assertNull($this->repositories->installationOwnerOf('github', '1022'));
+        self::assertNull($this->repositories->installationOwnerOf('github', 'no-such-repository'));
+    }
+
+    private function hook(Project $project, string $externalId, string $path): ForgeClaim
+    {
+        return $this->repositories->claim($project, 'github', $externalId, $path, ForgeRepositorySource::Hook);
+    }
+
+    private function installation(Project $project, string $externalId, string $path, string $installationId): ForgeClaim
+    {
+        return $this->repositories->claim($project, 'github', $externalId, $path, ForgeRepositorySource::Installation, $installationId);
+    }
+
+    private function rowOf(Project $project, string $externalId): ?ForgeRepository
+    {
+        $this->em->clear();
+        $project = $this->em->find(Project::class, $project->id) ?? throw new \LogicException('The project is gone.');
+
+        return $this->forgeRepositoryRepository()->findOneForProject($project, 'github', $externalId);
     }
 
     private function withLogger(RecordingLogger $logger): ForgeRepositories
     {
+        return new ForgeRepositories($this->forgeRepositoryRepository(), $this->em, $logger);
+    }
+
+    private function forgeRepositoryRepository(): ForgeRepositoryRepository
+    {
         $forgeRepositories = self::getContainer()->get(ForgeRepositoryRepository::class);
         self::assertInstanceOf(ForgeRepositoryRepository::class, $forgeRepositories);
 
-        return new ForgeRepositories($forgeRepositories, $this->em, $logger);
+        return $forgeRepositories;
     }
 
-    private function claimed(string $externalId): ForgeRepository
+    /** @return array{Project, ForgeRepository} */
+    private function claimed(string $externalId): array
     {
-        return $this->repositories->claim($this->project('stamp'), 'github', $externalId, 'acme/widgets')->repository
-            ?? throw new \LogicException('A first claim always owns.');
+        $project = $this->project('stamp');
+
+        return [$project, $this->hook($project, $externalId, 'acme/widgets')->repository ?? throw new \LogicException('A first claim always owns.')];
     }
 
     private function rowCount(string $externalId): int

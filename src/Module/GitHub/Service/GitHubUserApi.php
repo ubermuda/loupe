@@ -61,7 +61,8 @@ final readonly class GitHubUserApi
     public function installations(string $token): array
     {
         $installations = [];
-        foreach ($this->pages($token, '/user/installations', 'installations') as $entry) {
+        [$entries] = $this->pages($token, '/user/installations', 'installations');
+        foreach ($entries as $entry) {
             $id = $entry['id'] ?? null;
             $login = \is_array($entry['account'] ?? null) ? ($entry['account']['login'] ?? null) : null;
             if (!\is_int($id) || !\is_string($login) || '' === $login) {
@@ -78,14 +79,13 @@ final readonly class GitHubUserApi
     /**
      * The repositories of the installation that both the user and the App reach.
      *
-     * @return list<GitHubRepositoryRef>
-     *
      * @throws GitHubUserApiFailed
      */
-    public function installationRepositories(string $token, int $installationId): array
+    public function installationRepositories(string $token, int $installationId): GitHubRepositoryList
     {
         $repositories = [];
-        foreach ($this->pages($token, '/user/installations/'.$installationId.'/repositories', 'repositories') as $entry) {
+        [$entries, $complete] = $this->pages($token, '/user/installations/'.$installationId.'/repositories', 'repositories');
+        foreach ($entries as $entry) {
             $id = $entry['id'] ?? null;
             $fullName = $entry['full_name'] ?? null;
             if (\is_int($id) && \is_string($fullName) && '' !== $fullName) {
@@ -93,11 +93,13 @@ final readonly class GitHubUserApi
             }
         }
 
-        return $repositories;
+        return new GitHubRepositoryList($repositories, $complete);
     }
 
     /**
-     * @return list<array<mixed>>
+     * A full last page counts as incomplete, because GitHub may hold more.
+     *
+     * @return array{list<array<mixed>>, bool} the entries, and whether they are all of them
      *
      * @throws GitHubUserApiFailed
      */
@@ -121,11 +123,11 @@ final readonly class GitHubUserApi
             }
 
             if (\count($items) < self::PAGE_SIZE) {
-                break;
+                return [$entries, true];
             }
         }
 
-        return $entries;
+        return [$entries, false];
     }
 
     /**

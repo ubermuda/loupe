@@ -35,7 +35,8 @@ final class RemoveForgeRepositoryControllerTest extends WebTestCase
         self::assertSame(AuditOutcome::Success, $audit->record('github.repository_removed')->outcome);
     }
 
-    public function test_a_repository_of_another_project_is_not_released(): void
+    /** A foreign id answers like an unknown one, so the route tells nobody that the row exists. */
+    public function test_a_repository_of_another_project_is_not_found(): void
     {
         $client = static::createClient();
         $owner = $this->signedUpUser('mine');
@@ -47,11 +48,9 @@ final class RemoveForgeRepositoryControllerTest extends WebTestCase
         $client->loginUser($owner);
         $this->postAction($client, '/projects/'.$project->id.'/repositories/'.$theirs->id.'/remove');
 
-        self::assertResponseRedirects('/projects/'.$project->id.'/connect#repositories');
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
         $this->em()->clear();
         self::assertNotNull($this->em()->find(ForgeRepository::class, $theirs->id));
-        $crawler = $client->followRedirect();
-        self::assertStringContainsString('This project does not own that repository.', $crawler->filter('body')->text());
     }
 
     public function test_a_stranger_is_forbidden(): void

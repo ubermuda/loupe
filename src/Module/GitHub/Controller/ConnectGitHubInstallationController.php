@@ -78,6 +78,10 @@ class ConnectGitHubInstallationController extends AppController
             $this->addFlash('warning', $this->translator->trans('github.app.flash.repositories_elsewhere', ['%count%' => $connected->refusedRepositories]));
         }
 
+        if (!$connected->repositoryListComplete) {
+            $this->addFlash('warning', $this->translator->trans('github.app.flash.repositories_incomplete'));
+        }
+
         return $connectPage;
     }
 }

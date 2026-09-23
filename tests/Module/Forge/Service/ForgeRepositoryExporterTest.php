@@ -6,6 +6,7 @@ namespace App\Tests\Module\Forge\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgeRepository;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Service\ForgeRepositoryExporter;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
@@ -45,10 +46,10 @@ final class ForgeRepositoryExporterTest extends KernelTestCase
 
         $createdAt = new \DateTimeImmutable('2026-09-01 09:00:00');
         $acceptedAt = new \DateTimeImmutable('2026-09-20 10:11:12');
-        $repository = new ForgeRepository($mine, 'github', 'export-1', 'Acme/Widgets', $createdAt);
+        $repository = new ForgeRepository($mine, 'github', 'export-1', 'Acme/Widgets', ForgeRepositorySource::Installation, '77', $createdAt);
         $repository->lastAcceptedAt = $acceptedAt;
         $this->em->persist($repository);
-        $this->em->persist(new ForgeRepository($theirs, 'github', 'export-2', 'acme/gadgets'));
+        $this->em->persist(new ForgeRepository($theirs, 'github', 'export-2', 'acme/gadgets', ForgeRepositorySource::Hook));
         $this->em->flush();
         $this->em->clear();
 
@@ -59,6 +60,8 @@ final class ForgeRepositoryExporterTest extends KernelTestCase
             'forge' => 'github',
             'externalId' => 'export-1',
             'path' => 'Acme/Widgets',
+            'source' => 'installation',
+            'sourceRef' => '77',
             'lastAcceptedAt' => $acceptedAt->format(\DateTimeInterface::ATOM),
             'createdAt' => $createdAt->format(\DateTimeInterface::ATOM),
         ]], $rows);

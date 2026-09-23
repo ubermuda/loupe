@@ -11,15 +11,17 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * One forge repository and the one project that owns it. The unique key is
- * the forge's own stable id, so a rename or a transfer keeps the owner.
+ * One forge repository as one project receives it. The key is the forge's own
+ * stable id, so a rename or a transfer keeps the row. Several projects can hold
+ * a row for one repository, and at most one of those rows comes from an
+ * installation.
  */
 #[ORM\Entity(repositoryClass: ForgeRepositoryRepository::class)]
 #[ORM\Table(name: 'forge_repositories')]
-#[ORM\UniqueConstraint(name: self::OWNER_CONSTRAINT, columns: ['forge', 'external_id'])]
+#[ORM\UniqueConstraint(name: self::PROJECT_CONSTRAINT, columns: ['forge', 'external_id', 'project_id'])]
 class ForgeRepository
 {
-    public const string OWNER_CONSTRAINT = 'uniq_forge_repositories_forge_external_id';
+    public const string PROJECT_CONSTRAINT = 'uniq_forge_repositories_forge_external_id_project';
 
     private const string QUIET_AFTER = '-30 days';
 
@@ -47,6 +49,13 @@ class ForgeRepository
         /** The current path as the forge sent it. GitLab nests groups, so it may hold more than one slash. */
         #[ORM\Column(length: 255)]
         public string $path,
+
+        #[ORM\Column(length: 20, enumType: ForgeRepositorySource::class)]
+        public ForgeRepositorySource $source,
+
+        /** The forge's own id of the installation behind an installation row, opaque to this module. */
+        #[ORM\Column(length: 255, nullable: true)]
+        public ?string $sourceRef = null,
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),

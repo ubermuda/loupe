@@ -30,6 +30,8 @@ final readonly class ForgeRepositoryExporter implements UserDataExporterInterfac
                 'forge' => $repository->forge,
                 'externalId' => $repository->externalId,
                 'path' => $repository->path,
+                'source' => $repository->source->value,
+                'sourceRef' => $repository->sourceRef,
                 'lastAcceptedAt' => $repository->lastAcceptedAt?->format(\DateTimeInterface::ATOM),
                 'createdAt' => $repository->createdAt->format(\DateTimeInterface::ATOM),
             ];

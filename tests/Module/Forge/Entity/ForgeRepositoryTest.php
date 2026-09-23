@@ -6,6 +6,7 @@ namespace App\Tests\Module\Forge\Entity;
 
 use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgeRepository;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Entity\ForgeRepositoryHealth;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\TestCase;
@@ -36,7 +37,7 @@ final class ForgeRepositoryTest extends TestCase
     private function repository(?\DateTimeImmutable $lastAcceptedAt): ForgeRepository
     {
         $project = new Project(new User(fullName: 'Riley', email: 'riley@example.com', password: 'hashed'), 'widgets');
-        $repository = new ForgeRepository($project, 'github', '42', 'acme/widgets');
+        $repository = new ForgeRepository($project, 'github', '42', 'acme/widgets', ForgeRepositorySource::Hook);
         $repository->lastAcceptedAt = $lastAcceptedAt;
 
         return $repository;

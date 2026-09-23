@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\GitHub\Controller;
 
+use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\Forge;
+use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Forge\Entity\ForgeRepository;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
-use App\Module\Forge\Service\ForgeRepositories;
 use App\Module\GitHub\Command\ConnectGitHubInstallationHandler;
 use App\Module\GitHub\Entity\GitHubInstallation;
 use App\Module\GitHub\Entity\GitHubRepositorySelection;
 use App\Module\GitHub\Repository\GitHubInstallationRepository;
 use App\Module\GitHub\Service\GitHubAppConfiguration;
+use App\Module\GitHub\Service\DeliveryAnnouncer;
 use App\Module\GitHub\Service\GitHubUserApi;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
@@ -28,6 +34,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class GitHubAppInstallFlowTest extends WebTestCase
 {
@@ -244,7 +251,7 @@ final class GitHubAppInstallFlowTest extends WebTestCase
         $this->installations = [...$others, $this->installation(self::INSTALLATION_ID, 'acme', 'selected')];
         $owner = $this->signedUpUser('happy');
         $project = $this->projectOf($owner);
-        $elsewhere = new ForgeRepository($this->projectOf($this->signedUpUser('elsewhere')), 'github', '303', 'acme/taken');
+        $elsewhere = new ForgeRepository($this->projectOf($this->signedUpUser('elsewhere')), 'github', '303', 'acme/taken', ForgeRepositorySource::Installation, '1');
         $this->em()->persist($elsewhere);
         $this->em()->flush();
         $this->repositories = [
@@ -279,6 +286,7 @@ final class GitHubAppInstallFlowTest extends WebTestCase
         self::assertStringContainsString('Loupe is connected to the GitHub App on acme', $text);
         self::assertStringContainsString('1 repository belongs to another project', $text);
         self::assertStringNotContainsString('elsewhere', $text);
+        self::assertStringNotContainsString('may be incomplete', $text);
         self::assertStringNotContainsString(self::TOKEN, (string) $this->client->getResponse()->getContent());
 
         $this->client->request(Request::METHOD_GET, '/github/app/callback?code=the-code&state=anything');
@@ -305,6 +313,47 @@ final class GitHubAppInstallFlowTest extends WebTestCase
         self::assertSame(GitHubRepositorySelection::Selected, $installation->repositorySelection);
         self::assertNull($installation->removedAt);
         self::assertSame(['acme/one'], $this->pathsOf($project));
+    }
+
+    /** A connect claims like a delivery, so a rename GitHub reports here reaches the card links too. */
+    public function test_a_repository_renamed_since_its_last_delivery_repoints_the_card_links(): void
+    {
+        $flags = static::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
+        $owner = $this->signedUpUser('renamed');
+        $project = $this->projectOf($owner);
+        $column = new BoardColumn($project, 'Work', 'work', 0);
+        $card = new Card($project, $column, 'Ship it', '', 1);
+        $link = new CardPullRequest($card, 'https://github.com/acme/old-one/pull/4', Forge::GitHub, 'acme/old-one', 4);
+        foreach ([$column, $card, $link, new ForgeRepository($project, 'github', '101', 'acme/old-one', ForgeRepositorySource::Hook)] as $entity) {
+            $this->em()->persist($entity);
+        }
+        $this->em()->flush();
+        $this->repositories = [['id' => 101, 'full_name' => 'acme/one']];
+        $this->em()->clear();
+
+        $this->client->loginUser($owner);
+        $this->completeInstall($project);
+
+        self::assertSame(['acme/one'], $this->pathsOf($project));
+        $this->em()->clear();
+        self::assertSame('acme/one', $this->em()->find(CardPullRequest::class, $link->id)?->repository);
+    }
+
+    public function test_a_repository_list_longer_than_ten_pages_is_reported_as_incomplete(): void
+    {
+        $logger = $this->recordingHandlerLogger();
+        $owner = $this->signedUpUser('many');
+        $project = $this->projectOf($owner);
+        $this->repositories = array_map(static fn (int $id): array => ['id' => $id, 'full_name' => 'acme/repository-'.$id], range(1, 1000));
+        $this->em()->clear();
+
+        $this->client->loginUser($owner);
+        $this->completeInstall($project);
+
+        self::assertStringContainsString('the repository list may be incomplete', $this->followedText());
+        self::assertContains('github.repository_list_truncated', array_column($logger->records, 'message'));
     }
 
     public function test_an_installation_of_another_project_is_refused_without_naming_it(): void
@@ -494,7 +543,7 @@ final class GitHubAppInstallFlowTest extends WebTestCase
             self::narrow($get('security.authorization_checker'), AuthorizationCheckerInterface::class),
             self::narrow($get(GitHubUserApi::class), GitHubUserApi::class),
             self::narrow($get(GitHubInstallationRepository::class), GitHubInstallationRepository::class),
-            self::narrow($get(ForgeRepositories::class), ForgeRepositories::class),
+            self::narrow($get(DeliveryAnnouncer::class), DeliveryAnnouncer::class),
             self::narrow($get(EntityManagerInterface::class), EntityManagerInterface::class),
             self::narrow($get(Auditor::class), Auditor::class),
             $logger,

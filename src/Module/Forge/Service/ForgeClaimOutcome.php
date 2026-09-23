@@ -12,6 +12,6 @@ enum ForgeClaimOutcome
     /** This project already held the row. */
     case AlreadyOwned;
 
-    /** Another project holds the row. The result names no owner. */
+    /** An installation claim, and another project holds the installation row. The result names no owner. */
     case Refused;
 }

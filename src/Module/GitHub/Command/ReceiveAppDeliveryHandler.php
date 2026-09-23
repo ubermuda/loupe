@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\GitHub\Command;
 
-use App\Module\Forge\Service\ForgeClaimOutcome;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Service\ForgeRepositories;
 use App\Module\GitHub\Entity\GitHubInstallation;
 use App\Module\GitHub\Entity\GitHubRepositorySelection;
@@ -75,9 +75,7 @@ final readonly class ReceiveAppDeliveryHandler
                 break;
             case 'deleted':
                 $installation->removedAt = new \DateTimeImmutable();
-                foreach ($delivery->repositories('repositories') as $repository) {
-                    $this->forgeRepositories->release($installation->project, GitHubDelivery::FORGE, $repository->externalId());
-                }
+                $this->forgeRepositories->releaseInstallation(GitHubDelivery::FORGE, (string) $installation->installationId);
                 break;
             case 'created':
                 $this->claimAll($installation, $delivery->repositories('repositories'));
@@ -89,9 +87,12 @@ final readonly class ReceiveAppDeliveryHandler
 
     private function repositoriesChanged(GitHubInstallation $installation, GitHubDelivery $delivery): void
     {
-        $this->claimAll($installation, $delivery->repositories('repositories_added'));
+        if (null === $installation->suspendedAt) {
+            $this->claimAll($installation, $delivery->repositories('repositories_added'));
+        }
+
         foreach ($delivery->repositories('repositories_removed') as $repository) {
-            $this->forgeRepositories->release($installation->project, GitHubDelivery::FORGE, $repository->externalId());
+            $this->forgeRepositories->releaseInstallation(GitHubDelivery::FORGE, (string) $installation->installationId, $repository->externalId());
         }
 
         $selection = $delivery->repositorySelection();
@@ -106,20 +107,15 @@ final readonly class ReceiveAppDeliveryHandler
     private function claimAll(GitHubInstallation $installation, array $repositories): void
     {
         foreach ($repositories as $repository) {
-            $claim = $this->forgeRepositories->claim($installation->project, GitHubDelivery::FORGE, $repository->externalId(), $repository->fullName);
-            if (ForgeClaimOutcome::Refused === $claim->outcome) {
-                $this->logger->info('github.repository_refused', [
-                    'installationId' => $installation->installationId,
-                    'repositoryId' => $repository->id,
-                ]);
-            }
+            $this->announcer->claim($installation->project, $repository, ForgeRepositorySource::Installation, $installation->installationId);
         }
     }
 
     /**
      * An installation that reaches every repository claims one on its first
      * delivery. One with a selection claims only through the events that name
-     * the selection, so a repository outside it is dropped here.
+     * the selection, so a repository outside it is dropped here. A hook row of
+     * any project is no ownership here.
      */
     private function owned(GitHubInstallation $installation, GitHubDelivery $delivery): void
     {
@@ -130,14 +126,14 @@ final readonly class ReceiveAppDeliveryHandler
             return;
         }
 
-        $unclaimed = null === $this->forgeRepositories->ownerOf(GitHubDelivery::FORGE, $repository->externalId());
+        $unclaimed = null === $this->forgeRepositories->installationOwnerOf(GitHubDelivery::FORGE, $repository->externalId());
         if ($unclaimed && GitHubRepositorySelection::Selected === $installation->repositorySelection) {
             $this->dropped($delivery, 'not_selected');
 
             return;
         }
 
-        $this->announcer->announce($installation->project, $repository, $delivery);
+        $this->announcer->announce($installation->project, $repository, $delivery, ForgeRepositorySource::Installation, $installation->installationId);
     }
 
     private function dropped(GitHubDelivery $delivery, string $reason): void

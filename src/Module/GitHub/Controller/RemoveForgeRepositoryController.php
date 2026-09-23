@@ -37,7 +37,8 @@ class RemoveForgeRepositoryController extends AppController
 
     public function __invoke(
         Project $project,
-        #[MapEntity(mapping: ['repositoryId' => 'id'])] ForgeRepository $repository,
+        // The alias moves the raw project id to `project`, and scoping to it makes a foreign id a 404.
+        #[MapEntity(expr: 'repository.findOneByIdAndProjectId(repositoryId, project)')] ForgeRepository $repository,
     ): Response {
         try {
             ($this->removeForgeRepository)(new RemoveForgeRepositoryCommand($project, $repository));

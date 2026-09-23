@@ -6,6 +6,7 @@ namespace App\Tests\Module\Forge\EventListener;
 
 use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgeRepository;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\EventListener\DeleteForgeRepositoriesOnProjectDeleting;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Event\ProjectDeleting;
@@ -33,9 +34,9 @@ final class DeleteForgeRepositoriesOnProjectDeletingTest extends KernelTestCase
         $em->persist($owner);
         $em->persist($doomed);
         $em->persist($spared);
-        $em->persist(new ForgeRepository($doomed, 'github', 'delete-1', 'acme/one'));
-        $em->persist(new ForgeRepository($doomed, 'github', 'delete-2', 'acme/two'));
-        $em->persist(new ForgeRepository($spared, 'github', 'delete-3', 'acme/three'));
+        $em->persist(new ForgeRepository($doomed, 'github', 'delete-1', 'acme/one', ForgeRepositorySource::Hook));
+        $em->persist(new ForgeRepository($doomed, 'github', 'delete-2', 'acme/two', ForgeRepositorySource::Hook));
+        $em->persist(new ForgeRepository($spared, 'github', 'delete-3', 'acme/three', ForgeRepositorySource::Hook));
         $em->flush();
 
         $conn = $em->getConnection();

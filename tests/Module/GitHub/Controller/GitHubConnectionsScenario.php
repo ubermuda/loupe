@@ -6,6 +6,7 @@ namespace App\Tests\Module\GitHub\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgeRepository;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
@@ -56,7 +57,7 @@ trait GitHubConnectionsScenario
 
     private function repositoryOf(Project $project, string $path, ?\DateTimeImmutable $lastAcceptedAt = null): ForgeRepository
     {
-        $repository = new ForgeRepository($project, 'github', (string) random_int(1, 1_000_000_000), $path);
+        $repository = new ForgeRepository($project, 'github', (string) random_int(1, 1_000_000_000), $path, ForgeRepositorySource::Hook);
         $repository->lastAcceptedAt = $lastAcceptedAt;
         $this->em()->persist($repository);
         $this->em()->flush();

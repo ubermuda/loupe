@@ -11,6 +11,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Forge\Entity\ForgeRepository;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\GitHub\Entity\GitHubInstallation;
@@ -69,9 +70,9 @@ trait GitHubDeliveryScenario
         return $installation;
     }
 
-    private function owned(Project $project, int $repositoryId, string $path): void
+    private function owned(Project $project, int $repositoryId, string $path, ForgeRepositorySource $source = ForgeRepositorySource::Hook, ?int $installationId = null): void
     {
-        $this->em()->persist(new ForgeRepository($project, 'github', (string) $repositoryId, $path));
+        $this->em()->persist(new ForgeRepository($project, 'github', (string) $repositoryId, $path, $source, null === $installationId ? null : (string) $installationId));
         $this->em()->flush();
     }
 
@@ -136,12 +137,26 @@ trait GitHubDeliveryScenario
         )));
     }
 
-    private function ownerOf(int $repositoryId): ?ForgeRepository
+    private function rowOf(Project $project, int $repositoryId): ?ForgeRepository
     {
         $this->em()->clear();
+        $project = $this->em()->find(Project::class, $project->id) ?? throw new \LogicException('The project is gone.');
+
+        return $this->forgeRepositoryRepository()->findOneForProject($project, 'github', (string) $repositoryId);
+    }
+
+    private function installationOwnerOf(int $repositoryId): ?ForgeRepository
+    {
+        $this->em()->clear();
+
+        return $this->forgeRepositoryRepository()->findInstallationRow('github', (string) $repositoryId);
+    }
+
+    private function forgeRepositoryRepository(): ForgeRepositoryRepository
+    {
         $repositories = self::getContainer()->get(ForgeRepositoryRepository::class);
         self::assertInstanceOf(ForgeRepositoryRepository::class, $repositories);
 
-        return $repositories->findOneByForgeAndExternalId('github', (string) $repositoryId);
+        return $repositories;
     }
 }
