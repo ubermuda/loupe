@@ -154,6 +154,20 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertSame('2026-09-23 10:0'.WorkerRunState::Failed->rank().':00', $failed[0]->at->format('Y-m-d H:i:s'));
     }
 
+    /** The bridge sends a start with a spawn failure for the old report, and it never ran. */
+    public function test_a_run_that_never_started_keeps_no_start_and_no_session(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-not-started');
+
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::NotStarted, failureReason: 'spawn failed')->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunState::NotStarted, $run->state);
+        self::assertNull($run->startedAt);
+        self::assertNull($run->sessionId);
+    }
+
     public function test_a_repeat_writes_nothing(): void
     {
         self::bootKernel();

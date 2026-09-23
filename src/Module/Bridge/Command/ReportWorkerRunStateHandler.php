@@ -136,6 +136,11 @@ final readonly class ReportWorkerRunStateHandler
 
     private function fillStart(WorkerRun $run, ReportWorkerRunStateCommand $command): void
     {
+        // The bridge sends the start of a process that never started, because the old report needs it.
+        if (WorkerRunState::NotStarted === $command->state) {
+            return;
+        }
+
         if (null === $run->sessionId && null !== $command->sessionId) {
             $run->sessionId = $command->sessionId;
         }

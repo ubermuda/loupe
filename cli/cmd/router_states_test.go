@@ -204,15 +204,18 @@ func TestAFinishedRunReportsHowItEnded(t *testing.T) {
 			h.send(cardMoved(87))
 
 			sent := rec.states()
-			wantStates(t, sent, api.RunQueued, api.RunRunning, tc.want)
-			done := sent[2].report
+			// A process that never started never reads as running.
 			if tc.result.err != nil {
+				wantStates(t, sent, api.RunQueued, tc.want)
+				done := sent[1].report
 				if done.ExitCode != nil || done.HasResult != nil || done.FailureReason == nil || *done.FailureReason != tc.result.err.Error() {
 					t.Fatalf("not-started = %+v", done)
 				}
 
 				return
 			}
+			wantStates(t, sent, api.RunQueued, api.RunRunning, tc.want)
+			done := sent[2].report
 			if done.ExitCode == nil || *done.ExitCode != tc.result.exitCode || done.FailureReason != nil || done.Output != "no such option" {
 				t.Fatalf("%s = %+v", tc.want, done)
 			}

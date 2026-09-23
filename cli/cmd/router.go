@@ -722,13 +722,17 @@ func (r *router) start(p pending) {
 		r.emitLocked(p, api.RunStateReport{State: api.RunResumed, AskID: askOf(p.event)})
 	}
 	began := time.Now()
-	r.emitLocked(p, api.RunStateReport{State: api.RunRunning, SessionID: p.spec.sessionID, StartedAt: began})
+	onStart := func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.emitLocked(p, api.RunStateReport{State: api.RunRunning, SessionID: p.spec.sessionID, StartedAt: began})
+	}
 
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
 
-		res := r.worker.run(r.workerContext(), p.spec)
+		res := r.worker.run(r.workerContext(), p.spec, onStart)
 		r.report(p, res, began, time.Since(began))
 		r.finish(p.key)
 	}()
