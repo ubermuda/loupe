@@ -251,6 +251,11 @@ The page also lists the card's five latest agent runs, with the rule that
 started each run, when it ran, how long it took and how it ended. A run opens
 its details on the run history page.
 
+A card with links to other cards shows a **Linked cards** table. Each row gives
+the kind of link, the other card's number, its title and its column. A row opens
+that card in the drawer. A card with no links shows no table. See
+[Cards linked to a card](#cards-linked-to-a-card).
+
 When the inbox is on, the page also lists the inbox items linked to the card,
 and you can answer them there. See
 [On a card page and a document page](inbox.md#on-a-card-page-and-a-document-page).
@@ -264,6 +269,12 @@ links. In the drawer, the form replaces the card, and saving returns to the card
 its links. A delete cannot be undone, and the number the card held is not
 issued again.
 
+The create form and the edit form carry a **Linked cards** block. Each row picks
+a card and a kind. Type a fragment of a title or a card number, and the field
+offers the matching cards of the project. The **Add a linked card** button adds
+a row, and the cross at the end of a row removes it. Saving replaces the card's
+whole set of links.
+
 ## What a card holds
 
 | Field | What it is |
@@ -275,6 +286,7 @@ issued again.
 | Status | The column the card sits in. The tools report the column's slug. |
 | Reporter | `human`, `agent` or `reviewer`. It records who raised the card. |
 | Pull requests | Any number of links. See below. |
+| Linked cards | Other cards of the project, each with a kind. See [Cards linked to a card](#cards-linked-to-a-card). |
 
 A card also carries the moment it was created and the moment it last changed. A
 card in a terminal column carries its completion time as well.
@@ -360,11 +372,11 @@ An agent drives the board through the MCP endpoint. See
 | Tool | Arguments |
 |---|---|
 | `board_columns` | None. |
-| `card_create` | `title`, `body` and `type` are required. `status`, `reporter` and `pullRequestUrls` are optional. `origin` is the old name for `reporter` and is deprecated. |
+| `card_create` | `title`, `body` and `type` are required. `status`, `reporter`, `pullRequestUrls`, `documentIds` and `relatedCards` are optional. `origin` is the old name for `reporter` and is deprecated. |
 | `card_list` | `status`, `type` and `reporter`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
 | `card_search` | `query` is required. `page` and `perPage` are optional. |
 | `card_get` | Exactly one of `cardId` and `number`. |
-| `card_update` | Exactly one of `cardId` and `number` is required. `title`, `body`, `type`, `status` and `pullRequestUrls` are optional. |
+| `card_update` | Exactly one of `cardId` and `number` is required. `title`, `body`, `type`, `status`, `pullRequestUrls`, `documentIds` and `relatedCards` are optional. |
 
 `board_columns` lists the columns of the board in board order. Each entry
 carries `slug`, `label`, `terminal` and `default`. `card_list` returns the same
@@ -391,9 +403,10 @@ so a page past the end reads as an empty list. The answer carries `page`,
 not the cards on the page, so keep reading while `hasMore` is true.
 
 Each row is a summary: `cardId`, `number`, `title`, `type`, `status`,
-`reporter` and `updatedAt`. Pass `full` to get the Markdown body and the
-pull request, document and site-review links as well. A full page is much larger,
-so read the board as summaries and call `card_get` for the card you want.
+`reporter` and `updatedAt`. Pass `full` to get the Markdown body, the pull
+request, document and site-review links, and `relatedCards` as well. A full page
+is much larger, so read the board as summaries and call `card_get` for the card
+you want.
 
 `card_search` answers "is there already a card about this?" without reading the
 whole board. It searches the title and the body of every card in the project,
@@ -412,6 +425,10 @@ row is the same summary `card_list` returns, so call `card_get` for a body.
 `card_get` returns one card with its full Markdown body, every pull request
 linked to it, and every site-review comment pointing at it. Use a card id that
 `card_list`, `card_search` or `card_create` gave you, or the card number.
+
+`card_get` also returns `relatedCards`, the cards linked to this one. Each entry
+carries `cardId`, `number`, `title`, `status` and `kind`, where `kind` is how
+this card reads the link. `card_search` does not carry `relatedCards`.
 
 ## Cards raised from the review widget
 
@@ -443,6 +460,45 @@ it and the links stay, send an empty list and every one is removed.
 The link is one-way. A document does not list the cards that point at it,
 because the module boundary runs one way: Board may read Review, and Review must
 not learn that cards exist.
+
+## Cards linked to a card
+
+A card links to other cards of the same project. From one card, each link reads
+as one of three kinds:
+
+| Kind | Label | Meaning |
+|---|---|---|
+| `relates-to` | Related to | The two cards concern each other. |
+| `blocks` | Blocks | This card must finish before the other card can. |
+| `blocked-by` | Blocked by | The other card must finish before this card can. |
+
+Both cards show the link. A `relates-to` link reads the same from both ends. A
+`blocks` link from card A to card B reads `blocked-by` from card B. A pair of
+cards holds one link, so card A cannot both block and relate to card B.
+
+Pass `relatedCards` to `card_create` or `card_update`. Each entry takes a
+`cardId` and a `kind`, and `kind` defaults to `relates-to`. Loupe ignores any
+other key, so the `relatedCards` of `card_get` can go back unchanged.
+
+`relatedCards` follows the omit-versus-empty rule of `documentIds`. Omit it and
+the links stay. Send `[]` and every link is removed. Send a list and it replaces
+the whole set, so send every link you want to keep.
+
+Either end of a link governs it. A write on card B replaces every link that
+touches card B, and that includes a link written from card A. The writer of
+card A gets no notice. Read the card with `card_get` before you write its links,
+or you can remove a link that another agent added.
+
+Loupe refuses the whole call, and changes nothing, for each of these:
+
+- A link from a card to itself.
+- A `cardId` that names no card of this project. A card of another project
+  reads as unknown.
+- The same card twice in one set.
+- A `kind` other than the three above.
+
+Deleting a card removes each link that touches it. Deleting a project removes
+every link of its board.
 
 ## Review feedback on a card
 
@@ -496,5 +552,5 @@ request.
 
 ## Deleting a project
 
-Deleting a project deletes its board with it, cards, pull request links and
-bridge rule reports included.
+Deleting a project deletes its board with it, cards, pull request links, card
+links and bridge rule reports included.

@@ -56,7 +56,7 @@ When no column fits a role, leave the card where it is and tell the owner.
 | `card_create` | Put a new card on the board. It lands in the default column unless you pass `status`. |
 | `card_list` | Read one page of the board, with its columns. Filter by `status`, `type` or `reporter`. A terminal column reads newest completion first, and every other column reads in rank order. |
 | `card_search` | Ask whether a card about something already exists. It reads the title and the body of every card, done ones included. |
-| `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents and the site-review comments pointing at it. |
+| `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents, its linked cards and the site-review comments pointing at it. |
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status puts the card at the end of the column it arrives in. |
 
 `card_get` and `card_update` take a `cardId`, which you read from `card_list`,
@@ -96,8 +96,8 @@ A row carries seven fields: `cardId`, `number`, `title`, `type`, `status`,
 `reporter` and `updatedAt`. It carries no body and no links.
 
 Pass `full` to get the whole card on every row, with its Markdown body, its pull
-request links, its documents and its site-review comments. A full page is much
-larger than a summary page, and a whole board of full cards once overran a
+request links, its documents, its linked cards and its site-review comments. A
+full page is much larger than a summary page, and a whole board of full cards once overran a
 caller's context limit. Read the board as summaries, then call `card_get` for the
 one card you want.
 
@@ -107,6 +107,15 @@ and `card_update`. It follows the same omit-versus-empty rule as
 project is **refused** rather than kept: a URL cannot be checked and an id can.
 `card_get` returns them as `documents`, each with `documentId`, `title` and
 `status`.
+
+`relatedCards` links other cards of this project, on `card_create` and
+`card_update`. Each entry takes a `cardId` and a `kind`: `relates-to` (the
+default), `blocks` or `blocked-by`. A pair of cards holds one link, and both cards
+show it. A `blocks` link from card A reads `blocked-by` from card B. `card_get`
+returns `relatedCards` with `cardId`, `number`, `title`, `status` and `kind`, and
+you can send that list back unchanged. The omit-versus-empty rule applies. A sent
+list replaces every link that touches the card, including links written from the
+other card, and nobody tells that card's writer. Read the card before you write.
 
 `siteReviewComments` is read-only, on `card_get` and on `card_list` with `full`.
 Each item carries `commentId`, `body`, `url`, `status` and `createdAt`. A comment
@@ -316,6 +325,8 @@ An agent or a person moves the card to a terminal column.
 | Carding a lesson so it is not lost | Nobody can finish it. Write it into the skill. |
 | Sending only the new URL in `pullRequestUrls` | The field replaces the whole set, so the older links go. |
 | Sending an empty `pullRequestUrls` to leave the links alone | An empty list clears them. Omit the field instead. |
+| Sending only the new link in `relatedCards` | The field replaces every link of the card, from both ends. Send the whole list from `card_get`. |
+| Linking card B back to card A after linking A to B | One link serves both cards, and card B already shows it. Writing it again from B restates it, or changes its kind. |
 | Passing a card number as `cardId` | `cardId` is a UUID. Pass the number as `number` instead. |
 | Writing a card without checking for one | Call `card_search` first. A duplicate card costs someone a triage pass. |
 | Expecting `card_search` to match a substring | It matches whole stemmed words. `pag` finds neither `page` nor `paging`. |

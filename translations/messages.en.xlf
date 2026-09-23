@@ -2459,7 +2459,7 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.card_create">
                 <source>project.connect.tool.card_create</source>
-                <target>Add a card to the project board, with a type, a reporter and the pull requests that carry the work.</target>
+                <target>Add a card to the project board, with a type, a reporter, the pull requests that carry the work and the cards it links to (relatedCards).</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_list">
                 <source>project.connect.tool.card_list</source>
@@ -2475,11 +2475,11 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.card_get">
                 <source>project.connect.tool.card_get</source>
-                <target>Read one card, with its full Markdown body and every pull request linked to it.</target>
+                <target>Read one card, with its full Markdown body, every pull request linked to it and its linked cards (relatedCards).</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_update">
                 <source>project.connect.tool.card_update</source>
-                <target>Change a card. Omitted fields keep their value, and moving a card to a terminal column stamps its completion time.</target>
+                <target>Change a card. Omitted fields keep their value, and moving a card to a terminal column stamps its completion time. relatedCards replaces every link that touches the card.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.inbox_ask">
                 <source>project.connect.tool.inbox_ask</source>
