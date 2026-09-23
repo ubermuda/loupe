@@ -69,11 +69,10 @@ class CardRepository extends ServiceEntityRepository
      * The cards a card may link to: the project's cards, newest first, less
      * the card itself. A null project matches no card.
      */
-    public function linkCandidates(?Uuid $projectId, ?Uuid $excludeCardId, int $limit): QueryBuilder
+    public function linkCandidates(?Uuid $projectId, ?Uuid $excludeCardId): QueryBuilder
     {
         $qb = $this->createQueryBuilder('c')
-            ->orderBy('c.number', 'DESC')
-            ->setMaxResults($limit);
+            ->orderBy('c.number', 'DESC');
 
         if (null === $projectId) {
             return $qb->andWhere('1 = 0');

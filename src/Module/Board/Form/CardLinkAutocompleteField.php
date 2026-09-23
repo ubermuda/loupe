@@ -53,14 +53,15 @@ final class CardLinkAutocompleteField extends AbstractType
             'choice_translation_domain' => false,
             'max_results' => self::MAX_RESULTS,
             // Also the choice list a submitted id must be in, so a card of
-            // another project fails validation.
+            // another project fails validation. A limit here would refuse
+            // older cards, so filter_query sets the page size instead.
             'query_builder' => static fn (Options $options): \Closure => static fn (CardRepository $cards): QueryBuilder => $cards->linkCandidates(
                 self::uuidOption($options, 'projectId'),
                 self::uuidOption($options, 'excludeCardId'),
-                self::MAX_RESULTS,
             ),
             'filter_query' => static function (QueryBuilder $qb, string $query, CardRepository $cards): void {
-                $cards->matchLinkQuery($qb, $query);
+                // The bundle skips max_results when filter_query is set.
+                $cards->matchLinkQuery($qb->setMaxResults(self::MAX_RESULTS), $query);
             },
             'security' => fn (Options $options): \Closure => function (Security $security) use ($options): bool {
                 $this->board->requireEnabled();

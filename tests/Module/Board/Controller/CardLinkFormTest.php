@@ -47,6 +47,30 @@ final class CardLinkFormTest extends WebTestCase
         self::assertSame(CardLinkKind::BlockedBy, $links[0]->kindFor($b));
     }
 
+    public function test_a_card_older_than_one_autocomplete_page_is_still_accepted(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'link-form-older@example.com');
+        $project = $this->project($em, $owner);
+        $oldest = $this->card($em, $project, 'The oldest card');
+        for ($i = 0; $i < 25; ++$i) {
+            $this->card($em, $project, 'Filler card '.$i);
+        }
+        $a = $this->card($em, $project, 'Ship the schema');
+        $aId = $a->id;
+        $oldestId = $oldest->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$aId.'/edit');
+        $this->submitRows($client, $crawler, 'Save card', [['card' => (string) $oldestId, 'kind' => CardLinkKind::RelatesTo->value]]);
+
+        self::assertResponseRedirects();
+        self::assertSame(1, static::getContainer()->get(CardLinkRepository::class)->count([]));
+    }
+
     public function test_a_row_that_names_the_card_itself_is_refused(): void
     {
         $client = static::createClient();
