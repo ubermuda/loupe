@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Forge\ForgeDelivery;
-use App\Forge\ForgeEventType;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Forge\ForgeDelivery;
+use App\Module\Forge\ForgeEventType;
 use App\Outbox\OutboxWriter;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 
@@ -18,7 +19,9 @@ use Ubermuda\AuditBundle\AuditOutcome;
  * Turns what a forge said into outbox rows an agent can act on.
  *
  * A delivery names a repository path and a number, and CardPullRequest holds
- * both, so a card resolves with no mapping table of its own.
+ * both, so a card resolves with no mapping table of its own. Only the cards of
+ * the project that owns the repository match, because another project can link
+ * the same pull request.
  */
 final readonly class RecordForgeDeliveryHandler
 {
@@ -34,12 +37,12 @@ final readonly class RecordForgeDeliveryHandler
     {
         foreach ($command->deliveries as $delivery) {
             if (ForgeEventType::REPOSITORY_MOVED === $delivery->type) {
-                $this->repoint($delivery);
+                $this->repoint($command->projectId, $delivery);
 
                 continue;
             }
 
-            $this->publish($delivery);
+            $this->publish($command->projectId, $delivery);
         }
 
         $this->em->flush();
@@ -49,16 +52,17 @@ final readonly class RecordForgeDeliveryHandler
      * The stored path is the key every later delivery joins on, so a rename
      * nobody applied silently orphans every card of that repository.
      */
-    private function repoint(ForgeDelivery $delivery): void
+    private function repoint(Uuid $projectId, ForgeDelivery $delivery): void
     {
         if (null === $delivery->movedTo) {
             return;
         }
 
         $forge = Forge::tryFrom($delivery->forge) ?? Forge::Other;
-        $moved = $this->cardPullRequests->repoint($forge, $delivery->repository, $delivery->movedTo);
+        $moved = $this->cardPullRequests->repoint($projectId, $forge, $delivery->repository, $delivery->movedTo);
         if ($moved > 0) {
             $this->auditor->record('board.forge_repository_moved', AuditOutcome::Success, [
+                'projectId' => (string) $projectId,
                 'forge' => $forge->value,
                 'from' => $delivery->repository,
                 'to' => $delivery->movedTo,
@@ -67,14 +71,14 @@ final readonly class RecordForgeDeliveryHandler
         }
     }
 
-    private function publish(ForgeDelivery $delivery): void
+    private function publish(Uuid $projectId, ForgeDelivery $delivery): void
     {
         if (null === $delivery->number) {
             return;
         }
 
         $forge = Forge::tryFrom($delivery->forge) ?? Forge::Other;
-        foreach ($this->cardPullRequests->findForPullRequest($forge, $delivery->repository, $delivery->number) as $link) {
+        foreach ($this->cardPullRequests->findForPullRequest($projectId, $forge, $delivery->repository, $delivery->number) as $link) {
             $card = $link->card;
             $project = $card->project;
 

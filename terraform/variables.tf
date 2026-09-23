@@ -394,11 +394,30 @@ variable "stripe_webhook_secret" {
   description = "STRIPE_WEBHOOK_SECRET used to verify inbound webhook signatures."
 }
 
-variable "github_webhook_secret" {
+variable "github_app_slug" {
+  type        = string
+  default     = ""
+  description = "GITHUB_APP_SLUG, the name of the GitHub App in its public URL. Set the four github_app_* variables together, or projects connect with a webhook only."
+}
+
+variable "github_app_client_id" {
+  type        = string
+  default     = ""
+  description = "GITHUB_APP_CLIENT_ID, the client ID of the GitHub App."
+}
+
+variable "github_app_client_secret" {
   type        = string
   default     = ""
   sensitive   = true
-  description = "GITHUB_WEBHOOK_SECRET used to verify inbound forge webhook signatures."
+  description = "GITHUB_APP_CLIENT_SECRET, a client secret of the GitHub App."
+}
+
+variable "github_app_webhook_secret" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "GITHUB_APP_WEBHOOK_SECRET, the GitHub App webhook secret. Empty refuses every App delivery."
 }
 
 variable "oauth_google_id" {

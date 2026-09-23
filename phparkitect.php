@@ -49,4 +49,25 @@ return static function (Config $config): void {
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Inbox']))
             ->because('Inbox depends on Board and Review to link an item to a card or a document, and on Bridge to read whether a bridge still sends its heartbeat, so an import back closes a cycle. A card or document page reaches the inbox through a Twig function'),
     );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\Forge'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module\Board', 'App\Module\GitHub']))
+            ->because('Forge is the forge-neutral contract. Board and each forge module depend on it, so an import back closes a cycle'),
+    );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\Board'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module\GitHub']))
+            ->because('Board reads forge deliveries through the Forge contract alone, so it must not learn which forge sent one'),
+    );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\GitHub'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module\Board']))
+            ->because('GitHub announces a delivery through the Forge event, and Board decides what it means for a card'),
+    );
 };

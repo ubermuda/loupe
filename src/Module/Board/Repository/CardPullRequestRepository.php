@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Repository;
 
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Project\Entity\Project;
@@ -38,19 +39,21 @@ class CardPullRequestRepository extends ServiceEntityRepository
     }
 
     /**
-     * Every card linked to one pull request. A pull request can be linked from
-     * more than one card, so a delivery can concern several.
+     * Every card of one project linked to one pull request. A pull request can
+     * be linked from more than one card, so a delivery can concern several.
      *
      * @return list<CardPullRequest>
      */
-    public function findForPullRequest(Forge $forge, string $repository, int $number): array
+    public function findForPullRequest(Uuid $projectId, Forge $forge, string $repository, int $number): array
     {
         return $this->createQueryBuilder('link')
             ->addSelect('card')
             ->join('link.card', 'card')
+            ->andWhere('card.project = :project')
             ->andWhere('link.forge = :forge')
             ->andWhere('LOWER(link.repository) = :repository')
             ->andWhere('link.number = :number')
+            ->setParameter('project', $projectId, UuidType::NAME)
             ->setParameter('forge', $forge)
             ->setParameter('repository', mb_strtolower($repository))
             ->setParameter('number', $number)
@@ -59,16 +62,19 @@ class CardPullRequestRepository extends ServiceEntityRepository
     }
 
     /**
-     * Points every link of one repository at its new path, and answers how many
-     * moved. The stored path is the key a later delivery joins on.
+     * Points every link of one repository in one project at its new path, and
+     * answers how many moved. The stored path is the key a later delivery joins on.
      */
-    public function repoint(Forge $forge, string $from, string $to): int
+    public function repoint(Uuid $projectId, Forge $forge, string $from, string $to): int
     {
+        // A DQL update cannot join, so the project filter is a subquery.
         return (int) $this->createQueryBuilder('link')
             ->update()
             ->set('link.repository', ':to')
+            ->andWhere(\sprintf('link.card IN (SELECT card.id FROM %s card WHERE card.project = :project)', Card::class))
             ->andWhere('link.forge = :forge')
             ->andWhere('LOWER(link.repository) = :from')
+            ->setParameter('project', $projectId, UuidType::NAME)
             ->setParameter('to', $to)
             ->setParameter('forge', $forge)
             ->setParameter('from', mb_strtolower($from))
