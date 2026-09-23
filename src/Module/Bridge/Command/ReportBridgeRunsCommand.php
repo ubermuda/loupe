@@ -11,7 +11,7 @@ use Symfony\Component\Uid\Uuid;
 final readonly class ReportBridgeRunsCommand
 {
     /**
-     * @param array<string, WorkerRunState> $runs the open state of each run the bridge holds, keyed by the RFC 4122 run key
+     * @param array<string, WorkerRunState> $runs the open state of each run the bridge holds, keyed by HeldRunKey::of()
      */
     public function __construct(
         public User $owner,

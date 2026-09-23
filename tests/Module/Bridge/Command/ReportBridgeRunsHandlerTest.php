@@ -10,6 +10,7 @@ use App\Module\Bridge\Command\ReportBridgeRunsHandler;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\ValueObject\HeldRunKey;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -44,7 +45,7 @@ final class ReportBridgeRunsHandlerTest extends KernelTestCase
         [$owner, $project, $bridgeId] = $this->scenario('inventory-reopen');
         $run = $this->keyedRun($project, $bridgeId, WorkerRunState::TimedOut);
 
-        $changed = $this->handle($owner, $bridgeId, [(string) $run->runKey => WorkerRunState::Running]);
+        $changed = $this->handle($owner, $bridgeId, [$this->key($project, $run) => WorkerRunState::Running]);
 
         self::assertSame(WorkerRunState::Running, $this->reload($run)->state);
         self::assertSame([['running', self::NOW]], $this->history($run));
@@ -57,7 +58,7 @@ final class ReportBridgeRunsHandlerTest extends KernelTestCase
         [$owner, $project, $bridgeId] = $this->scenario('inventory-named');
         $run = $this->keyedRun($project, $bridgeId, WorkerRunState::Queued);
 
-        $changed = $this->handle($owner, $bridgeId, [(string) $run->runKey => WorkerRunState::Running]);
+        $changed = $this->handle($owner, $bridgeId, [$this->key($project, $run) => WorkerRunState::Running]);
 
         self::assertSame(WorkerRunState::Queued, $this->reload($run)->state);
         self::assertSame([], $this->history($run));
@@ -86,7 +87,27 @@ final class ReportBridgeRunsHandlerTest extends KernelTestCase
     {
         [$owner, , $bridgeId] = $this->scenario('inventory-unknown');
 
-        self::assertSame([], $this->handle($owner, $bridgeId, [(string) Uuid::v4() => WorkerRunState::Queued]));
+        self::assertSame([], $this->handle($owner, $bridgeId, [HeldRunKey::of(Uuid::v4(), Uuid::v4()) => WorkerRunState::Queued]));
+    }
+
+    /** One run key in two projects names two runs, and the inventory holds only the one it names. */
+    public function test_the_inventory_matches_a_run_by_project_and_run_key(): void
+    {
+        [$owner, $project, $bridgeId] = $this->scenario('inventory-two-projects');
+        $second = $this->project($this->em(), $owner, 'Inventory Second');
+        $runKey = Uuid::v4();
+        $named = $this->seedRun($this->em(), $project, bridgeId: $bridgeId, state: WorkerRunState::Running, runKey: $runKey);
+        $unnamed = $this->seedRun($this->em(), $second, bridgeId: $bridgeId, state: WorkerRunState::Running, runKey: $runKey);
+
+        $this->handle($owner, $bridgeId, [$this->key($project, $named) => WorkerRunState::Running]);
+
+        self::assertSame(WorkerRunState::Running, $this->reload($named)->state);
+        self::assertSame(WorkerRunState::Lost, $this->reload($unnamed)->state);
+    }
+
+    private function key(Project $project, WorkerRun $run): string
+    {
+        return HeldRunKey::of($project->id ?? Uuid::v4(), $run->runKey ?? Uuid::v4());
     }
 
     /** @return array{User, Project, Uuid} */

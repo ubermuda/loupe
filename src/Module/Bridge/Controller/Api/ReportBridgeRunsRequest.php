@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\Controller\Api;
 
+use App\Module\Bridge\ValueObject\HeldRunKey;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -26,13 +27,13 @@ final class ReportBridgeRunsRequest
     }
 
     /**
-     * @return array<string, WorkerRunState> the state of each run, keyed by the RFC 4122 run key
+     * @return array<string, WorkerRunState> the state of each run, keyed by HeldRunKey::of()
      */
     public function states(): array
     {
         $states = [];
         foreach ($this->runs ?? [] as $run) {
-            $states[Uuid::fromString($run->runId ?? '')->toRfc4122()] = WorkerRunState::from($run->state ?? '');
+            $states[HeldRunKey::of(Uuid::fromString($run->projectId ?? ''), Uuid::fromString($run->runId ?? ''))] = WorkerRunState::from($run->state ?? '');
         }
 
         return $states;

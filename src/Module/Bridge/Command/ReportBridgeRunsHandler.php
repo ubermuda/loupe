@@ -8,6 +8,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
+use App\Module\Bridge\ValueObject\HeldRunKey;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -38,7 +39,9 @@ final readonly class ReportBridgeRunsHandler
             $now = $this->clock->now();
             $changed = [];
             foreach ($runs as $run) {
-                $held = $command->runs[$run->runKey?->toRfc4122() ?? ''] ?? null;
+                $held = null === $run->runKey || null === $run->project->id
+                    ? null
+                    : $command->runs[HeldRunKey::of($run->project->id, $run->runKey)] ?? null;
                 $state = match (true) {
                     null === $held => WorkerRunState::Lost,
                     WorkerRunState::TimedOut === $run->state => $held,
