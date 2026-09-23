@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Board\EventListener;
 
-use App\Forge\Event\ForgeDeliveryReceived;
 use App\Module\Board\Command\RecordForgeDeliveryCommand;
 use App\Module\Board\Command\RecordForgeDeliveryHandler;
 use App\Module\Board\Service\BoardAvailability;
+use App\Module\Forge\Event\ForgeDeliveryReceived;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
@@ -32,6 +32,6 @@ final readonly class RecordForgeDeliveryOnDeliveryReceived
             return;
         }
 
-        ($this->recordDelivery)(new RecordForgeDeliveryCommand($event->deliveries));
+        ($this->recordDelivery)(new RecordForgeDeliveryCommand($event->projectId, $event->deliveries));
     }
 }

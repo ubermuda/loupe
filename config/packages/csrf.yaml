@@ -16,6 +16,9 @@ framework:
             - section-approval
             - comment-action
             - toggle-project-widget-forwarding
+            - github-hook-create
+            - github-hook-secret-rotate
+            - forge-repository-remove
             - site-review-comment-action
             - board-card-delete
             - board-column-terminal

@@ -40,6 +40,16 @@ framework:
                 headers:
                     Accept: 'application/vnd.github+json'
 
+            # The GitHub App install exchanges its OAuth code here, inline in
+            # the callback request. Without this Accept header GitHub answers
+            # form-encoded.
+            github.oauth_client:
+                base_uri: 'https://github.com'
+                timeout: 2
+                max_duration: 5
+                headers:
+                    Accept: 'application/json'
+
             # Client ID Metadata Document fetches, inline in the authorize
             # request. ClientMetadataFetcher sets the SSRF options per request.
             oauth.client_metadata_client:

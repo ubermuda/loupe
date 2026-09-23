@@ -22,6 +22,9 @@ parameters:
         # Migrations older than this are deployed everywhere and no rollback will
         # ever land before them, so their schema shape is settled and unenforced.
         migrationsEnforcedFrom: '20260827014419'
+        # An entity whose name ends in Repository, not a Doctrine repository.
+        repositoryNamingExcludedClasses:
+            - 'App\Module\Forge\Entity\ForgeRepository'
         controllerTemplates:
             namespacePattern: '#^App\\Module\\([^\\]+)\\Controller\\#'
             templateDirectory: 'templates/Module'

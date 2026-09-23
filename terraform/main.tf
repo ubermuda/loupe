@@ -168,7 +168,10 @@ module "app" {
 
     var.stripe_secret_key == "" ? {} : { STRIPE_SECRET_KEY = { value = var.stripe_secret_key, type = "SECRET" } },
     var.stripe_webhook_secret == "" ? {} : { STRIPE_WEBHOOK_SECRET = { value = var.stripe_webhook_secret, type = "SECRET" } },
-    var.github_webhook_secret == "" ? {} : { GITHUB_WEBHOOK_SECRET = { value = var.github_webhook_secret, type = "SECRET" } },
+    var.github_app_slug == "" ? {} : { GITHUB_APP_SLUG = { value = var.github_app_slug } },
+    var.github_app_client_id == "" ? {} : { GITHUB_APP_CLIENT_ID = { value = var.github_app_client_id } },
+    var.github_app_client_secret == "" ? {} : { GITHUB_APP_CLIENT_SECRET = { value = var.github_app_client_secret, type = "SECRET" } },
+    var.github_app_webhook_secret == "" ? {} : { GITHUB_APP_WEBHOOK_SECRET = { value = var.github_app_webhook_secret, type = "SECRET" } },
 
     var.oauth_google_id == "" ? {} : { OAUTH_GOOGLE_ID = { value = var.oauth_google_id } },
     var.oauth_google_secret == "" ? {} : { OAUTH_GOOGLE_SECRET = { value = var.oauth_google_secret, type = "SECRET" } },

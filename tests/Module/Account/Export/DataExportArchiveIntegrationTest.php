@@ -6,6 +6,7 @@ namespace App\Tests\Module\Account\Export;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\DataExportArchiveBuilder;
+use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxReview;
@@ -75,6 +76,8 @@ final class DataExportArchiveIntegrationTest extends WebTestCase
         $siteComment = new SiteReviewComment($project, 0, 'Fix this', 'https://example.com/')->addAnchor('.hero h1', 'Hello world');
         $em->persist($siteComment);
 
+        $em->persist(new GitHubHook($project, GitHubHook::newKey(), 'the-github-hook-secret'));
+
         $em->flush();
 
         $builder = self::getContainer()->get(DataExportArchiveBuilder::class);
@@ -102,7 +105,7 @@ final class DataExportArchiveIntegrationTest extends WebTestCase
             }
             sort($names);
             self::assertSame(
-                ['audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'connected_apps.json', 'documents.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'site_reviews.json', 'worker_runs.json'],
+                ['audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'connected_apps.json', 'documents.json', 'forge_repositories.json', 'github_hooks.json', 'github_installations.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'site_reviews.json', 'worker_runs.json'],
                 $names,
             );
 
@@ -150,6 +153,11 @@ final class DataExportArchiveIntegrationTest extends WebTestCase
             $jti = OAuthScenario::claimsOf($raw)['jti'] ?? null;
             self::assertIsString($jti);
             self::assertStringNotContainsString($jti, $allJson);
+
+            $rawHooks = $zip->getFromName('github_hooks.json');
+            self::assertIsString($rawHooks);
+            self::assertCount(1, json_decode($rawHooks, true, flags: \JSON_THROW_ON_ERROR));
+            self::assertStringNotContainsString('the-github-hook-secret', $allJson);
 
             $zip->close();
         } finally {
