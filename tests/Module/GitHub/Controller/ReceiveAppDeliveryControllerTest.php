@@ -90,6 +90,24 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
         self::assertSame([], $this->outboxSubjects($project));
     }
 
+    public function test_a_selected_installation_with_an_incomplete_list_claims_on_first_delivery(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->enableBoard();
+        $project = $this->project('incomplete');
+        $installation = $this->installation($project, 9_000_615);
+        $installation->listIncomplete = true;
+        $this->em()->flush();
+        $card = $this->linkedCard($project, 'acme/f', 3);
+
+        $this->deliver($client, self::PATH, 'pull_request', $this->merged(615, 'acme/f', 3, ['installation' => ['id' => 9_000_615]]), self::SECRET);
+
+        self::assertResponseIsSuccessful();
+        self::assertEquals($project->id, $this->installationOwnerOf(615)?->project->id);
+        self::assertSame([(string) $card->id], $this->outboxSubjects($project));
+    }
+
     public function test_a_repository_the_installation_project_owns_is_announced(): void
     {
         $client = static::createClient();

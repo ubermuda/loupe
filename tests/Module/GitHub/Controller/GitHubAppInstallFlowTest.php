@@ -354,6 +354,7 @@ final class GitHubAppInstallFlowTest extends WebTestCase
 
         self::assertStringContainsString('the repository list may be incomplete', $this->followedText());
         self::assertContains('github.repository_list_truncated', array_column($logger->records, 'message'));
+        self::assertTrue($this->installationRow()?->listIncomplete);
     }
 
     public function test_an_installation_of_another_project_is_refused_without_naming_it(): void

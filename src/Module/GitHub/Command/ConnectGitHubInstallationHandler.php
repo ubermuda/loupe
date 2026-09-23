@@ -85,6 +85,8 @@ final readonly class ConnectGitHubInstallationHandler
             $installation->removedAt = null;
         }
 
+        $installation->listIncomplete = !$listing->complete;
+
         try {
             $this->em->flush();
         } catch (UniqueConstraintViolationException) {

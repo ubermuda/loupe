@@ -32,6 +32,10 @@ class GitHubInstallation
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $removedAt = null;
 
+    /** True when the connect-time listing stopped at its page cap, so a selection is not fully known. */
+    #[ORM\Column(options: ['default' => false])]
+    public bool $listIncomplete = false;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         #[ORM\ManyToOne(targetEntity: Project::class)]

@@ -114,8 +114,9 @@ final readonly class ReceiveAppDeliveryHandler
     /**
      * An installation that reaches every repository claims one on its first
      * delivery. One with a selection claims only through the events that name
-     * the selection, so a repository outside it is dropped here. A hook row of
-     * any project is no ownership here.
+     * the selection, so a repository outside it is dropped here, unless the
+     * connect-time listing was cut short. A hook row of any project is no
+     * ownership here.
      */
     private function owned(GitHubInstallation $installation, GitHubDelivery $delivery): void
     {
@@ -127,7 +128,7 @@ final readonly class ReceiveAppDeliveryHandler
         }
 
         $unclaimed = null === $this->forgeRepositories->installationOwnerOf(GitHubDelivery::FORGE, $repository->externalId());
-        if ($unclaimed && GitHubRepositorySelection::Selected === $installation->repositorySelection) {
+        if ($unclaimed && GitHubRepositorySelection::Selected === $installation->repositorySelection && !$installation->listIncomplete) {
             $this->dropped($delivery, 'not_selected');
 
             return;
