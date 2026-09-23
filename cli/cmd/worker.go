@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/config"
@@ -115,11 +116,21 @@ func runWorker(ctx context.Context, spec workerSpec) workerResult {
 	cmd.WaitDelay = waitDelay
 	setProcessGroup(cmd)
 
+	// The context can end while claude exits on its own, so only a kill that
+	// actually ran marks the worker as killed.
+	var cancelled atomic.Bool
+	kill := cmd.Cancel
+	cmd.Cancel = func() error {
+		cancelled.Store(true)
+
+		return kill()
+	}
+
 	err := cmd.Run()
 	res := workerResult{
 		output:    captured.text(),
 		hasResult: scanner.matched,
-		killed:    err != nil && ctx.Err() != nil,
+		killed:    err != nil && cancelled.Load(),
 	}
 
 	var exitErr *exec.ExitError
