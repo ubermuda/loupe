@@ -67,7 +67,9 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $topics = static::getContainer()->get(ProjectTopicBuilder::class);
         self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
-        self::assertContains($topics->forWorkerRuns($project->id), self::subscribedTopics($client->getResponse()));
+        $subscribed = self::subscribedTopics($client->getResponse());
+        self::assertNotNull($subscribed);
+        self::assertContains($topics->forWorkerRuns($project->id), $subscribed);
     }
 
     public function test_a_refused_column_form_renders_the_board_with_its_token(): void
