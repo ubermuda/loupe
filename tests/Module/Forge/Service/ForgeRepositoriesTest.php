@@ -6,9 +6,11 @@ namespace App\Tests\Module\Forge\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgeRepository;
+use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\Forge\Service\ForgeClaimOutcome;
 use App\Module\Forge\Service\ForgeRepositories;
 use App\Module\Project\Entity\Project;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -77,6 +79,52 @@ final class ForgeRepositoriesTest extends KernelTestCase
         $row = $this->repositories->ownerOf('github', '1003');
         self::assertNotNull($row);
         self::assertSame($owner, $row->project);
+    }
+
+    public function test_a_refused_claim_under_another_path_leaves_the_owner_path(): void
+    {
+        $owner = $this->project('path-owner');
+        $this->repositories->claim($owner, 'github', '1011', 'acme/widgets');
+
+        $claim = $this->repositories->claim($this->project('path-stranger'), 'github', '1011', 'acme/gadgets');
+
+        self::assertSame(ForgeClaimOutcome::Refused, $claim->outcome);
+        $this->em->clear();
+        self::assertSame('acme/widgets', $this->repositories->ownerOf('github', '1011')?->path);
+    }
+
+    public function test_a_refused_claim_logs_the_claiming_project_and_never_the_owner(): void
+    {
+        $logger = new RecordingLogger();
+        $repositories = $this->withLogger($logger);
+        $owner = $this->project('log-owner');
+        $repositories->claim($owner, 'github', '1012', 'acme/widgets');
+        $stranger = $this->project('log-stranger');
+
+        $repositories->claim($stranger, 'github', '1012', 'acme/widgets');
+
+        self::assertSame([[
+            'level' => 'info',
+            'message' => 'forge.repository_claim_refused',
+            'context' => ['forge' => 'github', 'externalId' => '1012', 'projectId' => (string) $stranger->id],
+        ]], $logger->records);
+        self::assertStringNotContainsString((string) $owner->id, (string) json_encode($logger->records));
+    }
+
+    public function test_a_move_is_logged(): void
+    {
+        $logger = new RecordingLogger();
+        $repositories = $this->withLogger($logger);
+        $project = $this->project('log-move');
+        $repositories->claim($project, 'github', '1013', 'acme/widgets');
+
+        $repositories->claim($project, 'github', '1013', 'acme/gadgets');
+
+        self::assertSame([[
+            'level' => 'info',
+            'message' => 'forge.repository_moved',
+            'context' => ['forge' => 'github', 'externalId' => '1013', 'projectId' => (string) $project->id, 'from' => 'acme/widgets', 'to' => 'acme/gadgets'],
+        ]], $logger->records);
     }
 
     public function test_the_same_external_id_on_another_forge_is_a_different_repository(): void
@@ -159,6 +207,14 @@ final class ForgeRepositoriesTest extends KernelTestCase
     public function test_owner_of_an_unknown_repository_is_null(): void
     {
         self::assertNull($this->repositories->ownerOf('github', 'no-such-repository'));
+    }
+
+    private function withLogger(RecordingLogger $logger): ForgeRepositories
+    {
+        $forgeRepositories = self::getContainer()->get(ForgeRepositoryRepository::class);
+        self::assertInstanceOf(ForgeRepositoryRepository::class, $forgeRepositories);
+
+        return new ForgeRepositories($forgeRepositories, $this->em, $logger);
     }
 
     private function claimed(string $externalId): ForgeRepository

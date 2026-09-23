@@ -21,4 +21,17 @@ final class GitHubAppConfigurationTest extends TestCase
         self::assertFalse(new GitHubAppConfiguration('loupe', 'client', null, 'hook')->isConfigured());
         self::assertFalse(new GitHubAppConfiguration('loupe', 'client', 'secret', '')->isConfigured());
     }
+
+    public function test_missing_variables_names_each_unset_variable(): void
+    {
+        self::assertSame([], new GitHubAppConfiguration('loupe', 'client', 'secret', 'hook')->missingVariables());
+        self::assertSame(
+            ['GITHUB_APP_CLIENT_ID', 'GITHUB_APP_WEBHOOK_SECRET'],
+            new GitHubAppConfiguration('loupe', '', 'secret', null)->missingVariables(),
+        );
+        self::assertSame(
+            ['GITHUB_APP_SLUG', 'GITHUB_APP_CLIENT_ID', 'GITHUB_APP_CLIENT_SECRET', 'GITHUB_APP_WEBHOOK_SECRET'],
+            new GitHubAppConfiguration(null, null, null, null)->missingVariables(),
+        );
+    }
 }

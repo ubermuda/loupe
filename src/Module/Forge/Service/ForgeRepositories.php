@@ -8,8 +8,13 @@ use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 
-/** The one entry point a forge module uses to write repository ownership. */
+/**
+ * The one entry point a forge module uses to write repository ownership. Each
+ * write flushes. A claim() that throws closes the EntityManager, because it
+ * runs in wrapInTransaction().
+ */
 final readonly class ForgeRepositories
 {
     private const int ACCEPTED_STAMP_INTERVAL_SECONDS = 60;
@@ -17,6 +22,7 @@ final readonly class ForgeRepositories
     public function __construct(
         private ForgeRepositoryRepository $forgeRepositories,
         private EntityManagerInterface $em,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -36,6 +42,13 @@ final readonly class ForgeRepositories
             }
 
             if (!$this->isOwnedBy($existing, $project)) {
+                // The owning project stays out of the log, so the refusal tells nobody who owns it.
+                $this->logger->info('forge.repository_claim_refused', [
+                    'forge' => $forge,
+                    'externalId' => $externalId,
+                    'projectId' => (string) $project->id,
+                ]);
+
                 return ForgeClaim::refused();
             }
 
@@ -43,6 +56,13 @@ final readonly class ForgeRepositories
             if (0 !== strcasecmp($existing->path, $path)) {
                 $movedFrom = $existing->path;
                 $existing->path = $path;
+                $this->logger->info('forge.repository_moved', [
+                    'forge' => $forge,
+                    'externalId' => $externalId,
+                    'projectId' => (string) $project->id,
+                    'from' => $movedFrom,
+                    'to' => $path,
+                ]);
             }
 
             return ForgeClaim::alreadyOwned($existing, $movedFrom);

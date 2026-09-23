@@ -90,10 +90,12 @@ A new key pair makes every issued access token invalid. The apps then refresh, s
 
 | Variable | Purpose | Add by hand? |
 |---|---|---|
-| `APP_ENCRYPTION_KEY` | Only once an `encrypted_string` column is in use. **Losing it makes existing encrypted columns unreadable.** | No |
+| `APP_ENCRYPTION_KEY` | Encrypts `encrypted_string` columns. The secret of a per-project GitHub webhook is one, so while the key is unset no project can create a webhook. **Losing it makes existing encrypted columns unreadable.** | No |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing. Nothing instantiates the Stripe client until the `billing.enabled` feature flag is on. | No |
-| `GITHUB_WEBHOOK_SECRET` | No longer read. A repository hook now has its own secret, and the GitHub App uses `GITHUB_APP_WEBHOOK_SECRET`. | No |
-| `GITHUB_APP_WEBHOOK_SECRET` | The webhook secret of the GitHub App. It verifies a delivery to `/webhooks/forge/github`. Unset refuses every App delivery. A repository hook uses its own secret and does not need it. | No |
+| `GITHUB_APP_SLUG` | The GitHub App that project owners install to connect repositories. The slug is the last segment of the App's public page, `https://github.com/apps/<slug>`. Not a secret. Set the four `GITHUB_APP_*` variables together. While one is empty, projects connect with a webhook only, and the *GitHub App* row on `/admin/status` names the empty ones. [Forge webhooks](../extending/forge-webhooks.md) lists the App settings. | No |
+| `GITHUB_APP_CLIENT_ID` | The client ID on the *General* page of the App settings on GitHub. Not a secret. | No |
+| `GITHUB_APP_CLIENT_SECRET` | A client secret, which you generate on the *General* page of the App settings. **Secret.** On each install, Loupe uses it to get a user token, and reads with that token which installations the user can reach. | No |
+| `GITHUB_APP_WEBHOOK_SECRET` | The webhook secret you set on the *General* page of the App settings. **Secret.** It verifies a delivery to `/webhooks/forge/github`. Unset refuses every App delivery. A per-project webhook has its own secret and does not use it. | No |
 | `OAUTH_GOOGLE_ID`, `OAUTH_GOOGLE_SECRET`, `OAUTH_GITHUB_ID`, `OAUTH_GITHUB_SECRET` | Social login. A provider becomes reachable only when its credentials **and** its feature flag (`auth.google.enabled` / `auth.github.enabled`) are both set. | No |
 | `HEALTH_PROBE_TOKEN` | Adds the build version to `GET /healthz`, for a caller presenting it as an `X-Probe-Token` header — so a post-deploy check can prove which build went live without a session. Unset, the field never appears: an instance must not advertise its build to anyone who asks. | No |
 | `SITE_REVIEW_WIDGET_PUBLIC` | Serves the site-review widget to every visitor instead of administrators only. Its comments are instructions an agent may act on, so set it only where you trust everyone who can reach the site — **production should leave it empty**. | No |
