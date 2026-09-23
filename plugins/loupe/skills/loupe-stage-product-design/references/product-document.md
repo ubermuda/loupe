@@ -2,7 +2,9 @@
 
 Read this before you write or revise a product document. The `loupe-documents` rules apply to every section. Start the body with the first `##` heading, because Loupe shows the title itself (rule 1).
 
-Use the sections below, in this order, as `##` headings. Write each section as a numbered list, so a reviewer can cite an entry (rule 2). Open each entry with a short lead sentence (rule 4). Keep a section when it has no entries, and write one entry that says so.
+Use the sections below, in this order, as `##` headings. Write each section as a numbered list, so a reviewer can cite an entry (rule 2). Open each entry with a short lead sentence (rule 4).
+
+A Light session keeps these sections: Problem, Current behaviour, Proposed behaviour, Out of scope, Decisions log, Scenarios, Open questions, and Docs and landing page impact. It also keeps Assumptions and For tech design when the session gave them entries. A Full session uses every section. Keep each other section that the level uses when it has no entries, and write one entry that says so.
 
 ## Problem
 
@@ -26,9 +28,25 @@ Write only behaviour a user or an operator can observe. Name no class, table, en
 
 List what the change leaves out, including requests a reader can expect. Say for each entry whether it waits for later work or is refused.
 
-## Success criteria
+## Risks
 
-Write each criterion as something a person can observe and check on a running instance. Cite the `R` ID each criterion proves. Avoid words such as "fast", "easy" or "better" without a measure.
+Answer the pre-mortem question: "This shipped and failed. Why?" Write each answer as one entry, and cite the `R` ID it threatens.
+
+## Assumptions
+
+List each guess that the author made and the owner did not check. The tech design stage can then challenge it.
+
+## Decisions log
+
+Record each question that the session asked, with its answer. When an agent wrote the document with no owner present, write one entry that says so.
+
+## For tech design
+
+List the technical points that the session parked, such as an entity, a table, an API or a module. The tech design stage decides them.
+
+## Scenarios
+
+Write each scenario as Given, When and Then, so a person can check it on a running instance. Cite the `R` IDs each scenario proves. Avoid words such as "fast", "easy" or "better" without a measure.
 
 ## Open questions
 

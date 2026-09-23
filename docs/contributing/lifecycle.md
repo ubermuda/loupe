@@ -1,12 +1,14 @@
 ---
 title: "Development lifecycle"
-description: "The board columns a card passes, and the bridge rules that run a worker in each stage."
+description: "The board columns a card passes, and the bridge rules that run a worker in a stage."
 ---
 
 A card on the Loupe project board moves through six columns. When a person
 moves a card into a column with a worker, `loupe bridge` starts an unattended
 `claude -p` worker in this repository. The worker runs the stage skill for that
-column, reports one result line, and stops. A person approves each document.
+column, reports one result line, and stops. Product design has no worker,
+because the owner writes the product document in an interactive session. A
+person approves each document.
 
 A card move either reports an agent's own state or carries a person's
 judgement. An agent makes the first kind and never the second. So the
@@ -19,7 +21,7 @@ person who approves.
 | Label | Slug | Flag | Worker |
 |---|---|---|---|
 | Backlog | `backlog` | default | none |
-| Product design | `product-design` | | `loupe-stage-product-design` |
+| Product design | `product-design` | | none |
 | Tech design | `tech-design` | | `loupe-stage-tech-design` |
 | Implementation | `implementation` | | `loupe-stage-implementation` |
 | In review | `in-review` | | none |
@@ -32,6 +34,14 @@ merges, the card moves from In review to Done, by hand until a forge webhook
 reports the merge.
 Pull request fix rounds, for review feedback and failing checks, run while the
 card is in In review. No rule starts a worker when a card enters In review.
+
+The owner runs `/loupe:product-design` by hand in Claude Code, from a card or
+from a one-line idea. The session creates the card in Product design, or moves
+an existing card there, and writes the product document with the owner. The
+approval of that document moves the card to Tech design. When a person requests
+changes on the document, the `fix-round` rule starts `loupe-stage-fix-round`,
+which answers the review round. Delete any `product-design` rule from your
+`rules.yaml`, then run `loupe bridge reload`.
 
 A card does not have to pass Product design. Move it from Backlog straight to
 Tech design when the card body already says what to build. The tech design
@@ -57,17 +67,6 @@ projects:
     dir: ~/Code/loupe
 
 rules:
-  - name: product-design
-    on: board.card_moved
-    project: loupe
-    to: product-design
-    permissionMode: acceptEdits
-    prompt: |
-      Use the loupe-stage-product-design skill.
-      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered {to}.
-      Loupe instance https://loupe.ac.
-      If the card is no longer in {to}, stop.
-
   - name: tech-design
     on: board.card_moved
     project: loupe
@@ -119,7 +118,7 @@ nothing here.
 
 ## Permissions
 
-The design rules and the `fix-round` rule use `acceptEdits`. On one machine, a
+The `tech-design` rule and the `fix-round` rule use `acceptEdits`. On one machine, a
 probe showed that this mode reaches the Loupe write tools in `claude -p` with
 no allow rule. When a worker run reports a denied tool, add an
 `mcp__loupe__*` allow rule to `.claude/settings.local.json`.
@@ -208,8 +207,9 @@ it, and the worker runs page at `/projects/{id}/worker-runs` shows it.
    `implementation` and `in-review`.
 4. Write `rules.yaml`.
 5. Start the bridge with `loupe bridge run --max-workers 1`.
-6. Do one acceptance run with a small card. Move it through Product design,
-   an approval, Tech design, an approval and Implementation. Request changes on
+6. Do one acceptance run with a small card. Start it with
+   `/loupe:product-design`, then take it through an approval, Tech design, an
+   approval and Implementation. Request changes on
    one design document, and check that the `fix-round` rule starts a worker.
    Check that the implementation worker moves the card to In review itself once
    its pull request is ready. Run one pull request fix round there. After the
