@@ -16,7 +16,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -45,12 +44,15 @@ func rulesPathOr(path string) (string, error) {
 }
 
 // socketPath names the control socket of the bridge that reads rulesPath. The
-// name comes from the absolute path, so a reload reaches the bridge that reads
-// the same file. It does not resolve symlinks.
+// name comes from the absolute path with symlinks resolved, so a reload reaches
+// the bridge that reads the same file. A path that does not resolve stays as is.
 func socketPath(rulesPath string) (string, error) {
 	abs, err := filepath.Abs(rulesPath)
 	if err != nil {
 		return "", err
+	}
+	if real, err := filepath.EvalSymlinks(abs); err == nil {
+		abs = real
 	}
 	dir, err := config.Dir()
 	if err != nil {
@@ -79,7 +81,7 @@ func listenControl(path string) (net.Listener, error) {
 
 		return nil, fmt.Errorf("another bridge reads the same rule file and listens on %s: stop it first, or run `loupe bridge reload` to apply a change", path)
 	}
-	if !errors.Is(err, syscall.ECONNREFUSED) && !errors.Is(err, fs.ErrNotExist) {
+	if !connRefused(err) && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("probe the control socket %s: %w", path, err)
 	}
 	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -201,7 +203,7 @@ func newBridgeReloadCmd() *cobra.Command {
 				return err
 			}
 			res, err := requestReload(sock)
-			if errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, fs.ErrNotExist) {
+			if connRefused(err) || errors.Is(err, fs.ErrNotExist) {
 				return fmt.Errorf("no running bridge reads %s", abs)
 			}
 			if err != nil {

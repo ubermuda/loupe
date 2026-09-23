@@ -106,6 +106,25 @@ func TestSocketPathFollowsTheAbsoluteRuleFilePath(t *testing.T) {
 	}
 }
 
+func TestSocketPathFollowsASymlink(t *testing.T) {
+	shortConfigHome(t)
+	dir := t.TempDir()
+	file := filepath.Join(dir, "rules.yaml")
+	link := filepath.Join(dir, "link.yaml")
+	if err := os.WriteFile(file, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(file, link); err != nil {
+		t.Fatal(err)
+	}
+
+	viaFile, _ := socketPath(file)
+	viaLink, _ := socketPath(link)
+	if viaFile != viaLink || viaFile == "" {
+		t.Fatalf("file %q, link %q", viaFile, viaLink)
+	}
+}
+
 // A bridge that crashed leaves its socket file behind. Nothing listens on it,
 // so the next bridge removes it and starts.
 func TestListenControlRemovesAStaleSocket(t *testing.T) {
