@@ -63,6 +63,7 @@ trait BridgeScenario
         string $ruleName = 'plan',
         ?Uuid $bridgeId = null,
         ?Uuid $cardId = null,
+        ?bool $hasResult = null,
     ): WorkerRun {
         $run = new WorkerRun(
             project: AgentCredential::managed($em, $project, $project->id),
@@ -74,6 +75,7 @@ trait BridgeScenario
             startedAt: new \DateTimeImmutable('2026-01-01 10:00:00'),
             endedAt: new \DateTimeImmutable('2026-01-01 10:05:00'),
             exitCode: $exitCode,
+            hasResult: $hasResult,
             failureReason: $failureReason,
             output: $output,
             receivedAt: $receivedAt,

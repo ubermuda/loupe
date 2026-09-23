@@ -52,6 +52,8 @@ final class ReportWorkerRunRequest
 
         #[Assert\Range(min: self::MIN_EXIT_CODE, max: self::MAX_EXIT_CODE)]
         public ?int $exitCode = null,
+        /** Absent from an older bridge, so null is valid for a run that exited. */
+        public ?bool $hasResult = null,
 
         #[Assert\Length(max: WorkerRun::MAX_FAILURE_REASON_LENGTH, normalizer: 'trim')]
         public ?string $failureReason = null,
@@ -80,6 +82,16 @@ final class ReportWorkerRunRequest
         if (null !== $this->exitCode && null !== $this->failureReason()) {
             $context->buildViolation('A run that exited has no failure reason.')
                 ->atPath('failureReason')
+                ->addViolation();
+        }
+    }
+
+    #[Assert\Callback]
+    public function validateHasResult(ExecutionContextInterface $context): void
+    {
+        if (null === $this->exitCode && null !== $this->hasResult) {
+            $context->buildViolation('A run with no exit code has no result flag.')
+                ->atPath('hasResult')
                 ->addViolation();
         }
     }
