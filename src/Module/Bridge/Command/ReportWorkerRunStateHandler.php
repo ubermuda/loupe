@@ -77,8 +77,9 @@ final readonly class ReportWorkerRunStateHandler
             $this->fillStart($run, $command);
             // A retry of the state a timed-out run last held is the bridge
             // speaking again, so it reopens the run and says so in the history.
-            $reopens = WorkerRunState::TimedOut === $run->state && $moves;
-            $newState = $reopens || !\in_array($command->state, $history, true);
+            $repeat = \in_array($command->state, $history, true);
+            $reopens = WorkerRunState::TimedOut === $run->state && $moves && $repeat;
+            $newState = $reopens || !$repeat;
             $closes = false;
             if ($newState) {
                 if ($moves) {

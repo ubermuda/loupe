@@ -66,6 +66,8 @@ final class Version20260923153209 extends AbstractMigration
         $this->addSql('ALTER TABLE bridge_worker_runs ALTER session_id SET NOT NULL');
         $this->addSql('ALTER TABLE bridge_worker_runs ALTER started_at SET NOT NULL');
         $this->addSql('ALTER TABLE bridge_worker_runs ALTER ended_at SET NOT NULL');
+        // Keyed runs may share a card and a start second, which the old index refuses.
+        $this->addSql('DELETE FROM bridge_worker_runs a USING bridge_worker_runs b WHERE a.project_id = b.project_id AND a.bridge_id = b.bridge_id AND a.card_id = b.card_id AND a.started_at = b.started_at AND a.id > b.id');
         $this->addSql('CREATE UNIQUE INDEX uniq_bridge_worker_run_report ON bridge_worker_runs (project_id, bridge_id, card_id, started_at)');
     }
 }

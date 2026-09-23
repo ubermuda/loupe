@@ -138,6 +138,22 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertGreaterThanOrEqual($timedOut[0]->at, $latest->at);
     }
 
+    public function test_a_new_outcome_after_timed_out_keeps_its_reported_time(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-outcome-time');
+        $runKey = Uuid::v4();
+
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Running)->run;
+        self::assertInstanceOf(WorkerRun::class, $run);
+        $this->infer($run, WorkerRunState::TimedOut);
+        $this->report($owner, $project, $runKey, WorkerRunState::Failed);
+
+        $failed = array_values(array_filter($this->history($run), static fn (WorkerRunStateChange $change): bool => WorkerRunState::Failed === $change->state));
+        self::assertCount(1, $failed);
+        self::assertSame('2026-09-23 10:0'.WorkerRunState::Failed->rank().':00', $failed[0]->at->format('Y-m-d H:i:s'));
+    }
+
     public function test_a_repeat_writes_nothing(): void
     {
         self::bootKernel();
