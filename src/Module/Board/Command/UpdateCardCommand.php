@@ -14,20 +14,22 @@ use App\Module\Board\Entity\CardType;
  * publishes it to the outbox. Every other field is optional, and null means
  * "leave it alone".
  *
- * $pullRequestUrls and $documentIds are the places where null and an empty
- * array differ: null keeps the links the card has, and an empty array removes
- * them all.
+ * $pullRequestUrls, $documentIds and $relatedCards are the places where null
+ * and an empty array differ: null keeps the links the card has, and an empty
+ * array removes them all. $relatedCards replaces every link that touches the
+ * card, whichever card wrote it.
  *
  * $reporter is absent on purpose. It records who first raised the card.
  */
 final readonly class UpdateCardCommand
 {
     /**
-     * @param list<string>|null $pullRequestUrls
-     * @param list<string>|null $documentIds
-     * @param ?int              $position        the rank the card takes inside its column, counting
-     *                                           from 0; null leaves the rank alone, and a rank past
-     *                                           the end of the column is clamped to it
+     * @param list<string>|null        $pullRequestUrls
+     * @param list<string>|null        $documentIds
+     * @param ?int                     $position        the rank the card takes inside its column, counting
+     *                                                  from 0; null leaves the rank alone, and a rank past
+     *                                                  the end of the column is clamped to it
+     * @param list<CardLinkInput>|null $relatedCards
      */
     public function __construct(
         public Card $card,
@@ -39,6 +41,7 @@ final readonly class UpdateCardCommand
         public ?array $pullRequestUrls = null,
         public ?array $documentIds = null,
         public ?int $position = null,
+        public ?array $relatedCards = null,
     ) {
     }
 }

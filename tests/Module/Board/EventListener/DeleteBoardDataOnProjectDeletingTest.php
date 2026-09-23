@@ -7,6 +7,8 @@ namespace App\Tests\Module\Board\EventListener;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardLink;
+use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\EventListener\DeleteBoardDataOnProjectDeleting;
@@ -42,8 +44,9 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
         $conn = $em->getConnection();
         // Guard: without it the absence assertions below also pass on a fixture
         // that never wrote a card.
-        self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $doomedId]));
+        self::assertSame(2, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $doomedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_pull_requests', []));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_links', []));
         self::assertSame(4, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $doomedId]));
 
         $deleter->delete($doomed);
@@ -51,6 +54,7 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
 
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $doomedId]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_pull_requests', []));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_links', []));
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $doomedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $sparedId]));
         self::assertSame(4, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $sparedId]));
@@ -101,6 +105,9 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
         $card = new Card(project: $project, column: $backlog, title: 'Ship it', body: 'Body', number: 1);
         if ('doomed' === $name) {
             $card->pullRequests->add(new CardPullRequest($card, 'https://github.com/ubermuda/loupe/pull/1', Forge::GitHub, 'ubermuda/loupe', 1));
+            $blocked = new Card(project: $project, column: $backlog, title: 'Then this', body: 'Body', number: 2);
+            $em->persist($blocked);
+            $em->persist(new CardLink($card, $blocked, CardLinkKind::Blocks));
         }
         $em->persist($card);
 

@@ -9,10 +9,12 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardPayload;
 use App\Module\Board\Mcp\CardUpdateTool;
+use App\Module\Board\Repository\CardLinkRepository;
 use App\Tests\Module\Board\CardMovedOutbox;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -180,6 +182,57 @@ final class CardUpdateToolTest extends KernelTestCase
         self::assertSame('Ship it', ($this->tool)($first['cardId'])['title']);
     }
 
+    public function test_an_omitted_related_card_list_keeps_the_links_and_an_empty_one_clears_them(): void
+    {
+        $created = $this->card('card-update-links');
+        $other = ($this->createTool)('Other', 'Body', 'feature');
+        ($this->tool)($created['cardId'], relatedCards: [['cardId' => $other['cardId'], 'kind' => 'blocks']]);
+        self::assertSame(1, $this->links()->count([]));
+
+        ($this->tool)($created['cardId'], title: 'Renamed');
+        self::assertSame(1, $this->links()->count([]));
+
+        ($this->tool)($other['cardId'], relatedCards: []);
+        self::assertSame(0, $this->links()->count([]));
+    }
+
+    public function test_an_unknown_link_kind_lists_the_three_kinds(): void
+    {
+        $created = $this->card('card-update-link-kind');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('relatedCards[0].kind: unknown kind "sideways". Use one of: relates-to, blocks, blocked-by.');
+        ($this->tool)($created['cardId'], relatedCards: [['cardId' => $created['cardId'], 'kind' => 'sideways']]);
+    }
+
+    /** @return iterable<string, array{mixed, string}> */
+    public static function malformedLinkItems(): iterable
+    {
+        yield 'not an object' => ['0199c0de-0000-7000-8000-0000000000ff', 'relatedCards[0] must be an object with a cardId.'];
+        yield 'no card id' => [['kind' => 'blocks'], 'relatedCards[0].cardId must be a string.'];
+        yield 'a card id that is not a string' => [['cardId' => 42], 'relatedCards[0].cardId must be a string.'];
+        yield 'a kind that is not a string' => [['cardId' => 'x', 'kind' => 1], 'relatedCards[0].kind: unknown kind "int". Use one of: relates-to, blocks, blocked-by.'];
+    }
+
+    #[DataProvider('malformedLinkItems')]
+    public function test_a_malformed_link_item_is_refused(mixed $item, string $message): void
+    {
+        $created = $this->card('card-update-link-item');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage($message);
+        ($this->tool)($created['cardId'], relatedCards: [$item]);
+    }
+
+    public function test_the_card_itself_is_reported_as_a_sentence(): void
+    {
+        $created = $this->card('card-update-link-self');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('relatedCards: A card cannot link to itself.');
+        ($this->tool)($created['cardId'], relatedCards: [['cardId' => $created['cardId']]]);
+    }
+
     public function test_both_handles_are_refused(): void
     {
         $created = $this->card('card-update-both');
@@ -196,6 +249,14 @@ final class CardUpdateToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('Pass cardId or number.');
         ($this->tool)(title: 'Renamed');
+    }
+
+    private function links(): CardLinkRepository
+    {
+        $links = self::getContainer()->get(CardLinkRepository::class);
+        self::assertInstanceOf(CardLinkRepository::class, $links);
+
+        return $links;
     }
 
     /** @return array<string, true> */

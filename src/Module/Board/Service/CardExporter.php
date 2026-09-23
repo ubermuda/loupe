@@ -7,8 +7,10 @@ namespace App\Module\Board\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\UserDataExporterInterface;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -23,6 +25,7 @@ final readonly class CardExporter implements UserDataExporterInterface
 {
     public function __construct(
         private CardRepository $cards,
+        private CardLinkRepository $cardLinks,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private TranslatorInterface $translator,
     ) {
@@ -37,7 +40,10 @@ final readonly class CardExporter implements UserDataExporterInterface
     #[\Override]
     public function export(User $user): iterable
     {
-        foreach ($this->cards->findByOwner($user) as $card) {
+        $cards = $this->cards->findByOwner($user);
+        $links = $this->cardLinks->findForCards($cards);
+
+        foreach ($cards as $card) {
             yield [
                 'id' => (string) $card->id,
                 'project' => $card->project->name,
@@ -73,6 +79,14 @@ final readonly class CardExporter implements UserDataExporterInterface
                 'siteReviewComments' => array_map(
                     static fn (CardSiteReviewComment $link): string => (string) $link->comment->id,
                     $this->cardSiteReviewComments->findForCard($card),
+                ),
+                'relatedCards' => array_map(
+                    static fn (CardLink $link): array => [
+                        'cardId' => (string) $link->otherThan($card)->id,
+                        'number' => $link->otherThan($card)->number,
+                        'kind' => $link->kindFor($card)->value,
+                    ],
+                    $links[(string) $card->id] ?? [],
                 ),
             ];
         }

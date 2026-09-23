@@ -30,6 +30,21 @@ class CardRepository extends ServiceEntityRepository
         parent::__construct($registry, Card::class);
     }
 
+    /** @param list<Uuid> $ids */
+    public function countByIds(array $ids): int
+    {
+        if ([] === $ids) {
+            return 0;
+        }
+
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->andWhere('c.id IN (:ids)')
+            ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     public function findOneByProjectAndNumber(Project $project, int $number): ?Card
     {
         return $this->findOneBy(['project' => $project, 'number' => $number]);
@@ -57,17 +72,54 @@ class CardRepository extends ServiceEntityRepository
             ->setMaxResults($limit);
 
         if ('' !== $query) {
-            // Escaped with the character the ESCAPE clause declares, not with a
-            // backslash: a backslash is a literal here, so addcslashes() would
-            // leave % and _ as wildcards and quietly widen the match. The
-            // escape character itself goes first, or it doubles the others.
-            $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($query));
             $qb->andWhere('LOWER(c.title) LIKE :q ESCAPE \'!\'')
-                ->setParameter('q', '%'.$escaped.'%');
+                ->setParameter('q', self::titleContains($query));
         }
 
         /* @var list<Card> */
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * The cards a card may link to: the project's cards, newest first, less
+     * the card itself. A null project matches no card.
+     */
+    public function linkCandidates(?Uuid $projectId, ?Uuid $excludeCardId): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->orderBy('c.number', 'DESC');
+
+        if (null === $projectId) {
+            return $qb->andWhere('1 = 0');
+        }
+        $qb->andWhere('c.project = :linkProject')->setParameter('linkProject', $projectId, UuidType::NAME);
+        if (null !== $excludeCardId) {
+            $qb->andWhere('c.id != :linkExclude')->setParameter('linkExclude', $excludeCardId, UuidType::NAME);
+        }
+
+        return $qb;
+    }
+
+    /**
+     * Narrows {@see linkCandidates()} to what a person typed: `12` or `#12`
+     * names a card number, anything else is a fragment of the title.
+     */
+    public function matchLinkQuery(QueryBuilder $qb, string $query): void
+    {
+        $query = trim($query);
+        if ('' === $query) {
+            return;
+        }
+
+        // Nine digits at most, so the number always fits the integer column.
+        if (1 === preg_match('/^#?(\d{1,9})$/', $query, $match)) {
+            $qb->andWhere('c.number = :linkNumber')->setParameter('linkNumber', (int) $match[1]);
+
+            return;
+        }
+
+        $qb->andWhere('LOWER(c.title) LIKE :linkTitle ESCAPE \'!\'')
+            ->setParameter('linkTitle', self::titleContains($query));
     }
 
     /**
@@ -557,6 +609,16 @@ class CardRepository extends ServiceEntityRepository
         }
 
         return array_values($this->withPullRequests($qb)->getQuery()->getResult());
+    }
+
+    /**
+     * A LIKE pattern for a lower-case title that contains $query, escaped with
+     * the ESCAPE clause's `!`. A backslash is a literal here, so addcslashes()
+     * would leave % and _ as wildcards. The `!` goes first, or it doubles the others.
+     */
+    private static function titleContains(string $query): string
+    {
+        return '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($query)).'%';
     }
 
     /**

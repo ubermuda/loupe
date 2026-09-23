@@ -80,6 +80,7 @@ final class CreateCardController extends AppController
                     reporter: CardReporter::Human,
                     pullRequestUrls: CreateCardRequest::toUrlList($data->pullRequestUrls),
                     siteReviewComment: $feedback,
+                    relatedCards: $data->linkInputs(),
                 ));
 
                 return $this->redirectToRoute('app_board_card', [

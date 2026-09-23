@@ -2459,7 +2459,7 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.card_create">
                 <source>project.connect.tool.card_create</source>
-                <target>Add a card to the project board, with a type, a reporter and the pull requests that carry the work.</target>
+                <target>Add a card to the project board, with a type, a reporter, the pull requests that carry the work and the cards it links to (relatedCards).</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_list">
                 <source>project.connect.tool.card_list</source>
@@ -2475,11 +2475,11 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.card_get">
                 <source>project.connect.tool.card_get</source>
-                <target>Read one card, with its full Markdown body and every pull request linked to it.</target>
+                <target>Read one card, with its full Markdown body, every pull request linked to it and its linked cards (relatedCards).</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_update">
                 <source>project.connect.tool.card_update</source>
-                <target>Change a card. Omitted fields keep their value, and moving a card to a terminal column stamps its completion time.</target>
+                <target>Change a card. Omitted fields keep their value, and moving a card to a terminal column stamps its completion time. relatedCards replaces every link that touches the card.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.inbox_ask">
                 <source>project.connect.tool.inbox_ask</source>
@@ -4896,6 +4896,18 @@
                 <source>board.card.error.pull_request_url_too_long</source>
                 <target>One of those pull request links is too long.</target>
             </trans-unit>
+            <trans-unit id="board.card.error.linked_card_unknown">
+                <source>board.card.error.linked_card_unknown</source>
+                <target>One of those cards is not in this project.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.linked_card_self">
+                <source>board.card.error.linked_card_self</source>
+                <target>A card cannot link to itself.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.linked_card_twice">
+                <source>board.card.error.linked_card_twice</source>
+                <target>Each card can be linked only once.</target>
+            </trans-unit>
 
             <!-- Card create and edit pages -->
             <trans-unit id="board.card.create.page.title">
@@ -4925,6 +4937,14 @@
             <trans-unit id="board.card.form.cancel">
                 <source>board.card.form.cancel</source>
                 <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="board.card.form.linked_cards.add">
+                <source>board.card.form.linked_cards.add</source>
+                <target>Add a linked card</target>
+            </trans-unit>
+            <trans-unit id="board.card.form.linked_cards.remove">
+                <source>board.card.form.linked_cards.remove</source>
+                <target>Remove this link</target>
             </trans-unit>
 
             <!-- Terminal column history -->
@@ -5021,6 +5041,38 @@
             <trans-unit id="board.form.create_card_form.pull_request_urls.placeholder">
                 <source>board.form.create_card_form.pull_request_urls.placeholder</source>
                 <target>https://github.com/owner/repo/pull/1</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.related_cards.label">
+                <source>board.form.create_card_form.related_cards.label</source>
+                <target>Linked cards</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.related_cards.help">
+                <source>board.form.create_card_form.related_cards.help</source>
+                <target>Pick a card of this project and how this card reads it. The other card shows the link too. Saving replaces the whole list.</target>
+            </trans-unit>
+            <trans-unit id="board.form.card_link_row.card.label">
+                <source>board.form.card_link_row.card.label</source>
+                <target>Card</target>
+            </trans-unit>
+            <trans-unit id="board.form.card_link_row.card.placeholder">
+                <source>board.form.card_link_row.card.placeholder</source>
+                <target>Search by title or number</target>
+            </trans-unit>
+            <trans-unit id="board.form.card_link_row.kind.label">
+                <source>board.form.card_link_row.kind.label</source>
+                <target>Link</target>
+            </trans-unit>
+            <trans-unit id="board.form.card_link_row.kind.choice.relates-to">
+                <source>board.form.card_link_row.kind.choice.relates-to</source>
+                <target>Related to</target>
+            </trans-unit>
+            <trans-unit id="board.form.card_link_row.kind.choice.blocks">
+                <source>board.form.card_link_row.kind.choice.blocks</source>
+                <target>Blocks</target>
+            </trans-unit>
+            <trans-unit id="board.form.card_link_row.kind.choice.blocked-by">
+                <source>board.form.card_link_row.kind.choice.blocked-by</source>
+                <target>Blocked by</target>
             </trans-unit>
 
             <!-- Move form -->
@@ -5508,6 +5560,11 @@
             <trans-unit id="board.card.link.open_pull_request"><source>board.card.link.open_pull_request</source><target>Open pull request</target></trans-unit>
             <trans-unit id="board.card.linked_work.title"><source>board.card.linked_work.title</source><target>Linked work</target></trans-unit>
             <trans-unit id="board.card.linked_work.empty"><source>board.card.linked_work.empty</source><target>No documents or pull requests are linked to this card.</target></trans-unit>
+            <trans-unit id="board.card.linked_cards.title"><source>board.card.linked_cards.title</source><target>Linked cards</target></trans-unit>
+            <trans-unit id="board.card.linked_cards.relation"><source>board.card.linked_cards.relation</source><target>Link</target></trans-unit>
+            <trans-unit id="board.card.linked_cards.kind.relates_to"><source>board.card.linked_cards.kind.relates_to</source><target>Related to</target></trans-unit>
+            <trans-unit id="board.card.linked_cards.kind.blocks"><source>board.card.linked_cards.kind.blocks</source><target>Blocks</target></trans-unit>
+            <trans-unit id="board.card.linked_cards.kind.blocked_by"><source>board.card.linked_cards.kind.blocked_by</source><target>Blocked by</target></trans-unit>
             <trans-unit id="site_review.source.widget"><source>site_review.source.widget</source><target>Site review widget</target></trans-unit>
             <trans-unit id="site_review.comment.open_source"><source>site_review.comment.open_source</source><target>Open source page</target></trans-unit>
             <trans-unit id="site_review.widget.setup"><source>site_review.widget.setup</source><target>Widget setup</target></trans-unit>

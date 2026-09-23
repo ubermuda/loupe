@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Form;
 
+use App\Module\Board\Command\RelatedCard;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 
@@ -13,7 +14,8 @@ use App\Module\Board\Entity\CardPullRequest;
  */
 class UpdateCardRequest extends CreateCardRequest
 {
-    public static function fromCard(Card $card): self
+    /** @param list<RelatedCard> $relatedCards the card's links, each as the card reads it */
+    public static function fromCard(Card $card, array $relatedCards): self
     {
         return new self(
             title: $card->title,
@@ -24,6 +26,10 @@ class UpdateCardRequest extends CreateCardRequest
                 static fn (CardPullRequest $link): string => $link->url,
                 $card->pullRequests->toArray(),
             )),
+            relatedCards: array_map(
+                static fn (RelatedCard $related): CardLinkRowRequest => new CardLinkRowRequest($related->card, $related->kind),
+                $relatedCards,
+            ),
         );
     }
 }

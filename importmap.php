@@ -25,4 +25,13 @@ return [
     '@hotwired/turbo' => [
         'version' => '8.0.23',
     ],
+    'tom-select' => [
+        'version' => '2.6.2',
+    ],
+    '@orchidjs/sifter' => [
+        'version' => '1.1.0',
+    ],
+    '@orchidjs/unicode-variants' => [
+        'version' => '1.1.2',
+    ],
 ];

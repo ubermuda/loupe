@@ -10,6 +10,8 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardLinkResolver;
+use App\Module\Board\Service\CardLinkSync;
 use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
@@ -25,6 +27,7 @@ use Ubermuda\AuditBundle\AuditSubject;
 final readonly class UpdateCardHandler
 {
     public const string COLUMN_GONE = 'board.card.error.column_gone';
+    public const string LINKED_CARD_GONE = 'board.card.error.linked_card_unknown';
 
     public function __construct(
         private CardRepository $cards,
@@ -32,6 +35,8 @@ final readonly class UpdateCardHandler
         private CardMover $mover,
         private PullRequestUrlResolver $pullRequests,
         private DocumentLinkResolver $documentLinks,
+        private CardLinkResolver $cardLinks,
+        private CardLinkSync $cardLinkSync,
         private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -64,13 +69,16 @@ final readonly class UpdateCardHandler
         $documents = null === $command->documentIds
             ? null
             : $this->documentLinks->resolve($card->project, array_values($command->documentIds));
+        $relatedCards = null === $command->relatedCards
+            ? null
+            : $this->cardLinks->resolve($card->project, $card, array_values($command->relatedCards));
 
         // One write for the whole update, and one lock. A column change is a
         // move, which renumbers a column and decides the completion timestamp,
         // so this handler owns the transaction the move runs in.
         // Flushing the fields first would commit half an update whose move
         // then failed.
-        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents): UpdateCardOutcome|string {
+        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents, $relatedCards): UpdateCardOutcome|string {
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
             // lock() takes the project row and leaves the loaded card as the
             // request read it, which may be before the caller ahead of us in
@@ -88,6 +96,9 @@ final readonly class UpdateCardHandler
             }
             if (!\in_array($column, $columns, true)) {
                 return self::COLUMN_GONE;
+            }
+            if (null !== $relatedCards && $this->cardLinkSync->anyCardGone($relatedCards)) {
+                return self::LINKED_CARD_GONE;
             }
             // A rank is a move of its own: a card dropped elsewhere in the
             // column it already sits in does not change its column.
@@ -118,6 +129,9 @@ final readonly class UpdateCardHandler
             if (null !== $command->pullRequestUrls) {
                 $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
             }
+            if (null !== $relatedCards) {
+                $this->cardLinkSync->sync($card, $relatedCards);
+            }
 
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
@@ -140,7 +154,7 @@ final readonly class UpdateCardHandler
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
         if (\is_string($outcome)) {
-            throw new DomainErrors(['column' => $outcome]);
+            throw new DomainErrors([self::LINKED_CARD_GONE === $outcome ? 'relatedCards' : 'column' => $outcome]);
         }
 
         // After the commit, never inside it: the sink drains at kernel.terminate,
@@ -163,7 +177,8 @@ final readonly class UpdateCardHandler
             || $outcome->bodyChanged
             || $outcome->typeChanged
             || null !== $command->pullRequestUrls
-            || null !== $command->documentIds;
+            || null !== $command->documentIds
+            || null !== $command->relatedCards;
 
         if (!$changedSomething) {
             return $card;
@@ -183,6 +198,7 @@ final readonly class UpdateCardHandler
                 'typeChanged' => $outcome->typeChanged,
                 'pullRequestsReplaced' => null !== $command->pullRequestUrls,
                 'documentsReplaced' => null !== $command->documentIds,
+                'relatedCardsReplaced' => null !== $command->relatedCards,
                 'moved' => null !== $outcome->move,
             ],
             new AuditSubject('card', (string) $card->id),

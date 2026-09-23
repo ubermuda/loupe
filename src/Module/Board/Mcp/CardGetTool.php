@@ -18,7 +18,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type CardSummary from CardPayload
  */
-#[McpTool(name: self::NAME, description: 'Read one card from the project board, with its full Markdown body and every pull request linked to it. Use a card id from card_list or card_create. The response also carries a number, the short label that counts from 1 inside this project. Use the number to name the card to a person. Pass the cardId or the number to read a card, never both.')]
+#[McpTool(name: self::NAME, description: 'Read one card from the project board, with its full Markdown body and every pull request linked to it. relatedCards lists the linked cards, each with its cardId, number, title, status and kind as this card reads it: a blocks link from card A reads blocked-by from card B. Use a card id from card_list or card_create. The response also carries a number, the short label that counts from 1 inside this project. Use the number to name the card to a person. Pass the cardId or the number to read a card, never both.')]
 final readonly class CardGetTool implements FlagGatedToolInterface
 {
     public const string NAME = 'card_get';
@@ -58,7 +58,7 @@ final readonly class CardGetTool implements FlagGatedToolInterface
                 $this->subjects->requireCardByIdOrNumber($cardId, $number, McpBoundProjectVoter::CARD_READ),
             ));
 
-            return $this->payload->forCard($view->card, $view->siteReviewLinks);
+            return $this->payload->forCard($view->card, $view->siteReviewLinks, $view->relatedCards);
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

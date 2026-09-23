@@ -152,15 +152,6 @@ else
     in_worktree composer install --no-interaction --prefer-dist
 fi
 
-# assets/vendor (importmap packages, git-ignored) must be a REAL copy, not a
-# symlink: AssetMapper realpaths every asset and asserts it lives under a
-# configured asset path, so a symlink resolving to main/assets/ fails the
-# containment check ("cannot be found in any asset map paths").
-if [ -d "$main/assets/vendor" ]; then
-    mkdir -p "$root/assets/vendor"
-    rsync -a --delete "$main/assets/vendor/" "$root/assets/vendor/"
-fi
-
 # 2. node_modules (host-side JS tooling: eslint, prettier). These are RELATIVE
 #    symlinks: a worktree's path structure is mirrored on the host and inside
 #    the container, so a relative link resolves in either context (an absolute

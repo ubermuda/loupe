@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Mcp;
 
+use App\Module\Board\Command\RelatedCard;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 
 /**
@@ -17,32 +20,35 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
  * @phpstan-type CardPullRequestSummary array{pullRequestId: string, url: string, forge: string, repository: ?string, number: ?int}
  * @phpstan-type CardSiteReviewCommentSummary array{commentId: string, body: string, url: string, status: string, createdAt: string}
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
- * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<CardSiteReviewCommentSummary>}
+ * @phpstan-type CardRelatedCardSummary array{cardId: string, number: int, title: string, status: string, kind: string}
+ * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<CardSiteReviewCommentSummary>, relatedCards: list<CardRelatedCardSummary>}
  * @phpstan-type CardListSummary array{cardId: string, number: int, title: string, type: string, status: string, reporter: string, updatedAt: string}
  */
 final readonly class CardPayload
 {
     public function __construct(
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
+        private CardLinkRepository $cardLinks,
     ) {
     }
 
     /**
-     * One card whose site-review links the caller already holds, from
-     * {@see \App\Module\Board\Command\ShowCardHandler}.
+     * One card whose site-review links and related cards the caller already
+     * holds, from {@see \App\Module\Board\Command\ShowCardHandler}.
      *
      * @param list<CardSiteReviewComment> $links
+     * @param list<RelatedCard>           $relatedCards
      *
      * @return CardSummary
      */
-    public function forCard(Card $card, array $links): array
+    public function forCard(Card $card, array $links, array $relatedCards): array
     {
-        return $this->render($card, $links);
+        return $this->render($card, $links, $relatedCards);
     }
 
     /**
      * Many cards in one read, so a board-sized list costs one comment query
-     * rather than one per card.
+     * and one card link query rather than one of each per card.
      *
      * @param list<Card> $cards
      *
@@ -50,20 +56,28 @@ final readonly class CardPayload
      */
     public function forCards(array $cards): array
     {
-        $byCard = $this->cardSiteReviewComments->findForCards($cards);
+        $commentsByCard = $this->cardSiteReviewComments->findForCards($cards);
+        $linksByCard = $this->cardLinks->findForCards($cards);
 
         return array_map(
-            fn (Card $card): array => $this->render($card, $byCard[(string) $card->id] ?? []),
+            fn (Card $card): array => $this->render(
+                $card,
+                $commentsByCard[(string) $card->id] ?? [],
+                array_map(
+                    static fn (CardLink $link): RelatedCard => new RelatedCard($link->otherThan($card), $link->kindFor($card)),
+                    $linksByCard[(string) $card->id] ?? [],
+                ),
+            ),
             $cards,
         );
     }
 
     /**
      * The lean shape a board listing reads in, with no body and none of the
-     * three link sets.
+     * link sets.
      *
-     * It runs no comment query at all, which is the point: the full shape costs
-     * one whether or not the caller reads the comments back.
+     * It runs no comment or card link query at all, which is the point: the
+     * full shape costs both whether or not the caller reads them back.
      *
      * @param list<Card> $cards
      *
@@ -87,10 +101,11 @@ final readonly class CardPayload
 
     /**
      * @param list<CardSiteReviewComment> $links
+     * @param list<RelatedCard>           $relatedCards
      *
      * @return CardSummary
      */
-    private function render(Card $card, array $links): array
+    private function render(Card $card, array $links, array $relatedCards): array
     {
         return [
             'cardId' => (string) $card->id,
@@ -137,6 +152,18 @@ final readonly class CardPayload
                     'createdAt' => $link->comment->createdAt->format(\DATE_ATOM),
                 ],
                 $links,
+            ),
+            // The kind reads from this card's side: the target of a blocks
+            // link reads blocked-by.
+            'relatedCards' => array_map(
+                static fn (RelatedCard $related): array => [
+                    'cardId' => (string) $related->card->id,
+                    'number' => $related->card->number,
+                    'title' => $related->card->title,
+                    'status' => $related->card->column->slug,
+                    'kind' => $related->kind->value,
+                ],
+                $relatedCards,
             ),
         ];
     }

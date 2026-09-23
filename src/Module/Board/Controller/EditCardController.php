@@ -6,6 +6,8 @@ namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Board\Command\ShowCardCommand;
+use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
@@ -32,6 +34,7 @@ final class EditCardController extends AppController
 {
     public function __construct(
         private readonly UpdateCardHandler $updateCard,
+        private readonly ShowCardHandler $showCard,
         private readonly BoardAvailability $board,
     ) {
     }
@@ -44,8 +47,9 @@ final class EditCardController extends AppController
 
         // The edit form reuses the create form; UpdateCardRequest only adds the
         // factory that pre-fills it from the card.
-        $data = UpdateCardRequest::fromCard($card);
-        $form = $this->createForm(CreateCardFormType::class, $data, ['project' => $card->project]);
+        $view = ($this->showCard)(new ShowCardCommand($card));
+        $data = UpdateCardRequest::fromCard($card, $view->relatedCards);
+        $form = $this->createForm(CreateCardFormType::class, $data, ['project' => $card->project, 'card' => $card]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -64,6 +68,8 @@ final class EditCardController extends AppController
                     column: $data->column,
                     // Replace semantics: an emptied textarea clears every link.
                     pullRequestUrls: UpdateCardRequest::toUrlList($data->pullRequestUrls),
+                    // The same replace semantics: no rows removes every link.
+                    relatedCards: $data->linkInputs(),
                 ));
 
                 return $this->redirectToRoute('app_board_card', [

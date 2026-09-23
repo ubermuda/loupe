@@ -10,10 +10,14 @@ use App\Module\Board\Entity\CardSiteReviewComment;
 /** Everything one card page renders. */
 final readonly class CardView
 {
-    /** @param list<CardSiteReviewComment> $siteReviewLinks */
+    /**
+     * @param list<CardSiteReviewComment> $siteReviewLinks
+     * @param list<RelatedCard>           $relatedCards
+     */
     public function __construct(
         public Card $card,
         public array $siteReviewLinks,
+        public array $relatedCards,
     ) {
     }
 }

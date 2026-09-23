@@ -37,6 +37,29 @@
         <div class="lp-field-errors">{{ form_errors(form.pullRequestUrls) }}</div>
     </div>
 
+    {% set linkRows = form.relatedCards %}
+    {% set linkPrototype %}{% include '@Board/_card_link_row_fields.html.twig' with {row: linkRows.vars.prototype} only %}{% endset %}
+    <fieldset class="lp-form-field" data-card-links data-controller="form-collection" data-form-collection-collection-holder-id-value="{{ linkRows.vars.id }}_rows">
+        <legend class="lp-label">{{ linkRows.vars.label|trans }}</legend>
+        <p id="{{ linkRows.vars.id }}_help" class="lp-form-hint">{{ linkRows.vars.help|trans }}</p>
+        <div id="{{ linkRows.vars.id }}_rows" class="lp-card-link-rows" data-prototype="{{ linkPrototype|e('html_attr') }}" data-index="{{ linkRows|length > 0 ? max(linkRows|keys) + 1 : 0 }}">
+            {%- for row in linkRows %}
+                <div class="lp-card-link-row" data-form-collection-row data-card-link-row>
+                    {% include '@Board/_card_link_row_fields.html.twig' with {row: row} only %}
+                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--icon" aria-label="{{ 'board.card.form.linked_cards.remove'|trans }}" data-action="form-collection#removeRow"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></button>
+                </div>
+            {% endfor -%}
+        </div>
+        <div class="lp-field-errors">{{ form_errors(linkRows) }}</div>
+        <div>
+            <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="form-collection#addRow"><twig:ux:icon name="lucide:plus" class="w-4 h-4" />{{ 'board.card.form.linked_cards.add'|trans }}</button>
+        </div>
+        <template data-form-collection-target="removeButtonTemplate">
+            <button type="button" class="lp-btn lp-btn--ghost lp-btn--icon" aria-label="{{ 'board.card.form.linked_cards.remove'|trans }}"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></button>
+        </template>
+    </fieldset>
+    {% do linkRows.setRendered %}
+
     <div class="flex items-center justify-end gap-3 pt-2">
         <a class="lp-btn lp-btn--ghost mr-auto" href="{{ cancelUrl }}"{% if cancelLeavesFrame %} data-turbo-frame="_top" data-action="card-drawer#close"{% endif %}>{{ 'board.card.form.cancel'|trans }}</a>
         <button type="submit" class="lp-btn lp-btn--primary">{{ submitLabel|trans }}</button>

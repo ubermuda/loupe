@@ -99,6 +99,7 @@ final class CardAuditTrailTest extends KernelTestCase
             'reporter' => 'agent',
             'pullRequestCount' => 0,
             'documentCount' => 0,
+            'relatedCardCount' => 0,
         ], $record->context);
 
         self::assertSame(['board.card_created'], $this->audit->domainLogLines());
@@ -175,6 +176,7 @@ final class CardAuditTrailTest extends KernelTestCase
             'typeChanged' => false,
             'pullRequestsReplaced' => false,
             'documentsReplaced' => false,
+            'relatedCardsReplaced' => false,
             'moved' => false,
         ], $record->context);
 

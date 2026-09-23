@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
+use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Mcp\CardCreateTool;
+use App\Module\Board\Repository\CardLinkRepository;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -139,6 +141,44 @@ final class CardCreateToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('Unknown status "shipped". Use one of: backlog, next, in-progress, done.');
         ($this->tool)('Ship it', 'Body', 'feature', status: 'shipped');
+    }
+
+    public function test_related_cards_are_linked_with_their_kinds(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-links'));
+        $blocker = ($this->tool)('Blocker', 'Body', 'feature');
+
+        $card = ($this->tool)('Blocked', 'Body', 'feature', relatedCards: [['cardId' => $blocker['cardId'], 'kind' => 'blocked-by']]);
+
+        $links = self::getContainer()->get(CardLinkRepository::class);
+        self::assertInstanceOf(CardLinkRepository::class, $links);
+        self::assertSame(1, $links->count([]));
+        $link = $links->findOneBy([]) ?? self::fail('Expected one link.');
+        self::assertSame($blocker['cardId'], (string) $link->source->id);
+        self::assertSame($card['cardId'], (string) $link->target->id);
+        self::assertSame(CardLinkKind::Blocks, $link->kind);
+    }
+
+    public function test_an_unknown_link_kind_lists_the_three_kinds(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-link-kind'));
+        $other = ($this->tool)('Other', 'Body', 'feature');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('relatedCards[0].kind: unknown kind "sideways". Use one of: relates-to, blocks, blocked-by.');
+        ($this->tool)('Linked', 'Body', 'feature', relatedCards: [['cardId' => $other['cardId'], 'kind' => 'sideways']]);
+    }
+
+    public function test_a_linked_card_of_no_card_is_reported_as_a_sentence(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-link-unknown'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('relatedCards: One of those card ids names no card of this project.');
+        ($this->tool)('Linked', 'Body', 'feature', relatedCards: [['cardId' => '0199c0de-0000-7000-8000-0000000000ff']]);
     }
 
     public function test_an_unbound_mcp_token_is_rejected(): void
