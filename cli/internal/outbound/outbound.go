@@ -2,8 +2,8 @@
 // Loupe. The ask check is a direct call, and rule health has its own retry.
 // Each kind of item has its own delivery policy:
 //
-//   - A worker run report waits in line, is sent in order and is retried. A
-//     shutdown gives it one last attempt.
+//   - A report, such as a state of a worker run, waits in line, is sent in order
+//     and is retried. A shutdown gives it one last attempt.
 //   - A latest-wins item, such as a heartbeat, has a lane of its own. A newer
 //     item replaces one that has not gone out, and a failed one is not retried.
 //
@@ -23,28 +23,26 @@ import (
 // Queue takes what the bridge sends to Loupe and owns its delivery from there.
 // Each method names a kind of item, and each kind has its own delivery policy.
 //
-// Enqueue takes a finished worker run. handle names the project the run belongs
-// to, because one bridge follows several. It never blocks and never reports a
-// failure, because the caller is a worker goroutine with nothing to do about a
-// failed send.
+// Enqueue takes a report. It never blocks and never reports a failure, because
+// the caller is a worker goroutine with nothing to do about a failed send.
 //
 // SendLatest takes a latest-wins item, such as a heartbeat. See Sender.SendLatest.
 //
 // A durable queue can replace the in-memory one behind the same methods.
 type Queue interface {
-	Enqueue(handle string, run api.WorkerRun)
+	Enqueue(report Report)
 	SendLatest(key string, send func(context.Context) error, done func(error))
 	Close()
 }
 
-// SendFunc delivers one report, and says whether the server wrote a new row. It
+// Report is one item of the ordered lane. Card and Rule name it in the log.
+//
+// Send delivers the report, and says whether the server wrote something new. It
 // returns api.ErrReportRefused for a report that no retry can turn into one.
-type SendFunc func(ctx context.Context, handle string, run api.WorkerRun) (bool, error)
-
-// queued is one report waiting to be sent.
-type queued struct {
-	handle string
-	run    api.WorkerRun
+type Report struct {
+	Card int
+	Rule string
+	Send func(ctx context.Context) (bool, error)
 }
 
 // latest is the one item a latest-wins lane holds.
@@ -59,9 +57,9 @@ type lane struct {
 	wake    chan struct{}
 }
 
-// capacity bounds the reports that wait in memory. A worker runs for minutes,
-// so a queue this deep means the server has been unreachable for hours.
-const capacity = 64
+// capacity bounds the reports that wait in memory. A run sends about four, and
+// a worker runs for minutes, so a full queue means a long outage.
+const capacity = 256
 
 // grace bounds the last delivery a shutdown allows. Ctrl-C kills the workers,
 // and a killed worker writes nothing to its card, so the bridge is the only
@@ -95,14 +93,13 @@ const (
 )
 
 // Sender is the in-memory queue. One goroutine sends the reports, so they land
-// in the order the workers finished, and a report under retry holds the next
+// in the order the bridge made them, and a report under retry holds the next
 // one back. Each latest-wins key has a goroutine of its own.
 type Sender struct {
 	log    *slog.Logger
-	send   SendFunc
 	ctx    context.Context
 	cancel context.CancelFunc
-	in     chan queued
+	in     chan Report
 	done   chan struct{}
 
 	// backoff, after and grace are fields, so a test waits for no real second.
@@ -117,14 +114,13 @@ type Sender struct {
 }
 
 // New starts the report sender. Close stops it and every latest-wins lane.
-func New(ctx context.Context, log *slog.Logger, send SendFunc) *Sender {
+func New(ctx context.Context, log *slog.Logger) *Sender {
 	ctx, cancel := context.WithCancel(ctx)
 	q := &Sender{
 		log:     log,
-		send:    send,
 		ctx:     ctx,
 		cancel:  cancel,
-		in:      make(chan queued, capacity),
+		in:      make(chan Report, capacity),
 		done:    make(chan struct{}),
 		backoff: defaultBackoff,
 		after:   time.After,
@@ -138,21 +134,20 @@ func New(ctx context.Context, log *slog.Logger, send SendFunc) *Sender {
 
 // Enqueue hands one report to the sender. A full queue, or a queue that is
 // already closed, loses the report and says so.
-func (q *Sender) Enqueue(handle string, run api.WorkerRun) {
+func (q *Sender) Enqueue(report Report) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	next := queued{handle: handle, run: run}
 	if q.closed {
-		q.logLost([]queued{next})
+		q.logLost([]Report{report})
 
 		return
 	}
 
 	select {
-	case q.in <- next:
+	case q.in <- report:
 	default:
-		q.logLost([]queued{next})
+		q.logLost([]Report{report})
 	}
 }
 
@@ -246,7 +241,7 @@ func (q *Sender) runLane(l *lane) {
 func (q *Sender) run() {
 	defer close(q.done)
 
-	var lost []queued
+	var lost []Report
 	for next := range q.in {
 		if q.ctx.Err() != nil || q.deliver(next) == aborted {
 			lost = append(lost, next)
@@ -262,7 +257,7 @@ func (q *Sender) run() {
 //
 // A report the shutdown interrupted is sent again here. The server identifies a
 // run by its own key, so a second copy of a report that landed changes nothing.
-func (q *Sender) flush(lost []queued) []queued {
+func (q *Sender) flush(lost []Report) []Report {
 	if len(lost) == 0 {
 		return nil
 	}
@@ -270,14 +265,14 @@ func (q *Sender) flush(lost []queued) []queued {
 	ctx, cancel := context.WithTimeout(context.Background(), q.grace)
 	defer cancel()
 
-	var dropped []queued
+	var dropped []Report
 	for _, next := range lost {
 		if ctx.Err() != nil {
 			dropped = append(dropped, next)
 
 			continue
 		}
-		if _, err := q.send(ctx, next.handle, next.run); err != nil {
+		if _, err := next.Send(ctx); err != nil {
 			dropped = append(dropped, next)
 		}
 	}
@@ -288,9 +283,9 @@ func (q *Sender) flush(lost []queued) []queued {
 // deliver sends one report until the server takes it, until the server refuses
 // it, or until the attempts run out. It logs its own give-up, so no dropped
 // report is silent.
-func (q *Sender) deliver(next queued) outcome {
+func (q *Sender) deliver(next Report) outcome {
 	for attempt := 0; ; attempt++ {
-		created, err := q.send(q.ctx, next.handle, next.run)
+		created, err := next.Send(q.ctx)
 		if err == nil {
 			if attempt == 0 && !created {
 				q.logFolded(next)
@@ -303,8 +298,8 @@ func (q *Sender) deliver(next queued) outcome {
 		}
 		if errors.Is(err, api.ErrReportRefused) || attempt >= len(q.backoff) {
 			q.log.Warn("report_failed",
-				"card", next.run.CardNumber,
-				"rule", next.run.RuleName,
+				"card", next.Card,
+				"rule", next.Rule,
 				"attempts", attempt+1,
 				"error", err.Error(),
 			)
@@ -321,27 +316,26 @@ func (q *Sender) deliver(next queued) outcome {
 }
 
 // logFolded names a report the server already held when the bridge first sent
-// it. The server keys a run by its project, its bridge, its card and its start
-// second, so a second run of one card inside one second reads as the first, and
-// this record is lost. A later attempt that reads the same answer is the retry
-// working, so only the first one says anything.
-func (q *Sender) logFolded(next queued) {
+// it. On the old endpoint, that is a second run of one card folded into the
+// first. A later attempt that reads the same answer is the retry working, so
+// only the first one says anything.
+func (q *Sender) logFolded(next Report) {
 	q.log.Warn("report_folded",
-		"card", next.run.CardNumber,
-		"rule", next.run.RuleName,
-		"message", "Loupe already held a run of this card at this second, so this one is not recorded",
+		"card", next.Card,
+		"rule", next.Rule,
+		"message", "Loupe already held this report, so it recorded nothing new",
 	)
 }
 
 // logLost names the reports the bridge loses, and counts them.
-func (q *Sender) logLost(lost []queued) {
+func (q *Sender) logLost(lost []Report) {
 	if len(lost) == 0 {
 		return
 	}
 
 	dropped := make([]map[string]any, len(lost))
 	for i, next := range lost {
-		dropped[i] = map[string]any{"card": next.run.CardNumber, "rule": next.run.RuleName}
+		dropped[i] = map[string]any{"card": next.Card, "rule": next.Rule}
 	}
 	q.log.Warn("report_dropped", "count", len(dropped), "dropped", dropped)
 }

@@ -236,8 +236,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 
 	// The queue closes after the workers, so it sees every report a dying worker
 	// still makes, and its grace window can send them.
-	queue := newOutboundQueue(ctx, r.log, cfg)
+	queue := outbound.New(ctx, r.log)
 	r.reports = queue
+	r.runs = newRunReports(apiClient(cfg), r.log)
 	defer queue.Close()
 
 	events, err := apiClient(cfg).Events(ctx)
@@ -279,18 +280,6 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	}
 
 	return nil
-}
-
-// newOutboundQueue builds the queue that sends the bridge's reports and its
-// heartbeat to Loupe. One bridge follows several projects, so the handle travels
-// with each run report, and it is the project id the event carried rather than
-// the slug a rename changes.
-func newOutboundQueue(ctx context.Context, log *slog.Logger, cfg config.Config) *outbound.Sender {
-	client := apiClient(cfg)
-
-	return outbound.New(ctx, log, func(ctx context.Context, handle string, run api.WorkerRun) (bool, error) {
-		return client.ReportWorkerRun(ctx, handle, run)
-	})
 }
 
 // heartbeatBody names the projects the rule file maps, by id, and the build

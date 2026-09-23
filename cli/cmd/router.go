@@ -33,8 +33,10 @@ type router struct {
 	// bridgeID names the bridge in every report it sends, of a run and of rule
 	// health alike. With none, as in most tests, the bridge sends no report.
 	bridgeID string
-	// reports carries each finished run to Loupe. A nil queue reports nothing.
+	// reports carries each finished run to Loupe, and runs builds what it
+	// carries. A nil queue reports nothing.
 	reports outbound.Queue
+	runs    *runReports
 	health  *healthReporter
 	// heartbeat tells Loupe the bridge runs. A nil one sends nothing.
 	heartbeat *heartbeater
@@ -642,7 +644,7 @@ func (r *router) report(p pending, res workerResult, began time.Time, elapsed ti
 // endedAt is derived from the start, so the value the server reads can never
 // precede startedAt, whatever the wall clock does between the two calls.
 func (r *router) enqueueReport(p pending, res workerResult, began time.Time, elapsed time.Duration) {
-	if r.reports == nil {
+	if r.reports == nil || r.runs == nil {
 		return
 	}
 	cardID, cardNumber := cardOf(p.event)
@@ -671,7 +673,9 @@ func (r *router) enqueueReport(p pending, res workerResult, began time.Time, ela
 		run.FailureReason = &reason
 	}
 
-	r.reports.Enqueue(p.event.ProjectID, run)
+	// The handle is the project id the event carried, which a rename never
+	// changes.
+	r.reports.Enqueue(r.runs.final(p.event.ProjectID, run))
 }
 
 // logResult writes what a worker ended as. The bridge owns the worker's

@@ -84,8 +84,8 @@ type countingQueue struct {
 	n  int
 }
 
-func (c *countingQueue) Enqueue(handle string, run api.WorkerRun) {
-	c.inner.Enqueue(handle, run)
+func (c *countingQueue) Enqueue(report outbound.Report) {
+	c.inner.Enqueue(report)
 }
 
 func (c *countingQueue) Close() {
@@ -121,9 +121,7 @@ func startHeartbeater(t *testing.T, client *fakeHeartbeats, interval time.Durati
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	log := &syncBuffer{}
-	sender := outbound.New(ctx, newBridgeLogger(log), func(context.Context, string, api.WorkerRun) (bool, error) {
-		return true, nil
-	})
+	sender := outbound.New(ctx, newBridgeLogger(log))
 	hh := &heartbeatHarness{client: client, queue: &countingQueue{inner: sender}, timers: &fakeTimers{}, log: log, cancel: cancel}
 	body := api.Heartbeat{Projects: []string{testProject}, CLIVersion: "b4e39aa7"}
 	hh.h = newHeartbeater(ctx, hh.queue, client, testBridgeID, body, interval, newBridgeLogger(log))
