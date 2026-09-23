@@ -633,10 +633,6 @@ func (s *Set) Match(e event.Event) Match {
 		if !s.triggers(r, slug, e) {
 			continue
 		}
-		// A verdict with no stage card has nothing for a card agent to act on.
-		if e.Type == event.ReviewSubmittedType && (e.CardID == "" || (r.Verdict != "" && e.Verdict != r.Verdict)) {
-			continue
-		}
 		if e.Actor == event.ActorReviewer && !r.AllowUntrusted {
 			return Match{Skip: Untrusted, Rule: r.Name, Project: slug}
 		}
@@ -677,6 +673,10 @@ func (s *Set) MatchRule(e event.Event, name string) (Match, bool) {
 func (s *Set) triggers(r Rule, slug string, e event.Event) bool {
 	if r.On != e.Type || r.Project != slug || s.dead[r.Name] != "" {
 		return false
+	}
+	// A verdict with no stage card has nothing for a card agent to act on.
+	if e.Type == event.ReviewSubmittedType {
+		return e.CardID != "" && (r.Verdict == "" || e.Verdict == r.Verdict)
 	}
 	// Entered, not sits in: a card dragged to a new rank inside one column
 	// submits a move with that column on both sides.

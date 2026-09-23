@@ -899,6 +899,20 @@ func TestMatchAVerdict(t *testing.T) {
 	}
 }
 
+// A reload keeps a queued verdict only under a rule that still takes it.
+func TestMatchRuleReadsTheVerdict(t *testing.T) {
+	s := checked(t, verdictRules)
+	if _, ok := s.MatchRule(reviewSubmitted(event.VerdictChangesRequested, 33), "approved"); ok {
+		t.Fatal("MatchRule ran a change request under the approved rule")
+	}
+	if _, ok := s.MatchRule(reviewSubmitted(event.VerdictApproved, 0), "any"); ok {
+		t.Fatal("MatchRule ran a verdict that names no card")
+	}
+	if m, ok := s.MatchRule(reviewSubmitted(event.VerdictApproved, 33), "approved"); !ok || m.Rule != "approved" {
+		t.Fatalf("MatchRule = %+v, %v", m, ok)
+	}
+}
+
 // A rule with no verdict matches either verdict.
 func TestARuleWithNoVerdictMatchesBoth(t *testing.T) {
 	s := checked(t, strings.Replace(verdictRules, "    verdict: approved\n", "", 1))

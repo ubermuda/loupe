@@ -1369,7 +1369,7 @@ func TestTheVerdictKey(t *testing.T) {
 		"no card":        {0, testDocument},
 	} {
 		t.Run(name, func(t *testing.T) {
-			e, err := event.Parse([]byte(verdictPayload(tc.number, "approved")), h.router.rules.ExtraTypes())
+			e, err := event.Parse([]byte(verdictPayload(tc.number, "approved")), h.router.rules().ExtraTypes())
 			if err != nil {
 				t.Fatal(err)
 			}
