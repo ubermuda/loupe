@@ -94,8 +94,8 @@ stores it to the second.
 
 A run moves forward only. The open states rank `queued`, then `resumed`, then
 `running`, and every closed state ranks above them. A report moves an open run
-when its state ranks higher than the state the run holds. A report never
-reopens a closed run, with two exceptions:
+when its state ranks higher than the state the run holds. A report never moves
+a closed run, with two exceptions:
 
 - A report replaces `timed-out` when its state ranks at least as high as every
   state the bridge reported before. A late `queued` therefore does not reopen a

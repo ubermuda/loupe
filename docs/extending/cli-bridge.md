@@ -100,7 +100,7 @@ event carried. Each log line below goes with the state the bridge reports:
 | Log line | State |
 |---|---|
 | `worker_queued` | `queued` |
-| `worker_coalesced` | `replaced` for the run that waited, and `queued` for the new run that takes its place |
+| `worker_coalesced` | `replaced` for the run that waited, and `queued` for the new run that takes its place. The new run also sends `resumed` when it replaces a resume that passed its check |
 | `chain_capped` | `waiting-for-person` |
 | `resume_skipped` | `skipped` |
 | `worker_started` | `running`. A resume sends `resumed` first |
