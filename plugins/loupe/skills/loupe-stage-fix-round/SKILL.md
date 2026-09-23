@@ -24,7 +24,7 @@ Answer one round of feedback on the current stage of a card.
 3. When its `status` is `approved`, stop with `STAGE RESULT: <document> already approved`.
 4. When the `verdict` is `changes-requested`, check the triggers of `review-round.md` first: an open comment, an answered decision without a matching `**Decided:**` line, or an uncovered requirement. Stop with `STAGE RESULT: blocked: changes requested with no comment` only when none holds.
 5. Load `loupe-documents`. For a product document, read `../loupe-stage-product-design/references/product-document.md`. For a tech design, load the instructions and read the design inputs that the profile `Instruction files` section names.
-6. Follow `../loupe-stage-product-design/references/review-round.md`. The requirement source is the card body for the product document, and the product document for the tech design.
+6. Follow `../loupe-stage-product-design/references/review-round.md`. The requirement source is the card body for the product document. For the tech design, it is the approved product document, or the card body when the card has no product document.
 7. When the review round ends `<document> unchanged`, stop with `STAGE RESULT: nothing to fix`.
 
 ### Code round
