@@ -27,11 +27,14 @@ type Event struct {
 	FromSlug string `json:"fromSlug"`
 	ToSlug   string `json:"toSlug"`
 	Slug     string `json:"slug"`
-	// SessionID, BridgeID and CardID belong to inbox.ask_closed. A null card or
-	// bridge decodes as "".
+	// SessionID and BridgeID belong to inbox.ask_closed, and CardID to it and
+	// to document.review_submitted. Verdict and Column belong to
+	// document.review_submitted. A null value decodes as "" or 0.
 	SessionID string `json:"sessionId"`
 	BridgeID  string `json:"bridgeId"`
 	CardID    string `json:"cardId"`
+	Verdict   string `json:"verdict"`
+	Column    string `json:"column"`
 }
 
 // Subject names the aggregate an event is about. The id is what an MCP tool
@@ -56,6 +59,16 @@ const (
 // AskClosedType is published when an inbox ask closes. The bridge parses it
 // only when a rule names it.
 const AskClosedType = "inbox.ask_closed"
+
+// ReviewSubmittedType is published when a person approves a document or asks
+// for changes. The bridge parses it only when a rule names it.
+const ReviewSubmittedType = "document.review_submitted"
+
+// The verdicts a document.review_submitted event carries.
+const (
+	VerdictApproved         = "approved"
+	VerdictChangesRequested = "changes-requested"
+)
 
 // The actors the server names. Reviewer is someone using the site-review
 // widget, whom the app cannot authenticate. System is the app acting on a
@@ -137,6 +150,10 @@ func Parse(data []byte, extraTypes map[string]bool) (Event, error) {
 		if err := checkAskClosed(e); err != nil {
 			return e, err
 		}
+	case e.Type == ReviewSubmittedType && extraTypes[e.Type]:
+		if err := checkReviewSubmitted(e); err != nil {
+			return e, err
+		}
 	case e.Type != "" && extraTypes[e.Type]:
 		if err := checkCommon(e); err != nil {
 			return e, err
@@ -202,6 +219,35 @@ func checkAskClosed(e Event) error {
 	if !uuidPattern.MatchString(e.SessionID) {
 		return fmt.Errorf("%s event has a sessionId that is not a uuid", e.Type)
 	}
+
+	return checkCard(e)
+}
+
+// checkReviewSubmitted checks the verdict a rule matches, and the card and
+// column that reach a prompt.
+func checkReviewSubmitted(e Event) error {
+	if err := checkCommon(e); err != nil {
+		return err
+	}
+	if e.Verdict != VerdictApproved && e.Verdict != VerdictChangesRequested {
+		return fmt.Errorf("%s event has an unknown verdict %q", e.Type, e.Verdict)
+	}
+	if err := checkCard(e); err != nil {
+		return err
+	}
+	if e.CardID == "" && e.Column != "" {
+		return fmt.Errorf("%s event names a column %q and no card", e.Type, e.Column)
+	}
+	if e.CardID != "" && !SlugPattern.MatchString(e.Column) {
+		return fmt.Errorf("%s event has a column that is not a slug", e.Type)
+	}
+
+	return nil
+}
+
+// checkCard checks an optional card. The id and the number come together, or
+// neither comes.
+func checkCard(e Event) error {
 	if e.CardID != "" && !uuidPattern.MatchString(e.CardID) {
 		return fmt.Errorf("%s event has a cardId that is not a uuid", e.Type)
 	}

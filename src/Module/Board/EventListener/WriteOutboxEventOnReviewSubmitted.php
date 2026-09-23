@@ -8,6 +8,7 @@ use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardAvailability;
+use App\Module\Board\Service\StageCard;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Review\ReviewEventType;
 use App\Outbox\OutboxWriter;
@@ -30,14 +31,18 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
  * transaction flush. It must never throw: anything raised here aborts the
  * verdict it was told about. AdvanceCardOnReviewSubmitted is the listener that
  * may, and it is separate for that reason.
+ *
+ * It runs before AdvanceCardOnReviewSubmitted, so the row names the column an
+ * approved card leaves.
  */
-#[AsEventListener]
+#[AsEventListener(priority: 10)]
 final readonly class WriteOutboxEventOnReviewSubmitted
 {
     public function __construct(
         private CardDocumentRepository $cardDocuments,
         private BoardAvailability $board,
         private OutboxWriter $outbox,
+        private StageCard $stageCard,
     ) {
     }
 
@@ -50,10 +55,9 @@ final readonly class WriteOutboxEventOnReviewSubmitted
         }
 
         $document = $event->review->version->document;
-        $cardIds = array_map(
-            static fn (CardDocument $link): string => (string) $link->card->id,
-            $this->cardDocuments->findForDocument($document),
-        );
+        $links = $this->cardDocuments->findForDocument($document);
+        $cardIds = array_map(static fn (CardDocument $link): string => (string) $link->card->id, $links);
+        $stageCard = $this->stageCard->forDocument($document, $links);
 
         // Every key and every value is a contract with the reader of the
         // outbox, so a rename here is a breaking change there. Identifiers and
@@ -66,6 +70,9 @@ final readonly class WriteOutboxEventOnReviewSubmitted
             'verdict' => $event->review->verdict->value,
             'cardIds' => array_values($cardIds),
             'actor' => CardReporter::Human->value,
+            'cardId' => null === $stageCard ? null : (string) $stageCard->id,
+            'cardNumber' => $stageCard?->number,
+            'column' => $stageCard?->column->slug,
         ]);
     }
 }

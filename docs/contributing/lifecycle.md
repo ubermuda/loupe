@@ -84,22 +84,40 @@ rules:
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered {to}.
       Loupe instance https://loupe.ac.
       If the card is no longer in {to}, stop.
+
+  - name: fix-round
+    on: document.review_submitted
+    project: loupe
+    verdict: changes-requested
+    permissionMode: acceptEdits
+    prompt: |
+      Use the loupe-stage-fix-round skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}), column {column}.
+      A person requested changes on document {documentId}.
+      Loupe instance https://loupe.ac.
+      If the card is no longer in {column}, stop.
 ```
+
+The `fix-round` rule starts a document fix round when a person requests changes
+on a product or tech design document. The event names the linked card in the
+column where the document's stage starts. A document with no such card starts
+no worker.
 
 Each prompt carries `{projectId}` and the Loupe instance. The implementation
 skill uses both to build the card link in the pull request body. Without the
 instance line, the body names `Loupe card <number>` instead. `cli/README.md` describes every field and
 placeholder.
 
-Every move in this lifecycle comes from a person, and a person's move resets
-the chain count of the card. The `maxChain` cap therefore limits nothing here.
+Every move and every review verdict in this lifecycle comes from a person. A
+person's event resets the chain count of the card, so the `maxChain` cap limits
+nothing here.
 
 ## Permissions
 
-The design rules use `acceptEdits`. On one machine, a probe showed that this
-mode reaches the Loupe write tools in `claude -p` with no allow rule. When a
-worker run reports a denied tool, add an `mcp__loupe__*` allow rule to
-`.claude/settings.local.json`.
+The design rules and the `fix-round` rule use `acceptEdits`. On one machine, a
+probe showed that this mode reaches the Loupe write tools in `claude -p` with
+no allow rule. When a worker run reports a denied tool, add an
+`mcp__loupe__*` allow rule to `.claude/settings.local.json`.
 
 The implementation rule uses `bypassPermissions`. The gate runs arbitrary
 commands, and a worker in `acceptEdits` cannot approve them, because nobody
@@ -146,7 +164,8 @@ at the same time interfere with each other.
 
 ## Fix rounds by hand
 
-No rule starts a fix round yet. Run one by hand after review feedback arrives.
+The `fix-round` rule starts a document fix round. No rule starts a pull request
+fix round yet, so run one by hand after review feedback arrives.
 
 1. Wait until no worker runs, on any card. The bridge log shows the end line
    of each worker. Then stop the bridge.
@@ -164,11 +183,9 @@ docker compose exec php-fpm ps aux | grep -c phpunit
 claude -p --permission-mode bypassPermissions -- "Use the loupe-stage-fix-round skill. Card <number> (cardId <id>) in project loupe (projectId <id>), column in-review. Loupe instance https://loupe.ac."
 ```
 
-The fix round reads the column of the card, and the prompt names the column
-the card is in. The example runs a pull request round, which answers the review
-and the failed checks in In review. A card in Implementation with an open pull
-request gets the same round, so use `implementation` for that card. For a
-document review, use `product-design` or `tech-design` instead.
+The prompt names the column the card is in. The round answers the review and
+the failed checks in In review. A card in Implementation with an open pull
+request gets the same round, so use `implementation` for that card.
 
 ## Result lines
 
@@ -187,11 +204,12 @@ it, and the worker runs page at `/projects/{id}/worker-runs` shows it.
 4. Write `rules.yaml`.
 5. Start the bridge with `loupe bridge run --max-workers 1`.
 6. Do one acceptance run with a small card. Move it through Product design,
-   an approval, Tech design, an approval and Implementation. Run one document
-   fix round in a design column. Check that the implementation worker moves the
-   card to In review itself once its pull request is ready. Run one pull request
-   fix round there. After the merge, move the card to Done by hand. Record the
-   `STAGE RESULT` of each worker run on the card.
+   an approval, Tech design, an approval and Implementation. Request changes on
+   one design document, and check that the `fix-round` rule starts a worker.
+   Check that the implementation worker moves the card to In review itself once
+   its pull request is ready. Run one pull request fix round there. After the
+   merge, move the card to Done by hand. Record the `STAGE RESULT` of each
+   worker run on the card.
 
 ## What comes later
 

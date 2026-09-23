@@ -73,9 +73,10 @@ var PermissionModes = []string{"acceptEdits", "auto", "bypassPermissions", "defa
 
 // Placeholder names, and the ones each kind of event can fill.
 var (
-	cardMovedPlaceholders = []string{"cardId", "cardNumber", "projectId", "project", "from", "to"}
-	askClosedPlaceholders = []string{"askId", "sessionId", "cardNumber", "projectId", "project"}
-	genericPlaceholders   = []string{"projectId", "project"}
+	cardMovedPlaceholders       = []string{"cardId", "cardNumber", "projectId", "project", "from", "to"}
+	askClosedPlaceholders       = []string{"askId", "sessionId", "cardNumber", "projectId", "project"}
+	reviewSubmittedPlaceholders = []string{"cardId", "cardNumber", "column", "documentId", "verdict", "projectId", "project"}
+	genericPlaceholders         = []string{"projectId", "project"}
 )
 
 // UnknownCard is what {cardNumber} renders for a resume whose card neither the
@@ -113,6 +114,9 @@ type Rule struct {
 	Model          string `yaml:"model"`
 	MaxChain       *int   `yaml:"maxChain"`
 	AllowUntrusted bool   `yaml:"allowUntrusted"`
+	// Verdict limits a document.review_submitted rule to one verdict. Empty
+	// matches either.
+	Verdict string `yaml:"verdict"`
 	// Resume runs claude --resume on the session an inbox ask names, instead
 	// of a new session.
 	Resume bool `yaml:"resume"`
@@ -402,6 +406,14 @@ func checkRule(r Rule, projects map[string]Project) error {
 	} else if r.Resume {
 		errs = append(errs, fmt.Errorf("resume applies to inbox.ask_closed only, and this rule is on %s", r.On))
 	}
+	if r.On == event.ReviewSubmittedType {
+		allowed = reviewSubmittedPlaceholders
+		if r.Verdict != "" && r.Verdict != event.VerdictApproved && r.Verdict != event.VerdictChangesRequested {
+			errs = append(errs, fmt.Errorf("verdict %q is not %s or %s", r.Verdict, event.VerdictApproved, event.VerdictChangesRequested))
+		}
+	} else if r.Verdict != "" {
+		errs = append(errs, fmt.Errorf("verdict applies to document.review_submitted only, and this rule is on %s", r.On))
+	}
 
 	if strings.TrimSpace(r.Prompt) == "" {
 		errs = append(errs, errors.New("prompt is required"))
@@ -409,7 +421,7 @@ func checkRule(r Rule, projects map[string]Project) error {
 	for _, name := range directive.Placeholders(r.Prompt) {
 		switch {
 		case slices.Contains(allowed, name):
-		case slices.Contains(cardMovedPlaceholders, name), slices.Contains(askClosedPlaceholders, name):
+		case slices.Contains(cardMovedPlaceholders, name), slices.Contains(askClosedPlaceholders, name), slices.Contains(reviewSubmittedPlaceholders, name):
 			errs = append(errs, fmt.Errorf("placeholder {%s} has no value for %s events; this type fills %s", name, r.On, braces(allowed)))
 		default:
 			errs = append(errs, fmt.Errorf("unknown placeholder {%s}; this type fills %s", name, braces(allowed)))
@@ -621,6 +633,10 @@ func (s *Set) Match(e event.Event) Match {
 		if !s.triggers(r, slug, e) {
 			continue
 		}
+		// A verdict with no stage card has nothing for a card agent to act on.
+		if e.Type == event.ReviewSubmittedType && (e.CardID == "" || (r.Verdict != "" && e.Verdict != r.Verdict)) {
+			continue
+		}
 		if e.Actor == event.ActorReviewer && !r.AllowUntrusted {
 			return Match{Skip: Untrusted, Rule: r.Name, Project: slug}
 		}
@@ -795,6 +811,12 @@ func values(e event.Event, slug string) map[string]string {
 		if e.CardNumber > 0 {
 			v["cardNumber"] = strconv.Itoa(e.CardNumber)
 		}
+	case event.ReviewSubmittedType:
+		v["cardId"] = e.CardID
+		v["cardNumber"] = strconv.Itoa(e.CardNumber)
+		v["column"] = e.Column
+		v["documentId"] = e.Subject.ID
+		v["verdict"] = e.Verdict
 	}
 
 	return v

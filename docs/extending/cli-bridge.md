@@ -8,7 +8,9 @@ board and runs a non-interactive Claude Code worker for each event that a rule
 in your rule file matches. The worker is `claude -p --session-id <uuid> -- <prompt>`, with a new session id for each worker. It reads the card
 through the MCP, prints its answer and exits. The bridge reports the exit code.
 A rule on `inbox.ask_closed` resumes the session of a worker that asked the
-owner a question, as [Resume action](#resume-action) describes.
+owner a question, as [Resume action](#resume-action) describes. A rule on
+`document.review_submitted` can start a fix round on the card of a reviewed
+document.
 Build it with `just cli-build`. See [`cli/README.md`](../../cli/README.md) for
 the commands, the flags and the rule format.
 
@@ -310,6 +312,70 @@ timeout of 10 seconds:
 A resume is a worker run. The bridge reports it against its card with the same
 session id, and a resume that exits non-zero, such as one for a session this
 machine does not hold, is a failed run.
+
+## The document.review_submitted event
+
+Loupe writes `document.review_submitted` when a person approves a document or
+requests changes on it. The event names the stage card, so a rule can start a
+fix round on that card. The bridge parses this type only when a rule names it.
+
+```json
+{
+  "type": "document.review_submitted",
+  "projectId": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7",
+  "subject": { "type": "document", "id": "0192f3a1-5555-7d3e-8f10-a2b3c4d5e6f7" },
+  "verdict": "changes-requested",
+  "cardIds": ["0192f3a1-7777-7d3e-8f10-a2b3c4d5e6f7"],
+  "actor": "human",
+  "cardId": "0192f3a1-7777-7d3e-8f10-a2b3c4d5e6f7",
+  "cardNumber": 33,
+  "column": "tech-design"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `subject.id` | the reviewed document |
+| `verdict` | `approved` or `changes-requested` |
+| `cardIds` | every card linked to the document |
+| `actor` | always `human` |
+| `cardId`, `cardNumber` | the stage card, or `null` |
+| `column` | the column slug of the stage card when the person gave the verdict, or `null` |
+
+The document's tags name its stage. The tag `product` names the stage that
+starts in `product-design`. The tags `design` and `decisions` name the stage
+that starts in `tech-design`. The stage card is the linked card in that column.
+When two linked cards sit there, the lowest card number wins.
+
+`cardId`, `cardNumber` and `column` are `null` together in these cases:
+
+- The document's tags name no stage, or name both stages.
+- No linked card sits in the column where the stage starts.
+
+`column` is the column at the time of the verdict. When an approval moves the
+card to the next column, the event names the column the card leaves.
+
+A rule on this event can set `verdict` to `approved` or `changes-requested`.
+Without it, the rule matches either verdict. A `verdict` on a rule of another
+type stops the bridge at start. The prompt takes these placeholders:
+
+| Placeholder | Value |
+|---|---|
+| `{cardId}`, `{cardNumber}` | the stage card's id and number |
+| `{column}` | the stage card's column at the time of the verdict |
+| `{documentId}` | the reviewed document, `subject.id` |
+| `{verdict}` | `approved` or `changes-requested` |
+| `{projectId}`, `{project}` | the project's id and slug |
+
+Every rule on this event skips an event that names no stage card, and logs
+nothing for it. A bridge against a server that sends no card fields therefore
+starts nothing for this event. The bridge logs a verdict other than the two
+above as `event_malformed`.
+
+The bridge keys the run on the stage card, as it keys a resume. The run waits
+behind a worker of that card, a second verdict for the same rule replaces a
+waiting one, and the bridge reports the run against the card. The event comes
+from a person, so it resets the chain counts of the card.
 
 ## Ask check endpoint
 

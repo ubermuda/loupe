@@ -136,17 +136,21 @@ const askCheckTimeout = 10 * time.Second
 
 // keyFor keys the running worker and the chain counters by the subject id,
 // which every event type carries. A card number repeats across projects, and a
-// type this build knows no fields of may carry none. The subject of an ask is
-// no card, so resolve keys a resume instead.
+// type this build knows no fields of may carry none. The subject of an ask or a
+// review verdict is no card, so resolve keys those instead.
 func keyFor(e event.Event) string {
 	return e.Subject.ID
 }
 
-// resolve keys an ask on its card, so its resume waits behind any worker of
-// that card. The card comes from the event, else from the session the bridge
-// ran, and the key falls back to the session id. It fills the event's card
-// from the session, so the prompt and the report name it too.
+// resolve keys an ask or a review verdict on its card, so its run waits behind
+// any worker of that card. The card of an ask comes from the event, else from
+// the session the bridge ran, and the key falls back to the session id. It
+// fills the event's card from the session, so the prompt and the report name
+// it too.
 func (r *router) resolve(e event.Event) (event.Event, string) {
+	if e.Type == event.ReviewSubmittedType && e.CardID != "" {
+		return e, e.CardID
+	}
 	if e.Type != event.AskClosedType {
 		return e, keyFor(e)
 	}
@@ -169,7 +173,7 @@ func (r *router) resolve(e event.Event) (event.Event, string) {
 // cardOf is the card a run of the event reports against. A number below 1
 // means the event names no card.
 func cardOf(e event.Event) (string, int) {
-	if e.Type == event.AskClosedType {
+	if e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType {
 		return e.CardID, e.CardNumber
 	}
 
@@ -189,20 +193,23 @@ func askOf(e event.Event) string {
 // label names an event's aggregate to a reader: its card number when the event
 // carries one, and its subject id otherwise.
 func label(e event.Event) (string, any) {
-	if e.Type == event.CardMovedType || (e.Type == event.AskClosedType && e.CardNumber > 0) {
+	if e.Type == event.CardMovedType || ((e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType) && e.CardNumber > 0) {
 		return "card", e.CardNumber
 	}
 
 	return "subject", e.Subject.ID
 }
 
-// about names the event's aggregate in a log line, and a resume's ask and
-// session.
+// about names the event's aggregate in a log line, a resume's ask and session,
+// and a review verdict's document.
 func about(e event.Event, rule string) []any {
 	k, v := label(e)
 	out := []any{k, v, "project", e.ProjectID, "rule", rule}
-	if e.Type == event.AskClosedType {
+	switch e.Type {
+	case event.AskClosedType:
 		out = append(out, "ask", e.Subject.ID, "session_id", e.SessionID)
+	case event.ReviewSubmittedType:
+		out = append(out, "document", e.Subject.ID, "verdict", e.Verdict)
 	}
 
 	return out
