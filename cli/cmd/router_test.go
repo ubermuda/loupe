@@ -1349,3 +1349,132 @@ func TestAPersonsGenericEventResetsTheChain(t *testing.T) {
 		t.Fatalf("a person's generic event did not reset the chain: %d runs", h.runs())
 	}
 }
+
+// verdictRules adds a rule on the review verdict to chainRules.
+const verdictRules = chainRules + `
+  - name: verdict
+    on: document.review_submitted
+    project: loupe
+    prompt: A review landed in {project}.
+`
+
+// testDocument is the subject of every review verdict event.
+const testDocument = "01a0a1b2-5555-7c3d-8e4f-5a6b7c8d9e0f"
+
+// verdictPayload is a review verdict on the stage card with the given number.
+// Card 0 sends the three card fields as null, as the server does.
+func verdictPayload(number int, verdict string) string {
+	card, cardNumber, column := "null", "null", "null"
+	if number > 0 {
+		card, cardNumber, column = fmt.Sprintf("%q", cardUUID(number)), fmt.Sprint(number), `"tech-design"`
+	}
+
+	return fmt.Sprintf(`{"type":"document.review_submitted","subject":{"type":"document","id":%q},"projectId":%q,"verdict":%q,"cardIds":[],"actor":"human","cardId":%s,"cardNumber":%s,"column":%s}`,
+		testDocument, testProject, verdict, card, cardNumber, column)
+}
+
+// A verdict keys on its stage card, so it waits behind a worker of that card.
+func TestAVerdictWaitsBehindAWorkerOfItsCard(t *testing.T) {
+	h := newHarnessWith(t, verdictRules, rules.Defaults{})
+	h.worker.started = make(chan workerSpec, 2)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	h.router.onData([]byte(verdictPayload(87, "approved")))
+
+	h.router.mu.Lock()
+	active, waiting := h.router.active, len(h.router.queue)
+	h.router.mu.Unlock()
+	if active != 1 || waiting != 1 {
+		t.Fatalf("active = %d, waiting = %d; want the verdict to wait", active, waiting)
+	}
+	queued := h.events(t, "worker_queued")
+	if len(queued) != 2 || num(t, queued[1], "card") != 87 || str(t, queued[1], "document") != testDocument || str(t, queued[1], "verdict") != "approved" {
+		t.Fatalf("worker_queued = %v", queued)
+	}
+
+	close(h.worker.block)
+	h.router.wg.Wait()
+	if got := startedCards(t, h); len(got) != 2 || got[1] != 87 {
+		t.Fatalf("started %v, want the verdict to run on card 87 after the move", got)
+	}
+	if h.worker.peak() != 1 {
+		t.Fatalf("peak concurrency for one card = %d, want 1", h.worker.peak())
+	}
+}
+
+func TestTheVerdictKey(t *testing.T) {
+	h := newHarnessWith(t, verdictRules, rules.Defaults{})
+	for name, tc := range map[string]struct {
+		number int
+		key    string
+	}{
+		"the stage card": {87, cardUUID(87)},
+		"no card":        {0, testDocument},
+	} {
+		t.Run(name, func(t *testing.T) {
+			e, err := event.Parse([]byte(verdictPayload(tc.number, "approved")), h.router.rules.ExtraTypes())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, key := h.router.resolve(e); key != tc.key {
+				t.Fatalf("key = %q, want %q", key, tc.key)
+			}
+		})
+	}
+}
+
+// Two verdicts on a busy card become one follow-up run of the rule.
+func TestASecondVerdictCoalescesWithAWaitingOne(t *testing.T) {
+	h := newHarnessWith(t, verdictRules, rules.Defaults{})
+	h.worker.started = make(chan workerSpec, 3)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	h.router.onData([]byte(verdictPayload(87, "changes-requested")))
+	h.router.onData([]byte(verdictPayload(87, "approved")))
+
+	coalesced := h.only(t, "worker_coalesced")
+	if num(t, coalesced, "card") != 87 || str(t, coalesced, "rule") != "verdict" || str(t, coalesced, "verdict") != "approved" {
+		t.Fatalf("worker_coalesced = %v", coalesced)
+	}
+
+	close(h.worker.block)
+	h.router.wg.Wait()
+	if h.runs() != 2 {
+		t.Fatalf("ran %d workers, want the move and one verdict run", h.runs())
+	}
+}
+
+// A verdict is a person's act on the stage card, so it resets that card's chain.
+func TestAPersonsVerdictResetsTheCardsChain(t *testing.T) {
+	h := newHarnessWith(t, verdictRules, rules.Defaults{})
+
+	for range 3 {
+		h.send(movedPayload(87, "backlog", "next", "agent"))
+	}
+	if h.runs() != 2 || len(h.events(t, "chain_capped")) != 1 {
+		t.Fatalf("runs = %d, want the cap to hold after two", h.runs())
+	}
+
+	h.send(verdictPayload(87, "approved"))
+	h.send(movedPayload(87, "backlog", "next", "agent"))
+	if h.runs() != 4 {
+		t.Fatalf("runs = %d, want the verdict run and a card run after the reset", h.runs())
+	}
+}
+
+// The run of a verdict reports against its stage card, not its document.
+func TestAVerdictRunReportsItsCard(t *testing.T) {
+	h := newHarnessWith(t, verdictRules, rules.Defaults{})
+	sent := h.reports(t)
+
+	h.send(verdictPayload(87, "approved"))
+
+	got := <-sent
+	if got.run.CardID != cardUUID(87) || got.run.CardNumber != 87 || got.run.RuleName != "verdict" {
+		t.Fatalf("run = %+v", got.run)
+	}
+}
