@@ -122,6 +122,42 @@ it('does not reload when a drawer closes with no signal held', async () => {
     expect(frame.reload).not.toHaveBeenCalled();
 });
 
+it('reloads the count frames outside it with the list', async () => {
+    document.body.innerHTML = `<turbo-frame id="shown" src="/projects/1/worker-runs"></turbo-frame>
+        <div data-controller="worker-run-refresh" data-worker-run-refresh-frames-value='["shown","missing"]'>
+            <turbo-frame id="runs" data-worker-run-refresh-target="frame" src="/projects/1/worker-runs"></turbo-frame>
+        </div>`;
+    const frames = [...document.querySelectorAll('turbo-frame')];
+    frames.forEach((frame) => {
+        frame.reload = vi.fn();
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    await signal();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
+
+    frames.forEach((frame) => expect(frame.reload).toHaveBeenCalledOnce());
+});
+
+it('reloads the whole page when it has no filters to keep', async () => {
+    window.Turbo = { visit: vi.fn() };
+    document.body.innerHTML = `<div data-controller="worker-run-refresh" data-worker-run-refresh-whole-value="true">
+        <turbo-frame id="runs" data-worker-run-refresh-target="frame" src="/projects/1/worker-runs"></turbo-frame>
+    </div>`;
+    const frame = document.querySelector('turbo-frame');
+    frame.reload = vi.fn();
+    await vi.advanceTimersByTimeAsync(0);
+
+    await signal();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
+
+    expect(window.Turbo.visit).toHaveBeenCalledWith(window.location.href, {
+        action: 'replace',
+    });
+    expect(frame.reload).not.toHaveBeenCalled();
+    delete window.Turbo;
+});
+
 it('stops listening and drops a pending reload on disconnect', async () => {
     const frame = await mount({ src: '/projects/1/worker-runs' });
     const listening = subscription();

@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block topbar_meta %}
-    <span class="lp-topbar__meta">{{ 'bridge.worker_runs.meta.shown'|trans({'%count%': items|length}) }}</span>
+    <turbo-frame id="worker-runs-shown" class="lp-live-frame"><span class="lp-topbar__meta">{{ 'bridge.worker_runs.meta.shown'|trans({'%count%': items|length}) }}</span></turbo-frame>
 {% endblock %}
 
 {% block body %}
@@ -81,14 +81,17 @@
                class="lp-filter-clear">{{ 'bridge.worker_runs.filter.clear'|trans }}</a>
         </form>
 
-        <span class="lp-filter-count">{{ 'bridge.worker_runs.filter.count'|trans({'%count%': filteredTotal}) }}</span>
+        <turbo-frame id="worker-runs-count" class="lp-live-frame"><span class="lp-filter-count">{{ 'bridge.worker_runs.filter.count'|trans({'%count%': filteredTotal}) }}</span></turbo-frame>
     </div>
     {% endif %}
 
     {% do mercure_subscribe(worker_runs_topic(project)) %}
     {% set frameRequest = app.request.headers.get('Turbo-Frame') is not null %}
-    {# The filters stay outside the frame, so a reload never takes the search field from under the reader. #}
-    <div class="lp-live-frame" data-controller="worker-run-refresh">
+    {# The filters stay outside the frame, so a reload never takes the search field from under the reader.
+       A page with no filters yet has no field to keep, so it reloads whole and gains them. #}
+    <div class="lp-live-frame" data-controller="worker-run-refresh"
+         data-worker-run-refresh-frames-value="{{ ['worker-runs-shown', 'worker-runs-count']|json_encode }}"
+         data-worker-run-refresh-whole-value="{{ items|length > 0 or listQuery.isNarrowed ? 'false' : 'true' }}">
     <turbo-frame id="worker-runs-frame" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
     {% if items|length > 0 %}
     <div class="lp-worker-run-list">

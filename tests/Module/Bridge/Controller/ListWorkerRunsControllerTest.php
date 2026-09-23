@@ -352,6 +352,35 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertSame('2026-01-01T09:59:00+00:00', $timeline->first()->filter('time')->attr('datetime'));
     }
 
+    /** The live reload refreshes the counts with the list, and an empty page reloads whole to gain its filters. */
+    public function test_the_live_reload_covers_the_counts_and_an_empty_page(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'live-counts-owner@example.com');
+        $empty = $this->project($em, $owner, 'Empty runs');
+        $full = $this->project($em, $owner, 'Full runs');
+        $this->seedRun($em, $full);
+
+        $emptyId = (string) $empty->id;
+        $fullId = (string) $full->id;
+        $em->clear();
+        $client->loginUser($owner);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$fullId.'/worker-runs');
+        self::assertResponseIsSuccessful();
+        $refresh = $crawler->filter('[data-controller="worker-run-refresh"]');
+        self::assertSame('false', $refresh->attr('data-worker-run-refresh-whole-value'));
+        self::assertSame(['worker-runs-shown', 'worker-runs-count'], json_decode((string) $refresh->attr('data-worker-run-refresh-frames-value'), true));
+        self::assertCount(1, $crawler->filter('turbo-frame#worker-runs-shown .lp-topbar__meta'));
+        self::assertCount(1, $crawler->filter('turbo-frame#worker-runs-count .lp-filter-count'));
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$emptyId.'/worker-runs');
+        self::assertResponseIsSuccessful();
+        self::assertSame('true', $crawler->filter('[data-controller="worker-run-refresh"]')->attr('data-worker-run-refresh-whole-value'));
+    }
+
     /** A run with no history rows, as the previous image writes one during a deploy, shows its start and its outcome. */
     public function test_the_drawer_falls_back_to_the_start_and_end_without_history(): void
     {

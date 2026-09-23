@@ -11,7 +11,7 @@ export const DEBOUNCE_MILLISECONDS = 300;
  */
 export default class extends Controller {
     static targets = ['frame'];
-    static values = { url: String };
+    static values = { url: String, frames: Array, whole: Boolean };
 
     connect() {
         this.hasOpened = false;
@@ -55,14 +55,22 @@ export default class extends Controller {
             return;
         }
         this.held = false;
-        // A frame with no src has nothing to reload, and one given a src loads it.
-        if (this.frameTarget.getAttribute('src') === null) {
-            this.frameTarget.setAttribute(
-                'src',
-                this.urlValue || window.location.href,
-            );
+        if (this.wholeValue) {
+            window.Turbo?.visit(window.location.href, { action: 'replace' });
             return;
         }
-        this.frameTarget.reload();
+        const others = this.framesValue
+            .map((id) => document.getElementById(id))
+            .filter((frame) => frame !== null);
+        [this.frameTarget, ...others].forEach((frame) => this.load(frame));
+    }
+
+    load(frame) {
+        // A frame with no src has nothing to reload, and one given a src loads it.
+        if (frame.getAttribute('src') === null) {
+            frame.setAttribute('src', this.urlValue || window.location.href);
+            return;
+        }
+        frame.reload();
     }
 }
