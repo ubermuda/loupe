@@ -14,6 +14,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Security\CardFeedbackVoter;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
@@ -423,6 +424,7 @@ final class CardCrudControllerTest extends WebTestCase
             cardId: $card->id ?? throw new \LogicException('card id after flush'),
             cardNumber: $card->number,
             ruleName: 'plan the card',
+            state: WorkerRunState::Failed,
             startedAt: new \DateTimeImmutable('-2 hours'),
             endedAt: new \DateTimeImmutable('-2 hours +3 minutes'),
             exitCode: 1,

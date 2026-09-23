@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Controller;
 
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -67,6 +69,37 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringContainsString('&lt;script&gt;alert(&#039;pwned&#039;)&lt;/script&gt;', $body);
         self::assertStringNotContainsString("<script>alert('pwned')</script>", $body);
         self::assertStringNotContainsString('<img src=x onerror=alert(1)>', $body);
+    }
+
+    /** A queued run has no start, so the row shows when the server first heard of it. */
+    public function test_a_run_that_has_not_started_shows_when_it_was_received(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'queued-owner@example.com');
+        $project = $this->project($em, $owner, 'Queued');
+        $em->persist(new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v7(),
+            cardId: Uuid::v7(),
+            cardNumber: 5,
+            ruleName: 'waiting rule',
+            state: WorkerRunState::Queued,
+            runKey: Uuid::v7(),
+            receivedAt: new \DateTimeImmutable('2026-03-04 05:06:00'),
+        ));
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('waiting rule', (string) $client->getResponse()->getContent());
+        self::assertCount(1, $crawler->filter('.lp-worker-run__table-row > time[datetime="2026-03-04T05:06:00+00:00"]'));
     }
 
     /** The output shows on every run, collapsed, not on failures only. */

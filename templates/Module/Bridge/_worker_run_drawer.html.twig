@@ -19,7 +19,7 @@
         <div>
             <h2 class="lp-dialog-title" id="run-title-{{ run.id }}">{{ 'bridge.worker_runs.details.title'|trans }}</h2>
             <p class="lp-run-drawer__identifier">{{ run.id }}</p>
-            <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }}">{{ item.outcome.translationKey()|trans }}</span>
+            <span class="lp-status-chip lp-status-chip--{{ item.state.chipModifier() }}">{{ item.state.translationKey()|trans }}</span>
         </div>
         <button type="button" class="lp-btn" data-action="modal#close" autofocus>{{ 'bridge.worker_runs.details.close'|trans }}</button>
     </header>
@@ -31,14 +31,14 @@
             </dd></div>
             <div><dt>{{ 'bridge.worker_runs.column.rule'|trans }}</dt><dd>{{ run.ruleName }}</dd></div>
             <div><dt>{{ 'bridge.worker_runs.filter.bridge_label'|trans }}</dt><dd>{{ run.bridgeId }}</dd></div>
-            <div><dt>{{ 'bridge.worker_runs.details.session'|trans }}</dt><dd>{{ run.sessionId }}</dd></div>
+            {% if run.sessionId is not null %}<div><dt>{{ 'bridge.worker_runs.details.session'|trans }}</dt><dd>{{ run.sessionId }}</dd></div>{% endif %}
             <div><dt>{{ 'bridge.worker_runs.column.duration'|trans }}</dt><dd>{{ item.duration() }}{% if run.exitCode is not null %} · {{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}{% endif %}</dd></div>
         </dl>
         <p class="lp-dialog-desc">{{ 'bridge.worker_runs.details.unreported'|trans }}</p>
         <h3 class="lp-run-drawer__heading">{{ 'bridge.worker_runs.details.timeline'|trans }}</h3>
         <ol class="lp-run-drawer__timeline">
-            <li>{{ 'bridge.worker_runs.details.started'|trans }} <time datetime="{{ run.startedAt|date('c') }}">{{ run.startedAt|date('Y-m-d H:i:s T') }}</time></li>
-            <li>{{ 'bridge.worker_runs.details.ended'|trans }} <time datetime="{{ run.endedAt|date('c') }}">{{ run.endedAt|date('Y-m-d H:i:s T') }}</time></li>
+            {% if run.startedAt is not null %}<li>{{ 'bridge.worker_runs.details.started'|trans }} <time datetime="{{ run.startedAt|date('c') }}">{{ run.startedAt|date('Y-m-d H:i:s T') }}</time></li>{% endif %}
+            {% if run.endedAt is not null %}<li>{{ 'bridge.worker_runs.details.ended'|trans }} <time datetime="{{ run.endedAt|date('c') }}">{{ run.endedAt|date('Y-m-d H:i:s T') }}</time></li>{% endif %}
             <li>{{ 'bridge.worker_runs.details.received'|trans }} <time datetime="{{ run.receivedAt|date('c') }}">{{ run.receivedAt|date('Y-m-d H:i:s T') }}</time></li>
         </ol>
         {% if run.failureReason %}<p class="lp-worker-run__failure">{{ run.failureReason }}</p>{% endif %}

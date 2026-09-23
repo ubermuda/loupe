@@ -7,7 +7,7 @@ namespace App\Module\Bridge\Controller;
 use App\Controller\AppController;
 use App\Module\Bridge\Command\ListWorkerRunsCommand;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
-use App\Module\Bridge\ValueObject\WorkerRunOutcome;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\View\WorkerRunListQuery;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
@@ -57,7 +57,7 @@ class ListWorkerRunsController extends AppController
             'totalPages' => $view->totalPages,
             'pageList' => $view->pageList,
             'listQuery' => $listQuery,
-            'outcomes' => WorkerRunOutcome::cases(),
+            'states' => WorkerRunState::cases(),
             'bridgeIds' => $view->bridgeIds,
         ]);
     }

@@ -7,7 +7,7 @@ namespace App\Module\Bridge\Repository;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
-use App\Module\Bridge\ValueObject\WorkerRunOutcome;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
@@ -35,6 +35,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('r')
             ->andWhere('r.project = :project')
             ->andWhere('r.sessionId = :sessionId')
+            ->andWhere('r.sessionId IS NOT NULL')
             ->setParameter('project', $project)
             ->setParameter('sessionId', $sessionId, UuidType::NAME)
             ->orderBy('r.startedAt', 'ASC')
@@ -55,6 +56,8 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->andWhere('r.bridgeId = :bridgeId')
             ->andWhere('r.cardId = :cardId')
             ->andWhere('r.startedAt = :startedAt')
+            // The natural key is unique only among runs that carry no run key.
+            ->andWhere('r.runKey IS NULL')
             ->setParameter('project', $project)
             ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
             ->setParameter('cardId', $cardId, UuidType::NAME)
@@ -80,15 +83,21 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getResult());
     }
 
-    /** @return list<WorkerRun> the card's latest runs, newest first */
+    /** @return list<WorkerRun> the card's open runs, then its latest runs, newest first */
     public function findRecentForCard(Project $project, Uuid $cardId, int $limit): array
     {
         return $this->createQueryBuilder('r')
+            ->addSelect('CASE WHEN r.state IN (:openStates) THEN 0 ELSE 1 END AS HIDDEN openFirst')
             ->andWhere('r.project = :project')
             ->andWhere('r.cardId = :cardId')
             ->setParameter('project', $project)
             ->setParameter('cardId', $cardId, UuidType::NAME)
-            ->orderBy('r.receivedAt', 'DESC')
+            ->setParameter('openStates', array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                WorkerRunState::openStates(),
+            ))
+            ->orderBy('openFirst', 'ASC')
+            ->addOrderBy('r.receivedAt', 'DESC')
             ->addOrderBy('r.id', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()
@@ -110,7 +119,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         int $page,
         int $perPage,
         ?string $search = null,
-        ?WorkerRunOutcome $outcome = null,
+        ?WorkerRunState $state = null,
         ?Uuid $bridgeId = null,
     ): Paginator {
         $qb = $this->createQueryBuilder('r')
@@ -139,12 +148,8 @@ class WorkerRunRepository extends ServiceEntityRepository
             $qb->andWhere($match)->setParameter('search', $search);
         }
 
-        if (null !== $outcome) {
-            match ($outcome) {
-                WorkerRunOutcome::Succeeded => $qb->andWhere('r.exitCode = 0'),
-                WorkerRunOutcome::Failed => $qb->andWhere('r.exitCode IS NOT NULL AND r.exitCode <> 0'),
-                WorkerRunOutcome::NotStarted => $qb->andWhere('r.exitCode IS NULL'),
-            };
+        if (null !== $state) {
+            $qb->andWhere('r.state = :state')->setParameter('state', $state->value);
         }
 
         if (null !== $bridgeId) {

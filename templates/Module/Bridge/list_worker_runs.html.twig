@@ -53,8 +53,8 @@
                         class="lp-input lp-select lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'bridge.worker_runs.filter.all_outcomes'|trans }}</option>
-                    {% for outcome in outcomes %}
-                        <option value="{{ outcome.value }}"{{ listQuery.outcome == outcome ? ' selected' : '' }}>{{ outcome.translationKey()|trans }}</option>
+                    {% for state in states %}
+                        <option value="{{ state.value }}"{{ listQuery.state == state ? ' selected' : '' }}>{{ state.translationKey()|trans }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -109,16 +109,17 @@
                     <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
                     <button type="button" class="lp-btn lp-btn--ghost" data-action="modal#open">{{ 'bridge.worker_runs.details.open'|trans }}</button>
                 </div>
-                <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }}">
+                <span class="lp-status-chip lp-status-chip--{{ item.state.chipModifier() }}">
                     <span class="lp-status-chip__dot"></span>
-                    {{ item.outcome.translationKey()|trans }}
+                    {{ item.state.translationKey()|trans }}
                 </span>
                 <span class="lp-worker-run__rule">{{ run.ruleName }}</span>
                 <span class="lp-worker-run__duration">
                     {{ item.duration() }}
                     {% if run.exitCode is not null %}<small>{{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}</small>{% endif %}
                 </span>
-                <time datetime="{{ run.startedAt|date('c') }}">{{ run.startedAt|date('M j, H:i') }}</time>
+                {% set shownAt = run.startedAt ?? run.receivedAt %}
+                <time datetime="{{ shownAt|date('c') }}">{{ shownAt|date('M j, H:i') }}</time>
             </div>
 
             {% if run.failureReason %}

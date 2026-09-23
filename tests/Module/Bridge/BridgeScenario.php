@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\AgentCredential;
@@ -63,14 +64,16 @@ trait BridgeScenario
         string $ruleName = 'plan',
         ?Uuid $bridgeId = null,
         ?Uuid $cardId = null,
+        ?WorkerRunState $state = null,
     ): WorkerRun {
         $run = new WorkerRun(
             project: AgentCredential::managed($em, $project, $project->id),
             bridgeId: $bridgeId ?? Uuid::v7(),
-            sessionId: Uuid::v4(),
             cardId: $cardId ?? Uuid::v7(),
             cardNumber: $cardNumber,
             ruleName: $ruleName,
+            state: $state ?? WorkerRunState::fromExitCode($exitCode),
+            sessionId: Uuid::v4(),
             startedAt: new \DateTimeImmutable('2026-01-01 10:00:00'),
             endedAt: new \DateTimeImmutable('2026-01-01 10:05:00'),
             exitCode: $exitCode,

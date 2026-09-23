@@ -6,7 +6,10 @@ namespace App\Tests\Module\Bridge\Controller;
 
 use App\Module\Bridge\Controller\Api\ReportWorkerRunRequest;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\AgentCredential;
@@ -61,8 +64,32 @@ final class WorkerRunsApiTest extends WebTestCase
         self::assertSame(0, $run->exitCode);
         self::assertNull($run->failureReason);
         self::assertSame("reading card 42\nwrote a plan", $run->output);
-        self::assertSame('2026-09-13T10:00:00+00:00', $run->startedAt->format(\DateTimeInterface::ATOM));
-        self::assertSame('2026-09-13T10:00:21+00:00', $run->endedAt->format(\DateTimeInterface::ATOM));
+        self::assertSame('2026-09-13T10:00:00+00:00', $run->startedAt?->format(\DateTimeInterface::ATOM));
+        self::assertSame('2026-09-13T10:00:21+00:00', $run->endedAt?->format(\DateTimeInterface::ATOM));
+    }
+
+    public function test_a_finished_run_gets_its_outcome_as_state_and_a_history_of_running_then_the_outcome(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'runs-api-history@example.com');
+        $project = $this->project($em, $owner, 'History Runs');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload(['exitCode' => 3]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->em()->find(WorkerRun::class, Uuid::fromString($this->idOf($client)));
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunState::Failed, $run->state);
+        self::assertNull($run->runKey);
+        self::assertSame(
+            [['running', '2026-09-13T10:00:00+00:00'], ['failed', '2026-09-13T10:00:21+00:00']],
+            array_map(
+                static fn (WorkerRunStateChange $change): array => [$change->state->value, $change->at->format(\DateTimeInterface::ATOM)],
+                self::getContainer()->get(WorkerRunStateChangeRepository::class)->findForRun($run),
+            ),
+        );
     }
 
     /**
@@ -112,8 +139,8 @@ final class WorkerRunsApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(201);
         $run = $this->onlyRun();
-        self::assertSame('2026-09-13T15:00:00+00:00', $run->startedAt->format(\DateTimeInterface::ATOM));
-        self::assertSame('2026-09-13T15:00:21+00:00', $run->endedAt->format(\DateTimeInterface::ATOM));
+        self::assertSame('2026-09-13T15:00:00+00:00', $run->startedAt?->format(\DateTimeInterface::ATOM));
+        self::assertSame('2026-09-13T15:00:21+00:00', $run->endedAt?->format(\DateTimeInterface::ATOM));
 
         // The same instant written the other way is the same report.
         $this->post($client, $path, $raw, array_merge($payload, [
@@ -194,7 +221,7 @@ final class WorkerRunsApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(201);
         $run = $this->onlyRun();
-        self::assertSame('1999-01-01', $run->startedAt->format('Y-m-d'));
+        self::assertSame('1999-01-01', $run->startedAt?->format('Y-m-d'));
         self::assertGreaterThan($before, $run->receivedAt);
     }
 

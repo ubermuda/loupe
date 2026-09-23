@@ -12,6 +12,7 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Inbox\Command\AnswerInboxItemCommand;
 use App\Module\Inbox\Command\AnswerInboxItemHandler;
 use App\Module\Inbox\Command\AskInboxCommand;
@@ -509,6 +510,7 @@ final class InboxAskCloserTest extends KernelTestCase
             cardId: $card->id ?? throw new \LogicException('The card has no id.'),
             cardNumber: $card->number,
             ruleName: 'plan',
+            state: WorkerRunState::Succeeded,
             startedAt: $startedAt,
             endedAt: $startedAt->modify('+5 minutes'),
             exitCode: 0,

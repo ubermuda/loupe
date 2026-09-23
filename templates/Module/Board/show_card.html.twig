@@ -76,8 +76,9 @@
                     {% for item in runs %}
                     <a class="lp-card-run" href="{{ path('app_project_worker_runs', {id: card.project.id, search: item.run.id}) }}" data-turbo-frame="_top" data-card-run="{{ item.run.id }}">
                         <span class="lp-card-run__rule">{{ item.run.ruleName }}</span>
-                        <span class="lp-card-run__meta"><time datetime="{{ item.run.startedAt|date('c') }}">{{ item.run.startedAt|relative_time }}</time> · {{ item.duration() }}</span>
-                        <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }}">{{ item.outcome.translationKey()|trans }}</span>
+                        {% set shownAt = item.run.startedAt ?? item.run.receivedAt %}
+                        <span class="lp-card-run__meta"><time datetime="{{ shownAt|date('c') }}">{{ shownAt|relative_time }}</time>{% if item.duration() is not null %} · {{ item.duration() }}{% endif %}</span>
+                        <span class="lp-status-chip lp-status-chip--{{ item.state.chipModifier() }}">{{ item.state.translationKey()|trans }}</span>
                         <twig:ux:icon name="lucide:chevron-right" class="lp-card-run__chevron" />
                     </a>
                     {% else %}
