@@ -86,6 +86,32 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The runs one bridge of the owner still holds as far as the server knows:
+     * open or timed-out, with a run key, locked until the transaction ends. The
+     * owner filter is a subquery, so the lock covers the runs and not the
+     * projects a state report locks first.
+     *
+     * @return list<WorkerRun>
+     */
+    public function findOpenOrTimedOutOfBridge(User $owner, Uuid $bridgeId): array
+    {
+        $states = [...WorkerRunState::openStates(), WorkerRunState::TimedOut];
+
+        return array_values($this->createQueryBuilder('r')
+            ->andWhere('r.bridgeId = :bridgeId')
+            ->andWhere('r.runKey IS NOT NULL')
+            ->andWhere('r.state IN (:states)')
+            ->andWhere(\sprintf('IDENTITY(r.project) IN (SELECT p.id FROM %s p WHERE p.owner = :owner)', Project::class))
+            ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
+            ->setParameter('states', array_map(static fn (WorkerRunState $state): string => $state->value, $states))
+            ->setParameter('owner', $owner)
+            ->orderBy('r.id', 'ASC')
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getResult());
+    }
+
+    /**
      * Every run on every project the user owns, for the account data export.
      *
      * @return list<WorkerRun>
