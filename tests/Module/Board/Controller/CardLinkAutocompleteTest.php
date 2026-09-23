@@ -193,6 +193,10 @@ final class CardLinkAutocompleteTest extends WebTestCase
             $field->submit((string) $card->id);
             self::assertSame($valid, $field->isValid(), $card->title);
         }
+
+        $unscoped = $factory->create(CardLinkAutocompleteField::class);
+        $unscoped->submit((string) $sibling->id);
+        self::assertFalse($unscoped->isValid());
     }
 
     /**
