@@ -502,6 +502,11 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame('Queued', $row->filter('.lp-status-chip')->text());
         self::assertSame('2026-03-04T05:06:00+00:00', $row->filter('time')->attr('datetime'));
         self::assertStringNotContainsString('·', $row->filter('.lp-card-run__meta')->text());
+        // A live update reloads the section from the Bridge fragment, not the whole card.
+        $refresh = $crawler->filter('[data-controller="worker-run-refresh"]');
+        self::assertSame('/projects/'.$project->id.'/worker-runs/card/'.$card->id, $refresh->attr('data-worker-run-refresh-url-value'));
+        self::assertCount(1, $refresh->filter('turbo-frame#card-worker-runs[data-worker-run-refresh-target="frame"] [data-card-runs]'));
+        self::assertNull($refresh->filter('turbo-frame#card-worker-runs')->attr('src'));
     }
 
     public function test_a_stranger_cannot_reach_a_card(): void

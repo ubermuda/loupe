@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Controller;
 
+use App\Mercure\ProjectTopicBuilder;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\MercureCookies;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,6 +20,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 final class ListWorkerRunsControllerTest extends WebTestCase
 {
     use BridgeScenario;
+    use MercureCookies;
 
     public function test_the_page_lists_the_projects_runs_and_hides_another_projects(): void
     {
@@ -395,6 +398,38 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringNotContainsString('Session', $crawler->filter('[data-worker-run-id="'.$queuedId.'"] .lp-run-drawer__metadata')->text());
     }
 
+    /** A live update reloads the list frame, and the page listens on the project's run topic. */
+    public function test_the_list_sits_in_a_frame_that_live_updates_reload(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'live-list-owner@example.com');
+        $project = $this->project($em, $owner, 'Live list');
+        $run = $this->seedRun($em, $project);
+
+        $projectId = (string) $project->id;
+        $runTopic = $this->topics()->forWorkerRuns($project->id ?? throw new \LogicException('The project has no id.'));
+        $runId = (string) $run->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-controller="worker-run-refresh"] turbo-frame#worker-runs-frame[target="_top"][data-worker-run-refresh-target="frame"] [data-worker-run-id]'));
+        self::assertContains($runTopic, self::subscribedTopics($client->getResponse()) ?? []);
+        self::assertContains($runTopic, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value')));
+        // The filters stay outside the frame, so a reload never takes the search field from under the reader.
+        self::assertCount(0, $crawler->filter('turbo-frame#worker-runs-frame form'));
+
+        // A reload of the frame must not open the drawer that the run id search opened on arrival.
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?search='.$runId, server: ['HTTP_TURBO_FRAME' => 'worker-runs-frame']);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('turbo-frame#worker-runs-frame [data-worker-run-id="'.$runId.'"]'));
+        self::assertNull($crawler->filter('[data-worker-run-id="'.$runId.'"]')->attr('data-modal-reopen-value'));
+    }
+
     public function test_the_bridge_filter_narrows_to_one_bridge(): void
     {
         $client = static::createClient();
@@ -462,5 +497,13 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/00000000-0000-0000-0000-000000000000/worker-runs');
 
         self::assertResponseRedirects('/login');
+    }
+
+    private function topics(): ProjectTopicBuilder
+    {
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
+
+        return $topics;
     }
 }

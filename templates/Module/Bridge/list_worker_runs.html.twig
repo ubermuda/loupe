@@ -85,6 +85,11 @@
     </div>
     {% endif %}
 
+    {% do mercure_subscribe(worker_runs_topic(project)) %}
+    {% set frameRequest = app.request.headers.get('Turbo-Frame') is not null %}
+    {# The filters stay outside the frame, so a reload never takes the search field from under the reader. #}
+    <div class="lp-live-frame" data-controller="worker-run-refresh">
+    <turbo-frame id="worker-runs-frame" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
     {% if items|length > 0 %}
     <div class="lp-worker-run-list">
         <div class="lp-worker-run-list__header" aria-hidden="true">
@@ -96,8 +101,8 @@
         </div>
         {% for item in items %}
         {% set run = item.run %}
-        {# A search by this run's id is a link to it, so its drawer opens on arrival. #}
-        <article class="lp-worker-run" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true"{% if listQuery.search|lower == (run.id ~ '')|lower %} data-modal-reopen-value="true"{% endif %}>
+        {# A search by this run's id is a link to it, so its drawer opens on arrival, and not on each live reload. #}
+        <article class="lp-worker-run" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true"{% if not frameRequest and listQuery.search|lower == (run.id ~ '')|lower %} data-modal-reopen-value="true"{% endif %}>
             <div class="lp-worker-run__table-row">
                 <div class="lp-worker-run__work">
                     {% if boardEnabled %}
@@ -151,5 +156,7 @@
         <h2 class="lp-empty-state__title">{{ (listQuery.isNarrowed ? 'bridge.worker_runs.empty_filtered' : 'bridge.worker_runs.empty')|trans }}</h2>
     </div>
     {% endif %}
+    </turbo-frame>
+    </div>
 </div>
 {% endblock %}
