@@ -74,6 +74,9 @@ parameters:
     # Twenty past the hour keeps the run sweep off the audit purge, the export
     # purge and the trial sweep.
     app.bridge.run_purge_schedule: '20 * * * *'
+    # Every minute, because a bridge goes quiet after three heartbeat intervals
+    # and a run shown as running for longer than that misleads.
+    app.bridge.run_timeout_schedule: '* * * * *'
     # How often a CLI bridge posts its heartbeat, in seconds, as the default the
     # `bridge.heartbeat_interval_seconds` feature flag starts from.
     app.bridge.default_heartbeat_interval_seconds: 60

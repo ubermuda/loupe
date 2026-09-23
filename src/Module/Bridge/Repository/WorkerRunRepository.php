@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Repository;
 
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -12,6 +13,7 @@ use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -105,6 +107,59 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
             ->setParameter('states', array_map(static fn (WorkerRunState $state): string => $state->value, $states))
             ->setParameter('owner', $owner)
+            ->orderBy('r.id', 'ASC')
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getResult());
+    }
+
+    /**
+     * The open runs whose bridge went quiet: its owner's row for the bridge has
+     * no heartbeat since the moment given. A bridge with no row at all sent no
+     * heartbeat yet, so its run counts as quiet once it arrived that long ago.
+     *
+     * @return list<Uuid>
+     */
+    public function findIdsOfQuietOpenRuns(\DateTimeImmutable $quietBefore, int $limit): array
+    {
+        /** @var list<Uuid|string> $ids */
+        $ids = $this->createQueryBuilder('r')
+            ->select('r.id')
+            ->join('r.project', 'p')
+            ->leftJoin(Bridge::class, 'b', Join::WITH, 'IDENTITY(b.owner) = IDENTITY(p.owner) AND b.id = r.bridgeId')
+            ->andWhere('r.state IN (:openStates)')
+            ->andWhere('b.lastSeenAt < :quietBefore OR (b.lastSeenAt IS NULL AND r.receivedAt < :quietBefore)')
+            ->setParameter('openStates', array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                WorkerRunState::openStates(),
+            ))
+            ->setParameter('quietBefore', $quietBefore, Types::DATETIME_IMMUTABLE)
+            ->orderBy('r.id', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_map(static fn (Uuid|string $id): Uuid => $id instanceof Uuid ? $id : Uuid::fromString($id), $ids);
+    }
+
+    /**
+     * The runs among these ids that are still open, locked until the
+     * transaction ends, in id order so two sweeps cannot deadlock.
+     *
+     * @param list<Uuid> $ids
+     *
+     * @return list<WorkerRun>
+     */
+    public function findOpenByIdsForUpdate(array $ids): array
+    {
+        return array_values($this->createQueryBuilder('r')
+            ->andWhere('r.id IN (:ids)')
+            ->andWhere('r.state IN (:openStates)')
+            ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
+            ->setParameter('openStates', array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                WorkerRunState::openStates(),
+            ))
             ->orderBy('r.id', 'ASC')
             ->getQuery()
             ->setLockMode(LockMode::PESSIMISTIC_WRITE)
