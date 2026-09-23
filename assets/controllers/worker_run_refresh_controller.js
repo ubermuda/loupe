@@ -62,7 +62,11 @@ export default class extends Controller {
         const others = this.framesValue
             .map((id) => document.getElementById(id))
             .filter((frame) => frame !== null);
-        [this.frameTarget, ...others].forEach((frame) => this.load(frame));
+        // A control the reader is using keeps its value until the next signal.
+        others
+            .filter((frame) => !frame.contains(document.activeElement))
+            .concat(this.frameTarget)
+            .forEach((frame) => this.load(frame));
     }
 
     load(frame) {
