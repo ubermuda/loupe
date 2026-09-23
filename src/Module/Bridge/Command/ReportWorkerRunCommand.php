@@ -21,6 +21,7 @@ final readonly class ReportWorkerRunCommand
         public \DateTimeImmutable $startedAt,
         public \DateTimeImmutable $endedAt,
         public ?int $exitCode,
+        public ?bool $hasResult,
         public ?string $failureReason,
         public string $output,
     ) {

@@ -195,7 +195,7 @@ func newHarness(t *testing.T) *harness {
 func newHarnessWith(t *testing.T, body string, defaults rules.Defaults) *harness {
 	t.Helper()
 	set, dir := loadRules(t, body, defaults)
-	w := &fakeWorker{}
+	w := &fakeWorker{result: workerResult{hasResult: true}}
 	h := &harness{worker: w, log: &syncBuffer{}, dir: dir}
 	h.router = &router{
 		log:        newBridgeLogger(h.log),
@@ -473,13 +473,17 @@ func TestEveryLogLineIsJSONNamedByAnEventKey(t *testing.T) {
 // success leaves the operator no view of what claude answered.
 func TestASuccessfulWorkerReportsWhatItSaid(t *testing.T) {
 	h := newHarness(t)
-	h.worker.result = workerResult{output: "moved card 87 to in-progress"}
+	h.worker.result = workerResult{output: "moved card 87 to in-progress", hasResult: true}
 
 	h.router.onData([]byte(cardMoved(87)))
 	h.router.wg.Wait()
 
-	if got := str(t, h.only(t, "worker_finished"), "output"); got != "moved card 87 to in-progress" {
+	finished := h.only(t, "worker_finished")
+	if got := str(t, finished, "output"); got != "moved card 87 to in-progress" {
 		t.Fatalf("output = %q", got)
+	}
+	if str(t, finished, "level") != "INFO" {
+		t.Fatalf("a successful worker logged at %q", finished["level"])
 	}
 }
 
@@ -1029,7 +1033,7 @@ func TestShutdownWithAnEmptyQueueLogsNothing(t *testing.T) {
 
 func TestANonZeroExitIsReported(t *testing.T) {
 	h := newHarness(t)
-	h.worker.result = workerResult{exitCode: 2, output: "claude: permission denied"}
+	h.worker.result = workerResult{exitCode: 2, output: "claude: permission denied", hasResult: true}
 
 	h.router.onData([]byte(cardMoved(87)))
 	h.router.wg.Wait()
@@ -1046,6 +1050,76 @@ func TestANonZeroExitIsReported(t *testing.T) {
 	}
 }
 
+// claude -p can end a worker mid-task and still exit 0. A run with no result
+// line is a failure, whatever its exit code.
+func TestARunWithNoResultLineIsAnError(t *testing.T) {
+	for _, exit := range []int{0, 1} {
+		h := newHarness(t)
+		h.worker.result = workerResult{exitCode: exit, output: "waiting on a task"}
+
+		h.router.onData([]byte(cardMoved(87)))
+		h.router.wg.Wait()
+
+		line := h.only(t, "worker_no_result")
+		if str(t, line, "level") != "ERROR" || num(t, line, "exit") != exit || num(t, line, "card") != 87 {
+			t.Fatalf("worker_no_result = %v", line)
+		}
+		if str(t, line, "rule") != "plan" || str(t, line, "output") != "waiting on a task" || line["duration_ms"] == nil {
+			t.Fatalf("worker_no_result = %v", line)
+		}
+		if got := h.events(t, "worker_finished"); len(got) != 0 {
+			t.Fatalf("a run with no result also logged worker_finished: %v", got)
+		}
+	}
+}
+
+// The bridge killed a worker it shut down, so the missing result line is the
+// bridge's doing and the line says the worker finished.
+func TestAWorkerTheBridgeKilledLogsFinished(t *testing.T) {
+	h := newHarness(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	h.router.ctx = ctx
+	h.worker.started = make(chan workerSpec, 1)
+	h.worker.block = make(chan struct{})
+	h.worker.result = workerResult{exitCode: -1, output: "working", killed: true}
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	cancel()
+	close(h.worker.block)
+	h.router.wg.Wait()
+
+	finished := h.only(t, "worker_finished")
+	if str(t, finished, "level") != "ERROR" || num(t, finished, "exit") != -1 {
+		t.Fatalf("worker_finished = %v", finished)
+	}
+	if got := h.events(t, "worker_no_result"); len(got) != 0 {
+		t.Fatalf("a killed worker logged worker_no_result: %v", got)
+	}
+}
+
+// A worker that exits on its own while the bridge shuts down is judged by its
+// own result, not by the cancelled context.
+func TestAWorkerThatFinishedDuringShutdownKeepsItsOutcome(t *testing.T) {
+	h := newHarness(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	h.router.ctx = ctx
+	h.worker.started = make(chan workerSpec, 1)
+	h.worker.block = make(chan struct{})
+	h.worker.result = workerResult{output: "STAGE RESULT: ready", hasResult: true}
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	cancel()
+	close(h.worker.block)
+	h.router.wg.Wait()
+
+	finished := h.only(t, "worker_finished")
+	if str(t, finished, "level") != "INFO" || num(t, finished, "exit") != 0 {
+		t.Fatalf("worker_finished = %v", finished)
+	}
+}
+
 // A worker that never ran reports no exit code, so the fault itself is all the
 // operator gets. It is a different event from a process that ran and failed.
 func TestAWorkerThatNeverRanIsReported(t *testing.T) {
@@ -1059,7 +1133,7 @@ func TestAWorkerThatNeverRanIsReported(t *testing.T) {
 	if str(t, failed, "error") != "boom" || str(t, failed, "rule") != "plan" {
 		t.Fatalf("worker_failed = %v", failed)
 	}
-	if got := h.events(t, "worker_finished"); len(got) != 0 {
+	if got := append(h.events(t, "worker_finished"), h.events(t, "worker_no_result")...); len(got) != 0 {
 		t.Fatalf("a worker that never ran also reported finishing: %v", got)
 	}
 }

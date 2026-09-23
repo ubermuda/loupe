@@ -21,6 +21,10 @@ func reason(text string) *string {
 	return &text
 }
 
+func hasResult(v bool) *bool {
+	return &v
+}
+
 // finishedRun is a run that started and exited cleanly.
 func finishedRun() WorkerRun {
 	started := time.Date(2026, 9, 13, 10, 0, 0, 0, time.UTC)
@@ -34,6 +38,7 @@ func finishedRun() WorkerRun {
 		StartedAt:  started,
 		EndedAt:    started.Add(21 * time.Second),
 		ExitCode:   exitCode(0),
+		HasResult:  hasResult(true),
 		Output:     "wrote a plan",
 	}
 }
@@ -70,6 +75,7 @@ func TestReportWorkerRunPostsTheRun(t *testing.T) {
 		"startedAt":     "2026-09-13T10:00:00Z",
 		"endedAt":       "2026-09-13T10:00:21Z",
 		"exitCode":      float64(0),
+		"hasResult":     true,
 		"failureReason": nil,
 		"output":        "wrote a plan",
 	} {
@@ -112,6 +118,7 @@ func TestReportWorkerRunSendsANullExitCode(t *testing.T) {
 
 	run := finishedRun()
 	run.ExitCode = nil
+	run.HasResult = nil
 	run.FailureReason = reason("fork/exec claude: permission denied")
 
 	if _, err := New(server.URL, "t", server.Client()).ReportWorkerRun(context.Background(), "loupe", run); err != nil {
@@ -121,6 +128,9 @@ func TestReportWorkerRunSendsANullExitCode(t *testing.T) {
 	value, present := gotBody["exitCode"]
 	if !present || value != nil {
 		t.Fatalf("exitCode = %#v, present = %v, want a null the server reads as a run that never started", value, present)
+	}
+	if value, present := gotBody["hasResult"]; !present || value != nil {
+		t.Fatalf("hasResult = %#v, present = %v, want a null", value, present)
 	}
 	if gotBody["failureReason"] != "fork/exec claude: permission denied" {
 		t.Fatalf("failureReason = %#v", gotBody["failureReason"])

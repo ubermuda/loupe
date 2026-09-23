@@ -18,11 +18,16 @@ Open the page from the project sidebar, or go to
 | Rule name | the bridge rule that matched the event |
 | Started | when the worker started, on the bridge clock |
 | Took | how long the worker ran |
-| Outcome | **Succeeded** for exit code 0, **Failed** for any other code, **Never started** when the process never ran |
+| Outcome | **Succeeded** for exit code 0 with a result line, **No result** for exit code 0 with no result line, **Failed** for any other code, **Never started** when the process never ran |
 | Bridge | the last 12 characters of the bridge's own identifier |
 
 A run that never started carries the reason instead of an exit code, such as a
 missing `claude` binary.
+
+The result line is the line that starts with `STAGE RESULT:`, which every
+worker prompt asks for. A **No result** run exited cleanly but may have stopped
+before its work was done, so read its output. A run from an older bridge
+carries no result check, and its outcome comes from the exit code alone.
 
 The list reads newest report first, 20 runs to a page.
 
@@ -71,7 +76,7 @@ Run IDs match without regard to letter case, and the outcome and bridge filters 
 
 Two filters narrow the list further:
 
-- **Outcome** keeps one of succeeded, failed and never started.
+- **Outcome** keeps one of succeeded, no result, failed and never started.
 - **Bridge** keeps one bridge. It appears once a second bridge has reported.
 
 Every control lands in the URL, so a filtered view is a link you can share.

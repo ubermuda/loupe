@@ -27,10 +27,27 @@ test('completed reports retain outcomes and escaped output at enlarged text size
         '<img src=x onerror="window.runOutputExecuted=true">\n' +
         'Long output '.repeat(200);
     const reports = [
-        { exitCode: 0, failureReason: null, outcome: 'Succeeded' },
-        { exitCode: 1, failureReason: null, outcome: 'Failed' },
+        {
+            exitCode: 0,
+            hasResult: true,
+            failureReason: null,
+            outcome: 'Succeeded',
+        },
+        {
+            exitCode: 0,
+            hasResult: false,
+            failureReason: null,
+            outcome: 'No result',
+        },
+        {
+            exitCode: 1,
+            hasResult: false,
+            failureReason: null,
+            outcome: 'Failed',
+        },
         {
             exitCode: null,
+            hasResult: null,
             failureReason: 'Worker executable unavailable',
             outcome: 'Never started',
         },
@@ -50,6 +67,7 @@ test('completed reports retain outcomes and escaped output at enlarged text size
                     startedAt: '2026-09-17T12:00:00+00:00',
                     endedAt: '2026-09-17T12:00:21+00:00',
                     exitCode: report.exitCode,
+                    hasResult: report.hasResult,
                     failureReason: report.failureReason,
                     output,
                 },

@@ -17,7 +17,7 @@ final readonly class WorkerRunListItem
     public function __construct(
         public WorkerRun $run,
     ) {
-        $this->outcome = WorkerRunOutcome::fromExitCode($run->exitCode);
+        $this->outcome = WorkerRunOutcome::fromRun($run->exitCode, $run->hasResult);
         $this->durationSeconds = max(0, $run->endedAt->getTimestamp() - $run->startedAt->getTimestamp());
     }
 

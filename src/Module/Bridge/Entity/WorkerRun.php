@@ -91,6 +91,10 @@ class WorkerRun
         #[ORM\Column(name: 'exit_code', nullable: true)]
         public readonly ?int $exitCode = null,
 
+        /** Whether the worker produced its final result. Null for a run that never ran, or from an older bridge. */
+        #[ORM\Column(name: 'has_result', nullable: true)]
+        public readonly ?bool $hasResult = null,
+
         #[ORM\Column(name: 'failure_reason', type: Types::TEXT, nullable: true)]
         public readonly ?string $failureReason = null,
 

@@ -5403,6 +5403,10 @@
                 <source>bridge.worker_runs.outcome.not_started</source>
                 <target>Never started</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.outcome.no_result">
+                <source>bridge.worker_runs.outcome.no_result</source>
+                <target>No result</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.card_number">
                 <source>bridge.worker_runs.card_number</source>
                 <target>#%number%</target>

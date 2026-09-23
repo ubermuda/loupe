@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
+	"os"
 	"os/exec"
+	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/config"
@@ -18,12 +22,23 @@ const waitDelay = 5 * time.Second
 // maxOutput caps the worker output a failure report carries.
 const maxOutput = 4000
 
+// resultPrefix starts the line a worker ends its final reply with.
+const resultPrefix = "STAGE RESULT:"
+
+// ceilingEnv lifts claude -p's background wait ceiling, which otherwise ends a
+// worker mid-task and exits 0.
+const ceilingEnv = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"
+
 // workerResult is one finished worker. err is set when the process never ran,
-// which is a different fault from a process that ran and failed.
+// which is a different fault from a process that ran and failed. hasResult
+// says whether the output held a result line, and killed that the bridge's
+// context ended the process.
 type workerResult struct {
-	exitCode int
-	output   string
-	err      error
+	exitCode  int
+	output    string
+	hasResult bool
+	killed    bool
+	err       error
 }
 
 // workerSpec is one claude process to run. An empty permissionMode or model
@@ -70,23 +85,54 @@ func workerArgs(spec workerSpec) []string {
 	return append(args, "-p", session, spec.sessionID, "--", spec.prompt)
 }
 
+// workerEnv is claude's environment. A ceiling the operator set, empty
+// included, stays as set.
+func workerEnv(environ []string) []string {
+	for _, e := range environ {
+		if strings.HasPrefix(e, ceilingEnv+"=") {
+			return environ
+		}
+	}
+
+	return append(slices.Clip(environ), ceilingEnv+"=0")
+}
+
 // runWorker runs `claude -p --session-id <id> -- <prompt>`, or `--resume <id>`,
 // in the spec's dir and waits for it.
 func runWorker(ctx context.Context, spec workerSpec) workerResult {
 	args := workerArgs(spec)
 
-	// One writer for both streams, so os/exec drains them through one pipe and
-	// nothing races. The cap bounds the memory a chatty worker holds.
+	// One writer value for both streams, so os/exec drains them through one pipe
+	// and nothing races. The cap bounds the memory a chatty worker holds, and the
+	// scanner reads past the cap.
 	captured := &capWriter{limit: maxOutput}
+	scanner := &resultScanner{}
+	w := io.MultiWriter(captured, scanner)
 
 	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.Dir = spec.dir
-	cmd.Stdout, cmd.Stderr = captured, captured
+	cmd.Env = workerEnv(os.Environ())
+	cmd.Stdout, cmd.Stderr = w, w
 	cmd.WaitDelay = waitDelay
 	setProcessGroup(cmd)
 
+	// The context can end while claude exits on its own, so only a kill that
+	// reached a live process marks the worker as killed.
+	var cancelled atomic.Bool
+	kill := cmd.Cancel
+	cmd.Cancel = func() error {
+		err := kill()
+		cancelled.Store(err == nil)
+
+		return err
+	}
+
 	err := cmd.Run()
-	res := workerResult{output: captured.text()}
+	res := workerResult{
+		output:    captured.text(),
+		hasResult: scanner.matched,
+		killed:    err != nil && cancelled.Load(),
+	}
 
 	var exitErr *exec.ExitError
 	switch {
@@ -119,6 +165,35 @@ func (w *capWriter) Write(p []byte) (int, error) {
 		w.dropped = true
 	default:
 		w.buf.Write(p)
+	}
+
+	return len(p), nil
+}
+
+// resultScanner records whether any line of the stream starts with
+// resultPrefix. It holds no bytes, so a prefix split across writes still
+// matches.
+type resultScanner struct {
+	midLine bool
+	seen    int
+	matched bool
+}
+
+func (s *resultScanner) Write(p []byte) (int, error) {
+	for _, b := range p {
+		if s.matched {
+			break
+		}
+		switch {
+		case b == '\n':
+			s.midLine, s.seen = false, 0
+		case s.midLine:
+		case b == resultPrefix[s.seen]:
+			s.seen++
+			s.matched = s.seen == len(resultPrefix)
+		default:
+			s.midLine, s.seen = true, 0
+		}
 	}
 
 	return len(p), nil

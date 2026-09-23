@@ -31,6 +31,7 @@ A project name does not resolve.
   "startedAt": "2026-09-13T10:00:00+00:00",
   "endedAt": "2026-09-13T10:00:21+00:00",
   "exitCode": 0,
+  "hasResult": true,
   "failureReason": null,
   "output": "reading card 42\nwrote a plan"
 }
@@ -46,6 +47,7 @@ A project name does not resolve.
 | `startedAt` | when the worker started, on the bridge clock, as an ISO 8601 timestamp |
 | `endedAt` | when the worker finished, on the bridge clock. It cannot be before `startedAt`, because both come from the same clock |
 | `exitCode` | the process exit code, between -255 and 255. Send `null` when the process never started |
+| `hasResult` | optional. `true` when the output held a line that starts with `STAGE RESULT:`, `false` when it did not. Send `null` when the process never started, because a non-null value is refused when `exitCode` is `null` |
 | `failureReason` | why the process never started, at most 1000 characters. Required when `exitCode` is `null`, and refused when it is not |
 | `output` | what the worker printed, at most 4000 characters. It may be empty |
 
@@ -56,6 +58,11 @@ its runs. Rebuild the bridge from `cli/` to report runs again.
 The pairing of `exitCode` and `failureReason` is enforced, because a process
 that ran and failed is a different fault from a process that never started. A
 report that sends both, or neither, is refused.
+
+`hasResult` decides the outcome of a run that exited with code 0. `false` reads
+as **No result**, and `true` reads as **Succeeded**. A non-zero `exitCode` reads
+as **Failed** whatever `hasResult` says. A bridge built before the field existed
+sends none, and the server then reads the outcome from `exitCode` alone.
 
 The server stamps its own arrival time on the row. Both clocks are kept: the
 bridge clock says when the work happened, and the server clock says when the
