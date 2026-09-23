@@ -4,7 +4,7 @@ Read this before you write or revise a product document. The `loupe-documents` r
 
 Use the sections below, in this order, as `##` headings. Write each section as a numbered list, so a reviewer can cite an entry (rule 2). Open each entry with a short lead sentence (rule 4).
 
-A Light session keeps these sections: Problem, Current behaviour, Proposed behaviour, Out of scope, Scenarios, Open questions, and Docs and landing page impact. A Full session uses every section. Keep each section that the level uses when it has no entries, and write one entry that says so.
+A Light session keeps these sections: Problem, Current behaviour, Proposed behaviour, Out of scope, Decisions log, Scenarios, Open questions, and Docs and landing page impact. It also keeps Assumptions and For tech design when the session gave them entries. A Full session uses every section. Keep each other section that the level uses when it has no entries, and write one entry that says so.
 
 ## Problem
 
