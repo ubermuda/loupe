@@ -276,11 +276,21 @@ func (r *router) onData(data []byte) {
 	}
 
 	m := set.Match(e)
-	// A reload can swap the set after the snapshot. enqueue matches a run again
-	// under mu, and a skip is matched again here against the set now current.
-	if cur := r.rules(); m.Skip != rules.Run && cur != set {
+	if m.Skip == rules.Run {
+		p := pending{key: key, event: e, set: set}
+		p.apply(m)
+		r.enqueue(p)
+
+		return
+	}
+	// A reload swaps the set under mu, so a skip is decided under mu against
+	// the set now current. enqueue does the same for a run.
+	r.mu.Lock()
+	if cur := r.rules(); cur != set {
 		set, m = cur, cur.Match(e)
 	}
+	first := m.Skip == rules.Unmapped && r.markUnmappedLocked(e.ProjectID)
+	r.mu.Unlock()
 	switch m.Skip {
 	case rules.Run:
 		p := pending{key: key, event: e, set: set}
@@ -289,9 +299,6 @@ func (r *router) onData(data []byte) {
 	case rules.Untrusted:
 		r.log.Warn("event_untrusted", about(e, m.Rule)...)
 	case rules.Unmapped:
-		r.mu.Lock()
-		first := r.markUnmappedLocked(e.ProjectID)
-		r.mu.Unlock()
 		if first {
 			r.log.Warn("project_unmapped", "project", e.ProjectID)
 		}
