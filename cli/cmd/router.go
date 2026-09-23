@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
+	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/ubermuda/loupe/cli/internal/directive"
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
@@ -33,7 +34,7 @@ type router struct {
 	// bridgeID names the bridge in every report it sends, of a run and of rule
 	// health alike. With none, as in most tests, the bridge sends no report.
 	bridgeID string
-	// reports carries each finished run to Loupe, and runs builds what it
+	// reports carries each state of a run to Loupe, and runs builds what it
 	// carries. A nil queue reports nothing.
 	reports outbound.Queue
 	runs    *runReports
@@ -65,6 +66,9 @@ type router struct {
 	// sessions maps each session the bridge ran to its key and card. An entry
 	// outlives its worker, because an ask can close before the run report lands.
 	sessions map[string]sessionCard
+	// held maps the id of each open run the bridge reported to its project and
+	// state. Each connect sends it as the run inventory.
+	held map[string]api.InventoryRun
 
 	// unmapped remembers the projects already logged as unmapped, and gone the
 	// mapped projects already logged as gone. Only the stream goroutine reads
@@ -90,6 +94,10 @@ type pending struct {
 	checked bool
 	// seq is the arrival order. A resume back from its check returns to it.
 	seq uint64
+	// runID names the run in every report of it.
+	runID string
+	// dropReason says why the queue lost the event, once it did.
+	dropReason string
 }
 
 // sessionCard is the key a session's worker ran under, and its card when the
@@ -186,9 +194,12 @@ func aggregate(e event.Event) string {
 
 func (r *router) handler() transport.Handler {
 	return transport.Handler{
-		OnConnect: func() { r.log.Info("connected", "topic", r.topic, "projects", r.projects) },
-		OnError:   func(err error) { r.log.Error("stream_error", "error", err.Error()) },
-		OnData:    r.onData,
+		OnConnect: func() {
+			r.log.Info("connected", "topic", r.topic, "projects", r.projects)
+			r.sendInventory()
+		},
+		OnError: func(err error) { r.log.Error("stream_error", "error", err.Error()) },
+		OnData:  r.onData,
 	}
 }
 
@@ -275,6 +286,7 @@ func (r *router) kill(do func() []rules.Dead) ([]rules.Dead, []pending) {
 	released := false
 	r.queue = slices.DeleteFunc(r.queue, func(p pending) bool {
 		if names[p.rule] {
+			p.dropReason = api.DropRuleDead
 			dropped = append(dropped, p)
 			// A checked resume holds its card, so dropping it frees the card.
 			if p.checked {
@@ -372,12 +384,14 @@ func (r *router) onRefresh(events api.Events) {
 // its rule has run maxChain times in a row on the card from agents' events. It
 // logs under mu, so no line for this event can follow worker_started.
 func (r *router) enqueue(p pending) {
+	p.runID = config.NewUUID()
 	r.mu.Lock()
 	if p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
 		r.log.Warn("chain_capped", append(about(p.event, p.rule),
 			"max_chain", p.maxChain,
 			"message", fmt.Sprintf("%s hit the chain cap of rule %s, waiting for a person", aggregate(p.event), p.rule),
 		)...)
+		r.emitLocked(p, api.RunStateReport{State: api.RunWaitingForPerson, MaxChain: p.maxChain})
 		r.mu.Unlock()
 
 		return
@@ -386,8 +400,14 @@ func (r *router) enqueue(p pending) {
 		return q.key == p.key && q.rule == p.rule && askOf(q.event) == askOf(p.event)
 	}); i >= 0 {
 		p.checked, p.seq = r.queue[i].checked, r.queue[i].seq
+		r.emitLocked(r.queue[i], api.RunStateReport{State: api.RunReplaced, ReplacedBy: p.runID})
 		r.queue[i] = p
 		r.log.Info("worker_coalesced", about(p.event, p.rule)...)
+		r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
+		// The new run takes the place of a resume its check let through.
+		if p.checked {
+			r.emitLocked(p, api.RunStateReport{State: api.RunResumed, AskID: askOf(p.event)})
+		}
 		r.mu.Unlock()
 
 		return
@@ -396,6 +416,7 @@ func (r *router) enqueue(p pending) {
 	p.seq = r.seq
 	r.queue = append(r.queue, p)
 	r.log.Info("worker_queued", append(about(p.event, p.rule), "queue_depth", len(r.queue))...)
+	r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
 	r.mu.Unlock()
 
 	r.dispatch()
@@ -420,6 +441,9 @@ func (r *router) dispatchLocked() []pending {
 	if r.shut() {
 		dropped := r.queue
 		r.queue = nil
+		for i := range dropped {
+			dropped[i].dropReason = api.DropShutdown
+		}
 
 		return dropped
 	}
@@ -456,6 +480,7 @@ func (r *router) dispatchLocked() []pending {
 				"max_chain", next.maxChain,
 				"message", fmt.Sprintf("%s hit the chain cap of rule %s, waiting for a person", aggregate(next.event), next.rule),
 			)...)
+			r.emitLocked(next, api.RunStateReport{State: api.RunWaitingForPerson, MaxChain: next.maxChain})
 			delete(r.running, next.key)
 
 			continue
@@ -514,12 +539,17 @@ func (r *router) start(p pending) {
 		r.sessions = map[string]sessionCard{}
 	}
 	r.sessions[p.spec.sessionID] = sessionCard{key: p.key, id: id, number: number}
+	// A checked resume sent resumed when its check let it through.
+	if p.spec.resume && !p.checked {
+		r.emitLocked(p, api.RunStateReport{State: api.RunResumed, AskID: askOf(p.event)})
+	}
+	began := time.Now()
+	r.emitLocked(p, api.RunStateReport{State: api.RunRunning, SessionID: p.spec.sessionID, StartedAt: began})
 
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
 
-		began := time.Now()
 		res := r.worker.run(r.workerContext(), p.spec)
 		r.report(p, res, began, time.Since(began))
 		r.finish(p.key)
@@ -548,6 +578,10 @@ func (r *router) check(p pending) {
 		r.mu.Lock()
 		switch {
 		case r.shut() || !r.rules.Live(p.rule):
+			p.dropReason = api.DropRuleDead
+			if r.shut() {
+				p.dropReason = api.DropShutdown
+			}
 			delete(r.running, p.key)
 			dropped := append([]pending{p}, r.dispatchLocked()...)
 			r.mu.Unlock()
@@ -564,12 +598,14 @@ func (r *router) check(p pending) {
 			r.log.Info("resume_skipped", append(about(p.event, p.rule),
 				"message", "the session already read every item of its ask",
 			)...)
+			r.emitLocked(p, api.RunStateReport{State: api.RunSkipped})
 			delete(r.running, p.key)
 		default:
 			p.checked = true
 		}
 		// A resume the check lets through returns to its place in arrival order.
 		if p.checked {
+			r.emitLocked(p, api.RunStateReport{State: api.RunResumed, AskID: askOf(p.event)})
 			i, _ := slices.BinarySearchFunc(r.queue, p.seq, func(q pending, seq uint64) int { return cmp.Compare(q.seq, seq) })
 			r.queue = slices.Insert(r.queue, i, p)
 		}
@@ -628,27 +664,29 @@ func (r *router) logDropped(dropped []pending) {
 		}
 	}
 	r.log.Warn("queue_dropped", "count", len(lost), "dropped", lost)
+	for _, p := range dropped {
+		r.emit(p, api.RunStateReport{State: api.RunDropped, Reason: p.dropReason})
+	}
 }
 
 // report says how a worker ended. The log is the operator's view, and the queue
 // carries the same run to Loupe.
 func (r *router) report(p pending, res workerResult, began time.Time, elapsed time.Duration) {
 	r.logResult(p, res, elapsed)
-	r.enqueueReport(p, res, began, elapsed)
+	r.reportOutcome(p, res, began, elapsed)
 }
 
-// enqueueReport hands one finished run to Loupe. A worker that never ran sends
+// reportOutcome hands how a run ended to Loupe. A worker that never ran sends
 // no exit code and says why instead, because the server keeps the two faults
-// apart.
+// apart. A run with no card logs its skip here, once.
 //
 // endedAt is derived from the start, so the value the server reads can never
 // precede startedAt, whatever the wall clock does between the two calls.
-func (r *router) enqueueReport(p pending, res workerResult, began time.Time, elapsed time.Duration) {
-	if r.reports == nil || r.runs == nil {
+func (r *router) reportOutcome(p pending, res workerResult, began time.Time, elapsed time.Duration) {
+	if !r.reporting() {
 		return
 	}
-	cardID, cardNumber := cardOf(p.event)
-	if cardNumber < 1 {
+	if _, cardNumber := cardOf(p.event); cardNumber < 1 {
 		r.log.Warn("report_skipped", append(about(p.event, p.rule),
 			"message", "Loupe records a run against a card, and this event names none",
 		)...)
@@ -656,26 +694,79 @@ func (r *router) enqueueReport(p pending, res workerResult, began time.Time, ela
 		return
 	}
 
-	run := api.WorkerRun{
-		BridgeID:   r.bridgeID,
-		SessionID:  p.spec.sessionID,
-		CardID:     cardID,
-		CardNumber: cardNumber,
-		RuleName:   p.rule,
-		StartedAt:  began,
-		EndedAt:    began.Add(elapsed),
-		Output:     res.output,
+	report := api.RunStateReport{
+		State:     api.RunSucceeded,
+		SessionID: p.spec.sessionID,
+		StartedAt: began,
+		EndedAt:   began.Add(elapsed),
+		Output:    res.output,
 	}
-	if res.err == nil {
-		run.ExitCode = &res.exitCode
-	} else {
+	switch {
+	case res.err != nil:
 		reason := res.err.Error()
-		run.FailureReason = &reason
+		report.State, report.FailureReason = api.RunNotStarted, &reason
+	case res.exitCode != 0:
+		report.State, report.ExitCode = api.RunFailed, &res.exitCode
+	default:
+		report.ExitCode = &res.exitCode
+	}
+	r.emit(p, report)
+}
+
+// reporting reports whether the router sends run reports at all.
+func (r *router) reporting() bool {
+	return r.bridgeID != "" && r.reports != nil && r.runs != nil
+}
+
+// emit hands one state of p's run to the queue, under mu.
+func (r *router) emit(p pending, report api.RunStateReport) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.emitLocked(p, report)
+}
+
+// emitLocked hands one state of p's run to the queue, and keeps held in step
+// with it. The caller holds mu, so the states of a run keep their order and an
+// inventory never lists a run whose closed state went before it. A run with no
+// card sends nothing.
+func (r *router) emitLocked(p pending, report api.RunStateReport) {
+	cardID, cardNumber := cardOf(p.event)
+	if !r.reporting() || cardNumber < 1 {
+		return
+	}
+	switch report.State {
+	case api.RunQueued, api.RunResumed, api.RunRunning:
+		if r.held == nil {
+			r.held = map[string]api.InventoryRun{}
+		}
+		r.held[p.runID] = api.InventoryRun{RunID: p.runID, ProjectID: p.event.ProjectID, State: report.State}
+	default:
+		delete(r.held, p.runID)
 	}
 
+	report.BridgeID, report.At = r.bridgeID, time.Now()
+	report.CardID, report.CardNumber, report.RuleName = cardID, cardNumber, p.rule
 	// The handle is the project id the event carried, which a rename never
 	// changes.
-	r.reports.Enqueue(r.runs.final(p.event.ProjectID, run))
+	r.reports.Enqueue(r.runs.state(p.event.ProjectID, p.runID, report))
+}
+
+// sendInventory hands the runs the bridge holds to the queue. It takes mu, so
+// the inventory lands after every state queued before it.
+func (r *router) sendInventory() {
+	if !r.reporting() {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	runs := make([]api.InventoryRun, 0, len(r.held))
+	for _, run := range r.held {
+		runs = append(runs, run)
+	}
+	slices.SortFunc(runs, func(a, b api.InventoryRun) int { return strings.Compare(a.RunID, b.RunID) })
+	r.reports.Enqueue(r.runs.inventory(r.bridgeID, runs))
 }
 
 // logResult writes what a worker ended as. The bridge owns the worker's

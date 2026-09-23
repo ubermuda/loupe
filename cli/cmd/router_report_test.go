@@ -18,7 +18,8 @@ type reported struct {
 	run    api.WorkerRun
 }
 
-// reports wires the real queue to the router, and collects what it sends.
+// reports wires the real queue to the router, and collects the old reports it
+// sends.
 func (h *harness) reports(t *testing.T) chan reported {
 	t.Helper()
 
@@ -27,13 +28,19 @@ func (h *harness) reports(t *testing.T) chan reported {
 	t.Cleanup(q.Close)
 	h.router.bridgeID = testBridge
 	h.router.reports = q
-	h.router.runs = newRunReports(&postRecorder{sent: sent}, h.router.log)
+	h.router.runs = newRunReports(&postRecorder{
+		fakeRunClient: fakeRunClient{
+			state:     func(string) (bool, error) { return false, api.ErrRunStatesUnsupported },
+			inventory: func() error { return api.ErrRunStatesUnsupported },
+		},
+		sent: sent,
+	}, h.router.log)
 
 	return sent
 }
 
-// postRecorder is a server that takes every old report, and hands each one to
-// sent with the project it named.
+// postRecorder is a server older than the run state endpoints. It takes every
+// old report, and hands each one to sent with the project it named.
 type postRecorder struct {
 	fakeRunClient
 	sent chan reported

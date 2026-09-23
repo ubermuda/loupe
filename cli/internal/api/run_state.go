@@ -28,6 +28,12 @@ const (
 	RunNotStarted       = "not-started"
 )
 
+// The reasons of a dropped run.
+const (
+	DropShutdown = "shutdown"
+	DropRuleDead = "rule_dead"
+)
+
 // IsOutcome reports whether state is how a worker ended. Only an outcome maps
 // onto the old report.
 func IsOutcome(state string) bool {

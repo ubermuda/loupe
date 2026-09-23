@@ -240,22 +240,6 @@ func TestAnOutcomeWithNoSessionIsNotPosted(t *testing.T) {
 	}
 }
 
-func TestTheFinalReportPostsTheRun(t *testing.T) {
-	client := &fakeRunClient{post: func(api.WorkerRun) (bool, error) { return false, nil }}
-	reports, _ := newTestRunReports(client)
-	run := api.WorkerRun{CardNumber: 87, RuleName: "plan"}
-
-	report := reports.final(testProject, run)
-	created, err := report.Send(context.Background())
-
-	if err != nil || created {
-		t.Fatalf("created = %v, err = %v, want the post's own answer", created, err)
-	}
-	if report.Card != 87 || report.Rule != "plan" || len(client.posts) != 1 || len(client.puts) != 0 {
-		t.Fatalf("report = %+v, posts = %d, puts = %d", report, len(client.posts), len(client.puts))
-	}
-}
-
 func TestTheInventoryGoesToTheBridge(t *testing.T) {
 	client := &fakeRunClient{}
 	reports, _ := newTestRunReports(client)

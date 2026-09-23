@@ -58,17 +58,6 @@ func (s *runReports) state(handle, runID string, report api.RunStateReport) outb
 	}
 }
 
-// final is the old report of a finished run.
-func (s *runReports) final(handle string, run api.WorkerRun) outbound.Report {
-	return outbound.Report{
-		Card: run.CardNumber,
-		Rule: run.RuleName,
-		Send: func(ctx context.Context) (bool, error) {
-			return s.client.ReportWorkerRun(ctx, handle, run)
-		},
-	}
-}
-
 // inventory lists every run the bridge holds, across all its projects.
 func (s *runReports) inventory(bridgeID string, runs []api.InventoryRun) outbound.Report {
 	return outbound.Report{
