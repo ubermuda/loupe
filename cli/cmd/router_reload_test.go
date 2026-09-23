@@ -340,6 +340,28 @@ func TestAResumeInItsCheckWhoseRuleIsRemovedStartsNothing(t *testing.T) {
 	}
 }
 
+// A kill after a reload during the check drops the resume with no reason, as
+// any kill does.
+func TestAResumeWhoseRuleAKillEndsAfterAReloadHasNoReason(t *testing.T) {
+	h := newHarnessWith(t, resumeRules, rules.Defaults{})
+	g := newGate()
+	h.router.checkAsk = g.check
+
+	h.router.onData([]byte(h.mine(ask{card: 87})))
+	<-g.entered
+	if res := h.reload(t, strings.Replace(resumeRules, "prompt: Ask {askId} closed on card {cardNumber}.", "prompt: Again {askId}.", 1)); !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+	h.router.onData([]byte(projectRenamed()))
+	close(g.release)
+	h.router.wg.Wait()
+
+	line := h.only(t, "queue_dropped")
+	if got := dropped(t, line); !slices.Equal(got, []string{"87/resume"}) || line["reason"] != nil {
+		t.Fatalf("queue_dropped = %v, want 87/resume with no reason", line)
+	}
+}
+
 // A resume in its check takes the new prompt of a rule the reload changed.
 func TestAResumeInItsCheckTakesTheNewPrompt(t *testing.T) {
 	h := newHarnessWith(t, resumeRules, rules.Defaults{})

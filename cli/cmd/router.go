@@ -641,9 +641,9 @@ func (r *router) check(p pending) {
 
 			return
 		case !ok:
-			// The same set means a kill ended the rule, and a new one a reload.
+			// A dead rule means a kill ended it, and a live one a reload.
 			var reason []any
-			if p.set != current {
+			if current.Live(p.rule) {
 				reason = []any{"reason", "reload"}
 			}
 			delete(r.running, p.key)
