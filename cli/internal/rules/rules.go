@@ -690,8 +690,8 @@ type Dead struct {
 }
 
 // Kill marks dead every live rule that names the slug the event takes away,
-// and returns them in file order. A dead rule matches nothing until the bridge
-// restarts, when the start check refuses the stale slug.
+// and returns them in file order. A dead rule matches nothing until a reload
+// or a restart reads the file again, and its check refuses the stale slug.
 func (s *Set) Kill(e event.Event) []Dead {
 	slug, ok := s.slugs[e.ProjectID]
 	if !ok {

@@ -28,7 +28,9 @@ type router struct {
 	log *slog.Logger
 	// set holds the rule set behind a pointer, so a reload can swap it. Each
 	// handler loads one snapshot and uses only that one.
-	set        atomic.Pointer[rules.Set]
+	set atomic.Pointer[rules.Set]
+	// projects names the mapped slugs in the connected line. A reload writes
+	// it under mu.
 	projects   []string
 	topic      string
 	maxWorkers int
@@ -45,8 +47,14 @@ type router struct {
 	// and never behind the report queue. A nil one resumes with no check.
 	checkAsk     func(ctx context.Context, handle, askID string) (api.AskState, error)
 	checkTimeout time.Duration
+	// reloadMu lets one reload run at a time. It is never taken under mu.
+	reloadMu sync.Mutex
 
 	mu sync.Mutex
+	// reloading is on while a reload builds its set, and reloadKills holds each
+	// slug change seen meanwhile, so the swap replays it on the new set.
+	reloading   bool
+	reloadKills []event.Event
 	// queue holds the accepted events in arrival order, at most one for each
 	// card and rule, or for each ask of a resume. running holds the key of each
 	// card with a worker or an ask check. A card runs once, and waits once per
@@ -95,6 +103,16 @@ type pending struct {
 	checked bool
 	// seq is the arrival order. A resume back from its check returns to it.
 	seq uint64
+	// set is the rule set the event matched. enqueue matches it again when a
+	// reload swapped the set in between.
+	set *rules.Set
+}
+
+// apply takes the rule, the settings and the prompt of a match. The session id
+// stays empty until start.
+func (p *pending) apply(m rules.Match) {
+	p.rule, p.maxChain = m.Rule, m.MaxChain
+	p.spec = workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, prompt: m.Prompt, resume: m.Resume}
 }
 
 // sessionCard is the key a session's worker ran under, and its card when the
@@ -191,9 +209,14 @@ func aggregate(e event.Event) string {
 
 func (r *router) handler() transport.Handler {
 	return transport.Handler{
-		OnConnect: func() { r.log.Info("connected", "topic", r.topic, "projects", r.projects) },
-		OnError:   func(err error) { r.log.Error("stream_error", "error", err.Error()) },
-		OnData:    r.onData,
+		OnConnect: func() {
+			r.mu.Lock()
+			projects := r.projects
+			r.mu.Unlock()
+			r.log.Info("connected", "topic", r.topic, "projects", projects)
+		},
+		OnError: func(err error) { r.log.Error("stream_error", "error", err.Error()) },
+		OnData:  r.onData,
 	}
 }
 
@@ -222,14 +245,9 @@ func (r *router) onData(data []byte) {
 
 	// A slug change is a person's action, not a directive to an agent, so it
 	// kills rules whatever its actor. Matching then goes on as for any event.
-	if dead, dropped := r.kill(func() []rules.Dead { return set.Kill(e) }); len(dead) > 0 {
-		for _, d := range dead {
-			r.log.Error("rule_dead", "rule", d.Rule, "project", e.ProjectID, "project_slug", d.Project, "reason", d.Reason,
-				"message", fmt.Sprintf("rule %s matches nothing until the bridge restarts, because %s", d.Rule, slugChange(e, d.Project)))
-		}
-		r.logDropped(dropped)
-		r.reportHealth(set, dead[0].Project)
-	}
+	dead, dropped := r.kill(e, func(s *rules.Set) []rules.Dead { return s.Kill(e) })
+	r.logDead(e, dead)
+	r.logDropped(dropped)
 
 	// A person who touches the card has seen it, which is what a capped chain
 	// waits for. Any event of theirs that parsed counts, matched or not.
@@ -242,13 +260,9 @@ func (r *router) onData(data []byte) {
 	m := set.Match(e)
 	switch m.Skip {
 	case rules.Run:
-		r.enqueue(pending{
-			key:      key,
-			rule:     m.Rule,
-			maxChain: m.MaxChain,
-			spec:     workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, prompt: m.Prompt, resume: m.Resume},
-			event:    e,
-		})
+		p := pending{key: key, event: e, set: set}
+		p.apply(m)
+		r.enqueue(p)
 	case rules.Untrusted:
 		r.log.Warn("event_untrusted", about(e, m.Rule)...)
 	case rules.Unmapped:
@@ -267,17 +281,24 @@ func (r *router) onData(data []byte) {
 	}
 }
 
-// kill runs a rule kill and removes the queued events of the rules it killed,
-// in one critical section, so a worker that finishes cannot start one of them
-// in between. The caller logs what it returns.
-func (r *router) kill(do func() []rules.Dead) ([]rules.Dead, []pending) {
+// kill runs a rule kill on the current set and removes the queued events of the
+// rules it killed, in one critical section, so a worker that finishes cannot
+// start one of them in between. While a reload runs, it keeps e when e changes
+// a slug, so the swap can replay it. It submits the health report under mu, so
+// it keeps its order with the reports of a swap. The caller logs the returns.
+func (r *router) kill(e event.Event, do func(*rules.Set) []rules.Dead) ([]rules.Dead, []pending) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	dead := do()
+	if r.reloading && slices.Contains([]string{event.ColumnRenamedType, event.ColumnDeletedType, event.ProjectRenamedType}, e.Type) {
+		r.reloadKills = append(r.reloadKills, e)
+	}
+	set := r.rules()
+	dead := do(set)
 	if len(dead) == 0 {
 		return nil, nil
 	}
+	r.reportHealth(set, dead[0].Project)
 	names := map[string]bool{}
 	for _, d := range dead {
 		names[d.Rule] = true
@@ -303,6 +324,14 @@ func (r *router) kill(do func() []rules.Dead) ([]rules.Dead, []pending) {
 	}
 
 	return dead, dropped
+}
+
+// logDead names each rule a slug change killed.
+func (r *router) logDead(e event.Event, dead []rules.Dead) {
+	for _, d := range dead {
+		r.log.Error("rule_dead", "rule", d.Rule, "project", e.ProjectID, "project_slug", d.Project, "reason", d.Reason,
+			"message", fmt.Sprintf("rule %s matches nothing until you fix rules.yaml and run loupe bridge reload, because %s", d.Rule, slugChange(e, d.Project)))
+	}
 }
 
 // slugChange says in words what a slug-changing event did.
@@ -369,17 +398,14 @@ func (r *router) onRefresh(events api.Events) {
 			"message", fmt.Sprintf("project %s is deleted or no longer yours, so rules %s stop working", slug, strings.Join(names, ", ")),
 		)
 
-		dead, dropped := r.kill(func() []rules.Dead { return set.KillProject(slug, api.ReasonProjectGone) })
+		// The health report of the kill most likely gets project_not_found,
+		// which the reporter logs once and does not retry.
+		dead, dropped := r.kill(event.Event{}, func(s *rules.Set) []rules.Dead { return s.KillProject(slug, api.ReasonProjectGone) })
 		for _, d := range dead {
 			r.log.Error("rule_dead", "rule", d.Rule, "project", set.ProjectID(slug), "project_slug", slug, "reason", d.Reason,
-				"message", fmt.Sprintf("rule %s matches nothing until the bridge restarts, because project %s is gone", d.Rule, slug))
+				"message", fmt.Sprintf("rule %s matches nothing until you fix rules.yaml and run loupe bridge reload, because project %s is gone", d.Rule, slug))
 		}
 		r.logDropped(dropped)
-		// The server most likely answers project_not_found, which the reporter
-		// logs once and does not retry.
-		if len(dead) > 0 {
-			r.reportHealth(set, slug)
-		}
 	}
 }
 
@@ -390,6 +416,18 @@ func (r *router) onRefresh(events api.Events) {
 // logs under mu, so no line for this event can follow worker_started.
 func (r *router) enqueue(p pending) {
 	r.mu.Lock()
+	// A reload swapped the set after the match, and rewrote the queue before
+	// this event reached it. The event matches again as it arrived.
+	if current := r.rules(); p.set != current {
+		m := current.Match(p.event)
+		if m.Skip != rules.Run {
+			r.mu.Unlock()
+
+			return
+		}
+		p.set = current
+		p.apply(m)
+	}
 	if p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
 		r.log.Warn("chain_capped", append(about(p.event, p.rule),
 			"max_chain", p.maxChain,
@@ -560,11 +598,18 @@ func (r *router) check(p pending) {
 		state, err := r.checkAsk(ctx, p.event.ProjectID, p.event.Subject.ID)
 		cancel()
 
-		// A kill drops queued events only, and this resume was out of the queue
-		// during the check, so its rule is read again under the same lock.
+		// A kill or a reload rewrites queued events only, and this resume was out
+		// of the queue during the check, so its rule matches again under the
+		// same lock.
 		r.mu.Lock()
+		current := r.rules()
+		m, ok := current.MatchRule(p.event, p.rule)
+		if ok {
+			p.set = current
+			p.apply(m)
+		}
 		switch {
-		case r.shut() || !r.rules().Live(p.rule):
+		case r.shut() || !ok:
 			delete(r.running, p.key)
 			dropped := append([]pending{p}, r.dispatchLocked()...)
 			r.mu.Unlock()
@@ -631,7 +676,8 @@ func (r *router) shutdown() {
 // logDropped names what a shut queue lost. These workers never started, so a
 // silent drop would hide a trigger the operator asked for. One card can wait
 // once per rule or per ask, so each entry names the card, the rule and the ask.
-func (r *router) logDropped(dropped []pending) {
+// attrs add to the line, such as the reason of a reload.
+func (r *router) logDropped(dropped []pending, attrs ...any) {
 	if len(dropped) == 0 {
 		return
 	}
@@ -644,7 +690,7 @@ func (r *router) logDropped(dropped []pending) {
 			lost[i]["ask"] = ask
 		}
 	}
-	r.log.Warn("queue_dropped", "count", len(lost), "dropped", lost)
+	r.log.Warn("queue_dropped", append([]any{"count", len(lost), "dropped", lost}, attrs...)...)
 }
 
 // report says how a worker ended. The log is the operator's view, and the queue
