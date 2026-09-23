@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Entity;
 
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -13,8 +14,9 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * One run of one CLI bridge worker, as the bridge reported it. A row is written
- * once and never updated.
+ * One run of one CLI bridge worker. The row holds the run's current state, and
+ * each report the bridge sends for the run can change it.
+ * WorkerRunStateChange holds the history.
  */
 #[ORM\Entity(repositoryClass: WorkerRunRepository::class)]
 // The page reads one project newest first.
@@ -28,11 +30,14 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_bridge_worker_runs_search_vector', columns: ['search_vector'])]
 // A resume finds the card of a session through its run.
 #[ORM\Index(name: 'idx_bridge_worker_runs_session', columns: ['session_id'])]
+// The sweep that times out a quiet bridge's runs reads the open states.
+#[ORM\Index(name: 'idx_bridge_worker_runs_state', columns: ['state'])]
 #[ORM\Table(name: 'bridge_worker_runs')]
-// The bridge retries a report whose response it never saw, so the natural key
-// of a run is what stops the retry writing a second row. One bridge cannot
-// start two workers for one card in the same second.
-#[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_report', columns: ['project_id', 'bridge_id', 'card_id', 'started_at'])]
+// A bridge that sends no run key reports a finished run once, and retries it
+// when it never saw the response. The start then identifies the run. The
+// predicate is written the way Postgres stores it, so migrate-diff stays quiet.
+#[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_report', columns: ['project_id', 'bridge_id', 'card_id', 'started_at'], options: ['where' => '(run_key IS NULL)'])]
+#[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_key', columns: ['project_id', 'bridge_id', 'run_key'])]
 class WorkerRun
 {
     /** Mirrors the cap the bridge applies to a worker's output before it reports. */
@@ -67,10 +72,6 @@ class WorkerRun
         #[ORM\Column(name: 'bridge_id', type: UuidType::NAME)]
         public readonly Uuid $bridgeId,
 
-        /** The claude session the worker ran as. The bridge generates it when it starts the worker. */
-        #[ORM\Column(name: 'session_id', type: UuidType::NAME)]
-        public readonly Uuid $sessionId,
-
         /** A scalar, never a foreign key, so a deleted card leaves its run history intact. */
         #[ORM\Column(name: 'card_id', type: UuidType::NAME)]
         public readonly Uuid $cardId,
@@ -81,32 +82,77 @@ class WorkerRun
         #[ORM\Column(name: 'rule_name', length: self::MAX_RULE_NAME_LENGTH)]
         public readonly string $ruleName,
 
-        #[ORM\Column(name: 'started_at')]
-        public readonly \DateTimeImmutable $startedAt,
+        // The default fills a row that the previous image writes during a deploy or after a rollback.
+        #[ORM\Column(name: 'state', length: 20, enumType: WorkerRunState::class, options: ['default' => WorkerRunState::Failed->value])]
+        public WorkerRunState $state,
 
-        #[ORM\Column(name: 'ended_at')]
-        public readonly \DateTimeImmutable $endedAt,
+        /** The id the bridge gives a run when it queues the event. Null on a run an older bridge reported. */
+        #[ORM\Column(name: 'run_key', type: UuidType::NAME, nullable: true)]
+        public readonly ?Uuid $runKey = null,
+
+        /** The claude session the worker ran as. The bridge generates it when it starts the worker. */
+        #[ORM\Column(name: 'session_id', type: UuidType::NAME, nullable: true)]
+        public ?Uuid $sessionId = null,
+
+        #[ORM\Column(name: 'started_at', nullable: true)]
+        public ?\DateTimeImmutable $startedAt = null,
+
+        #[ORM\Column(name: 'ended_at', nullable: true)]
+        public ?\DateTimeImmutable $endedAt = null,
 
         /** Null means the process never ran, and $failureReason then says why. */
         #[ORM\Column(name: 'exit_code', nullable: true)]
-        public readonly ?int $exitCode = null,
+        public ?int $exitCode = null,
 
         /** Whether the worker produced its final result. Null for a run that never ran, or from an older bridge. */
         #[ORM\Column(name: 'has_result', nullable: true)]
-        public readonly ?bool $hasResult = null,
+        public ?bool $hasResult = null,
 
         #[ORM\Column(name: 'failure_reason', type: Types::TEXT, nullable: true)]
-        public readonly ?string $failureReason = null,
+        public ?string $failureReason = null,
 
         #[ORM\Column(name: 'output', type: Types::TEXT)]
-        public readonly string $output = '',
+        public string $output = '',
 
         /**
-         * The server clock. The gap to $endedAt is how long the report waited in
-         * the bridge's retry queue, and it is the column retention sweeps.
+         * The server clock when the first report of the run arrived. The
+         * retention sweep reads this column.
          */
         #[ORM\Column(name: 'received_at')]
         public readonly \DateTimeImmutable $receivedAt = new \DateTimeImmutable(),
     ) {
+    }
+
+    /** For a state that carries no data of its own. */
+    public function moveTo(WorkerRunState $state): void
+    {
+        $this->state = $state;
+    }
+
+    public function markRunning(Uuid $sessionId, \DateTimeImmutable $startedAt): void
+    {
+        $this->state = WorkerRunState::Running;
+        $this->sessionId = $sessionId;
+        $this->startedAt = $startedAt;
+    }
+
+    public function recordOutcome(
+        WorkerRunState $state,
+        \DateTimeImmutable $endedAt,
+        ?int $exitCode,
+        ?bool $hasResult,
+        ?string $failureReason,
+        string $output,
+    ): void {
+        if ($state->isOpen()) {
+            throw new \LogicException(\sprintf('An outcome closes the run, and %s is open.', $state->value));
+        }
+
+        $this->state = $state;
+        $this->endedAt = $endedAt;
+        $this->exitCode = $exitCode;
+        $this->hasResult = $hasResult;
+        $this->failureReason = $failureReason;
+        $this->output = $output;
     }
 }

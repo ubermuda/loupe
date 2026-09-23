@@ -222,6 +222,7 @@ func (r *router) rewriteLocked(set *rules.Set) []pending {
 	for _, p := range r.queue {
 		m, ok := set.MatchRule(p.event, p.rule)
 		if !ok {
+			p.dropReason = api.DropReload
 			dropped = append(dropped, p)
 			if p.checked {
 				delete(r.running, p.key)

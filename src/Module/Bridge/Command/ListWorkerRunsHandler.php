@@ -6,8 +6,10 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Utils\PageList;
+use Psr\Clock\ClockInterface;
 
 final readonly class ListWorkerRunsHandler
 {
@@ -17,6 +19,8 @@ final readonly class ListWorkerRunsHandler
 
     public function __construct(
         private WorkerRunRepository $workerRuns,
+        private WorkerRunStateChangeRepository $workerRunStateChanges,
+        private ClockInterface $clock,
     ) {
     }
 
@@ -35,7 +39,7 @@ final readonly class ListWorkerRunsHandler
             $page,
             $perPage,
             $listQuery->search,
-            $listQuery->outcome,
+            $listQuery->state,
             $listQuery->bridgeId,
         );
         $total = \count($paginator);
@@ -44,8 +48,14 @@ final readonly class ListWorkerRunsHandler
         /** @var list<WorkerRun> $runs */
         $runs = array_values(iterator_to_array($paginator, false));
 
+        $now = $this->clock->now();
+        $histories = $this->workerRunStateChanges->findForRuns($runs);
+
         return new ListWorkerRunsView(
-            items: array_map(static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run), $runs),
+            items: array_map(
+                static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, $histories[(string) $run->id] ?? []),
+                $runs,
+            ),
             filteredTotal: $total,
             totalPages: $totalPages,
             pageList: PageList::build($page, $totalPages),

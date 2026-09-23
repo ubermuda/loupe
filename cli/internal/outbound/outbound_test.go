@@ -39,7 +39,8 @@ func (b *syncBuffer) String() string {
 type harness struct {
 	queue  *Sender
 	log    *syncBuffer
-	sent   chan queued
+	sent   chan int
+	send   func(ctx context.Context) (bool, error)
 	cancel context.CancelFunc
 }
 
@@ -48,25 +49,31 @@ type harness struct {
 func newHarness(t *testing.T, retries int, answers ...error) *harness {
 	t.Helper()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	h := &harness{log: &syncBuffer{}, sent: make(chan queued, 32), cancel: cancel}
 	var calls int
 	var mu sync.Mutex
 
-	h.queue = New(ctx, slog.New(slog.NewJSONHandler(h.log, nil)),
-		func(_ context.Context, handle string, run api.WorkerRun) (bool, error) {
-			mu.Lock()
-			answer := error(nil)
-			if len(answers) > 0 {
-				answer = answers[min(calls, len(answers)-1)]
-			}
-			calls++
-			mu.Unlock()
+	return newHarnessWithSend(t, retries, func(context.Context) (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		answer := error(nil)
+		if len(answers) > 0 {
+			answer = answers[min(calls, len(answers)-1)]
+		}
+		calls++
 
-			h.sent <- queued{handle: handle, run: run}
+		return answer == nil, answer
+	})
+}
 
-			return answer == nil, answer
-		})
+// newHarnessWithSend builds a queue whose every wait returns at once, and whose
+// answers send decides. Each send reaches h.sent before the queue reads its
+// answer, so a test waits for an attempt rather than sleeping.
+func newHarnessWithSend(t *testing.T, retries int, send func(context.Context) (bool, error)) *harness {
+	t.Helper()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	h := &harness{log: &syncBuffer{}, sent: make(chan int, 32), send: send, cancel: cancel}
+	h.queue = New(ctx, slog.New(slog.NewJSONHandler(h.log, nil)))
 	h.queue.backoff = make([]time.Duration, retries)
 	h.queue.after = readyNow
 	t.Cleanup(h.queue.Close)
@@ -74,26 +81,13 @@ func newHarness(t *testing.T, retries int, answers ...error) *harness {
 	return h
 }
 
-// newHarnessWithSend builds a queue whose every wait returns at once, and whose
-// answers the caller decides. Each send still reaches h.sent, so a test waits
-// for an attempt rather than sleeping.
-func newHarnessWithSend(t *testing.T, send SendFunc) *harness {
-	t.Helper()
+// report is a report of card that the harness answers.
+func (h *harness) report(card int) Report {
+	return Report{Card: card, Rule: "plan", Send: func(ctx context.Context) (bool, error) {
+		h.sent <- card
 
-	ctx, cancel := context.WithCancel(context.Background())
-	h := &harness{log: &syncBuffer{}, sent: make(chan queued, 32), cancel: cancel}
-	h.queue = New(ctx, slog.New(slog.NewJSONHandler(h.log, nil)),
-		func(ctx context.Context, handle string, run api.WorkerRun) (bool, error) {
-			created, err := send(ctx, handle, run)
-			h.sent <- queued{handle: handle, run: run}
-
-			return created, err
-		})
-	h.queue.backoff = make([]time.Duration, 3)
-	h.queue.after = readyNow
-	t.Cleanup(h.queue.Close)
-
-	return h
+		return h.send(ctx)
+	}}
 }
 
 // readyNow is a wait that is over before it starts.
@@ -106,16 +100,16 @@ func readyNow(time.Duration) <-chan time.Time {
 
 // next waits for the next send. The guard turns a queue that stops trying into
 // a named failure rather than a test that hangs until the suite times out.
-func (h *harness) next(t *testing.T, attempt int) queued {
+func (h *harness) next(t *testing.T, attempt int) int {
 	t.Helper()
 
 	select {
-	case next := <-h.sent:
-		return next
+	case card := <-h.sent:
+		return card
 	case <-time.After(5 * time.Second):
 		t.Fatalf("attempt %d never reached the server", attempt)
 
-		return queued{}
+		return 0
 	}
 }
 
@@ -157,19 +151,13 @@ func (h *harness) waitFor(t *testing.T, event string) {
 	}
 }
 
-const testHandle = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
-
-func run(card int) api.WorkerRun {
-	return api.WorkerRun{CardNumber: card, RuleName: "plan"}
-}
-
 func TestQueueSendsEachReportOnce(t *testing.T) {
 	h := newHarness(t, 3)
 
-	h.queue.Enqueue(testHandle, run(42))
+	h.queue.Enqueue(h.report(42))
 
-	if got := h.next(t, 1); got.run.CardNumber != 42 || got.handle != testHandle {
-		t.Fatalf("sent card %d for handle %q", got.run.CardNumber, got.handle)
+	if got := h.next(t, 1); got != 42 {
+		t.Fatalf("sent card %d", got)
 	}
 	h.queue.Close()
 	if lines := h.lines(t, "report_failed"); len(lines) != 0 {
@@ -188,11 +176,11 @@ func TestQueueSendsEachReportOnce(t *testing.T) {
 func TestQueueRetriesAFailedSend(t *testing.T) {
 	h := newHarness(t, 3, fmt.Errorf("connection refused"), nil)
 
-	h.queue.Enqueue(testHandle, run(42))
+	h.queue.Enqueue(h.report(42))
 
 	for attempt := 1; attempt <= 2; attempt++ {
-		if got := h.next(t, attempt); got.run.CardNumber != 42 {
-			t.Fatalf("attempt %d sent card %d", attempt, got.run.CardNumber)
+		if got := h.next(t, attempt); got != 42 {
+			t.Fatalf("attempt %d sent card %d", attempt, got)
 		}
 	}
 	h.queue.Close()
@@ -205,7 +193,7 @@ func TestQueueRetriesAFailedSend(t *testing.T) {
 func TestQueueLogsAGiveUp(t *testing.T) {
 	h := newHarness(t, 2, fmt.Errorf("connection refused"))
 
-	h.queue.Enqueue(testHandle, run(42))
+	h.queue.Enqueue(h.report(42))
 
 	for attempt := 1; attempt <= 3; attempt++ {
 		h.next(t, attempt)
@@ -226,7 +214,7 @@ func TestQueueLogsAGiveUp(t *testing.T) {
 func TestQueueStopsAtARefusedReport(t *testing.T) {
 	h := newHarness(t, 5, fmt.Errorf("%w (HTTP 422)", api.ErrReportRefused))
 
-	h.queue.Enqueue(testHandle, run(42))
+	h.queue.Enqueue(h.report(42))
 	h.next(t, 1)
 	h.waitFor(t, "report_failed")
 	h.queue.Close()
@@ -242,15 +230,15 @@ func TestQueueStopsAtARefusedReport(t *testing.T) {
 	}
 }
 
-// The server keys a run by its card and its start second, so a second run of
-// one card inside one second reads as the first. That record is lost, and the
-// bridge says so rather than reading the 200 as a success.
+// A 200 to a first attempt means the server already held the report. On the
+// old endpoint that is a second run folded into the first, so the bridge says
+// so rather than reading the 200 as a success.
 func TestQueueNamesAReportTheServerFolded(t *testing.T) {
-	h := newHarnessWithSend(t, func(context.Context, string, api.WorkerRun) (bool, error) {
+	h := newHarnessWithSend(t, 3, func(context.Context) (bool, error) {
 		return false, nil
 	})
 
-	h.queue.Enqueue(testHandle, run(42))
+	h.queue.Enqueue(h.report(42))
 	h.next(t, 1)
 	h.queue.Close()
 
@@ -261,6 +249,9 @@ func TestQueueNamesAReportTheServerFolded(t *testing.T) {
 	if lines[0]["card"] != float64(42) || lines[0]["rule"] != "plan" {
 		t.Fatalf("report_folded = %v", lines[0])
 	}
+	if msg, _ := lines[0]["message"].(string); strings.Contains(msg, "second") {
+		t.Fatalf("message = %q, which names the start second the state report does not use", msg)
+	}
 }
 
 // A retry of a report that landed also reads 200, and that is the retry working
@@ -268,7 +259,7 @@ func TestQueueNamesAReportTheServerFolded(t *testing.T) {
 func TestQueueReadsARetrysSecondAnswerAsSuccess(t *testing.T) {
 	var calls int
 	var mu sync.Mutex
-	h := newHarnessWithSend(t, func(context.Context, string, api.WorkerRun) (bool, error) {
+	h := newHarnessWithSend(t, 3, func(context.Context) (bool, error) {
 		mu.Lock()
 		defer mu.Unlock()
 		calls++
@@ -279,7 +270,7 @@ func TestQueueReadsARetrysSecondAnswerAsSuccess(t *testing.T) {
 		return false, nil
 	})
 
-	h.queue.Enqueue(testHandle, run(42))
+	h.queue.Enqueue(h.report(42))
 	h.next(t, 1)
 	h.next(t, 2)
 	h.queue.Close()
@@ -300,8 +291,8 @@ func TestQueueDeliversWhatAShutdownFinds(t *testing.T) {
 	// A cancelled bridge stops every normal attempt, so the grace window is the
 	// one path left that can deliver these two.
 	h.cancel()
-	h.queue.Enqueue(testHandle, run(1))
-	h.queue.Enqueue(testHandle, run(2))
+	h.queue.Enqueue(h.report(1))
+	h.queue.Enqueue(h.report(2))
 	h.queue.Close()
 
 	for attempt := 1; attempt <= 2; attempt++ {
@@ -316,23 +307,19 @@ func TestQueueDeliversWhatAShutdownFinds(t *testing.T) {
 // what tells an operator that a missing record means "unknown".
 func TestQueueCountsWhatAShutdownDrops(t *testing.T) {
 	held := make(chan struct{})
-	log := &syncBuffer{}
-	h := &harness{log: log, sent: make(chan queued, 32)}
-	h.queue = New(context.Background(), slog.New(slog.NewJSONHandler(log, nil)),
-		func(ctx context.Context, handle string, run api.WorkerRun) (bool, error) {
-			h.sent <- queued{handle: handle, run: run}
-			<-held
-			<-ctx.Done()
+	h := newHarnessWithSend(t, 3, func(ctx context.Context) (bool, error) {
+		<-held
+		<-ctx.Done()
 
-			return false, ctx.Err()
-		})
+		return false, ctx.Err()
+	})
 	// No grace window, which is the bridge that cannot reach Loupe at all.
 	h.queue.grace = 0
 
-	h.queue.Enqueue(testHandle, run(1))
+	h.queue.Enqueue(h.report(1))
 	h.next(t, 1)
-	h.queue.Enqueue(testHandle, run(2))
-	h.queue.Enqueue(testHandle, run(3))
+	h.queue.Enqueue(h.report(2))
+	h.queue.Enqueue(h.report(3))
 
 	close(held)
 	h.queue.Close()
@@ -351,7 +338,7 @@ func TestQueueCountsAReportThatArrivesAfterTheClose(t *testing.T) {
 	h := newHarness(t, 1)
 	h.queue.Close()
 
-	h.queue.Enqueue(testHandle, run(42))
+	h.queue.Enqueue(h.report(42))
 
 	lines := h.lines(t, "report_dropped")
 	if len(lines) != 1 || lines[0]["count"] != float64(1) {
@@ -394,12 +381,12 @@ func TestAStuckHeartbeatDoesNotDelayReports(t *testing.T) {
 	if got := <-started; got != "a" {
 		t.Fatalf("started %q", got)
 	}
-	h.queue.Enqueue(testHandle, run(1))
-	h.queue.Enqueue(testHandle, run(2))
+	h.queue.Enqueue(h.report(1))
+	h.queue.Enqueue(h.report(2))
 
 	for attempt := 1; attempt <= 2; attempt++ {
-		if got := h.next(t, attempt); got.run.CardNumber != attempt {
-			t.Fatalf("attempt %d sent card %d", attempt, got.run.CardNumber)
+		if got := h.next(t, attempt); got != attempt {
+			t.Fatalf("attempt %d sent card %d", attempt, got)
 		}
 	}
 
@@ -479,8 +466,8 @@ func TestShutdownDrainsReportsWhileAHeartbeatHangs(t *testing.T) {
 	<-started
 
 	h.cancel()
-	h.queue.Enqueue(testHandle, run(1))
-	h.queue.Enqueue(testHandle, run(2))
+	h.queue.Enqueue(h.report(1))
+	h.queue.Enqueue(h.report(2))
 	closed := make(chan struct{})
 	go func() {
 		h.queue.Close()

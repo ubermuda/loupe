@@ -44,18 +44,26 @@ final readonly class BridgeLiveness
             $lastSeen[$bridge->id->toRfc4122()] = $bridge->lastSeenAt;
         }
 
-        // A running bridge keeps the interval it read at its last reconnect, so a lowered flag cannot shorten the wait.
-        $quietAfter = self::QUIET_AFTER_INTERVALS * max($this->heartbeatInterval->seconds(), $this->defaultInterval);
+        $quietBefore = $this->quietBefore($now);
         $statuses = [];
         foreach ($bridgeIds as $bridgeId) {
             $seenAt = $lastSeen[$bridgeId->toRfc4122()] ?? null;
             $statuses[$bridgeId->toRfc4122()] = new BridgeStatus(
                 lastSeenAt: $seenAt,
                 checkedAt: $now,
-                quiet: null === $seenAt || $now->getTimestamp() - $seenAt->getTimestamp() > $quietAfter,
+                quiet: null === $seenAt || $seenAt < $quietBefore,
             );
         }
 
         return $statuses;
+    }
+
+    /** A bridge whose last heartbeat came before this moment is quiet. Whole seconds, like the column. */
+    public function quietBefore(\DateTimeImmutable $now): \DateTimeImmutable
+    {
+        // A running bridge keeps the interval it read at its last reconnect, so a lowered flag cannot shorten the wait.
+        $quietAfter = self::QUIET_AFTER_INTERVALS * max($this->heartbeatInterval->seconds(), $this->defaultInterval);
+
+        return $now->setTimestamp($now->getTimestamp() - $quietAfter);
     }
 }

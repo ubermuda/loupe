@@ -1158,6 +1158,10 @@
 }
 
 @layer components {
+    /* A live update wrapper or frame that adds no box, so its children keep the parent's layout. */
+    .lp-live-frame {
+        @apply contents;
+    }
     .lp-card-drawer {
         @apply flex flex-col max-w-5xl min-h-screen mx-auto bg-surface-1 border-x border-line shadow-xl;
     }

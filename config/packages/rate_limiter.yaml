@@ -48,10 +48,12 @@ framework:
         agent_bridge_rule_reports:
             <<: *agent_per_token
 
-        # Bounds the bridge's run reports, a POST. A bridge reports once per
-        # finished worker, and a worker runs for minutes.
+        # Bounds the bridge's run reports: the finished run, each run state and
+        # the run inventory. A run sends about four states, and a burst of card
+        # moves sends them at once, so the limit drains a full bridge queue of 256.
         agent_worker_runs:
             <<: *agent_per_token
+            limit: 240
 
         # Bounds the bridge's ask checks, a GET. A bridge checks once before
         # each resume, and a resume follows a finished worker.
