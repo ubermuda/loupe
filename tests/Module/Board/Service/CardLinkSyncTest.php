@@ -57,6 +57,27 @@ final class CardLinkSyncTest extends KernelTestCase
         self::assertFalse($this->sync->anyCardGone([]));
     }
 
+    public function test_a_link_loaded_before_another_write_is_read_again(): void
+    {
+        $project = $this->makeProject('sync-stale');
+        [$a, $b] = [$this->cardIn($project), $this->cardIn($project)];
+        $this->write($a, [[$b, CardLinkKind::Blocks]]);
+
+        // This request loads the link, then another request reverses it.
+        $a = $this->reload($a);
+        $b = $this->reload($b);
+        $this->links->findForCard($a);
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_card_links SET source_card_id = target_card_id, target_card_id = source_card_id',
+        );
+
+        $this->sync->sync($a, [[$b, CardLinkKind::Blocks]]);
+        $this->em->flush();
+        $this->em->clear();
+
+        self::assertSame([(string) $a->id, (string) $b->id, 'blocks'], $this->rowsOf($a)[(string) $b->id]);
+    }
+
     public function test_blocked_by_stores_the_other_card_as_the_blocking_source(): void
     {
         $project = $this->makeProject('sync-insert');

@@ -43,8 +43,13 @@ final readonly class CardLinkSync
     /** @param list<array{Card, CardLinkKind}> $wanted each other card with the kind the card reads it by */
     public function sync(Card $card, array $wanted): void
     {
-        // A card not yet flushed has no rows to read.
-        $existing = $this->em->getUnitOfWork()->isScheduledForInsert($card) ? [] : $this->cardLinks->findForCard($card);
+        // A card not yet flushed has no rows to read. A link loaded before the
+        // lock may be stale, so the read starts from no managed link at all.
+        $unitOfWork = $this->em->getUnitOfWork();
+        foreach ($unitOfWork->getIdentityMap()[CardLink::class] ?? [] as $link) {
+            $this->em->detach($link);
+        }
+        $existing = $unitOfWork->isScheduledForInsert($card) ? [] : $this->cardLinks->findForCard($card);
 
         $rows = [];
         foreach ($existing as $link) {
