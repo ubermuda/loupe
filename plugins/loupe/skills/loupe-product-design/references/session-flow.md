@@ -19,7 +19,8 @@ A card that needs no product design does not use this skill. The owner moves it 
 ## Phases
 
 1. P0: Start. Get the card into the Product design column, with the slug from the profile.
-   - With no card, call `card_create` with `status` set to the slug and `reporter` set to `human`. Take the title and the body from the prompt. Set `type` to `feature`, or to the type the prompt names. A create writes no move event, so no bridge rule fires. When `card_create` refuses the slug, create the card with no `status`. Tell the owner that an approval will not move the card.
+   - With no card, call `card_search` first with words from the prompt, when the tool exists. Show the owner each close match. When the owner picks one, use that card, and follow the rules for a card below.
+   - With no card that the owner picks, call `card_create` with `status` set to the slug and `reporter` set to `human`. Take the title and the body from the prompt. Set `type` to `feature`, or to the type the prompt names. A create writes no move event, so no bridge rule fires. When `card_create` refuses the slug, create the card with no `status`. Tell the owner that an approval will not move the card.
    - With a card, check its product document first, as `SKILL.md` step 5 says. When that document is approved, stop before any move.
    - When the card sits in the default column, move it to the slug with `card_update` before P1. This move reports your own state. The `default` field of `board_columns` names the default column, and a seeded board calls it `backlog`. When `board_columns` is missing, treat `backlog` as the default column.
    - When the card already sits in the Product design column, leave it there.
