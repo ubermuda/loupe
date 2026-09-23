@@ -68,6 +68,7 @@ func (p *projectSource) project() string {
 
 	info, err := os.Stat(filepath.Join(p.dir, projectfile.Name))
 	if errors.Is(err, os.ErrNotExist) {
+		p.broken = ""
 		if p.seen != nil {
 			p.seen = nil
 			fmt.Fprintf(p.notes, "loupe mcp: %s is gone, so no project is sent (was %s)\n", projectfile.Name, orNone(p.last))

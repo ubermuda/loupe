@@ -214,6 +214,30 @@ func TestABrokenProjectFileIsReadAgainUntilItLoads(t *testing.T) {
 	}
 }
 
+// A broken file that goes and comes back with the same fault is a new fault.
+func TestABrokenProjectFileWrittenAgainAfterRemovalIsNotedAgain(t *testing.T) {
+	dir := inRepo(t, "")
+	writeProject(t, dir, projectA, firstWrite)
+
+	var notes bytes.Buffer
+	project, err := mcpProject("", &notes)
+	if err != nil {
+		t.Fatalf("mcpProject: %v", err)
+	}
+
+	writeBadProject(t, dir, secondWrite)
+	project()
+	if err := os.Remove(filepath.Join(dir, projectfile.Name)); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	project()
+	writeBadProject(t, dir, secondWrite)
+	project()
+	if n := strings.Count(notes.String(), "the project stays"); n != 2 {
+		t.Fatalf("notes = %q, want the parse fault noted twice", notes.String())
+	}
+}
+
 func TestARemovedProjectFileNamesNoProject(t *testing.T) {
 	dir := inRepo(t, "")
 	writeProject(t, dir, projectA, firstWrite)
