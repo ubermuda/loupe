@@ -201,7 +201,7 @@ func rejectedAdvice(err error, slug string, rules []api.RuleHealth) string {
 	errors.As(err, &rejected)
 	switch {
 	case errors.Is(err, api.ErrProjectNotFound):
-		return fmt.Sprintf("the server knows no project %s of yours: fix the projects map in rules.yaml and restart the bridge", slug)
+		return fmt.Sprintf("the server knows no project %s of yours: fix the projects map in rules.yaml and run loupe bridge reload", slug)
 	case errors.Is(err, api.ErrEndpointMissing):
 		return "the server has no rule health endpoint, or it refuses the bridgeId in config.json, which it takes as a lower-case uuid of version 1 or 3 to 8: upgrade Loupe or fix the id, then restart the bridge"
 	case rejected != nil && rejected.Status == http.StatusUnprocessableEntity:
@@ -223,7 +223,7 @@ func rejectedAdvice(err error, slug string, rules []api.RuleHealth) string {
 			}
 		}
 
-		return fmt.Sprintf("the server refused %s of project %s: fix rules.yaml and restart the bridge", strings.Join(fields, ", "), slug)
+		return fmt.Sprintf("the server refused %s of project %s: fix rules.yaml and run loupe bridge reload", strings.Join(fields, ", "), slug)
 	default:
 		return "the server refused the token: run loupe login with a token that has the agent scope, then restart the bridge"
 	}
