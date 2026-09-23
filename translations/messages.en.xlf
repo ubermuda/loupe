@@ -5974,6 +5974,45 @@
             <trans-unit id="check.oauth_keys.label"><source>check.oauth_keys.label</source><target>OAuth keys</target></trans-unit>
             <trans-unit id="oauth.system_status.keys.ok"><source>oauth.system_status.keys.ok</source><target>The OAuth signing key pair and the encryption key are set and readable.</target></trans-unit>
             <trans-unit id="oauth.system_status.keys.missing"><source>oauth.system_status.keys.missing</source><target>The OAuth keys are missing or unreadable, so no app can connect. Set OAUTH_PRIVATE_KEY, OAUTH_PUBLIC_KEY and OAUTH_ENCRYPTION_KEY.</target></trans-unit>
+            <trans-unit id="github.repositories.title"><source>github.repositories.title</source><target>Repositories</target></trans-unit>
+            <trans-unit id="github.repositories.disabled"><source>github.repositories.disabled</source><target>The operator has not enabled forge connections on this instance.</target></trans-unit>
+            <trans-unit id="github.repositories.empty"><source>github.repositories.empty</source><target>No repository is connected. Connect a repository, and a merge, a review or a check result in it will reach the cards that link its pull requests.</target></trans-unit>
+            <trans-unit id="github.repositories.purpose"><source>github.repositories.purpose</source><target>A merge, a review or a check result in these repositories will reach the cards that link its pull requests.</target></trans-unit>
+            <trans-unit id="github.repositories.health.waiting"><source>github.repositories.health.waiting</source><target>Waiting for the first delivery</target></trans-unit>
+            <trans-unit id="github.repositories.health.working"><source>github.repositories.health.working</source><target>Working · last delivery %time%</target></trans-unit>
+            <trans-unit id="github.repositories.health.quiet"><source>github.repositories.health.quiet</source><target>Quiet · no delivery for 30 days, last one %time%</target></trans-unit>
+            <trans-unit id="github.repositories.cancel"><source>github.repositories.cancel</source><target>Cancel</target></trans-unit>
+            <trans-unit id="github.repositories.remove.action"><source>github.repositories.remove.action</source><target>Remove</target></trans-unit>
+            <trans-unit id="github.repositories.remove.title"><source>github.repositories.remove.title</source><target>Remove this repository?</target></trans-unit>
+            <trans-unit id="github.repositories.remove.description"><source>github.repositories.remove.description</source><target>Loupe no longer updates cards from %path%. The next delivery from this repository connects it again, so also remove the webhook or the App on GitHub.</target></trans-unit>
+            <trans-unit id="github.repositories.remove.confirm"><source>github.repositories.remove.confirm</source><target>Remove</target></trans-unit>
+            <trans-unit id="github.repositories.hook.eyebrow"><source>github.repositories.hook.eyebrow</source><target>Webhook</target></trans-unit>
+            <trans-unit id="github.repositories.hook.unavailable"><source>github.repositories.hook.unavailable</source><target>The operator has not enabled webhooks on this instance.</target></trans-unit>
+            <trans-unit id="github.repositories.hook.purpose"><source>github.repositories.hook.purpose</source><target>Create a webhook, then add it to each repository on GitHub. Each repository that sends a delivery becomes connected to this project.</target></trans-unit>
+            <trans-unit id="github.repositories.hook.create"><source>github.repositories.hook.create</source><target>Create a webhook</target></trans-unit>
+            <trans-unit id="github.repositories.hook.health.waiting"><source>github.repositories.hook.health.waiting</source><target>Waiting for the first delivery</target></trans-unit>
+            <trans-unit id="github.repositories.hook.health.working"><source>github.repositories.hook.health.working</source><target>Working · last delivery %time%</target></trans-unit>
+            <trans-unit id="github.repositories.hook.health.failing"><source>github.repositories.hook.health.failing</source><target>Failing · %time%: %reason%</target></trans-unit>
+            <trans-unit id="github.repositories.hook.reason.bad_signature"><source>github.repositories.hook.reason.bad_signature</source><target>the signature does not match the secret. Paste the current secret on GitHub.</target></trans-unit>
+            <trans-unit id="github.repositories.hook.reason.bad_payload"><source>github.repositories.hook.reason.bad_payload</source><target>the body is not JSON that Loupe can read. Set the content type to application/json on GitHub.</target></trans-unit>
+            <trans-unit id="github.repositories.hook.reason.unknown"><source>github.repositories.hook.reason.unknown</source><target>Loupe refused the delivery.</target></trans-unit>
+            <trans-unit id="github.repositories.hook.instructions"><source>github.repositories.hook.instructions</source><target>On GitHub, open the Settings of the repository, then Webhooks, then Add webhook. Paste the payload URL and the secret there.</target></trans-unit>
+            <trans-unit id="github.repositories.hook.url"><source>github.repositories.hook.url</source><target>Payload URL</target></trans-unit>
+            <trans-unit id="github.repositories.hook.content_type"><source>github.repositories.hook.content_type</source><target>Content type: %type%</target></trans-unit>
+            <trans-unit id="github.repositories.hook.secret"><source>github.repositories.hook.secret</source><target>Secret</target></trans-unit>
+            <trans-unit id="github.repositories.hook.secret_once"><source>github.repositories.hook.secret_once</source><target>Copy the secret now. Loupe shows it this one time only.</target></trans-unit>
+            <trans-unit id="github.repositories.hook.events"><source>github.repositories.hook.events</source><target>Select "Let me select individual events", then select Pull requests, Pull request reviews, Check suites and Repositories.</target></trans-unit>
+            <trans-unit id="github.repositories.hook.rotate.action"><source>github.repositories.hook.rotate.action</source><target>Generate a new secret</target></trans-unit>
+            <trans-unit id="github.repositories.hook.rotate.title"><source>github.repositories.hook.rotate.title</source><target>Generate a new secret?</target></trans-unit>
+            <trans-unit id="github.repositories.hook.rotate.description"><source>github.repositories.hook.rotate.description</source><target>The old secret stops working at once. Loupe refuses each delivery until you paste the new secret into every repository that uses this webhook.</target></trans-unit>
+            <trans-unit id="github.repositories.hook.rotate.confirm"><source>github.repositories.hook.rotate.confirm</source><target>Generate</target></trans-unit>
+            <trans-unit id="github.repositories.flash.hook_created"><source>github.repositories.flash.hook_created</source><target>The webhook is ready. Copy its secret now.</target></trans-unit>
+            <trans-unit id="github.repositories.flash.hook_secret_rotated"><source>github.repositories.flash.hook_secret_rotated</source><target>The webhook has a new secret. Copy it now.</target></trans-unit>
+            <trans-unit id="github.repositories.flash.hook_unavailable"><source>github.repositories.flash.hook_unavailable</source><target>The operator has not enabled webhooks on this instance.</target></trans-unit>
+            <trans-unit id="github.repositories.flash.hook_exists"><source>github.repositories.flash.hook_exists</source><target>This project already has a webhook.</target></trans-unit>
+            <trans-unit id="github.repositories.flash.hook_missing"><source>github.repositories.flash.hook_missing</source><target>This project has no webhook.</target></trans-unit>
+            <trans-unit id="github.repositories.flash.repository_removed"><source>github.repositories.flash.repository_removed</source><target>%path% is no longer connected.</target></trans-unit>
+            <trans-unit id="github.repositories.flash.repository_missing"><source>github.repositories.flash.repository_missing</source><target>This project does not own that repository.</target></trans-unit>
         </body>
     </file>
 </xliff>
