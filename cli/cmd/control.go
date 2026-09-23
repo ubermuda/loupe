@@ -257,19 +257,19 @@ func requestReload(sock string) (reloadResult, error) {
 	return res, nil
 }
 
-// printReload names the rule file, the rules the reload changed and the
-// projects the bridge now maps.
+// printReload names the rule file, the rules and dirs the reload changed and
+// the projects the bridge now maps.
 func printReload(w io.Writer, path string, res reloadResult) {
 	fmt.Fprintln(w, "reloaded "+path)
 	for _, part := range []struct {
 		label string
 		names []string
-	}{{"added", res.Added}, {"removed", res.Removed}, {"changed", res.Changed}} {
+	}{{"added", res.Added}, {"removed", res.Removed}, {"changed", res.Changed}, {"dir changed", res.Dirs}} {
 		if len(part.names) > 0 {
 			fmt.Fprintln(w, part.label+": "+strings.Join(part.names, ", "))
 		}
 	}
-	if len(res.Added)+len(res.Removed)+len(res.Changed) == 0 {
+	if len(res.Added)+len(res.Removed)+len(res.Changed)+len(res.Dirs) == 0 {
 		fmt.Fprintln(w, "no rule changed")
 	}
 	fmt.Fprintln(w, "projects: "+strings.Join(res.Projects, ", "))

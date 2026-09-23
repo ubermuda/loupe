@@ -724,7 +724,7 @@ no card, `subject` is the ask id.
 | `worker_failed` | `card`, `project`, `rule`, `error`: the process never ran |
 | `queue_dropped` | `count`, `dropped`: a list of `{card, rule}`, with `ask` for a resume, and `reason`: `reload` when a reload dropped the events |
 | `control_listening` | `socket`: the path that `loupe bridge reload` reaches |
-| `reload_applied` | `added`, `removed`, `changed`, `projects`: a reload applied the rule file |
+| `reload_applied` | `added`, `removed`, `changed`, `dirs`, `projects`: a reload applied the rule file |
 | `reload_failed` | `stage`, `problems`: a reload changed nothing. Level `ERROR` |
 | `rule_dead` | `rule`, `project`, `project_slug`, `reason`, `message`: a column or project change killed the rule. Level `ERROR` |
 | `report_sent` | `project`, `project_slug`, `rules`, `dead`: the server stored the rule health report of that project |
@@ -784,12 +784,15 @@ On success, the command writes to stdout and exits with status 0:
 reloaded /Users/me/Library/Application Support/loupe/rules.yaml
 added: review
 changed: plan, build
+dir changed: other-app
 projects: my-app, other-app
 ```
 
 The `added:`, `removed:` and `changed:` lines appear only when they name a rule.
 A rule changes when any of its fields differs after the defaults are filled.
-When no rule changed, the command writes `no rule changed` in their place.
+The `dir changed:` line appears only when a project of both files has a new
+`dir`. When no rule and no dir changed, the command writes `no rule changed` in
+their place.
 
 On failure, the command writes one line to stderr for each problem, as
 `<stage>: <problem>`, and exits with status 1. The stage is `parse`, `check` or

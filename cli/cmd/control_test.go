@@ -242,6 +242,18 @@ func TestBridgeReloadSaysWhenNoRuleChanged(t *testing.T) {
 	}
 }
 
+func TestBridgeReloadPrintsAChangedDir(t *testing.T) {
+	serveTest(t, func(context.Context) reloadResult {
+		return reloadResult{OK: true, Dirs: []string{"loupe", "other"}, Projects: []string{"loupe", "other"}}
+	})
+	abs, _ := filepath.Abs("rules.yaml")
+
+	out, _, err := reloadCmd(t, "--rules", "rules.yaml")
+	if want := "reloaded " + abs + "\ndir changed: loupe, other\nprojects: loupe, other\n"; err != nil || out != want {
+		t.Fatalf("err = %v, stdout = %q, want %q", err, out, want)
+	}
+}
+
 func TestBridgeReloadPrintsEachProblemAndFails(t *testing.T) {
 	serveTest(t, func(context.Context) reloadResult {
 		return reloadResult{Stage: "check", Problems: []string{"rule plan: no column next", "rule fix: no project x"}}

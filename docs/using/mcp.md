@@ -42,8 +42,8 @@ project, or refuses and asks which one when you own several.
 `loupe mcp` reads `.loupe.yaml` again when the file changes, so a new project
 reaches the agent at its next request. A file that fails to parse keeps the last
 good project. A removed file sends no project, as if the repository had no
-file. Each change writes one line to the server's log. With `--project`, the
-command never reads the file.
+file. Each change writes one line to stderr, which an agent shows as this
+server's log. With `--project`, the command never reads the file.
 
 When something else already answers to the name, `loupe init` says what it
 starts and offers to remove it. Removing always asks, whatever flags you passed,

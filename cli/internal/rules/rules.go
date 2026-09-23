@@ -436,6 +436,11 @@ func (s *Set) Projects() []string {
 	return slices.Sorted(maps.Keys(s.dirs))
 }
 
+// Dir is the directory of a mapped slug, and "" for a slug the set does not map.
+func (s *Set) Dir(slug string) string {
+	return s.dirs[slug]
+}
+
 // Rules lists the rules in file order, with their defaults filled.
 func (s *Set) Rules() []Rule {
 	return slices.Clone(s.rules)

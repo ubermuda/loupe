@@ -18,6 +18,7 @@ type reloadResult struct {
 	Added    []string `json:"added,omitempty"`
 	Removed  []string `json:"removed,omitempty"`
 	Changed  []string `json:"changed,omitempty"`
+	Dirs     []string `json:"dirs,omitempty"`
 	Projects []string `json:"projects,omitempty"`
 	Problems []string `json:"problems,omitempty"`
 	Stage    string   `json:"stage,omitempty"`
@@ -149,7 +150,7 @@ func (r *router) swap(set *rules.Set) reloadResult {
 	}
 
 	res := diffRules(old, set)
-	r.log.Info("reload_applied", "added", res.Added, "removed", res.Removed, "changed", res.Changed, "projects", res.Projects)
+	r.log.Info("reload_applied", "added", res.Added, "removed", res.Removed, "changed", res.Changed, "dirs", res.Dirs, "projects", res.Projects)
 	warnUnknownModes(r.log, set)
 
 	return res
@@ -228,7 +229,8 @@ func (r *router) reportAllLocked(set, old *rules.Set) {
 }
 
 // diffRules names the rules the new set adds, removes and changes, by name. A
-// rule changes when any field differs after the defaults are filled.
+// rule changes when any field differs after the defaults are filled. It also
+// names each project of both sets whose dir changed.
 func diffRules(old, set *rules.Set) reloadResult {
 	res := reloadResult{OK: true, Projects: set.Projects()}
 	before := map[string]rules.Rule{}
@@ -249,6 +251,11 @@ func diffRules(old, set *rules.Set) reloadResult {
 	for _, rule := range old.Rules() {
 		if !after[rule.Name] {
 			res.Removed = append(res.Removed, rule.Name)
+		}
+	}
+	for _, slug := range set.Projects() {
+		if dir := old.Dir(slug); dir != "" && dir != set.Dir(slug) {
+			res.Dirs = append(res.Dirs, slug)
 		}
 	}
 

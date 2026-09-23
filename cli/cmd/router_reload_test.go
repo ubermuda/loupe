@@ -492,7 +492,7 @@ rules:
     to: done
     prompt: Ship.
 `)
-	if !res.OK || !slices.Equal(res.Added, []string{"ship"}) || !slices.Equal(res.Removed, []string{"extra"}) || !slices.Equal(res.Changed, []string{"review"}) || !slices.Equal(res.Projects, []string{"loupe"}) {
+	if !res.OK || !slices.Equal(res.Added, []string{"ship"}) || !slices.Equal(res.Removed, []string{"extra"}) || !slices.Equal(res.Changed, []string{"review"}) || !slices.Equal(res.Projects, []string{"loupe"}) || len(res.Dirs) != 0 {
 		t.Fatalf("result = %+v", res)
 	}
 	line := h.only(t, "reload_applied")
@@ -500,6 +500,18 @@ rules:
 		if got, _ := line[key].([]any); len(got) != 1 || got[0] != want {
 			t.Fatalf("reload_applied %s = %v, want [%s]", key, line[key], want)
 		}
+	}
+}
+
+func TestReloadAppliedNamesAProjectWhoseDirChanged(t *testing.T) {
+	h := newHarnessWith(t, twoProjectFile, rules.Defaults{})
+
+	res := h.reload(t, strings.Replace(twoProjectFile, "  other:\n    dir: {dir}", "  other:\n    dir: "+t.TempDir(), 1))
+	if !res.OK || !slices.Equal(res.Dirs, []string{"other"}) || len(res.Added)+len(res.Removed)+len(res.Changed) != 0 {
+		t.Fatalf("result = %+v", res)
+	}
+	if got, _ := h.only(t, "reload_applied")["dirs"].([]any); len(got) != 1 || got[0] != "other" {
+		t.Fatalf("reload_applied dirs = %v", got)
 	}
 }
 
