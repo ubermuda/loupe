@@ -51,12 +51,12 @@ final class GitHubRepositoriesComponent
         private readonly HookSecretKey $hookSecretKey,
         private readonly OneTimeHookSecret $oneTimeHookSecret,
     ) {
-        $this->now = new \DateTimeImmutable();
     }
 
     public function mount(Project $project): void
     {
         $this->project = $project;
+        $this->now = new \DateTimeImmutable();
         $this->visible = $this->security->isGranted(GitHubConnectionVoter::MANAGE, $project);
         if (!$this->visible) {
             return;
