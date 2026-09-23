@@ -15,9 +15,9 @@ use Symfony\Component\Routing\Attribute\Route;
 use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 
 /**
- * Records one finished worker run against one of the caller's projects. The
- * firewall admits agent-scoped tokens alone, and the row is never updated
- * afterwards.
+ * Records one finished worker run against one of the caller's projects, for a
+ * bridge that reports no run states. The firewall admits agent-scoped tokens
+ * alone.
  */
 // 404 rather than a disabled-looking 403, matching the events endpoint. A
 // bridge reaches a worker only through the event stream, so an instance with

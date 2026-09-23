@@ -34,17 +34,42 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $topics = static::getContainer()->get(ProjectTopicBuilder::class);
         self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
         $boardTopic = $topics->forBoard($project->id);
+        // A card drawer opened on the board lists the card's runs, which reload on this topic.
+        $runTopic = $topics->forWorkerRuns($project->id);
 
         // The agent outbox topic stays out of reach of a browser.
-        self::assertSame([$boardTopic], self::subscribedTopics($client->getResponse()));
+        self::assertSame([$boardTopic, $runTopic], self::subscribedTopics($client->getResponse()));
 
         $page = $crawler->filter('form#mercure-subscriptions');
         self::assertCount(1, $page);
         self::assertSame('https://mercure.loupe.dev.localhost/.well-known/mercure', $page->attr('data-hub'));
         self::assertSame('/mercure/authorize', $page->attr('action'));
-        self::assertSame([$boardTopic], $page->filter('input[data-mercure-topic]')->each(static fn ($input): ?string => $input->attr('value')));
+        self::assertSame([$boardTopic, $runTopic], $page->filter('input[data-mercure-topic]')->each(static fn ($input): ?string => $input->attr('value')));
 
         self::assertCount(1, $crawler->filter('[data-controller="board-refresh"] turbo-frame#board-frame[target="_top"] #board'));
+    }
+
+    /** The workshop hosts the card drawer too, and the drawer's run list reloads on this topic. */
+    public function test_the_workshop_subscribes_its_card_drawer_to_the_run_topic(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-refresh-workshop@example.com');
+        $project = $this->project($em, $owner);
+        self::assertNotNull($project->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id);
+
+        self::assertResponseIsSuccessful();
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
+        $subscribed = self::subscribedTopics($client->getResponse());
+        self::assertNotNull($subscribed);
+        self::assertContains($topics->forWorkerRuns($project->id), $subscribed);
     }
 
     public function test_a_refused_column_form_renders_the_board_with_its_token(): void
@@ -65,8 +90,8 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $crawler = $client->submit($form->form(), [$name.'[label]' => '🚀']);
 
         self::assertResponseStatusCodeSame(422);
-        self::assertCount(1, self::subscribedTopics($client->getResponse()) ?? []);
-        self::assertCount(1, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]'));
+        self::assertCount(2, self::subscribedTopics($client->getResponse()) ?? []);
+        self::assertCount(2, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]'));
     }
 
     public function test_a_stranger_gets_no_token(): void
@@ -122,7 +147,7 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $topics = static::getContainer()->get(ProjectTopicBuilder::class);
         self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
-        self::assertSame([$topics->forBoard($project->id)], self::subscribedTopics($client->getResponse()));
+        self::assertSame([$topics->forBoard($project->id), $topics->forWorkerRuns($project->id)], self::subscribedTopics($client->getResponse()));
         self::assertCount(1, $crawler->filter('form#mercure-subscriptions'));
     }
 

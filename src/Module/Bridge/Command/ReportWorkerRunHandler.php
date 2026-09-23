@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
@@ -17,8 +20,9 @@ use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
- * Appends one run row for one of the owner's projects, once. A repeat of a
- * report the server already holds answers with the row it already wrote.
+ * Records one finished run from a bridge that sends no run key, once, with a
+ * history of Running and then its outcome. A repeat of a report the server
+ * already holds answers with the row it already wrote.
  */
 final readonly class ReportWorkerRunHandler
 {
@@ -29,6 +33,7 @@ final readonly class ReportWorkerRunHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private ClockInterface $clock,
+        private WorkerRunChangedPublisher $publisher,
     ) {
     }
 
@@ -56,22 +61,30 @@ final readonly class ReportWorkerRunHandler
                 return new ReportWorkerRunResult($existing, created: false);
             }
 
+            $receivedAt = $this->clock->now();
+            $outcome = WorkerRunState::fromExitCode($command->exitCode, $command->hasResult);
             $run = new WorkerRun(
                 project: $project,
                 bridgeId: $command->bridgeId,
-                sessionId: $command->sessionId,
                 cardId: $command->cardId,
                 cardNumber: $command->cardNumber,
                 ruleName: $command->ruleName,
+                state: $outcome,
+                sessionId: $command->sessionId,
                 startedAt: $command->startedAt,
                 endedAt: $command->endedAt,
                 exitCode: $command->exitCode,
                 hasResult: $command->hasResult,
                 failureReason: $command->failureReason,
                 output: $command->output,
-                receivedAt: $this->clock->now(),
+                receivedAt: $receivedAt,
             );
             $this->em->persist($run);
+            // A process that never started never ran.
+            if (WorkerRunState::NotStarted !== $outcome) {
+                $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, $command->startedAt, $receivedAt));
+            }
+            $this->em->persist(new WorkerRunStateChange($run, $outcome, $command->endedAt, $receivedAt));
             $this->em->flush();
             $this->searchIndexer->index($run);
 
@@ -79,6 +92,7 @@ final readonly class ReportWorkerRunHandler
         });
 
         if ($result->created && null !== $result->run) {
+            $this->publisher->runsChanged($result->run->project);
             $this->auditor->record(
                 'bridge.worker_run_recorded',
                 AuditOutcome::Success,

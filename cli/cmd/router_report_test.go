@@ -18,21 +18,38 @@ type reported struct {
 	run    api.WorkerRun
 }
 
-// reports wires the real queue to the router, and collects what it sends.
+// reports wires the real queue to the router, and collects the old reports it
+// sends.
 func (h *harness) reports(t *testing.T) chan reported {
 	t.Helper()
 
 	sent := make(chan reported, 16)
-	q := outbound.New(context.Background(), h.router.log, func(_ context.Context, handle string, run api.WorkerRun) (bool, error) {
-		sent <- reported{handle: handle, run: run}
-
-		return true, nil
-	})
+	q := outbound.New(context.Background(), h.router.log)
 	t.Cleanup(q.Close)
 	h.router.bridgeID = testBridge
 	h.router.reports = q
+	h.router.runs = newRunReports(&postRecorder{
+		fakeRunClient: fakeRunClient{
+			state:     func(string) (bool, error) { return false, api.ErrRunStatesUnsupported },
+			inventory: func() error { return api.ErrRunStatesUnsupported },
+		},
+		sent: sent,
+	}, h.router.log)
 
 	return sent
+}
+
+// postRecorder is a server older than the run state endpoints. It takes every
+// old report, and hands each one to sent with the project it named.
+type postRecorder struct {
+	fakeRunClient
+	sent chan reported
+}
+
+func (p *postRecorder) ReportWorkerRun(_ context.Context, handle string, run api.WorkerRun) (bool, error) {
+	p.sent <- reported{handle: handle, run: run}
+
+	return true, nil
 }
 
 // A worker reports its own success by writing to the card. The bridge reports

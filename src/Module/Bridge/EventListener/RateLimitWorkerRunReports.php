@@ -19,7 +19,12 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 4)]
 final readonly class RateLimitWorkerRunReports
 {
-    public const string ROUTE = 'api_project_worker_run_report';
+    /** The routes share one budget, because one bridge sends all of them. */
+    public const array ROUTES = [
+        'api_project_worker_run_report',
+        'api_project_worker_run_state_report',
+        'api_bridge_runs_report',
+    ];
 
     public function __construct(
         #[Autowire(service: 'limiter.agent_worker_runs')]
@@ -35,7 +40,7 @@ final readonly class RateLimitWorkerRunReports
         }
 
         $request = $event->getRequest();
-        if (self::ROUTE !== $request->attributes->get('_route')) {
+        if (!\in_array($request->attributes->get('_route'), self::ROUTES, true)) {
             return;
         }
 

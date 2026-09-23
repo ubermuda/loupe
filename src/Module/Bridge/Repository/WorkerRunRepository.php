@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Repository;
 
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
-use App\Module\Bridge\ValueObject\WorkerRunOutcome;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -35,6 +38,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('r')
             ->andWhere('r.project = :project')
             ->andWhere('r.sessionId = :sessionId')
+            ->andWhere('r.sessionId IS NOT NULL')
             ->setParameter('project', $project)
             ->setParameter('sessionId', $sessionId, UuidType::NAME)
             ->orderBy('r.startedAt', 'ASC')
@@ -55,12 +59,148 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->andWhere('r.bridgeId = :bridgeId')
             ->andWhere('r.cardId = :cardId')
             ->andWhere('r.startedAt = :startedAt')
+            // The natural key is unique only among runs that carry no run key.
+            ->andWhere('r.runKey IS NULL')
             ->setParameter('project', $project)
             ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
             ->setParameter('cardId', $cardId, UuidType::NAME)
             ->setParameter('startedAt', $startedAt, Types::DATETIME_IMMUTABLE)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * The run the bridge gave this key, locked until the transaction ends, so no
+     * inventory or timeout sweep writes the state between the read and the write.
+     */
+    public function findOneByRunKey(Project $project, Uuid $bridgeId, Uuid $runKey): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.bridgeId = :bridgeId')
+            ->andWhere('r.runKey = :runKey')
+            ->setParameter('project', $project)
+            ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
+            ->setParameter('runKey', $runKey, UuidType::NAME)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * The runs one bridge of the owner still holds as far as the server knows:
+     * open or timed-out, with a run key, locked until the transaction ends. The
+     * owner filter is a subquery, so the lock covers the runs and not the
+     * projects a state report locks first.
+     *
+     * @return list<WorkerRun>
+     */
+    public function findOpenOrTimedOutOfBridge(User $owner, Uuid $bridgeId): array
+    {
+        $states = [...WorkerRunState::openStates(), WorkerRunState::TimedOut];
+
+        return array_values($this->createQueryBuilder('r')
+            ->andWhere('r.bridgeId = :bridgeId')
+            ->andWhere('r.runKey IS NOT NULL')
+            ->andWhere('r.state IN (:states)')
+            ->andWhere(\sprintf('IDENTITY(r.project) IN (SELECT p.id FROM %s p WHERE p.owner = :owner)', Project::class))
+            ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
+            ->setParameter('states', array_map(static fn (WorkerRunState $state): string => $state->value, $states))
+            ->setParameter('owner', $owner)
+            ->orderBy('r.id', 'ASC')
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getResult());
+    }
+
+    /**
+     * The open runs whose bridge went quiet: its owner's row for the bridge has
+     * no heartbeat since the moment given. A bridge with no row at all sent no
+     * heartbeat yet, so its run counts as quiet once it arrived that long ago.
+     *
+     * @return list<Uuid>
+     */
+    public function findIdsOfQuietOpenRuns(\DateTimeImmutable $quietBefore, int $limit): array
+    {
+        /** @var list<Uuid|string> $ids */
+        $ids = $this->createQueryBuilder('r')
+            ->select('r.id')
+            ->join('r.project', 'p')
+            ->leftJoin(Bridge::class, 'b', Join::WITH, 'IDENTITY(b.owner) = IDENTITY(p.owner) AND b.id = r.bridgeId')
+            ->andWhere('r.state IN (:openStates)')
+            ->andWhere('b.lastSeenAt < :quietBefore OR (b.lastSeenAt IS NULL AND r.receivedAt < :quietBefore)')
+            ->setParameter('openStates', array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                WorkerRunState::openStates(),
+            ))
+            ->setParameter('quietBefore', $quietBefore, Types::DATETIME_IMMUTABLE)
+            ->orderBy('r.id', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_map(static fn (Uuid|string $id): Uuid => $id instanceof Uuid ? $id : Uuid::fromString($id), $ids);
+    }
+
+    /**
+     * The owner id and the bridge id of each bridge these runs belong to, once
+     * each and in a fixed order, so two callers lock them in the same order.
+     *
+     * @param list<Uuid> $ids
+     *
+     * @return list<array{string, Uuid}>
+     */
+    public function findBridgesOfRuns(array $ids): array
+    {
+        /** @var list<array{ownerId: Uuid|string, bridgeId: Uuid|string}> $rows */
+        $rows = $this->createQueryBuilder('r')
+            ->select('DISTINCT IDENTITY(p.owner) AS ownerId, r.bridgeId AS bridgeId')
+            ->join('r.project', 'p')
+            ->andWhere('r.id IN (:ids)')
+            ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
+            ->orderBy('ownerId', 'ASC')
+            ->addOrderBy('bridgeId', 'ASC')
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_map(static fn (array $row): array => [
+            (string) $row['ownerId'],
+            $row['bridgeId'] instanceof Uuid ? $row['bridgeId'] : Uuid::fromString($row['bridgeId']),
+        ], $rows);
+    }
+
+    /**
+     * The runs among these ids that are still open and whose bridge is still
+     * quiet, locked until the transaction ends, in id order so two sweeps cannot
+     * deadlock. The bridge test is a subquery, so the lock covers the runs alone.
+     *
+     * @param list<Uuid> $ids
+     *
+     * @return list<WorkerRun>
+     */
+    public function findOpenByIdsForUpdate(array $ids, \DateTimeImmutable $quietBefore): array
+    {
+        return array_values($this->createQueryBuilder('r')
+            ->andWhere('r.id IN (:ids)')
+            ->andWhere('r.state IN (:openStates)')
+            ->andWhere(\sprintf(
+                'EXISTS (SELECT qb.id FROM %1$s qb WHERE qb.id = r.bridgeId AND qb.lastSeenAt < :quietBefore'
+                .' AND IDENTITY(qb.owner) = (SELECT IDENTITY(qp.owner) FROM %2$s qp WHERE qp = r.project))'
+                .' OR (r.receivedAt < :quietBefore AND NOT EXISTS (SELECT nb.id FROM %1$s nb WHERE nb.id = r.bridgeId'
+                .' AND IDENTITY(nb.owner) = (SELECT IDENTITY(np.owner) FROM %2$s np WHERE np = r.project)))',
+                Bridge::class,
+                Project::class,
+            ))
+            ->setParameter('quietBefore', $quietBefore, Types::DATETIME_IMMUTABLE)
+            ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
+            ->setParameter('openStates', array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                WorkerRunState::openStates(),
+            ))
+            ->orderBy('r.id', 'ASC')
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getResult());
     }
 
     /**
@@ -80,15 +220,21 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getResult());
     }
 
-    /** @return list<WorkerRun> the card's latest runs, newest first */
+    /** @return list<WorkerRun> the card's open runs, then its latest runs, newest first */
     public function findRecentForCard(Project $project, Uuid $cardId, int $limit): array
     {
         return $this->createQueryBuilder('r')
+            ->addSelect('CASE WHEN r.state IN (:openStates) THEN 0 ELSE 1 END AS HIDDEN openFirst')
             ->andWhere('r.project = :project')
             ->andWhere('r.cardId = :cardId')
             ->setParameter('project', $project)
             ->setParameter('cardId', $cardId, UuidType::NAME)
-            ->orderBy('r.receivedAt', 'DESC')
+            ->setParameter('openStates', array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                WorkerRunState::openStates(),
+            ))
+            ->orderBy('openFirst', 'ASC')
+            ->addOrderBy('r.receivedAt', 'DESC')
             ->addOrderBy('r.id', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()
@@ -110,7 +256,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         int $page,
         int $perPage,
         ?string $search = null,
-        ?WorkerRunOutcome $outcome = null,
+        ?WorkerRunState $state = null,
         ?Uuid $bridgeId = null,
     ): Paginator {
         $qb = $this->createQueryBuilder('r')
@@ -139,13 +285,8 @@ class WorkerRunRepository extends ServiceEntityRepository
             $qb->andWhere($match)->setParameter('search', $search);
         }
 
-        if (null !== $outcome) {
-            match ($outcome) {
-                WorkerRunOutcome::Succeeded => $qb->andWhere('r.exitCode = 0 AND (r.hasResult IS NULL OR r.hasResult = true)'),
-                WorkerRunOutcome::NoResult => $qb->andWhere('r.exitCode = 0 AND r.hasResult = false'),
-                WorkerRunOutcome::Failed => $qb->andWhere('r.exitCode IS NOT NULL AND r.exitCode <> 0'),
-                WorkerRunOutcome::NotStarted => $qb->andWhere('r.exitCode IS NULL'),
-            };
+        if (null !== $state) {
+            $qb->andWhere('r.state = :state')->setParameter('state', $state->value);
         }
 
         if (null !== $bridgeId) {

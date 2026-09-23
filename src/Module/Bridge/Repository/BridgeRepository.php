@@ -20,6 +20,18 @@ class BridgeRepository extends ServiceEntityRepository
         parent::__construct($registry, Bridge::class);
     }
 
+    /**
+     * Serialises the writers of one bridge of one owner until the transaction
+     * ends: two first heartbeats, and a heartbeat against the timeout sweep.
+     */
+    public function lockForWrite(string $ownerId, Uuid $bridgeId): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'SELECT pg_advisory_xact_lock(hashtext(?))',
+            ['bridge:'.$ownerId.':'.$bridgeId->toRfc4122()],
+        );
+    }
+
     public function findOneByOwnerAndId(User $owner, Uuid $id): ?Bridge
     {
         return $this->findOneBy(['owner' => $owner, 'id' => $id]);

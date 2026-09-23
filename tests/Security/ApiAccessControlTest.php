@@ -75,6 +75,9 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertFalse($this->decide('/api/bridges/'.$bridge.'/heartbeat/extra', self::ALL_ROLES));
         self::assertFalse($this->decide('/api/bridges/a/b/heartbeat', self::ALL_ROLES));
         self::assertFalse($this->decide('/api/bridges/'.$bridge.'/heartbeat', ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
+        self::assertFalse($this->decide('/api/bridges/'.$bridge.'/runs/extra', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/bridges/'.$bridge.'/runs', ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
+        self::assertTrue($this->decide('/api/bridges/'.$bridge.'/runs', ['ROLE_USER', 'ROLE_API_AGENT']));
     }
 
     /** The rules rule grants one route, so nothing beside it under a bridge opens. */
@@ -89,11 +92,14 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertFalse($this->decide('/api/projects/loupe/bridges/'.$bridge.'/rules', ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
     }
 
-    /** The run rule grants one route, so a path near it stays denied by default. */
+    /** The run rules grant two routes, so a path near them stays denied by default. */
     public function test_the_worker_run_rule_does_not_open_the_rest_of_a_project(): void
     {
-        self::assertFalse($this->decide('/api/projects/loupe/worker-runs/1', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs/1/extra', self::ALL_ROLES));
         self::assertFalse($this->decide('/api/projects/loupe/worker-runs/', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/client/app/worker-runs/1', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs/1', ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
+        self::assertTrue($this->decide('/api/projects/loupe/worker-runs/1', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertFalse($this->decide('/api/projects/client/app/worker-runs', self::ALL_ROLES));
         self::assertFalse($this->decide('/api/projects/client%2Fapp/worker-runs', self::ALL_ROLES));
         self::assertFalse($this->decide('/api/projects/loupe/worker-runs', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));

@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block topbar_meta %}
-    <span class="lp-topbar__meta">{{ 'bridge.worker_runs.meta.shown'|trans({'%count%': items|length}) }}</span>
+    <turbo-frame id="worker-runs-shown" class="lp-live-frame"><span class="lp-topbar__meta">{{ 'bridge.worker_runs.meta.shown'|trans({'%count%': items|length}) }}</span></turbo-frame>
 {% endblock %}
 
 {% block body %}
@@ -53,8 +53,8 @@
                         class="lp-input lp-select lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'bridge.worker_runs.filter.all_outcomes'|trans }}</option>
-                    {% for outcome in outcomes %}
-                        <option value="{{ outcome.value }}"{{ listQuery.outcome == outcome ? ' selected' : '' }}>{{ outcome.translationKey()|trans }}</option>
+                    {% for state in states %}
+                        <option value="{{ state.value }}"{{ listQuery.state == state ? ' selected' : '' }}>{{ state.translationKey()|trans }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -81,10 +81,18 @@
                class="lp-filter-clear">{{ 'bridge.worker_runs.filter.clear'|trans }}</a>
         </form>
 
-        <span class="lp-filter-count">{{ 'bridge.worker_runs.filter.count'|trans({'%count%': filteredTotal}) }}</span>
+        <turbo-frame id="worker-runs-count" class="lp-live-frame"><span class="lp-filter-count">{{ 'bridge.worker_runs.filter.count'|trans({'%count%': filteredTotal}) }}</span></turbo-frame>
     </div>
     {% endif %}
 
+    {% do mercure_subscribe(worker_runs_topic(project)) %}
+    {% set frameRequest = app.request.headers.get('Turbo-Frame') is not null %}
+    {# The filters stay outside the frame, so a reload never takes the search field from under the reader.
+       A page with no filters yet has no field to keep, so it reloads whole and gains them. #}
+    <div class="lp-live-frame" data-controller="worker-run-refresh"
+         data-worker-run-refresh-frames-value="{{ ['worker-runs-shown', 'worker-runs-count']|json_encode }}"
+         data-worker-run-refresh-whole-value="{{ items|length > 0 or listQuery.isNarrowed ? 'false' : 'true' }}">
+    <turbo-frame id="worker-runs-frame" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
     {% if items|length > 0 %}
     <div class="lp-worker-run-list">
         <div class="lp-worker-run-list__header" aria-hidden="true">
@@ -96,8 +104,8 @@
         </div>
         {% for item in items %}
         {% set run = item.run %}
-        {# A search by this run's id is a link to it, so its drawer opens on arrival. #}
-        <article class="lp-worker-run" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true"{% if listQuery.search|lower == (run.id ~ '')|lower %} data-modal-reopen-value="true"{% endif %}>
+        {# A search by this run's id is a link to it, so its drawer opens on arrival, and not on each live reload. #}
+        <article class="lp-worker-run" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true"{% if not frameRequest and listQuery.search|lower == (run.id ~ '')|lower %} data-modal-reopen-value="true"{% endif %}>
             <div class="lp-worker-run__table-row">
                 <div class="lp-worker-run__work">
                     {% if boardEnabled %}
@@ -109,16 +117,17 @@
                     <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
                     <button type="button" class="lp-btn lp-btn--ghost" data-action="modal#open">{{ 'bridge.worker_runs.details.open'|trans }}</button>
                 </div>
-                <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }}">
+                <span class="lp-status-chip lp-status-chip--{{ item.state.chipModifier() }}">
                     <span class="lp-status-chip__dot"></span>
-                    {{ item.outcome.translationKey()|trans }}
+                    {{ item.state.translationKey()|trans }}
                 </span>
                 <span class="lp-worker-run__rule">{{ run.ruleName }}</span>
                 <span class="lp-worker-run__duration">
                     {{ item.duration() }}
                     {% if run.exitCode is not null %}<small>{{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}</small>{% endif %}
                 </span>
-                <time datetime="{{ run.startedAt|date('c') }}">{{ run.startedAt|date('M j, H:i') }}</time>
+                {% set shownAt = run.startedAt ?? run.receivedAt %}
+                <time datetime="{{ shownAt|date('c') }}">{{ shownAt|date('M j, H:i') }}</time>
             </div>
 
             {% if run.failureReason %}
@@ -150,5 +159,7 @@
         <h2 class="lp-empty-state__title">{{ (listQuery.isNarrowed ? 'bridge.worker_runs.empty_filtered' : 'bridge.worker_runs.empty')|trans }}</h2>
     </div>
     {% endif %}
+    </turbo-frame>
+    </div>
 </div>
 {% endblock %}
