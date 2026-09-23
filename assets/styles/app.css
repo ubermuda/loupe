@@ -5823,6 +5823,23 @@
     .lp-card-form-textarea {
         @apply font-mono text-sm leading-relaxed;
     }
+    /* The linked card rows of the card form. form_collection_controller.js
+       builds an added row with the same flex utilities as .lp-card-link-row. */
+    .lp-card-link-rows {
+        @apply flex flex-col gap-2 empty:hidden;
+    }
+    .lp-card-link-row {
+        @apply flex gap-2 items-center self-stretch;
+    }
+    .lp-card-link-row__fields {
+        @apply grow flex flex-col gap-2 sm:flex-row;
+    }
+    .lp-card-link-row__card {
+        @apply grow min-w-0;
+    }
+    .lp-card-link-row__kind {
+        @apply sm:w-40 shrink-0;
+    }
 
     /* ── Done history ───────────────────────────────────────────────── */
 

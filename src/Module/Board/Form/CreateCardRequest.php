@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Form;
 
+use App\Module\Board\Command\CardLinkInput;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
@@ -26,7 +27,27 @@ class CreateCardRequest
         public ?BoardColumn $column = null,
         /** One URL per line, as typed. The list is replaced whole on every save. */
         public ?string $pullRequestUrls = null,
+
+        /** @var list<CardLinkRowRequest> replaced whole on every save, like the URLs */
+        #[Assert\Valid]
+        public array $relatedCards = [],
     ) {
+    }
+
+    /**
+     * The link rows as the handlers take them. Call it after validation only.
+     *
+     * @return list<CardLinkInput>
+     */
+    public function linkInputs(): array
+    {
+        return array_values(array_map(
+            static fn (CardLinkRowRequest $row): CardLinkInput => new CardLinkInput(
+                (string) ($row->card ?? throw new \LogicException('card required after validation'))->id,
+                $row->kind ?? throw new \LogicException('kind required after validation'),
+            ),
+            $this->relatedCards,
+        ));
     }
 
     /**
