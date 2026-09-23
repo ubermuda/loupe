@@ -439,7 +439,8 @@ func (c *Client) Sites(ctx context.Context) ([]Site, error) {
 //
 // ExitCode is nil when the process never started, and FailureReason then says
 // why. The server keeps those two faults apart, and refuses a report that sends
-// both or neither.
+// both or neither. HasResult says whether the output held a result line, and is
+// nil with ExitCode.
 type WorkerRun struct {
 	BridgeID      string    `json:"bridgeId"`
 	SessionID     string    `json:"sessionId"`
@@ -449,6 +450,7 @@ type WorkerRun struct {
 	StartedAt     time.Time `json:"startedAt"`
 	EndedAt       time.Time `json:"endedAt"`
 	ExitCode      *int      `json:"exitCode"`
+	HasResult     *bool     `json:"hasResult"`
 	FailureReason *string   `json:"failureReason"`
 	Output        string    `json:"output"`
 }

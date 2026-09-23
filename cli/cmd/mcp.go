@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -35,7 +33,8 @@ func newMcpCmd() *cobra.Command {
 			"release of this CLI.\n\n" +
 			"The project comes from " + projectfile.Name + " in the directory the command runs in. " +
 			"Write that file with `loupe init`. With no file, the server uses the single project " +
-			"your login covers, and refuses when your login covers several.\n\n" +
+			"your login covers, and refuses when your login covers several. A change to the file " +
+			"applies at the next request, and a note on stderr names the new project.\n\n" +
 			"Every message goes to stdout and every diagnostic to stderr, because stdout is the " +
 			"protocol. Run `loupe login` first.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -44,17 +43,16 @@ func newMcpCmd() *cobra.Command {
 				return err
 			}
 
-			if projectID == "" {
-				if projectID, err = projectOfWorkingDir(); err != nil {
-					return err
-				}
+			project, err := mcpProject(projectID, cmd.ErrOrStderr())
+			if err != nil {
+				return err
 			}
 
 			// No timeout: an MCP session stays open for as long as the agent
 			// runs, and a client timeout would end it mid-conversation.
 			hc := &http.Client{Transport: &mcpproxy.Credentials{
-				Tokens:    tokenSource(cfg, &http.Client{Timeout: refreshTimeout}),
-				ProjectID: projectID,
+				Tokens:  tokenSource(cfg, &http.Client{Timeout: refreshTimeout}),
+				Project: project,
 			}}
 
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
@@ -71,22 +69,3 @@ func newMcpCmd() *cobra.Command {
 // mcpPath is the MCP endpoint of every Loupe instance. The project never
 // appears in the URL.
 const mcpPath = "/mcp"
-
-// projectOfWorkingDir reads the project id out of the project file. A missing
-// file names no project, which leaves the choice to the server.
-func projectOfWorkingDir() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	file, err := projectfile.Load(dir)
-	if errors.Is(err, projectfile.ErrNoFile) {
-		return "", nil
-	}
-	if err != nil {
-		return "", fmt.Errorf("%w\n\nWrite the file with `loupe init`", err)
-	}
-
-	return file.Project, nil
-}

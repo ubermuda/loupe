@@ -30,9 +30,27 @@ It ignores the events of a project `rules.yaml` does not map, and logs that
 project once.
 
 A project you create while the bridge runs reaches it with no restart. The
-bridge ignores that project until you map it and restart. When a
+bridge ignores that project until you map it in `rules.yaml` and run
+`loupe bridge reload`. When a
 mapped project is deleted or stops being yours, the bridge logs `project_gone`
 once, with the rules that stop working.
+
+`loupe bridge reload` applies a changed `rules.yaml` to the running bridge. It
+reaches the bridge over a local socket, `bridge-<hash>.sock` in the config
+directory. The bridge parses the file and checks it against the server, and it
+applies the file only when every check passes. A failed reload changes nothing,
+and the command prints each problem and exits with status 1. A worker in flight
+keeps running. A queued event stays when a rule of the same name still matches
+it, and the bridge drops and logs the others.
+
+One rule file serves one bridge, so a second `loupe bridge run` on the same file
+refuses to start. Its error names the socket of the first bridge.
+
+The optional `defaults:` block of `rules.yaml` sets `permissionMode` and `model`
+for every rule. A value on the rule wins, then the block, then the
+`--permission-mode` and `--model` flags. A reload reads the block again. The
+flags, `--max-workers` and the instance URL in `config.json` stay fixed until
+the bridge restarts.
 
 The bridge authenticates with a token that carries the agent scope. `loupe
 login` gets one through the OAuth device flow: it prints a link and a code, and
@@ -78,11 +96,13 @@ A column rename, a column delete or a project rename can take away a slug a rule
 names. The bridge reads `board.column_renamed`, `board.column_deleted` and
 `project.renamed` for that reason, and marks each rule on the old slug dead. A
 project that a JWT refresh no longer lists kills its rules too. A dead rule
-matches nothing until the bridge restarts, and the bridge logs a `rule_dead`
-error for each one.
+matches nothing until you fix `rules.yaml` and run `loupe bridge reload`. The
+bridge logs a `rule_dead` error for each one.
 
 The bridge reports the state of every rule to the rule health endpoint, once for
-each mapped project at start and again when a rule dies. The report never
+each mapped project at start, again when a rule dies, and again after a reload.
+A reload sends an empty report for a project the new file no longer maps, so
+its dead-rule banner clears. The report never
 carries a prompt. A failed report is retried with backoff in the background, and
 a newer report replaces it. The bridge refuses at start a rule file that the
 endpoint would reject, such as a rule name longer than 100 characters. The
@@ -107,11 +127,22 @@ event carried. Each log line below goes with the state the bridge reports:
 | `resume_skipped` | `skipped` |
 | `worker_started` | `running`. A resume sends `resumed` first |
 | `worker_finished` | `succeeded` for exit code 0, and `failed` for any other code |
+| `worker_no_result` | `no-result` for exit code 0, and `failed` for any other code |
 | `worker_failed` | `not-started` |
-| `queue_dropped` | `dropped`, with the reason `shutdown` or `rule_dead` |
+| `queue_dropped` | `dropped`, with the reason `shutdown`, `rule_dead` or `reload` |
 
 The [Worker run API](../reference/worker-runs.md#the-states-of-a-run) page says
 what each state means. The server adds `timed-out` and `lost` on its own.
+
+A clean exit does not prove that the work finished. Every prompt asks the
+worker to end its final reply with a line that starts with `STAGE RESULT:`. The
+bridge reads the whole output for that line. A worker with no such line logs
+`worker_no_result` at `ERROR`, and its record carries `hasResult: false`.
+
+The bridge sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` for each worker. Without
+it, `claude -p` ends a worker 600 seconds after its main turn when a background
+subagent still runs, and exits 0. An operator who sets the variable, even to an
+empty value, keeps that value.
 
 Loupe records a run against a card. A rule can name an event type that carries
 no card number, and the bridge sends no state for such a run. It logs
@@ -163,7 +194,8 @@ not run".
 The bridge sends a heartbeat to `/api/bridges/{bridgeId}/heartbeat` once at
 start and then at the interval that `bridge.heartbeat_interval_seconds` gives,
 60 seconds by default. The heartbeat names the projects the rule file maps and
-the build of the bridge. The heartbeat has a latest-wins lane in the outbound
+the build of the bridge. A reload sends a heartbeat at once with the new
+projects. The heartbeat has a latest-wins lane in the outbound
 queue. A newer heartbeat replaces one that has not gone out, and a failed one
 waits for the next interval. A slow or failing heartbeat never delays a run
 report. A server with no heartbeat endpoint answers 404, and the bridge logs

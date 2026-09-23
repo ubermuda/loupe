@@ -18,7 +18,7 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 final class ReportWorkerRunStateRequest
 {
     /** The bridge sends these when a run is dropped. */
-    public const array DROP_REASONS = ['shutdown', 'rule_dead'];
+    public const array DROP_REASONS = ['shutdown', 'rule_dead', 'reload'];
 
     public function __construct(
         #[Assert\NotBlank]
@@ -51,6 +51,7 @@ final class ReportWorkerRunStateRequest
 
         #[Assert\Range(min: ReportWorkerRunRequest::MIN_EXIT_CODE, max: ReportWorkerRunRequest::MAX_EXIT_CODE)]
         public ?int $exitCode = null,
+        public ?bool $hasResult = null,
 
         #[Assert\Length(max: WorkerRun::MAX_FAILURE_REASON_LENGTH, normalizer: 'trim')]
         public ?string $failureReason = null,
@@ -100,7 +101,8 @@ final class ReportWorkerRunStateRequest
 
     /**
      * An outcome follows the pairing rules of the finished run report, and its
-     * state must be the one its exit code implies.
+     * state must be the one its exit code and result flag imply. So a clean
+     * exit with no result is no-result, never succeeded.
      */
     #[Assert\Callback]
     public function validateOutcome(ExecutionContextInterface $context): void
@@ -126,8 +128,12 @@ final class ReportWorkerRunStateRequest
             $context->buildViolation('A run that exited has no failure reason.')->atPath('failureReason')->addViolation();
         }
 
-        if (WorkerRunState::fromExitCode($this->exitCode) !== $state) {
-            $context->buildViolation('The exit code does not match the state.')->atPath('exitCode')->addViolation();
+        if (null === $this->exitCode && null !== $this->hasResult) {
+            $context->buildViolation('A run with no exit code has no result flag.')->atPath('hasResult')->addViolation();
+        }
+
+        if (WorkerRunState::fromExitCode($this->exitCode, $this->hasResult) !== $state) {
+            $context->buildViolation('The exit code and the result flag do not match the state.')->atPath('exitCode')->addViolation();
         }
 
         if (null !== $this->startedAt && null !== $this->endedAt && $this->endedAt < $this->startedAt) {

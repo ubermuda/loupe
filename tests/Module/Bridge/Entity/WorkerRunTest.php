@@ -41,11 +41,12 @@ final class WorkerRunTest extends TestCase
         $run = $this->queuedRun();
         $endedAt = new \DateTimeImmutable('2026-09-23 10:05:00');
 
-        $run->recordOutcome(WorkerRunState::Failed, $endedAt, 2, null, 'it broke');
+        $run->recordOutcome(WorkerRunState::Failed, $endedAt, 2, false, null, 'it broke');
 
         self::assertSame(WorkerRunState::Failed, $run->state);
         self::assertSame($endedAt, $run->endedAt);
         self::assertSame(2, $run->exitCode);
+        self::assertFalse($run->hasResult);
         self::assertNull($run->failureReason);
         self::assertSame('it broke', $run->output);
     }
@@ -54,7 +55,7 @@ final class WorkerRunTest extends TestCase
     {
         $this->expectException(\LogicException::class);
 
-        $this->queuedRun()->recordOutcome(WorkerRunState::Running, new \DateTimeImmutable(), null, null, '');
+        $this->queuedRun()->recordOutcome(WorkerRunState::Running, new \DateTimeImmutable(), null, null, null, '');
     }
 
     public function test_moving_to_a_state_changes_the_state_alone(): void

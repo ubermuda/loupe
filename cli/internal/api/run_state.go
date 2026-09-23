@@ -24,6 +24,7 @@ const (
 	RunWaitingForPerson = "waiting-for-person"
 	RunDropped          = "dropped"
 	RunSucceeded        = "succeeded"
+	RunNoResult         = "no-result"
 	RunFailed           = "failed"
 	RunNotStarted       = "not-started"
 )
@@ -32,12 +33,13 @@ const (
 const (
 	DropShutdown = "shutdown"
 	DropRuleDead = "rule_dead"
+	DropReload   = "reload"
 )
 
 // IsOutcome reports whether state is how a worker ended. Only an outcome maps
 // onto the old report.
 func IsOutcome(state string) bool {
-	return state == RunSucceeded || state == RunFailed || state == RunNotStarted
+	return state == RunSucceeded || state == RunNoResult || state == RunFailed || state == RunNotStarted
 }
 
 // RunStateReport is one state of a run, as PUT
@@ -55,10 +57,13 @@ type RunStateReport struct {
 	SessionID string    `json:"sessionId,omitzero"`
 	StartedAt time.Time `json:"startedAt,omitzero"`
 
-	EndedAt       time.Time `json:"endedAt,omitzero"`
-	ExitCode      *int      `json:"exitCode,omitzero"`
-	FailureReason *string   `json:"failureReason,omitzero"`
-	Output        string    `json:"output,omitzero"`
+	EndedAt  time.Time `json:"endedAt,omitzero"`
+	ExitCode *int      `json:"exitCode,omitzero"`
+	// HasResult says whether the output held a result line. It pairs with
+	// ExitCode, as in the old report.
+	HasResult     *bool   `json:"hasResult,omitzero"`
+	FailureReason *string `json:"failureReason,omitzero"`
+	Output        string  `json:"output,omitzero"`
 
 	AskID      string `json:"askId,omitzero"`
 	ReplacedBy string `json:"replacedBy,omitzero"`
@@ -67,8 +72,8 @@ type RunStateReport struct {
 }
 
 // MarshalJSON sends every field of an outcome, as the old report does, so an
-// empty output and the null half of the exit code and failure reason pair still
-// reach the server.
+// empty output, a null result flag and the null half of the exit code and
+// failure reason pair still reach the server.
 func (r RunStateReport) MarshalJSON() ([]byte, error) {
 	type plain RunStateReport
 	if !IsOutcome(r.State) {
@@ -79,9 +84,10 @@ func (r RunStateReport) MarshalJSON() ([]byte, error) {
 		plain
 		EndedAt       time.Time `json:"endedAt"`
 		ExitCode      *int      `json:"exitCode"`
+		HasResult     *bool     `json:"hasResult"`
 		FailureReason *string   `json:"failureReason"`
 		Output        string    `json:"output"`
-	}{plain(r), r.EndedAt, r.ExitCode, r.FailureReason, r.Output})
+	}{plain(r), r.EndedAt, r.ExitCode, r.HasResult, r.FailureReason, r.Output})
 }
 
 // InventoryRun is one run the bridge holds, as PUT /api/bridges/{bridgeId}/runs

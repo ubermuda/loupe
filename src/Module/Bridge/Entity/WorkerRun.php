@@ -104,6 +104,10 @@ class WorkerRun
         #[ORM\Column(name: 'exit_code', nullable: true)]
         public ?int $exitCode = null,
 
+        /** Whether the worker produced its final result. Null for a run that never ran, or from an older bridge. */
+        #[ORM\Column(name: 'has_result', nullable: true)]
+        public ?bool $hasResult = null,
+
         #[ORM\Column(name: 'failure_reason', type: Types::TEXT, nullable: true)]
         public ?string $failureReason = null,
 
@@ -136,6 +140,7 @@ class WorkerRun
         WorkerRunState $state,
         \DateTimeImmutable $endedAt,
         ?int $exitCode,
+        ?bool $hasResult,
         ?string $failureReason,
         string $output,
     ): void {
@@ -146,6 +151,7 @@ class WorkerRun
         $this->state = $state;
         $this->endedAt = $endedAt;
         $this->exitCode = $exitCode;
+        $this->hasResult = $hasResult;
         $this->failureReason = $failureReason;
         $this->output = $output;
     }

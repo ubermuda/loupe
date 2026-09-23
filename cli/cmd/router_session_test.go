@@ -129,7 +129,7 @@ func TestTheFlagsOfTheFirstEventsCallReachTheFirstWorker(t *testing.T) {
 		t.Fatal(err)
 	}
 	worker := &fakeWorker{}
-	r := &router{log: newBridgeLogger(&syncBuffer{}), rules: set, maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}
+	r := withRules(&router{log: newBridgeLogger(&syncBuffer{}), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

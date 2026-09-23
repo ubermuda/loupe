@@ -337,7 +337,7 @@ func TestTheResumeKey(t *testing.T) {
 		"the session":        {ask{}, askSession, 0},
 	} {
 		t.Run(name, func(t *testing.T) {
-			e, err := event.Parse([]byte(h.mine(tc.ask)), h.router.rules.ExtraTypes())
+			e, err := event.Parse([]byte(h.mine(tc.ask)), h.router.rules().ExtraTypes())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -534,8 +534,9 @@ func TestARuleThatDiesDuringTheCheckStartsNoResume(t *testing.T) {
 	if calls := h.worker.recorded(); len(calls) != 0 {
 		t.Fatalf("workers = %+v, want none for a dead rule", calls)
 	}
-	if got := dropped(t, h.only(t, "queue_dropped")); len(got) != 1 || got[0] != "87/resume" {
-		t.Fatalf("dropped = %v", got)
+	line := h.only(t, "queue_dropped")
+	if got := dropped(t, line); len(got) != 1 || got[0] != "87/resume" || line["reason"] != nil {
+		t.Fatalf("queue_dropped = %v, want 87/resume with no reason", line)
 	}
 	if h.cardHeld(87) {
 		t.Fatal("the dropped resume still holds card 87")
@@ -764,8 +765,11 @@ func TestAFailedResumeIsReportedAsAFailedRun(t *testing.T) {
 	if got.run.CardID != cardUUID(87) || got.run.CardNumber != 87 || got.run.SessionID != askSession || got.run.RuleName != "resume" || got.run.BridgeID != testBridge {
 		t.Fatalf("run = %+v", got.run)
 	}
-	if finished := h.only(t, "worker_finished"); num(t, finished, "exit") != 1 || finished["level"] != "ERROR" {
-		t.Fatalf("worker_finished = %v", finished)
+	if got.run.HasResult == nil || *got.run.HasResult {
+		t.Fatalf("has result = %v, want false", got.run.HasResult)
+	}
+	if line := h.only(t, "worker_no_result"); num(t, line, "exit") != 1 || line["level"] != "ERROR" {
+		t.Fatalf("worker_no_result = %v", line)
 	}
 }
 
@@ -788,7 +792,7 @@ func TestTheBridgeChecksTheAskBeforeItResumes(t *testing.T) {
 	}
 	log := &syncBuffer{}
 	worker := &fakeWorker{}
-	r := &router{log: newBridgeLogger(log), rules: set, maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}
+	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

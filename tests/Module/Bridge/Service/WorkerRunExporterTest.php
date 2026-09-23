@@ -38,6 +38,7 @@ final class WorkerRunExporterTest extends TestCase
             startedAt: new \DateTimeImmutable('2026-09-13T10:00:00+00:00'),
             endedAt: new \DateTimeImmutable('2026-09-13T10:00:21+00:00'),
             exitCode: 0,
+            hasResult: true,
             failureReason: null,
             output: 'all good',
             receivedAt: new \DateTimeImmutable('2026-09-13T10:00:22+00:00'),
@@ -62,6 +63,7 @@ final class WorkerRunExporterTest extends TestCase
             'startedAt' => '2026-09-13T10:00:00+00:00',
             'endedAt' => '2026-09-13T10:00:21+00:00',
             'exitCode' => 0,
+            'hasResult' => true,
             'failureReason' => null,
             'output' => 'all good',
             'receivedAt' => '2026-09-13T10:00:22+00:00',
@@ -121,6 +123,7 @@ final class WorkerRunExporterTest extends TestCase
         $rows = iterator_to_array($this->exporter([$run], [])->export($owner));
 
         self::assertNull($rows[0]['exitCode']);
+        self::assertNull($rows[0]['hasResult']);
         self::assertSame('binary not found', $rows[0]['failureReason']);
     }
 

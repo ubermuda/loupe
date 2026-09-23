@@ -101,6 +101,55 @@ rules:
 	}
 }
 
+// A rule's own value wins, then the file's defaults, then the bridge flags.
+func TestParseFillsARuleFromTheFileBeforeTheFlags(t *testing.T) {
+	for name, tc := range map[string]struct{ file, rule, flag, want string }{
+		"the file fills an empty rule":   {file: "plan", want: "plan"},
+		"the rule beats the file":        {file: "plan", rule: "dontAsk", want: "dontAsk"},
+		"the file beats the flag":        {file: "plan", flag: "acceptEdits", want: "plan"},
+		"the flag fills when both empty": {flag: "acceptEdits", want: "acceptEdits"},
+		"nothing sets a value":           {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			body := oneRule
+			if tc.rule != "" {
+				body = strings.Replace(body, "    to: ready\n", "    to: ready\n    permissionMode: "+tc.rule+"\n    model: "+tc.rule+"-model\n", 1)
+			}
+			if tc.file != "" {
+				body = "defaults:\n  permissionMode: " + tc.file + "\n  model: " + tc.file + "-model\n" + body
+			}
+			flags := Defaults{}
+			if tc.flag != "" {
+				flags = Defaults{PermissionMode: tc.flag, Model: tc.flag + "-model"}
+			}
+			text, _ := file(t, body)
+			s, err := Parse([]byte(text), flags)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantModel := ""
+			if tc.want != "" {
+				wantModel = tc.want + "-model"
+			}
+			if r := s.Rules()[0]; r.PermissionMode != tc.want || r.Model != wantModel {
+				t.Fatalf("permissionMode = %q, model = %q, want %q and %q", r.PermissionMode, r.Model, tc.want, wantModel)
+			}
+		})
+	}
+}
+
+// A mode that only the file's defaults name still reaches the warning.
+func TestUnknownPermissionModesListAFileDefault(t *testing.T) {
+	text, _ := file(t, "defaults:\n  permissionMode: newMode\n"+oneRule)
+	s, err := Parse([]byte(text), Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(s.UnknownPermissionModes(), " "); got != "newMode" {
+		t.Fatalf("UnknownPermissionModes = %q", got)
+	}
+}
+
 // YAML 1.1 reads a bare `on` as true. The key must still reach the rule.
 func TestParseReadsTheOnKeyAsAString(t *testing.T) {
 	if got := parse(t, oneRule).Rules()[0].On; got != event.CardMovedType {
@@ -155,6 +204,9 @@ func TestParseRefusesAnInvalidFile(t *testing.T) {
 		"second document":         {oneRule + "---\n" + oneRule, "second YAML document"},
 		"permissionMode spaced":   {rule("on: board.card_moved\nproject: loupe\nto: ready\npermissionMode: accept edits\nprompt: x"), `permissionMode "accept edits" holds whitespace`},
 		"model with a space":      {rule("on: board.card_moved\nproject: loupe\nto: ready\nmodel: 'claude opus'\nprompt: x"), `model "claude opus" holds whitespace`},
+		"default mode spaced":     {"defaults:\n  permissionMode: accept edits\n" + oneRule, `defaults.permissionMode "accept edits" holds whitespace`},
+		"default model spaced":    {"defaults:\n  model: 'claude opus'\n" + oneRule, `defaults.model "claude opus" holds whitespace`},
+		"unknown defaults field":  {"defaults:\n  maxChain: 2\n" + oneRule, "field maxChain not found"},
 		"card_moved without to":   {rule("on: board.card_moved\nproject: loupe\nprompt: x"), "to is required"},
 		"to not a slug":           {rule("on: board.card_moved\nproject: loupe\nto: Ready\nprompt: x"), "is not a column slug"},
 		"from not a slug":         {rule("on: board.card_moved\nproject: loupe\nto: ready\nfrom: in_progress\nprompt: x"), "is not a column slug"},
@@ -680,6 +732,59 @@ rules:
 	}
 }
 
+// MatchRule matches one named rule alone, so a later rule that the event also
+// triggers never replaces it.
+func TestMatchRule(t *testing.T) {
+	s := checked(t, twoRules)
+	other := moved("backlog", "ready", event.ActorHuman)
+	other.ProjectID = "0192f3a1-4b2c-7d3e-8f10-ffffffffffff"
+
+	for name, tc := range map[string]struct {
+		event event.Event
+		rule  string
+		ok    bool
+	}{
+		"the rule matches":               {moved("backlog", "ready", event.ActorHuman), "plan", true},
+		"an absent rule":                 {moved("backlog", "ready", event.ActorHuman), "gone", false},
+		"another column":                 {moved("backlog", "review", event.ActorHuman), "plan", false},
+		"from differs":                   {moved("backlog", "review", event.ActorHuman), "review-from-ready", false},
+		"a later rule that also matches": {moved("ready", "review", event.ActorHuman), "review", true},
+		"a reorder inside the column":    {moved("ready", "ready", event.ActorHuman), "plan", false},
+		"another project":                {other, "plan", false},
+		"a reviewer, rule disallows":     {moved("backlog", "ready", event.ActorReviewer), "plan", false},
+		"a reviewer, rule allows":        {moved("backlog", "review", event.ActorReviewer), "review", true},
+		"a type the rule does not name":  {moved("backlog", "ready", event.ActorHuman), "created", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			m, ok := s.MatchRule(tc.event, tc.rule)
+			if ok != tc.ok {
+				t.Fatalf("MatchRule = %+v, %v, want %v", m, ok, tc.ok)
+			}
+			if ok && (m.Skip != Run || m.Rule != tc.rule) {
+				t.Fatalf("MatchRule = %+v", m)
+			}
+		})
+	}
+}
+
+func TestMatchRuleRendersThePrompt(t *testing.T) {
+	s := checked(t, twoRules)
+
+	m, ok := s.MatchRule(moved("backlog", "ready", event.ActorHuman), "plan")
+	if !ok || m.Prompt != "plan 87\n\n"+directive.Footer || m.MaxChain != DefaultMaxChain || m.Project != "loupe" || m.Dir != s.dirs["loupe"] {
+		t.Fatalf("MatchRule = %+v, %v", m, ok)
+	}
+}
+
+func TestMatchRuleSkipsADeadRule(t *testing.T) {
+	s := checked(t, twoRules)
+	s.KillProject("loupe", api.ReasonProjectGone)
+
+	if m, ok := s.MatchRule(moved("backlog", "ready", event.ActorHuman), "plan"); ok {
+		t.Fatalf("MatchRule = %+v on a dead rule", m)
+	}
+}
+
 // The prompt-injection guard. A payload carries fields a person controls, such
 // as a title. Two payloads that differ only in those must render one prompt.
 func TestThePromptCarriesOnlyValidatedValues(t *testing.T) {
@@ -791,6 +896,20 @@ func TestMatchAVerdict(t *testing.T) {
 				t.Fatalf("Match = %+v, want skip %d rule %q", m, tc.skip, tc.rule)
 			}
 		})
+	}
+}
+
+// A reload keeps a queued verdict only under a rule that still takes it.
+func TestMatchRuleReadsTheVerdict(t *testing.T) {
+	s := checked(t, verdictRules)
+	if _, ok := s.MatchRule(reviewSubmitted(event.VerdictChangesRequested, 33), "approved"); ok {
+		t.Fatal("MatchRule ran a change request under the approved rule")
+	}
+	if _, ok := s.MatchRule(reviewSubmitted(event.VerdictApproved, 0), "any"); ok {
+		t.Fatal("MatchRule ran a verdict that names no card")
+	}
+	if m, ok := s.MatchRule(reviewSubmitted(event.VerdictApproved, 33), "approved"); !ok || m.Rule != "approved" {
+		t.Fatalf("MatchRule = %+v, %v", m, ok)
 	}
 }
 

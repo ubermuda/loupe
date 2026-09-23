@@ -298,6 +298,62 @@ final class WorkerRunsApiTest extends WebTestCase
         self::assertSame(0, $this->countRuns());
     }
 
+    public function test_a_run_that_exited_stores_whether_it_had_a_result(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'runs-api-result@example.com');
+        $project = $this->project($em, $owner, 'Result App');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload([
+            'cardNumber' => 1,
+            'exitCode' => 0,
+            'hasResult' => false,
+        ]));
+        self::assertResponseStatusCodeSame(201);
+
+        $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload([
+            'cardNumber' => 2,
+            'exitCode' => 0,
+            'hasResult' => true,
+        ]));
+        self::assertResponseStatusCodeSame(201);
+
+        $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload(['cardNumber' => 3]));
+        self::assertResponseStatusCodeSame(201);
+
+        $byCard = [];
+        foreach ($this->allRuns() as $run) {
+            $byCard[$run->cardNumber] = $run->hasResult;
+        }
+        ksort($byCard);
+        self::assertSame([1 => false, 2 => true, 3 => null], $byCard);
+    }
+
+    /** A process that never ran cannot say whether it produced a result. */
+    public function test_a_result_flag_without_an_exit_code_is_refused(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'runs-api-result-spawn@example.com');
+        $project = $this->project($em, $owner, 'Result Spawn App');
+        $raw = $this->agentToken($client, $owner);
+
+        foreach ([true, false] as $hasResult) {
+            $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload([
+                'exitCode' => null,
+                'failureReason' => 'binary not found',
+                'hasResult' => $hasResult,
+            ]));
+
+            self::assertResponseStatusCodeSame(422, var_export($hasResult, true));
+            self::assertStringContainsString('hasResult', (string) $client->getResponse()->getContent());
+        }
+
+        self::assertSame(0, $this->countRuns());
+    }
+
     public function test_an_exit_code_with_a_reason_is_refused(): void
     {
         $client = static::createClient();

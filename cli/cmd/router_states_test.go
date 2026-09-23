@@ -147,7 +147,7 @@ func ofRun(sent []stateSent, runID string) []stateSent {
 func TestARunReportsEachStateUnderOneRunID(t *testing.T) {
 	h := newHarness(t)
 	rec := h.states()
-	h.worker.result = workerResult{exitCode: 0, output: "wrote a plan"}
+	h.worker.result = workerResult{exitCode: 0, output: "wrote a plan", hasResult: true}
 
 	h.send(cardMoved(87))
 
@@ -177,18 +177,23 @@ func TestARunReportsEachStateUnderOneRunID(t *testing.T) {
 	if done.ExitCode == nil || *done.ExitCode != 0 || done.FailureReason != nil || done.Output != "wrote a plan" {
 		t.Fatalf("succeeded = %+v", done)
 	}
+	if done.HasResult == nil || !*done.HasResult {
+		t.Fatalf("succeeded = %+v, want a result", done)
+	}
 	if rec.posts != 0 {
 		t.Fatalf("posted %d old reports to a server with run states", rec.posts)
 	}
 }
 
-// A non-zero exit is a failed run, and a worker that never ran did not start.
+// A non-zero exit is a failed run, a clean exit with no result line has no
+// result, and a worker that never ran did not start.
 func TestAFinishedRunReportsHowItEnded(t *testing.T) {
 	for name, tc := range map[string]struct {
 		result workerResult
 		want   string
 	}{
 		"failed":      {workerResult{exitCode: 2, output: "no such option"}, api.RunFailed},
+		"no result":   {workerResult{exitCode: 0, output: "no such option"}, api.RunNoResult},
 		"not started": {workerResult{err: errors.New("fork/exec claude: permission denied")}, api.RunNotStarted},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -202,14 +207,17 @@ func TestAFinishedRunReportsHowItEnded(t *testing.T) {
 			wantStates(t, sent, api.RunQueued, api.RunRunning, tc.want)
 			done := sent[2].report
 			if tc.result.err != nil {
-				if done.ExitCode != nil || done.FailureReason == nil || *done.FailureReason != tc.result.err.Error() {
+				if done.ExitCode != nil || done.HasResult != nil || done.FailureReason == nil || *done.FailureReason != tc.result.err.Error() {
 					t.Fatalf("not-started = %+v", done)
 				}
 
 				return
 			}
-			if done.ExitCode == nil || *done.ExitCode != 2 || done.FailureReason != nil || done.Output != "no such option" {
-				t.Fatalf("failed = %+v", done)
+			if done.ExitCode == nil || *done.ExitCode != tc.result.exitCode || done.FailureReason != nil || done.Output != "no such option" {
+				t.Fatalf("%s = %+v", tc.want, done)
+			}
+			if done.HasResult == nil || *done.HasResult {
+				t.Fatalf("%s = %+v, want no result", tc.want, done)
 			}
 		})
 	}
@@ -426,6 +434,7 @@ func TestAResumeDroppedAfterItsCheckNamesTheCause(t *testing.T) {
 	for name, stop := range map[string]func(h *harness){
 		"shutdown":  func(h *harness) { h.router.shutdown() },
 		"rule_dead": func(h *harness) { h.router.onData([]byte(projectRenamed())) },
+		"reload":    func(h *harness) { h.router.reload(context.Background(), h.source(defaultRules)) },
 	} {
 		t.Run(name, func(t *testing.T) {
 			h := newHarnessWith(t, resumeRules, rules.Defaults{})
@@ -446,6 +455,41 @@ func TestAResumeDroppedAfterItsCheckNamesTheCause(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A reload that drops a waiting run closes it as dropped, for the reload, and
+// the next inventory no longer lists it. A run the reload keeps keeps its id.
+func TestAReloadDropsTheRunsItNoLongerRuns(t *testing.T) {
+	h := newHarnessWith(t, twoRuleFile, rules.Defaults{})
+	rec := h.states()
+	h.router.maxWorkers = 1
+	h.worker.started = make(chan workerSpec, 2)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	h.router.onData([]byte(cardMoved(88)))
+	h.router.onData([]byte(movedPayload(89, "backlog", "review", "human")))
+	plan, review := rec.states()[2], rec.states()[3]
+
+	// plan takes another name, so its waiting run drops, and review stays.
+	res := h.reload(t, strings.Replace(twoRuleFile, "  - name: plan", "  - name: gone", 1))
+	if !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+	wantStates(t, ofRun(rec.states(), plan.runID), api.RunQueued, api.RunDropped)
+	if got := ofRun(rec.states(), plan.runID)[1].report; got.Reason != api.DropReload || got.CardNumber != 88 {
+		t.Fatalf("dropped = %+v", got)
+	}
+	h.router.handler().OnConnect()
+	inv := rec.inventories()
+	if len(inv) != 1 || len(inv[0]) != 2 || slices.ContainsFunc(inv[0], func(r api.InventoryRun) bool { return r.RunID == plan.runID }) {
+		t.Fatalf("inventory = %+v, want the running run and the kept run alone", inv)
+	}
+
+	close(h.worker.block)
+	h.router.wg.Wait()
+	wantStates(t, ofRun(rec.states(), review.runID), api.RunQueued, api.RunRunning, api.RunSucceeded)
 }
 
 // An event with no card sends no state, and logs the skip once.

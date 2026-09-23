@@ -62,7 +62,7 @@ final readonly class ReportWorkerRunHandler
             }
 
             $receivedAt = $this->clock->now();
-            $outcome = WorkerRunState::fromExitCode($command->exitCode);
+            $outcome = WorkerRunState::fromExitCode($command->exitCode, $command->hasResult);
             $run = new WorkerRun(
                 project: $project,
                 bridgeId: $command->bridgeId,
@@ -74,6 +74,7 @@ final readonly class ReportWorkerRunHandler
                 startedAt: $command->startedAt,
                 endedAt: $command->endedAt,
                 exitCode: $command->exitCode,
+                hasResult: $command->hasResult,
                 failureReason: $command->failureReason,
                 output: $command->output,
                 receivedAt: $receivedAt,
@@ -99,6 +100,7 @@ final readonly class ReportWorkerRunHandler
                     'cardNumber' => $command->cardNumber,
                     'ruleName' => $command->ruleName,
                     'exitCode' => $command->exitCode,
+                    'hasResult' => $command->hasResult,
                     'spawnFailed' => null === $command->exitCode,
                 ],
                 new AuditSubject('worker_run', (string) $result->run->id),

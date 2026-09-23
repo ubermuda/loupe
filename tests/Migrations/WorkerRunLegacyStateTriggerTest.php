@@ -7,6 +7,7 @@ namespace App\Tests\Migrations;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -15,23 +16,26 @@ use Symfony\Component\Uid\Uuid;
 /** The previous image inserts runs with no state, as it does during a deploy or after a rollback. */
 final class WorkerRunLegacyStateTriggerTest extends KernelTestCase
 {
-    /** @return iterable<string, array{?int, ?string, string}> */
+    /** @return iterable<string, array{?int, ?bool, ?string, string}> */
     public static function legacyRows(): iterable
     {
-        yield 'exit code 0' => [0, null, 'succeeded'];
-        yield 'exit code 1' => [1, null, 'failed'];
-        yield 'never started' => [null, 'spawn failed', 'not-started'];
+        yield 'exit code 0' => [0, null, null, 'succeeded'];
+        yield 'exit code 0 with a result' => [0, true, null, 'succeeded'];
+        yield 'exit code 0 with no result' => [0, false, null, 'no-result'];
+        yield 'exit code 1' => [1, null, null, 'failed'];
+        yield 'exit code 1 with no result' => [1, false, null, 'failed'];
+        yield 'never started' => [null, null, 'spawn failed', 'not-started'];
     }
 
     #[DataProvider('legacyRows')]
-    public function test_a_row_with_no_state_takes_its_state_from_the_exit_code(?int $exitCode, ?string $failureReason, string $expected): void
+    public function test_a_row_with_no_state_takes_its_state_from_the_exit_code(?int $exitCode, ?bool $hasResult, ?string $failureReason, string $expected): void
     {
         [$connection, $projectId] = $this->projectConnection();
 
         $id = Uuid::v7()->toRfc4122();
         $connection->executeStatement(
-            'INSERT INTO bridge_worker_runs (id, project_id, bridge_id, session_id, card_id, card_number, rule_name, started_at, ended_at, exit_code, failure_reason, output, received_at)
-             VALUES (:id, :project, :bridge, :session, :card, 3, :rule, NOW(), NOW(), :exit, :reason, :output, NOW())',
+            'INSERT INTO bridge_worker_runs (id, project_id, bridge_id, session_id, card_id, card_number, rule_name, started_at, ended_at, exit_code, has_result, failure_reason, output, received_at)
+             VALUES (:id, :project, :bridge, :session, :card, 3, :rule, NOW(), NOW(), :exit, :hasResult, :reason, :output, NOW())',
             [
                 'id' => $id,
                 'project' => $projectId,
@@ -40,9 +44,11 @@ final class WorkerRunLegacyStateTriggerTest extends KernelTestCase
                 'card' => Uuid::v7()->toRfc4122(),
                 'rule' => 'plan',
                 'exit' => $exitCode,
+                'hasResult' => $hasResult,
                 'reason' => $failureReason,
                 'output' => '',
             ],
+            ['hasResult' => ParameterType::BOOLEAN],
         );
 
         self::assertSame($expected, $connection->fetchOne('SELECT state FROM bridge_worker_runs WHERE id = ?', [$id]));

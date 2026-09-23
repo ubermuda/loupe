@@ -99,6 +99,7 @@ func (s *runReports) post(ctx context.Context, handle string, report api.RunStat
 		StartedAt:     report.StartedAt,
 		EndedAt:       report.EndedAt,
 		ExitCode:      report.ExitCode,
+		HasResult:     report.HasResult,
 		FailureReason: report.FailureReason,
 		Output:        report.Output,
 	})

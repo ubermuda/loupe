@@ -103,7 +103,7 @@ func loupe(t *testing.T, seen func(*http.Request)) *httptest.Server {
 // remote builds the HTTP end of the pipe against server.
 func remote(server *httptest.Server, project string) Dial {
 	hc := *server.Client()
-	hc.Transport = &Credentials{Tokens: api.StaticToken("t0ken"), ProjectID: project, Base: hc.Transport}
+	hc.Transport = &Credentials{Tokens: api.StaticToken("t0ken"), Project: fixed(project), Base: hc.Transport}
 
 	return dial(server.URL, &hc)
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -210,6 +211,28 @@ func TestTheIntervalFallsBackToSixtySeconds(t *testing.T) {
 	} {
 		if got := heartbeatInterval(api.Events{Flags: tc.flags}); got != tc.want {
 			t.Fatalf("flags %v: interval = %s, want %s", tc.flags, got, tc.want)
+		}
+	}
+}
+
+// A new body goes out at once, with no wait for the interval, and every later
+// heartbeat carries it.
+func TestANewBodyGoesOutAtOnce(t *testing.T) {
+	client := &fakeHeartbeats{}
+	hh := startHeartbeater(t, client, time.Minute)
+
+	hh.h.setBody(api.Heartbeat{Projects: []string{"p2", "p3"}, CLIVersion: "b4e39aa7"})
+	eventually(t, "the heartbeat of the new body", func() bool { return hh.queue.recorded() == 2 })
+	hh.tick(t, time.Minute)
+
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if len(client.sent) != 3 {
+		t.Fatalf("%d heartbeats, want 3", len(client.sent))
+	}
+	for i, hb := range client.sent[1:] {
+		if !slices.Equal(hb.Projects, []string{"p2", "p3"}) {
+			t.Fatalf("heartbeat %d = %+v", i+1, hb)
 		}
 	}
 }

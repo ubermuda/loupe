@@ -105,6 +105,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
             startedAt: new \DateTimeImmutable('2026-09-23 10:00:00'),
             endedAt: new \DateTimeImmutable('2026-09-23 10:01:00'),
             exitCode: 0,
+            hasResult: true,
             failureReason: null,
             output: '',
         );

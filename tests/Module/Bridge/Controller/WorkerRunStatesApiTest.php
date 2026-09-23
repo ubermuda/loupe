@@ -112,6 +112,33 @@ final class WorkerRunStatesApiTest extends WebTestCase
         );
     }
 
+    /** A clean exit with no result line closes as no-result and keeps the flag. */
+    public function test_a_no_result_outcome_stores_the_result_flag(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-no-result@example.com');
+        $project = $this->project($em, $owner, 'Run States No Result');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload([
+            'state' => 'no-result',
+            'sessionId' => (string) Uuid::v4(),
+            'startedAt' => '2026-09-23T10:00:00+00:00',
+            'endedAt' => '2026-09-23T10:01:00+00:00',
+            'exitCode' => 0,
+            'hasResult' => false,
+            'failureReason' => null,
+            'output' => '',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunState::NoResult, $run->state);
+        self::assertSame(0, $run->exitCode);
+        self::assertFalse($run->hasResult);
+    }
+
     public function test_another_users_project_answers_project_not_found(): void
     {
         $client = static::createClient();
@@ -176,6 +203,10 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'failed with a zero exit code' => [array_merge($outcome, ['state' => 'failed'])];
         yield 'not-started with an exit code' => [array_merge($outcome, ['state' => 'not-started', 'failureReason' => 'no claude'])];
         yield 'not-started with no reason' => [array_merge($outcome, ['state' => 'not-started', 'exitCode' => null])];
+        yield 'succeeded with no result, which is no-result' => [array_merge($outcome, ['state' => 'succeeded', 'hasResult' => false])];
+        yield 'no-result with a result' => [array_merge($outcome, ['state' => 'no-result', 'hasResult' => true])];
+        yield 'no-result with a non-zero exit code' => [array_merge($outcome, ['state' => 'no-result', 'exitCode' => 1, 'hasResult' => false])];
+        yield 'a result flag with no exit code' => [array_merge($outcome, ['state' => 'not-started', 'exitCode' => null, 'failureReason' => 'no claude', 'hasResult' => false])];
         yield 'an end before the start' => [array_merge($outcome, ['state' => 'succeeded', 'endedAt' => '2026-09-23T09:00:00+00:00'])];
         yield 'a drop reason the bridge does not send' => [['state' => 'dropped', 'reason' => 'bored']];
         yield 'a replacement that is not a uuid' => [['state' => 'replaced', 'replacedBy' => 'nope']];

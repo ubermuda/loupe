@@ -36,7 +36,7 @@ final class WorkerRunListItemTest extends TestCase
     {
         $run = $this->queuedRun();
         $run->markRunning(Uuid::v4(), new \DateTimeImmutable('2026-09-23 10:00:00'));
-        $run->recordOutcome(WorkerRunState::Succeeded, new \DateTimeImmutable('2026-09-23 10:00:21'), 0, null, '');
+        $run->recordOutcome(WorkerRunState::Succeeded, new \DateTimeImmutable('2026-09-23 10:00:21'), 0, true, null, '');
 
         $item = new WorkerRunListItem($run, new \DateTimeImmutable('2026-09-23 12:00:00'), []);
 

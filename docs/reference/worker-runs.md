@@ -29,16 +29,22 @@ the `site-review` or the `mcp` scope.
 | `skipped` | the bridge | the session already read every answer of its ask, so the bridge does not resume it |
 | `running` | the bridge | the worker process started |
 | `waiting-for-person` | the bridge | the rule's `maxChain` cap stopped the run. A move by a person starts a new run |
-| `dropped` | the bridge | the bridge stopped, or the rule died, while the run still waited |
-| `succeeded` | the bridge | the worker exited with code 0 |
+| `dropped` | the bridge | the bridge stopped, a rule died, or a reload removed the rule, while the run still waited |
+| `succeeded` | the bridge | the worker exited with code 0, and its output held a result line |
+| `no-result` | the bridge | the worker exited with code 0, and its output held no result line |
 | `failed` | the bridge | the worker exited with any other code |
 | `not-started` | the bridge | the worker process never started |
 | `timed-out` | the server | the bridge stopped sending its heartbeat while the run was open |
 | `lost` | the server | the bridge reconnected, and it no longer holds the run |
 
 `queued`, `resumed` and `running` are open states. Every other state closes the
-run. `succeeded`, `failed` and `not-started` are the outcomes, and only an
-outcome carries an exit code, a failure reason and an output.
+run. `succeeded`, `no-result`, `failed` and `not-started` are the outcomes, and
+only an outcome carries an exit code, a result flag, a failure reason and an
+output.
+
+A result line is a line of the output that starts with `STAGE RESULT:`. Every
+worker prompt asks for one. A worker that exits with code 0 and prints none may
+have stopped before its work was done.
 
 ## Reporting a run state
 
@@ -68,7 +74,7 @@ order.
 | Field | Rule |
 |---|---|
 | `bridgeId` | required. A uuid the bridge generates once and keeps. It points at no table, so any uuid is accepted |
-| `state` | required. One of the ten states the bridge sets. The server refuses `timed-out` and `lost` |
+| `state` | required. One of the eleven states the bridge sets. The server refuses `timed-out` and `lost` |
 | `at` | required. When the run reached the state, on the bridge clock, as an ISO 8601 timestamp |
 | `cardId` | required. The uuid of the card the run is for. It is a plain value, so a deleted card leaves its run history intact |
 | `cardNumber` | required. The short number the card shows, counting from 1 inside the project, at most 2147483647 |
@@ -76,13 +82,14 @@ order.
 | `sessionId` | the uuid of the Claude Code session the worker runs as. Required for `running` |
 | `startedAt` | when the worker started, on the bridge clock. Required for `running` |
 | `endedAt` | when the worker ended, on the bridge clock. Required for an outcome, and it cannot be before `startedAt` |
-| `exitCode` | the process exit code, between -255 and 255. `succeeded` needs 0, `failed` needs any other code, and `not-started` needs `null` |
+| `exitCode` | the process exit code, between -255 and 255. `succeeded` and `no-result` need 0, `failed` needs any other code, and `not-started` needs `null` |
+| `hasResult` | whether the output held a result line. `no-result` needs `false`, and `succeeded` refuses `false`. Send `null` for `not-started`, because a value is refused when `exitCode` is `null` |
 | `failureReason` | why the process never started, at most 1000 characters. Required for `not-started`, and refused with an exit code |
 | `output` | what the worker printed, at most 4000 characters. Required for an outcome, and it may be empty |
 | `askId` | the ask a `resumed` run continues, at most 100 characters |
 | `replacedBy` | the `runId` of the run that replaced a `replaced` run, a uuid |
 | `maxChain` | the cap that stopped a `waiting-for-person` run, a positive integer |
-| `reason` | why a run was `dropped`: `shutdown` or `rule_dead` |
+| `reason` | why a run was `dropped`: `shutdown`, `rule_dead` or `reload` |
 
 The server checks the shape of `askId`, `replacedBy`, `maxChain` and `reason`,
 and it does not store them.
@@ -216,6 +223,7 @@ follows the same rules as above.
   "startedAt": "2026-09-13T10:00:00+00:00",
   "endedAt": "2026-09-13T10:00:21+00:00",
   "exitCode": 0,
+  "hasResult": true,
   "failureReason": null,
   "output": "reading card 42\nwrote a plan"
 }
@@ -231,6 +239,7 @@ follows the same rules as above.
 | `startedAt` | when the worker started, on the bridge clock, as an ISO 8601 timestamp |
 | `endedAt` | when the worker finished, on the bridge clock. It cannot be before `startedAt`, because both come from the same clock |
 | `exitCode` | the process exit code, between -255 and 255. Send `null` when the process never started |
+| `hasResult` | optional. `true` when the output held a line that starts with `STAGE RESULT:`, `false` when it did not. Send `null` when the process never started, because a non-null value is refused when `exitCode` is `null` |
 | `failureReason` | why the process never started, at most 1000 characters. Required when `exitCode` is `null`, and refused when it is not |
 | `output` | what the worker printed, at most 4000 characters. It may be empty |
 
@@ -244,8 +253,12 @@ report that sends both, or neither, is refused.
 
 The server writes the run with its outcome and a history of two states:
 `running` at `startedAt`, then the outcome at `endedAt`. The outcome is
-`succeeded` for exit code 0, `failed` for any other code, and `not-started` for
-`null`.
+`not-started` for a `null` exit code, and `failed` for any code other than 0.
+
+`hasResult` decides the outcome of a run that exited with code 0. `false` gives
+`no-result`, and `true` gives `succeeded`. A non-zero `exitCode` gives `failed`
+whatever `hasResult` says. A bridge built before the field existed sends none,
+and the server then reads the outcome from `exitCode` alone.
 
 The server stamps its own arrival time on the row. Both clocks are kept: the
 bridge clock says when the work happened, and the server clock says when the

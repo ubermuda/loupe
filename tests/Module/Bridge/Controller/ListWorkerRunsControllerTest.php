@@ -248,27 +248,56 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         }
     }
 
-    public function test_the_outcome_filter_separates_the_three_endings(): void
+    public function test_the_outcome_filter_separates_the_four_endings(): void
     {
         $client = static::createClient();
         $em = $this->em();
 
         $owner = $this->user($em, 'outcome-owner@example.com');
         $project = $this->project($em, $owner, 'Outcomes');
-        $this->seedRun($em, $project, cardNumber: 1, exitCode: 0);
-        $this->seedRun($em, $project, cardNumber: 2, exitCode: 3);
+        $this->seedRun($em, $project, cardNumber: 1, exitCode: 0, hasResult: true);
+        $this->seedRun($em, $project, cardNumber: 2, exitCode: 3, hasResult: false);
         $this->seedRun($em, $project, cardNumber: 3, exitCode: null, failureReason: 'binary missing');
+        $this->seedRun($em, $project, cardNumber: 4, exitCode: 0, hasResult: false);
+        $this->seedRun($em, $project, cardNumber: 5, exitCode: 0);
 
         $projectId = (string) $project->id;
         $em->clear();
         $client->loginUser($owner);
 
-        foreach (['succeeded' => '#1', 'failed' => '#2', 'not-started' => '#3'] as $outcome => $expected) {
+        foreach ([
+            'succeeded' => ['#1', '#5'],
+            'failed' => ['#2'],
+            'not-started' => ['#3'],
+            'no-result' => ['#4'],
+        ] as $outcome => $expected) {
             $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?outcome='.$outcome);
             self::assertResponseIsSuccessful();
-            self::assertCount(1, $crawler->filter('[data-worker-run-id]'), 'outcome '.$outcome);
-            self::assertStringContainsString($expected, (string) $client->getResponse()->getContent());
+            self::assertCount(\count($expected), $crawler->filter('[data-worker-run-id]'), 'outcome '.$outcome);
+            $cards = $crawler->filter('.lp-worker-run__card')->each(static fn ($node): string => trim($node->text()));
+            sort($cards);
+            self::assertSame($expected, $cards, 'outcome '.$outcome);
         }
+    }
+
+    public function test_the_outcome_filter_offers_no_result(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'outcome-offer@example.com');
+        $project = $this->project($em, $owner, 'Offered Outcomes');
+        $this->seedRun($em, $project, exitCode: 0, hasResult: false);
+
+        $projectId = (string) $project->id;
+        $em->clear();
+        $client->loginUser($owner);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('No result', trim($crawler->filter('#worker-run-outcome option[value="no-result"]')->text()));
+        self::assertStringContainsString('lp-status-chip--failed', $crawler->filter('[data-worker-run-id]')->html());
     }
 
     /** Each state is a filter value, and each row shows the state as a translated chip. */

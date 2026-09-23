@@ -136,9 +136,11 @@ func TestReportRunStateSendsTheFieldsOfEachState(t *testing.T) {
 func TestReportRunStateSendsAnOutcomeWithTheOldPairing(t *testing.T) {
 	ended := time.Date(2026, 9, 13, 10, 0, 26, 0, time.UTC)
 
-	succeeded := stateReport(RunSucceeded)
+	noResult := false
+	succeeded := stateReport(RunNoResult)
 	succeeded.EndedAt = ended
 	succeeded.ExitCode = exitCode(0)
+	succeeded.HasResult = &noResult
 
 	notStarted := stateReport(RunNotStarted)
 	notStarted.EndedAt = ended
@@ -149,10 +151,10 @@ func TestReportRunStateSendsAnOutcomeWithTheOldPairing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if keys(body) != withBase("endedAt", "exitCode", "failureReason", "output") {
+	if keys(body) != withBase("endedAt", "exitCode", "failureReason", "hasResult", "output") {
 		t.Fatalf("keys = %s", keys(body))
 	}
-	if body["exitCode"] != float64(0) || body["failureReason"] != nil || body["output"] != "" || body["endedAt"] != "2026-09-13T10:00:26Z" {
+	if body["exitCode"] != float64(0) || body["hasResult"] != false || body["failureReason"] != nil || body["output"] != "" || body["endedAt"] != "2026-09-13T10:00:26Z" {
 		t.Fatalf("body = %v", body)
 	}
 
@@ -160,8 +162,11 @@ func TestReportRunStateSendsAnOutcomeWithTheOldPairing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if body["exitCode"] != nil || body["failureReason"] != "claude: executable file not found" || body["output"] != "partial" {
+	if body["exitCode"] != nil || body["hasResult"] != nil || body["failureReason"] != "claude: executable file not found" || body["output"] != "partial" {
 		t.Fatalf("body = %v", body)
+	}
+	if _, ok := body["hasResult"]; !ok {
+		t.Fatalf("body = %v, want hasResult sent as null", body)
 	}
 }
 
@@ -264,8 +269,8 @@ func TestReportRunStateReadsEachAnswer(t *testing.T) {
 	}
 }
 
-func TestIsOutcomeNamesTheThreeEndsOfARun(t *testing.T) {
-	for _, state := range []string{RunSucceeded, RunFailed, RunNotStarted} {
+func TestIsOutcomeNamesTheFourEndsOfARun(t *testing.T) {
+	for _, state := range []string{RunSucceeded, RunNoResult, RunFailed, RunNotStarted} {
 		if !IsOutcome(state) {
 			t.Fatalf("IsOutcome(%q) = false", state)
 		}

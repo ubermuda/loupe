@@ -7,7 +7,7 @@ namespace DoctrineMigrations;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
-final class Version20260923153209 extends AbstractMigration
+final class Version20260923185847 extends AbstractMigration
 {
     #[\Override]
     public function getDescription(): string
@@ -20,7 +20,7 @@ final class Version20260923153209 extends AbstractMigration
         // The previous image writes no state during a deploy or after a rollback. The trigger below corrects its rows.
         $this->addSql("ALTER TABLE bridge_worker_runs ADD state VARCHAR(20) DEFAULT 'failed' NOT NULL");
         $this->addSql('ALTER TABLE bridge_worker_runs ADD run_key UUID DEFAULT NULL');
-        $this->addSql("UPDATE bridge_worker_runs SET state = CASE WHEN exit_code IS NULL THEN 'not-started' WHEN exit_code = 0 THEN 'succeeded' ELSE 'failed' END");
+        $this->addSql("UPDATE bridge_worker_runs SET state = CASE WHEN exit_code IS NULL THEN 'not-started' WHEN exit_code = 0 AND has_result IS FALSE THEN 'no-result' WHEN exit_code = 0 THEN 'succeeded' ELSE 'failed' END");
         $this->addSql('ALTER TABLE bridge_worker_runs ALTER started_at DROP NOT NULL');
         $this->addSql('ALTER TABLE bridge_worker_runs ALTER ended_at DROP NOT NULL');
         $this->addSql('ALTER TABLE bridge_worker_runs ALTER session_id DROP NOT NULL');
@@ -41,7 +41,11 @@ final class Version20260923153209 extends AbstractMigration
             CREATE FUNCTION bridge_worker_runs_legacy_state() RETURNS trigger AS $$
             BEGIN
                 IF NEW.run_key IS NULL AND NEW.state = 'failed' AND (NEW.exit_code IS NULL OR NEW.exit_code = 0) THEN
-                    NEW.state := CASE WHEN NEW.exit_code IS NULL THEN 'not-started' ELSE 'succeeded' END;
+                    NEW.state := CASE
+                        WHEN NEW.exit_code IS NULL THEN 'not-started'
+                        WHEN NEW.has_result IS FALSE THEN 'no-result'
+                        ELSE 'succeeded'
+                    END;
                 END IF;
                 RETURN NEW;
             END;

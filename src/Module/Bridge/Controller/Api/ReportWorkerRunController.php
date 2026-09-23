@@ -54,6 +54,7 @@ final class ReportWorkerRunController extends AppController
             startedAt: $payload->startedAt(),
             endedAt: $payload->endedAt(),
             exitCode: $payload->exitCode,
+            hasResult: $payload->hasResult,
             failureReason: $payload->failureReason(),
             output: $payload->output ?? '',
         ));

@@ -37,8 +37,9 @@ runs to a page.
 | **Skipped** | the session already read its answers, so the bridge did not resume it |
 | **Running** | the worker runs |
 | **Waiting for a person** | the rule's chain cap stopped the run, and a move by a person starts a new one |
-| **Dropped** | the bridge stopped, or the rule died, before the run started |
-| **Succeeded** | the worker exited with code 0 |
+| **Dropped** | the bridge stopped, a rule died, or a reload removed the rule, before the run started |
+| **Succeeded** | the worker exited with code 0, with a result line |
+| **No result** | the worker exited with code 0, with no result line |
 | **Failed** | the worker exited with any other code |
 | **Never started** | the worker process never ran |
 | **Timed out** | the bridge stopped sending its heartbeat while the run was open |
@@ -50,6 +51,11 @@ and come back, and a later report from it replaces the guess. **Lost** is a
 fact: the bridge came back without the run, so the run can no longer end. See
 [the worker run API](../reference/worker-runs.md#timed-out-and-lost) for the
 rules.
+
+The result line is the line that starts with `STAGE RESULT:`, which every
+worker prompt asks for. A **No result** run exited cleanly but may have stopped
+before its work was done, so read its output. A run from an older bridge
+carries no result check, and its outcome comes from the exit code alone.
 
 ## A missing record means unknown
 
@@ -107,7 +113,7 @@ Run IDs match without regard to letter case, and the outcome and bridge filters 
 
 Two filters narrow the list further:
 
-- **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=failed` or `outcome=not-started` still works.
+- **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=no-result`, `outcome=failed` or `outcome=not-started` still works.
 - **Bridge** keeps one bridge. It appears once a second bridge has reported.
 
 Every control lands in the URL, so a filtered view is a link you can share.

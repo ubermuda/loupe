@@ -66,6 +66,7 @@ trait BridgeScenario
         ?Uuid $cardId = null,
         ?WorkerRunState $state = null,
         ?Uuid $runKey = null,
+        ?bool $hasResult = null,
     ): WorkerRun {
         $run = new WorkerRun(
             project: AgentCredential::managed($em, $project, $project->id),
@@ -73,12 +74,13 @@ trait BridgeScenario
             cardId: $cardId ?? Uuid::v7(),
             cardNumber: $cardNumber,
             ruleName: $ruleName,
-            state: $state ?? WorkerRunState::fromExitCode($exitCode),
+            state: $state ?? WorkerRunState::fromExitCode($exitCode, $hasResult),
             runKey: $runKey,
             sessionId: Uuid::v4(),
             startedAt: new \DateTimeImmutable('2026-01-01 10:00:00'),
             endedAt: new \DateTimeImmutable('2026-01-01 10:05:00'),
             exitCode: $exitCode,
+            hasResult: $hasResult,
             failureReason: $failureReason,
             output: $output,
             receivedAt: $receivedAt,

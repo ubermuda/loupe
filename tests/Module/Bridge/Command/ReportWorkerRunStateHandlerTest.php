@@ -185,6 +185,21 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertSame('output', $run->output);
     }
 
+    public function test_a_no_result_outcome_records_the_result_flag(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-no-result');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Running);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::NoResult)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunState::NoResult, $run->state);
+        self::assertSame(0, $run->exitCode);
+        self::assertFalse($run->hasResult);
+    }
+
     /** The outcome arrived first, so the late running report still names the session. */
     public function test_a_late_running_report_fills_the_session_of_a_closed_run(): void
     {
@@ -246,6 +261,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             'ruleName' => 'plan',
             'state' => 'failed',
             'exitCode' => 1,
+            'hasResult' => false,
             'spawnFailed' => false,
         ], $record->context);
         self::assertCount(1, $audit->records('bridge.worker_run_recorded'));
@@ -299,7 +315,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         ?string $failureReason = null,
         bool $withStart = true,
     ): ReportWorkerRunStateResult {
-        $outcome = \in_array($state, [WorkerRunState::Succeeded, WorkerRunState::Failed, WorkerRunState::NotStarted], true);
+        $outcome = $state->isOutcome();
         $started = $withStart && ($outcome || WorkerRunState::Running === $state);
 
         $handler = self::getContainer()->get(ReportWorkerRunStateHandler::class);
@@ -319,8 +335,13 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             startedAt: $started ? new \DateTimeImmutable('2026-09-23 10:00:00') : null,
             endedAt: $outcome ? new \DateTimeImmutable('2026-09-23 10:05:00') : null,
             exitCode: match ($state) {
-                WorkerRunState::Succeeded => 0,
+                WorkerRunState::Succeeded, WorkerRunState::NoResult => 0,
                 WorkerRunState::Failed => 1,
+                default => null,
+            },
+            hasResult: match ($state) {
+                WorkerRunState::Succeeded => true,
+                WorkerRunState::Failed, WorkerRunState::NoResult => false,
                 default => null,
             },
             failureReason: WorkerRunState::NotStarted === $state ? ($failureReason ?? 'no claude') : null,

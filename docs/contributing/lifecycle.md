@@ -33,6 +33,11 @@ reports the merge.
 Pull request fix rounds, for review feedback and failing checks, run while the
 card is in In review. No rule starts a worker when a card enters In review.
 
+A card does not have to pass Product design. Move it from Backlog straight to
+Tech design when the card body already says what to build. The tech design
+worker then uses the card body as its requirement source. When the card has a
+product document that is not approved yet, the worker stops and waits for it.
+
 A new board starts with `next` and `in-progress` columns. What to do with the
 cards in those two columns is the owner's call.
 
@@ -43,8 +48,8 @@ rule on the old slug stops working.
 
 The rule file is `rules.yaml`. It lives beside `config.json`:
 `~/Library/Application Support/loupe/` on macOS, and `$XDG_CONFIG_HOME/loupe/`
-or `~/.config/loupe/` on Linux. The bridge reads it at start only, so restart
-the bridge after a change.
+or `~/.config/loupe/` on Linux. After a change, run `loupe bridge reload` to
+apply the file to the running bridge.
 
 ```yaml
 projects:

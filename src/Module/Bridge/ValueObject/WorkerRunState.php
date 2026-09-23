@@ -36,18 +36,23 @@ enum WorkerRunState: string
     /** The process never started, so the run carries a failure reason instead. */
     case NotStarted = 'not-started';
 
+    /** The process exited cleanly without its final result. */
+    case NoResult = 'no-result';
+
     /** The bridge went quiet. A later report from the bridge replaces this guess. */
     case TimedOut = 'timed-out';
 
     /** The bridge reconnected without the run, so the run can no longer end. */
     case Lost = 'lost';
 
-    public static function fromExitCode(?int $exitCode): self
+    /** A null result flag comes from an older bridge, so a clean exit then still reads as a success. */
+    public static function fromExitCode(?int $exitCode, ?bool $hasResult = null): self
     {
         return match (true) {
             null === $exitCode => self::NotStarted,
-            0 === $exitCode => self::Succeeded,
-            default => self::Failed,
+            0 !== $exitCode => self::Failed,
+            false === $hasResult => self::NoResult,
+            default => self::Succeeded,
         };
     }
 
@@ -65,7 +70,7 @@ enum WorkerRunState: string
     /** How a worker process ended. Only these states carry an exit code or a failure reason. */
     public function isOutcome(): bool
     {
-        return \in_array($this, [self::Succeeded, self::Failed, self::NotStarted], true);
+        return \in_array($this, [self::Succeeded, self::Failed, self::NotStarted, self::NoResult], true);
     }
 
     /** The server infers these on its own, and a bridge never reports them. */
@@ -99,6 +104,7 @@ enum WorkerRunState: string
             self::Succeeded => 'bridge.worker_runs.state.succeeded',
             self::Failed => 'bridge.worker_runs.state.failed',
             self::NotStarted => 'bridge.worker_runs.state.not_started',
+            self::NoResult => 'bridge.worker_runs.state.no_result',
             self::TimedOut => 'bridge.worker_runs.state.timed_out',
             self::Lost => 'bridge.worker_runs.state.lost',
         };
@@ -109,7 +115,7 @@ enum WorkerRunState: string
     {
         return match ($this) {
             self::Succeeded => 'ok',
-            self::Failed, self::Dropped, self::TimedOut, self::Lost => 'failed',
+            self::Failed, self::NoResult, self::Dropped, self::TimedOut, self::Lost => 'failed',
             // The bridge set these runs aside by design, so nothing waits and nothing failed.
             self::Replaced, self::Skipped => 'resolved',
             self::Queued, self::Resumed, self::Running, self::WaitingForPerson, self::NotStarted => 'pending',

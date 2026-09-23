@@ -57,11 +57,14 @@ func (p *postRecorder) ReportWorkerRun(_ context.Context, handle string, run api
 func TestEachFinishedRunReachesLoupe(t *testing.T) {
 	h := newHarness(t)
 	sent := h.reports(t)
-	h.worker.result = workerResult{exitCode: 0, output: "wrote a plan"}
+	h.worker.result = workerResult{exitCode: 0, output: "wrote a plan", hasResult: true}
 
 	h.send(movedPayload(87, "backlog", "next", "human"))
 
 	got := <-sent
+	if got.run.HasResult == nil || !*got.run.HasResult {
+		t.Fatalf("has result = %v, want true", got.run.HasResult)
+	}
 	if got.handle != testProject {
 		t.Fatalf("handle = %q, want the project the event named", got.handle)
 	}
@@ -113,6 +116,27 @@ func TestAWorkerThatNeverRanIsStillReported(t *testing.T) {
 	if got.run.FailureReason == nil || *got.run.FailureReason != "fork/exec claude: permission denied" {
 		t.Fatalf("failure reason = %v", got.run.FailureReason)
 	}
+	if got.run.HasResult != nil {
+		t.Fatalf("has result = %v, want none for a process that never ran", *got.run.HasResult)
+	}
+}
+
+// A run that exits 0 with no result line is reported as such, so Loupe does
+// not read it as a success.
+func TestARunWithNoResultLineSaysSo(t *testing.T) {
+	h := newHarness(t)
+	sent := h.reports(t)
+	h.worker.result = workerResult{exitCode: 0, output: "waiting on a task"}
+
+	h.send(movedPayload(87, "backlog", "next", "human"))
+
+	got := <-sent
+	if got.run.HasResult == nil || *got.run.HasResult {
+		t.Fatalf("has result = %v, want false", got.run.HasResult)
+	}
+	if got.run.ExitCode == nil || *got.run.ExitCode != 0 {
+		t.Fatalf("exit code = %v, want 0", got.run.ExitCode)
+	}
 }
 
 // A non-zero exit is a run like any other, and the record says so.
@@ -134,7 +158,7 @@ func TestAFailedRunCarriesItsExitCode(t *testing.T) {
 func TestReportingLeavesTheWorkerLogAlone(t *testing.T) {
 	h := newHarness(t)
 	sent := h.reports(t)
-	h.worker.result = workerResult{exitCode: 0, output: "wrote a plan"}
+	h.worker.result = workerResult{exitCode: 0, output: "wrote a plan", hasResult: true}
 
 	h.send(movedPayload(87, "backlog", "next", "human"))
 	<-sent

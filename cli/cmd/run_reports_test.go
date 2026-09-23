@@ -94,6 +94,7 @@ func failedReport() api.RunStateReport {
 		StartedAt:  started,
 		EndedAt:    started.Add(21 * time.Second),
 		ExitCode:   exitCodeOf(1),
+		HasResult:  new(bool),
 		Output:     "claude: no such option",
 	}
 }
@@ -141,6 +142,9 @@ func TestAnOutcomeFallsBackOnTheOldReport(t *testing.T) {
 	}
 	if !got.StartedAt.Equal(want.StartedAt) || !got.EndedAt.Equal(want.EndedAt) || got.ExitCode == nil || *got.ExitCode != 1 || got.Output != want.Output {
 		t.Fatalf("post = %+v", got)
+	}
+	if got.HasResult == nil || *got.HasResult {
+		t.Fatalf("post = %+v, want the result flag of the report", got)
 	}
 	if n := countEvents(t, log, "run_states_unsupported"); n != 1 {
 		t.Fatalf("run_states_unsupported logged %d times", n)

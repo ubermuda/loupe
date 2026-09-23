@@ -24,9 +24,9 @@ const ProjectHeader = "X-Loupe-Project"
 type Credentials struct {
 	// Tokens gives the bearer token. It is required.
 	Tokens api.TokenSource
-	// ProjectID is sent in the project header. An empty value sends no header,
-	// which leaves the project to the server.
-	ProjectID string
+	// Project gives the project header, read once per request. A nil function
+	// or an empty value sends no header, which leaves the project to the server.
+	Project func() string
 	// Base sends the request. A nil value uses http.DefaultTransport.
 	Base http.RoundTripper
 }
@@ -43,23 +43,31 @@ func (c *Credentials) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	resp, err := c.send(req, token, rewind)
+	project := ""
+	if c.Project != nil {
+		project = c.Project()
+	}
+
+	resp, err := c.send(req, token, project, rewind)
 	if err != nil || resp.StatusCode != http.StatusUnauthorized {
-		return c.explain(markSessionGone(req, resp, err))
+		resp, err = markSessionGone(req, resp, err)
+
+		return explain(project, resp, err)
 	}
 
 	fresh, err := c.Tokens.Refresh(req.Context(), token)
 	if errors.Is(err, api.ErrNoRefresh) {
-		return c.explain(resp, nil)
+		return explain(project, resp, nil)
 	}
 	resp.Body.Close()
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err = c.send(req, fresh, rewind)
+	resp, err = c.send(req, fresh, project, rewind)
+	resp, err = markSessionGone(req, resp, err)
 
-	return c.explain(markSessionGone(req, resp, err))
+	return explain(project, resp, err)
 }
 
 // sessionHeader names the MCP session a request belongs to.
@@ -89,9 +97,9 @@ func markSessionGone(req *http.Request, resp *http.Response, err error) (*http.R
 	return resp, nil
 }
 
-// send sends one copy of req with the given token. The original is left alone,
-// so the caller can send it again.
-func (c *Credentials) send(req *http.Request, token string, rewind func() (io.ReadCloser, error)) (*http.Response, error) {
+// send sends one copy of req with the given token and project. The original is
+// left alone, so the caller can send it again.
+func (c *Credentials) send(req *http.Request, token, project string, rewind func() (io.ReadCloser, error)) (*http.Response, error) {
 	attempt := req.Clone(req.Context())
 	if rewind != nil {
 		body, err := rewind()
@@ -101,8 +109,8 @@ func (c *Credentials) send(req *http.Request, token string, rewind func() (io.Re
 		attempt.Body = body
 	}
 	attempt.Header.Set("Authorization", "Bearer "+token)
-	if c.ProjectID != "" {
-		attempt.Header.Set(ProjectHeader, c.ProjectID)
+	if project != "" {
+		attempt.Header.Set(ProjectHeader, project)
 	}
 
 	base := c.Base
@@ -115,8 +123,8 @@ func (c *Credentials) send(req *http.Request, token string, rewind func() (io.Re
 
 // explain turns a refusal into a message that says what to do about it. The
 // MCP layer otherwise reports the status code alone, which tells a person
-// nothing about a scope or a project.
-func (c *Credentials) explain(resp *http.Response, err error) (*http.Response, error) {
+// nothing about a scope or a project. It names the project the request sent.
+func explain(project string, resp *http.Response, err error) (*http.Response, error) {
 	if err != nil || resp == nil {
 		return resp, err
 	}
@@ -130,8 +138,8 @@ func (c *Credentials) explain(resp *http.Response, err error) (*http.Response, e
 	advice := "run `loupe login` again"
 	if resp.StatusCode == http.StatusForbidden {
 		advice = "the login must cover this project and carry the mcp scope"
-		if c.ProjectID != "" {
-			advice = fmt.Sprintf("the login does not cover the project %s that %s names, or it carries no mcp scope", c.ProjectID, ".loupe.yaml")
+		if project != "" {
+			advice = fmt.Sprintf("the login does not cover the project %s that %s names, or it carries no mcp scope", project, ".loupe.yaml")
 		}
 	}
 

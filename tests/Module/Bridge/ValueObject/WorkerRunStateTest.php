@@ -20,22 +20,46 @@ final class WorkerRunStateTest extends TestCase
     public function test_every_state_has_its_backing_value(): void
     {
         self::assertSame(
-            ['queued', 'replaced', 'resumed', 'skipped', 'running', 'waiting-for-person', 'dropped', 'succeeded', 'failed', 'not-started', 'timed-out', 'lost'],
+            ['queued', 'replaced', 'resumed', 'skipped', 'running', 'waiting-for-person', 'dropped', 'succeeded', 'failed', 'not-started', 'no-result', 'timed-out', 'lost'],
             array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::cases()),
         );
     }
 
-    public function test_the_exit_code_gives_the_outcome(): void
+    /** @return iterable<string, array{?int, ?bool, WorkerRunState}> */
+    public static function exits(): iterable
     {
-        self::assertSame(WorkerRunState::NotStarted, WorkerRunState::fromExitCode(null));
+        yield 'no exit code' => [null, null, WorkerRunState::NotStarted];
+        yield 'a clean exit with a result' => [0, true, WorkerRunState::Succeeded];
+        yield 'a clean exit from an older bridge' => [0, null, WorkerRunState::Succeeded];
+        yield 'a clean exit with no result' => [0, false, WorkerRunState::NoResult];
+        yield 'a failed exit with no result' => [1, false, WorkerRunState::Failed];
+        yield 'a failed exit with a result' => [1, true, WorkerRunState::Failed];
+        yield 'a failed exit from an older bridge' => [2, null, WorkerRunState::Failed];
+        yield 'a signal' => [-9, false, WorkerRunState::Failed];
+    }
+
+    #[DataProvider('exits')]
+    public function test_the_exit_code_and_the_result_flag_give_the_outcome(?int $exitCode, ?bool $hasResult, WorkerRunState $expected): void
+    {
+        self::assertSame($expected, WorkerRunState::fromExitCode($exitCode, $hasResult));
+    }
+
+    public function test_an_exit_code_alone_reads_as_an_older_bridge(): void
+    {
         self::assertSame(WorkerRunState::Succeeded, WorkerRunState::fromExitCode(0));
-        self::assertSame(WorkerRunState::Failed, WorkerRunState::fromExitCode(2));
+    }
+
+    public function test_no_result_reads_as_a_failure_on_the_page(): void
+    {
+        self::assertSame('no-result', WorkerRunState::NoResult->value);
+        self::assertSame('bridge.worker_runs.state.no_result', WorkerRunState::NoResult->translationKey());
+        self::assertSame('failed', WorkerRunState::NoResult->chipModifier());
     }
 
     public function test_only_the_exit_code_states_are_outcomes(): void
     {
         self::assertSame(
-            ['succeeded', 'failed', 'not-started'],
+            ['succeeded', 'failed', 'not-started', 'no-result'],
             array_values(array_map(
                 static fn (WorkerRunState $state): string => $state->value,
                 array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome()),

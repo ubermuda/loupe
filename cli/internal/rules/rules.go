@@ -85,8 +85,16 @@ const UnknownCard = "unknown"
 
 // File is the rule file as written.
 type File struct {
+	Defaults FileDefaults       `yaml:"defaults"`
 	Projects map[string]Project `yaml:"projects"`
 	Rules    []Rule             `yaml:"rules"`
+}
+
+// FileDefaults fill a rule's empty fields before the bridge flags do. A reload
+// reads them again, and the flags stay fixed for the process.
+type FileDefaults struct {
+	PermissionMode string `yaml:"permissionMode"`
+	Model          string `yaml:"model"`
 }
 
 // Project maps a project slug to the directory its workers run in.
@@ -114,7 +122,8 @@ type Rule struct {
 	Resume bool `yaml:"resume"`
 }
 
-// Defaults fill a rule's fields that the file leaves empty.
+// Defaults come from the bridge flags. They fill a rule's fields that neither
+// the rule nor the file's defaults set.
 type Defaults struct {
 	PermissionMode string
 	Model          string
@@ -187,6 +196,20 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 
 	s := &Set{dirs: map[string]string{}}
 	var errs []error
+	for _, err := range []error{
+		checkWord("defaults.permissionMode", f.Defaults.PermissionMode),
+		checkWord("defaults.model", f.Defaults.Model),
+	} {
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if f.Defaults.PermissionMode != "" {
+		defaults.PermissionMode = f.Defaults.PermissionMode
+	}
+	if f.Defaults.Model != "" {
+		defaults.Model = f.Defaults.Model
+	}
 	if len(f.Projects) == 0 {
 		errs = append(errs, errors.New("the rule file maps no projects"))
 	}
@@ -425,6 +448,11 @@ func (s *Set) Projects() []string {
 	return slices.Sorted(maps.Keys(s.dirs))
 }
 
+// Dir is the directory of a mapped slug, and "" for a slug the set does not map.
+func (s *Set) Dir(slug string) string {
+	return s.dirs[slug]
+}
+
 // Rules lists the rules in file order, with their defaults filled.
 func (s *Set) Rules() []Rule {
 	return slices.Clone(s.rules)
@@ -602,41 +630,77 @@ func (s *Set) Match(e event.Event) Match {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, r := range s.rules {
-		if r.On != e.Type || r.Project != slug || s.dead[r.Name] != "" {
-			continue
-		}
-		// Entered, not sits in: a card dragged to a new rank inside one column
-		// submits a move with that column on both sides.
-		if e.Type == event.CardMovedType && (e.ToStatus != r.To || e.FromStatus == e.ToStatus || (r.From != "" && e.FromStatus != r.From)) {
-			continue
-		}
-		// A verdict with no stage card has nothing for a card agent to act on.
-		if e.Type == event.ReviewSubmittedType && (e.CardID == "" || (r.Verdict != "" && e.Verdict != r.Verdict)) {
+		if !s.triggers(r, slug, e) {
 			continue
 		}
 		if e.Actor == event.ActorReviewer && !r.AllowUntrusted {
 			return Match{Skip: Untrusted, Rule: r.Name, Project: slug}
 		}
 
-		render := directive.Render
-		if r.Resume {
-			render = directive.RenderResume
-		}
-
-		return Match{
-			Skip:           Run,
-			Rule:           r.Name,
-			Project:        slug,
-			Dir:            s.dirs[slug],
-			PermissionMode: r.PermissionMode,
-			Model:          r.Model,
-			MaxChain:       *r.MaxChain,
-			Prompt:         render(r.Prompt, values(e, slug)),
-			Resume:         r.Resume,
-		}
+		return s.run(r, slug, e)
 	}
 
 	return Match{Skip: NoRule, Project: slug}
+}
+
+// MatchRule matches the event against the named rule alone. It fails when the
+// set has no live rule of that name, or when the rule would not run the event.
+// A reload keeps a queued event this way, under the rule that accepted it.
+func (s *Set) MatchRule(e event.Event, name string) (Match, bool) {
+	slug, ok := s.slugs[e.ProjectID]
+	if !ok {
+		return Match{}, false
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, r := range s.rules {
+		if r.Name != name {
+			continue
+		}
+		if !s.triggers(r, slug, e) || (e.Actor == event.ActorReviewer && !r.AllowUntrusted) {
+			return Match{}, false
+		}
+
+		return s.run(r, slug, e), true
+	}
+
+	return Match{}, false
+}
+
+// triggers reports whether a live rule names the event, whatever its actor.
+// The caller holds mu.
+func (s *Set) triggers(r Rule, slug string, e event.Event) bool {
+	if r.On != e.Type || r.Project != slug || s.dead[r.Name] != "" {
+		return false
+	}
+	// A verdict with no stage card has nothing for a card agent to act on.
+	if e.Type == event.ReviewSubmittedType {
+		return e.CardID != "" && (r.Verdict == "" || e.Verdict == r.Verdict)
+	}
+	// Entered, not sits in: a card dragged to a new rank inside one column
+	// submits a move with that column on both sides.
+	return e.Type != event.CardMovedType || (e.ToStatus == r.To && e.FromStatus != e.ToStatus && (r.From == "" || e.FromStatus == r.From))
+}
+
+// run is the match of a rule that starts a worker for the event.
+func (s *Set) run(r Rule, slug string, e event.Event) Match {
+	render := directive.Render
+	if r.Resume {
+		render = directive.RenderResume
+	}
+
+	return Match{
+		Skip:           Run,
+		Rule:           r.Name,
+		Project:        slug,
+		Dir:            s.dirs[slug],
+		PermissionMode: r.PermissionMode,
+		Model:          r.Model,
+		MaxChain:       *r.MaxChain,
+		Prompt:         render(r.Prompt, values(e, slug)),
+		Resume:         r.Resume,
+	}
 }
 
 // Dead names a rule that an event killed.
@@ -647,8 +711,8 @@ type Dead struct {
 }
 
 // Kill marks dead every live rule that names the slug the event takes away,
-// and returns them in file order. A dead rule matches nothing until the bridge
-// restarts, when the start check refuses the stale slug.
+// and returns them in file order. A dead rule matches nothing until a reload
+// or a restart reads the file again, and its check refuses the stale slug.
 func (s *Set) Kill(e event.Event) []Dead {
 	slug, ok := s.slugs[e.ProjectID]
 	if !ok {

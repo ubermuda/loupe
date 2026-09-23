@@ -157,6 +157,7 @@ final readonly class ReportWorkerRunStateHandler
             $command->state,
             $command->endedAt ?? throw new \LogicException('An outcome carries its end after validation.'),
             $command->exitCode,
+            $command->hasResult,
             $command->failureReason,
             $command->output ?? '',
         );
@@ -176,6 +177,7 @@ final readonly class ReportWorkerRunStateHandler
                 'ruleName' => $run->ruleName,
                 'state' => $run->state->value,
                 'exitCode' => $run->exitCode,
+                'hasResult' => $run->hasResult,
                 'spawnFailed' => WorkerRunState::NotStarted === $run->state,
             ],
             new AuditSubject('worker_run', (string) $run->id),

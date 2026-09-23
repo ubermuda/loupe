@@ -194,6 +194,29 @@ Code, `.mcp.json` in the repository:
 Every message goes to stdout, because stdout is the protocol. Every diagnostic
 goes to stderr, which an agent shows as this server's log.
 
+### When `.loupe.yaml` changes
+
+`loupe mcp` runs a file stat on `.loupe.yaml` for each request. When the file
+changed, it reads the file again, so the change reaches the agent at its next
+request. With `--project`, the command never reads the file.
+
+A change of project writes one line to stderr, with `none` for an empty value:
+
+```
+loupe mcp: .loupe.yaml now names project <new> (was <old>)
+```
+
+A file that fails to parse keeps the last good project, and writes one line to
+stderr that names the problem. A removed file sends no project header, so the
+server falls back to the single project of your login, or refuses. It writes
+this line:
+
+```
+loupe mcp: .loupe.yaml is gone, so no project is sent (was <old>)
+```
+
+A file that fails to parse when `loupe mcp` starts still stops the command.
+
 ### When Loupe ends the session
 
 Loupe keeps each MCP session in a file store that expires after an hour and
@@ -246,14 +269,36 @@ loupe bridge run --rules ~/loupe/other-project.yaml --permission-mode acceptEdit
 | Flag | Default | Purpose |
 |---|---|---|
 | `--rules` | `rules.yaml` in your config dir | Read the rule file from this path |
-| `--permission-mode` | — | Pass `--permission-mode` to every `claude` whose rule sets no `permissionMode`. Omitted, no flag is passed and a worker can approve nothing |
-| `--model` | — | Pass `--model` to every `claude` whose rule sets no `model`. Omitted, no flag is passed |
+| `--permission-mode` | — | Pass `--permission-mode` to every `claude` when neither its rule nor the `defaults:` block sets `permissionMode`. Omitted, no flag is passed and a worker can approve nothing |
+| `--model` | — | Pass `--model` to every `claude` when neither its rule nor the `defaults:` block sets `model`. Omitted, no flag is passed |
 | `--max-workers` | `3` | Run at most this many workers at once. Later events wait in a queue. Below 1 is a startup error |
 | `--log-file` | `bridge.log` in your config dir | Append the JSON log to this path |
 
 The command blocks in the foreground and writes JSON lines to stdout and to the
 log file. `Ctrl-C` or `SIGTERM` stops it, and that also stops every worker in
 flight.
+
+The bridge listens on a local socket, `bridge-<hash>.sock` in your config
+directory. The hash comes from the absolute path of the rule file as you give
+it, so a symlink that you repoint keeps the socket.
+Give [`loupe bridge reload`](#loupe-bridge-reload) the same path to reach the
+bridge there. The bridge logs a `control_listening` line with the socket path
+when it starts.
+
+The bridge also holds a lock on `bridge-<hash>.lock` in your config directory
+while it runs. This hash comes from the absolute path with symlinks resolved,
+so two paths to one file count as the same rule file. A second
+`loupe bridge run` on the same rule file refuses to start. Its error names the
+lock file and, except on Windows, the socket of the first bridge. The OS
+releases the lock when the bridge stops or crashes. When you repoint a symlink,
+the next reload moves the lock to the new file. That reload fails when another
+bridge already holds the lock of the new file, or when the symlink moves again
+before the bridge applies the file.
+
+The flags stay fixed for the life of the process. To change `--max-workers`,
+`--permission-mode`, `--model` or `--log-file`, restart the bridge. The bridge
+reads the instance URL in `config.json` at start only, so a new instance also
+needs a restart.
 
 ### Upgrading from `--site` and `--dir`
 
@@ -285,7 +330,8 @@ The bridge prints this example when it finds no file, or an empty one.
 
 The file lives beside `config.json`: `~/Library/Application Support/loupe/` on
 macOS, and `$XDG_CONFIG_HOME/loupe/` or `~/.config/loupe/` on Linux. The bridge
-reads it at start only, so a change needs a restart.
+reads it at start. To apply a change to a running bridge, run
+[`loupe bridge reload`](#loupe-bridge-reload).
 
 `projects` maps a project slug to the `dir` its workers run in. A `dir` must be
 an absolute path or start with `~/`, and it must exist.
@@ -293,8 +339,9 @@ an absolute path or start with `~/`, and it must exist.
 One bridge follows every project you own. Map as many projects as you like. The
 bridge ignores the events of a project the file does not map, and logs one
 `project_unmapped` line for each such project. A project you create while the
-bridge runs reaches it with no restart, and is ignored until you map it. When a
-rule names a slug you do not own, the start check lists the slugs you do own.
+bridge runs reaches it with no restart, and is ignored until you map it. To map
+it, add it to the file and run `loupe bridge reload`. When a rule names a slug
+you do not own, the start check lists the slugs you do own.
 When a mapped project is deleted or stops being yours, the bridge logs one
 `project_gone` line that names the rules that stop working.
 
@@ -308,16 +355,31 @@ Each entry in `rules` takes these fields:
 | `to` | for `board.card_moved` | The column slug the card enters |
 | `from` | no | The column slug the card leaves. Omitted, any column matches |
 | `prompt` | yes | The prompt the worker runs, with placeholders |
-| `permissionMode` | no | Defaults to `--permission-mode`. A mode `claude` takes, such as `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `manual` or `plan` |
-| `model` | no | Defaults to `--model`. An alias such as `opus` or a full model name, with no whitespace |
+| `permissionMode` | no | Defaults to `defaults.permissionMode`, then to `--permission-mode`. A mode `claude` takes, such as `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `manual` or `plan` |
+| `model` | no | Defaults to `defaults.model`, then to `--model`. An alias such as `opus` or a full model name, with no whitespace |
 | `maxChain` | no | The agent-triggered runs in a row this rule starts for one card. Defaults to `3`. At least 1. See [The chain cap](#the-chain-cap) |
 | `allowUntrusted` | no | Defaults to `false`. See below |
 | `resume` | for `inbox.ask_closed` | `true` resumes the session that asked. A rule on `inbox.ask_closed` needs it, and no other rule can set it. See [Resuming a session](#resuming-a-session) |
 | `verdict` | no | `approved` or `changes-requested`. Omitted, either verdict matches. Only a rule on `document.review_submitted` can set it. See [A review verdict](#a-review-verdict) |
 
-A field the format does not define stops the bridge at start, so a misspelt key
-never passes in silence. So does a `permissionMode` or a `model` that holds
-whitespace, from the file or from a flag. `claude` owns both lists, and a later
+The optional `defaults:` block sets `permissionMode` and `model` for every rule
+of the file:
+
+```yaml
+defaults:
+  permissionMode: acceptEdits
+  model: opus
+```
+
+A value on the rule wins. The `defaults:` block comes next, and the
+`--permission-mode` and `--model` flags come last. A reload reads the block
+again, and the flags stay fixed for the process. A CLI older than this block
+refuses the file, because `defaults` is an unknown key there. Remove the block
+before you downgrade.
+
+A field the format does not define stops the bridge at start, and fails a
+reload, so a misspelt key never passes in silence. So does a `permissionMode`
+or a `model` that holds whitespace, from the file or from a flag. `claude` owns both lists, and a later
 version can add to them. The bridge therefore starts with a mode outside the
 list above, and logs a `permission_mode_unknown` line for it. The file holds
 one YAML document with content. An empty document before or after it is
@@ -419,6 +481,9 @@ the valid slugs. The error also says when the board is switched off on the
 instance, and when the server is too old for this bridge version because it has
 no such endpoint. Upgrade Loupe before you upgrade the bridge.
 
+`loupe bridge reload` runs the same checks. A check that fails there keeps the
+old rules, and the bridge runs on.
+
 The server resolves a key as a project id or a project slug, never as a
 project name. A project with no slug yet comes back with no slug, and the
 bridge accepts that.
@@ -439,6 +504,19 @@ worker starts and a line when it ends, carrying the exit code and how long it
 took. It owns the worker's streams, so it reports what the worker said as well,
 on a clean exit and on a failure alike. Output past 4 KB is dropped and the
 report says so.
+
+The bridge sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` in each worker's
+environment. Without it, `claude -p` ends a worker 600 seconds after its main
+turn when a background subagent still runs, and exits 0. A hung subagent
+therefore holds its worker slot until you stop the `claude` process. To keep a ceiling,
+set the variable in the bridge's own environment. The bridge then passes your
+value unchanged, and an empty value counts as set.
+
+Every prompt ends with a request to finish the final reply with a line that
+starts with `STAGE RESULT:`. The bridge reads the whole output of both streams
+for that line, past the 4 KB it keeps. A worker that exits with no such line
+logs `worker_no_result`, whatever its exit code. The worker run report carries
+the check as `hasResult`.
 
 One bridge gives a card one worker at a time, on purpose: two agents working one
 card in one checkout undo each other's work. The bridge keys a card by its id,
@@ -463,7 +541,8 @@ after another, in arrival order.
 
 The key lives in the bridge process. Two bridges that map one project each keep
 their own, so they can both start a worker for the same card. Map each project
-in one bridge only.
+in one bridge only. One rule file also serves one bridge only, because a second
+bridge on the same file refuses to start.
 
 ### The chain cap
 
@@ -576,11 +655,12 @@ bridge runs. The bridge then marks the affected rules dead:
 | `project.renamed` | every rule of that project | `project_renamed` |
 | a JWT refresh no longer lists a mapped project | every rule of that project, logged with `project_gone` | `project_gone` |
 
-A dead rule matches nothing until the bridge restarts, and a later rule in the
-file can then catch the event. The bridge logs one `rule_dead` error line for
-each rule. An event that waits in the queue for a rule that dies never starts,
-and the bridge names it in a `queue_dropped` line. At the restart, the start
-checks refuse the old slug, so fix the rule file first.
+A dead rule matches nothing until you fix `rules.yaml` and run
+`loupe bridge reload`. Until then, a later rule in the file can catch the
+event. The bridge logs one `rule_dead` error line for each rule. An event that
+waits in the queue for a rule that dies never starts, and the bridge names it in
+a `queue_dropped` line. A reload or a restart checks the slugs again and refuses
+the old slug, so fix the rule file first.
 
 These events kill rules whatever their actor, so `allowUntrusted` does not apply
 to them. The bridge reads them even when no rule names their type.
@@ -607,7 +687,11 @@ The bridge does not retry a report the server refuses with a 401, 403, 404 or
 422, because the same body fails again. Its `report_failed` line then carries a
 `message` that says what to fix. For a 422 it names each field and rule the
 server refused. For an unknown project it points at the `projects` map. Fix
-`rules.yaml` and restart the bridge.
+`rules.yaml` and run `loupe bridge reload`.
+
+A reload sends a report for each project of the new file. It also sends an
+empty report for each project that the old file mapped and the new file does
+not, so the board clears the dead-rule banner of that project.
 
 When the board is switched off, the bridge logs one `report_failed` line and
 stops reporting for that project until it restarts.
@@ -626,7 +710,8 @@ The bridge tells the server that it runs. It sends a heartbeat once at start,
 right after the first `GET /api/events`, and then once per interval. The
 heartbeat carries the ids of the projects the rule file maps and the build that
 `loupe version` prints, such as `0f4a2c9b (dirty)`. The server stamps the time
-itself.
+itself. A reload sends a heartbeat at once, so the server reads the new
+projects before the next interval.
 
 The interval comes from `bridge.heartbeat_interval_seconds` in the `flags` map,
 60 seconds by default. The bridge falls back to 60 seconds when the map has no
@@ -695,9 +780,13 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `worker_started` | `card`, `project`, `rule`, `session_id`, and `ask` for a resume |
 | `resume_skipped` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `message`: the session read every item of its ask, so no worker ran |
 | `resume_check_failed` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `error`, `message`: the ask check failed, and the session resumes. Level `WARN` |
-| `worker_finished` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output` |
+| `worker_finished` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`. Level `ERROR` for a non-zero `exit` |
+| `worker_no_result` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`: the output held no `STAGE RESULT:` line. Level `ERROR` |
 | `worker_failed` | `card`, `project`, `rule`, `error`: the process never ran |
-| `queue_dropped` | `count`, `dropped`: a list of `{card, rule}`, with `ask` for a resume |
+| `queue_dropped` | `count`, `dropped`: a list of `{card, rule}`, with `ask` for a resume, and `reason`: `reload` when a reload dropped the events |
+| `control_listening` | `socket`: the path that `loupe bridge reload` reaches |
+| `reload_applied` | `added`, `removed`, `changed`, `dirs`, `projects`: a reload applied the rule file |
+| `reload_failed` | `stage`, `problems`: a reload changed nothing. Level `ERROR` |
 | `rule_dead` | `rule`, `project`, `project_slug`, `reason`, `message`: a column or project change killed the rule. Level `ERROR` |
 | `report_sent` | `project`, `project_slug`, `rules`, `dead`: the server stored the rule health report of that project |
 | `report_failed` | `project`, `project_slug`, `error`, `retry`, `retry_in_ms` when `retry` is true, and `message` when the fix is yours |
@@ -709,6 +798,13 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 `queue_depth` counts the accepted events waiting at that moment, the new one
 included. `worker_failed` and `worker_finished` name two different faults: a
 process that never ran, and a process that ran and returned a non-zero code.
+`worker_no_result` names a third: a process that ran and printed no result
+line, so a clean exit does not prove the work finished. A worker writes one of
+`worker_finished` and `worker_no_result`, never both.
+
+When the bridge itself shuts down, for example on Ctrl-C, it stops its running
+workers. Each of those logs `worker_finished` at `ERROR`, with or without a
+result line.
 
 Read a live run with `jq`:
 
@@ -730,6 +826,71 @@ an agent edit files and run commands in the project's `dir` with nobody
 watching. The cards it acts on come from your board, and the bridge never puts
 card text into a prompt, but the agent reads that text itself once it starts.
 Point `dir` at a directory you are willing to have changed.
+
+## `loupe bridge reload`
+
+Applies a changed rule file to the running bridge that reads that file.
+
+```bash
+loupe bridge reload
+loupe bridge reload --rules ~/loupe/other-project.yaml
+```
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--rules` | `rules.yaml` in your config dir | Reload the bridge that reads this rule file |
+
+The command reaches the bridge over its local socket, `bridge-<hash>.sock` in
+your config directory. Give `--rules` the path that the bridge got, because the
+hash comes from that path as given. The bridge first moves its lock when the
+rule path now resolves to another file. It then parses the file, runs the
+[start checks](#start-checks) against the server, and confirms that
+`GET /api/events` lists each mapped project. It applies the file only when every
+step passes.
+
+On success, the command writes to stdout and exits with status 0:
+
+```
+reloaded /Users/me/Library/Application Support/loupe/rules.yaml
+added: review
+changed: plan, build
+dir changed: other-app
+projects: my-app, other-app
+```
+
+The `added:`, `removed:` and `changed:` lines appear only when they name a rule.
+A rule changes when any of its fields differs after the defaults are filled.
+The `dir changed:` line appears only when a project of both files has a new
+`dir`. When no rule and no dir changed, the command writes `no rule changed` in
+their place.
+
+On failure, the command writes one line to stderr for each problem, as
+`<stage>: <problem>`, and exits with status 1. The stage is `lock`, `parse`,
+`check` or `server`. The last line is
+`error: the bridge did not apply the rule file`. A failed reload changes
+nothing, and the bridge keeps its old rules and its lock.
+
+When no bridge reads the file, the command writes
+`error: no running bridge reads <path>` and exits with status 1. The command
+writes the same error when a bridge reads the file through another path.
+
+A reload does these things to the running bridge:
+
+- A worker in flight keeps running.
+- A queued event stays in the queue when a rule of the same name still exists
+  and still matches it. It then runs under the new rule, with its new prompt and
+  settings.
+- The bridge drops each other queued event, and logs it in a `queue_dropped`
+  line with `reason` `reload`.
+- The bridge logs `reload_applied`, or `reload_failed` with the stage and the
+  problems.
+- The bridge sends a new [rule health report](#rule-health-reports) for each
+  project, and an empty report for each project the new file no longer maps.
+- The [heartbeat](#heartbeat) names the new projects at once.
+
+A new project in the `projects` map needs no restart. The `defaults:` block
+reloads too. The flags of `loupe bridge run` and the instance URL in
+`config.json` do not reload, so a change to them still needs a restart.
 
 ## `loupe version`
 

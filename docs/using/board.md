@@ -109,10 +109,10 @@ stores the label as typed, so a renamed column is no longer translated.
 A rename that changes the slug breaks every outside reference to the old slug.
 Loupe cannot see these references, so it cannot warn you about them:
 
-- A bridge rule whose `to` or `from` names the old slug. The bridge reads its
-  rules and checks slugs at start only. The running bridge stops matching the
-  rule, and a restarted bridge refuses to start on the unknown slug. Put the
-  new slug in `rules.yaml`, then restart the bridge. See
+- A bridge rule whose `to` or `from` names the old slug. The bridge checks
+  slugs at start and at each reload. The running bridge stops matching the
+  rule, and a restart or a reload refuses the unknown slug. Put the new slug in
+  `rules.yaml`, then run `loupe bridge reload`. See
   [Command-line bridge](../extending/cli-bridge.md).
 - An agent prompt, a skill or a saved instruction that names the old slug.
 - A `status` argument that a script passes to an MCP tool.
