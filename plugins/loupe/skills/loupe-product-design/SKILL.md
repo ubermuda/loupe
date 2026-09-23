@@ -42,6 +42,6 @@ Put each item in its section of the product document.
 
 1. With no draft, call `document_create` with the title `Product design: <card title>`.
 2. Use the tags `design` and `product`, or the spelling `tag_list` already has for them. Without `product`, an approval moves nothing and shows no error.
-3. With a draft, call `document_revise` on it instead. Keep each section with a standing approval unchanged, as `../loupe-stage-product-design/references/review-round.md` "An approved section wins" says. When the draft has open review comments, answer them as "Answer every open comment" in that file says.
+3. With a draft, call `document_revise` on it instead. When the draft lacks the tag `design` or `product`, call `document_set_tags` with its current tags plus the missing ones. Keep each section with a standing approval unchanged, as `../loupe-stage-product-design/references/review-round.md` "An approved section wins" says. When the draft has open review comments, answer them as "Answer every open comment" in that file says.
 4. Call `card_get` again. When the card does not link the document yet, call `card_update` with the existing `documentIds` plus the new id. The field replaces the whole set.
 5. Never move the card after P0. Give the owner the review URL, and stop.
