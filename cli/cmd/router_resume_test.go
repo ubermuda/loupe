@@ -764,8 +764,11 @@ func TestAFailedResumeIsReportedAsAFailedRun(t *testing.T) {
 	if got.run.CardID != cardUUID(87) || got.run.CardNumber != 87 || got.run.SessionID != askSession || got.run.RuleName != "resume" || got.run.BridgeID != testBridge {
 		t.Fatalf("run = %+v", got.run)
 	}
-	if finished := h.only(t, "worker_finished"); num(t, finished, "exit") != 1 || finished["level"] != "ERROR" {
-		t.Fatalf("worker_finished = %v", finished)
+	if got.run.HasResult == nil || *got.run.HasResult {
+		t.Fatalf("has result = %v, want false", got.run.HasResult)
+	}
+	if line := h.only(t, "worker_no_result"); num(t, line, "exit") != 1 || line["level"] != "ERROR" {
+		t.Fatalf("worker_no_result = %v", line)
 	}
 }
 
