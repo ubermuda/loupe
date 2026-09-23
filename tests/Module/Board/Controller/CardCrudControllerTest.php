@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
+use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
@@ -17,6 +18,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Module\Board\CardMovedOutbox;
+use App\Tests\Support\MercureCookies;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -29,6 +31,7 @@ use Symfony\Component\Uid\Uuid;
 final class CardCrudControllerTest extends WebTestCase
 {
     use BoardScenario;
+    use MercureCookies;
 
     #[TestWith([false])]
     #[TestWith([true])]
@@ -507,6 +510,15 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame('/projects/'.$project->id.'/worker-runs/card/'.$card->id, $refresh->attr('data-worker-run-refresh-url-value'));
         self::assertCount(1, $refresh->filter('turbo-frame#card-worker-runs[data-worker-run-refresh-target="frame"] [data-card-runs]'));
         self::assertNull($refresh->filter('turbo-frame#card-worker-runs')->attr('src'));
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
+        $runTopic = $topics->forWorkerRuns($project->id ?? throw new \LogicException('project id after flush'));
+        self::assertContains($runTopic, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value')));
+
+        // In the board drawer the board page holds the topic, so the frame response leaves the cookie alone.
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id, server: ['HTTP_TURBO_FRAME' => 'card-drawer-frame']);
+        self::assertResponseIsSuccessful();
+        self::assertNotContains($runTopic, self::subscribedTopics($client->getResponse()) ?? []);
     }
 
     public function test_a_stranger_cannot_reach_a_card(): void

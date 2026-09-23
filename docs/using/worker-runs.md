@@ -16,9 +16,9 @@ Open the page from the project sidebar, or go to
 |---|---|
 | Card number | the card the worker was started for. It links to the card while the board feature is on |
 | Rule name | the bridge rule that matched the event |
-| Started | when the worker started, on the bridge clock |
-| Took | how long the worker ran |
-| Outcome | **Succeeded** for exit code 0, **Failed** for any other code, **Never started** when the process never ran |
+| Started | when the worker started, on the bridge clock. A run that has not started shows when its first report arrived |
+| Took | how long the worker ran. A run that is still open shows how long it has run so far. A run that never started shows nothing |
+| Outcome | the state of the run, such as **Queued**, **Running**, **Waiting for a person**, **Succeeded**, **Failed**, **Never started**, **Timed out** or **Lost** |
 | Bridge | the last 12 characters of the bridge's own identifier |
 
 A run that never started carries the reason instead of an exit code, such as a
@@ -46,13 +46,24 @@ Heartbeat health does not show whether an individual worker is running or availa
 ## The output
 
 Select **View attempt** to open a read-only drawer without leaving the list.
-It shows the attempt ID, card, rule, bridge, session, duration, and reported timestamps.
+It shows the attempt ID, card, rule, bridge, session and duration.
+It lists each state the run reached, oldest first, with the time of each state, and then the time the first report arrived.
 Agent identity and the triggering event remain unreported rather than inferred.
 Press Escape or select **Close** to return focus to the opening button.
 
 Select **Copy output** to copy the original output text.
 If the browser refuses clipboard access, the drawer keeps the text available for manual copying.
-The drawer has no live state, Stop, or Retry controls.
+The drawer has no Stop or Retry controls.
+
+## Live updates
+
+The list and the runs section of a card page reload when a report or the
+timeout sweep changes a run of the project. They also reload after the page
+reconnects to the hub, for any change the page missed. This needs a Mercure hub
+and the `live_updates.enabled` flag. Without them, the page shows a change on
+its next load.
+
+An open drawer holds the reload. The list reloads when you close the drawer.
 
 Every row shows the worker's output in full, collapsed. Open **Output** to read
 it. A run that succeeded shows its output the same way a run that failed does,
@@ -71,7 +82,7 @@ Run IDs match without regard to letter case, and the outcome and bridge filters 
 
 Two filters narrow the list further:
 
-- **Outcome** keeps one of succeeded, failed and never started.
+- **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=failed` or `outcome=not-started` still works.
 - **Bridge** keeps one bridge. It appears once a second bridge has reported.
 
 Every control lands in the URL, so a filtered view is a link you can share.

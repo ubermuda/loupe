@@ -22,7 +22,11 @@ let application;
 beforeEach(() => {
     vi.useFakeTimers();
     mercure.subscriptions = [];
-    window.history.replaceState({}, '', '/projects/1/worker-runs?outcome=failed');
+    window.history.replaceState(
+        {},
+        '',
+        '/projects/1/worker-runs?outcome=failed',
+    );
     application = Application.start();
     application.register('worker-run-refresh', WorkerRunRefreshController);
 });

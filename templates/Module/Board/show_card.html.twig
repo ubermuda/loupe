@@ -67,7 +67,8 @@
                     </div>
                     {% else %}<h2 class="lp-card-panel__title">{{ 'board.card.linked_work.title'|trans }}</h2><p class="lp-card-detail__empty">{{ 'board.card.linked_work.empty'|trans }}</p>{% endif %}
                 </section>
-                {% do mercure_subscribe(worker_runs_topic(card.project)) %}
+                {# In the board drawer the board page subscribes, and a frame response would replace its cookie. #}
+                {% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' %}{% do mercure_subscribe(worker_runs_topic(card.project)) %}{% endif %}
                 <div class="lp-live-frame" data-controller="worker-run-refresh" data-worker-run-refresh-url-value="{{ path('app_project_card_worker_runs', {id: card.project.id, cardId: card.id}) }}">
                     {% include '@Bridge/_card_worker_runs.html.twig' with {project: card.project, cardId: card.id ~ ''} only %}
                 </div>
