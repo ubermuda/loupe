@@ -5345,8 +5345,6 @@
             <trans-unit id="bridge.worker_runs.details.session"><source>bridge.worker_runs.details.session</source><target>Session</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.unreported"><source>bridge.worker_runs.details.unreported</source><target>The bridge does not report the agent identity or the triggering event.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.timeline"><source>bridge.worker_runs.details.timeline</source><target>Reported timeline</target></trans-unit>
-            <trans-unit id="bridge.worker_runs.details.started"><source>bridge.worker_runs.details.started</source><target>Attempt started</target></trans-unit>
-            <trans-unit id="bridge.worker_runs.details.ended"><source>bridge.worker_runs.details.ended</source><target>Attempt ended</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.received"><source>bridge.worker_runs.details.received</source><target>Report received</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.copy"><source>bridge.worker_runs.details.copy</source><target>Copy output</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.copied"><source>bridge.worker_runs.details.copied</source><target>Output copied.</target></trans-unit>

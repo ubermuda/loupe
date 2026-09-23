@@ -37,8 +37,9 @@
         <p class="lp-dialog-desc">{{ 'bridge.worker_runs.details.unreported'|trans }}</p>
         <h3 class="lp-run-drawer__heading">{{ 'bridge.worker_runs.details.timeline'|trans }}</h3>
         <ol class="lp-run-drawer__timeline">
-            {% if run.startedAt is not null %}<li>{{ 'bridge.worker_runs.details.started'|trans }} <time datetime="{{ run.startedAt|date('c') }}">{{ run.startedAt|date('Y-m-d H:i:s T') }}</time></li>{% endif %}
-            {% if run.endedAt is not null %}<li>{{ 'bridge.worker_runs.details.ended'|trans }} <time datetime="{{ run.endedAt|date('c') }}">{{ run.endedAt|date('Y-m-d H:i:s T') }}</time></li>{% endif %}
+            {% for change in item.history %}
+            <li>{{ change.state.translationKey()|trans }} <time datetime="{{ change.at|date('c') }}">{{ change.at|date('Y-m-d H:i:s T') }}</time></li>
+            {% endfor %}
             <li>{{ 'bridge.worker_runs.details.received'|trans }} <time datetime="{{ run.receivedAt|date('c') }}">{{ run.receivedAt|date('Y-m-d H:i:s T') }}</time></li>
         </ol>
         {% if run.failureReason %}<p class="lp-worker-run__failure">{{ run.failureReason }}</p>{% endif %}

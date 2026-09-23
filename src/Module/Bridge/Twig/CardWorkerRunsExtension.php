@@ -45,7 +45,8 @@ final class CardWorkerRunsExtension extends AbstractExtension
         $now = $this->clock->now();
 
         return array_map(
-            static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now),
+            // The card shows no history, so it loads none.
+            static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, []),
             $this->workerRuns->findRecentForCard($project, Uuid::fromString($cardId), self::LIMIT),
         );
     }

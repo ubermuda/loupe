@@ -39,6 +39,38 @@ class WorkerRunStateChangeRepository extends ServiceEntityRepository
             ->getResult());
     }
 
+    /**
+     * The states of each run, in the order of findForRun(), with one query for
+     * a whole page of runs.
+     *
+     * @param list<WorkerRun> $runs
+     *
+     * @return array<string, list<WorkerRunStateChange>> keyed by the run id
+     */
+    public function findForRuns(array $runs): array
+    {
+        if ([] === $runs) {
+            return [];
+        }
+
+        /** @var list<WorkerRunStateChange> $changes */
+        $changes = $this->createQueryBuilder('c')
+            ->andWhere('c.run IN (:runs)')
+            ->setParameter('runs', $runs)
+            ->orderBy('c.at', 'ASC')
+            ->addOrderBy('c.receivedAt', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $byRun = [];
+        foreach ($changes as $change) {
+            $byRun[(string) $change->run->id][] = $change;
+        }
+
+        return $byRun;
+    }
+
     /** @return list<WorkerRunState> the distinct states the run has held */
     public function statesOf(WorkerRun $run): array
     {

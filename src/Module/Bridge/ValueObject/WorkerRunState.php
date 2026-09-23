@@ -110,7 +110,9 @@ enum WorkerRunState: string
         return match ($this) {
             self::Succeeded => 'ok',
             self::Failed, self::Dropped, self::TimedOut, self::Lost => 'failed',
-            self::Queued, self::Replaced, self::Resumed, self::Skipped, self::Running, self::WaitingForPerson, self::NotStarted => 'pending',
+            // The bridge set these runs aside by design, so nothing waits and nothing failed.
+            self::Replaced, self::Skipped => 'resolved',
+            self::Queued, self::Resumed, self::Running, self::WaitingForPerson, self::NotStarted => 'pending',
         };
     }
 }

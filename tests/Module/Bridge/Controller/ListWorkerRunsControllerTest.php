@@ -6,12 +6,14 @@ namespace App\Tests\Module\Bridge\Controller;
 
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class ListWorkerRunsControllerTest extends WebTestCase
 {
@@ -264,6 +266,133 @@ final class ListWorkerRunsControllerTest extends WebTestCase
             self::assertCount(1, $crawler->filter('[data-worker-run-id]'), 'outcome '.$outcome);
             self::assertStringContainsString($expected, (string) $client->getResponse()->getContent());
         }
+    }
+
+    /** Each state is a filter value, and each row shows the state as a translated chip. */
+    public function test_every_state_filters_and_shows_its_label(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'every-state-owner@example.com');
+        $project = $this->project($em, $owner, 'Every state');
+        foreach (WorkerRunState::cases() as $index => $state) {
+            $this->seedRun($em, $project, cardNumber: $index + 1, state: $state);
+        }
+
+        $projectId = (string) $project->id;
+        $em->clear();
+        $client->loginUser($owner);
+        $translator = static::getContainer()->get('translator');
+        self::assertInstanceOf(TranslatorInterface::class, $translator);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+        self::assertSame(
+            ['', ...array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::cases())],
+            $crawler->filter('#worker-run-outcome option')->each(static fn (Crawler $option): string => (string) $option->attr('value')),
+        );
+
+        foreach (WorkerRunState::cases() as $index => $state) {
+            $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?outcome='.$state->value);
+            self::assertResponseIsSuccessful();
+            self::assertCount(1, $crawler->filter('[data-worker-run-id]'), 'state '.$state->value);
+            self::assertStringContainsString('#'.($index + 1), $crawler->filter('.lp-worker-run__card')->text());
+
+            $label = $translator->trans($state->translationKey());
+            self::assertNotSame($state->translationKey(), $label);
+            foreach (['.lp-worker-run__table-row .lp-status-chip', '.lp-run-drawer__header .lp-status-chip'] as $chip) {
+                self::assertSame($label, $crawler->filter($chip)->text(), $state->value.' '.$chip);
+                self::assertStringContainsString('lp-status-chip--'.$state->chipModifier(), (string) $crawler->filter($chip)->attr('class'));
+            }
+        }
+    }
+
+    /** The drawer lists every state the run reached, oldest first, each with its time. */
+    public function test_the_drawer_lists_the_state_history_in_order(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'history-owner@example.com');
+        $project = $this->project($em, $owner, 'History');
+        $received = new \DateTimeImmutable('2026-01-01 11:00:00');
+        $run = $this->seedRun($em, $project, receivedAt: $received, state: WorkerRunState::Succeeded);
+        $other = $this->seedRun($em, $project, state: WorkerRunState::Failed);
+        foreach ([
+            [WorkerRunState::Succeeded, '2026-01-01 10:05:00'],
+            [WorkerRunState::Queued, '2026-01-01 09:59:00'],
+            [WorkerRunState::Running, '2026-01-01 10:00:00'],
+        ] as [$state, $at]) {
+            $em->persist(new WorkerRunStateChange($run, $state, new \DateTimeImmutable($at), $received));
+        }
+        $em->persist(new WorkerRunStateChange($other, WorkerRunState::Failed, new \DateTimeImmutable('2026-01-01 10:05:00'), $received));
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $runId = (string) $run->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $timeline = $crawler->filter('[data-worker-run-id="'.$runId.'"] .lp-run-drawer__timeline li');
+        self::assertSame(
+            [
+                'Queued 2026-01-01 09:59:00 UTC',
+                'Running 2026-01-01 10:00:00 UTC',
+                'Succeeded 2026-01-01 10:05:00 UTC',
+                'Report received 2026-01-01 11:00:00 UTC',
+            ],
+            $timeline->each(static fn (Crawler $entry): string => $entry->text()),
+        );
+        self::assertSame('2026-01-01T09:59:00+00:00', $timeline->first()->filter('time')->attr('datetime'));
+    }
+
+    /** A running run shows how long it has run so far, and a queued run shows no duration. */
+    public function test_an_open_run_shows_its_running_time_and_a_queued_run_none(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'running-owner@example.com');
+        $project = $this->project($em, $owner, 'Running');
+        $running = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v7(),
+            cardId: Uuid::v7(),
+            cardNumber: 1,
+            ruleName: 'running rule',
+            state: WorkerRunState::Queued,
+            runKey: Uuid::v7(),
+        );
+        $running->markRunning(Uuid::v4(), new \DateTimeImmutable('-90 seconds'));
+        $queued = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v7(),
+            cardId: Uuid::v7(),
+            cardNumber: 2,
+            ruleName: 'queued rule',
+            state: WorkerRunState::Queued,
+            runKey: Uuid::v7(),
+        );
+        $em->persist($running);
+        $em->persist($queued);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $runningId = (string) $running->id;
+        $queuedId = (string) $queued->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        self::assertMatchesRegularExpression('/^1m \d+s$/', trim($crawler->filter('[data-worker-run-id="'.$runningId.'"] .lp-worker-run__duration')->text()));
+        self::assertSame('', trim($crawler->filter('[data-worker-run-id="'.$queuedId.'"] .lp-worker-run__duration')->text()));
+        // A queued run has no session yet, so the drawer names none.
+        self::assertStringNotContainsString('Session', $crawler->filter('[data-worker-run-id="'.$queuedId.'"] .lp-run-drawer__metadata')->text());
     }
 
     public function test_the_bridge_filter_narrows_to_one_bridge(): void

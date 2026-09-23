@@ -83,7 +83,21 @@ final class WorkerRunStateTest extends TestCase
     public function test_every_state_has_a_label_and_a_chip(WorkerRunState $state): void
     {
         self::assertSame('bridge.worker_runs.state.'.str_replace('-', '_', $state->value), $state->translationKey());
-        self::assertContains($state->chipModifier(), ['ok', 'failed', 'pending']);
+        self::assertContains($state->chipModifier(), ['ok', 'failed', 'pending', 'resolved']);
+    }
+
+    /** An open run is amber, and a run that the bridge set aside by design is grey rather than amber. */
+    public function test_the_chip_separates_open_runs_from_runs_set_aside(): void
+    {
+        foreach (WorkerRunState::openStates() as $state) {
+            self::assertSame('pending', $state->chipModifier(), $state->value);
+        }
+
+        self::assertSame('resolved', WorkerRunState::Replaced->chipModifier());
+        self::assertSame('resolved', WorkerRunState::Skipped->chipModifier());
+        self::assertSame('pending', WorkerRunState::WaitingForPerson->chipModifier());
+        self::assertSame('ok', WorkerRunState::Succeeded->chipModifier());
+        self::assertSame('failed', WorkerRunState::Lost->chipModifier());
     }
 
     /** @return iterable<string, array{WorkerRunState}> */

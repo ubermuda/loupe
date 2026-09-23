@@ -469,6 +469,41 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-card-runs]', 'No agent has run on this card yet.');
     }
 
+    /** A queued run has no session, no start and no end yet, and the card still lists it. */
+    public function test_the_card_page_lists_a_run_that_has_not_started(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'card-queued-run@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Waits for a worker');
+        $run = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v7(),
+            cardId: $card->id ?? throw new \LogicException('card id after flush'),
+            cardNumber: $card->number,
+            ruleName: 'queued rule',
+            state: WorkerRunState::Queued,
+            runKey: Uuid::v7(),
+            receivedAt: new \DateTimeImmutable('2026-03-04 05:06:00'),
+        );
+        $em->persist($run);
+        $em->flush();
+        $runId = (string) $run->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
+
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('[data-card-runs] [data-card-run="'.$runId.'"]');
+        self::assertSame('Queued', $row->filter('.lp-status-chip')->text());
+        self::assertSame('2026-03-04T05:06:00+00:00', $row->filter('time')->attr('datetime'));
+        self::assertStringNotContainsString('·', $row->filter('.lp-card-run__meta')->text());
+    }
+
     public function test_a_stranger_cannot_reach_a_card(): void
     {
         $client = static::createClient();
