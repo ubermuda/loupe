@@ -128,9 +128,14 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
 
         self::assertTrue($result->newState);
         self::assertSame(WorkerRunState::Running, $run->state);
-        $rows = array_map(static fn (WorkerRunStateChange $change): string => $change->state->value, $this->history($run));
+        $history = $this->history($run);
+        $rows = array_map(static fn (WorkerRunStateChange $change): string => $change->state->value, $history);
         sort($rows);
         self::assertSame(['queued', 'running', 'running', 'timed-out'], $rows);
+        $timedOut = array_values(array_filter($history, static fn (WorkerRunStateChange $change): bool => WorkerRunState::TimedOut === $change->state));
+        $latest = array_reduce($history, static fn (?WorkerRunStateChange $carry, WorkerRunStateChange $change): WorkerRunStateChange => null === $carry || $change->at >= $carry->at ? $change : $carry);
+        self::assertSame(WorkerRunState::Running, $latest?->state);
+        self::assertGreaterThanOrEqual($timedOut[0]->at, $latest->at);
     }
 
     public function test_a_repeat_writes_nothing(): void

@@ -83,7 +83,9 @@ final readonly class ReportWorkerRunStateHandler
                     $this->apply($run, $command);
                     $closes = !$command->state->isOpen();
                 }
-                $this->em->persist(new WorkerRunStateChange($run, $command->state, $command->at, $receivedAt));
+                // A retry carries its first time, which precedes the timeout.
+                $at = $reopens ? $receivedAt : $command->at;
+                $this->em->persist(new WorkerRunStateChange($run, $command->state, $at, $receivedAt));
             }
 
             $this->em->flush();
