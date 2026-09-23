@@ -28,6 +28,7 @@ final class ForgeWebhookControllerTest extends WebTestCase
         );
 
         self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        self::assertTrue($client->getRequest()->attributes->get(RateLimitForgeDeliveries::MARKER), 'The rate limiter reads the route default from the request.');
         self::assertJsonStringEqualsJsonString(
             '{"error":"unknown forge"}',
             (string) $client->getResponse()->getContent(),
