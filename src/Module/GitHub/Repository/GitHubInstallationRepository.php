@@ -6,6 +6,7 @@ namespace App\Module\GitHub\Repository;
 
 use App\Module\Account\Entity\User;
 use App\Module\GitHub\Entity\GitHubInstallation;
+use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -20,6 +21,12 @@ final class GitHubInstallationRepository extends ServiceEntityRepository
     public function findOneByInstallationId(int $installationId): ?GitHubInstallation
     {
         return $this->findOneBy(['installationId' => $installationId]);
+    }
+
+    /** @return list<GitHubInstallation> */
+    public function findByProject(Project $project): array
+    {
+        return array_values($this->findBy(['project' => $project], ['createdAt' => 'ASC', 'id' => 'ASC']));
     }
 
     /** @return list<GitHubInstallation> */

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\GitHub\Controller;
 
+use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\GitHub\Repository\GitHubHookRepository;
 use App\Module\GitHub\Service\HookSecretKey;
 use App\Tests\Support\RecordingAuditor;
+use Doctrine\ORM\Event\PreFlushEventArgs;
+use Doctrine\ORM\Events;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -61,6 +64,45 @@ final class CreateGitHubHookControllerTest extends WebTestCase
         $hooks = static::getContainer()->get(GitHubHookRepository::class);
         self::assertInstanceOf(GitHubHookRepository::class, $hooks);
         self::assertSame($hook->hookKey, $hooks->findOneBy(['project' => $project->id])?->hookKey);
+    }
+
+    /**
+     * A double click sends two creates. Both miss the read, and the second
+     * meets the one-hook-per-project key. The listener plays the first click.
+     */
+    public function test_a_hook_created_between_the_check_and_the_write_is_refused_with_a_message(): void
+    {
+        $client = static::createClient();
+        $owner = $this->signedUpUser('race');
+        $project = $this->projectOf($owner);
+        $this->em()->clear();
+        $competitor = new class {
+            public bool $fired = false;
+
+            public function preFlush(PreFlushEventArgs $args): void
+            {
+                if ($this->fired) {
+                    return;
+                }
+                $this->fired = true;
+                $em = $args->getObjectManager();
+                foreach ($em->getUnitOfWork()->getScheduledEntityInsertions() as $entity) {
+                    if ($entity instanceof GitHubHook) {
+                        $em->persist(new GitHubHook($entity->project, GitHubHook::newKey(), GitHubHook::newSecret()));
+                    }
+                }
+            }
+        };
+        $this->em()->getEventManager()->addEventListener(Events::preFlush, $competitor);
+
+        $client->loginUser($owner);
+        $this->postAction($client, '/projects/'.$project->id.'/github/hook');
+
+        self::assertTrue($competitor->fired);
+        self::assertResponseRedirects('/projects/'.$project->id.'/connect#repositories');
+        $crawler = $client->followRedirect();
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('This project already has a webhook', $crawler->filter('body')->text());
     }
 
     public function test_a_stranger_is_forbidden(): void

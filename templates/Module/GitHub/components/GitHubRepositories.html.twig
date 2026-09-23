@@ -43,7 +43,32 @@
         {% endfor %}
         {% endif %}
 
-        {# The GitHub App block goes here, shown when appConfigured is true. #}
+        {% if appConfigured %}
+        <div class="lp-connect-block" id="github-app">
+            <p class="lp-eyebrow">{{ 'github.app.eyebrow'|trans }}</p>
+            <p class="lp-connect-hint">{{ 'github.app.purpose'|trans }}</p>
+            {% for installation in installations %}
+            <div class="lp-identity-row" data-github-installation="{{ installation.installationId }}">
+                <twig:ux:icon name="lucide:package" class="lp-identity-row__glyph w-4 h-4" />
+                <span class="lp-identity-row__text">
+                    <span class="lp-identity-row__name" data-testid="github-installation-account">{{ installation.accountLogin }}</span>
+                    <span class="lp-identity-row__meta lp-identity-row__meta--plain" data-testid="github-installation-state">
+                        {%- if installation.removedAt is not null -%}
+                            {{ 'github.app.state.removed'|trans }}
+                        {%- else -%}
+                            {{ ('github.app.selection.' ~ installation.repositorySelection.value)|trans }}
+                            {%- if installation.suspendedAt is not null %} · {{ 'github.app.state.suspended'|trans }}{% endif -%}
+                        {%- endif -%}
+                    </span>
+                </span>
+            </div>
+            {% endfor %}
+            <p class="lp-connect-hint">{{ 'github.app.follows'|trans }}</p>
+            <a href="{{ path('app_github_app_install', {id: project.id}) }}" class="lp-btn lp-btn--primary" data-testid="github-app-install">
+                <twig:ux:icon name="lucide:external-link" />{{ 'github.app.install'|trans }}
+            </a>
+        </div>
+        {% endif %}
 
         <div class="lp-connect-block" id="github-hook">
             <p class="lp-eyebrow">{{ 'github.repositories.hook.eyebrow'|trans }}</p>

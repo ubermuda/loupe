@@ -17,7 +17,7 @@ final readonly class GitHubAppConfiguration
         public ?string $clientId,
 
         #[Autowire(env: 'default::GITHUB_APP_CLIENT_SECRET')]
-        private ?string $clientSecret,
+        public ?string $clientSecret,
 
         #[Autowire(env: 'default::GITHUB_APP_WEBHOOK_SECRET')]
         private ?string $webhookSecret,
@@ -27,5 +27,21 @@ final readonly class GitHubAppConfiguration
     public function isConfigured(): bool
     {
         return array_all([$this->slug, $this->clientId, $this->clientSecret, $this->webhookSecret], fn ($value) => !(null === $value || '' === $value));
+    }
+
+    public function installUrl(string $state): string
+    {
+        return 'https://github.com/apps/'.rawurlencode((string) $this->slug).'/installations/new?'.http_build_query(['state' => $state]);
+    }
+
+    public function authorizeUrl(string $redirectUri, string $state, string $codeChallenge): string
+    {
+        return 'https://github.com/login/oauth/authorize?'.http_build_query([
+            'client_id' => $this->clientId,
+            'redirect_uri' => $redirectUri,
+            'state' => $state,
+            'code_challenge' => $codeChallenge,
+            'code_challenge_method' => 'S256',
+        ]);
     }
 }

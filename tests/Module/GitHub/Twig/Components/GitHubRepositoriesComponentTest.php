@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\GitHub\Twig\Components;
 
+use App\Module\GitHub\Entity\GitHubInstallation;
+use App\Module\GitHub\Entity\GitHubRepositorySelection;
 use App\Module\GitHub\Service\GitHubAppConfiguration;
 use App\Module\GitHub\Service\HookSecretKey;
 use App\Tests\Module\GitHub\Controller\GitHubConnectionsScenario;
@@ -112,6 +114,52 @@ final class GitHubRepositoriesComponentTest extends WebTestCase
         $section = $crawler->filter('#repositories');
         self::assertCount(0, $section->filter('[data-testid="github-hook-create"]'));
         self::assertStringContainsString('The operator has not enabled forge connections', $section->text());
+    }
+
+    public function test_without_the_app_there_is_no_install_link(): void
+    {
+        $client = static::createClient();
+        $owner = $this->signedUpUser('noapplink');
+        $project = $this->projectOf($owner);
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $crawler = $this->connectPage($client, $project);
+
+        self::assertCount(0, $crawler->filter('#repositories [data-testid="github-app-install"]'));
+    }
+
+    public function test_with_the_app_the_owner_sees_the_install_link_and_each_installation(): void
+    {
+        $client = static::createClient();
+        $owner = $this->signedUpUser('applink');
+        $project = $this->projectOf($owner);
+        $this->em()->persist(new GitHubInstallation($project, 11, 'acme', GitHubRepositorySelection::All));
+        $suspended = new GitHubInstallation($project, 12, 'paused-org', GitHubRepositorySelection::Selected);
+        $suspended->suspendedAt = new \DateTimeImmutable('-1 day');
+        $this->em()->persist($suspended);
+        $removed = new GitHubInstallation($project, 13, 'gone-org', GitHubRepositorySelection::Selected);
+        $removed->removedAt = new \DateTimeImmutable('-1 day');
+        $this->em()->persist($removed);
+        $this->em()->persist(new GitHubInstallation($this->projectOf($this->signedUpUser('otherapp')), 14, 'not-mine', GitHubRepositorySelection::All));
+        $this->em()->flush();
+        $this->em()->clear();
+        static::getContainer()->set(GitHubAppConfiguration::class, new GitHubAppConfiguration('loupe', 'client', 'secret', 'hook'));
+
+        $client->loginUser($owner);
+        $crawler = $this->connectPage($client, $project);
+
+        $section = $crawler->filter('#repositories');
+        self::assertSame('/projects/'.$project->id.'/github/install', $section->filter('[data-testid="github-app-install"]')->attr('href'));
+        self::assertStringContainsString('Loupe follows the change', $section->text());
+        $rows = [];
+        $section->filter('[data-github-installation]')->each(static function ($row) use (&$rows): void {
+            $rows[trim($row->filter('[data-testid="github-installation-account"]')->text())] = trim($row->filter('[data-testid="github-installation-state"]')->text());
+        });
+        self::assertSame(['acme', 'paused-org', 'gone-org'], array_keys($rows));
+        self::assertSame('All repositories', $rows['acme']);
+        self::assertStringStartsWith('Selected repositories · Suspended on GitHub', $rows['paused-org']);
+        self::assertStringContainsString('The App was uninstalled, so its repositories left this list', $rows['gone-org']);
     }
 
     public function test_with_the_app_configured_an_unreadable_key_turns_off_the_hook_alone(): void

@@ -7,7 +7,9 @@ namespace App\Module\GitHub\Twig\Components;
 use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\GitHub\Entity\GitHubHook;
+use App\Module\GitHub\Entity\GitHubInstallation;
 use App\Module\GitHub\Repository\GitHubHookRepository;
+use App\Module\GitHub\Repository\GitHubInstallationRepository;
 use App\Module\GitHub\Security\GitHubConnectionVoter;
 use App\Module\GitHub\Service\GitHubAppConfiguration;
 use App\Module\GitHub\Service\HookSecretKey;
@@ -41,12 +43,16 @@ final class GitHubRepositoriesComponent
     /** @var list<ForgeRepository> */
     public array $repositories = [];
 
+    /** @var list<GitHubInstallation> */
+    public array $installations = [];
+
     public \DateTimeImmutable $now;
 
     public function __construct(
         private readonly Security $security,
         private readonly ForgeRepositoryRepository $forgeRepositories,
         private readonly GitHubHookRepository $gitHubHooks,
+        private readonly GitHubInstallationRepository $gitHubInstallations,
         private readonly GitHubAppConfiguration $appConfiguration,
         private readonly HookSecretKey $hookSecretKey,
         private readonly OneTimeHookSecret $oneTimeHookSecret,
@@ -65,6 +71,9 @@ final class GitHubRepositoriesComponent
         $this->appConfigured = $this->appConfiguration->isConfigured();
         $this->hookAvailable = $this->hookSecretKey->isReadable();
         $this->repositories = $this->forgeRepositories->findByProject($project);
+        if ($this->appConfigured) {
+            $this->installations = $this->gitHubInstallations->findByProject($project);
+        }
 
         // Loading a hook decrypts its secret, which throws without the key.
         if ($this->hookAvailable) {

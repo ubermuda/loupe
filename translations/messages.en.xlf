@@ -6013,6 +6013,25 @@
             <trans-unit id="github.repositories.flash.hook_missing"><source>github.repositories.flash.hook_missing</source><target>This project has no webhook.</target></trans-unit>
             <trans-unit id="github.repositories.flash.repository_removed"><source>github.repositories.flash.repository_removed</source><target>%path% is no longer connected.</target></trans-unit>
             <trans-unit id="github.repositories.flash.repository_missing"><source>github.repositories.flash.repository_missing</source><target>This project does not own that repository.</target></trans-unit>
+            <trans-unit id="github.app.eyebrow"><source>github.app.eyebrow</source><target>GitHub App</target></trans-unit>
+            <trans-unit id="github.app.purpose"><source>github.app.purpose</source><target>Install the Loupe App on a GitHub account, and select the repositories it can reach. Loupe connects each of them to this project.</target></trans-unit>
+            <trans-unit id="github.app.follows"><source>github.app.follows</source><target>When you add or remove a repository in the App settings on GitHub, Loupe follows the change.</target></trans-unit>
+            <trans-unit id="github.app.install"><source>github.app.install</source><target>Install on GitHub</target></trans-unit>
+            <trans-unit id="github.app.selection.all"><source>github.app.selection.all</source><target>All repositories</target></trans-unit>
+            <trans-unit id="github.app.selection.selected"><source>github.app.selection.selected</source><target>Selected repositories</target></trans-unit>
+            <trans-unit id="github.app.state.suspended"><source>github.app.state.suspended</source><target>Suspended on GitHub. Loupe ignores its deliveries until you unsuspend it.</target></trans-unit>
+            <trans-unit id="github.app.state.removed"><source>github.app.state.removed</source><target>Removed on GitHub. The App was uninstalled, so its repositories left this list. Install it again to connect them.</target></trans-unit>
+            <trans-unit id="github.app.flash.unavailable"><source>github.app.flash.unavailable</source><target>The operator has not registered a GitHub App on this instance.</target></trans-unit>
+            <trans-unit id="github.app.flash.expired"><source>github.app.flash.expired</source><target>Loupe has no install in progress for you. Start the install again from the Connections page of a project.</target></trans-unit>
+            <trans-unit id="github.app.flash.state_mismatch"><source>github.app.flash.state_mismatch</source><target>Loupe could not confirm that this answer from GitHub is for your install. Start the install again.</target></trans-unit>
+            <trans-unit id="github.app.flash.no_installation"><source>github.app.flash.no_installation</source><target>GitHub did not return an installation. If an owner of the account must approve the App, ask them to approve it, then install it again.</target></trans-unit>
+            <trans-unit id="github.app.flash.not_authorized"><source>github.app.flash.not_authorized</source><target>GitHub did not authorize Loupe, so the installation is not connected. Start the install again.</target></trans-unit>
+            <trans-unit id="github.app.flash.project_unavailable"><source>github.app.flash.project_unavailable</source><target>You can no longer manage the connections of that project.</target></trans-unit>
+            <trans-unit id="github.app.flash.installation_not_listed"><source>github.app.flash.installation_not_listed</source><target>GitHub does not list this installation for your account, so Loupe did not connect it.</target></trans-unit>
+            <trans-unit id="github.app.flash.github_unavailable"><source>github.app.flash.github_unavailable</source><target>Loupe could not reach GitHub. Try the install again in a few minutes.</target></trans-unit>
+            <trans-unit id="github.app.flash.installation_elsewhere"><source>github.app.flash.installation_elsewhere</source><target>This installation belongs to another project.</target></trans-unit>
+            <trans-unit id="github.app.flash.connected"><source>github.app.flash.connected</source><target>Loupe is connected to the GitHub App on %account%.</target></trans-unit>
+            <trans-unit id="github.app.flash.repositories_elsewhere"><source>github.app.flash.repositories_elsewhere</source><target>{0}No repository belongs to another project.|{1}1 repository belongs to another project, so Loupe did not connect it.|]1,Inf[%count% repositories belong to another project, so Loupe did not connect them.</target></trans-unit>
         </body>
     </file>
 </xliff>

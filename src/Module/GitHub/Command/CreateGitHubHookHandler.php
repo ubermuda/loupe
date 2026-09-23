@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\GitHub\Repository\GitHubHookRepository;
 use App\Module\GitHub\Service\HookSecretKey;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -36,7 +37,13 @@ final readonly class CreateGitHubHookHandler
 
         $hook = new GitHubHook($command->project, GitHubHook::newKey(), GitHubHook::newSecret());
         $this->em->persist($hook);
-        $this->em->flush();
+        try {
+            $this->em->flush();
+        } catch (UniqueConstraintViolationException) {
+            // A concurrent create won the race with the check above. The failed
+            // flush closed the EntityManager, so nothing after this may use it.
+            throw new DomainErrors(['hook' => 'github.repositories.flash.hook_exists']);
+        }
 
         $this->auditor->record(
             'github.hook_created',
