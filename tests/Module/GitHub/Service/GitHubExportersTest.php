@@ -40,6 +40,28 @@ final class GitHubExportersTest extends KernelTestCase
         self::assertStringNotContainsString('the-hook-secret', json_encode($rows, \JSON_THROW_ON_ERROR));
     }
 
+    public function test_the_hook_export_works_when_the_secret_does_not_decrypt(): void
+    {
+        self::bootKernel();
+        $project = $this->project('undecryptable');
+        $hook = new GitHubHook($project, GitHubHook::newKey(), GitHubHook::newSecret());
+        $this->persist($hook);
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $em->getConnection()->executeStatement(
+            'UPDATE github_hooks SET secret = :secret WHERE id = :id',
+            ['secret' => base64_encode(random_bytes(64)), 'id' => (string) $hook->id],
+        );
+        $em->clear();
+        $exporter = self::getContainer()->get(GitHubHookExporter::class);
+        self::assertInstanceOf(GitHubHookExporter::class, $exporter);
+
+        $rows = [...$exporter->export($project->owner)];
+
+        self::assertCount(1, $rows);
+        self::assertSame($hook->hookKey, $rows[0]['hookKey']);
+    }
+
     public function test_the_installation_export_covers_the_owner_installations(): void
     {
         self::bootKernel();

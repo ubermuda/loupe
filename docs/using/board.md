@@ -346,7 +346,7 @@ review or a check result in a connected repository reaches each card of that
 project which links the pull request. Your agent receives it as an event.
 
 A card in another project gets nothing, even when it links the same pull
-request. A repository belongs to one project only.
+request.
 
 Loupe does not ask GitHub about a pull request. It learns only what GitHub
 sends. A card does not move by itself when its pull request merges. Move it to

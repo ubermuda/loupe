@@ -75,9 +75,16 @@ final class GitHubRepositoriesComponent
             $this->installations = $this->gitHubInstallations->findByProject($project);
         }
 
-        // Loading a hook decrypts its secret, which throws without the key.
+        // Loading a hook decrypts its secret, which throws without the key or with a wrong one.
         if ($this->hookAvailable) {
-            $this->hook = $this->gitHubHooks->findOneByProject($project);
+            try {
+                $this->hook = $this->gitHubHooks->findOneByProject($project);
+            } catch (\RuntimeException) {
+                $this->hookAvailable = false;
+
+                return;
+            }
+
             $this->newSecret = $this->oneTimeHookSecret->take($project);
         }
     }

@@ -25,14 +25,14 @@ final readonly class GitHubHookExporter implements UserDataExporterInterface
     #[\Override]
     public function export(User $user): iterable
     {
-        foreach ($this->gitHubHooks->findByOwner($user) as $hook) {
+        foreach ($this->gitHubHooks->findExportRowsByOwner($user) as $hook) {
             yield [
-                'project' => $hook->project->name,
-                'hookKey' => $hook->hookKey,
-                'lastAcceptedAt' => $hook->lastAcceptedAt?->format(\DateTimeInterface::ATOM),
-                'lastRefusedAt' => $hook->lastRefusedAt?->format(\DateTimeInterface::ATOM),
-                'lastRefusedReason' => $hook->lastRefusedReason,
-                'createdAt' => $hook->createdAt->format(\DateTimeInterface::ATOM),
+                'project' => $hook['projectName'],
+                'hookKey' => $hook['hookKey'],
+                'lastAcceptedAt' => $hook['lastAcceptedAt']?->format(\DateTimeInterface::ATOM),
+                'lastRefusedAt' => $hook['lastRefusedAt']?->format(\DateTimeInterface::ATOM),
+                'lastRefusedReason' => $hook['lastRefusedReason'],
+                'createdAt' => $hook['createdAt']->format(\DateTimeInterface::ATOM),
             ];
         }
     }

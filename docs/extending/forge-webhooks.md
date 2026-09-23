@@ -22,16 +22,17 @@ A forge module writes ownership through `ForgeRepositories` only.
 
 | Method | Does |
 |---|---|
-| `claim($project, $forge, $externalId, $path)` | Makes the project the owner of the repository, or confirms it. It returns `Owned`, `AlreadyOwned` or `Refused`. `Refused` names no owner. When the owner claims under a new path, the row takes the new path and the claim reports the old one. |
-| `release($project, $forge, $externalId)` | Removes the row, when the project owns it. |
+| `claim($project, $forge, $externalId, $path, $source, $sourceRef)` | Creates or confirms the row of the project. It returns `Owned`, `AlreadyOwned` or `Refused`. A `Hook` claim never refuses. An `Installation` claim refuses when another project holds an installation row, and `Refused` names no owner. When the project claims under a new path, the row takes the new path and the claim reports the old one. |
+| `release($project, $forge, $externalId)` | Removes the row of the project. |
+| `releaseInstallation($forge, $sourceRef, $externalId)` | Removes the rows of one installation, or its row for one repository. |
 | `accepted($repository, $now)` | Records the time of the last accepted delivery, at most once a minute. The repository state on the Connections tab reads it. |
-| `ownerOf($forge, $externalId)` | Reads the row. |
+| `installationOwnerOf($forge, $externalId)` | Reads the installation row of a repository. |
 
 Each write flushes. A `claim()` that throws closes the EntityManager, because
 it runs in a transaction.
 
 After a claim that is not `Refused`, the forge module dispatches
-`ForgeDeliveryReceived`. It carries the id of the owning project and a
+`ForgeDeliveryReceived`. It carries the id of the claiming project and a
 non-empty list of `ForgeDelivery`. A listener acts inside that project only.
 
 A route that receives deliveries sets two defaults, and the rate limiter reads
@@ -62,22 +63,28 @@ event as malformed and drops it, so upgrade the CLI before you connect a forge.
 
 ## Ownership
 
-A repository belongs to one project. Loupe keys it on the forge and on the
-stable id the forge gives it, which is `repository.id` on GitHub. A path is not
-a key, because a path changes.
+Loupe keys a repository on the forge and on the stable id the forge gives it,
+which is `repository.id` on GitHub. A path is not a key, because a path
+changes. Each project that receives a repository holds its own row.
 
-A delivery for a repository that another project owns is dropped. The endpoint
-still answers 200, and the log names the claiming project only.
+Only an App installation makes a repository exclusive. The owner of a project
+knows the secret of its webhook, so that owner can sign any body and name any
+repository. A webhook claim therefore feeds its own project and blocks nobody.
+An App claim is exclusive, because GitHub proves the installation through the
+user token and the App secret. An App delivery for a repository that the App of
+another project holds is dropped. The endpoint still answers 200, and the log
+names the claiming project only.
 
 `CardPullRequest` stores the repository path and the number of each pull
 request that a card links. A delivery names both, so it finds its cards with no
-separate mapping table. Only the cards of the owning project match. Another
-project can link the same pull request, and gets nothing.
+separate mapping table. Only the cards of the project that received the
+delivery match. Another project can link the same pull request, and gets
+nothing.
 
 A rename or a transfer keeps the id, so the owner stays the same. The first
 delivery under the new path moves the row, and Loupe writes
 `pull_request.repository_moved` before the other facts in that delivery. That
-event repoints the pull request links of the owning project only.
+event repoints the pull request links of that project only.
 
 ## The GitHub routes
 
@@ -101,10 +108,11 @@ know, is dropped.
 | 200 | the delivery verified. This includes a dropped delivery, an event Loupe does not use, and a project whose board is off. |
 | 400 | the signature did not verify, the secret is empty, or the body is not JSON |
 | 404 | no webhook has that hook key |
-| 429 | the key sent more than 300 deliveries in one minute |
+| 429 | the key sent too many deliveries in one minute: 3000 for the App route, 300 for one webhook |
 
-Every recognised outcome answers 200, because GitHub retries anything else for
-days.
+Every recognised outcome answers 200, so the GitHub delivery log shows a
+failure only when something is wrong. GitHub does not send a failed delivery
+again on its own. A person can send it again from the delivery log.
 
 ## Registering the GitHub App
 

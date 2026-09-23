@@ -12,11 +12,12 @@ framework:
         # Bounds the forge webhook, which is anonymous by design: it
         # authenticates a delivery by signature, so anyone may reach it. Keyed
         # per client address, because a forge signs but does not identify
-        # itself before the adapter reads the body. Generous, because a busy
-        # repository can burst on a push.
+        # itself before the adapter reads the body. GitHub sends the App
+        # deliveries of every tenant from one shared pool of addresses and
+        # does not resend a refused one, so the limit is high.
         forge_deliveries:
             policy: 'sliding_window'
-            limit: 300
+            limit: 3000
             interval: '1 minute'
 
         # Bounds a per-project forge hook. GitHub delivers for every tenant from

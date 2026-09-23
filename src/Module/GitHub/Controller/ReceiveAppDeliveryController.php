@@ -20,7 +20,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * Receives what the GitHub App says. Not under /api: the api firewall lets any
  * scoped token through on unlisted /api paths, and GitHub authenticates with a
  * signature rather than a bearer token. Every recognised outcome answers 200,
- * because GitHub retries anything else for days.
+ * so the GitHub delivery log shows a failure only when something is wrong.
  */
 #[Route(
     '/webhooks/forge/github',

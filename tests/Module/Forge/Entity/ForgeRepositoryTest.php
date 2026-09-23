@@ -6,8 +6,8 @@ namespace App\Tests\Module\Forge\Entity;
 
 use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgeRepository;
-use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Entity\ForgeRepositoryHealth;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\TestCase;
 

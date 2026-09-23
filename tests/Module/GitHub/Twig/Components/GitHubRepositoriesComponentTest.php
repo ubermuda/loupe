@@ -116,6 +116,25 @@ final class GitHubRepositoriesComponentTest extends WebTestCase
         self::assertStringContainsString('The operator has not enabled forge connections', $section->text());
     }
 
+    public function test_a_secret_that_does_not_decrypt_turns_off_the_hook_instead_of_failing_the_page(): void
+    {
+        $client = static::createClient();
+        $owner = $this->signedUpUser('wrongkey');
+        $project = $this->projectOf($owner);
+        $hook = $this->hookOf($project);
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE github_hooks SET secret = :secret WHERE id = :id',
+            ['secret' => base64_encode(random_bytes(64)), 'id' => (string) $hook->id],
+        );
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $crawler = $this->connectPage($client, $project);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('#repositories [data-testid="github-hook-rotate"]'));
+    }
+
     public function test_without_the_app_there_is_no_install_link(): void
     {
         $client = static::createClient();

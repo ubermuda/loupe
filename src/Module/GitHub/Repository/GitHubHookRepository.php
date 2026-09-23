@@ -23,12 +23,16 @@ final class GitHubHookRepository extends ServiceEntityRepository
         return $this->findOneBy(['project' => $project]);
     }
 
-    /** @return list<GitHubHook> */
-    public function findByOwner(User $user): array
+    /**
+     * Selects no secret, so an unreadable encryption key cannot break the export.
+     *
+     * @return list<array{projectName: string, hookKey: string, lastAcceptedAt: ?\DateTimeImmutable, lastRefusedAt: ?\DateTimeImmutable, lastRefusedReason: ?string, createdAt: \DateTimeImmutable}>
+     */
+    public function findExportRowsByOwner(User $user): array
     {
         return array_values($this->createQueryBuilder('h')
+            ->select('p.name AS projectName', 'h.hookKey', 'h.lastAcceptedAt', 'h.lastRefusedAt', 'h.lastRefusedReason', 'h.createdAt')
             ->join('h.project', 'p')
-            ->addSelect('p')
             ->andWhere('p.owner = :user')
             ->setParameter('user', $user)
             ->orderBy('h.createdAt', 'ASC')
