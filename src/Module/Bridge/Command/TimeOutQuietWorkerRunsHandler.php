@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\BridgeLiveness;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
@@ -25,6 +26,7 @@ final readonly class TimeOutQuietWorkerRunsHandler
 
     public function __construct(
         private WorkerRunRepository $workerRuns,
+        private BridgeRepository $bridges,
         private BridgeLiveness $liveness,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
@@ -41,10 +43,14 @@ final readonly class TimeOutQuietWorkerRunsHandler
             return [];
         }
 
-        // The locked read keeps only the runs still open with a quiet bridge, so
-        // a report or a heartbeat that arrived after the first read wins.
+        // The bridge locks make a heartbeat in flight commit first, or wait for
+        // this sweep. The locked read then keeps only the runs still open with a
+        // quiet bridge, so a report or a heartbeat after the first read wins.
         /** @var list<WorkerRun> $timedOut */
         $timedOut = $this->em->wrapInTransaction(function () use ($ids, $quietBefore): array {
+            foreach ($this->workerRuns->findBridgesOfRuns($ids) as [$ownerId, $bridgeId]) {
+                $this->bridges->lockForWrite($ownerId, $bridgeId);
+            }
             $runs = $this->workerRuns->findOpenByIdsForUpdate($ids, $quietBefore);
             // Read after the lock, so the row never predates a report that won it.
             $at = $this->clock->now();

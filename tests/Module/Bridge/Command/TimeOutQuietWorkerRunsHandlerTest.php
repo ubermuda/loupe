@@ -110,6 +110,23 @@ final class TimeOutQuietWorkerRunsHandlerTest extends KernelTestCase
         self::assertSame(WorkerRunState::Running, $this->reload($run)->state);
     }
 
+    /** The sweep takes the heartbeat's lock, so it must build the same owner id. */
+    public function test_the_bridges_of_runs_name_the_owner_as_the_heartbeat_does(): void
+    {
+        [$owner, $project] = $this->scenario('sweep-bridge-keys');
+        $bridgeId = Uuid::v7();
+        $first = $this->openRun($project, $bridgeId, WorkerRunState::Running);
+        $second = $this->openRun($project, $bridgeId, WorkerRunState::Queued);
+        $repository = self::getContainer()->get(WorkerRunRepository::class);
+        self::assertInstanceOf(WorkerRunRepository::class, $repository);
+
+        $bridges = $repository->findBridgesOfRuns([$first->id ?? Uuid::v7(), $second->id ?? Uuid::v7()]);
+
+        self::assertCount(1, $bridges);
+        self::assertSame((string) $owner->id, $bridges[0][0]);
+        self::assertSame($bridgeId->toRfc4122(), $bridges[0][1]->toRfc4122());
+    }
+
     /** @return array{User, Project} */
     private function scenario(string $name): array
     {

@@ -143,6 +143,33 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The owner id and the bridge id of each bridge these runs belong to, once
+     * each and in a fixed order, so two callers lock them in the same order.
+     *
+     * @param list<Uuid> $ids
+     *
+     * @return list<array{string, Uuid}>
+     */
+    public function findBridgesOfRuns(array $ids): array
+    {
+        /** @var list<array{ownerId: Uuid|string, bridgeId: Uuid|string}> $rows */
+        $rows = $this->createQueryBuilder('r')
+            ->select('DISTINCT IDENTITY(p.owner) AS ownerId, r.bridgeId AS bridgeId')
+            ->join('r.project', 'p')
+            ->andWhere('r.id IN (:ids)')
+            ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
+            ->orderBy('ownerId', 'ASC')
+            ->addOrderBy('bridgeId', 'ASC')
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_map(static fn (array $row): array => [
+            (string) $row['ownerId'],
+            $row['bridgeId'] instanceof Uuid ? $row['bridgeId'] : Uuid::fromString($row['bridgeId']),
+        ], $rows);
+    }
+
+    /**
      * The runs among these ids that are still open and whose bridge is still
      * quiet, locked until the transaction ends, in id order so two sweeps cannot
      * deadlock. The bridge test is a subquery, so the lock covers the runs alone.
