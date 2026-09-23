@@ -11,7 +11,7 @@ use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /** @extends ServiceEntityRepository<CardLink> */
-final class CardLinkRepository extends ServiceEntityRepository
+class CardLinkRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {

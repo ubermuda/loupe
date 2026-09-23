@@ -68,6 +68,23 @@ final class CardGetToolTest extends KernelTestCase
         self::assertSame(7, $card['pullRequests'][0]['number']);
     }
 
+    public function test_each_card_reads_its_links_from_its_own_side(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-links'));
+        $blocker = ($this->createTool)('Blocker', 'Body', 'feature');
+        $blocked = ($this->createTool)('Blocked', 'Body', 'feature', relatedCards: [['cardId' => $blocker['cardId'], 'kind' => 'blocked-by']]);
+
+        self::assertSame(
+            [['cardId' => $blocker['cardId'], 'number' => 1, 'title' => 'Blocker', 'status' => 'backlog', 'kind' => 'blocked-by']],
+            ($this->tool)($blocked['cardId'])['relatedCards'],
+        );
+        self::assertSame(
+            [['cardId' => $blocked['cardId'], 'number' => 2, 'title' => 'Blocked', 'status' => 'backlog', 'kind' => 'blocks']],
+            ($this->tool)($blocker['cardId'])['relatedCards'],
+        );
+    }
+
     public function test_a_card_in_another_project_is_not_reachable(): void
     {
         $this->enableBoard();

@@ -11,7 +11,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Board\Service\BoardAvailability;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
@@ -33,7 +32,6 @@ final class ShowCardController extends AppController
     }
 
     public function __invoke(
-        Request $request,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(cardId, projectId)')] Card $card,
     ): Response {
         $this->board->requireEnabled();
@@ -43,6 +41,7 @@ final class ShowCardController extends AppController
         $response = $this->render('@Board/show_card.html.twig', [
             'card' => $view->card,
             'siteReviewLinks' => $view->siteReviewLinks,
+            'relatedCards' => $view->relatedCards,
         ]);
         $response->setVary('Turbo-Frame', false);
 

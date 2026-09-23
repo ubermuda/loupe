@@ -92,7 +92,7 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
 
             $view = ($this->showCard)(new ShowCardCommand($card));
 
-            return $this->payload->forCard($view->card, $view->siteReviewLinks);
+            return $this->payload->forCard($view->card, $view->siteReviewLinks, $view->relatedCards);
         } catch (DomainErrors $e) {
             throw $this->errorMessages->forAgent($e);
         } catch (ToolCallException $e) {

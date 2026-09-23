@@ -247,6 +247,21 @@ final class CardListToolTest extends KernelTestCase
         self::assertSame([], $row['pullRequests']);
         self::assertSame([], $row['documents']);
         self::assertSame([], $row['siteReviewComments']);
+        self::assertSame([], $row['relatedCards']);
+    }
+
+    public function test_full_reads_each_card_links_from_its_own_side(): void
+    {
+        $this->boardWith('card-list-full-links');
+        $cards = ($this->tool)()['cards'];
+        ($this->createTool)('Fourth', 'Body', 'feature', relatedCards: [['cardId' => $cards[0]['cardId'], 'kind' => 'blocks']]);
+
+        $rows = array_column(($this->tool)(full: true)['cards'], 'relatedCards', 'title');
+
+        self::assertSame([['cardId' => $cards[0]['cardId'], 'number' => 1, 'title' => 'First', 'status' => 'backlog', 'kind' => 'blocks']], $rows['Fourth']);
+        self::assertSame('blocked-by', $rows['First'][0]['kind']);
+        self::assertSame('Fourth', $rows['First'][0]['title']);
+        self::assertSame([], $rows['Second']);
     }
 
     public function test_a_page_is_cut_from_the_board_and_total_counts_the_whole_set(): void

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardLink;
+use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
@@ -557,5 +559,48 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame(['https://github.com/loupe/loupe/pull/4'], $hrefs);
         // Shown, not hidden: the reader still sees what the card carries.
         self::assertStringContainsString('javascript:alert(1)', $crawler->filter('.lp-card-pulls')->text());
+    }
+
+    public function test_the_card_page_lists_its_linked_cards_as_each_card_reads_them(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'card-linked-cards@example.com');
+        $project = $this->project($em, $owner);
+        $blocker = $this->card($em, $project, 'Ship the schema');
+        $blocked = $this->card($em, $project, 'Ship the page');
+        $alone = $this->card($em, $project, 'Stands alone');
+        $em->persist(new CardLink($blocker, $blocked, CardLinkKind::Blocks));
+        $em->flush();
+        $blockerId = $blocker->id;
+        $blockedId = $blocked->id;
+        $aloneId = $alone->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$blockerId);
+        self::assertResponseIsSuccessful();
+        $section = $crawler->filter('[data-linked-cards]');
+        self::assertStringContainsString('Linked cards', $section->text());
+        $row = $section->filter('[data-linked-card="'.$blockedId.'"]');
+        self::assertStringContainsString('Blocks', $row->text());
+        self::assertStringContainsString('Ship the page', $row->text());
+        $open = $row->filter('a');
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$blockedId, $open->attr('href'));
+        self::assertSame('card-drawer-frame', $open->attr('data-turbo-frame'));
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$blockedId, server: ['HTTP_TURBO_FRAME' => 'card-drawer-frame']);
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('[data-linked-cards] [data-linked-card="'.$blockerId.'"]');
+        self::assertStringContainsString('Blocked by', $row->text());
+        self::assertStringContainsString('Ship the schema', $row->text());
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$aloneId);
+        self::assertResponseIsSuccessful();
+        // Guard: the page rendered its overview, so the absent section means something.
+        self::assertCount(1, $crawler->filter('.lp-card-overview'));
+        self::assertCount(0, $crawler->filter('[data-linked-cards]'));
     }
 }

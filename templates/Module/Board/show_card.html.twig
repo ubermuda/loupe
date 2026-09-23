@@ -67,6 +67,21 @@
                     </div>
                     {% else %}<h2 class="lp-card-panel__title">{{ 'board.card.linked_work.title'|trans }}</h2><p class="lp-card-detail__empty">{{ 'board.card.linked_work.empty'|trans }}</p>{% endif %}
                 </section>
+                {% if relatedCards|length > 0 %}
+                <section class="lp-card-overview__section" data-linked-cards>
+                    <div class="lp-inbox-linked-table-wrap">
+                        <table class="lp-inbox-linked-table">
+                            <caption>{{ 'board.card.linked_cards.title'|trans }}</caption>
+                            <thead><tr><th>{{ 'board.card.linked_cards.relation'|trans }}</th><th>{{ 'inbox.linked_items.item'|trans }}</th><th>{{ 'inbox.linked_items.status'|trans }}</th><th><span class="sr-only">{{ 'inbox.linked_items.open'|trans }}</span></th></tr></thead>
+                            <tbody>
+                                {% for related in relatedCards %}
+                                    {% include '@Board/_linked_card_row.html.twig' with {card: related.card, href: path('app_board_card', {projectId: related.card.project.id, cardId: related.card.id}), drawer: true, kind: related.kind} only %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                {% endif %}
                 {% set runs = card_worker_runs(card.project, card.id ~ '') %}
                 <section class="lp-card-overview__section" data-card-runs>
                     <div class="lp-section-heading">

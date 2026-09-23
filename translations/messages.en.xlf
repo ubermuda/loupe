@@ -5486,6 +5486,11 @@
             <trans-unit id="board.card.link.open_pull_request"><source>board.card.link.open_pull_request</source><target>Open pull request</target></trans-unit>
             <trans-unit id="board.card.linked_work.title"><source>board.card.linked_work.title</source><target>Linked work</target></trans-unit>
             <trans-unit id="board.card.linked_work.empty"><source>board.card.linked_work.empty</source><target>No documents or pull requests are linked to this card.</target></trans-unit>
+            <trans-unit id="board.card.linked_cards.title"><source>board.card.linked_cards.title</source><target>Linked cards</target></trans-unit>
+            <trans-unit id="board.card.linked_cards.relation"><source>board.card.linked_cards.relation</source><target>Link</target></trans-unit>
+            <trans-unit id="board.card.linked_cards.kind.relates_to"><source>board.card.linked_cards.kind.relates_to</source><target>Related to</target></trans-unit>
+            <trans-unit id="board.card.linked_cards.kind.blocks"><source>board.card.linked_cards.kind.blocks</source><target>Blocks</target></trans-unit>
+            <trans-unit id="board.card.linked_cards.kind.blocked_by"><source>board.card.linked_cards.kind.blocked_by</source><target>Blocked by</target></trans-unit>
             <trans-unit id="site_review.source.widget"><source>site_review.source.widget</source><target>Site review widget</target></trans-unit>
             <trans-unit id="site_review.comment.open_source"><source>site_review.comment.open_source</source><target>Open source page</target></trans-unit>
             <trans-unit id="site_review.widget.setup"><source>site_review.widget.setup</source><target>Widget setup</target></trans-unit>

@@ -22,4 +22,13 @@ enum CardLinkKind: string
             self::BlockedBy => self::Blocks,
         };
     }
+
+    public function translationKey(): string
+    {
+        return match ($this) {
+            self::RelatesTo => 'board.card.linked_cards.kind.relates_to',
+            self::Blocks => 'board.card.linked_cards.kind.blocks',
+            self::BlockedBy => 'board.card.linked_cards.kind.blocked_by',
+        };
+    }
 }

@@ -10,6 +10,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardPayload;
+use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\TestCase;
@@ -20,8 +21,10 @@ final class CardPayloadTest extends TestCase
     {
         $comments = $this->createMock(CardSiteReviewCommentRepository::class);
         $comments->expects($this->never())->method('findForCards');
+        $links = $this->createMock(CardLinkRepository::class);
+        $links->expects($this->never())->method('findForCards');
 
-        $rows = new CardPayload($comments)->forCardList([$this->card()]);
+        $rows = new CardPayload($comments, $links)->forCardList([$this->card()]);
 
         self::assertCount(1, $rows);
         self::assertSame(
@@ -31,17 +34,20 @@ final class CardPayloadTest extends TestCase
         self::assertSame('Drag ordering', $rows[0]['title']);
     }
 
-    public function test_the_full_shape_does_query_the_site_review_comments(): void
+    public function test_the_full_shape_does_query_the_site_review_comments_and_the_card_links(): void
     {
         $comments = $this->createMock(CardSiteReviewCommentRepository::class);
-        // Without this the test above passes even on a payload that never ran
-        // the query on either path.
+        // Without these the test above passes even on a payload that never ran
+        // the queries on either path.
         $comments->expects($this->once())->method('findForCards')->willReturn([]);
+        $links = $this->createMock(CardLinkRepository::class);
+        $links->expects($this->once())->method('findForCards')->willReturn([]);
 
-        $rows = new CardPayload($comments)->forCards([$this->card()]);
+        $rows = new CardPayload($comments, $links)->forCards([$this->card()]);
 
         self::assertArrayHasKey('body', $rows[0]);
         self::assertSame([], $rows[0]['siteReviewComments']);
+        self::assertSame([], $rows[0]['relatedCards']);
     }
 
     private function card(): Card
