@@ -86,7 +86,8 @@ type router struct {
 	sessions map[string]sessionCard
 
 	// unmapped remembers the projects already logged as unmapped, and gone the
-	// mapped projects already logged as gone.
+	// mapped projects already logged as gone. Both hold project ids, because a
+	// reload can map a slug to another project.
 	unmapped map[string]bool
 	gone     map[string]bool
 
@@ -402,13 +403,14 @@ func (r *router) onRefresh(events api.Events) {
 	r.applyFlags(events)
 	set := r.rules()
 	for _, slug := range missingProjects(set, events) {
+		id := set.ProjectID(slug)
 		r.mu.Lock()
-		logged := r.gone[slug]
+		logged := r.gone[id]
 		if !logged {
 			if r.gone == nil {
 				r.gone = map[string]bool{}
 			}
-			r.gone[slug] = true
+			r.gone[id] = true
 		}
 		r.mu.Unlock()
 		if logged {
@@ -430,7 +432,6 @@ func (r *router) onRefresh(events api.Events) {
 		// The kill names the project by id, because a reload can swap in a set
 		// that maps the slug to another project. The health report of the kill
 		// most likely gets project_not_found, which the reporter logs once.
-		id := set.ProjectID(slug)
 		dead, dropped := r.kill(event.Event{}, id, func(s *rules.Set) []rules.Dead { return killGone(s, id) })
 		r.logGone(id, dead)
 		r.logDropped(dropped)

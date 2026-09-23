@@ -735,4 +735,10 @@ func TestAGoneProjectDoesNotKillAProjectWithItsSlugAndANewID(t *testing.T) {
 	if n := h.runs(); n != 1 {
 		t.Fatalf("the new project started %d workers, want 1", n)
 	}
+
+	// The gone mark names the old id, so the new project going too is news.
+	h.router.onRefresh(api.Events{})
+	if h.router.rules().Live("plan") {
+		t.Fatal("the new project went, and its rule stayed live")
+	}
 }

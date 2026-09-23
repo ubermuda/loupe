@@ -244,11 +244,11 @@ func (r *router) pruneLocked(set *rules.Set, gone []string) {
 	}
 	r.gone = nil
 	for _, id := range gone {
-		if slug := slugOf(set, id); slug != "" {
+		if slugOf(set, id) != "" {
 			if r.gone == nil {
 				r.gone = map[string]bool{}
 			}
-			r.gone[slug] = true
+			r.gone[id] = true
 		}
 	}
 }
