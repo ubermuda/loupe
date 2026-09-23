@@ -276,6 +276,11 @@ func (r *router) onData(data []byte) {
 	}
 
 	m := set.Match(e)
+	// A reload can swap the set after the snapshot. enqueue matches a run again
+	// under mu, and a skip is matched again here against the set now current.
+	if cur := r.rules(); m.Skip != rules.Run && cur != set {
+		set, m = cur, cur.Match(e)
+	}
 	switch m.Skip {
 	case rules.Run:
 		p := pending{key: key, event: e, set: set}
