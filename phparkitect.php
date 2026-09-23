@@ -63,4 +63,11 @@ return static function (Config $config): void {
             ->should(new NotDependsOnTheseNamespaces(['App\Module\GitHub']))
             ->because('Board reads forge deliveries through the Forge contract alone, so it must not learn which forge sent one'),
     );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\GitHub'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module\Board']))
+            ->because('GitHub announces a delivery through the Forge event, and Board decides what it means for a card'),
+    );
 };
