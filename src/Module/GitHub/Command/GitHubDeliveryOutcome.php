@@ -2,12 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Forge\Command;
+namespace App\Module\GitHub\Command;
 
 /** What the receiver made of one delivery, for the caller to answer with. */
-enum ForgeDeliveryOutcome
+enum GitHubDeliveryOutcome
 {
-    case UnknownForge;
-    case InvalidSignature;
+    case Refused;
     case Received;
 }

@@ -8,7 +8,7 @@ namespace App\Module\Forge;
  * What a forge told Loupe, in Loupe's words.
  *
  * No name carries a forge, because a rule file and a bridge must not learn a
- * new event type for each forge an instance connects. An adapter maps its own
+ * new event type for each forge an instance connects. A forge module maps its own
  * vocabulary onto these, and everything after that point is forge-blind.
  */
 final class ForgeEventType

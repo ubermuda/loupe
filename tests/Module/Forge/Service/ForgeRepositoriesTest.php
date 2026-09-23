@@ -6,7 +6,6 @@ namespace App\Tests\Module\Forge\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgeRepository;
-use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\Forge\Service\ForgeClaimOutcome;
 use App\Module\Forge\Service\ForgeRepositories;
 use App\Module\Project\Entity\Project;
@@ -30,10 +29,9 @@ final class ForgeRepositoriesTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        // Built by hand: until a forge module injects it, the container removes it.
-        $rows = self::getContainer()->get(ForgeRepositoryRepository::class);
-        self::assertInstanceOf(ForgeRepositoryRepository::class, $rows);
-        $this->repositories = new ForgeRepositories($rows, $em);
+        $repositories = self::getContainer()->get(ForgeRepositories::class);
+        self::assertInstanceOf(ForgeRepositories::class, $repositories);
+        $this->repositories = $repositories;
     }
 
     public function test_a_first_claim_owns_the_repository(): void

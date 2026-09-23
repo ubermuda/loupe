@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Forge;
 
 /**
- * One fact an adapter read out of a verified delivery, in the neutral
+ * One fact a forge module read out of a verified delivery, in the neutral
  * vocabulary of ForgeEventType.
  *
  * It carries identifiers alone. A review note, a commit message and a branch

@@ -401,6 +401,13 @@ variable "github_webhook_secret" {
   description = "GITHUB_WEBHOOK_SECRET used to verify inbound forge webhook signatures."
 }
 
+variable "github_app_webhook_secret" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "GITHUB_APP_WEBHOOK_SECRET, the GitHub App webhook secret. Empty refuses every App delivery."
+}
+
 variable "oauth_google_id" {
   type        = string
   default     = ""
