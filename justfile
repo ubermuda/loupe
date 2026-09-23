@@ -562,7 +562,7 @@ tunnel:
 
 # Vet + test the Go CLI (cli/) in a throwaway Go container — no host Go needed.
 cli-test:
-    docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local golang:1.26-alpine sh -c 'go vet ./... && go test ./...'
+    docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local golang:1.26-alpine sh -c 'go vet ./... && GOOS=windows go vet ./... && go test ./...'
 
 # Defaults to the dev's mac; override e.g. `just cli-build linux amd64`. The
 # full release matrix is goreleaser's job — see cli/.goreleaser.yaml.
