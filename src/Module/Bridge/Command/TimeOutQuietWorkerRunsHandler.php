@@ -35,17 +35,17 @@ final readonly class TimeOutQuietWorkerRunsHandler
     /** @return list<WorkerRun> the runs that timed out */
     public function __invoke(TimeOutQuietWorkerRunsCommand $command): array
     {
-        $now = $this->clock->now();
-        $ids = $this->workerRuns->findIdsOfQuietOpenRuns($this->liveness->quietBefore($now), self::BATCH_SIZE);
+        $quietBefore = $this->liveness->quietBefore($this->clock->now());
+        $ids = $this->workerRuns->findIdsOfQuietOpenRuns($quietBefore, self::BATCH_SIZE);
         if ([] === $ids) {
             return [];
         }
 
-        // The locked read keeps only the runs still open, so a report that
-        // closed a run after the first read wins.
+        // The locked read keeps only the runs still open with a quiet bridge, so
+        // a report or a heartbeat that arrived after the first read wins.
         /** @var list<WorkerRun> $timedOut */
-        $timedOut = $this->em->wrapInTransaction(function () use ($ids): array {
-            $runs = $this->workerRuns->findOpenByIdsForUpdate($ids);
+        $timedOut = $this->em->wrapInTransaction(function () use ($ids, $quietBefore): array {
+            $runs = $this->workerRuns->findOpenByIdsForUpdate($ids, $quietBefore);
             // Read after the lock, so the row never predates a report that won it.
             $at = $this->clock->now();
             foreach ($runs as $run) {

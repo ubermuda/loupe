@@ -9,6 +9,7 @@ use App\Module\Bridge\Command\TimeOutQuietWorkerRunsCommand;
 use App\Module\Bridge\Command\TimeOutQuietWorkerRunsHandler;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
@@ -88,6 +89,25 @@ final class TimeOutQuietWorkerRunsHandlerTest extends KernelTestCase
 
         self::assertSame(WorkerRunState::TimedOut, $this->reload($old)->state);
         self::assertSame(WorkerRunState::Queued, $this->reload($fresh)->state);
+    }
+
+    /** A heartbeat that lands between the first read and the lock keeps the run open. */
+    public function test_the_locked_read_skips_a_run_whose_bridge_spoke_since_the_first_read(): void
+    {
+        [$owner, $project] = $this->scenario('sweep-heartbeat-race');
+        $bridge = $this->seedBridge($this->em(), $owner, lastSeenAt: new \DateTimeImmutable('2026-09-23 11:00:00'));
+        $run = $this->openRun($project, $bridge->id, WorkerRunState::Running);
+        $quietBefore = new \DateTimeImmutable('2026-09-23 11:57:00');
+        $repository = self::getContainer()->get(WorkerRunRepository::class);
+        self::assertInstanceOf(WorkerRunRepository::class, $repository);
+        $ids = $repository->findIdsOfQuietOpenRuns($quietBefore, 10);
+        self::assertCount(1, $ids);
+
+        $bridge->lastSeenAt = new \DateTimeImmutable(self::NOW);
+        $this->em()->flush();
+
+        self::assertSame([], $this->em()->wrapInTransaction(static fn (): array => $repository->findOpenByIdsForUpdate($ids, $quietBefore)));
+        self::assertSame(WorkerRunState::Running, $this->reload($run)->state);
     }
 
     /** @return array{User, Project} */

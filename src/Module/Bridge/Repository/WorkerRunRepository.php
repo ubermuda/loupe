@@ -143,18 +143,28 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
-     * The runs among these ids that are still open, locked until the
-     * transaction ends, in id order so two sweeps cannot deadlock.
+     * The runs among these ids that are still open and whose bridge is still
+     * quiet, locked until the transaction ends, in id order so two sweeps cannot
+     * deadlock. The bridge test is a subquery, so the lock covers the runs alone.
      *
      * @param list<Uuid> $ids
      *
      * @return list<WorkerRun>
      */
-    public function findOpenByIdsForUpdate(array $ids): array
+    public function findOpenByIdsForUpdate(array $ids, \DateTimeImmutable $quietBefore): array
     {
         return array_values($this->createQueryBuilder('r')
             ->andWhere('r.id IN (:ids)')
             ->andWhere('r.state IN (:openStates)')
+            ->andWhere(\sprintf(
+                'EXISTS (SELECT qb.id FROM %1$s qb WHERE qb.id = r.bridgeId AND qb.lastSeenAt < :quietBefore'
+                .' AND IDENTITY(qb.owner) = (SELECT IDENTITY(qp.owner) FROM %2$s qp WHERE qp = r.project))'
+                .' OR (r.receivedAt < :quietBefore AND NOT EXISTS (SELECT nb.id FROM %1$s nb WHERE nb.id = r.bridgeId'
+                .' AND IDENTITY(nb.owner) = (SELECT IDENTITY(np.owner) FROM %2$s np WHERE np = r.project)))',
+                Bridge::class,
+                Project::class,
+            ))
+            ->setParameter('quietBefore', $quietBefore, Types::DATETIME_IMMUTABLE)
             ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
             ->setParameter('openStates', array_map(
                 static fn (WorkerRunState $state): string => $state->value,
