@@ -16,6 +16,7 @@ use App\Module\Bridge\Command\ReportWorkerRunStateHandler;
 use App\Module\Bridge\Command\ReportWorkerRunStateResult;
 use App\Module\Bridge\Scheduler\TimeOutQuietWorkerRunsTask;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
+use App\Module\Bridge\ValueObject\HeldRunKey;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -125,7 +126,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $this->seedRun($this->em(), $this->project, bridgeId: $bridgeId, state: WorkerRunState::Running, runKey: $runKey);
         $inventory = $this->service(ReportBridgeRunsHandler::class);
 
-        self::assertSame([], $inventory(new ReportBridgeRunsCommand($this->owner, $bridgeId, [$runKey->toRfc4122() => WorkerRunState::Running])));
+        self::assertSame([], $inventory(new ReportBridgeRunsCommand($this->owner, $bridgeId, [HeldRunKey::of($this->project->id ?? Uuid::v4(), $runKey) => WorkerRunState::Running])));
         $this->assertPublishedAtTerminate(0);
 
         self::assertCount(1, $inventory(new ReportBridgeRunsCommand($this->owner, $bridgeId, [])));
