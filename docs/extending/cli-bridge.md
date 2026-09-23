@@ -39,12 +39,14 @@ itself. There is no static token, so a machine where nobody can open a browser
 cannot run the bridge. See [Connected apps](../using/connected-apps.md) for the
 device flow. The token reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
+`PUT /api/projects/{handle}/worker-runs/{runId}`,
 `POST /api/projects/{handle}/worker-runs`,
+`PUT /api/bridges/{bridgeId}/runs`,
 `GET /api/projects/{handle}/inbox/asks/{askId}`,
 `PUT /api/projects/{handle}/bridges/{bridgeId}/rules` and
 `PUT /api/bridges/{bridgeId}/heartbeat`, and no other endpoint.
-The worker runs endpoint records a finished worker run, and the
-[Worker run API](../reference/worker-runs.md) page covers it. The heartbeat
+The three worker runs endpoints record the states of each worker run, and the
+[Worker run API](../reference/worker-runs.md) page covers them. The heartbeat
 endpoint records that the bridge runs, and the
 [Bridge heartbeat API](../reference/bridge-heartbeat.md) page covers it. The
 rule health endpoint is below. The firewall refuses a token that carries the
@@ -84,17 +86,43 @@ a newer report replaces it. The bridge refuses at start a rule file that the
 endpoint would reject, such as a rule name longer than 100 characters. The
 bridge names itself by a uuid it keeps in `config.json`.
 
-The bridge reports every run it starts to Loupe. A worker that finishes says so
-itself, by writing to the card through an MCP tool. A worker that crashes, that
-a signal kills, or that never starts writes nothing at all. The bridge is the
-only witness of those, so it posts a record of each run to
-`/api/projects/{handle}/worker-runs`. The record names the rule, the card, the
-start and end times, the exit code and the output. One bridge follows several
-projects, so the handle is the id of the project the event carried.
+The bridge reports every run to Loupe, from the moment it accepts an event. A
+worker that finishes says so itself, by writing to the card through an MCP tool.
+A worker that crashes, that a signal kills, or that never starts writes nothing
+at all. A run that waits in the queue, or that the bridge sets aside, has no
+worker to write anything. The bridge is the only witness of those runs.
+
+The bridge gives each event it accepts a new run id. It sends each state of the
+run to `PUT /api/projects/{handle}/worker-runs/{runId}` as the state happens.
+One bridge follows several projects, so the handle is the id of the project the
+event carried. Each log line below goes with the state the bridge reports:
+
+| Log line | State |
+|---|---|
+| `worker_queued` | `queued` |
+| `worker_coalesced` | `replaced` for the run that waited, and `queued` for the new run that takes its place |
+| `chain_capped` | `waiting-for-person` |
+| `resume_skipped` | `skipped` |
+| `worker_started` | `running`. A resume sends `resumed` first |
+| `worker_finished` | `succeeded` for exit code 0, and `failed` for any other code |
+| `worker_failed` | `not-started` |
+| `queue_dropped` | `dropped`, with the reason `shutdown` or `rule_dead` |
+
+The [Worker run API](../reference/worker-runs.md#the-states-of-a-run) page says
+what each state means. The server adds `timed-out` and `lost` on its own.
 
 Loupe records a run against a card. A rule can name an event type that carries
-no card number, and the bridge logs `report_skipped` for such a run rather than
-sending it. That run has no record, and the log line is the only sign of it.
+no card number, and the bridge sends no state for such a run. It logs
+`report_skipped` when the run ends. That run has no record, and the log line is
+the only sign of it.
+
+Each time the bridge connects to the hub, it sends the runs it holds to
+`PUT /api/bridges/{bridgeId}/runs`. A held run is one whose last state is
+`queued`, `resumed` or `running`. Loupe marks `lost` each open or timed-out run
+of that bridge that the list does not name. The bridge keeps its id across restarts, so
+Loupe closes the open runs of a bridge that died when it next connects. The
+inventory goes out after every state the
+bridge queued before it.
 
 Run reports and heartbeats go through one outbound queue, held in memory. Each
 kind has its own delivery policy, and the kinds never wait on each other. The
@@ -103,11 +131,26 @@ reports have their own retry. Run reports go out in order. A failed send waits o
 twice as long before each later attempt, up to sixty seconds. The bridge gives
 up after ten attempts and logs `report_failed`.
 
-Loupe keys a run by its project, its bridge, its card and the second it started.
-Two runs of one card that start inside the same second therefore count as one
-report, and the second record is lost. A worker runs for minutes, so this needs
-a run that ends in milliseconds, which a failure to start does. The bridge logs
-`report_folded` when it happens, so the loss is on the record.
+The bridge logs `report_folded` when Loupe answers 200 to a report the bridge
+sends for the first time. For a state report, Loupe already held that state of
+the run, so the report changed nothing.
+
+A server built before run states answers 404 with no error code on both PUT
+endpoints. So does a server with agent push switched off. On the first such
+answer, the bridge logs `run_states_unsupported` once. Until it restarts, it
+then sends each outcome to the old `POST /api/projects/{handle}/worker-runs`,
+which takes one report for each finished run. It counts every open state as
+delivered, and it sends no inventory. A report that already waits in the queue
+takes the fallback when it goes out, so none is lost on the switch.
+
+The old endpoint keys a run by its project, its bridge, its card and the second
+it started. Two runs of one card that start inside the same second therefore
+count as one report, and the second record is lost. A worker runs for minutes,
+so this needs a run that ends in milliseconds, which a failure to start does.
+The bridge logs `report_folded` when it happens, so the loss is on the record.
+
+A bridge built before run states sends only the old report, and a new server
+still takes it.
 
 Stopping the bridge kills its workers, and those runs are the ones only the
 bridge can report. So it gives each report one last attempt, in a window of five

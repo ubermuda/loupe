@@ -17,14 +17,39 @@ Open the page from the project sidebar, or go to
 | Card number | the card the worker was started for. It links to the card while the board feature is on |
 | Rule name | the bridge rule that matched the event |
 | Started | when the worker started, on the bridge clock. A run that has not started shows when its first report arrived |
-| Took | how long the worker ran. A run that is still open shows how long it has run so far. A run that never started shows nothing |
-| Outcome | the state of the run, such as **Queued**, **Running**, **Waiting for a person**, **Succeeded**, **Failed**, **Never started**, **Timed out** or **Lost** |
+| Took | how long the worker ran. A run that is still open shows how long it has run so far. A run with no start, or a run that closed with no reported end, shows nothing |
+| Outcome | the state of the run, from the list below |
 | Bridge | the last 12 characters of the bridge's own identifier |
 
 A run that never started carries the reason instead of an exit code, such as a
 missing `claude` binary.
 
-The list reads newest report first, 20 runs to a page.
+The list reads newest first, by when the first report of each run arrived, 20
+runs to a page.
+
+## The states of a run
+
+| State | Meaning |
+|---|---|
+| **Queued** | the bridge accepted the event, and the run waits for its turn |
+| **Replaced** | a newer event for the same card and rule took the place of this run |
+| **Resumed** | the ask the session waited on closed, and the bridge resumes the session |
+| **Skipped** | the session already read its answers, so the bridge did not resume it |
+| **Running** | the worker runs |
+| **Waiting for a person** | the rule's chain cap stopped the run, and a move by a person starts a new one |
+| **Dropped** | the bridge stopped, or the rule died, before the run started |
+| **Succeeded** | the worker exited with code 0 |
+| **Failed** | the worker exited with any other code |
+| **Never started** | the worker process never ran |
+| **Timed out** | the bridge stopped sending its heartbeat while the run was open |
+| **Lost** | the bridge reconnected, and it no longer holds the run |
+
+Queued, Resumed and Running are open states. A bridge that dies cannot close
+its runs, so Loupe closes them. **Timed out** is a guess: a bridge can go quiet
+and come back, and a later report from it replaces the guess. **Lost** is a
+fact: the bridge came back without the run, so the run can no longer end. See
+[the worker run API](../reference/worker-runs.md#timed-out-and-lost) for the
+rules.
 
 ## A missing record means unknown
 
@@ -55,6 +80,14 @@ Select **Copy output** to copy the original output text.
 If the browser refuses clipboard access, the drawer keeps the text available for manual copying.
 The drawer has no Stop or Retry controls.
 
+Every row shows the worker's output in full, collapsed. Open **Output** to read
+it. A run that succeeded shows its output the same way a run that failed does,
+because a reader of a run record is usually debugging.
+
+The output is whatever the agent printed, up to 4000 characters. Nobody reviews
+it before it reaches this page. It may carry file contents, paths or anything
+else the agent chose to say, and the server shows it as plain text.
+
 ## Live updates
 
 The list and the runs section of a card page reload when a report or the
@@ -64,14 +97,6 @@ and the `live_updates.enabled` flag. Without them, the page shows a change on
 its next load.
 
 An open drawer holds the reload. The list reloads when you close the drawer.
-
-Every row shows the worker's output in full, collapsed. Open **Output** to read
-it. A run that succeeded shows its output the same way a run that failed does,
-because a reader of a run record is usually debugging.
-
-The output is whatever the agent printed, up to 4000 characters. Nobody reviews
-it before it reaches this page. It may carry file contents, paths or anything
-else the agent chose to say, and the server shows it as plain text.
 
 ## Search and filters
 
