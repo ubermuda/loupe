@@ -11,12 +11,9 @@ use App\Module\Board\Repository\CardLinkRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Makes a card's links match a wanted set. The set replaces every link that
- * touches the card, whichever card wrote it.
- *
- * A pair matches its row by the other card alone, so a change of kind or of
- * direction updates the row in place and never adds a reverse duplicate. The
- * caller holds the project lock and flushes.
+ * Replaces every link that touches a card, whichever card wrote it. A pair
+ * matches its row by the other card alone, so a change of kind or direction
+ * updates the row in place. The caller holds the project lock and flushes.
  */
 final readonly class CardLinkSync
 {

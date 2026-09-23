@@ -12,10 +12,8 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 
 /**
- * Resolves a card write's link set to cards of the same project.
- *
- * Called before a handler opens its transaction, for the reason in
- * DocumentLinkResolver.
+ * Resolves a card write's link set to cards of the same project. Call it
+ * before the handler opens its transaction, for the reason in DocumentLinkResolver.
  */
 final readonly class CardLinkResolver
 {
