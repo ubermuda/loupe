@@ -613,37 +613,73 @@ func (s *Set) Match(e event.Event) Match {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, r := range s.rules {
-		if r.On != e.Type || r.Project != slug || s.dead[r.Name] != "" {
-			continue
-		}
-		// Entered, not sits in: a card dragged to a new rank inside one column
-		// submits a move with that column on both sides.
-		if e.Type == event.CardMovedType && (e.ToStatus != r.To || e.FromStatus == e.ToStatus || (r.From != "" && e.FromStatus != r.From)) {
+		if !s.triggers(r, slug, e) {
 			continue
 		}
 		if e.Actor == event.ActorReviewer && !r.AllowUntrusted {
 			return Match{Skip: Untrusted, Rule: r.Name, Project: slug}
 		}
 
-		render := directive.Render
-		if r.Resume {
-			render = directive.RenderResume
-		}
-
-		return Match{
-			Skip:           Run,
-			Rule:           r.Name,
-			Project:        slug,
-			Dir:            s.dirs[slug],
-			PermissionMode: r.PermissionMode,
-			Model:          r.Model,
-			MaxChain:       *r.MaxChain,
-			Prompt:         render(r.Prompt, values(e, slug)),
-			Resume:         r.Resume,
-		}
+		return s.run(r, slug, e)
 	}
 
 	return Match{Skip: NoRule, Project: slug}
+}
+
+// MatchRule matches the event against the named rule alone. It fails when the
+// set has no live rule of that name, or when the rule would not run the event.
+// A reload keeps a queued event this way, under the rule that accepted it.
+func (s *Set) MatchRule(e event.Event, name string) (Match, bool) {
+	slug, ok := s.slugs[e.ProjectID]
+	if !ok {
+		return Match{}, false
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, r := range s.rules {
+		if r.Name != name {
+			continue
+		}
+		if !s.triggers(r, slug, e) || (e.Actor == event.ActorReviewer && !r.AllowUntrusted) {
+			return Match{}, false
+		}
+
+		return s.run(r, slug, e), true
+	}
+
+	return Match{}, false
+}
+
+// triggers reports whether a live rule names the event, whatever its actor.
+// The caller holds mu.
+func (s *Set) triggers(r Rule, slug string, e event.Event) bool {
+	if r.On != e.Type || r.Project != slug || s.dead[r.Name] != "" {
+		return false
+	}
+	// Entered, not sits in: a card dragged to a new rank inside one column
+	// submits a move with that column on both sides.
+	return e.Type != event.CardMovedType || (e.ToStatus == r.To && e.FromStatus != e.ToStatus && (r.From == "" || e.FromStatus == r.From))
+}
+
+// run is the match of a rule that starts a worker for the event.
+func (s *Set) run(r Rule, slug string, e event.Event) Match {
+	render := directive.Render
+	if r.Resume {
+		render = directive.RenderResume
+	}
+
+	return Match{
+		Skip:           Run,
+		Rule:           r.Name,
+		Project:        slug,
+		Dir:            s.dirs[slug],
+		PermissionMode: r.PermissionMode,
+		Model:          r.Model,
+		MaxChain:       *r.MaxChain,
+		Prompt:         render(r.Prompt, values(e, slug)),
+		Resume:         r.Resume,
+	}
 }
 
 // Dead names a rule that an event killed.

@@ -732,6 +732,59 @@ rules:
 	}
 }
 
+// MatchRule matches one named rule alone, so a later rule that the event also
+// triggers never replaces it.
+func TestMatchRule(t *testing.T) {
+	s := checked(t, twoRules)
+	other := moved("backlog", "ready", event.ActorHuman)
+	other.ProjectID = "0192f3a1-4b2c-7d3e-8f10-ffffffffffff"
+
+	for name, tc := range map[string]struct {
+		event event.Event
+		rule  string
+		ok    bool
+	}{
+		"the rule matches":               {moved("backlog", "ready", event.ActorHuman), "plan", true},
+		"an absent rule":                 {moved("backlog", "ready", event.ActorHuman), "gone", false},
+		"another column":                 {moved("backlog", "review", event.ActorHuman), "plan", false},
+		"from differs":                   {moved("backlog", "review", event.ActorHuman), "review-from-ready", false},
+		"a later rule that also matches": {moved("ready", "review", event.ActorHuman), "review", true},
+		"a reorder inside the column":    {moved("ready", "ready", event.ActorHuman), "plan", false},
+		"another project":                {other, "plan", false},
+		"a reviewer, rule disallows":     {moved("backlog", "ready", event.ActorReviewer), "plan", false},
+		"a reviewer, rule allows":        {moved("backlog", "review", event.ActorReviewer), "review", true},
+		"a type the rule does not name":  {moved("backlog", "ready", event.ActorHuman), "created", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			m, ok := s.MatchRule(tc.event, tc.rule)
+			if ok != tc.ok {
+				t.Fatalf("MatchRule = %+v, %v, want %v", m, ok, tc.ok)
+			}
+			if ok && (m.Skip != Run || m.Rule != tc.rule) {
+				t.Fatalf("MatchRule = %+v", m)
+			}
+		})
+	}
+}
+
+func TestMatchRuleRendersThePrompt(t *testing.T) {
+	s := checked(t, twoRules)
+
+	m, ok := s.MatchRule(moved("backlog", "ready", event.ActorHuman), "plan")
+	if !ok || m.Prompt != "plan 87\n\n"+directive.Footer || m.MaxChain != DefaultMaxChain || m.Project != "loupe" || m.Dir != s.dirs["loupe"] {
+		t.Fatalf("MatchRule = %+v, %v", m, ok)
+	}
+}
+
+func TestMatchRuleSkipsADeadRule(t *testing.T) {
+	s := checked(t, twoRules)
+	s.KillProject("loupe", api.ReasonProjectGone)
+
+	if m, ok := s.MatchRule(moved("backlog", "ready", event.ActorHuman), "plan"); ok {
+		t.Fatalf("MatchRule = %+v on a dead rule", m)
+	}
+}
+
 // The prompt-injection guard. A payload carries fields a person controls, such
 // as a title. Two payloads that differ only in those must render one prompt.
 func TestThePromptCarriesOnlyValidatedValues(t *testing.T) {
