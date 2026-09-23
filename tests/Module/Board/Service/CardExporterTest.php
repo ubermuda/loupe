@@ -6,6 +6,8 @@ namespace App\Tests\Module\Board\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardLink;
+use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
@@ -112,7 +114,33 @@ final class CardExporterTest extends KernelTestCase
             // belong to their own exporters, so no file repeats another's.
             'documents' => [],
             'siteReviewComments' => [],
+            'relatedCards' => [],
         ], $rows[0]);
+    }
+
+    public function test_each_card_exports_its_links_as_it_reads_them(): void
+    {
+        $owner = $this->user('card-export-links');
+        $project = new Project($owner, 'links-'.uniqid());
+        $this->em->persist($project);
+        $this->seedColumns($project);
+
+        $blocker = new Card(project: $project, column: $this->column($project, 'backlog'), title: 'First', body: '', number: 1, createdAt: new \DateTimeImmutable('2026-03-01 09:00:00'));
+        $blocked = new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Second', body: '', number: 2, createdAt: new \DateTimeImmutable('2026-03-02 09:00:00'));
+        $this->em->persist($blocker);
+        $this->em->persist($blocked);
+        $this->em->persist(new CardLink($blocker, $blocked, CardLinkKind::Blocks));
+        $this->em->flush();
+        $this->em->clear();
+
+        $rows = iterator_to_array($this->exporter->export($owner), false);
+
+        self::assertCount(2, $rows);
+        self::assertIsArray($rows[0]);
+        self::assertIsArray($rows[1]);
+        self::assertSame('First', $rows[0]['title']);
+        self::assertSame([['cardId' => (string) $blocked->id, 'number' => 2, 'kind' => 'blocks']], $rows[0]['relatedCards']);
+        self::assertSame([['cardId' => (string) $blocker->id, 'number' => 1, 'kind' => 'blocked-by']], $rows[1]['relatedCards']);
     }
 
     public function test_it_exports_the_owner_cards_only(): void
