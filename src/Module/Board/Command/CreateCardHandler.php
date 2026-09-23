@@ -12,6 +12,8 @@ use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\CardLinkResolver;
+use App\Module\Board\Service\CardLinkSync;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -29,6 +31,8 @@ final readonly class CreateCardHandler
         private BoardColumnRepository $boardColumns,
         private PullRequestUrlResolver $pullRequests,
         private DocumentLinkResolver $documentLinks,
+        private CardLinkResolver $cardLinks,
+        private CardLinkSync $cardLinkSync,
         private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -62,12 +66,13 @@ final readonly class CreateCardHandler
         // Outside the transaction: a refusal inside one rolls it back and
         // closes the EntityManager.
         $documents = $this->documentLinks->resolve($command->project, array_values($command->documentIds));
+        $relatedCards = $this->cardLinks->resolve($command->project, null, array_values($command->relatedCards));
 
         // MAX(position) + 1 and MAX(number) + 1 are both read-then-write: two
         // calls into the same project would otherwise allocate the same rank,
         // and the same card number. Same PESSIMISTIC_WRITE-on-the-project idiom
         // App\Module\SiteReview\Command\AddCommentHandler uses.
-        $card = $this->em->wrapInTransaction(function () use ($command, $title, $documents): Card|string {
+        $card = $this->em->wrapInTransaction(function () use ($command, $title, $documents, $relatedCards): Card|string {
             $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
 
             // Read under the lock: a column deleted or given another terminal
@@ -110,6 +115,7 @@ final readonly class CreateCardHandler
             $card->syncDocuments(...$documents);
 
             $this->em->persist($card);
+            $this->cardLinkSync->sync($card, $relatedCards);
             if (null !== $command->siteReviewComment) {
                 $this->em->persist(new CardSiteReviewComment($card, $command->siteReviewComment));
             }
@@ -144,6 +150,7 @@ final readonly class CreateCardHandler
                 'reporter' => $card->reporter->value,
                 'pullRequestCount' => \count($card->pullRequests),
                 'documentCount' => \count($card->documents),
+                'relatedCardCount' => \count($relatedCards),
             ],
             new AuditSubject('card', (string) $card->id),
         );

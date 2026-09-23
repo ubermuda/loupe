@@ -4896,6 +4896,18 @@
                 <source>board.card.error.pull_request_url_too_long</source>
                 <target>One of those pull request links is too long.</target>
             </trans-unit>
+            <trans-unit id="board.card.error.linked_card_unknown">
+                <source>board.card.error.linked_card_unknown</source>
+                <target>One of those cards is not in this project.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.linked_card_self">
+                <source>board.card.error.linked_card_self</source>
+                <target>A card cannot link to itself.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.linked_card_twice">
+                <source>board.card.error.linked_card_twice</source>
+                <target>Each card can be linked only once.</target>
+            </trans-unit>
 
             <!-- Card create and edit pages -->
             <trans-unit id="board.card.create.page.title">

@@ -13,8 +13,9 @@ use App\Module\SiteReview\Entity\SiteReviewComment;
 final readonly class CreateCardCommand
 {
     /**
-     * @param list<string> $pullRequestUrls raw URLs as given; the handler resolves the forge
-     * @param list<string> $documentIds     documents of this project; the handler refuses any other
+     * @param list<string>        $pullRequestUrls raw URLs as given; the handler resolves the forge
+     * @param list<string>        $documentIds     documents of this project; the handler refuses any other
+     * @param list<CardLinkInput> $relatedCards    cards of this project the new card links to
      */
     public function __construct(
         public Project $project,
@@ -28,6 +29,7 @@ final readonly class CreateCardCommand
         /** @param list<string> $documentIds */
         public array $documentIds = [],
         public ?SiteReviewComment $siteReviewComment = null,
+        public array $relatedCards = [],
     ) {
     }
 }

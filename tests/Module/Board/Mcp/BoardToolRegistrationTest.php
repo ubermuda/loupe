@@ -127,6 +127,25 @@ final class BoardToolRegistrationTest extends KernelTestCase
         }
     }
 
+    /** An entry copied from card_get output carries more keys, so none may be refused. */
+    public function test_related_cards_publish_as_optional_open_objects_with_a_kind_enum(): void
+    {
+        foreach ([CardCreateTool::NAME, CardUpdateTool::NAME] as $toolName) {
+            $schema = $this->registry->getTool($toolName)->tool->inputSchema;
+            $items = $schema['properties']['relatedCards']['items'];
+
+            self::assertContains('array', (array) $schema['properties']['relatedCards']['type'], $toolName);
+            self::assertSame(['cardId'], $items['required'], $toolName);
+            self::assertSame(['relates-to', 'blocks', 'blocked-by'], $items['properties']['kind']['enum'], $toolName);
+            self::assertArrayNotHasKey('additionalProperties', $items, $toolName);
+            self::assertNotContains('relatedCards', $schema['required'] ?? [], $toolName);
+        }
+
+        // An explicit null keeps the links, the same as leaving the argument out.
+        $update = $this->registry->getTool(CardUpdateTool::NAME)->tool->inputSchema['properties']['relatedCards'];
+        self::assertContains('null', (array) $update['type']);
+    }
+
     public function test_card_list_publishes_its_paging_and_summary_arguments(): void
     {
         $properties = $this->registry->getTool(CardListTool::NAME)->tool->inputSchema['properties'];

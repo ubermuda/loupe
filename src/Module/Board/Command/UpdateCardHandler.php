@@ -10,6 +10,8 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardLinkResolver;
+use App\Module\Board\Service\CardLinkSync;
 use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
@@ -32,6 +34,8 @@ final readonly class UpdateCardHandler
         private CardMover $mover,
         private PullRequestUrlResolver $pullRequests,
         private DocumentLinkResolver $documentLinks,
+        private CardLinkResolver $cardLinks,
+        private CardLinkSync $cardLinkSync,
         private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -64,13 +68,16 @@ final readonly class UpdateCardHandler
         $documents = null === $command->documentIds
             ? null
             : $this->documentLinks->resolve($card->project, array_values($command->documentIds));
+        $relatedCards = null === $command->relatedCards
+            ? null
+            : $this->cardLinks->resolve($card->project, $card, array_values($command->relatedCards));
 
         // One write for the whole update, and one lock. A column change is a
         // move, which renumbers a column and decides the completion timestamp,
         // so this handler owns the transaction the move runs in.
         // Flushing the fields first would commit half an update whose move
         // then failed.
-        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents): UpdateCardOutcome|string {
+        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents, $relatedCards): UpdateCardOutcome|string {
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
             // lock() takes the project row and leaves the loaded card as the
             // request read it, which may be before the caller ahead of us in
@@ -118,6 +125,9 @@ final readonly class UpdateCardHandler
             if (null !== $command->pullRequestUrls) {
                 $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
             }
+            if (null !== $relatedCards) {
+                $this->cardLinkSync->sync($card, $relatedCards);
+            }
 
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
@@ -163,7 +173,8 @@ final readonly class UpdateCardHandler
             || $outcome->bodyChanged
             || $outcome->typeChanged
             || null !== $command->pullRequestUrls
-            || null !== $command->documentIds;
+            || null !== $command->documentIds
+            || null !== $command->relatedCards;
 
         if (!$changedSomething) {
             return $card;
@@ -183,6 +194,7 @@ final readonly class UpdateCardHandler
                 'typeChanged' => $outcome->typeChanged,
                 'pullRequestsReplaced' => null !== $command->pullRequestUrls,
                 'documentsReplaced' => null !== $command->documentIds,
+                'relatedCardsReplaced' => null !== $command->relatedCards,
                 'moved' => null !== $outcome->move,
             ],
             new AuditSubject('card', (string) $card->id),

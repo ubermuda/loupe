@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Board\Mcp;
 
 use App\Mcp\ResolvesBoundProject;
+use App\Module\Board\Command\CardLinkInput;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -33,6 +35,19 @@ use Symfony\Component\Uid\Uuid;
 final readonly class BoardSubjectResolver
 {
     use ResolvesBoundProject;
+
+    /**
+     * The JSON schema of one relatedCards entry. It allows extra keys, so an
+     * entry copied from card_get output passes with its number, title and status.
+     */
+    public const array RELATED_CARD_ITEM = [
+        'type' => 'object',
+        'properties' => [
+            'cardId' => ['type' => 'string', 'description' => 'the id of a card of this project'],
+            'kind' => ['type' => 'string', 'enum' => ['relates-to', 'blocks', 'blocked-by'], 'default' => 'relates-to', 'description' => 'how this card reads the other card'],
+        ],
+        'required' => ['cardId'],
+    ];
 
     public function __construct(
         private AuthenticatedProjectResolver $projectResolver,
@@ -180,6 +195,45 @@ final readonly class BoardSubjectResolver
     public function optionalClaimedReporter(?string $reporter): ?CardReporter
     {
         return null === $reporter ? null : $this->requireClaimedReporter($reporter);
+    }
+
+    /**
+     * @param array<mixed> $items
+     *
+     * @return list<CardLinkInput>
+     */
+    public function requireRelatedCards(array $items): array
+    {
+        $parsed = [];
+        foreach (array_values($items) as $index => $item) {
+            if (!\is_array($item)) {
+                throw new ToolCallException(\sprintf('relatedCards[%d] must be an object with a cardId.', $index));
+            }
+
+            $cardId = $item['cardId'] ?? null;
+            if (!\is_string($cardId)) {
+                throw new ToolCallException(\sprintf('relatedCards[%d].cardId must be a string.', $index));
+            }
+
+            $kind = $item['kind'] ?? CardLinkKind::RelatesTo->value;
+            $parsed[] = new CardLinkInput(
+                $cardId,
+                (\is_string($kind) ? CardLinkKind::tryFrom($kind) : null)
+                    ?? throw new ToolCallException(\sprintf('relatedCards[%d].kind: unknown kind "%s". Use one of: %s.', $index, \is_string($kind) ? $kind : get_debug_type($kind), implode(', ', array_map(static fn (CardLinkKind $case): string => $case->value, CardLinkKind::cases())))),
+            );
+        }
+
+        return $parsed;
+    }
+
+    /**
+     * @param array<mixed>|null $items
+     *
+     * @return list<CardLinkInput>|null
+     */
+    public function optionalRelatedCards(?array $items): ?array
+    {
+        return null === $items ? null : $this->requireRelatedCards($items);
     }
 
     private function parseId(string $id): Uuid
