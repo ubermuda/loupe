@@ -187,6 +187,33 @@ func TestABadProjectFileKeepsTheLastProjectAndNotesOnce(t *testing.T) {
 	}
 }
 
+// A fix can leave the stat as it was, as a new file mode does. The source reads
+// a broken file again on each call, so it sees the fix.
+func TestABrokenProjectFileIsReadAgainUntilItLoads(t *testing.T) {
+	dir := inRepo(t, "")
+	writeProject(t, dir, projectA, firstWrite)
+
+	var notes bytes.Buffer
+	project, err := mcpProject("", &notes)
+	if err != nil {
+		t.Fatalf("mcpProject: %v", err)
+	}
+
+	path := filepath.Join(dir, projectfile.Name)
+	good := "project: " + projectB + "\n"
+	bad := "project: [" + strings.Repeat("x", len(good)-len("project: [")-1) + "\n"
+	for _, body := range []string{bad, good} {
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatalf("write fixture: %v", err)
+		}
+		touch(t, dir, secondWrite)
+		project()
+	}
+	if got := project(); got != projectB {
+		t.Fatalf("project = %q, want %s after the fix", got, projectB)
+	}
+}
+
 func TestARemovedProjectFileNamesNoProject(t *testing.T) {
 	dir := inRepo(t, "")
 	writeProject(t, dir, projectA, firstWrite)

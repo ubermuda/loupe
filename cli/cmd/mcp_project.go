@@ -41,6 +41,9 @@ type projectSource struct {
 	seen   os.FileInfo
 	last   string
 	failed string
+	// broken holds the error of the last failed load. A fix such as a new file
+	// mode can leave the stat unchanged, so a broken file is read on each call.
+	broken string
 }
 
 func (p *projectSource) start() error {
@@ -82,17 +85,21 @@ func (p *projectSource) project() string {
 		return p.last
 	}
 	p.failed = ""
-	if unchanged(p.seen, info) {
+	if p.broken == "" && unchanged(p.seen, info) {
 		return p.last
 	}
 	p.seen = info
 
 	file, err := projectfile.Load(p.dir)
 	if err != nil {
-		fmt.Fprintf(p.notes, "loupe mcp: %v; the project stays %s\n", err, orNone(p.last))
+		if err.Error() != p.broken {
+			p.broken = err.Error()
+			fmt.Fprintf(p.notes, "loupe mcp: %v; the project stays %s\n", err, orNone(p.last))
+		}
 
 		return p.last
 	}
+	p.broken = ""
 	if file.Project != p.last {
 		fmt.Fprintf(p.notes, "loupe mcp: %s now names project %s (was %s)\n", projectfile.Name, orNone(file.Project), orNone(p.last))
 		p.last = file.Project
