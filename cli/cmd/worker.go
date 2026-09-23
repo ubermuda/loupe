@@ -117,13 +117,14 @@ func runWorker(ctx context.Context, spec workerSpec) workerResult {
 	setProcessGroup(cmd)
 
 	// The context can end while claude exits on its own, so only a kill that
-	// actually ran marks the worker as killed.
+	// reached a live process marks the worker as killed.
 	var cancelled atomic.Bool
 	kill := cmd.Cancel
 	cmd.Cancel = func() error {
-		cancelled.Store(true)
+		err := kill()
+		cancelled.Store(err == nil)
 
-		return kill()
+		return err
 	}
 
 	err := cmd.Run()
