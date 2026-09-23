@@ -63,7 +63,13 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 		r.mu.Unlock()
 	}()
 
-	set, stage, err := buildSet(ctx, src)
+	timeout := r.buildTimeout
+	if timeout <= 0 {
+		timeout = reloadBuildTimeout
+	}
+	buildCtx, cancel := context.WithTimeout(ctx, timeout)
+	set, stage, err := buildSet(buildCtx, src)
+	cancel()
 	if err != nil {
 		problems := problemsOf(err)
 		r.log.Error("reload_failed", "stage", stage, "problems", problems)

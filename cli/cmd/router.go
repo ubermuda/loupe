@@ -52,6 +52,9 @@ type router struct {
 	// what a reload reads. A nil control, as in most tests, opens no socket.
 	control net.Listener
 	source  reloadSource
+	// buildTimeout bounds the build of a reloaded set. Zero means
+	// reloadBuildTimeout.
+	buildTimeout time.Duration
 	// reloadMu lets one reload run at a time. It is never taken under mu.
 	reloadMu sync.Mutex
 
@@ -272,18 +275,26 @@ func (r *router) onData(data []byte) {
 		r.log.Warn("event_untrusted", about(e, m.Rule)...)
 	case rules.Unmapped:
 		r.mu.Lock()
-		first := !r.unmapped[e.ProjectID]
-		if first {
-			if r.unmapped == nil {
-				r.unmapped = map[string]bool{}
-			}
-			r.unmapped[e.ProjectID] = true
-		}
+		first := r.markUnmappedLocked(e.ProjectID)
 		r.mu.Unlock()
 		if first {
 			r.log.Warn("project_unmapped", "project", e.ProjectID)
 		}
 	}
+}
+
+// markUnmappedLocked marks the project as unmapped, and reports whether it was
+// the first mark. The caller holds mu.
+func (r *router) markUnmappedLocked(project string) bool {
+	if r.unmapped[project] {
+		return false
+	}
+	if r.unmapped == nil {
+		r.unmapped = map[string]bool{}
+	}
+	r.unmapped[project] = true
+
+	return true
 }
 
 // kill runs a rule kill on the current set and removes the queued events of the
@@ -425,6 +436,14 @@ func (r *router) enqueue(p pending) {
 	// this event reached it. The event matches again as it arrived.
 	if current := r.rules(); p.set != current {
 		m := current.Match(p.event)
+		switch m.Skip {
+		case rules.Untrusted:
+			r.log.Warn("event_untrusted", about(p.event, m.Rule)...)
+		case rules.Unmapped:
+			if r.markUnmappedLocked(p.event.ProjectID) {
+				r.log.Warn("project_unmapped", "project", p.event.ProjectID)
+			}
+		}
 		if m.Skip != rules.Run {
 			r.mu.Unlock()
 
@@ -614,11 +633,24 @@ func (r *router) check(p pending) {
 			p.apply(m)
 		}
 		switch {
-		case r.shut() || !ok:
+		case r.shut():
 			delete(r.running, p.key)
 			dropped := append([]pending{p}, r.dispatchLocked()...)
 			r.mu.Unlock()
 			r.logDropped(dropped)
+
+			return
+		case !ok:
+			// The same set means a kill ended the rule, and a new one a reload.
+			var reason []any
+			if p.set != current {
+				reason = []any{"reason", "reload"}
+			}
+			delete(r.running, p.key)
+			shutDropped := r.dispatchLocked()
+			r.mu.Unlock()
+			r.logDropped([]pending{p}, reason...)
+			r.logDropped(shutDropped)
 
 			return
 		case err != nil:

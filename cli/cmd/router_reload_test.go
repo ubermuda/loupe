@@ -157,6 +157,33 @@ func TestAReloadOfAProjectTheStreamMissesFails(t *testing.T) {
 	}
 }
 
+// A check that never answers fails the reload before the client gives up.
+func TestAReloadThatOutlastsItsTimeoutKeepsTheSet(t *testing.T) {
+	h := newHarness(t)
+	h.router.buildTimeout = 20 * time.Millisecond
+	old := h.router.rules()
+	src := h.source(twoRuleFile)
+	src.check = func(ctx context.Context, _ *rules.Set) error {
+		<-ctx.Done()
+
+		return ctx.Err()
+	}
+
+	res := h.router.reload(context.Background(), src)
+
+	if res.OK || res.Stage != "check" || len(res.Problems) != 1 || !strings.Contains(res.Problems[0], "deadline") {
+		t.Fatalf("result = %+v", res)
+	}
+	if h.router.rules() != old || str(t, h.only(t, "reload_failed"), "stage") != "check" {
+		t.Fatal("a reload that timed out swapped the set or logged no failure")
+	}
+	h.router.mu.Lock()
+	defer h.router.mu.Unlock()
+	if h.router.reloading {
+		t.Fatal("the router still reloads")
+	}
+}
+
 func TestASecondReloadIsRefusedWhileOneRuns(t *testing.T) {
 	h := newHarness(t)
 	src, entered, release := blocked(h.source(twoRuleFile))
@@ -304,8 +331,9 @@ func TestAResumeInItsCheckWhoseRuleIsRemovedStartsNothing(t *testing.T) {
 	if n := h.runs(); n != 0 {
 		t.Fatalf("%d workers, want none", n)
 	}
-	if got := dropped(t, h.only(t, "queue_dropped")); !slices.Equal(got, []string{"87/resume"}) {
-		t.Fatalf("dropped = %v", got)
+	line := h.only(t, "queue_dropped")
+	if got := dropped(t, line); !slices.Equal(got, []string{"87/resume"}) || line["reason"] != "reload" {
+		t.Fatalf("queue_dropped = %v", line)
 	}
 	if h.cardHeld(87) {
 		t.Fatal("the dropped resume still holds card 87")
@@ -503,24 +531,26 @@ func TestAReloadSendsTheNewHeartbeatBody(t *testing.T) {
 	})
 }
 
+// stale is a move of the card into to, matched on old before a reload.
+func stale(old *rules.Set, project string, number int, to, actor string) pending {
+	e := event.Event{Type: event.CardMovedType, Subject: event.Subject{Type: "card", ID: cardUUID(number)}, ProjectID: project, CardNumber: number, FromStatus: "backlog", ToStatus: to, Actor: actor}
+	p := pending{key: cardUUID(number), event: e, set: old}
+	p.apply(old.Match(e))
+
+	return p
+}
+
 // An event matched on the old set that reaches the queue after the swap
 // matches again on the new set.
 func TestAnEventMatchedBeforeTheSwapMatchesTheNewSet(t *testing.T) {
 	h := busy(t, twoRuleFile)
 	old := h.router.rules()
-	stale := func(number int, to string) pending {
-		e := event.Event{Type: event.CardMovedType, Subject: event.Subject{Type: "card", ID: cardUUID(number)}, ProjectID: testProject, CardNumber: number, FromStatus: "backlog", ToStatus: to, Actor: event.ActorHuman}
-		p := pending{key: cardUUID(number), event: e, set: old}
-		p.apply(old.Match(e))
-
-		return p
-	}
 
 	if res := h.reload(t, strings.Replace(defaultRules, "prompt: Card {cardNumber} ({cardId}) entered {to}.", "prompt: New {cardNumber}.", 1)); !res.OK {
 		t.Fatalf("result = %+v", res)
 	}
-	h.router.enqueue(stale(88, "next"))
-	h.router.enqueue(stale(89, "review"))
+	h.router.enqueue(stale(old, testProject, 88, "next", event.ActorHuman))
+	h.router.enqueue(stale(old, testProject, 89, "review", event.ActorHuman))
 
 	if got := h.queued(); !slices.Equal(got, []string{"0088/plan"}) {
 		t.Fatalf("queue = %v", got)
@@ -533,6 +563,45 @@ func TestAnEventMatchedBeforeTheSwapMatchesTheNewSet(t *testing.T) {
 	}
 	close(h.worker.block)
 	h.router.wg.Wait()
+}
+
+// A reviewer's event that the old set let through, and the new set does not,
+// logs event_untrusted as a fresh event does.
+func TestAnEventTheNewSetDoesNotTrustIsLogged(t *testing.T) {
+	h := newHarnessWith(t, strings.Replace(defaultRules, "    to: next\n", "    to: next\n    allowUntrusted: true\n", 1), rules.Defaults{})
+	old := h.router.rules()
+
+	if res := h.reload(t, defaultRules); !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+	h.router.enqueue(stale(old, testProject, 88, "next", event.ActorReviewer))
+
+	if got := h.queued(); len(got) != 0 {
+		t.Fatalf("queue = %v", got)
+	}
+	if line := h.only(t, "event_untrusted"); str(t, line, "rule") != "plan" || num(t, line, "card") != 88 {
+		t.Fatalf("event_untrusted = %v", line)
+	}
+}
+
+// An event of a project the new set no longer maps logs project_unmapped
+// once, as a fresh event does.
+func TestAnEventOfAProjectTheNewSetDropsIsLoggedOnce(t *testing.T) {
+	h := newHarnessWith(t, twoProjectFile, rules.Defaults{})
+	old := h.router.rules()
+
+	if res := h.reload(t, defaultRules); !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+	h.router.enqueue(stale(old, otherProject, 88, "next", event.ActorHuman))
+	h.router.enqueue(stale(old, otherProject, 89, "next", event.ActorHuman))
+
+	if got := h.queued(); len(got) != 0 {
+		t.Fatalf("queue = %v", got)
+	}
+	if line := h.only(t, "project_unmapped"); str(t, line, "project") != otherProject {
+		t.Fatalf("project_unmapped = %v", line)
+	}
 }
 
 // A reload clears the unmapped mark of a project it now maps, so a later loss

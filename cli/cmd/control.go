@@ -32,6 +32,8 @@ const (
 	// reloadTimeout bounds a whole `loupe bridge reload`. The bridge checks the
 	// rule file against the server, which can take several requests.
 	reloadTimeout = 60 * time.Second
+	// reloadBuildTimeout stays below reloadTimeout, so the bridge answers first.
+	reloadBuildTimeout = 50 * time.Second
 )
 
 // rulesPathOr gives path, or the default rule file when path is empty.

@@ -534,8 +534,9 @@ func TestARuleThatDiesDuringTheCheckStartsNoResume(t *testing.T) {
 	if calls := h.worker.recorded(); len(calls) != 0 {
 		t.Fatalf("workers = %+v, want none for a dead rule", calls)
 	}
-	if got := dropped(t, h.only(t, "queue_dropped")); len(got) != 1 || got[0] != "87/resume" {
-		t.Fatalf("dropped = %v", got)
+	line := h.only(t, "queue_dropped")
+	if got := dropped(t, line); len(got) != 1 || got[0] != "87/resume" || line["reason"] != nil {
+		t.Fatalf("queue_dropped = %v, want 87/resume with no reason", line)
 	}
 	if h.cardHeld(87) {
 		t.Fatal("the dropped resume still holds card 87")
