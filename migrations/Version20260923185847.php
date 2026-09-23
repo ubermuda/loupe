@@ -32,7 +32,8 @@ final class Version20260923185847 extends AbstractMigration
         $this->addSql('CREATE TABLE bridge_worker_run_states (id UUID NOT NULL, state VARCHAR(20) NOT NULL, at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, received_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, run_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_5B6BE21D84E3FEC4 ON bridge_worker_run_states (run_id)');
         $this->addSql('ALTER TABLE bridge_worker_run_states ADD CONSTRAINT FK_5B6BE21D84E3FEC4 FOREIGN KEY (run_id) REFERENCES bridge_worker_runs (id) ON DELETE CASCADE NOT DEFERRABLE');
-        // Every run so far reported once, when it ended, so its outcome is its one known state.
+        // Every run so far reported once, when it ended, so it gets the two rows the old report writes today.
+        $this->addSql("INSERT INTO bridge_worker_run_states (id, run_id, state, at, received_at) SELECT gen_random_uuid(), id, 'running', started_at, received_at FROM bridge_worker_runs");
         $this->addSql('INSERT INTO bridge_worker_run_states (id, run_id, state, at, received_at) SELECT gen_random_uuid(), id, state, ended_at, received_at FROM bridge_worker_runs');
 
         // The previous image writes no state, so the default would call its every run failed.
