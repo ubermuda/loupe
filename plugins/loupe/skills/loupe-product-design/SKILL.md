@@ -22,7 +22,7 @@ Move the card only in P0. Never move it when you stop, and never move it after P
 5. With a card, call `card_get`. Read the tags of each linked document with `document_get`, before any move. The product document has the tag `product`, or a title that starts `Product design`.
    - An approved product document: stop, and tell the owner.
    - An unapproved product document: it is the draft that P1 reads.
-   - No linked product document: search `document_list` for the title `Product design: <card title>`. Keep only a row whose title is exactly that title. Show each such row to the owner, and ask whether it belongs to this card. Use it as the draft only when the owner says yes.
+   - No linked product document: search `document_list` for the title `Product design: <card title>`. Keep only a row whose title is exactly that title. Show each such row to the owner, and ask whether it belongs to this card. Use it as the draft only when the owner says yes. An approved match stops the session, as an approved linked document does.
 6. Run P0 to get the card into the Product design column, as `session-flow.md` says.
 7. Run the phases of the level that P2 sets. Ask each question as `question-rules.md` says. Use AskUserQuestion when the answer has clear options, and plain chat when the tool is missing.
 8. Read `../loupe-stage-product-design/references/product-document.md` before P10. It is the template, and it lists the sections a Light document keeps.
@@ -42,6 +42,6 @@ Put each item in its section of the product document.
 
 1. With no draft, call `document_create` with the title `Product design: <card title>`.
 2. Use the tags `design` and `product`, or the spelling `tag_list` already has for them. Without `product`, an approval moves nothing and shows no error.
-3. With a draft, call `document_revise` on it instead. When the draft lacks the tag `design` or `product`, call `document_set_tags` with its current tags plus the missing ones. Leave out `decisions`, because a document with both stage tags moves no card on approval. Keep each section with a standing approval unchanged, as `../loupe-stage-product-design/references/review-round.md` "An approved section wins" says. When the draft has open review comments, answer them as "Answer every open comment" in that file says.
+3. With a draft, call `document_revise` on it instead. When the draft lacks the tag `design` or `product`, or has the tag `decisions`, call `document_set_tags`. Send its current tags without `decisions`, plus `design` and `product`. A document with both stage tags moves no card on approval. Keep each section with a standing approval unchanged, as `../loupe-stage-product-design/references/review-round.md` "An approved section wins" says. When the draft has open review comments, answer them as "Answer every open comment" in that file says.
 4. Call `card_get` again. When the card does not link the document yet, call `card_update` with the existing `documentIds` plus the new id. The field replaces the whole set.
 5. Never move the card after P0. Give the owner the review URL, and stop.
