@@ -22,7 +22,7 @@ Move the card only in P0. Never move it when you stop, and never move it after P
 5. With a card, call `card_get`. Read the tags of each linked document with `document_get`, before any move. The product document has the tag `product`, or a title that starts `Product design`.
    - An approved product document: stop, and tell the owner.
    - An unapproved product document: it is the draft that P1 reads.
-   - No linked product document: search `document_list` for the title `Product design: <card title>`. Keep only a row whose title is exactly that title. Show each such row to the owner, and ask whether it belongs to this card. Use it as the draft only when the owner says yes. An approved match stops the session, as an approved linked document does.
+   - No linked product document: search `document_list` for the title `Product design: <card title>`. Keep only a row whose title is exactly that title. Show each such row to the owner, and ask whether it belongs to this card. When the owner says yes, treat the row as the linked product document, and apply the two rules above. When the owner says no for every row, go on with no draft.
 6. Run P0 to get the card into the Product design column, as `session-flow.md` says.
 7. Run the phases of the level that P2 sets. Ask each question as `question-rules.md` says. Use AskUserQuestion when the answer has clear options, and plain chat when the tool is missing.
 8. Read `../loupe-stage-product-design/references/product-document.md` before P10. It is the template, and it lists the sections a Light document keeps.
