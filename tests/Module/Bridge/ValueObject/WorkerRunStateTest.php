@@ -32,6 +32,28 @@ final class WorkerRunStateTest extends TestCase
         self::assertSame(WorkerRunState::Failed, WorkerRunState::fromExitCode(2));
     }
 
+    public function test_only_the_exit_code_states_are_outcomes(): void
+    {
+        self::assertSame(
+            ['succeeded', 'failed', 'not-started'],
+            array_values(array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome()),
+            )),
+        );
+    }
+
+    public function test_only_timed_out_and_lost_are_inferred(): void
+    {
+        self::assertSame(
+            ['timed-out', 'lost'],
+            array_values(array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isInferred()),
+            )),
+        );
+    }
+
     public function test_only_queued_resumed_and_running_are_open(): void
     {
         self::assertSame(

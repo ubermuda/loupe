@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Repository;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -36,6 +37,23 @@ class WorkerRunStateChangeRepository extends ServiceEntityRepository
             ->addOrderBy('c.id', 'ASC')
             ->getQuery()
             ->getResult());
+    }
+
+    /** @return list<WorkerRunState> the distinct states the run has held */
+    public function statesOf(WorkerRun $run): array
+    {
+        /** @var list<string|WorkerRunState> $states */
+        $states = $this->createQueryBuilder('c')
+            ->select('DISTINCT c.state')
+            ->andWhere('c.run = :run')
+            ->setParameter('run', $run)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_map(
+            static fn (string|WorkerRunState $state): WorkerRunState => $state instanceof WorkerRunState ? $state : WorkerRunState::from($state),
+            $states,
+        );
     }
 
     /**

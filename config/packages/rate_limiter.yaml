@@ -41,8 +41,8 @@ framework:
         agent_bridge_rule_reports:
             <<: *agent_per_token
 
-        # Bounds the bridge's run reports, a POST. A bridge reports once per
-        # finished worker, and a worker runs for minutes.
+        # Bounds the bridge's run reports: the finished run, each run state and
+        # the run inventory. A run sends a few states, and a worker runs for minutes.
         agent_worker_runs:
             <<: *agent_per_token
 

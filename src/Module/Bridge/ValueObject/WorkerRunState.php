@@ -62,6 +62,18 @@ enum WorkerRunState: string
         return \in_array($this, self::openStates(), true);
     }
 
+    /** How a worker process ended. Only these states carry an exit code or a failure reason. */
+    public function isOutcome(): bool
+    {
+        return \in_array($this, [self::Succeeded, self::Failed, self::NotStarted], true);
+    }
+
+    /** The server infers these on its own, and a bridge never reports them. */
+    public function isInferred(): bool
+    {
+        return self::TimedOut === $this || self::Lost === $this;
+    }
+
     /** A report whose state ranks lower than the run's current state never moves the run back. */
     public function rank(): int
     {

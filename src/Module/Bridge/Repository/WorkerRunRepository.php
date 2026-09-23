@@ -10,6 +10,7 @@ use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
@@ -63,6 +64,24 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->setParameter('cardId', $cardId, UuidType::NAME)
             ->setParameter('startedAt', $startedAt, Types::DATETIME_IMMUTABLE)
             ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * The run the bridge gave this key, locked until the transaction ends, so no
+     * inventory or timeout sweep writes the state between the read and the write.
+     */
+    public function findOneByRunKey(Project $project, Uuid $bridgeId, Uuid $runKey): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.bridgeId = :bridgeId')
+            ->andWhere('r.runKey = :runKey')
+            ->setParameter('project', $project)
+            ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
+            ->setParameter('runKey', $runKey, UuidType::NAME)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
             ->getOneOrNullResult();
     }
 
