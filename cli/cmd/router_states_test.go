@@ -177,6 +177,9 @@ func TestARunReportsEachStateUnderOneRunID(t *testing.T) {
 	if done.ExitCode == nil || *done.ExitCode != 0 || done.FailureReason != nil || done.Output != "wrote a plan" {
 		t.Fatalf("succeeded = %+v", done)
 	}
+	if rec.posts != 0 {
+		t.Fatalf("posted %d old reports to a server with run states", rec.posts)
+	}
 }
 
 // A non-zero exit is a failed run, and a worker that never ran did not start.

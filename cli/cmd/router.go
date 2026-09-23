@@ -678,10 +678,8 @@ func (r *router) report(p pending, res workerResult, began time.Time, elapsed ti
 
 // reportOutcome hands how a run ended to Loupe. A worker that never ran sends
 // no exit code and says why instead, because the server keeps the two faults
-// apart. A run with no card logs its skip here, once.
-//
-// endedAt is derived from the start, so the value the server reads can never
-// precede startedAt, whatever the wall clock does between the two calls.
+// apart. A run with no card logs its skip here, once. endedAt is derived from
+// the start, so it never precedes startedAt, whatever the wall clock does.
 func (r *router) reportOutcome(p pending, res workerResult, began time.Time, elapsed time.Duration) {
 	if !r.reporting() {
 		return
