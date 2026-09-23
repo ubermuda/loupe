@@ -172,7 +172,7 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-It installs eight skills, each covering one part of working a Loupe project:
+It installs nine skills, each covering one part of working a Loupe project:
 
 | Skill | Covers |
 |---|---|
@@ -180,7 +180,8 @@ It installs eight skills, each covering one part of working a Loupe project:
 | `loupe:loupe-site-review` | Acting on widget comments and marking them addressed |
 | `loupe:loupe-board` | Reading a board, writing a card, linking a pull request |
 | `loupe:loupe-inbox` | Asking the project owner, and ending a turn on a blocking ask |
-| `loupe:loupe-stage-product-design` | A card entering the product design column |
+| `loupe:product-design` | An interactive product design session with the owner, from a card or a one-line idea |
+| `loupe:loupe-stage-product-design` | One review round on a product document |
 | `loupe:loupe-stage-tech-design` | A card entering the tech design column |
 | `loupe:loupe-stage-implementation` | Building an approved design into a pull request |
 | `loupe:loupe-stage-fix-round` | One round of review feedback, run by hand |
