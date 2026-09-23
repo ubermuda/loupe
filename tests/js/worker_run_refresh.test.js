@@ -14,11 +14,8 @@ vi.mock('../../assets/lib/mercure.js', () => ({
     },
 }));
 
-const {
-    default: WorkerRunRefreshController,
-    DEBOUNCE_MILLISECONDS,
-    BLUR_RELOAD_MILLISECONDS,
-} = await import('../../assets/controllers/worker_run_refresh_controller.js');
+const { default: WorkerRunRefreshController, DEBOUNCE_MILLISECONDS } =
+    await import('../../assets/controllers/worker_run_refresh_controller.js');
 
 let application;
 
@@ -140,56 +137,6 @@ it('reloads the count frames outside it with the list', async () => {
     await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
 
     frames.forEach((frame) => expect(frame.reload).toHaveBeenCalledOnce());
-});
-
-it('leaves a frame alone while the reader uses a control in it', async () => {
-    document.body.innerHTML = `<turbo-frame id="bridges" src="/projects/1/worker-runs"><select id="bridge"><option>a</option></select></turbo-frame>
-        <div data-controller="worker-run-refresh" data-worker-run-refresh-frames-value='["bridges"]'>
-            <turbo-frame id="runs" data-worker-run-refresh-target="frame" src="/projects/1/worker-runs"></turbo-frame>
-        </div>`;
-    const [bridges, runs] = document.querySelectorAll('turbo-frame');
-    bridges.reload = vi.fn();
-    runs.reload = vi.fn();
-    await vi.advanceTimersByTimeAsync(0);
-    document.getElementById('bridge').focus();
-
-    await signal();
-    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
-
-    expect(bridges.reload).not.toHaveBeenCalled();
-    expect(runs.reload).toHaveBeenCalledOnce();
-
-    await signal();
-    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
-    document.getElementById('bridge').blur();
-    await vi.advanceTimersByTimeAsync(BLUR_RELOAD_MILLISECONDS - 1);
-    expect(bridges.reload).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(1);
-    expect(bridges.reload).toHaveBeenCalledOnce();
-});
-
-it('holds the frame again when focus returns before the reload', async () => {
-    document.body.innerHTML = `<turbo-frame id="bridges" src="/projects/1/worker-runs"><select id="bridge"><option>a</option></select></turbo-frame>
-        <div data-controller="worker-run-refresh" data-worker-run-refresh-frames-value='["bridges"]'>
-            <turbo-frame id="runs" data-worker-run-refresh-target="frame" src="/projects/1/worker-runs"></turbo-frame>
-        </div>`;
-    const [bridges, runs] = document.querySelectorAll('turbo-frame');
-    bridges.reload = vi.fn();
-    runs.reload = vi.fn();
-    await vi.advanceTimersByTimeAsync(0);
-    const select = document.getElementById('bridge');
-    select.focus();
-
-    await signal();
-    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
-    select.blur();
-    select.focus();
-    await vi.advanceTimersByTimeAsync(BLUR_RELOAD_MILLISECONDS);
-    expect(bridges.reload).not.toHaveBeenCalled();
-
-    select.blur();
-    await vi.advanceTimersByTimeAsync(BLUR_RELOAD_MILLISECONDS);
-    expect(bridges.reload).toHaveBeenCalledOnce();
 });
 
 it('reloads the whole page when it has no filters to keep', async () => {

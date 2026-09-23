@@ -61,7 +61,6 @@
 
             {# One bridge reports many runs, so the control waits until a second
                bridge makes it a choice rather than a label. #}
-            <turbo-frame id="worker-runs-bridges" class="lp-live-frame">
             {% if bridgeIds|length > 1 %}
                 <label class="sr-only" for="worker-run-bridge">{{ 'bridge.worker_runs.filter.bridge_label'|trans }}</label>
                 <select id="worker-run-bridge"
@@ -76,7 +75,6 @@
                     {% endfor %}
                 </select>
             {% endif %}
-            </turbo-frame>
 
             <a href="{{ path('app_project_worker_runs', {id: project.id}) }}"
                data-autosearch-target="clearButton"
@@ -92,7 +90,7 @@
     {# The filters stay outside the frame, so a reload never takes the search field from under the reader.
        A page with no filters yet has no field to keep, so it reloads whole and gains them. #}
     <div class="lp-live-frame" data-controller="worker-run-refresh"
-         data-worker-run-refresh-frames-value="{{ ['worker-runs-shown', 'worker-runs-count', 'worker-runs-bridges']|json_encode }}"
+         data-worker-run-refresh-frames-value="{{ ['worker-runs-shown', 'worker-runs-count']|json_encode }}"
          data-worker-run-refresh-whole-value="{{ items|length > 0 or listQuery.isNarrowed ? 'false' : 'true' }}">
     <turbo-frame id="worker-runs-frame" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
     {% if items|length > 0 %}

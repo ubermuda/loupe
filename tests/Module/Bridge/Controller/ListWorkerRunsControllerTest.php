@@ -401,8 +401,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $refresh = $crawler->filter('[data-controller="worker-run-refresh"]');
         self::assertSame('false', $refresh->attr('data-worker-run-refresh-whole-value'));
-        self::assertSame(['worker-runs-shown', 'worker-runs-count', 'worker-runs-bridges'], json_decode((string) $refresh->attr('data-worker-run-refresh-frames-value'), true));
-        self::assertCount(1, $crawler->filter('form turbo-frame#worker-runs-bridges'));
+        self::assertSame(['worker-runs-shown', 'worker-runs-count'], json_decode((string) $refresh->attr('data-worker-run-refresh-frames-value'), true));
         self::assertCount(1, $crawler->filter('turbo-frame#worker-runs-shown .lp-topbar__meta'));
         self::assertCount(1, $crawler->filter('turbo-frame#worker-runs-count .lp-filter-count'));
 
