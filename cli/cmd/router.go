@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"slices"
 	"strings"
 	"sync"
@@ -47,6 +48,10 @@ type router struct {
 	// and never behind the report queue. A nil one resumes with no check.
 	checkAsk     func(ctx context.Context, handle, askID string) (api.AskState, error)
 	checkTimeout time.Duration
+	// control is the socket that `loupe bridge reload` reaches, and source is
+	// what a reload reads. A nil control, as in most tests, opens no socket.
+	control net.Listener
+	source  reloadSource
 	// reloadMu lets one reload run at a time. It is never taken under mu.
 	reloadMu sync.Mutex
 

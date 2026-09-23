@@ -49,7 +49,7 @@ func newBridgeCmd() *cobra.Command {
 		Use:   "bridge",
 		Short: "Bridge Loupe events into local workers",
 	}
-	cmd.AddCommand(newBridgeRunCmd())
+	cmd.AddCommand(newBridgeRunCmd(), newBridgeReloadCmd())
 
 	return cmd
 }
@@ -68,9 +68,12 @@ func newBridgeRunCmd() *cobra.Command {
 			"The bridge refuses to start without the file, and checks every project and " +
 			"column slug against the server first. It follows every project you own on " +
 			"one connection, and ignores the events of a project the file does not map.\n\n" +
-			"Use --permission-mode and --model to set the value of every rule that sets " +
-			"none. A worker has no terminal, so it cannot answer a permission prompt: " +
-			"with no mode, claude denies every tool call that needs approval.\n\n" +
+			"Run `loupe bridge reload` to apply a changed rule file without a restart. " +
+			"A second bridge on the same rule file refuses to start.\n\n" +
+			"The defaults block of the rule file and each rule win over --permission-mode " +
+			"and --model. The flags fill a value that both leave empty. A worker has no " +
+			"terminal, so it cannot answer a permission prompt: with no mode, claude " +
+			"denies every tool call that needs approval.\n\n" +
 			"Use --max-workers to bound the workers that run at once. Events past the " +
 			"bound wait in a queue and start in arrival order, except that an event waits " +
 			"while its card has a worker. The bridge writes one JSON " +
@@ -85,12 +88,9 @@ func newBridgeRunCmd() *cobra.Command {
 				return err
 			}
 
-			path := rulesPath
-			if path == "" {
-				var err error
-				if path, err = defaultRulesPath(); err != nil {
-					return err
-				}
+			path, err := rulesPathOr(rulesPath)
+			if err != nil {
+				return err
 			}
 			set, err := rules.Load(path, defaults)
 			if err != nil {
@@ -128,11 +128,23 @@ func newBridgeRunCmd() *cobra.Command {
 			}
 			defer f.Close()
 
+			sock, err := socketPath(path)
+			if err != nil {
+				return err
+			}
+			control, err := listenControl(sock)
+			if err != nil {
+				return err
+			}
+			defer control.Close()
+
 			r := &router{
 				log:        newBridgeLogger(bridgeLogWriter(f, cmd.OutOrStdout())),
 				maxWorkers: maxWorkers,
 				worker:     defaultWorkerOps(),
 				bridgeID:   bridgeID,
+				control:    control,
+				source:     newReloadSource(path, defaults, cfg),
 			}
 			r.set.Store(set)
 			r.log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath, "bridge_id", bridgeID)
@@ -142,8 +154,8 @@ func newBridgeRunCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&rulesPath, "rules", "", "read rules from this `path`; empty uses rules.yaml in your config directory")
-	cmd.Flags().StringVar(&permissionMode, "permission-mode", "", "pass this `mode` to every `claude` whose rule sets none; empty passes no flag, and a worker cannot answer a prompt")
-	cmd.Flags().StringVar(&model, "model", "", "pass this `model` to every `claude` whose rule sets none; empty passes no flag")
+	cmd.Flags().StringVar(&permissionMode, "permission-mode", "", "pass this `mode` to every `claude` when neither its rule nor the defaults block of the rule file sets one; empty passes no flag, and a worker cannot answer a prompt")
+	cmd.Flags().StringVar(&model, "model", "", "pass this `model` to every `claude` when neither its rule nor the defaults block of the rule file sets one; empty passes no flag")
 	cmd.Flags().IntVar(&maxWorkers, "max-workers", defaultMaxWorkers, "run at most this `number` of workers at once; later events queue")
 	cmd.Flags().StringVar(&logFile, "log-file", "", "append the JSON log to this `path`; empty uses bridge.log in your config directory")
 
@@ -261,6 +273,12 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		r.heartbeat = newHeartbeater(ctx, queue, apiClient(cfg), r.bridgeID, heartbeatBody(set), heartbeatInterval(events), r.log)
 		r.heartbeat.start()
 	}
+	// The control socket starts last, so no reload races the writes above.
+	var served <-chan struct{}
+	if r.control != nil {
+		served = serveControl(ctx, r.control, func(ctx context.Context) reloadResult { return r.reload(ctx, r.source) })
+		r.log.Info("control_listening", "socket", r.control.Addr().String())
+	}
 
 	err = transport.Subscribe(ctx, &http.Client{}, events.HubURL, []string{events.Topic}, jwtRefresher(cfg, events.JWT, r.onRefresh), r.handler())
 	failed := err != nil && ctx.Err() == nil
@@ -274,6 +292,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	}
 	if r.heartbeat != nil {
 		r.heartbeat.wait()
+	}
+	if served != nil {
+		<-served
 	}
 	if failed {
 		return err
