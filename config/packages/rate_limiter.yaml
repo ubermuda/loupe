@@ -19,6 +19,14 @@ framework:
             limit: 300
             interval: '1 minute'
 
+        # Bounds a per-project forge hook. GitHub delivers for every tenant from
+        # one shared pool of addresses, so an address key would let one tenant
+        # starve the others. Keyed per hook key instead.
+        forge_hook_deliveries:
+            policy: 'sliding_window'
+            limit: 300
+            interval: '1 minute'
+
         # Bounds the whole MCP endpoint, not only writes: every JSON-RPC message
         # rides POST, including initialize, tools/list and ping. Keyed per token
         # alone, unlike the widget limiter above — see RateLimitMcpRequests.
@@ -126,6 +134,10 @@ when@dev:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'
+            forge_hook_deliveries:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
             mercure_authorize:
                 policy: 'sliding_window'
                 limit: 100000
@@ -155,6 +167,10 @@ when@test:
     framework:
         rate_limiter:
             forge_deliveries:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
+            forge_hook_deliveries:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'

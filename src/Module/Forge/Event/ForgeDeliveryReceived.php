@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Forge\Event;
+namespace App\Module\Forge\Event;
 
-use App\Forge\ForgeDelivery;
+use App\Module\Forge\ForgeDelivery;
 
 /**
  * A forge delivery arrived and its signature verified.

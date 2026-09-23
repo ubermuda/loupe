@@ -2,14 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Forge\Controller;
+namespace App\Module\Forge\Controller;
 
 use App\Audit\AuditChannel;
 use App\Audit\AuditContext;
 use App\Controller\AppController;
-use App\Forge\Command\ForgeDeliveryOutcome;
-use App\Forge\Command\ReceiveForgeDeliveryCommand;
-use App\Forge\Command\ReceiveForgeDeliveryHandler;
+use App\Module\Forge\Command\ForgeDeliveryOutcome;
+use App\Module\Forge\Command\ReceiveForgeDeliveryCommand;
+use App\Module\Forge\Command\ReceiveForgeDeliveryHandler;
+use App\Module\Forge\EventListener\RateLimitForgeDeliveries;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,12 +31,14 @@ use Symfony\Component\Routing\Attribute\Route;
     '/webhooks/forge/{forge}',
     name: 'webhook_forge',
     requirements: ['forge' => '[a-z]+'],
+    defaults: [
+        RateLimitForgeDeliveries::MARKER => true,
+        RateLimitForgeDeliveries::KEYING => RateLimitForgeDeliveries::KEY_BY_ADDRESS,
+    ],
     methods: ['POST'],
 )]
 final class ForgeWebhookController extends AppController
 {
-    public const string ROUTE = 'webhook_forge';
-
     public function __construct(
         private readonly ReceiveForgeDeliveryHandler $receiveDelivery,
         private readonly AuditContext $auditContext,

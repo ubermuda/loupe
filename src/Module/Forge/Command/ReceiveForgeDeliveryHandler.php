@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Forge\Command;
+namespace App\Module\Forge\Command;
 
-use App\Forge\Event\ForgeDeliveryReceived;
-use App\Forge\ForgeAdapters;
-use App\Forge\InvalidForgeSignature;
+use App\Module\Forge\Event\ForgeDeliveryReceived;
+use App\Module\Forge\ForgeAdapters;
+use App\Module\Forge\InvalidForgeSignature;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Ubermuda\AuditBundle\Auditor;

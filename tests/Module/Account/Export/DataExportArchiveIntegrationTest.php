@@ -102,7 +102,7 @@ final class DataExportArchiveIntegrationTest extends WebTestCase
             }
             sort($names);
             self::assertSame(
-                ['audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'connected_apps.json', 'documents.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'site_reviews.json', 'worker_runs.json'],
+                ['audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'connected_apps.json', 'documents.json', 'forge_repositories.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'site_reviews.json', 'worker_runs.json'],
                 $names,
             );
 

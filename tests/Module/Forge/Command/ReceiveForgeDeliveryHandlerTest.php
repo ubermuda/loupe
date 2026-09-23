@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Forge\Command;
+namespace App\Tests\Module\Forge\Command;
 
-use App\Forge\Command\ForgeDeliveryOutcome;
-use App\Forge\Command\ReceiveForgeDeliveryCommand;
-use App\Forge\Command\ReceiveForgeDeliveryHandler;
-use App\Forge\Event\ForgeDeliveryReceived;
-use App\Forge\ForgeAdapterInterface;
-use App\Forge\ForgeAdapters;
-use App\Forge\ForgeDelivery;
-use App\Forge\ForgeEventType;
-use App\Forge\InvalidForgeSignature;
+use App\Module\Forge\Command\ForgeDeliveryOutcome;
+use App\Module\Forge\Command\ReceiveForgeDeliveryCommand;
+use App\Module\Forge\Command\ReceiveForgeDeliveryHandler;
+use App\Module\Forge\Event\ForgeDeliveryReceived;
+use App\Module\Forge\ForgeAdapterInterface;
+use App\Module\Forge\ForgeAdapters;
+use App\Module\Forge\ForgeDelivery;
+use App\Module\Forge\ForgeEventType;
+use App\Module\Forge\InvalidForgeSignature;
 use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\RecordingLogger;
 use PHPUnit\Framework\TestCase;

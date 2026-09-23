@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Forge;
+namespace App\Tests\Module\Forge;
 
-use App\Forge\ForgeEventType;
-use App\Forge\GitHubAdapter;
-use App\Forge\InvalidForgeSignature;
+use App\Module\Forge\ForgeEventType;
+use App\Module\Forge\GitHubAdapter;
+use App\Module\Forge\InvalidForgeSignature;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -174,7 +174,7 @@ final class GitHubAdapterTest extends TestCase
     /**
      * @param array<mixed> $payload
      *
-     * @return list<\App\Forge\ForgeDelivery>
+     * @return list<\App\Module\Forge\ForgeDelivery>
      */
     private function translate(string $event, array $payload): array
     {

@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Forge\Controller;
+namespace App\Tests\Module\Forge\Controller;
 
+use App\Module\Forge\EventListener\RateLimitForgeDeliveries;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\RouterInterface;
 
 /**
  * A forge signs its body and carries no session, so the endpoint must answer an
@@ -30,5 +32,18 @@ final class ForgeWebhookControllerTest extends WebTestCase
             '{"error":"unknown forge"}',
             (string) $client->getResponse()->getContent(),
         );
+    }
+
+    public function test_the_route_is_rate_limited_by_client_address(): void
+    {
+        self::bootKernel();
+        $router = self::getContainer()->get(RouterInterface::class);
+        self::assertInstanceOf(RouterInterface::class, $router);
+
+        $route = $router->getRouteCollection()->get('webhook_forge');
+
+        self::assertNotNull($route);
+        self::assertTrue($route->getDefault(RateLimitForgeDeliveries::MARKER));
+        self::assertSame(RateLimitForgeDeliveries::KEY_BY_ADDRESS, $route->getDefault(RateLimitForgeDeliveries::KEYING));
     }
 }

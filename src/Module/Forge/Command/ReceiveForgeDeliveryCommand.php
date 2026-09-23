@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Forge\Command;
+namespace App\Module\Forge\Command;
 
 use Symfony\Component\HttpFoundation\Request;
 

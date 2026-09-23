@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Forge;
+namespace App\Module\Forge;
 
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\HttpFoundation\Request;

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Forge\ForgeDelivery;
-use App\Forge\ForgeEventType;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Forge\ForgeDelivery;
+use App\Module\Forge\ForgeEventType;
 use App\Outbox\OutboxWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;

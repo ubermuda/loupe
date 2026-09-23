@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Forge;
+namespace App\Module\Forge;
 
 /**
  * One fact an adapter read out of a verified delivery, in the neutral
