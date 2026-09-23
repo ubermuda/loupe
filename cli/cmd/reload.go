@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
@@ -171,7 +172,7 @@ func (r *router) swap(set *rules.Set, seq uint64) reloadResult {
 	kills := r.reloadKills
 	var gone []string
 	for _, g := range r.reloadGone {
-		if g.seq > seq {
+		if g.seq > seq && !slices.Contains(gone, g.id) {
 			gone = append(gone, g.id)
 		}
 	}

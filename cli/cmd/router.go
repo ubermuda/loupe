@@ -359,16 +359,21 @@ func (r *router) markGone(id string, seq uint64) ([]rules.Dead, []pending, bool)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if seq <= r.setSeq || r.gone[id] {
+	if seq <= r.setSeq {
+		return nil, nil, false
+	}
+	// A reload keeps the newest answer that found the project gone, even when
+	// the project is marked already, so the swap weighs that answer.
+	if r.reloading {
+		r.reloadGone = append(r.reloadGone, goneMark{id: id, seq: seq})
+	}
+	if r.gone[id] {
 		return nil, nil, false
 	}
 	if r.gone == nil {
 		r.gone = map[string]bool{}
 	}
 	r.gone[id] = true
-	if r.reloading {
-		r.reloadGone = append(r.reloadGone, goneMark{id: id, seq: seq})
-	}
 	dead, dropped := r.dropDeadLocked(killGone(r.rules(), id))
 
 	return dead, dropped, true

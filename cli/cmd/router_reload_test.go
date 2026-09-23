@@ -735,6 +735,30 @@ func TestAnOlderGoneAnswerDuringTheCheckIsNotReplayed(t *testing.T) {
 	}
 }
 
+// A project marked gone by an older answer during the check, and gone again in
+// an answer newer than the reload's, is gone in the new set.
+func TestANewerGoneAnswerForAMarkedProjectIsReplayed(t *testing.T) {
+	h := newHarness(t)
+	src, entered, release := blocked(h.source(defaultRules))
+	src, heldEntered, heldRelease := held(src)
+
+	done := make(chan reloadResult)
+	go func() { done <- h.router.reload(context.Background(), src) }()
+	<-entered
+	h.router.onRefresh(api.Events{})
+	close(release)
+	<-heldEntered
+	h.router.onRefresh(api.Events{})
+	close(heldRelease)
+	if res := <-done; !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+
+	if h.router.rules().Live("plan") {
+		t.Fatal("the newest answer omits the project, and its rule stayed live")
+	}
+}
+
 // A refresh answer that arrived before the reload's, and is handled after the
 // swap, kills nothing.
 func TestAnOlderGoneAnswerAfterTheSwapKillsNothing(t *testing.T) {
