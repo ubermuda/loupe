@@ -101,6 +101,55 @@ rules:
 	}
 }
 
+// A rule's own value wins, then the file's defaults, then the bridge flags.
+func TestParseFillsARuleFromTheFileBeforeTheFlags(t *testing.T) {
+	for name, tc := range map[string]struct{ file, rule, flag, want string }{
+		"the file fills an empty rule":   {file: "plan", want: "plan"},
+		"the rule beats the file":        {file: "plan", rule: "dontAsk", want: "dontAsk"},
+		"the file beats the flag":        {file: "plan", flag: "acceptEdits", want: "plan"},
+		"the flag fills when both empty": {flag: "acceptEdits", want: "acceptEdits"},
+		"nothing sets a value":           {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			body := oneRule
+			if tc.rule != "" {
+				body = strings.Replace(body, "    to: ready\n", "    to: ready\n    permissionMode: "+tc.rule+"\n    model: "+tc.rule+"-model\n", 1)
+			}
+			if tc.file != "" {
+				body = "defaults:\n  permissionMode: " + tc.file + "\n  model: " + tc.file + "-model\n" + body
+			}
+			flags := Defaults{}
+			if tc.flag != "" {
+				flags = Defaults{PermissionMode: tc.flag, Model: tc.flag + "-model"}
+			}
+			text, _ := file(t, body)
+			s, err := Parse([]byte(text), flags)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantModel := ""
+			if tc.want != "" {
+				wantModel = tc.want + "-model"
+			}
+			if r := s.Rules()[0]; r.PermissionMode != tc.want || r.Model != wantModel {
+				t.Fatalf("permissionMode = %q, model = %q, want %q and %q", r.PermissionMode, r.Model, tc.want, wantModel)
+			}
+		})
+	}
+}
+
+// A mode that only the file's defaults name still reaches the warning.
+func TestUnknownPermissionModesListAFileDefault(t *testing.T) {
+	text, _ := file(t, "defaults:\n  permissionMode: newMode\n"+oneRule)
+	s, err := Parse([]byte(text), Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(s.UnknownPermissionModes(), " "); got != "newMode" {
+		t.Fatalf("UnknownPermissionModes = %q", got)
+	}
+}
+
 // YAML 1.1 reads a bare `on` as true. The key must still reach the rule.
 func TestParseReadsTheOnKeyAsAString(t *testing.T) {
 	if got := parse(t, oneRule).Rules()[0].On; got != event.CardMovedType {
@@ -155,6 +204,9 @@ func TestParseRefusesAnInvalidFile(t *testing.T) {
 		"second document":         {oneRule + "---\n" + oneRule, "second YAML document"},
 		"permissionMode spaced":   {rule("on: board.card_moved\nproject: loupe\nto: ready\npermissionMode: accept edits\nprompt: x"), `permissionMode "accept edits" holds whitespace`},
 		"model with a space":      {rule("on: board.card_moved\nproject: loupe\nto: ready\nmodel: 'claude opus'\nprompt: x"), `model "claude opus" holds whitespace`},
+		"default mode spaced":     {"defaults:\n  permissionMode: accept edits\n" + oneRule, `defaults.permissionMode "accept edits" holds whitespace`},
+		"default model spaced":    {"defaults:\n  model: 'claude opus'\n" + oneRule, `defaults.model "claude opus" holds whitespace`},
+		"unknown defaults field":  {"defaults:\n  maxChain: 2\n" + oneRule, "field maxChain not found"},
 		"card_moved without to":   {rule("on: board.card_moved\nproject: loupe\nprompt: x"), "to is required"},
 		"to not a slug":           {rule("on: board.card_moved\nproject: loupe\nto: Ready\nprompt: x"), "is not a column slug"},
 		"from not a slug":         {rule("on: board.card_moved\nproject: loupe\nto: ready\nfrom: in_progress\nprompt: x"), "is not a column slug"},

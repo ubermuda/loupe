@@ -84,8 +84,16 @@ const UnknownCard = "unknown"
 
 // File is the rule file as written.
 type File struct {
+	Defaults FileDefaults       `yaml:"defaults"`
 	Projects map[string]Project `yaml:"projects"`
 	Rules    []Rule             `yaml:"rules"`
+}
+
+// FileDefaults fill a rule's empty fields before the bridge flags do. A reload
+// reads them again, and the flags stay fixed for the process.
+type FileDefaults struct {
+	PermissionMode string `yaml:"permissionMode"`
+	Model          string `yaml:"model"`
 }
 
 // Project maps a project slug to the directory its workers run in.
@@ -110,7 +118,8 @@ type Rule struct {
 	Resume bool `yaml:"resume"`
 }
 
-// Defaults fill a rule's fields that the file leaves empty.
+// Defaults come from the bridge flags. They fill a rule's fields that neither
+// the rule nor the file's defaults set.
 type Defaults struct {
 	PermissionMode string
 	Model          string
@@ -183,6 +192,20 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 
 	s := &Set{dirs: map[string]string{}}
 	var errs []error
+	for _, err := range []error{
+		checkWord("defaults.permissionMode", f.Defaults.PermissionMode),
+		checkWord("defaults.model", f.Defaults.Model),
+	} {
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if f.Defaults.PermissionMode != "" {
+		defaults.PermissionMode = f.Defaults.PermissionMode
+	}
+	if f.Defaults.Model != "" {
+		defaults.Model = f.Defaults.Model
+	}
 	if len(f.Projects) == 0 {
 		errs = append(errs, errors.New("the rule file maps no projects"))
 	}
