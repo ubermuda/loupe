@@ -7,6 +7,10 @@
    single Tailwind pass. The primitive classes it deliberately leaves to the
    consuming app are defined near the bottom of this file. */
 @import '../../vendor/ubermuda/admin-bundle/assets/admin.css';
+/* Tom Select, which ux-autocomplete draws over a <select>. It comes through
+   here, not the importmap, where a CSS entry becomes a `data:` script that the
+   production CSP blocks. The base layer lets the .ts- rules below win. */
+@import './tom-select.default.css' layer(base);
 @import './redesign-core.css' layer(components);
 @import './redesign-secondary.css';
 @import './redesign-document.css';
@@ -1365,6 +1369,32 @@
     }
     textarea.lp-input {
         @apply min-h-22;
+    }
+    /* An autocomplete field, dressed as an .lp-input. Its dropdown reads as a menu. */
+    .ts-control {
+        @apply min-h-10 font-sans text-sm leading-5 text-ink bg-field border border-line-field px-3 py-2.5 shadow-none bg-none transition-colors;
+        border-radius: 7px;
+    }
+    .ts-control input {
+        @apply font-sans text-sm leading-5 text-ink placeholder:text-fg-dim;
+    }
+    .ts-wrapper.focus .ts-control {
+        @apply ring-2 ring-accent-ink;
+    }
+    .ts-dropdown {
+        @apply mt-1 overflow-hidden rounded-lg border border-line bg-surface-1 font-sans text-sm leading-5 text-ink shadow-card;
+    }
+    .ts-dropdown .option,
+    .ts-dropdown .no-results,
+    .ts-dropdown .loading-more-results,
+    .ts-dropdown .no-more-results {
+        @apply px-3 py-2;
+    }
+    .ts-dropdown .active {
+        @apply bg-surface-2 text-ink;
+    }
+    .ts-dropdown [data-selectable] .highlight {
+        @apply rounded-sm bg-accent-soft;
     }
     /* A checkbox or radio with its label, framed like a field so the whole row is the target. */
     .lp-choice {

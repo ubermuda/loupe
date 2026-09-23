@@ -29,4 +29,5 @@ return [
     Ubermuda\HealthCheckBundle\UbermudaHealthCheckBundle::class => ['all' => true],
     Ubermuda\AuditBundle\UbermudaAuditBundle::class => ['all' => true],
     League\Bundle\OAuth2ServerBundle\LeagueOAuth2ServerBundle::class => ['all' => true],
+    Symfony\UX\Autocomplete\AutocompleteBundle::class => ['all' => true],
 ];
