@@ -132,6 +132,12 @@ func newBridgeRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// The listener closes first, because a deferred call runs in reverse order.
+			lock, err := lockBridge(path, sock)
+			if err != nil {
+				return err
+			}
+			defer lock.Close()
 			control, err := listenControl(sock)
 			if err != nil {
 				return err

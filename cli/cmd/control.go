@@ -46,9 +46,21 @@ func rulesPathOr(path string) (string, error) {
 }
 
 // socketPath names the control socket of the bridge that reads rulesPath. The
-// name comes from the absolute path with symlinks resolved, so a reload reaches
-// the bridge that reads the same file. A path that does not resolve stays as is.
+// name comes from the absolute path as given. A repointed symlink thus keeps
+// the address that the running bridge listens on.
 func socketPath(rulesPath string) (string, error) {
+	abs, err := filepath.Abs(rulesPath)
+	if err != nil {
+		return "", err
+	}
+
+	return bridgeFile(abs, ".sock")
+}
+
+// lockPath names the lock file of the bridge that reads rulesPath. The name
+// comes from the absolute path with symlinks resolved, so two paths to one
+// file share the lock. A path that does not resolve stays as is.
+func lockPath(rulesPath string) (string, error) {
 	abs, err := filepath.Abs(rulesPath)
 	if err != nil {
 		return "", err
@@ -56,17 +68,59 @@ func socketPath(rulesPath string) (string, error) {
 	if real, err := filepath.EvalSymlinks(abs); err == nil {
 		abs = real
 	}
+
+	return bridgeFile(abs, ".lock")
+}
+
+// bridgeFile names a file in the config directory from a hash of key.
+func bridgeFile(key, ext string) (string, error) {
 	dir, err := config.Dir()
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256([]byte(abs))
+	sum := sha256.Sum256([]byte(key))
 
-	return filepath.Join(dir, "bridge-"+hex.EncodeToString(sum[:])[:12]+".sock"), nil
+	return filepath.Join(dir, "bridge-"+hex.EncodeToString(sum[:])[:12]+ext), nil
 }
 
-// listenControl listens on path. A bridge that answers there reads the same
-// rule file, so the second one refuses to start. A file that nothing answers
+// lockBridge takes the lock of the bridge that reads rulesPath and writes sock
+// into the lock file. The bridge keeps the file open while it runs. The OS
+// releases the lock when the file closes or the process dies.
+func lockBridge(rulesPath, sock string) (*os.File, error) {
+	path, err := lockPath(rulesPath)
+	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, fmt.Errorf("create config dir: %w", err)
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open the bridge lock: %w", err)
+	}
+	if err := tryLockFile(f); err != nil {
+		f.Close()
+		if !lockHeld(err) {
+			return nil, fmt.Errorf("lock %s: %w", path, err)
+		}
+		where := ""
+		// Windows refuses a read of the locked byte, so the socket stays unnamed there.
+		if other, err := os.ReadFile(path); err == nil && len(other) > 0 {
+			where = " and listens on " + string(other)
+		}
+
+		return nil, fmt.Errorf("another bridge reads the same rule file and holds %s%s: stop it first, or run `loupe bridge reload` to apply a change", path, where)
+	}
+	if err := f.Truncate(0); err == nil {
+		f.WriteAt([]byte(sock), 0)
+	}
+
+	return f, nil
+}
+
+// listenControl listens on path. The caller holds the bridge lock. A bridge
+// that still answers there got the same path to a symlink that has since been
+// repointed, so the second one refuses to start. A file that nothing answers
 // on is left by a bridge that crashed, and listenControl removes it. The
 // config directory is 0700, so only its owner can connect.
 func listenControl(path string) (net.Listener, error) {
@@ -81,7 +135,7 @@ func listenControl(path string) (net.Listener, error) {
 	if err == nil {
 		conn.Close()
 
-		return nil, fmt.Errorf("another bridge reads the same rule file and listens on %s: stop it first, or run `loupe bridge reload` to apply a change", path)
+		return nil, fmt.Errorf("another bridge got the same rule path and listens on %s: stop it first, or run `loupe bridge reload` to apply a change", path)
 	}
 	if !connRefused(err) && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("probe the control socket %s: %w", path, err)

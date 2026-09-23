@@ -279,11 +279,18 @@ log file. `Ctrl-C` or `SIGTERM` stops it, and that also stops every worker in
 flight.
 
 The bridge listens on a local socket, `bridge-<hash>.sock` in your config
-directory. The hash comes from the absolute path of the rule file, with symlinks
-resolved. [`loupe bridge reload`](#loupe-bridge-reload) reaches the bridge
-there. A second `loupe bridge run` on the same rule file refuses to start, and
-its error names the socket of the first bridge. The bridge logs a
-`control_listening` line with the socket path when it starts.
+directory. The hash comes from the absolute path of the rule file as you give
+it, so a symlink that you repoint keeps the socket. Give
+[`loupe bridge reload`](#loupe-bridge-reload) the same path to reach the bridge
+there. The bridge logs a `control_listening` line with the socket path when it
+starts.
+
+The bridge also holds a lock on `bridge-<hash>.lock` in your config directory
+while it runs. This hash comes from the absolute path with symlinks resolved,
+so two paths to one file count as the same rule file. A second
+`loupe bridge run` on the same rule file refuses to start. Its error names the
+lock file and, except on Windows, the socket of the first bridge. The OS
+releases the lock when the bridge stops or crashes.
 
 The flags stay fixed for the life of the process. To change `--max-workers`,
 `--permission-mode`, `--model` or `--log-file`, restart the bridge. The bridge
@@ -810,7 +817,8 @@ loupe bridge reload --rules ~/loupe/other-project.yaml
 | `--rules` | `rules.yaml` in your config dir | Reload the bridge that reads this rule file |
 
 The command reaches the bridge over its local socket, `bridge-<hash>.sock` in
-your config directory. The bridge parses the file, runs the
+your config directory. Give `--rules` the path that the bridge got, because the
+hash comes from that path as given. The bridge parses the file, runs the
 [start checks](#start-checks) against the server, and confirms that
 `GET /api/events` lists each mapped project. It applies the file only when every
 step passes.
@@ -837,7 +845,8 @@ On failure, the command writes one line to stderr for each problem, as
 failed reload changes nothing, and the bridge keeps its old rules.
 
 When no bridge reads the file, the command writes
-`error: no running bridge reads <path>` and exits with status 1.
+`error: no running bridge reads <path>` and exits with status 1. The command
+writes the same error when a bridge reads the file through another path.
 
 A reload does these things to the running bridge:
 

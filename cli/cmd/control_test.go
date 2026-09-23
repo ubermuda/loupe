@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -106,23 +107,74 @@ func TestSocketPathFollowsTheAbsoluteRuleFilePath(t *testing.T) {
 	}
 }
 
-func TestSocketPathFollowsASymlink(t *testing.T) {
+// symlinkedRules makes two rule files and a link to the first.
+func symlinkedRules(t *testing.T) (file, other, link string) {
+	t.Helper()
 	shortConfigHome(t)
 	dir := t.TempDir()
-	file := filepath.Join(dir, "rules.yaml")
-	link := filepath.Join(dir, "link.yaml")
-	if err := os.WriteFile(file, nil, 0o600); err != nil {
-		t.Fatal(err)
+	file = filepath.Join(dir, "rules.yaml")
+	other = filepath.Join(dir, "other.yaml")
+	link = filepath.Join(dir, "link.yaml")
+	for _, path := range []string{file, other} {
+		if err := os.WriteFile(path, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := os.Symlink(file, link); err != nil {
 		t.Fatal(err)
 	}
 
+	return file, other, link
+}
+
+// A reload names the rule file as the bridge got it. When the operator
+// repoints a link, the reload must still reach the running bridge.
+func TestSocketPathKeepsTheGivenPathOfASymlink(t *testing.T) {
+	file, other, link := symlinkedRules(t)
+
 	viaFile, _ := socketPath(file)
-	viaLink, _ := socketPath(link)
-	if viaFile != viaLink || viaFile == "" {
-		t.Fatalf("file %q, link %q", viaFile, viaLink)
+	before, _ := socketPath(link)
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
 	}
+	if err := os.Symlink(other, link); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := socketPath(link)
+	if before != after || before == viaFile || before == "" {
+		t.Fatalf("file %q, link before %q, link after %q", viaFile, before, after)
+	}
+}
+
+func TestLockBridgeAllowsOneBridgePerRuleFile(t *testing.T) {
+	file, other, link := symlinkedRules(t)
+	lock, _ := lockPath(file)
+
+	first, err := lockBridge(file, "/tmp/first.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{file, link} {
+		_, err := lockBridge(path, "/tmp/second.sock")
+		if err == nil || !strings.Contains(err.Error(), lock) {
+			t.Fatalf("lock %s: err = %v, want it to name %s", path, err, lock)
+		}
+		if runtime.GOOS != "windows" && !strings.Contains(err.Error(), "/tmp/first.sock") {
+			t.Fatalf("lock %s: err = %v, want it to name the socket of the first bridge", path, err)
+		}
+	}
+	elsewhere, err := lockBridge(other, "/tmp/other.sock")
+	if err != nil {
+		t.Fatalf("another rule file: %v", err)
+	}
+	elsewhere.Close()
+
+	first.Close()
+	again, err := lockBridge(link, "/tmp/second.sock")
+	if err != nil {
+		t.Fatalf("after the release: %v", err)
+	}
+	again.Close()
 }
 
 // A bridge that crashed leaves its socket file behind. Nothing listens on it,
@@ -146,6 +198,8 @@ func TestListenControlRemovesAStaleSocket(t *testing.T) {
 	ln.Close()
 }
 
+// A link that the operator repoints gives a second bridge its own lock, and
+// the same socket path. The second bridge must not take the socket.
 func TestListenControlRefusesASecondBridge(t *testing.T) {
 	path := testSocket(t)
 	ln, err := listenControl(path)
