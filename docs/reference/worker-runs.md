@@ -292,9 +292,9 @@ endpoint answers 404 there.
 
 ### Rate limit
 
-The three endpoints share one limit, `agent_worker_runs`, of 60 requests in one
-minute for each token. A run sends a few state reports, and a worker runs for
-minutes, so one bridge stays far below the limit.
+The three endpoints share one limit, `agent_worker_runs`, of 240 requests in one
+minute for each token. A run sends about four state reports. The limit lets a
+bridge drain a full queue of 256 reports before its retries give up.
 
 ## What a missing record means
 
