@@ -84,6 +84,17 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 	if timeout <= 0 {
 		timeout = reloadBuildTimeout
 	}
+	// The stamp orders this answer against the answers of token refreshes.
+	var seq uint64
+	fetch := src.events
+	src.events = func(ctx context.Context) (api.Events, error) {
+		events, err := fetch(ctx)
+		r.mu.Lock()
+		seq = r.stampLocked()
+		r.mu.Unlock()
+
+		return events, err
+	}
 	buildCtx, cancel := context.WithTimeout(ctx, timeout)
 	set, stage, err := buildSet(buildCtx, src)
 	cancel()
@@ -99,7 +110,7 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 
 		return r.lockFailed(err)
 	}
-	res := r.swap(set)
+	res := r.swap(set, seq)
 	done(res.OK)
 
 	return res
@@ -147,9 +158,9 @@ func problemsOf(err error) []string {
 
 // swap puts the new set in place in one critical section with the queue
 // rewrite, so no event of the old set starts after it. It first replays on the
-// new set each slug change and each gone project the old set saw during the
-// reload.
-func (r *router) swap(set *rules.Set) reloadResult {
+// new set each slug change the old set saw during the reload, and each gone
+// project from an answer newer than seq, the stamp of the reload's answer.
+func (r *router) swap(set *rules.Set, seq uint64) reloadResult {
 	r.mu.Lock()
 	if r.shut() {
 		r.mu.Unlock()
@@ -157,7 +168,13 @@ func (r *router) swap(set *rules.Set) reloadResult {
 		return shuttingDown()
 	}
 	old := r.rules()
-	kills, gone := r.reloadKills, r.reloadGone
+	kills := r.reloadKills
+	var gone []string
+	for _, g := range r.reloadGone {
+		if g.seq > seq {
+			gone = append(gone, g.id)
+		}
+	}
 	r.reloading, r.reloadKills, r.reloadGone = false, nil, nil
 	dead := make([][]rules.Dead, len(kills))
 	for i, e := range kills {
@@ -168,6 +185,7 @@ func (r *router) swap(set *rules.Set) reloadResult {
 		goneDead[i] = killGone(set, id)
 	}
 	r.set.Store(set)
+	r.setSeq = seq
 	dropped := r.rewriteLocked(set)
 	r.pruneLocked(set, gone)
 	r.projects = set.Projects()
@@ -222,8 +240,8 @@ func (r *router) rewriteLocked(set *rules.Set) []pending {
 
 // pruneLocked forgets the chain counts of the rules the new set lacks, and the
 // unmapped marks of the projects it maps. The reload saw each project of the
-// new set in GET /api/events, so a gone mark holds only for the ids a refresh
-// found gone during the reload. The caller holds mu.
+// new set in GET /api/events, so a gone mark holds only for the ids a newer
+// answer found gone. The caller holds mu.
 func (r *router) pruneLocked(set *rules.Set, gone []string) {
 	names := map[string]bool{}
 	for _, rule := range set.Rules() {

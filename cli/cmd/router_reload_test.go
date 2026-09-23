@@ -655,11 +655,28 @@ func TestAReloadForgetsTheUnmappedMarkOfAProjectItMaps(t *testing.T) {
 	}
 }
 
-// A refresh can find a project gone while a reload checks its file. The new
-// set learns of it at the swap, and a later refresh does not log it again.
-func TestAProjectGoneDuringTheCheckIsGoneInTheNewSet(t *testing.T) {
+// held holds src after its events answer and before the swap, until the test
+// closes release.
+func held(src reloadSource) (reloadSource, chan struct{}, chan struct{}) {
+	entered, release := make(chan struct{}), make(chan struct{})
+	src.lock = func() (func() error, func(bool), error) {
+		return func() error {
+			close(entered)
+			<-release
+
+			return nil
+		}, func(bool) {}, nil
+	}
+
+	return src, entered, release
+}
+
+// A refresh answer newer than the reload's can find a project gone before the
+// swap. The new set learns of it at the swap, and a later refresh does not log
+// it again.
+func TestANewerGoneAnswerIsReplayedOnTheNewSet(t *testing.T) {
 	h := newHarness(t)
-	src, entered, release := blocked(h.source(defaultRules))
+	src, entered, release := held(h.source(defaultRules))
 
 	done := make(chan reloadResult)
 	go func() { done <- h.router.reload(context.Background(), src) }()
@@ -689,6 +706,56 @@ func TestAProjectGoneDuringTheCheckIsGoneInTheNewSet(t *testing.T) {
 	h.only(t, "project_gone")
 }
 
+// A refresh during the check has an answer older than the reload's, which
+// lists the project. The swap does not replay it, and a later refresh that
+// finds the project gone is news again.
+func TestAnOlderGoneAnswerDuringTheCheckIsNotReplayed(t *testing.T) {
+	h := newHarness(t)
+	src, entered, release := blocked(h.source(defaultRules))
+
+	done := make(chan reloadResult)
+	go func() { done <- h.router.reload(context.Background(), src) }()
+	<-entered
+	h.router.onRefresh(api.Events{})
+	close(release)
+	if res := <-done; !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+
+	if !h.router.rules().Live("plan") {
+		t.Fatal("an older answer killed the rule of the new set")
+	}
+	h.send(cardMoved(88))
+	if n := h.runs(); n != 1 {
+		t.Fatalf("the live rule started %d workers, want 1", n)
+	}
+	h.router.onRefresh(api.Events{})
+	if n := len(h.events(t, "project_gone")); n != 2 {
+		t.Fatalf("%d project_gone lines, want one for each answer", n)
+	}
+}
+
+// A refresh answer that arrived before the reload's, and is handled after the
+// swap, kills nothing.
+func TestAnOlderGoneAnswerAfterTheSwapKillsNothing(t *testing.T) {
+	h := newHarness(t)
+	h.router.mu.Lock()
+	seq := h.router.stampLocked()
+	h.router.mu.Unlock()
+
+	if res := h.reload(t, defaultRules); !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+	h.router.refreshGone(api.Events{}, seq)
+
+	if !h.router.rules().Live("plan") {
+		t.Fatal("an older answer killed the rule of the new set")
+	}
+	if n := len(h.events(t, "project_gone")) + len(h.events(t, "rule_dead")); n != 0 {
+		t.Fatalf("%d gone lines, want none", n)
+	}
+}
+
 // recreatedProject is the id of a project deleted and created again with the
 // slug loupe.
 const recreatedProject = "0192f3a1-4b2c-7d3e-8f10-000000000003"
@@ -714,7 +781,7 @@ func TestAGoneProjectDoesNotKillAProjectWithItsSlugAndANewID(t *testing.T) {
 	src.events = func(context.Context) (api.Events, error) {
 		return api.Events{Projects: []api.EventsProject{{ID: recreatedProject, Slug: "loupe"}}}, nil
 	}
-	src, entered, release := blocked(src)
+	src, entered, release := held(src)
 
 	done := make(chan reloadResult)
 	go func() { done <- h.router.reload(context.Background(), src) }()

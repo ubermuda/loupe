@@ -60,11 +60,15 @@ type router struct {
 
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
-	// slug change seen meanwhile, and reloadGone the id of each project found
-	// gone, so the swap replays both on the new set.
+	// slug change seen meanwhile, and reloadGone each project found gone, so
+	// the swap replays both on the new set.
 	reloading   bool
 	reloadKills []event.Event
-	reloadGone  []string
+	reloadGone  []goneMark
+	// fetchSeq orders the GET /api/events answers by arrival. setSeq is the
+	// stamp of the answer the current set was checked against, and 0 at start.
+	fetchSeq uint64
+	setSeq   uint64
 	// queue holds the accepted events in arrival order, at most one for each
 	// card and rule, or for each ask of a resume. running holds the key of each
 	// card with a worker or an ask check. A card runs once, and waits once per
@@ -263,7 +267,7 @@ func (r *router) onData(data []byte) {
 
 	// A slug change is a person's action, not a directive to an agent, so it
 	// kills rules whatever its actor. Matching then goes on as for any event.
-	dead, dropped := r.kill(e, "", func(s *rules.Set) []rules.Dead { return s.Kill(e) })
+	dead, dropped := r.kill(e, func(s *rules.Set) []rules.Dead { return s.Kill(e) })
 	r.logDead(e, dead)
 	r.logDropped(dropped)
 
@@ -322,25 +326,62 @@ func (r *router) markUnmappedLocked(project string) bool {
 // kill runs a rule kill on the current set and removes the queued events of the
 // rules it killed, in one critical section, so a worker that finishes cannot
 // start one of them in between. While a reload runs, it keeps e when e changes
-// a slug, and goneID when it is set, so the swap can replay them. It submits
-// the health report under mu, so it keeps its order with the reports of a
-// swap. The caller logs the returns.
-func (r *router) kill(e event.Event, goneID string, do func(*rules.Set) []rules.Dead) ([]rules.Dead, []pending) {
+// a slug, so the swap can replay it. The caller logs the returns.
+func (r *router) kill(e event.Event, do func(*rules.Set) []rules.Dead) ([]rules.Dead, []pending) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if r.reloading && slices.Contains([]string{event.ColumnRenamedType, event.ColumnDeletedType, event.ProjectRenamedType}, e.Type) {
 		r.reloadKills = append(r.reloadKills, e)
 	}
-	if r.reloading && goneID != "" {
-		r.reloadGone = append(r.reloadGone, goneID)
+
+	return r.dropDeadLocked(do(r.rules()))
+}
+
+// goneMark is a project a refresh found gone, with the stamp of its answer.
+type goneMark struct {
+	id  string
+	seq uint64
+}
+
+// stampLocked gives the GET /api/events answer that just arrived its place in
+// arrival order. The caller holds mu.
+func (r *router) stampLocked() uint64 {
+	r.fetchSeq++
+
+	return r.fetchSeq
+}
+
+// markGone marks the project gone and kills its rules, in one critical section
+// with any swap. It does nothing, and says so, when the project is already
+// gone or when the current set was checked against a newer answer.
+func (r *router) markGone(id string, seq uint64) ([]rules.Dead, []pending, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if seq <= r.setSeq || r.gone[id] {
+		return nil, nil, false
 	}
-	set := r.rules()
-	dead := do(set)
+	if r.gone == nil {
+		r.gone = map[string]bool{}
+	}
+	r.gone[id] = true
+	if r.reloading {
+		r.reloadGone = append(r.reloadGone, goneMark{id: id, seq: seq})
+	}
+	dead, dropped := r.dropDeadLocked(killGone(r.rules(), id))
+
+	return dead, dropped, true
+}
+
+// dropDeadLocked reports the health of the killed rules and removes their
+// queued events. It submits the report under mu, so it keeps its order with
+// the reports of a swap. The caller holds mu.
+func (r *router) dropDeadLocked(dead []rules.Dead) ([]rules.Dead, []pending) {
 	if len(dead) == 0 {
 		return nil, nil
 	}
-	r.reportHealth(set, dead[0].Project)
+	r.reportHealth(r.rules(), dead[0].Project)
 	names := map[string]bool{}
 	for _, d := range dead {
 		names[d.Rule] = true
@@ -412,20 +453,24 @@ func (r *router) applyFlags(events api.Events) {
 // each, a mapped project that the answer no longer lists, with the rules that
 // stop working.
 func (r *router) onRefresh(events api.Events) {
+	r.mu.Lock()
+	seq := r.stampLocked()
+	r.mu.Unlock()
 	r.applyFlags(events)
+	r.refreshGone(events, seq)
+}
+
+// refreshGone acts on the projects that the answer stamped seq no longer
+// lists. A reload that checked its set against a newer answer wins.
+func (r *router) refreshGone(events api.Events, seq uint64) {
 	set := r.rules()
 	for _, slug := range missingProjects(set, events) {
+		// The kill names the project by id, because a reload can swap in a set
+		// that maps the slug to another project. The health report of the kill
+		// most likely gets project_not_found, which the reporter logs once.
 		id := set.ProjectID(slug)
-		r.mu.Lock()
-		logged := r.gone[id]
-		if !logged {
-			if r.gone == nil {
-				r.gone = map[string]bool{}
-			}
-			r.gone[id] = true
-		}
-		r.mu.Unlock()
-		if logged {
+		dead, dropped, ok := r.markGone(id, seq)
+		if !ok {
 			continue
 		}
 
@@ -440,11 +485,6 @@ func (r *router) onRefresh(events api.Events) {
 			"rules", names,
 			"message", fmt.Sprintf("project %s is deleted or no longer yours, so rules %s stop working", slug, strings.Join(names, ", ")),
 		)
-
-		// The kill names the project by id, because a reload can swap in a set
-		// that maps the slug to another project. The health report of the kill
-		// most likely gets project_not_found, which the reporter logs once.
-		dead, dropped := r.kill(event.Event{}, id, func(s *rules.Set) []rules.Dead { return killGone(s, id) })
 		r.logGone(id, dead)
 		r.logDropped(dropped)
 	}
