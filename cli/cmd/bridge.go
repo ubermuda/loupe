@@ -130,11 +130,11 @@ func newBridgeRunCmd() *cobra.Command {
 
 			r := &router{
 				log:        newBridgeLogger(bridgeLogWriter(f, cmd.OutOrStdout())),
-				rules:      set,
 				maxWorkers: maxWorkers,
 				worker:     defaultWorkerOps(),
 				bridgeID:   bridgeID,
 			}
+			r.set.Store(set)
 			r.log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath, "bridge_id", bridgeID)
 			warnUnknownModes(r.log, set)
 
@@ -244,10 +244,11 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if err != nil {
 		return err
 	}
-	if missing := missingProjects(r.rules, events); len(missing) > 0 {
+	set := r.rules()
+	if missing := missingProjects(set, events); len(missing) > 0 {
 		return fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
 	}
-	r.projects, r.topic = r.rules.Projects(), events.Topic
+	r.projects, r.topic = set.Projects(), events.Topic
 	if r.checkAsk == nil {
 		r.checkAsk = apiClient(cfg).CheckAsk
 	}
@@ -255,9 +256,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.bridgeID != "" {
 		r.health = newHealthReporter(ctx, apiClient(cfg), r.bridgeID, r.log)
 		for _, slug := range r.projects {
-			r.reportHealth(slug)
+			r.reportHealth(set, slug)
 		}
-		r.heartbeat = newHeartbeater(ctx, queue, apiClient(cfg), r.bridgeID, heartbeatBody(r.rules), heartbeatInterval(events), r.log)
+		r.heartbeat = newHeartbeater(ctx, queue, apiClient(cfg), r.bridgeID, heartbeatBody(set), heartbeatInterval(events), r.log)
 		r.heartbeat.start()
 	}
 

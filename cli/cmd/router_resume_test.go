@@ -337,7 +337,7 @@ func TestTheResumeKey(t *testing.T) {
 		"the session":        {ask{}, askSession, 0},
 	} {
 		t.Run(name, func(t *testing.T) {
-			e, err := event.Parse([]byte(h.mine(tc.ask)), h.router.rules.ExtraTypes())
+			e, err := event.Parse([]byte(h.mine(tc.ask)), h.router.rules().ExtraTypes())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -788,7 +788,7 @@ func TestTheBridgeChecksTheAskBeforeItResumes(t *testing.T) {
 	}
 	log := &syncBuffer{}
 	worker := &fakeWorker{}
-	r := &router{log: newBridgeLogger(log), rules: set, maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}
+	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
@@ -23,9 +24,11 @@ import (
 // what it did. Workers run in their own goroutines. mu guards the fields below
 // it, and slog serialises its own writes.
 type router struct {
-	ctx        context.Context
-	log        *slog.Logger
-	rules      *rules.Set
+	ctx context.Context
+	log *slog.Logger
+	// set holds the rule set behind a pointer, so a reload can swap it. Each
+	// handler loads one snapshot and uses only that one.
+	set        atomic.Pointer[rules.Set]
 	projects   []string
 	topic      string
 	maxWorkers int
@@ -65,13 +68,17 @@ type router struct {
 	sessions map[string]sessionCard
 
 	// unmapped remembers the projects already logged as unmapped, and gone the
-	// mapped projects already logged as gone. Only the stream goroutine reads
-	// events and refreshes the JWT, so neither needs a lock.
+	// mapped projects already logged as gone.
 	unmapped map[string]bool
 	gone     map[string]bool
 
 	// wg counts the workers in flight. Tests wait on it instead of sleeping.
 	wg sync.WaitGroup
+}
+
+// rules is the current rule set.
+func (r *router) rules() *rules.Set {
+	return r.set.Load()
 }
 
 // pending is an accepted event that waits for a free worker slot, and for its
@@ -201,7 +208,8 @@ func (r *router) onData(data []byte) {
 	if event.ForAnotherBridge(data, r.bridgeID) {
 		return
 	}
-	e, err := event.Parse(data, r.rules.ExtraTypes())
+	set := r.rules()
+	e, err := event.Parse(data, set.ExtraTypes())
 	if err != nil {
 		if errors.Is(err, event.ErrUnknownType) {
 			return
@@ -214,13 +222,13 @@ func (r *router) onData(data []byte) {
 
 	// A slug change is a person's action, not a directive to an agent, so it
 	// kills rules whatever its actor. Matching then goes on as for any event.
-	if dead, dropped := r.kill(func() []rules.Dead { return r.rules.Kill(e) }); len(dead) > 0 {
+	if dead, dropped := r.kill(func() []rules.Dead { return set.Kill(e) }); len(dead) > 0 {
 		for _, d := range dead {
 			r.log.Error("rule_dead", "rule", d.Rule, "project", e.ProjectID, "project_slug", d.Project, "reason", d.Reason,
 				"message", fmt.Sprintf("rule %s matches nothing until the bridge restarts, because %s", d.Rule, slugChange(e, d.Project)))
 		}
 		r.logDropped(dropped)
-		r.reportHealth(dead[0].Project)
+		r.reportHealth(set, dead[0].Project)
 	}
 
 	// A person who touches the card has seen it, which is what a capped chain
@@ -231,7 +239,7 @@ func (r *router) onData(data []byte) {
 		r.mu.Unlock()
 	}
 
-	m := r.rules.Match(e)
+	m := set.Match(e)
 	switch m.Skip {
 	case rules.Run:
 		r.enqueue(pending{
@@ -244,11 +252,16 @@ func (r *router) onData(data []byte) {
 	case rules.Untrusted:
 		r.log.Warn("event_untrusted", about(e, m.Rule)...)
 	case rules.Unmapped:
-		if !r.unmapped[e.ProjectID] {
+		r.mu.Lock()
+		first := !r.unmapped[e.ProjectID]
+		if first {
 			if r.unmapped == nil {
 				r.unmapped = map[string]bool{}
 			}
 			r.unmapped[e.ProjectID] = true
+		}
+		r.mu.Unlock()
+		if first {
 			r.log.Warn("project_unmapped", "project", e.ProjectID)
 		}
 	}
@@ -306,11 +319,11 @@ func slugChange(e event.Event, project string) string {
 
 // reportHealth hands the current health of one project's rules to the
 // reporter. The slice is built here, so the reporter never reads the set.
-func (r *router) reportHealth(project string) {
+func (r *router) reportHealth(set *rules.Set, project string) {
 	if r.health == nil {
 		return
 	}
-	r.health.submit(project, r.rules.ProjectID(project), r.rules.Health(project))
+	r.health.submit(project, set.ProjectID(project), set.Health(project))
 }
 
 // applyFlags keeps the flags of one GET /api/events answer for the workers that
@@ -329,17 +342,23 @@ func (r *router) applyFlags(events api.Events) {
 // stop working.
 func (r *router) onRefresh(events api.Events) {
 	r.applyFlags(events)
-	for _, slug := range missingProjects(r.rules, events) {
-		if r.gone[slug] {
+	set := r.rules()
+	for _, slug := range missingProjects(set, events) {
+		r.mu.Lock()
+		logged := r.gone[slug]
+		if !logged {
+			if r.gone == nil {
+				r.gone = map[string]bool{}
+			}
+			r.gone[slug] = true
+		}
+		r.mu.Unlock()
+		if logged {
 			continue
 		}
-		if r.gone == nil {
-			r.gone = map[string]bool{}
-		}
-		r.gone[slug] = true
 
 		var names []string
-		for _, rule := range r.rules.Rules() {
+		for _, rule := range set.Rules() {
 			if rule.Project == slug {
 				names = append(names, rule.Name)
 			}
@@ -350,16 +369,16 @@ func (r *router) onRefresh(events api.Events) {
 			"message", fmt.Sprintf("project %s is deleted or no longer yours, so rules %s stop working", slug, strings.Join(names, ", ")),
 		)
 
-		dead, dropped := r.kill(func() []rules.Dead { return r.rules.KillProject(slug, api.ReasonProjectGone) })
+		dead, dropped := r.kill(func() []rules.Dead { return set.KillProject(slug, api.ReasonProjectGone) })
 		for _, d := range dead {
-			r.log.Error("rule_dead", "rule", d.Rule, "project", r.rules.ProjectID(slug), "project_slug", slug, "reason", d.Reason,
+			r.log.Error("rule_dead", "rule", d.Rule, "project", set.ProjectID(slug), "project_slug", slug, "reason", d.Reason,
 				"message", fmt.Sprintf("rule %s matches nothing until the bridge restarts, because project %s is gone", d.Rule, slug))
 		}
 		r.logDropped(dropped)
 		// The server most likely answers project_not_found, which the reporter
 		// logs once and does not retry.
 		if len(dead) > 0 {
-			r.reportHealth(slug)
+			r.reportHealth(set, slug)
 		}
 	}
 }
@@ -545,7 +564,7 @@ func (r *router) check(p pending) {
 		// during the check, so its rule is read again under the same lock.
 		r.mu.Lock()
 		switch {
-		case r.shut() || !r.rules.Live(p.rule):
+		case r.shut() || !r.rules().Live(p.rule):
 			delete(r.running, p.key)
 			dropped := append([]pending{p}, r.dispatchLocked()...)
 			r.mu.Unlock()
