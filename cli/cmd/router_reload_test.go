@@ -654,3 +654,85 @@ func TestAReloadForgetsTheUnmappedMarkOfAProjectItMaps(t *testing.T) {
 		t.Fatal("the reload kept the unmapped mark of other")
 	}
 }
+
+// A refresh can find a project gone while a reload checks its file. The new
+// set learns of it at the swap, and a later refresh does not log it again.
+func TestAProjectGoneDuringTheCheckIsGoneInTheNewSet(t *testing.T) {
+	h := newHarness(t)
+	src, entered, release := blocked(h.source(defaultRules))
+
+	done := make(chan reloadResult)
+	go func() { done <- h.router.reload(context.Background(), src) }()
+	<-entered
+	h.router.onRefresh(api.Events{})
+	close(release)
+	if res := <-done; !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+
+	if h.router.rules().Live("plan") {
+		t.Fatal("the new set keeps plan live for a gone project")
+	}
+	for _, line := range h.events(t, "rule_dead") {
+		if str(t, line, "rule") != "plan" || str(t, line, "project") != testProject || str(t, line, "reason") != api.ReasonProjectGone {
+			t.Fatalf("rule_dead = %v", line)
+		}
+	}
+	if n := len(h.events(t, "rule_dead")); n != 2 {
+		t.Fatalf("%d rule_dead lines, want one for each set", n)
+	}
+	h.send(cardMoved(88))
+	if n := h.runs(); n != 0 {
+		t.Fatalf("a gone project started %d workers", n)
+	}
+	h.router.onRefresh(api.Events{})
+	h.only(t, "project_gone")
+}
+
+// recreatedProject is the id of a project deleted and created again with the
+// slug loupe.
+const recreatedProject = "0192f3a1-4b2c-7d3e-8f10-000000000003"
+
+// recreated answers the check as boardColumns does, with a new id for loupe.
+type recreated struct{ boardColumns }
+
+func (c recreated) Columns(ctx context.Context, handle string) (api.ProjectColumns, error) {
+	pc, err := c.boardColumns.Columns(ctx, handle)
+	if handle == "loupe" {
+		pc.Project.ID = recreatedProject
+	}
+
+	return pc, err
+}
+
+// A gone decision names a project id. A project created again with the same
+// slug has a new id, so the kill leaves its rules live.
+func TestAGoneProjectDoesNotKillAProjectWithItsSlugAndANewID(t *testing.T) {
+	h := newHarness(t)
+	src := h.source(defaultRules)
+	src.check = func(ctx context.Context, set *rules.Set) error { return set.Check(ctx, recreated{}) }
+	src.events = func(context.Context) (api.Events, error) {
+		return api.Events{Projects: []api.EventsProject{{ID: recreatedProject, Slug: "loupe"}}}, nil
+	}
+	src, entered, release := blocked(src)
+
+	done := make(chan reloadResult)
+	go func() { done <- h.router.reload(context.Background(), src) }()
+	<-entered
+	h.router.onRefresh(api.Events{Projects: []api.EventsProject{{ID: recreatedProject, Slug: "loupe"}}})
+	close(release)
+	if res := <-done; !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+
+	if !h.router.rules().Live("plan") {
+		t.Fatal("the gone old project killed the rule of the new one")
+	}
+	if n := len(h.events(t, "rule_dead")); n != 1 {
+		t.Fatalf("%d rule_dead lines, want the old set's alone", n)
+	}
+	h.send(strings.Replace(cardMoved(88), testProject, recreatedProject, 1))
+	if n := h.runs(); n != 1 {
+		t.Fatalf("the new project started %d workers, want 1", n)
+	}
+}

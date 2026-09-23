@@ -59,10 +59,12 @@ type router struct {
 	reloadMu sync.Mutex
 
 	mu sync.Mutex
-	// reloading is on while a reload builds its set, and reloadKills holds each
-	// slug change seen meanwhile, so the swap replays it on the new set.
+	// reloading is on while a reload builds its set. reloadKills holds each
+	// slug change seen meanwhile, and reloadGone the id of each project found
+	// gone, so the swap replays both on the new set.
 	reloading   bool
 	reloadKills []event.Event
+	reloadGone  []string
 	// queue holds the accepted events in arrival order, at most one for each
 	// card and rule, or for each ask of a resume. running holds the key of each
 	// card with a worker or an ask check. A card runs once, and waits once per
@@ -260,7 +262,7 @@ func (r *router) onData(data []byte) {
 
 	// A slug change is a person's action, not a directive to an agent, so it
 	// kills rules whatever its actor. Matching then goes on as for any event.
-	dead, dropped := r.kill(e, func(s *rules.Set) []rules.Dead { return s.Kill(e) })
+	dead, dropped := r.kill(e, "", func(s *rules.Set) []rules.Dead { return s.Kill(e) })
 	r.logDead(e, dead)
 	r.logDropped(dropped)
 
@@ -307,14 +309,18 @@ func (r *router) markUnmappedLocked(project string) bool {
 // kill runs a rule kill on the current set and removes the queued events of the
 // rules it killed, in one critical section, so a worker that finishes cannot
 // start one of them in between. While a reload runs, it keeps e when e changes
-// a slug, so the swap can replay it. It submits the health report under mu, so
-// it keeps its order with the reports of a swap. The caller logs the returns.
-func (r *router) kill(e event.Event, do func(*rules.Set) []rules.Dead) ([]rules.Dead, []pending) {
+// a slug, and goneID when it is set, so the swap can replay them. It submits
+// the health report under mu, so it keeps its order with the reports of a
+// swap. The caller logs the returns.
+func (r *router) kill(e event.Event, goneID string, do func(*rules.Set) []rules.Dead) ([]rules.Dead, []pending) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if r.reloading && slices.Contains([]string{event.ColumnRenamedType, event.ColumnDeletedType, event.ProjectRenamedType}, e.Type) {
 		r.reloadKills = append(r.reloadKills, e)
+	}
+	if r.reloading && goneID != "" {
+		r.reloadGone = append(r.reloadGone, goneID)
 	}
 	set := r.rules()
 	dead := do(set)
@@ -421,14 +427,41 @@ func (r *router) onRefresh(events api.Events) {
 			"message", fmt.Sprintf("project %s is deleted or no longer yours, so rules %s stop working", slug, strings.Join(names, ", ")),
 		)
 
-		// The health report of the kill most likely gets project_not_found,
-		// which the reporter logs once and does not retry.
-		dead, dropped := r.kill(event.Event{}, func(s *rules.Set) []rules.Dead { return s.KillProject(slug, api.ReasonProjectGone) })
-		for _, d := range dead {
-			r.log.Error("rule_dead", "rule", d.Rule, "project", set.ProjectID(slug), "project_slug", slug, "reason", d.Reason,
-				"message", fmt.Sprintf("rule %s matches nothing until you fix rules.yaml and run loupe bridge reload, because project %s is gone", d.Rule, slug))
-		}
+		// The kill names the project by id, because a reload can swap in a set
+		// that maps the slug to another project. The health report of the kill
+		// most likely gets project_not_found, which the reporter logs once.
+		id := set.ProjectID(slug)
+		dead, dropped := r.kill(event.Event{}, id, func(s *rules.Set) []rules.Dead { return killGone(s, id) })
+		r.logGone(id, dead)
 		r.logDropped(dropped)
+	}
+}
+
+// killGone kills the rules of the project with this id, when the set maps it.
+func killGone(set *rules.Set, id string) []rules.Dead {
+	if slug := slugOf(set, id); slug != "" {
+		return set.KillProject(slug, api.ReasonProjectGone)
+	}
+
+	return nil
+}
+
+// slugOf is the slug the set maps to a project id, and "" when it maps none.
+func slugOf(set *rules.Set, id string) string {
+	for _, slug := range set.Projects() {
+		if set.ProjectID(slug) == id {
+			return slug
+		}
+	}
+
+	return ""
+}
+
+// logGone names each rule a gone project killed.
+func (r *router) logGone(id string, dead []rules.Dead) {
+	for _, d := range dead {
+		r.log.Error("rule_dead", "rule", d.Rule, "project", id, "project_slug", d.Project, "reason", d.Reason,
+			"message", fmt.Sprintf("rule %s matches nothing until you fix rules.yaml and run loupe bridge reload, because project %s is gone", d.Rule, d.Project))
 	}
 }
 
