@@ -44,7 +44,6 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         yield 'an outcome replaces timed-out' => [['queued', 'running', 'server:timed-out', 'failed'], WorkerRunState::Failed];
         yield 'a newer open state replaces timed-out' => [['queued', 'server:timed-out', 'running'], WorkerRunState::Running];
         yield 'a stale open state leaves timed-out alone' => [['running', 'server:timed-out', 'queued'], WorkerRunState::TimedOut];
-        yield 'a retry leaves timed-out alone' => [['queued', 'running', 'server:timed-out', 'running'], WorkerRunState::TimedOut];
         yield 'an outcome replaces lost' => [['running', 'server:lost', 'succeeded'], WorkerRunState::Succeeded];
         yield 'an open state leaves lost alone' => [['queued', 'server:lost', 'running'], WorkerRunState::Lost];
         yield 'the first state may be closed' => [['waiting-for-person'], WorkerRunState::WaitingForPerson];
@@ -113,6 +112,25 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertNotNull($first);
         self::assertNotNull($other);
         self::assertNotSame((string) $first->id, (string) $other->id);
+    }
+
+    public function test_a_retry_of_the_last_open_state_reopens_a_timed_out_run(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-retry-timed-out');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Running)->run;
+        self::assertInstanceOf(WorkerRun::class, $run);
+        $this->infer($run, WorkerRunState::TimedOut);
+        $result = $this->report($owner, $project, $runKey, WorkerRunState::Running);
+
+        self::assertTrue($result->newState);
+        self::assertSame(WorkerRunState::Running, $run->state);
+        $rows = array_map(static fn (WorkerRunStateChange $change): string => $change->state->value, $this->history($run));
+        sort($rows);
+        self::assertSame(['queued', 'running', 'running', 'timed-out'], $rows);
     }
 
     public function test_a_repeat_writes_nothing(): void

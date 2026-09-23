@@ -108,7 +108,8 @@ so the history shows every state the bridge reported. A late `running` report
 still fills a missing session and start time.
 
 A report is safe to retry. A state the run already holds changes nothing, and
-the server answers 200.
+the server answers 200. A retry that reopens a `timed-out` run is the one
+exception. It writes a new history row, and the server answers 201.
 
 | Status | Body | When |
 |---|---|---|
