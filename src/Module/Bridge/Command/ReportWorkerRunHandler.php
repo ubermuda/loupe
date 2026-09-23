@@ -80,7 +80,10 @@ final readonly class ReportWorkerRunHandler
                 receivedAt: $receivedAt,
             );
             $this->em->persist($run);
-            $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, $command->startedAt, $receivedAt));
+            // A process that never started never ran.
+            if (WorkerRunState::NotStarted !== $outcome) {
+                $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, $command->startedAt, $receivedAt));
+            }
             $this->em->persist(new WorkerRunStateChange($run, $outcome, $command->endedAt, $receivedAt));
             $this->em->flush();
             $this->searchIndexer->index($run);

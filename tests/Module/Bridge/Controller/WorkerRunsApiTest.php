@@ -275,6 +275,14 @@ final class WorkerRunsApiTest extends WebTestCase
         $run = $this->onlyRun();
         self::assertNull($run->exitCode);
         self::assertSame('exec: "claude": executable file not found in $PATH', $run->failureReason);
+        // A process that never started never ran, so the history holds the outcome alone.
+        self::assertSame(
+            ['not-started'],
+            array_map(
+                static fn (WorkerRunStateChange $change): string => $change->state->value,
+                self::getContainer()->get(WorkerRunStateChangeRepository::class)->findForRun($run),
+            ),
+        );
     }
 
     /** The two faults must stay distinguishable, so neither half of the pair may stand alone. */

@@ -16,14 +16,17 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class WorkerRunStateChangeRepository extends ServiceEntityRepository
 {
+    /** The order of WorkerRunState::rank(), so two states of one moment read in the order they happen. */
+    private const string RANK = "CASE WHEN c.state = 'queued' THEN 0 WHEN c.state = 'resumed' THEN 1 WHEN c.state = 'running' THEN 2 ELSE 3 END";
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, WorkerRunStateChange::class);
     }
 
     /**
-     * The run's states, oldest first. Two reports can carry the same moment,
-     * such as the start and the end of a spawn failure, so arrival breaks the tie.
+     * The run's states, oldest first. Two states can carry the same second, such
+     * as a start and an end, so the state order breaks the tie, then arrival.
      *
      * @return list<WorkerRunStateChange>
      */
@@ -32,7 +35,9 @@ class WorkerRunStateChangeRepository extends ServiceEntityRepository
         return array_values($this->createQueryBuilder('c')
             ->andWhere('c.run = :run')
             ->setParameter('run', $run)
+            ->addSelect(self::RANK.' AS HIDDEN stateRank')
             ->orderBy('c.at', 'ASC')
+            ->addOrderBy('stateRank', 'ASC')
             ->addOrderBy('c.receivedAt', 'ASC')
             ->addOrderBy('c.id', 'ASC')
             ->getQuery()
@@ -57,7 +62,9 @@ class WorkerRunStateChangeRepository extends ServiceEntityRepository
         $changes = $this->createQueryBuilder('c')
             ->andWhere('c.run IN (:runs)')
             ->setParameter('runs', $runs)
+            ->addSelect(self::RANK.' AS HIDDEN stateRank')
             ->orderBy('c.at', 'ASC')
+            ->addOrderBy('stateRank', 'ASC')
             ->addOrderBy('c.receivedAt', 'ASC')
             ->addOrderBy('c.id', 'ASC')
             ->getQuery()
@@ -101,7 +108,9 @@ class WorkerRunStateChangeRepository extends ServiceEntityRepository
             ->join('r.project', 'p')
             ->andWhere('p.owner = :user')
             ->setParameter('user', $user)
+            ->addSelect(self::RANK.' AS HIDDEN stateRank')
             ->orderBy('c.at', 'ASC')
+            ->addOrderBy('stateRank', 'ASC')
             ->addOrderBy('c.receivedAt', 'ASC')
             ->addOrderBy('c.id', 'ASC')
             ->getQuery()

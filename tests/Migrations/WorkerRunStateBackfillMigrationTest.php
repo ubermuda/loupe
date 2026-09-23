@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Migrations;
 
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Doctrine\DBAL\Schema\Schema;
 use DoctrineMigrations\Version20260923185847;
@@ -24,6 +28,7 @@ final class WorkerRunStateBackfillMigrationTest extends KernelTestCase
         $project = $this->project($em, $owner, 'State backfill');
         $succeeded = $this->seedRun($em, $project, cardNumber: 1, exitCode: 0);
         $failed = $this->seedRun($em, $project, cardNumber: 2, exitCode: 3);
+        $notStarted = $this->seedRun($em, $project, cardNumber: 3, exitCode: null, failureReason: 'spawn failed');
         $em->flush();
         $em->clear();
         $connection = $em->getConnection();
@@ -46,5 +51,35 @@ final class WorkerRunStateBackfillMigrationTest extends KernelTestCase
                 $connection->fetchAllAssociative('SELECT state, at FROM bridge_worker_run_states WHERE run_id = ? ORDER BY at', [(string) $id]),
             );
         }
+        self::assertSame(
+            ['not-started'],
+            $connection->fetchFirstColumn('SELECT state FROM bridge_worker_run_states WHERE run_id = ?', [(string) $notStarted->id]),
+        );
+    }
+
+    /** A run that started and ended in one second still reads its start first. */
+    public function test_two_states_of_one_second_read_in_the_order_they_happen(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'state-same-second@example.com');
+        $project = $this->project($em, $owner, 'Same second');
+        $run = $this->seedRun($em, $project);
+        $at = new \DateTimeImmutable('2026-01-01 10:00:00');
+        // The outcome first, so the insert order cannot be what puts the start first.
+        $em->persist(new WorkerRunStateChange($run, WorkerRunState::Succeeded, $at, $at));
+        $em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, $at, $at));
+        $em->flush();
+        $em->clear();
+
+        $repository = self::getContainer()->get(WorkerRunStateChangeRepository::class);
+        self::assertInstanceOf(WorkerRunStateChangeRepository::class, $repository);
+        $reloaded = $em->find(WorkerRun::class, $run->id);
+        self::assertInstanceOf(WorkerRun::class, $reloaded);
+
+        self::assertSame(
+            [WorkerRunState::Running, WorkerRunState::Succeeded],
+            array_map(static fn (WorkerRunStateChange $change): WorkerRunState => $change->state, $repository->findForRun($reloaded)),
+        );
     }
 }
