@@ -50,14 +50,12 @@
 
     {# A column change elsewhere reloads this frame, so every open board shows it. #}
     {% do mercure_subscribe(boardTopic) %}
-    {# The card drawer lists the card's runs, and a frame response cannot add a topic to this page. #}
-    {% do mercure_subscribe(worker_runs_topic(board.project)) %}
     <div class="lp-split-region" data-controller="board-refresh" data-board-refresh-board-value="{{ path('app_project_board', {id: board.project.id}) }}" data-action="card-drawer:saved@window->board-refresh#reload">
         <turbo-frame id="board-frame" target="_top" data-board-refresh-target="frame">
             {% include '@Board/_board_columns.html.twig' with {board: board, renameColumnForm: renameColumnForm} only %}
         </turbo-frame>
     </div>
 
-    {% include '@Board/_card_drawer.html.twig' with {} only %}
+    {% include '@Board/_card_drawer.html.twig' with {project: board.project} only %}
 </div>
 {% endblock %}

@@ -49,6 +49,27 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-controller="board-refresh"] turbo-frame#board-frame[target="_top"] #board'));
     }
 
+    /** The workshop hosts the card drawer too, and the drawer's run list reloads on this topic. */
+    public function test_the_workshop_subscribes_its_card_drawer_to_the_run_topic(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-refresh-workshop@example.com');
+        $project = $this->project($em, $owner);
+        self::assertNotNull($project->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id);
+
+        self::assertResponseIsSuccessful();
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
+        self::assertContains($topics->forWorkerRuns($project->id), self::subscribedTopics($client->getResponse()));
+    }
+
     public function test_a_refused_column_form_renders_the_board_with_its_token(): void
     {
         $client = static::createClient();

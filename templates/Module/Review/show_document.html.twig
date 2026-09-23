@@ -561,6 +561,6 @@
     } only %}
     {% endif %}
 
-    {% include '@Board/_card_drawer.html.twig' with {} only %}
+    {% include '@Board/_card_drawer.html.twig' with {project: document.project} only %}
 </div>
 {% endblock %}
