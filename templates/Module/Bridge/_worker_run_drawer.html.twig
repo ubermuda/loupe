@@ -39,6 +39,10 @@
         <ol class="lp-run-drawer__timeline">
             {% for change in item.history %}
             <li>{{ change.state.translationKey()|trans }} <time datetime="{{ change.at|date('c') }}">{{ change.at|date('Y-m-d H:i:s T') }}</time></li>
+            {% else %}
+            {# A run the previous image wrote during a deploy has no history rows. #}
+            {% if run.startedAt %}<li>{{ 'bridge.worker_runs.state.running'|trans }} <time datetime="{{ run.startedAt|date('c') }}">{{ run.startedAt|date('Y-m-d H:i:s T') }}</time></li>{% endif %}
+            {% if run.endedAt %}<li>{{ run.state.translationKey()|trans }} <time datetime="{{ run.endedAt|date('c') }}">{{ run.endedAt|date('Y-m-d H:i:s T') }}</time></li>{% endif %}
             {% endfor %}
             <li>{{ 'bridge.worker_runs.details.received'|trans }} <time datetime="{{ run.receivedAt|date('c') }}">{{ run.receivedAt|date('Y-m-d H:i:s T') }}</time></li>
         </ol>

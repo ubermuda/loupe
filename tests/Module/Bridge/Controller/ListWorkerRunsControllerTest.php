@@ -280,7 +280,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $owner = $this->user($em, 'every-state-owner@example.com');
         $project = $this->project($em, $owner, 'Every state');
         foreach (WorkerRunState::cases() as $index => $state) {
-            $this->seedRun($em, $project, cardNumber: $index + 1, state: $state);
+            $this->seedRun($em, $project, cardNumber: $index + 1, state: $state, runKey: Uuid::v7());
         }
 
         $projectId = (string) $project->id;
@@ -320,7 +320,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $project = $this->project($em, $owner, 'History');
         $received = new \DateTimeImmutable('2026-01-01 11:00:00');
         $run = $this->seedRun($em, $project, receivedAt: $received, state: WorkerRunState::Succeeded);
-        $other = $this->seedRun($em, $project, state: WorkerRunState::Failed);
+        $other = $this->seedRun($em, $project, exitCode: 1, state: WorkerRunState::Failed);
         foreach ([
             [WorkerRunState::Succeeded, '2026-01-01 10:05:00'],
             [WorkerRunState::Queued, '2026-01-01 09:59:00'],
@@ -350,6 +350,35 @@ final class ListWorkerRunsControllerTest extends WebTestCase
             $timeline->each(static fn (Crawler $entry): string => $entry->text()),
         );
         self::assertSame('2026-01-01T09:59:00+00:00', $timeline->first()->filter('time')->attr('datetime'));
+    }
+
+    /** A run with no history rows, as the previous image writes one during a deploy, shows its start and its outcome. */
+    public function test_the_drawer_falls_back_to_the_start_and_end_without_history(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'no-history-owner@example.com');
+        $project = $this->project($em, $owner, 'No history');
+        $run = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 11:00:00'), exitCode: 1);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $runId = (string) $run->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            [
+                'Running 2026-01-01 10:00:00 UTC',
+                'Failed 2026-01-01 10:05:00 UTC',
+                'Report received 2026-01-01 11:00:00 UTC',
+            ],
+            $crawler->filter('[data-worker-run-id="'.$runId.'"] .lp-run-drawer__timeline li')->each(static fn (Crawler $entry): string => $entry->text()),
+        );
     }
 
     /** A running run shows how long it has run so far, and a queued run shows no duration. */
