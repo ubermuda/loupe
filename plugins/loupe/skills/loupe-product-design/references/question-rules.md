@@ -4,7 +4,7 @@ Each rule has a stable ID, so a comment can cite it.
 
 ## Rules
 
-1. Q1: Find facts yourself. Code, existing behaviour, docs and board history are facts. Look them up, with a subagent when that helps. Never ask the owner for a fact. Ask the owner only for decisions.
+1. Q1: Find facts yourself. Code, existing behaviour, docs and board history are facts. Look them up, with a subagent when that helps. A subagent only reads. It asks the owner nothing, and it changes no card and no document. Never ask the owner for a fact. Ask the owner only for decisions.
 2. Q2: Give every question a recommendation. Each question carries a recommended answer and a one-line reason why it matters. Say when your confidence is low.
 3. Q3: Ask one question at a time. Ask one question per turn. Use AskUserQuestion when the answer has clear options, and plain chat when the tool is missing. Never bundle two decisions in one question.
 4. Q4: Ask for disagreement. A recommended answer makes it easy to agree with everything. The owner can agree with several answers in a row. Then name the answer you are least sure of, and ask again.

@@ -39,8 +39,9 @@ The owner runs `/loupe:product-design` by hand in Claude Code, from a card or
 from a one-line idea. The session creates the card in Product design, or moves
 an existing card there, and writes the product document with the owner. The
 approval of that document moves the card to Tech design. When a person requests
-changes on the document, `loupe-stage-product-design` answers the review round
-through the `fix-round` rule.
+changes on the document, the `fix-round` rule starts `loupe-stage-fix-round`,
+which answers the review round. Delete any `product-design` rule from your
+`rules.yaml`, then run `loupe bridge reload`.
 
 A card does not have to pass Product design. Move it from Backlog straight to
 Tech design when the card body already says what to build. The tech design
