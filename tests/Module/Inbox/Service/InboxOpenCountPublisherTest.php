@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Service;
 
+use App\Mercure\LiveUpdatePublisher;
 use App\Mercure\LiveUpdates;
 use App\Mercure\UserTopicBuilder;
 use App\Module\Board\Command\DeleteBoardColumnCommand;
@@ -41,6 +42,7 @@ use Monolog\Logger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\TerminateEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -211,8 +213,8 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
     {
         $log = new TestHandler();
         $hubBuilt = false;
-        $publisher = new InboxOpenCountPublisher(
-            $this->topics(),
+        $live = new LiveUpdatePublisher(
+            new RequestStack(),
             FeatureFlags::service([LiveUpdates::FLAG => false, InboxInstallFlags::FLAG_INBOX_ENABLED => true]),
             new Logger('test', [$log]),
             function () use (&$hubBuilt): HubInterface {
@@ -222,8 +224,8 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
             },
         );
 
-        $publisher->countChanged($this->project);
-        $publisher->publish();
+        new InboxOpenCountPublisher($this->topics(), $live)->countChanged($this->project);
+        $live->publish();
 
         self::assertFalse($hubBuilt);
         self::assertCount(0, $this->published);
@@ -233,8 +235,8 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
     public function test_a_hub_that_fails_is_logged_and_the_change_stands(): void
     {
         $log = new TestHandler();
-        $publisher = new InboxOpenCountPublisher(
-            $this->topics(),
+        $live = new LiveUpdatePublisher(
+            new RequestStack(),
             FeatureFlags::service([LiveUpdates::FLAG => true]),
             new Logger('test', [$log]),
             static fn (): HubInterface => new MockHub(
@@ -244,12 +246,13 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
             ),
         );
 
-        $publisher->countChanged($this->project);
-        $publisher->publish();
+        new InboxOpenCountPublisher($this->topics(), $live)->countChanged($this->project);
+        $live->publish();
 
+        $ownerId = $this->project->owner->id ?? throw new \LogicException('The owner has no id.');
         self::assertTrue($log->hasWarning([
-            'message' => 'inbox.open_count_publish_failed',
-            'context' => ['projectId' => (string) $this->project->id, 'error' => 'hub unreachable'],
+            'message' => 'live_updates.publish_failed',
+            'context' => ['topic' => $this->topics()->forInbox($ownerId), 'error' => 'hub unreachable'],
         ]));
     }
 
@@ -275,7 +278,7 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
         $ownerId = $this->project->owner->id ?? throw new \LogicException('The owner has no id.');
         self::assertSame([$this->topics()->forInbox($ownerId)], $update->getTopics());
         self::assertTrue($update->isPrivate());
-        self::assertSame(\sprintf('{"type":"inbox.open_count_changed","projectId":"%s"}', $this->project->id), $update->getData());
+        self::assertSame(\sprintf('{"type":"inbox.open_count_changed","projectId":"%s","origin":null}', $this->project->id), $update->getData());
     }
 
     /** @return object{ran: bool} */
