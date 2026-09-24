@@ -3,11 +3,15 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -15,8 +19,8 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/config"
 )
 
-// waitDelay bounds the wait after the context kills claude. A grandchild that
-// still holds the output pipe would otherwise block Wait for good.
+// waitDelay bounds the wait after the context kills the worker's process
+// group.
 const waitDelay = 5 * time.Second
 
 // maxOutput caps the worker output a failure report carries.
@@ -51,6 +55,10 @@ type workerSpec struct {
 	sessionID      string
 	resume         bool
 	prompt         string
+	// runID names the run directory. rule and key only go into run.json.
+	runID string
+	rule  string
+	key   string
 }
 
 // workerOps is the process surface the router drives. Tests replace run so the
@@ -99,22 +107,84 @@ func workerEnv(environ []string) []string {
 	return append(slices.Clip(environ), ceilingEnv+"=0")
 }
 
+// workerShell runs claude on the argv after $0 and records claude's exit code
+// in "$0.exit". The prompt stays one argv element, so no shell parses it.
+const workerShell = `claude "$@"; echo $? > "$0.exit"`
+
+// runRecord is run.json, what the bridge knows about a worker it started.
+type runRecord struct {
+	PID            int       `json:"pid"`
+	StartedAt      time.Time `json:"startedAt"`
+	RunID          string    `json:"runId"`
+	Rule           string    `json:"rule,omitempty"`
+	Key            string    `json:"key,omitempty"`
+	Dir            string    `json:"dir"`
+	PermissionMode string    `json:"permissionMode,omitempty"`
+	Model          string    `json:"model,omitempty"`
+	SessionID      string    `json:"sessionId"`
+	Resume         bool      `json:"resume,omitempty"`
+	Prompt         string    `json:"prompt"`
+}
+
+func writeRunRecord(dir string, rec runRecord) error {
+	b, err := json.Marshal(rec)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "run.json"), b, 0o600); err != nil {
+		return fmt.Errorf("write run record: %w", err)
+	}
+
+	return nil
+}
+
+func readRunRecord(dir string) (runRecord, error) {
+	var rec runRecord
+	b, err := os.ReadFile(filepath.Join(dir, "run.json"))
+	if err != nil {
+		return rec, fmt.Errorf("read run record: %w", err)
+	}
+	if err := json.Unmarshal(b, &rec); err != nil {
+		return rec, fmt.Errorf("parse run record: %w", err)
+	}
+
+	return rec, nil
+}
+
 // runWorker runs `claude -p --session-id <id> -- <prompt>`, or `--resume <id>`,
-// in the spec's dir and waits for it.
+// in the spec's dir and waits for it. The worker writes its output and its exit
+// code to files in its run directory, so it holds no pipe to the bridge.
 func runWorker(ctx context.Context, spec workerSpec, onStart func()) workerResult {
-	args := workerArgs(spec)
+	// The shell always starts, so a claude it cannot run must fail here to read
+	// as a run that never started.
+	if _, err := exec.LookPath("claude"); err != nil {
+		return workerResult{err: err}
+	}
+	if spec.runID == "" {
+		spec.runID = config.NewUUID()
+	}
+	runs, err := config.RunsDir()
+	if err != nil {
+		return workerResult{err: err}
+	}
+	dir := filepath.Join(runs, spec.runID)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return workerResult{err: fmt.Errorf("create run directory: %w", err)}
+	}
+	defer os.RemoveAll(dir)
 
-	// One writer value for both streams, so os/exec drains them through one pipe
-	// and nothing races. The cap bounds the memory a chatty worker holds, and the
-	// scanner reads past the cap.
-	captured := &capWriter{limit: maxOutput}
-	scanner := &resultScanner{}
-	w := io.MultiWriter(captured, scanner)
+	outPath := filepath.Join(dir, "output")
+	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return workerResult{err: fmt.Errorf("create worker output: %w", err)}
+	}
+	defer out.Close()
 
-	cmd := exec.CommandContext(ctx, "claude", args...)
+	status := filepath.Join(dir, "status")
+	cmd := exec.CommandContext(ctx, "/bin/sh", append([]string{"-c", workerShell, status}, workerArgs(spec)...)...)
 	cmd.Dir = spec.dir
 	cmd.Env = workerEnv(os.Environ())
-	cmd.Stdout, cmd.Stderr = w, w
+	cmd.Stdout, cmd.Stderr = out, out
 	cmd.WaitDelay = waitDelay
 	setProcessGroup(cmd)
 
@@ -130,28 +200,83 @@ func runWorker(ctx context.Context, spec workerSpec, onStart func()) workerResul
 	}
 
 	if err := cmd.Start(); err != nil {
-		return workerResult{output: captured.text(), err: err}
+		return workerResult{err: err}
+	}
+	rec := runRecord{
+		PID: cmd.Process.Pid, StartedAt: time.Now(), RunID: spec.runID, Rule: spec.rule, Key: spec.key,
+		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model,
+		SessionID: spec.sessionID, Resume: spec.resume, Prompt: spec.prompt,
+	}
+	// A worker with no record cannot outlive this bridge, so it does not run.
+	if err := writeRunRecord(dir, rec); err != nil {
+		_ = cmd.Cancel()
+		_ = cmd.Wait()
+
+		return workerResult{err: err}
 	}
 	if onStart != nil {
 		onStart()
 	}
-	err := cmd.Wait()
-	res := workerResult{
-		output:    captured.text(),
-		hasResult: scanner.matched,
-		killed:    err != nil && cancelled.Load(),
-	}
+	waitErr := cmd.Wait()
+
+	res := workerResult{killed: waitErr != nil && cancelled.Load()}
+	res.output, res.hasResult = readWorkerOutput(outPath)
 
 	var exitErr *exec.ExitError
-	switch {
-	case err == nil:
-	case errors.As(err, &exitErr):
-		res.exitCode = exitErr.ExitCode()
-	default:
-		res.err = err
+	if waitErr != nil && !errors.As(waitErr, &exitErr) {
+		res.err = waitErr
+
+		return res
+	}
+
+	// A kill leaves no status, and -1 is the code os/exec gives a signalled
+	// process.
+	code, err := readExitStatus(status + ".exit")
+	res.exitCode = code
+	if err != nil {
+		res.exitCode = -1
+	}
+	if err != nil && !res.killed {
+		res.output = strings.TrimLeft(res.output+"\n(no exit status: "+err.Error()+")", "\n")
 	}
 
 	return res
+}
+
+// readWorkerOutput gives the first maxOutput bytes of the worker's output, and
+// whether any line of the whole output is a result line.
+func readWorkerOutput(path string) (string, bool) {
+	captured := &capWriter{limit: maxOutput}
+	scanner := &resultScanner{}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return "read worker output: " + err.Error(), false
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(io.MultiWriter(captured, scanner), f); err != nil {
+		return captured.text() + "\nread worker output: " + err.Error(), scanner.matched
+	}
+
+	return captured.text(), scanner.matched
+}
+
+// readExitStatus reads the exit code the worker shell recorded for claude.
+func readExitStatus(path string) (int, error) {
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return 0, errors.New("the worker shell ended before it recorded one")
+	}
+	if err != nil {
+		return 0, err
+	}
+	code, err := strconv.Atoi(strings.TrimSpace(string(b)))
+	if err != nil {
+		return 0, fmt.Errorf("unreadable status %q", bytes.TrimSpace(b))
+	}
+
+	return code, nil
 }
 
 // capWriter keeps the first limit bytes written to it and counts the rest as

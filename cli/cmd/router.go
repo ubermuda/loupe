@@ -709,6 +709,7 @@ func (r *router) start(p pending) {
 		p.spec.sessionID = r.worker.sessionID()
 		r.log.Info("worker_started", append(about(p.event, p.rule), "session_id", p.spec.sessionID)...)
 	}
+	p.spec.runID, p.spec.rule, p.spec.key = p.runID, p.rule, p.key
 	if r.inbox {
 		p.spec.prompt += "\n" + directive.InboxLine(p.spec.sessionID, r.bridgeID)
 	}

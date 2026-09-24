@@ -382,7 +382,14 @@ func TestTheWorkerRunsWithTheMatchingRulesSettings(t *testing.T) {
 	if len(calls) != 1 {
 		t.Fatalf("expected one worker, got %+v", calls)
 	}
-	want := workerSpec{dir: h.dir, permissionMode: "plan", model: "opus", sessionID: testSession, prompt: "Review " + testCard + " in loupe, from in-progress.\n\n" + directive.Footer}
+	if !v4UUID.MatchString(calls[0].runID) {
+		t.Fatalf("run id %q is not a uuid", calls[0].runID)
+	}
+	want := workerSpec{
+		dir: h.dir, permissionMode: "plan", model: "opus", sessionID: testSession,
+		prompt: "Review " + testCard + " in loupe, from in-progress.\n\n" + directive.Footer,
+		runID:  calls[0].runID, rule: "review", key: testCard,
+	}
 	if calls[0] != want {
 		t.Fatalf("worker = %+v, want %+v", calls[0], want)
 	}
