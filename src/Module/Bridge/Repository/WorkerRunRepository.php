@@ -325,6 +325,7 @@ class WorkerRunRepository extends ServiceEntityRepository
      * For each card of the project, its latest outcome, kept only when that
      * outcome is gave-up or blocked. The pick comes before the filter, so a later
      * success clears the warning. An open run is no outcome and changes nothing.
+     * Latest means the last to end, because a resume jumps the queue.
      *
      * @return list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}>
      */
@@ -343,7 +344,7 @@ class WorkerRunRepository extends ServiceEntityRepository
                     SELECT DISTINCT ON (card_id) id, card_id, state, output, card_column
                     FROM bridge_worker_runs
                     WHERE project_id = :project AND state IN (:outcomes)
-                    ORDER BY card_id, received_at DESC, id DESC
+                    ORDER BY card_id, ended_at DESC NULLS LAST, received_at DESC, id DESC
                 ) latest
                 WHERE latest.state IN (:warnings)
                 SQL,

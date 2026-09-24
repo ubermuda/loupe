@@ -344,7 +344,35 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertContains($topics->forWorkerRuns($projectId), $subscribed);
     }
 
-    private function workerRun(EntityManagerInterface $em, Project $project, Card $card, WorkerRunState $state, ?string $column, string $output): WorkerRun
+    /**
+     * A resume is received after an event that waits behind it, and ends before that event runs. The run that
+     * ended last decides the warning, so its later success clears it.
+     */
+    public function test_the_run_that_ended_last_decides_the_warning(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-run-warning-order@example.com');
+        $project = $this->project($em, $owner, 'ordered');
+        $cleared = $this->card($em, $project, 'Cleared', 'in-progress');
+        $warned = $this->card($em, $project, 'Warned', 'in-progress');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-10 minutes', endedAt: '-1 minute');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-5 minutes', endedAt: '-3 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-10 minutes', endedAt: '-1 minute');
+        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-5 minutes', endedAt: '-3 minutes');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-card-id="'.$warned->id.'"] [data-card-run-warning]'));
+        self::assertCount(0, $crawler->filter('[data-card-id="'.$cleared->id.'"] [data-card-run-warning]'));
+    }
+
+    private function workerRun(EntityManagerInterface $em, Project $project, Card $card, WorkerRunState $state, ?string $column, string $output, string $receivedAt = 'now', string $endedAt = 'now'): WorkerRun
     {
         $run = new WorkerRun(
             project: $project,
@@ -354,10 +382,11 @@ final class ShowBoardControllerTest extends WebTestCase
             ruleName: 'implement',
             state: $state,
             runKey: Uuid::v7(),
-            endedAt: new \DateTimeImmutable(),
+            endedAt: new \DateTimeImmutable($endedAt),
             exitCode: 0,
             hasResult: true,
             output: $output,
+            receivedAt: new \DateTimeImmutable($receivedAt),
             cardColumn: $column,
         );
         $em->persist($run);
