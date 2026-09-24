@@ -319,8 +319,14 @@ such as "↑ #214" that names its epic.
 
 A board with no lane shows its columns only, as it did before epics.
 
-In a lane, a drop takes the end of the column, and a card can move only inside
-its own lane. A drop in another lane does nothing.
+You can drag a card into any lane. A drop in the lane of another epic makes that
+epic the parent of the card. A drop in **Other cards** removes the parent. A drop
+inside the same lane keeps the parent, so a child whose lane is off keeps its
+epic when it moves inside **Other cards**. The column changes as it does on a
+board with no lanes, and the card lands where you drop it.
+
+An epic cannot go into a lane, because an epic has no parent. If the board
+refuses a change of parent, it shows why and keeps the card where it was.
 
 ### When an epic is done
 

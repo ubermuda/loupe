@@ -84,8 +84,9 @@ final class BoardLanesTest extends WebTestCase
         self::assertCount(1, $other->filter('[data-lane="other"][data-column="'.$backlogId.'"] [data-card-id="'.$looseId.'"]'));
         self::assertSame('other', $crawler->filter('.lp-board-lane')->last()->attr('data-lane'));
 
-        // A lane cell is not ranked yet: a drop there takes the end of the column.
-        self::assertCount(0, $crawler->filter('.lp-board-lane [data-board-drag-target="group"][data-rankable="1"]'));
+        // A lane cell of an open column is ranked, and a terminal one is not.
+        self::assertCount(3, $lane->filter('[data-board-drag-target="group"][data-rankable="1"]'));
+        self::assertCount(1, $lane->filter('[data-column="'.$doneColumnId.'"][data-rankable="0"]'));
         $counts = $crawler->filter('.lp-board__column-count')->each(static fn (Crawler $node): string => trim($node->text()));
         self::assertSame(['2', '0', '0', '1'], $counts);
         self::assertSelectorTextContains('.lp-board-toolbar__count', '3 cards');

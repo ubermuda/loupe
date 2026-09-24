@@ -81,9 +81,13 @@ final class MoveCardController extends AppController
                 actor: CardReporter::Human,
                 column: $data->column ?? throw new \LogicException('column required after validation'),
                 position: $data->position,
+                parent: $data->parent,
+                beforeCardId: $data->beforeCardId,
+                afterCardId: $data->afterCardId,
             ));
         } catch (DomainErrors $e) {
-            // The column went away between the form check and the lock.
+            // The column went away between the form check and the lock, or the
+            // parent a lane gives breaks a parent rule.
             $this->addFlash('error', $this->translator->trans(array_first($e->errors)));
 
             return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);

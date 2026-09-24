@@ -23,8 +23,12 @@ final readonly class MoveCardHandler
     ) {
     }
 
+    public const string NO_PARENT = 'none';
+
     public function __invoke(MoveCardCommand $command): Card
     {
+        $parent = null === $command->parent ? '' : trim($command->parent);
+
         // A null rank means the end of the target column here, and "leave the
         // rank alone" in an update, so it becomes an explicit rank.
         return ($this->updateCard)(new UpdateCardCommand(
@@ -32,6 +36,13 @@ final readonly class MoveCardHandler
             actor: $command->actor,
             column: $command->column,
             position: $command->position ?? CardMover::END_OF_COLUMN,
+            parentCardId: match ($parent) {
+                '' => null,
+                self::NO_PARENT => '',
+                default => $parent,
+            },
+            beforeCardId: $command->beforeCardId,
+            afterCardId: $command->afterCardId,
         ));
     }
 }

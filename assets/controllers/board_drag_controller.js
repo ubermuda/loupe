@@ -282,11 +282,17 @@ export default class extends Controller {
         // commit that instead of abandoning the drag.
         const group = this.groupUnder(event.clientX, event.clientY);
         let position = -1;
+        let lanePayload = null;
         if (group !== null) {
             this.markPlaceIn(group, event.clientY);
             // Counted among the other cards only, which is the rank the move
             // endpoint expects: the card is spliced back in at that index.
             position = this.rankOfPlaceholder(group);
+            // Read now, while the dragged card is still told apart from the
+            // cards around the marker.
+            if (group.dataset.lane !== undefined) {
+                lanePayload = this.lanePayload(group, position);
+            }
         }
 
         const origin = { group: this.originGroup, before: this.originNextCard };
@@ -305,8 +311,35 @@ export default class extends Controller {
         this.abandon();
 
         if (moves) {
-            this.submitMove(card, group, position, origin);
+            this.submitMove(card, group, position, origin, lanePayload);
         }
+    }
+
+    /**
+     * What a drop in a lane cell sends instead of a rank. A cell shows part of
+     * a column, so the server ranks the card from the card next to it. The
+     * parent changes only when the lane does, so a child whose lane is off
+     * keeps its parent while it moves inside "Other cards".
+     */
+    lanePayload(group, position) {
+        const others = this.otherCardsIn(group);
+        const below = others[position] ?? null;
+        const above = below === null ? (others[position - 1] ?? null) : null;
+        const from = this.originGroup.dataset.lane;
+        const to = group.dataset.lane;
+
+        let parent = to;
+        if (from === to) {
+            parent = '';
+        } else if ('other' === to) {
+            parent = 'none';
+        }
+
+        return {
+            parent,
+            beforeCardId: below?.dataset.cardId ?? '',
+            afterCardId: above?.dataset.cardId ?? '',
+        };
     }
 
     /**
@@ -319,7 +352,7 @@ export default class extends Controller {
      * A success answers with the whole board, which replaces this one and makes
      * the prediction moot rather than applying it twice.
      */
-    submitMove(card, group, position, origin) {
+    submitMove(card, group, position, origin, lanePayload) {
         const form = card.querySelector('[data-board-drag-target="moveForm"]');
         if (form === null) {
             return;
@@ -336,7 +369,17 @@ export default class extends Controller {
         column.value = group.dataset.column;
         // A terminal column keeps no rank, so it takes none. Every other column
         // lands the card where the marker stood.
-        rank.value = rankable && position >= 0 ? String(position) : '';
+        rank.value =
+            lanePayload === null && rankable && position >= 0
+                ? String(position)
+                : '';
+        // Written on every drop, so a refused drop leaves no stale value behind.
+        for (const name of ['parent', 'beforeCardId', 'afterCardId']) {
+            const field = form.querySelector(`input[name$="[${name}]"]`);
+            if (field !== null) {
+                field.value = lanePayload?.[name] ?? '';
+            }
+        }
 
         const finished = (event) => {
             form.removeEventListener('turbo:submit-end', finished);
@@ -439,16 +482,22 @@ export default class extends Controller {
     }
 
     /**
-     * The drop target under the pointer. A board with lanes offers only the
-     * cells of the lane the drag started in, because a drop keeps the card's
-     * parent.
+     * Whether a drop may land in this group. An epic has no parent, so an
+     * epic card lands in "Other cards" only.
      */
-    groupUnder(x, y) {
-        const lane = this.originGroup?.dataset.lane;
+    accepts(group) {
+        return (
+            group.dataset.lane === undefined ||
+            'other' === group.dataset.lane ||
+            'epic' !== this.pressedCard?.dataset.cardType
+        );
+    }
 
+    /** The drop target under the pointer. */
+    groupUnder(x, y) {
         return (
             this.groupTargets.find((group) => {
-                if (group.dataset.lane !== lane) {
+                if (!this.accepts(group)) {
                     return false;
                 }
                 const rectangle = (

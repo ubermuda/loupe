@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
@@ -134,10 +135,14 @@ final readonly class UpdateCardHandler
                 }
             }
 
+            $position = null === $command->beforeCardId && null === $command->afterCardId
+                ? $command->position
+                : $this->neighbourRank($card, $column, $command->beforeCardId, $command->afterCardId);
+
             // A rank is a move of its own: a card dropped elsewhere in the
             // column it already sits in does not change its column.
-            $move = $column !== $card->column || null !== $command->position
-                ? $this->mover->move($card, $column, $command->position)
+            $move = $column !== $card->column || null !== $position
+                ? $this->mover->move($card, $column, $position)
                 : null;
 
             // After the move, which must read the card as the database holds
@@ -252,5 +257,28 @@ final readonly class UpdateCardHandler
         );
 
         return $card;
+    }
+
+    /**
+     * The rank next to a neighbour, counted among the other cards of the
+     * column, which is the list CardGroupOrder::place() splices into. Call it
+     * under the lock: the SQL order is fresh even when a loaded rank is stale.
+     */
+    private function neighbourRank(Card $card, BoardColumn $column, ?string $beforeCardId, ?string $afterCardId): int
+    {
+        $others = array_values(array_filter(
+            $this->cards->findRanked($column),
+            static fn (Card $member): bool => $member !== $card,
+        ));
+        $ids = array_map(static fn (Card $member): ?string => $member->id?->toRfc4122(), $others);
+
+        $before = null === $beforeCardId ? false : array_search(strtolower(trim($beforeCardId)), $ids, true);
+        if (\is_int($before)) {
+            return $before;
+        }
+        $after = null === $afterCardId ? false : array_search(strtolower(trim($afterCardId)), $ids, true);
+
+        // A neighbour of another column, of another project, or deleted since.
+        return \is_int($after) ? $after + 1 : CardMover::END_OF_COLUMN;
     }
 }

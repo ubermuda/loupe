@@ -32,12 +32,11 @@
     </header>
     <div class="lp-board-lane__cells">
         {% for view in board.columns %}
-        {# Not ranked: a drop in a cell takes the end of its column. #}
         <div class="lp-board-lane__cell"
              data-board-drag-target="group"
              data-column="{{ view.column.id }}"
              data-lane="{{ laneKey }}"
-             data-rankable="0">
+             data-rankable="{{ view.column.terminal ? '0' : '1' }}">
             {% for card in lane.cells[view.column.id ~ '']|default([]) %}
                 {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), inLane: epic is not null} only %}
             {% endfor %}

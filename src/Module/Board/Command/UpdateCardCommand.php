@@ -22,6 +22,10 @@ use App\Module\Board\Entity\CardType;
  * $parentCardId has three states: null keeps the parent, an empty string
  * clears it, and a card id sets it.
  *
+ * $beforeCardId and $afterCardId name a card of the target column that the
+ * card lands above or below. A named neighbour wins over $position, and one
+ * the column does not hold sends the card to the end.
+ *
  * $reporter is absent on purpose. It records who first raised the card.
  */
 final readonly class UpdateCardCommand
@@ -47,6 +51,8 @@ final readonly class UpdateCardCommand
         public ?array $relatedCards = null,
         public ?string $parentCardId = null,
         public ?bool $laneEnabled = null,
+        public ?string $beforeCardId = null,
+        public ?string $afterCardId = null,
     ) {
     }
 }

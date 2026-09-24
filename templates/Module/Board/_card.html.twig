@@ -12,6 +12,7 @@
          data-board-filter-target="card"
          data-action="pointerdown->board-drag#press mouseenter->card-prefetch#enter mouseleave->card-prefetch#leave focusin->card-prefetch#enter"{% endif %}
          data-card-id="{{ card.id }}"
+         data-card-type="{{ card.type.value }}"
          data-card-title="{{ card.title }}">
     {% if not static %}
     <span class="lp-board-card__grip" aria-hidden="true">
@@ -83,6 +84,9 @@
         {{ form_widget(moveForm._token) }}
         {{ form_widget(moveForm.column) }}
         {{ form_widget(moveForm.position) }}
+        {{ form_widget(moveForm.parent) }}
+        {{ form_widget(moveForm.beforeCardId) }}
+        {{ form_widget(moveForm.afterCardId) }}
     </form>
     {% endif %}
 </article>
