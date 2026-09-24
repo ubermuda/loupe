@@ -24,7 +24,8 @@ final readonly class BoardToolErrorMessages
     {
         $lines = [];
         foreach ($errors->errors as $argument => $key) {
-            $lines[] = \sprintf('%s: %s', $argument, self::sentence($key));
+            // The form names the field parent; the tools name the argument parentCardId.
+            $lines[] = \sprintf('%s: %s', 'parent' === $argument ? 'parentCardId' : $argument, self::sentence($key));
         }
 
         return new ToolCallException(implode("\n", $lines), previous: $errors);

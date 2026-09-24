@@ -15,6 +15,7 @@ use App\Module\Project\Entity\Project;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
+use Symfony\Bridge\Doctrine\Middleware\Debug\DebugDataHolder;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class CardListToolTest extends KernelTestCase
@@ -232,9 +233,99 @@ final class CardListToolTest extends KernelTestCase
         $row = ($this->tool)()['cards'][0];
 
         self::assertSame(
-            ['cardId', 'number', 'title', 'type', 'status', 'reporter', 'updatedAt'],
+            ['cardId', 'number', 'title', 'type', 'status', 'reporter', 'parentCardId', 'updatedAt'],
             array_keys($row),
         );
+    }
+
+    public function test_a_summary_row_names_the_parent_by_id(): void
+    {
+        $this->boardWith('card-list-summary-parent');
+        $epic = ($this->createTool)('Epic', 'Body', 'epic');
+        $child = ($this->createTool)('Child', 'Body', 'feature', parentCardId: $epic['cardId']);
+
+        $rows = array_column(($this->tool)()['cards'], 'parentCardId', 'cardId');
+
+        self::assertSame($epic['cardId'], $rows[$child['cardId']]);
+        self::assertNull($rows[$epic['cardId']]);
+    }
+
+    public function test_a_summary_row_reads_the_parent_id_without_loading_the_parent(): void
+    {
+        $this->boardWith('card-list-summary-parent-lazy');
+        $epic = ($this->createTool)('Epic', 'Body', 'epic');
+        ($this->createTool)('Child', 'Body', 'feature', parentCardId: $epic['cardId']);
+        $this->em->clear();
+        $queries = self::getContainer()->get('doctrine.debug_data_holder');
+        self::assertInstanceOf(DebugDataHolder::class, $queries);
+        $queries->reset();
+
+        // The epic is filtered out, so its row never loads with the page.
+        $rows = ($this->tool)(type: 'feature')['cards'];
+
+        $statements = array_merge(...array_values($queries->getData()));
+        self::assertNotEmpty($statements);
+        self::assertSame([], array_values(array_filter($statements, static fn (array $query): bool => 1 === preg_match('/FROM board_cards t0 WHERE t0\.id = \?/', (string) $query['sql']))));
+        self::assertContains($epic['cardId'], array_column($rows, 'parentCardId'));
+    }
+
+    public function test_a_parent_filter_reads_the_children_of_one_epic(): void
+    {
+        $this->boardWith('card-list-parent-filter');
+        $epic = ($this->createTool)('Epic', 'Body', 'epic');
+        $otherEpic = ($this->createTool)('Other epic', 'Body', 'epic');
+        ($this->createTool)('Child one', 'Body', 'feature', parentCardId: $epic['cardId']);
+        ($this->createTool)('Child two', 'Body', 'bug', status: 'done', parentCardId: $epic['cardId']);
+        ($this->createTool)('Stranger', 'Body', 'feature', parentCardId: $otherEpic['cardId']);
+
+        $result = ($this->tool)(parentCardId: $epic['cardId']);
+
+        self::assertSame(['Child one', 'Child two'], array_column($result['cards'], 'title'));
+        self::assertSame(2, $result['total']);
+        self::assertSame(['Child two'], array_column(($this->tool)(type: 'bug', parentCardId: $epic['cardId'])['cards'], 'title'));
+    }
+
+    public function test_a_parent_filter_of_another_project_is_refused(): void
+    {
+        $this->boardWith('card-list-parent-elsewhere');
+        $elsewhere = ($this->createTool)('Epic', 'Body', 'epic');
+        $this->boardWith('card-list-parent-here');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage(\sprintf('Card "%s" not found or not accessible.', $elsewhere['cardId']));
+        ($this->tool)(parentCardId: $elsewhere['cardId']);
+    }
+
+    public function test_full_reads_the_parent_the_lane_the_children_and_the_progress(): void
+    {
+        $this->boardWith('card-list-full-epic');
+        $epic = ($this->createTool)('Epic', 'Body', 'epic', laneEnabled: false);
+        $child = ($this->createTool)('Child', 'Body', 'feature', status: 'done', parentCardId: $epic['cardId']);
+
+        $rows = array_column(($this->tool)(full: true)['cards'], null, 'cardId');
+
+        self::assertSame(['done' => 1, 'total' => 1], $rows[$epic['cardId']]['progress']);
+        self::assertSame([['cardId' => $child['cardId'], 'number' => $child['number'], 'title' => 'Child', 'status' => 'done']], $rows[$epic['cardId']]['children']);
+        self::assertFalse($rows[$epic['cardId']]['laneEnabled']);
+        self::assertSame(['cardId' => $epic['cardId'], 'number' => $epic['number'], 'title' => 'Epic', 'status' => 'backlog'], $rows[$child['cardId']]['parent']);
+        self::assertNull($rows[$child['cardId']]['progress']);
+        self::assertSame([], $rows[$child['cardId']]['children']);
+    }
+
+    public function test_a_full_page_reads_the_children_of_every_epic_in_one_query(): void
+    {
+        $this->boardWith('card-list-children-batch-one');
+        $this->epicsWithChildren(1);
+        $forOne = $this->childQueriesOfAFullPage();
+
+        $this->boardWith('card-list-children-batch-many');
+        $this->epicsWithChildren(4);
+        $forMany = $this->childQueriesOfAFullPage();
+
+        self::assertCount(1, $forOne['children']);
+        self::assertCount(1, $forMany['children'], "The children query ran once per epic:\n".implode("\n", $forMany['children']));
+        // The parent of each child is an epic on the same page, so no card loads on its own.
+        self::assertSame([], array_values(array_filter($forMany['all'], static fn (string $sql): bool => 1 === preg_match('/FROM board_cards t0 WHERE t0\.id = \?/', $sql))));
     }
 
     public function test_full_returns_the_body_and_every_link_set(): void
@@ -322,6 +413,43 @@ final class CardListToolTest extends KernelTestCase
         ($this->createTool)('Third', 'Body', 'bug');
 
         return $project;
+    }
+
+    private function epicsWithChildren(int $count): void
+    {
+        for ($i = 0; $i < $count; ++$i) {
+            $epic = ($this->createTool)('Epic '.$i, 'Body', 'epic');
+            ($this->createTool)('Child '.$i, 'Body', 'feature', parentCardId: $epic['cardId']);
+        }
+        $this->em->clear();
+    }
+
+    /**
+     * The statements of one full page, and those among them that read children by parent.
+     *
+     * @return array{all: list<string>, children: list<string>}
+     */
+    private function childQueriesOfAFullPage(): array
+    {
+        $queries = self::getContainer()->get('doctrine.debug_data_holder');
+        self::assertInstanceOf(DebugDataHolder::class, $queries);
+        $queries->reset();
+
+        $cards = ($this->tool)(full: true)['cards'];
+        // Guard: every child row must be read, or a count of zero proves nothing.
+        self::assertNotEmpty(array_filter(array_column($cards, 'children')));
+
+        $all = [];
+        foreach ($queries->getData() as $connectionQueries) {
+            foreach ($connectionQueries as $query) {
+                $all[] = (string) $query['sql'];
+            }
+        }
+
+        return [
+            'all' => $all,
+            'children' => array_values(array_filter($all, static fn (string $sql): bool => 1 === preg_match('/WHERE.*parent_card_id\s*(IN|=)/s', $sql))),
+        ];
     }
 
     /** Makes a row look like one an image without the reporter column wrote. */

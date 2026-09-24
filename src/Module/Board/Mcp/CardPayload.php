@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Mcp;
 
+use App\Module\Board\Command\CardView;
 use App\Module\Board\Command\RelatedCard;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardLinkRepository;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 
 /**
@@ -21,34 +24,34 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
  * @phpstan-type CardSiteReviewCommentSummary array{commentId: string, body: string, url: string, status: string, createdAt: string}
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
  * @phpstan-type CardRelatedCardSummary array{cardId: string, number: int, title: string, status: string, kind: string}
- * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<CardSiteReviewCommentSummary>, relatedCards: list<CardRelatedCardSummary>}
- * @phpstan-type CardListSummary array{cardId: string, number: int, title: string, type: string, status: string, reporter: string, updatedAt: string}
+ * @phpstan-type CardRefSummary array{cardId: string, number: int, title: string, status: string}
+ * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<CardSiteReviewCommentSummary>, relatedCards: list<CardRelatedCardSummary>, parent: ?CardRefSummary, laneEnabled: bool, children: list<CardRefSummary>, progress: ?array{done: int, total: int}}
+ * @phpstan-type CardListSummary array{cardId: string, number: int, title: string, type: string, status: string, reporter: string, parentCardId: ?string, updatedAt: string}
  */
 final readonly class CardPayload
 {
     public function __construct(
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardLinkRepository $cardLinks,
+        private CardRepository $cards,
     ) {
     }
 
     /**
-     * One card whose site-review links and related cards the caller already
+     * One card whose links, related cards and children the caller already
      * holds, from {@see \App\Module\Board\Command\ShowCardHandler}.
-     *
-     * @param list<CardSiteReviewComment> $links
-     * @param list<RelatedCard>           $relatedCards
      *
      * @return CardSummary
      */
-    public function forCard(Card $card, array $links, array $relatedCards): array
+    public function forCard(CardView $view): array
     {
-        return $this->render($card, $links, $relatedCards);
+        return $this->render($view->card, $view->siteReviewLinks, $view->relatedCards, $view->children);
     }
 
     /**
-     * Many cards in one read, so a board-sized list costs one comment query
-     * and one card link query rather than one of each per card.
+     * Many cards in one read, so a board-sized list costs one comment query,
+     * one card link query and one children query rather than one of each per
+     * card.
      *
      * @param list<Card> $cards
      *
@@ -58,6 +61,8 @@ final readonly class CardPayload
     {
         $commentsByCard = $this->cardSiteReviewComments->findForCards($cards);
         $linksByCard = $this->cardLinks->findForCards($cards);
+        $epics = array_values(array_filter($cards, static fn (Card $card): bool => CardType::Epic === $card->type));
+        $childrenByCard = [] === $epics ? [] : $this->cards->findChildrenOfCards($epics);
 
         return array_map(
             fn (Card $card): array => $this->render(
@@ -67,6 +72,7 @@ final readonly class CardPayload
                     static fn (CardLink $link): RelatedCard => new RelatedCard($link->otherThan($card), $link->kindFor($card)),
                     $linksByCard[(string) $card->id] ?? [],
                 ),
+                $childrenByCard[(string) $card->id] ?? [],
             ),
             $cards,
         );
@@ -93,6 +99,8 @@ final readonly class CardPayload
                 'type' => $card->type->value,
                 'status' => $card->column->slug,
                 'reporter' => $card->reporter->value,
+                // The id alone, which a parent proxy holds without a query.
+                'parentCardId' => null === $card->parent ? null : (string) $card->parent->id,
                 'updatedAt' => $card->updatedAt->format(\DATE_ATOM),
             ],
             $cards,
@@ -102,11 +110,16 @@ final readonly class CardPayload
     /**
      * @param list<CardSiteReviewComment> $links
      * @param list<RelatedCard>           $relatedCards
+     * @param list<Card>                  $children     empty for a card that is not an epic
      *
      * @return CardSummary
      */
-    private function render(Card $card, array $links, array $relatedCards): array
+    private function render(Card $card, array $links, array $relatedCards, array $children): array
     {
+        $progress = CardType::Epic === $card->type
+            ? ['done' => \count(array_filter($children, static fn (Card $child): bool => $child->column->terminal)), 'total' => \count($children)]
+            : null;
+
         return [
             'cardId' => (string) $card->id,
             // The short per-project label a person says out loud. Not the id.
@@ -165,6 +178,21 @@ final readonly class CardPayload
                 ],
                 $relatedCards,
             ),
+            'parent' => null === $card->parent ? null : self::reference($card->parent),
+            'laneEnabled' => $card->laneEnabled,
+            'children' => array_map(self::reference(...), $children),
+            'progress' => $progress,
+        ];
+    }
+
+    /** @return CardRefSummary */
+    private static function reference(Card $card): array
+    {
+        return [
+            'cardId' => (string) $card->id,
+            'number' => $card->number,
+            'title' => $card->title,
+            'status' => $card->column->slug,
         ];
     }
 }

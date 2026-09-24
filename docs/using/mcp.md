@@ -224,7 +224,7 @@ Roughly in the order an agent uses them:
 | `site_review_get` | Widget comments and their page context |
 | `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
 | `card_create` | Put a card on the project board (off by default — see below) |
-| `card_list` | Read a page of the board, filtered by status, type or reporter, with the board's columns |
+| `card_list` | Read a page of the board, filtered by status, type, reporter or parent, with the board's columns |
 | `board_columns` | List the board's columns, each with its slug, label, terminal flag and default flag |
 | `card_search` | Search every card's title and body by words, finished ones included |
 | `card_get` | Read one card, with the pull requests linked to it |
@@ -412,6 +412,27 @@ inside one project, so a person can say "card 42" and an agent can name a branch
 after it. Two projects each have a card 1. `card_get` and `card_update` take
 either `cardId` or `number`, never both. A number resolves only inside the
 project that the connection is bound to. The other tools take no number.
+
+A `card_list` or `card_search` row is a summary with eight fields: `cardId`,
+`number`, `title`, `type`, `status`, `reporter`, `parentCardId` and
+`updatedAt`. `parentCardId` is null for a card with no parent.
+
+A card has a `type`: `feature`, `bug`, `security`, `tooling`, `docs`, `idea` or
+`epic`. An epic is one feature that is too large for one pull request, and its
+child cards hold the parts. `card_create` and `card_update` take
+`parentCardId`, the id of an epic of the same project. On `card_update`, omit it
+to keep the parent, send an empty string to clear it, and send an id to set it.
+Only an epic can be a parent, and an epic cannot have a parent. A card with a
+parent cannot become an epic, and an epic with children keeps its type. Both
+tools also take `laneEnabled`, which says whether the board draws a lane for an
+epic. It defaults to `true`.
+
+`card_list` takes `parentCardId` as a filter, which reads the children of one
+epic. The full card, from `card_get` or from `card_list` with `full`, carries
+four more keys. `parent` holds `cardId`, `number`, `title` and `status`, or
+null. `laneEnabled` is a boolean. `children` lists the children of an epic with
+the same four keys. `progress` holds `done` and `total` for an epic, and null
+for any other card. A child counts as done when it sits in a terminal column.
 
 The `inbox_*` tools are behind the `inbox.enabled` feature flag, seeded
 **off**. The gate behaves the same way as the board gate: while the flag is off

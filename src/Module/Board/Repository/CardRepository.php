@@ -300,6 +300,39 @@ class CardRepository extends ServiceEntityRepository
             ->getResult());
     }
 
+    /**
+     * The children of many cards in one query, in the order of findChildren().
+     *
+     * @param list<Card> $parents
+     *
+     * @return array<string, list<Card>> parent id => its children; a parent with none has no key
+     */
+    public function findChildrenOfCards(array $parents): array
+    {
+        if ([] === $parents) {
+            return [];
+        }
+
+        /** @var list<Card> $children */
+        $children = $this->createQueryBuilder('c')
+            ->join('c.column', 'k')
+            ->addSelect('k')
+            ->andWhere('c.parent IN (:parents)')
+            ->setParameter('parents', $parents)
+            ->orderBy('k.position', 'ASC')
+            ->addOrderBy('c.position', 'ASC')
+            ->addOrderBy('c.number', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $byParent = [];
+        foreach ($children as $child) {
+            $byParent[(string) $child->parent?->id][] = $child;
+        }
+
+        return $byParent;
+    }
+
     public function countChildren(Card $card): int
     {
         return (int) $this->getEntityManager()->getConnection()->fetchOne(
@@ -580,11 +613,11 @@ class CardRepository extends ServiceEntityRepository
      *
      * @return list<Card>
      */
-    public function findForBoard(array $columns, ?CardType $type = null, ?CardReporter $reporter = null): array
+    public function findForBoard(array $columns, ?CardType $type = null, ?CardReporter $reporter = null, ?Card $parent = null): array
     {
         $cards = [];
         foreach ($columns as $column) {
-            $cards = [...$cards, ...$this->findColumn($column, $type, $reporter)];
+            $cards = [...$cards, ...$this->findColumn($column, $type, $reporter, $parent)];
         }
 
         return $cards;
@@ -647,7 +680,7 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /** @return list<Card> */
-    private function findColumn(BoardColumn $column, ?CardType $type, ?CardReporter $reporter): array
+    private function findColumn(BoardColumn $column, ?CardType $type, ?CardReporter $reporter, ?Card $parent): array
     {
         $qb = $this->createQueryBuilder('c')
             ->andWhere('c.column = :column')
@@ -655,6 +688,9 @@ class CardRepository extends ServiceEntityRepository
 
         if (null !== $type) {
             $qb->andWhere('c.type = :type')->setParameter('type', $type);
+        }
+        if (null !== $parent) {
+            $qb->andWhere('c.parent = :parent')->setParameter('parent', $parent);
         }
         if (null !== $reporter) {
             // COALESCE, not c.reporter: a row an older image wrote after this

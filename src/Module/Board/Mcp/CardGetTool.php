@@ -58,7 +58,7 @@ final readonly class CardGetTool implements FlagGatedToolInterface
                 $this->subjects->requireCardByIdOrNumber($cardId, $number, McpBoundProjectVoter::CARD_READ),
             ));
 
-            return $this->payload->forCard($view->card, $view->siteReviewLinks, $view->relatedCards);
+            return $this->payload->forCard($view);
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

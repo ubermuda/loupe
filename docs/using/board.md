@@ -282,7 +282,7 @@ whole set of links.
 | Number | A short number, counting from 1, unique inside the project. |
 | Title | Plain text, up to 255 characters. Loupe trims it and refuses a blank one. |
 | Body | Markdown. It says what the card asks for. |
-| Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`. |
+| Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`, `epic`. |
 | Status | The column the card sits in. The tools report the column's slug. |
 | Reporter | `human`, `agent` or `reviewer`. It records who raised the card. |
 | Pull requests | Any number of links. See below. |
@@ -403,7 +403,7 @@ so a page past the end reads as an empty list. The answer carries `page`,
 not the cards on the page, so keep reading while `hasMore` is true.
 
 Each row is a summary: `cardId`, `number`, `title`, `type`, `status`,
-`reporter` and `updatedAt`. Pass `full` to get the Markdown body, the pull
+`reporter`, `parentCardId` and `updatedAt`. Pass `full` to get the Markdown body, the pull
 request, document and site-review links, and `relatedCards` as well. A full page
 is much larger, so read the board as summaries and call `card_get` for the card
 you want.
