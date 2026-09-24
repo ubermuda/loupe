@@ -5493,6 +5493,10 @@
                 <source>bridge.worker_runs.state.lost</source>
                 <target>Lost</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.closed">
+                <source>bridge.worker_runs.state.closed</source>
+                <target>Closed</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.card_number">
                 <source>bridge.worker_runs.card_number</source>
                 <target>#%number%</target>

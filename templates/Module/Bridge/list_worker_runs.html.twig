@@ -114,7 +114,9 @@
                     {% else %}
                         <span class="lp-worker-run__card">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>
                     {% endif %}
-                    <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
+                    {% if run.bridgeId is not null %}
+                        <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
+                    {% endif %}
                     <button type="button" class="lp-btn lp-btn--ghost" data-action="modal#open">{{ 'bridge.worker_runs.details.open'|trans }}</button>
                 </div>
                 <span class="lp-status-chip lp-status-chip--{{ item.state.chipModifier() }}">

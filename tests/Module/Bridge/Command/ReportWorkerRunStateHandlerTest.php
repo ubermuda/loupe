@@ -11,6 +11,7 @@ use App\Module\Bridge\Command\ReportWorkerRunStateResult;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -92,7 +93,8 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertTrue($result->newState);
         self::assertInstanceOf(WorkerRun::class, $result->run);
         self::assertSame($runKey->toRfc4122(), $result->run->runKey?->toRfc4122());
-        self::assertSame(self::BRIDGE, $result->run->bridgeId->toRfc4122());
+        self::assertSame(self::BRIDGE, $result->run->bridgeId?->toRfc4122());
+        self::assertSame(WorkerRunKind::Worker, $result->run->kind);
         self::assertSame($cardId->toRfc4122(), $result->run->cardId->toRfc4122());
         self::assertSame(12, $result->run->cardNumber);
         self::assertSame('review', $result->run->ruleName);

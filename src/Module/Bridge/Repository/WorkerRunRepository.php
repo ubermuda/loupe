@@ -8,12 +8,15 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Query;
 use Doctrine\ORM\Query\Expr\Join;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -127,12 +130,15 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->select('r.id')
             ->join('r.project', 'p')
             ->leftJoin(Bridge::class, 'b', Join::WITH, 'IDENTITY(b.owner) = IDENTITY(p.owner) AND b.id = r.bridgeId')
+            // No bridge holds an interactive run, so it would always read as quiet.
+            ->andWhere('r.kind = :worker')
             ->andWhere('r.state IN (:openStates)')
             ->andWhere('b.lastSeenAt < :quietBefore OR (b.lastSeenAt IS NULL AND r.receivedAt < :quietBefore)')
             ->setParameter('openStates', array_map(
                 static fn (WorkerRunState $state): string => $state->value,
                 WorkerRunState::openStates(),
             ))
+            ->setParameter('worker', WorkerRunKind::Worker->value)
             ->setParameter('quietBefore', $quietBefore, Types::DATETIME_IMMUTABLE)
             ->orderBy('r.id', 'ASC')
             ->setMaxResults($limit)
@@ -157,6 +163,7 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->select('DISTINCT IDENTITY(p.owner) AS ownerId, r.bridgeId AS bridgeId')
             ->join('r.project', 'p')
             ->andWhere('r.id IN (:ids)')
+            ->andWhere('r.bridgeId IS NOT NULL')
             ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
             ->orderBy('ownerId', 'ASC')
             ->addOrderBy('bridgeId', 'ASC')
@@ -182,6 +189,7 @@ class WorkerRunRepository extends ServiceEntityRepository
     {
         return array_values($this->createQueryBuilder('r')
             ->andWhere('r.id IN (:ids)')
+            ->andWhere('r.kind = :worker')
             ->andWhere('r.state IN (:openStates)')
             ->andWhere(\sprintf(
                 'EXISTS (SELECT qb.id FROM %1$s qb WHERE qb.id = r.bridgeId AND qb.lastSeenAt < :quietBefore'
@@ -192,6 +200,7 @@ class WorkerRunRepository extends ServiceEntityRepository
                 Project::class,
             ))
             ->setParameter('quietBefore', $quietBefore, Types::DATETIME_IMMUTABLE)
+            ->setParameter('worker', WorkerRunKind::Worker->value)
             ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
             ->setParameter('openStates', array_map(
                 static fn (WorkerRunState $state): string => $state->value,
@@ -201,6 +210,83 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getQuery()
             ->setLockMode(LockMode::PESSIMISTIC_WRITE)
             ->getResult());
+    }
+
+    public function findOpenInteractive(Project $project, Uuid $cardId, Uuid $sessionId): ?WorkerRun
+    {
+        return $this->interactive($project)
+            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.sessionId = :sessionId')
+            ->andWhere('r.state = :running')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('running', WorkerRunState::Running->value)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** The open run of the session on the card, else its latest run, locked until the transaction ends. */
+    public function findLatestInteractiveForUpdate(Project $project, Uuid $cardId, Uuid $sessionId): ?WorkerRun
+    {
+        return self::forUpdate($this->interactive($project)
+            ->addSelect('CASE WHEN r.state = :running THEN 0 ELSE 1 END AS HIDDEN openFirst')
+            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.sessionId = :sessionId')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('running', WorkerRunState::Running->value)
+            ->orderBy('openFirst', 'ASC')
+            ->addOrderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1))
+            ->getOneOrNullResult();
+    }
+
+    public function findInteractiveByIdForUpdate(Project $project, Uuid $runId): ?WorkerRun
+    {
+        return self::forUpdate($this->interactive($project)
+            ->andWhere('r.id = :runId')
+            ->setParameter('runId', $runId, UuidType::NAME))
+            ->getOneOrNullResult();
+    }
+
+    /** @return list<WorkerRun> locked until the transaction ends, in id order so two callers cannot deadlock */
+    public function findOpenInteractiveOfCardForUpdate(Project $project, Uuid $cardId): array
+    {
+        return array_values(self::forUpdate($this->interactive($project)
+            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.state = :running')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('running', WorkerRunState::Running->value)
+            ->orderBy('r.id', 'ASC'))
+            ->getResult());
+    }
+
+    public function hasOpenInteractive(Project $project, Uuid $cardId): bool
+    {
+        return null !== $this->interactive($project)
+            ->select('1')
+            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.state = :running')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('running', WorkerRunState::Running->value)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    private function interactive(Project $project): QueryBuilder
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.kind = :interactive')
+            ->setParameter('project', $project)
+            ->setParameter('interactive', WorkerRunKind::Interactive->value);
+    }
+
+    private static function forUpdate(QueryBuilder $qb): Query
+    {
+        return $qb->getQuery()->setLockMode(LockMode::PESSIMISTIC_WRITE);
     }
 
     /**
@@ -309,6 +395,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         $rows = $this->createQueryBuilder('r')
             ->select('DISTINCT r.bridgeId')
             ->andWhere('r.project = :project')
+            ->andWhere('r.bridgeId IS NOT NULL')
             ->setParameter('project', $project)
             ->orderBy('r.bridgeId', 'ASC')
             ->getQuery()

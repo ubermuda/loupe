@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Entity;
 
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Types\Types;
@@ -38,6 +39,8 @@ use Symfony\Component\Uid\Uuid;
 // predicate is written the way Postgres stores it, so migrate-diff stays quiet.
 #[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_report', columns: ['project_id', 'bridge_id', 'card_id', 'started_at'], options: ['where' => '(run_key IS NULL)'])]
 #[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_key', columns: ['project_id', 'bridge_id', 'run_key'])]
+// One session holds one open interactive run on a card.
+#[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_interactive_open', columns: ['project_id', 'card_id', 'session_id'], options: ['where' => "(((kind)::text = 'interactive'::text) AND ((state)::text = 'running'::text))"])]
 class WorkerRun
 {
     /** Mirrors the cap the bridge applies to a worker's output before it reports. */
@@ -68,9 +71,9 @@ class WorkerRun
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public readonly Project $project,
 
-        /** The bridge that ran the work. An opaque scalar: no table holds a bridge. */
-        #[ORM\Column(name: 'bridge_id', type: UuidType::NAME)]
-        public readonly Uuid $bridgeId,
+        /** The bridge that ran the work. An opaque scalar: no table holds a bridge. Null on an interactive run. */
+        #[ORM\Column(name: 'bridge_id', type: UuidType::NAME, nullable: true)]
+        public readonly ?Uuid $bridgeId,
 
         /** A scalar, never a foreign key, so a deleted card leaves its run history intact. */
         #[ORM\Column(name: 'card_id', type: UuidType::NAME)]
@@ -120,6 +123,10 @@ class WorkerRun
          */
         #[ORM\Column(name: 'received_at')]
         public readonly \DateTimeImmutable $receivedAt = new \DateTimeImmutable(),
+
+        // Rows the previous image writes are worker runs.
+        #[ORM\Column(name: 'kind', length: 20, enumType: WorkerRunKind::class, options: ['default' => WorkerRunKind::Worker->value])]
+        public readonly WorkerRunKind $kind = WorkerRunKind::Worker,
     ) {
     }
 
