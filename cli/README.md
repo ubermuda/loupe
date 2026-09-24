@@ -794,6 +794,9 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `heartbeat_failed` | `error`, `retry_in_seconds`: the first failure of a run. Level `WARN` |
 | `heartbeat_unsupported` | `error`, `message`: the server answered 404, logged once. Level `WARN` |
 | `heartbeat_interval_changed` | `interval_seconds`: a reconnect brought a new interval |
+| `hook_ran` | `package`, `hook_event`, `duration_ms`: a hook exited 0 |
+| `hook_failed` | `package`, `hook_event`, and `exit_code` with `output`, or `error` when the hook could not start. Level `WARN` |
+| `hook_timeout` | `package`, `hook_event`, `timeout_seconds`, `output`: the bridge killed a hook past its time limit. Level `WARN` |
 
 `queue_depth` counts the accepted events waiting at that moment, the new one
 included. `worker_failed` and `worker_finished` name two different faults: a
@@ -866,7 +869,7 @@ their place.
 
 On failure, the command writes one line to stderr for each problem, as
 `<stage>: <problem>`, and exits with status 1. The stage is `lock`, `parse`,
-`check` or `server`. The last line is
+`hooks`, `check` or `server`. The last line is
 `error: the bridge did not apply the rule file`. A failed reload changes
 nothing, and the bridge keeps its old rules and its lock.
 
