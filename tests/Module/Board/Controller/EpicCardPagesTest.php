@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Controller;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\SetCardLaneFormType;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -45,6 +46,37 @@ final class EpicCardPagesTest extends WebTestCase
         self::assertStringContainsString('#'.$openNumber.' Open child', $children->first()->text());
         self::assertSame('1/2 done', trim($crawler->filter('[data-epic-progress]')->text()));
         self::assertCount(1, $crawler->filter('form[name="'.SetCardLaneFormType::PREFIX.$epicId.'"]'));
+    }
+
+    public function test_the_children_follow_the_board_order_of_each_column(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'epic-page-order@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Ordered epic'), CardType::Epic);
+        $lowerRank = $this->childOf($em, $epic, $this->card($em, $project, 'Second in next', 'next', 1));
+        $higherRank = $this->childOf($em, $epic, $this->card($em, $project, 'First in next', 'next', 0));
+        $doneEarlier = $this->childOf($em, $epic, $this->card($em, $project, 'Done earlier', 'done'));
+        $doneLater = $this->childOf($em, $epic, $this->card($em, $project, 'Done later', 'done'));
+        $doneEarlier->completedAt = new \DateTimeImmutable('-2 days');
+        $doneLater->completedAt = new \DateTimeImmutable('-1 day');
+        $em->flush();
+        $expected = array_map(static fn (Card $card): string => (string) $card->id, [$higherRank, $lowerRank, $doneLater, $doneEarlier]);
+        $epicId = $epic->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $this->cardUrl($project, $epicId));
+
+        // The board shows a terminal column newest completion first, and the epic page must agree.
+        self::assertSame($expected, $crawler->filter('[data-epic-children] [data-linked-card]')->each(static fn ($row): ?string => $row->attr('data-linked-card')));
+
+        $em->clear();
+        $reloaded = $em->find(Card::class, $epicId) ?? throw new \LogicException('The epic must exist.');
+        $byParent = static::getContainer()->get(CardRepository::class)->findChildrenOfCards([$reloaded]);
+        self::assertSame($expected, array_map(static fn (Card $card): string => (string) $card->id, $byParent[(string) $epicId]));
     }
 
     public function test_an_epic_with_no_children_shows_zero_of_zero(): void

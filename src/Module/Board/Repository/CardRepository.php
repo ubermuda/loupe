@@ -282,22 +282,22 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * The children of one card, in board order: by column, then by rank.
+     * The children of one card, in the order the board shows them.
      *
      * @return list<Card>
      */
     public function findChildren(Card $parent): array
     {
-        return array_values($this->createQueryBuilder('c')
+        /** @var list<Card> $children */
+        $children = $this->createQueryBuilder('c')
             ->join('c.column', 'k')
             ->addSelect('k')
             ->andWhere('c.parent = :parent')
             ->setParameter('parent', $parent)
-            ->orderBy('k.position', 'ASC')
-            ->addOrderBy('c.position', 'ASC')
-            ->addOrderBy('c.number', 'ASC')
             ->getQuery()
-            ->getResult());
+            ->getResult();
+
+        return self::inBoardOrder($children);
     }
 
     /**
@@ -319,14 +319,11 @@ class CardRepository extends ServiceEntityRepository
             ->addSelect('k')
             ->andWhere('c.parent IN (:parents)')
             ->setParameter('parents', $parents)
-            ->orderBy('k.position', 'ASC')
-            ->addOrderBy('c.position', 'ASC')
-            ->addOrderBy('c.number', 'ASC')
             ->getQuery()
             ->getResult();
 
         $byParent = [];
-        foreach ($children as $child) {
+        foreach (self::inBoardOrder($children) as $child) {
             $byParent[(string) $child->parent?->id][] = $child;
         }
 
@@ -821,6 +818,31 @@ class CardRepository extends ServiceEntityRepository
         }
 
         return array_values($this->withPullRequests($qb)->getQuery()->getResult());
+    }
+
+    /**
+     * Sorts cards as the board shows them: by column, then in each column
+     * the order of findColumn(). The sort runs in PHP, because a terminal
+     * and an open column sort on different keys in opposite directions.
+     *
+     * @param list<Card> $cards
+     *
+     * @return list<Card>
+     */
+    private static function inBoardOrder(array $cards): array
+    {
+        usort($cards, static function (Card $a, Card $b): int {
+            $column = $a->column->position <=> $b->column->position;
+            if (0 !== $column || $a->column !== $b->column) {
+                return 0 !== $column ? $column : strcmp((string) $a->column->id, (string) $b->column->id);
+            }
+
+            return $a->column->terminal
+                ? [$b->completedAt, $b->createdAt, (string) $b->id] <=> [$a->completedAt, $a->createdAt, (string) $a->id]
+                : [$a->position, $a->createdAt, (string) $a->id] <=> [$b->position, $b->createdAt, (string) $b->id];
+        });
+
+        return $cards;
     }
 
     /**
