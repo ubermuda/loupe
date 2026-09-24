@@ -112,6 +112,26 @@ final class TimeOutQuietWorkerRunsHandlerTest extends KernelTestCase
         self::assertNull($this->reload($run)->bridgeId);
     }
 
+    public function test_the_locked_read_skips_an_interactive_run_it_is_given(): void
+    {
+        [, $project] = $this->scenario('sweep-interactive-locked');
+        $interactive = $this->seedRun(
+            $this->em(),
+            $project,
+            new \DateTimeImmutable('2026-09-23 10:00:00'),
+            state: WorkerRunState::Running,
+            kind: WorkerRunKind::Interactive,
+        );
+        $worker = $this->openRun($project, Uuid::v4(), WorkerRunState::Running, new \DateTimeImmutable('2026-09-23 10:00:00'));
+        $repository = self::getContainer()->get(WorkerRunRepository::class);
+        self::assertInstanceOf(WorkerRunRepository::class, $repository);
+        $ids = [$interactive->id ?? Uuid::v7(), $worker->id ?? Uuid::v7()];
+
+        $locked = $this->em()->wrapInTransaction(static fn (): array => $repository->findOpenByIdsForUpdate($ids, new \DateTimeImmutable(self::NOW)));
+
+        self::assertSame([$worker->id], array_map(static fn (WorkerRun $run): ?Uuid => $run->id, $locked));
+    }
+
     /** A heartbeat that lands between the first read and the lock keeps the run open. */
     public function test_the_locked_read_skips_a_run_whose_bridge_spoke_since_the_first_read(): void
     {

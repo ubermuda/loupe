@@ -7,6 +7,8 @@ namespace App\Tests\Module\Board\Command;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Command\DeleteBoardColumnCommand;
+use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Command\OpenInteractiveRun;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
@@ -130,6 +132,48 @@ final class CardInteractiveRunTest extends KernelTestCase
 
         self::assertSame(WorkerRunState::Running, $this->stateOf($other));
         self::assertNotNull($this->workerRuns()->findOpenInteractive($this->project, $this->idOf($card), $sessionId));
+    }
+
+    public function test_an_update_returns_the_run_it_opened(): void
+    {
+        $card = $this->card('backlog');
+        $sessionId = Uuid::v4();
+
+        $updated = ($this->updateCard)(new UpdateCardCommand(
+            card: $card,
+            actor: CardReporter::Agent,
+            column: $this->column($this->project, 'next'),
+            openInteractiveRun: new OpenInteractiveRun($sessionId, 'loupe:product-design'),
+        ));
+
+        self::assertSame($card, $updated->card);
+        self::assertSame($this->workerRuns()->findOpenInteractive($this->project, $this->idOf($card), $sessionId), $updated->openedRun);
+        self::assertNotNull($updated->openedRun);
+    }
+
+    public function test_an_update_that_opens_nothing_returns_no_run(): void
+    {
+        $card = $this->card('next');
+
+        $updated = ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Human, title: 'Renamed'));
+
+        self::assertSame($card, $updated->card);
+        self::assertNull($updated->openedRun);
+    }
+
+    public function test_a_column_delete_closes_the_runs_of_the_cards_it_moves(): void
+    {
+        $moved = $this->card('next');
+        $stays = $this->card('in-progress');
+        $movedRun = $this->openRun($moved);
+        $staysRun = $this->openRun($stays);
+        $delete = self::getContainer()->get(DeleteBoardColumnHandler::class);
+        self::assertInstanceOf(DeleteBoardColumnHandler::class, $delete);
+
+        $delete(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, $this->column($this->project, 'in-progress')));
+
+        self::assertSame(WorkerRunState::Closed, $this->stateOf($movedRun));
+        self::assertSame(WorkerRunState::Running, $this->stateOf($staysRun));
     }
 
     private function card(string $column): Card

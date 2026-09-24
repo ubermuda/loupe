@@ -214,21 +214,21 @@ class WorkerRunRepository extends ServiceEntityRepository
 
     public function findOpenInteractive(Project $project, Uuid $cardId, Uuid $sessionId): ?WorkerRun
     {
-        return $this->interactive($project)
-            ->andWhere('r.cardId = :cardId')
-            ->andWhere('r.sessionId = :sessionId')
-            ->andWhere('r.state = :running')
-            ->setParameter('cardId', $cardId, UuidType::NAME)
-            ->setParameter('sessionId', $sessionId, UuidType::NAME)
-            ->setParameter('running', WorkerRunState::Running->value)
+        return $this->openInteractiveOfSession($project, $cardId, $sessionId)
             ->getQuery()
             ->getOneOrNullResult();
     }
 
-    /** The open run of the session on the card, else its latest run, locked until the transaction ends. */
-    public function findLatestInteractiveForUpdate(Project $project, Uuid $cardId, Uuid $sessionId): ?WorkerRun
+    public function findOpenInteractiveForUpdate(Project $project, Uuid $cardId, Uuid $sessionId): ?WorkerRun
     {
-        return self::forUpdate($this->interactive($project)
+        return self::forUpdate($this->openInteractiveOfSession($project, $cardId, $sessionId))
+            ->getOneOrNullResult();
+    }
+
+    /** The open run of the session on the card, else its latest run. */
+    public function findLatestInteractive(Project $project, Uuid $cardId, Uuid $sessionId): ?WorkerRun
+    {
+        return $this->interactive($project)
             ->addSelect('CASE WHEN r.state = :running THEN 0 ELSE 1 END AS HIDDEN openFirst')
             ->andWhere('r.cardId = :cardId')
             ->andWhere('r.sessionId = :sessionId')
@@ -238,25 +238,41 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->orderBy('openFirst', 'ASC')
             ->addOrderBy('r.receivedAt', 'DESC')
             ->addOrderBy('r.id', 'DESC')
-            ->setMaxResults(1))
+            ->setMaxResults(1)
+            ->getQuery()
             ->getOneOrNullResult();
     }
 
-    public function findInteractiveByIdForUpdate(Project $project, Uuid $runId): ?WorkerRun
+    public function findOpenInteractiveByIdForUpdate(Project $project, Uuid $runId): ?WorkerRun
     {
         return self::forUpdate($this->interactive($project)
             ->andWhere('r.id = :runId')
-            ->setParameter('runId', $runId, UuidType::NAME))
+            ->andWhere('r.state = :running')
+            ->setParameter('runId', $runId, UuidType::NAME)
+            ->setParameter('running', WorkerRunState::Running->value))
             ->getOneOrNullResult();
     }
 
-    /** @return list<WorkerRun> locked until the transaction ends, in id order so two callers cannot deadlock */
-    public function findOpenInteractiveOfCardForUpdate(Project $project, Uuid $cardId): array
+    public function findInteractiveById(Project $project, Uuid $runId): ?WorkerRun
+    {
+        return $this->interactive($project)
+            ->andWhere('r.id = :runId')
+            ->setParameter('runId', $runId, UuidType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * @param list<Uuid> $cardIds
+     *
+     * @return list<WorkerRun> locked until the transaction ends, in id order so two callers cannot deadlock
+     */
+    public function findOpenInteractiveOfCardsForUpdate(Project $project, array $cardIds): array
     {
         return array_values(self::forUpdate($this->interactive($project)
-            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.cardId IN (:cardIds)')
             ->andWhere('r.state = :running')
-            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('cardIds', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds))
             ->setParameter('running', WorkerRunState::Running->value)
             ->orderBy('r.id', 'ASC'))
             ->getResult());
@@ -273,6 +289,17 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    private function openInteractiveOfSession(Project $project, Uuid $cardId, Uuid $sessionId): QueryBuilder
+    {
+        return $this->interactive($project)
+            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.sessionId = :sessionId')
+            ->andWhere('r.state = :running')
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('running', WorkerRunState::Running->value);
     }
 
     private function interactive(Project $project): QueryBuilder

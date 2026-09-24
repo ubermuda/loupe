@@ -10,16 +10,19 @@ use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardColumns;
+use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Deletes a column. A column that holds cards moves them to the target first,
- * in bulk, with the completion rules a drag follows.
+ * in bulk, with the completion rules a drag follows, and closes their open
+ * interactive runs as any move to another column does.
  *
  * The bulk move reads and writes database rows under the project lock, so it
  * needs no CardRepository::refreshColumn(). A moved card loaded before the call
@@ -41,6 +44,7 @@ final readonly class DeleteBoardColumnHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private EventDispatcherInterface $events,
+        private InteractiveRuns $interactiveRuns,
     ) {
     }
 
@@ -83,6 +87,7 @@ final readonly class DeleteBoardColumnHandler
             if (null !== $target && [] !== $rows) {
                 $now = new \DateTimeImmutable();
                 $this->cards->moveAll($column, $target, $now);
+                $this->interactiveRuns->closeOnMove($column->project, array_map(Uuid::fromString(...), $deleted->movedCardIds));
                 if (!$target->terminal) {
                     $this->cards->renumberColumn($target, $now);
                 }

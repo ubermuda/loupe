@@ -31,7 +31,7 @@ final class InteractiveRunsTest extends KernelTestCase
         $cardId = Uuid::v7();
         $sessionId = Uuid::v4();
 
-        $run = $this->runs()->open($project, $cardId, 17, $sessionId, '  Pairing on the design  ');
+        $run = $this->runs()->open($project, $cardId, 17, $sessionId, 'Pairing on the design');
 
         $run = $this->reload($run);
         self::assertSame(WorkerRunKind::Interactive, $run->kind);
@@ -84,13 +84,21 @@ final class InteractiveRunsTest extends KernelTestCase
         $this->runs()->open($project, Uuid::v7(), 3, Uuid::v4(), '   ');
     }
 
-    public function test_a_long_name_is_cut_to_the_column(): void
+    public function test_a_name_at_the_limit_is_kept_whole(): void
+    {
+        $project = $this->scenario('interactive-limit');
+
+        $run = $this->runs()->open($project, Uuid::v7(), 3, Uuid::v4(), str_repeat('é', WorkerRun::MAX_RULE_NAME_LENGTH));
+
+        self::assertSame(str_repeat('é', WorkerRun::MAX_RULE_NAME_LENGTH), $this->reload($run)->ruleName);
+    }
+
+    public function test_a_name_over_the_limit_is_refused(): void
     {
         $project = $this->scenario('interactive-long');
 
-        $run = $this->runs()->open($project, Uuid::v7(), 3, Uuid::v4(), str_repeat('é', WorkerRun::MAX_RULE_NAME_LENGTH + 20));
-
-        self::assertSame(str_repeat('é', WorkerRun::MAX_RULE_NAME_LENGTH), $this->reload($run)->ruleName);
+        $this->expectException(\InvalidArgumentException::class);
+        $this->runs()->open($project, Uuid::v7(), 3, Uuid::v4(), str_repeat('é', WorkerRun::MAX_RULE_NAME_LENGTH + 1));
     }
 
     public function test_close_ends_the_run_and_appends_closed(): void
@@ -122,6 +130,34 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertNotNull($again);
         self::assertSame(WorkerRunState::Closed, $this->reload($again)->state);
         self::assertSame([['running', self::NOW], ['closed', self::NOW]], $this->history($again));
+    }
+
+    /** The entity manager still holds the run as running, so only the database says it is closed. */
+    public function test_a_close_of_a_run_closed_elsewhere_appends_no_second_closed(): void
+    {
+        $project = $this->scenario('interactive-close-stale');
+        $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $run = $this->runs()->open($project, $cardId, 3, $sessionId, 'design');
+        $this->closeBehindTheEntityManager($run);
+
+        $closed = $this->runs()->close($project, $cardId, $sessionId);
+
+        self::assertSame($run, $closed);
+        self::assertSame([['running', self::NOW], ['closed', self::NOW]], $this->history($run));
+    }
+
+    public function test_a_close_by_id_of_a_run_closed_elsewhere_appends_no_second_closed(): void
+    {
+        $project = $this->scenario('interactive-close-by-id-stale');
+        $run = $this->runs()->open($project, Uuid::v7(), 3, Uuid::v4(), 'design');
+        $runId = $run->id ?? throw new \LogicException('An opened run has an id.');
+        $this->closeBehindTheEntityManager($run);
+
+        $closed = $this->runs()->closeById($project, $runId);
+
+        self::assertSame($run, $closed);
+        self::assertSame([['running', self::NOW], ['closed', self::NOW]], $this->history($run));
     }
 
     public function test_close_with_no_run_answers_null(): void
@@ -159,13 +195,29 @@ final class InteractiveRunsTest extends KernelTestCase
         $otherCard = $this->runs()->open($project, Uuid::v7(), 4, Uuid::v4(), 'design');
         $worker = $this->seedRun($this->em(), $project, cardId: $cardId, state: WorkerRunState::Running, runKey: Uuid::v7());
 
-        $this->runs()->closeOnMove($project, $cardId);
+        $this->runs()->closeOnMove($project, [$cardId]);
 
         foreach ([$first, $second] as $run) {
             self::assertSame([['running', self::NOW], ['closed', self::NOW]], $this->history($run));
         }
         self::assertSame(WorkerRunState::Running, $this->reload($otherCard)->state);
         self::assertSame(WorkerRunState::Running, $this->reload($worker)->state);
+    }
+
+    public function test_a_move_of_several_cards_closes_the_runs_of_each(): void
+    {
+        $project = $this->scenario('interactive-move-many');
+        $firstCard = Uuid::v7();
+        $secondCard = Uuid::v7();
+        $first = $this->runs()->open($project, $firstCard, 3, Uuid::v4(), 'design');
+        $second = $this->runs()->open($project, $secondCard, 4, Uuid::v4(), 'design');
+        $untouched = $this->runs()->open($project, Uuid::v7(), 5, Uuid::v4(), 'design');
+
+        $this->runs()->closeOnMove($project, [$firstCard, $secondCard]);
+
+        self::assertSame(WorkerRunState::Closed, $this->reload($first)->state);
+        self::assertSame(WorkerRunState::Closed, $this->reload($second)->state);
+        self::assertSame(WorkerRunState::Running, $this->reload($untouched)->state);
     }
 
     public function test_has_open_run_reads_only_open_interactive_runs_of_the_card(): void
@@ -205,6 +257,17 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertInstanceOf(WorkerRunChangedPublisher::class, $publisher);
 
         return new InteractiveRuns($workerRuns, $this->searchIndexer(), $this->em(), $clock, $publisher);
+    }
+
+    private function closeBehindTheEntityManager(WorkerRun $run): void
+    {
+        $connection = $this->em()->getConnection();
+        $connection->executeStatement("UPDATE bridge_worker_runs SET state = 'closed', ended_at = :at WHERE id = :id", ['at' => self::NOW, 'id' => (string) $run->id]);
+        $connection->executeStatement(
+            "INSERT INTO bridge_worker_run_states (id, run_id, state, at, received_at) VALUES (:changeId, :id, 'closed', :at, :at)",
+            ['changeId' => Uuid::v7()->toRfc4122(), 'id' => (string) $run->id, 'at' => self::NOW],
+        );
+        self::assertSame(WorkerRunState::Running, $run->state, 'the entity manager must still hold the stale copy');
     }
 
     private function reload(WorkerRun $run): WorkerRun

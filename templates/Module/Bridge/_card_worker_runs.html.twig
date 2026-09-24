@@ -15,7 +15,7 @@
         <span class="lp-status-chip lp-status-chip--{{ item.state.chipModifier() }}">{{ item.state.translationKey()|trans }}</span>
         <twig:ux:icon name="lucide:chevron-right" class="lp-card-run__chevron" />
     </a>
-    {% if item.closable %}
+    {% if item.closable and is_granted('project.manage', project) %}
     <form method="post" action="{{ path('app_project_worker_run_close', {id: project.id, runId: item.run.id}) }}" data-turbo-frame="card-worker-runs" data-card-run-close>
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('worker-run-close') }}">
         <button type="submit" class="lp-btn lp-btn--icon" title="{{ 'bridge.worker_runs.close_session'|trans }}" aria-label="{{ 'bridge.worker_runs.close_session'|trans }}"><twig:ux:icon name="lucide:x" class="size-4" /></button>

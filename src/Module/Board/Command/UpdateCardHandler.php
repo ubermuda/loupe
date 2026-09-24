@@ -46,7 +46,7 @@ final readonly class UpdateCardHandler
     ) {
     }
 
-    public function __invoke(UpdateCardCommand $command): Card
+    public function __invoke(UpdateCardCommand $command): UpdateCardView
     {
         $card = $command->card;
 
@@ -106,10 +106,11 @@ final readonly class UpdateCardHandler
             // Close first, so the run this update opens is not the one closed.
             $cardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
             if ($column !== $card->column) {
-                $this->interactiveRuns->closeOnMove($card->project, $cardId);
+                $this->interactiveRuns->closeOnMove($card->project, [$cardId]);
             }
+            $openedRun = null;
             if (null !== $command->openInteractiveRun) {
-                $this->interactiveRuns->open($card->project, $cardId, $card->number, $command->openInteractiveRun->sessionId, $command->openInteractiveRun->name);
+                $openedRun = $this->interactiveRuns->open($card->project, $cardId, $card->number, $command->openInteractiveRun->sessionId, $command->openInteractiveRun->name);
             }
 
             // A rank is a move of its own: a card dropped elsewhere in the
@@ -161,7 +162,7 @@ final readonly class UpdateCardHandler
                 $this->events->dispatch(new CardMoved($card, $move, $command->actor));
             }
 
-            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged);
+            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $openedRun);
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
@@ -192,8 +193,9 @@ final readonly class UpdateCardHandler
             || null !== $command->documentIds
             || null !== $command->relatedCards;
 
+        $view = new UpdateCardView($card, $outcome->openedRun);
         if (!$changedSomething) {
-            return $card;
+            return $view;
         }
 
         // `moved` names the paired board.card_moved record, which holds the
@@ -216,6 +218,6 @@ final readonly class UpdateCardHandler
             new AuditSubject('card', (string) $card->id),
         );
 
-        return $card;
+        return $view;
     }
 }

@@ -37,9 +37,8 @@ final readonly class InteractiveRuns
     /** The open run of the session on the card, or a new one. */
     public function open(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name): WorkerRun
     {
-        $name = mb_substr(trim($name), 0, WorkerRun::MAX_RULE_NAME_LENGTH);
-        if ('' === $name) {
-            throw new \InvalidArgumentException('An interactive run needs a name.');
+        if ('' === trim($name) || mb_strlen($name) > WorkerRun::MAX_RULE_NAME_LENGTH) {
+            throw new \InvalidArgumentException(\sprintf('An interactive run needs a name of 1 to %d characters.', WorkerRun::MAX_RULE_NAME_LENGTH));
         }
 
         /** @var array{WorkerRun, bool} $outcome */
@@ -85,25 +84,37 @@ final readonly class InteractiveRuns
     /** Null when the session has no run on the card. A closed run comes back unchanged. */
     public function close(Project $project, Uuid $cardId, Uuid $sessionId): ?WorkerRun
     {
-        return $this->closeLocked(fn (): ?WorkerRun => $this->workerRuns->findLatestInteractiveForUpdate($project, $cardId, $sessionId));
+        return $this->closeLocked(
+            fn (): ?WorkerRun => $this->workerRuns->findOpenInteractiveForUpdate($project, $cardId, $sessionId),
+            fn (): ?WorkerRun => $this->workerRuns->findLatestInteractive($project, $cardId, $sessionId),
+        );
     }
 
     /** Null when the id names no interactive run of the project. */
     public function closeById(Project $project, Uuid $runId): ?WorkerRun
     {
-        return $this->closeLocked(fn (): ?WorkerRun => $this->workerRuns->findInteractiveByIdForUpdate($project, $runId));
+        return $this->closeLocked(
+            fn (): ?WorkerRun => $this->workerRuns->findOpenInteractiveByIdForUpdate($project, $runId),
+            fn (): ?WorkerRun => $this->workerRuns->findInteractiveById($project, $runId),
+        );
     }
 
     /**
      * A card that moves leaves its sessions behind. Inside a caller's
      * transaction, a rollback still leaves the reload signal queued, and the
      * page then reloads to what it already shows.
+     *
+     * @param list<Uuid> $cardIds
      */
-    public function closeOnMove(Project $project, Uuid $cardId): void
+    public function closeOnMove(Project $project, array $cardIds): void
     {
+        if ([] === $cardIds) {
+            return;
+        }
+
         /** @var list<WorkerRun> $closed */
-        $closed = $this->em->wrapInTransaction(function () use ($project, $cardId): array {
-            $runs = $this->workerRuns->findOpenInteractiveOfCardForUpdate($project, $cardId);
+        $closed = $this->em->wrapInTransaction(function () use ($project, $cardIds): array {
+            $runs = $this->workerRuns->findOpenInteractiveOfCardsForUpdate($project, $cardIds);
             $at = $this->clock->now();
             foreach ($runs as $run) {
                 $this->closeRun($run, $at);
@@ -123,14 +134,20 @@ final readonly class InteractiveRuns
         return $this->workerRuns->hasOpenInteractive($project, $cardId);
     }
 
-    /** @param \Closure(): ?WorkerRun $find a locked read */
-    private function closeLocked(\Closure $find): ?WorkerRun
+    /**
+     * Doctrine does not refresh a run it already manages, so the locked read
+     * filters on the running state, which Postgres checks again under the lock.
+     *
+     * @param \Closure(): ?WorkerRun $findOpenLocked
+     * @param \Closure(): ?WorkerRun $findAny
+     */
+    private function closeLocked(\Closure $findOpenLocked, \Closure $findAny): ?WorkerRun
     {
         /** @var array{?WorkerRun, bool} $outcome */
-        $outcome = $this->em->wrapInTransaction(function () use ($find): array {
-            $run = $find();
-            if (null === $run || WorkerRunState::Running !== $run->state) {
-                return [$run, false];
+        $outcome = $this->em->wrapInTransaction(function () use ($findOpenLocked, $findAny): array {
+            $run = $findOpenLocked();
+            if (null === $run) {
+                return [$findAny(), false];
             }
 
             $this->closeRun($run, $this->clock->now());

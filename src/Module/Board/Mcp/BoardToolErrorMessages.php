@@ -44,7 +44,6 @@ final readonly class BoardToolErrorMessages
             'board.card.error.column_gone' => 'That column no longer exists on this board. Name another column.',
             'board.card.error.run_name_blank' => 'Pass the name of the skill that runs the session, such as loupe:product-design.',
             'board.card.error.run_name_too_long' => \sprintf('A run name must be at most %d characters.', WorkerRun::MAX_RULE_NAME_LENGTH),
-            'board.card.error.run_closed_by_move' => 'A move of the card closed the run right after it opened. Call card_get to read the card.',
             'board.card.error.search_query_blank' => 'Pass a query to search for. To read the whole board instead, call card_list.',
             default => self::UNMAPPED,
         };
