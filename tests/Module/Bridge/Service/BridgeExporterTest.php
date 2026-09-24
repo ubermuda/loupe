@@ -20,6 +20,8 @@ final class BridgeExporterTest extends TestCase
         $id = Uuid::v4();
         $projectId = (string) Uuid::v7();
         $bridge = new Bridge($owner, $id, [$projectId], 'b4e39aa7 (dirty)', new \DateTimeImmutable('2026-09-14T16:00:00+00:00'));
+        $hook = ['package' => 'github:acme/loupe-hooks', 'ref' => 'v1.2.0', 'event' => 'start', 'lastRunAt' => null, 'outcome' => 'never', 'error' => null];
+        $bridge->hooks = [$hook];
 
         $rows = iterator_to_array(new BridgeExporter($this->repositoryReturning($bridge))->export($owner));
 
@@ -28,6 +30,7 @@ final class BridgeExporterTest extends TestCase
             'projects' => [$projectId],
             'cliVersion' => 'b4e39aa7 (dirty)',
             'lastSeenAt' => '2026-09-14T16:00:00+00:00',
+            'hooks' => [$hook],
         ]], $rows);
     }
 

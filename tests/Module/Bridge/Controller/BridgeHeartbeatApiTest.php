@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Controller\Api\BridgeHookInput;
 use App\Module\Bridge\Controller\Api\RecordBridgeHeartbeatRequest;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeRepository;
@@ -145,9 +146,80 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         self::assertSame([], $this->bridge($owner, $bridgeId)->projects);
     }
 
+    public function test_the_hook_report_is_stored_with_each_time_in_one_format(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-hooks@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'hooks' => [
+            self::hook(),
+            self::hook(['event' => 'stop', 'lastRunAt' => null, 'outcome' => 'never']),
+            self::hook(['event' => 'busy', 'lastRunAt' => '2026-09-14T18:00:00+02:00', 'outcome' => 'timeout', 'error' => '  ']),
+            self::hook(['event' => 'idle', 'outcome' => 'failed', 'error' => 'exit 1']),
+        ]]);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame([
+            ['package' => 'github:acme/loupe-hooks', 'ref' => 'v1.2.0', 'event' => 'start', 'lastRunAt' => '2026-09-14T16:00:00+00:00', 'outcome' => 'ok', 'error' => null],
+            ['package' => 'github:acme/loupe-hooks', 'ref' => 'v1.2.0', 'event' => 'stop', 'lastRunAt' => null, 'outcome' => 'never', 'error' => null],
+            ['package' => 'github:acme/loupe-hooks', 'ref' => 'v1.2.0', 'event' => 'busy', 'lastRunAt' => '2026-09-14T18:00:00+02:00', 'outcome' => 'timeout', 'error' => null],
+            ['package' => 'github:acme/loupe-hooks', 'ref' => 'v1.2.0', 'event' => 'idle', 'lastRunAt' => '2026-09-14T16:00:00+00:00', 'outcome' => 'failed', 'error' => 'exit 1'],
+        ], $this->bridge($owner, $bridgeId)->hooks);
+    }
+
+    /** A bridge from before hooks sends no report, so its heartbeat leaves the stored rows alone. */
+    public function test_a_heartbeat_without_hooks_keeps_the_stored_report(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-hooks-absent@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'hooks' => [self::hook()]]);
+        self::assertResponseStatusCodeSame(204);
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertCount(1, $this->bridge($owner, $bridgeId)->hooks);
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     *
+     * @return array<string, mixed>
+     */
+    private static function hook(array $overrides = []): array
+    {
+        return array_merge([
+            'package' => 'github:acme/loupe-hooks',
+            'ref' => 'v1.2.0',
+            'event' => 'start',
+            'lastRunAt' => '2026-09-14T16:00:00.000Z',
+            'outcome' => 'ok',
+            'error' => null,
+        ], $overrides);
+    }
+
     /** @return iterable<string, array{array<string, mixed>}> */
     public static function invalidPayloads(): iterable
     {
+        yield 'hooks that are not a list' => [['hooks' => 'loupe']];
+        yield 'hooks keyed by name' => [['hooks' => ['start' => self::hook()]]];
+        yield 'a hook that is not an object' => [['hooks' => ['loupe']]];
+        yield 'too many hooks' => [['hooks' => array_fill(0, RecordBridgeHeartbeatRequest::MAX_HOOKS + 1, self::hook())]];
+        yield 'a hook with no package' => [['hooks' => [self::hook(['package' => null])]]];
+        yield 'a hook package that is too long' => [['hooks' => [self::hook(['package' => str_repeat('a', BridgeHookInput::MAX_PACKAGE_LENGTH + 1)])]]];
+        yield 'a hook with a blank ref' => [['hooks' => [self::hook(['ref' => ' '])]]];
+        yield 'a hook ref that is too long' => [['hooks' => [self::hook(['ref' => str_repeat('a', BridgeHookInput::MAX_REF_LENGTH + 1)])]]];
+        yield 'an unknown hook event' => [['hooks' => [self::hook(['event' => 'deploy'])]]];
+        yield 'an unknown hook outcome' => [['hooks' => [self::hook(['outcome' => 'crashed'])]]];
+        yield 'a hook with no outcome' => [['hooks' => [self::hook(['outcome' => null])]]];
+        yield 'a hook run time that is not a date' => [['hooks' => [self::hook(['lastRunAt' => 'yesterday-ish'])]]];
+        yield 'a hook error that is too long' => [['hooks' => [self::hook(['error' => str_repeat('a', BridgeHookInput::MAX_ERROR_LENGTH + 1)])]]];
         yield 'no projects' => [['projects' => null]];
         yield 'projects that are not a list' => [['projects' => 'loupe']];
         yield 'a project that is not a uuid' => [['projects' => ['loupe']]];
