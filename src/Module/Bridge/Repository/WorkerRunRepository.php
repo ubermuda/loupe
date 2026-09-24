@@ -11,6 +11,7 @@ use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Query\Expr\Join;
@@ -318,6 +319,43 @@ class WorkerRunRepository extends ServiceEntityRepository
             static fn (Uuid|string $row): Uuid => $row instanceof Uuid ? $row : Uuid::fromString($row),
             $rows,
         );
+    }
+
+    /**
+     * For each card of the project, its latest outcome, kept only when that
+     * outcome is gave-up or blocked. The pick comes before the filter, so a later
+     * success clears the warning. An open run is no outcome and changes nothing.
+     *
+     * @return list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}>
+     */
+    public function findWarningRowsOfProject(Project $project): array
+    {
+        $outcomes = array_values(array_map(
+            static fn (WorkerRunState $state): string => $state->value,
+            array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome()),
+        ));
+
+        /** @var list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->executeQuery(
+            <<<'SQL'
+                SELECT latest.id, latest.card_id, latest.state, latest.output, latest.card_column
+                FROM (
+                    SELECT DISTINCT ON (card_id) id, card_id, state, output, card_column
+                    FROM bridge_worker_runs
+                    WHERE project_id = :project AND state IN (:outcomes)
+                    ORDER BY card_id, received_at DESC, id DESC
+                ) latest
+                WHERE latest.state IN (:warnings)
+                SQL,
+            [
+                'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
+                'outcomes' => $outcomes,
+                'warnings' => [WorkerRunState::GaveUp->value, WorkerRunState::Blocked->value],
+            ],
+            ['outcomes' => ArrayParameterType::STRING, 'warnings' => ArrayParameterType::STRING],
+        )->fetchAllAssociative();
+
+        return $rows;
     }
 
     /**

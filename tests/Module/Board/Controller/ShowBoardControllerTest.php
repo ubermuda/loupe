@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
+use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
@@ -15,6 +18,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Profiler\Profile;
+use Symfony\Component\Uid\Uuid;
 
 final class ShowBoardControllerTest extends WebTestCase
 {
@@ -280,6 +284,86 @@ final class ShowBoardControllerTest extends WebTestCase
         // The links ride along on the board's own query. Drop the fetch-join in
         // CardRepository and each card on the page loads its own.
         self::assertSame(0, $lazyLinkReads);
+    }
+
+    /** The warning holds while the card stays in the column that started the run, or when the run names none. */
+    public function test_a_card_shows_the_run_that_gave_up_until_it_leaves_the_column(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-run-warning@example.com');
+        $project = $this->project($em, $owner, 'warned');
+        $stays = $this->card($em, $project, 'Stays', 'in-progress');
+        $moved = $this->card($em, $project, 'Moved', 'next');
+        $unnamed = $this->card($em, $project, 'Unnamed', 'backlog');
+        $quiet = $this->card($em, $project, 'Quiet', 'backlog');
+        $gaveUp = $this->workerRun($em, $project, $stays, WorkerRunState::GaveUp, 'in-progress', 'Tests <em>still</em> fail.');
+        $this->workerRun($em, $project, $moved, WorkerRunState::GaveUp, 'in-progress', 'Moved away.');
+        $blocked = $this->workerRun($em, $project, $unnamed, WorkerRunState::Blocked, null, 'Needs a token.');
+        $this->workerRun($em, $project, $quiet, WorkerRunState::Succeeded, 'backlog', 'Done.');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        $warning = $crawler->filter('[data-card-id="'.$stays->id.'"] [data-card-run-warning]');
+        self::assertCount(1, $warning);
+        self::assertSame((string) $gaveUp->id, $warning->attr('data-card-run-warning'));
+        self::assertStringContainsString('search='.$gaveUp->id, (string) $warning->attr('href'));
+        self::assertStringContainsString('Gave up', $warning->text());
+        self::assertStringContainsString('Tests <em>still</em> fail.', $warning->text());
+        self::assertStringContainsString('Tests &lt;em&gt;still&lt;/em&gt; fail.', (string) $client->getResponse()->getContent());
+
+        self::assertSame((string) $blocked->id, $crawler->filter('[data-card-id="'.$unnamed->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
+        self::assertCount(0, $crawler->filter('[data-card-id="'.$moved->id.'"] [data-card-run-warning]'));
+        self::assertCount(0, $crawler->filter('[data-card-id="'.$quiet->id.'"] [data-card-run-warning]'));
+    }
+
+    /** A run that changes state reloads the board, so the page listens on the worker-run topic too. */
+    public function test_the_board_subscribes_to_its_board_and_worker_run_topics(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-topics@example.com');
+        $project = $this->project($em, $owner, 'topics');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        $projectId = $project->id ?? throw new \LogicException('Project has no id.');
+        $subscribed = $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value'));
+        self::assertContains($topics->forBoard($projectId), $subscribed);
+        self::assertContains($topics->forWorkerRuns($projectId), $subscribed);
+    }
+
+    private function workerRun(EntityManagerInterface $em, Project $project, Card $card, WorkerRunState $state, ?string $column, string $output): WorkerRun
+    {
+        $run = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v7(),
+            cardId: $card->id ?? throw new \LogicException('Card has no id.'),
+            cardNumber: $card->number,
+            ruleName: 'implement',
+            state: $state,
+            runKey: Uuid::v7(),
+            endedAt: new \DateTimeImmutable(),
+            exitCode: 0,
+            hasResult: true,
+            output: $output,
+            cardColumn: $column,
+        );
+        $em->persist($run);
+        $em->flush();
+
+        return $run;
     }
 
     private function linkedCard(EntityManagerInterface $em, Project $project, string $title): Card

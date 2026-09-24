@@ -2,8 +2,8 @@ import { Controller } from '@hotwired/stimulus';
 import { subscribe } from '../lib/mercure.js';
 
 /**
- * Reloads the board frame when the Mercure hub reports a column change, and
- * after each reconnect for any change it missed.
+ * Reloads the board frame when the Mercure hub reports a column change or a
+ * worker run change, and after each reconnect for any change it missed.
  */
 export default class extends Controller {
     static targets = ['frame'];
@@ -12,7 +12,7 @@ export default class extends Controller {
     connect() {
         this.hasOpened = false;
         this.unsubscribe = subscribe(
-            'board.columns_changed',
+            ['board.columns_changed', 'worker_run.changed'],
             () => this.reload(),
             {
                 onOpen: () => {
