@@ -566,3 +566,39 @@ func TestPruneVersionsKeepsTheCurrentAndThePrevious(t *testing.T) {
 		t.Fatalf("update.json = %+v", got)
 	}
 }
+
+// A version string with a v prefix still keeps its directory.
+func TestPruneVersionsReadsAVPrefix(t *testing.T) {
+	dir := t.TempDir()
+	versionDir(t, dir, "1.2.0")
+
+	if err := pruneVersions(dir, "v1.2.0"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "versions", "1.2.0")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A resumed image that stops before its health has adopted the state, so the
+// file must not reach the next start, which would run its queue again.
+func TestAResumedBridgeThatStopsBeforeItsHealthRemovesTheFile(t *testing.T) {
+	injectVersion(t, "1.2.0")
+	fake, rulesPath := resumeHome(t)
+	fake.heartbeatStatus = http.StatusInternalServerError
+	captureExecFn(t)
+	file := handedBridge(t, rulesPath, handoverState{OldVersion: "1.0.0", OldBinary: filepath.Join(t.TempDir(), "loupe")})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done, out := runCommand(ctx, "--rules", rulesPath, "--resume-handover", file, "--log-file", filepath.Join(t.TempDir(), "bridge.log"))
+	eventually(t, "the connection", func() bool { return logged(out, "connected") })
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(file); !os.IsNotExist(err) {
+		t.Fatalf("the handover file is still there: %v", err)
+	}
+}

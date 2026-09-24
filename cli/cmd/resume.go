@@ -237,9 +237,7 @@ func (b *bridgeUpdate) watchHealth(ctx context.Context, r *router, updates *upda
 // healthy ends a handover that worked. A forward update installs its binary,
 // and a rollback reports the version it left.
 func (b *bridgeUpdate) healthy(updates *updater) {
-	if err := os.Remove(b.resumeFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		b.log.Warn("update_cleanup_failed", "file", b.resumeFile, "error", err.Error())
-	}
+	b.dropResumeFile()
 	if b.rolledBackFrom != "" {
 		b.log.Warn("update_rolled_back", "from", b.rolledBackFrom, "to", version, "reason", "health")
 		if updates != nil {
@@ -254,6 +252,17 @@ func (b *bridgeUpdate) healthy(updates *updater) {
 		updates.setState(updateCurrent, "")
 	}
 	b.install(old)
+}
+
+// dropResumeFile removes the handover file once the router adopted it, so the
+// next start does not adopt it again.
+func (b *bridgeUpdate) dropResumeFile() {
+	if !b.adopted.Load() {
+		return
+	}
+	if err := os.Remove(b.resumeFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		b.log.Warn("update_cleanup_failed", "file", b.resumeFile, "error", err.Error())
+	}
 }
 
 // install copies the running binary over the installed one, and keeps the
@@ -291,6 +300,7 @@ func (b *bridgeUpdate) unhealthy(ctx context.Context, r *router, timeout time.Du
 	b.log.Error("update_unhealthy", "from", b.resumed.OldVersion, "to", version, "timeout_seconds", int(timeout/time.Second))
 	if b.rolledBackFrom != "" || b.resumed.OldBinary == "" {
 		b.log.Error("update_rollback_skipped", "message", "The bridge keeps running on this version.")
+		b.dropResumeFile()
 
 		return
 	}

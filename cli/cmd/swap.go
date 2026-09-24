@@ -106,6 +106,11 @@ func pruneVersions(dir string, keep ...string) error {
 	if err != nil {
 		return err
 	}
+	for i, v := range keep {
+		if parsed, ok := update.ParseVersion(v); ok {
+			keep[i] = parsed.String()
+		}
+	}
 	var errs []error
 	for _, e := range entries {
 		if !slices.Contains(keep, e.Name()) {

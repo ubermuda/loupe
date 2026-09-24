@@ -161,6 +161,7 @@ func startBridge(cmd *cobra.Command, o bridgeRunOptions) error {
 	if err != nil {
 		b.rollbackAtStart(err)
 	}
+	b.dropResumeFile()
 	control.Close()
 	b.close()
 	b.lock.Close()
