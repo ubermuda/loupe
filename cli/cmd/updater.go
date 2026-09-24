@@ -21,6 +21,8 @@ const (
 	updateJitter   = 10 * time.Minute
 	// updateTimeout bounds one GitHub request, a download included.
 	updateTimeout = 10 * time.Minute
+	// checkWait bounds the wait of a forced check for the check in flight.
+	checkWait = 2 * time.Minute
 )
 
 // Update states, as the heartbeat reports them.
@@ -32,6 +34,46 @@ const (
 	updateDev        = "dev"
 	updateRolledBack = "rolled-back"
 )
+
+// The outcomes of a forced check that the heartbeat states do not name.
+const (
+	outcomeHandingOver = "handing-over"
+	outcomeDeferred    = "deferred"
+	outcomeRejected    = "rejected"
+	outcomeFailed      = "failed"
+)
+
+// updateResult is the answer to a forced check. An older bridge that knows no
+// update answers with Problems instead.
+type updateResult struct {
+	OK       bool     `json:"ok"`
+	From     string   `json:"from,omitempty"`
+	To       string   `json:"to,omitempty"`
+	Outcome  string   `json:"outcome,omitempty"`
+	Problem  string   `json:"problem,omitempty"`
+	Problems []string `json:"problems,omitempty"`
+}
+
+func (u *updater) result(outcome, to, problem string) updateResult {
+	return updateResult{
+		OK:   outcome != outcomeFailed && outcome != outcomeRejected,
+		From: u.version, To: to, Outcome: outcome, Problem: problem,
+	}
+}
+
+type announceKey struct{}
+
+// withAnnounce gives the handover of a forced check a way to answer before the
+// exec ends the connection.
+func withAnnounce(ctx context.Context, announce func(to string)) context.Context {
+	return context.WithValue(ctx, announceKey{}, announce)
+}
+
+func announceHandover(ctx context.Context, to string) {
+	if announce, ok := ctx.Value(announceKey{}).(func(string)); ok && announce != nil {
+		announce(to)
+	}
+}
 
 // stagedOutcome is how a handover that returned ended. A handover that
 // succeeds never returns, because the process runs the new binary.
@@ -65,6 +107,9 @@ type updater struct {
 	executable func() (string, error)
 	after      func(time.Duration) <-chan time.Time
 	jitter     func() time.Duration
+	checkWait  time.Duration
+	// token is held by the check that runs, so two checks never overlap.
+	token chan struct{}
 
 	mu       sync.Mutex
 	cliRange string
@@ -72,12 +117,12 @@ type updater struct {
 	// rolledBack names the version this run rolled back from. The state keeps
 	// saying so, where it would otherwise say current.
 	rolledBack string
-	kick     chan struct{}
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
+	kick       chan struct{}
+	cancel     context.CancelFunc
+	wg         sync.WaitGroup
 
-	// logged holds each once-only line already written. Only the check
-	// goroutine reads or writes it.
+	// logged holds each once-only line already written. Only the holder of
+	// token reads or writes it.
 	logged map[string]bool
 }
 
@@ -97,6 +142,8 @@ func newUpdater(log *slog.Logger, version, dir string, autoUpdate func() bool, o
 		executable: os.Executable,
 		after:      time.After,
 		jitter:     func() time.Duration { return rand.N(updateJitter) },
+		checkWait:  checkWait,
+		token:      make(chan struct{}, 1),
 		kick:       make(chan struct{}, 1),
 		logged:     map[string]bool{},
 	}
@@ -186,7 +233,7 @@ func (u *updater) loop(ctx context.Context) {
 		return
 	}
 
-	u.check(ctx)
+	u.checkInTurn(ctx)
 	for {
 		select {
 		case <-ctx.Done():
@@ -194,8 +241,43 @@ func (u *updater) loop(ctx context.Context) {
 		case <-u.kick:
 		case <-u.after(updateInterval + u.jitter()):
 		}
-		u.check(ctx)
+		u.checkInTurn(ctx)
 	}
+}
+
+// checkInTurn runs one check once no forced check runs.
+func (u *updater) checkInTurn(ctx context.Context) {
+	select {
+	case u.token <- struct{}{}:
+	case <-ctx.Done():
+		return
+	}
+	defer func() { <-u.token }()
+	u.check(ctx)
+}
+
+// checkNow runs a check that ignores the skip list and the autoUpdate key. It
+// waits a bounded time for the check in flight. announce runs just before the
+// handover execs, which ends the process.
+func (u *updater) checkNow(ctx context.Context, announce func(to string)) updateResult {
+	u.mu.Lock()
+	started := u.cancel != nil
+	u.mu.Unlock()
+	if !started {
+		return u.result(outcomeDeferred, "", "the bridge has not started its update checks yet")
+	}
+	wait := time.NewTimer(u.checkWait)
+	defer wait.Stop()
+	select {
+	case u.token <- struct{}{}:
+	case <-wait.C:
+		return u.result(outcomeDeferred, "", "another update check is still running")
+	case <-ctx.Done():
+		return u.result(outcomeFailed, "", "the bridge is shutting down")
+	}
+	defer func() { <-u.token }()
+
+	return u.run(withAnnounce(ctx, announce), true)
 }
 
 // once reports whether key is new, and remembers it.
@@ -210,11 +292,20 @@ func (u *updater) once(key string) bool {
 
 // check runs one update check.
 func (u *updater) check(ctx context.Context) {
+	u.run(ctx, false)
+}
+
+// run runs one update check. A forced one ignores the skip list and the
+// autoUpdate key.
+func (u *updater) run(ctx context.Context, force bool) updateResult {
 	u.mu.Lock()
 	cliRange := u.cliRange
 	u.mu.Unlock()
-	if u.version == "" || cliRange == "" {
-		return
+	if u.version == "" {
+		return u.result(updateDev, "", "the bridge runs a development build")
+	}
+	if cliRange == "" {
+		return u.result(outcomeFailed, "", "the server has not sent the CLI range yet")
 	}
 	u.log.Info("update_check", "from", u.version, "range", cliRange)
 
@@ -227,27 +318,34 @@ func (u *updater) check(ctx context.Context) {
 	if err != nil {
 		u.failed(ctx, err, "")
 
-		return
+		return u.result(outcomeFailed, "", err.Error())
 	}
-	c, found := update.Pick(releases, cliRange, u.goos, u.goarch, st.SkipSet())
+	skip := st.SkipSet()
+	if force {
+		skip = nil
+	}
+	c, found := update.Pick(releases, cliRange, u.goos, u.goarch, skip)
 	if !found || !update.ShouldInstall(u.version, c.Version, cliRange) {
 		if update.Satisfies(u.version, cliRange) {
 			u.setState(updateCurrent, "")
-		} else if u.once("unavailable|" + cliRange + "|" + u.version) {
-			u.log.Warn("update_unavailable", "from", u.version, "range", cliRange,
-				"message", "The running version is outside the range this Loupe supports, and no release inside it can be installed.")
+
+			return u.result(updateCurrent, "", "")
+		}
+		msg := "The running version is outside the range this Loupe supports, and no release inside it can be installed."
+		if u.once("unavailable|" + cliRange + "|" + u.version) {
+			u.log.Warn("update_unavailable", "from", u.version, "range", cliRange, "message", msg)
 		}
 
-		return
+		return u.result(outcomeFailed, "", msg)
 	}
 	to := c.Version.String()
-	if !u.autoUpdate() {
+	if !force && !u.autoUpdate() {
 		if u.once("available|" + to) {
 			u.log.Info("update_available", "from", u.version, "to", to)
 		}
 		u.setState(updateOff, to)
 
-		return
+		return u.result(updateOff, to, "")
 	}
 	if err := u.writable(); err != nil {
 		if u.once("blocked|" + to) {
@@ -255,12 +353,16 @@ func (u *updater) check(ctx context.Context) {
 		}
 		u.setState(updateBlocked, to)
 
-		return
+		return u.result(updateBlocked, to, err.Error())
 	}
 
-	path, ok := u.stage(ctx, st, c)
-	if !ok {
-		return
+	path, err := u.stage(ctx, st, c)
+	if err != nil {
+		if errors.As(err, new(rejectedError)) {
+			return u.result(outcomeRejected, to, err.Error())
+		}
+
+		return u.result(outcomeFailed, to, err.Error())
 	}
 	prev := u.state()
 	u.setState(updateUpdating, to)
@@ -269,22 +371,28 @@ func (u *updater) check(ctx context.Context) {
 		u.current = prev
 		u.mu.Unlock()
 
-		return
+		return u.result(outcomeDeferred, to, "the bridge deferred the handover, and its log names the reason")
 	}
 	if err := skipVersion(u.dir, to); err != nil {
 		u.log.Warn("update_skip_failed", "version", to, "error", err.Error())
 	}
 	u.markRolledBack(to)
+
+	return u.result(outcomeRejected, to, "the new version failed its handover and is now on the skip list; the bridge log names the reason")
 }
 
+// rejectedError is a downloaded archive that failed its checks.
+type rejectedError struct{ error }
+
 // stage downloads, verifies and writes the binary of c, unless an earlier
-// check already staged it.
-func (u *updater) stage(ctx context.Context, st *update.State, c update.Candidate) (string, bool) {
+// check already staged it. An archive that fails its checks gives a
+// rejectedError.
+func (u *updater) stage(ctx context.Context, st *update.State, c update.Candidate) (string, error) {
 	to := c.Version.String()
 	path := update.StagePath(u.dir, to)
 	if st.Staged[to] == path {
 		if _, err := os.Stat(path); err == nil {
-			return path, true
+			return path, nil
 		}
 	}
 
@@ -293,37 +401,37 @@ func (u *updater) stage(ctx context.Context, st *update.State, c update.Candidat
 	if err != nil {
 		u.failed(ctx, err, to)
 
-		return "", false
+		return "", err
 	}
 	checksums, err := update.Download(ctx, u.hc, c.Checksums.URL)
 	if err != nil {
 		u.failed(ctx, err, to)
 
-		return "", false
+		return "", err
 	}
 	if err := update.Verify(archive, checksums, c.Archive.Name); err != nil {
 		u.log.Warn("update_rejected", "from", u.version, "to", to, "reason", err.Error())
 
-		return "", false
+		return "", rejectedError{err}
 	}
 	u.log.Info("update_verified", "from", u.version, "to", to)
 	binary, err := update.ExtractBinary(archive, "loupe")
 	if err != nil {
 		u.log.Warn("update_rejected", "from", u.version, "to", to, "reason", err.Error())
 
-		return "", false
+		return "", rejectedError{err}
 	}
 	if err := update.WriteFile(path, binary, 0o755); err != nil {
 		u.log.Warn("update_stage_failed", "from", u.version, "to", to, "error", err.Error())
 
-		return "", false
+		return "", err
 	}
 	st.Staged[to] = path
 	if err := st.Save(u.dir); err != nil {
 		u.log.Warn("update_stage_failed", "from", u.version, "to", to, "error", err.Error())
 	}
 
-	return path, true
+	return path, nil
 }
 
 // failed logs a check that did not reach GitHub. A shutdown is not a failure.

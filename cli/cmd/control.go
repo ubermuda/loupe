@@ -224,10 +224,17 @@ func listenControl(path string) (net.Listener, error) {
 	return ln, nil
 }
 
-// serveControl answers each connection on ln with handle until ctx ends. The
+// controlOps answers the ops of the control socket. update may reply early,
+// before an exec ends the connection, and then its return value is dropped.
+type controlOps struct {
+	reload func(ctx context.Context) reloadResult
+	update func(ctx context.Context, reply func(updateResult)) updateResult
+}
+
+// serveControl answers each connection on ln with ops until ctx ends. The
 // channel closes when the listener and every connection are closed. Closing a
 // Unix listener removes its socket file.
-func serveControl(ctx context.Context, ln net.Listener, handle func(context.Context) reloadResult) <-chan struct{} {
+func serveControl(ctx context.Context, ln net.Listener, ops controlOps) <-chan struct{} {
 	done := make(chan struct{})
 	stop := context.AfterFunc(ctx, func() { ln.Close() })
 	var wg sync.WaitGroup
@@ -249,7 +256,7 @@ func serveControl(ctx context.Context, ln net.Listener, handle func(context.Cont
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				answer(ctx, conn, handle)
+				answer(ctx, conn, ops)
 			}()
 		}
 	}()
@@ -258,8 +265,8 @@ func serveControl(ctx context.Context, ln net.Listener, handle func(context.Cont
 }
 
 // answer reads one JSON line and writes one JSON line back. A connection that
-// sends no complete line gets no answer.
-func answer(ctx context.Context, conn net.Conn, handle func(context.Context) reloadResult) {
+// sends no complete line gets no answer, and a connection gets one answer only.
+func answer(ctx context.Context, conn net.Conn, ops controlOps) {
 	defer conn.Close()
 	stop := context.AfterFunc(ctx, func() { conn.Close() })
 	defer stop()
@@ -270,29 +277,36 @@ func answer(ctx context.Context, conn net.Conn, handle func(context.Context) rel
 		return
 	}
 
-	var res reloadResult
+	var once sync.Once
+	send := func(res any) {
+		once.Do(func() {
+			b, err := json.Marshal(res)
+			if err != nil {
+				return
+			}
+			conn.SetWriteDeadline(time.Now().Add(requestTimeout))
+			conn.Write(append(b, '\n'))
+			conn.Close()
+		})
+	}
 	var req struct {
 		Op string `json:"op"`
 	}
 	switch {
 	case err != nil:
-		res = refused(fmt.Sprintf("the request is longer than %d bytes", maxRequest))
+		send(refused(fmt.Sprintf("the request is longer than %d bytes", maxRequest)))
 	case json.Unmarshal([]byte(line), &req) != nil:
-		res = refused("the request is not one JSON object")
-	case req.Op != "reload":
-		res = refused(fmt.Sprintf("unknown op %q: only reload is known", req.Op))
-	default:
-		// A reload can take up to a minute, which is longer than the deadline.
+		send(refused("the request is not one JSON object"))
+	case req.Op == "reload" && ops.reload != nil:
+		// A reload or an update runs longer than the deadline.
 		conn.SetDeadline(time.Time{})
-		res = handle(ctx)
+		send(ops.reload(ctx))
+	case req.Op == "update" && ops.update != nil:
+		conn.SetDeadline(time.Time{})
+		send(ops.update(ctx, func(res updateResult) { send(res) }))
+	default:
+		send(refused(fmt.Sprintf("unknown op %q: only reload and update are known", req.Op)))
 	}
-
-	b, err := json.Marshal(res)
-	if err != nil {
-		return
-	}
-	conn.SetWriteDeadline(time.Now().Add(requestTimeout))
-	conn.Write(append(b, '\n'))
 }
 
 func refused(problem string) reloadResult {

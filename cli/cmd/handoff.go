@@ -216,7 +216,7 @@ func (b *bridgeUpdate) handover(r *router, from string) stagedHook {
 		st.OldVersion, st.OldBinary = from, b.target
 		b.log.Info("update_handover", "from", from, "to", to, "file", b.file, "live", len(st.Live), "queued", len(st.Queue))
 
-		err := b.execWith(st, staged)
+		err := b.execWith(st, staged, func() { announceHandover(ctx, to) })
 		os.Remove(b.file)
 		r.resume()
 		b.log.Error("update_rolled_back", "from", from, "to", to, "reason", "exec", "error", err.Error())
@@ -228,7 +228,8 @@ func (b *bridgeUpdate) handover(r *router, from string) stagedHook {
 // execWith writes st with the descriptors of the lock and of the control
 // socket, and execs binary with them. It returns only on a failure, and then
 // the descriptors close on an exec again, as a worker must never inherit them.
-func (b *bridgeUpdate) execWith(st handoverState, binary string, extra ...string) error {
+// A non-nil announce runs just before the exec.
+func (b *bridgeUpdate) execWith(st handoverState, binary string, announce func(), extra ...string) error {
 	lockFD, ctlFD := int(b.lock.f.Fd()), int(b.control.Fd())
 	st.LockFD, st.ControlFD, st.LockPath = lockFD, ctlFD, b.lock.path
 	if err := writeHandover(b.file, st); err != nil {
@@ -242,6 +243,9 @@ func (b *bridgeUpdate) execWith(st handoverState, binary string, extra ...string
 	argv := append([]string{binary}, handoverArgs(b.args)...)
 	argv = append(argv, "--"+resumeHandoverFlag, b.file)
 	argv = append(argv, extra...)
+	if announce != nil {
+		announce()
+	}
 	err := b.exec(binary, argv, os.Environ())
 	closeOnExec(lockFD, ctlFD)
 	if err == nil {

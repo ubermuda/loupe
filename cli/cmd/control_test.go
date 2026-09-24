@@ -54,7 +54,7 @@ func serveTest(t *testing.T, handle func(context.Context) reloadResult) (string,
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	done := serveControl(ctx, ln, handle)
+	done := serveControl(ctx, ln, controlOps{reload: handle})
 	t.Cleanup(func() {
 		cancel()
 		<-done

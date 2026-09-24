@@ -382,7 +382,18 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	// The control socket starts last, so no reload races the writes above.
 	var served <-chan struct{}
 	if r.control != nil {
-		served = serveControl(ctx, r.control, func(ctx context.Context) reloadResult { return r.reload(ctx, r.source) })
+		served = serveControl(ctx, r.control, controlOps{
+			reload: func(ctx context.Context) reloadResult { return r.reload(ctx, r.source) },
+			update: func(ctx context.Context, reply func(updateResult)) updateResult {
+				if updates == nil {
+					return updateResult{From: version, Outcome: outcomeFailed, Problem: "this bridge runs no update checks"}
+				}
+
+				return updates.checkNow(ctx, func(to string) {
+					reply(updateResult{OK: true, From: version, To: to, Outcome: outcomeHandingOver})
+				})
+			},
+		})
 		r.log.Info("control_listening", "socket", r.control.Addr().String())
 	}
 

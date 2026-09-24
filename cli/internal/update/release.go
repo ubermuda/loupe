@@ -52,6 +52,14 @@ func AssetName(version Version, goos, goarch string) string {
 // archive for this platform and a checksums file. skip holds X.Y.Z strings.
 // Tags other than vX.Y.Z belong to other parts of the repository.
 func Pick(releases []Release, rangeStr, goos, goarch string, skip map[string]bool) (Candidate, bool) {
+	return PickWhere(releases, goos, goarch, func(v Version) bool {
+		return Satisfies(v.String(), rangeStr) && !skip[v.String()]
+	})
+}
+
+// PickWhere returns the highest published CLI release that keep accepts and
+// that ships an archive for this platform and a checksums file.
+func PickWhere(releases []Release, goos, goarch string, keep func(Version) bool) (Candidate, bool) {
 	var best Candidate
 	found := false
 	for _, r := range releases {
@@ -62,7 +70,7 @@ func Pick(releases []Release, rangeStr, goos, goarch string, skip map[string]boo
 		if !ok || r.TagName != "v"+v.String() || v.Pre != "" {
 			continue
 		}
-		if !Satisfies(r.TagName, rangeStr) || skip[v.String()] {
+		if !keep(v) {
 			continue
 		}
 		archive, okArchive := findAsset(r.Assets, AssetName(v, goos, goarch))

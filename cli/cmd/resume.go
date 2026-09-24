@@ -312,7 +312,7 @@ func (b *bridgeUpdate) unhealthy(ctx context.Context, r *router, timeout time.Du
 	}
 	st := r.freeze()
 	st.OldVersion, st.OldBinary = version, b.target
-	err := b.execWith(st, b.resumed.OldBinary, "--"+rolledBackFromFlag, version)
+	err := b.execWith(st, b.resumed.OldBinary, nil, "--"+rolledBackFromFlag, version)
 	os.Remove(b.file)
 	r.resume()
 	b.log.Error("update_rollback_failed", "to", b.resumed.OldVersion, "error", err.Error())
@@ -327,7 +327,7 @@ func (b *bridgeUpdate) rollbackAtStart(cause error) {
 	b.log.Error("update_unhealthy", "from", b.resumed.OldVersion, "to", version, "error", cause.Error())
 	st := *b.resumed
 	st.OldVersion, st.OldBinary = version, b.target
-	if err := b.execWith(st, b.resumed.OldBinary, "--"+rolledBackFromFlag, version); err != nil {
+	if err := b.execWith(st, b.resumed.OldBinary, nil, "--"+rolledBackFromFlag, version); err != nil {
 		b.log.Error("update_rollback_failed", "to", b.resumed.OldVersion, "error", err.Error())
 	}
 }
