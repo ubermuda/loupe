@@ -21,6 +21,9 @@ class CreateCardFormType extends AbstractType
     #[\Override]
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        $project = $options['project'] instanceof Project ? $options['project'] : throw new \LogicException('The resolver requires a project.');
+        $card = $options['card'] instanceof Card ? $options['card'] : null;
+
         $builder
             ->add('title', TextType::class, [
                 'label' => 'board.form.create_card_form.title.label',
@@ -41,6 +44,17 @@ class CreateCardFormType extends AbstractType
             ->add('column', BoardColumnChoiceType::class, [
                 'label' => 'board.form.create_card_form.column.label',
                 'project' => $options['project'],
+            ])
+            ->add('parent', CardParentAutocompleteField::class, [
+                'required' => false,
+                'label' => 'board.form.create_card_form.parent.label',
+                'placeholder' => 'board.form.create_card_form.parent.placeholder',
+                'help' => 'board.form.create_card_form.parent.help',
+                'help_attr' => ['class' => 'lp-form-hint'],
+                'extra_options' => array_filter([
+                    'projectId' => (string) $project->id,
+                    'excludeCardId' => null === $card ? null : (string) $card->id,
+                ]),
             ])
             ->add('pullRequestUrls', TextareaType::class, [
                 'required' => false,

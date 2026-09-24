@@ -19,6 +19,8 @@ final readonly class UpdateCardOutcome
         public bool $titleChanged,
         public bool $bodyChanged,
         public bool $typeChanged,
+        public bool $parentChanged,
+        public bool $laneChanged,
     ) {
     }
 }

@@ -31,6 +31,12 @@ deleted threads. Each row carries `deletedAt`, which is the thread's deletion
 time or `null` for an active thread. Replies use their parent thread's deletion
 time. The export preserves comment text, anchors, and review status.
 
+`cards.json` holds the board cards of the projects the user owns. A card that
+belongs to an epic carries `parentCardId` and `parentNumber`, which name that
+epic. A card with no epic carries `null` in both. Each card also carries
+`laneEnabled`, which says whether the board draws an epic as a lane. Only an
+epic reads it, and every other card carries the default, `true`.
+
 The archive holds one file per kind of data. `audit_log.json` is one of them. It
 holds the audit records the user is the actor of, and the records that name the
 user as the subject. What was done to the account is the account's data too.

@@ -70,6 +70,8 @@ final class EditCardController extends AppController
                     pullRequestUrls: UpdateCardRequest::toUrlList($data->pullRequestUrls),
                     // The same replace semantics: no rows removes every link.
                     relatedCards: $data->linkInputs(),
+                    // An empty field clears the parent.
+                    parentCardId: null === $data->parent ? '' : (string) $data->parent->id,
                 ));
 
                 return $this->redirectToRoute('app_board_card', [

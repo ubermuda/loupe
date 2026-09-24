@@ -19,6 +19,9 @@ use App\Module\Board\Entity\CardType;
  * array removes them all. $relatedCards replaces every link that touches the
  * card, whichever card wrote it.
  *
+ * $parentCardId has three states: null keeps the parent, an empty string
+ * clears it, and a card id sets it.
+ *
  * $reporter is absent on purpose. It records who first raised the card.
  */
 final readonly class UpdateCardCommand
@@ -42,6 +45,8 @@ final readonly class UpdateCardCommand
         public ?array $documentIds = null,
         public ?int $position = null,
         public ?array $relatedCards = null,
+        public ?string $parentCardId = null,
+        public ?bool $laneEnabled = null,
     ) {
     }
 }

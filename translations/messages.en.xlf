@@ -4758,6 +4758,10 @@
                 <source>board.card.type.idea</source>
                 <target>Idea</target>
             </trans-unit>
+            <trans-unit id="board.card.type.epic">
+                <source>board.card.type.epic</source>
+                <target>Epic</target>
+            </trans-unit>
             <trans-unit id="board.card.reporter.reviewer">
                 <source>board.card.reporter.reviewer</source>
                 <target>Reviewer</target>
@@ -4908,6 +4912,30 @@
                 <source>board.card.error.linked_card_twice</source>
                 <target>Each card can be linked only once.</target>
             </trans-unit>
+            <trans-unit id="board.card.error.parent_unknown">
+                <source>board.card.error.parent_unknown</source>
+                <target>That epic is not in this project.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.parent_not_epic">
+                <source>board.card.error.parent_not_epic</source>
+                <target>Only an epic can be a parent. Choose an epic.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.epic_cannot_have_parent">
+                <source>board.card.error.epic_cannot_have_parent</source>
+                <target>An epic cannot have a parent. Remove the parent, or choose another type.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.parent_card_cannot_be_epic">
+                <source>board.card.error.parent_card_cannot_be_epic</source>
+                <target>A card with a parent cannot become an epic. Remove the parent first.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.epic_type_locked">
+                <source>board.card.error.epic_type_locked</source>
+                <target>This epic has child cards, so it stays an epic. Move the child cards out of the epic first.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.epic_delete_has_children">
+                <source>board.card.error.epic_delete_has_children</source>
+                <target>This epic has child cards, so it cannot be deleted. Delete the child cards, or remove them from the epic, first.</target>
+            </trans-unit>
 
             <!-- Card create and edit pages -->
             <trans-unit id="board.card.create.page.title">
@@ -5026,6 +5054,10 @@
                 <source>board.form.create_card_form.type.choice.idea</source>
                 <target>Idea</target>
             </trans-unit>
+            <trans-unit id="board.form.create_card_form.type.choice.epic">
+                <source>board.form.create_card_form.type.choice.epic</source>
+                <target>Epic</target>
+            </trans-unit>
             <trans-unit id="board.form.create_card_form.column.label">
                 <source>board.form.create_card_form.column.label</source>
                 <target>Column</target>
@@ -5049,6 +5081,18 @@
             <trans-unit id="board.form.create_card_form.related_cards.help">
                 <source>board.form.create_card_form.related_cards.help</source>
                 <target>Pick a card of this project and how this card reads it. The other card shows the link too. Saving replaces the whole list.</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.parent.label">
+                <source>board.form.create_card_form.parent.label</source>
+                <target>Parent epic</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.parent.placeholder">
+                <source>board.form.create_card_form.parent.placeholder</source>
+                <target>Search the epics by title or number</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.parent.help">
+                <source>board.form.create_card_form.parent.help</source>
+                <target>The epic this card belongs to. Leave it empty for a card with no epic.</target>
             </trans-unit>
             <trans-unit id="board.form.card_link_row.card.label">
                 <source>board.form.card_link_row.card.label</source>

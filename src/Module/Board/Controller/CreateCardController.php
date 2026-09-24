@@ -81,6 +81,7 @@ final class CreateCardController extends AppController
                     pullRequestUrls: CreateCardRequest::toUrlList($data->pullRequestUrls),
                     siteReviewComment: $feedback,
                     relatedCards: $data->linkInputs(),
+                    parentCardId: null === $data->parent ? null : (string) $data->parent->id,
                 ));
 
                 return $this->redirectToRoute('app_board_card', [

@@ -8,11 +8,14 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Event\CardMoved;
+use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardLinkResolver;
 use App\Module\Board\Service\CardLinkSync;
 use App\Module\Board\Service\CardMover;
+use App\Module\Board\Service\CardParentPolicy;
+use App\Module\Board\Service\CardParentResolver;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -37,6 +40,8 @@ final readonly class UpdateCardHandler
         private DocumentLinkResolver $documentLinks,
         private CardLinkResolver $cardLinks,
         private CardLinkSync $cardLinkSync,
+        private CardParentResolver $parents,
+        private CardParentPolicy $parentPolicy,
         private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -72,13 +77,14 @@ final readonly class UpdateCardHandler
         $relatedCards = null === $command->relatedCards
             ? null
             : $this->cardLinks->resolve($card->project, $card, array_values($command->relatedCards));
+        $newParent = null === $command->parentCardId ? null : $this->parents->resolve($card->project, $command->parentCardId);
 
         // One write for the whole update, and one lock. A column change is a
         // move, which renumbers a column and decides the completion timestamp,
         // so this handler owns the transaction the move runs in.
         // Flushing the fields first would commit half an update whose move
         // then failed.
-        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents, $relatedCards): UpdateCardOutcome|string {
+        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents, $relatedCards, $newParent): UpdateCardOutcome|string|DomainErrors {
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
             // lock() takes the project row and leaves the loaded card as the
             // request read it, which may be before the caller ahead of us in
@@ -100,6 +106,24 @@ final readonly class UpdateCardHandler
             if (null !== $relatedCards && $this->cardLinkSync->anyCardGone($relatedCards)) {
                 return self::LINKED_CARD_GONE;
             }
+
+            // Only a write that names a type or a parent can break a parent
+            // rule, so a plain move pays no extra read.
+            $oldParent = $card->parent;
+            $parentChanged = false;
+            if (null !== $command->parentCardId || null !== $command->type) {
+                $this->cards->refreshTypeAndParent($card);
+                $oldParent = $card->parent;
+                $parent = null === $command->parentCardId ? $oldParent : $newParent;
+                $parentChanged = $parent?->id?->toRfc4122() !== $oldParent?->id?->toRfc4122();
+                $refusal = $this->parentPolicy->refusal($card, $command->type ?? $card->type, $parent, $parentChanged);
+                if (null !== $refusal) {
+                    return $refusal;
+                }
+                $card->parent = $parent;
+            }
+            $laneChanged = null !== $command->laneEnabled && $command->laneEnabled !== $card->laneEnabled;
+
             // A rank is a move of its own: a card dropped elsewhere in the
             // column it already sits in does not change its column.
             $move = $column !== $card->column || null !== $command->position
@@ -122,6 +146,9 @@ final readonly class UpdateCardHandler
             }
             if (null !== $command->type) {
                 $card->type = $command->type;
+            }
+            if (null !== $command->laneEnabled) {
+                $card->laneEnabled = $command->laneEnabled;
             }
             if (null !== $documents) {
                 $card->syncDocuments(...$documents);
@@ -148,11 +175,17 @@ final readonly class UpdateCardHandler
             if (null !== $move) {
                 $this->events->dispatch(new CardMoved($card, $move, $command->actor));
             }
+            if ($parentChanged) {
+                $this->events->dispatch(new CardParentChanged($card, $oldParent, $card->parent, $command->actor));
+            }
 
-            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged);
+            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged);
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
+        if ($outcome instanceof DomainErrors) {
+            throw $outcome;
+        }
         if (\is_string($outcome)) {
             throw new DomainErrors([self::LINKED_CARD_GONE === $outcome ? 'relatedCards' : 'column' => $outcome]);
         }
@@ -176,6 +209,8 @@ final readonly class UpdateCardHandler
         $changedSomething = $outcome->titleChanged
             || $outcome->bodyChanged
             || $outcome->typeChanged
+            || $outcome->parentChanged
+            || $outcome->laneChanged
             || null !== $command->pullRequestUrls
             || null !== $command->documentIds
             || null !== $command->relatedCards;
@@ -196,6 +231,8 @@ final readonly class UpdateCardHandler
                 'titleChanged' => $outcome->titleChanged,
                 'bodyChanged' => $outcome->bodyChanged,
                 'typeChanged' => $outcome->typeChanged,
+                'parentChanged' => $outcome->parentChanged,
+                'laneChanged' => $outcome->laneChanged,
                 'pullRequestsReplaced' => null !== $command->pullRequestUrls,
                 'documentsReplaced' => null !== $command->documentIds,
                 'relatedCardsReplaced' => null !== $command->relatedCards,

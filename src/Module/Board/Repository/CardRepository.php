@@ -100,6 +100,14 @@ class CardRepository extends ServiceEntityRepository
         return $qb;
     }
 
+    /** The cards a card may take as its parent: the epics of the project, less the card itself. */
+    public function parentCandidates(?Uuid $projectId, ?Uuid $excludeCardId): QueryBuilder
+    {
+        return $this->linkCandidates($projectId, $excludeCardId)
+            ->andWhere('c.type = :parentType')
+            ->setParameter('parentType', CardType::Epic->value);
+    }
+
     /**
      * Narrows {@see linkCandidates()} to what a person typed: `12` or `#12`
      * names a card number, anything else is a fragment of the title.
@@ -239,6 +247,46 @@ class CardRepository extends ServiceEntityRepository
 
         $card->column = $this->getEntityManager()->find(BoardColumn::class, Uuid::fromString((string) $row['column_id']))
             ?? throw new \LogicException('Card row points at a missing column.');
+    }
+
+    /**
+     * Reads onto the card its type and its parent, for the reason in
+     * refreshColumn(). A card the database no longer holds is left alone.
+     */
+    public function refreshTypeAndParent(Card $card): void
+    {
+        $row = $this->getEntityManager()->getConnection()->fetchAssociative(
+            'SELECT type, parent_card_id FROM board_cards WHERE id = :id',
+            ['id' => (string) $card->id],
+        );
+
+        if (false === $row) {
+            return;
+        }
+
+        $card->type = CardType::from((string) $row['type']);
+        $card->parent = null === $row['parent_card_id']
+            ? null
+            : $this->getEntityManager()->find(Card::class, Uuid::fromString((string) $row['parent_card_id']));
+    }
+
+    /** The type the database holds for the card now, or null when the row is gone. */
+    public function freshType(Card $card): ?CardType
+    {
+        $type = $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT type FROM board_cards WHERE id = :id',
+            ['id' => (string) $card->id],
+        );
+
+        return false === $type ? null : CardType::from((string) $type);
+    }
+
+    public function countChildren(Card $card): int
+    {
+        return (int) $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM board_cards WHERE parent_card_id = :id',
+            ['id' => (string) $card->id],
+        );
     }
 
     /** The number the project's next card takes. The first card of a project is 1. */
@@ -555,8 +603,8 @@ class CardRepository extends ServiceEntityRepository
     /**
      * Every card on every project the user owns, for the account data export.
      *
-     * The pull request links and the column are fetch-joined, because the
-     * export reads them on every row and they are lazy otherwise.
+     * The pull request links, the column and the parent are fetch-joined,
+     * because the export reads them on every row and they are lazy otherwise.
      *
      * @return list<Card>
      */
@@ -566,6 +614,8 @@ class CardRepository extends ServiceEntityRepository
             ->join('c.project', 'p')
             ->join('c.column', 'k')
             ->addSelect('k')
+            ->leftJoin('c.parent', 'parent')
+            ->addSelect('parent')
             ->leftJoin('c.pullRequests', 'l')
             ->addSelect('l')
             ->andWhere('p.owner = :user')
