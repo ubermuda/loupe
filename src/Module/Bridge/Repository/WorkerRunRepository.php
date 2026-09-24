@@ -325,7 +325,9 @@ class WorkerRunRepository extends ServiceEntityRepository
      * For each card of the project, its latest outcome, kept only when that
      * outcome is gave-up or blocked. The pick comes before the filter, so a later
      * success clears the warning. An open run is no outcome and changes nothing.
-     * Latest means the last to end, because a resume jumps the queue.
+     * Latest means the last the server closed, by the state change that holds
+     * the outcome. A resume jumps the queue, and two bridge clocks can disagree,
+     * so neither the queue time nor the bridge end time orders outcomes.
      *
      * @return list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}>
      */
@@ -336,15 +338,24 @@ class WorkerRunRepository extends ServiceEntityRepository
             array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome()),
         ));
 
+        // A late report can record an outcome the run does not hold, so the
+        // close is the latest change to the run's own state.
         /** @var list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> $rows */
         $rows = $this->getEntityManager()->getConnection()->executeQuery(
             <<<'SQL'
                 SELECT latest.id, latest.card_id, latest.state, latest.output, latest.card_column
                 FROM (
-                    SELECT DISTINCT ON (card_id) id, card_id, state, output, card_column
-                    FROM bridge_worker_runs
-                    WHERE project_id = :project AND state IN (:outcomes)
-                    ORDER BY card_id, ended_at DESC NULLS LAST, received_at DESC, id DESC
+                    SELECT DISTINCT ON (r.card_id) r.id, r.card_id, r.state, r.output, r.card_column
+                    FROM bridge_worker_runs r
+                    LEFT JOIN LATERAL (
+                        SELECT s.received_at, s.sequence
+                        FROM bridge_worker_run_states s
+                        WHERE s.run_id = r.id AND s.state = r.state
+                        ORDER BY s.sequence DESC
+                        LIMIT 1
+                    ) closed ON true
+                    WHERE r.project_id = :project AND r.state IN (:outcomes)
+                    ORDER BY r.card_id, COALESCE(closed.received_at, r.received_at) DESC, closed.sequence DESC NULLS LAST, r.id DESC
                 ) latest
                 WHERE latest.state IN (:warnings)
                 SQL,

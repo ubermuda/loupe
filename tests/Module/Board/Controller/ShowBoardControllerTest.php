@@ -10,6 +10,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
@@ -358,10 +359,10 @@ final class ShowBoardControllerTest extends WebTestCase
         $project = $this->project($em, $owner, 'ordered');
         $cleared = $this->card($em, $project, 'Cleared', 'in-progress');
         $warned = $this->card($em, $project, 'Warned', 'in-progress');
-        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-10 minutes', endedAt: '-1 minute');
-        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-5 minutes', endedAt: '-3 minutes');
-        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-10 minutes', endedAt: '-1 minute');
-        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-5 minutes', endedAt: '-3 minutes');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
+        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
         $em->clear();
 
         $client->loginUser($owner);
@@ -372,7 +373,32 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-card-id="'.$cleared->id.'"] [data-card-run-warning]'));
     }
 
-    private function workerRun(EntityManagerInterface $em, Project $project, Card $card, WorkerRunState $state, ?string $column, string $output, string $receivedAt = 'now', string $endedAt = 'now'): WorkerRun
+    /** Two bridges with different clocks: the server order of the outcome reports decides, not the bridge end times. */
+    public function test_the_run_the_server_closed_last_decides_the_warning_across_bridge_clocks(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-run-warning-clocks@example.com');
+        $project = $this->project($em, $owner, 'clocks');
+        $cleared = $this->card($em, $project, 'Cleared', 'in-progress');
+        $warned = $this->card($em, $project, 'Warned', 'in-progress');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-card-id="'.$warned->id.'"] [data-card-run-warning]'));
+        self::assertCount(0, $crawler->filter('[data-card-id="'.$cleared->id.'"] [data-card-run-warning]'));
+    }
+
+    private function workerRun(EntityManagerInterface $em, Project $project, Card $card, WorkerRunState $state, ?string $column, string $output, string $receivedAt = 'now', string $endedAt = 'now', string $closedAt = 'now'): WorkerRun
     {
         $run = new WorkerRun(
             project: $project,
@@ -390,6 +416,7 @@ final class ShowBoardControllerTest extends WebTestCase
             cardColumn: $column,
         );
         $em->persist($run);
+        $em->persist(new WorkerRunStateChange($run, $state, new \DateTimeImmutable($endedAt), new \DateTimeImmutable($closedAt)));
         $em->flush();
 
         return $run;
