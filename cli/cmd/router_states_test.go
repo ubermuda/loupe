@@ -110,6 +110,8 @@ func (syncQueue) Enqueue(report outbound.Report) {
 
 func (syncQueue) SendLatest(string, func(context.Context) error, func(error)) {}
 
+func (syncQueue) Pending() int { return 0 }
+
 func (syncQueue) Close() {}
 
 // states wires a recorder with the run state endpoints to the router.

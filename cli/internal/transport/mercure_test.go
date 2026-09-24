@@ -541,3 +541,56 @@ func TestSubscribeReportsEachCommittedEventID(t *testing.T) {
 	cancel()
 	<-done
 }
+
+// OnEvent hands each event over with its own id, so a caller can skip an event
+// it already handled before it acts on it.
+func TestSubscribeHandsEachEventOverWithItsID(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		trail []string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("id: 1\ndata: a\n\ndata: b\nid: 2\n\ndata: c\n\nid: 4\ndata: d\n"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = Subscribe(ctx, srv.Client(), srv.URL, []string{"https://example.test/topic"},
+			func(context.Context) (string, error) { return "jwt", nil },
+			Handler{
+				OnData: func([]byte) { t.Error("OnData ran although OnEvent is set") },
+				OnEvent: func(id string, data []byte) {
+					mu.Lock()
+					trail = append(trail, id+"="+string(data))
+					mu.Unlock()
+				},
+			})
+	}()
+
+	want := "1=a 2=b =c"
+	deadline := time.After(4 * time.Second)
+	for {
+		mu.Lock()
+		seen := strings.Join(trail, " ")
+		mu.Unlock()
+		if seen == want {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("trail = %q, want %q", seen, want)
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	cancel()
+	<-done
+}

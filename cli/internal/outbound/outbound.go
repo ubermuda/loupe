@@ -15,6 +15,7 @@ import (
 	"errors"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
@@ -28,10 +29,13 @@ import (
 //
 // SendLatest takes a latest-wins item, such as a heartbeat. See Sender.SendLatest.
 //
+// Pending counts the reports not yet done with, so a handover can wait for them.
+//
 // A durable queue can replace the in-memory one behind the same methods.
 type Queue interface {
 	Enqueue(report Report)
 	SendLatest(key string, send func(context.Context) error, done func(error))
+	Pending() int
 	Close()
 }
 
@@ -107,6 +111,9 @@ type Sender struct {
 	after   func(d time.Duration) <-chan time.Time
 	grace   time.Duration
 
+	// pending counts each report from Enqueue until run is done with it.
+	pending atomic.Int64
+
 	mu     sync.Mutex
 	closed bool
 	lanes  map[string]*lane
@@ -144,11 +151,19 @@ func (q *Sender) Enqueue(report Report) {
 		return
 	}
 
+	// The count rises first, so run never takes it below zero.
+	q.pending.Add(1)
 	select {
 	case q.in <- report:
 	default:
+		q.pending.Add(-1)
 		q.logLost([]Report{report})
 	}
+}
+
+// Pending counts the reports that wait or are under delivery.
+func (q *Sender) Pending() int {
+	return int(q.pending.Load())
 }
 
 // SendLatest puts send in the lane of key, in place of an item of that key that
@@ -246,6 +261,7 @@ func (q *Sender) run() {
 		if q.ctx.Err() != nil || q.deliver(next) == aborted {
 			lost = append(lost, next)
 		}
+		q.pending.Add(-1)
 	}
 
 	q.logLost(q.flush(lost))

@@ -77,7 +77,8 @@ func workerClaude(t *testing.T, script string) {
 }
 
 // The worker writes to a file the bridge does not own, and the bridge reads
-// the exit code the shell recorded. The run directory goes once the run ends.
+// the exit code the shell recorded. The run directory stays for the router,
+// which removes it once it reported the run.
 func TestRunWorkerReadsTheExitCodeAndTheOutputFromItsRunDirectory(t *testing.T) {
 	workerClaude(t, "echo working\necho 'STAGE RESULT: ok'\nexit 3\n")
 
@@ -92,8 +93,73 @@ func TestRunWorkerReadsTheExitCodeAndTheOutputFromItsRunDirectory(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(runs, "run-1")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("the run directory is still there: %v", err)
+	if res.dir != filepath.Join(runs, "run-1") {
+		t.Fatalf("dir = %q", res.dir)
+	}
+	rec, err := readRunRecord(res.dir)
+	if err != nil || rec.RunID != "run-1" || rec.PID <= 0 || rec.StartTime == "" {
+		t.Fatalf("run record = %+v, %v", rec, err)
+	}
+}
+
+// The router removes the run directory once it reported the run.
+func TestTheRouterRemovesTheRunDirectoryOfAFinishedRun(t *testing.T) {
+	workerClaude(t, "echo 'STAGE RESULT: ok'\n")
+	h := newHarness(t)
+	h.router.worker = defaultWorkerOps()
+
+	h.send(cardMoved(87))
+
+	runs, err := config.RunsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	left, err := os.ReadDir(runs)
+	if err != nil || len(left) != 0 {
+		t.Fatalf("runs dir holds %v, %v; want it empty", left, err)
+	}
+	if line := h.only(t, "worker_finished"); num(t, line, "exit") != 0 {
+		t.Fatalf("worker_finished = %v", line)
+	}
+}
+
+// The start time of a process stays the same while it runs, and a process that
+// exited unreaped reads as a zombie, so an adopter never waits on it forever.
+func TestProcessInfoTellsAZombieApart(t *testing.T) {
+	cmd := exec.Command("/bin/sh", "-c", "read x")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	pid := cmd.Process.Pid
+	first, err := processInfo(pid)
+	if err != nil || first.start == "" || first.zombie {
+		t.Fatalf("processInfo = %+v, %v", first, err)
+	}
+	if again := processStart(pid); again != first.start {
+		t.Fatalf("start time moved from %q to %q", first.start, again)
+	}
+	if !processAlive(pid, first.start) || processAlive(pid, first.start+"0") {
+		t.Fatal("processAlive does not compare the start time")
+	}
+
+	stdin.Close()
+	deadline := time.Now().Add(5 * time.Second)
+	for processAlive(pid, first.start) {
+		if time.Now().After(deadline) {
+			t.Fatal("the exited shell still reads as alive")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if info, err := processInfo(pid); err != nil || !info.zombie {
+		t.Fatalf("processInfo of the unreaped shell = %+v, %v; want a zombie", info, err)
+	}
+	_ = cmd.Wait()
+	if processAlive(pid, "") {
+		t.Fatal("a reaped pid reads as alive")
 	}
 }
 
@@ -139,7 +205,7 @@ func TestRunWorkerWithNoClaudeNeverStarts(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
 	started := false
-	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, func() { started = true })
+	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, func(workerProc) { started = true })
 	if res.err == nil || started {
 		t.Fatalf("runWorker = %+v, started = %v", res, started)
 	}

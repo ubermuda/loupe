@@ -91,6 +91,10 @@ func (c *countingQueue) Enqueue(report outbound.Report) {
 	c.inner.Enqueue(report)
 }
 
+func (c *countingQueue) Pending() int {
+	return c.inner.Pending()
+}
+
 func (c *countingQueue) Close() {
 	c.inner.Close()
 }

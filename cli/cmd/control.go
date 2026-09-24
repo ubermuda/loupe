@@ -53,13 +53,23 @@ func socketPath(rulesPath string) (string, error) {
 		return "", err
 	}
 
-	return bridgeFile(abs, ".sock")
+	return bridgeFile("bridge-", abs, ".sock")
 }
 
 // lockPath names the lock file of the bridge that reads rulesPath. The name
 // comes from the absolute path with symlinks resolved, so two paths to one
 // file share the lock. A path that does not resolve stays as is.
 func lockPath(rulesPath string) (string, error) {
+	key, err := lockKey(rulesPath)
+	if err != nil {
+		return "", err
+	}
+
+	return bridgeFile("bridge-", key, ".lock")
+}
+
+// lockKey is the absolute rule path with symlinks resolved, when they resolve.
+func lockKey(rulesPath string) (string, error) {
 	abs, err := filepath.Abs(rulesPath)
 	if err != nil {
 		return "", err
@@ -68,18 +78,19 @@ func lockPath(rulesPath string) (string, error) {
 		abs = real
 	}
 
-	return bridgeFile(abs, ".lock")
+	return abs, nil
 }
 
-// bridgeFile names a file in the config directory from a hash of key.
-func bridgeFile(key, ext string) (string, error) {
+// bridgeFile names a file in the config directory from a prefix and a hash of
+// key.
+func bridgeFile(prefix, key, ext string) (string, error) {
 	dir, err := config.Dir()
 	if err != nil {
 		return "", err
 	}
 	sum := sha256.Sum256([]byte(key))
 
-	return filepath.Join(dir, "bridge-"+hex.EncodeToString(sum[:])[:12]+ext), nil
+	return filepath.Join(dir, prefix+hex.EncodeToString(sum[:])[:12]+ext), nil
 }
 
 // bridgeLock is the lock that a running bridge holds on the file that its

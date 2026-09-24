@@ -40,11 +40,11 @@ func sessionUUID(n int) string {
 }
 
 func (f *fakeWorker) ops() workerOps {
-	return workerOps{sessionID: f.nextSession, run: func(_ context.Context, spec workerSpec, onStart func()) workerResult {
+	return workerOps{sessionID: f.nextSession, run: func(_ context.Context, spec workerSpec, onStart func(workerProc)) workerResult {
 		f.enter(spec)
 		// A result with an error stands for a process that never started.
 		if onStart != nil && f.result.err == nil {
-			onStart()
+			onStart(workerProc{})
 		}
 
 		if f.started != nil {

@@ -43,6 +43,15 @@ type workerResult struct {
 	hasResult bool
 	killed    bool
 	err       error
+	// dir is the run directory, which the router removes once it reported.
+	dir string
+}
+
+// workerProc is a started worker: its shell's pid, which leads its process
+// group, and its run directory.
+type workerProc struct {
+	pid int
+	dir string
 }
 
 // workerSpec is one claude process to run. An empty permissionMode or model
@@ -67,12 +76,15 @@ type workerSpec struct {
 type workerOps struct {
 	// run calls onStart once the process exists. A process that never starts
 	// never calls it, so the run never reads as running.
-	run       func(ctx context.Context, spec workerSpec, onStart func()) workerResult
+	run func(ctx context.Context, spec workerSpec, onStart func(workerProc)) workerResult
+	// adopt waits for a worker a former image started in a run directory. A
+	// nil one is adoptWorker.
+	adopt     func(ctx context.Context, dir string) workerResult
 	sessionID func() string
 }
 
 func defaultWorkerOps() workerOps {
-	return workerOps{run: runWorker, sessionID: config.NewUUID}
+	return workerOps{run: runWorker, adopt: adoptWorker, sessionID: config.NewUUID}
 }
 
 // workerArgs builds claude's argv. The prompt is an argv element, so no shell
@@ -113,17 +125,20 @@ const workerShell = `claude "$@"; echo $? > "$0.exit"`
 
 // runRecord is run.json, what the bridge knows about a worker it started.
 type runRecord struct {
-	PID            int       `json:"pid"`
-	StartedAt      time.Time `json:"startedAt"`
-	RunID          string    `json:"runId"`
-	Rule           string    `json:"rule,omitempty"`
-	Key            string    `json:"key,omitempty"`
-	Dir            string    `json:"dir"`
-	PermissionMode string    `json:"permissionMode,omitempty"`
-	Model          string    `json:"model,omitempty"`
-	SessionID      string    `json:"sessionId"`
-	Resume         bool      `json:"resume,omitempty"`
-	Prompt         string    `json:"prompt"`
+	PID       int       `json:"pid"`
+	StartedAt time.Time `json:"startedAt"`
+	// StartTime is the OS's start time of PID, so an adopter tells a reused pid
+	// apart. It is empty when the OS did not say.
+	StartTime      string `json:"startTime,omitempty"`
+	RunID          string `json:"runId"`
+	Rule           string `json:"rule,omitempty"`
+	Key            string `json:"key,omitempty"`
+	Dir            string `json:"dir"`
+	PermissionMode string `json:"permissionMode,omitempty"`
+	Model          string `json:"model,omitempty"`
+	SessionID      string `json:"sessionId"`
+	Resume         bool   `json:"resume,omitempty"`
+	Prompt         string `json:"prompt"`
 }
 
 func writeRunRecord(dir string, rec runRecord) error {
@@ -153,31 +168,68 @@ func readRunRecord(dir string) (runRecord, error) {
 
 // runWorker runs `claude -p --session-id <id> -- <prompt>`, or `--resume <id>`,
 // in the spec's dir and waits for it. The worker writes its output and its exit
-// code to files in its run directory, so it holds no pipe to the bridge.
-func runWorker(ctx context.Context, spec workerSpec, onStart func()) workerResult {
+// code to files in its run directory, so it holds no pipe to the bridge. The
+// directory stays for the caller to remove once it reported the run.
+func runWorker(ctx context.Context, spec workerSpec, onStart func(workerProc)) workerResult {
+	cmd, dir, cancelled, err := startWorker(ctx, spec)
+	if err != nil {
+		return workerResult{err: err, dir: dir}
+	}
+	if onStart != nil {
+		onStart(workerProc{pid: cmd.Process.Pid, dir: dir})
+	}
+	waitErr := cmd.Wait()
+	killed := waitErr != nil && cancelled.Load()
+	if exitErr := (*exec.ExitError)(nil); errors.As(waitErr, &exitErr) {
+		waitErr = nil
+	}
+
+	return workerOutcome(dir, killed, waitErr)
+}
+
+// adoptWorker waits for the worker another image of the bridge started in dir,
+// and reads how it ended as runWorker does. A run with no readable record ran
+// and cannot be followed, so it reads as a failure that says why.
+func adoptWorker(ctx context.Context, dir string) workerResult {
+	if dir == "" {
+		return workerResult{exitCode: -1, output: "the bridge handed this run over with no run directory", dir: dir}
+	}
+	rec, err := readRunRecord(dir)
+	if err == nil && rec.PID <= 0 {
+		err = errors.New("the run record names no process")
+	}
+	if err != nil {
+		return workerResult{exitCode: -1, output: "the bridge lost this run across a handover: " + err.Error(), dir: dir}
+	}
+
+	return workerOutcome(dir, awaitProcess(ctx, rec.PID, rec.StartTime), nil)
+}
+
+// startWorker starts the worker shell and writes its run record. It returns the
+// run directory whenever it made one, so a failed start leaves nothing behind.
+func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atomic.Bool, error) {
 	// The shell always starts, so a claude it cannot run must fail here to read
 	// as a run that never started.
 	if _, err := exec.LookPath("claude"); err != nil {
-		return workerResult{err: err}
+		return nil, "", nil, err
 	}
 	if spec.runID == "" {
 		spec.runID = config.NewUUID()
 	}
 	runs, err := config.RunsDir()
 	if err != nil {
-		return workerResult{err: err}
+		return nil, "", nil, err
 	}
 	dir := filepath.Join(runs, spec.runID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return workerResult{err: fmt.Errorf("create run directory: %w", err)}
+		return nil, "", nil, fmt.Errorf("create run directory: %w", err)
 	}
-	defer os.RemoveAll(dir)
 
-	outPath := filepath.Join(dir, "output")
-	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	out, err := os.OpenFile(filepath.Join(dir, "output"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
-		return workerResult{err: fmt.Errorf("create worker output: %w", err)}
+		return nil, dir, nil, fmt.Errorf("create worker output: %w", err)
 	}
+	// The shell holds its own copy once it starts.
 	defer out.Close()
 
 	status := filepath.Join(dir, "status")
@@ -200,10 +252,11 @@ func runWorker(ctx context.Context, spec workerSpec, onStart func()) workerResul
 	}
 
 	if err := cmd.Start(); err != nil {
-		return workerResult{err: err}
+		return nil, dir, nil, err
 	}
 	rec := runRecord{
-		PID: cmd.Process.Pid, StartedAt: time.Now(), RunID: spec.runID, Rule: spec.rule, Key: spec.key,
+		PID: cmd.Process.Pid, StartedAt: time.Now(), StartTime: processStart(cmd.Process.Pid),
+		RunID: spec.runID, Rule: spec.rule, Key: spec.key,
 		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model,
 		SessionID: spec.sessionID, Resume: spec.resume, Prompt: spec.prompt,
 	}
@@ -212,18 +265,18 @@ func runWorker(ctx context.Context, spec workerSpec, onStart func()) workerResul
 		_ = cmd.Cancel()
 		_ = cmd.Wait()
 
-		return workerResult{err: err}
+		return nil, dir, nil, err
 	}
-	if onStart != nil {
-		onStart()
-	}
-	waitErr := cmd.Wait()
 
-	res := workerResult{killed: waitErr != nil && cancelled.Load()}
-	res.output, res.hasResult = readWorkerOutput(outPath)
+	return cmd, dir, &cancelled, nil
+}
 
-	var exitErr *exec.ExitError
-	if waitErr != nil && !errors.As(waitErr, &exitErr) {
+// workerOutcome reads how the worker in dir ended. waitErr is a fault of the
+// wait itself, and not the exit of a process that ran.
+func workerOutcome(dir string, killed bool, waitErr error) workerResult {
+	res := workerResult{killed: killed, dir: dir}
+	res.output, res.hasResult = readWorkerOutput(filepath.Join(dir, "output"))
+	if waitErr != nil {
 		res.err = waitErr
 
 		return res
@@ -231,7 +284,7 @@ func runWorker(ctx context.Context, spec workerSpec, onStart func()) workerResul
 
 	// A kill leaves no status, and -1 is the code os/exec gives a signalled
 	// process.
-	code, err := readExitStatus(status + ".exit")
+	code, err := readExitStatus(filepath.Join(dir, "status.exit"))
 	res.exitCode = code
 	if err != nil {
 		res.exitCode = -1

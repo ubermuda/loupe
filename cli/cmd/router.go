@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -100,6 +101,24 @@ type router struct {
 	// reload can map a slug to another project.
 	unmapped map[string]bool
 	gone     map[string]bool
+
+	// paused stops dispatch, and frozen also holds back the events and the
+	// finished runs that arrive after a freeze, for resume to replay. checking
+	// counts the ask checks in flight, and live the workers that started.
+	paused       bool
+	frozen       bool
+	checking     int
+	live         map[string]liveRun
+	heldEvents   []heldEvent
+	heldFinishes []func()
+	// lastEventID is the resume point of the stream, and recent the ids of the
+	// last events handled, oldest first, which recentSet indexes.
+	lastEventID string
+	recent      []string
+	recentSet   map[string]bool
+	// eventMu keeps the events in order while resume replays the held ones. It
+	// is taken before mu, never under it.
+	eventMu sync.Mutex
 
 	// wg counts the workers in flight. Tests wait on it instead of sleeping.
 	wg sync.WaitGroup
@@ -240,7 +259,12 @@ func aggregate(e event.Event) string {
 	return fmt.Sprintf("%s %v", k, v)
 }
 
+// handler starts the stream at the resume point an adopted state carried.
 func (r *router) handler() transport.Handler {
+	r.mu.Lock()
+	last := r.lastEventID
+	r.mu.Unlock()
+
 	return transport.Handler{
 		OnConnect: func() {
 			r.mu.Lock()
@@ -249,8 +273,10 @@ func (r *router) handler() transport.Handler {
 			r.log.Info("connected", "topic", r.topic, "projects", projects)
 			r.sendInventory()
 		},
-		OnError: func(err error) { r.log.Error("stream_error", "error", err.Error()) },
-		OnData:  r.onData,
+		OnError:     func(err error) { r.log.Error("stream_error", "error", err.Error()) },
+		OnEvent:     r.onEvent,
+		OnID:        r.onID,
+		LastEventID: last,
 	}
 }
 
@@ -625,6 +651,9 @@ func (r *router) dispatchLocked() []pending {
 
 		return dropped
 	}
+	if r.paused {
+		return nil
+	}
 
 	// waiting holds the keys of events this pass leaves queued, so a later
 	// event of the same card never goes first.
@@ -729,16 +758,58 @@ func (r *router) start(p pending) {
 		// The spawn time stands in for a process that never starts, because the
 		// old report needs a start. onStart runs on this goroutine, before run returns.
 		began := time.Now()
-		onStart := func() {
+		onStart := func(proc workerProc) {
 			began = time.Now()
 			r.mu.Lock()
 			defer r.mu.Unlock()
+			r.trackLocked(liveRun{p: p, began: began, proc: proc})
 			r.emitLocked(p, api.RunStateReport{State: api.RunRunning, SessionID: p.spec.sessionID, StartedAt: began})
 		}
 		res := r.worker.run(r.workerContext(), p.spec, onStart)
-		r.report(p, res, began, time.Since(began))
-		r.finish(p.key)
+		r.settle(p, res, began, time.Since(began))
 	}()
+}
+
+// liveRun is a worker that started, with what its report and a handover need.
+type liveRun struct {
+	p     pending
+	began time.Time
+	proc  workerProc
+}
+
+// trackLocked records a started worker. The caller holds mu.
+func (r *router) trackLocked(run liveRun) {
+	if r.live == nil {
+		r.live = map[string]liveRun{}
+	}
+	r.live[run.p.runID] = run
+}
+
+// settle reports a finished worker, removes its run directory and frees its
+// slot. After a freeze, the next image adopts the run from its files, so the
+// run waits here for a resume that may never come.
+func (r *router) settle(p pending, res workerResult, began time.Time, elapsed time.Duration) {
+	done := func() {
+		r.report(p, res, began, elapsed)
+		if res.dir != "" {
+			_ = os.RemoveAll(res.dir)
+		}
+		r.finish(p.key)
+	}
+	r.mu.Lock()
+	delete(r.live, p.runID)
+	if r.frozen {
+		r.wg.Add(1)
+		r.heldFinishes = append(r.heldFinishes, func() {
+			defer r.wg.Done()
+			done()
+		})
+		r.mu.Unlock()
+
+		return
+	}
+	r.mu.Unlock()
+	done()
 }
 
 // check reads the ask of a resume the queue released, on its own goroutine.
@@ -746,6 +817,7 @@ func (r *router) start(p pending) {
 // read every item of its closed ask is skipped. Any failed check resumes, so a
 // fault never loses a resume. The caller holds mu, and check never takes it.
 func (r *router) check(p pending) {
+	r.checking++
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
@@ -762,6 +834,7 @@ func (r *router) check(p pending) {
 		// of the queue during the check, so its rule matches again under the
 		// same lock.
 		r.mu.Lock()
+		r.checking--
 		current := r.rules()
 		m, ok := current.MatchRule(p.event, p.rule)
 		if ok {
@@ -842,13 +915,14 @@ func (r *router) shut() bool {
 	return r.closed || r.workerContext().Err() != nil
 }
 
-// shutdown stops the queue for good and drops what is still in it.
+// shutdown stops the queue for good and drops what is still in it. A paused or
+// frozen router resumes, so the runs and events it holds back reach the report.
 func (r *router) shutdown() {
 	r.mu.Lock()
 	r.closed = true
 	r.mu.Unlock()
 
-	r.dispatch()
+	r.resume()
 }
 
 // logDropped names what a shut queue lost. These workers never started, so a

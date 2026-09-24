@@ -19,10 +19,12 @@ import (
 // Handler receives stream lifecycle and data callbacks. Any may be nil.
 // LastEventID seeds the resume point of the first connection. OnID receives
 // each new resume point, after the event's OnData, and "" when an empty id
-// clears it.
+// clears it. OnEvent, when set, replaces OnData and also receives the event's
+// own id, "" when the event carries none.
 type Handler struct {
 	OnConnect   func()
 	OnData      func([]byte)
+	OnEvent     func(id string, data []byte)
 	OnError     func(error)
 	OnID        func(string)
 	LastEventID string
@@ -92,8 +94,9 @@ func Subscribe(ctx context.Context, hc *http.Client, hubURL string, topics []str
 		}
 
 		lastID, err = stream(ctx, hc, target, jwt, lastID, Handler{
-			OnData: h.OnData,
-			OnID:   h.OnID,
+			OnData:  h.OnData,
+			OnEvent: h.OnEvent,
+			OnID:    h.OnID,
 			OnConnect: func() {
 				connected = true
 				if h.OnConnect != nil {
@@ -166,7 +169,14 @@ func stream(ctx context.Context, hc *http.Client, target, jwt, lastID string, h 
 		switch {
 		case line == "": // event boundary
 			if data.Len() > 0 {
-				if h.OnData != nil {
+				switch {
+				case h.OnEvent != nil:
+					id := ""
+					if haveID {
+						id = pendingID
+					}
+					h.OnEvent(id, []byte(data.String()))
+				case h.OnData != nil:
 					h.OnData([]byte(data.String()))
 				}
 				data.Reset()
