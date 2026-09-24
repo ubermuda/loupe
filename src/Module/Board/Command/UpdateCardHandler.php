@@ -135,7 +135,8 @@ final readonly class UpdateCardHandler
                 }
             }
 
-            $position = null === $command->beforeCardId && null === $command->afterCardId
+            // A terminal column keeps no rank, so it reads no neighbour.
+            $position = $column->terminal || (null === $command->beforeCardId && null === $command->afterCardId)
                 ? $command->position
                 : $this->neighbourRank($card, $column, $command->beforeCardId, $command->afterCardId);
 

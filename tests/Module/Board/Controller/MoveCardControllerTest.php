@@ -34,7 +34,8 @@ final class MoveCardControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $this->move($client, $third, 'backlog', 0);
+        // Empty lane fields, as a board with no lanes posts them: the rank still wins.
+        $this->move($client, $third, 'backlog', 0, parent: '', before: '', after: '');
 
         self::assertResponseRedirects();
         $em->clear();

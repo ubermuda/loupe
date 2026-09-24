@@ -92,6 +92,9 @@ it('offers an epic card the cells of "Other cards" only', async () => {
     const controller = await mount(LANES);
     drag(controller, 'lone-epic');
 
+    expect(
+        controller.groupTargets.filter((group) => controller.accepts(group)),
+    ).toEqual([document.getElementById('other-c1')]);
     expect(controller.groupUnder(50, 50)).toBe(
         document.getElementById('other-c1'),
     );

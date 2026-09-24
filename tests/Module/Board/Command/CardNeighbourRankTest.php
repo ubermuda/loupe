@@ -128,6 +128,17 @@ final class CardNeighbourRankTest extends KernelTestCase
         self::assertSame(['B', 'C', 'D', 'A'], $this->titles('backlog'));
     }
 
+    public function test_a_neighbour_in_a_terminal_column_still_finishes_the_card(): void
+    {
+        $finished = $this->card('Finished', 'done');
+        $mover = $this->card('Mover', 'backlog');
+
+        $this->move($mover, 'done', after: $finished);
+
+        self::assertSame('done', $mover->column->slug);
+        self::assertNotNull($mover->completedAt);
+    }
+
     public function test_no_neighbour_sends_the_card_to_the_end(): void
     {
         $this->column4('next');
