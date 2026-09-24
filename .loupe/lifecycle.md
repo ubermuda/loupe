@@ -57,3 +57,5 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 2. Move a card there yourself only when your own procedure says to. A move that carries an approval is the app's, never an agent's.
 3. Never read the column list to find this slug. `board_columns` can be missing, which is why the slug is written here.
 4. The column that holds a card in product design is `product-design`. The `/loupe:product-design` skill reads this slug.
+5. The column that holds a card in implementation is `implementation`. A breakdown moves each child that can start there.
+6. The default column is `backlog`, and the terminal column is `done`. A breakdown reads them to find the children that can start.
