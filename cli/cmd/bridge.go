@@ -21,6 +21,7 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
+	"github.com/ubermuda/loupe/cli/internal/update"
 )
 
 // refreshTimeout bounds a credentials fetch. http.DefaultClient has none at
@@ -272,12 +273,20 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		r.checkAsk = apiClient(cfg).CheckAsk
 	}
 	r.applyFlags(events)
+	var updates *updater
 	if r.bridgeID != "" {
 		r.health = newHealthReporter(ctx, apiClient(cfg), r.bridgeID, r.log)
 		for _, slug := range r.projects {
 			r.reportHealth(set, slug)
 		}
 		r.heartbeat = newHeartbeater(ctx, queue, apiClient(cfg), r.bridgeID, heartbeatBody(set), heartbeatInterval(events), r.log)
+		if dir, err := config.Dir(); err != nil {
+			r.log.Warn("update_skipped", "reason", err.Error())
+		} else {
+			updates = newUpdater(r.log, version, dir, func() bool { return r.rules().AutoUpdate() }, logStaged(r.log, version))
+			r.heartbeat.onRange, r.heartbeat.update = updates.setRange, updates.state
+			updates.start(ctx)
+		}
 		r.heartbeat.start()
 	}
 	// The control socket starts last, so no reload races the writes above.
@@ -300,6 +309,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.heartbeat != nil {
 		r.heartbeat.wait()
 	}
+	if updates != nil {
+		updates.stop()
+	}
 	if served != nil {
 		<-served
 	}
@@ -308,6 +320,13 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	}
 
 	return nil
+}
+
+// logStaged is the hook of a staged release until the bridge can hand over to it.
+func logStaged(log *slog.Logger, from string) stagedHook {
+	return func(_ context.Context, c update.Candidate, path string) {
+		log.Info("update_staged", "from", from, "to", c.Version.String(), "path", path)
+	}
 }
 
 // heartbeatBody names the projects the rule file maps, by id, and the CLI

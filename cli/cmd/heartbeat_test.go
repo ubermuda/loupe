@@ -53,20 +53,22 @@ type fakeHeartbeats struct {
 	sent   []api.Heartbeat
 	ids    []string
 	errors []error
+	// cliRange is the range each successful answer carries.
+	cliRange string
 }
 
-func (f *fakeHeartbeats) Heartbeat(_ context.Context, bridgeID string, hb api.Heartbeat) error {
+func (f *fakeHeartbeats) Heartbeat(_ context.Context, bridgeID string, hb api.Heartbeat) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sent = append(f.sent, hb)
 	f.ids = append(f.ids, bridgeID)
 	if len(f.errors) == 0 {
-		return nil
+		return f.cliRange, nil
 	}
 	err := f.errors[0]
 	f.errors = f.errors[1:]
 
-	return err
+	return "", err
 }
 
 func (f *fakeHeartbeats) count() int {
@@ -118,7 +120,7 @@ type heartbeatHarness struct {
 	cancel context.CancelFunc
 }
 
-func startHeartbeater(t *testing.T, client *fakeHeartbeats, interval time.Duration) *heartbeatHarness {
+func startHeartbeater(t *testing.T, client *fakeHeartbeats, interval time.Duration, setup ...func(*heartbeater)) *heartbeatHarness {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	log := &syncBuffer{}
@@ -127,6 +129,9 @@ func startHeartbeater(t *testing.T, client *fakeHeartbeats, interval time.Durati
 	body := api.Heartbeat{Projects: []string{testProject}, CLIVersion: "b4e39aa7"}
 	hh.h = newHeartbeater(ctx, hh.queue, client, testBridgeID, body, interval, newBridgeLogger(log))
 	hh.h.after = hh.timers.after
+	for _, f := range setup {
+		f(hh.h)
+	}
 	hh.h.start()
 	t.Cleanup(func() {
 		cancel()
@@ -169,6 +174,44 @@ func TestTheBridgeSendsAHeartbeatAtStartAndAtEachInterval(t *testing.T) {
 		if client.ids[i] != testBridgeID || len(hb.Projects) != 1 || hb.Projects[0] != testProject || hb.CLIVersion != "b4e39aa7" {
 			t.Fatalf("heartbeat %d = %s %+v", i, client.ids[i], hb)
 		}
+	}
+}
+
+// Each answer hands its range on, and each heartbeat carries the update state
+// read at its send, with none before the updater has one.
+func TestTheHeartbeatCarriesTheRangeAndTheUpdateState(t *testing.T) {
+	client := &fakeHeartbeats{cliRange: "^1.0"}
+	var mu sync.Mutex
+	var ranges []string
+	state := api.HeartbeatUpdate{}
+	hh := startHeartbeater(t, client, time.Minute, func(h *heartbeater) {
+		h.onRange = func(r string) {
+			mu.Lock()
+			defer mu.Unlock()
+			ranges = append(ranges, r)
+		}
+		h.update = func() api.HeartbeatUpdate {
+			mu.Lock()
+			defer mu.Unlock()
+
+			return state
+		}
+	})
+	mu.Lock()
+	state = api.HeartbeatUpdate{State: "updating", Version: "1.2.0"}
+	mu.Unlock()
+
+	hh.tick(t, time.Minute)
+
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
+	if !slices.Equal(ranges, []string{"^1.0", "^1.0"}) {
+		t.Fatalf("ranges = %v", ranges)
+	}
+	if client.sent[0].Update != nil || client.sent[1].Update == nil || *client.sent[1].Update != state {
+		t.Fatalf("updates = %+v, %+v", client.sent[0].Update, client.sent[1].Update)
 	}
 }
 
