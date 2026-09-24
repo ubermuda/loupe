@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { subscribe } from '../lib/mercure.js';
+import { on } from '../lib/live.js';
 
 /** A report often arrives with the next state of the same run close behind it. */
 export const DEBOUNCE_MILLISECONDS = 300;
@@ -14,7 +14,6 @@ export default class extends Controller {
     static values = { url: String, frames: Array, whole: Boolean };
 
     connect() {
-        this.hasOpened = false;
         this.held = false;
         // A dialog's close event does not bubble, so the listener captures it.
         this.onDialogClose = () => {
@@ -23,18 +22,9 @@ export default class extends Controller {
             }
         };
         this.element.addEventListener('close', this.onDialogClose, true);
-        this.unsubscribe = subscribe(
-            'worker_run.changed',
-            () => this.schedule(),
-            {
-                onOpen: () => {
-                    if (this.hasOpened) {
-                        this.schedule();
-                    }
-                    this.hasOpened = true;
-                },
-            },
-        );
+        this.unsubscribe = on('worker_run.changed', () => this.schedule(), {
+            onReconnect: () => this.schedule(),
+        });
     }
 
     disconnect() {

@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { subscribe } from '../lib/mercure.js';
+import { on } from '../lib/live.js';
 
 /**
  * Reloads the board frame when the Mercure hub reports a column change, and
@@ -10,27 +10,13 @@ export default class extends Controller {
     static values = { board: String };
 
     connect() {
-        this.hasOpened = false;
-        this.unsubscribe = subscribe(
-            'board.columns_changed',
-            () => this.reload(),
-            {
-                onOpen: () => {
-                    if (this.hasOpened) {
-                        this.reload();
-                    }
-                    this.hasOpened = true;
-                    this.element.setAttribute(
-                        'data-board-refresh-connected',
-                        '',
-                    );
-                },
-                onError: () =>
-                    this.element.removeAttribute(
-                        'data-board-refresh-connected',
-                    ),
-            },
-        );
+        this.unsubscribe = on('board.columns_changed', () => this.reload(), {
+            onReconnect: () => this.reload(),
+            onOpen: () =>
+                this.element.setAttribute('data-board-refresh-connected', ''),
+            onError: () =>
+                this.element.removeAttribute('data-board-refresh-connected'),
+        });
     }
 
     disconnect() {
