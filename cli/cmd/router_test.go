@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/directive"
@@ -28,6 +29,8 @@ type fakeWorker struct {
 	started  chan workerSpec
 	block    chan struct{}
 	result   workerResult
+	// results answer the calls in turn, before result answers the rest.
+	results  []workerResult
 	sessions int
 }
 
@@ -41,9 +44,9 @@ func sessionUUID(n int) string {
 
 func (f *fakeWorker) ops() workerOps {
 	return workerOps{sessionID: f.nextSession, run: func(_ context.Context, spec workerSpec, onStart func()) workerResult {
-		f.enter(spec)
+		res := f.enter(spec)
 		// A result with an error stands for a process that never started.
-		if onStart != nil && f.result.err == nil {
+		if onStart != nil && res.err == nil {
 			onStart()
 		}
 
@@ -55,7 +58,7 @@ func (f *fakeWorker) ops() workerOps {
 		}
 		f.leave()
 
-		return f.result
+		return res
 	}}
 }
 
@@ -68,7 +71,7 @@ func (f *fakeWorker) nextSession() string {
 	return sessionUUID(f.sessions)
 }
 
-func (f *fakeWorker) enter(spec workerSpec) {
+func (f *fakeWorker) enter(spec workerSpec) workerResult {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -77,6 +80,14 @@ func (f *fakeWorker) enter(spec workerSpec) {
 	if f.inFlight > f.maxSeen {
 		f.maxSeen = f.inFlight
 	}
+	if len(f.results) > 0 {
+		res := f.results[0]
+		f.results = f.results[1:]
+
+		return res
+	}
+
+	return f.result
 }
 
 func (f *fakeWorker) leave() {
@@ -206,10 +217,23 @@ func newHarnessWith(t *testing.T, body string, defaults rules.Defaults) *harness
 		maxWorkers: defaultMaxWorkers,
 		worker:     w.ops(),
 		bridgeID:   testBridgeID,
+		after:      now,
 	}, set)
 
 	return h
 }
+
+// now fires at once, so the wait before a resume costs a test nothing.
+func now(time.Duration) <-chan time.Time {
+	c := make(chan time.Time, 1)
+	c <- time.Time{}
+
+	return c
+}
+
+// noResumeRules is defaultRules with no resume, so a run that does not finish
+// runs once.
+var noResumeRules = strings.Replace(defaultRules, "    to: next\n", "    to: next\n    maxResumes: 0\n", 1)
 
 // withRules stores the rule set in a router literal, which cannot set an
 // atomic pointer.
@@ -1047,7 +1071,7 @@ func TestShutdownWithAnEmptyQueueLogsNothing(t *testing.T) {
 }
 
 func TestANonZeroExitIsReported(t *testing.T) {
-	h := newHarness(t)
+	h := newHarnessWith(t, noResumeRules, rules.Defaults{})
 	h.worker.result = workerResult{exitCode: 2, output: "claude: permission denied", hasResult: true}
 
 	h.router.onData([]byte(cardMoved(87)))
@@ -1069,7 +1093,7 @@ func TestANonZeroExitIsReported(t *testing.T) {
 // line is a failure, whatever its exit code.
 func TestARunWithNoResultLineIsAnError(t *testing.T) {
 	for _, exit := range []int{0, 1} {
-		h := newHarness(t)
+		h := newHarnessWith(t, noResumeRules, rules.Defaults{})
 		h.worker.result = workerResult{exitCode: exit, output: "waiting on a task"}
 
 		h.router.onData([]byte(cardMoved(87)))

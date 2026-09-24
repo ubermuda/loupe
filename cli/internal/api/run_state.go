@@ -27,6 +27,9 @@ const (
 	RunNoResult         = "no-result"
 	RunFailed           = "failed"
 	RunNotStarted       = "not-started"
+	RunUnfinished       = "unfinished"
+	RunBlocked          = "blocked"
+	RunGaveUp           = "gave-up"
 )
 
 // The reasons of a dropped run.
@@ -36,10 +39,19 @@ const (
 	DropReload   = "reload"
 )
 
+// SkipCardMoved says a resume was skipped because the card left the column of
+// its series. The drop reasons above also serve as skip reasons.
+const SkipCardMoved = "card_moved"
+
 // IsOutcome reports whether state is how a worker ended. Only an outcome maps
 // onto the old report.
 func IsOutcome(state string) bool {
-	return state == RunSucceeded || state == RunNoResult || state == RunFailed || state == RunNotStarted
+	switch state {
+	case RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunGaveUp:
+		return true
+	}
+
+	return false
 }
 
 // RunStateReport is one state of a run, as PUT
@@ -69,6 +81,18 @@ type RunStateReport struct {
 	ReplacedBy string `json:"replacedBy,omitzero"`
 	MaxChain   int    `json:"maxChain,omitzero"`
 	Reason     string `json:"reason,omitzero"`
+
+	// ResultStatus and ResultFields come from the worker's structured result.
+	// ResumeSkipped says why the bridge did not resume a run that did not finish.
+	ResultStatus  string         `json:"resultStatus,omitempty"`
+	ResultFields  map[string]any `json:"resultFields,omitempty"`
+	ResumeSkipped string         `json:"resumeSkipped,omitempty"`
+	// Continues is the id of the run a resume continues. CardColumn is the
+	// column that started the series.
+	Continues   string `json:"continues,omitempty"`
+	ResumeIndex int    `json:"resumeIndex,omitempty"`
+	ResumeCap   int    `json:"resumeCap,omitempty"`
+	CardColumn  string `json:"cardColumn,omitempty"`
 }
 
 // MarshalJSON sends every field of an outcome, as the old report does, so an

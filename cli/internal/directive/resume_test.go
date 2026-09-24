@@ -24,3 +24,25 @@ func TestRenderResumeAppendsTheResumeFooter(t *testing.T) {
 		t.Fatalf("the resume prompt carries the card footer too: %q", got)
 	}
 }
+
+// The unfinished resume names why the worker is back and ends with the card
+// footer. No rule template takes part in it.
+func TestRenderResumeUnfinishedNamesTheReasonAndEndsWithTheFooter(t *testing.T) {
+	for _, reason := range []string{"status unfinished", "no structured result", "exit code 1"} {
+		got := RenderResumeUnfinished(reason)
+
+		for _, want := range []string{
+			"Your last turn ended with " + reason + ".",
+			"died when the process exited",
+			"Check the state of the work",
+			"Wait for each command in the foreground",
+		} {
+			if !strings.Contains(got, want) {
+				t.Fatalf("RenderResumeUnfinished(%q) = %q, want it to contain %q", reason, got, want)
+			}
+		}
+		if !strings.HasSuffix(got, "\n\n"+Footer) {
+			t.Fatalf("RenderResumeUnfinished(%q) = %q, want it to end with the card footer", reason, got)
+		}
+	}
+}

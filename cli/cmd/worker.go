@@ -184,7 +184,8 @@ func (w *capWriter) Write(p []byte) (int, error) {
 
 // decodeWorkerOutput reads the one JSON document claude --output-format json
 // prints. A cut-off or undecodable stdout holds no result. The output is the
-// first non-empty of the summary, claude's result text and stderr.
+// first non-empty of the summary, claude's result text, stderr and the raw
+// stdout that did not decode.
 func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResult {
 	var doc struct {
 		StructuredOutput json.RawMessage `json:"structured_output"`
@@ -192,8 +193,12 @@ func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResul
 		IsError          bool            `json:"is_error"`
 	}
 	var res workerResult
-	var summary string
-	if !overflow && json.Unmarshal(stdout, &doc) == nil {
+	var summary, raw string
+	decoded := !overflow && json.Unmarshal(stdout, &doc) == nil
+	if !decoded {
+		raw = string(stdout)
+	}
+	if decoded {
 		var fields map[string]any
 		_ = json.Unmarshal(doc.StructuredOutput, &fields)
 		status, _ := fields["status"].(string)
@@ -206,9 +211,10 @@ func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResul
 	}
 
 	out := &capWriter{limit: maxOutput}
-	for _, text := range []string{summary, doc.Result, stderr} {
+	for _, text := range []string{summary, doc.Result, stderr, raw} {
 		if text != "" {
 			_, _ = out.Write([]byte(text))
+			out.dropped = out.dropped || (text == raw && overflow)
 
 			break
 		}

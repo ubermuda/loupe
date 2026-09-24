@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -147,6 +148,9 @@ type fakeLoupe struct {
 	// askState answers the ask check route. Empty answers 404.
 	askState  string
 	askChecks []string
+	// cardColumn answers the card read route. Empty answers 404.
+	cardColumn string
+	cardReads  []string
 }
 
 const (
@@ -210,6 +214,16 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 
 			return
 		}
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/board/cards/") {
+			f.mu.Lock()
+			f.cardReads = append(f.cardReads, r.URL.Path)
+			f.mu.Unlock()
+			if f.cardColumn != "" {
+				fmt.Fprintf(w, `{"cardId":%q,"number":87,"column":%q}`, path.Base(r.URL.Path), f.cardColumn)
+
+				return
+			}
+		}
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/inbox/asks/") {
 			f.mu.Lock()
 			f.askChecks = append(f.askChecks, r.URL.Path)
@@ -270,7 +284,7 @@ func TestOneTopicServesEveryProject(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	worker := &fakeWorker{}
+	worker := &fakeWorker{result: finishedRun}
 	h := &harness{worker: worker, log: &syncBuffer{}}
 	h.router = withRules(&router{log: newBridgeLogger(h.log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
 
@@ -349,7 +363,7 @@ func TestTheBridgeReportsRuleHealthAtStartAndOnAChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	log := &syncBuffer{}
-	worker := &fakeWorker{}
+	worker := &fakeWorker{result: finishedRun}
 	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -414,7 +428,7 @@ func TestTheBridgeSendsAHeartbeatAtStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	log := &syncBuffer{}
-	worker := &fakeWorker{}
+	worker := &fakeWorker{result: finishedRun}
 	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())

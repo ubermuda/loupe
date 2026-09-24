@@ -754,7 +754,8 @@ func TestAPersonsAnswerResetsTheCardsChain(t *testing.T) {
 func TestAFailedResumeIsReportedAsAFailedRun(t *testing.T) {
 	h := newHarnessWith(t, resumeRules, rules.Defaults{})
 	sent := h.reports(t)
-	h.worker.result = workerResult{exitCode: 1, output: "No conversation found with session ID: " + askSession}
+	h.worker.results = []workerResult{{exitCode: 1, output: "No conversation found with session ID: " + askSession}}
+	h.worker.result = finishedRun
 
 	h.send(h.mine(ask{card: 87}))
 
@@ -791,7 +792,7 @@ func TestTheBridgeChecksTheAskBeforeItResumes(t *testing.T) {
 		t.Fatal(err)
 	}
 	log := &syncBuffer{}
-	worker := &fakeWorker{}
+	worker := &fakeWorker{result: finishedRun}
 	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())

@@ -271,6 +271,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.checkAsk == nil {
 		r.checkAsk = apiClient(cfg).CheckAsk
 	}
+	if r.readCard == nil {
+		r.readCard = apiClient(cfg).ReadCard
+	}
 	r.applyFlags(events)
 	if r.bridgeID != "" {
 		r.health = newHealthReporter(ctx, apiClient(cfg), r.bridgeID, r.log)

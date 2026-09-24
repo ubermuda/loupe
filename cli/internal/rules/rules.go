@@ -33,6 +33,10 @@ const FileName = "rules.yaml"
 // one card.
 const DefaultMaxChain = 3
 
+// DefaultMaxResumes bounds the resumes the bridge runs after one run that did
+// not finish.
+const DefaultMaxResumes = 2
+
 // Example is the file the bridge prints when it finds none.
 const Example = `projects:
   my-app:
@@ -62,6 +66,8 @@ const (
 	MaxOnLength        = 100
 	MaxSlugLength      = 2000
 	MaxRulesPerProject = 200
+	// MaxResumesLimit is the largest resume cap a run report takes.
+	MaxResumesLimit = 32767
 )
 
 // phpTrimSet is the set PHP's trim strips by default.
@@ -114,6 +120,7 @@ type Rule struct {
 	PermissionMode string `yaml:"permissionMode"`
 	Model          string `yaml:"model"`
 	MaxChain       *int   `yaml:"maxChain"`
+	MaxResumes     *int   `yaml:"maxResumes"`
 	AllowUntrusted bool   `yaml:"allowUntrusted"`
 	// Verdict limits a document.review_submitted rule to one verdict. Empty
 	// matches either.
@@ -263,6 +270,10 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		if r.MaxChain == nil {
 			n := DefaultMaxChain
 			r.MaxChain = &n
+		}
+		if r.MaxResumes == nil {
+			n := DefaultMaxResumes
+			r.MaxResumes = &n
 		}
 		if r.PermissionMode == "" {
 			r.PermissionMode = defaults.PermissionMode
@@ -439,6 +450,11 @@ func checkRule(r Rule, projects map[string]Project) error {
 	}
 	if r.MaxChain != nil && *r.MaxChain < 1 {
 		errs = append(errs, fmt.Errorf("maxChain must be at least 1, got %d", *r.MaxChain))
+	}
+	if r.MaxResumes != nil && *r.MaxResumes < 0 {
+		errs = append(errs, fmt.Errorf("maxResumes must be at least 0, got %d", *r.MaxResumes))
+	} else if r.MaxResumes != nil && *r.MaxResumes > MaxResumesLimit {
+		errs = append(errs, fmt.Errorf("maxResumes is %d, and the server takes at most %d", *r.MaxResumes, MaxResumesLimit))
 	}
 
 	return errors.Join(errs...)
@@ -668,6 +684,7 @@ type Match struct {
 	PermissionMode string
 	Model          string
 	MaxChain       int
+	MaxResumes     int
 	Prompt         string
 	Resume         bool
 	// Schema is the compact JSON Schema claude's final reply must match.
@@ -756,6 +773,7 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 		PermissionMode: r.PermissionMode,
 		Model:          r.Model,
 		MaxChain:       *r.MaxChain,
+		MaxResumes:     *r.MaxResumes,
 		Prompt:         render(r.Prompt, values(e, slug)),
 		Resume:         r.Resume,
 		Schema:         r.schema,

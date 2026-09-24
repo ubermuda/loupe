@@ -88,6 +88,15 @@ func TestDecodeWorkerOutput(t *testing.T) {
 		},
 		"text after the document": {
 			stdout: `{"structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`,
+			want:   workerResult{output: `{"structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`},
+		},
+		"undecoded stdout with no stderr is capped": {
+			stdout:   long,
+			overflow: true,
+			want:     workerResult{output: long[:maxOutput] + "… (truncated)"},
+		},
+		"a decoded document with no text stays empty": {
+			stdout: `{"result":"","structured_output":null}`,
 			want:   workerResult{},
 		},
 		"overflow": {
