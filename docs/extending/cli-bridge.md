@@ -199,6 +199,10 @@ which takes one report for each finished run. It counts every open state as
 delivered, and it sends no inventory. A report that already waits in the queue
 takes the fallback when it goes out, so none is lost on the switch.
 
+The old report carries no result status. An `unfinished` or `blocked` run
+therefore reads as `succeeded` there, and a `gave-up` run reads as the outcome
+of its exit code and result flag. Nothing logs this.
+
 The old endpoint keys a run by its project, its bridge, its card and the second
 it started. Two runs of one card that start inside the same second therefore
 count as one report, and the second record is lost. A worker runs for minutes,

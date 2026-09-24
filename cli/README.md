@@ -867,7 +867,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `worker_coalesced` | `card`, `project`, `rule`: the event replaced one that waits for the same card and rule |
 | `chain_capped` | `card`, `project`, `rule`, `max_chain`, `message`: the rule reached its cap on that card |
 | `worker_started` | `card`, `project`, `rule`, `session_id`, `ask` for the resume of an ask, and `resume` for the resume of an unfinished run |
-| `resume_skipped` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `message`: the session read every item of its ask, so no worker ran. For an unfinished run, `reason` replaces `ask`: `card_moved`, `shutdown`, `rule_dead` or `reload`, at level `WARN` |
+| `resume_skipped` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `message`: the session read every item of its ask, so no worker ran. For an unfinished run, the line adds `reason`: `card_moved`, `shutdown`, `rule_dead` or `reload`, at level `WARN` |
 | `resume_check_failed` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `error`, `message`: the ask check failed, and the session resumes. Level `WARN` |
 | `card_read_failed` | `card`, `project`, `rule`, `error`, `message`: the card read before the resume of an unfinished run failed, and the session resumes. Level `WARN` |
 | `worker_resuming` | `card`, `project`, `rule`, `session_id`, `resume`, `max_resumes`, `reason`: the bridge resumes a run that did not finish. Level `WARN` |

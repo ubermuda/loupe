@@ -102,7 +102,7 @@ order.
 | `resultFields` | the optional fields of the structured result, as a JSON object of at most 4000 bytes. A list is refused |
 | `resumeSkipped` | why the bridge did not resume a run that did not finish, at most 50 characters. The bridge sends `card_moved`, `shutdown`, `rule_dead` or `reload` |
 | `continues` | the `runId` of the run that this run resumes, a uuid |
-| `resumeIndex` | the place of this run in its series, between 0 and 32767. The first run is 0 |
+| `resumeIndex` | the place of this run in its series, between 0 and 32767. The bridge sends none for the first run |
 | `resumeCap` | the `maxResumes` cap of the series, between 0 and 32767 |
 | `cardColumn` | the slug of the column that started the series, at most 2000 characters |
 
