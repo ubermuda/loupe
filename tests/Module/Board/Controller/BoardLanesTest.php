@@ -64,6 +64,8 @@ final class BoardLanesTest extends WebTestCase
         self::assertCount(1, $lane);
         self::assertSame('board-lane', $lane->attr('data-controller'));
         $head = $lane->filter('.lp-board-lane__head');
+        self::assertSame('laneHead', $head->attr('data-board-filter-target'));
+        self::assertSame('Board epic', $head->attr('data-card-title'));
         self::assertStringContainsString('#'.$epicNumber, $head->text());
         self::assertCount(1, $head->filter('a[href$="/board/cards/'.$epicId.'"]'));
         self::assertSame('1/2 done', trim($head->filter('[data-lane-progress]')->text()));

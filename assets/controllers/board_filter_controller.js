@@ -1,7 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 
 export default class extends Controller {
-    static targets = ['query', 'card', 'row', 'count', 'empty'];
+    static targets = ['query', 'card', 'row', 'count', 'empty', 'laneHead'];
 
     revealField(event) {
         event.target.scrollIntoView({
@@ -23,6 +23,18 @@ export default class extends Controller {
             card.hidden = !visible;
             if (visible) {
                 visibleCount += 1;
+            }
+        }
+
+        // A lane epic is its header rather than a card. The header always
+        // stays, and a matching title counts it once.
+        if (query !== '') {
+            for (const head of this.laneHeadTargets) {
+                if (
+                    head.dataset.cardTitle.toLocaleLowerCase().includes(query)
+                ) {
+                    visibleCount += 1;
+                }
             }
         }
 

@@ -8,7 +8,7 @@
          data-board-lane-project-value="{{ board.project.id }}"
          data-board-lane-epic-value="{{ epic.id }}"
          aria-label="#{{ epic.number }} {{ epic.title }}"{% else %}aria-label="{{ 'board.lane.other'|trans }}"{% endif %}>
-    <header class="lp-board-lane__head">
+    <header class="lp-board-lane__head"{% if epic %} data-board-filter-target="laneHead" data-card-title="{{ epic.title }}"{% endif %}>
         {% if epic %}
         {% set progress = board.progress[epic.id ~ ''] %}
         <button type="button"
