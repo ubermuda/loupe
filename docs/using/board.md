@@ -275,6 +275,77 @@ offers the matching cards of the project. The **Add a linked card** button adds
 a row, and the cross at the end of a row removes it. Saving replaces the card's
 whole set of links.
 
+## Epics and lanes
+
+An epic is a card of the type `epic`. It groups other cards, its children, so a
+large feature can go to many small cards and still read as one piece of work.
+
+### Parents
+
+A card can have one epic as its parent. Set the parent in the **Parent epic**
+field of the card form, or with `parentCardId` in the MCP tools. Loupe refuses
+these changes:
+
+- A parent that is not an epic.
+- A parent from another project.
+- A parent on an epic. Epics do not nest.
+- The type `epic` on a card that has a parent.
+- Another type on an epic that has children.
+
+The epic page lists the children with their columns, and shows a count such as
+"3/7 done". A child counts as done when it sits in a terminal column. The child
+page names its parent.
+
+### Lanes
+
+Each epic in an open column gets a lane on the board. A lane is a row across all
+the columns, and the epic's children sit in their columns inside that row. The
+lanes follow the order of their epics: by column, then by rank. The last row,
+**Other cards**, holds every card that is in no lane.
+
+The lane header shows the epic number, its title, the "3/7 done" count, a
+collapse button and a lane toggle. An epic with its lane on shows as the lane
+header only, not as a card in its column.
+
+The collapse button hides the cards of the lane and keeps the header. Your
+browser remembers the lanes you collapse, for each project. Another browser
+shows every lane open.
+
+The lane toggle turns the lane of that epic off or on. The epic page has the same
+toggle, and an agent sets `laneEnabled` through MCP. The setting belongs to the
+epic, so every browser sees it. With the lane off, the epic shows as a card with
+its count, and its children show in **Other cards**. Each of them carries a tag
+such as "↑ #214" that names its epic.
+
+A board with no lane shows its columns only, as it did before epics.
+
+In a lane, a drop takes the end of the column, and a card can move only inside
+its own lane. A drop in another lane does nothing.
+
+### When an epic is done
+
+Loupe moves an epic on its own:
+
+- When the last open child moves to a terminal column, the epic moves to the
+  first terminal column of the board.
+- When a child of a done epic leaves the terminal column, or an open card joins a
+  done epic, the epic moves back to the `implementation` column.
+- When a child with a parent waits in the default column and its last blocker
+  moves to a terminal column, the child moves to the `implementation` column.
+
+A board with no `implementation` column skips the moves back. An epic with no
+children never moves on its own.
+
+A manual move of an epic to a terminal column is refused while a child is open.
+The message names the open children. Move them to a terminal column first.
+
+An epic with children cannot be deleted. Delete the children, or remove them
+from the epic, first.
+
+When an epic is done, its lane goes away. The epic shows in its terminal column
+as one card with its count, and its children leave the board. The children stay
+on the epic page, on the history page of their column, and in the MCP tools.
+
 ## What a card holds
 
 | Field | What it is |

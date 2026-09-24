@@ -118,4 +118,12 @@ trait BoardScenario
 
         return $card;
     }
+
+    private function childOf(EntityManagerInterface $em, Card $epic, Card $child): Card
+    {
+        $child->parent = $epic;
+        $em->flush();
+
+        return $child;
+    }
 }

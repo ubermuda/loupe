@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BridgeRuleReport;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -63,6 +64,24 @@ final readonly class ShowBoardHandler
             }
         }
 
+        [$lanes, $otherCards] = self::sortIntoLanes($columns);
+
+        $counts = $this->cards->childProgressForProject($project);
+        $progress = [];
+        $shownCounts = [];
+        foreach ($columns as $view) {
+            $columnId = (string) $view->column->id;
+            $shownCounts[$columnId] = null === $otherCards
+                ? $view->count
+                : array_sum(array_map(static fn (BoardLaneView $lane): int => \count($lane->cells[$columnId] ?? []), [...$lanes, $otherCards]));
+            foreach ($view->cards as $card) {
+                if (CardType::Epic === $card->type) {
+                    $epicCounts = $counts[(string) $card->id] ?? ['done' => 0, 'total' => 0];
+                    $progress[(string) $card->id] = new CardProgress($epicCounts['done'], $epicCounts['total']);
+                }
+            }
+        }
+
         return new BoardView(
             $project,
             $columns,
@@ -72,6 +91,61 @@ final readonly class ShowBoardHandler
             $this->cardSiteReviewComments->pendingCountsForProject($project),
             $deadRules,
             array_values(array_unique($watchedSlugs)),
+            $lanes,
+            $otherCards,
+            $progress,
+            $shownCounts,
         );
+    }
+
+    /**
+     * A lane is an epic in an open column with its lane on, in board order.
+     * Its children fill its row, and every other card goes to the last row.
+     *
+     * @param list<BoardColumnView> $columns
+     *
+     * @return array{list<BoardLaneView>, ?BoardLaneView}
+     */
+    private static function sortIntoLanes(array $columns): array
+    {
+        $epics = [];
+        foreach ($columns as $view) {
+            if ($view->column->terminal) {
+                continue;
+            }
+            foreach ($view->cards as $card) {
+                if (CardType::Epic === $card->type && $card->laneEnabled) {
+                    $epics[(string) $card->id] = $card;
+                }
+            }
+        }
+
+        if ([] === $epics) {
+            return [[], null];
+        }
+
+        $cells = array_fill_keys(array_keys($epics), []);
+        $other = [];
+        foreach ($columns as $view) {
+            $columnId = (string) $view->column->id;
+            foreach ($view->cards as $card) {
+                if (isset($epics[(string) $card->id])) {
+                    continue;
+                }
+                $parentId = null === $card->parent ? null : (string) $card->parent->id;
+                if (null !== $parentId && isset($epics[$parentId])) {
+                    $cells[$parentId][$columnId][] = $card;
+                } else {
+                    $other[$columnId][] = $card;
+                }
+            }
+        }
+
+        $lanes = [];
+        foreach ($epics as $epicId => $epic) {
+            $lanes[] = new BoardLaneView($epic, $cells[$epicId]);
+        }
+
+        return [$lanes, new BoardLaneView(null, $other)];
     }
 }

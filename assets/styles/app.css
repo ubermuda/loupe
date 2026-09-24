@@ -5683,6 +5683,53 @@
         @apply select-none;
     }
 
+    /* A board with epic lanes reads in rows: the column headers, one row per
+       lane, then "Other cards". Every row splits its width the same way as the
+       header row, so a cell sits under its column. The whole board scrolls. */
+    .lp-board__columns--lanes {
+        @apply overflow-y-auto;
+    }
+    .lp-board-lanes {
+        @apply flex flex-col gap-4 w-fit min-w-full;
+    }
+    .lp-board-lanes__row {
+        @apply sticky top-0 z-10 flex gap-3.5;
+    }
+    .lp-board-lanes__column {
+        @apply gap-2;
+    }
+    .lp-board-lane {
+        @apply flex flex-col gap-2;
+    }
+    .lp-board-lane__head {
+        @apply flex flex-wrap items-center gap-2 px-1;
+    }
+    .lp-board-lane__collapse {
+        @apply inline-flex items-center justify-center w-7 h-7 rounded-lg text-fg-mute transition-colors hover:bg-surface-3 hover:text-ink;
+    }
+    .lp-board-lane__chevron {
+        @apply w-4 h-4 rotate-90 transition-transform;
+    }
+    .lp-board-lane--collapsed .lp-board-lane__chevron {
+        @apply rotate-0;
+    }
+    .lp-board-lane__title {
+        @apply m-0 font-display font-extrabold text-base tracking-tight text-ink no-underline hover:text-accent-ink;
+    }
+    .lp-board-lane__progress {
+        @apply text-sm font-semibold text-fg-dim;
+    }
+    .lp-board-lane__cells {
+        @apply flex gap-3.5;
+    }
+    .lp-board-lane--collapsed .lp-board-lane__cells {
+        @apply hidden;
+    }
+    /* A cell is a drop target, so an empty one keeps some height. */
+    .lp-board-lane__cell {
+        @apply flex flex-col gap-2.5 grow basis-0 min-w-52 min-h-16 rounded-xl bg-surface-3 p-2.5;
+    }
+
     /* The whole card is the drag handle, so its own text is not selectable.
        A selection started on a card would fight the gesture. The card's page
        carries the same text, and there it selects normally. */
@@ -5723,6 +5770,13 @@
     }
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;
+    }
+    /* The epic of a card that sits outside that epic's lane. */
+    .lp-board-card__parent {
+        @apply inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-fg-dim;
+    }
+    .lp-board-card__progress {
+        @apply text-xs font-semibold text-fg-dim;
     }
     .lp-board-card__pulls,
     .lp-board-card__reviews,

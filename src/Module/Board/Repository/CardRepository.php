@@ -441,17 +441,50 @@ class CardRepository extends ServiceEntityRepository
      * it, so a column that only ever grows does not become the page's whole
      * height.
      *
+     * A card whose epic sits in a terminal column is left out: the done epic
+     * stands for it on the board, and the history page still lists it.
+     *
      * @return list<Card>
      */
     public function findCompletedSince(BoardColumn $column, \DateTimeImmutable $since): array
     {
         return array_values(
-            $this->withPullRequests($this->completedQuery($column))
-                ->andWhere('c.completedAt >= :since')
-                ->setParameter('since', $since)
+            $this->withPullRequests(
+                $this->completedQuery($column)
+                    ->leftJoin('c.parent', 'parent')
+                    ->addSelect('parent')
+                    ->leftJoin('parent.column', 'parentColumn')
+                    ->andWhere('c.completedAt >= :since')
+                    ->andWhere('parent.id IS NULL OR parentColumn.terminal = false')
+                    ->setParameter('since', $since),
+            )
                 ->getQuery()
                 ->getResult(),
         );
+    }
+
+    /**
+     * How many children each epic of the project has, and how many of them
+     * sit in a terminal column. An epic with no children has no key.
+     *
+     * @return array<string, array{done: int, total: int}> epic id => its counts
+     */
+    public function childProgressForProject(Project $project): array
+    {
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT c.parent_card_id AS id, COUNT(*) AS total, SUM(CASE WHEN k.terminal THEN 1 ELSE 0 END) AS done
+             FROM board_cards c JOIN board_columns k ON k.id = c.column_id
+             WHERE c.project_id = :project AND c.parent_card_id IS NOT NULL
+             GROUP BY c.parent_card_id',
+            ['project' => (string) $project->id],
+        );
+
+        $progress = [];
+        foreach ($rows as $row) {
+            $progress[(string) $row['id']] = ['done' => (int) $row['done'], 'total' => (int) $row['total']];
+        }
+
+        return $progress;
     }
 
     /**

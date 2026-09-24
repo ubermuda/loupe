@@ -438,9 +438,19 @@ export default class extends Controller {
         return ghost;
     }
 
+    /**
+     * The drop target under the pointer. A board with lanes offers only the
+     * cells of the lane the drag started in, because a drop keeps the card's
+     * parent.
+     */
     groupUnder(x, y) {
+        const lane = this.originGroup?.dataset.lane;
+
         return (
             this.groupTargets.find((group) => {
+                if (group.dataset.lane !== lane) {
+                    return false;
+                }
                 const rectangle = (
                     group.closest('.lp-board__column') ?? group
                 ).getBoundingClientRect();

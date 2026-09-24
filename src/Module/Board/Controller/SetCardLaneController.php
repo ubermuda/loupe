@@ -6,6 +6,8 @@ namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Board\Command\ShowBoardCommand;
+use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
@@ -24,6 +26,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Symfony\UX\Turbo\TurboBundle;
 
 #[IsGranted(CardVoter::WRITE, subject: 'card')]
 #[Route(
@@ -36,6 +39,7 @@ final class SetCardLaneController extends AppController
 {
     public function __construct(
         private readonly UpdateCardHandler $updateCard,
+        private readonly ShowBoardHandler $showBoard,
         private readonly BoardAvailability $board,
         private readonly FormFactoryInterface $formFactory,
         private readonly TranslatorInterface $translator,
@@ -71,8 +75,21 @@ final class SetCardLaneController extends AppController
 
         $projectId = (string) $card->project->id;
 
-        return SetCardLaneRequest::RETURN_TO_BOARD === $data->returnTo
-            ? $this->redirectToRoute('app_project_board', ['id' => $projectId])
-            : $this->redirectToRoute('app_board_card', ['projectId' => $projectId, 'cardId' => (string) $card->id]);
+        if (SetCardLaneRequest::RETURN_TO_BOARD !== $data->returnTo) {
+            return $this->redirectToRoute('app_board_card', ['projectId' => $projectId, 'cardId' => (string) $card->id]);
+        }
+
+        // A refusal redirects, because its flash sits outside the board a stream replaces.
+        if (null !== $refusal || TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
+            return $this->redirectToRoute('app_project_board', ['id' => $projectId]);
+        }
+
+        return new Response(
+            $this->renderView('@Board/_board.stream.html.twig', [
+                'board' => ($this->showBoard)(new ShowBoardCommand($card->project)),
+            ]),
+            Response::HTTP_OK,
+            ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
+        );
     }
 }

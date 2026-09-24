@@ -210,14 +210,6 @@ final class EpicCardPagesTest extends WebTestCase
         self::assertSame('—', trim($epicRow->text()));
     }
 
-    private function childOf(EntityManagerInterface $em, Card $epic, Card $child): Card
-    {
-        $child->parent = $epic;
-        $em->flush();
-
-        return $child;
-    }
-
     private function postLane(
         KernelBrowser $client,
         Project $project,

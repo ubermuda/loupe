@@ -4294,7 +4294,7 @@
             </trans-unit>
             <trans-unit id="landing.faq.board.answer">
                 <source>landing.faq.board.answer</source>
-                <target>Yes, once you turn the project board on. Your agent then files cards over MCP, in the columns you set for each board, and links the pull requests that carry each one. Loupe stores those links and never calls out to check them.</target>
+                <target>Yes, once you turn the project board on. Your agent then files cards over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. Loupe stores the pull request links and never calls out to check them.</target>
             </trans-unit>
             <trans-unit id="landing.faq.technical.question">
                 <source>landing.faq.technical.question</source>
@@ -5618,6 +5618,8 @@
             <trans-unit id="board.card.lane.hide"><source>board.card.lane.hide</source><target>Hide the lane on the board</target></trans-unit>
             <trans-unit id="board.card.lane.error.not_saved"><source>board.card.lane.error.not_saved</source><target>The lane setting was not saved. Reload the page and try again.</target></trans-unit>
             <trans-unit id="board.card.lane.error.not_epic"><source>board.card.lane.error.not_epic</source><target>Only an epic has a lane.</target></trans-unit>
+            <trans-unit id="board.lane.other"><source>board.lane.other</source><target>Other cards</target></trans-unit>
+            <trans-unit id="board.lane.collapse"><source>board.lane.collapse</source><target>Show or hide the cards of this lane</target></trans-unit>
             <trans-unit id="board.card.linked_cards.kind.relates_to"><source>board.card.linked_cards.kind.relates_to</source><target>Related to</target></trans-unit>
             <trans-unit id="board.card.linked_cards.kind.blocks"><source>board.card.linked_cards.kind.blocks</source><target>Blocks</target></trans-unit>
             <trans-unit id="board.card.linked_cards.kind.blocked_by"><source>board.card.linked_cards.kind.blocked_by</source><target>Blocked by</target></trans-unit>
