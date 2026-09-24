@@ -329,6 +329,20 @@ final class CardListToolTest extends KernelTestCase
         self::assertSame([], array_values(array_filter($forMany['all'], static fn (string $sql): bool => 1 === preg_match('/FROM board_cards t0 WHERE t0\.id = \?/', $sql))));
     }
 
+    public function test_a_full_page_reads_the_parents_off_the_page_in_one_query(): void
+    {
+        $this->boardWith('card-list-parents-batch-one');
+        $this->epicsWithChildren(1);
+        $forOne = $this->parentQueriesOfAFullFeaturePage();
+
+        $this->boardWith('card-list-parents-batch-many');
+        $this->epicsWithChildren(4);
+        $forMany = $this->parentQueriesOfAFullFeaturePage();
+
+        self::assertSame([], $forMany['single'], "A parent loaded on its own:\n".implode("\n", $forMany['single']));
+        self::assertSame(\count($forOne['all']), \count($forMany['all']), "The page cost grew with the parents:\n".implode("\n", $forMany['all']));
+    }
+
     public function test_full_returns_the_body_and_every_link_set(): void
     {
         $this->boardWith('card-list-full');
@@ -450,6 +464,38 @@ final class CardListToolTest extends KernelTestCase
         return [
             'all' => $all,
             'children' => array_values(array_filter($all, static fn (string $sql): bool => 1 === preg_match('/WHERE.*parent_card_id\s*(IN|=)/s', $sql))),
+        ];
+    }
+
+    /**
+     * The card statements of a full page of features, where every epic is filtered
+     * out, and those among them that load one card by id.
+     *
+     * @return array{all: list<string>, single: list<string>}
+     */
+    private function parentQueriesOfAFullFeaturePage(): array
+    {
+        $queries = self::getContainer()->get('doctrine.debug_data_holder');
+        self::assertInstanceOf(DebugDataHolder::class, $queries);
+        $queries->reset();
+
+        $cards = ($this->tool)(type: 'feature', full: true)['cards'];
+        // Guard: a child row must read its parent, or no parent query can fire.
+        self::assertNotEmpty(array_filter(array_column($cards, 'parent')));
+
+        $all = [];
+        foreach ($queries->getData() as $connectionQueries) {
+            foreach ($connectionQueries as $query) {
+                // Documents load one query per card before this change, so they stay out of the count.
+                if (str_contains((string) $query['sql'], 'FROM board_cards')) {
+                    $all[] = (string) $query['sql'];
+                }
+            }
+        }
+
+        return [
+            'all' => $all,
+            'single' => array_values(array_filter($all, static fn (string $sql): bool => 1 === preg_match('/FROM board_cards t0 WHERE t0\.id = \?/', $sql))),
         ];
     }
 

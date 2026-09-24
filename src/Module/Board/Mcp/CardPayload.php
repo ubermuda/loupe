@@ -50,8 +50,8 @@ final readonly class CardPayload
 
     /**
      * Many cards in one read, so a board-sized list costs one comment query,
-     * one card link query and one children query rather than one of each per
-     * card.
+     * one card link query, one children query and one parent query rather
+     * than one of each per card.
      *
      * @param list<Card> $cards
      *
@@ -63,6 +63,7 @@ final readonly class CardPayload
         $linksByCard = $this->cardLinks->findForCards($cards);
         $epics = array_values(array_filter($cards, static fn (Card $card): bool => CardType::Epic === $card->type));
         $childrenByCard = [] === $epics ? [] : $this->cards->findChildrenOfCards($epics);
+        $this->cards->loadParentsOf($cards);
 
         return array_map(
             fn (Card $card): array => $this->render(

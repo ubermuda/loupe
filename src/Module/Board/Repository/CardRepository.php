@@ -333,6 +333,34 @@ class CardRepository extends ServiceEntityRepository
         return $byParent;
     }
 
+    /**
+     * Loads, in one query, the parent of each card that the identity map does
+     * not hold yet. The query fills the lazy parent objects in place.
+     *
+     * @param list<Card> $cards
+     */
+    public function loadParentsOf(array $cards): void
+    {
+        $em = $this->getEntityManager();
+        $ids = [];
+        foreach ($cards as $card) {
+            if (null !== $card->parent && $em->isUninitializedObject($card->parent)) {
+                $ids[(string) $card->parent->id] = true;
+            }
+        }
+        if ([] === $ids) {
+            return;
+        }
+
+        $this->createQueryBuilder('c')
+            ->join('c.column', 'k')
+            ->addSelect('k')
+            ->andWhere('c.id IN (:ids)')
+            ->setParameter('ids', array_map(strval(...), array_keys($ids)))
+            ->getQuery()
+            ->getResult();
+    }
+
     public function countChildren(Card $card): int
     {
         return (int) $this->getEntityManager()->getConnection()->fetchOne(
