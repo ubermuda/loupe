@@ -344,6 +344,9 @@ func TestAMatchingRuleRunsAWorker(t *testing.T) {
 	if calls[0].dir != h.dir || calls[0].permissionMode != "acceptEdits" || calls[0].model != "sonnet" {
 		t.Fatalf("unexpected worker: %+v", calls[0])
 	}
+	if !strings.Contains(calls[0].schema, `"required":["status","summary"]`) {
+		t.Fatalf("schema = %q", calls[0].schema)
+	}
 	want := "Card 87 (" + testCard + ") entered next.\n\n" + directive.Footer
 	if calls[0].prompt != want {
 		t.Fatalf("prompt = %q, want %q", calls[0].prompt, want)
@@ -382,7 +385,8 @@ func TestTheWorkerRunsWithTheMatchingRulesSettings(t *testing.T) {
 	if len(calls) != 1 {
 		t.Fatalf("expected one worker, got %+v", calls)
 	}
-	want := workerSpec{dir: h.dir, permissionMode: "plan", model: "opus", sessionID: testSession, prompt: "Review " + testCard + " in loupe, from in-progress.\n\n" + directive.Footer}
+	schema := `{"properties":{"status":{"enum":["finished","blocked","unfinished"],"type":"string"},"summary":{"type":"string"}},"required":["status","summary"],"type":"object"}`
+	want := workerSpec{dir: h.dir, permissionMode: "plan", model: "opus", schema: schema, sessionID: testSession, prompt: "Review " + testCard + " in loupe, from in-progress.\n\n" + directive.Footer}
 	if calls[0] != want {
 		t.Fatalf("worker = %+v, want %+v", calls[0], want)
 	}

@@ -126,8 +126,8 @@ func TestResumeArgsResumeTheSession(t *testing.T) {
 		spec workerSpec
 		want string
 	}{
-		{workerSpec{resume: true, sessionID: askSession, prompt: "go"}, "-p --resume " + askSession + " -- go"},
-		{workerSpec{resume: true, sessionID: askSession, permissionMode: "plan", model: "opus", prompt: "go"}, "--permission-mode plan --model opus -p --resume " + askSession + " -- go"},
+		{workerSpec{resume: true, sessionID: askSession, prompt: "go"}, "--output-format json -p --resume " + askSession + " -- go"},
+		{workerSpec{resume: true, sessionID: askSession, permissionMode: "plan", model: "opus", schema: "{}", prompt: "go"}, "--permission-mode plan --model opus --output-format json --json-schema {} -p --resume " + askSession + " -- go"},
 	} {
 		if got := strings.Join(workerArgs(tc.spec), " "); got != tc.want {
 			t.Fatalf("workerArgs(%+v) = %q, want %q", tc.spec, got, tc.want)

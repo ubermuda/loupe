@@ -7,21 +7,15 @@ import (
 	"errors"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
 )
 
-// A stand-in claude prints the ceiling it got on stdout and its result line on
-// stderr, so the test sees the environment and the shared stream wiring.
-func TestRunWorkerLiftsTheCeilingAndReadsBothStreams(t *testing.T) {
-	bin := t.TempDir()
-	script := "#!/bin/sh\necho \"ceiling=$" + ceilingEnv + "\"\necho 'STAGE RESULT: done' >&2\n"
-	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+// A stand-in claude prints its result with the ceiling it got on stdout, and
+// noise on stderr, so the test sees the environment and the split streams.
+func TestRunWorkerLiftsTheCeilingAndDecodesStdout(t *testing.T) {
+	fakeClaude(t, "echo '{\"structured_output\":{\"status\":\"finished\",\"summary\":\"ceiling='\"$"+ceilingEnv+"\"'\"}}'\necho 'a warning' >&2\n")
 	t.Setenv(ceilingEnv, "")
 	if err := os.Unsetenv(ceilingEnv); err != nil {
 		t.Fatal(err)
@@ -31,7 +25,28 @@ func TestRunWorkerLiftsTheCeilingAndReadsBothStreams(t *testing.T) {
 	if res.err != nil || res.exitCode != 0 {
 		t.Fatalf("runWorker = %+v", res)
 	}
-	if !res.hasResult || res.output != "ceiling=0\nSTAGE RESULT: done" {
+	if !res.hasResult || res.status != "finished" || res.output != "ceiling=0" {
+		t.Fatalf("runWorker = %+v", res)
+	}
+}
+
+// Stdout that holds no result leaves stderr as the output.
+func TestRunWorkerFallsBackToStderr(t *testing.T) {
+	fakeClaude(t, "echo 'not json'\necho 'claude: no such option' >&2\nexit 2\n")
+
+	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, nil)
+	if res.hasResult || res.exitCode != 2 || res.output != "claude: no such option" {
+		t.Fatalf("runWorker = %+v", res)
+	}
+}
+
+// Stdout past the bound reads as no result, and the worker still runs to its
+// end rather than failing on a short write.
+func TestRunWorkerBoundsStdout(t *testing.T) {
+	fakeClaude(t, "head -c 1100000 /dev/zero\necho 'late' >&2\n")
+
+	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, nil)
+	if res.hasResult || res.exitCode != 0 || res.output != "late" {
 		t.Fatalf("runWorker = %+v", res)
 	}
 }
@@ -39,12 +54,7 @@ func TestRunWorkerLiftsTheCeilingAndReadsBothStreams(t *testing.T) {
 // A claude that the bridge's context kills reads as killed, and one that ends
 // on its own does not.
 func TestRunWorkerSaysWhetherTheBridgeKilledIt(t *testing.T) {
-	bin := t.TempDir()
-	script := "#!/bin/sh\n[ \"$1\" = -p ] && exit 0\nexec sleep 30\n"
-	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	fakeClaude(t, "case \"$*\" in *--permission-mode*) exec sleep 30;; esac\n")
 
 	if res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, nil); res.killed {
 		t.Fatalf("a worker that exited on its own reads as killed: %+v", res)

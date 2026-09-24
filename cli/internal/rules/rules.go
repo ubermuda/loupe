@@ -5,6 +5,7 @@ package rules
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -120,6 +121,10 @@ type Rule struct {
 	// Resume runs claude --resume on the session an inbox ask names, instead
 	// of a new session.
 	Resume bool `yaml:"resume"`
+	// ResultFields maps an optional result field to its JSON Schema fragment.
+	ResultFields map[string]any `yaml:"resultFields"`
+
+	schema string
 }
 
 // Defaults come from the bridge flags. They fill a rule's fields that neither
@@ -249,6 +254,11 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 
 		if err := checkRule(r, f.Projects); err != nil {
 			errs = append(errs, fmt.Errorf("rule %q: %w", r.Name, err))
+		}
+		if schema, err := resultSchema(r.ResultFields); err != nil {
+			errs = append(errs, fmt.Errorf("rule %q: %w", r.Name, err))
+		} else {
+			r.schema = schema
 		}
 		if r.MaxChain == nil {
 			n := DefaultMaxChain
@@ -443,6 +453,52 @@ func braces(names []string) string {
 	return strings.Join(out, " ")
 }
 
+// ResultStatuses are the values of a worker result's status.
+var ResultStatuses = []string{"finished", "blocked", "unfinished"}
+
+// resultFieldPattern is the shape of a result field name.
+var resultFieldPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
+
+// resultSchema builds the JSON Schema of a worker's final reply. The extra
+// fields are optional. claude checks each fragment, and the bridge does not.
+func resultSchema(fields map[string]any) (string, error) {
+	props := map[string]any{
+		"status":  map[string]any{"type": "string", "enum": ResultStatuses},
+		"summary": map[string]any{"type": "string"},
+	}
+	var errs []error
+	for _, name := range slices.Sorted(maps.Keys(fields)) {
+		fragment, isMap := fields[name].(map[string]any)
+		switch {
+		case name == "status" || name == "summary":
+			errs = append(errs, fmt.Errorf("resultFields: %q is a core field, and every result has it", name))
+		case !resultFieldPattern.MatchString(name):
+			errs = append(errs, fmt.Errorf("resultFields: %q is not a field name, such as prUrl", name))
+		case !isMap:
+			errs = append(errs, fmt.Errorf("resultFields.%s is not a mapping, such as {type: string}", name))
+		default:
+			if _, err := json.Marshal(fragment); err != nil {
+				errs = append(errs, fmt.Errorf("resultFields.%s is not valid JSON: %w", name, err))
+			}
+			props[name] = fragment
+		}
+	}
+	if len(errs) > 0 {
+		return "", errors.Join(errs...)
+	}
+
+	schema, err := json.Marshal(map[string]any{
+		"type":       "object",
+		"properties": props,
+		"required":   []string{"status", "summary"},
+	})
+	if err != nil {
+		return "", fmt.Errorf("resultFields: %w", err)
+	}
+
+	return string(schema), nil
+}
+
 // Projects lists the mapped project slugs in order.
 func (s *Set) Projects() []string {
 	return slices.Sorted(maps.Keys(s.dirs))
@@ -614,6 +670,8 @@ type Match struct {
 	MaxChain       int
 	Prompt         string
 	Resume         bool
+	// Schema is the compact JSON Schema claude's final reply must match.
+	Schema string
 }
 
 // Match picks the first rule, in file order, that the event triggers.
@@ -700,6 +758,7 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 		MaxChain:       *r.MaxChain,
 		Prompt:         render(r.Prompt, values(e, slug)),
 		Resume:         r.Resume,
+		Schema:         r.schema,
 	}
 }
 

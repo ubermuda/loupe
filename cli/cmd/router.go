@@ -138,7 +138,7 @@ type pending struct {
 // stays empty until start.
 func (p *pending) apply(m rules.Match) {
 	p.rule, p.maxChain = m.Rule, m.MaxChain
-	p.spec = workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, prompt: m.Prompt, resume: m.Resume}
+	p.spec = workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt, resume: m.Resume}
 }
 
 // sessionCard is the key a session's worker ran under, and its card when the
@@ -990,6 +990,7 @@ func (r *router) logResult(p pending, res workerResult, elapsed time.Duration) {
 	args := append(about(p.event, p.rule),
 		"exit", res.exitCode,
 		"duration_ms", elapsed.Milliseconds(),
+		"status", res.status,
 		"output", res.output,
 	)
 	switch {
