@@ -1,0 +1,13 @@
+{#- The button that turns an epic's board lane on or off. Props: card (Card, an epic), returnTo ('card' or 'board': the page the post comes back to). -#}
+{% set laneForm = card_lane_form(card, returnTo) %}
+{{ form_start(laneForm, {action: path('app_board_card_lane', {projectId: card.project.id, cardId: card.id})}) }}
+    {{ form_widget(laneForm.laneEnabled) }}
+    {{ form_widget(laneForm.returnTo) }}
+    <button type="submit" class="lp-btn lp-btn--ghost">
+        {% if card.laneEnabled %}
+            <twig:ux:icon name="lucide:eye-off" class="w-4 h-4" />{{ 'board.card.lane.hide'|trans }}
+        {% else %}
+            <twig:ux:icon name="lucide:eye" class="w-4 h-4" />{{ 'board.card.lane.show'|trans }}
+        {% endif %}
+    </button>
+{{ form_end(laneForm) }}

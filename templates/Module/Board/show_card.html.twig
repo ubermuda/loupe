@@ -67,6 +67,40 @@
                     </div>
                     {% else %}<h2 class="lp-card-panel__title">{{ 'board.card.linked_work.title'|trans }}</h2><p class="lp-card-detail__empty">{{ 'board.card.linked_work.empty'|trans }}</p>{% endif %}
                 </section>
+                {% if card.parent %}
+                <section class="lp-card-overview__section" data-card-parent>
+                    <div class="lp-inbox-linked-table-wrap">
+                        <table class="lp-inbox-linked-table">
+                            <caption>{{ 'board.card.parent.title'|trans }}</caption>
+                            <thead><tr><th>{{ 'inbox.linked_items.item'|trans }}</th><th>{{ 'inbox.linked_items.status'|trans }}</th><th><span class="sr-only">{{ 'inbox.linked_items.open'|trans }}</span></th></tr></thead>
+                            <tbody>
+                                {% include '@Board/_linked_card_row.html.twig' with {card: card.parent, href: path('app_board_card', {projectId: card.project.id, cardId: card.parent.id}), drawer: true} only %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                {% endif %}
+                {% if progress %}
+                <section class="lp-card-overview__section" data-epic-children>
+                    <div class="lp-card-epic__head">
+                        <h2 class="lp-card-panel__title">{{ 'board.card.children.title'|trans }}</h2>
+                        <span class="lp-card-epic__progress" data-epic-progress>{{ 'board.card.children.progress'|trans({'%done%': progress.done, '%total%': progress.total}) }}</span>
+                        {% include '@Board/_card_lane_form.html.twig' with {card: card, returnTo: 'card'} only %}
+                    </div>
+                    {% if children|length > 0 %}
+                    <div class="lp-inbox-linked-table-wrap">
+                        <table class="lp-inbox-linked-table">
+                            <thead><tr><th>{{ 'inbox.linked_items.item'|trans }}</th><th>{{ 'inbox.linked_items.status'|trans }}</th><th><span class="sr-only">{{ 'inbox.linked_items.open'|trans }}</span></th></tr></thead>
+                            <tbody>
+                                {% for child in children %}
+                                    {% include '@Board/_linked_card_row.html.twig' with {card: child, href: path('app_board_card', {projectId: child.project.id, cardId: child.id}), drawer: true} only %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}<p class="lp-card-detail__empty">{{ 'board.card.children.empty'|trans }}</p>{% endif %}
+                </section>
+                {% endif %}
                 {% if relatedCards|length > 0 %}
                 <section class="lp-card-overview__section" data-linked-cards>
                     <div class="lp-inbox-linked-table-wrap">

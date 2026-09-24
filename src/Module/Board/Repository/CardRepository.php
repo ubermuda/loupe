@@ -281,6 +281,25 @@ class CardRepository extends ServiceEntityRepository
         return false === $type ? null : CardType::from((string) $type);
     }
 
+    /**
+     * The children of one card, in board order: by column, then by rank.
+     *
+     * @return list<Card>
+     */
+    public function findChildren(Card $parent): array
+    {
+        return array_values($this->createQueryBuilder('c')
+            ->join('c.column', 'k')
+            ->addSelect('k')
+            ->andWhere('c.parent = :parent')
+            ->setParameter('parent', $parent)
+            ->orderBy('k.position', 'ASC')
+            ->addOrderBy('c.position', 'ASC')
+            ->addOrderBy('c.number', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
     public function countChildren(Card $card): int
     {
         return (int) $this->getEntityManager()->getConnection()->fetchOne(

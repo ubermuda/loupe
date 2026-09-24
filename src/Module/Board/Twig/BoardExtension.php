@@ -23,6 +23,8 @@ use App\Module\Board\Form\RenameBoardColumnFormType;
 use App\Module\Board\Form\RenameBoardColumnRequest;
 use App\Module\Board\Form\ReorderBoardColumnsFormType;
 use App\Module\Board\Form\ReorderBoardColumnsRequest;
+use App\Module\Board\Form\SetCardLaneFormType;
+use App\Module\Board\Form\SetCardLaneRequest;
 use App\Module\Board\Form\SetDefaultBoardColumnFormType;
 use App\Module\Board\Form\SetDefaultBoardColumnRequest;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -66,6 +68,7 @@ final class BoardExtension extends AbstractExtension
     {
         return [
             new TwigFunction('card_move_form', $this->cardMoveForm(...)),
+            new TwigFunction('card_lane_form', $this->cardLaneForm(...)),
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),
             new TwigFunction('board_column_rename_form', $this->boardColumnRenameForm(...)),
             new TwigFunction('board_column_configure_form', $this->boardColumnConfigureForm(...)),
@@ -97,6 +100,18 @@ final class BoardExtension extends AbstractExtension
                 MoveCardFormType::class,
                 new MoveCardRequest($card->column),
                 ['project' => $card->project],
+            )
+            ->createView();
+    }
+
+    /** A form that asks for the opposite of the lane setting the epic holds now. */
+    public function cardLaneForm(Card $card, string $returnTo): FormView
+    {
+        return $this->formFactory
+            ->createNamed(
+                SetCardLaneFormType::nameFor($card),
+                SetCardLaneFormType::class,
+                new SetCardLaneRequest($card->laneEnabled ? '0' : '1', $returnTo),
             )
             ->createView();
     }

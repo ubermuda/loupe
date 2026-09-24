@@ -13,11 +13,15 @@ final readonly class CardView
     /**
      * @param list<CardSiteReviewComment> $siteReviewLinks
      * @param list<RelatedCard>           $relatedCards
+     * @param list<Card>                  $children        empty for a card that is not an epic
+     * @param ?CardProgress               $progress        null for a card that is not an epic
      */
     public function __construct(
         public Card $card,
         public array $siteReviewLinks,
         public array $relatedCards,
+        public array $children = [],
+        public ?CardProgress $progress = null,
     ) {
     }
 }

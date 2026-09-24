@@ -140,9 +140,9 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-card-id="'.$plain->id.'"] .lp-board-card__pulls'));
         self::assertStringContainsString('Feature', $crawler->filter('[data-card-id="'.$plain->id.'"]')->text());
 
-        self::assertSame(['Work', 'Type', 'Status', 'Agent', 'Feedback'], $crawler->filter('.lp-board-list__header span')->each(static fn ($cell): string => $cell->text()));
+        self::assertSame(['Work', 'Type', 'Status', 'Parent', 'Agent', 'Feedback'], $crawler->filter('.lp-board-list__header span')->each(static fn ($cell): string => $cell->text()));
         $row = $crawler->filter('.lp-board-list__row[data-card-title="No links"] > span');
-        self::assertCount(5, $row);
+        self::assertCount(6, $row);
         self::assertSame('Feature', $row->eq(1)->text());
 
         self::assertSame('lime', $crawler->filter('[data-card-id="'.$plain->id.'"] .lp-tag')->attr('data-tone'));

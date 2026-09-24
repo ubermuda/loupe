@@ -5606,6 +5606,14 @@
             <trans-unit id="board.card.linked_work.empty"><source>board.card.linked_work.empty</source><target>No documents or pull requests are linked to this card.</target></trans-unit>
             <trans-unit id="board.card.linked_cards.title"><source>board.card.linked_cards.title</source><target>Linked cards</target></trans-unit>
             <trans-unit id="board.card.linked_cards.relation"><source>board.card.linked_cards.relation</source><target>Link</target></trans-unit>
+            <trans-unit id="board.card.parent.title"><source>board.card.parent.title</source><target>Parent epic</target></trans-unit>
+            <trans-unit id="board.card.children.title"><source>board.card.children.title</source><target>Child cards</target></trans-unit>
+            <trans-unit id="board.card.children.progress"><source>board.card.children.progress</source><target>%done%/%total% done</target></trans-unit>
+            <trans-unit id="board.card.children.empty"><source>board.card.children.empty</source><target>This epic has no child cards yet.</target></trans-unit>
+            <trans-unit id="board.card.lane.show"><source>board.card.lane.show</source><target>Show as a lane on the board</target></trans-unit>
+            <trans-unit id="board.card.lane.hide"><source>board.card.lane.hide</source><target>Hide the lane on the board</target></trans-unit>
+            <trans-unit id="board.card.lane.error.not_saved"><source>board.card.lane.error.not_saved</source><target>The lane setting was not saved. Reload the page and try again.</target></trans-unit>
+            <trans-unit id="board.card.lane.error.not_epic"><source>board.card.lane.error.not_epic</source><target>Only an epic has a lane.</target></trans-unit>
             <trans-unit id="board.card.linked_cards.kind.relates_to"><source>board.card.linked_cards.kind.relates_to</source><target>Related to</target></trans-unit>
             <trans-unit id="board.card.linked_cards.kind.blocks"><source>board.card.linked_cards.kind.blocks</source><target>Blocks</target></trans-unit>
             <trans-unit id="board.card.linked_cards.kind.blocked_by"><source>board.card.linked_cards.kind.blocked_by</source><target>Blocked by</target></trans-unit>
@@ -5880,6 +5888,8 @@
             <trans-unit id="board.list.agent"><source>board.list.agent</source><target>Agent</target></trans-unit>
             <trans-unit id="board.list.agent.unassigned"><source>board.list.agent.unassigned</source><target>No agent assigned</target></trans-unit>
             <trans-unit id="board.list.type"><source>board.list.type</source><target>Type</target></trans-unit>
+            <trans-unit id="board.list.parent"><source>board.list.parent</source><target>Parent</target></trans-unit>
+            <trans-unit id="board.list.parent.none"><source>board.list.parent.none</source><target>No parent</target></trans-unit>
             <trans-unit id="board.list.feedback"><source>board.list.feedback</source><target>Feedback</target></trans-unit>
             <trans-unit id="board.card.documents.count"><source>board.card.documents.count</source><target>{0} No linked documents|{1} 1 linked document|]1,Inf[ %count% linked documents</target></trans-unit>
             <trans-unit id="board.column.add_card"><source>board.column.add_card</source><target>Add card</target></trans-unit>

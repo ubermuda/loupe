@@ -795,8 +795,8 @@
     .lp-board-list__header,
     .lp-board-list__row {
         display: grid;
-        grid-template-columns: minmax(18rem, 2fr) repeat(4, minmax(7rem, 1fr));
-        min-width: 62rem;
+        grid-template-columns: minmax(18rem, 2fr) repeat(5, minmax(7rem, 1fr));
+        min-width: 70rem;
     }
     .lp-board-list__header {
         @apply border-b border-line bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-fg-mute;
@@ -1267,6 +1267,13 @@
     }
     .lp-card-overview__section {
         @apply flex flex-col gap-3;
+    }
+    /* The heading row of an epic's children: the title, the done count, and the lane button. */
+    .lp-card-epic__head {
+        @apply flex flex-wrap items-center gap-3;
+    }
+    .lp-card-epic__progress {
+        @apply mr-auto text-sm font-semibold text-fg-dim;
     }
     .lp-card-fields {
         @apply grid grid-cols-2 gap-x-6 gap-y-4 m-0 rounded-xl bg-surface-2 p-4;

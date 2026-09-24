@@ -161,14 +161,6 @@ final class CardParentFormTest extends WebTestCase
         }
     }
 
-    private function typed(EntityManagerInterface $em, Card $card, CardType $type): Card
-    {
-        $card->type = $type;
-        $em->flush();
-
-        return $card;
-    }
-
     private function reload(EntityManagerInterface $em, ?Uuid $cardId): Card
     {
         $em->clear();
