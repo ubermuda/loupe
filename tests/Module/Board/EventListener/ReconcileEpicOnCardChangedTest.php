@@ -8,6 +8,8 @@ use App\Module\Board\BoardEventType;
 use App\Module\Board\Command\CardLinkInput;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Command\DeleteCardCommand;
+use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
@@ -123,6 +125,31 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         $this->update($open, parentCardId: '');
 
         self::assertSame('done', $this->slugOf($epic));
+    }
+
+    public function test_the_epic_closes_when_its_only_open_child_is_deleted(): void
+    {
+        $project = $this->lifecycleProject('epic-delete-open');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->update($this->card($project, parent: $epic), 'done');
+        $open = $this->card($project, parent: $epic);
+        self::assertSame('implementation', $this->slugOf($epic));
+
+        $this->delete($open);
+
+        self::assertSame('done', $this->slugOf($epic));
+    }
+
+    public function test_an_epic_whose_last_child_is_deleted_does_not_move(): void
+    {
+        $project = $this->lifecycleProject('epic-delete-last');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $only = $this->card($project, parent: $epic);
+
+        $this->delete($only);
+
+        self::assertSame(0, $this->countChildren($epic));
+        self::assertSame('implementation', $this->slugOf($epic));
     }
 
     public function test_an_epic_left_with_no_children_does_not_move(): void
@@ -315,6 +342,14 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         $this->em->flush();
 
         return $project;
+    }
+
+    private function delete(Card $card): void
+    {
+        $delete = self::getContainer()->get(DeleteCardHandler::class);
+        self::assertInstanceOf(DeleteCardHandler::class, $delete);
+        $delete(new DeleteCardCommand($this->reload($card)));
+        $this->em->clear();
     }
 
     private function markImplementationTerminal(Project $project): void

@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -23,6 +26,7 @@ final readonly class DeleteCardHandler
         private CardParentPolicy $parentPolicy,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -53,12 +57,22 @@ final readonly class DeleteCardHandler
                 return $refusal;
             }
 
+            $this->cards->refreshTypeAndParent($card);
+            $parent = $card->parent;
+
             // Before the remove, so the delete and the renumbering it causes
             // reach the database in one flush.
             $this->groupOrder->compact($card->column, $card);
 
             $this->em->remove($card);
             $this->em->flush();
+
+            // After the flush, so the epic counts its children without this
+            // one. A listener must not read the card, which is gone. Only a
+            // person deletes a card.
+            if (null !== $parent) {
+                $this->events->dispatch(new CardParentChanged($card, $parent, null, CardReporter::Human));
+            }
 
             return null;
         });

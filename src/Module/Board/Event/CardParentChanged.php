@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardReporter;
 /**
  * Dispatched inside the transaction of the card write, after its flush, when
  * the card joins an epic, leaves one or changes epic. A null side means no epic.
+ * A deleted card leaves its epic too, and its row is then gone.
  */
 final readonly class CardParentChanged
 {

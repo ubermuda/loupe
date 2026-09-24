@@ -24,6 +24,7 @@ use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 /**
  * A board write must read the card's group after it takes the project lock.
@@ -81,7 +82,7 @@ final class CardPostLockStateTest extends KernelTestCase
         $cards = self::getContainer()->get(CardRepository::class);
         self::assertInstanceOf(CardRepository::class, $cards);
 
-        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), new CardParentPolicy($cards), $this->em, $this->audit->auditor);
+        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), new CardParentPolicy($cards), $this->em, $this->audit->auditor, new EventDispatcher());
 
         $owner = new User(fullName: 'Riley', email: 'board-post-lock-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
