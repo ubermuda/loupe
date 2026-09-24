@@ -7,8 +7,13 @@ import (
 	"strings"
 )
 
-// resultRequest asks for the line the bridge reads as a finished run.
-const resultRequest = "End your final reply with a line that starts with STAGE RESULT:, followed by one short sentence on what you did."
+// resultRequest asks for the structured result the bridge reads. A run that
+// ends while a command runs in the background kills that command.
+const resultRequest = "End with the structured result. Set status to finished when the stage is done, " +
+	"blocked when it cannot go on without a person, or unfinished when work still runs or remains. " +
+	"Put one short sentence on what you did in summary. " +
+	"Never end your turn while a command, a monitor or a subagent still runs. Wait for it in the foreground. " +
+	"When work still runs, report unfinished."
 
 // Footer ends every prompt. A rule cannot remove it, because the agent reads
 // board text once it starts, and that text is written by whoever can edit the

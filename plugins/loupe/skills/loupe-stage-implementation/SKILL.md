@@ -19,6 +19,7 @@ Build the approved tech design of one card into a ready, linked pull request.
 8. Never depend on `board_columns` or `card_search`. Reuse `tag_list` spellings.
 9. Never merge the pull request, and never merge into the base branch. Never force-push, and never skip a hook or a branch protection.
 10. Follow the adapters and the profile (`references/commands.md`).
+11. Never end your turn while a command, a monitor or a sub-agent runs in the background. Wait for it in the foreground.
 
 ## Procedure
 
@@ -35,8 +36,8 @@ Build the approved tech design of one card into a ready, linked pull request.
 10. Run the plan task by task. Dispatch a sub-agent for each implementer and reviewer (contract rule 6).
 11. Run the gate in `references/commands.md`.
 12. Push, open or link the pull request, add its changelog entry, and push. Link it (contract rule 5).
-13. Wait for CI on the gated head, per `references/commands.md`.
+13. Wait for CI on the gated head, per `references/commands.md`. Poll in the foreground, and never end the turn to wait for a notice.
 14. When CI and review are clean, move the card to the column the profile `Board` section names (contract rule 4). A failed move is not a failed run: say so in the result line and stop anyway. Stop with `STAGE RESULT: ready <pr url>`.
 15. After three failed fix pushes, or a timed-out wait, add a `Blocked:` paragraph to the card body (contract rule 5). Stop with `STAGE RESULT: blocked: <reason>`.
 
-Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences.
+Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences. Set the structured result as the table in `../loupe-stage-product-design/references/stage-contract.md` "Final reply" says.

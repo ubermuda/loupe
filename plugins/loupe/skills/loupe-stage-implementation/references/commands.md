@@ -63,7 +63,7 @@ When the merge conflicts, resolve it only when the conflict is mechanical and th
 
 When the merge brings commits, refresh the worktree as the profile `Worktree` section says.
 
-Then run the commands of the profile `Gate` section in order. Run each long command as the harness adapter says. Run the check of the profile `Changelog` section. Then run the review of the profile `Code review` section, and follow its pass rule.
+Then run the commands of the profile `Gate` section in order. Run each long command as the harness adapter says. Poll it in the foreground until it exits, and never end the turn while it runs. Run the check of the profile `Changelog` section. Then run the review of the profile `Code review` section, and follow its pass rule.
 
 ## Open the pull request
 
@@ -78,6 +78,8 @@ Then write the changelog entry that the profile `Changelog` section names, run i
 ## Wait for CI
 
 Keep the SHA that you gated, reviewed and pushed. First wait until checks exist for that head. The head commit of the pull request must equal that SHA. Then watch the required checks with the forge adapter, as a long command, for 60 minutes at most. The profile `Gate` section says which checks are required.
+
+Poll in the foreground, one tool call at a time, as "Run a long command" in the harness adapter shows. Never end the turn to wait for a notice. The run ends with your turn, and the watch dies with it.
 
 When the wait ends, read the head commit of the pull request again with the forge adapter. Accept green only when the head still equals the gated SHA, and every required check passes with none pending. When the head moved, sync the branch, run the gate and the code review again, and push. Read each failed log with the forge adapter.
 
