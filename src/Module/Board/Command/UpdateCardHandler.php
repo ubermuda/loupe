@@ -16,6 +16,7 @@ use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -41,6 +42,7 @@ final readonly class UpdateCardHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private EventDispatcherInterface $events,
+        private InteractiveRuns $interactiveRuns,
     ) {
     }
 
@@ -100,6 +102,16 @@ final readonly class UpdateCardHandler
             if (null !== $relatedCards && $this->cardLinkSync->anyCardGone($relatedCards)) {
                 return self::LINKED_CARD_GONE;
             }
+
+            // Close first, so the run this update opens is not the one closed.
+            $cardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
+            if ($column !== $card->column) {
+                $this->interactiveRuns->closeOnMove($card->project, $cardId);
+            }
+            if (null !== $command->openInteractiveRun) {
+                $this->interactiveRuns->open($card->project, $cardId, $card->number, $command->openInteractiveRun->sessionId, $command->openInteractiveRun->name);
+            }
+
             // A rank is a move of its own: a card dropped elsewhere in the
             // column it already sits in does not change its column.
             $move = $column !== $card->column || null !== $command->position

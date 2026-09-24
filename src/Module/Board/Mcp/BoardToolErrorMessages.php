@@ -7,6 +7,7 @@ namespace App\Module\Board\Mcp;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Bridge\Entity\WorkerRun;
 use Mcp\Exception\ToolCallException;
 
 /**
@@ -41,6 +42,9 @@ final readonly class BoardToolErrorMessages
             'board.card.error.linked_card_self' => 'A card cannot link to itself. Remove its own id from relatedCards.',
             'board.card.error.linked_card_twice' => 'The same card appears twice in relatedCards. Name each card once, with one kind.',
             'board.card.error.column_gone' => 'That column no longer exists on this board. Name another column.',
+            'board.card.error.run_name_blank' => 'Pass the name of the skill that runs the session, such as loupe:product-design.',
+            'board.card.error.run_name_too_long' => \sprintf('A run name must be at most %d characters.', WorkerRun::MAX_RULE_NAME_LENGTH),
+            'board.card.error.run_closed_by_move' => 'A move of the card closed the run right after it opened. Call card_get to read the card.',
             'board.card.error.search_query_blank' => 'Pass a query to search for. To read the whole board instead, call card_list.',
             default => self::UNMAPPED,
         };
