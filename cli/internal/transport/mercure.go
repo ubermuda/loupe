@@ -17,10 +17,15 @@ import (
 )
 
 // Handler receives stream lifecycle and data callbacks. Any may be nil.
+// LastEventID seeds the resume point of the first connection. OnID receives
+// each new resume point, after the event's OnData, and "" when an empty id
+// clears it.
 type Handler struct {
-	OnConnect func()
-	OnData    func([]byte)
-	OnError   func(error)
+	OnConnect   func()
+	OnData      func([]byte)
+	OnError     func(error)
+	OnID        func(string)
+	LastEventID string
 }
 
 const (
@@ -61,7 +66,7 @@ func Subscribe(ctx context.Context, hc *http.Client, hubURL string, topics []str
 	// Carried across reconnects so the hub replays anything published while we
 	// were disconnected — without it a dropped connection silently loses every
 	// notification published during the gap.
-	lastID := ""
+	lastID := h.LastEventID
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -88,6 +93,7 @@ func Subscribe(ctx context.Context, hc *http.Client, hubURL string, topics []str
 
 		lastID, err = stream(ctx, hc, target, jwt, lastID, Handler{
 			OnData: h.OnData,
+			OnID:   h.OnID,
 			OnConnect: func() {
 				connected = true
 				if h.OnConnect != nil {
@@ -171,6 +177,9 @@ func stream(ctx context.Context, hc *http.Client, target, jwt, lastID string, h 
 			// hub replays from Last-Event-ID, that event is then gone for good.
 			if haveID {
 				lastID, pendingID, haveID = pendingID, "", false
+				if h.OnID != nil {
+					h.OnID(lastID)
+				}
 			}
 		case strings.HasPrefix(line, "id:"):
 			// An empty `id:` clears the resume point per the SSE spec, so
