@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -84,7 +85,7 @@ final readonly class UpdateCardHandler
         // so this handler owns the transaction the move runs in.
         // Flushing the fields first would commit half an update whose move
         // then failed.
-        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents, $relatedCards, $newParent): UpdateCardOutcome|string|DomainErrors {
+        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents, $relatedCards, $newParent): UpdateCardOutcome|string|DomainErrors|EpicChildrenOpen {
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
             // lock() takes the project row and leaves the loaded card as the
             // request read it, which may be before the caller ahead of us in
@@ -123,6 +124,15 @@ final readonly class UpdateCardHandler
                 $card->parent = $parent;
             }
             $laneChanged = null !== $command->laneEnabled && $command->laneEnabled !== $card->laneEnabled;
+
+            // Only a card with children can be refused, and only an epic has
+            // children. The app itself closes an epic by the same path.
+            if ($column->terminal && $column !== $card->column && CardReporter::System !== $command->actor) {
+                $open = $this->cards->openChildNumbers($card);
+                if ([] !== $open) {
+                    return new EpicChildrenOpen($open);
+                }
+            }
 
             // A rank is a move of its own: a card dropped elsewhere in the
             // column it already sits in does not change its column.
@@ -183,7 +193,7 @@ final readonly class UpdateCardHandler
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
-        if ($outcome instanceof DomainErrors) {
+        if ($outcome instanceof DomainErrors || $outcome instanceof EpicChildrenOpen) {
             throw $outcome;
         }
         if (\is_string($outcome)) {

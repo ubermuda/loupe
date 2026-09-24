@@ -6,6 +6,7 @@ namespace App\Module\Board\Mcp;
 
 use App\Exception\DomainErrors;
 use App\Mcp\FlagGatedToolInterface;
+use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
@@ -97,6 +98,8 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
             $view = ($this->showCard)(new ShowCardCommand($card));
 
             return $this->payload->forCard($view);
+        } catch (EpicChildrenOpen $e) {
+            throw new ToolCallException(\sprintf('status: This epic has open child cards %s. Move each of them to a terminal column first.', $e->cardList()), previous: $e);
         } catch (DomainErrors $e) {
             throw $this->errorMessages->forAgent($e);
         } catch (ToolCallException $e) {

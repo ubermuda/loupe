@@ -4936,6 +4936,10 @@
                 <source>board.card.error.epic_delete_has_children</source>
                 <target>This epic has child cards, so it cannot be deleted. Delete the child cards, or remove them from the epic, first.</target>
             </trans-unit>
+            <trans-unit id="board.card.error.epic_children_open">
+                <source>board.card.error.epic_children_open</source>
+                <target>This epic has open child cards. Move %cards% to a done column first.</target>
+            </trans-unit>
 
             <!-- Card create and edit pages -->
             <trans-unit id="board.card.create.page.title">

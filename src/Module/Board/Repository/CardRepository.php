@@ -341,6 +341,52 @@ class CardRepository extends ServiceEntityRepository
         );
     }
 
+    /**
+     * The numbers of the card's children in a column that is not terminal, as
+     * the database holds them now.
+     *
+     * @return list<int>
+     */
+    public function openChildNumbers(Card $card): array
+    {
+        return array_map(intval(...), $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT c.number FROM board_cards c JOIN board_columns k ON k.id = c.column_id
+             WHERE c.parent_card_id = :id AND k.terminal = false
+             ORDER BY c.number',
+            ['id' => (string) $card->id],
+        ));
+    }
+
+    /**
+     * The children the card blocks that wait in the default column and whose
+     * every blocker now sits in a terminal column.
+     *
+     * @return list<Card>
+     */
+    public function findChildrenFreedBy(Card $blocker): array
+    {
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            "SELECT t.id FROM board_card_links l
+             JOIN board_cards t ON t.id = l.target_card_id
+             JOIN board_columns k ON k.id = t.column_id
+             WHERE l.source_card_id = :id AND l.kind = 'blocks'
+               AND t.parent_card_id IS NOT NULL AND k.is_default = true
+               AND NOT EXISTS (
+                   SELECT 1 FROM board_card_links b
+                   JOIN board_cards s ON s.id = b.source_card_id
+                   JOIN board_columns sk ON sk.id = s.column_id
+                   WHERE b.target_card_id = t.id AND b.kind = 'blocks' AND sk.terminal = false
+               )
+             ORDER BY t.position, t.number",
+            ['id' => (string) $blocker->id],
+        );
+
+        return array_values(array_filter(array_map(
+            fn (mixed $id): ?Card => \is_string($id) ? $this->getEntityManager()->find(Card::class, Uuid::fromString($id)) : null,
+            $ids,
+        )));
+    }
+
     /** The number the project's next card takes. The first card of a project is 1. */
     public function nextNumber(Project $project): int
     {

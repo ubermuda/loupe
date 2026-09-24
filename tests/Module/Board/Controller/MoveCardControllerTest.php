@@ -6,6 +6,7 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
@@ -176,6 +177,36 @@ final class MoveCardControllerTest extends WebTestCase
         $unmoved = $em->find(Card::class, $cardId);
         self::assertInstanceOf(Card::class, $unmoved);
         self::assertSame('backlog', $unmoved->column->slug);
+    }
+
+    public function test_an_epic_with_open_children_is_refused_with_their_numbers(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'move-epic-open@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'The epic', 'in-progress'), CardType::Epic);
+        $first = $this->card($em, $project, 'First child');
+        $second = $this->card($em, $project, 'Second child', 'next');
+        $first->parent = $epic;
+        $second->parent = $epic;
+        $em->flush();
+        $epicId = $epic->id;
+        $numbers = [$first->number, $second->number];
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->move($client, $epic, 'done', null);
+
+        self::assertResponseRedirects('/projects/'.$project->id.'/board');
+        $client->followRedirect();
+        self::assertSelectorTextContains('body', \sprintf('Move #%d, #%d to a done column first.', ...$numbers));
+        $em->clear();
+        $unmoved = $em->find(Card::class, $epicId);
+        self::assertInstanceOf(Card::class, $unmoved);
+        self::assertSame('in-progress', $unmoved->column->slug);
     }
 
     private function move(

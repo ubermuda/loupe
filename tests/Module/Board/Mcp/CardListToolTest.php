@@ -307,7 +307,8 @@ final class CardListToolTest extends KernelTestCase
         self::assertSame(['done' => 1, 'total' => 1], $rows[$epic['cardId']]['progress']);
         self::assertSame([['cardId' => $child['cardId'], 'number' => $child['number'], 'title' => 'Child', 'status' => 'done']], $rows[$epic['cardId']]['children']);
         self::assertFalse($rows[$epic['cardId']]['laneEnabled']);
-        self::assertSame(['cardId' => $epic['cardId'], 'number' => $epic['number'], 'title' => 'Epic', 'status' => 'backlog'], $rows[$child['cardId']]['parent']);
+        // Its only child is done, so the epic closed with it.
+        self::assertSame(['cardId' => $epic['cardId'], 'number' => $epic['number'], 'title' => 'Epic', 'status' => 'done'], $rows[$child['cardId']]['parent']);
         self::assertNull($rows[$child['cardId']]['progress']);
         self::assertSame([], $rows[$child['cardId']]['children']);
     }

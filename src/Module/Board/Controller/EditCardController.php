@@ -6,6 +6,7 @@ namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
@@ -17,11 +18,13 @@ use App\Module\Board\Form\UpdateCardRequest;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Board\Service\BoardAvailability;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[IsGranted(CardVoter::WRITE, subject: 'card')]
 #[Route(
@@ -36,6 +39,7 @@ final class EditCardController extends AppController
         private readonly UpdateCardHandler $updateCard,
         private readonly ShowCardHandler $showCard,
         private readonly BoardAvailability $board,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -80,6 +84,8 @@ final class EditCardController extends AppController
                 ]);
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);
+            } catch (EpicChildrenOpen $e) {
+                $form->get('column')->addError(new FormError($this->translator->trans(EpicChildrenOpen::MESSAGE, ['%cards%' => $e->cardList()])));
             }
         }
 

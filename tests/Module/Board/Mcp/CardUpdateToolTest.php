@@ -320,6 +320,18 @@ final class CardUpdateToolTest extends KernelTestCase
         $call();
     }
 
+    public function test_an_epic_with_open_children_is_not_moved_to_done(): void
+    {
+        $this->card('card-update-epic-open');
+        $epic = ($this->createTool)('Epic', 'Body', 'epic');
+        $first = ($this->createTool)('First', 'Body', 'feature', parentCardId: $epic['cardId']);
+        $second = ($this->createTool)('Second', 'Body', 'feature', parentCardId: $epic['cardId']);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage(\sprintf('status: This epic has open child cards #%d, #%d. Move each of them to a terminal column first.', $first['number'], $second['number']));
+        ($this->tool)($epic['cardId'], status: 'done');
+    }
+
     public function test_both_handles_are_refused(): void
     {
         $created = $this->card('card-update-both');

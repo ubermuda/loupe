@@ -6,6 +6,7 @@ namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\ShowBoardCommand;
@@ -84,6 +85,10 @@ final class MoveCardController extends AppController
         } catch (DomainErrors $e) {
             // The column went away between the form check and the lock.
             $this->addFlash('error', $this->translator->trans(array_first($e->errors)));
+
+            return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
+        } catch (EpicChildrenOpen $e) {
+            $this->addFlash('error', $this->translator->trans(EpicChildrenOpen::MESSAGE, ['%cards%' => $e->cardList()]));
 
             return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
         }

@@ -115,6 +115,29 @@ final class CardParentFormTest extends WebTestCase
         self::assertSame(CardType::Feature, $this->reload($em, $cardId)->type);
     }
 
+    public function test_an_epic_with_an_open_child_is_not_saved_into_done(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'parent-form-epic-done@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'The epic', 'in-progress'), CardType::Epic);
+        $child = $this->card($em, $project, 'The child');
+        $child->parent = $epic;
+        $em->flush();
+        [$epicId, $number] = [$epic->id, $child->number];
+        $done = (string) $this->column($project, 'done')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $this->submitEdit($client, $project, $epicId, ['column' => $done]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString(\sprintf('Move #%d to a done column first.', $number), $crawler->filter('main')->text());
+        self::assertSame('in-progress', $this->reload($em, $epicId)->column->slug);
+    }
+
     public function test_an_epic_with_children_is_not_deleted_and_the_card_page_says_why(): void
     {
         $client = static::createClient();
