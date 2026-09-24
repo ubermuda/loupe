@@ -88,6 +88,7 @@ type File struct {
 	Defaults FileDefaults       `yaml:"defaults"`
 	Projects map[string]Project `yaml:"projects"`
 	Rules    []Rule             `yaml:"rules"`
+	Hooks    []HookEntry        `yaml:"hooks"`
 }
 
 // FileDefaults fill a rule's empty fields before the bridge flags do. A reload
@@ -151,6 +152,7 @@ func checkWord(field, value string) error {
 type Set struct {
 	rules []Rule
 	dirs  map[string]string
+	hooks []HookEntry
 	// slugs maps a project id to its slug. Check fills it, so an unchecked
 	// set matches nothing.
 	slugs map[string]string
@@ -262,6 +264,8 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		}
 		s.rules = append(s.rules, r)
 	}
+	errs = append(errs, checkHooks(f.Hooks)...)
+	s.hooks = f.Hooks
 	for _, slug := range slices.Sorted(maps.Keys(perProject)) {
 		if perProject[slug] > MaxRulesPerProject {
 			errs = append(errs, fmt.Errorf("project %q has %d rules, and the server takes at most %d in one report", slug, perProject[slug], MaxRulesPerProject))
