@@ -33,7 +33,18 @@
             <div><dt>{{ 'bridge.worker_runs.filter.bridge_label'|trans }}</dt><dd>{{ run.bridgeId }}</dd></div>
             {% if run.sessionId is not null %}<div><dt>{{ 'bridge.worker_runs.details.session'|trans }}</dt><dd>{{ run.sessionId }}</dd></div>{% endif %}
             <div><dt>{{ 'bridge.worker_runs.column.duration'|trans }}</dt><dd>{{ item.duration() }}{% if run.exitCode is not null %} · {{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}{% endif %}</dd></div>
+            {% if item.isResume %}<div><dt>{{ 'bridge.worker_runs.details.series'|trans }}</dt><dd>{{ 'bridge.worker_runs.resume'|trans({'%index%': run.resumeIndex, '%cap%': run.resumeCap}) }}</dd></div>{% endif %}
+            {% if run.continuesRun is not null %}<div><dt>{{ 'bridge.worker_runs.details.continues'|trans }}</dt><dd><a href="{{ path('app_project_worker_runs', {id: project.id, search: run.continuesRun.id}) }}" data-worker-run-continues>{{ run.continuesRun.id }}</a></dd></div>{% endif %}
+            {% if run.resultStatus is not null %}<div data-worker-run-result-status><dt>{{ 'bridge.worker_runs.details.result_status'|trans }}</dt><dd>{{ ('bridge.worker_runs.result_status.' ~ run.resultStatus)|trans }}</dd></div>{% endif %}
+            {% if run.resumeSkipped is not null %}<div data-worker-run-resume-skipped><dt>{{ 'bridge.worker_runs.details.resume_skipped'|trans }}</dt><dd><code>{{ run.resumeSkipped }}</code></dd></div>{% endif %}
         </dl>
+        {% if item.resultFields is not empty %}
+        <h3 class="lp-run-drawer__heading">{{ 'bridge.worker_runs.details.result_fields'|trans }}</h3>
+        {# The worker writes these, so they are rendered as text. Never add |raw here. #}
+        <dl class="lp-run-drawer__metadata" data-worker-run-result-fields>
+            {% for name, value in item.resultFields %}<div><dt>{{ name }}</dt><dd>{{ value }}</dd></div>{% endfor %}
+        </dl>
+        {% endif %}
         <p class="lp-dialog-desc">{{ 'bridge.worker_runs.details.unreported'|trans }}</p>
         <h3 class="lp-run-drawer__heading">{{ 'bridge.worker_runs.details.timeline'|trans }}</h3>
         <ol class="lp-run-drawer__timeline">

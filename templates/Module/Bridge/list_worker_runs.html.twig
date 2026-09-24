@@ -121,7 +121,10 @@
                     <span class="lp-status-chip__dot"></span>
                     {{ item.state.translationKey()|trans }}
                 </span>
-                <span class="lp-worker-run__rule">{{ run.ruleName }}</span>
+                <span class="lp-worker-run__rule">
+                    {{ run.ruleName }}
+                    {% if item.isResume %}<small data-worker-run-resume>{{ 'bridge.worker_runs.resume'|trans({'%index%': run.resumeIndex, '%cap%': run.resumeCap}) }}</small>{% endif %}
+                </span>
                 <span class="lp-worker-run__duration">
                     {{ item.duration() }}
                     {% if run.exitCode is not null %}<small>{{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}</small>{% endif %}

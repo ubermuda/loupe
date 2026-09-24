@@ -13,6 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
+	"unicode/utf16"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
@@ -78,7 +80,8 @@ type router struct {
 	fetchSeq uint64
 	setSeq   uint64
 	// queue holds the accepted events in arrival order, at most one for each
-	// card and rule, or for each ask of a resume. running holds the key of each
+	// card and rule, or for each ask of a resume, plus the resumes of unfinished
+	// runs, which never coalesce. running holds the key of each
 	// card with a worker or an ask check. A card runs once, and waits once per
 	// rule or ask.
 	queue   []pending
@@ -746,8 +749,9 @@ func (r *router) countChain(key, rule string) {
 	r.chains[key][rule]++
 }
 
-// start runs one worker, as a new claude session or as the resume of the
-// session its ask names. The caller holds mu, and start never takes it.
+// start runs one worker, as a new claude session, as the resume of the session
+// its ask names, or as the resume of an unfinished run. The caller holds mu,
+// and start never takes it.
 //
 // wg counts the worker before the goroutine exists, and the finish call that
 // admits the next worker runs before wg.Done, so a waiter never sees the count
@@ -1150,15 +1154,35 @@ func (r *router) resultFields(p pending, fields map[string]any) map[string]any {
 		return nil
 	}
 	encoded, err := json.Marshal(fields)
-	if err == nil && len(encoded) <= maxResultFields {
+	size := phpJSONLength(encoded)
+	if err == nil && size <= maxResultFields {
 		return fields
 	}
 	r.log.Warn("result_fields_dropped", append(about(p.event, p.rule),
-		"bytes", len(encoded),
-		"message", fmt.Sprintf("the result fields take %d bytes as JSON, and Loupe takes at most %d", len(encoded), maxResultFields),
+		"bytes", size,
+		"message", fmt.Sprintf("the result fields take %d bytes as JSON, and Loupe takes at most %d", size, maxResultFields),
 	)...)
 
 	return nil
+}
+
+// phpJSONLength is the length of PHP's json_encode of the same value, which
+// the server measures. PHP escapes each slash, and writes each UTF-16 unit of
+// a non-ASCII character as \uXXXX. Go's escapes of < > & only count more.
+func phpJSONLength(encoded []byte) int {
+	n := 0
+	for _, c := range string(encoded) {
+		switch {
+		case c == '/':
+			n += 2
+		case c > unicode.MaxASCII:
+			n += 6 * len(utf16.Encode([]rune{c}))
+		default:
+			n++
+		}
+	}
+
+	return n
 }
 
 // reporting reports whether the router sends run reports at all.

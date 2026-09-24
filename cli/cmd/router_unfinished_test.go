@@ -507,6 +507,9 @@ func TestTheOutcomeCarriesTheResultFields(t *testing.T) {
 	}{
 		"small": {map[string]any{"prUrl": "https://example.test/pr/1"}, true, false},
 		"large": {map[string]any{"blob": strings.Repeat("x", 4000)}, false, true},
+		// PHP escapes each slash and each non-ASCII character, so it counts more.
+		"large to PHP": {map[string]any{"a": strings.Repeat("/", 2000)}, false, true},
+		"accents":      {map[string]any{"a": strings.Repeat("é", 700)}, false, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t)

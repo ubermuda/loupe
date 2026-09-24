@@ -32,6 +32,25 @@ final readonly class WorkerRunListItem
             : max(0, $end->getTimestamp() - $run->startedAt->getTimestamp());
     }
 
+    /** The first run of a series has index 0, and a run from an older bridge has none. */
+    public function isResume(): bool
+    {
+        return null !== $this->run->resumeIndex && $this->run->resumeIndex > 0 && null !== $this->run->resumeCap;
+    }
+
+    /**
+     * The extra result fields, each value as text. A value that is not a string reads as JSON.
+     *
+     * @return array<string, string>
+     */
+    public function resultFields(): array
+    {
+        return array_map(
+            static fn (mixed $value): string => \is_string($value) ? $value : json_encode($value, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE),
+            $this->run->resultFields ?? [],
+        );
+    }
+
     /**
      * The duration as a person reads it, such as `21s`, `3m 12s` or `1h 04m`,
      * or null when there is none to show.
