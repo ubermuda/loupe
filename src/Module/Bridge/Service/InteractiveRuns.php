@@ -147,7 +147,14 @@ final readonly class InteractiveRuns
         $outcome = $this->em->wrapInTransaction(function () use ($findOpenLocked, $findAny): array {
             $run = $findOpenLocked();
             if (null === $run) {
-                return [$findAny(), false];
+                $run = $findAny();
+                // The locked read found no running row, so a running copy is stale.
+                if (WorkerRunState::Running === $run?->state) {
+                    $this->em->detach($run);
+                    $run = $findAny();
+                }
+
+                return [$run, false];
             }
 
             $this->closeRun($run, $this->clock->now());

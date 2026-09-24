@@ -143,7 +143,8 @@ final class InteractiveRunsTest extends KernelTestCase
 
         $closed = $this->runs()->close($project, $cardId, $sessionId);
 
-        self::assertSame($run, $closed);
+        self::assertEquals($run->id, $closed?->id);
+        self::assertSame(WorkerRunState::Closed, $closed?->state);
         self::assertSame([['running', self::NOW], ['closed', self::NOW]], $this->history($run));
     }
 
@@ -156,7 +157,8 @@ final class InteractiveRunsTest extends KernelTestCase
 
         $closed = $this->runs()->closeById($project, $runId);
 
-        self::assertSame($run, $closed);
+        self::assertEquals($runId, $closed?->id);
+        self::assertSame(WorkerRunState::Closed, $closed?->state);
         self::assertSame([['running', self::NOW], ['closed', self::NOW]], $this->history($run));
     }
 
