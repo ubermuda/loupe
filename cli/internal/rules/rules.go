@@ -88,6 +88,8 @@ type File struct {
 	Defaults FileDefaults       `yaml:"defaults"`
 	Projects map[string]Project `yaml:"projects"`
 	Rules    []Rule             `yaml:"rules"`
+	// AutoUpdate is on when the key is absent.
+	AutoUpdate *bool `yaml:"autoUpdate"`
 }
 
 // FileDefaults fill a rule's empty fields before the bridge flags do. A reload
@@ -155,6 +157,8 @@ type Set struct {
 	// set matches nothing.
 	slugs map[string]string
 
+	autoUpdate bool
+
 	// dead maps a rule name to the reason it died. The bridge reads and writes
 	// it on the stream goroutine alone. mu guards it for any other caller.
 	mu   sync.RWMutex
@@ -194,7 +198,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		return nil, err
 	}
 
-	s := &Set{dirs: map[string]string{}}
+	s := &Set{dirs: map[string]string{}, autoUpdate: f.AutoUpdate == nil || *f.AutoUpdate}
 	var errs []error
 	for _, err := range []error{
 		checkWord("defaults.permissionMode", f.Defaults.PermissionMode),
@@ -441,6 +445,11 @@ func braces(names []string) string {
 	}
 
 	return strings.Join(out, " ")
+}
+
+// AutoUpdate reports whether the bridge may update the CLI on its own.
+func (s *Set) AutoUpdate() bool {
+	return s.autoUpdate
 }
 
 // Projects lists the mapped project slugs in order.
