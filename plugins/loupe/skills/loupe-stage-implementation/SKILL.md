@@ -5,7 +5,7 @@ description: "Use when a card enters the Implementation column of a Loupe board,
 
 # Implementation stage
 
-Build the approved tech design of one card into a ready, linked pull request.
+Build the approved tech design of one card into a ready, linked pull request. An epic gets its child cards instead.
 
 ## Contract
 
@@ -29,7 +29,7 @@ Build the approved tech design of one card into a ready, linked pull request.
 4. Find the linked tech design by its tags `design` and `decisions` (`document_get`), or a title starting `Tech design`. A card with a parent that links none uses the tech design of its parent. When none has `status` `approved`, stop with `STAGE RESULT: no approved tech design`.
 5. Choose the mode, in this order, per `references/breakdown.md`:
    - A card with a parent is a child. Build only the Breakdown entry that its body names, from step 6 on.
-   - An epic, or a card whose tech design has a Breakdown section, runs the breakdown. It gets no worktree and no code. Run the five breakdown steps, which name the only child moves allowed (contract rule 4). Stop with `STAGE RESULT: breakdown <n> children, <m> started`.
+   - An epic, or a card whose tech design has a Breakdown section, runs the breakdown. It gets no worktree and no code. Run the five breakdown steps. Their last step moves each child with no open blocker from the default column to `implementation`. Those are the only moves this mode makes (contract rule 4). Stop with `STAGE RESULT: breakdown <n> children, <m> started`.
    - Every other card continues at step 6.
 6. Read each linked pull request with the forge adapter. An open one on a `card-<number>-` branch: take step 7, restore it per "Reruns", and skip to the gate. Any other open one: stop with `STAGE RESULT: open pull request exists <url>`.
 7. Read `references/commands.md` and the profile, and load its `Instruction files`.
