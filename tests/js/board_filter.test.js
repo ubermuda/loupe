@@ -21,11 +21,11 @@ async function mount() {
         <input data-board-filter-target="query" data-action="input->board-filter#filter">
         <span data-board-filter-target="count" data-one="1 card" data-many="%count% cards">2 cards</span>
         <p data-board-filter-target="empty" hidden>No card matches.</p>
-        <section data-lane="epic-a">
+        <section class="lp-board-lane" data-lane="epic-a">
             <header data-board-filter-target="laneHead" data-card-title="Checkout epic">#1 Checkout epic</header>
             <article data-board-filter-target="card" data-card-title="Pay with a card">Pay</article>
         </section>
-        <section data-lane="other">
+        <section class="lp-board-lane" data-lane="other">
             <article data-board-filter-target="card" data-card-title="Fix the footer">Footer</article>
         </section>
     </div>`;
@@ -67,6 +67,27 @@ it('counts matching cards and a matching lane title together', async () => {
     search('c');
 
     expect(count()).toBe('2 cards');
+});
+
+it('opens a collapsed lane while a search matches one of its cards', async () => {
+    await mount();
+    const lane = document.querySelector('[data-lane="epic-a"]');
+    lane.classList.add('lp-board-lane--collapsed');
+    window.localStorage.setItem('collapsed', 'untouched');
+
+    search('pay');
+    expect(lane.classList.contains('lp-board-lane--revealed')).toBe(true);
+
+    search('footer');
+    expect(lane.classList.contains('lp-board-lane--revealed')).toBe(false);
+
+    search('pay');
+    search('');
+    expect(lane.classList.contains('lp-board-lane--revealed')).toBe(false);
+    expect(lane.classList.contains('lp-board-lane--collapsed')).toBe(true);
+    expect(window.localStorage.getItem('collapsed')).toBe('untouched');
+    expect(window.localStorage.length).toBe(1);
+    window.localStorage.clear();
 });
 
 it('keeps a lane header whose title does not match, and says when nothing matches', async () => {

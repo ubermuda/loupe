@@ -14,6 +14,7 @@ export default class extends Controller {
     filter() {
         const query = this.queryTarget.value.trim().toLocaleLowerCase();
         let visibleCount = 0;
+        const matchedLanes = new Set();
 
         for (const card of this.cardTargets) {
             const visible =
@@ -23,7 +24,19 @@ export default class extends Controller {
             card.hidden = !visible;
             if (visible) {
                 visibleCount += 1;
+                if (query !== '') {
+                    matchedLanes.add(card.closest('.lp-board-lane'));
+                }
             }
+        }
+
+        // A search opens a collapsed lane that holds a match, and leaves the
+        // stored collapse alone, so the lane closes again when it clears.
+        for (const lane of this.element.querySelectorAll('.lp-board-lane')) {
+            lane.classList.toggle(
+                'lp-board-lane--revealed',
+                matchedLanes.has(lane),
+            );
         }
 
         // A lane epic is its header rather than a card. The header always

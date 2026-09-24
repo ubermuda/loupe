@@ -5725,6 +5725,10 @@
     .lp-board-lane--collapsed .lp-board-lane__cells {
         @apply hidden;
     }
+    /* A search that matches a card of a collapsed lane shows its cells. */
+    .lp-board-lane--collapsed.lp-board-lane--revealed .lp-board-lane__cells {
+        @apply flex;
+    }
     /* A cell is a drop target, so an empty one keeps some height. */
     .lp-board-lane__cell {
         @apply flex flex-col gap-2.5 grow basis-0 min-w-52 min-h-16 rounded-xl bg-surface-3 p-2.5;
