@@ -237,8 +237,8 @@ func (x *extractor) extract(r io.Reader) error {
 }
 
 // name maps an archive name to a name relative to the package directory. It
-// strips the one top directory, which codeload names repo-shortsha, and the
-// package path. keep is false for a name outside the package.
+// strips the one top directory, which codeload names after the repository and
+// the ref, and the package path. keep is false for a name outside the package.
 func (x *extractor) name(raw string) (string, bool, error) {
 	clean := strings.TrimSuffix(raw, "/")
 	bad := clean == "" || strings.HasPrefix(raw, "/")
