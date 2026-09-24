@@ -711,7 +711,8 @@ right after the first `GET /api/events`, and then once per interval. The
 heartbeat carries the ids of the projects the rule file maps and the build that
 `loupe version` prints, such as `0f4a2c9b (dirty)`. The server stamps the time
 itself. A reload sends a heartbeat at once, so the server reads the new
-projects before the next interval.
+projects before the next interval. The heartbeat also carries the last run of
+each [hook](#loupe-bridge-hooks), and a hook run sends a heartbeat at once.
 
 The interval comes from `bridge.heartbeat_interval_seconds` in the `flags` map,
 60 seconds by default. The bridge falls back to 60 seconds when the map has no
@@ -890,10 +891,37 @@ A reload does these things to the running bridge:
 - The bridge sends a new [rule health report](#rule-health-reports) for each
   project, and an empty report for each project the new file no longer maps.
 - The [heartbeat](#heartbeat) names the new projects at once.
+- The bridge runs the hooks of the new `hooks:` list from the next event on. A
+  reload runs no hook itself.
 
 A new project in the `projects` map needs no restart. The `defaults:` block
 reloads too. The flags of `loupe bridge run` and the instance URL in
 `config.json` do not reload, so a change to them still needs a restart.
+
+## `loupe bridge hooks`
+
+Manages the hook packages that the bridge runs when it starts, when it stops,
+when it gets busy and when it goes idle. A package is a directory of a GitHub
+repository with a `loupe-hook.yaml` manifest. The commands edit the `hooks:`
+list of the rule file and keep the rest of the file, comments included.
+
+```bash
+loupe bridge hooks install ubermuda/loupe/hooks/amphetamine@<commit sha>
+loupe bridge hooks list
+loupe bridge hooks set ubermuda/loupe/hooks/amphetamine takeover=true
+loupe bridge hooks run ubermuda/loupe/hooks/amphetamine busy
+loupe bridge hooks remove ubermuda/loupe/hooks/amphetamine
+```
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--rules` | `rules.yaml` in your config dir | Edit this rule file |
+| `--yes` | off | `install` only. Install without the prompt |
+
+A hook runs with your rights and no sandbox. `install` shows what the package
+runs and asks you to confirm. Run `loupe bridge reload` after `install`,
+`remove` or `set`. See [Bridge hooks](../docs/extending/bridge-hooks.md) for the
+events, the manifest, the environment and the Amphetamine package.
 
 ## `loupe version`
 

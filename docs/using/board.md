@@ -237,6 +237,21 @@ The rename and delete dialogs of a column warn before they save when a live rule
 watches that column's slug. A rename changes the slug, and a delete removes it,
 so the rule stops matching in both cases.
 
+The Rules page also has a Hooks section. It shows one block for each of your
+bridges whose heartbeat names the project, the latest heartbeat first. Each
+block shows the last 12 characters of the bridge id, with the full id in the
+tooltip, and the time of the last heartbeat. Under it, each
+[hook package](../extending/bridge-hooks.md) of the bridge has one row for each
+event it defines. A row shows the package, its ref, the event and the time of
+the last run.
+
+The chip of a row reads OK, Failed, Timed out or Not run yet. A failed or timed
+out row shows the end of the hook's output, or the error when the hook could not
+start. A bridge with no hook shows "No hook is installed." Each heartbeat
+replaces the rows of its bridge, so a bridge that stops keeps its last list. A
+`stop` run never reaches the page, because the bridge closes its send queue
+before its `stop` hooks run.
+
 ### The card page
 
 A card has its own page at **`/projects/<project>/board/cards/<card id>`**. The
