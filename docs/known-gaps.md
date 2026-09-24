@@ -42,9 +42,14 @@ description: "Things the application needs that are not configured on your behal
    submissions still save, but never reach the bridge CLI, and the publish
    failure is only logged, so it degrades silently rather than erroring.
 
-   The hub is in-memory: a restart drops undelivered updates. That is why
-   submissions are recorded in the `outbox_events` outbox and the bridge
-   resumes from `Last-Event-ID` — delivery is best effort, replay is not.
+   The `dunglas/mercure` image sets no transport, so the hub keeps its history
+   in a Bolt file, `/data/caddy/mercure.db`, with no size limit. Neither
+   compose file mounts `/data`, so the history lasts until the container is
+   recreated, and the file grows until then. While the hub runs, a subscriber
+   that reconnects with `Last-Event-ID` gets the events of the gap. Submissions
+   are also recorded in the `outbox_events` outbox. When the hub is down, the
+   scheduled drain publishes them later. The outbox does not restore a history
+   that a recreated container lost.
 
 5. **Nothing here has been applied against a live account.** `terraform
    validate` passes and `plan` evaluates the full configuration up to the first
