@@ -25,17 +25,29 @@ const (
 
 // Update states, as the heartbeat reports them.
 const (
-	updateCurrent  = "current"
-	updateUpdating = "updating"
-	updateBlocked  = "blocked"
-	updateOff      = "off"
-	updateDev      = "dev"
+	updateCurrent    = "current"
+	updateUpdating   = "updating"
+	updateBlocked    = "blocked"
+	updateOff        = "off"
+	updateDev        = "dev"
+	updateRolledBack = "rolled-back"
+)
+
+// stagedOutcome is how a handover that returned ended. A handover that
+// succeeds never returns, because the process runs the new binary.
+type stagedOutcome int
+
+const (
+	// stagedDeferred leaves the version for the next check.
+	stagedDeferred stagedOutcome = iota
+	// stagedRejected puts the version on the skip list.
+	stagedRejected
 )
 
 // stagedHook receives a verified binary, staged at path. It runs on the check
 // goroutine, so no other check starts until it returns, and ctx ends when the
 // bridge stops.
-type stagedHook func(ctx context.Context, c update.Candidate, path string)
+type stagedHook func(ctx context.Context, c update.Candidate, path string) stagedOutcome
 
 // updater checks GitHub for a CLI release inside the range the server
 // supports, and stages it for a handover. It checks at start, when the range
@@ -57,6 +69,9 @@ type updater struct {
 	mu       sync.Mutex
 	cliRange string
 	current  api.HeartbeatUpdate
+	// rolledBack names the version this run rolled back from. The state keeps
+	// saying so, where it would otherwise say current.
+	rolledBack string
 	kick     chan struct{}
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
@@ -136,8 +151,30 @@ func (u *updater) state() api.HeartbeatUpdate {
 
 func (u *updater) setState(state, version string) {
 	u.mu.Lock()
+	defer u.mu.Unlock()
+	if state == updateCurrent && u.rolledBack != "" {
+		state, version = updateRolledBack, u.rolledBack
+	}
 	u.current = api.HeartbeatUpdate{State: state, Version: version}
+}
+
+// markRolledBack reports version as rolled back for the rest of this run.
+func (u *updater) markRolledBack(version string) {
+	u.mu.Lock()
+	u.rolledBack = version
+	u.current = api.HeartbeatUpdate{State: updateRolledBack, Version: version}
 	u.mu.Unlock()
+}
+
+// skipVersion puts version on the skip list in update.json of dir.
+func skipVersion(dir, version string) error {
+	st, err := update.LoadState(dir)
+	if err != nil {
+		return err
+	}
+	st.Skip(version)
+
+	return st.Save(dir)
 }
 
 func (u *updater) loop(ctx context.Context) {
@@ -225,8 +262,19 @@ func (u *updater) check(ctx context.Context) {
 	if !ok {
 		return
 	}
+	prev := u.state()
 	u.setState(updateUpdating, to)
-	u.onStaged(ctx, c, path)
+	if u.onStaged(ctx, c, path) != stagedRejected {
+		u.mu.Lock()
+		u.current = prev
+		u.mu.Unlock()
+
+		return
+	}
+	if err := skipVersion(u.dir, to); err != nil {
+		u.log.Warn("update_skip_failed", "version", to, "error", err.Error())
+	}
+	u.markRolledBack(to)
 }
 
 // stage downloads, verifies and writes the binary of c, unless an earlier

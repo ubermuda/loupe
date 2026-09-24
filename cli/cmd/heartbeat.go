@@ -45,6 +45,9 @@ type heartbeater struct {
 	// heartbeat. Either may be nil.
 	onRange func(string)
 	update  func() api.HeartbeatUpdate
+	// onSent runs after each heartbeat the server accepted, on the goroutine
+	// of the lane. It may be nil.
+	onSent func()
 
 	mu       sync.Mutex
 	body     api.Heartbeat
@@ -177,6 +180,9 @@ func (h *heartbeater) record(err error) {
 			h.log.Info("heartbeat_sent", "bridge_id", h.bridgeID, "interval_seconds", int(h.currentInterval()/time.Second), "failed_before", h.failed)
 		}
 		h.sent, h.failed, h.unsupported = true, 0, false
+		if h.onSent != nil {
+			h.onSent()
+		}
 	case errors.Is(err, api.ErrHeartbeatMissing):
 		if !h.unsupported {
 			h.unsupported = true

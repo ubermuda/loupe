@@ -115,12 +115,13 @@ func updateArchive(t *testing.T, binary string) []byte {
 }
 
 type updaterHarness struct {
-	u      *updater
-	gh     *fakeGitHub
-	log    *syncBuffer
-	auto   bool
-	staged []string
-	during []api.HeartbeatUpdate
+	u       *updater
+	gh      *fakeGitHub
+	log     *syncBuffer
+	auto    bool
+	outcome stagedOutcome
+	staged  []string
+	during  []api.HeartbeatUpdate
 }
 
 func newTestUpdater(t *testing.T, gh *fakeGitHub, running string) *updaterHarness {
@@ -134,10 +135,12 @@ func newTestUpdater(t *testing.T, gh *fakeGitHub, running string) *updaterHarnes
 		t.Fatal(err)
 	}
 	log := newBridgeLogger(h.log)
-	h.u = newUpdater(log, running, t.TempDir(), func() bool { return h.auto }, func(ctx context.Context, c update.Candidate, path string) {
+	h.u = newUpdater(log, running, t.TempDir(), func() bool { return h.auto }, func(ctx context.Context, c update.Candidate, path string) stagedOutcome {
 		logStaged(log, running)(ctx, c, path)
 		h.staged = append(h.staged, c.Version.String()+" "+path)
 		h.during = append(h.during, h.u.state())
+
+		return h.outcome
 	})
 	h.u.apiBase = gh.server.URL
 	h.u.hc = gh.server.Client()
@@ -170,7 +173,7 @@ func TestTheUpdaterStagesAVerifiedRelease(t *testing.T) {
 		t.Fatalf("hook calls = %v", h.staged)
 	}
 	want := api.HeartbeatUpdate{State: "updating", Version: "1.2.0"}
-	if h.during[0] != want || h.u.state() != want {
+	if h.during[0] != want || h.u.state() != (api.HeartbeatUpdate{}) {
 		t.Fatalf("state during the hook = %+v, after = %+v", h.during[0], h.u.state())
 	}
 	for _, event := range []string{"update_check", "update_download", "update_verified", "update_staged"} {
@@ -390,6 +393,46 @@ func TestTheUpdaterChecksOnARangeChangeAndEachHour(t *testing.T) {
 	})
 	h.u.stop()
 	if got := h.u.state(); got.State != "current" {
+		t.Fatalf("state = %+v", got)
+	}
+}
+
+// A deferred handover gives back the state before it, so the heartbeat does
+// not claim an update that waits for the next check.
+func TestADeferredHandoverRestoresThePreviousState(t *testing.T) {
+	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	h := newTestUpdater(t, gh, "1.0.0")
+	h.u.setRange("^1.0")
+	h.u.setState(updateCurrent, "")
+
+	h.u.check(context.Background())
+
+	if len(h.during) != 1 || h.during[0].State != "updating" || h.u.state() != (api.HeartbeatUpdate{State: "current"}) {
+		t.Fatalf("during = %+v, after = %+v", h.during, h.u.state())
+	}
+	if st, _ := update.LoadState(h.u.dir); st.Skipped("1.2.0") {
+		t.Fatal("a deferred version is on the skip list")
+	}
+}
+
+// A rejected version goes on the skip list, and the state names it as rolled
+// back until the bridge stops, even when a later check finds nothing newer.
+func TestARejectedReleaseIsSkippedAndStaysRolledBack(t *testing.T) {
+	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	h := newTestUpdater(t, gh, "1.0.0")
+	h.outcome = stagedRejected
+	h.u.setRange("^1.0")
+
+	h.u.check(context.Background())
+	h.u.check(context.Background())
+
+	if len(h.staged) != 1 {
+		t.Fatalf("hook calls = %v", h.staged)
+	}
+	if st, _ := update.LoadState(h.u.dir); !st.Skipped("1.2.0") {
+		t.Fatalf("update.json = %+v", st)
+	}
+	if got := h.u.state(); got != (api.HeartbeatUpdate{State: "rolled-back", Version: "1.2.0"}) {
 		t.Fatalf("state = %+v", got)
 	}
 }

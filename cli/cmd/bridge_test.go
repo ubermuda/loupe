@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -147,6 +148,8 @@ type fakeLoupe struct {
 	// askState answers the ask check route. Empty answers 404.
 	askState  string
 	askChecks []string
+	// heartbeatStatus answers each heartbeat. Zero answers 204.
+	heartbeatStatus int
 }
 
 const (
@@ -205,8 +208,9 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 			raw, _ := io.ReadAll(r.Body)
 			f.mu.Lock()
 			f.heartbeats = append(f.heartbeats, string(raw))
+			status := cmp.Or(f.heartbeatStatus, http.StatusNoContent)
 			f.mu.Unlock()
-			w.WriteHeader(http.StatusNoContent)
+			w.WriteHeader(status)
 
 			return
 		}

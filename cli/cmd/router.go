@@ -61,6 +61,9 @@ type router struct {
 	buildTimeout time.Duration
 	// reloadMu lets one reload run at a time. It is never taken under mu.
 	reloadMu sync.Mutex
+	// update hands the bridge over to a new binary. A nil one, as in most
+	// tests, only logs a staged release.
+	update *bridgeUpdate
 
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
@@ -272,6 +275,9 @@ func (r *router) handler() transport.Handler {
 			r.mu.Unlock()
 			r.log.Info("connected", "topic", r.topic, "projects", projects)
 			r.sendInventory()
+			if r.update != nil {
+				r.update.markConnected()
+			}
 		},
 		OnError:     func(err error) { r.log.Error("stream_error", "error", err.Error()) },
 		OnEvent:     r.onEvent,

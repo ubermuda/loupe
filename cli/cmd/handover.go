@@ -26,8 +26,8 @@ const recentLimit = 512
 
 // handoverState is the routing state one image of the bridge hands to the next
 // across an exec. LockFD and ControlFD name the inherited descriptors of the
-// lock file and of the control socket, and OldVersion and OldBinary the image
-// that froze it, for a rollback.
+// lock file at LockPath and of the control socket, and OldVersion and
+// OldBinary the image that froze it, for a rollback.
 type handoverState struct {
 	Format      int                         `json:"format"`
 	Queue       []handoverPending           `json:"queue"`
@@ -41,6 +41,7 @@ type handoverState struct {
 	Seq         uint64                      `json:"seq"`
 	LockFD      int                         `json:"lockFd"`
 	ControlFD   int                         `json:"controlFd"`
+	LockPath    string                      `json:"lockPath"`
 	OldVersion  string                      `json:"oldVersion"`
 	OldBinary   string                      `json:"oldBinary"`
 }
