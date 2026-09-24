@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Controller\Api\RecordBridgeHeartbeatRequest;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeRepository;
+use App\Module\Bridge\ValueObject\CliUpdateState;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\AgentCredential;
@@ -40,12 +41,55 @@ final class BridgeHeartbeatApiTest extends WebTestCase
             'cliVersion' => 'b4e39aa7',
         ]);
 
-        self::assertResponseStatusCodeSame(204);
-        self::assertSame('', (string) $client->getResponse()->getContent());
+        self::assertResponseStatusCodeSame(200);
+        self::assertJsonStringEqualsJsonString('{"cliRange":"^1.0"}', (string) $client->getResponse()->getContent());
         $bridge = $this->bridge($owner, $bridgeId);
         self::assertSame([(string) $project->id], $bridge->projects);
         self::assertSame('b4e39aa7', $bridge->cliVersion);
         self::assertSame('2026-09-14 16:00:00', $bridge->lastSeenAt->format('Y-m-d H:i:s'));
+        self::assertNull($bridge->updateState);
+        self::assertNull($bridge->updateVersion);
+    }
+
+    public function test_the_update_report_is_stored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-update@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, [
+            'projects' => [],
+            'cliVersion' => '1.2.0',
+            'update' => ['state' => 'rolled-back', 'version' => '1.3.0', 'reason' => 'ignored'],
+            'extra' => 'ignored',
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $bridge = $this->bridge($owner, $bridgeId);
+        self::assertSame(CliUpdateState::RolledBack, $bridge->updateState);
+        self::assertSame('1.3.0', $bridge->updateVersion);
+    }
+
+    /** The row holds current state, so a heartbeat with no update report clears the last one. */
+    public function test_a_heartbeat_without_an_update_report_clears_the_stored_one(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-update-clear@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => '1.2.0', 'update' => ['state' => 'updating', 'version' => '1.3.0']]);
+        self::assertSame(CliUpdateState::Updating, $this->bridge($owner, $bridgeId)->updateState);
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => '1.3.0']);
+
+        self::assertResponseStatusCodeSame(200);
+        $bridge = $this->bridge($owner, $bridgeId);
+        self::assertNull($bridge->updateState);
+        self::assertNull($bridge->updateVersion);
     }
 
     /** The row holds current state, so a later heartbeat replaces every field and writes no second row. */
@@ -67,7 +111,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
             'cliVersion' => 'new (dirty)',
         ]);
 
-        self::assertResponseStatusCodeSame(204);
+        self::assertResponseStatusCodeSame(200);
         self::assertSame(1, $this->countBridges());
         $bridge = $this->bridge($owner, $bridgeId);
         self::assertSame([(string) $second->id], $bridge->projects);
@@ -96,7 +140,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
             'cliVersion' => 'second',
         ]);
 
-        self::assertResponseStatusCodeSame(204);
+        self::assertResponseStatusCodeSame(200);
         self::assertSame(2, $this->countBridges());
         $secondRow = $this->bridge($second, (string) $bridgeId);
         self::assertSame([(string) $secondProject->id], $secondRow->projects);
@@ -127,7 +171,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
             'cliVersion' => 'b4e39aa7',
         ]);
 
-        self::assertResponseStatusCodeSame(204);
+        self::assertResponseStatusCodeSame(200);
         self::assertSame([(string) $own->id], $this->bridge($owner, $bridgeId)->projects);
     }
 
@@ -141,7 +185,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
 
         $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
 
-        self::assertResponseStatusCodeSame(204);
+        self::assertResponseStatusCodeSame(200);
         self::assertSame([], $this->bridge($owner, $bridgeId)->projects);
     }
 
@@ -159,6 +203,9 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         yield 'no cli version' => [['cliVersion' => null]];
         yield 'a blank cli version' => [['cliVersion' => '   ']];
         yield 'a cli version that is too long' => [['cliVersion' => str_repeat('a', Bridge::MAX_CLI_VERSION_LENGTH + 1)]];
+        yield 'an unknown update state' => [['update' => ['state' => 'exploded']]];
+        yield 'an update with no state' => [['update' => ['version' => '1.3.0']]];
+        yield 'an update version that is too long' => [['update' => ['state' => 'updating', 'version' => str_repeat('1', Bridge::MAX_UPDATE_VERSION_LENGTH + 1)]]];
     }
 
     /** @param array<string, mixed> $overrides */
@@ -187,7 +234,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
 
         $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => '  b4e39aa7  ']);
 
-        self::assertResponseStatusCodeSame(204);
+        self::assertResponseStatusCodeSame(200);
         self::assertSame('b4e39aa7', $this->bridge($owner, $bridgeId)->cliVersion);
     }
 
@@ -283,13 +330,13 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $body = ['projects' => [], 'cliVersion' => 'b4e39aa7'];
 
         $this->put($client, (string) Uuid::v4(), $first, $body, '203.0.113.7');
-        self::assertResponseStatusCodeSame(204);
+        self::assertResponseStatusCodeSame(200);
 
         $this->put($client, (string) Uuid::v4(), $first, $body, '198.51.100.4');
         self::assertResponseStatusCodeSame(429);
 
         $this->put($client, (string) Uuid::v4(), $second, $body, '203.0.113.7');
-        self::assertResponseStatusCodeSame(204);
+        self::assertResponseStatusCodeSame(200);
     }
 
     /** The shipped limiter takes 60 heartbeats from one token in a minute and refuses the 61st. */
@@ -303,7 +350,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
 
         for ($heartbeat = 1; $heartbeat <= 60; ++$heartbeat) {
             $this->put($client, (string) Uuid::v4(), $raw, $body);
-            self::assertResponseStatusCodeSame(204, 'heartbeat '.$heartbeat);
+            self::assertResponseStatusCodeSame(200, 'heartbeat '.$heartbeat);
         }
 
         $this->put($client, (string) Uuid::v4(), $raw, $body);

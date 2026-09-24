@@ -11,7 +11,7 @@ use App\Module\Bridge\Command\RecordBridgeHeartbeatHandler;
 use App\Outbox\AgentPush;
 use App\Security\CredentialRateLimitKey;
 use Symfony\Component\ExpressionLanguage\Expression;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Attribute\RateLimit;
 use Symfony\Component\Routing\Attribute\Route;
@@ -43,20 +43,22 @@ final class RecordBridgeHeartbeatController extends AppController
     ) {
     }
 
-    public function __invoke(string $bridgeId, #[MapRequestPayload] RecordBridgeHeartbeatRequest $payload): Response
+    public function __invoke(string $bridgeId, #[MapRequestPayload] RecordBridgeHeartbeatRequest $payload): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw new \LogicException('Bridge heartbeat endpoint reached without an authenticated User.');
         }
 
-        ($this->recordHeartbeat)(new RecordBridgeHeartbeatCommand(
+        $result = ($this->recordHeartbeat)(new RecordBridgeHeartbeatCommand(
             owner: $user,
             bridgeId: Uuid::fromString($bridgeId),
             projects: $payload->projectIds(),
             cliVersion: $payload->cliVersion(),
+            updateState: $payload->update?->state(),
+            updateVersion: $payload->update?->version,
         ));
 
-        return new Response(status: Response::HTTP_NO_CONTENT);
+        return new JsonResponse(['cliRange' => $result->cliRange]);
     }
 }

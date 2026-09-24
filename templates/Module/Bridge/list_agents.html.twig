@@ -26,7 +26,7 @@
         {% for connection in connections %}
         <article class="lp-agent-card" id="agent-connection-{{ connection.bridge.id }}" data-agent-connection-id="{{ connection.bridge.id }}" tabindex="-1">
             <div class="lp-agent-card__art">
-                <span class="lp-status-chip {{ connection.status.quiet ? 'lp-status-chip--pending' : 'lp-status-chip--ok' }}">
+                <span data-agent-health class="lp-status-chip {{ connection.status.quiet ? 'lp-status-chip--pending' : 'lp-status-chip--ok' }}">
                     <span class="lp-status-chip__dot"></span>
                     {{ (connection.status.quiet ? 'bridge.agents.status.stale' : 'bridge.agents.status.healthy')|trans }}
                 </span>
@@ -44,7 +44,16 @@
                     <span>{{ 'bridge.agents.last_seen'|trans }}</span>
                     <strong>{{ connection.status.lastSeenAt ? connection.status.lastSeenAt|date('M j, H:i') : 'bridge.agents.never'|trans }}</strong>
                 </div>
-                <footer><span>{{ connection.bridge.cliVersion|short_sha }}</span><span>{{ 'bridge.agents.runtime'|trans }}</span></footer>
+                <footer>
+                    <span>{{ connection.bridge.cliVersion|short_sha }}</span>
+                    {% if connection.updateChip %}
+                    <span data-agent-update class="lp-status-chip lp-status-chip--{{ connection.updateChip.tone }}">
+                        <span class="lp-status-chip__dot"></span>
+                        {{ connection.updateChip.label|trans(connection.updateChip.parameters) }}
+                    </span>
+                    {% endif %}
+                    <span>{{ 'bridge.agents.runtime'|trans }}</span>
+                </footer>
             </div>
         </article>
         {% endfor %}

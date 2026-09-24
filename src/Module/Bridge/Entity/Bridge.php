@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Entity;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Repository\BridgeRepository;
+use App\Module\Bridge\ValueObject\CliUpdateState;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -24,6 +25,16 @@ use Symfony\Component\Uid\Uuid;
 class Bridge
 {
     public const int MAX_CLI_VERSION_LENGTH = 100;
+
+    public const int MAX_UPDATE_VERSION_LENGTH = 100;
+
+    /** Null when the last heartbeat carried no update report. */
+    #[ORM\Column(name: 'update_state', length: 20, nullable: true, enumType: CliUpdateState::class)]
+    public ?CliUpdateState $updateState = null;
+
+    /** The version the update concerns, such as the one a rollback left. */
+    #[ORM\Column(name: 'update_version', length: self::MAX_UPDATE_VERSION_LENGTH, nullable: true)]
+    public ?string $updateVersion = null;
 
     /**
      * @param list<string> $projects

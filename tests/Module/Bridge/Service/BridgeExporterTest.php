@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\BridgeExporter;
+use App\Module\Bridge\ValueObject\CliUpdateState;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
@@ -20,6 +21,8 @@ final class BridgeExporterTest extends TestCase
         $id = Uuid::v4();
         $projectId = (string) Uuid::v7();
         $bridge = new Bridge($owner, $id, [$projectId], 'b4e39aa7 (dirty)', new \DateTimeImmutable('2026-09-14T16:00:00+00:00'));
+        $bridge->updateState = CliUpdateState::RolledBack;
+        $bridge->updateVersion = '1.3.0';
 
         $rows = iterator_to_array(new BridgeExporter($this->repositoryReturning($bridge))->export($owner));
 
@@ -28,6 +31,8 @@ final class BridgeExporterTest extends TestCase
             'projects' => [$projectId],
             'cliVersion' => 'b4e39aa7 (dirty)',
             'lastSeenAt' => '2026-09-14T16:00:00+00:00',
+            'updateState' => 'rolled-back',
+            'updateVersion' => '1.3.0',
         ]], $rows);
     }
 

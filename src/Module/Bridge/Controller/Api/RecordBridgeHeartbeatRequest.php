@@ -27,6 +27,9 @@ final class RecordBridgeHeartbeatRequest
         #[Assert\Length(max: Bridge::MAX_CLI_VERSION_LENGTH, normalizer: 'trim')]
         #[Assert\NotBlank(normalizer: 'trim')]
         public ?string $cliVersion = null,
+
+        #[Assert\Valid]
+        public ?CliUpdateInput $update = null,
     ) {
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\ValueObject\CliUpdateState;
 use Symfony\Component\Uid\Uuid;
 
 final readonly class RecordBridgeHeartbeatCommand
@@ -17,6 +18,8 @@ final readonly class RecordBridgeHeartbeatCommand
         public Uuid $bridgeId,
         public array $projects,
         public string $cliVersion,
+        public ?CliUpdateState $updateState = null,
+        public ?string $updateVersion = null,
     ) {
     }
 }
