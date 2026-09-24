@@ -191,10 +191,20 @@ The prompt names the column the card is in. The round answers the review and
 the failed checks in In review. A card in Implementation with an open pull
 request gets the same round, so use `implementation` for that card.
 
-## Result lines
+## Worker results
 
-The final reply of each worker starts with `STAGE RESULT:`. The bridge reports
-it, and the worker runs page at `/projects/{id}/worker-runs` shows it.
+The final reply of each worker starts with `STAGE RESULT:`. The bridge does not
+read that line. It asks each worker for a structured result, with a `status` of
+`finished`, `blocked` or `unfinished` and a one-sentence `summary`. The worker
+sets `status` from its `STAGE RESULT:` form, as the table in
+`plugins/loupe/skills/loupe-stage-product-design/references/stage-contract.md`
+says. The worker runs page at `/projects/{id}/worker-runs` shows the status and
+the summary.
+
+The bridge resumes an `unfinished` run, a run with no structured result, and a
+failed run, up to the rule's `maxResumes`, two by default. A run at that cap
+shows **Gave up**. A **Gave up** or **Blocked** run puts a warning on its card
+until a later run of the card ends another way, or the card moves.
 
 ## Owner checklist
 
