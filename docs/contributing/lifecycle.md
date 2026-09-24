@@ -69,7 +69,7 @@ covers, and its blockers:
 ```
 
 An ID never changes across revisions. The text after the ID is the title of the
-child. The first line of the child's body names its entry:
+child. The entry line at the top of the child's body names its entry:
 `Breakdown item B3 of card #214.` A rerun matches an existing child by that
 line, then by the exact title, so it never creates a duplicate.
 `plugins/loupe/skills/loupe-stage-implementation/references/breakdown.md` holds
