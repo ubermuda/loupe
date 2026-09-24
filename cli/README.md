@@ -361,6 +361,7 @@ Each entry in `rules` takes these fields:
 | `allowUntrusted` | no | Defaults to `false`. See below |
 | `resume` | for `inbox.ask_closed` | `true` resumes the session that asked. A rule on `inbox.ask_closed` needs it, and no other rule can set it. See [Resuming a session](#resuming-a-session) |
 | `verdict` | no | `approved` or `changes-requested`. Omitted, either verdict matches. Only a rule on `document.review_submitted` can set it. See [A review verdict](#a-review-verdict) |
+| `card` | no | A block that limits the rule by the state of its card. Only a rule on `board.card_moved` or `document.review_submitted` can set it. See [A card in an interactive session](#a-card-in-an-interactive-session) |
 
 The optional `defaults:` block sets `permissionMode` and `model` for every rule
 of the file:
@@ -438,6 +439,29 @@ authenticate. A rule skips a reviewer's event unless it sets
 `system` is the app acting on a person's approval, such as the move that follows
 an approved document. A rule matches it like any other event. It is neither a
 person's act nor an agent's, so it spends no chain budget and resets none.
+
+#### A card in an interactive session
+
+Loupe tells the bridge when a person runs an interactive session on a card. A
+rule that sets `card.interactiveRun` fires only when the event says the same.
+This rule plans a card only when no person works on it:
+
+```yaml
+rules:
+  - name: plan
+    on: board.card_moved
+    project: my-app
+    to: next
+    card:
+      interactiveRun: false
+    prompt: |
+      Plan card {cardNumber} (cardId {cardId}) in project {projectId}.
+```
+
+`true` fires only on a card with an interactive session. Omit the key, and the
+rule fires on either. A server older than this bridge sends no card state, and
+the bridge reads that as `false`. A CLI older than this key refuses the file,
+because `card` is an unknown key there.
 
 #### Placeholders
 
