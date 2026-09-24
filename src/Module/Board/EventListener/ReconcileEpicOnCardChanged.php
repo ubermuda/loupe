@@ -114,9 +114,14 @@ final readonly class ReconcileEpicOnCardChanged
         ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $column));
     }
 
-    /** @param list<BoardColumn> $columns */
+    /**
+     * A terminal column of that slug counts as none, because a move into it
+     * would finish the card rather than open it.
+     *
+     * @param list<BoardColumn> $columns
+     */
     private static function reopenColumn(array $columns): ?BoardColumn
     {
-        return array_find($columns, static fn (BoardColumn $column): bool => self::REOPEN_SLUG === $column->slug);
+        return array_find($columns, static fn (BoardColumn $column): bool => self::REOPEN_SLUG === $column->slug && !$column->terminal);
     }
 }

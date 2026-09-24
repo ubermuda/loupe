@@ -165,6 +165,33 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         self::assertSame('done', $this->slugOf($epic));
     }
 
+    public function test_a_terminal_implementation_column_leaves_a_done_epic_alone(): void
+    {
+        $project = $this->lifecycleProject('epic-terminal-implementation');
+        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $child = $this->card($project, parent: $epic);
+        $this->update($child, 'done');
+        self::assertSame('done', $this->slugOf($epic));
+        $this->markImplementationTerminal($project);
+
+        $this->update($child, 'next');
+
+        self::assertSame('done', $this->slugOf($epic));
+    }
+
+    public function test_a_terminal_implementation_column_releases_nothing(): void
+    {
+        $project = $this->lifecycleProject('epic-release-terminal-implementation');
+        $this->markImplementationTerminal($project);
+        $epic = $this->card($project, 'in-progress', CardType::Epic);
+        $blocker = $this->card($project, parent: $epic);
+        $blocked = $this->card($project, parent: $epic, blockedBy: [$blocker]);
+
+        $this->update($blocker, 'done');
+
+        self::assertSame('backlog', $this->slugOf($blocked));
+    }
+
     public function test_a_child_whose_last_blocker_finishes_starts_in_implementation(): void
     {
         $project = $this->lifecycleProject('epic-release');
@@ -288,6 +315,13 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         $this->em->flush();
 
         return $project;
+    }
+
+    private function markImplementationTerminal(Project $project): void
+    {
+        $this->column($project, 'implementation')->terminal = true;
+        $this->em->flush();
+        $this->em->clear();
     }
 
     /** @param list<Card> $blockedBy */
