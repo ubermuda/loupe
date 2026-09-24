@@ -115,14 +115,10 @@ func resolve(root string, e rules.HookEntry, goos string) (Hook, error) {
 		return Hook{}, err
 	}
 	dir := PackageDir(root, e.ID(), e.SHA)
-	data, err := os.ReadFile(filepath.Join(dir, ManifestFile))
+	m, err := LoadManifest(dir)
 	if errors.Is(err, os.ErrNotExist) {
 		return Hook{}, fmt.Errorf("the package is not installed in %s; install it again", dir)
 	}
-	if err != nil {
-		return Hook{}, err
-	}
-	m, err := ParseManifest(data)
 	if err != nil {
 		return Hook{}, err
 	}
@@ -142,7 +138,7 @@ func resolve(root string, e rules.HookEntry, goos string) (Hook, error) {
 
 			continue
 		}
-		if err := checkValue(s, e.Settings[name]); err != nil {
+		if err := s.Check(e.Settings[name]); err != nil {
 			errs = append(errs, fmt.Errorf("setting %q: %w", name, err))
 
 			continue

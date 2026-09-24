@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"os"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -62,6 +63,16 @@ type rawManifest struct {
 	Settings map[string]Setting  `yaml:"settings"`
 }
 
+// LoadManifest reads and validates the manifest of the package in dir.
+func LoadManifest(dir string) (Manifest, error) {
+	data, err := os.ReadFile(filepath.Join(dir, ManifestFile))
+	if err != nil {
+		return Manifest{}, err
+	}
+
+	return ParseManifest(data)
+}
+
 // ParseManifest validates a manifest. A key or an event the format does not
 // define is an error.
 func ParseManifest(data []byte) (Manifest, error) {
@@ -111,7 +122,7 @@ func ParseManifest(data []byte) (Manifest, error) {
 
 			continue
 		}
-		if err := checkValue(s, s.Default); err != nil {
+		if err := s.Check(s.Default); err != nil {
 			errs = append(errs, fmt.Errorf("setting %q: default %w", name, err))
 		}
 	}
@@ -139,8 +150,8 @@ func checkCommand(cmd []string) error {
 	return nil
 }
 
-// checkValue refuses a value that does not fit the setting's type.
-func checkValue(s Setting, v string) error {
+// Check refuses a value that does not fit the type of the setting.
+func (s Setting) Check(v string) error {
 	if s.Type == TypeBool && v != "true" && v != "false" {
 		return fmt.Errorf("%q is not true or false", v)
 	}

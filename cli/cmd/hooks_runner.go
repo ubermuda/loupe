@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"maps"
 	"os"
@@ -254,40 +255,19 @@ func (hr *hookRunner) loop() {
 	}
 }
 
-// run runs one hook in its package directory, with no shell and an empty
-// stdin, and logs how it ended.
+// run runs one hook and logs how it ended.
 func (hr *hookRunner) run(h hooks.Hook, event string, argv []string) hookRun {
 	res := hookRun{at: time.Now(), outcome: hookOK}
 	attrs := []any{"package", h.ID, "hook_event", event}
-	if err := h.MakeStateDir(); err != nil {
-		res.outcome, res.err = hookFailed, err.Error()
-		hr.log.Warn("hook_failed", append(attrs, "error", res.err)...)
-
-		return res
-	}
-
-	limit := hr.timeout
-	if limit <= 0 {
-		limit = cmp.Or(h.Timeout, hooks.DefaultTimeout)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), limit)
-	defer cancel()
-
+	limit := hookLimit(h, hr.timeout)
 	out := &tailWriter{limit: 4 * maxHookOutput}
-	cmd := exec.CommandContext(ctx, filepath.Join(h.Dir, filepath.FromSlash(argv[0])), argv[1:]...)
-	cmd.Dir = h.Dir
-	cmd.Env = hookEnv(os.Environ(), h, event, hr.bridgeID)
-	cmd.Stdout, cmd.Stderr = out, out
-	cmd.WaitDelay = waitDelay
-	setProcessGroup(cmd)
-
-	err := cmd.Run()
+	timedOut, err := execHook(h, event, argv, hr.bridgeID, limit, out)
 	output := out.text(maxHookOutput)
 	var exitErr *exec.ExitError
 	switch {
 	case err == nil:
 		hr.log.Info("hook_ran", append(attrs, "duration_ms", time.Since(res.at).Milliseconds())...)
-	case errors.Is(ctx.Err(), context.DeadlineExceeded):
+	case timedOut:
 		res.outcome, res.err = hookTimeout, output
 		hr.log.Warn("hook_timeout", append(attrs, "timeout_seconds", int(limit/time.Second), "output", output)...)
 	case errors.As(err, &exitErr):
@@ -299,6 +279,37 @@ func (hr *hookRunner) run(h hooks.Hook, event string, argv []string) hookRun {
 	}
 
 	return res
+}
+
+// hookLimit bounds one run: override when it is not zero, else the time limit
+// of the manifest.
+func hookLimit(h hooks.Hook, override time.Duration) time.Duration {
+	if override > 0 {
+		return override
+	}
+
+	return cmp.Or(h.Timeout, hooks.DefaultTimeout)
+}
+
+// execHook runs one hook in its package directory, with no shell and an empty
+// stdin, and writes its output to out. timedOut says the limit killed it.
+func execHook(h hooks.Hook, event string, argv []string, bridgeID string, limit time.Duration, out io.Writer) (timedOut bool, err error) {
+	if err := h.MakeStateDir(); err != nil {
+		return false, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), limit)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, filepath.Join(h.Dir, filepath.FromSlash(argv[0])), argv[1:]...)
+	cmd.Dir = h.Dir
+	cmd.Env = hookEnv(os.Environ(), h, event, bridgeID)
+	cmd.Stdout, cmd.Stderr = out, out
+	cmd.WaitDelay = waitDelay
+	setProcessGroup(cmd)
+
+	err = cmd.Run()
+
+	return err != nil && errors.Is(ctx.Err(), context.DeadlineExceeded), err
 }
 
 // hookEnv is the environment of a hook: the bridge's, then the hook variables,

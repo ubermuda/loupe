@@ -51,7 +51,7 @@ func newBridgeCmd() *cobra.Command {
 		Use:   "bridge",
 		Short: "Bridge Loupe events into local workers",
 	}
-	cmd.AddCommand(newBridgeRunCmd(), newBridgeReloadCmd())
+	cmd.AddCommand(newBridgeRunCmd(), newBridgeReloadCmd(), newBridgeHooksCmd())
 
 	return cmd
 }
