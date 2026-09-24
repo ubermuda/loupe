@@ -67,6 +67,13 @@ final class WorkerRunExporterTest extends TestCase
             'failureReason' => null,
             'output' => 'all good',
             'receivedAt' => '2026-09-13T10:00:22+00:00',
+            'resultStatus' => null,
+            'resultFields' => null,
+            'continues' => null,
+            'resumeIndex' => null,
+            'resumeCap' => null,
+            'cardColumn' => null,
+            'resumeSkipped' => null,
             'history' => [
                 ['state' => 'running', 'at' => '2026-09-13T10:00:00+00:00', 'receivedAt' => '2026-09-13T10:00:01+00:00'],
                 ['state' => 'succeeded', 'at' => '2026-09-13T10:00:21+00:00', 'receivedAt' => '2026-09-13T10:00:22+00:00'],
@@ -125,6 +132,38 @@ final class WorkerRunExporterTest extends TestCase
         self::assertNull($rows[0]['exitCode']);
         self::assertNull($rows[0]['hasResult']);
         self::assertSame('binary not found', $rows[0]['failureReason']);
+    }
+
+    public function test_a_resume_exports_its_link_and_its_structured_result(): void
+    {
+        $owner = new User('Alice A', 'alice@example.com', 'x');
+        $project = new Project($owner, 'My project');
+        $first = $this->queuedRun($project);
+        $resume = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v7(),
+            cardId: Uuid::v7(),
+            cardNumber: 7,
+            ruleName: 'plan',
+            state: WorkerRunState::Queued,
+            runKey: Uuid::v7(),
+            continuesRun: $first,
+            resumeIndex: 2,
+            resumeCap: 2,
+            cardColumn: 'implementation',
+        );
+        $resume->recordOutcome(WorkerRunState::GaveUp, new \DateTimeImmutable('2026-09-13T10:00:21+00:00'), 0, true, null, 'CI still runs', 'unfinished', ['pullRequest' => 'https://example.com/pull/1'], 'card_moved');
+
+        $rows = iterator_to_array($this->exporter([$resume], [])->export($owner));
+
+        self::assertSame('gave-up', $rows[0]['state']);
+        self::assertSame('unfinished', $rows[0]['resultStatus']);
+        self::assertSame(['pullRequest' => 'https://example.com/pull/1'], $rows[0]['resultFields']);
+        self::assertSame($first->runKey?->toRfc4122(), $rows[0]['continues']);
+        self::assertSame(2, $rows[0]['resumeIndex']);
+        self::assertSame(2, $rows[0]['resumeCap']);
+        self::assertSame('implementation', $rows[0]['cardColumn']);
+        self::assertSame('card_moved', $rows[0]['resumeSkipped']);
     }
 
     public function test_the_archive_entry_is_named_after_the_runs(): void

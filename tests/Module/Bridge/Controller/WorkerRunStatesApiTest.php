@@ -139,6 +139,77 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertFalse($run->hasResult);
     }
 
+    public function test_a_resume_that_gives_up_stores_its_link_and_its_result(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-gave-up@example.com');
+        $project = $this->project($em, $owner, 'Run States Gave Up');
+        $raw = $this->agentToken($client, $owner);
+        $first = (string) Uuid::v4();
+        $resume = (string) Uuid::v4();
+
+        $this->put($client, $this->path($project->id, $first), $raw, $this->payload());
+        $this->put($client, $this->path($project->id, $resume), $raw, $this->payload([
+            'continues' => $first,
+            'resumeIndex' => 2,
+            'resumeCap' => 2,
+            'cardColumn' => 'implementation',
+        ]));
+        self::assertResponseStatusCodeSame(201);
+        $this->put($client, $this->path($project->id, $resume), $raw, $this->payload([
+            'state' => 'gave-up',
+            'sessionId' => (string) Uuid::v4(),
+            'startedAt' => '2026-09-23T10:00:00+00:00',
+            'endedAt' => '2026-09-23T10:01:00+00:00',
+            'exitCode' => 0,
+            'hasResult' => true,
+            'resultStatus' => 'unfinished',
+            'resultFields' => ['pullRequest' => 'https://example.com/pull/1'],
+            'resumeSkipped' => 'card_moved',
+            'output' => 'CI still runs',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        $runs = $this->allRuns();
+        $byKey = array_combine(array_map(static fn (WorkerRun $run): string => (string) $run->runKey, $runs), $runs);
+        $run = $byKey[$resume];
+        self::assertSame(WorkerRunState::GaveUp, $run->state);
+        self::assertSame((string) $byKey[$first]->id, (string) $run->continuesRun?->id);
+        self::assertSame(2, $run->resumeIndex);
+        self::assertSame(2, $run->resumeCap);
+        self::assertSame('implementation', $run->cardColumn);
+        self::assertSame('unfinished', $run->resultStatus);
+        self::assertSame(['pullRequest' => 'https://example.com/pull/1'], $run->resultFields);
+        self::assertSame('card_moved', $run->resumeSkipped);
+    }
+
+    public function test_a_blocked_worker_closes_as_blocked(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-blocked@example.com');
+        $project = $this->project($em, $owner, 'Run States Blocked');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload([
+            'state' => 'blocked',
+            'sessionId' => (string) Uuid::v4(),
+            'startedAt' => '2026-09-23T10:00:00+00:00',
+            'endedAt' => '2026-09-23T10:01:00+00:00',
+            'exitCode' => 0,
+            'hasResult' => true,
+            'resultStatus' => 'blocked',
+            'output' => 'needs a decision',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunState::Blocked, $run->state);
+        self::assertSame('blocked', $run->resultStatus);
+        self::assertNull($run->resultFields);
+    }
+
     public function test_another_users_project_answers_project_not_found(): void
     {
         $client = static::createClient();
@@ -208,6 +279,22 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'no-result with a non-zero exit code' => [array_merge($outcome, ['state' => 'no-result', 'exitCode' => 1, 'hasResult' => false])];
         yield 'a result flag with no exit code' => [array_merge($outcome, ['state' => 'not-started', 'exitCode' => null, 'failureReason' => 'no claude', 'hasResult' => false])];
         yield 'an end before the start' => [array_merge($outcome, ['state' => 'succeeded', 'endedAt' => '2026-09-23T09:00:00+00:00'])];
+        $result = array_merge($outcome, ['hasResult' => true]);
+        yield 'an unknown result status' => [array_merge($result, ['state' => 'succeeded', 'resultStatus' => 'done'])];
+        yield 'a result status with no result flag' => [array_merge($outcome, ['state' => 'no-result', 'hasResult' => false, 'resultStatus' => 'blocked'])];
+        yield 'succeeded with a blocked status' => [array_merge($result, ['state' => 'succeeded', 'resultStatus' => 'blocked'])];
+        yield 'blocked with a non-zero exit code' => [array_merge($result, ['state' => 'blocked', 'exitCode' => 1, 'resultStatus' => 'blocked'])];
+        yield 'unfinished with no result' => [array_merge($outcome, ['state' => 'unfinished', 'hasResult' => false])];
+        yield 'gave-up after a finished worker' => [array_merge($result, ['state' => 'gave-up', 'resultStatus' => 'finished'])];
+        yield 'gave-up after a blocked worker' => [array_merge($result, ['state' => 'gave-up', 'resultStatus' => 'blocked'])];
+        yield 'gave-up after a run that never started' => [array_merge($outcome, ['state' => 'gave-up', 'exitCode' => null, 'failureReason' => 'no claude'])];
+        yield 'result fields above the limit' => [array_merge($result, ['state' => 'succeeded', 'resultStatus' => 'finished', 'resultFields' => ['note' => str_repeat('x', 4000)]])];
+        yield 'result fields as a list' => [array_merge($result, ['state' => 'succeeded', 'resultStatus' => 'finished', 'resultFields' => ['a', 'b']])];
+        yield 'a continued run that is not a uuid' => [['continues' => 'nope']];
+        yield 'a negative resume index' => [['resumeIndex' => -1]];
+        yield 'a negative resume cap' => [['resumeCap' => -1]];
+        yield 'a resume cap above the column' => [['resumeCap' => 32768]];
+        yield 'a skip reason above the limit' => [array_merge($outcome, ['state' => 'succeeded', 'resumeSkipped' => str_repeat('x', 51)])];
         yield 'a drop reason the bridge does not send' => [['state' => 'dropped', 'reason' => 'bored']];
         yield 'a replacement that is not a uuid' => [['state' => 'replaced', 'replacedBy' => 'nope']];
         yield 'a chain cap of zero' => [['state' => 'waiting-for-person', 'maxChain' => 0]];

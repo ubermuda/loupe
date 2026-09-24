@@ -5485,6 +5485,18 @@
                 <source>bridge.worker_runs.state.no_result</source>
                 <target>No result</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.unfinished">
+                <source>bridge.worker_runs.state.unfinished</source>
+                <target>Unfinished</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.blocked">
+                <source>bridge.worker_runs.state.blocked</source>
+                <target>Blocked</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.gave_up">
+                <source>bridge.worker_runs.state.gave_up</source>
+                <target>Gave up</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.state.timed_out">
                 <source>bridge.worker_runs.state.timed_out</source>
                 <target>Timed out</target>
