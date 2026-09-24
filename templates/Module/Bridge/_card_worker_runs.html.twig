@@ -6,13 +6,22 @@
         {% if runs is not empty %}<a class="lp-workshop-text-link" href="{{ path('app_project_worker_runs', {id: project.id}) }}" data-turbo-frame="_top">{{ 'board.card.runs.all'|trans }}</a>{% endif %}
     </div>
     {% for item in runs %}
+    <div class="lp-card-run-row" data-card-run-row="{{ item.run.id }}">
     <a class="lp-card-run" href="{{ path('app_project_worker_runs', {id: project.id, search: item.run.id}) }}" data-turbo-frame="_top" data-card-run="{{ item.run.id }}">
         <span class="lp-card-run__rule">{{ item.run.ruleName }}</span>
+        {% if item.interactive %}<span class="lp-tag lp-tag--neutral lp-card-run__kind">{{ 'bridge.worker_runs.interactive'|trans }}</span>{% endif %}
         {% set shownAt = item.run.startedAt ?? item.run.receivedAt %}
-        <span class="lp-card-run__meta"><time datetime="{{ shownAt|date('c') }}">{{ shownAt|relative_time }}</time>{% if item.duration() is not null %} · {{ item.duration() }}{% endif %}</span>
+        <span class="lp-card-run__meta"><time datetime="{{ shownAt|date('c') }}">{{ shownAt|relative_time }}</time>{% if item.duration() is not null %} · {% if item.interactive and item.state.isOpen() %}{{ 'bridge.worker_runs.running_for'|trans({'%duration%': item.duration()}) }}{% else %}{{ item.duration() }}{% endif %}{% endif %}</span>
         <span class="lp-status-chip lp-status-chip--{{ item.state.chipModifier() }}">{{ item.state.translationKey()|trans }}</span>
         <twig:ux:icon name="lucide:chevron-right" class="lp-card-run__chevron" />
     </a>
+    {% if item.closable %}
+    <form method="post" action="{{ path('app_project_worker_run_close', {id: project.id, runId: item.run.id}) }}" data-turbo-frame="card-worker-runs" data-card-run-close>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('worker-run-close') }}">
+        <button type="submit" class="lp-btn lp-btn--icon" title="{{ 'bridge.worker_runs.close_session'|trans }}" aria-label="{{ 'bridge.worker_runs.close_session'|trans }}"><twig:ux:icon name="lucide:x" class="size-4" /></button>
+    </form>
+    {% endif %}
+    </div>
     {% else %}
     <p class="lp-card-detail__empty">{{ 'board.card.runs.empty'|trans }}</p>
     {% endfor %}

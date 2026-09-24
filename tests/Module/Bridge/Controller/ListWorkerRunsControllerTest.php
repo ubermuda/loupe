@@ -549,18 +549,30 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $owner = $this->user($em, 'interactive-owner@example.com');
         $project = $this->project($em, $owner, 'Interactive');
         $this->seedRun($em, $project, cardNumber: 11);
-        $this->seedRun($em, $project, cardNumber: 22, state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
+        $closed = $this->seedRun($em, $project, cardNumber: 22, exitCode: null, ruleName: 'loupe:product-design', state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
+        $open = $this->seedRun($em, $project, cardNumber: 33, exitCode: null, ruleName: 'loupe:tech-design', state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
 
         $projectId = (string) $project->id;
+        $closedId = (string) $closed->id;
+        $openId = (string) $open->id;
         $em->clear();
 
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(2, $crawler->filter('[data-worker-run-id]'));
+        self::assertCount(3, $crawler->filter('[data-worker-run-id]'));
         self::assertCount(1, $crawler->filter('.lp-worker-run__bridge'));
         self::assertCount(0, $crawler->filter('#worker-run-bridge'));
+
+        $closedRow = $crawler->filter('[data-worker-run-id="'.$closedId.'"]');
+        self::assertSame('Interactive session', $closedRow->filter('.lp-worker-run__kind')->text());
+        self::assertSame('loupe:product-design', $closedRow->filter('.lp-worker-run__rule')->text());
+        self::assertSame('5m 0s', trim($closedRow->filter('.lp-worker-run__duration')->text()));
+        self::assertStringNotContainsString('bridge does not report', $closedRow->filter('dialog')->text());
+
+        $openRow = $crawler->filter('[data-worker-run-id="'.$openId.'"]');
+        self::assertStringStartsWith('running for ', trim($openRow->filter('.lp-worker-run__duration')->text()));
     }
 
     /** An unknown filter value shows the unfiltered list rather than a 404. */
