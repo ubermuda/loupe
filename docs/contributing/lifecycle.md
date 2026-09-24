@@ -92,7 +92,7 @@ design:
 An epic never gets a coding worker. When an epic moves back to Implementation,
 its worker runs the breakdown again, finds no missing child, and stops. That
 rerun also starts a child that a person put back in Backlog on purpose, when
-the child has no open blocker.
+the child has no open blocker. A parked child stays in Backlog.
 
 The app makes three moves on its own, with the actor `system`:
 
