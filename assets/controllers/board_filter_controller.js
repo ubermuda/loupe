@@ -32,11 +32,13 @@ export default class extends Controller {
 
         // A search opens a collapsed lane that holds a match, and leaves the
         // stored collapse alone, so the lane closes again when it clears.
+        // The event lets the lane's own button say what the reader sees.
         for (const lane of this.element.querySelectorAll('.lp-board-lane')) {
             lane.classList.toggle(
                 'lp-board-lane--revealed',
                 matchedLanes.has(lane),
             );
+            lane.dispatchEvent(new CustomEvent('board-filter:reveal'));
         }
 
         // A lane epic is its header rather than a card. The header always

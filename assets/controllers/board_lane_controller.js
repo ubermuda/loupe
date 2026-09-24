@@ -12,10 +12,29 @@ export default class extends Controller {
     static values = { project: String, epic: String };
 
     connect() {
+        this.onReveal = () => this.render(this.isCollapsed());
+        this.element.addEventListener('board-filter:reveal', this.onReveal);
         this.render(this.collapsedIds().includes(this.epicValue));
     }
 
+    disconnect() {
+        this.element.removeEventListener('board-filter:reveal', this.onReveal);
+    }
+
+    /**
+     * A search can show the cells of a collapsed lane. A click then hides
+     * them again and keeps the stored collapse; the next search change
+     * shows them once more.
+     */
     toggle() {
+        const revealed = this.isRevealed();
+        this.element.classList.remove('lp-board-lane--revealed');
+        if (revealed && this.isCollapsed()) {
+            this.render(true);
+
+            return;
+        }
+
         const ids = new Set(this.collapsedIds());
         const collapsed = !ids.has(this.epicValue);
         if (collapsed) {
@@ -30,8 +49,19 @@ export default class extends Controller {
     render(collapsed) {
         this.element.classList.toggle('lp-board-lane--collapsed', collapsed);
         if (this.hasToggleTarget) {
-            this.toggleTarget.setAttribute('aria-expanded', String(!collapsed));
+            this.toggleTarget.setAttribute(
+                'aria-expanded',
+                String(!collapsed || this.isRevealed()),
+            );
         }
+    }
+
+    isCollapsed() {
+        return this.element.classList.contains('lp-board-lane--collapsed');
+    }
+
+    isRevealed() {
+        return this.element.classList.contains('lp-board-lane--revealed');
     }
 
     get storageKey() {
