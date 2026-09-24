@@ -310,15 +310,15 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	return nil
 }
 
-// heartbeatBody names the projects the rule file maps, by id, and the build
-// that `loupe version` reports.
+// heartbeatBody names the projects the rule file maps, by id, and the CLI
+// version.
 func heartbeatBody(set *rules.Set) api.Heartbeat {
 	ids := []string{}
 	for _, slug := range set.Projects() {
 		ids = append(ids, set.ProjectID(slug))
 	}
 
-	return api.Heartbeat{Projects: ids, CLIVersion: buildID()}
+	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion()}
 }
 
 // missingProjects names the mapped projects that GET /api/events does not list:

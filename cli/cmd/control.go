@@ -13,7 +13,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -162,7 +161,6 @@ func lockFileAt(path, sock string) (*os.File, error) {
 			return nil, fmt.Errorf("lock %s: %w", path, err)
 		}
 		where := ""
-		// Windows refuses a read of the locked byte, so the socket stays unnamed there.
 		if other, err := os.ReadFile(path); err == nil && len(other) > 0 {
 			where = " and listens on " + string(other)
 		}
@@ -206,12 +204,10 @@ func listenControl(path string) (net.Listener, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listen on the control socket: %w", err)
 	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(path, 0o600); err != nil {
-			ln.Close()
+	if err := os.Chmod(path, 0o600); err != nil {
+		ln.Close()
 
-			return nil, fmt.Errorf("restrict the control socket: %w", err)
-		}
+		return nil, fmt.Errorf("restrict the control socket: %w", err)
 	}
 
 	return ln, nil

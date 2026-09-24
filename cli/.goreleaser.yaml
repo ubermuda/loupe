@@ -10,20 +10,18 @@ builds:
     # nothing here needs libc.
     env:
       - CGO_ENABLED=0
-    goos: [darwin, linux, windows]
+    goos: [darwin, linux]
     goarch: [amd64, arm64]
     # goreleaser reads git itself, so `loupe version` needs no shell here.
     ldflags:
       - -s -w
       - "-X github.com/ubermuda/loupe/cli/cmd.commit={{ .FullCommit }}"
       - "-X github.com/ubermuda/loupe/cli/cmd.dirty={{ .IsGitDirty }}"
+      - "-X github.com/ubermuda/loupe/cli/cmd.version={{ .Version }}"
 
 archives:
   - id: loupe
     formats: [tar.gz]
-    format_overrides:
-      - goos: windows
-        formats: [zip]
     name_template: "loupe_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
@@ -40,7 +38,6 @@ changelog:
       - "^chore:"
       - "^test:"
 
-# Drafted rather than published: the tag lives on the application repository, so
-# a release cut from it needs a human to confirm the CLI is what changed.
+# Published at once: the cli-release workflow runs this on a `v*` tag push.
 release:
-  draft: true
+  draft: false
