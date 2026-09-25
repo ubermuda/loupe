@@ -15,11 +15,13 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 ## Worktree
 
 1. The card worktree is `.worktrees/card-<number>`. Run the worktree commands from the main checkout, which is the first `worktree` line of `git worktree list --porcelain`.
-2. Create: after `git worktree add`, run `just worktree-up card-<number>`. It bootstraps a registered worktree, and it never creates one.
+2. Create: after `git worktree add`, run `just worktree-up card-<number> card:<cardId>`. It bootstraps a registered worktree, and it never creates one.
 3. `just worktree-up` copies `vendor/` from the main checkout, or runs `composer install` when the lock differs. It runs the migrations, the seed, the Tailwind build and a cache warmup. It clears no cache.
-4. Refresh after a sync that brings commits: run `( cd <main checkout> && just worktree-up card-<number> )`. Then, from the worktree, run `bin/worktrees/compose-exec.sh bin/console cache:clear` and the same command with `--env=test`.
-5. Run a command inside the container of the worktree with `bin/worktrees/compose-exec.sh <command>`, from the worktree. Never run bare `docker compose` from a worktree.
-6. Remove: `just worktree-down card-<number>`. A stage never removes a worktree.
+4. Refresh after a sync that brings commits: run `( cd <main checkout> && just worktree-up card-<number> card:<cardId> )`. Then, from the worktree, run `bin/worktrees/compose-exec.sh bin/console cache:clear` and the same command with `--env=test`.
+5. `<cardId>` is the card id from the prompt line `Card <number> (cardId <id>)`. When the prompt has no such line, take `cardId` from `card_get`. Never derive it from a branch name, a worktree name or a card number.
+6. The second argument writes `SITE_REVIEW_WIDGET_CONTEXT=card:<cardId>` into the `.env.local` of the worktree. The site-review widget then links each comment on the preview to the card. Bootstrap keeps the old marker when the argument is absent, so pass it on every create and every refresh.
+7. Run a command inside the container of the worktree with `bin/worktrees/compose-exec.sh <command>`, from the worktree. Never run bare `docker compose` from a worktree.
+8. Remove: `just worktree-down card-<number>`. A stage never removes a worktree.
 
 ## Gate
 
