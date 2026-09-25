@@ -324,6 +324,7 @@ suspect the branch.
 | Layout looks like an older design; a hover/position spec fails but the page logs nothing | The `tailwind-worktrees` service is down. It polls every worktree and rebuilds any whose `assets/` or `templates/` are newer than its `var/tailwind/app.built.css`, which is what keeps a worktree from serving its provision-time CSS while its Twig and PHP are current. Check `docker compose logs tailwind-worktrees`, and `docker compose up -d tailwind-worktrees` if it is not running. A one-off rebuild is `bin/worktrees/compose-exec.sh bin/console tailwind:build`, under a second. Diff the compiled sheet for a class the design introduced before blaming the branch. |
 | The site-review widget shows a red `!` on the launcher, and "This review widget can't connect" | The embed names a project that does not resolve **at the backend the widget actually talks to**, which is `SITE_REVIEW_WIDGET_BACKEND`, not the host serving the page. A worktree keeps the main checkout's project id, which production knows, so suspect an `.env.local` that carries no `SITE_REVIEW_WIDGET_PROJECT`, a production project that does not list `https://<slug>.loupe.dev.localhost` under its allowed sites, or a widget branch pointed at its own tree with the production project id. See "Which backend the widget talks to". |
 | Widget comments on a card preview save, but the card does not list them | The worktree has no `SITE_REVIEW_WIDGET_CONTEXT` in its `.env.local`, so the comment carries no marker. Re-run `just worktree-up card-<number> card:<cardId>` from the main checkout, with the production card id. See "The card marker". |
+| The widget says "This preview's card is closed or gone, so notes cannot be saved here." | The marker names a card that the widget backend does not hold. Suspect a widget branch whose `SITE_REVIEW_WIDGET_BACKEND` is its own worktree host, with a production card id. Remove `SITE_REVIEW_WIDGET_CONTEXT` from its `.env.local`, or set `card:<id>` with a card id from that worktree's database. See "The card marker". |
 | The widget does not appear **at all**, no launcher and no error badge | The `<script>` failed to load, so nothing ever ran. A refused sign-in still renders the widget; an unreachable script renders nothing. Check the backend host resolves and serves `/site-review/widget.js`: a `SERVFAIL` on `loupe.ac` from the machine's own resolver produces exactly this, while the same request succeeds through `1.1.1.1`. |
 | Mail-asserting specs never see their message, or read another run's | Each worktree has its own sidecar, so a run must be pointed at it. Suspect a run launched without `just e2e` (which exports `MAILPIT_URL`) or with `E2E_BASE_URL` set alone, which falls back to the shared instance: the worktree's app then sends where nothing is reading, every registration/login/verification spec times out, and it looks like an auth regression. Set `MAILPIT_URL=https://mailpit-<slug>.<project>.dev.localhost` alongside it. `bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line. |
 | A spec fails, then passes on a quiet re-run | Something else was loading the shared php-fpm, such as a sibling agent running `just ci` or `composer install`. Check what is in flight **before** investigating the branch; this produced a false "regression" nearly filed against a clean PR. |
@@ -400,8 +401,16 @@ widget comment stores it. For a card worktree, `CONTEXT` is `card:<cardId>`.
 Production's `LinkCardOnSiteReviewCommentCreated` then links the comment to that
 card.
 
-`<cardId>` is the production card id, because the widget backend is production.
-A card id from the worktree's own database names no card there.
+The marker must name a card in the database of the widget backend,
+`SITE_REVIEW_WIDGET_BACKEND`. Most card worktrees point the backend at
+production, so `<cardId>` is the production card id. A card id from the
+worktree's own database names no card there.
+
+A branch that changes the widget itself points the backend at its own worktree
+host (see "The rule for a worktree"). A production card id then names no card on
+that backend, and the widget says "This preview's card is closed or gone, so
+notes cannot be saved here." For such a branch, pass no marker, or pass
+`card:<id>` with a card id from the worktree's own database.
 
 The marker is a formal argument all the way. The bridge prompt carries
 `Card <number> (cardId <id>)`, the stage skill passes that id to the profile
