@@ -274,6 +274,21 @@ it('shows the deleted state for a save the server answers with 404', () => {
     expect(controller.errorTarget.hidden).toBe(true);
 });
 
+it('leaves a 404 from another form on the card, such as a reply, to that form', () => {
+    controller.frameTarget.innerHTML =
+        '<div data-card-drawer-card-id="card-1"><form><textarea>Reply</textarea></form></div>';
+    const event = {
+        target: controller.frameTarget.querySelector('form'),
+        preventDefault: vi.fn(),
+        detail: {
+            fetchResponse: { succeeded: false, isHTML: true, statusCode: 404 },
+        },
+    };
+    controller.received(event);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(controller.deletedTarget.hidden).toBe(true);
+});
+
 function cardForm(dataset) {
     const form = document.createElement('form');
     form.dataset.cardDrawerSavesCard = '';

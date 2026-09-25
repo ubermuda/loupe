@@ -111,7 +111,9 @@ export default class extends ModalController {
             // A save the server cannot find the card for.
             if (
                 response.statusCode === 404 &&
-                event.target.closest?.('[data-card-drawer-card-id]')
+                event.target.closest?.(
+                    '[data-card-drawer-saves-card][data-card-drawer-card-id]',
+                )
             ) {
                 event.preventDefault();
                 this.#showDeleted();

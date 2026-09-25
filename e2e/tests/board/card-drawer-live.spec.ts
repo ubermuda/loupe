@@ -94,9 +94,15 @@ test('the drawer warns about a change made elsewhere, and shows a card deleted e
     await expect(body).toHaveValue(`Mine ${RUN}`);
 
     // A plain save still asks, and keeps the text typed.
+    const refused = editor.waitForResponse(
+        (response) =>
+            response.request().method() === 'POST' &&
+            new URL(response.url()).pathname === `${cardUrl}/edit`,
+    );
     await drawer
         .getByRole('button', { name: 'Save card', exact: true })
         .click();
+    expect((await refused).status()).toBe(422);
     await expect(notice).toBeVisible();
     await expect(body).toHaveValue(`Mine ${RUN}`);
     await notice.getByRole('button', { name: 'Save anyway' }).click();
