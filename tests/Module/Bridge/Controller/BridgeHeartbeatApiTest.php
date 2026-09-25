@@ -158,7 +158,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
             self::hook(),
             self::hook(['event' => 'stop', 'lastRunAt' => null, 'outcome' => 'never']),
             self::hook(['event' => 'busy', 'lastRunAt' => '2026-09-14T18:00:00+02:00', 'outcome' => 'timeout', 'error' => '  ']),
-            self::hook(['event' => 'idle', 'outcome' => 'failed', 'error' => 'exit 1']),
+            self::hook(['event' => 'idle', 'lastRunAt' => '2026-09-14t16:00:00z', 'outcome' => 'failed', 'error' => 'exit 1']),
         ]]);
 
         self::assertResponseStatusCodeSame(204);
@@ -220,6 +220,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         yield 'a hook with no outcome' => [['hooks' => [self::hook(['outcome' => null])]]];
         yield 'a hook run time that is not a date' => [['hooks' => [self::hook(['lastRunAt' => 'yesterday-ish'])]]];
         yield 'a hook run time in words' => [['hooks' => [self::hook(['lastRunAt' => 'tomorrow'])]]];
+        yield 'a hook run time on a day the month lacks' => [['hooks' => [self::hook(['lastRunAt' => '2026-02-31T16:00:00Z'])]]];
         yield 'a hook run time with no offset' => [['hooks' => [self::hook(['lastRunAt' => '2026-09-14T16:00:00'])]]];
         yield 'a hook error that is too long' => [['hooks' => [self::hook(['error' => str_repeat('a', BridgeHookInput::MAX_ERROR_LENGTH + 1)])]]];
         yield 'no projects' => [['projects' => null]];

@@ -19,7 +19,7 @@ final class BridgeHookInput
 
     public const array OUTCOMES = ['ok', 'failed', 'timeout', 'never'];
 
-    private const string RFC3339 = '/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d{1,9})?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)$/D';
+    private const string RFC3339 = '/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d{1,9})?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)$/Di';
 
     public function __construct(
         #[Assert\Length(max: self::MAX_PACKAGE_LENGTH, normalizer: 'trim')]
@@ -45,5 +45,16 @@ final class BridgeHookInput
         #[Assert\Length(max: self::MAX_ERROR_LENGTH, normalizer: 'trim')]
         public ?string $error = null,
     ) {
+    }
+
+    /** The shape check passes February 31, which the date parser would roll into March. */
+    #[Assert\IsTrue(message: 'This value is not a valid date.')]
+    public function isLastRunAtADate(): bool
+    {
+        if (null === $this->lastRunAt || 1 !== preg_match(self::RFC3339, $this->lastRunAt)) {
+            return true;
+        }
+
+        return checkdate((int) substr($this->lastRunAt, 5, 2), (int) substr($this->lastRunAt, 8, 2), (int) substr($this->lastRunAt, 0, 4));
     }
 }
