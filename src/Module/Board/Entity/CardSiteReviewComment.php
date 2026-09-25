@@ -44,6 +44,10 @@ class CardSiteReviewComment
         #[ORM\Column(options: ['default' => false])]
         public readonly bool $createdCard = false,
 
+        /** The title the comment gave the card it created, so a later rename shows. */
+        #[ORM\Column(length: 255, nullable: true)]
+        public readonly ?string $createdTitle = null,
+
         #[ORM\Column]
         public readonly \DateTimeImmutable $linkedAt = new \DateTimeImmutable(),
     ) {

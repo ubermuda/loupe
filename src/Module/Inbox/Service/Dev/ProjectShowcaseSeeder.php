@@ -413,6 +413,6 @@ final readonly class ProjectShowcaseSeeder
         foreach ([$contrast, $spacing, $recovery] as $comment) {
             $this->em->persist(new CardSiteReviewComment($checkout, $comment));
         }
-        $this->em->persist(new CardSiteReviewComment($basket, $wording, true));
+        $this->em->persist(new CardSiteReviewComment($basket, $wording, true, $basket->title));
     }
 }

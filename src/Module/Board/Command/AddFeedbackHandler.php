@@ -99,7 +99,7 @@ final readonly class AddFeedbackHandler
             ));
 
             $comment = ($this->addComment)($this->addCommentCommand($command));
-            $link = new CardSiteReviewComment($card, $comment, $createdCard);
+            $link = new CardSiteReviewComment($card, $comment, $createdCard, $createdCard ? $card->title : null);
             $this->em->persist($link);
             $created = true;
 

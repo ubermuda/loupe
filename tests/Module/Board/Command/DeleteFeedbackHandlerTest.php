@@ -147,6 +147,18 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
         self::assertSame(0, $this->rows('site_review_comments', $project));
     }
 
+    public function test_a_note_edited_before_its_delete_still_takes_its_card(): void
+    {
+        $project = $this->project('delete-feedback-edited-note');
+        $link = $this->addNote($project);
+        $link->comment->body = 'A different first line';
+        $this->em->flush();
+
+        self::assertTrue(($this->handler)($this->command($project, $link)));
+
+        self::assertSame(0, $this->rows('board_cards', $project));
+    }
+
     public function test_a_created_card_someone_renamed_stays(): void
     {
         $project = $this->project('delete-feedback-title');
