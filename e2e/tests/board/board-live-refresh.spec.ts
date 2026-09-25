@@ -85,6 +85,14 @@ test('a column renamed in one browser shows in another without a reload', async 
     expect(topics.some((topic) => topic.endsWith('/board'))).toBe(true);
     expect(topics.some((topic) => topic.endsWith('/worker-runs'))).toBe(true);
 
+    // The reload keeps the toolbar, so the watcher's filter and view stay.
+    const search = watcher.getByRole('searchbox', { name: 'Search cards' });
+    await search.fill('no card has this title');
+    await watcher.getByRole('button', { name: 'List', exact: true }).click();
+    await expect(
+        watcher.locator('[data-board-view-target="list"]'),
+    ).toBeVisible();
+
     // A full navigation would drop this marker, and a frame reload keeps it.
     await watcher.evaluate(() => {
         (window as unknown as { stayed: boolean }).stayed = true;
@@ -103,6 +111,16 @@ test('a column renamed in one browser shows in another without a reload', async 
     await expect(
         watcher.locator(`${COLUMN}[data-column-slug="up-next"] h2`),
     ).toHaveText('Up next');
+    await expect(search).toHaveValue('no card has this title');
+    await expect(
+        watcher.locator('[data-board-view-target="list"]'),
+    ).toBeVisible();
+    await expect(
+        watcher.locator('[data-board-view-target="board"]'),
+    ).toBeHidden();
+    await expect(
+        watcher.getByText('No cards match these filters.'),
+    ).toBeVisible();
     expect(
         await watcher.evaluate(
             () => (window as unknown as { stayed?: boolean }).stayed,
