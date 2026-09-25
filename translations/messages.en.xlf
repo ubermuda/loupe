@@ -2457,6 +2457,14 @@
                 <source>project.connect.tool.site_review_mark_comment_addressed</source>
                 <target>Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by site_review_get. Comments that are unknown, already addressed, or resolved are skipped, not fatal.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.feedback_list">
+                <source>project.connect.tool.feedback_list</source>
+                <target>List the feedback reviewers left with the site-review widget, each item with the card it belongs to. Returns the pending items by default. Fix each item, then mark it with feedback_mark_addressed.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.feedback_mark_addressed">
+                <source>project.connect.tool.feedback_mark_addressed</source>
+                <target>Mark feedback items as addressed after fixing them. Accepts the feedback ids from feedback_list or card_get. Items that are unknown, already addressed or resolved are skipped, not fatal.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.card_create">
                 <source>project.connect.tool.card_create</source>
                 <target>Add a card to the project board, with a type, a reporter, the pull requests that carry the work and the cards it links to (relatedCards).</target>

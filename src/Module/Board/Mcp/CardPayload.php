@@ -15,17 +15,20 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
 
 /**
  * The one shape every board tool returns a card in, so a card read by card_list
  * and a card read by card_get describe themselves the same way.
  *
  * @phpstan-type CardPullRequestSummary array{pullRequestId: string, url: string, forge: string, repository: ?string, number: ?int}
- * @phpstan-type CardSiteReviewCommentSummary array{commentId: string, body: string, url: string, status: string, createdAt: string}
+ * @phpstan-type FeedbackAnchorSummary array{selector: string, text: string, quote: ?string, quotePrefix: ?string, quoteSuffix: ?string}
+ * @phpstan-type FeedbackSummary array{id: string, url: string, anchors: list<FeedbackAnchorSummary>, body: string, hasDrawing: bool, status: string, createdAt: string}
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
  * @phpstan-type CardRelatedCardSummary array{cardId: string, number: int, title: string, status: string, kind: string}
  * @phpstan-type CardRefSummary array{cardId: string, number: int, title: string, status: string}
- * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<CardSiteReviewCommentSummary>, relatedCards: list<CardRelatedCardSummary>, parent: ?CardRefSummary, laneEnabled: bool, children: list<CardRefSummary>, progress: ?array{done: int, total: int}}
+ * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<FeedbackSummary>, relatedCards: list<CardRelatedCardSummary>, parent: ?CardRefSummary, laneEnabled: bool, children: list<CardRefSummary>, progress: ?array{done: int, total: int}}
  * @phpstan-type CardListSummary array{cardId: string, number: int, title: string, type: string, status: string, reporter: string, parentCardId: ?string, updatedAt: string}
  */
 final readonly class CardPayload
@@ -154,17 +157,10 @@ final readonly class CardPayload
                 ],
                 array_values($card->documents->toArray()),
             ),
-            // Feedback a reviewer left on a page that named this card. Read
-            // only: an agent marks one addressed through
-            // site_review_mark_comment_addressed, which owns the status.
+            // Feedback a reviewer left on this card. Read only: an agent marks
+            // one addressed through feedback_mark_addressed.
             'siteReviewComments' => array_map(
-                static fn (CardSiteReviewComment $link): array => [
-                    'commentId' => (string) $link->comment->id,
-                    'body' => $link->comment->body,
-                    'url' => $link->comment->url,
-                    'status' => $link->comment->status->value,
-                    'createdAt' => $link->comment->createdAt->format(\DATE_ATOM),
-                ],
+                static fn (CardSiteReviewComment $link): array => self::feedback($link->comment),
                 $links,
             ),
             // The kind reads from this card's side: the target of a blocks
@@ -183,6 +179,35 @@ final readonly class CardPayload
             'laneEnabled' => $card->laneEnabled,
             'children' => array_map(self::reference(...), $children),
             'progress' => $progress,
+        ];
+    }
+
+    /**
+     * One feedback item, in the shape card_get and feedback_list share.
+     *
+     * @return FeedbackSummary
+     */
+    public static function feedback(SiteReviewComment $comment): array
+    {
+        return [
+            'id' => (string) $comment->id,
+            'url' => $comment->url,
+            'anchors' => array_values(array_map(
+                static fn (SiteReviewCommentAnchor $anchor): array => [
+                    'selector' => $anchor->selector,
+                    'text' => $anchor->text,
+                    'quote' => $anchor->quote,
+                    'quotePrefix' => $anchor->quotePrefix,
+                    'quoteSuffix' => $anchor->quoteSuffix,
+                ],
+                $comment->anchors->toArray(),
+            )),
+            'body' => $comment->body,
+            // The strokes are vector points over a live page, which an agent
+            // cannot render. The flag says to ask the reviewer rather than guess.
+            'hasDrawing' => null !== $comment->strokes && [] !== $comment->strokes,
+            'status' => $comment->status->value,
+            'createdAt' => $comment->createdAt->format(\DATE_ATOM),
         ];
     }
 

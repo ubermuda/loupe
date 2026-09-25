@@ -14,6 +14,8 @@ use App\Module\Board\Mcp\CardGetTool;
 use App\Module\Board\Mcp\CardListTool;
 use App\Module\Board\Mcp\CardSearchTool;
 use App\Module\Board\Mcp\CardUpdateTool;
+use App\Module\Board\Mcp\FeedbackListTool;
+use App\Module\Board\Mcp\FeedbackMarkAddressedTool;
 use App\Module\Project\Mcp\AdvertisedTools;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Registry;
@@ -58,6 +60,8 @@ final class BoardToolRegistrationTest extends KernelTestCase
         yield 'card_search' => [CardSearchTool::NAME, CardSearchTool::class];
         yield 'card_get' => [CardGetTool::NAME, CardGetTool::class];
         yield 'card_update' => [CardUpdateTool::NAME, CardUpdateTool::class];
+        yield 'feedback_list' => [FeedbackListTool::NAME, FeedbackListTool::class];
+        yield 'feedback_mark_addressed' => [FeedbackMarkAddressedTool::NAME, FeedbackMarkAddressedTool::class];
     }
 
     /** @param class-string $toolClass */
@@ -82,6 +86,8 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertNotContains(BoardColumnsTool::NAME, $names);
         self::assertNotContains(CardSearchTool::NAME, $names);
         self::assertNotContains(CardUpdateTool::NAME, $names);
+        self::assertNotContains(FeedbackListTool::NAME, $names);
+        self::assertNotContains(FeedbackMarkAddressedTool::NAME, $names);
     }
 
     public function test_the_board_tools_are_advertised_once_the_flag_is_on(): void
@@ -100,6 +106,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertLessThan($order[CardSearchTool::NAME], $order[BoardColumnsTool::NAME]);
         self::assertLessThan($order[CardGetTool::NAME], $order[CardSearchTool::NAME]);
         self::assertLessThan($order[CardUpdateTool::NAME], $order[CardGetTool::NAME]);
+        self::assertLessThan($order[FeedbackMarkAddressedTool::NAME], $order[FeedbackListTool::NAME]);
     }
 
     /** @param class-string $toolClass */

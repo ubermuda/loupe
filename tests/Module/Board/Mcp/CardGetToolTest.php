@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetTool;
+use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -164,5 +168,54 @@ final class CardGetToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage($message);
         ($this->tool)($cardId, $number);
+    }
+
+    public function test_a_card_reads_back_each_linked_feedback_item_in_full(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('card-get-feedback');
+        $this->actAsMcpTokenBoundTo($project);
+        $created = ($this->createTool)('Fix the header', 'Body', 'site-review');
+        $card = $this->em->find(Card::class, $created['cardId']);
+        self::assertInstanceOf(Card::class, $card);
+
+        $drawn = new SiteReviewComment($project, 0, 'The logo is blurry', 'https://app.example/page')
+            ->addAnchor('header .logo', 'Logo', 'Acme', 'the ', ' mark');
+        $drawn->strokes = [['space' => 'page', 'points' => [[0.1, 0.2], [0.3, 0.4]]]];
+        $addressed = new SiteReviewComment($project, 1, 'The footer overlaps', 'https://app.example/other');
+        $addressed->status = SiteReviewCommentStatus::Addressed;
+        foreach ([$drawn, $addressed] as $comment) {
+            $this->em->persist($comment);
+            $this->em->persist(new CardSiteReviewComment($card, $comment));
+        }
+        $this->em->flush();
+        $this->em->clear();
+
+        self::assertSame([
+            [
+                'id' => (string) $drawn->id,
+                'url' => 'https://app.example/page',
+                'anchors' => [[
+                    'selector' => 'header .logo',
+                    'text' => 'Logo',
+                    'quote' => 'Acme',
+                    'quotePrefix' => 'the ',
+                    'quoteSuffix' => ' mark',
+                ]],
+                'body' => 'The logo is blurry',
+                'hasDrawing' => true,
+                'status' => 'pending',
+                'createdAt' => $drawn->createdAt->format(\DATE_ATOM),
+            ],
+            [
+                'id' => (string) $addressed->id,
+                'url' => 'https://app.example/other',
+                'anchors' => [],
+                'body' => 'The footer overlaps',
+                'hasDrawing' => false,
+                'status' => 'addressed',
+                'createdAt' => $addressed->createdAt->format(\DATE_ATOM),
+            ],
+        ], ($this->tool)($created['cardId'])['siteReviewComments']);
     }
 }
