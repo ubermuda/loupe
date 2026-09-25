@@ -136,25 +136,24 @@ func orDev(v string) string {
 }
 
 // runningBridges finds the bridges whose lock is held, from the lock files in
-// the config directory, or the lock of rulesPath alone. Each lock file holds
-// the socket of its bridge. A bridge in a reload can hold two lock files that
-// name one socket.
+// the config directory. Each lock file holds the socket of its bridge. A bridge
+// in a reload can hold two lock files that name one socket. With rulesPath, it
+// keeps the bridge on that path's socket, which a repointed symlink keeps.
 func runningBridges(rulesPath string) ([]runningBridge, error) {
-	var locks []string
+	want := ""
 	if rulesPath != "" {
-		path, err := lockPath(rulesPath)
-		if err != nil {
+		var err error
+		if want, err = socketPath(rulesPath); err != nil {
 			return nil, err
 		}
-		locks = []string{path}
-	} else {
-		dir, err := config.Dir()
-		if err != nil {
-			return nil, err
-		}
-		if locks, err = filepath.Glob(filepath.Join(dir, "bridge-*.lock")); err != nil {
-			return nil, err
-		}
+	}
+	dir, err := config.Dir()
+	if err != nil {
+		return nil, err
+	}
+	locks, err := filepath.Glob(filepath.Join(dir, "bridge-*.lock"))
+	if err != nil {
+		return nil, err
 	}
 
 	var bridges []runningBridge
@@ -163,7 +162,7 @@ func runningBridges(rulesPath string) ([]runningBridge, error) {
 		if err != nil {
 			return nil, err
 		}
-		if sock == "" || slices.ContainsFunc(bridges, func(b runningBridge) bool { return b.sock == sock }) {
+		if sock == "" || (want != "" && sock != want) || slices.ContainsFunc(bridges, func(b runningBridge) bool { return b.sock == sock }) {
 			continue
 		}
 		name := sock

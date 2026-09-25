@@ -244,7 +244,7 @@ func updateCmd(t *testing.T, self selfUpdate, args ...string) (string, error) {
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
-	cmd.SetArgs(args)
+	cmd.SetArgs(append([]string{}, args...))
 	err := cmd.Execute()
 
 	return out.String(), err
@@ -301,6 +301,34 @@ func TestUpdateWithRulesAsksThatBridgeOnly(t *testing.T) {
 
 	out, err := updateCmd(t, noSelfUpdate(t), "--rules", a)
 	if err != nil || out != a+": current at 1.0.0\n" {
+		t.Fatalf("err = %v, out = %q", err, out)
+	}
+}
+
+func TestUpdateWithRulesFindsTheBridgeAfterItsSymlinkIsRepointed(t *testing.T) {
+	shortConfigHome(t)
+	dir := t.TempDir()
+	first, second, link := filepath.Join(dir, "first.yaml"), filepath.Join(dir, "second.yaml"), filepath.Join(dir, "rules.yaml")
+	for _, p := range []string{first, second} {
+		if err := os.WriteFile(p, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(first, link); err != nil {
+		t.Fatal(err)
+	}
+	serveUpdateTest(t, link, func(context.Context, func(updateResult)) updateResult {
+		return updateResult{OK: true, From: "1.0.0", Outcome: "current"}
+	})
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(second, link); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := updateCmd(t, noSelfUpdate(t), "--rules", link)
+	if err != nil || out != link+": current at 1.0.0\n" {
 		t.Fatalf("err = %v, out = %q", err, out)
 	}
 }
