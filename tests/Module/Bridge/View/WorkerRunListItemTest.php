@@ -53,6 +53,47 @@ final class WorkerRunListItemTest extends TestCase
         self::assertNull(new WorkerRunListItem($run, new \DateTimeImmutable(), [])->duration());
     }
 
+    public function test_only_a_run_past_the_first_of_its_series_is_a_resume(): void
+    {
+        $first = $this->queuedRun();
+        self::assertFalse(new WorkerRunListItem($first, new \DateTimeImmutable(), [])->isResume());
+
+        $first->resumeIndex = 0;
+        $first->resumeCap = 3;
+        self::assertFalse(new WorkerRunListItem($first, new \DateTimeImmutable(), [])->isResume());
+
+        $resume = $this->queuedRun();
+        $resume->resumeIndex = 2;
+        $resume->resumeCap = 3;
+        self::assertTrue(new WorkerRunListItem($resume, new \DateTimeImmutable(), [])->isResume());
+
+        $resume->resumeCap = null;
+        self::assertFalse(new WorkerRunListItem($resume, new \DateTimeImmutable(), [])->isResume());
+    }
+
+    public function test_the_result_fields_read_as_text(): void
+    {
+        $run = $this->queuedRun();
+        $run->resultFields = [
+            'branch' => 'feat/x',
+            'tests' => 12,
+            'green' => true,
+            'failed' => false,
+            'reviewer' => null,
+            'links' => ['a', 'b'],
+        ];
+
+        self::assertSame(
+            ['branch' => 'feat/x', 'tests' => '12', 'green' => 'true', 'failed' => 'false', 'reviewer' => 'null', 'links' => '["a","b"]'],
+            new WorkerRunListItem($run, new \DateTimeImmutable(), [])->resultFields(),
+        );
+    }
+
+    public function test_a_run_with_no_result_fields_has_none_to_show(): void
+    {
+        self::assertSame([], new WorkerRunListItem($this->queuedRun(), new \DateTimeImmutable(), [])->resultFields());
+    }
+
     public function test_only_a_running_interactive_run_can_be_closed(): void
     {
         $now = new \DateTimeImmutable();

@@ -35,6 +35,24 @@ final class WorkerRunAccountPurgerTest extends KernelTestCase
         self::assertSame((string) $keptRunId, (string) $remaining[0]->id);
     }
 
+    public function test_it_takes_runs_that_resume_one_another(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $leaving = $this->user($em, 'runs-purge-linked@example.com');
+        $project = $this->project($em, $leaving, 'Linked Runs');
+        $first = $this->seedRun($em, $project);
+        $this->seedRun($em, $project, cardNumber: 2)->continuesRun = $first;
+        $em->flush();
+
+        $this->purge($leaving);
+
+        self::assertSame(
+            0,
+            (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_worker_runs'),
+        );
+    }
+
     /** ProjectAccountPurger clears the EntityManager, so this slot always gets a detached user. */
     public function test_it_purges_a_detached_user(): void
     {

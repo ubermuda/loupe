@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -33,51 +34,88 @@ func TestWorkerEnvKeepsTheOperatorsCeiling(t *testing.T) {
 	}
 }
 
-func scan(chunks ...string) bool {
-	s := &resultScanner{}
-	for _, c := range chunks {
-		if n, err := s.Write([]byte(c)); n != len(c) || err != nil {
-			panic("short write")
-		}
-	}
-
-	return s.matched
-}
-
-func TestResultScannerFindsAResultLine(t *testing.T) {
-	long := strings.Repeat("x", 4100) + "\n"
-	for name, chunks := range map[string][]string{
-		"first line":            {"STAGE RESULT: done"},
-		"later line":            {"working\nSTAGE RESULT: done\n"},
-		"split in two":          {"work\nSTAGE RES", "ULT: done"},
-		"split byte by byte":    strings.Split("a\nSTAGE RESULT: x", ""),
-		"split at the newline":  {"work", "\n", "STAGE RESULT:"},
-		"after the output cap":  {long, long, "STAGE RESULT: done"},
-		"after a miss":          {"xSTAGE RESULT: no\nSTAGE RESULT: yes"},
-		"after a partial reset": {"STAGE", "\nSTAGE RESULT: x"},
-		"after an indented one": {" STAGE RESULT: no\nSTAGE RESULT: yes"},
-		"stays matched":         {"STAGE RESULT: x\n", "more output"},
+// The shapes claude -p --output-format json --json-schema prints. A run that
+// --max-turns cuts off exits 1 with is_error and a null structured_output.
+func TestDecodeWorkerOutput(t *testing.T) {
+	long := strings.Repeat("x", maxOutput+10)
+	for name, tc := range map[string]struct {
+		stdout   string
+		overflow bool
+		stderr   string
+		want     workerResult
+	}{
+		"finished": {
+			stdout: `{"type":"result","subtype":"success","is_error":false,"result":"Done.","structured_output":{"status":"finished","summary":"Wrote the plan."}}`,
+			want:   workerResult{hasResult: true, status: "finished", output: "Wrote the plan.", fields: map[string]any{}},
+		},
+		"unfinished": {
+			stdout: `{"is_error":false,"result":"","structured_output":{"status":"unfinished","summary":"Tests still run."}}`,
+			want:   workerResult{hasResult: true, status: "unfinished", output: "Tests still run.", fields: map[string]any{}},
+		},
+		"blocked": {
+			stdout: `{"is_error":false,"result":"","structured_output":{"status":"blocked","summary":"Asked the owner."}}` + "\n",
+			want:   workerResult{hasResult: true, status: "blocked", output: "Asked the owner.", fields: map[string]any{}},
+		},
+		"extras": {
+			stdout: `{"structured_output":{"status":"finished","summary":"Opened a PR.","prUrl":"https://x.test/1","card":87}}`,
+			want:   workerResult{hasResult: true, status: "finished", output: "Opened a PR.", fields: map[string]any{"prUrl": "https://x.test/1", "card": float64(87)}},
+		},
+		"an empty summary falls back to the result": {
+			stdout: `{"result":"All done.","structured_output":{"status":"finished","summary":""}}`,
+			want:   workerResult{hasResult: true, status: "finished", output: "All done.", fields: map[string]any{}},
+		},
+		"max turns": {
+			stdout: `{"type":"result","subtype":"error_max_turns","is_error":true,"result":"","structured_output":null}`,
+			stderr: "claude: reached the turn limit",
+			want:   workerResult{output: "claude: reached the turn limit"},
+		},
+		"an unknown status": {
+			stdout: `{"result":"I did it.","structured_output":{"status":"done","summary":"x"}}`,
+			want:   workerResult{output: "I did it."},
+		},
+		"a summary that is no string": {
+			stdout: `{"result":"r","structured_output":{"status":"finished","summary":3}}`,
+			want:   workerResult{output: "r"},
+		},
+		"structured output that is no object": {
+			stdout: `{"result":"r","structured_output":"finished"}`,
+			want:   workerResult{output: "r"},
+		},
+		"broken JSON": {
+			stdout: `{"structured_output":{"status":"finished","summary":"x"}`,
+			stderr: "stream closed",
+			want:   workerResult{output: "stream closed"},
+		},
+		"text after the document": {
+			stdout: `{"structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`,
+			want:   workerResult{output: `{"structured_output":{"status":"finished","summary":"x"}} STAGE RESULT: done`},
+		},
+		"undecoded stdout with no stderr is capped": {
+			stdout:   long,
+			overflow: true,
+			want:     workerResult{output: long[:maxOutput] + "… (truncated)"},
+		},
+		"a decoded document with no text stays empty": {
+			stdout: `{"result":"","structured_output":null}`,
+			want:   workerResult{},
+		},
+		"overflow": {
+			stdout:   `{"structured_output":{"status":"finished","summary":"x"}}`,
+			overflow: true,
+			stderr:   "too much",
+			want:     workerResult{output: "too much"},
+		},
+		"a long summary is capped": {
+			stdout: `{"structured_output":{"status":"finished","summary":"` + long + `"}}`,
+			want:   workerResult{hasResult: true, status: "finished", output: long[:maxOutput] + "… (truncated)", fields: map[string]any{}},
+		},
 	} {
-		if !scan(chunks...) {
-			t.Errorf("%s: no result found in %q", name, chunks)
-		}
-	}
-}
-
-func TestResultScannerIgnoresAnythingElse(t *testing.T) {
-	for name, chunks := range map[string][]string{
-		"empty":             {},
-		"mid-line":          {"xSTAGE RESULT: done"},
-		"indented":          {" STAGE RESULT: done"},
-		"tab-indented":      {"\tSTAGE RESULT: done"},
-		"mid-line, split":   {"work STAGE RES", "ULT: done"},
-		"partial then line": {"STAGE RES\nULT: done"},
-		"lower case":        {"stage result: done"},
-		"no colon":          {"STAGE RESULT done"},
-	} {
-		if scan(chunks...) {
-			t.Errorf("%s: found a result in %q", name, chunks)
-		}
+		t.Run(name, func(t *testing.T) {
+			got := decodeWorkerOutput([]byte(tc.stdout), tc.overflow, tc.stderr)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("decodeWorkerOutput = %+v, want %+v", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -121,10 +159,11 @@ func TestWorkerArgsCarryTheRulesSettings(t *testing.T) {
 		spec workerSpec
 		want string
 	}{
-		{workerSpec{sessionID: testSession, prompt: "go"}, "-p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, permissionMode: "plan", prompt: "go"}, "--permission-mode plan -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, model: "opus", prompt: "go"}, "--model opus -p --session-id " + testSession + " -- go"},
-		{workerSpec{sessionID: testSession, permissionMode: "plan", model: "opus", prompt: "go"}, "--permission-mode plan --model opus -p --session-id " + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, prompt: "go"}, "--output-format json -p --session-id " + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, permissionMode: "plan", prompt: "go"}, "--permission-mode plan --output-format json -p --session-id " + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, model: "opus", prompt: "go"}, "--model opus --output-format json -p --session-id " + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, schema: `{"type":"object"}`, prompt: "go"}, `--output-format json --json-schema {"type":"object"} -p --session-id ` + testSession + " -- go"},
+		{workerSpec{sessionID: testSession, permissionMode: "plan", model: "opus", schema: "{}", prompt: "go"}, "--permission-mode plan --model opus --output-format json --json-schema {} -p --session-id " + testSession + " -- go"},
 	} {
 		if got := strings.Join(workerArgs(tc.spec), " "); got != tc.want {
 			t.Fatalf("workerArgs(%+v) = %q, want %q", tc.spec, got, tc.want)

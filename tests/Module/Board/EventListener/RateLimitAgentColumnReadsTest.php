@@ -60,6 +60,16 @@ final class RateLimitAgentColumnReadsTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    public function test_a_card_read_draws_on_the_same_bucket(): void
+    {
+        $listener = $this->listener('agent-token-1');
+
+        $listener($this->read('203.0.113.7'));
+
+        $this->expectException(TooManyRequestsHttpException::class);
+        $listener($this->event('api_project_board_card_show', '203.0.113.7'));
+    }
+
     private function listener(?string $apiTokenId, ?StorageInterface $storage = null): RateLimitAgentColumnReads
     {
         $tokenStorage = new TokenStorage();
@@ -83,7 +93,7 @@ final class RateLimitAgentColumnReadsTest extends TestCase
 
     private function read(string $ip): RequestEvent
     {
-        return $this->event(RateLimitAgentColumnReads::ROUTE, $ip);
+        return $this->event('api_project_board_column_list', $ip);
     }
 
     private function event(string $route, string $ip): RequestEvent

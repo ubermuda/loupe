@@ -76,7 +76,7 @@ trait BridgeScenario
             cardId: $cardId ?? Uuid::v7(),
             cardNumber: $cardNumber,
             ruleName: $ruleName,
-            state: $state ?? WorkerRunState::fromExitCode($exitCode, $hasResult),
+            state: $state ?? WorkerRunState::fromOutcome($exitCode, $hasResult),
             runKey: $runKey,
             sessionId: Uuid::v4(),
             startedAt: new \DateTimeImmutable('2026-01-01 10:00:00'),
