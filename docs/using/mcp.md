@@ -223,7 +223,7 @@ Roughly in the order an agent uses them:
 | `series_rename` | Rename a series; every document in it keeps its position |
 | `feedback_list` | The project's site-review feedback, each item with the card it belongs to (off with the board, see below) |
 | `feedback_mark_addressed` | Mark feedback items acted on, so the next `feedback_list` skips them (off with the board, see below) |
-| `card_create` | Put a card on the project board (off by default — see below) |
+| `card_create` | Put a card on the project board (off with the board, see below) |
 | `card_list` | Read a page of the board, filtered by status, type, reporter or parent, with the board's columns |
 | `board_columns` | List the board's columns, each with its slug, label, terminal flag and default flag |
 | `card_search` | Search every card's title and body by words, finished ones included |
@@ -321,7 +321,7 @@ would cost a large payload and buy nothing.
 Read `hasDrawing: true` as "the reviewer pointed at something the words may not
 name". Act on the words. Ask the reviewer when they do not say enough, rather
 than guessing what the drawing meant. The reviewer's own data export carries the
-points in full, under `strokes` in `site_reviews.json`.
+points in full, under `strokes` in each card's `feedback` in `cards.json`.
 
 ## Which sections are settled
 
@@ -365,13 +365,17 @@ the others under `skipped`, each with a reason.
 | `unknown` | No such item on this project, or the reviewer deleted it |
 | `invalid_id` | The id is not a UUID |
 | `already_addressed` | An earlier pass marked it |
-| `resolved` | A human signed it off in the web UI |
+| `resolved` | A human signed it off, or its card finished |
 
 The reason is best-effort. The tool writes the status first, then reads the
 item again to learn why it skipped. Another writer can change the item
 between those two steps, so a reason can name the wrong status. The skip itself
 is always correct, because the write only touches an item that is still
 pending.
+
+A card that moves into a terminal column resolves its pending and addressed
+feedback. So an agent that finishes a card with `card_update` also resolves the
+feedback on it. See [Review feedback on a card](board.md#review-feedback-on-a-card).
 
 ## Configuration
 
@@ -384,10 +388,10 @@ agent never learns of a tool this instance would refuse — switch it on in
 changed and calling it anyway gets a plain refusal, not a broken call.
 
 The `card_*` tools, `board_columns`, `feedback_list` and
-`feedback_mark_addressed` are behind the `board.enabled` feature
-flag, seeded **off**. A board an agent writes to is a second place work is
-tracked, so the operator opts in. The gate behaves the same way as the one above: while the flag
-is off the tools are absent from `tools/list` and from the Connect page, and a
+`feedback_mark_addressed` are behind the `board.enabled` feature flag, which
+ships **on**. Site review writes each note to a card, so it needs the board. An
+operator can switch the flag off. The gate then behaves the same way as the one
+above: the tools are absent from `tools/list` and from the Connect page, and a
 client that calls one anyway gets a plain refusal.
 
 Each board has its own columns. `board_columns` lists them in board order, and

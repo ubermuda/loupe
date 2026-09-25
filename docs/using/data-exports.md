@@ -37,6 +37,11 @@ epic. A card with no epic carries `null` in both. Each card also carries
 `laneEnabled`, which says whether the board draws an epic as a lane. Only an
 epic reads it, and every other card carries the default, `true`.
 
+Each card in `cards.json` also carries `feedback`, the site-review notes on the
+card. Each item gives the `id`, the page `url`, the page `context`, the
+`anchors`, the `body`, the drawing `strokes`, the `status` and `createdAt`. The
+strokes are the full vector points. The archive has no separate site-review file.
+
 The archive holds one file per kind of data. `audit_log.json` is one of them. It
 holds the audit records the user is the actor of, and the records that name the
 user as the subject. What was done to the account is the account's data too.

@@ -34,6 +34,11 @@ value the wizard would have written (registration on, no cap, billing and social
 login off, a 14-day trial), so an instance recovered entirely from the shell
 behaves like a wizard-installed one with the defaults accepted.
 
+`board.enabled` does not follow that rule. The wizard writes it on, and a
+missing row reads as off. So an upgrade migration writes the row on for an
+instance that upgrades. Site review writes each note to a board card, so it
+needs the board. See [Turning the board off](board.md#turning-the-board-off).
+
 Some flags gate integrations rather than behaviour: `billing.enabled` decides
 whether the Stripe client is ever instantiated, and `auth.google.enabled` /
 `auth.github.enabled` decide whether a social provider is reachable at all — its
