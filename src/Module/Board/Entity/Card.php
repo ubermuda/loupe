@@ -140,7 +140,16 @@ class Card implements ProjectScopedSubject
     /** The text an edit form opened with, so a save can tell whether someone changed it since. */
     public static function contentFingerprint(string $title, string $body): string
     {
-        return hash('sha256', $title."\0".$body);
+        return hash('sha256', self::normalText($title)."\0".self::normalText($body));
+    }
+
+    /**
+     * Text as the web form submits it: trimmed, with Unix line ends. An MCP
+     * tool stores a body as given, so compare text in this form, never raw.
+     */
+    public static function normalText(string $text): string
+    {
+        return trim(str_replace(["\r\n", "\r"], "\n", $text));
     }
 
     /** Replaces every pull request link with the given set. An empty list clears them. */

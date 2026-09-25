@@ -13,10 +13,12 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * An edit form carries the fingerprint of the text it opened with. The handler
@@ -30,6 +32,7 @@ final class CardEditClashTest extends KernelTestCase
     private EntityManagerInterface $em;
     private UpdateCardHandler $updateCard;
     private Card $card;
+    private Project $project;
 
     protected function setUp(): void
     {
@@ -42,22 +45,28 @@ final class CardEditClashTest extends KernelTestCase
         $updateCard = self::getContainer()->get(UpdateCardHandler::class);
         self::assertInstanceOf(UpdateCardHandler::class, $updateCard);
         $this->updateCard = $updateCard;
+        $owner = new User(fullName: 'Riley', email: 'board-clash-'.uniqid().'@example.com', password: 'hashed');
+        $this->em->persist($owner);
+        $this->project = new Project($owner, 'board-'.uniqid());
+        $this->em->persist($this->project);
+        $this->seedColumns($this->project);
+        $this->em->flush();
+
+        $this->card = $this->createCard('Opened body');
+    }
+
+    /** CreateCardHandler stores the body as given, the way an MCP tool passes it. */
+    private function createCard(string $body): Card
+    {
         $createCard = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $createCard);
 
-        $owner = new User(fullName: 'Riley', email: 'board-clash-'.uniqid().'@example.com', password: 'hashed');
-        $this->em->persist($owner);
-        $project = new Project($owner, 'board-'.uniqid());
-        $this->em->persist($project);
-        $this->seedColumns($project);
-        $this->em->flush();
-
-        $this->card = $createCard(new CreateCardCommand(
-            project: $project,
+        return $createCard(new CreateCardCommand(
+            project: $this->project,
             title: 'Opened title',
-            body: 'Opened body',
+            body: $body,
             type: CardType::Feature,
-            column: $this->column($project, 'backlog'),
+            column: $this->column($this->project, 'backlog'),
         ));
     }
 
@@ -65,6 +74,69 @@ final class CardEditClashTest extends KernelTestCase
     {
         self::assertSame(hash('sha256', "a\0b"), Card::contentFingerprint('a', 'b'));
         self::assertNotSame(Card::contentFingerprint('ab', ''), Card::contentFingerprint('a', 'b'));
+    }
+
+    public function test_the_fingerprint_reads_the_text_as_the_web_form_submits_it(): void
+    {
+        self::assertSame(Card::contentFingerprint('a', 'b'), Card::contentFingerprint(" a\n", "\r\nb\r\n"));
+        self::assertSame(Card::contentFingerprint('a', "b\nc"), Card::contentFingerprint('a', "b\r\nc"));
+        self::assertSame(Card::contentFingerprint('a', "b\nc"), Card::contentFingerprint('a', "b\rc"));
+        self::assertNotSame(Card::contentFingerprint('a', "b\nc"), Card::contentFingerprint('a', 'b c'));
+    }
+
+    public function test_a_web_save_of_an_agent_body_is_no_clash_and_no_content_change(): void
+    {
+        $this->card = $this->createCard("Opened body\n");
+        $openedByEditorA = Card::contentFingerprint($this->card->title, $this->card->body);
+        $contentChanged = [];
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(CardChanged::class, static function (CardChanged $event) use (&$contentChanged): void {
+            $contentChanged[] = $event->contentChanged;
+        });
+
+        // Editor B changes the type alone. The form trims the textarea.
+        ($this->updateCard)(new UpdateCardCommand(
+            card: $this->card,
+            actor: CardReporter::Human,
+            title: 'Opened title',
+            body: 'Opened body',
+            type: CardType::Bug,
+            expectedFingerprint: Card::contentFingerprint('Opened title', "Opened body\n"),
+        ));
+        // Editor A saves the same text with the fingerprint it opened with.
+        ($this->updateCard)(new UpdateCardCommand(
+            card: $this->card,
+            actor: CardReporter::Human,
+            title: 'Opened title',
+            body: "Opened body\r\n",
+            type: CardType::Docs,
+            expectedFingerprint: $openedByEditorA,
+        ));
+
+        self::assertSame([false, false], $contentChanged);
+        self::assertSame(CardType::Docs, $this->card->type);
+    }
+
+    public function test_a_real_change_to_an_agent_body_still_clashes(): void
+    {
+        $this->card = $this->createCard("Opened body\n");
+        $this->em->getConnection()->executeStatement(
+            "UPDATE board_cards SET body = 'Opened body, edited' WHERE id = :id",
+            ['id' => (string) $this->card->id],
+        );
+
+        try {
+            ($this->updateCard)(new UpdateCardCommand(
+                card: $this->card,
+                actor: CardReporter::Human,
+                body: 'Opened body',
+                expectedFingerprint: Card::contentFingerprint('Opened title', "Opened body\n"),
+            ));
+            self::fail('The clash was not refused.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['contentFingerprint' => UpdateCardHandler::CONTENT_CHANGED], $e->errors);
+        }
     }
 
     public function test_an_update_with_no_fingerprint_checks_nothing(): void

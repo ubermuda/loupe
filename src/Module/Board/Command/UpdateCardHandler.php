@@ -120,8 +120,8 @@ final readonly class UpdateCardHandler
             // it. A field the command carries may hold what the card already
             // holds, so the record reports what changed rather than what was
             // submitted.
-            $titleChanged = null !== $title && $title !== $card->title;
-            $bodyChanged = null !== $command->body && $command->body !== $card->body;
+            $titleChanged = null !== $title && Card::normalText($title) !== Card::normalText($card->title);
+            $bodyChanged = null !== $command->body && Card::normalText($command->body) !== Card::normalText($card->body);
             $typeChanged = null !== $command->type && $command->type !== $card->type;
 
             if (null !== $title) {
