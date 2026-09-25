@@ -362,9 +362,14 @@ project the token's user owns:
   "projects": [
     {"id": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7", "slug": "my-app", "name": "My App"}
   ],
-  "flags": {"inbox.enabled": false, "bridge.heartbeat_interval_seconds": 60}
+  "flags": {"inbox.enabled": false, "bridge.heartbeat_interval_seconds": 60},
+  "cliRange": "^1.0"
 }
 ```
+
+`cliRange` is the range of CLI versions that the server supports. `loupe update`
+reads it when no bridge runs. A running bridge reads the same range from the
+heartbeat reply.
 
 `flags` holds the feature flags a bridge reads. The server lists a flag here
 only when its code names the flag, so no other flag reaches a token holder. A
