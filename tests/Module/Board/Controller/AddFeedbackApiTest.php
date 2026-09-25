@@ -60,11 +60,10 @@ final class AddFeedbackApiTest extends WebTestCase
     }
 
     /**
-     * The listener that links a comment by its `card:` context still runs on
-     * the old route. Through this one the target decides, and a second link
-     * would break the unique comment column.
+     * The comment keeps the page's context as the page said it. The target
+     * alone decides the card, so a context naming another card links nothing.
      */
-    public function test_a_card_context_on_the_page_adds_no_second_link(): void
+    public function test_a_card_context_on_the_page_is_stored_and_adds_no_second_link(): void
     {
         $client = static::createClient();
         [$raw, $project] = $this->projectWithToken($client, 'feedback-api-context@example.com');
@@ -76,12 +75,22 @@ final class AddFeedbackApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(201);
         $this->post($client, $raw, $this->note(['cardId' => (string) $target->id], ['context' => 'card:'.$target->id, 'body' => 'Second note']));
         self::assertResponseStatusCodeSame(201);
+        $this->post($client, $raw, $this->note(['cardId' => (string) $target->id], ['context' => '  ', 'body' => 'Third note']));
+        self::assertResponseStatusCodeSame(201);
 
-        self::assertCount(2, $links->findForCard($target));
+        $saved = $links->findForCard($target);
+        self::assertCount(3, $saved);
         self::assertSame([], $links->findForCard($other));
-        foreach ($links->findForCard($target) as $link) {
+        $contexts = [];
+        foreach ($saved as $link) {
             self::assertFalse($link->createdCard);
+            $contexts[$link->comment->body] = $link->comment->context;
         }
+        self::assertSame([
+            "Footer overlaps the launcher\nSeen at 1280px." => 'card:'.$other->id,
+            'Second note' => 'card:'.$target->id,
+            'Third note' => null,
+        ], $contexts);
     }
 
     public function test_a_retried_delivery_answers_with_the_same_card(): void

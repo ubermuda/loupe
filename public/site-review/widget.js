@@ -3875,6 +3875,7 @@
                     strokes,
                     selector: first ? first.selector : '',
                     text: first ? first.text : '',
+                    ...(lastSeenMarker ? { context: lastSeenMarker } : {}),
                 };
                 const saved = await api('POST', '/api/board/feedback', {
                     ...comment,

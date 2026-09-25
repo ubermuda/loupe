@@ -159,10 +159,6 @@ final readonly class AddFeedbackHandler
         return null;
     }
 
-    /**
-     * No context: the target names the card now, and the listener that links
-     * a comment by its `card:` context would write a second link.
-     */
     private function addCommentCommand(AddFeedbackCommand $command): AddCommentCommand
     {
         return new AddCommentCommand(
@@ -171,6 +167,7 @@ final readonly class AddFeedbackHandler
             url: $command->url,
             anchors: $command->anchors,
             strokes: $command->strokes,
+            context: $command->context,
             deliveryId: $command->deliveryId,
         );
     }

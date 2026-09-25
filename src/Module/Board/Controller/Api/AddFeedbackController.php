@@ -73,6 +73,7 @@ final class AddFeedbackController extends AppController
                 deliveryId: $payload->deliveryId,
                 cardId: $target->cardId,
                 parentCardId: $target->newCard?->parentCardId,
+                context: $payload->context(),
             ));
         } catch (DomainErrors $error) {
             $field = array_key_first($error->errors);

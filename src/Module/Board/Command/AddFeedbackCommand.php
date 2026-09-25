@@ -26,6 +26,8 @@ final readonly class AddFeedbackCommand
         public ?string $cardId = null,
         /** The epic a created card goes under. Read only when $cardId is null. */
         public ?string $parentCardId = null,
+        /** What the embed's `data-context` said the page was, stored as given. */
+        public ?string $context = null,
     ) {
     }
 }

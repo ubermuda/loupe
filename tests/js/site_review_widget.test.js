@@ -342,6 +342,7 @@ describe('a preview page that names its card', () => {
         await settle();
 
         expect(feedbackSave(fetchMock).target).toEqual({ cardId: CARD });
+        expect(feedbackSave(fetchMock).context).toBe(`card:${CARD}`);
         // The lock belongs to this page. The reviewer's own choice stays.
         expect(storedMode()).toEqual({ mode: 'per-note', cardId: null });
     });

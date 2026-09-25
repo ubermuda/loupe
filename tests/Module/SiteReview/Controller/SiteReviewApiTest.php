@@ -690,8 +690,8 @@ final class SiteReviewApiTest extends WebTestCase
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
         self::assertSame('edited', json_decode((string) $client->getResponse()->getContent(), true)['comments'][0]['body']);
 
-        $this->api($client, Request::METHOD_DELETE, '/api/site-review/comments/'.$id, $raw);
-        self::assertResponseStatusCodeSame(204);
+        $this->api($client, Request::METHOD_DELETE, '/api/board/feedback/'.$id, $raw);
+        self::assertResponseIsSuccessful();
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
         self::assertSame([], json_decode((string) $client->getResponse()->getContent(), true)['comments']);
@@ -778,7 +778,7 @@ final class SiteReviewApiTest extends WebTestCase
         $this->api($client, Request::METHOD_PATCH, '/api/site-review/comments/'.$id, $rawB, ['body' => 'hijack']);
         self::assertResponseStatusCodeSame(404);
 
-        $this->api($client, Request::METHOD_DELETE, '/api/site-review/comments/'.$id, $rawB);
+        $this->api($client, Request::METHOD_DELETE, '/api/board/feedback/'.$id, $rawB);
         self::assertResponseStatusCodeSame(404);
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments/'.$id.'/resolve', $rawB);

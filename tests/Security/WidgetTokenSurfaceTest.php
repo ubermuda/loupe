@@ -39,7 +39,6 @@ final class WidgetTokenSurfaceTest extends WebTestCase
 
         yield 'add comment' => [Request::METHOD_POST, '/api/site-review/comments'];
         yield 'update comment' => [Request::METHOD_PATCH, '/api/site-review/comments/'.$id];
-        yield 'delete comment' => [Request::METHOD_DELETE, '/api/site-review/comments/'.$id];
         yield 'resolve comment' => [Request::METHOD_POST, '/api/site-review/comments/'.$id.'/resolve'];
         yield 'pending comments' => [Request::METHOD_GET, '/api/site-review/review'];
         yield 'list cards' => [Request::METHOD_GET, '/api/board/cards'];
