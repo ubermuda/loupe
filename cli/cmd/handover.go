@@ -223,10 +223,13 @@ func (r *router) inFlight() (reports, checks, starting int) {
 // freeze takes the routing state for the next image, and holds back what
 // happens after it: no dispatch, no event, and no report of a finished run,
 // which the next image adopts from its files. resume undoes it. eventMu lets an
-// event in flight reach the queue first.
+// event in flight reach the queue first, and quiesce lets a settling run or a
+// drop reach its report.
 func (r *router) freeze() handoverState {
 	r.eventMu.Lock()
 	defer r.eventMu.Unlock()
+	r.quiesce.Lock()
+	defer r.quiesce.Unlock()
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.paused, r.frozen = true, true

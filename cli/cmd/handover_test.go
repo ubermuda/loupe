@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -458,4 +460,117 @@ func TestAdoptDropsAQueuedEventWhoseRuleIsGone(t *testing.T) {
 	if h2.runs() != 0 {
 		t.Fatalf("ran %d workers", h2.runs())
 	}
+}
+
+// gateLog blocks the first log line of one event until release closes, which
+// holds a goroutine between a change under mu and the report of it.
+type gateLog struct {
+	buf     *syncBuffer
+	name    string
+	once    sync.Once
+	hit     chan struct{}
+	release chan struct{}
+}
+
+func newGateLog(h *harness, name string) *gateLog {
+	g := &gateLog{buf: h.log, name: name, hit: make(chan struct{}), release: make(chan struct{})}
+	h.router.log = newBridgeLogger(g)
+
+	return g
+}
+
+func (g *gateLog) Write(p []byte) (int, error) {
+	if bytes.Contains(p, []byte(`"event":"`+g.name+`"`)) {
+		first := false
+		g.once.Do(func() { first = true; close(g.hit) })
+		if first {
+			<-g.release
+		}
+	}
+
+	return g.buf.Write(p)
+}
+
+// freezeInWindow freezes while the gated line blocks. A freeze that returns in
+// that window took its state between the change and its report.
+func freezeInWindow(t *testing.T, h *harness, g *gateLog) handoverState {
+	t.Helper()
+	select {
+	case <-g.hit:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("the log never reached %s", g.name)
+	}
+	got := make(chan handoverState, 1)
+	go func() { got <- h.router.freeze() }()
+	select {
+	case st := <-got:
+		close(g.release)
+
+		return st
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(g.release)
+
+	return <-got
+}
+
+// wantClosable fails when the state holds a card or an open run that no live
+// run and no queued event of the state accounts for, because the next image
+// could never close it.
+func wantClosable(t *testing.T, st handoverState) {
+	t.Helper()
+	runs, keys := map[string]bool{}, map[string]bool{}
+	for _, q := range st.Queue {
+		runs[q.RunID] = true
+		if q.Checked {
+			keys[q.Key] = true
+		}
+	}
+	for _, l := range st.Live {
+		runs[l.RunID], keys[l.Key] = true, true
+	}
+	for id := range st.Held {
+		if !runs[id] {
+			t.Errorf("held run %s is neither live nor queued: %+v", id, st)
+		}
+	}
+	for key, on := range st.Running {
+		if on && !keys[key] {
+			t.Errorf("card %s is held with nothing running: %+v", key, st)
+		}
+	}
+}
+
+// A worker that ends between the drain and the freeze is in the state, or
+// fully reported and released before it.
+func TestAFreezeWaitsForAWorkerThatIsSettling(t *testing.T) {
+	h := newHarness(t)
+	h.states()
+	g := newGateLog(h, "worker_finished")
+	h.worker.block = make(chan struct{})
+	h.router.onEvent("id-1", []byte(cardMoved(1)))
+	h.router.pause()
+	if err := h.router.drain(context.Background(), 5*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	close(h.worker.block)
+
+	wantClosable(t, freezeInWindow(t, h, g))
+	h.router.resume()
+	h.router.wg.Wait()
+}
+
+// A refresh that drops a queued event while the freeze runs is in the state,
+// or fully reported before it.
+func TestAFreezeWaitsForARefreshThatDropsTheQueue(t *testing.T) {
+	h := newHarness(t)
+	h.states()
+	g := newGateLog(h, "queue_dropped")
+	h.router.pause()
+	h.router.onEvent("id-1", []byte(cardMoved(1)))
+	go h.router.onRefresh(api.Events{})
+
+	wantClosable(t, freezeInWindow(t, h, g))
+	h.router.resume()
+	h.router.wg.Wait()
 }

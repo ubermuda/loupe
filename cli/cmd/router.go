@@ -122,6 +122,10 @@ type router struct {
 	// eventMu keeps the events in order while resume replays the held ones. It
 	// is taken before mu, never under it.
 	eventMu sync.Mutex
+	// quiesce is read-held by work that changes a run under mu and reports it
+	// after, and freeze takes it, so no state falls between the two. It is
+	// taken after eventMu and before mu.
+	quiesce sync.RWMutex
 
 	// wg counts the workers in flight. Tests wait on it instead of sleeping.
 	wg sync.WaitGroup
@@ -519,8 +523,11 @@ func (r *router) refreshGone(events api.Events, seq uint64) {
 		// that maps the slug to another project. The health report of the kill
 		// most likely gets project_not_found, which the reporter logs once.
 		id := set.ProjectID(slug)
+		r.quiesce.RLock()
 		dead, dropped, ok := r.markGone(id, seq)
 		if !ok {
+			r.quiesce.RUnlock()
+
 			continue
 		}
 
@@ -537,6 +544,7 @@ func (r *router) refreshGone(events api.Events, seq uint64) {
 		)
 		r.logGone(id, dead)
 		r.logDropped(dropped)
+		r.quiesce.RUnlock()
 	}
 }
 
@@ -795,6 +803,8 @@ func (r *router) trackLocked(run liveRun) {
 // slot. After a freeze, the next image adopts the run from its files, so the
 // run waits here for a resume that may never come.
 func (r *router) settle(p pending, res workerResult, began time.Time, elapsed time.Duration) {
+	r.quiesce.RLock()
+	defer r.quiesce.RUnlock()
 	done := func() {
 		r.report(p, res, began, elapsed)
 		if res.dir != "" {
@@ -839,6 +849,8 @@ func (r *router) check(p pending) {
 		// A kill or a reload rewrites queued events only, and this resume was out
 		// of the queue during the check, so its rule matches again under the
 		// same lock.
+		r.quiesce.RLock()
+		defer r.quiesce.RUnlock()
 		r.mu.Lock()
 		r.checking--
 		current := r.rules()
