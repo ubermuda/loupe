@@ -7,11 +7,14 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\ListCardsHandler;
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardListTool;
 use App\Module\Project\Entity\Project;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -355,6 +358,36 @@ final class CardListToolTest extends KernelTestCase
         self::assertSame([], $row['documents']);
         self::assertSame([], $row['siteReviewComments']);
         self::assertSame([], $row['relatedCards']);
+    }
+
+    public function test_full_returns_each_linked_feedback_item_on_its_own_card(): void
+    {
+        $project = $this->boardWith('card-list-full-feedback');
+        $cards = ($this->tool)()['cards'];
+        $second = $this->em->find(Card::class, $cards[1]['cardId']);
+        self::assertInstanceOf(Card::class, $second);
+
+        $comment = new SiteReviewComment($project, 0, 'The logo is blurry', 'https://app.example/page')
+            ->addAnchor('header .logo', 'Logo');
+        $comment->strokes = [['space' => 'page', 'points' => [[0.1, 0.2]]]];
+        $this->em->persist($comment);
+        $this->em->persist(new CardSiteReviewComment($second, $comment));
+        $this->em->flush();
+        $this->em->clear();
+
+        $rows = array_column(($this->tool)(full: true)['cards'], 'siteReviewComments', 'title');
+
+        self::assertSame([], $rows['First']);
+        self::assertSame([], $rows['Third']);
+        self::assertSame([[
+            'id' => (string) $comment->id,
+            'url' => 'https://app.example/page',
+            'anchors' => [['selector' => 'header .logo', 'text' => 'Logo', 'quote' => null, 'quotePrefix' => null, 'quoteSuffix' => null]],
+            'body' => 'The logo is blurry',
+            'hasDrawing' => true,
+            'status' => 'pending',
+            'createdAt' => $comment->createdAt->format(\DATE_ATOM),
+        ]], $rows['Second']);
     }
 
     public function test_full_reads_each_card_links_from_its_own_side(): void
