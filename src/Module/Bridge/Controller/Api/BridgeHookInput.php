@@ -19,6 +19,8 @@ final class BridgeHookInput
 
     public const array OUTCOMES = ['ok', 'failed', 'timeout', 'never'];
 
+    private const string RFC3339 = '/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d{1,9})?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)$/D';
+
     public function __construct(
         #[Assert\Length(max: self::MAX_PACKAGE_LENGTH, normalizer: 'trim')]
         #[Assert\NotBlank(normalizer: 'trim')]
@@ -31,8 +33,10 @@ final class BridgeHookInput
         #[Assert\Choice(choices: self::EVENTS)]
         #[Assert\NotBlank]
         public ?string $event = null,
-        /** Null for a hook that has not run since the bridge started. */
-        public ?\DateTimeImmutable $lastRunAt = null,
+
+        /** RFC 3339. Null for a hook that has not run since the bridge started. */
+        #[Assert\Regex(pattern: self::RFC3339)]
+        public ?string $lastRunAt = null,
 
         #[Assert\Choice(choices: self::OUTCOMES)]
         #[Assert\NotBlank]

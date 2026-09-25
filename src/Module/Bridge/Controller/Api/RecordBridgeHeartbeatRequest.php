@@ -60,7 +60,7 @@ final class RecordBridgeHeartbeatRequest
             'package' => trim($hook->package ?? ''),
             'ref' => trim($hook->ref ?? ''),
             'event' => $hook->event ?? '',
-            'lastRunAt' => $hook->lastRunAt?->format(\DateTimeInterface::ATOM),
+            'lastRunAt' => null === $hook->lastRunAt ? null : new \DateTimeImmutable($hook->lastRunAt)->format(\DateTimeInterface::ATOM),
             'outcome' => $hook->outcome ?? '',
             'error' => '' === trim($hook->error ?? '') ? null : trim($hook->error ?? ''),
         ], array_values($this->hooks));
