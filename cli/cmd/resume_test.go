@@ -695,6 +695,10 @@ func TestARollbackWaitsForTheReportsToDrain(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	if err := writeHandover(b.resumeFile, *b.resumed); err != nil {
+		t.Fatal(err)
+	}
+
 	done := b.watchHealth(ctx, h.router, nil)
 	eventually(t, "a deferred rollback", func() bool { return logged(h.log, "update_rollback_deferred") })
 	if len(*calls) != 0 {
@@ -703,10 +707,57 @@ func TestARollbackWaitsForTheReportsToDrain(t *testing.T) {
 	if paused, frozen := h.frozen(); paused || frozen {
 		t.Fatal("a deferred rollback left the router paused")
 	}
+	// The router runs on, so a crash must not adopt the old state again.
+	if _, err := os.Stat(b.resumeFile); !os.IsNotExist(err) {
+		t.Fatalf("the stale handover file is still there: %v", err)
+	}
 	stuck.Store(0)
 	<-done
 
 	if len(*calls) != 1 || (*calls)[0].argv[0] != b.target || !slices.Contains((*calls)[0].argv, "--rolled-back-from") {
+		t.Fatalf("exec calls = %+v", *calls)
+	}
+	if c := (*calls)[0]; c.readErr != nil || c.st.OldVersion != "1.2.0" || c.st.LockFD <= 2 {
+		t.Fatalf("the rollback passed no fresh file: %+v, %v", c.st, c.readErr)
+	}
+}
+
+// lateQueue is empty at its first read and then holds what stuck holds, as
+// a report a run queues between the drain and the freeze.
+type lateQueue struct {
+	syncQueue
+	reads, stuck *atomic.Int32
+}
+
+func (q lateQueue) Pending() int {
+	if q.reads.Add(1) == 1 {
+		return 0
+	}
+
+	return int(q.stuck.Load())
+}
+
+// A report that arrives after the first drain also defers the rollback, as
+// the drain after the freeze catches it.
+func TestARollbackDrainsAgainAfterTheFreeze(t *testing.T) {
+	injectVersion(t, "1.2.0")
+	h, b, calls, stuck := unhealthyResume(t)
+	h.router.reports = lateQueue{reads: &atomic.Int32{}, stuck: stuck}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := b.watchHealth(ctx, h.router, nil)
+	eventually(t, "a deferred rollback", func() bool { return logged(h.log, "update_rollback_deferred") })
+	if len(*calls) != 0 {
+		t.Fatalf("exec calls = %d while a report waits", len(*calls))
+	}
+	if paused, frozen := h.frozen(); paused || frozen {
+		t.Fatal("a deferred rollback left the router frozen")
+	}
+	stuck.Store(0)
+	<-done
+
+	if len(*calls) != 1 || (*calls)[0].argv[0] != b.target {
 		t.Fatalf("exec calls = %+v", *calls)
 	}
 }

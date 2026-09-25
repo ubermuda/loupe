@@ -343,13 +343,24 @@ func (b *bridgeUpdate) unhealthy(ctx context.Context, r *router, timeout time.Du
 	r.reloadMu.Lock()
 	defer r.reloadMu.Unlock()
 	r.pause()
-	if err := r.drain(ctx, b.drainTimeout); err != nil {
+	// The router runs on, so the file on disk no longer holds its state. A
+	// later rollback writes a fresh one.
+	deferred := func(err error) bool {
 		r.resume()
+		if rerr := os.Remove(b.resumeFile); rerr != nil && !errors.Is(rerr, fs.ErrNotExist) {
+			b.log.Warn("update_cleanup_failed", "file", b.resumeFile, "error", rerr.Error())
+		}
 		b.log.Warn("update_rollback_deferred", "to", b.resumed.OldVersion, "reason", err.Error(), "retry_in_seconds", int(timeout/time.Second))
 
 		return true
 	}
+	if err := r.drain(ctx, b.drainTimeout); err != nil {
+		return deferred(err)
+	}
 	st := r.freeze()
+	if err := r.drain(ctx, frozenDrainTimeout); err != nil {
+		return deferred(err)
+	}
 	st.OldVersion, st.OldBinary = version, b.target
 	err := b.execWith(st, b.resumed.OldBinary, nil, "--"+rolledBackFromFlag, version)
 	os.Remove(b.file)
