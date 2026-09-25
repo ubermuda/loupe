@@ -71,6 +71,7 @@ final class ReportWorkerRunStateController extends AppController
             resumeCap: $payload->resumeCap,
             cardColumn: $payload->cardColumn,
             resumeSkipped: $payload->resumeSkipped,
+            usage: $payload->usage?->report(),
         ));
 
         if (null === $result->run) {

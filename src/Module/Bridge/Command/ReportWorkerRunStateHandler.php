@@ -10,6 +10,7 @@ use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
+use App\Module\Bridge\Service\WorkerRunUsageRecorder;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
@@ -37,6 +38,7 @@ final readonly class ReportWorkerRunStateHandler
         private Auditor $auditor,
         private ClockInterface $clock,
         private WorkerRunChangedPublisher $publisher,
+        private WorkerRunUsageRecorder $usageRecorder,
     ) {
     }
 
@@ -175,6 +177,10 @@ final readonly class ReportWorkerRunStateHandler
             $command->resultFields,
             $command->resumeSkipped,
         );
+
+        if (null !== $command->usage) {
+            $this->usageRecorder->record($run, $command->usage);
+        }
     }
 
     private function audit(WorkerRun $run): void

@@ -8,6 +8,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\AgentCredential;
@@ -210,6 +211,49 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertNull($run->resultFields);
     }
 
+    public function test_an_outcome_stores_its_usage(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-usage@example.com');
+        $project = $this->project($em, $owner, 'Run States Usage');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(array_merge(self::outcome(), [
+            'usage' => ['source' => 'estimated', 'models' => [
+                'claude-opus-5-5' => ['inputTokens' => 1200, 'outputTokens' => 340, 'cacheReadTokens' => 56000, 'cacheWriteTokens' => 7800, 'costUsd' => 0.4321],
+                'claude-unpriced' => ['inputTokens' => 5, 'outputTokens' => 6, 'cacheReadTokens' => 0, 'cacheWriteTokens' => 0, 'costUsd' => null],
+            ]],
+        ])));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunUsageSource::Estimated, $run->usageSource);
+        self::assertSame([
+            ['model' => 'claude-opus-5-5', 'input_tokens' => 1200, 'output_tokens' => 340, 'cache_read_tokens' => 56000, 'cache_write_tokens' => 7800, 'cost_usd' => '0.432100'],
+            ['model' => 'claude-unpriced', 'input_tokens' => 5, 'output_tokens' => 6, 'cache_read_tokens' => 0, 'cache_write_tokens' => 0, 'cost_usd' => null],
+        ], $this->em()->getConnection()->fetchAllAssociative(
+            'SELECT model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd FROM bridge_worker_run_usage ORDER BY model',
+        ));
+    }
+
+    /** The bridge sends usage with an outcome alone, so the server checks it on any state and stores it from an outcome. */
+    public function test_an_open_state_ignores_its_usage(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-usage-open@example.com');
+        $project = $this->project($em, $owner, 'Run States Usage Open');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload([
+            'usage' => ['source' => 'reported', 'models' => []],
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertNull($this->onlyRun()->usageSource);
+    }
+
     public function test_another_users_project_answers_project_not_found(): void
     {
         $client = static::createClient();
@@ -299,6 +343,31 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a drop reason the bridge does not send' => [['state' => 'dropped', 'reason' => 'bored']];
         yield 'a replacement that is not a uuid' => [['state' => 'replaced', 'replacedBy' => 'nope']];
         yield 'a chain cap of zero' => [['state' => 'waiting-for-person', 'maxChain' => 0]];
+        foreach (self::invalidUsage() as $name => $usage) {
+            yield $name => [array_merge($result, ['state' => 'succeeded', 'usage' => $usage])];
+        }
+    }
+
+    /** @return iterable<string, array<string, mixed>> */
+    public static function invalidUsage(): iterable
+    {
+        $model = ['inputTokens' => 1, 'outputTokens' => 2, 'cacheReadTokens' => 3, 'cacheWriteTokens' => 4, 'costUsd' => 0.5];
+
+        yield 'usage from an unknown source' => ['source' => 'guessed', 'models' => []];
+        yield 'usage with no source' => ['models' => []];
+        yield 'usage with no models' => ['source' => 'reported'];
+        yield 'usage models as a list' => ['source' => 'reported', 'models' => [$model]];
+        yield 'usage with a blank model name' => ['source' => 'reported', 'models' => ['' => $model]];
+        yield 'usage with a model name above the limit' => ['source' => 'reported', 'models' => [str_repeat('m', 101) => $model]];
+        yield 'usage with too many models' => ['source' => 'reported', 'models' => array_combine(
+            array_map(static fn (int $i): string => 'model-'.$i, range(1, 21)),
+            array_fill(0, 21, $model),
+        )];
+        yield 'usage with a negative token count' => ['source' => 'reported', 'models' => ['claude' => array_merge($model, ['outputTokens' => -1])]];
+        yield 'usage with a missing token count' => ['source' => 'reported', 'models' => ['claude' => array_diff_key($model, ['cacheReadTokens' => true])]];
+        yield 'usage with a token count as text' => ['source' => 'reported', 'models' => ['claude' => array_merge($model, ['inputTokens' => 'many'])]];
+        yield 'usage with a negative cost' => ['source' => 'reported', 'models' => ['claude' => array_merge($model, ['costUsd' => -0.1])]];
+        yield 'usage with a cost the column cannot hold' => ['source' => 'reported', 'models' => ['claude' => array_merge($model, ['costUsd' => 1000000])]];
     }
 
     /**
@@ -366,6 +435,21 @@ final class WorkerRunStatesApiTest extends WebTestCase
 
         $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload());
         self::assertResponseStatusCodeSame(429);
+    }
+
+    /** @return array<string, mixed> */
+    private static function outcome(): array
+    {
+        return [
+            'state' => 'succeeded',
+            'sessionId' => (string) Uuid::v4(),
+            'startedAt' => '2026-09-23T10:00:00+00:00',
+            'endedAt' => '2026-09-23T10:01:00+00:00',
+            'exitCode' => 0,
+            'hasResult' => true,
+            'failureReason' => null,
+            'output' => '',
+        ];
     }
 
     private function path(?Uuid $projectId, string $runId): string
