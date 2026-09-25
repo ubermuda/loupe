@@ -980,3 +980,117 @@ func TestParseBuildsTheResultSchema(t *testing.T) {
 		})
 	}
 }
+
+// cardRules filters on the interactive run of the card. done has no card
+// block, so it matches either value.
+const cardRules = `
+projects:
+  loupe:
+    dir: {dir}
+rules:
+  - name: unattended
+    on: board.card_moved
+    project: loupe
+    to: ready
+    card:
+      interactiveRun: false
+    prompt: plan {cardNumber}
+  - name: attended
+    on: board.card_moved
+    project: loupe
+    to: review
+    card:
+      interactiveRun: true
+    prompt: review {cardNumber}
+  - name: any
+    on: board.card_moved
+    project: loupe
+    to: done
+    prompt: ship {cardNumber}
+  - name: fix-round
+    on: document.review_submitted
+    project: loupe
+    card:
+      interactiveRun: false
+    prompt: fix {cardNumber}
+`
+
+func interactive(e event.Event, run bool) event.Event {
+	e.Card.InteractiveRun = run
+
+	return e
+}
+
+func TestParseReadsTheCardBlock(t *testing.T) {
+	rs := parse(t, cardRules).Rules()
+	if c := rs[0].Card; c == nil || c.InteractiveRun == nil || *c.InteractiveRun {
+		t.Fatalf("unattended card = %+v", c)
+	}
+	if c := rs[1].Card; c == nil || c.InteractiveRun == nil || !*c.InteractiveRun {
+		t.Fatalf("attended card = %+v", c)
+	}
+	if rs[2].Card != nil {
+		t.Fatalf("any card = %+v", rs[2].Card)
+	}
+}
+
+func TestMatchTheInteractiveRun(t *testing.T) {
+	s := checked(t, cardRules)
+	for name, tc := range map[string]struct {
+		event event.Event
+		skip  Skip
+		rule  string
+	}{
+		"false fires on false":              {interactive(moved("backlog", "ready", event.ActorHuman), false), Run, "unattended"},
+		"false fires on an absent key":      {moved("backlog", "ready", event.ActorHuman), Run, "unattended"},
+		"false skips true":                  {interactive(moved("backlog", "ready", event.ActorHuman), true), NoRule, ""},
+		"true fires on true":                {interactive(moved("backlog", "review", event.ActorHuman), true), Run, "attended"},
+		"true skips false":                  {interactive(moved("backlog", "review", event.ActorHuman), false), NoRule, ""},
+		"no block matches true":             {interactive(moved("review", "done", event.ActorHuman), true), Run, "any"},
+		"no block matches false":            {interactive(moved("review", "done", event.ActorHuman), false), Run, "any"},
+		"a review fires on false":           {interactive(reviewSubmitted(event.VerdictApproved, 33), false), Run, "fix-round"},
+		"a review skips true":               {interactive(reviewSubmitted(event.VerdictApproved, 33), true), NoRule, ""},
+		"a review with no card still skips": {reviewSubmitted(event.VerdictApproved, 0), NoRule, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			m := s.Match(tc.event)
+			if m.Skip != tc.skip || m.Rule != tc.rule {
+				t.Fatalf("Match = %+v, want skip %d rule %q", m, tc.skip, tc.rule)
+			}
+		})
+	}
+}
+
+// A reload keeps a queued event only under a rule that still takes its card.
+func TestMatchRuleReadsTheInteractiveRun(t *testing.T) {
+	s := checked(t, cardRules)
+	if _, ok := s.MatchRule(interactive(moved("backlog", "ready", event.ActorHuman), true), "unattended"); ok {
+		t.Fatal("MatchRule ran an interactive card under the unattended rule")
+	}
+	if m, ok := s.MatchRule(moved("backlog", "ready", event.ActorHuman), "unattended"); !ok || m.Rule != "unattended" {
+		t.Fatalf("MatchRule = %+v, %v", m, ok)
+	}
+}
+
+func TestParseRefusesAMisplacedCard(t *testing.T) {
+	rule := func(fields string) string {
+		return "projects:\n  loupe:\n    dir: {dir}\nrules:\n  - " + strings.ReplaceAll(strings.TrimSpace(fields), "\n", "\n    ") + "\n"
+	}
+	for name, tc := range map[string]struct {
+		body string
+		want string
+	}{
+		"card on a generic type":     {rule("on: board.card_created\nproject: loupe\ncard:\n  interactiveRun: false\nprompt: x"), "card applies to board.card_moved and document.review_submitted only, and this rule is on board.card_created"},
+		"card on inbox.ask_closed":   {rule("on: inbox.ask_closed\nproject: loupe\nresume: true\ncard:\n  interactiveRun: true\nprompt: x"), "card applies to board.card_moved and document.review_submitted only, and this rule is on inbox.ask_closed"},
+		"a misspelt key in card":     {rule("on: board.card_moved\nproject: loupe\nto: ready\ncard:\n  interactivRun: false\nprompt: x"), "field interactivRun not found"},
+		"a value that is not a bool": {rule("on: board.card_moved\nproject: loupe\nto: ready\ncard:\n  interactiveRun: sometimes\nprompt: x"), "cannot unmarshal"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			text, _ := file(t, tc.body)
+			_, err := Parse([]byte(text), Defaults{})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
+			}
+		})
+	}
+}

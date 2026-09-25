@@ -32,6 +32,6 @@ final readonly class MoveCardHandler
             actor: $command->actor,
             column: $command->column,
             position: $command->position ?? CardMover::END_OF_COLUMN,
-        ));
+        ))->card;
     }
 }

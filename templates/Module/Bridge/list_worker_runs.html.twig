@@ -114,7 +114,11 @@
                     {% else %}
                         <span class="lp-worker-run__card">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>
                     {% endif %}
-                    <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
+                    {% if run.bridgeId is not null %}
+                        <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
+                    {% elseif item.interactive %}
+                        <span class="lp-tag lp-tag--neutral lp-worker-run__kind">{{ 'bridge.worker_runs.interactive'|trans }}</span>
+                    {% endif %}
                     <button type="button" class="lp-btn lp-btn--ghost" data-action="modal#open">{{ 'bridge.worker_runs.details.open'|trans }}</button>
                 </div>
                 <span class="lp-status-chip lp-status-chip--{{ item.state.chipModifier() }}">
@@ -126,7 +130,7 @@
                     {% if item.isResume %}<small data-worker-run-resume>{{ 'bridge.worker_runs.resume'|trans({'%index%': run.resumeIndex, '%cap%': run.resumeCap}) }}</small>{% endif %}
                 </span>
                 <span class="lp-worker-run__duration">
-                    {{ item.duration() }}
+                    {% if item.interactive and item.state.isOpen() and item.duration() is not null %}{{ 'bridge.worker_runs.running_for'|trans({'%duration%': item.duration()}) }}{% else %}{{ item.duration() }}{% endif %}
                     {% if run.exitCode is not null %}<small>{{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}</small>{% endif %}
                 </span>
                 {% set shownAt = run.startedAt ?? run.receivedAt %}

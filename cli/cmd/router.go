@@ -51,6 +51,9 @@ type router struct {
 	health  *healthReporter
 	// heartbeat tells Loupe the bridge runs. A nil one sends nothing.
 	heartbeat *heartbeater
+	// hookRunner runs the hook packages on start, stop, busy and idle. A nil
+	// one runs nothing.
+	hookRunner *hookRunner
 	// checkAsk reads an ask before its session resumes, on the worker goroutine
 	// and never behind the report queue. A nil one resumes with no check.
 	checkAsk     func(ctx context.Context, handle, askID string) (api.AskState, error)
@@ -91,6 +94,8 @@ type router struct {
 	// agent's event started. An entry must outlive its workers to hold the cap,
 	// so it stays until a person acts: one small map per card agents ran on.
 	chains map[string]map[string]int
+	// busy is the last busy or idle the hook runner got. The bridge starts idle.
+	busy   bool
 	active int
 	closed bool
 	// stopped closes at shutdown, so a resume that waits wakes at once.
@@ -474,6 +479,7 @@ func (r *router) dropDeadLocked(dead []rules.Dead) ([]rules.Dead, []pending) {
 	if released {
 		dropped = append(dropped, r.dispatchLocked()...)
 	}
+	r.noteBusyLocked()
 
 	return dead, dropped
 }
@@ -670,6 +676,7 @@ func (r *router) dispatch() {
 // card runs one worker, because two agents in one checkout undo each other.
 // Pop and start share the lock, or two finishing workers could reorder starts.
 func (r *router) dispatchLocked() []pending {
+	defer r.noteBusyLocked()
 	if r.shut() {
 		dropped := r.queue
 		r.queue = nil
@@ -727,6 +734,26 @@ func (r *router) dispatchLocked() []pending {
 	}
 
 	return nil
+}
+
+// noteBusyLocked hands busy or idle to the hook runner when the bridge turns
+// busy or idle. A card that waits in the queue or holds its key makes it busy.
+// A shut router hands nothing, so only stop follows a shutdown. The caller
+// holds mu.
+func (r *router) noteBusyLocked() {
+	if r.shut() {
+		return
+	}
+	busy := len(r.running) > 0 || len(r.queue) > 0
+	if busy == r.busy {
+		return
+	}
+	r.busy = busy
+	if busy {
+		r.hookRunner.fire(hookBusy)
+	} else {
+		r.hookRunner.fire(hookIdle)
+	}
 }
 
 // hold reserves a card key. The caller holds mu.

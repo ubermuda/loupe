@@ -6,6 +6,7 @@ namespace App\Tests\Module\Bridge\View;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Module\Project\Entity\Project;
@@ -91,6 +92,36 @@ final class WorkerRunListItemTest extends TestCase
     public function test_a_run_with_no_result_fields_has_none_to_show(): void
     {
         self::assertSame([], new WorkerRunListItem($this->queuedRun(), new \DateTimeImmutable(), [])->resultFields());
+    }
+
+    public function test_only_a_running_interactive_run_can_be_closed(): void
+    {
+        $now = new \DateTimeImmutable();
+        $open = $this->interactiveRun(WorkerRunState::Running);
+        $closed = $this->interactiveRun(WorkerRunState::Closed);
+        $worker = $this->queuedRun();
+        $worker->markRunning(Uuid::v4(), $now);
+
+        self::assertTrue(new WorkerRunListItem($open, $now, [])->interactive);
+        self::assertTrue(new WorkerRunListItem($open, $now, [])->closable);
+        self::assertTrue(new WorkerRunListItem($closed, $now, [])->interactive);
+        self::assertFalse(new WorkerRunListItem($closed, $now, [])->closable);
+        self::assertFalse(new WorkerRunListItem($worker, $now, [])->interactive);
+        self::assertFalse(new WorkerRunListItem($worker, $now, [])->closable);
+    }
+
+    private function interactiveRun(WorkerRunState $state): WorkerRun
+    {
+        return new WorkerRun(
+            project: new Project(new User('Alice A', 'alice@example.com', 'x'), 'My project'),
+            bridgeId: null,
+            cardId: Uuid::v7(),
+            cardNumber: 7,
+            ruleName: 'loupe:product-design',
+            state: $state,
+            startedAt: new \DateTimeImmutable('2026-09-23 10:00:00'),
+            kind: WorkerRunKind::Interactive,
+        );
     }
 
     private function queuedRun(): WorkerRun

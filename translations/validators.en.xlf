@@ -15,6 +15,12 @@
                 <target>The password fields must match.</target>
             </trans-unit>
 
+            <!-- Bridge heartbeat -->
+            <trans-unit id="bridge.heartbeat.validator.hook_run_date">
+                <source>bridge.heartbeat.validator.hook_run_date</source>
+                <target>This value is not a valid date.</target>
+            </trans-unit>
+
         </body>
     </file>
 </xliff>

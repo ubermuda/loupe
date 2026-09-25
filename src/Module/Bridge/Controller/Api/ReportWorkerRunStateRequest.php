@@ -103,7 +103,10 @@ final class ReportWorkerRunStateRequest
     {
         return array_values(array_map(
             static fn (WorkerRunState $state): string => $state->value,
-            array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => !$state->isInferred()),
+            array_filter(
+                WorkerRunState::cases(),
+                static fn (WorkerRunState $state): bool => !$state->isInferred() && WorkerRunState::Closed !== $state,
+            ),
         ));
     }
 

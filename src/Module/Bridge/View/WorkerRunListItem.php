@@ -6,6 +6,7 @@ namespace App\Module\Bridge\View;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 
 /** One row of the worker run list, with the duration the row shows that the entity does not hold. */
@@ -15,6 +16,11 @@ final readonly class WorkerRunListItem
 
     /** Null when the run never started, or closed with no reported end. */
     public ?int $durationSeconds;
+
+    public bool $interactive;
+
+    /** A person may close a running interactive session, and nothing else. */
+    public bool $closable;
 
     /**
      * @param \DateTimeImmutable         $now     the end of a run that is still open
@@ -26,6 +32,8 @@ final readonly class WorkerRunListItem
         public array $history,
     ) {
         $this->state = $run->state;
+        $this->interactive = WorkerRunKind::Interactive === $run->kind;
+        $this->closable = $this->interactive && WorkerRunState::Running === $run->state;
         $end = $run->state->isOpen() ? $now : $run->endedAt;
         $this->durationSeconds = null === $run->startedAt || null === $end
             ? null

@@ -10,6 +10,9 @@ card enters (`to`), and optionally the column slug it leaves (`from`). The first
 rule in file order that matches starts a `claude -p` worker with that rule's
 prompt.
 
+A rule can also set `card: { interactiveRun: false }`. It then skips a card
+that has an open interactive run, such as the move that `card_run_open` makes.
+
 A rule's `maxChain`, 3 by default, caps the runs in a row that agents' moves
 start for one card with that rule. A move by a person resets the count.
 

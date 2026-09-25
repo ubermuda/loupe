@@ -16,6 +16,7 @@ use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -41,10 +42,11 @@ final readonly class UpdateCardHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private EventDispatcherInterface $events,
+        private InteractiveRuns $interactiveRuns,
     ) {
     }
 
-    public function __invoke(UpdateCardCommand $command): Card
+    public function __invoke(UpdateCardCommand $command): UpdateCardView
     {
         $card = $command->card;
 
@@ -100,11 +102,20 @@ final readonly class UpdateCardHandler
             if (null !== $relatedCards && $this->cardLinkSync->anyCardGone($relatedCards)) {
                 return self::LINKED_CARD_GONE;
             }
+
             // A rank is a move of its own: a card dropped elsewhere in the
             // column it already sits in does not change its column.
             $move = $column !== $card->column || null !== $command->position
                 ? $this->mover->move($card, $column, $command->position)
                 : null;
+
+            // After the move, which closes the runs of a card that changes
+            // column, so the run this update opens is not the one closed.
+            $openedRun = null;
+            if (null !== $command->openInteractiveRun) {
+                $cardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
+                $openedRun = $this->interactiveRuns->open($card->project, $cardId, $card->number, $command->openInteractiveRun->sessionId, $command->openInteractiveRun->name);
+            }
 
             // After the move, which must read the card as the database holds
             // it. A field the command carries may hold what the card already
@@ -149,7 +160,7 @@ final readonly class UpdateCardHandler
                 $this->events->dispatch(new CardMoved($card, $move, $command->actor));
             }
 
-            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged);
+            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $openedRun);
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
@@ -180,8 +191,9 @@ final readonly class UpdateCardHandler
             || null !== $command->documentIds
             || null !== $command->relatedCards;
 
+        $view = new UpdateCardView($card, $outcome->openedRun);
         if (!$changedSomething) {
-            return $card;
+            return $view;
         }
 
         // `moved` names the paired board.card_moved record, which holds the
@@ -204,6 +216,6 @@ final readonly class UpdateCardHandler
             new AuditSubject('card', (string) $card->id),
         );
 
-        return $card;
+        return $view;
     }
 }
