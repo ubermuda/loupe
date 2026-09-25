@@ -660,6 +660,59 @@ func TestAQueuedResumeCrossesAHandover(t *testing.T) {
 	}
 }
 
+// An adopted run that fails keeps its resume limit across a handover, so it
+// waits and resumes its session rather than giving up at once.
+func TestAnAdoptedFailedRunWaitsAndResumes(t *testing.T) {
+	dir := endedRunDir(t, "", 1)
+	live := adoptedRun(dir).Live[0]
+	p := pending{key: live.Key, rule: live.Rule, event: live.Event, runID: live.RunID, seq: 5, continues: "run-8", resumeIndex: 1, maxResumes: 2, column: "next"}
+	p.spec.sessionID = live.SessionID
+	h1 := newHarness(t)
+	h1.router.mu.Lock()
+	h1.router.hold(p.key)
+	h1.router.active++
+	h1.router.trackLocked(liveRun{p: p, began: time.Now(), proc: workerProc{dir: dir}})
+	h1.router.mu.Unlock()
+	st := roundTrip(t, h1.router.freeze())
+
+	h2 := newHarness(t)
+	rec := h2.states()
+	waited := make(chan time.Duration, 1)
+	h2.router.after = func(d time.Duration) <-chan time.Time {
+		waited <- d
+
+		return now(d)
+	}
+	h2.worker.result = finishedRun
+	h2.router.adopt(st)
+	h2.router.wg.Wait()
+
+	select {
+	case d := <-waited:
+		if d != resumeDelay {
+			t.Fatalf("the resume waited %s, want %s", d, resumeDelay)
+		}
+	default:
+		t.Fatal("the failed run resumed with no wait")
+	}
+	calls := h2.worker.recorded()
+	if len(calls) != 1 || !calls[0].resume || calls[0].sessionID != testSession || calls[0].prompt != directive.RenderResumeUnfinished("exit code 1") {
+		t.Fatalf("workers = %+v", calls)
+	}
+	sent := rec.states()
+	if got := finalOf(t, sent, "run-9"); got.State != api.RunFailed {
+		t.Fatalf("the adopted run ended as %+v", got)
+	}
+	ids := runIDs(sent)
+	if len(ids) != 2 {
+		t.Fatalf("runs = %v", ids)
+	}
+	queued := ofRun(sent, ids[1])[0].report
+	if queued.State != api.RunQueued || queued.Continues != "run-9" || queued.ResumeIndex != 2 || queued.ResumeCap != 2 || queued.CardColumn != "next" {
+		t.Fatalf("the resume queued as %+v", queued)
+	}
+}
+
 // A resume gate holds a card and no slot. A handover waits for it, because the
 // frozen state could not name the resume it is about to queue.
 func TestDrainWaitsForAResumeGate(t *testing.T) {
