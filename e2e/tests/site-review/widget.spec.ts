@@ -8,8 +8,8 @@
  * and keeps the grant in session storage. The other thing the widget keeps
  * there is which corner the launcher sits in.
  *
- * There is no send step. Every saved comment POSTs to
- * /api/site-review/comments and is Pending — live for the agent — from that
+ * There is no send step. Every saved comment POSTs to /api/board/feedback,
+ * which files it on a card, and is Pending — live for the agent — from that
  * moment; the list rehydrates from GET /api/site-review/review on load, edits
  * PATCH and deletes DELETE. Only a Pending comment is still editable, so once
  * the agent addresses one the widget's PATCH/DELETE 404s by design.
@@ -27,7 +27,12 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { signWidgetIn, siteReviewGrantKey, suppressToolbar } from '../fixtures';
+import {
+    signWidgetIn,
+    siteReviewGrantKey,
+    siteReviewModeKey,
+    suppressToolbar,
+} from '../fixtures';
 import { coverageScaled } from '../timeouts';
 
 // Guest flow — no session cookie should be carried in.
@@ -61,7 +66,19 @@ const keepHarnessUrl = (): string => `${harnessUrl()}&keep=1`;
  * The first harness call is a plain request rather than a navigation, because the
  * grant has to be in session storage before the widget script runs.
  */
-const registerUser = async (page: Page): Promise<string> => {
+type NoteMode = { mode: string; cardId: string | null };
+
+/**
+ * Most tests are about something other than where notes go, so the widget
+ * starts with a card per note, as a reviewer who chose it earlier would.
+ * Pass null to start with no choice, which shows the mode picker.
+ */
+const PER_NOTE: NoteMode = { mode: 'per-note', cardId: null };
+
+const registerUser = async (
+    page: Page,
+    mode: NoteMode | null = PER_NOTE,
+): Promise<string> => {
     await suppressToolbar(page);
     const email = e2eEmail();
     const registerResponse = await page.request.post(
@@ -90,6 +107,18 @@ const registerUser = async (page: Page): Promise<string> => {
     const projectId = /data-project="([^"]+)"/.exec(await harness.text())?.[1];
     expect(projectId).toBeTruthy();
     await signWidgetIn(page, projectId!);
+    if (mode !== null) {
+        await page.addInitScript(
+            ([key, value]) => {
+                try {
+                    window.localStorage.setItem(key, value);
+                } catch {
+                    /* the widget then asks where notes go */
+                }
+            },
+            [siteReviewModeKey(projectId!), JSON.stringify(mode)] as const,
+        );
+    }
 
     return projectId!;
 };
@@ -98,8 +127,11 @@ const registerUser = async (page: Page): Promise<string> => {
  * Seed the user, sign the widget in and load the harness. Every load clears
  * the site's comments.
  */
-const openHarness = async (page: Page): Promise<string> => {
-    const projectId = await registerUser(page);
+const openHarness = async (
+    page: Page,
+    mode: NoteMode | null = PER_NOTE,
+): Promise<string> => {
+    const projectId = await registerUser(page, mode);
     await page.goto(harnessUrl());
 
     return projectId;
@@ -114,8 +146,10 @@ const clickSave = async (page: Page): Promise<void> => {
     await Promise.all([
         page.waitForResponse(
             (response) =>
-                response.url().includes('/api/site-review/comments') &&
-                ['POST', 'PATCH'].includes(response.request().method()),
+                (response.url().includes('/api/board/feedback') &&
+                    response.request().method() === 'POST') ||
+                (response.url().includes('/api/site-review/comments/') &&
+                    response.request().method() === 'PATCH'),
         ),
         page.getByRole('button', { name: 'Save' }).click(),
     ]);
@@ -326,6 +360,153 @@ test('saving a comment confirms it is live', async ({ page }) => {
     await expect(page.locator('#lp-main')).toBeVisible();
 });
 
+/** The target the next feedback save sends, read from the request itself. */
+const nextSaveTarget = async (page: Page): Promise<Record<string, unknown>> => {
+    const [request] = await Promise.all([
+        page.waitForRequest(
+            (request) =>
+                request.url().includes('/api/board/feedback') &&
+                request.method() === 'POST',
+        ),
+        clickSave(page),
+    ]);
+
+    return request.postDataJSON().target;
+};
+
+const startNote = async (page: Page, body: string): Promise<void> => {
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    await page.getByPlaceholder(/Describe the issue/).fill(body);
+};
+
+const HARNESS_REVIEW_TITLE = 'Review: /dev/site-review-harness';
+
+test('one card per review is chosen once and remembered after a reload', async ({
+    page,
+}) => {
+    await openHarness(page, null);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await startNote(page, 'The first note of this review');
+
+    // No choice yet, so the modes come before the first note can be saved.
+    const picker = page.locator('#lp-picker');
+    await expect(picker).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await picker
+        .getByRole('button', { name: 'One card for this review' })
+        .click();
+    await expect(picker.getByLabel('New card title')).toHaveValue(
+        HARNESS_REVIEW_TITLE,
+    );
+    const [created] = await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.url().endsWith('/api/board/cards') &&
+                response.request().method() === 'POST',
+        ),
+        picker.getByRole('button', { name: 'Create', exact: true }).click(),
+    ]);
+    const card = await created.json();
+    await expect(picker).toBeHidden();
+    const target = page.locator('#lp-context [data-role="picker"]');
+    await expect(target).toHaveText(card.label);
+
+    expect(await nextSaveTarget(page)).toEqual({ cardId: card.cardId });
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
+
+    // The choice outlives the page, and the boot load names the card again.
+    await page.goto(keepHarnessUrl());
+    await page.getByRole('button', { name: 'Review' }).click();
+    await startNote(page, 'A second note, after the reload');
+    await expect(picker).toBeHidden();
+    await expect(target).toHaveText(card.label);
+    expect(await nextSaveTarget(page)).toEqual({ cardId: card.cardId });
+    await expect(page.locator('#lp-head-count')).toHaveText('2');
+});
+
+test('a card per note names the card each note became', async ({ page }) => {
+    await openHarness(page, null);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await startNote(page, 'The logo is cut off');
+    await page
+        .locator('#lp-picker')
+        .getByRole('button', { name: 'A new card for each note' })
+        .click();
+    await expect(page.locator('#lp-context [data-role="picker"]')).toHaveText(
+        'A new card for each note',
+    );
+
+    expect(await nextSaveTarget(page)).toEqual({ newCard: {} });
+    const lastCard = page.locator('#lp-last-card');
+    await expect(lastCard).toContainText(/^Saved as #\d+ The logo is cut off$/);
+    await expect(lastCard.getByRole('link')).toHaveAttribute(
+        'href',
+        /\/board\/cards\//,
+    );
+});
+
+test('epic mode files each note as a card under the epic', async ({ page }) => {
+    await openHarness(page, null);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await startNote(page, 'The pricing table overflows');
+    const picker = page.locator('#lp-picker');
+    await picker
+        .getByRole('button', { name: 'A card for each note, under an epic' })
+        .click();
+    await expect(picker.getByLabel('New card title')).toHaveValue(
+        HARNESS_REVIEW_TITLE,
+    );
+    const [created] = await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.url().endsWith('/api/board/cards') &&
+                response.request().method() === 'POST',
+        ),
+        picker.getByRole('button', { name: 'Create', exact: true }).click(),
+    ]);
+    const epic = await created.json();
+    await expect(page.locator('#lp-context [data-role="picker"]')).toHaveText(
+        `Cards under ${epic.label}`,
+    );
+
+    expect(await nextSaveTarget(page)).toEqual({
+        newCard: { parentCardId: epic.cardId },
+    });
+    await expect(page.locator('#lp-last-card')).toContainText(
+        'The pricing table overflows',
+    );
+});
+
+test('with the board off the composer says so and saves nothing', async ({
+    page,
+}) => {
+    await registerUser(page);
+    // Mocked rather than switched off: this file runs in parallel, and the
+    // board flag is global to the instance.
+    await page.route(REVIEW_ROUTE, async (route) => {
+        const response = await route.fetch();
+        await route.fulfill({
+            response,
+            json: { ...(await response.json()), feedbackAvailable: false },
+        });
+    });
+    await page.goto(harnessUrl());
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+
+    await expect(page.locator('#lp-context')).toHaveText(
+        'Turn on the board to use site review',
+    );
+    await expect(page.getByPlaceholder(/Describe the issue/)).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+});
+
 test('a keep=1 reload rehydrates the live comments into pins and list', async ({
     page,
 }) => {
@@ -393,7 +574,7 @@ for (const changeDraft of [false, true]) {
         const textarea = page.getByPlaceholder(/Describe the issue/);
         await textarea.fill('Persisted before the connection drops');
         const deliveryIds: string[] = [];
-        await page.route('**/api/site-review/comments', async (route) => {
+        await page.route('**/api/board/feedback', async (route) => {
             deliveryIds.push(route.request().postDataJSON().deliveryId);
             if (deliveryIds.length === 1) {
                 const response = await route.fetch();
@@ -454,7 +635,7 @@ test('a failed save keeps the text in the composer so it can be retried', async 
 
     // Make the backend reject the next save.
     let calls = 0;
-    await page.route('**/api/site-review/comments', (route) => {
+    await page.route('**/api/board/feedback', (route) => {
         calls += 1;
         void route.fulfill({
             status: 500,
@@ -666,7 +847,7 @@ test('a grant revoked mid-session signs the reviewer out and clears the on-page 
     await expect(page.locator('.pin')).toHaveText('1');
 
     // The grant is revoked between load and the next save: that POST 401s.
-    await page.route('**/api/site-review/comments', (route) => {
+    await page.route('**/api/board/feedback', (route) => {
         void route.fulfill({
             status: 401,
             contentType: 'application/json',
@@ -768,10 +949,10 @@ test('deleting a list comment uses a sliding confirm overlay', async ({
     // Confirming actually deletes the comment (a DELETE to the server; the
     // count only drops once it lands).
     await row.locator('.lp-del').click();
-    await Promise.all([
+    const [deleted] = await Promise.all([
         page.waitForResponse(
             (response) =>
-                response.url().includes('/api/site-review/comments') &&
+                response.url().includes('/api/board/feedback/') &&
                 response.request().method() === 'DELETE',
         ),
         row
@@ -779,6 +960,9 @@ test('deleting a list comment uses a sliding confirm overlay', async ({
             .getByRole('button', { name: 'Delete' })
             .click(),
     ]);
+    // A per-note save made that card, and nobody touched it since, so it
+    // goes with its note rather than staying on the board empty.
+    expect(await deleted.json()).toEqual({ cardDeleted: true });
     await expect(page.locator('#lp-head-count')).toHaveText('1');
 });
 
@@ -1074,7 +1258,7 @@ test('a comment can be anchored to several elements at once', async ({
     page.on('request', (request) => {
         if (
             request.method() === 'POST' &&
-            request.url().includes('/api/site-review/comments')
+            request.url().includes('/api/board/feedback')
         ) {
             saved = JSON.parse(request.postData() ?? '{}');
         }
@@ -2061,7 +2245,7 @@ test('a comment can quote a run of text inside an element', async ({
     page.on('request', (request) => {
         if (
             request.method() === 'POST' &&
-            request.url().includes('/api/site-review/comments')
+            request.url().includes('/api/board/feedback')
         ) {
             saved = JSON.parse(request.postData() ?? '{}');
         }
