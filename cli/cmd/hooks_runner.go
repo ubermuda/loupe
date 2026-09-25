@@ -69,11 +69,11 @@ type hookKey struct {
 	id, sha, event string
 }
 
-// hookJob is one event in the inbox. A job with only set runs those hooks
-// rather than the current list.
+// hookJob is one event in the inbox, with the hooks it runs. The list is the
+// one that held when the event fired, so a later reload does not change it.
 type hookJob struct {
 	event string
-	only  []hooks.Hook
+	hooks []hooks.Hook
 }
 
 // hookRun is how one run of a hook ended.
@@ -123,7 +123,7 @@ func (hr *hookRunner) fireLocked(event string) {
 	if hr.stopped {
 		return
 	}
-	hr.inbox = append(hr.inbox, hookJob{event: event})
+	hr.inbox = append(hr.inbox, hookJob{event: event, hooks: hr.hooks})
 	select {
 	case hr.wake <- struct{}{}:
 	default:
@@ -162,7 +162,7 @@ func (hr *hookRunner) setHooks(list []hooks.Hook) {
 		}
 	}
 	if len(removed) > 0 && hr.started && !hr.stopped {
-		hr.inbox = append(hr.inbox, hookJob{event: hookStop, only: removed})
+		hr.inbox = append(hr.inbox, hookJob{event: hookStop, hooks: removed})
 		select {
 		case hr.wake <- struct{}{}:
 		default:
@@ -252,11 +252,7 @@ func (hr *hookRunner) next() (event string, list []hooks.Hook, ok, wait bool) {
 	}
 	job := hr.inbox[0]
 	hr.inbox = hr.inbox[1:]
-	if job.only != nil {
-		return job.event, job.only, true, false
-	}
-
-	return job.event, hr.hooks, true, false
+	return job.event, job.hooks, true, false
 }
 
 func (hr *hookRunner) loop() {

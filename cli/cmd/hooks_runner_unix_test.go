@@ -269,6 +269,27 @@ func TestARunSendsTheRowsToTheHeartbeat(t *testing.T) {
 	})
 }
 
+// An event runs the hooks that held when it fired. A package a reload adds
+// while that event waits does not run it.
+func TestAQueuedEventKeepsTheHooksOfItsFiring(t *testing.T) {
+	script := "echo \"$1\" >> \"$LOUPE_HOOK_STATE_DIR/log\"\n"
+	first := scriptHook(t, "acme/first", script, hookBusy, hookStop)
+	added := scriptHook(t, "acme/added", script, hookBusy, hookStop)
+	hr := newHookRunner([]hooks.Hook{first}, testBridgeID, newBridgeLogger(&syncBuffer{}))
+
+	hr.fire(hookBusy)
+	hr.setHooks([]hooks.Hook{first, added})
+	hr.start()
+	hr.stop()
+
+	if got := readFile(t, filepath.Join(first.StateDir, "log")); got != "busy\nstop\n" {
+		t.Fatalf("first ran:\n%s", got)
+	}
+	if got := readFile(t, filepath.Join(added.StateDir, "log")); got != "stop\n" {
+		t.Fatalf("added ran:\n%s", got)
+	}
+}
+
 // A reload that removes a package runs its stop once, so it can release what
 // busy took. A package the reload keeps runs stop only when the bridge stops.
 func TestAReloadRunsStopOnARemovedPackage(t *testing.T) {
