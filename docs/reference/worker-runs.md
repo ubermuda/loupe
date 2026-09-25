@@ -30,8 +30,11 @@ the `site-review` or the `mcp` scope.
 | `running` | the bridge | the worker process started |
 | `waiting-for-person` | the bridge | the rule's `maxChain` cap stopped the run. A move by a person starts a new run |
 | `dropped` | the bridge | the bridge stopped, a rule died, or a reload removed the rule, while the run still waited |
-| `succeeded` | the bridge | the worker exited with code 0, and its output held a result line |
-| `no-result` | the bridge | the worker exited with code 0, and its output held no result line |
+| `succeeded` | the bridge | the worker exited with code 0 with a structured result. A result from a new bridge has the status `finished` |
+| `no-result` | the bridge | the worker exited with code 0, with no structured result |
+| `unfinished` | the bridge | the worker exited with code 0 and the status `unfinished`: its work still runs or remains |
+| `blocked` | the bridge | the worker exited with code 0 and the status `blocked`: it cannot go on without a person |
+| `gave-up` | the bridge | the run did not finish, and the bridge already ran every resume its rule allows |
 | `failed` | the bridge | the worker exited with any other code |
 | `not-started` | the bridge | the worker process never started |
 | `timed-out` | the server | the bridge stopped sending its heartbeat while the run was open |
@@ -39,13 +42,18 @@ the `site-review` or the `mcp` scope.
 | `closed` | the server | an interactive run ended. See [Interactive sessions](../using/worker-runs.md#interactive-sessions) |
 
 `queued`, `resumed` and `running` are open states. Every other state closes the
-run. `succeeded`, `no-result`, `failed` and `not-started` are the outcomes, and
-only an outcome carries an exit code, a result flag, a failure reason and an
-output.
+run. `succeeded`, `no-result`, `unfinished`, `blocked`, `gave-up`, `failed`
+and `not-started` are the outcomes. Only an outcome carries an exit code, a
+result flag, a result status, result fields, a failure reason and an output.
 
-A result line is a line of the output that starts with `STAGE RESULT:`. Every
-worker prompt asks for one. A worker that exits with code 0 and prints none may
-have stopped before its work was done.
+A structured result is the JSON object that `claude` returns for the schema the
+bridge passes. It holds a `status` of `finished`, `blocked` or `unfinished`, a
+`summary`, and any optional fields the rule asks for. A worker that exits with
+code 0 and gives none may have stopped before its work was done.
+
+A bridge resumes a run that did not finish, on the same session, up to the cap
+of its rule. Each resume is a new run, which names the run it continues. The
+runs of one card that follow each other this way form a series.
 
 ## Reporting a run state
 
@@ -75,7 +83,7 @@ order.
 | Field | Rule |
 |---|---|
 | `bridgeId` | required. A uuid the bridge generates once and keeps. It points at no table, so any uuid is accepted |
-| `state` | required. One of the eleven states the bridge sets. The server refuses `timed-out`, `lost` and `closed` |
+| `state` | required. One of the fourteen states the bridge sets. The server refuses `timed-out`, `lost` and `closed` |
 | `at` | required. When the run reached the state, on the bridge clock, as an ISO 8601 timestamp |
 | `cardId` | required. The uuid of the card the run is for. It is a plain value, so a deleted card leaves its run history intact |
 | `cardNumber` | required. The short number the card shows, counting from 1 inside the project, at most 2147483647 |
@@ -83,14 +91,31 @@ order.
 | `sessionId` | the uuid of the Claude Code session the worker runs as. Required for `running` |
 | `startedAt` | when the worker started, on the bridge clock. Required for `running` |
 | `endedAt` | when the worker ended, on the bridge clock. Required for an outcome, and it cannot be before `startedAt` |
-| `exitCode` | the process exit code, between -255 and 255. `succeeded` and `no-result` need 0, `failed` needs any other code, and `not-started` needs `null` |
-| `hasResult` | whether the output held a result line. `no-result` needs `false`, and `succeeded` refuses `false`. Send `null` for `not-started`, because a value is refused when `exitCode` is `null` |
+| `exitCode` | the process exit code, between -255 and 255. `succeeded`, `no-result`, `unfinished` and `blocked` need 0, `failed` needs any other code, and `not-started` needs `null` |
+| `hasResult` | whether the worker gave a structured result. `no-result` needs `false`, and `succeeded`, `unfinished` and `blocked` refuse `false`. Send `null` for `not-started`, because a value is refused when `exitCode` is `null` |
+| `resultStatus` | the `status` of the structured result: `finished`, `blocked` or `unfinished`. It needs `hasResult: true`. `blocked` and `unfinished` need the state of the same name, and `succeeded` takes `finished` or `null` |
 | `failureReason` | why the process never started, at most 1000 characters. Required for `not-started`, and refused with an exit code |
 | `output` | what the worker printed, at most 4000 characters. Required for an outcome, and it may be empty |
 | `askId` | the ask a `resumed` run continues, at most 100 characters |
 | `replacedBy` | the `runId` of the run that replaced a `replaced` run, a uuid |
 | `maxChain` | the cap that stopped a `waiting-for-person` run, a positive integer |
 | `reason` | why a run was `dropped`: `shutdown`, `rule_dead` or `reload` |
+| `resultFields` | the optional fields of the structured result, as a JSON object of at most 4000 bytes. A list is refused |
+| `resumeSkipped` | why the bridge did not resume a run that did not finish, at most 50 characters. The bridge sends `card_moved`, `shutdown`, `rule_dead` or `reload` |
+| `continues` | the `runId` of the run that this run resumes, a uuid |
+| `resumeIndex` | the place of this run in its series, between 0 and 32767. The bridge sends none for the first run |
+| `resumeCap` | the `maxResumes` cap of the series, between 0 and 32767 |
+| `cardColumn` | the slug of the column that started the series, at most 2000 characters |
+
+A `gave-up` report needs the exit code, the result flag and the status of the
+outcome the bridge would have resumed: `failed`, `no-result` or `unfinished`.
+So the run keeps the fault it had.
+
+The server stores `continues`, `resumeIndex`, `resumeCap` and `cardColumn` from
+the report that creates the run, and ignores them on a later report. It resolves
+`continues` to a run of the same project and bridge, and stores no link for an
+unknown `runId`. It stores `resultStatus`, `resultFields` and `resumeSkipped`
+from an outcome only.
 
 The server checks the shape of `askId`, `replacedBy`, `maxChain` and `reason`,
 and it does not store them.
@@ -241,7 +266,7 @@ follows the same rules as above.
 | `startedAt` | when the worker started, on the bridge clock, as an ISO 8601 timestamp |
 | `endedAt` | when the worker finished, on the bridge clock. It cannot be before `startedAt`, because both come from the same clock |
 | `exitCode` | the process exit code, between -255 and 255. Send `null` when the process never started |
-| `hasResult` | optional. `true` when the output held a line that starts with `STAGE RESULT:`, `false` when it did not. Send `null` when the process never started, because a non-null value is refused when `exitCode` is `null` |
+| `hasResult` | optional. `true` when the worker gave a structured result, `false` when it did not. Send `null` when the process never started, because a non-null value is refused when `exitCode` is `null` |
 | `failureReason` | why the process never started, at most 1000 characters. Required when `exitCode` is `null`, and refused when it is not |
 | `output` | what the worker printed, at most 4000 characters. It may be empty |
 

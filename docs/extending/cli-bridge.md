@@ -6,7 +6,8 @@ description: "A Go binary that runs a Claude Code worker for each board event a 
 `cli/` holds a small Go binary that closes the loop: it watches your Loupe
 board and runs a non-interactive Claude Code worker for each event that a rule
 in your rule file matches. The worker is `claude -p --session-id <uuid> -- <prompt>`, with a new session id for each worker. It reads the card
-through the MCP, prints its answer and exits. The bridge reports the exit code.
+through the MCP, prints its answer and exits. The bridge reports the exit code
+and the worker's structured result, and resumes a worker that did not finish.
 A rule on `inbox.ask_closed` resumes the session of a worker that asked the
 owner a question, as [Resume action](#resume-action) describes. A rule on
 `document.review_submitted` can start a fix round on the card of a reviewed
@@ -59,6 +60,7 @@ itself. There is no static token, so a machine where nobody can open a browser
 cannot run the bridge. See [Connected apps](../using/connected-apps.md) for the
 device flow. The token reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
+`GET /api/projects/{handle}/board/cards/{cardId}`,
 `PUT /api/projects/{handle}/worker-runs/{runId}`,
 `POST /api/projects/{handle}/worker-runs`,
 `PUT /api/bridges/{bridgeId}/runs`,
@@ -92,6 +94,15 @@ events start for one card. That stops two rules from moving a card back and
 forth for ever. A move by a person resets the count. An event of a type no rule
 names resets nothing, because the bridge drops it unread.
 
+Each rule's `maxResumes`, two by default, caps the resumes of a run that did not
+finish. A run did not finish when it exited with a non-zero code, gave no
+structured result, or reported the status `unfinished`. The bridge resumes the
+same session with a fixed prompt, and the resume takes the place of the run in
+the queue. A failed run waits 60 seconds first. Before each resume, the bridge
+reads the card through the [card endpoint](#card-endpoint). It skips the resume
+when the card left the column that started the run, and resumes when the read
+fails. A run at the cap ends as `gave-up`. `maxResumes: 0` turns resumes off.
+
 A column rename, a column delete or a project rename can take away a slug a rule
 names. The bridge reads `board.column_renamed`, `board.column_deleted` and
 `project.renamed` for that reason, and marks each rule on the old slug dead. A
@@ -124,10 +135,13 @@ event carried. Each log line below goes with the state the bridge reports:
 | `worker_queued` | `queued` |
 | `worker_coalesced` | `replaced` for the run that waited, and `queued` for the new run that takes its place. The new run also sends `resumed` when it replaces a resume that passed its check |
 | `chain_capped` | `waiting-for-person` |
-| `resume_skipped` | `skipped` |
-| `worker_started` | `running`. A resume sends `resumed` first |
-| `worker_finished` | `succeeded` for exit code 0, and `failed` for any other code |
+| `resume_skipped` with an `ask` | `skipped` |
+| `resume_skipped` with a `reason` | the outcome of the run that did not finish, with `resumeSkipped` set to the reason |
+| `worker_started` | `running`. The resume of an ask sends `resumed` first |
+| `worker_finished` | `succeeded`, `blocked` or `unfinished` from the status for exit code 0, and `failed` for any other code |
 | `worker_no_result` | `no-result` for exit code 0, and `failed` for any other code |
+| `worker_resuming` | the outcome of the run that did not finish, then `queued` for the resume |
+| `worker_gave_up` | `gave-up` |
 | `worker_failed` | `not-started` |
 | `queue_dropped` | `dropped`, with the reason `shutdown`, `rule_dead` or `reload` |
 
@@ -135,10 +149,19 @@ The [Worker run API](../reference/worker-runs.md#the-states-of-a-run) page says
 what each state means. The server adds `timed-out` and `lost` on its own. It
 also sets `closed` on an interactive run, which no bridge holds.
 
-A clean exit does not prove that the work finished. Every prompt asks the
-worker to end its final reply with a line that starts with `STAGE RESULT:`. The
-bridge reads the whole output for that line. A worker with no such line logs
-`worker_no_result` at `ERROR`, and its record carries `hasResult: false`.
+A clean exit does not prove that the work finished. The bridge runs each
+worker with `--output-format json` and `--json-schema`, and every prompt asks
+for a structured result. The core schema requires `status`, which is
+`finished`, `blocked` or `unfinished`, and a one-sentence `summary`. A rule's
+`resultFields` adds optional fields, each a JSON Schema fragment. A worker with
+no valid structured result logs `worker_no_result` at `ERROR`, and its record
+carries `hasResult: false`. The stage skills still print a `STAGE RESULT:`
+line, and the bridge does not read it. `cli/README.md` covers the schema and
+the resume rules in full.
+
+A server older than the `unfinished`, `blocked` and `gave-up` states refuses
+them with a 422. The bridge logs `report_failed` for that report and does not
+retry it.
 
 The bridge sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` for each worker. Without
 it, `claude -p` ends a worker 600 seconds after its main turn when a background
@@ -176,6 +199,10 @@ then sends each outcome to the old `POST /api/projects/{handle}/worker-runs`,
 which takes one report for each finished run. It counts every open state as
 delivered, and it sends no inventory. A report that already waits in the queue
 takes the fallback when it goes out, so none is lost on the switch.
+
+The old report carries no result status. An `unfinished` or `blocked` run
+therefore reads as `succeeded` there, and a `gave-up` run reads as the outcome
+of its exit code and result flag. Nothing logs this.
 
 The old endpoint keys a run by its project, its bridge, its card and the second
 it started. Two runs of one card that start inside the same second therefore
@@ -528,6 +555,34 @@ person typed comes back as typed. `project.slug` is the project's slug.
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |
 | 429 | | more than 60 reads in one minute from one token |
+
+## Card endpoint
+
+`GET /api/projects/{handle}/board/cards/{cardId}` returns the column a card is
+in now. The bridge calls it before it resumes a run that did not finish, and it
+skips the resume when the card left the column that started the run. The
+handle follows the same rules as the columns endpoint, and `cardId` is the
+card's uuid.
+
+```json
+{ "cardId": "01a0a1b2-0000-7c3d-8e4f-5a6b7c8d9e0f", "number": 42, "column": "implementation" }
+```
+
+| Field | Meaning |
+|---|---|
+| `cardId` | the card the path names |
+| `number` | the short number the card shows |
+| `column` | the slug of the card's column |
+
+| Status | Body | When |
+|---|---|---|
+| 200 | the object above | the user owns the project and the project holds the card |
+| 401 | | the request carries no token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
+| 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
+| 404 | `{"error":"card_not_found"}` | the project holds no card with that id, or `cardId` is not a uuid. A card of another project counts as none |
+| 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |
+| 429 | | more than 60 reads in one minute from one token, counted together with the columns endpoint |
 
 ## Rule health endpoint
 

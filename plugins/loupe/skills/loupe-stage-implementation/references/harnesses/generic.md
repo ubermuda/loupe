@@ -31,7 +31,7 @@ The first command must print the worktree path. The second must print the card b
 
 ## Run a long command
 
-Use the harness's background process support and poll it at least once a minute. Preserve the complete log and the exit status. Stop when the command fails.
+Use the harness's background process support and poll it in the foreground at least once a minute. Never end the turn while it runs. Preserve the complete log and the exit status. Stop when the command fails.
 
 ## Dispatch a sub-agent
 

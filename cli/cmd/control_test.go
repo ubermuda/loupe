@@ -495,7 +495,7 @@ func TestTheBridgeAnswersAReloadOnItsSocket(t *testing.T) {
 		t.Fatal(err)
 	}
 	log := &syncBuffer{}
-	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: (&fakeWorker{}).ops(), control: control, source: newReloadSource(path, rules.Defaults{}, cfg, nil)}, set)
+	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: (&fakeWorker{result: finishedRun}).ops(), control: control, source: newReloadSource(path, rules.Defaults{}, cfg, nil)}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

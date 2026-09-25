@@ -220,6 +220,14 @@ func TestParseRefusesAnInvalidFile(t *testing.T) {
 		"generic {cardId}":        {rule("on: board.card_created\nproject: loupe\nprompt: 'Card {cardId}'"), "{cardId} has no value"},
 		"generic {from}":          {rule("on: board.card_created\nproject: loupe\nprompt: 'From {from}'"), "{from} has no value"},
 		"maxChain zero":           {rule("on: board.card_moved\nproject: loupe\nto: ready\nmaxChain: 0\nprompt: x"), "maxChain must be at least 1"},
+		"result field status":     {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  status: {type: string}"), `resultFields: "status" is a core field`},
+		"result field summary":    {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  summary: {type: string}"), `resultFields: "summary" is a core field`},
+		"result field name":       {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  pr-url: {type: string}"), `resultFields: "pr-url" is not a field name`},
+		"result field digit":      {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  1st: {type: string}"), `resultFields: "1st" is not a field name`},
+		"result field scalar":     {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  pr: string"), `resultFields.pr is not a mapping`},
+		"result field null":       {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  pr:"), `resultFields.pr is not a mapping`},
+		"result field int key":    {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields:\n  pr: {enum: {1: x}}"), `resultFields.pr is not valid JSON`},
+		"result fields a list":    {rule("on: board.card_moved\nproject: loupe\nto: ready\nprompt: x\nresultFields: [pr]"), "line 9: cannot unmarshal !!seq"},
 		"duplicate names":         {"projects:\n  loupe:\n    dir: {dir}\nrules:\n  - {name: a, on: board.card_moved, project: loupe, to: ready, prompt: x}\n  - {name: a, on: board.card_moved, project: loupe, to: done, prompt: x}\n", "same name"},
 		"name hits a default":     {"projects:\n  loupe:\n    dir: {dir}\nrules:\n  - {name: \"2\", on: board.card_moved, project: loupe, to: ready, prompt: x}\n  - {on: board.card_moved, project: loupe, to: done, prompt: x}\n", "same name"},
 	} {
@@ -947,6 +955,27 @@ rules:
 			got := s.Match(reviewSubmitted(event.VerdictChangesRequested, 33)).Prompt
 			if got != "value "+want+"\n\n"+directive.Footer {
 				t.Fatalf("prompt = %q", got)
+			}
+		})
+	}
+}
+
+// Every rule asks claude for the core result, and a rule's resultFields add
+// optional properties to it. Marshal sorts the keys, so the schema is stable.
+func TestParseBuildsTheResultSchema(t *testing.T) {
+	core := `"status":{"enum":["finished","blocked","unfinished"],"type":"string"},"summary":{"type":"string"}`
+	extras := "    to: ready\n    resultFields:\n      prUrl: {type: string}\n      card_count:\n        type: integer\n        minimum: 1\n"
+	for name, tc := range map[string]struct{ body, want string }{
+		"no extras": {oneRule, `{"properties":{` + core + `},"required":["status","summary"],"type":"object"}`},
+		"extras": {
+			strings.Replace(oneRule, "    to: ready\n", extras, 1),
+			`{"properties":{"card_count":{"minimum":1,"type":"integer"},"prUrl":{"type":"string"},` + core + `},"required":["status","summary"],"type":"object"}`,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			m := checked(t, tc.body).Match(moved("backlog", "ready", event.ActorHuman))
+			if m.Skip != Run || m.Schema != tc.want {
+				t.Fatalf("Schema = %s\nwant     %s", m.Schema, tc.want)
 			}
 		})
 	}

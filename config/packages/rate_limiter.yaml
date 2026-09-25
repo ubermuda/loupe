@@ -36,8 +36,8 @@ framework:
 
         # The agent_* limiters below share one shape: 60 requests a minute per
         # token. The anchor sits on the first of them, and the others merge it.
-        # Bounds the bridge's column reads, a GET. A bridge reads each mapped
-        # project once at start.
+        # Bounds the bridge's board reads, both GETs. A bridge reads the columns
+        # of each mapped project once at start, and a card before each resume.
         agent_board_columns: &agent_per_token
             policy: 'sliding_window'
             limit: 60

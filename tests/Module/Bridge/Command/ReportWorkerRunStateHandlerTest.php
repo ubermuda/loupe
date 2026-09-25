@@ -279,6 +279,13 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             'exitCode' => 1,
             'hasResult' => false,
             'spawnFailed' => false,
+            'resultStatus' => null,
+            'resultFieldNames' => null,
+            'continuesRunKey' => null,
+            'resumeIndex' => null,
+            'resumeCap' => null,
+            'cardColumn' => null,
+            'resumeSkipped' => null,
         ], $record->context);
         self::assertCount(1, $audit->records('bridge.worker_run_recorded'));
     }
@@ -297,6 +304,91 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         $this->report($owner, $project, $runKey, WorkerRunState::NotStarted, failureReason: 'no claude');
 
         self::assertTrue($audit->record('bridge.worker_run_recorded')->context['spawnFailed']);
+    }
+
+    public function test_a_resume_links_to_the_run_it_continues_by_run_key(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-link');
+        $firstKey = Uuid::v4();
+
+        $first = $this->report($owner, $project, $firstKey, WorkerRunState::Queued)->run;
+        $resume = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, continues: $firstKey, resumeIndex: 1, resumeCap: 2, cardColumn: 'implementation')->run;
+
+        self::assertInstanceOf(WorkerRun::class, $first);
+        self::assertInstanceOf(WorkerRun::class, $resume);
+        self::assertSame((string) $first->id, (string) $resume->continuesRun?->id);
+        self::assertSame(1, $resume->resumeIndex);
+        self::assertSame(2, $resume->resumeCap);
+        self::assertSame('implementation', $resume->cardColumn);
+    }
+
+    public function test_a_run_key_the_server_does_not_hold_leaves_no_link(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-link-unknown');
+
+        $resume = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, continues: Uuid::v4(), resumeIndex: 1, resumeCap: 2)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $resume);
+        self::assertNull($resume->continuesRun);
+        self::assertSame(1, $resume->resumeIndex);
+    }
+
+    public function test_a_run_of_another_bridge_is_never_the_continued_run(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-link-other-bridge');
+        $firstKey = Uuid::v4();
+
+        $this->report($owner, $project, $firstKey, WorkerRunState::Queued, bridgeId: Uuid::v7());
+        $resume = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, continues: $firstKey)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $resume);
+        self::assertNull($resume->continuesRun);
+    }
+
+    public function test_a_later_report_does_not_change_the_link(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-link-later');
+        $firstKey = Uuid::v4();
+        $resumeKey = Uuid::v4();
+
+        $this->report($owner, $project, $firstKey, WorkerRunState::Queued);
+        $this->report($owner, $project, $resumeKey, WorkerRunState::Queued);
+        $resume = $this->report($owner, $project, $resumeKey, WorkerRunState::Running, continues: $firstKey, resumeIndex: 1)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $resume);
+        self::assertNull($resume->continuesRun);
+        self::assertNull($resume->resumeIndex);
+    }
+
+    public function test_an_outcome_stores_the_structured_result(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [$owner, $project] = $this->scenario('handler-structured');
+        $firstKey = Uuid::v4();
+        $resumeKey = Uuid::v4();
+
+        $this->report($owner, $project, $firstKey, WorkerRunState::Queued);
+        $this->report($owner, $project, $resumeKey, WorkerRunState::Queued, continues: $firstKey, resumeIndex: 2, resumeCap: 2, cardColumn: 'implementation');
+        $run = $this->report($owner, $project, $resumeKey, WorkerRunState::GaveUp, resultStatus: 'unfinished', resultFields: ['pullRequest' => 'https://example.com/pull/1'], resumeSkipped: 'card_moved')->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunState::GaveUp, $run->state);
+        self::assertSame('unfinished', $run->resultStatus);
+        self::assertSame(['pullRequest' => 'https://example.com/pull/1'], $run->resultFields);
+        self::assertSame('card_moved', $run->resumeSkipped);
+        $context = $audit->record('bridge.worker_run_recorded')->context;
+        self::assertSame('unfinished', $context['resultStatus']);
+        self::assertSame('pullRequest', $context['resultFieldNames']);
+        self::assertSame($firstKey->toRfc4122(), $context['continuesRunKey']);
+        self::assertSame(2, $context['resumeIndex']);
+        self::assertSame(2, $context['resumeCap']);
+        self::assertSame('implementation', $context['cardColumn']);
+        self::assertSame('card_moved', $context['resumeSkipped']);
     }
 
     public function test_a_project_the_owner_does_not_hold_yields_no_run(): void
@@ -320,6 +412,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         return [$owner, $this->project($em, $owner, 'Project '.substr(md5($name), 0, 8))];
     }
 
+    /** @param array<string, mixed>|null $resultFields */
     private function report(
         User $owner,
         Project $project,
@@ -330,6 +423,14 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         string $ruleName = 'plan',
         ?string $failureReason = null,
         bool $withStart = true,
+        ?Uuid $continues = null,
+        ?int $resumeIndex = null,
+        ?int $resumeCap = null,
+        ?string $cardColumn = null,
+        ?string $resultStatus = null,
+        ?array $resultFields = null,
+        ?string $resumeSkipped = null,
+        ?Uuid $bridgeId = null,
     ): ReportWorkerRunStateResult {
         $outcome = $state->isOutcome();
         $started = $withStart && ($outcome || WorkerRunState::Running === $state);
@@ -341,7 +442,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             owner: $owner,
             handle: (string) $project->id,
             runKey: $runKey,
-            bridgeId: Uuid::fromString(self::BRIDGE),
+            bridgeId: $bridgeId ?? Uuid::fromString(self::BRIDGE),
             state: $state,
             at: new \DateTimeImmutable('2026-09-23 10:0'.$state->rank().':00'),
             cardId: $cardId ?? Uuid::fromString('0199a0e2-b1f3-7a44-9c11-2d3e4f506172'),
@@ -351,17 +452,24 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             startedAt: $started ? new \DateTimeImmutable('2026-09-23 10:00:00') : null,
             endedAt: $outcome ? new \DateTimeImmutable('2026-09-23 10:05:00') : null,
             exitCode: match ($state) {
-                WorkerRunState::Succeeded, WorkerRunState::NoResult => 0,
+                WorkerRunState::Succeeded, WorkerRunState::NoResult, WorkerRunState::GaveUp => 0,
                 WorkerRunState::Failed => 1,
                 default => null,
             },
             hasResult: match ($state) {
-                WorkerRunState::Succeeded => true,
+                WorkerRunState::Succeeded, WorkerRunState::GaveUp => true,
                 WorkerRunState::Failed, WorkerRunState::NoResult => false,
                 default => null,
             },
             failureReason: WorkerRunState::NotStarted === $state ? ($failureReason ?? 'no claude') : null,
             output: $outcome ? 'output' : null,
+            resultStatus: $resultStatus,
+            resultFields: $resultFields,
+            continues: $continues,
+            resumeIndex: $resumeIndex,
+            resumeCap: $resumeCap,
+            cardColumn: $cardColumn,
+            resumeSkipped: $resumeSkipped,
         ));
     }
 

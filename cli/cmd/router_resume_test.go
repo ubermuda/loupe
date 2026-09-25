@@ -126,8 +126,8 @@ func TestResumeArgsResumeTheSession(t *testing.T) {
 		spec workerSpec
 		want string
 	}{
-		{workerSpec{resume: true, sessionID: askSession, prompt: "go"}, "-p --resume " + askSession + " -- go"},
-		{workerSpec{resume: true, sessionID: askSession, permissionMode: "plan", model: "opus", prompt: "go"}, "--permission-mode plan --model opus -p --resume " + askSession + " -- go"},
+		{workerSpec{resume: true, sessionID: askSession, prompt: "go"}, "--output-format json -p --resume " + askSession + " -- go"},
+		{workerSpec{resume: true, sessionID: askSession, permissionMode: "plan", model: "opus", schema: "{}", prompt: "go"}, "--permission-mode plan --model opus --output-format json --json-schema {} -p --resume " + askSession + " -- go"},
 	} {
 		if got := strings.Join(workerArgs(tc.spec), " "); got != tc.want {
 			t.Fatalf("workerArgs(%+v) = %q, want %q", tc.spec, got, tc.want)
@@ -754,7 +754,8 @@ func TestAPersonsAnswerResetsTheCardsChain(t *testing.T) {
 func TestAFailedResumeIsReportedAsAFailedRun(t *testing.T) {
 	h := newHarnessWith(t, resumeRules, rules.Defaults{})
 	sent := h.reports(t)
-	h.worker.result = workerResult{exitCode: 1, output: "No conversation found with session ID: " + askSession}
+	h.worker.results = []workerResult{{exitCode: 1, output: "No conversation found with session ID: " + askSession}}
+	h.worker.result = finishedRun
 
 	h.send(h.mine(ask{card: 87}))
 
@@ -791,7 +792,7 @@ func TestTheBridgeChecksTheAskBeforeItResumes(t *testing.T) {
 		t.Fatal(err)
 	}
 	log := &syncBuffer{}
-	worker := &fakeWorker{}
+	worker := &fakeWorker{result: finishedRun}
 	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
