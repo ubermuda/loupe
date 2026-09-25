@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -53,6 +54,67 @@ func TestHeartbeatSendsAnEmptyListRatherThanNull(t *testing.T) {
 	}
 	if body != `{"projects":[],"cliVersion":"v"}` {
 		t.Fatalf("body = %s", body)
+	}
+}
+
+// The server keeps its stored rows when the key is absent, and clears them on
+// an empty list. So nil sends no key, and an empty list sends [].
+func TestHeartbeatSendsHooksOnlyWhenTheListIsSet(t *testing.T) {
+	var body string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+	client := New(server.URL, "t", server.Client())
+
+	if _, err := client.Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", Hooks: []HookReport{}}); err != nil {
+		t.Fatal(err)
+	}
+	if body != `{"projects":[],"cliVersion":"v","hooks":[]}` {
+		t.Fatalf("empty list: body = %s", body)
+	}
+
+	row := HookReport{Package: "acme/tool", Ref: "v1", Event: "busy", LastRunAt: "2026-09-24T10:00:00Z", Outcome: "failed", Error: "boom"}
+	if _, err := client.Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", Hooks: []HookReport{row, {Package: "acme/tool", Ref: "v1", Event: "idle", Outcome: "never"}}}); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"projects":[],"cliVersion":"v","hooks":[` +
+		`{"package":"acme/tool","ref":"v1","event":"busy","lastRunAt":"2026-09-24T10:00:00Z","outcome":"failed","error":"boom"},` +
+		`{"package":"acme/tool","ref":"v1","event":"idle","outcome":"never"}]}`
+	if body != want {
+		t.Fatalf("body = %s", body)
+	}
+}
+
+// The server refuses a row past its caps, so the client clips each field and
+// the list before it sends them.
+func TestHeartbeatClipsTheHooksToTheServerCaps(t *testing.T) {
+	var sent Heartbeat
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &sent)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+
+	rows := make([]HookReport, 150)
+	for i := range rows {
+		rows[i] = HookReport{Package: strings.Repeat("p", 400), Ref: strings.Repeat("é", 150), Event: "busy", Outcome: "failed", Error: "  " + strings.Repeat("e", 600) + "  "}
+	}
+	if _, err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", Hooks: rows}); err != nil {
+		t.Fatal(err)
+	}
+	if len(sent.Hooks) != 100 {
+		t.Fatalf("rows = %d", len(sent.Hooks))
+	}
+	got := sent.Hooks[0]
+	if got.Package != strings.Repeat("p", 300) || got.Ref != strings.Repeat("é", 100) || got.Error != strings.Repeat("e", 500) {
+		t.Fatalf("row = %+v", got)
+	}
+	if len(rows[0].Package) != 400 {
+		t.Fatal("the caller's rows changed")
 	}
 }
 

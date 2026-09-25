@@ -2481,6 +2481,14 @@
                 <source>project.connect.tool.card_update</source>
                 <target>Change a card. Omitted fields keep their value, and moving a card to a terminal column stamps its completion time. relatedCards replaces every link that touches the card.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.card_run_open">
+                <source>project.connect.tool.card_run_open</source>
+                <target>Record an open interactive session on a card. It can also move the card in the same step. A bridge rule can skip a card while the run is open. The next move to another column closes it.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.card_run_close">
+                <source>project.connect.tool.card_run_close</source>
+                <target>Close the interactive run a session opened on a card. A second call changes nothing.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.inbox_ask">
                 <source>project.connect.tool.inbox_ask</source>
                 <target>Hand questions and to-dos to the project owner. The items go to the session's open ask, or to a new one, and each item gets a number.</target>
@@ -5493,6 +5501,10 @@
                 <source>bridge.worker_runs.state.lost</source>
                 <target>Lost</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.closed">
+                <source>bridge.worker_runs.state.closed</source>
+                <target>Closed</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.card_number">
                 <source>bridge.worker_runs.card_number</source>
                 <target>#%number%</target>
@@ -5508,6 +5520,18 @@
             <trans-unit id="bridge.worker_runs.exit_code">
                 <source>bridge.worker_runs.exit_code</source>
                 <target>exit %code%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.interactive">
+                <source>bridge.worker_runs.interactive</source>
+                <target>Interactive session</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.running_for">
+                <source>bridge.worker_runs.running_for</source>
+                <target>running for %duration%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.close_session">
+                <source>bridge.worker_runs.close_session</source>
+                <target>Close session</target>
             </trans-unit>
             <trans-unit id="bridge.worker_runs.bridge">
                 <source>bridge.worker_runs.bridge</source>
@@ -5886,6 +5910,21 @@
             <trans-unit id="board.rules.search.try_again"><source>board.rules.search.try_again</source><target>Try another rule name or clear the search.</target></trans-unit>
             <trans-unit id="board.rules.empty.title"><source>board.rules.empty.title</source><target>No rules reported</target></trans-unit>
             <trans-unit id="board.rules.empty.description"><source>board.rules.empty.description</source><target>A connected bridge reports the rules it has loaded for this project.</target></trans-unit>
+            <trans-unit id="board.rules.hooks.heading"><source>board.rules.hooks.heading</source><target>Hooks</target></trans-unit>
+            <trans-unit id="board.rules.hooks.description"><source>board.rules.hooks.description</source><target>Each bridge that follows this project reports the hooks it runs and how their last run went.</target></trans-unit>
+            <trans-unit id="board.rules.hooks.last_seen"><source>board.rules.hooks.last_seen</source><target>Last heartbeat %time%</target></trans-unit>
+            <trans-unit id="board.rules.hooks.last_run"><source>board.rules.hooks.last_run</source><target>Last run %time%</target></trans-unit>
+            <trans-unit id="board.rules.hooks.pinned"><source>board.rules.hooks.pinned</source><target>Pinned at %ref%.</target></trans-unit>
+            <trans-unit id="board.rules.hooks.flow_label"><source>board.rules.hooks.flow_label</source><target>Hook trigger</target></trans-unit>
+            <trans-unit id="board.rules.hooks.none"><source>board.rules.hooks.none</source><target>No hook is installed.</target></trans-unit>
+            <trans-unit id="board.rules.hooks.event.start"><source>board.rules.hooks.event.start</source><target>On start</target></trans-unit>
+            <trans-unit id="board.rules.hooks.event.stop"><source>board.rules.hooks.event.stop</source><target>On stop</target></trans-unit>
+            <trans-unit id="board.rules.hooks.event.busy"><source>board.rules.hooks.event.busy</source><target>On busy</target></trans-unit>
+            <trans-unit id="board.rules.hooks.event.idle"><source>board.rules.hooks.event.idle</source><target>On idle</target></trans-unit>
+            <trans-unit id="board.rules.hooks.outcome.ok"><source>board.rules.hooks.outcome.ok</source><target>OK</target></trans-unit>
+            <trans-unit id="board.rules.hooks.outcome.failed"><source>board.rules.hooks.outcome.failed</source><target>Failed</target></trans-unit>
+            <trans-unit id="board.rules.hooks.outcome.timeout"><source>board.rules.hooks.outcome.timeout</source><target>Timed out</target></trans-unit>
+            <trans-unit id="board.rules.hooks.outcome.never"><source>board.rules.hooks.outcome.never</source><target>Not run yet</target></trans-unit>
             <trans-unit id="activity.page.title"><source>activity.page.title</source><target>Activity</target></trans-unit>
             <trans-unit id="activity.heading"><source>activity.heading</source><target>Project activity</target></trans-unit>
             <trans-unit id="activity.description"><source>activity.description</source><target>Trace durable project events and their delivery to connected bridges.</target></trans-unit>

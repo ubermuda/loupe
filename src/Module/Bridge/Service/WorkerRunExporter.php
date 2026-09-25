@@ -41,7 +41,8 @@ final readonly class WorkerRunExporter implements UserDataExporterInterface
         foreach ($this->workerRuns->findByOwner($user) as $run) {
             yield [
                 'project' => $run->project->name,
-                'bridgeId' => (string) $run->bridgeId,
+                'kind' => $run->kind->value,
+                'bridgeId' => $run->bridgeId?->toRfc4122(),
                 'runKey' => $run->runKey?->toRfc4122(),
                 'state' => $run->state->value,
                 'sessionId' => $run->sessionId?->toRfc4122(),

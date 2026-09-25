@@ -19,6 +19,8 @@ use Symfony\Component\Uid\Uuid;
  *
  * The key is the owner and the bridge id together, so two accounts that share
  * one config directory, and so one bridge id, each keep a row of their own.
+ *
+ * @phpstan-type HookRow array{package: string, ref: string, event: string, lastRunAt: ?string, outcome: string, error: ?string}
  */
 #[ORM\Entity(repositoryClass: BridgeRepository::class)]
 #[ORM\Table(name: 'bridges')]
@@ -35,6 +37,14 @@ class Bridge
     /** The version the update concerns, such as the one a rollback left. */
     #[ORM\Column(name: 'update_version', length: self::MAX_UPDATE_VERSION_LENGTH, nullable: true)]
     public ?string $updateVersion = null;
+
+    /**
+     * The hooks the bridge runs, as its last heartbeat reported them.
+     *
+     * @var list<HookRow>
+     */
+    #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
+    public array $hooks = [];
 
     /**
      * @param list<string> $projects

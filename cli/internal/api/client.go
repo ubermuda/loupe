@@ -526,11 +526,15 @@ func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerR
 }
 
 // Heartbeat is the body of PUT /api/bridges/{bridgeId}/heartbeat: the ids of
-// the projects the bridge follows, and the build it runs.
+// the projects the bridge follows, the build it runs, where its own update
+// stands, and its hooks. The server keeps its stored hooks when the key is
+// absent and clears them on [], so a nil list sends no key and an empty one
+// sends [].
 type Heartbeat struct {
 	Projects   []string         `json:"projects"`
 	CLIVersion string           `json:"cliVersion"`
 	Update     *HeartbeatUpdate `json:"update,omitempty"`
+	Hooks      []HookReport     `json:"hooks,omitzero"`
 }
 
 // HeartbeatUpdate is where the bridge's own update stands. Version names the
@@ -540,8 +544,28 @@ type HeartbeatUpdate struct {
 	Version string `json:"version,omitempty"`
 }
 
-// maxCLIVersion is the server's cap on the version, which it measures trimmed.
-const maxCLIVersion = 100
+// HookReport is how the last run of one hook package on one event went.
+// LastRunAt is RFC 3339, and empty for a hook that has not run.
+type HookReport struct {
+	Package   string `json:"package"`
+	Ref       string `json:"ref"`
+	Event     string `json:"event"`
+	LastRunAt string `json:"lastRunAt,omitempty"`
+	Outcome   string `json:"outcome"`
+	Error     string `json:"error,omitempty"`
+}
+
+// The server's caps, which it measures trimmed.
+const (
+	maxCLIVersion  = 100
+	maxHookPackage = 300
+	maxHookRef     = 100
+	maxHookError   = 500
+)
+
+// MaxHookRows is how many hook rows the server keeps: one per package and
+// event.
+const MaxHookRows = 100
 
 // ErrHeartbeatMissing marks a 404, which is the answer of a server that
 // predates the heartbeat or has agent push switched off. The route sends no
@@ -555,6 +579,16 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (
 		hb.Projects = []string{}
 	}
 	hb.CLIVersion = clip(strings.TrimSpace(hb.CLIVersion), maxCLIVersion)
+	if hb.Hooks != nil {
+		rows := make([]HookReport, 0, min(len(hb.Hooks), MaxHookRows))
+		for _, row := range hb.Hooks[:min(len(hb.Hooks), MaxHookRows)] {
+			row.Package = clip(strings.TrimSpace(row.Package), maxHookPackage)
+			row.Ref = clip(strings.TrimSpace(row.Ref), maxHookRef)
+			row.Error = clip(strings.TrimSpace(row.Error), maxHookError)
+			rows = append(rows, row)
+		}
+		hb.Hooks = rows
+	}
 	body, err := json.Marshal(hb)
 	if err != nil {
 		return "", err

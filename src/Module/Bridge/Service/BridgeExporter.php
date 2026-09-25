@@ -32,6 +32,7 @@ final readonly class BridgeExporter implements UserDataExporterInterface
                 'lastSeenAt' => $bridge->lastSeenAt->format(\DateTimeInterface::ATOM),
                 'updateState' => $bridge->updateState?->value,
                 'updateVersion' => $bridge->updateVersion,
+                'hooks' => $bridge->hooks,
             ];
         }
     }

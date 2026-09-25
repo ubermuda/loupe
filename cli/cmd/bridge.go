@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/hooks"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
@@ -51,7 +53,7 @@ func newBridgeCmd() *cobra.Command {
 		Use:   "bridge",
 		Short: "Bridge Loupe events into local workers",
 	}
-	cmd.AddCommand(newBridgeRunCmd(), newBridgeReloadCmd(), newBridgePreflightCmd())
+	cmd.AddCommand(newBridgeRunCmd(), newBridgeReloadCmd(), newBridgePreflightCmd(), newBridgeHooksCmd())
 
 	return cmd
 }
@@ -177,6 +179,10 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 	if err != nil {
 		return fmt.Errorf("rule file %s: %w", path, err)
 	}
+	hookList, err := resolveHooks(set)
+	if err != nil {
+		return fmt.Errorf("rule file %s: %w", path, err)
+	}
 	if _, err := lookPath("claude"); err != nil {
 		return fmt.Errorf("claude is not installed or not on PATH")
 	}
@@ -236,6 +242,7 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		control:    control,
 		source:     newReloadSource(path, defaults, cfg, b.lock),
 		update:     b,
+		hookRunner: newHookRunner(hookList, bridgeID, bl.log),
 	}
 	r.set.Store(set)
 	r.log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()), "max_workers", o.maxWorkers, "log_file", bl.path, "bridge_id", bridgeID)
@@ -250,6 +257,16 @@ func warnUnknownModes(log *slog.Logger, set *rules.Set) {
 	for _, mode := range set.UnknownPermissionModes() {
 		log.Warn("permission_mode_unknown", "mode", mode, "known", rules.PermissionModes)
 	}
+}
+
+// resolveHooks loads the installed hook packages the rule file lists.
+func resolveHooks(set *rules.Set) ([]hooks.Hook, error) {
+	root, err := config.Dir()
+	if err != nil {
+		return nil, err
+	}
+
+	return hooks.Resolve(root, set.Hooks(), runtime.GOOS)
 }
 
 // defaultRulesPath puts the rule file beside config.json.
@@ -324,6 +341,10 @@ func openLogFile(path string) (*os.File, error) {
 // one topic follows every project, including one created after the start. The
 // router ignores a project the file does not map.
 func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
+	// stop runs last, after every worker has ended, on an early return too.
+	r.hookRunner.start()
+	defer r.hookRunner.stop()
+
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	r.ctx = ctx
@@ -375,6 +396,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		if r.update != nil {
 			r.heartbeat.onSent = r.update.markBeat
 		}
+		r.hookRunner.attach(r.heartbeat)
 		r.heartbeat.start()
 	}
 	if r.update != nil && r.update.resumed != nil {

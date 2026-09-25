@@ -20,6 +20,9 @@ use App\Module\Board\Entity\CardType;
  * card, whichever card wrote it.
  *
  * $reporter is absent on purpose. It records who first raised the card.
+ *
+ * A move to another column closes every open interactive run of the card. A
+ * run that $openInteractiveRun opens in the same update stays open.
  */
 final readonly class UpdateCardCommand
 {
@@ -42,6 +45,7 @@ final readonly class UpdateCardCommand
         public ?array $documentIds = null,
         public ?int $position = null,
         public ?array $relatedCards = null,
+        public ?OpenInteractiveRun $openInteractiveRun = null,
     ) {
     }
 }

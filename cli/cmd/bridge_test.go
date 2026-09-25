@@ -131,6 +131,27 @@ func TestBridgeRunRefusesAnInvalidRuleFile(t *testing.T) {
 	}
 }
 
+// A hook the rule file lists and the machine has not installed stops the start.
+func TestBridgeRunRefusesAHookThatIsNotInstalled(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+	path := writeRules(t, "loupe")
+	hook := "hooks:\n  - package: acme/notify\n    ref: main\n    sha: " + strings.Repeat("a", 40) + "\n"
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(hook); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	err = runBridge(t, "--rules", path)
+	if err == nil || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "hook acme/notify: the package is not installed") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 // fakeLoupe serves the columns check, GET /api/events and a Mercure hub. The
 // first hub connection sends its events, and the first two close, so the
 // bridge refreshes its JWT twice. From the second call on, GET /api/events no

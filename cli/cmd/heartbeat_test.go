@@ -284,6 +284,39 @@ func TestANewBodyGoesOutAtOnce(t *testing.T) {
 	}
 }
 
+// New hook rows go out at once, and a new body from a reload keeps them.
+func TestHookRowsGoOutAtOnceAndOutliveANewBody(t *testing.T) {
+	client := &fakeHeartbeats{}
+	hh := startHeartbeater(t, client, time.Minute)
+	rows := []api.HookReport{{Package: "acme/tool", Ref: "v1", Event: "busy", Outcome: "never"}}
+
+	hh.h.setHooks(rows)
+	eventually(t, "the heartbeat of the rows", func() bool { return hh.queue.recorded() == 2 })
+	hh.h.setBody(api.Heartbeat{Projects: []string{"p2"}, CLIVersion: "b4e39aa7"})
+	eventually(t, "the heartbeat of the new body", func() bool { return hh.queue.recorded() == 3 })
+	hh.tick(t, time.Minute)
+
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if client.sent[0].Hooks != nil {
+		t.Fatalf("the start heartbeat carries hooks: %+v", client.sent[0])
+	}
+	for i, hb := range client.sent[1:] {
+		if !slices.Equal(hb.Hooks, rows) {
+			t.Fatalf("heartbeat %d = %+v", i+1, hb)
+		}
+	}
+	if !slices.Equal(client.sent[3].Projects, []string{"p2"}) {
+		t.Fatalf("last heartbeat = %+v", client.sent[3])
+	}
+}
+
+// The runner reports to a heartbeater that a bridge with no id never makes.
+func TestANilHeartbeaterTakesHookRows(t *testing.T) {
+	var h *heartbeater
+	h.setHooks([]api.HookReport{})
+}
+
 // A refresh that carries a new interval reaches the running heartbeat, and a
 // refresh that carries none sets the fallback.
 func TestARefreshAppliesTheIntervalToTheHeartbeat(t *testing.T) {
