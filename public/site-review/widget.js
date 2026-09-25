@@ -2307,7 +2307,7 @@
                 openEditComposer(commentIndex),
             );
         // No confirm step, unlike delete: resolving keeps the comment and the
-        // owner can reopen it from the project's site-review page.
+        // owner can reopen it from its card's Feedback tab.
         const resolve = holder.querySelector('[data-pin-resolve]');
         if (resolve)
             resolve.addEventListener('click', () =>
@@ -3942,8 +3942,8 @@
     };
 
     // Resolving says the reviewer is done with a comment. It leaves this list,
-    // which holds the pending ones, and the owner can reopen it from the
-    // project's site-review page. It shares `state.deleting` with delete, so the
+    // which holds the pending ones, and the owner can reopen it from its
+    // card's Feedback tab. It shares `state.deleting` with delete, so the
     // footer and both rows disable together while one request is in flight.
     const resolveComment = async (index) => {
         const target = comments[index];

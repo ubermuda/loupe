@@ -139,8 +139,8 @@ Hostile, spam, unclear and can't-fix items all stay `Pending`, and
 `feedback_list` and `card_get` re-serve them on every call. Each pass re-feeds injected
 text into your context.
 
-You cannot dispose of them. Only the human can, by resolving or deleting the
-item in the web UI. Resolving works
+You cannot dispose of them. Only the human can, by resolving the item on its
+card's Feedback tab, or by deleting it from the widget. Resolving works
 directly from `Pending`, so `Addressed` is not a required step.
 
 Report unfixable items explicitly and ask for a disposition, rather than
@@ -185,7 +185,12 @@ nothing.
 ## You cannot resolve, only address
 
 Your only write moves an item from `Pending` to `Addressed`. `Resolved`
-belongs to the human in the web UI, as their sign-off that your fix was right.
+belongs to the human, as their sign-off that your fix was right.
+
+A card that moves into a terminal column resolves every pending and addressed
+item on it. So `card_update` to a terminal column resolves the card's feedback
+too, and signs the feedback off for the human. When you finish such a card,
+name the items it resolved in your report.
 
 Do not look for a resolve tool, and do not treat `Addressed` as closure. It
 means "the agent says it is done", not "the reviewer agrees".
@@ -214,7 +219,7 @@ Skips are never fatal. The call still succeeds and addresses the rest.
 | `unknown` | No such item on this project | Reviewer deleted it, or the id is from another project. Ignore. |
 | `invalid_id` | Not a UUID | You passed something that did not come from `feedback_list` or `card_get`. |
 | `already_addressed` | Another pass got there first | Ignore. |
-| `resolved` | The human already signed it off | Ignore. Do not try to reopen it. |
+| `resolved` | The human signed it off, or its card finished | Ignore. Do not try to reopen it. |
 
 A skip of `unknown` or `already_addressed` is not a failure to report. A
 `resolved` skip means the human moved ahead of you. They can resolve straight

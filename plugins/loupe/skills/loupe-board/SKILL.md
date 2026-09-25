@@ -147,8 +147,10 @@ carries the rest of that loop.
 
 There is no delete tool. You finish a card by moving it to a terminal column,
 which stamps its completion time. A move between two terminal columns keeps the
-first stamp. A move to a column that is not terminal clears it. Only a person
-deletes a card, from the card page.
+first stamp. A move to a column that is not terminal clears it. A move into a
+terminal column also resolves the card's pending and addressed feedback, and a
+move back out leaves it resolved. Only a person deletes a card, from the card
+page, or through the widget when they delete the note that created it.
 
 `card_list` applies no time window to a terminal column, so every finished card
 is on the board it pages through, however old it is. The board screen shows the

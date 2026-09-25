@@ -16,7 +16,11 @@ can do, and expect it to matter more when sign-in widens past the owner.
 A holder of the `site-review` scope lists every open card in its project and
 creates new ones. `GET /api/board/cards` returns the number, title and status of
 the project's open cards, and `POST /api/board/cards` files a new one. Card
-titles are planning content.
+titles are planning content. `POST /api/board/feedback` saves a comment on an
+open card of the project, or on a new card it creates.
+`DELETE /api/board/feedback/{id}` deletes a pending comment, and deletes its
+card too when the comment created it, the card is still in the default column,
+holds no other feedback and is not an epic.
 
 This was decided rather than inherited. The Loupe document 'Picking and creating
 cards from the site-review widget' records the choice, the alternatives and what
@@ -24,8 +28,8 @@ each cost, including the observation that it reverses the reasoning behind
 `/sites` refusing the widget's scope. Read it before you reopen this.
 
 What bounds it. `board.enabled` ships on, because site review writes its notes
-to cards. Both endpoints re-check it, so an instance that switches the board off
-exposes nothing. Creation takes no
+to cards. All four endpoints re-check it, so an instance that switches the board off
+exposes nothing through them. Creation takes no
 `status` and no `pullRequestUrls`, so a caller cannot file into a column or
 attach a URL of their choosing. A card records `CardReporter::Reviewer`, which
 says the app could not name who raised it. The write joins the
@@ -37,13 +41,14 @@ unbounded spam target. Nothing bounds the read beyond the twenty-card page.
 What is accepted. Any holder of the `site-review` scope can read, edit, resolve
 and delete every **pending** comment in that grant's project, whoever wrote it.
 `GET /api/site-review/review` returns bodies, URLs, selectors and quoted page
-text for the whole project, not the current page. `PATCH`,
-`DELETE /api/site-review/comments/{id}` and
+text for the whole project, not the current page.
+`PATCH /api/site-review/comments/{id}`, `DELETE /api/board/feedback/{id}` and
 `POST /api/site-review/comments/{id}/resolve` accept any pending id.
 
 Resolve joined the list after delete, and widens nothing in kind: a holder who
 can delete a comment outright can already do worse than sign it off. It is also
-the only one of the four a person can undo, from the project's site-review page.
+the only one of the four a person can undo, from the Feedback tab of the
+comment's card.
 The acceptance covers the staging-and-preview-only deployment model and no
 further.
 
