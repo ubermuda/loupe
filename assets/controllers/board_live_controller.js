@@ -13,6 +13,8 @@ import { on, status } from '../lib/live.js';
 
 const SETTLE_MILLISECONDS = 150;
 const BUSY_RETRY_MILLISECONDS = 200;
+// A stalled request would hold the queue for every card.
+const FETCH_TIMEOUT_MILLISECONDS = 10000;
 const FLASH_MILLISECONDS = 1500;
 const STREAM_TYPE = 'text/vnd.turbo-stream.html';
 const FLASH_CLASS = 'lp-board-card--flash';
@@ -29,6 +31,7 @@ export default class extends Controller {
         this.pending = new Map();
         this.expected = new Map();
         this.flashes = new Map();
+        this.queue = Promise.resolve();
         this.onPlaced = (event) => this.placed(event.detail ?? {});
         this.onMissed = (event) => this.missed(event.detail ?? {});
         document.addEventListener('board:placed', this.onPlaced);
@@ -98,29 +101,47 @@ export default class extends Controller {
         );
     }
 
-    async fetchPlacement(cardId, entry) {
+    /** One placement at a time, so an older answer never renders last. */
+    fetchPlacement(cardId, entry) {
         entry.timer = undefined;
+        entry.inFlight = true;
+        const run = this.queue.then(() => this.place(cardId, entry));
+        this.queue = run.catch(() => {});
+    }
+
+    async place(cardId, entry) {
+        if (this.pending.get(cardId) !== entry) {
+            return;
+        }
         const card = document.getElementById(`board-card-${cardId}`);
         if (card !== null && this.busy(card)) {
+            entry.inFlight = false;
+            entry.again = false;
             this.schedule(cardId, entry, BUSY_RETRY_MILLISECONDS);
 
             return;
         }
 
-        entry.inFlight = true;
         this.expected.set(cardId, {
             digest: card?.dataset.cardDigest,
             remote: entry.remote,
         });
         entry.remote = false;
+        entry.again = false;
 
         let html = null;
+        const abort = new AbortController();
+        const timeout = setTimeout(
+            () => abort.abort(),
+            FETCH_TIMEOUT_MILLISECONDS,
+        );
         try {
             // A read of one card's placement, with no form to submit.
             // eslint-disable-next-line no-restricted-syntax
             const response = await fetch(this.urlFor(cardId), {
                 headers: { Accept: STREAM_TYPE },
                 credentials: 'same-origin',
+                signal: abort.signal,
             });
             const type = response.headers.get('Content-Type') ?? '';
             if (response.ok && type.startsWith(STREAM_TYPE)) {
@@ -128,6 +149,8 @@ export default class extends Controller {
             }
         } catch {
             html = null;
+        } finally {
+            clearTimeout(timeout);
         }
 
         entry.inFlight = false;

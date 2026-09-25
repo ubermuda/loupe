@@ -61,7 +61,7 @@ beforeEach(async () => {
         });
     vi.stubGlobal(
         'fetch',
-        vi.fn(() => answer()),
+        vi.fn((url, options) => answer(url, options)),
     );
     on.mockImplementation((types, handler) => {
         change = handler;
@@ -119,6 +119,33 @@ it('fetches each card that changed', async () => {
     expect(fetch.mock.calls.map(([url]) => url)).toEqual([
         '/projects/p/board/cards/a/placement',
         '/projects/p/board/cards/b/placement',
+    ]);
+});
+
+it('runs one placement at a time, so an older answer never renders after a newer one', async () => {
+    const finishes = [];
+    answer = () =>
+        new Promise((resolve) => {
+            finishes.push(resolve);
+        });
+    const stream = (body) => ({
+        ok: true,
+        headers: new Headers({ 'Content-Type': STREAM }),
+        text: () => Promise.resolve(body),
+    });
+    receive('a');
+    receive('b');
+    await vi.advanceTimersByTimeAsync(150);
+    expect(fetch).toHaveBeenCalledOnce();
+
+    finishes[0](stream('a'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    finishes[1](stream('b'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(renderStreamMessage.mock.calls.map(([html]) => html)).toEqual([
+        'a',
+        'b',
     ]);
 });
 
@@ -305,6 +332,82 @@ it('reloads the board when the placement request cannot reach the server', async
     await vi.advanceTimersByTimeAsync(150);
 
     expect(reloads).toBe(1);
+});
+
+it('gives up on a stalled placement, reloads, and still fetches the next card', async () => {
+    answer = (url, options) =>
+        url.includes('/a/')
+            ? new Promise((resolve, reject) => {
+                  options.signal.addEventListener('abort', () =>
+                      reject(new DOMException('Aborted', 'AbortError')),
+                  );
+              })
+            : Promise.resolve({
+                  ok: true,
+                  headers: new Headers({ 'Content-Type': STREAM }),
+                  text: () => Promise.resolve('b'),
+              });
+    receive('a');
+    receive('b');
+    await vi.advanceTimersByTimeAsync(150);
+    expect(fetch).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(9999);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(reloads).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(reloads).toBe(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][0]).toBe('/projects/p/board/cards/b/placement');
+    expect(renderStreamMessage).toHaveBeenCalledWith('b');
+});
+
+it('still fetches the next card after a placement request fails', async () => {
+    answer = (url) =>
+        url.includes('/a/')
+            ? Promise.reject(new TypeError('offline'))
+            : Promise.resolve({
+                  ok: true,
+                  headers: new Headers({ 'Content-Type': STREAM }),
+                  text: () => Promise.resolve('b'),
+              });
+    receive('a');
+    receive('b');
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(reloads).toBe(1);
+    expect(renderStreamMessage).toHaveBeenCalledWith('b');
+});
+
+it('fetches a card once when a message arrives while it waits in the queue', async () => {
+    let finish;
+    answer = (url) =>
+        url.includes('/a/')
+            ? new Promise((resolve) => {
+                  finish = resolve;
+              })
+            : Promise.resolve({
+                  ok: true,
+                  headers: new Headers({ 'Content-Type': STREAM }),
+                  text: () => Promise.resolve('b'),
+              });
+    receive('a');
+    receive('b');
+    await vi.advanceTimersByTimeAsync(150);
+    receive('b');
+    finish({
+        ok: true,
+        headers: new Headers({ 'Content-Type': STREAM }),
+        text: () => Promise.resolve('a'),
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+        '/projects/p/board/cards/a/placement',
+        '/projects/p/board/cards/b/placement',
+    ]);
 });
 
 it('writes the paused sign into its live region only while live updates are paused', () => {
