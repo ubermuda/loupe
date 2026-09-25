@@ -45,6 +45,7 @@ final class WidgetTokenSurfaceTest extends WebTestCase
         yield 'list cards' => [Request::METHOD_GET, '/api/board/cards'];
         yield 'create card' => [Request::METHOD_POST, '/api/board/cards'];
         yield 'add feedback' => [Request::METHOD_POST, '/api/board/feedback'];
+        yield 'delete feedback' => [Request::METHOD_DELETE, '/api/board/feedback/'.$id];
     }
 
     /** @return iterable<string, array{string, string}> */

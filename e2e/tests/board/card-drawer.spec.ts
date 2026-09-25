@@ -122,33 +122,23 @@ test('site review opens a linked card in the drawer on its Feedback tab', async 
     // grant the widget's own sign-in produces.
     const { accessToken } = await signWidgetIn(page, harnessProject!);
     const body = `Drawer capture ${RUN}`;
-    const created = await page.request.post('/api/site-review/comments', {
+    // A widget note creates its own card, titled from the note's first line.
+    const created = await page.request.post('/api/board/feedback', {
         headers: { Authorization: 'Bearer ' + accessToken },
         data: {
             body,
             url: 'https://example.com/drawer-page',
             anchors: [{ selector: '.hero', text: 'Heading' }],
+            target: { newCard: {} },
         },
     });
     expect(created.status()).toBe(201);
     const { commentId } = await created.json();
+    const title = body;
 
     const listItem = page.locator(
         `button.lp-feedback-list__item[data-master-detail-id="feedback-${commentId}"]`,
     );
-    await page.goto(siteUrl);
-    await listItem.click();
-    const capture = page.locator(`[data-comment-id="${commentId}"]`);
-    await capture.getByRole('link', { name: 'Create card and attach' }).click();
-    const title = `Linked from review ${RUN}`;
-    await page.getByLabel('Title', { exact: true }).fill(title);
-    await page
-        .getByRole('button', { name: 'Create card', exact: true })
-        .click();
-    await expect(
-        page.getByRole('heading', { name: title, exact: true }),
-    ).toBeVisible();
-
     await page.goto(siteUrl);
     await listItem.click();
     await page
