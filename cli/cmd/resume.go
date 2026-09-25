@@ -212,17 +212,26 @@ func (b *bridgeUpdate) watchHealth(ctx context.Context, r *router, updates *upda
 		defer close(done)
 		timer := time.NewTimer(timeout)
 		defer timer.Stop()
+		retry := time.NewTicker(healthBeatRetry)
+		defer retry.Stop()
 		healthy := true
 	wait:
 		for _, ch := range []chan struct{}{b.connected, b.beat} {
-			select {
-			case <-ch:
-			case <-ctx.Done():
-				return
-			case <-timer.C:
-				healthy = false
+			for waiting := true; waiting; {
+				select {
+				case <-ch:
+					waiting = false
+				case <-retry.C:
+					if r.heartbeat != nil && ch == b.beat {
+						r.heartbeat.send()
+					}
+				case <-ctx.Done():
+					return
+				case <-timer.C:
+					healthy = false
 
-				break wait
+					break wait
+				}
 			}
 		}
 		if healthy {

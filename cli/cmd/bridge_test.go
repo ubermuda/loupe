@@ -150,6 +150,8 @@ type fakeLoupe struct {
 	askChecks []string
 	// heartbeatStatus answers each heartbeat. Zero answers 204.
 	heartbeatStatus int
+	// heartbeatFailures answers that many first heartbeats with a 502.
+	heartbeatFailures int
 }
 
 const (
@@ -209,6 +211,10 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 			f.mu.Lock()
 			f.heartbeats = append(f.heartbeats, string(raw))
 			status := cmp.Or(f.heartbeatStatus, http.StatusNoContent)
+			if f.heartbeatFailures > 0 {
+				f.heartbeatFailures--
+				status = http.StatusBadGateway
+			}
 			f.mu.Unlock()
 			w.WriteHeader(status)
 

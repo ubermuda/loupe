@@ -602,3 +602,31 @@ func TestAResumedBridgeThatStopsBeforeItsHealthRemovesTheFile(t *testing.T) {
 		t.Fatalf("the handover file is still there: %v", err)
 	}
 }
+
+// The heartbeat interval can be as long as the health window, so a resumed
+// image sends the heartbeat again until one lands, and one failure does not
+// roll it back.
+func TestAResumedBridgeRetriesAFailedFirstHeartbeat(t *testing.T) {
+	injectVersion(t, "1.2.0")
+	fake, rulesPath := resumeHome(t)
+	fake.flags = `{"bridge.heartbeat_interval_seconds":3600}`
+	fake.heartbeatFailures = 1
+	calls := captureExecFn(t)
+	oldTimeout, oldRetry := healthTimeout, healthBeatRetry
+	healthTimeout, healthBeatRetry = 3*time.Second, 50*time.Millisecond
+	t.Cleanup(func() { healthTimeout, healthBeatRetry = oldTimeout, oldRetry })
+	file := handedBridge(t, rulesPath, handoverState{OldVersion: "1.0.0", OldBinary: filepath.Join(t.TempDir(), "loupe")})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done, out := runCommand(ctx, "--rules", rulesPath, "--resume-handover", file, "--log-file", filepath.Join(t.TempDir(), "bridge.log"))
+	eventually(t, "the health verdict", func() bool { return logged(out, "update_applied") || logged(out, "update_unhealthy") })
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	if !logged(out, "update_applied") || logged(out, "update_unhealthy") || len(calls()) != 0 {
+		t.Fatalf("exec calls = %d, log = %s", len(calls()), out.String())
+	}
+}

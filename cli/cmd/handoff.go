@@ -36,6 +36,9 @@ var (
 	// healthTimeout bounds the wait of a new image for its stream and
 	// heartbeat. Tests shorten it.
 	healthTimeout = 60 * time.Second
+	// healthBeatRetry spaces the heartbeats of a resumed image until one
+	// lands, as the interval can be as long as the health window.
+	healthBeatRetry = 5 * time.Second
 )
 
 // The hidden flags that carry a handover into the next image.
