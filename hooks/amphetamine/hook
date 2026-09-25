@@ -1,0 +1,54 @@
+#!/bin/sh
+set -u
+
+marker="${LOUPE_HOOK_STATE_DIR:?}/session"
+takeover="${LOUPE_HOOK_SETTING_TAKEOVER:-false}"
+
+amph() {
+    osascript -e "tell application \"Amphetamine\" to $1"
+}
+
+# An infinite session is how this hook starts one, so a finite one is the operator's.
+release() {
+    [ "$takeover" = true ] || [ -f "$marker" ] || return 0
+    active=$(amph 'session is active') || exit $?
+    if [ "$active" = true ]; then
+        if [ "$takeover" = true ]; then
+            amph 'end session' >/dev/null || exit $?
+        else
+            remaining=$(amph 'session time remaining') || exit $?
+            if [ "$remaining" = 0 ]; then
+                amph 'end session' >/dev/null || exit $?
+            fi
+        fi
+    fi
+    rm -f "$marker"
+}
+
+hold() {
+    if [ "$takeover" != true ]; then
+        active=$(amph 'session is active') || exit $?
+        [ "$active" = true ] && exit 0
+    fi
+    amph 'start new session with options {duration:0, interval:0, displaySleepAllowed:true}' >/dev/null || exit $?
+    if ! { mkdir -p "$LOUPE_HOOK_STATE_DIR" && true >"$marker"; } 2>/dev/null; then
+        amph 'end session' >/dev/null
+        echo "cannot write $marker, so the session ended" >&2
+        exit 4
+    fi
+    amph 'enable closed display mode' >/dev/null || exit $?
+    closed=$(amph 'closed display mode enabled') || exit $?
+    if [ "$closed" != true ]; then
+        echo 'closed-display mode is off' >&2
+        exit 3
+    fi
+}
+
+case "${1:-}" in
+    busy) hold ;;
+    idle | stop | start) release ;;
+    *)
+        echo "unknown event: ${1:-}" >&2
+        exit 2
+        ;;
+esac

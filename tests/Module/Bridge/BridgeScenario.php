@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
@@ -67,10 +68,11 @@ trait BridgeScenario
         ?WorkerRunState $state = null,
         ?Uuid $runKey = null,
         ?bool $hasResult = null,
+        WorkerRunKind $kind = WorkerRunKind::Worker,
     ): WorkerRun {
         $run = new WorkerRun(
             project: AgentCredential::managed($em, $project, $project->id),
-            bridgeId: $bridgeId ?? Uuid::v7(),
+            bridgeId: WorkerRunKind::Interactive === $kind ? null : $bridgeId ?? Uuid::v7(),
             cardId: $cardId ?? Uuid::v7(),
             cardNumber: $cardNumber,
             ruleName: $ruleName,
@@ -84,6 +86,7 @@ trait BridgeScenario
             failureReason: $failureReason,
             output: $output,
             receivedAt: $receivedAt,
+            kind: $kind,
         );
         $em->persist($run);
         $em->flush();

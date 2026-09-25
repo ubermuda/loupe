@@ -77,5 +77,44 @@
         <p>{{ 'board.rules.empty.description'|trans }}</p>
     </div>
     {% endif %}
+
+    <section class="lp-hook-section" data-hooks-section>
+        <h2 class="lp-section-title">{{ 'board.rules.hooks.heading'|trans }}</h2>
+        <p class="lp-workspace-desc">{{ 'board.rules.hooks.description'|trans }}</p>
+        {% set outcomeChips = {ok: 'lp-status-chip--ok', failed: 'lp-status-chip--failed', timeout: 'lp-status-chip--failed'} %}
+        {% for bridge in bridge_hooks(project) %}
+        <div class="lp-rule-list" data-bridge-hooks="{{ bridge.id }}">
+            <p class="lp-hook-bridge">
+                <twig:ux:icon name="lucide:cable" />
+                <span title="{{ bridge.id }}">{{ bridge.id|slice(-12) }}</span>
+                <time datetime="{{ bridge.lastSeenAt|date('c') }}">{{ 'board.rules.hooks.last_seen'|trans({'%time%': bridge.lastSeenAt|date('M j, H:i')}) }}</time>
+            </p>
+            {% for hook in bridge.hooks %}
+            <article class="lp-rule-row" data-hook-row data-hook-event="{{ hook.event }}">
+                <twig:ux:icon name="lucide:package" class="lp-rule-row__glyph" />
+                <div class="lp-rule-row__title">
+                    <h3>{% for part in hook.package|split('/') %}{{ part }}{% if not loop.last %}/<wbr>{% endif %}{% endfor %}</h3>
+                    <p>{{ 'board.rules.hooks.pinned'|trans({'%ref%': hook.ref}) }}</p>
+                </div>
+                <div class="lp-rule-flow" aria-label="{{ 'board.rules.hooks.flow_label'|trans }}">
+                    <span><twig:ux:icon name="lucide:radio" />{{ ('board.rules.hooks.event.' ~ hook.event)|trans }}</span>
+                    <twig:ux:icon name="lucide:chevron-right" class="lp-rule-flow__arrow" />
+                    <span title="{{ bridge.id }}"><twig:ux:icon name="lucide:cable" />{{ bridge.id|slice(-12) }}</span>
+                </div>
+                <span class="lp-status-chip lp-rule-row__state {{ outcomeChips[hook.outcome] ?? 'lp-status-chip--neutral' }}">
+                    <span class="lp-status-chip__dot"></span>
+                    {{ ('board.rules.hooks.outcome.' ~ hook.outcome)|trans }}
+                </span>
+                {% if hook.lastRunAt %}<time class="lp-rule-row__report" datetime="{{ hook.lastRunAt }}">{{ 'board.rules.hooks.last_run'|trans({'%time%': hook.lastRunAt|date('M j, H:i')}) }}</time>{% endif %}
+                {% if hook.error %}<p class="lp-rule-row__reason">{{ hook.error }}</p>{% endif %}
+            </article>
+            {% else %}
+            <p class="lp-workspace-desc" data-hooks-none>{{ 'board.rules.hooks.none'|trans }}</p>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="lp-workspace-desc" data-hooks-none>{{ 'board.rules.hooks.none'|trans }}</p>
+        {% endfor %}
+    </section>
 </div>
 {% endblock %}
