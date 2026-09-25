@@ -859,7 +859,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `update_verified` | `from`, `to`: the archive matches `checksums.txt` |
 | `update_rejected` | `from`, `to`, `reason`: the archive does not match `checksums.txt`, or holds no binary. Level `WARN` |
 | `update_stage_failed` | `from`, `to`, `error`: the binary could not be written to `versions/`. Level `WARN` |
-| `update_deferred` | `from`, `to`, `reason`: a reload ran, or the reports did not drain in time. The next check tries again |
+| `update_deferred` | `from`, `to`, `reason`: a reload ran, the reports did not drain in time, or the preflight failed for a reason outside the new binary (`preflight`, with `error`). The next check tries again |
 | `update_handover` | `from`, `to`, `file`, `live`, `queued`: the bridge runs the new binary now |
 | `update_resume_failed` | `file`, `error`: the new binary could not read the handover. Level `ERROR` |
 | `update_applied` | `from`, `to`: the new version is healthy |

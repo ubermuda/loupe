@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -89,6 +90,7 @@ func newTestHandoff(t *testing.T) (*harness, *bridgeUpdate, *[]execCall) {
 	b.args = []string{"bridge", "run", "--rules", rulesPath}
 	b.target = filepath.Join(t.TempDir(), "loupe")
 	b.preflight = func(context.Context, string) error { return nil }
+	b.probe = func(context.Context) error { return nil }
 	h.router.update = b
 
 	return h, b, captureExec(b)
@@ -133,6 +135,61 @@ func TestAFailedPreflightRejectsTheVersionAndFreezesNothing(t *testing.T) {
 	line := h.only(t, "update_rolled_back")
 	if str(t, line, "reason") != "preflight" || str(t, line, "from") != "1.0.0" || str(t, line, "to") != "1.2.0" || !strings.Contains(str(t, line, "error"), "rule file: bad") {
 		t.Fatalf("update_rolled_back = %v", line)
+	}
+}
+
+// A preflight that fails while this image fails the same checks says nothing
+// against the new version, so the next check tries it again.
+func TestAPreflightThatThisImageAlsoFailsDefersTheVersion(t *testing.T) {
+	h, b, calls := newTestHandoff(t)
+	b.preflight = func(context.Context, string) error {
+		return errors.New("exit status 1: events request failed (HTTP 503)")
+	}
+	b.probe = func(context.Context) error { return errors.New("events request failed (HTTP 503)") }
+
+	got := b.handover(h.router, "1.0.0")(context.Background(), candidate(t, "1.2.0"), "/staged/loupe")
+
+	if got != stagedDeferred || len(*calls) != 0 {
+		t.Fatalf("outcome = %v, exec calls = %d", got, len(*calls))
+	}
+	if line := h.only(t, "update_deferred"); str(t, line, "reason") != "preflight" || !strings.Contains(str(t, line, "error"), "503") {
+		t.Fatalf("update_deferred = %v", line)
+	}
+	if len(h.events(t, "update_rolled_back")) != 0 {
+		t.Fatal("a server fault rolled the version back")
+	}
+}
+
+func TestAPreflightThatTimesOutDefersTheVersion(t *testing.T) {
+	h, b, _ := newTestHandoff(t)
+	b.preflight = func(context.Context, string) error {
+		return fmt.Errorf("the preflight did not end within 30s: %w", context.DeadlineExceeded)
+	}
+	b.probe = func(context.Context) error {
+		t.Fatal("a timeout needs no probe")
+
+		return nil
+	}
+
+	if got := b.handover(h.router, "1.0.0")(context.Background(), candidate(t, "1.2.0"), "/staged/loupe"); got != stagedDeferred {
+		t.Fatalf("outcome = %v", got)
+	}
+}
+
+// The preflight of a staged binary that hangs ends at the limit, as a timeout.
+func TestRunPreflightOfEndsAHungBinaryAsATimeout(t *testing.T) {
+	old := preflightTimeout
+	preflightTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { preflightTimeout = old })
+	staged := filepath.Join(t.TempDir(), "loupe")
+	if err := os.WriteFile(staged, []byte("#!/bin/sh\nexec sleep 10\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	err := runPreflightOf(context.Background(), staged, "rules.yaml", t.TempDir())
+
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("err = %v", err)
 	}
 }
 

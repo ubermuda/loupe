@@ -304,6 +304,11 @@ When run reports or ask checks do not finish within 10 seconds, the new version 
 A failed preflight or a failed `exec` also logs `update_rolled_back`, with the
 reason `preflight` or `exec`. The old version then never stopped.
 
+Some preflight failures are not a fault of the new binary. The preflight can
+run out of time. The running version can also fail the same checks, for example
+when the server answers 503 or the rule file has an error. The bridge then logs
+`update_deferred` with the reason `preflight`, and the next check tries again.
+
 Each rollback puts the version on the skip list in `update.json`, in the config
 directory. The bridge never installs a skipped version on its own. A version
 that a rollback started never hands over again. When it is not healthy either,

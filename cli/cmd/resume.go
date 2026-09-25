@@ -80,6 +80,7 @@ func resumeBridge(log *slog.Logger, rulesPath, sock, file, rolledBackFrom string
 		return nil, nil, err
 	}
 	b.preflight = func(ctx context.Context, staged string) error { return runPreflightOf(ctx, staged, rulesPath, b.dir) }
+	b.probe = func(ctx context.Context) error { return probePreflight(ctx, rulesPath) }
 	// The skip comes first, so the first check of this image cannot pick the
 	// version it rolled back from.
 	if rolledBackFrom != "" {

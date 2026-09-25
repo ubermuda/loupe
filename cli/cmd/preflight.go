@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -23,29 +24,36 @@ func newBridgePreflightCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			set, err := rules.Load(path, rules.Defaults{})
-			if err != nil {
-				return fmt.Errorf("rule file %s: %w", path, err)
-			}
-			if handover != "" {
-				if _, err := readHandover(handover); err != nil {
-					return err
-				}
-			}
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
-			if err := set.Check(cmd.Context(), apiClient(cfg)); err != nil {
-				return fmt.Errorf("rule file %s: %w", path, err)
-			}
-			_, err = startEvents(cmd.Context(), cfg, set)
 
-			return err
+			return preflightCheck(cmd.Context(), path, handover)
 		},
 	}
 	cmd.Flags().StringVar(&rulesPath, "rules", "", "read rules from this `path`; empty uses rules.yaml in your config directory")
 	cmd.Flags().StringVar(&handover, "handover", "", "read this handover `file` as the new image would")
 
 	return cmd
+}
+
+// preflightCheck runs the start checks of a bridge on the rule file at path,
+// and reads the handover file when one is named.
+func preflightCheck(ctx context.Context, path, handover string) error {
+	set, err := rules.Load(path, rules.Defaults{})
+	if err != nil {
+		return fmt.Errorf("rule file %s: %w", path, err)
+	}
+	if handover != "" {
+		if _, err := readHandover(handover); err != nil {
+			return err
+		}
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if err := set.Check(ctx, apiClient(cfg)); err != nil {
+		return fmt.Errorf("rule file %s: %w", path, err)
+	}
+	_, err = startEvents(ctx, cfg, set)
+
+	return err
 }

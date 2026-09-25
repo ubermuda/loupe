@@ -22,8 +22,6 @@ import (
 )
 
 const (
-	// preflightTimeout bounds the check a staged binary runs before it takes over.
-	preflightTimeout = 30 * time.Second
 	// frozenDrainTimeout bounds the second drain, after the freeze.
 	frozenDrainTimeout = 2 * time.Second
 	// preflightOutputLimit bounds the output of a failed preflight in the log.
@@ -31,6 +29,9 @@ const (
 )
 
 var (
+	// preflightTimeout bounds the check a staged binary runs before it takes
+	// over. Tests shorten it.
+	preflightTimeout = 30 * time.Second
 	// execFn replaces the process image. Tests replace it.
 	execFn = syscall.Exec
 	// healthTimeout bounds the wait of a new image for its stream and
@@ -62,8 +63,11 @@ type bridgeUpdate struct {
 	// control is a descriptor of the control socket, kept open for the exec.
 	control *os.File
 
-	exec         func(argv0 string, argv, env []string) error
-	preflight    func(ctx context.Context, staged string) error
+	exec      func(argv0 string, argv, env []string) error
+	preflight func(ctx context.Context, staged string) error
+	// probe runs the preflight checks in this image, to tell a fault of the
+	// staged binary from one of the server, the network or the rule file.
+	probe        func(ctx context.Context) error
 	executable   func() (string, error)
 	drainTimeout time.Duration
 
@@ -119,6 +123,7 @@ func newBridgeUpdate(log *slog.Logger, rulesPath string, lock *bridgeLock, ln ne
 		}
 	}
 	b.preflight = func(ctx context.Context, staged string) error { return runPreflightOf(ctx, staged, rulesPath, b.dir) }
+	b.probe = func(ctx context.Context) error { return probePreflight(ctx, rulesPath) }
 
 	return b, nil
 }
@@ -171,6 +176,9 @@ func runPreflightOf(ctx context.Context, staged, rulesPath, dir string) error {
 	cmd := exec.CommandContext(ctx, staged, "bridge", "preflight", "--rules", rulesPath, "--handover", probe.Name())
 	cmd.WaitDelay = time.Second
 	out, err := cmd.CombinedOutput()
+	if err != nil && ctx.Err() != nil {
+		return fmt.Errorf("the preflight did not end within %s: %w", preflightTimeout, ctx.Err())
+	}
 	if err != nil {
 		msg := strings.TrimSpace(string(out))
 		if len(msg) > preflightOutputLimit {
@@ -183,6 +191,25 @@ func runPreflightOf(ctx context.Context, staged, rulesPath, dir string) error {
 	return nil
 }
 
+// probePreflight runs the checks of the preflight in this image, within the
+// time the staged binary had.
+func probePreflight(ctx context.Context, rulesPath string) error {
+	ctx, cancel := context.WithTimeout(ctx, preflightTimeout)
+	defer cancel()
+
+	return preflightCheck(ctx, rulesPath, "")
+}
+
+// preflightTransient reports whether a failed preflight says nothing against
+// the staged binary: it ran out of time, or this image fails the same checks.
+func (b *bridgeUpdate) preflightTransient(ctx context.Context, err error) bool {
+	if ctx.Err() != nil || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+
+	return b.probe != nil && b.probe(ctx) != nil
+}
+
 // handover is the hook of a staged release. It checks the binary, stops the
 // router at a quiet point and execs the binary with the routing state. It
 // returns only when the handover did not happen.
@@ -190,6 +217,11 @@ func (b *bridgeUpdate) handover(r *router, from string) stagedHook {
 	return func(ctx context.Context, c update.Candidate, staged string) stagedOutcome {
 		to := c.Version.String()
 		if err := b.preflight(ctx, staged); err != nil {
+			if b.preflightTransient(ctx, err) {
+				b.log.Info("update_deferred", "from", from, "to", to, "reason", "preflight", "error", err.Error())
+
+				return stagedDeferred
+			}
 			b.log.Warn("update_rolled_back", "from", from, "to", to, "reason", "preflight", "error", err.Error())
 
 			return stagedRejected
