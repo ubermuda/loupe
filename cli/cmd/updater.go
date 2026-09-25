@@ -57,7 +57,7 @@ type updateResult struct {
 
 func (u *updater) result(outcome, to, problem string) updateResult {
 	return updateResult{
-		OK:   outcome != outcomeFailed && outcome != outcomeRejected,
+		OK:   outcome != outcomeFailed && outcome != outcomeRejected && outcome != updateBlocked,
 		From: u.version, To: to, Outcome: outcome, Problem: problem,
 	}
 }

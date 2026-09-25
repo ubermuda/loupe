@@ -88,7 +88,7 @@ func TestAForcedCheckIsBlockedByAnUnwritableBinaryDir(t *testing.T) {
 	h.u.executable = func() (string, error) { return "/nonexistent/dir/loupe", nil }
 	h.started()
 
-	if res := h.u.checkNow(context.Background(), nil); res.Outcome != "blocked" || res.To != "1.2.0" || res.Problem == "" {
+	if res := h.u.checkNow(context.Background(), nil); res.OK || res.Outcome != "blocked" || res.To != "1.2.0" || res.Problem == "" {
 		t.Fatalf("res = %+v", res)
 	}
 }
