@@ -218,7 +218,7 @@ func TestDrainFailsWhileAReportWaits(t *testing.T) {
 }
 
 // A handover file keeps the state and is private, and a file of another format
-// is refused.
+// is refused. Format 1 lacks the resume series and the split run output.
 func TestTheHandoverFileRoundTripsAndRefusesAnotherFormat(t *testing.T) {
 	shortConfigHome(t)
 	path, err := handoverPath("rules.yaml")
@@ -244,11 +244,11 @@ func TestTheHandoverFileRoundTripsAndRefusesAnotherFormat(t *testing.T) {
 		t.Fatalf("readHandover = %+v, %v", got, err)
 	}
 
-	if err := os.WriteFile(path, []byte(`{"format":2}`), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(`{"format":1}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readHandover(path); err == nil || !strings.Contains(err.Error(), "format 2") {
-		t.Fatalf("readHandover of format 2 = %v", err)
+	if _, err := readHandover(path); err == nil || !strings.Contains(err.Error(), "format 1") {
+		t.Fatalf("readHandover of format 1 = %v", err)
 	}
 }
 

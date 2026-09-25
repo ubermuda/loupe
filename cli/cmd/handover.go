@@ -16,7 +16,7 @@ import (
 )
 
 // handoverFormat is the one layout of the handover file this build reads.
-const handoverFormat = 1
+const handoverFormat = 2
 
 // drainTimeout bounds the wait for the reports and ask checks in flight.
 const drainTimeout = 10 * time.Second
