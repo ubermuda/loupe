@@ -24,13 +24,14 @@ A card that needs no product design does not use this skill. The owner moves it 
    - With a card, check its product document first, as `SKILL.md` step 5 says. When that document is approved, stop before any move.
    - Read your session id with the Bash tool: `echo $CLAUDE_CODE_SESSION_ID`.
    - When the card sits in the Product design column, call `card_run_open` before P1. Send the card, `status` set to the slug, `sessionId` set to your session id, and `name` set to `loupe:product-design`. The card stays there.
-   - Otherwise, find the card column and the slug in the list that `board_columns` returns. The list is in board order.
-   - When the card column comes before the slug, and the column is not terminal, call `card_run_open` in the same way. The card moves, and this move reports your own state.
-   - When the card column comes after the slug, or the column is terminal, stop. Name the column to the owner.
-   - When `board_columns` is missing, call `card_run_open` in the same way from any column, with no check.
-   - When the list holds no column with the slug, skip the order check. Call `card_run_open` with no `status`, and follow the next rule.
+   - When the MCP has no `board_columns` tool, call `card_run_open` in the same way from any column, with no check.
+   - Otherwise, call `board_columns`. The list is in board order, and each column has a `terminal` field.
+   - When the card column is terminal, or comes after the slug in the list, stop. Name the column to the owner.
+   - When the card column comes before the slug, call `card_run_open` in the same way. The card moves, and this move reports your own state.
+   - When the list holds no column with the slug, call `card_run_open` with no `status`. The card stays where it is. Tell the owner that an approval will not move the card, and go on with P1.
    - When `card_run_open` refuses the slug, call it again with no `status`. The card stays where it is. Tell the owner that an approval will not move the card, and go on with P1.
-   - When the MCP has no `card_run_open`, move the card with `card_update` instead, by the same column rules. Then skip every `card_run_close` call.
+   - When the MCP has no `card_run_open`, call `card_update` wherever a rule above sends the slug. Where a rule sends no `status`, move nothing. Skip every `card_run_close` call.
+   - When `card_update` refuses the slug, keep the card where it is. Tell the owner that an approval will not move the card, and go on with P1.
 2. P1: Intake. Read the card, the linked documents and the code for the current behaviour before you ask anything. Read the unapproved draft too, when one exists. Then ask for a brain dump with one open prompt. From the brain dump, draft the problem: who feels it, and the situation that triggers the need. Ask one question only when either is unclear. Keep solutions out of the problem.
 3. P2: Calibrate. Propose the session level (L3), and let the owner confirm it.
 4. P4: Options. When the solution is not obvious, show two or three solution shapes, and recommend one. Skip this phase for a small card.
