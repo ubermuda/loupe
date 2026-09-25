@@ -1296,6 +1296,16 @@
     .lp-card-run__chevron {
         @apply size-4 shrink-0 text-fg-dim;
     }
+    /* A run row with its close control beside the link, because a form cannot sit inside a link. */
+    .lp-card-run-row {
+        @apply flex items-center gap-2;
+    }
+    .lp-card-run-row > .lp-card-run {
+        @apply min-w-0 flex-1;
+    }
+    .lp-card-run__kind {
+        @apply shrink-0;
+    }
     .lp-card-linked-list,
     .lp-card-feedback-list {
         @apply flex flex-col gap-2 list-none p-0 m-0 mt-3;
@@ -5887,7 +5897,8 @@
     .lp-worker-run__meta {
         @apply flex flex-wrap items-center gap-3 font-mono text-fg-dim text-xs;
     }
-    .lp-worker-run__bridge {
+    .lp-worker-run__bridge,
+    .lp-worker-run__kind {
         @apply ml-auto;
     }
     .lp-worker-run__failure {

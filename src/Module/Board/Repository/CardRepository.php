@@ -379,11 +379,15 @@ class CardRepository extends ServiceEntityRepository
      * that was not finished, and any other target clears the completion.
      *
      * A card loaded before the call keeps its old column in memory. Call
-     * refreshLoadedFrom() once the rows are final.
+     * refreshLoadedFrom() once the rows are final. Move through
+     * CardMover::moveAll(), which also closes the interactive runs.
+     *
+     * @return list<string> the ids of the moved cards
      */
-    public function moveAll(BoardColumn $from, BoardColumn $to, \DateTimeImmutable $now): void
+    public function moveAll(BoardColumn $from, BoardColumn $to, \DateTimeImmutable $now): array
     {
-        $this->getEntityManager()->getConnection()->executeStatement(
+        /* @var list<string> */
+        return $this->getEntityManager()->getConnection()->executeQuery(
             \sprintf(
                 'UPDATE board_cards c
                  SET column_id = :to, updated_at = :now, completed_at = %s, position = %s
@@ -394,13 +398,14 @@ class CardRepository extends ServiceEntityRepository
                      FROM board_cards s
                      WHERE s.column_id = :from
                  ) ranked
-                 WHERE c.id = ranked.id',
+                 WHERE c.id = ranked.id
+                 RETURNING c.id',
                 $to->terminal ? 'COALESCE(c.completed_at, :now)' : 'NULL',
                 $to->terminal ? '0' : 'ranked.tail + ranked.rank',
             ),
             ['from' => (string) $from->id, 'to' => (string) $to->id, 'now' => $now],
             ['now' => Types::DATETIME_IMMUTABLE],
-        );
+        )->fetchFirstColumn();
     }
 
     /**

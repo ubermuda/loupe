@@ -50,6 +50,28 @@ func TestParseReviewSubmittedTakesANullCard(t *testing.T) {
 	}
 }
 
+// The server omits the card key when the review names no stage card.
+func TestParseReviewSubmittedReadsTheInteractiveRun(t *testing.T) {
+	withCard := func(card string) string {
+		return strings.Replace(reviewSubmittedPayload, `"column":"tech-design"`, `"column":"tech-design","card":`+card, 1)
+	}
+	for name, tc := range map[string]struct {
+		payload string
+		want    bool
+	}{
+		"true":          {withCard(`{"interactiveRun":true}`), true},
+		"false":         {withCard(`{"interactiveRun":false}`), false},
+		"absent":        {reviewSubmittedPayload, false},
+		"no stage card": {noCard(reviewSubmittedPayload), false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if e := parseOK(t, tc.payload, reviewRule); e.Card.InteractiveRun != tc.want {
+				t.Fatalf("interactiveRun = %v, want %v", e.Card.InteractiveRun, tc.want)
+			}
+		})
+	}
+}
+
 func TestParseRejectsAMalformedReviewSubmitted(t *testing.T) {
 	for name, payload := range map[string]string{
 		"withdrawn verdict":   strings.Replace(reviewSubmittedPayload, `"approved"`, `"withdrawn"`, 1),

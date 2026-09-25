@@ -35,6 +35,15 @@ type Event struct {
 	CardID    string `json:"cardId"`
 	Verdict   string `json:"verdict"`
 	Column    string `json:"column"`
+	// Card belongs to board.card_moved and document.review_submitted. An older
+	// server, or a review with no stage card, sends none.
+	Card CardState `json:"card"`
+}
+
+// CardState is what the server says about the card an event names.
+// InteractiveRun is true while a person runs an interactive session on it.
+type CardState struct {
+	InteractiveRun bool `json:"interactiveRun"`
 }
 
 // Subject names the aggregate an event is about. The id is what an MCP tool

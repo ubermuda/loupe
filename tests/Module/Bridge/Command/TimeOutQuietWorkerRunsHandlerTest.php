@@ -11,6 +11,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -89,6 +90,46 @@ final class TimeOutQuietWorkerRunsHandlerTest extends KernelTestCase
 
         self::assertSame(WorkerRunState::TimedOut, $this->reload($old)->state);
         self::assertSame(WorkerRunState::Queued, $this->reload($fresh)->state);
+    }
+
+    /** No bridge holds an interactive run, so no heartbeat can say it went quiet. */
+    public function test_an_old_open_interactive_run_stays_open(): void
+    {
+        [, $project] = $this->scenario('sweep-interactive');
+        $run = $this->seedRun(
+            $this->em(),
+            $project,
+            new \DateTimeImmutable('2026-09-23 10:00:00'),
+            state: WorkerRunState::Running,
+            kind: WorkerRunKind::Interactive,
+        );
+        $worker = $this->openRun($project, Uuid::v4(), WorkerRunState::Running);
+
+        $changed = $this->sweep();
+
+        self::assertSame([$worker->id], array_map(static fn (WorkerRun $timedOut): ?Uuid => $timedOut->id, $changed));
+        self::assertSame(WorkerRunState::Running, $this->reload($run)->state);
+        self::assertNull($this->reload($run)->bridgeId);
+    }
+
+    public function test_the_locked_read_skips_an_interactive_run_it_is_given(): void
+    {
+        [, $project] = $this->scenario('sweep-interactive-locked');
+        $interactive = $this->seedRun(
+            $this->em(),
+            $project,
+            new \DateTimeImmutable('2026-09-23 10:00:00'),
+            state: WorkerRunState::Running,
+            kind: WorkerRunKind::Interactive,
+        );
+        $worker = $this->openRun($project, Uuid::v4(), WorkerRunState::Running, new \DateTimeImmutable('2026-09-23 10:00:00'));
+        $repository = self::getContainer()->get(WorkerRunRepository::class);
+        self::assertInstanceOf(WorkerRunRepository::class, $repository);
+        $ids = [$interactive->id ?? Uuid::v7(), $worker->id ?? Uuid::v7()];
+
+        $locked = $this->em()->wrapInTransaction(static fn (): array => $repository->findOpenByIdsForUpdate($ids, new \DateTimeImmutable(self::NOW)));
+
+        self::assertSame([$worker->id], array_map(static fn (WorkerRun $run): ?Uuid => $run->id, $locked));
     }
 
     /** A heartbeat that lands between the first read and the lock keeps the run open. */

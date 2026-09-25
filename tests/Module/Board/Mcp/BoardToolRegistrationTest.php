@@ -12,6 +12,8 @@ use App\Module\Board\Mcp\BoardColumnsTool;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetTool;
 use App\Module\Board\Mcp\CardListTool;
+use App\Module\Board\Mcp\CardRunCloseTool;
+use App\Module\Board\Mcp\CardRunOpenTool;
 use App\Module\Board\Mcp\CardSearchTool;
 use App\Module\Board\Mcp\CardUpdateTool;
 use App\Module\Project\Mcp\AdvertisedTools;
@@ -58,6 +60,8 @@ final class BoardToolRegistrationTest extends KernelTestCase
         yield 'card_search' => [CardSearchTool::NAME, CardSearchTool::class];
         yield 'card_get' => [CardGetTool::NAME, CardGetTool::class];
         yield 'card_update' => [CardUpdateTool::NAME, CardUpdateTool::class];
+        yield 'card_run_open' => [CardRunOpenTool::NAME, CardRunOpenTool::class];
+        yield 'card_run_close' => [CardRunCloseTool::NAME, CardRunCloseTool::class];
     }
 
     /** @param class-string $toolClass */
@@ -81,6 +85,8 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertNotContains(BoardColumnsTool::NAME, $names);
         self::assertNotContains(CardSearchTool::NAME, $names);
         self::assertNotContains(CardUpdateTool::NAME, $names);
+        self::assertNotContains(CardRunOpenTool::NAME, $names);
+        self::assertNotContains(CardRunCloseTool::NAME, $names);
     }
 
     public function test_the_board_tools_are_advertised_once_the_flag_is_on(): void
@@ -99,6 +105,19 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertLessThan($order[CardSearchTool::NAME], $order[BoardColumnsTool::NAME]);
         self::assertLessThan($order[CardGetTool::NAME], $order[CardSearchTool::NAME]);
         self::assertLessThan($order[CardUpdateTool::NAME], $order[CardGetTool::NAME]);
+        self::assertSame($order[CardUpdateTool::NAME] + 1, $order[CardRunOpenTool::NAME]);
+        self::assertSame($order[CardRunOpenTool::NAME] + 1, $order[CardRunCloseTool::NAME]);
+    }
+
+    public function test_the_run_tools_require_a_session_id(): void
+    {
+        $open = $this->registry->getTool(CardRunOpenTool::NAME)->tool->inputSchema;
+        $close = $this->registry->getTool(CardRunCloseTool::NAME)->tool->inputSchema;
+
+        self::assertSame(['sessionId', 'name'], $open['required']);
+        self::assertSame(['sessionId'], $close['required']);
+        self::assertSame(1, $open['properties']['number']['minimum']);
+        self::assertSame(1, $close['properties']['number']['minimum']);
     }
 
     /** @param class-string $toolClass */

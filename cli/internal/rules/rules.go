@@ -121,6 +121,15 @@ type Rule struct {
 	// Resume runs claude --resume on the session an inbox ask names, instead
 	// of a new session.
 	Resume bool `yaml:"resume"`
+	// Card limits a board.card_moved or document.review_submitted rule by the
+	// state of its card. Nil matches any card.
+	Card *CardCondition `yaml:"card"`
+}
+
+// CardCondition names the card state a rule needs. A nil field matches either
+// value.
+type CardCondition struct {
+	InteractiveRun *bool `yaml:"interactiveRun"`
 }
 
 // Defaults come from the bridge flags. They fill a rule's fields that neither
@@ -418,6 +427,9 @@ func checkRule(r Rule, projects map[string]Project) error {
 	} else if r.Verdict != "" {
 		errs = append(errs, fmt.Errorf("verdict applies to document.review_submitted only, and this rule is on %s", r.On))
 	}
+	if r.Card != nil && r.On != event.CardMovedType && r.On != event.ReviewSubmittedType {
+		errs = append(errs, fmt.Errorf("card applies to board.card_moved and document.review_submitted only, and this rule is on %s", r.On))
+	}
 
 	if strings.TrimSpace(r.Prompt) == "" {
 		errs = append(errs, errors.New("prompt is required"))
@@ -676,6 +688,9 @@ func (s *Set) MatchRule(e event.Event, name string) (Match, bool) {
 // The caller holds mu.
 func (s *Set) triggers(r Rule, slug string, e event.Event) bool {
 	if r.On != e.Type || r.Project != slug || s.dead[r.Name] != "" {
+		return false
+	}
+	if r.Card != nil && r.Card.InteractiveRun != nil && *r.Card.InteractiveRun != e.Card.InteractiveRun {
 		return false
 	}
 	// A verdict with no stage card has nothing for a card agent to act on.

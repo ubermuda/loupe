@@ -191,6 +191,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'an unknown state' => [['state' => 'paused']];
         yield 'a timed-out state, which only the server infers' => [['state' => 'timed-out']];
         yield 'a lost state, which only the server infers' => [['state' => 'lost']];
+        yield 'a closed state, which only an interactive run reaches' => [['state' => 'closed']];
         yield 'a missing moment' => [['at' => null]];
         yield 'a bridge id that is not a uuid' => [['bridgeId' => 'nope']];
         yield 'a card number of zero' => [['cardNumber' => 0]];

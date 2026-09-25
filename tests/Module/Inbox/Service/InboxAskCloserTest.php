@@ -12,6 +12,7 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Inbox\Command\AnswerInboxItemCommand;
 use App\Module\Inbox\Command\AnswerInboxItemHandler;
@@ -170,6 +171,21 @@ final class InboxAskCloserTest extends KernelTestCase
         $event = $this->askClosedEvents()[0];
         self::assertSame((string) $card->id, $event['cardId']);
         self::assertSame(7, $event['cardNumber']);
+    }
+
+    public function test_an_interactive_run_of_the_session_never_names_the_card(): void
+    {
+        $card = $this->card($this->em, $this->project, 7);
+        $other = $this->card($this->em, $this->project, 8);
+        $this->em->flush();
+        $item = $this->question(1);
+        $ask = $this->askHolding([$item]);
+        $this->workerRun($ask->sessionId, $other, new \DateTimeImmutable('2026-09-01 09:00:00'), kind: WorkerRunKind::Interactive);
+        $this->workerRun($ask->sessionId, $card, new \DateTimeImmutable('2026-09-01 10:00:00'));
+
+        $this->answer($item);
+
+        self::assertSame((string) $card->id, (string) $this->reloadAsk($ask)->card?->id);
     }
 
     public function test_the_card_is_null_when_the_run_names_a_deleted_card(): void
@@ -501,19 +517,21 @@ final class InboxAskCloserTest extends KernelTestCase
         return $ask;
     }
 
-    private function workerRun(Uuid $sessionId, Card $card, \DateTimeImmutable $startedAt, ?Project $project = null): void
+    private function workerRun(Uuid $sessionId, Card $card, \DateTimeImmutable $startedAt, ?Project $project = null, WorkerRunKind $kind = WorkerRunKind::Worker): void
     {
+        $interactive = WorkerRunKind::Interactive === $kind;
         $this->em->persist(new WorkerRun(
             project: $project ?? $this->managedProject(),
-            bridgeId: Uuid::v7(),
+            bridgeId: $interactive ? null : Uuid::v7(),
             cardId: $card->id ?? throw new \LogicException('The card has no id.'),
             cardNumber: $card->number,
             ruleName: 'plan',
-            state: WorkerRunState::Succeeded,
+            state: $interactive ? WorkerRunState::Running : WorkerRunState::Succeeded,
             sessionId: $sessionId,
             startedAt: $startedAt,
-            endedAt: $startedAt->modify('+5 minutes'),
-            exitCode: 0,
+            endedAt: $interactive ? null : $startedAt->modify('+5 minutes'),
+            exitCode: $interactive ? null : 0,
+            kind: $kind,
         ));
         $this->em->flush();
     }
