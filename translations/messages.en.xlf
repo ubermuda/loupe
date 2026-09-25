@@ -5066,6 +5066,10 @@
                 <source>board.form.create_card_form.type.choice.epic</source>
                 <target>Epic</target>
             </trans-unit>
+            <trans-unit id="board.form.create_card_form.type.choice.site-review">
+                <source>board.form.create_card_form.type.choice.site-review</source>
+                <target>Site review</target>
+            </trans-unit>
             <trans-unit id="board.form.create_card_form.column.label">
                 <source>board.form.create_card_form.column.label</source>
                 <target>Column</target>
