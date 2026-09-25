@@ -57,7 +57,7 @@
          data-board-live-placement-value="{{ path('app_board_card_placement', {projectId: board.project.id, cardId: placeholderCardId}) }}"
          data-board-live-placeholder-value="{{ placeholderCardId }}"
          data-action="card-drawer:saved@window->board-refresh#reload board-live:reload->board-refresh#reload">
-        {# No src here: the first reload sets it, and a static one would load the board twice. #}
+        {# No src here: board-refresh sets it without a load, so the first reload morphs. #}
         <turbo-frame id="board-frame" target="_top" refresh="morph" data-board-refresh-target="frame">
             {% include '@Board/_board_columns.html.twig' with {board: board, renameColumnForm: renameColumnForm} only %}
         </turbo-frame>

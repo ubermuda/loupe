@@ -10,6 +10,7 @@ export default class extends Controller {
     static values = { board: String };
 
     connect() {
+        this.adoptSource();
         this.unsubscribe = on('board.columns_changed', () => this.reload(), {
             onReconnect: () => this.reload(),
             onOpen: () =>
@@ -26,11 +27,19 @@ export default class extends Controller {
     }
 
     reload() {
-        // A frame with no src has nothing to reload, and one given a src loads it.
-        if (this.frameTarget.getAttribute('src') === null) {
-            this.frameTarget.src = this.boardValue;
-        } else {
-            this.frameTarget.reload();
+        this.frameTarget.reload();
+    }
+
+    // Only reload() renders by morph, and it needs a src. A frame given a src
+    // loads it and clears `complete`, unless it is disabled at that moment.
+    adoptSource() {
+        const frame = this.frameTarget;
+        if (frame.hasAttribute('complete')) {
+            return;
         }
+        frame.setAttribute('disabled', '');
+        frame.setAttribute('src', this.boardValue);
+        frame.setAttribute('complete', '');
+        frame.removeAttribute('disabled');
     }
 }

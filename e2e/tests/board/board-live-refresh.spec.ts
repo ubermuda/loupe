@@ -76,7 +76,15 @@ test('a column renamed in one browser shows in another without a reload', async 
     const renewal = watcher.waitForResponse((response) =>
         response.url().endsWith('/mercure/authorize'),
     );
+    const frameLoads: string[] = [];
+    watcher.on('request', (request) => {
+        if (request.headers()['turbo-frame'] === 'board-frame') {
+            frameLoads.push(request.url());
+        }
+    });
     await openBoard(watcher, boardUrl);
+    // The frame gets its src without a load, so the page loads the board once.
+    expect(frameLoads).toEqual([]);
     const renewed = await renewal;
     expect(renewed.status()).toBe(200);
     // The board topic, and the run topic of the card drawer the board hosts.
@@ -97,6 +105,12 @@ test('a column renamed in one browser shows in another without a reload', async 
     await watcher.evaluate(() => {
         (window as unknown as { stayed: boolean }).stayed = true;
     });
+    // A morph keeps the element of a column that did not change, and a replace does not.
+    await watcher
+        .locator(`${COLUMN}[data-column-slug="backlog"]`)
+        .evaluate((column) => {
+            (column as unknown as { kept: boolean }).kept = true;
+        });
 
     const next = editor.locator(`${COLUMN}[data-column-slug="next"]`);
     await next.locator('.lp-board__column-menu-trigger').click();
@@ -126,6 +140,14 @@ test('a column renamed in one browser shows in another without a reload', async 
             () => (window as unknown as { stayed?: boolean }).stayed,
         ),
     ).toBe(true);
+    expect(
+        await watcher
+            .locator(`${COLUMN}[data-column-slug="backlog"]`)
+            .evaluate(
+                (column) => (column as unknown as { kept?: boolean }).kept,
+            ),
+    ).toBe(true);
+    expect(frameLoads.length).toBeGreaterThan(0);
 
     await editor.context().close();
     await watcher.context().close();
