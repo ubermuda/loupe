@@ -48,7 +48,7 @@ final class BridgeHookInput
     }
 
     /** The shape check passes February 31, which the date parser would roll into March. */
-    #[Assert\IsTrue(message: 'This value is not a valid date.')]
+    #[Assert\IsTrue(message: 'bridge.heartbeat.validator.hook_run_date')]
     public function isLastRunAtADate(): bool
     {
         if (null === $this->lastRunAt || 1 !== preg_match(self::RFC3339, $this->lastRunAt)) {
