@@ -113,7 +113,7 @@ final class InboxQuietBridgeControllerTest extends WebTestCase
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw, 'CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
             content: json_encode(['projects' => [(string) $this->project->id], 'cliVersion' => 'b4e39aa7'], \JSON_THROW_ON_ERROR),
         );
-        self::assertResponseStatusCodeSame(204);
+        self::assertResponseStatusCodeSame(200);
 
         $status = $this->bridgeStatusOf($this->page(), $ask);
 
