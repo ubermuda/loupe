@@ -24,7 +24,7 @@ A card that needs no product design does not use this skill. The owner moves it 
    - With a card, check its product document first, as `SKILL.md` step 5 says. When that document is approved, stop before any move.
    - Read your session id with the Bash tool: `echo $CLAUDE_CODE_SESSION_ID`.
    - When the card sits in the Product design column, call `card_run_open` before P1. Send the card, `status` set to the slug, `sessionId` set to your session id, and `name` set to `loupe:product-design`. The card stays there.
-   - When the MCP has no `board_columns` tool, call `card_run_open` in the same way from any column, with no check.
+   - When the MCP has no `board_columns` tool, call `card_run_open` in the same way from any column, with no check. The owner chose this, because the owner names the card by hand.
    - Otherwise, call `board_columns`. The list is in board order, and each column has a `terminal` field.
    - When the card column is terminal, or comes after the slug in the list, stop. Name the column to the owner.
    - When the card column comes before the slug, call `card_run_open` in the same way. The card moves, and this move reports your own state.
