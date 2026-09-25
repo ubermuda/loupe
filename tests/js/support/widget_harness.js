@@ -12,6 +12,11 @@ export function storageKeyFor(project) {
     return `loupe-site-review:oauth:${BACKEND}:${project}`;
 }
 
+/** Where the widget keeps the mode it sends notes with. */
+export function modeKeyFor(project = PROJECT) {
+    return `loupe-site-review:mode:${BACKEND}:${project}`;
+}
+
 /** Puts a live grant where the widget reads one, so a boot starts signed in. */
 export function signIn(project = PROJECT, accessToken = ACCESS_TOKEN) {
     window.sessionStorage.setItem(
@@ -42,6 +47,7 @@ export function bootWidget({
     context = null,
     project = PROJECT,
     signedIn = true,
+    mode = null,
 } = {}) {
     window.matchMedia = () => ({
         matches: false,
@@ -67,6 +73,13 @@ export function bootWidget({
     // Every other embed names its project. The reviewer signs in with OAuth.
     if (project !== null) script.setAttribute('data-project', project);
     if (!demo && project !== null && signedIn) signIn(project);
+    // Where notes go, as a reviewer chose it on an earlier visit.
+    if (mode !== null) {
+        window.localStorage.setItem(
+            modeKeyFor(demo ? '' : project),
+            JSON.stringify(mode),
+        );
+    }
     // The marker a preview page proposes. Absent on an ordinary deployment.
     if (context !== null) script.setAttribute('data-context', context);
     Object.defineProperty(document, 'currentScript', {
@@ -141,6 +154,7 @@ export function openPanel() {
  */
 export function resetWidget(history) {
     delete window.__loupeSiteReviewLoaded;
+    window.localStorage.clear();
     // jsdom keeps the URL between tests in a file, and the widget only reacts
     // to a change. A navigation test landing where a previous one left off saw
     // no change at all and passed or failed on test order.

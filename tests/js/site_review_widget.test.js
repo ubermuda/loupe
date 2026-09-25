@@ -4,6 +4,7 @@ import {
     BACKEND,
     bootWidget,
     hostCount,
+    modeKeyFor,
     ok,
     openPanel,
     panelRoot,
@@ -39,117 +40,357 @@ function alerting() {
     );
 }
 
-describe('an unresolved page marker', () => {
-    it('is dropped from the save, not only from the label', async () => {
-        // The resolver answers null for a card that is deleted, malformed or
-        // another project's. Keeping the marker would file the comment against
-        // it anyway, while the composer said it was attached to nothing.
+/** Opens the composer for a new page note, as the Note action does. */
+function openNote() {
+    const root = panelRoot();
+    root.getElementById('lp-launch-main').click();
+    root.getElementById('general').click();
+
+    return root;
+}
+
+async function write(root, text) {
+    const textarea = root.getElementById('lp-textarea');
+    textarea.value = text;
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle();
+}
+
+/** The body of the one feedback save the widget sent. */
+function feedbackSave(fetchMock) {
+    const save = fetchMock.mock.calls.find(
+        ([url, init]) =>
+            init &&
+            init.method === 'POST' &&
+            url.endsWith('/api/board/feedback'),
+    );
+
+    return save ? JSON.parse(save[1].body) : null;
+}
+
+const storedMode = () =>
+    JSON.parse(window.localStorage.getItem(modeKeyFor()) || 'null');
+
+const targetText = (root) =>
+    root.getElementById('lp-context').querySelector('.lp-context-label')
+        .textContent;
+
+const CARD = '01a0cafe-0000-7000-8000-000000000001';
+
+describe('the mode', () => {
+    it('is asked for before the first note, and the draft is kept', async () => {
         const fetchMock = bootWidget({
-            context: 'card:01a0-deleted',
             respond: () => ok({ comments: [], context: null }),
         });
         await settle();
 
-        const root = panelRoot();
-        root.getElementById('lp-launch-main').click();
-        root.getElementById('general').click();
-        const textarea = root.getElementById('lp-textarea');
-        textarea.value = 'Something is wrong here';
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        const root = openNote();
+        await write(root, 'The hero image is blurry');
+
+        expect(root.getElementById('lp-picker').style.display).toBe('block');
+        expect(root.getElementById('lp-save').disabled).toBe(true);
+        root.querySelector('[data-mode="per-note"]').click();
         await settle();
+
+        expect(storedMode()).toEqual({ mode: 'per-note', cardId: null });
+        expect(root.getElementById('lp-picker').style.display).toBe('none');
+        expect(root.getElementById('lp-textarea').value).toBe(
+            'The hero image is blurry',
+        );
+        expect(fetchMock.mock.calls[0][0]).toBe(
+            `${BACKEND}/api/site-review/review`,
+        );
+    });
+
+    it('per note sends a new card and names the card it became', async () => {
+        const fetchMock = bootWidget({
+            mode: { mode: 'per-note', cardId: null },
+            respond: (url, init) =>
+                init.method === 'POST'
+                    ? ok({
+                          commentId: 'c1',
+                          cardId: CARD,
+                          number: 12,
+                          label: '#12 The hero image is blurry',
+                          url: `${BACKEND}/projects/p/board/cards/${CARD}`,
+                      })
+                    : ok({ comments: [], context: null }),
+        });
+        await settle();
+
+        const root = openNote();
+        expect(targetText(root)).toBe('A new card for each note');
+        await write(root, 'The hero image is blurry');
         root.getElementById('lp-save').click();
         await settle();
 
-        const save = fetchMock.mock.calls.find(
-            ([, init]) => init && init.method === 'POST',
+        expect(feedbackSave(fetchMock).target).toEqual({ newCard: {} });
+        const last = root.getElementById('lp-last-card');
+        expect(last.textContent).toBe('Saved as #12 The hero image is blurry');
+        expect(last.querySelector('a').href).toBe(
+            `${BACKEND}/projects/p/board/cards/${CARD}`,
         );
-        expect(save).toBeTruthy();
-        expect(JSON.parse(save[1].body)).not.toHaveProperty('context');
+    });
+
+    it('per review is remembered, checked at boot and sent by card id', async () => {
+        const fetchMock = bootWidget({
+            mode: { mode: 'per-review', cardId: CARD },
+            respond: (url, init) =>
+                init.method === 'POST'
+                    ? ok({
+                          commentId: 'c1',
+                          cardId: CARD,
+                          number: 3,
+                          label: '#3 Review: /',
+                          url: null,
+                      })
+                    : ok({
+                          comments: [],
+                          context: { label: '#3 Review: /', url: null },
+                      }),
+        });
+        await settle();
+
+        expect(fetchMock.mock.calls[0][0]).toBe(
+            `${BACKEND}/api/site-review/review?context=${encodeURIComponent(`card:${CARD}`)}`,
+        );
+        const root = openNote();
+        expect(targetText(root)).toBe('#3 Review: /');
+        expect(root.getElementById('lp-picker').style.display).toBe('none');
+        await write(root, 'Spacing is off');
+        root.getElementById('lp-save').click();
+        await settle();
+
+        expect(feedbackSave(fetchMock).target).toEqual({ cardId: CARD });
+        expect(root.getElementById('lp-last-card').style.display).toBe('none');
+    });
+
+    it('epic mode checks an epic and puts each note under it', async () => {
+        const fetchMock = bootWidget({
+            mode: { mode: 'epic', cardId: CARD },
+            respond: (url, init) =>
+                init.method === 'POST'
+                    ? ok({
+                          commentId: 'c1',
+                          cardId: 'x',
+                          number: 9,
+                          label: '#9 Spacing',
+                          url: null,
+                      })
+                    : ok({
+                          comments: [],
+                          context: { label: '#2 Launch review', url: null },
+                      }),
+        });
+        await settle();
+
+        expect(fetchMock.mock.calls[0][0]).toContain(
+            encodeURIComponent(`epic:${CARD}`),
+        );
+        const root = openNote();
+        expect(targetText(root)).toBe('Cards under #2 Launch review');
+        await write(root, 'Spacing');
+        root.getElementById('lp-save').click();
+        await settle();
+
+        expect(feedbackSave(fetchMock).target).toEqual({
+            newCard: { parentCardId: CARD },
+        });
+    });
+
+    it('is asked for again when the boot load refuses the stored card', async () => {
+        bootWidget({
+            mode: { mode: 'per-review', cardId: CARD },
+            respond: () => ok({ comments: [], context: null }),
+        });
+        await settle();
+
+        expect(storedMode()).toBeNull();
+        const root = openNote();
+        expect(root.getElementById('lp-picker').style.display).toBe('block');
+    });
+
+    it('is kept when the board is off, which says nothing about the card', async () => {
+        bootWidget({
+            mode: { mode: 'per-review', cardId: CARD },
+            respond: () =>
+                ok({ comments: [], context: null, feedbackAvailable: false }),
+        });
+        await settle();
+
+        expect(storedMode()).toEqual({ mode: 'per-review', cardId: CARD });
+    });
+
+    it('is asked for again, with the draft kept, when a save names a closed card', async () => {
+        const fetchMock = bootWidget({
+            mode: { mode: 'per-review', cardId: CARD },
+            respond: () =>
+                ok({
+                    comments: [],
+                    context: { label: '#3 Review: /', url: null },
+                }),
+        });
+        await settle();
+
+        const root = openNote();
+        await write(root, 'Keep this text');
+        fetchMock.mockImplementation(async () =>
+            rejected(422, { error: 'target_closed' }),
+        );
+        root.getElementById('lp-save').click();
+        await settle();
+
+        expect(storedMode()).toBeNull();
+        expect(root.getElementById('lp-picker').style.display).toBe('block');
+        expect(root.getElementById('lp-textarea').value).toBe('Keep this text');
+        expect(root.getElementById('lp-error').textContent).toContain(
+            'Choose where your notes go',
+        );
     });
 });
 
-describe('a card chosen for one comment', () => {
-    it('does not outlive the draft that chose it', async () => {
-        // The page's marker says what this preview is for. An override that
-        // outlived its draft would make that mean less with every comment:
-        // detach once, and every later comment would stay detached.
+describe('the board switched off', () => {
+    it('disables the composer and says why at boot', async () => {
         bootWidget({
-            context: 'card:01a0-page',
             respond: () =>
-                ok({
-                    comments: [],
-                    context: {
-                        label: '#1 The card this page is for',
-                        url: null,
-                    },
-                }),
+                ok({ comments: [], context: null, feedbackAvailable: false }),
         });
         await settle();
 
-        const root = panelRoot();
-        root.getElementById('lp-launch-main').click();
-        root.getElementById('general').click();
-        await settle();
-        expect(root.querySelector('.lp-context-label').textContent).toBe(
-            '#1 The card this page is for',
-        );
+        const root = openNote();
 
-        root.querySelector('.lp-context-label').click();
-        await settle();
-        root.getElementById('lp-picker-detach').click();
-        await settle();
-        expect(root.querySelector('.lp-context-label').textContent).toBe(
-            'Attach to a card',
-        );
-
-        root.getElementById('lp-cancel').click();
-        root.getElementById('general').click();
-        await settle();
-
-        expect(root.querySelector('.lp-context-label').textContent).toBe(
-            '#1 The card this page is for',
-        );
+        expect(targetText(root)).toBe('Turn on the board to use site review');
+        expect(root.getElementById('lp-textarea').disabled).toBe(true);
+        expect(root.getElementById('lp-save').disabled).toBe(true);
+        expect(root.getElementById('lp-picker').style.display).toBe('none');
     });
 
-    it('does not outlive a draft that was saved either', async () => {
-        // Saving ends a draft as surely as cancelling does, and its teardown is
-        // a separate block.
-        bootWidget({
-            context: 'card:01a0-page',
-            respond: () =>
-                ok({
-                    comments: [],
-                    context: {
-                        label: '#1 The card this page is for',
-                        url: null,
-                    },
-                    commentId: 'c1',
-                }),
+    it('says so when a save learns it', async () => {
+        const fetchMock = bootWidget({
+            mode: { mode: 'per-note', cardId: null },
+            respond: () => ok({ comments: [], context: null }),
         });
         await settle();
 
-        const root = panelRoot();
-        root.getElementById('lp-launch-main').click();
-        root.getElementById('general').click();
-        await settle();
-        root.querySelector('.lp-context-label').click();
-        await settle();
-        root.getElementById('lp-picker-detach').click();
-        await settle();
-
-        const textarea = root.getElementById('lp-textarea');
-        textarea.value = 'Detached for this one only';
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        await settle();
+        const root = openNote();
+        await write(root, 'Too late');
+        fetchMock.mockImplementation(async () =>
+            rejected(409, { error: 'board_disabled' }),
+        );
         root.getElementById('lp-save').click();
         await settle();
 
-        root.getElementById('general').click();
+        expect(root.getElementById('lp-error').textContent).toContain(
+            'Turn on the board to use site review',
+        );
+        expect(targetText(root)).toBe('Turn on the board to use site review');
+        expect(root.getElementById('lp-textarea').value).toBe('Too late');
+    });
+});
+
+describe('a stale copy of the widget', () => {
+    it('is told to reload', async () => {
+        const fetchMock = bootWidget({
+            mode: { mode: 'per-note', cardId: null },
+            respond: () => ok({ comments: [], context: null }),
+        });
         await settle();
 
-        expect(root.querySelector('.lp-context-label').textContent).toBe(
-            '#1 The card this page is for',
+        const root = openNote();
+        await write(root, 'From an old tab');
+        fetchMock.mockImplementation(async () =>
+            rejected(410, { error: 'widget_outdated' }),
         );
+        root.getElementById('lp-save').click();
+        await settle();
+
+        expect(root.getElementById('lp-error').textContent).toContain(
+            'Reload the page to update the review widget.',
+        );
+    });
+});
+
+describe('a preview page that names its card', () => {
+    it('sends every note to that card and shows no picker', async () => {
+        const fetchMock = bootWidget({
+            context: `card:${CARD}`,
+            mode: { mode: 'per-note', cardId: null },
+            respond: (url, init) =>
+                init.method === 'POST'
+                    ? ok({
+                          commentId: 'c1',
+                          cardId: CARD,
+                          number: 7,
+                          label: '#7 Preview',
+                          url: null,
+                      })
+                    : ok({
+                          comments: [],
+                          context: { label: '#7 Preview', url: null },
+                      }),
+        });
+        await settle();
+
+        const root = openNote();
+        expect(targetText(root)).toBe('#7 Preview');
+        expect(
+            root.getElementById('lp-context').querySelector('button'),
+        ).toBeNull();
+        expect(root.getElementById('lp-picker').style.display).toBe('none');
+        await write(root, 'On the preview');
+        root.getElementById('lp-save').click();
+        await settle();
+
+        expect(feedbackSave(fetchMock).target).toEqual({ cardId: CARD });
+        // The lock belongs to this page. The reviewer's own choice stays.
+        expect(storedMode()).toEqual({ mode: 'per-note', cardId: null });
+    });
+
+    it('says so, and refuses notes, when that card is closed or gone', async () => {
+        bootWidget({
+            context: `card:${CARD}`,
+            respond: () => ok({ comments: [], context: null }),
+        });
+        await settle();
+
+        const root = openNote();
+
+        expect(targetText(root)).toContain('closed or gone');
+        expect(root.getElementById('lp-picker').style.display).toBe('none');
+        expect(root.getElementById('lp-save').disabled).toBe(true);
+    });
+});
+
+describe('deleting a note', () => {
+    it('goes through the feedback path, so an untouched card goes with it', async () => {
+        const fetchMock = bootWidget({
+            respond: (url, init) =>
+                init.method === 'DELETE'
+                    ? ok({ cardDeleted: true })
+                    : ok({
+                          comments: [
+                              {
+                                  id: 'c1',
+                                  body: 'a note',
+                                  url: 'about:blank',
+                                  anchors: [],
+                              },
+                          ],
+                          context: null,
+                      }),
+        });
+        await settle();
+
+        const root = panelRoot();
+        root.getElementById('lp-launch-main').click();
+        root.getElementById('lp-clear').click();
+        root.getElementById('lp-clear-yes').click();
+        await settle();
+
+        const deleted = fetchMock.mock.calls.find(
+            ([, init]) => init && init.method === 'DELETE',
+        );
+        expect(deleted[0]).toBe(`${BACKEND}/api/board/feedback/c1`);
     });
 });
 
@@ -160,15 +401,13 @@ describe('a token revoked while the picker is open', () => {
         });
         await settle();
 
-        const root = panelRoot();
-        root.getElementById('lp-launch-main').click();
-        root.getElementById('general').click();
+        const root = openNote();
         await settle();
 
         fetchMock.mockImplementation(async () =>
             rejected(403, { error: 'token_not_bound_to_site' }),
         );
-        root.querySelector('.lp-context-label').click();
+        root.querySelector('[data-mode="per-review"]').click();
         await settle();
 
         expect(root.getElementById('lp-fatal').style.display).not.toBe('none');
@@ -204,53 +443,9 @@ describe('navigating to a page that names a different card', () => {
         );
     });
 
-    it('never pairs one page label with another page marker', async () => {
-        // Two refreshes overlap when navigation is quick. Deriving the marker
-        // at response time rather than at request time let the row show the
-        // first page's card while the save carried the second page's.
-        const answers = [];
-        const fetchMock = bootWidget({
-            context: 'card:first',
-            respond: () => {
-                const label = { label: '#1 First page card', url: null };
-                const payload = ok({ comments: [], context: label });
-                answers.push(payload);
-
-                return payload;
-            },
-        });
-        await settle();
-
-        // The second page resolves to nothing, so its marker must be dropped
-        // and the first page's label must not survive alongside it.
-        fetchMock.mockImplementation(async () =>
-            ok({ comments: [], context: null }),
-        );
-        await navigate('/second', 'card:second');
-
-        const root = panelRoot();
-        root.getElementById('lp-launch-main').click();
-        root.getElementById('general').click();
-        const textarea = root.getElementById('lp-textarea');
-        textarea.value = 'About the second page';
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        await settle();
-        root.getElementById('lp-save').click();
-        await settle();
-
-        expect(root.querySelector('.lp-context-label').textContent).toBe(
-            'Attach to a card',
-        );
-        const save = fetchMock.mock.calls.find(
-            ([, init]) => init && init.method === 'POST',
-        );
-        expect(JSON.parse(save[1].body)).not.toHaveProperty('context');
-    });
-
-    it('detaches the moment the marker changes, not when the answer lands', async () => {
-        // A reviewer who saves while the new page's context is still resolving,
-        // or after that request fails, must not file against the page they have
-        // already left.
+    it('sends the new page card the moment the marker changes', async () => {
+        // A reviewer who saves while the new page's card is still resolving
+        // must not file against the page they have already left.
         let release;
         const fetchMock = bootWidget({
             context: 'card:first',
@@ -262,43 +457,31 @@ describe('navigating to a page that names a different card', () => {
         });
         await settle();
 
-        const root = panelRoot();
-        root.getElementById('lp-launch-main').click();
-        root.getElementById('general').click();
-        await settle();
-        expect(root.querySelector('.lp-context-label').textContent).toBe(
-            '#1 First page card',
-        );
-
         // The next answer never arrives, which is the window under test.
         fetchMock.mockImplementation(
             () => new Promise((resolve) => (release = resolve)),
         );
         await navigate('/second', 'card:second');
-
         expect(release).toBeTypeOf('function');
-        expect(root.querySelector('.lp-context-label').textContent).toBe(
-            'Attach to a card',
-        );
 
-        const textarea = root.getElementById('lp-textarea');
-        textarea.value = 'Saved while the new page was still resolving';
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        await settle();
-        fetchMock.mockImplementation(async () => ok({ commentId: 'c9' }));
+        const root = openNote();
+        await write(root, 'Saved while the new page was still resolving');
+        fetchMock.mockImplementation(async () =>
+            ok({
+                commentId: 'c9',
+                cardId: 'second',
+                number: 2,
+                label: '#2',
+                url: null,
+            }),
+        );
         root.getElementById('lp-save').click();
         await settle();
 
-        const save = fetchMock.mock.calls.find(
-            ([, init]) => init && init.method === 'POST',
-        );
-        expect(save).toBeTruthy();
-        expect(JSON.parse(save[1].body)).not.toHaveProperty('context');
+        expect(feedbackSave(fetchMock).target).toEqual({ cardId: 'second' });
     });
 
-    it('drops the marker when the new page names no card', async () => {
-        // The fallback for a missing tag must not apply to a tag that is
-        // present and says nothing: that is the page stating it names no card.
+    it('drops the lock when the new page names no card', async () => {
         const fetchMock = bootWidget({
             context: 'card:first',
             respond: () => ok({ comments: [], context: null }),
@@ -311,6 +494,9 @@ describe('navigating to a page that names a different card', () => {
         const asked = fetchMock.mock.calls.map(([url]) => url);
         expect(asked.length).toBeGreaterThan(0);
         expect(asked.every((url) => !url.includes('context='))).toBe(true);
+        expect(openNote().getElementById('lp-picker').style.display).toBe(
+            'block',
+        );
     });
 });
 

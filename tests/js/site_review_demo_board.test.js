@@ -24,6 +24,21 @@ function openComposer() {
     return root;
 }
 
+function chooseMode(root, mode) {
+    root.querySelector(`#lp-picker-modes [data-mode="${mode}"]`).click();
+}
+
+async function write(root, text) {
+    const textarea = root.getElementById('lp-textarea');
+    textarea.value = text;
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle();
+}
+
+const cardRows = (root) => [
+    ...root.querySelectorAll('#lp-picker-list .lp-picker-row'),
+];
+
 let originalHistory;
 
 beforeAll(() => {
@@ -36,28 +51,32 @@ beforeAll(() => {
 afterEach(() => resetWidget(originalHistory));
 
 describe('the demo board', () => {
-    it('offers cards to attach to, without a server', async () => {
+    it('asks where notes go before the first one, without a server', async () => {
         const fetchMock = bootWidget({ demo: true });
         await settle();
 
         const root = openComposer();
-        root.querySelector('.lp-context-label').click();
         await settle();
 
-        const rows = [...root.querySelectorAll('.lp-picker-row')];
-        expect(rows.length).toBeGreaterThan(0);
-        expect(rows[0].textContent).toContain('Checkout button');
+        expect(root.getElementById('lp-picker').style.display).toBe('block');
+        expect(
+            [...root.querySelectorAll('#lp-picker-modes [data-mode]')].map(
+                (button) => button.dataset.mode,
+            ),
+        ).toEqual(['per-note', 'per-review', 'epic']);
+        expect(root.getElementById('lp-save').disabled).toBe(true);
         // The whole point of demo mode: it reaches no network at all.
         expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('narrows the list by what the reviewer typed', async () => {
+    it('offers open cards for one review card, and narrows them', async () => {
         bootWidget({ demo: true });
         await settle();
 
         const root = openComposer();
-        root.querySelector('.lp-context-label').click();
+        chooseMode(root, 'per-review');
         await settle();
+        expect(cardRows(root)[0].textContent).toContain('Checkout button');
 
         const search = root.getElementById('lp-picker-search');
         search.value = 'pricing';
@@ -65,50 +84,58 @@ describe('the demo board', () => {
         await new Promise((resolve) => setTimeout(resolve, 300));
         await settle();
 
-        const rows = [...root.querySelectorAll('.lp-picker-row')];
-        expect(rows).toHaveLength(1);
-        expect(rows[0].textContent).toContain('Pricing table');
+        expect(cardRows(root)).toHaveLength(1);
+        expect(cardRows(root)[0].textContent).toContain('Pricing table');
     });
 
-    it('creates a card and attaches it, rather than a phantom comment', async () => {
+    it('offers epics alone in epic mode', async () => {
         bootWidget({ demo: true });
         await settle();
 
         const root = openComposer();
-        root.querySelector('.lp-context-label').click();
+        chooseMode(root, 'epic');
         await settle();
 
-        root.getElementById('lp-picker-search').value = 'Dark mode please';
+        expect(cardRows(root).map((row) => row.textContent)).toEqual([
+            '#4Launch review',
+        ]);
+    });
+
+    it('creates a review card from the prefilled title', async () => {
+        bootWidget({ demo: true });
+        await settle();
+
+        const root = openComposer();
+        chooseMode(root, 'per-review');
+        await settle();
+        expect(root.getElementById('lp-picker-title').value).toBe('Review: /');
+
         root.getElementById('lp-picker-create').click();
         await settle();
 
         const label = root.querySelector('.lp-context-label').textContent;
-        // The number is the demo board's own, and the title is what was typed.
-        expect(label).toBe('#4 Dark mode please');
+        // The number is the demo board's own, and the title is the prefill.
+        expect(label).toBe('#5 Review: /');
         // The bug this replaced produced exactly this string.
         expect(label).not.toContain('undefined');
+        expect(root.getElementById('lp-picker').style.display).toBe('none');
     });
 
-    it('lets a reviewer detach again', async () => {
-        bootWidget({ demo: true });
+    it('saves a note as its own card and names that card', async () => {
+        const fetchMock = bootWidget({ demo: true });
         await settle();
 
         const root = openComposer();
-        root.querySelector('.lp-context-label').click();
+        chooseMode(root, 'per-note');
         await settle();
-        root.querySelector('.lp-picker-row').click();
-        await settle();
-        expect(root.querySelector('.lp-context-label').textContent).toContain(
-            'Checkout button',
-        );
-
-        root.querySelector('.lp-context-label').click();
-        await settle();
-        root.getElementById('lp-picker-detach').click();
+        await write(root, 'Dark mode please\nThe footer glares at night.');
+        root.getElementById('lp-save').click();
         await settle();
 
-        expect(root.querySelector('.lp-context-label').textContent).toBe(
-            'Attach to a card',
+        expect(root.getElementById('lp-last-card').textContent).toBe(
+            'Saved as #5 Dark mode please',
         );
+        expect(root.getElementById('lp-head-count').textContent).toBe('1');
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 });

@@ -18,14 +18,9 @@ final class WidgetFileTest extends TestCase
         self::assertStringContainsString('data-project', $src);
         self::assertStringContainsString('data-context', $src);
         // Read once per request and carried through the answer, never re-read
-        // when it lands: an SPA swap can change it in between.
-        self::assertStringContainsString('const asked = pageMarker();', $src);
+        // when it lands: an SPA swap or a new choice can change it in between.
+        self::assertStringContainsString('const asked = bootMarker();', $src);
         self::assertStringContainsString('encodeURIComponent(asked)', $src);
-        // The marker the page proposes is a default, not a verdict: the picker
-        // lets a reviewer swap or drop it, and the save reads the live value.
-        // Empty until the server confirms the page's marker resolves, so a
-        // comment saved before that answer carries nothing it cannot show.
-        self::assertStringContainsString("let currentContext = '';", $src);
         self::assertStringContainsString('/api/board/cards', $src);
         // Raw hex is correct in this file, which carries its own palette. It is
         // wrong in the picker, which sits inside a themed shadow root: a
@@ -35,16 +30,11 @@ final class WidgetFileTest extends TestCase
         foreach ($rules[0] as $rule) {
             self::assertDoesNotMatchRegularExpression('/#[0-9a-fA-F]{3,8}\b/', $rule, $rule);
         }
-        // The save reads the live marker, never the page's attribute. This
-        // assertion replaces one that required the opposite, which was correct
-        // while the page's attribute was the only source.
+        // A note goes to its card through the board, and the old save path
+        // only tells a stale copy to reload.
         self::assertStringNotContainsString('{ context: CONTEXT }', $src);
-        // An ordinary deployment renders no attribute, a misconfigured one
-        // renders an empty attribute, and a reviewer may detach. None of the
-        // three may reach the API as a value, so the key is sent only when
-        // there is something in it.
-        self::assertStringContainsString('...(currentContext ? { context: currentContext } : {})', $src);
-        self::assertStringContainsString('/api/site-review/comments', $src);
+        self::assertStringContainsString("api('POST', '/api/board/feedback'", $src);
+        self::assertStringNotContainsString("'/api/site-review/comments',", $src);
         // The widget saves as the reviewer writes; there is no send step to call.
         self::assertStringNotContainsString('/api/site-review/review/submit', $src);
 
@@ -62,9 +52,11 @@ final class WidgetFileTest extends TestCase
             $src,
         );
 
-        // Comments live on the server alone. The launcher's corner is the one
-        // thing the widget keeps in the browser, so one write is the budget.
+        // Comments live on the server alone. The widget keeps two choices in
+        // the browser, the launcher's corner and where notes go, so two writes
+        // are the budget.
         self::assertStringContainsString("'loupe.site-review.corner'", $src);
-        self::assertSame(1, substr_count($src, 'localStorage.setItem'));
+        self::assertStringContainsString('`loupe-site-review:mode:${BACKEND}:${PROJECT}`', $src);
+        self::assertSame(2, substr_count($src, 'localStorage.setItem'));
     }
 }
