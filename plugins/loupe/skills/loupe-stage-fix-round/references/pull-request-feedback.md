@@ -84,4 +84,4 @@ git -C <card worktree> merge --ff-only origin/<head branch>
 
 When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push.
 
-Then provision it as the profile `Worktree` section says. When the sync brought commits, refresh it as that section says. Bind writes to the worktree, and verify it, as "Bind writes and verify" in `../../loupe-stage-implementation/references/commands.md` says. The branch must be the head branch.
+Then provision it as the profile `Worktree` section says. When the sync brought commits, refresh it as that section says. A profile command may name `<cardId>`. It is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. Never derive it from a branch name, a worktree name or a card number. Bind writes to the worktree, and verify it, as "Bind writes and verify" in `../../loupe-stage-implementation/references/commands.md` says. The branch must be the head branch.
