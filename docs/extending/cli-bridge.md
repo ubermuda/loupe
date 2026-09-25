@@ -210,6 +210,23 @@ across runs.
 Unreleased, like the site-review widget it shares a stream with: there is no
 published binary, and it needs a Mercure hub to have anything to subscribe to.
 
+## Hooks
+
+A hook package runs a local program when the bridge starts, stops, gets busy or
+goes idle. The `hooks:` list of `rules.yaml` names each package and the commit
+it runs. [Bridge hooks](bridge-hooks.md) covers the events, the manifest, the
+trust model and the Amphetamine package. These commands manage the list:
+
+| Command | What it does |
+|---|---|
+| `loupe bridge hooks install <owner>/<repo>[/<path>]@<ref>` | Installs or updates a package from GitHub at one commit |
+| `loupe bridge hooks list` | Shows the installed packages and their settings |
+| `loupe bridge hooks remove <owner>/<repo>[/<path>]` | Removes a package from the rule file |
+| `loupe bridge hooks set <owner>/<repo>[/<path>] <name>=<value>` | Sets one setting of a package |
+| `loupe bridge hooks run <owner>/<repo>[/<path>] <event>` | Runs one hook now, from your terminal |
+
+Run `loupe bridge reload` after `install`, `remove` or `set`.
+
 ## Events endpoint
 
 `GET /api/events` returns what a client needs to follow the events of every

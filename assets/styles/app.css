@@ -3544,6 +3544,13 @@
     .lp-status-chip--failed .lp-status-chip__dot {
         @apply bg-status-danger;
     }
+    /* Grey chip for a state that is neither good nor bad, such as a hook that has not run. */
+    .lp-status-chip--neutral {
+        @apply bg-tint text-fg-dim border-line;
+    }
+    .lp-status-chip--neutral .lp-status-chip__dot {
+        @apply bg-fg-faint;
+    }
 
     /* Quoted document excerpt a comment thread is anchored to. Shown at the head
        of every thread — essential for orphaned threads, where the in-document

@@ -55,6 +55,7 @@ final class RecordBridgeHeartbeatController extends AppController
             bridgeId: Uuid::fromString($bridgeId),
             projects: $payload->projectIds(),
             cliVersion: $payload->cliVersion(),
+            hooks: $payload->hooks(),
         ));
 
         return new Response(status: Response::HTTP_NO_CONTENT);
