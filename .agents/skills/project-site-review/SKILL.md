@@ -42,7 +42,7 @@ Pending  →  Addressed  →  (Resolved)
 
 - `Pending`: the reviewer saved it and the agent has not acted. Comments are
   created in this state. There is no draft.
-- `Addressed`: the agent fixed it (`site_review_mark_comment_addressed`).
+- `Addressed`: the agent fixed it (`feedback_mark_addressed`).
 - `Resolved`: a human signed it off, in the web UI or from the widget. An agent
   cannot reach this state.
 

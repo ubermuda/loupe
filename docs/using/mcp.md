@@ -221,13 +221,13 @@ Roughly in the order an agent uses them:
 | `tag_list` | The project's existing tag vocabulary |
 | `series_list` | The project's series, each with its document count and highest position |
 | `series_rename` | Rename a series; every document in it keeps its position |
-| `site_review_get` | Widget comments and their page context |
-| `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
+| `feedback_list` | The project's site-review feedback, each item with the card it belongs to (off with the board, see below) |
+| `feedback_mark_addressed` | Mark feedback items acted on, so the next `feedback_list` skips them (off with the board, see below) |
 | `card_create` | Put a card on the project board (off by default — see below) |
 | `card_list` | Read a page of the board, filtered by status, type, reporter or parent, with the board's columns |
 | `board_columns` | List the board's columns, each with its slug, label, terminal flag and default flag |
 | `card_search` | Search every card's title and body by words, finished ones included |
-| `card_get` | Read one card, with the pull requests linked to it |
+| `card_get` | Read one card, with the pull requests and the feedback linked to it |
 | `card_update` | Change a card, or move it to another column |
 | `inbox_ask` | Hand questions and to-dos to the project owner (off by default, see below) |
 | `inbox_search` | Search every inbox item's title and body by words, closed ones included |
@@ -277,10 +277,10 @@ change applies only to documents written after it. Every document written before
 this feature stays English, because that is how it was already indexed. Changing
 a document's language after it exists needs a reindex, which no tool does yet.
 
-### A site-review comment carries a list of anchors
+### A feedback item carries a list of anchors
 
-`site_review_get` reports each comment's elements in an `anchors` list. It no
-longer reports the `selector` and `text` fields, which held one element each.
+`feedback_list` and `card_get` report each feedback item's elements in an
+`anchors` list.
 
 ```json
 {
@@ -295,12 +295,12 @@ longer reports the `selector` and `text` fields, which held one element each.
 }
 ```
 
-A comment with several anchors says something about how those elements relate,
+An item with several anchors says something about how those elements relate,
 so read them together. An empty `anchors` list is a note about the page as a
 whole.
 
 An anchor whose `quote` is a string points at that run of text inside its
-element, and `quote` is then the subject of the comment. One whose `quote` is
+element, and `quote` is then the subject of the item. One whose `quote` is
 null points at the whole element. `quotePrefix` and `quoteSuffix` hold up to 32
 characters of the surrounding page text; they exist so the widget can find the
 passage again when the same words appear twice in one element, and they are not
@@ -313,8 +313,8 @@ which text replaced it.
 
 ### A drawing is reported as a flag, not as points
 
-A reviewer can draw freehand over the page as part of a comment.
-`site_review_get` reports `hasDrawing` and nothing more. The strokes are vector
+A reviewer can draw freehand over the page as part of a note.
+`feedback_list` and `card_get` report `hasDrawing` and nothing more. The strokes are vector
 points measured against a live page, which no agent can render, so the points
 would cost a large payload and buy nothing.
 
@@ -355,22 +355,22 @@ A decision reports its `type`. A single-choice block answers in `selected` and
 `selected_index`. A multi-choice block answers in `selections`, and reports null
 in `selected`. See [Documents and review](documents.md) for the syntax.
 
-## What `site_review_mark_comment_addressed` skips
+## What `feedback_mark_addressed` skips
 
-The call never fails on a comment it cannot mark. It marks the rest and returns
+The call never fails on an item it cannot mark. It marks the rest and returns
 the others under `skipped`, each with a reason.
 
 | Reason | Meaning |
 |---|---|
-| `unknown` | No such comment on this project, or the reviewer deleted it |
+| `unknown` | No such item on this project, or the reviewer deleted it |
 | `invalid_id` | The id is not a UUID |
 | `already_addressed` | An earlier pass marked it |
 | `resolved` | A human signed it off in the web UI |
 
 The reason is best-effort. The tool writes the status first, then reads the
-comment again to learn why it skipped. Another writer can change the comment
+item again to learn why it skipped. Another writer can change the item
 between those two steps, so a reason can name the wrong status. The skip itself
-is always correct, because the write only touches a comment that is still
+is always correct, because the write only touches an item that is still
 pending.
 
 ## Configuration
@@ -383,7 +383,8 @@ agent never learns of a tool this instance would refuse — switch it on in
 **Admin → Feature flags**. A client holding a tool list from before the flag
 changed and calling it anyway gets a plain refusal, not a broken call.
 
-The `card_*` tools and `board_columns` are behind the `board.enabled` feature
+The `card_*` tools, `board_columns`, `feedback_list` and
+`feedback_mark_addressed` are behind the `board.enabled` feature
 flag, seeded **off**. A board an agent writes to is a second place work is
 tracked, so the operator opts in. The gate behaves the same way as the one above: while the flag
 is off the tools are absent from `tools/list` and from the Connect page, and a

@@ -6,7 +6,7 @@ description: "An embeddable widget for commenting on live web pages. Preview —
 The site-review widget brings the select-and-comment flow to any web page. A
 reviewer picks an element, or selects a passage of text, and leaves a comment
 about it; it is saved to the project the moment they press Save, and the agent
-can pull it with `site_review_get` from then on. There is no send step to
+can pull it with `feedback_list` from then on. There is no send step to
 remember.
 
 **This is a preview.** It works and is used daily on this project, but it is not
@@ -249,7 +249,7 @@ refused and the widget tells you so rather than silently discarding it.
 
 ## Reaching your agent
 
-Comments do not push. Your agent sees them when it calls `site_review_get`, so
+Comments do not push. Your agent sees them when it calls `feedback_list`, so
 ask it to look — there is nothing to press, and nothing arrives unprompted.
 
 A comment carries no author, so an agent cannot tell yours apart from anyone
@@ -262,5 +262,5 @@ Live push over a Mercure hub, an outbox for undelivered events, and the
 [command-line bridge](../extending/cli-bridge.md) are all still present but
 **currently inert**: nothing publishes an event, so the outbox stays empty and
 the per-project and `/admin/outbox` pages have nothing to show.
-That part of the feature is unfinished. Pulling with `site_review_get` is the
+That part of the feature is unfinished. Pulling with `feedback_list` is the
 supported path today.

@@ -586,7 +586,7 @@ by the card id. See [Environment variables](../reference/environment.md).
 
 The link is one-way and read-only from the board's side. The card shows the
 comment and its status, and the site-review screen still owns that status.
-`site_review_mark_comment_addressed` is what marks one done.
+`feedback_mark_addressed` is what marks one done.
 
 Nothing is linked while the board is switched off, and a comment naming a card
 of another project is refused. The marker travels through a page, so anyone able

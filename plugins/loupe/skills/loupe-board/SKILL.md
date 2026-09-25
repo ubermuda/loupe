@@ -56,7 +56,9 @@ When no column fits a role, leave the card where it is and tell the owner.
 | `card_create` | Put a new card on the board. It lands in the default column unless you pass `status`. |
 | `card_list` | Read one page of the board, with its columns. Filter by `status`, `type`, `reporter` or `parentCardId`. A terminal column reads newest completion first, and every other column reads in rank order. |
 | `card_search` | Ask whether a card about something already exists. It reads the title and the body of every card, done ones included. |
-| `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents, its linked cards, the site-review comments pointing at it, and its parent or its children. |
+| `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents, its linked cards, the feedback items that belong to it, and its parent or its children. |
+| `feedback_list` | Read the feedback of the whole project, each item with its card. It returns the pending items unless you pass `status`. |
+| `feedback_mark_addressed` | Mark feedback items addressed after you fix them. |
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status puts the card at the end of the column it arrives in. |
 
 `card_get` and `card_update` take a `cardId`, which you read from `card_list`,
@@ -100,7 +102,7 @@ Pass `parentCardId` to `card_list` to read the children of one epic. It combines
 with the other filters.
 
 Pass `full` to get the whole card on every row, with its Markdown body, its pull
-request links, its documents, its linked cards, its site-review comments, its
+request links, its documents, its linked cards, its feedback items, its
 parent, its lane setting, its children and its progress. A
 full page is much larger than a summary page, and a whole board of full cards once overran a
 caller's context limit. Read the board as summaries, then call `card_get` for the
@@ -123,10 +125,13 @@ list replaces every link that touches the card, including links written from the
 other card, and nobody tells that card's writer. Read the card before you write.
 
 `siteReviewComments` is read-only, on `card_get` and on `card_list` with `full`.
-Each item carries `commentId`, `body`, `url`, `status` and `createdAt`. A comment
-reaches a card because the page it was made on named that card, and no board tool
-writes that link. Mark one done with `site_review_mark_comment_addressed`, which
-takes the same `commentId`, rather than by editing the card.
+It lists the feedback items that belong to the card. Each item carries `id`,
+`url`, `anchors`, `body`, `hasDrawing`, `status` and `createdAt`. A reviewer
+files feedback against a card with the site-review widget, and no board tool
+writes that link. `feedback_list` reads the feedback of the whole project, each
+item with its card. Mark an item done with `feedback_mark_addressed`, which takes
+the same `id`, rather than by editing the card. The `loupe-site-review` skill
+carries the rest of that loop.
 
 `card_create` and `card_update` take a `type` of `feature`, `bug`, `security`,
 `tooling`, `docs`, `idea`, `epic` or `site-review`.

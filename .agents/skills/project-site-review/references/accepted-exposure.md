@@ -72,7 +72,7 @@ document the widget as staging and preview only. Then code:
 The attribution half is accepted too, and was accepted first. The two are easy
 to confuse, so read this paragraph as attribution only and the one above as
 read, edit and delete only. The grant names an account and the comment row does
-not, so `site_review_get` cannot tell an agent who wrote a comment. The
+not, so `feedback_list` cannot tell an agent who wrote a comment. The
 compensating control is categorical escalation in the `loupe-site-review`
 skill: anything that would change a destination, an identity, a credential or
 third-party code goes to the human. That control is load-bearing. An agent
