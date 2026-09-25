@@ -849,7 +849,6 @@
         @apply flex flex-wrap max-w-full items-center gap-2;
     }
     .lp-needs-you .lp-page-header,
-    .lp-site-feedback-page .lp-page-header,
     .lp-core-documents .lp-page-header,
     .lp-redesign-projects .lp-page-header {
         @apply flex-wrap;
@@ -958,11 +957,6 @@
         scrollbar-width: thin;
         scrollbar-color: var(--border-strong) transparent;
     }
-    /* Holds the page's controllers around a frame and a drawer, and leaves the
-       layout to them. */
-    .lp-site-review-shell {
-        @apply contents;
-    }
     /* A master-detail page holds its header still and scrolls each pane on its
        own, so reading one pane never moves the other. Below the stacking
        breakpoint the panes sit one above the other and the page scrolls. */
@@ -995,182 +989,8 @@
             @apply overflow-visible;
         }
     }
-    .lp-feedback-receipt {
-        @apply flex items-center gap-4 rounded-xl border border-accent-border bg-accent-soft px-5.5 py-5 mb-6;
-    }
-    .lp-feedback-receipt__icon {
-        @apply grid place-items-center size-9.5 shrink-0 rounded-lg bg-surface-1 text-accent-ink;
-    }
-    .lp-feedback-receipt__icon svg {
-        @apply size-4.5;
-    }
-    .lp-feedback-receipt div {
-        @apply min-w-0 mr-auto;
-    }
-    .lp-feedback-receipt h2 {
-        @apply text-sm font-semibold text-ink m-0;
-    }
-    .lp-feedback-receipt p {
-        @apply text-sm leading-relaxed text-fg-mute m-0 mt-1 max-w-3xl;
-    }
-    .lp-feedback-receipt .lp-tag {
-        @apply gap-1.5 shrink-0;
-    }
-    .lp-feedback-workspace {
-        @apply grid grid-cols-1 min-h-96 rounded-2xl border border-line bg-surface-1 overflow-hidden;
-    }
-    .lp-feedback-list {
-        @apply border-b border-line bg-surface-2;
-    }
-    /* The list sits beside the detail from 680px up, and above it below. */
-    @media (width > 42.5rem) {
-        .lp-feedback-workspace {
-            @apply grid-cols-5;
-        }
-        .lp-feedback-list {
-            @apply col-span-2 border-b-0 border-r;
-        }
-        .lp-feedback-detail {
-            @apply col-span-3;
-        }
-    }
-    .lp-feedback-list__item {
-        @apply block w-full px-5.5 py-5.5 border-b border-line text-left transition-colors hover:bg-accent-faint;
-    }
-    .lp-feedback-list__item[aria-current='true'] {
-        @apply bg-accent-soft;
-    }
-    .lp-feedback-list__meta {
-        @apply flex items-center gap-2.5 mb-3 text-xs text-fg-dim;
-    }
-    .lp-feedback-list__number {
-        @apply font-semibold text-fg-mute;
-    }
-    .lp-feedback-list__title {
-        @apply block text-base font-semibold leading-normal text-ink break-words;
-    }
-    .lp-feedback-list__body {
-        @apply block mt-2 mb-3.5 text-sm leading-relaxed text-fg-mute line-clamp-2;
-    }
-    .lp-feedback-list__source,
-    .lp-feedback-list__card {
-        @apply flex items-center gap-2 text-xs text-fg-dim break-all;
-    }
-    .lp-feedback-list__card {
-        @apply mt-2.5 font-semibold;
-    }
-    .lp-feedback-list__source svg,
-    .lp-feedback-list__card svg {
-        @apply size-3.5 shrink-0;
-    }
-    .lp-feedback-detail {
-        @apply min-w-0;
-    }
-    .lp-feedback-detail__panel {
-        @apply px-8 py-7;
-    }
-    .lp-feedback-detail__panel[hidden] {
-        @apply hidden;
-    }
-    .lp-feedback-detail__header {
-        @apply flex items-center justify-between gap-4 mb-5;
-    }
-    .lp-feedback-detail__eyebrow {
-        @apply m-0 text-xs font-bold uppercase tracking-widest text-fg-dim;
-    }
-    .lp-feedback-detail__message {
-        @apply m-0 mb-7 text-xl leading-relaxed text-ink whitespace-pre-line break-words;
-    }
-    .lp-feedback-detail__section {
-        @apply py-5 border-t border-line;
-    }
-    .lp-feedback-detail__section h3 {
-        @apply text-base font-bold text-ink m-0 mb-3;
-    }
-    .lp-feedback-detail__section-head {
-        @apply flex flex-wrap items-center justify-between gap-x-4 gap-y-1 mb-3;
-    }
-    .lp-feedback-detail__section-head h3 {
-        @apply mb-0;
-    }
-    .lp-feedback-detail__url {
-        @apply m-0 text-sm text-accent-ink break-all;
-    }
-    .lp-feedback-detail__muted {
-        @apply m-0 mb-3 text-sm text-fg-mute;
-    }
-    .lp-feedback-detail__section .lp-inbox-linked-table-wrap {
-        @apply mt-0;
-    }
-    /* Unlinked feedback leads with the two ways to give it a home, so neither
-       hides among the sections below. */
-    .lp-feedback-attach {
-        @apply flex flex-wrap items-center gap-3 mt-5 rounded-xl border border-accent-border bg-accent-soft px-5 py-4;
-    }
-    .lp-feedback-attach h3 {
-        @apply basis-full m-0 text-base font-bold text-ink;
-    }
-    .lp-feedback-attach p {
-        @apply basis-full m-0 -mt-2 text-sm text-fg-mute;
-    }
-    /* The form lays its children out in the panel's own rows, so the select
-       takes one row and both buttons sit together on the next one. */
-    .lp-feedback-attach .lp-site-review-attach {
-        display: contents;
-    }
-    .lp-feedback-attach .lp-select {
-        @apply basis-full;
-    }
-    .lp-feedback-attach .lp-btn {
-        @apply shrink-0;
-    }
-    .lp-feedback-attach__create {
-        @apply bg-surface-1;
-    }
-    /* One captured element: what it said, then its selector behind a disclosure. */
-    .lp-feedback-anchor {
-        @apply mt-3 first-of-type:mt-0 rounded-lg border border-line bg-surface-2 p-4;
-    }
-    .lp-feedback-anchor__label {
-        @apply flex items-center gap-2 text-xs text-fg-dim;
-    }
-    .lp-feedback-anchor__label svg {
-        @apply size-3.5 shrink-0;
-    }
-    .lp-feedback-anchor__text {
-        @apply m-0 my-3 text-base leading-relaxed text-ink whitespace-pre-line break-words;
-    }
-    .lp-feedback-anchor__selector {
-        @apply text-sm text-fg-mute;
-    }
-    .lp-feedback-anchor__selector summary {
-        @apply cursor-pointer py-1.5;
-    }
-    .lp-feedback-anchor__selector code {
-        @apply block mt-1 rounded-md border border-line bg-surface-1 p-3 font-mono text-xs leading-relaxed break-all;
-    }
-    /* A link that reads as an action: accent ink, no underline, trailing icon. */
-    .lp-text-link {
-        @apply inline-flex items-center gap-1.5 text-sm font-semibold text-accent-ink no-underline transition-colors hover:text-ink;
-    }
-    .lp-text-link svg {
-        @apply size-3.5 shrink-0;
-    }
     .lp-feedback-detail__actions {
         @apply flex flex-wrap items-center justify-end gap-2 pt-5 border-t border-line;
-    }
-    .lp-feedback-detail__empty {
-        @apply m-6;
-    }
-    /* Site review follows the handoff ladder: addressed is purple, resolved green. */
-    .lp-feedback-workspace .lp-status-chip--addressed {
-        @apply bg-status-active-bg text-status-active border-transparent;
-    }
-    .lp-feedback-workspace .lp-status-chip--resolved {
-        @apply bg-status-ok-bg text-status-ok-deep border-transparent;
-    }
-    .lp-feedback-workspace .lp-status-chip--pending {
-        @apply border-transparent;
     }
 }
 

@@ -137,20 +137,6 @@ class CardSiteReviewCommentRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** @return list<CardSiteReviewComment> */
-    public function findForProject(Project $project): array
-    {
-        /* @var list<CardSiteReviewComment> */
-        return $this->createQueryBuilder('link')
-            ->addSelect('card', 'comment')
-            ->join('link.card', 'card')
-            ->join('link.comment', 'comment')
-            ->where('card.project = :project')
-            ->setParameter('project', $project)
-            ->getQuery()
-            ->getResult();
-    }
-
     /**
      * How many unaddressed comments each card of a project carries, keyed by
      * card id. One aggregate for the whole board rather than a query per card,

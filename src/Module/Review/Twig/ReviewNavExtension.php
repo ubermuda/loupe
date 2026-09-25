@@ -10,9 +10,8 @@ use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
 /**
- * Exposes a project's document count to the app-shell nav pill. Mirrors
- * SiteReviewNavExtension: the count is a Review concern, and Review → Project is
- * the allowed dependency direction.
+ * Exposes a project's document count to the app-shell nav pill. The count is a
+ * Review concern, and Review → Project is the allowed dependency direction.
  *
  * The pill counts what the documents list shows, so archived documents are left
  * out of both or the number contradicts the rows it sits above.

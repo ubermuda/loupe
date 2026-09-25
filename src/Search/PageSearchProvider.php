@@ -27,7 +27,6 @@ final readonly class PageSearchProvider implements SearchProviderInterface
         $routes = [
             'app_project_workshop' => 'nav.link.workshop',
             'app_project_documents' => 'nav.link.documents',
-            'app_project_site_review' => 'nav.link.site_review',
             'app_project_agents' => 'nav.link.agents',
             'app_project_worker_runs' => 'nav.link.worker_runs',
             'app_project_activity' => 'nav.link.activity',

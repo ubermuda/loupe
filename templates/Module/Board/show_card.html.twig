@@ -160,7 +160,6 @@
                     <li>{% include '@Board/_feedback_entry.html.twig' with {link: link, surface: 'feedback'} only %}</li>
                 {% endfor %}
             </ul>
-            <a class="lp-btn lp-btn--ghost" href="{{ path('app_project_site_review', {id: card.project.id}) }}" data-turbo-frame="_top">{{ 'board.card.site_review.all'|trans }}</a>
             {% else %}<p class="lp-card-detail__empty">{{ 'board.card.site_review.empty'|trans }}</p>{% endif %}
         </section>
     </div>

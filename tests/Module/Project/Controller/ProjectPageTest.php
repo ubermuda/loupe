@@ -42,7 +42,7 @@ final class ProjectPageTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($other);
-        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/connect');
 
         self::assertResponseStatusCodeSame(403);
     }
