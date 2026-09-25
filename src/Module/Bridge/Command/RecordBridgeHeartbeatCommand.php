@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\ValueObject\CliUpdateState;
 use Symfony\Component\Uid\Uuid;
 
 /** @phpstan-import-type HookRow from Bridge */
@@ -20,6 +21,8 @@ final readonly class RecordBridgeHeartbeatCommand
         public Uuid $bridgeId,
         public array $projects,
         public string $cliVersion,
+        public ?CliUpdateState $updateState = null,
+        public ?string $updateVersion = null,
         public ?array $hooks = null,
     ) {
     }

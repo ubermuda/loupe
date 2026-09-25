@@ -1,6 +1,7 @@
 # `loupe` CLI
 
 A small Go binary that closes the loop between Loupe and a local coding agent.
+It runs on macOS and Linux.
 
 The CLI watches your Loupe board and runs a **non-interactive Claude Code
 worker** for each event that a rule in your rule file matches. A card you move
@@ -11,6 +12,13 @@ exit code and the worker's structured result.
 The bridge runs three workers at once by default and queues the rest. It writes
 one JSON object per line, to stdout and to a log file.
 
+## Install
+
+Download a release from GitHub, check it against `checksums.txt`, and put it in
+a directory on your `PATH` that you can write.
+[Installing the CLI](../docs/getting-started/cli.md) gives the steps. A bridge
+then keeps the binary up to date by itself, as [Updates](#updates) says.
+
 ## Build
 
 No host Go toolchain is needed; both recipes run in a throwaway container.
@@ -19,7 +27,7 @@ No host Go toolchain is needed; both recipes run in a throwaway container.
 just cli-test                  # go vet + go test
 just cli-install               # build for this machine and put it in ~/bin
 just cli-install ~/.local/bin  # or wherever you keep binaries
-just cli-build                 # darwin/arm64 → cli/dist/loupe-darwin-arm64
+just cli-build                 # darwin/arm64, to cli/dist/loupe-darwin-arm64
 just cli-build linux amd64     # any GOOS/GOARCH pair
 ```
 
@@ -30,22 +38,30 @@ earlier on `PATH` would be used instead.
 
 `just cli-build` leaves the binary in `cli/dist/` for you to place yourself.
 
+Both recipes make a development build. It has no version, so it never updates
+itself. Only a release build has a version.
+
 `just cli-test` also runs as its own leg of CI, so a broken CLI fails a pull
 request the same way broken PHP does.
 
 ## Release
 
-`.goreleaser.yaml` builds the full matrix — darwin, linux and windows on both
-amd64 and arm64 — as static binaries, archives them, and drafts a GitHub
-release. Run it from this directory, against a tag:
+A tag push that matches `v*`, such as `v1.0.0`, runs
+`.github/workflows/cli-release.yml`. The workflow runs `go vet` and `go test`,
+then runs goreleaser from this directory with `.goreleaser.yaml`. The release is
+published at once, not drafted.
+
+A CLI tag has no `cli/` prefix, because goreleaser OSS reads no tag prefix. Every
+plain `vX.Y.Z` tag on this repository is therefore a CLI release.
+
+Each release holds a static binary for macOS and Linux on amd64 and arm64. Each
+binary is in an archive named `loupe_<version>_<os>_<arch>.tar.gz`, for example
+`loupe_1.0.0_darwin_arm64.tar.gz`. The release also holds `checksums.txt`, with
+the SHA-256 of each archive. There is no Windows build.
 
 ```bash
-goreleaser release --clean                    # needs GITHUB_TOKEN and a tag
 goreleaser release --snapshot --clean         # local dry run, no tag needed
 ```
-
-The release is drafted rather than published: tags live on the application
-repository, so a human confirms the CLI is what changed before it ships.
 
 ## Requirements
 
@@ -276,7 +292,8 @@ loupe bridge run --rules ~/loupe/other-project.yaml --permission-mode acceptEdit
 
 The command blocks in the foreground and writes JSON lines to stdout and to the
 log file. `Ctrl-C` or `SIGTERM` stops it, and that also stops every worker in
-flight.
+flight. An update is the one exception: the bridge hands its workers to the new
+version, and they keep running. See [Updates](#updates).
 
 The bridge listens on a local socket, `bridge-<hash>.sock` in your config
 directory. The hash comes from the absolute path of the rule file as you give
@@ -289,7 +306,7 @@ The bridge also holds a lock on `bridge-<hash>.lock` in your config directory
 while it runs. This hash comes from the absolute path with symlinks resolved,
 so two paths to one file count as the same rule file. A second
 `loupe bridge run` on the same rule file refuses to start. Its error names the
-lock file and, except on Windows, the socket of the first bridge. The OS
+lock file and the socket of the first bridge. The OS
 releases the lock when the bridge stops or crashes. When you repoint a symlink,
 the next reload moves the lock to the new file. That reload fails when another
 bridge already holds the lock of the new file, or when the symlink moves again
@@ -379,6 +396,16 @@ A value on the rule wins. The `defaults:` block comes next, and the
 again, and the flags stay fixed for the process. A CLI older than this block
 refuses the file, because `defaults` is an unknown key there. Remove the block
 before you downgrade.
+
+`autoUpdate` at the top of the file turns [updates](#updates) on or off. It is
+on when the key is absent. `autoUpdate: false` stops the bridge from installing
+a release, and it then only logs `update_available`. A reload applies a change
+to the key. A CLI older than this key refuses the file, because `autoUpdate` is
+an unknown key there.
+
+```yaml
+autoUpdate: false
+```
 
 A field the format does not define stops the bridge at start, and fails a
 reload, so a misspelt key never passes in silence. So does a `permissionMode`
@@ -821,11 +848,14 @@ replaces the other's report for a project both map.
 
 The bridge tells the server that it runs. It sends a heartbeat once at start,
 right after the first `GET /api/events`, and then once per interval. The
-heartbeat carries the ids of the projects the rule file maps and the build that
-`loupe version` prints, such as `0f4a2c9b (dirty)`. The server stamps the time
-itself. A reload sends a heartbeat at once, so the server reads the new
-projects before the next interval. The heartbeat also carries the last run of
-each [hook](#loupe-bridge-hooks), and a hook run sends a heartbeat at once.
+heartbeat carries the ids of the projects the rule file maps and the version of
+the binary. A release sends its version, such as `1.0.0`. A development build
+sends its commit, such as `0f4a2c9b (dirty)`. The heartbeat also carries the
+state of the bridge's own [update](#updates). The server stamps the time
+itself, and answers with the range of CLI versions it supports. A reload sends
+a heartbeat at once, so the server reads the new projects before the next
+interval. The heartbeat also carries the last run of each
+[hook](#loupe-bridge-hooks), and a hook run sends a heartbeat at once.
 
 The interval comes from `bridge.heartbeat_interval_seconds` in the `flags` map,
 60 seconds by default. The bridge falls back to 60 seconds when the map has no
@@ -857,6 +887,29 @@ heartbeat that lands after that logs `heartbeat_sent` once. A later 404 logs
 The heartbeat names the bridge by the same `bridgeId` as the rule health report.
 The server keys the row by the account and that id, so two accounts that share
 one config directory each keep a row. Stopping the bridge stops the heartbeat.
+
+### Updates
+
+A release build of the bridge keeps itself up to date. A development build never
+updates, and logs `update_skipped` once at start.
+
+The server names the CLI versions it supports as a caret range, such as `^1.0`,
+in its answer to each heartbeat. The bridge checks the releases on GitHub after
+its first heartbeat, again when the range changes, and then every hour plus a
+random delay of up to 10 minutes. It installs the highest release inside the
+range when the running version is lower, or when the running version is
+outside the range. It checks the archive against `checksums.txt` first.
+
+The bridge hands itself over to the new version in the same process, so the
+workers in flight keep running and the queue survives. When the new version
+does not connect and send a heartbeat within 60 seconds, the bridge goes back to
+the old version and skips the new one from then on.
+
+`autoUpdate: false` in the [rule file](#the-rule-file) turns this off. The
+bridge must also be able to write the directory of its binary, or it logs
+`update_blocked`. [Updates](../docs/extending/cli-bridge.md#updates) in the
+bridge documentation gives every step, the rollback, the recovery after a crash
+and the files in the config directory.
 
 ### Output
 
@@ -912,6 +965,32 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `heartbeat_failed` | `error`, `retry_in_seconds`: the first failure of a run. Level `WARN` |
 | `heartbeat_unsupported` | `error`, `message`: the server answered 404, logged once. Level `WARN` |
 | `heartbeat_interval_changed` | `interval_seconds`: a reconnect brought a new interval |
+| `event_duplicate` | `id`: the hub sent an event again that the bridge already handled, as after a handover |
+| `worker_adopted` | `card`, `project`, `rule`, `session_id`, `pid`: the bridge took over a worker that an earlier version started |
+| `update_skipped` | `reason`: the bridge does not check for updates, for example a development build |
+| `update_check` | `from`, `range`: a check starts |
+| `update_check_failed` | `from`, `error`, and `to` for a failed download. Level `WARN` |
+| `update_state_unreadable` | `error`: `update.json` does not parse, so the check runs with an empty skip list. Level `WARN` |
+| `update_unavailable` | `from`, `range`, `message`: the running version is outside the range and no release can replace it. Logged once. Level `WARN` |
+| `update_available` | `from`, `to`: a release waits, and `autoUpdate` is `false`. Logged once for each version |
+| `update_blocked` | `from`, `to`, `error`: the bridge cannot write the directory of its binary. Logged once for each version. Level `WARN` |
+| `update_download` | `from`, `to`, `url` |
+| `update_verified` | `from`, `to`: the archive matches `checksums.txt` |
+| `update_rejected` | `from`, `to`, `reason`: the archive does not match `checksums.txt`, or holds no binary. Level `WARN` |
+| `update_stage_failed` | `from`, `to`, `error`: the binary could not be written to `versions/`. Level `WARN` |
+| `update_deferred` | `from`, `to`, `reason`: a reload ran, the reports did not drain in time, or the preflight failed for a reason outside the new binary (`preflight`, with `error`). The next check tries again |
+| `update_handover` | `from`, `to`, `file`, `live`, `queued`: the bridge runs the new binary now |
+| `update_resume_failed` | `file`, `error`: the new binary could not read the handover. Level `ERROR` |
+| `update_applied` | `from`, `to`: the new version is healthy |
+| `update_installed` | `path`, `version`: the new binary replaced the one on your `PATH` |
+| `update_install_failed` | `path`, `error`: the binary on your `PATH` is still the old one. Level `WARN` |
+| `update_unhealthy` | `from`, `to`, and `timeout_seconds` or `error`: the new version goes back to the old one. Level `ERROR` |
+| `update_rolled_back` | `from`, `to`, `reason`: `preflight`, `exec`, `health` or `crash`. The version goes on the skip list |
+| `update_rollback_failed` | `to`, `error`: the old binary could not run, so the bridge stays on the new one. Level `ERROR` |
+| `update_rollback_skipped` | `message`: a version that a rollback started is not healthy either, and keeps running. Level `ERROR` |
+| `update_recovered` | `file`, `from`, `live`, `queued`: a start took over the handover of a bridge that died. When that bridge ran another version, `update_rolled_back` with the reason `crash` follows |
+| `update_recovery_failed` | `file`, `error`: a leftover handover could not be read or removed. Level `ERROR` or `WARN` |
+| `update_skip_failed`, `update_drain_failed`, `update_cleanup_failed`, `update_prune_failed` | `error`: housekeeping failed, and the update goes on. Level `WARN` |
 | `hook_ran` | `package`, `hook_event`, `duration_ms`: a hook exited 0 |
 | `hook_failed` | `package`, `hook_event`, and `exit_code` with `output`, or `error` when the hook could not start. Level `WARN` |
 | `hook_timeout` | `package`, `hook_event`, `timeout_seconds`, `output`: the bridge killed a hook past its time limit. Level `WARN` |
@@ -1047,19 +1126,47 @@ runs and asks you to confirm. Run `loupe bridge reload` after `install`,
 `remove` or `set`. See [Bridge hooks](../docs/extending/bridge-hooks.md) for the
 events, the manifest, the environment and the Amphetamine package.
 
+## `loupe update`
+
+Updates the CLI now, without waiting for the next hourly check.
+
+```bash
+loupe update
+loupe update --rules ~/loupe/other-project.yaml
+```
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--rules` | `rules.yaml` in your config dir | Update the bridge that reads this rule file |
+
+When a bridge runs, the command asks it to check and install at once, through
+its local socket. When no bridge runs, the command downloads the release,
+checks it against `checksums.txt`, and replaces the binary on your `PATH`
+itself. In both cases it ignores the skip list and `autoUpdate`, because you
+asked for the update. It still installs only a release inside the range the
+server supports.
+
+The command prints one line for each bridge. A bridge that hands over prints
+`handing-over`, and the command waits until the bridge runs the new binary.
+When that `exec` fails, the line says `rejected` instead, and the command exits
+with status 1.
+
 ## `loupe version`
 
-Prints the commit the binary was built from, plus the Go version and the
-platform. `loupe --version` prints the same two lines.
+Prints the version and the commit the binary was built from, plus the Go
+version and the platform. `loupe --version` prints the same two lines.
 
 ```
-loupe 0f4a2c9b1d7e3f5a6b8c9d0e1f2a3b4c5d6e7f80
+loupe 1.0.0 (0f4a2c9b1d7e3f5a6b8c9d0e1f2a3b4c5d6e7f80)
 go1.26.0 darwin/arm64
 ```
 
-The commit arrives through `-ldflags`, because the build container mounts `cli/`
-alone and has no `.git` to read. `just cli-build` and goreleaser both inject it.
-A binary built outside a repository says `loupe unknown`.
+A development build has no version, so the first line names the commit alone,
+such as `loupe 0f4a2c9b1d7e3f5a6b8c9d0e1f2a3b4c5d6e7f80`. The version and the
+commit arrive through `-ldflags`, because the build container mounts `cli/`
+alone and has no `.git` to read. goreleaser injects both, and `just cli-build`
+injects the commit only. A binary built outside a repository says
+`loupe unknown`.
 
 `(dirty)` after the commit means the working tree held uncommitted changes at
 build time, so the binary matches no commit.
@@ -1114,5 +1221,7 @@ A binary built before `GET /api/events` existed calls
 `GET /api/projects/{id}/stream`, which the server no longer has. Rebuild the CLI
 when you upgrade the server.
 
-Delivery is best-effort: events published while the bridge is disconnected are
-not replayed.
+The bridge sends the id of the last event it read as `Last-Event-ID` when it
+reconnects. The hub then replays the events published in the gap, for as long
+as the hub keeps its history. A bridge that you stop and start again reads no
+event from the time it was stopped.

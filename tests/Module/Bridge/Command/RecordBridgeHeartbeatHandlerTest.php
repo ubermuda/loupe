@@ -9,6 +9,8 @@ use App\Module\Bridge\Command\RecordBridgeHeartbeatCommand;
 use App\Module\Bridge\Command\RecordBridgeHeartbeatHandler;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeRepository;
+use App\Module\Bridge\Service\CliCompatibility;
+use App\Module\Bridge\ValueObject\CliUpdateState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -54,6 +56,19 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         self::assertSame(['bridge.bridge_registered'], $audit->operations());
     }
 
+    public function test_it_stores_the_update_report_and_answers_the_cli_range(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-update-report@example.com');
+
+        $result = $this->handler()(new RecordBridgeHeartbeatCommand($owner, Uuid::v4(), [], '1.2.0', CliUpdateState::Blocked, '1.3.0'));
+
+        self::assertSame(CliCompatibility::RANGE, $result->cliRange);
+        self::assertSame(CliUpdateState::Blocked, $result->bridge->updateState);
+        self::assertSame('1.3.0', $result->bridge->updateVersion);
+    }
+
     public function test_the_first_heartbeat_stores_the_hook_report(): void
     {
         self::bootKernel();
@@ -61,7 +76,7 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         $owner = $this->user($em, 'heartbeat-hooks-first@example.com');
         $bridgeId = Uuid::v4();
 
-        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', [self::hook()]));
+        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', hooks: [self::hook()]));
 
         self::assertSame([self::hook()], $this->reload($owner, $bridgeId)->hooks);
     }
@@ -75,8 +90,8 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         $handler = $this->handler();
         $failed = ['outcome' => 'failed', 'error' => 'exit 1'] + self::hook();
 
-        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', [self::hook()]));
-        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', [$failed]));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', hooks: [self::hook()]));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', hooks: [$failed]));
 
         self::assertSame([$failed], $this->reload($owner, $bridgeId)->hooks);
     }
@@ -90,7 +105,7 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         $bridgeId = Uuid::v4();
         $handler = $this->handler();
 
-        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', [self::hook()]));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', hooks: [self::hook()]));
         $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7'));
 
         self::assertSame([self::hook()], $this->reload($owner, $bridgeId)->hooks);
@@ -104,8 +119,8 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         $bridgeId = Uuid::v4();
         $handler = $this->handler();
 
-        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', [self::hook()]));
-        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', []));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', hooks: [self::hook()]));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', hooks: []));
 
         self::assertSame([], $this->reload($owner, $bridgeId)->hooks);
     }

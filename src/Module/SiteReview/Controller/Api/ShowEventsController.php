@@ -6,6 +6,7 @@ namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\ShowEventsCommand;
 use App\Module\SiteReview\Command\ShowEventsHandler;
@@ -64,6 +65,7 @@ final class ShowEventsController extends AppController
             // An empty map must encode as {}, and the serializer writes [] for an
             // empty object unless it is told to preserve it.
             'flags' => (object) $view->flags,
+            'cliRange' => CliCompatibility::RANGE,
         ], context: [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true]);
     }
 }

@@ -43,11 +43,11 @@ func sessionUUID(n int) string {
 }
 
 func (f *fakeWorker) ops() workerOps {
-	return workerOps{sessionID: f.nextSession, run: func(_ context.Context, spec workerSpec, onStart func()) workerResult {
+	return workerOps{sessionID: f.nextSession, run: func(_ context.Context, spec workerSpec, onStart func(workerProc)) workerResult {
 		res := f.enter(spec)
 		// A result with an error stands for a process that never started.
 		if onStart != nil && res.err == nil {
-			onStart()
+			onStart(workerProc{})
 		}
 
 		if f.started != nil {
@@ -409,8 +409,15 @@ func TestTheWorkerRunsWithTheMatchingRulesSettings(t *testing.T) {
 	if len(calls) != 1 {
 		t.Fatalf("expected one worker, got %+v", calls)
 	}
+	if !v4UUID.MatchString(calls[0].runID) {
+		t.Fatalf("run id %q is not a uuid", calls[0].runID)
+	}
 	schema := `{"properties":{"status":{"enum":["finished","blocked","unfinished"],"type":"string"},"summary":{"type":"string"}},"required":["status","summary"],"type":"object"}`
-	want := workerSpec{dir: h.dir, permissionMode: "plan", model: "opus", schema: schema, sessionID: testSession, prompt: "Review " + testCard + " in loupe, from in-progress.\n\n" + directive.Footer}
+	want := workerSpec{
+		dir: h.dir, permissionMode: "plan", model: "opus", schema: schema, sessionID: testSession,
+		prompt: "Review " + testCard + " in loupe, from in-progress.\n\n" + directive.Footer,
+		runID:  calls[0].runID, rule: "review", key: testCard,
+	}
 	if calls[0] != want {
 		t.Fatalf("worker = %+v, want %+v", calls[0], want)
 	}

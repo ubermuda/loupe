@@ -37,8 +37,8 @@ settings:
     description: A label for the log.
 `
 
-// fakeGitHub serves the ref and the tarball endpoints of acme/tool.
-type fakeGitHub struct {
+// fakeHookRepo serves the ref and the tarball endpoints of acme/tool.
+type fakeHookRepo struct {
 	mu        sync.Mutex
 	refs      map[string]string
 	manifests map[string]string
@@ -46,9 +46,9 @@ type fakeGitHub struct {
 	downloads int
 }
 
-func newFakeGitHub(t *testing.T) *fakeGitHub {
+func newFakeHookRepo(t *testing.T) *fakeHookRepo {
 	t.Helper()
-	gh := &fakeGitHub{
+	gh := &fakeHookRepo{
 		refs:      map[string]string{"v1": shaOne},
 		manifests: map[string]string{shaOne: toolManifest},
 		script:    "#!/bin/sh\necho ran\n",
@@ -62,7 +62,7 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 	return gh
 }
 
-func (gh *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
+func (gh *fakeHookRepo) serve(w http.ResponseWriter, r *http.Request) {
 	gh.mu.Lock()
 	defer gh.mu.Unlock()
 
@@ -93,7 +93,7 @@ func (gh *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
-func (gh *fakeGitHub) downloaded() int {
+func (gh *fakeHookRepo) downloaded() int {
 	gh.mu.Lock()
 	defer gh.mu.Unlock()
 
@@ -185,7 +185,7 @@ func installTool(t *testing.T, rulesPath string) {
 
 func TestHooksInstallShowsThePackageAndARefusalChangesNothing(t *testing.T) {
 	root, path := hooksEnv(t)
-	newFakeGitHub(t)
+	newFakeHookRepo(t)
 	before := fileText(t, path)
 
 	out, err := runHooks(t, "n\n", "install", "acme/tool@v1", "--rules", path)
@@ -212,7 +212,7 @@ func TestHooksInstallShowsThePackageAndARefusalChangesNothing(t *testing.T) {
 
 func TestHooksInstallAddsTheEntryAndKeepsComments(t *testing.T) {
 	root, path := hooksEnv(t)
-	newFakeGitHub(t)
+	newFakeHookRepo(t)
 
 	out, err := runHooks(t, "yes\n", "install", "acme/tool@v1", "--rules", path)
 	if err != nil {
@@ -235,7 +235,7 @@ func TestHooksInstallAddsTheEntryAndKeepsComments(t *testing.T) {
 
 func TestHooksInstallSkipsTheDownloadOfAnInstalledCommit(t *testing.T) {
 	_, path := hooksEnv(t)
-	gh := newFakeGitHub(t)
+	gh := newFakeHookRepo(t)
 	installTool(t, path)
 	installTool(t, path)
 
@@ -246,7 +246,7 @@ func TestHooksInstallSkipsTheDownloadOfAnInstalledCommit(t *testing.T) {
 
 func TestHooksInstallUpdatesTheCommitAndKeepsTheSettings(t *testing.T) {
 	root, path := hooksEnv(t)
-	gh := newFakeGitHub(t)
+	gh := newFakeHookRepo(t)
 	installTool(t, path)
 	if _, err := runHooks(t, "", "set", "acme/tool", "loud=true", "--rules", path); err != nil {
 		t.Fatal(err)
@@ -280,7 +280,7 @@ func TestHooksInstallUpdatesTheCommitAndKeepsTheSettings(t *testing.T) {
 
 func TestHooksInstallRefusesAnotherSystem(t *testing.T) {
 	_, path := hooksEnv(t)
-	gh := newFakeGitHub(t)
+	gh := newFakeHookRepo(t)
 	gh.manifests[shaOne] = "os: [plan9]\n" + toolManifest
 	before := fileText(t, path)
 
@@ -297,7 +297,7 @@ func TestHooksInstallRefusesAnotherSystem(t *testing.T) {
 // it writes, so the bridge can still load the file.
 func TestHooksInstallRefusesMoreEventsThanLoupeShows(t *testing.T) {
 	root, path := hooksEnv(t)
-	newFakeGitHub(t)
+	newFakeHookRepo(t)
 	manifest := "name: x\nevents:\n  start: [./run]\n  stop: [./run]\n  busy: [./run]\n  idle: [./run]\n"
 	err := rules.EditHooks(path, func(list []rules.HookEntry) ([]rules.HookEntry, error) {
 		for i := range 25 {
@@ -330,7 +330,7 @@ func TestHooksInstallRefusesMoreEventsThanLoupeShows(t *testing.T) {
 
 func TestHooksInstallRefusesAnUnknownRef(t *testing.T) {
 	_, path := hooksEnv(t)
-	newFakeGitHub(t)
+	newFakeHookRepo(t)
 
 	_, err := runHooks(t, "", "install", "acme/tool@nope", "--yes", "--rules", path)
 	if err == nil || !strings.Contains(err.Error(), `no ref "nope"`) {
@@ -340,7 +340,7 @@ func TestHooksInstallRefusesAnUnknownRef(t *testing.T) {
 
 func TestHooksList(t *testing.T) {
 	_, path := hooksEnv(t)
-	newFakeGitHub(t)
+	newFakeHookRepo(t)
 
 	out, err := runHooks(t, "", "list", "--rules", path)
 	if err != nil || !strings.Contains(out, "No hook is installed.") {
@@ -363,7 +363,7 @@ func TestHooksList(t *testing.T) {
 
 func TestHooksRemove(t *testing.T) {
 	root, path := hooksEnv(t)
-	newFakeGitHub(t)
+	newFakeHookRepo(t)
 	installTool(t, path)
 	state := hooks.StateDir(root, "acme/tool")
 	if err := os.MkdirAll(state, 0o700); err != nil {
@@ -394,7 +394,7 @@ func TestHooksRemove(t *testing.T) {
 
 func TestHooksSet(t *testing.T) {
 	_, path := hooksEnv(t)
-	newFakeGitHub(t)
+	newFakeHookRepo(t)
 	installTool(t, path)
 
 	out, err := runHooks(t, "", "set", "acme/tool", "label=a=b", "--rules", path)
