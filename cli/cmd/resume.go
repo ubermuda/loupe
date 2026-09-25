@@ -219,34 +219,19 @@ func (b *bridgeUpdate) watchHealth(ctx context.Context, r *router, updates *upda
 	}
 	go func() {
 		defer close(done)
-		timer := time.NewTimer(timeout)
-		defer timer.Stop()
-		retry := time.NewTicker(healthBeatRetry)
-		defer retry.Stop()
-		healthy := true
-	wait:
-		for _, ch := range []chan struct{}{b.connected, b.beat} {
-			for waiting := true; waiting; {
-				select {
-				case <-ch:
-					waiting = false
-				case <-retry.C:
-					if r.heartbeat != nil && !isClosed(b.beat) {
-						r.heartbeat.send()
-					}
-				case <-ctx.Done():
-					return
-				case <-timer.C:
-					healthy = false
-
-					break wait
-				}
+		for {
+			healthy, live := b.awaitHealth(ctx, r, timeout)
+			if !live {
+				return
 			}
-		}
-		if healthy {
-			b.healthy(updates)
-		} else {
-			b.unhealthy(ctx, r, timeout)
+			if healthy {
+				b.healthy(updates)
+
+				break
+			}
+			if !b.unhealthy(ctx, r, timeout) {
+				break
+			}
 		}
 		if updates != nil {
 			updates.start(ctx)
@@ -254,6 +239,33 @@ func (b *bridgeUpdate) watchHealth(ctx context.Context, r *router, updates *upda
 	}()
 
 	return done
+}
+
+// awaitHealth waits one health window, and sends the heartbeat again until one
+// lands. live is false when ctx ended first.
+func (b *bridgeUpdate) awaitHealth(ctx context.Context, r *router, timeout time.Duration) (healthy, live bool) {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	retry := time.NewTicker(healthBeatRetry)
+	defer retry.Stop()
+	for _, ch := range []chan struct{}{b.connected, b.beat} {
+		for waiting := true; waiting; {
+			select {
+			case <-ch:
+				waiting = false
+			case <-retry.C:
+				if r.heartbeat != nil && !isClosed(b.beat) {
+					r.heartbeat.send()
+				}
+			case <-ctx.Done():
+				return false, false
+			case <-timer.C:
+				return false, true
+			}
+		}
+	}
+
+	return true, true
 }
 
 // healthy ends a handover that worked. A forward update installs its binary,
@@ -318,19 +330,24 @@ func (b *bridgeUpdate) install(old string) {
 
 // unhealthy hands the bridge back to the image before it. A rolled back image
 // never hands back again, so two images cannot pass the bridge back and forth.
-func (b *bridgeUpdate) unhealthy(ctx context.Context, r *router, timeout time.Duration) {
+// Reports that do not drain would die with the exec, so it then reports true
+// to wait another health window instead.
+func (b *bridgeUpdate) unhealthy(ctx context.Context, r *router, timeout time.Duration) (again bool) {
 	b.log.Error("update_unhealthy", "from", b.resumed.OldVersion, "to", version, "timeout_seconds", int(timeout/time.Second))
 	if b.rolledBackFrom != "" || b.resumed.OldBinary == "" {
 		b.log.Error("update_rollback_skipped", "message", "The bridge keeps running on this version.")
 		b.dropResumeFile()
 
-		return
+		return false
 	}
 	r.reloadMu.Lock()
 	defer r.reloadMu.Unlock()
 	r.pause()
 	if err := r.drain(ctx, b.drainTimeout); err != nil {
-		b.log.Warn("update_drain_failed", "error", err.Error())
+		r.resume()
+		b.log.Warn("update_rollback_deferred", "to", b.resumed.OldVersion, "reason", err.Error(), "retry_in_seconds", int(timeout/time.Second))
+
+		return true
 	}
 	st := r.freeze()
 	st.OldVersion, st.OldBinary = version, b.target
@@ -338,6 +355,8 @@ func (b *bridgeUpdate) unhealthy(ctx context.Context, r *router, timeout time.Du
 	os.Remove(b.file)
 	r.resume()
 	b.log.Error("update_rollback_failed", "to", b.resumed.OldVersion, "error", err.Error())
+
+	return false
 }
 
 // rollbackAtStart hands the untouched state back to the image before this one

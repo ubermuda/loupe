@@ -298,6 +298,8 @@ A new version that is not healthy in 60 seconds, or that fails to start, logs
 `update_unhealthy`. It then runs the old binary through `exec`, with its current
 state. When the old binary is healthy again, it logs `update_rolled_back` with
 the reason `health`. The agents page shows "Rolled back from" and the version.
+When run reports or ask checks do not finish within 10 seconds, the new version logs
+`update_rollback_deferred`, keeps running and waits another 60 seconds for its health.
 
 A failed preflight or a failed `exec` also logs `update_rolled_back`, with the
 reason `preflight` or `exec`. The old version then never stopped.
@@ -340,6 +342,7 @@ ignores the skip list and `autoUpdate`. See
 | `update_applied` | The new version is healthy |
 | `update_installed` | The new binary replaced the installed one |
 | `update_unhealthy` | The new version goes back to the old one |
+| `update_rollback_deferred` | The rollback waits, because run reports are still in flight |
 | `update_rolled_back` | A version went on the skip list |
 | `update_recovered` | A start took over the handover of a bridge that died |
 

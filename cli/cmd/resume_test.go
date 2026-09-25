@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -656,5 +657,73 @@ func TestAResumedBridgeRetriesItsHeartbeatWhileTheStreamConnects(t *testing.T) {
 	defer fake.mu.Unlock()
 	if fake.heartbeatsAtHub < 2 {
 		t.Fatalf("heartbeats before the stream connected = %d, want a retry", fake.heartbeatsAtHub)
+	}
+}
+
+// stuckQueue is a report queue whose pending count a test sets.
+type stuckQueue struct {
+	syncQueue
+	n *atomic.Int32
+}
+
+func (q stuckQueue) Pending() int { return int(q.n.Load()) }
+
+// unhealthyResume is a resumed image that never connects, whose reports stay
+// pending while stuck holds more than zero.
+func unhealthyResume(t *testing.T) (*harness, *bridgeUpdate, *[]execCall, *atomic.Int32) {
+	t.Helper()
+	h, b, calls := newTestHandoff(t)
+	stuck := &atomic.Int32{}
+	stuck.Store(1)
+	h.router.reports = stuckQueue{n: stuck}
+	b.drainTimeout = 20 * time.Millisecond
+	b.resumed = &handoverState{Format: handoverFormat, OldVersion: "1.0.0", OldBinary: b.target}
+	b.resumeFile = b.file
+	old := healthTimeout
+	healthTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { healthTimeout = old })
+
+	return h, b, calls, stuck
+}
+
+// A rollback whose reports cannot leave waits for another health window,
+// because an exec would lose them. Once they leave, a missed deadline rolls
+// back.
+func TestARollbackWaitsForTheReportsToDrain(t *testing.T) {
+	injectVersion(t, "1.2.0")
+	h, b, calls, stuck := unhealthyResume(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := b.watchHealth(ctx, h.router, nil)
+	eventually(t, "a deferred rollback", func() bool { return logged(h.log, "update_rollback_deferred") })
+	if len(*calls) != 0 {
+		t.Fatalf("exec calls = %d while reports wait", len(*calls))
+	}
+	if paused, frozen := h.frozen(); paused || frozen {
+		t.Fatal("a deferred rollback left the router paused")
+	}
+	stuck.Store(0)
+	<-done
+
+	if len(*calls) != 1 || (*calls)[0].argv[0] != b.target || !slices.Contains((*calls)[0].argv, "--rolled-back-from") {
+		t.Fatalf("exec calls = %+v", *calls)
+	}
+}
+
+// Health that arrives in a later window applies the update.
+func TestHealthAfterADeferredRollbackAppliesTheUpdate(t *testing.T) {
+	injectVersion(t, "1.2.0")
+	h, b, calls, _ := unhealthyResume(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := b.watchHealth(ctx, h.router, nil)
+	eventually(t, "a deferred rollback", func() bool { return logged(h.log, "update_rollback_deferred") })
+	b.markConnected()
+	<-done
+
+	if !logged(h.log, "update_applied") || len(*calls) != 0 {
+		t.Fatalf("exec calls = %d, log = %s", len(*calls), h.log.String())
 	}
 }
