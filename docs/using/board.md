@@ -304,7 +304,8 @@ lanes follow the order of their epics: by column, then by rank. The last row,
 **Other cards**, holds every card that is in no lane.
 
 Each lane repeats the column headers, and each count shows the cards of that
-lane only. The first lane holds the column grips and menus. **Other cards**
+lane only. The first lane holds the column grips and menus, and keeps its
+column headers when you collapse it. **Other cards**
 holds the Add card links and the link to the finished cards.
 
 The lane header shows the epic number, its title, the "3/7 done" count, a

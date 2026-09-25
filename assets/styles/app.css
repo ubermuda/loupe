@@ -5727,6 +5727,17 @@
     .lp-board-lane--collapsed .lp-board-lane__cells {
         @apply hidden;
     }
+    /* The lane with the column grips and menus keeps its column heads when
+       collapsed, and hides its cards only. */
+    .lp-board-lane--collapsed.lp-board-lane--controls .lp-board-lane__cells {
+        @apply flex;
+    }
+    .lp-board-lane--collapsed.lp-board-lane--controls:not(
+            .lp-board-lane--revealed
+        )
+        .lp-board-lane__cell {
+        @apply hidden;
+    }
     /* A search that matches a card of a collapsed lane shows its cells. */
     .lp-board-lane--collapsed.lp-board-lane--revealed .lp-board-lane__cells {
         @apply flex;

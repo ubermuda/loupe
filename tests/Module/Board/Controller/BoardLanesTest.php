@@ -95,6 +95,8 @@ final class BoardLanesTest extends WebTestCase
         self::assertCount(4, $lane->filter('.lp-board-lane__column .lp-board__column-head'));
         self::assertCount(4, $lane->filter('[data-board-columns-target="column"] .lp-board__column-menu'));
         self::assertCount(0, $other->filter('[data-board-columns-target="column"], .lp-board__column-menu'));
+        self::assertStringContainsString('lp-board-lane--controls', (string) $lane->attr('class'));
+        self::assertStringNotContainsString('lp-board-lane--controls', (string) $other->attr('class'));
         self::assertCount(4, $crawler->filter('[data-board-columns-target="column"]'));
         self::assertCount(0, $lane->filter('.lp-board__add-card'));
         self::assertCount(4, $other->filter('.lp-board__add-card'));

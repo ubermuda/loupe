@@ -3,7 +3,7 @@
    canManage (bool), renameColumnForm (FormView or null). #}
 {% set epic = lane.epic %}
 {% set laneKey = epic ? epic.id ~ '' : 'other' %}
-<section class="lp-board-lane{{ epic ? '' : ' lp-board-lane--other' }}"
+<section class="lp-board-lane{{ epic ? '' : ' lp-board-lane--other' }}{{ columnControls ? ' lp-board-lane--controls' }}"
          data-lane="{{ laneKey }}"
          {% if epic %}data-controller="board-lane"
          data-board-lane-project-value="{{ board.project.id }}"
