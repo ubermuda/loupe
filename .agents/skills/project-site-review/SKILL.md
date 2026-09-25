@@ -138,7 +138,7 @@ notice stay event-sourced on purpose, because zero is *correct* there.
 | `/api/site-review/comments/{id}` | PATCH | Edit (Pending only) |
 | `/api/site-review/comments/{id}/resolve` | POST | Resolve (Pending only) |
 | `/api/board/feedback` | POST | Save a comment, its target card and the link in one request |
-| `/api/board/feedback/{id}` | DELETE | Delete a pending comment, and the card it created while that card is untouched: default column, no other comment, not an epic, empty body, no pull request, document or card link |
+| `/api/board/feedback/{id}` | DELETE | Delete a pending comment, and the card it created while that card is untouched: default column, no other comment, its site-review type and note title, empty body, no pull request, document or card link |
 | `/api/board/cards` | GET | Open cards for the widget's picker; `type=epic` lists epics alone |
 | `/api/board/cards` | POST | Create a card from the widget |
 

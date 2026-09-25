@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardAvailability;
+use App\Module\Board\Service\FeedbackCardTitle;
 use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\DeleteCommentCommand;
 use App\Module\SiteReview\Command\DeleteCommentHandler;
@@ -61,6 +62,7 @@ final readonly class DeleteFeedbackHandler
                 return CommentNotFound::forId($command->commentId);
             }
 
+            $noteTitle = FeedbackCardTitle::of($comment->body);
             // Removed through the ORM in the comment's flush. The database
             // cascade alone leaves the link managed, and the next flush then
             // finds it pointing at a removed comment.
@@ -80,7 +82,7 @@ final readonly class DeleteFeedbackHandler
             if (!$card->column->isDefault
                 || CardType::Epic === $card->type
                 || [] !== $this->cardSiteReviewComments->findForCard($card)
-                || $this->cards->hasWork($card)) {
+                || $this->cards->hasWork($card, $noteTitle, CardType::SiteReview)) {
                 return false;
             }
 

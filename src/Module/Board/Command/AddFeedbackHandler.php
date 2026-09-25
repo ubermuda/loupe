@@ -12,6 +12,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardAvailability;
+use App\Module\Board\Service\FeedbackCardTitle;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
@@ -33,8 +34,6 @@ final readonly class AddFeedbackHandler
     public const string TARGET_NOT_FOUND = 'target_not_found';
     public const string TARGET_CLOSED = 'target_closed';
     public const string TARGET_NOT_EPIC = 'target_not_epic';
-
-    private const int TITLE_LENGTH = 80;
 
     public function __construct(
         private CreateCardHandler $createCard,
@@ -92,7 +91,7 @@ final readonly class AddFeedbackHandler
             $createdCard = null === $card;
             $card ??= ($this->createCard)(new CreateCardCommand(
                 project: $command->project,
-                title: self::titleOf($command->body),
+                title: FeedbackCardTitle::of($command->body),
                 body: '',
                 type: CardType::SiteReview,
                 reporter: CardReporter::Reviewer,
@@ -185,13 +184,5 @@ final readonly class AddFeedbackHandler
         $parentCardId = strtolower(trim((string) $command->parentCardId));
 
         return '' === $parentCardId ? 'new' : 'new:'.$parentCardId;
-    }
-
-    private static function titleOf(string $body): string
-    {
-        $lines = preg_split('/\R/u', $body) ?: [$body];
-        $line = array_find($lines, static fn (string $line): bool => '' !== trim($line)) ?? $body;
-
-        return trim(mb_substr(trim($line), 0, self::TITLE_LENGTH));
     }
 }

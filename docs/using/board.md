@@ -634,7 +634,7 @@ the widget deletes the note's card too when all of these are true:
 - The note created the card.
 - The card is still in the default column.
 - The card holds no other feedback.
-- The card is not an epic.
+- The card keeps the site review type and the title that the note gave it.
 - The card body is empty.
 - The card has no pull request, no document and no link to or from another card.
 
