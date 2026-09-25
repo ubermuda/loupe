@@ -41,7 +41,8 @@ one yields when two of them collide. In short:
 
 ## Commits and pull requests
 
-- Work on a branch and open a pull request against `main`.
+- Work on a branch and open a pull request against `main`. A pull request that
+  stacks on another one targets that pull request's branch instead.
 - Keep the PR focused; describe what changed and why.
 - Add or update tests for behavior changes.
 

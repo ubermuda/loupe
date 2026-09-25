@@ -76,7 +76,7 @@ Stay in the main checkout, and delegate the work that needs isolation.
 A bare `cd .worktrees/<name> && just worktree-up` can leave a persistent shell in the worktree, so every later command also runs there. This rule was arrived at by accident.
 
 - Provision by name from the main checkout with `just worktree-up NAME`. The no-argument form still works from inside a worktree, and needing it is what made sessions `cd` there in the first place.
-- Always branch off `main`, never off the current feature branch.
+- Always branch off `main`, or off the branch of the pull request you stack on. Never branch off whatever branch is current.
 - Tear down with `just worktree-down <name>`, never with a bare `git worktree remove`.
 - An editor or language server bound to the main checkout must not write worktree files. Confirm that every write-capable tool targets the worktree. Filesystem reads are safe from either checkout.
 - For example, Serena edit tools stay bound to the main checkout and write there from a worktree. Serena read tools are safe from either checkout.
@@ -137,7 +137,7 @@ Invoke the `working-with-prs` skill before you open, gate or merge a pull reques
 - `main` is protected and takes `--squash` only. **Put the reasoning in the commit messages, not only in the PR body.** GitHub's squash default concatenates the branch's commit messages, so what survives in `git log` is what the commits said; the body survives only on the pull request page unless you pass `gh pr merge <n> --squash --body-file <file>`. A branch with substantive commit messages loses only the body's framing. A branch with thin ones loses everything. It requires one approving review and thirteen CI checks. On 2026-09-21 the ruleset named `lint`, `cs-check`, `phpstan`, `arkitect`, `gamache`, `audit`, `phpunit`, `e2e`, `js-test`, `cli-test`, `e2e-chromium`, `e2e-rest` and `e2e-chromium-2`. `e2e` registers last, so a reading that counts twelve checks looks settled and is not. Read that list from the ruleset rather than from here, because nothing in the repository fails when it goes stale. `working-with-prs` carries the command. An approval in chat is not a GitHub approval.
 - Never approve your own work, because the review stays with a human. Merging does not: a PR that is approved with all required checks green is good to merge, without asking. Never merge one that is unapproved, has a failing or pending check, or would need `--admin`.
 - A green gate is not evidence the change is correct. Read the diff.
-- Stack a branch on an unmerged pull request rather than waiting for it, and keep working until you are genuinely blocked. An unapproved pull request is not a blocker. `working-with-prs` carries what to watch for, which is a merge git reports as clean and is not.
+- Stack a branch on an unmerged pull request rather than waiting for it, and keep working until you are genuinely blocked. An unapproved pull request is not a blocker. A stacked pull request targets its parent's branch, never `main`: `gh pr create --base <parent-branch>`. Against `main`, its diff also shows every commit of the parent. `working-with-prs` carries what to watch for, which is a merge git reports as clean and is not, and what to do when the parent merges.
 
 ## Writing style
 

@@ -156,6 +156,8 @@ hypothesis and answers both directions at once.
 A branch stacked on a pull request that merged by squash conflicts in files it
 is a strict superset of. The squash gives `main` the same content under a new
 commit that shares no history with the branch. Expect this at every stack merge.
+Retarget the child to `main` first, as "Open a stacked pull request against its
+parent's branch" says.
 
 Apply the section above to a different unit. That section compares entries at a
 shared anchor. This compares test method names in `$F`, the test file both sides
@@ -721,6 +723,41 @@ is not `CONFLICTING` before you believe a green check.
 Say in the body which pull request the branch stacks on. The reviewer needs it,
 and so does whoever holds the merge queue, because a stack has an order that
 approvals arriving out of sequence will not respect.
+
+### Open a stacked pull request against its parent's branch
+
+A stacked pull request targets the branch of the pull request it stacks on.
+Never target `main` from it. Against `main`, GitHub shows the parent's commits
+as part of the child: one stacked branch showed 272 changed files against
+`main`, and 205 against its parent.
+
+```bash
+gh pr create --base <parent-branch> --title "<title>" --body-file <file>
+gh pr edit <n> --base <parent-branch>   # fix one opened against main
+```
+
+- Write `Stacks on #<parent>. Merge #<parent> first.` near the top of the body.
+- Run the Codex review with `base: "origin/<parent-branch>"`, so it reads the
+  child's own work.
+- CI runs on every pull request, whatever its base. The ruleset requires checks
+  on `main` only, so `gh pr checks <n> --required` prints "no required checks
+  reported". That is expected. Read `gh pr checks <n>` without `--required`,
+  and count every check.
+- Never merge the child while it targets its parent's branch. That merge lands
+  on the parent branch with no required check, and never reaches `main`.
+
+When the parent squash-merges, the child still targets the parent's branch.
+This repository keeps a merged branch (`delete_branch_on_merge` is `false`), so
+GitHub does not retarget the child. Do it yourself:
+
+```bash
+gh pr edit <n> --base main
+git fetch origin && git merge origin/main
+```
+
+Merge `main` in. Never rebase a branch that holds merge commits. Expect
+conflicts in files the child only extends, as "A stacked branch conflicts after
+its parent squashes" says, and prove the resolution there.
 
 ## Running several branches at once
 
