@@ -46,13 +46,25 @@ Addressed review <id>: <what changed, commits>'
 
 ## Read the checks
 
-Wait for the checks in the foreground, with a Bash timeout of 600000. Never start this wait as a background command:
+Wait for the checks in the foreground, with a Bash timeout of 600000. Never start this wait as a background command. Put the gated SHA in place of `<sha>`:
 
 ```bash
-for i in $(seq 1 9); do b=$(gh pr checks <url> --required --json bucket -q '[.[].bucket]|unique|join(",")' 2>/dev/null); case ",$b," in *,fail,*|*,cancel,*) break ;; ,,|*,pending,*) sleep 60 ;; *) break ;; esac; done; echo "buckets: ${b:-none}"
+f="${TMPDIR:-/tmp}/loupe-ci-wait-<sha>"; [ -s "$f" ] || echo $(( $(date +%s) + 3600 )) > "$f"
+for i in $(seq 1 9); do
+  if [ "$(date +%s)" -ge "$(cat "$f")" ]; then b=timeout; break; fi
+  if ! b=$(gh pr checks <url> --required --json bucket -q '[.[].bucket]|unique|join(",")' 2>&1); then
+    case "$b" in *"no checks reported"*|*"no required checks reported"*) b= ;; *) b="error: $b"; break ;; esac
+  fi
+  case ",$b," in *,fail,*|*,cancel,*) break ;; ,,|*,pending,*) sleep 60 ;; *) break ;; esac
+done; echo "buckets: ${b:-none}"
 ```
 
-One loop waits about nine minutes at most. An empty list means that no check exists yet. When the loop prints `pending` or `none`, run it again. It stops early on the first failed or cancelled check.
+One call waits about nine minutes at most. The file holds a deadline 60 minutes after the first call for that SHA, so repeated calls share one limit. `none` means that no check exists yet.
+
+- `pending` or `none`: run the loop again.
+- `timeout`: the wait timed out. Record a block.
+- `error:`: `gh` failed. Read the message, then fix the cause or record a block.
+- Any other list: every check concluded. It stops early on the first failed or cancelled check.
 
 Then read the head again, and count the checks:
 
