@@ -2,12 +2,12 @@
 import { Application } from '@hotwired/stimulus';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-const mercure = vi.hoisted(() => ({ subscriptions: [] }));
+const live = vi.hoisted(() => ({ subscriptions: [] }));
 
-vi.mock('../../assets/lib/mercure.js', () => ({
-    subscribe: (types, handler, options) => {
+vi.mock('../../assets/lib/live.js', () => ({
+    on: (types, handler, options) => {
         const subscription = { types, handler, options, removed: false };
-        mercure.subscriptions.push(subscription);
+        live.subscriptions.push(subscription);
         return () => {
             subscription.removed = true;
         };
@@ -21,7 +21,7 @@ let application;
 
 beforeEach(() => {
     vi.useFakeTimers();
-    mercure.subscriptions = [];
+    live.subscriptions = [];
     window.history.replaceState(
         {},
         '',
@@ -51,8 +51,8 @@ async function mount({ url = '', src = null } = {}) {
 }
 
 function subscription() {
-    expect(mercure.subscriptions).toHaveLength(1);
-    return mercure.subscriptions[0];
+    expect(live.subscriptions).toHaveLength(1);
+    return live.subscriptions[0];
 }
 
 async function signal() {
@@ -90,13 +90,9 @@ it('reloads once for a burst of signals', async () => {
     expect(frame.reload).toHaveBeenCalledOnce();
 });
 
-it('reloads after a reconnect but not on the first open', async () => {
+it('reloads after a reconnect', async () => {
     const frame = await mount({ src: '/projects/1/worker-runs' });
-    subscription().options.onOpen();
-    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
-    expect(frame.reload).not.toHaveBeenCalled();
-
-    subscription().options.onOpen();
+    subscription().options.onReconnect();
     await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
     expect(frame.reload).toHaveBeenCalledOnce();
 });

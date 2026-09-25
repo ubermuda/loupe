@@ -10,6 +10,8 @@ use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * @extends ServiceEntityRepository<CardSiteReviewComment>
@@ -71,6 +73,17 @@ class CardSiteReviewCommentRepository extends ServiceEntityRepository
         }
 
         return $byCard;
+    }
+
+    public function findOneByCommentId(Uuid $commentId): ?CardSiteReviewComment
+    {
+        return $this->createQueryBuilder('l')
+            ->addSelect('card')
+            ->join('l.card', 'card')
+            ->where('l.comment = :comment')
+            ->setParameter('comment', $commentId, UuidType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     /** @return list<CardSiteReviewComment> */

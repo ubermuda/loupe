@@ -22,6 +22,7 @@ const FIRST_RETRY_MILLISECONDS = 1000;
 const LAST_RETRY_MILLISECONDS = 60000;
 
 const subscriptions = new Set();
+const connectionListeners = new Set();
 let source;
 let openHub;
 let openTopics = [];
@@ -62,6 +63,29 @@ export function subscribe(...args) {
     };
 }
 
+/**
+ * Calls the listener at once and on each change with 'open', 'down' or 'closed'.
+ *
+ * @param {(state: string) => void} listener
+ * @returns {() => void} removes the listener
+ */
+export function watchConnection(listener) {
+    connectionListeners.add(listener);
+    const connecting = source !== undefined || retryTimeout !== undefined;
+    listener(isOpen ? 'open' : connecting ? 'down' : 'closed');
+
+    return () => connectionListeners.delete(listener);
+}
+
+function notifyConnection(state) {
+    [...connectionListeners].forEach((listener) => listener(state));
+}
+
+/** Tells whether the page names a hub and at least one topic. */
+export function hasHub() {
+    return (readPage()?.topics.length ?? 0) > 0;
+}
+
 function scheduleFlush() {
     // Controllers connect and disconnect in bursts, and the burst reopens once.
     clearTimeout(flushTimeout);
@@ -86,6 +110,7 @@ function flush() {
         close();
         lastEventId = undefined;
         retryDelay = FIRST_RETRY_MILLISECONDS;
+        notifyConnection('closed');
         return;
     }
 
@@ -133,6 +158,7 @@ function open(page) {
         retryDelay = FIRST_RETRY_MILLISECONDS;
         subscriptions.forEach((s) => (s.opened = false));
         notifyOpen(() => true);
+        notifyConnection('open');
     });
     source.addEventListener('message', (event) => {
         if (current !== generation) {
@@ -149,6 +175,7 @@ function open(page) {
             retry();
         }
     });
+    notifyConnection('down');
 }
 
 function listening(subscription) {
@@ -200,6 +227,7 @@ function retry() {
     openTopics = topics;
     subscriptions.forEach((s) => (s.opened = false));
     [...subscriptions].filter(listening).forEach((s) => s.onError?.());
+    notifyConnection('down');
 
     const current = generation;
     retryTimeout = setTimeout(async () => {
@@ -265,6 +293,7 @@ if (typeof document !== 'undefined') {
 export function reset() {
     clearTimeout(flushTimeout);
     subscriptions.clear();
+    connectionListeners.clear();
     close();
     lastEventId = undefined;
     retryDelay = FIRST_RETRY_MILLISECONDS;

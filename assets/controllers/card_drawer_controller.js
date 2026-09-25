@@ -1,9 +1,19 @@
 import ModalController from './modal_controller.js';
+import { emit, on } from '../lib/live.js';
 import { prefersReducedMotion } from '../lib/smooth_scroll.js';
+
+const STREAM_TYPE = 'text/vnd.turbo-stream.html';
 
 /* stimulusFetch: 'eager' */
 export default class extends ModalController {
-    static targets = ['dialog', 'frame', 'loading', 'error'];
+    static targets = [
+        'dialog',
+        'frame',
+        'loading',
+        'error',
+        'deleted',
+        'clash',
+    ];
     static values = {
         reopen: Boolean,
         drawer: { type: Boolean, default: true },
@@ -17,11 +27,30 @@ export default class extends ModalController {
         this.focusFrameOnLoad = false;
         this.onBeforeCache = () => this.#reset();
         document.addEventListener('turbo:before-cache', this.onBeforeCache);
+        this.stopLive = on('board.card_changed', (change) =>
+            this.cardChanged(change),
+        );
     }
 
     disconnect() {
         super.disconnect();
         document.removeEventListener('turbo:before-cache', this.onBeforeCache);
+        this.stopLive?.();
+    }
+
+    /** Someone else changed or deleted the card the drawer shows. */
+    cardChanged(change) {
+        if (change.local || change.own || !this.dialogTarget.open) return;
+        if (this.frameTarget.hidden) return;
+        const open = this.frameTarget.querySelector(
+            '[data-card-drawer-card-id]',
+        );
+        if (open?.dataset.cardDrawerCardId !== change.cardId) return;
+        if (change.change === 'deleted') {
+            this.#showDeleted();
+        } else if (change.contentChanged) {
+            this.clashTargets.forEach((notice) => (notice.hidden = false));
+        }
     }
 
     dialogTargetConnected(dialog) {
@@ -50,6 +79,7 @@ export default class extends ModalController {
         const replacing = this.frameTarget.hidden === false;
         this.loadingTarget.hidden = true;
         this.errorTarget.hidden = true;
+        this.deletedTarget.hidden = true;
         this.frameTarget.hidden = false;
         if (replacing && !prefersReducedMotion()) {
             this.frameTarget.animate?.([{ opacity: 0 }, { opacity: 1 }], {
@@ -76,8 +106,20 @@ export default class extends ModalController {
     }
 
     received(event) {
-        if (event.target !== this.frameTarget) return;
         const response = event.detail.fetchResponse;
+        if (event.target !== this.frameTarget) {
+            // A save the server cannot find the card for.
+            if (
+                response.statusCode === 404 &&
+                event.target.closest?.(
+                    '[data-card-drawer-saves-card][data-card-drawer-card-id]',
+                )
+            ) {
+                event.preventDefault();
+                this.#showDeleted();
+            }
+            return;
+        }
         if (!response.succeeded || !response.isHTML) this.failed(event);
     }
 
@@ -99,11 +141,29 @@ export default class extends ModalController {
         this.frameTarget.reload();
     }
 
-    /** The board listens for card-drawer:saved, so a created or edited card shows on it at once. */
+    /**
+     * The board places an edited card on the local change, and a created one
+     * from the stream that answers the create. card-drawer:saved reloads a
+     * list that shows no board.
+     */
     submitted(event) {
         if (!event.detail.success) return;
-        if (!event.target.closest?.('[data-card-drawer-saves-card]')) return;
+        const form = event.target.closest?.('[data-card-drawer-saves-card]');
+        if (!form) return;
         this.dispatch('saved');
+        if (form.dataset.cardDrawerCardId) {
+            emit('board.card_changed', {
+                cardId: form.dataset.cardDrawerCardId,
+                change: 'updated',
+            });
+        }
+        const contentType = event.detail.fetchResponse?.contentType ?? '';
+        if (
+            'cardDrawerCreatesCard' in form.dataset &&
+            contentType.startsWith(STREAM_TYPE)
+        ) {
+            this.close();
+        }
     }
 
     close(event) {
@@ -121,7 +181,16 @@ export default class extends ModalController {
         this.focusFrameOnLoad = true;
         this.loadingTarget.hidden = false;
         this.errorTarget.hidden = true;
+        this.deletedTarget.hidden = true;
         this.frameTarget.hidden = true;
+    }
+
+    #showDeleted() {
+        this.loadingTarget.hidden = true;
+        this.errorTarget.hidden = true;
+        this.frameTarget.hidden = true;
+        this.deletedTarget.hidden = false;
+        this.deletedTarget.querySelector('button')?.focus();
     }
 
     // A board reload replaces the link that opened the drawer; its twin keeps the place.
@@ -138,6 +207,7 @@ export default class extends ModalController {
         this.focusFrameOnLoad = false;
         this.loadingTarget.hidden = false;
         this.errorTarget.hidden = true;
+        this.deletedTarget.hidden = true;
         this.frameTarget.removeAttribute('src');
         this.frameTarget.replaceChildren();
     };

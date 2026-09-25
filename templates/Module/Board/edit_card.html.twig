@@ -40,8 +40,11 @@
             form: form,
             action: path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}),
             submitLabel: 'board.card.edit.submit',
+            busyLabel: 'board.card.form.saving',
             cancelUrl: path('app_board_card', {projectId: card.project.id, cardId: card.id}),
             cancelLeavesFrame: false,
+            card: card,
+            saved: saved ?? false,
         } only %}
     </div>
 </div>

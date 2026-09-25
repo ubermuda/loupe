@@ -76,7 +76,15 @@ test('a column renamed in one browser shows in another without a reload', async 
     const renewal = watcher.waitForResponse((response) =>
         response.url().endsWith('/mercure/authorize'),
     );
+    const frameLoads: string[] = [];
+    watcher.on('request', (request) => {
+        if (request.headers()['turbo-frame'] === 'board-frame') {
+            frameLoads.push(request.url());
+        }
+    });
     await openBoard(watcher, boardUrl);
+    // The frame gets its src without a load, so the page loads the board once.
+    expect(frameLoads).toEqual([]);
     const renewed = await renewal;
     expect(renewed.status()).toBe(200);
     // The board topic, and the run topic of the card drawer the board hosts.
@@ -85,10 +93,24 @@ test('a column renamed in one browser shows in another without a reload', async 
     expect(topics.some((topic) => topic.endsWith('/board'))).toBe(true);
     expect(topics.some((topic) => topic.endsWith('/worker-runs'))).toBe(true);
 
+    // The reload keeps the toolbar, so the watcher's filter and view stay.
+    const search = watcher.getByRole('searchbox', { name: 'Search cards' });
+    await search.fill('no card has this title');
+    await watcher.getByRole('button', { name: 'List', exact: true }).click();
+    await expect(
+        watcher.locator('[data-board-view-target="list"]'),
+    ).toBeVisible();
+
     // A full navigation would drop this marker, and a frame reload keeps it.
     await watcher.evaluate(() => {
         (window as unknown as { stayed: boolean }).stayed = true;
     });
+    // A morph keeps the element of a column that did not change, and a replace does not.
+    await watcher
+        .locator(`${COLUMN}[data-column-slug="backlog"]`)
+        .evaluate((column) => {
+            (column as unknown as { kept: boolean }).kept = true;
+        });
 
     const next = editor.locator(`${COLUMN}[data-column-slug="next"]`);
     await next.locator('.lp-board__column-menu-trigger').click();
@@ -103,11 +125,29 @@ test('a column renamed in one browser shows in another without a reload', async 
     await expect(
         watcher.locator(`${COLUMN}[data-column-slug="up-next"] h2`),
     ).toHaveText('Up next');
+    await expect(search).toHaveValue('no card has this title');
+    await expect(
+        watcher.locator('[data-board-view-target="list"]'),
+    ).toBeVisible();
+    await expect(
+        watcher.locator('[data-board-view-target="board"]'),
+    ).toBeHidden();
+    await expect(
+        watcher.getByText('No cards match these filters.'),
+    ).toBeVisible();
     expect(
         await watcher.evaluate(
             () => (window as unknown as { stayed?: boolean }).stayed,
         ),
     ).toBe(true);
+    expect(
+        await watcher
+            .locator(`${COLUMN}[data-column-slug="backlog"]`)
+            .evaluate(
+                (column) => (column as unknown as { kept?: boolean }).kept,
+            ),
+    ).toBe(true);
+    expect(frameLoads.length).toBeGreaterThan(0);
 
     await editor.context().close();
     await watcher.context().close();

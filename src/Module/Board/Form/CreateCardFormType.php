@@ -10,6 +10,8 @@ use App\Module\Project\Entity\Project;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
+use Symfony\Component\Form\Extension\Core\Type\SubmitType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -61,6 +63,17 @@ class CreateCardFormType extends AbstractType
                 'allow_delete' => true,
                 // A domain error on the set shows under the set, not at the top of the form.
                 'error_bubbling' => false,
+            ]);
+
+        if (null === $options['card']) {
+            return;
+        }
+
+        $builder
+            // The text the editor opened, so the handler can refuse a save over newer text.
+            ->add('contentFingerprint', HiddenType::class, ['error_bubbling' => false])
+            ->add('confirmOverwrite', SubmitType::class, [
+                'label' => 'board.form.create_card_form.confirm_overwrite.label',
             ]);
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\EventListener;
 
 use App\Exception\DomainErrors;
+use App\Mercure\LiveUpdatePublisher;
 use App\Mercure\LiveUpdates;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
@@ -38,6 +39,7 @@ use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\TerminateEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -105,7 +107,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
             self::assertSame([$boardTopic], $update->getTopics());
             self::assertTrue($update->isPrivate());
             // No label: what a board shows depends on who looks at it.
-            self::assertSame('{"type":"board.columns_changed"}', $update->getData());
+            self::assertSame('{"type":"board.columns_changed","origin":null}', $update->getData());
         }
     }
 
@@ -185,15 +187,16 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
 
     public function test_with_live_updates_off_it_neither_builds_the_hub_nor_publishes_even_with_agent_push_on(): void
     {
-        $listener = new PublishBoardRefreshOnBoardColumnsChanged(
-            $this->topics(),
+        $publisher = new LiveUpdatePublisher(
+            new RequestStack(),
             FeatureFlags::service([LiveUpdates::FLAG => false, AgentPush::FLAG => true]),
             new NullLogger(),
             static fn (): HubInterface => throw new \LogicException('the hub must not be built with live updates off'),
         );
+        $listener = new PublishBoardRefreshOnBoardColumnsChanged($this->topics(), $publisher);
 
         $listener(new BoardColumnsChanged($this->project));
-        $listener->publish();
+        $publisher->publish();
 
         $this->assertPublishedCount(0);
     }
@@ -218,8 +221,8 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
     public function test_a_hub_that_fails_is_logged_and_the_change_stands(): void
     {
         $log = new TestHandler();
-        $listener = new PublishBoardRefreshOnBoardColumnsChanged(
-            $this->topics(),
+        $publisher = new LiveUpdatePublisher(
+            new RequestStack(),
             FeatureFlags::service([LiveUpdates::FLAG => true]),
             new Logger('test', [$log]),
             static fn (): HubInterface => new MockHub(
@@ -228,13 +231,14 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
                 static fn (): string => throw new \RuntimeException('hub unreachable'),
             ),
         );
+        $listener = new PublishBoardRefreshOnBoardColumnsChanged($this->topics(), $publisher);
 
         $listener(new BoardColumnsChanged($this->project));
-        $listener->publish();
+        $publisher->publish();
 
         self::assertTrue($log->hasWarning([
-            'message' => 'board.refresh_publish_failed',
-            'context' => ['projectId' => (string) $this->project->id, 'error' => 'hub unreachable'],
+            'message' => 'live_updates.publish_failed',
+            'context' => ['topic' => $this->topics()->forBoard($this->project->id ?? throw new \LogicException('Project has no id.')), 'error' => 'hub unreachable'],
         ]));
     }
 

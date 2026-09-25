@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Service;
 
+use App\Mercure\LiveUpdatePublisher;
 use App\Mercure\LiveUpdates;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
@@ -27,6 +28,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\TerminateEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -160,8 +162,8 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
     {
         $log = new TestHandler();
         $hubBuilt = false;
-        $publisher = new WorkerRunChangedPublisher(
-            $this->service(ProjectTopicBuilder::class),
+        $live = new LiveUpdatePublisher(
+            new RequestStack(),
             FeatureFlags::service([LiveUpdates::FLAG => false]),
             new Logger('test', [$log]),
             function () use (&$hubBuilt): HubInterface {
@@ -171,8 +173,8 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
             },
         );
 
-        $publisher->runsChanged($this->project);
-        $publisher->publish();
+        new WorkerRunChangedPublisher($this->service(ProjectTopicBuilder::class), $live)->runsChanged($this->project);
+        $live->publish();
 
         self::assertFalse($hubBuilt);
         self::assertCount(0, $this->published);
@@ -183,8 +185,8 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
     {
         $log = new TestHandler();
         $other = $this->project($this->em(), $this->owner, 'Run publish failing');
-        $publisher = new WorkerRunChangedPublisher(
-            $this->service(ProjectTopicBuilder::class),
+        $live = new LiveUpdatePublisher(
+            new RequestStack(),
             FeatureFlags::service([LiveUpdates::FLAG => true]),
             new Logger('test', [$log]),
             fn (): HubInterface => new MockHub(
@@ -201,15 +203,17 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
             ),
         );
 
+        $publisher = new WorkerRunChangedPublisher($this->service(ProjectTopicBuilder::class), $live);
+
         $publisher->runsChanged($this->project);
         $publisher->runsChanged($other);
-        $publisher->publish();
+        $live->publish();
 
         self::assertCount(1, $this->published);
         self::assertSame([$this->runTopic($other)], $this->published[0]->getTopics());
         self::assertTrue($log->hasWarning([
-            'message' => 'bridge.worker_run_publish_failed',
-            'context' => ['projectId' => (string) $this->project->id, 'error' => 'hub unreachable'],
+            'message' => 'live_updates.publish_failed',
+            'context' => ['topic' => $this->runTopic($this->project), 'error' => 'hub unreachable'],
         ]));
     }
 
@@ -242,7 +246,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         self::assertSame([$this->runTopic($this->project)], $update->getTopics());
         self::assertTrue($update->isPrivate());
         // No run data: what a page shows depends on who looks at it.
-        self::assertSame('{"type":"worker_run.changed"}', $update->getData());
+        self::assertSame('{"type":"worker_run.changed","origin":null}', $update->getData());
     }
 
     private function runTopic(Project $project): string

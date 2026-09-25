@@ -1,0 +1,20 @@
+{# One card placed on the board page, read by the board-place stream action.
+   Props: cardId (string), placement (CardPlacementView). #}
+{% set card = placement.card %}
+{% set history = {} %}
+{% for columnId, total in placement.terminalTotals %}
+    {% set history = history|merge({(columnId): 'board.terminal.history_link'|trans({'%count%': total})}) %}
+{% endfor %}
+<turbo-stream action="board-place" target="board-card-{{ cardId }}"
+              data-counts="{{ placement.counts|json_encode }}"
+              data-history="{{ history|json_encode }}"
+              {% if card is null %}data-removed="1"{% else %}data-column-id="{{ placement.column.id }}"
+              data-after="{{ placement.after }}"
+              data-row-after="{{ placement.rowAfter }}"{% endif %}>
+    <template>
+        {% if card is not null %}
+            {% include '@Board/_card.html.twig' with {card: card, pendingComments: placement.pendingComments, runWarning: card_run_warnings(card.project)[card.id ~ '']|default(null)} only %}
+            {% include '@Board/_card_row.html.twig' with {card: card, column: placement.column, feedbackCount: placement.pendingComments} only %}
+        {% endif %}
+    </template>
+</turbo-stream>

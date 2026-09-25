@@ -241,6 +241,27 @@ class CardRepository extends ServiceEntityRepository
             ?? throw new \LogicException('Card row points at a missing column.');
     }
 
+    /** Reads the title and body as the database holds them now, like refreshColumn(). */
+    public function refreshContent(Card $card): void
+    {
+        $row = $this->getEntityManager()->getConnection()->fetchAssociative(
+            'SELECT title, body FROM board_cards WHERE id = :id',
+            ['id' => (string) $card->id],
+        );
+
+        if (false === $row) {
+            return;
+        }
+
+        // The originals too: a caller that writes back the text it loaded
+        // earlier must still reach the database.
+        $unitOfWork = $this->getEntityManager()->getUnitOfWork();
+        foreach (['title', 'body'] as $field) {
+            $card->{$field} = (string) $row[$field];
+            $unitOfWork->setOriginalEntityProperty(spl_object_id($card), $field, (string) $row[$field]);
+        }
+    }
+
     /** The number the project's next card takes. The first card of a project is 1. */
     public function nextNumber(Project $project): int
     {

@@ -9,6 +9,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -19,6 +20,7 @@ use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -36,6 +38,7 @@ final readonly class CreateCardHandler
         private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -170,6 +173,13 @@ final readonly class CreateCardHandler
                 new AuditSubject('card', (string) $card->id),
             );
         }
+
+        $this->events->dispatch(new CardChanged(
+            $command->project->id ?? throw new \LogicException('Project has no id.'),
+            $card->id ?? throw new \LogicException('Card has no id.'),
+            CardChanged::CREATED,
+            true,
+        ));
 
         return $card;
     }
