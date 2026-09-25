@@ -88,7 +88,7 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
                 pullRequestUrls: null === $pullRequestUrls ? null : array_values($pullRequestUrls),
                 documentIds: null === $documentIds ? null : array_values($documentIds),
                 relatedCards: $this->subjects->optionalRelatedCards($relatedCards),
-            ));
+            ))->card;
 
             $view = ($this->showCard)(new ShowCardCommand($card));
 

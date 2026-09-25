@@ -26,7 +26,7 @@ func moved(fields map[string]string) string {
 		base[k] = v
 	}
 	parts := []string{`"type":"board.card_moved"`}
-	for _, k := range []string{"subject", "projectId", "cardNumber", "fromStatus", "toStatus", "actor", "rank", "title"} {
+	for _, k := range []string{"subject", "projectId", "cardNumber", "fromStatus", "toStatus", "actor", "rank", "title", "card"} {
 		if v, ok := base[k]; ok && v != "" {
 			parts = append(parts, `"`+k+`":`+v)
 		}
@@ -62,6 +62,26 @@ func TestParseIgnoresUnknownFields(t *testing.T) {
 	e := parseOK(t, moved(map[string]string{"rank": `12`, "title": `"someone"`}), nil)
 	if e.CardNumber != 87 {
 		t.Fatalf("unexpected event: %+v", e)
+	}
+}
+
+// An older server sends no card key, and that reads as no interactive run.
+func TestParseCardMovedReadsTheInteractiveRun(t *testing.T) {
+	for name, tc := range map[string]struct {
+		card string
+		want bool
+	}{
+		"true":   {`{"interactiveRun":true}`, true},
+		"false":  {`{"interactiveRun":false}`, false},
+		"absent": {``, false},
+		"empty":  {`{}`, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := parseOK(t, moved(map[string]string{"card": tc.card}), nil)
+			if e.Card.InteractiveRun != tc.want {
+				t.Fatalf("interactiveRun = %v, want %v", e.Card.InteractiveRun, tc.want)
+			}
+		})
 	}
 }
 

@@ -56,6 +56,8 @@ final class AdvertisedTools
         'card_search',
         'card_get',
         'card_update',
+        'card_run_open',
+        'card_run_close',
         'inbox_ask',
         'inbox_search',
         'inbox_join',

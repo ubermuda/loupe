@@ -236,6 +236,15 @@ final readonly class BoardSubjectResolver
         return null === $items ? null : $this->requireRelatedCards($items);
     }
 
+    public function requireSessionId(string $sessionId): Uuid
+    {
+        try {
+            return Uuid::fromString($sessionId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ToolCallException(\sprintf('"%s" is not a valid sessionId. Pass the value of $CLAUDE_CODE_SESSION_ID.', $sessionId), previous: $e);
+        }
+    }
+
     private function parseId(string $id): Uuid
     {
         try {

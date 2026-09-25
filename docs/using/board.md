@@ -377,10 +377,15 @@ An agent drives the board through the MCP endpoint. See
 | `card_search` | `query` is required. `page` and `perPage` are optional. |
 | `card_get` | Exactly one of `cardId` and `number`. |
 | `card_update` | Exactly one of `cardId` and `number` is required. `title`, `body`, `type`, `status`, `pullRequestUrls`, `documentIds` and `relatedCards` are optional. |
+| `card_run_open` | `sessionId`, `name` and exactly one of `cardId` and `number` are required. `status` is optional. |
+| `card_run_close` | `sessionId` and exactly one of `cardId` and `number` are required. |
 
 `board_columns` lists the columns of the board in board order. Each entry
 carries `slug`, `label`, `terminal` and `default`. `card_list` returns the same
 list in `columns`, beside its cards. The tools read columns and never write one.
+
+`card_run_open` and `card_run_close` record an interactive session on a card.
+See [Interactive sessions](worker-runs.md#interactive-sessions).
 
 `status` takes a column slug on `card_create`, `card_update` and `card_list`. An
 unknown slug is refused. The error lists the slugs the board has, such as

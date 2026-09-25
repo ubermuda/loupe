@@ -2481,6 +2481,14 @@
                 <source>project.connect.tool.card_update</source>
                 <target>Change a card. Omitted fields keep their value, and moving a card to a terminal column stamps its completion time. relatedCards replaces every link that touches the card.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.card_run_open">
+                <source>project.connect.tool.card_run_open</source>
+                <target>Record an open interactive session on a card. It can also move the card in the same step. A bridge rule can skip a card while the run is open. The next move to another column closes it.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.card_run_close">
+                <source>project.connect.tool.card_run_close</source>
+                <target>Close the interactive run a session opened on a card. A second call changes nothing.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.inbox_ask">
                 <source>project.connect.tool.inbox_ask</source>
                 <target>Hand questions and to-dos to the project owner. The items go to the session's open ask, or to a new one, and each item gets a number.</target>
@@ -5493,6 +5501,10 @@
                 <source>bridge.worker_runs.state.lost</source>
                 <target>Lost</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.closed">
+                <source>bridge.worker_runs.state.closed</source>
+                <target>Closed</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.card_number">
                 <source>bridge.worker_runs.card_number</source>
                 <target>#%number%</target>
@@ -5508,6 +5520,18 @@
             <trans-unit id="bridge.worker_runs.exit_code">
                 <source>bridge.worker_runs.exit_code</source>
                 <target>exit %code%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.interactive">
+                <source>bridge.worker_runs.interactive</source>
+                <target>Interactive session</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.running_for">
+                <source>bridge.worker_runs.running_for</source>
+                <target>running for %duration%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.close_session">
+                <source>bridge.worker_runs.close_session</source>
+                <target>Close session</target>
             </trans-unit>
             <trans-unit id="bridge.worker_runs.bridge">
                 <source>bridge.worker_runs.bridge</source>

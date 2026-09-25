@@ -18,14 +18,15 @@ A card that needs no product design does not use this skill. The owner moves it 
 
 ## Phases
 
-1. P0: Start. Get the card into the Product design column, with the slug from the profile.
+1. P0: Start. Get the card into the Product design column, with the slug from the profile, and open an interactive run on it.
    - With no card, call `card_search` first with words from the prompt, when the tool exists. Show the owner each close match. When the owner picks one, use that card, and follow the rules for a card below.
-   - With no card that the owner picks, call `card_create` with `status` set to the slug and `reporter` set to `human`. Take the title and the body from the prompt. Set `type` to `feature`, or to the type the prompt names. A create writes no move event, so no bridge rule fires. When `card_create` refuses the slug, create the card with no `status`. Tell the owner that an approval will not move the card.
+   - With no card that the owner picks, call `card_create` with `status` set to the slug and `reporter` set to `human`. Take the title and the body from the prompt. Set `type` to `feature`, or to the type the prompt names. A create writes no move event, so no bridge rule fires. When `card_create` refuses the slug, create the card with no `status`. Tell the owner that an approval will not move the card. Then open the run as below.
    - With a card, check its product document first, as `SKILL.md` step 5 says. When that document is approved, stop before any move.
-   - When the card sits in the default column, move it to the slug with `card_update` before P1. This move reports your own state. The `default` field of `board_columns` names the default column, and a seeded board calls it `backlog`. When `board_columns` is missing, treat `backlog` as the default column.
-   - When the card already sits in the Product design column, leave it there.
+   - Read your session id with the Bash tool: `echo $CLAUDE_CODE_SESSION_ID`.
+   - When the card sits in the default column or in the Product design column, call `card_run_open` before P1. Send the card, `status` set to the slug, `sessionId` set to your session id, and `name` set to `loupe:product-design`. A card in the default column moves, and this move reports your own state. A card already in the Product design column stays there. The `default` field of `board_columns` names the default column, and a seeded board calls it `backlog`. When `board_columns` is missing, treat `backlog` as the default column.
    - When the card sits in any other column, stop, and tell the owner.
-   - When `card_update` refuses the slug, keep the card where it is. Tell the owner that an approval will not move the card, and go on with P1.
+   - When `card_run_open` refuses the slug, call it again with no `status`. The card stays where it is. Tell the owner that an approval will not move the card, and go on with P1.
+   - When the MCP has no `card_run_open`, move a card in the default column with `card_update` instead. Then skip every `card_run_close` call.
 2. P1: Intake. Read the card, the linked documents and the code for the current behaviour before you ask anything. Read the unapproved draft too, when one exists. Then ask for a brain dump with one open prompt. From the brain dump, draft the problem: who feels it, and the situation that triggers the need. Ask one question only when either is unclear. Keep solutions out of the problem.
 3. P2: Calibrate. Propose the session level (L3), and let the owner confirm it.
 4. P4: Options. When the solution is not obvious, show two or three solution shapes, and recommend one. Skip this phase for a small card.
@@ -34,7 +35,7 @@ A card that needs no product design does not use this skill. The owner moves it 
 7. P7: Pre-mortem. Ask one question: "This shipped and failed. Why?" The answers go in "Risks".
 8. P8: Acceptance. Draft Given/When/Then scenarios that cite `R` IDs. Let the owner confirm or correct them. They go in "Scenarios".
 9. P9: Readback. When no open decision is left, summarise the shared understanding in a few lines. Let the owner confirm it. Write no document before the owner confirms.
-10. P10: Write and link. Write the product document, link it to the card, and stop, as `SKILL.md` says. Never move the card, because the owner's approval moves it.
+10. P10: Write and link. Write the product document, link it to the card, close the run with `card_run_close`, and stop, as `SKILL.md` says. Never move the card, because the owner's approval moves it.
 
 ## When to stop asking
 
