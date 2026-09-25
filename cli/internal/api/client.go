@@ -46,6 +46,9 @@ type Events struct {
 	// Flags holds values of several types. A server older than the map sends
 	// none, and every flag then reads as off.
 	Flags map[string]any `json:"flags"`
+	// CliRange is the range of CLI versions the server supports. An older
+	// server sends none.
+	CliRange string `json:"cliRange"`
 }
 
 // HeartbeatIntervalFlag is the flag that holds the seconds between two

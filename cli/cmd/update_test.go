@@ -5,14 +5,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zalando/go-keyring"
 
 	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/ubermuda/loupe/cli/internal/update"
@@ -446,13 +451,115 @@ func selfUpdateAgainst(t *testing.T, gh *fakeGitHub, running string) (selfUpdate
 	}
 
 	return selfUpdate{
-		version:    running,
-		goos:       "linux",
-		goarch:     "amd64",
-		apiBase:    gh.server.URL,
-		hc:         gh.server.Client(),
-		executable: func() (string, error) { return exe, nil },
+		version:     running,
+		goos:        "linux",
+		goarch:      "amd64",
+		apiBase:     gh.server.URL,
+		hc:          gh.server.Client(),
+		executable:  func() (string, error) { return exe, nil },
+		serverRange: func(context.Context) (string, error) { return "", config.ErrNotLoggedIn },
 	}, exe
+}
+
+func withServerRange(self selfUpdate, cliRange string) selfUpdate {
+	self.serverRange = func(context.Context) (string, error) { return cliRange, nil }
+
+	return self
+}
+
+// A newer major can ship while the server still supports the old one, so the
+// server range decides, and the skip list does not.
+func TestUpdateWithNoBridgeTakesTheHighestReleaseInTheServerRange(t *testing.T) {
+	shortConfigHome(t)
+	gh := newFakeGitHub(t, "new binary", "v1.0.0", "v1.2.0", "v2.0.0")
+	self, exe := selfUpdateAgainst(t, gh, "1.0.0")
+	if err := os.MkdirAll(mustConfigDir(t), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := skipVersion(mustConfigDir(t), "1.2.0"); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := updateCmd(t, withServerRange(self, "^1.0"))
+	if err != nil || !strings.Contains(out, "range ^1.0") || !strings.Contains(out, "installed 1.2.0 over "+exe) {
+		t.Fatalf("err = %v, out = %q", err, out)
+	}
+	if data, _ := os.ReadFile(exe); string(data) != "new binary" {
+		t.Fatalf("binary = %q", data)
+	}
+}
+
+func TestUpdateWithNoBridgeLeavesABinaryInRangeWhenOnlyANewerMajorShips(t *testing.T) {
+	shortConfigHome(t)
+	gh := newFakeGitHub(t, "new binary", "v2.0.0")
+	self, exe := selfUpdateAgainst(t, gh, "1.0.0")
+
+	out, err := updateCmd(t, withServerRange(self, "^1.0"))
+	if data, _ := os.ReadFile(exe); err != nil || string(data) != "old" || !strings.Contains(out, "current at 1.0.0") {
+		t.Fatalf("err = %v, out = %q, binary = %q", err, out, data)
+	}
+}
+
+func TestUpdateWithNoBridgeOnADevBuildStaysInTheServerRange(t *testing.T) {
+	shortConfigHome(t)
+	gh := newFakeGitHub(t, "new binary", "v1.2.0", "v2.0.0")
+	self, exe := selfUpdateAgainst(t, gh, "")
+
+	out, err := updateCmd(t, withServerRange(self, "^1.0"))
+	if err != nil || !strings.Contains(out, "installed 1.2.0 over "+exe) {
+		t.Fatalf("err = %v, out = %q", err, out)
+	}
+}
+
+func TestUpdateWithNoBridgeFailsWhenNoReleaseIsInTheServerRange(t *testing.T) {
+	shortConfigHome(t)
+	gh := newFakeGitHub(t, "new binary", "v2.0.0")
+	self, exe := selfUpdateAgainst(t, gh, "3.0.0")
+
+	_, err := updateCmd(t, withServerRange(self, "^1.0"))
+	if data, _ := os.ReadFile(exe); err == nil || !strings.Contains(err.Error(), "^1.0") || string(data) != "old" {
+		t.Fatalf("err = %v, binary = %q", err, data)
+	}
+}
+
+func TestReadServerRangeAsksGetEventsWithTheStoredLogin(t *testing.T) {
+	keyring.MockInit()
+	shortConfigHome(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/events" || r.Header.Get("Authorization") != "Bearer access-1" {
+			w.WriteHeader(http.StatusNotFound)
+
+			return
+		}
+		w.Write([]byte(`{"hubUrl":"h","jwt":"j","topic":"t","projects":[],"flags":{},"cliRange":"^1.0"}`))
+	}))
+	defer server.Close()
+	if err := config.Save(testLogin(server.URL)); err != nil {
+		t.Fatal(err)
+	}
+
+	if got, err := readServerRange(context.Background()); err != nil || got != "^1.0" {
+		t.Fatalf("range = %q, err = %v", got, err)
+	}
+}
+
+func TestReadServerRangeFailsWithNoLoginOrNoRange(t *testing.T) {
+	keyring.MockInit()
+	shortConfigHome(t)
+	if _, err := readServerRange(context.Background()); !errors.Is(err, config.ErrNotLoggedIn) {
+		t.Fatalf("err = %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"hubUrl":"h","jwt":"j","topic":"t","projects":[],"flags":{}}`))
+	}))
+	defer server.Close()
+	if err := config.Save(testLogin(server.URL)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readServerRange(context.Background()); err == nil {
+		t.Fatal("a server with no range gave no error")
+	}
 }
 
 func TestUpdateWithNoBridgeReplacesTheBinaryWithTheHighestOfItsMajor(t *testing.T) {
@@ -474,7 +581,7 @@ func TestUpdateWithNoBridgeReplacesTheBinaryWithTheHighestOfItsMajor(t *testing.
 	if data, _ := os.ReadFile(exe); string(data) != "new binary" {
 		t.Fatalf("binary = %q", data)
 	}
-	if !strings.Contains(out, "highest 1.x release") || !strings.Contains(out, "installed 1.2.0 over "+exe) {
+	if !strings.Contains(out, "could not read the CLI range of the server") || !strings.Contains(out, "highest 1.x release") || !strings.Contains(out, "installed 1.2.0 over "+exe) {
 		t.Fatalf("out = %q", out)
 	}
 }

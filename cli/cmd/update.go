@@ -32,6 +32,25 @@ type selfUpdate struct {
 	version, goos, goarch, apiBase string
 	hc                             *http.Client
 	executable                     func() (string, error)
+	serverRange                    func(ctx context.Context) (string, error)
+}
+
+// readServerRange reads the CLI range the server supports from GET
+// /api/events, with the stored login, as a bridge does at start.
+func readServerRange(ctx context.Context) (string, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return "", err
+	}
+	events, err := apiClient(cfg).Events(ctx)
+	if err != nil {
+		return "", err
+	}
+	if events.CliRange == "" {
+		return "", errors.New("the server sends no CLI range")
+	}
+
+	return events.CliRange, nil
 }
 
 // runningBridge is a bridge that holds its lock, named for the output.
@@ -41,12 +60,13 @@ type runningBridge struct {
 
 func newUpdateCmd() *cobra.Command {
 	return newUpdateCmdWith(selfUpdate{
-		version:    version,
-		goos:       runtime.GOOS,
-		goarch:     runtime.GOARCH,
-		apiBase:    update.GitHubAPI,
-		hc:         &http.Client{Timeout: updateTimeout},
-		executable: os.Executable,
+		version:     version,
+		goos:        runtime.GOOS,
+		goarch:      runtime.GOARCH,
+		apiBase:     update.GitHubAPI,
+		hc:          &http.Client{Timeout: updateTimeout},
+		executable:  os.Executable,
+		serverRange: readServerRange,
 	})
 }
 
@@ -262,8 +282,9 @@ func requestUpdate(sock string) (updateResult, error) {
 }
 
 // run replaces the running binary with a release, as no bridge runs to hand
-// over. With no server range to read, it takes the highest release of the
-// running major version, or the highest release for a development build.
+// over. It takes the highest release in the range the server supports. When it
+// cannot read that range, it takes the highest release of the running major
+// version, or the highest release for a development build.
 func (s selfUpdate) run(ctx context.Context, out io.Writer) error {
 	dir, err := config.Dir()
 	if err != nil {
@@ -279,11 +300,22 @@ func (s selfUpdate) run(ctx context.Context, out io.Writer) error {
 	}
 
 	running, semver := update.ParseVersion(s.version)
-	keep := func(update.Version) bool { return true }
-	rule := "the highest release, as this is a development build"
-	if semver {
-		keep = func(v update.Version) bool { return v.Major == running.Major }
+	cliRange, rangeErr := s.serverRange(ctx)
+	var rule string
+	var keep func(update.Version) bool
+	switch {
+	case rangeErr == nil:
+		rule = "the highest release in the range " + cliRange + " that the server supports"
+		keep = func(v update.Version) bool { return update.Satisfies(v.String(), cliRange) }
+	case semver:
 		rule = fmt.Sprintf("the highest %d.x release", running.Major)
+		keep = func(v update.Version) bool { return v.Major == running.Major }
+	default:
+		rule = "the highest release, as this is a development build"
+		keep = func(update.Version) bool { return true }
+	}
+	if rangeErr != nil {
+		fmt.Fprintf(out, "could not read the CLI range of the server (%v)\n", rangeErr)
 	}
 	fmt.Fprintln(out, "no running bridge: updating this binary to "+rule)
 
@@ -292,15 +324,24 @@ func (s selfUpdate) run(ctx context.Context, out io.Writer) error {
 		return err
 	}
 	c, found := update.PickWhere(releases, u.goos, u.goarch, keep)
-	if !found {
+	inRange := rangeErr == nil && update.Satisfies(s.version, cliRange)
+	if !found && !inRange {
 		return fmt.Errorf("no release is %s", rule)
 	}
-	to := c.Version.String()
-	if semver && update.Compare(c.Version, running) <= 0 {
+	current := false
+	switch {
+	case !semver:
+	case rangeErr == nil:
+		current = !found || !update.ShouldInstall(s.version, c.Version, cliRange)
+	default:
+		current = update.Compare(c.Version, running) <= 0
+	}
+	if current {
 		fmt.Fprintln(out, "current at "+s.version)
 
 		return nil
 	}
+	to := c.Version.String()
 	if err := u.writable(); err != nil {
 		return fmt.Errorf("blocked: the directory of the binary takes no new file: %w", err)
 	}
