@@ -293,6 +293,41 @@ func TestHooksInstallRefusesAnotherSystem(t *testing.T) {
 	}
 }
 
+// An install that takes the list past the rows Loupe shows is refused before
+// it writes, so the bridge can still load the file.
+func TestHooksInstallRefusesMoreEventsThanLoupeShows(t *testing.T) {
+	root, path := hooksEnv(t)
+	newFakeGitHub(t)
+	manifest := "name: x\nevents:\n  start: [./run]\n  stop: [./run]\n  busy: [./run]\n  idle: [./run]\n"
+	err := rules.EditHooks(path, func(list []rules.HookEntry) ([]rules.HookEntry, error) {
+		for i := range 25 {
+			e := rules.HookEntry{Package: "acme/other" + strings.Repeat("x", i), Ref: "v1", SHA: shaOne}
+			dir := hooks.PackageDir(root, e.ID(), e.SHA)
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return nil, err
+			}
+			if err := os.WriteFile(filepath.Join(dir, hooks.ManifestFile), []byte(manifest), 0o644); err != nil {
+				return nil, err
+			}
+			list = append(list, e)
+		}
+
+		return list, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := fileText(t, path)
+
+	_, err = runHooks(t, "", "install", "acme/tool@v1", "--yes", "--rules", path)
+	if err == nil || !strings.Contains(err.Error(), "Loupe shows at most 100") {
+		t.Fatalf("err = %v", err)
+	}
+	if got := fileText(t, path); got != before {
+		t.Fatalf("rule file changed:\n%s", got)
+	}
+}
+
 func TestHooksInstallRefusesAnUnknownRef(t *testing.T) {
 	_, path := hooksEnv(t)
 	newFakeGitHub(t)

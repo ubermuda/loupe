@@ -114,6 +114,15 @@ func newHooksInstallCmd(rulesPath *string) *cobra.Command {
 			var dropped []string
 			err = rules.EditHooks(path, func(list []rules.HookEntry) ([]rules.HookEntry, error) {
 				i := findHook(list, id)
+				rows := len(m.Events)
+				for j, e := range list {
+					if other, err := hooks.LoadManifest(hooks.PackageDir(root, e.ID(), e.SHA)); j != i && err == nil {
+						rows += len(other.Events)
+					}
+				}
+				if err := hooks.CheckRows(rows); err != nil {
+					return nil, err
+				}
 				if i < 0 {
 					return append(list, rules.HookEntry{Package: spec.Package(), Path: spec.Path, Ref: spec.Ref, SHA: sha}), nil
 				}

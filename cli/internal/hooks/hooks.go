@@ -111,11 +111,21 @@ func Resolve(root string, entries []rules.HookEntry, goos string) ([]Hook, error
 	for _, h := range out {
 		rows += len(h.Events)
 	}
-	if rows > api.MaxHookRows {
-		return nil, fmt.Errorf("the hooks define %d events in all, and Loupe shows at most %d; remove a package", rows, api.MaxHookRows)
+	if err := CheckRows(rows); err != nil {
+		return nil, err
 	}
 
 	return out, nil
+}
+
+// CheckRows refuses a hook list whose packages define more events in all than
+// Loupe shows rows.
+func CheckRows(rows int) error {
+	if rows > api.MaxHookRows {
+		return fmt.Errorf("the hooks define %d events in all, and Loupe shows at most %d; remove a package", rows, api.MaxHookRows)
+	}
+
+	return nil
 }
 
 func resolve(root string, e rules.HookEntry, goos string) (Hook, error) {
