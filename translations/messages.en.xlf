@@ -5885,6 +5885,8 @@
             <trans-unit id="board.rules.hooks.description"><source>board.rules.hooks.description</source><target>Each bridge that follows this project reports the hooks it runs and how their last run went.</target></trans-unit>
             <trans-unit id="board.rules.hooks.last_seen"><source>board.rules.hooks.last_seen</source><target>Last heartbeat %time%</target></trans-unit>
             <trans-unit id="board.rules.hooks.last_run"><source>board.rules.hooks.last_run</source><target>Last run %time%</target></trans-unit>
+            <trans-unit id="board.rules.hooks.pinned"><source>board.rules.hooks.pinned</source><target>Pinned at %ref%.</target></trans-unit>
+            <trans-unit id="board.rules.hooks.flow_label"><source>board.rules.hooks.flow_label</source><target>Hook trigger</target></trans-unit>
             <trans-unit id="board.rules.hooks.none"><source>board.rules.hooks.none</source><target>No hook is installed.</target></trans-unit>
             <trans-unit id="board.rules.hooks.event.start"><source>board.rules.hooks.event.start</source><target>On start</target></trans-unit>
             <trans-unit id="board.rules.hooks.event.stop"><source>board.rules.hooks.event.stop</source><target>On stop</target></trans-unit>

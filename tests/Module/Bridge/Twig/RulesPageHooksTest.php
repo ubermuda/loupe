@@ -37,7 +37,7 @@ final class RulesPageHooksTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-bridge-hooks]'));
         self::assertSelectorTextContains('[data-bridge-hooks="0199a0c4-5d3e-7b1a-8f00-00000000b41d"]', '00000000b41d');
-        self::assertCount(3, $crawler->filter('[data-hook-row]'));
+        self::assertCount(3, $crawler->filter('article.lp-rule-row[data-hook-row]'));
         $failed = $crawler->filter('[data-hook-row][data-hook-event="stop"]');
         self::assertStringContainsString('github:acme/notify', $failed->text());
         self::assertStringContainsString('main', $failed->text());

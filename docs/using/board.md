@@ -242,8 +242,8 @@ bridges whose heartbeat names the project, the latest heartbeat first. Each
 block shows the last 12 characters of the bridge id, with the full id in the
 tooltip, and the time of the last heartbeat. Under it, each
 [hook package](../extending/bridge-hooks.md) of the bridge has one row for each
-event it defines. A row shows the package, its ref, the event and the time of
-the last run.
+event it defines. A row looks like a rule row. It shows the package, its ref,
+the event, the bridge and the time of the last run.
 
 The chip of a row reads OK, Failed, Timed out or Not run yet. A failed or timed
 out row shows the end of the hook's output, or the error when the hook could not
