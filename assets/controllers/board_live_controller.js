@@ -116,6 +116,8 @@ export default class extends Controller {
 
         let html = null;
         try {
+            // A read of one card's placement, with no form to submit.
+            // eslint-disable-next-line no-restricted-syntax
             const response = await fetch(this.urlFor(cardId), {
                 headers: { Accept: STREAM_TYPE },
                 credentials: 'same-origin',
