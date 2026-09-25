@@ -36,6 +36,7 @@ final class ShowPendingCommentsController extends AppController
         private readonly AuthenticatedProjectResolver $projectResolver,
         private readonly FeatureFlagService $featureFlags,
         private readonly ContextLabelResolver $contextLabels,
+
         /** @var iterable<FeedbackAvailabilityInterface> */
         #[AutowireIterator('app.site_review_feedback_availability')]
         private readonly iterable $feedbackAvailability,
