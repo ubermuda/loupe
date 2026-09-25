@@ -5756,6 +5756,13 @@
     .lp-board-card__excerpt {
         @apply m-0 line-clamp-3 text-sm leading-relaxed text-fg-mute break-words;
     }
+    /* A worker run that gave up or is blocked, linked to its run history. */
+    .lp-board-card__warning {
+        @apply flex flex-col items-start gap-1 no-underline;
+    }
+    .lp-board-card__warning .lp-status-chip {
+        @apply ml-0;
+    }
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;
     }

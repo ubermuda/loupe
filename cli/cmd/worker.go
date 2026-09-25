@@ -3,8 +3,8 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"os/exec"
 	"slices"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
 // waitDelay bounds the wait after the context kills claude. A grandchild that
@@ -22,8 +23,8 @@ const waitDelay = 5 * time.Second
 // maxOutput caps the worker output a failure report carries.
 const maxOutput = 4000
 
-// resultPrefix starts the line a worker ends its final reply with.
-const resultPrefix = "STAGE RESULT:"
+// maxStdout bounds the JSON document the bridge reads from claude's stdout.
+const maxStdout = 1 << 20
 
 // ceilingEnv lifts claude -p's background wait ceiling, which otherwise ends a
 // worker mid-task and exits 0.
@@ -31,23 +32,27 @@ const ceilingEnv = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"
 
 // workerResult is one finished worker. err is set when the process never ran,
 // which is a different fault from a process that ran and failed. hasResult
-// says whether the output held a result line, and killed that the bridge's
-// context ended the process.
+// says whether stdout held a valid structured result, and killed that the
+// bridge's context ended the process. fields holds the result's keys other
+// than status and summary.
 type workerResult struct {
 	exitCode  int
 	output    string
 	hasResult bool
+	status    string
+	fields    map[string]any
 	killed    bool
 	err       error
 }
 
-// workerSpec is one claude process to run. An empty permissionMode or model
-// passes no flag. sessionID is the id claude runs the session under, a new one
-// or, with resume, the one it continues.
+// workerSpec is one claude process to run. An empty permissionMode, model or
+// schema passes no flag. sessionID is the id claude runs the session under, a
+// new one or, with resume, the one it continues.
 type workerSpec struct {
 	dir            string
 	permissionMode string
 	model          string
+	schema         string
 	sessionID      string
 	resume         bool
 	prompt         string
@@ -71,12 +76,16 @@ func defaultWorkerOps() workerOps {
 // reads it. It follows --, because claude reads a prompt that starts with - as
 // an option.
 func workerArgs(spec workerSpec) []string {
-	args := make([]string, 0, 9)
+	args := make([]string, 0, 13)
 	if spec.permissionMode != "" {
 		args = append(args, "--permission-mode", spec.permissionMode)
 	}
 	if spec.model != "" {
 		args = append(args, "--model", spec.model)
+	}
+	args = append(args, "--output-format", "json")
+	if spec.schema != "" {
+		args = append(args, "--json-schema", spec.schema)
 	}
 
 	session := "--session-id"
@@ -104,17 +113,15 @@ func workerEnv(environ []string) []string {
 func runWorker(ctx context.Context, spec workerSpec, onStart func()) workerResult {
 	args := workerArgs(spec)
 
-	// One writer value for both streams, so os/exec drains them through one pipe
-	// and nothing races. The cap bounds the memory a chatty worker holds, and the
-	// scanner reads past the cap.
-	captured := &capWriter{limit: maxOutput}
-	scanner := &resultScanner{}
-	w := io.MultiWriter(captured, scanner)
+	// Each stream has its own writer, so os/exec drains each on its own
+	// goroutine and no writer is shared.
+	stdout := &capWriter{limit: maxStdout}
+	stderr := &capWriter{limit: maxOutput}
 
 	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.Dir = spec.dir
 	cmd.Env = workerEnv(os.Environ())
-	cmd.Stdout, cmd.Stderr = w, w
+	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cmd.WaitDelay = waitDelay
 	setProcessGroup(cmd)
 
@@ -130,17 +137,14 @@ func runWorker(ctx context.Context, spec workerSpec, onStart func()) workerResul
 	}
 
 	if err := cmd.Start(); err != nil {
-		return workerResult{output: captured.text(), err: err}
+		return workerResult{output: stderr.text(), err: err}
 	}
 	if onStart != nil {
 		onStart()
 	}
 	err := cmd.Wait()
-	res := workerResult{
-		output:    captured.text(),
-		hasResult: scanner.matched,
-		killed:    err != nil && cancelled.Load(),
-	}
+	res := decodeWorkerOutput(stdout.buf.Bytes(), stdout.dropped, stderr.text())
+	res.killed = err != nil && cancelled.Load()
 
 	var exitErr *exec.ExitError
 	switch {
@@ -178,33 +182,46 @@ func (w *capWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// resultScanner records whether any line of the stream starts with
-// resultPrefix. It holds no bytes, so a prefix split across writes still
-// matches.
-type resultScanner struct {
-	midLine bool
-	seen    int
-	matched bool
-}
-
-func (s *resultScanner) Write(p []byte) (int, error) {
-	for _, b := range p {
-		if s.matched {
-			break
-		}
-		switch {
-		case b == '\n':
-			s.midLine, s.seen = false, 0
-		case s.midLine:
-		case b == resultPrefix[s.seen]:
-			s.seen++
-			s.matched = s.seen == len(resultPrefix)
-		default:
-			s.midLine, s.seen = true, 0
+// decodeWorkerOutput reads the one JSON document claude --output-format json
+// prints. A cut-off or undecodable stdout holds no result. The output is the
+// first non-empty of the summary, claude's result text, stderr and the raw
+// stdout that did not decode.
+func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResult {
+	var doc struct {
+		StructuredOutput json.RawMessage `json:"structured_output"`
+		Result           string          `json:"result"`
+		IsError          bool            `json:"is_error"`
+	}
+	var res workerResult
+	var summary, raw string
+	decoded := !overflow && json.Unmarshal(stdout, &doc) == nil
+	if !decoded {
+		raw = string(stdout)
+	}
+	if decoded {
+		var fields map[string]any
+		_ = json.Unmarshal(doc.StructuredOutput, &fields)
+		status, _ := fields["status"].(string)
+		s, isString := fields["summary"].(string)
+		if isString && slices.Contains(rules.ResultStatuses, status) {
+			delete(fields, "status")
+			delete(fields, "summary")
+			res.hasResult, res.status, res.fields, summary = true, status, fields, s
 		}
 	}
 
-	return len(p), nil
+	out := &capWriter{limit: maxOutput}
+	for _, text := range []string{summary, doc.Result, stderr, raw} {
+		if text != "" {
+			_, _ = out.Write([]byte(text))
+			out.dropped = out.dropped || (text == raw && overflow)
+
+			break
+		}
+	}
+	res.output = out.text()
+
+	return res
 }
 
 func (w *capWriter) text() string {

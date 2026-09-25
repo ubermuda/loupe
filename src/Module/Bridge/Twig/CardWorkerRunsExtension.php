@@ -6,6 +6,8 @@ namespace App\Module\Bridge\Twig;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Module\Project\Entity\Project;
 use Psr\Clock\ClockInterface;
@@ -32,7 +34,23 @@ final class CardWorkerRunsExtension extends AbstractExtension
     {
         return [
             new TwigFunction('card_worker_runs', $this->cardWorkerRuns(...)),
+            new TwigFunction('card_run_warnings', $this->cardRunWarnings(...)),
         ];
+    }
+
+    /**
+     * One query for the whole board, keyed by card id.
+     *
+     * @return array<string, CardRunWarning>
+     */
+    public function cardRunWarnings(Project $project): array
+    {
+        $warnings = [];
+        foreach ($this->workerRuns->findWarningRowsOfProject($project) as $row) {
+            $warnings[$row['card_id']] = new CardRunWarning($row['id'], WorkerRunState::from($row['state']), $row['output'], $row['card_column']);
+        }
+
+        return $warnings;
     }
 
     /** @return list<WorkerRunListItem> */

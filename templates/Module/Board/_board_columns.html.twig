@@ -2,6 +2,7 @@
    FormView, or null). A frame reload keeps the toolbar, so the filter and
    the view come back from it after each render. #}
 {% set canManage = is_granted(constant('App\\Module\\Board\\Security\\BoardColumnVoter::MANAGE'), board.project) %}
+{% set runWarnings = card_run_warnings(board.project) %}
 <div id="board" class="lp-board"
      data-controller="board-drag board-filter board-view{{ canManage ? ' board-columns' }}"
      data-action="turbo:frame-render@document->board-filter#filter board:placed@document->board-filter#filter turbo:frame-render@document->board-view#restore turbo:frame-render@document->board-drag#markReady">
@@ -97,7 +98,7 @@
              data-rankable="{{ view.column.terminal ? '0' : '1' }}">
             {% for card in view.cards %}
                 {# `~ ''` casts the Uuid, which cannot itself be an array key. #}
-                {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0)} only %}
+                {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), runWarning: runWarnings[card.id ~ '']|default(null)} only %}
             {% endfor %}
         </div>
 

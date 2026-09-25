@@ -5427,6 +5427,11 @@
             <trans-unit id="bridge.worker_runs.details.close"><source>bridge.worker_runs.details.close</source><target>Close</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.card"><source>bridge.worker_runs.details.card</source><target>Card</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.session"><source>bridge.worker_runs.details.session</source><target>Session</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.series"><source>bridge.worker_runs.details.series</source><target>Series</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.continues"><source>bridge.worker_runs.details.continues</source><target>Resumes run</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.result_status"><source>bridge.worker_runs.details.result_status</source><target>Result status</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.resume_skipped"><source>bridge.worker_runs.details.resume_skipped</source><target>Resume skipped</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.result_fields"><source>bridge.worker_runs.details.result_fields</source><target>Result fields</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.unreported"><source>bridge.worker_runs.details.unreported</source><target>The bridge does not report the agent identity or the triggering event.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.timeline"><source>bridge.worker_runs.details.timeline</source><target>Reported timeline</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.received"><source>bridge.worker_runs.details.received</source><target>Report received</target></trans-unit>
@@ -5517,6 +5522,18 @@
                 <source>bridge.worker_runs.state.no_result</source>
                 <target>No result</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.unfinished">
+                <source>bridge.worker_runs.state.unfinished</source>
+                <target>Unfinished</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.blocked">
+                <source>bridge.worker_runs.state.blocked</source>
+                <target>Blocked</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.gave_up">
+                <source>bridge.worker_runs.state.gave_up</source>
+                <target>Gave up</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.state.timed_out">
                 <source>bridge.worker_runs.state.timed_out</source>
                 <target>Timed out</target>
@@ -5544,6 +5561,22 @@
             <trans-unit id="bridge.worker_runs.exit_code">
                 <source>bridge.worker_runs.exit_code</source>
                 <target>exit %code%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.resume">
+                <source>bridge.worker_runs.resume</source>
+                <target>Resume %index% of %cap%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_status.finished">
+                <source>bridge.worker_runs.result_status.finished</source>
+                <target>Finished</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_status.blocked">
+                <source>bridge.worker_runs.result_status.blocked</source>
+                <target>Blocked</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_status.unfinished">
+                <source>bridge.worker_runs.result_status.unfinished</source>
+                <target>Unfinished</target>
             </trans-unit>
             <trans-unit id="bridge.worker_runs.interactive">
                 <source>bridge.worker_runs.interactive</source>
