@@ -18,7 +18,7 @@ namespace App\Module\SiteReview;
 final class WidgetApiPaths
 {
     /** @var list<string> */
-    public const array PREFIXES = ['/api/site-review', '/api/board/cards'];
+    public const array PREFIXES = ['/api/site-review', '/api/board/cards', '/api/board/feedback'];
 
     public static function matches(string $path): bool
     {
