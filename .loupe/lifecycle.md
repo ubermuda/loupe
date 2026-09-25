@@ -25,7 +25,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 ## Gate
 
-1. Base branch: `main`.
+1. Base branch: `main`. A branch that stacks on an open pull request uses that pull request's head branch instead, as the stage `commands.md` says.
 2. Run `just cs`, and commit what it changes.
 3. Run `just ci`. It is long, so run it as the harness adapter says for a long command.
 4. Never start `just ci` again over a killed run. PHPUnit keeps running in the shared php-fpm container. Stop it as `project-worktrees` says.
@@ -37,7 +37,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 1. Before a push, run `mcp__codex-cli__review` with `model: "gpt-6-astra"`. When the tool is missing, stop with `STAGE RESULT: blocked: codex MCP unavailable`.
 2. Follow the pass and scope rules of `working-with-prs` "The gate, before you open anything": two clean passes in a row, and a commit scope once the branch has more than one commit.
-3. Alternate the scope: one pass with `base: "origin/main"`, the next with `commit: "<sha>"` for the newest commit that carries work.
+3. Alternate the scope: one pass with `base: "origin/<base>"`, the next with `commit: "<sha>"` for the newest commit that carries work.
 4. Count a pass as clean only against the current tree. Check that each summary covers the largest change.
 5. Before you act on a finding, read the file at HEAD, and dismiss a finding that HEAD already fixes. Run `git status` after each pass.
 
@@ -48,7 +48,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 ## Pull request
 
-1. Open it ready, never draft, against `main`.
+1. Open it ready, never draft, against the base branch of the `Gate` section. Never open a stacked pull request against `main`.
 2. Write the title as `<type>(<area>): <summary>`.
 3. Keep the body and the `## Preview` section to the rules of `working-with-prs` "Keep the body brief" and "Make the branch testable, not just reviewable".
 4. Never merge it, and never use `--admin` or `--no-verify`.

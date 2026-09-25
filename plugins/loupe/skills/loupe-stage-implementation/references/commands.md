@@ -69,6 +69,8 @@ Then run the commands of the profile `Gate` section in order. Run each long comm
 
 Push the branch, and create the pull request with the forge adapter. Follow the profile `Pull request` section for the title, the body and the ready state.
 
+A branch that holds the commits of another open pull request stacks on it. The test is `git merge-base --is-ancestor origin/<parent branch> HEAD`, which exits 0, while that pull request is open. Then create the pull request with `<base>` set to the parent's head branch, never the profile base branch. Write `Stacks on #<parent>. Merge #<parent> first.` in the body.
+
 The profile `Board` section names the column a ready pull request's card moves to. Read the slug there, never from `board_columns`, which can be missing.
 
 Put the card URL in the body. The card page route is `/projects/{projectId}/board/cards/{cardId}`, so the URL is `<instance>/projects/<projectId>/board/cards/<cardId>`. Take the instance from the prompt line `Loupe instance <url>.`, and the project id from the prompt. When the prompt lacks either, write `Loupe card <number>` instead.
@@ -77,7 +79,7 @@ Then write the changelog entry that the profile `Changelog` section names, run i
 
 ## Wait for CI
 
-Keep the SHA that you gated, reviewed and pushed. First wait until checks exist for that head. The head commit of the pull request must equal that SHA. Then watch the required checks with the forge adapter, as a long command, for 60 minutes at most. The profile `Gate` section says which checks are required.
+Keep the SHA that you gated, reviewed and pushed. First wait until checks exist for that head. The head commit of the pull request must equal that SHA. Then watch the required checks with the forge adapter, as a long command, for 60 minutes at most. The profile `Gate` section says which checks are required. A stacked pull request has no required checks, because the ruleset covers the profile base branch only. Run the check commands of the forge adapter without `--required`, and count every check.
 
 Poll in the foreground, one tool call at a time, as "Run a long command" in the harness adapter shows. Never end the turn to wait for a notice. The run ends with your turn, and the watch dies with it.
 
