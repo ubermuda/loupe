@@ -249,6 +249,91 @@ describe('the mode', () => {
     });
 });
 
+describe('the mode picker', () => {
+    it('hands focus back to the draft after a choice and after Back', async () => {
+        bootWidget({ respond: () => ok({ comments: [], context: null }) });
+        await settle();
+
+        const root = openNote();
+        const textarea = root.getElementById('lp-textarea');
+        root.querySelector('[data-mode="per-review"]').click();
+        await settle();
+        expect(root.activeElement).toBe(
+            root.getElementById('lp-picker-search'),
+        );
+
+        root.getElementById('lp-picker-back').click();
+        await settle();
+        expect(root.activeElement).toBe(textarea);
+
+        root.querySelector('[data-mode="per-note"]').click();
+        await settle();
+        expect(root.activeElement).toBe(textarea);
+    });
+
+    it('closes on Escape and keeps the draft', async () => {
+        bootWidget({
+            mode: { mode: 'per-note', cardId: null },
+            respond: () => ok({ comments: [], context: null }),
+        });
+        await settle();
+
+        const root = openNote();
+        await write(root, 'Do not lose this');
+        root.getElementById('lp-context').querySelector('button').click();
+        await settle();
+        root.querySelector('[data-mode="per-review"]').click();
+        await settle();
+
+        root.getElementById('lp-picker-search').dispatchEvent(
+            new KeyboardEvent('keydown', {
+                key: 'Escape',
+                bubbles: true,
+                composed: true,
+            }),
+        );
+        await settle();
+
+        expect(root.getElementById('lp-picker').style.display).toBe('none');
+        expect(root.getElementById('lp-composer').style.opacity).toBe('1');
+        expect(root.getElementById('lp-textarea').value).toBe(
+            'Do not lose this',
+        );
+        // Reopening starts from the modes, not from the card search.
+        root.getElementById('lp-context').querySelector('button').click();
+        await settle();
+        expect(root.getElementById('lp-picker-modes').style.display).toBe('');
+    });
+
+    it('keeps a choice made while the boot load is still in flight', async () => {
+        // The boot load asks about the stored card. A reviewer who picks
+        // another mode before it answers owns the choice, so the answer about
+        // the old card must neither clear nor relabel it.
+        let answerBoot;
+        bootWidget({
+            mode: { mode: 'per-review', cardId: CARD },
+            respond: () =>
+                new Promise((resolve) => {
+                    answerBoot = resolve;
+                }),
+        });
+        await settle();
+
+        const root = openNote();
+        root.getElementById('lp-context').querySelector('button').click();
+        await settle();
+        root.querySelector('[data-mode="per-note"]').click();
+        await settle();
+
+        answerBoot(ok({ comments: [], context: null }));
+        await settle();
+
+        expect(storedMode()).toEqual({ mode: 'per-note', cardId: null });
+        expect(targetText(root)).toBe('A new card for each note');
+        expect(root.getElementById('lp-picker').style.display).toBe('none');
+    });
+});
+
 describe('the board switched off', () => {
     it('disables the composer and says why at boot', async () => {
         bootWidget({
@@ -260,7 +345,9 @@ describe('the board switched off', () => {
         const root = openNote();
 
         expect(targetText(root)).toBe('Turn on the board to use site review');
-        expect(root.getElementById('lp-textarea').disabled).toBe(true);
+        // Read-only, not disabled, so a draft can still be copied out.
+        expect(root.getElementById('lp-textarea').disabled).toBe(false);
+        expect(root.getElementById('lp-textarea').readOnly).toBe(true);
         expect(root.getElementById('lp-save').disabled).toBe(true);
         expect(root.getElementById('lp-picker').style.display).toBe('none');
     });
@@ -285,6 +372,8 @@ describe('the board switched off', () => {
         );
         expect(targetText(root)).toBe('Turn on the board to use site review');
         expect(root.getElementById('lp-textarea').value).toBe('Too late');
+        expect(root.getElementById('lp-textarea').disabled).toBe(false);
+        expect(root.getElementById('lp-textarea').readOnly).toBe(true);
     });
 });
 

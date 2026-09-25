@@ -2650,7 +2650,9 @@
         contextNode.style.display = newNote ? 'flex' : 'none';
         pickerNode.style.display = showPicker ? 'block' : 'none';
         if (showPicker) renderPickerMode();
-        textareaNode.disabled = newNote && !feedbackAvailable;
+        // Read-only rather than disabled, so a draft typed before the board
+        // went off can still be selected and copied out.
+        textareaNode.readOnly = newNote && !feedbackAvailable;
         // A per-note save makes a card nobody chose, so the panel names it
         // and links to it until the next note starts.
         const lastCard = state.composing ? null : state.lastCard;
@@ -3596,6 +3598,7 @@
         state.picking = false;
         pickerMode = null;
         sync();
+        focusTextarea();
     };
     const pickMode = (mode) => {
         if (mode === 'per-note') {
@@ -3757,12 +3760,18 @@
             250,
         );
     });
-    pickerSearchNode.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            state.picking = false;
-            sync();
-        }
-    });
+    // Escape closes the picker alone. The document's own Escape cancels the
+    // compose, which would throw the draft away.
+    const closePickerOnEscape = (event) => {
+        if (event.key !== 'Escape') return;
+        event.stopPropagation();
+        state.picking = false;
+        pickerMode = null;
+        sync();
+        focusTextarea();
+    };
+    pickerSearchNode.addEventListener('keydown', closePickerOnEscape);
+    pickerTitleNode.addEventListener('keydown', closePickerOnEscape);
     pickerTitleNode.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') createCardFromPicker();
     });
@@ -3775,6 +3784,7 @@
     $('lp-picker-back').addEventListener('click', () => {
         pickerMode = null;
         sync();
+        focusTextarea();
     });
 
     const cancelCompose = () => {

@@ -503,7 +503,10 @@ test('with the board off the composer says so and saves nothing', async ({
     await expect(page.locator('#lp-context')).toHaveText(
         'Turn on the board to use site review',
     );
-    await expect(page.getByPlaceholder(/Describe the issue/)).toBeDisabled();
+    // Read-only rather than disabled, so a draft can still be copied out.
+    const textarea = page.getByPlaceholder(/Describe the issue/);
+    await expect(textarea).toBeEnabled();
+    await expect(textarea).not.toBeEditable();
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
 });
 
