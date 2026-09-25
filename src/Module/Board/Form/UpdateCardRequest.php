@@ -33,6 +33,7 @@ class UpdateCardRequest extends CreateCardRequest
                 static fn (RelatedCard $related): CardLinkRowRequest => new CardLinkRowRequest($related->card, $related->kind),
                 $relatedCards,
             ),
+            parent: $card->parent,
         );
         $request->contentFingerprint = Card::contentFingerprint($card->title, $card->body);
 

@@ -8,7 +8,7 @@ use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 
 /**
- * Reads one page of a project's board, filtered by column, type and reporter.
+ * Reads one page of a project's board, filtered by column, type, reporter and parent.
  *
  * It owns the whole rule, so every entry point gets the same answer: the paging
  * is clamped into range and the repository is read once.
@@ -30,6 +30,9 @@ final readonly class ListCardsHandler
         if (null !== $command->column && $command->column->project !== $command->project) {
             throw new \LogicException('A board lists its own columns only.');
         }
+        if (null !== $command->parent && $command->parent->project !== $command->project) {
+            throw new \LogicException('A board lists the children of its own cards only.');
+        }
 
         // Clamped rather than refused: an out-of-range page should read empty,
         // not fail the call.
@@ -40,6 +43,7 @@ final readonly class ListCardsHandler
             null === $command->column ? $this->boardColumns->findForProject($command->project) : [$command->column],
             $command->type,
             $command->reporter,
+            $command->parent,
         );
 
         $total = \count($cards);

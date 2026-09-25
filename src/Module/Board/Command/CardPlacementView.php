@@ -23,6 +23,8 @@ final readonly class CardPlacementView
         public array $counts,
         /** @var array<string, int> terminal column id => every card the column holds */
         public array $terminalTotals,
+        /** The done and total children of an epic, null for any other card. */
+        public ?CardProgress $progress = null,
     ) {
     }
 }

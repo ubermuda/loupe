@@ -7,6 +7,7 @@ namespace App\Module\Board\Form;
 use App\Module\Board\Entity\Card;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -38,7 +39,11 @@ final class MoveCardFormType extends AbstractType
             ])
             // An integer field rather than a hidden one: the property is ?int,
             // and HiddenType would hand the property mapper a string.
-            ->add('position', IntegerType::class, ['required' => false]);
+            ->add('position', IntegerType::class, ['required' => false])
+            // A drop inside a lane fills these instead of the rank.
+            ->add('parent', HiddenType::class, ['required' => false])
+            ->add('beforeCardId', HiddenType::class, ['required' => false])
+            ->add('afterCardId', HiddenType::class, ['required' => false]);
     }
 
     #[\Override]

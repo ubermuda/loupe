@@ -18,6 +18,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
+use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -73,7 +74,7 @@ final class CardAuditTrailTest extends KernelTestCase
         // until the board has a controller, so the container inlines it away.
         $interactiveRuns = self::getContainer()->get(InteractiveRuns::class);
         self::assertInstanceOf(InteractiveRuns::class, $interactiveRuns);
-        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), $this->em, $this->audit->auditor, $interactiveRuns, new EventDispatcher());
+        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), new CardParentPolicy($cards), $this->em, $this->audit->auditor, new EventDispatcher(), $interactiveRuns);
 
         $owner = new User(fullName: 'Riley', email: 'board-audit-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
@@ -178,6 +179,8 @@ final class CardAuditTrailTest extends KernelTestCase
             'titleChanged' => true,
             'bodyChanged' => false,
             'typeChanged' => false,
+            'parentChanged' => false,
+            'laneChanged' => false,
             'pullRequestsReplaced' => false,
             'documentsReplaced' => false,
             'relatedCardsReplaced' => false,

@@ -18,6 +18,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
+use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -67,7 +68,7 @@ final class CardOrderingTest extends KernelTestCase
         // until the board has a controller, so the container inlines it away.
         $interactiveRuns = self::getContainer()->get(InteractiveRuns::class);
         self::assertInstanceOf(InteractiveRuns::class, $interactiveRuns);
-        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), $this->em, SilentAuditor::create(), $interactiveRuns, new EventDispatcher());
+        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), new CardParentPolicy($cards), $this->em, SilentAuditor::create(), new EventDispatcher(), $interactiveRuns);
 
         $owner = new User(fullName: 'Riley', email: 'board-ordering-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);

@@ -320,6 +320,88 @@ offers the matching cards of the project. The **Add a linked card** button adds
 a row, and the cross at the end of a row removes it. Saving replaces the card's
 whole set of links.
 
+## Epics and lanes
+
+An epic is a card of the type `epic`. It groups other cards, its children, so a
+large feature can go to many small cards and still read as one piece of work.
+
+### Parents
+
+A card can have one epic as its parent. Set the parent in the **Parent epic**
+field of the card form, or with `parentCardId` in the MCP tools. Loupe refuses
+these changes:
+
+- A parent that is not an epic.
+- A parent from another project.
+- A parent on an epic. Epics do not nest.
+- The type `epic` on a card that has a parent.
+- Another type on an epic that has children.
+
+The epic page lists the children with their columns, and shows a count such as
+"3/7 done". A child counts as done when it sits in a terminal column. The child
+page names its parent.
+
+### Lanes
+
+Each epic in an open column gets a lane on the board. A lane is a row across all
+the columns, and the epic's children sit in their columns inside that row. The
+lanes follow the order of their epics: by column, then by rank. The last row,
+**Other cards**, holds every card that is in no lane.
+
+Each lane repeats the column headers, and each count shows the cards of that
+lane only. The first lane holds the column grips and menus, and keeps its
+column headers when you collapse it. **Other cards**
+holds the Add card links and the link to the finished cards.
+
+The lane header shows the epic number, its title, the "3/7 done" count, a
+collapse button and a lane toggle. An epic with its lane on shows as the lane
+header only, not as a card in its column.
+
+The collapse button hides the cards of the lane and keeps the header. Your
+browser remembers the lanes you collapse, for each project. Another browser
+shows every lane open.
+
+The lane toggle turns the lane of that epic off or on. The epic page has the same
+toggle, and an agent sets `laneEnabled` through MCP. The setting belongs to the
+epic, so every browser sees it. With the lane off, the epic shows as a card with
+its count, and its children show in **Other cards**. Each of them carries a tag
+such as "↑ #214" that names its epic.
+
+A board with no lane shows its columns only, as it did before epics.
+
+You can drag a card into any lane. A drop in the lane of another epic makes that
+epic the parent of the card. A drop in **Other cards** removes the parent. A drop
+inside the same lane keeps the parent, so a child whose lane is off keeps its
+epic when it moves inside **Other cards**. The column changes as it does on a
+board with no lanes, and the card lands where you drop it.
+
+An epic cannot go into a lane, because an epic has no parent. If the board
+refuses a change of parent, it shows why and keeps the card where it was.
+
+### When an epic is done
+
+Loupe moves an epic on its own:
+
+- When the last open child moves to a terminal column, the epic moves to the
+  first terminal column of the board.
+- When a child of a done epic leaves the terminal column, or an open card joins a
+  done epic, the epic moves back to the `implementation` column.
+- When a child with a parent waits in the default column and its last blocker
+  moves to a terminal column, the child moves to the `implementation` column.
+
+A board with no `implementation` column skips the moves back. An epic with no
+children never moves on its own.
+
+A manual move of an epic to a terminal column is refused while a child is open.
+The message names the open children. Move them to a terminal column first.
+
+An epic with children cannot be deleted. Delete the children, or remove them
+from the epic, first.
+
+When an epic is done, its lane goes away. The epic shows in its terminal column
+as one card with its count, and its children leave the board. The children stay
+on the epic page, on the history page of their column, and in the MCP tools.
+
 ## What a card holds
 
 | Field | What it is |
@@ -327,7 +409,7 @@ whole set of links.
 | Number | A short number, counting from 1, unique inside the project. |
 | Title | Plain text, up to 255 characters. Loupe trims it and refuses a blank one. |
 | Body | Markdown. It says what the card asks for. |
-| Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`. |
+| Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`, `epic`. |
 | Status | The column the card sits in. The tools report the column's slug. |
 | Reporter | `human`, `agent` or `reviewer`. It records who raised the card. |
 | Pull requests | Any number of links. See below. |
@@ -453,7 +535,7 @@ so a page past the end reads as an empty list. The answer carries `page`,
 not the cards on the page, so keep reading while `hasMore` is true.
 
 Each row is a summary: `cardId`, `number`, `title`, `type`, `status`,
-`reporter` and `updatedAt`. Pass `full` to get the Markdown body, the pull
+`reporter`, `parentCardId` and `updatedAt`. Pass `full` to get the Markdown body, the pull
 request, document and site-review links, and `relatedCards` as well. A full page
 is much larger, so read the board as summaries and call `card_get` for the card
 you want.

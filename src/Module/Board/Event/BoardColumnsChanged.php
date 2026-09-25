@@ -7,9 +7,10 @@ namespace App\Module\Board\Event;
 use App\Module\Project\Entity\Project;
 
 /**
- * Dispatched after a column change commits: an add, a rename, a reorder, a
- * flag change or a delete. A listener sees only committed state, so it may call
- * out of the process, and a rollback dispatches nothing.
+ * Dispatched after a change to the board's layout commits: a column add,
+ * rename, reorder, flag change or delete, or an epic lane turned on or off. A
+ * listener sees only committed state, so it may call out of the process, and a
+ * rollback dispatches nothing.
  */
 final readonly class BoardColumnsChanged
 {

@@ -10,6 +10,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\EventListener\DeleteBoardDataOnProjectDeleting;
 use App\Module\Board\Service\BoardColumnSeeder;
@@ -58,6 +59,45 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $doomedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $sparedId]));
         self::assertSame(4, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $sparedId]));
+    }
+
+    /**
+     * The parent key has no ON DELETE action, so Postgres checks it at the end
+     * of the one DELETE that removes the epic and its child together.
+     */
+    public function test_deleting_a_project_removes_an_epic_and_its_child_in_one_statement(): void
+    {
+        self::bootKernel();
+
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+
+        $owner = new User(fullName: 'Riley', email: 'board-delete-epic-'.uniqid().'@example.com', password: 'hashed');
+        $em->persist($owner);
+        $project = new Project($owner, 'epic-'.uniqid());
+        $em->persist($project);
+        $seeder = self::getContainer()->get(BoardColumnSeeder::class);
+        self::assertInstanceOf(BoardColumnSeeder::class, $seeder);
+        [$backlog] = $seeder->seed($project);
+        $epic = new Card(project: $project, column: $backlog, title: 'The epic', body: '', number: 1, type: CardType::Epic);
+        $child = new Card(project: $project, column: $backlog, title: 'The child', body: '', number: 2);
+        $child->parent = $epic;
+        $em->persist($epic);
+        $em->persist($child);
+        $em->flush();
+        $projectId = (string) $project->id;
+
+        $conn = $em->getConnection();
+        // Guard: the child row points at the epic, so the delete below meets the key.
+        self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id AND parent_card_id IS NOT NULL', ['id' => $projectId]));
+
+        $deleter->delete($project);
+        $em->clear();
+
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $projectId]));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM projects WHERE id = :id', ['id' => $projectId]));
     }
 
     /**

@@ -85,6 +85,7 @@ final class CreateCardController extends AppController
                     pullRequestUrls: CreateCardRequest::toUrlList($data->pullRequestUrls),
                     siteReviewComment: $feedback,
                     relatedCards: $data->linkInputs(),
+                    parentCardId: null === $data->parent ? null : (string) $data->parent->id,
                 ));
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);

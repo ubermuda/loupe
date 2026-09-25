@@ -25,7 +25,8 @@ final readonly class BoardToolErrorMessages
     {
         $lines = [];
         foreach ($errors->errors as $argument => $key) {
-            $lines[] = \sprintf('%s: %s', $argument, self::sentence($key));
+            // The form names the field parent; the tools name the argument parentCardId.
+            $lines[] = \sprintf('%s: %s', 'parent' === $argument ? 'parentCardId' : $argument, self::sentence($key));
         }
 
         return new ToolCallException(implode("\n", $lines), previous: $errors);
@@ -41,6 +42,12 @@ final readonly class BoardToolErrorMessages
             'board.card.error.linked_card_unknown' => 'One of those card ids names no card of this project.',
             'board.card.error.linked_card_self' => 'A card cannot link to itself. Remove its own id from relatedCards.',
             'board.card.error.linked_card_twice' => 'The same card appears twice in relatedCards. Name each card once, with one kind.',
+            'board.card.error.parent_unknown' => 'That parentCardId names no card of this project.',
+            'board.card.error.parent_not_epic' => 'Only a card of type epic can be a parent. Name an epic, or set that card\'s type to epic first.',
+            'board.card.error.epic_cannot_have_parent' => 'An epic cannot have a parent, because epics do not nest. Leave parentCardId out, or choose another type.',
+            'board.card.error.parent_card_cannot_be_epic' => 'A card with a parent cannot become an epic. Clear its parent with an empty parentCardId first.',
+            'board.card.error.epic_type_locked' => 'This epic has child cards, so its type stays epic. Clear the parent of each child first.',
+            'board.card.error.epic_delete_has_children' => 'This epic has child cards, so it cannot be deleted. Delete each child, or clear its parent, first.',
             'board.card.error.column_gone' => 'That column no longer exists on this board. Name another column.',
             'board.card.error.run_name_blank' => 'Pass the name of the skill that runs the session, such as loupe:product-design.',
             'board.card.error.run_name_too_long' => \sprintf('A run name must be at most %d characters.', WorkerRun::MAX_RULE_NAME_LENGTH),

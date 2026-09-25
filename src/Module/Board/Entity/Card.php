@@ -52,6 +52,19 @@ class Card implements ProjectScopedSubject
     public \DateTimeImmutable $updatedAt;
 
     /**
+     * The epic this card belongs to. CardParentPolicy keeps it an epic of the
+     * same project. The key has no ON DELETE action, so the project delete
+     * removes a parent and its children in one statement.
+     */
+    #[ORM\JoinColumn(name: 'parent_card_id', nullable: true)]
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    public ?Card $parent = null;
+
+    /** Whether the board draws this epic as a lane. Only an epic reads it. */
+    #[ORM\Column(name: 'lane_enabled', options: ['default' => true])]
+    public bool $laneEnabled = true;
+
+    /**
      * Title and body, stemmed and weighted, as one searchable vector. It sits on
      * the card rather than in a table of its own because card_search already
      * filters this table by project, so the GIN scan and the project predicate

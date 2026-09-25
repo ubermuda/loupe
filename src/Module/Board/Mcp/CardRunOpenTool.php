@@ -74,7 +74,7 @@ final readonly class CardRunOpenTool implements FlagGatedToolInterface
             $view = ($this->showCard)(new ShowCardCommand($opened->card));
 
             return [
-                ...$this->payload->forCard($view->card, $view->siteReviewLinks, $view->relatedCards),
+                ...$this->payload->forCard($view),
                 'run' => ['runId' => (string) $run->id, 'state' => $run->state->value, 'name' => $run->ruleName],
             ];
         } catch (DomainErrors $e) {

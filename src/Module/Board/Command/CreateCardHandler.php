@@ -10,11 +10,14 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardLinkResolver;
 use App\Module\Board\Service\CardLinkSync;
+use App\Module\Board\Service\CardParentPolicy;
+use App\Module\Board\Service\CardParentResolver;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -35,6 +38,8 @@ final readonly class CreateCardHandler
         private DocumentLinkResolver $documentLinks,
         private CardLinkResolver $cardLinks,
         private CardLinkSync $cardLinkSync,
+        private CardParentResolver $parents,
+        private CardParentPolicy $parentPolicy,
         private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -70,12 +75,13 @@ final readonly class CreateCardHandler
         // closes the EntityManager.
         $documents = $this->documentLinks->resolve($command->project, array_values($command->documentIds));
         $relatedCards = $this->cardLinks->resolve($command->project, null, array_values($command->relatedCards));
+        $parent = null === $command->parentCardId ? null : $this->parents->resolve($command->project, $command->parentCardId);
 
         // MAX(position) + 1 and MAX(number) + 1 are both read-then-write: two
         // calls into the same project would otherwise allocate the same rank,
         // and the same card number. Same PESSIMISTIC_WRITE-on-the-project idiom
         // App\Module\SiteReview\Command\AddCommentHandler uses.
-        $card = $this->em->wrapInTransaction(function () use ($command, $title, $documents, $relatedCards): Card|string {
+        $card = $this->em->wrapInTransaction(function () use ($command, $title, $documents, $relatedCards, $parent): Card|string|DomainErrors {
             $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
 
             // Read under the lock: a column deleted or given another terminal
@@ -94,6 +100,10 @@ final readonly class CreateCardHandler
             if ($this->cardLinkSync->anyCardGone($relatedCards)) {
                 return UpdateCardHandler::LINKED_CARD_GONE;
             }
+            $refusal = $this->parentPolicy->refusal(null, $command->type, $parent, true);
+            if (null !== $refusal) {
+                return $refusal;
+            }
 
             $card = new Card(
                 project: $command->project,
@@ -110,6 +120,10 @@ final readonly class CreateCardHandler
                 // changing the project's leaves the cards already written alone.
                 searchLanguage: $command->project->searchLanguage,
             );
+            $card->parent = $parent;
+            if (null !== $command->laneEnabled) {
+                $card->laneEnabled = $command->laneEnabled;
+            }
 
             // A terminal column is entered here as much as by a move, so a card
             // created straight into one still carries the completion it sorts on.
@@ -132,10 +146,17 @@ final readonly class CreateCardHandler
             // commit together.
             $this->searchIndexer->index($card);
 
+            if (null !== $parent) {
+                $this->events->dispatch(new CardParentChanged($card, null, $parent, $command->reporter));
+            }
+
             return $card;
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
+        if ($card instanceof DomainErrors) {
+            throw $card;
+        }
         if (\is_string($card)) {
             throw new DomainErrors([UpdateCardHandler::LINKED_CARD_GONE === $card ? 'relatedCards' : 'column' => $card]);
         }

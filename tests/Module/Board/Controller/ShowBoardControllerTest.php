@@ -8,6 +8,7 @@ use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
@@ -145,9 +146,9 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-card-id="'.$plain->id.'"] .lp-board-card__pulls'));
         self::assertStringContainsString('Feature', $crawler->filter('[data-card-id="'.$plain->id.'"]')->text());
 
-        self::assertSame(['Work', 'Type', 'Status', 'Agent', 'Feedback'], $crawler->filter('.lp-board-list__header span')->each(static fn ($cell): string => $cell->text()));
+        self::assertSame(['Work', 'Type', 'Status', 'Parent', 'Agent', 'Feedback'], $crawler->filter('.lp-board-list__header span')->each(static fn ($cell): string => $cell->text()));
         $row = $crawler->filter('.lp-board-list__row[data-card-title="No links"] > span');
-        self::assertCount(5, $row);
+        self::assertCount(6, $row);
         self::assertSame('Feature', $row->eq(1)->text());
 
         self::assertSame('lime', $crawler->filter('[data-card-id="'.$plain->id.'"] .lp-tag')->attr('data-tone'));
@@ -321,6 +322,31 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame((string) $blocked->id, $crawler->filter('[data-card-id="'.$unnamed->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$moved->id.'"] [data-card-run-warning]'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$quiet->id.'"] [data-card-run-warning]'));
+    }
+
+    /** A card inside an epic lane shows its warning too, and lanes render through their own templates. */
+    public function test_a_card_in_an_epic_lane_shows_the_run_that_gave_up(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-lane-warning@example.com');
+        $project = $this->project($em, $owner, 'laned');
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'backlog'));
+        $loose = $this->card($em, $project, 'Loose', 'backlog');
+        $childRun = $this->workerRun($em, $project, $child, WorkerRunState::GaveUp, 'backlog', 'Child gave up.');
+        $looseRun = $this->workerRun($em, $project, $loose, WorkerRunState::Blocked, 'backlog', 'Loose is blocked.');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.lp-board-lane[data-lane="'.$epic->id.'"] [data-card-id="'.$child->id.'"]'));
+        self::assertSame((string) $childRun->id, $crawler->filter('[data-card-id="'.$child->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
+        self::assertSame((string) $looseRun->id, $crawler->filter('.lp-board-lane[data-lane="other"] [data-card-id="'.$loose->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
     }
 
     /** A run that changes state reloads the board, so the page listens on the worker-run topic too. */

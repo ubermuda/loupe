@@ -110,4 +110,20 @@ trait BoardScenario
 
         return $card;
     }
+
+    private function typed(EntityManagerInterface $em, Card $card, CardType $type): Card
+    {
+        $card->type = $type;
+        $em->flush();
+
+        return $card;
+    }
+
+    private function childOf(EntityManagerInterface $em, Card $epic, Card $child): Card
+    {
+        $child->parent = $epic;
+        $em->flush();
+
+        return $child;
+    }
 }

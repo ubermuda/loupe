@@ -181,6 +181,65 @@ final class CardCreateToolTest extends KernelTestCase
         ($this->tool)('Linked', 'Body', 'feature', relatedCards: [['cardId' => '0199c0de-0000-7000-8000-0000000000ff']]);
     }
 
+    public function test_a_card_is_created_under_an_epic(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-parent'));
+        $epic = ($this->tool)('Epic', 'Body', 'epic');
+
+        $card = ($this->tool)('Child', 'Body', 'feature', parentCardId: $epic['cardId']);
+
+        self::assertSame(
+            ['cardId' => $epic['cardId'], 'number' => $epic['number'], 'title' => 'Epic', 'status' => 'backlog'],
+            $card['parent'],
+        );
+        self::assertNull($card['progress']);
+        self::assertSame([], $card['children']);
+    }
+
+    public function test_the_lane_setting_is_stored_and_defaults_to_on(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-lane'));
+
+        self::assertTrue(($this->tool)('Epic', 'Body', 'epic')['laneEnabled']);
+        self::assertFalse(($this->tool)('Quiet epic', 'Body', 'epic', laneEnabled: false)['laneEnabled']);
+    }
+
+    public function test_a_parent_that_is_not_an_epic_is_reported_as_a_sentence(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-parent-not-epic'));
+        $feature = ($this->tool)('Feature', 'Body', 'feature');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('parentCardId: Only a card of type epic can be a parent.');
+        ($this->tool)('Child', 'Body', 'feature', parentCardId: $feature['cardId']);
+    }
+
+    public function test_an_epic_that_names_a_parent_is_reported_as_a_sentence(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-epic-parent'));
+        $epic = ($this->tool)('Epic', 'Body', 'epic');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('parentCardId: An epic cannot have a parent, because epics do not nest.');
+        ($this->tool)('Nested epic', 'Body', 'epic', parentCardId: $epic['cardId']);
+    }
+
+    public function test_a_parent_of_another_project_reads_as_unknown(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-parent-elsewhere'));
+        $elsewhere = ($this->tool)('Epic', 'Body', 'epic');
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-parent-here'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('parentCardId: That parentCardId names no card of this project.');
+        ($this->tool)('Child', 'Body', 'feature', parentCardId: $elsewhere['cardId']);
+    }
+
     public function test_an_unbound_mcp_token_is_rejected(): void
     {
         $this->enableBoard();

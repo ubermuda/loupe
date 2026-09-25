@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
+use App\Exception\DomainErrors;
 use App\Module\Board\Command\DeleteCardCommand;
 use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Entity\Card;
@@ -43,7 +44,13 @@ final class DeleteCardController extends AppController
         $projectId = (string) $card->project->id;
         $title = $card->title;
 
-        ($this->deleteCard)(new DeleteCardCommand($card));
+        try {
+            ($this->deleteCard)(new DeleteCardCommand($card));
+        } catch (DomainErrors $e) {
+            $this->addFlash('error', $this->translator->trans(array_first($e->errors)));
+
+            return $this->redirectToRoute('app_board_card', ['projectId' => $projectId, 'cardId' => (string) $card->id]);
+        }
 
         $this->addFlash('success', $this->translator->trans('board.card.flash.deleted', ['%title%' => $title]));
 

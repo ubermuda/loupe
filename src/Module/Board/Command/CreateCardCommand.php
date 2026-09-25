@@ -30,6 +30,10 @@ final readonly class CreateCardCommand
         public array $documentIds = [],
         public ?SiteReviewComment $siteReviewComment = null,
         public array $relatedCards = [],
+        /** An epic of this project. Null or blank gives the card no parent. */
+        public ?string $parentCardId = null,
+        /** Null keeps the entity default, which draws the lane. */
+        public ?bool $laneEnabled = null,
     ) {
     }
 }

@@ -31,6 +31,13 @@
         </div>
     </div>
 
+    <div class="lp-form-field" data-card-parent>
+        {{ form_label(form.parent, null, {label_attr: {class: 'lp-label'}}) }}
+        {{ form_widget(form.parent, {attr: {class: 'lp-input'}}) }}
+        {{ form_help(form.parent) }}
+        <div class="lp-field-errors">{{ form_errors(form.parent) }}</div>
+    </div>
+
     <div class="lp-form-field">
         {{ form_label(form.body, null, {label_attr: {class: 'lp-label'}}) }}
         {{ form_widget(form.body, {attr: {class: 'lp-input lp-card-form-textarea'}}) }}
