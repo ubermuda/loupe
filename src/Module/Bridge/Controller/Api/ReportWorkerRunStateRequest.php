@@ -20,6 +20,9 @@ final class ReportWorkerRunStateRequest
     /** The bridge sends these when a run is dropped. */
     public const array DROP_REASONS = ['shutdown', 'rule_dead', 'reload'];
 
+    /** The status a worker gives in its structured result. */
+    public const array RESULT_STATUSES = ['finished', 'blocked', 'unfinished'];
+
     public function __construct(
         #[Assert\NotBlank]
         #[Assert\Uuid]
@@ -71,6 +74,27 @@ final class ReportWorkerRunStateRequest
 
         #[Assert\Choice(choices: self::DROP_REASONS)]
         public ?string $reason = null,
+
+        #[Assert\Choice(choices: self::RESULT_STATUSES)]
+        public ?string $resultStatus = null,
+        /** @var array<mixed>|null */
+        public ?array $resultFields = null,
+
+        /** The id the bridge gave the run that this run resumes. */
+        #[Assert\Uuid]
+        public ?string $continues = null,
+
+        #[Assert\Range(min: 0, max: WorkerRun::MAX_RESUME_COUNT)]
+        public ?int $resumeIndex = null,
+
+        #[Assert\Range(min: 0, max: WorkerRun::MAX_RESUME_COUNT)]
+        public ?int $resumeCap = null,
+
+        #[Assert\Length(max: WorkerRun::MAX_CARD_COLUMN_LENGTH)]
+        public ?string $cardColumn = null,
+
+        #[Assert\Length(max: WorkerRun::MAX_RESUME_SKIPPED_LENGTH)]
+        public ?string $resumeSkipped = null,
     ) {
     }
 
@@ -102,10 +126,29 @@ final class ReportWorkerRunStateRequest
         }
     }
 
+    #[Assert\Callback]
+    public function validateResultFields(ExecutionContextInterface $context): void
+    {
+        if (null === $this->resultFields || [] === $this->resultFields) {
+            return;
+        }
+
+        if (array_is_list($this->resultFields)) {
+            $context->buildViolation('The result fields are an object.')->atPath('resultFields')->addViolation();
+
+            return;
+        }
+
+        if (\strlen(json_encode($this->resultFields, \JSON_THROW_ON_ERROR)) > WorkerRun::MAX_RESULT_FIELDS_BYTES) {
+            $context->buildViolation('The result fields are too large.')->atPath('resultFields')->addViolation();
+        }
+    }
+
     /**
      * An outcome follows the pairing rules of the finished run report, and its
-     * state must be the one its exit code and result flag imply. So a clean
-     * exit with no result is no-result, never succeeded.
+     * state must be the one its exit code, result flag and status imply. So a
+     * clean exit with no result is no-result, never succeeded. Gave-up stands
+     * in for any outcome that the bridge would resume.
      */
     #[Assert\Callback]
     public function validateOutcome(ExecutionContextInterface $context): void
@@ -135,8 +178,16 @@ final class ReportWorkerRunStateRequest
             $context->buildViolation('A run with no exit code has no result flag.')->atPath('hasResult')->addViolation();
         }
 
-        if (WorkerRunState::fromExitCode($this->exitCode, $this->hasResult) !== $state) {
-            $context->buildViolation('The exit code and the result flag do not match the state.')->atPath('exitCode')->addViolation();
+        if (null !== $this->resultStatus && true !== $this->hasResult) {
+            $context->buildViolation('A result status needs the result flag.')->atPath('resultStatus')->addViolation();
+        }
+
+        $implied = WorkerRunState::fromOutcome($this->exitCode, $this->hasResult, $this->resultStatus);
+        $matches = WorkerRunState::GaveUp === $state
+            ? \in_array($implied, [WorkerRunState::Failed, WorkerRunState::NoResult, WorkerRunState::Unfinished], true)
+            : $implied === $state;
+        if (!$matches) {
+            $context->buildViolation('The exit code, the result flag and the status do not match the state.')->atPath('exitCode')->addViolation();
         }
 
         if (null !== $this->startedAt && null !== $this->endedAt && $this->endedAt < $this->startedAt) {
@@ -173,6 +224,26 @@ final class ReportWorkerRunStateRequest
     public function cardId(): Uuid
     {
         return Uuid::fromString($this->cardId ?? throw new \LogicException('cardId is required after validation.'));
+    }
+
+    public function continues(): ?Uuid
+    {
+        return null === $this->continues || '' === $this->continues ? null : Uuid::fromString($this->continues);
+    }
+
+    /** @return array<string, mixed>|null */
+    public function resultFields(): ?array
+    {
+        if (null === $this->resultFields) {
+            return null;
+        }
+
+        $fields = [];
+        foreach ($this->resultFields as $name => $value) {
+            $fields[(string) $name] = $value;
+        }
+
+        return $fields;
     }
 
     public function sessionId(): ?Uuid

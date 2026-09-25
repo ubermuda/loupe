@@ -62,7 +62,7 @@ final readonly class ReportWorkerRunHandler
             }
 
             $receivedAt = $this->clock->now();
-            $outcome = WorkerRunState::fromExitCode($command->exitCode, $command->hasResult);
+            $outcome = WorkerRunState::fromOutcome($command->exitCode, $command->hasResult);
             $run = new WorkerRun(
                 project: $project,
                 bridgeId: $command->bridgeId,

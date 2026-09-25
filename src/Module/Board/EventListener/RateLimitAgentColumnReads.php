@@ -13,14 +13,15 @@ use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 
 /**
- * Throttles the bridge's column reads. The route is a GET, so unlike the write
- * limiters this one also counts safe methods. It runs after the firewall, so
- * the token is resolved, and keys per token because one bridge holds one token.
+ * Throttles the bridge's board reads, the columns and one card, in one bucket.
+ * The routes are GETs, so unlike the write limiters this one also counts safe
+ * methods. It runs after the firewall, so the token is resolved, and keys per
+ * token because one bridge holds one token.
  */
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 4)]
 final readonly class RateLimitAgentColumnReads
 {
-    public const string ROUTE = 'api_project_board_column_list';
+    public const array ROUTES = ['api_project_board_column_list', 'api_project_board_card_show'];
 
     public function __construct(
         #[Autowire(service: 'limiter.agent_board_columns')]
@@ -36,7 +37,7 @@ final readonly class RateLimitAgentColumnReads
         }
 
         $request = $event->getRequest();
-        if (self::ROUTE !== $request->attributes->get('_route')) {
+        if (!\in_array($request->attributes->get('_route'), self::ROUTES, true)) {
             return;
         }
 
