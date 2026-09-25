@@ -55,6 +55,8 @@ test('a card moved in one browser moves in another, marked, with the filter and 
     browser,
     request,
 }) => {
+    // Five cards go through the create form, one page visit each.
+    test.slow();
     await setFlag(request, 'board.enabled', true);
     await setFlag(request, 'live_updates.enabled', true);
 
@@ -91,7 +93,7 @@ test('a card moved in one browser moves in another, marked, with the filter and 
         1,
     );
 
-    await watcher.getByPlaceholder(/search/i).fill('live');
+    await watcher.getByRole('searchbox', { name: 'Search cards' }).fill('live');
     const other = watcher.locator(`${CARD}[data-card-title="Delta other"]`);
     await expect(other).toBeHidden();
 
