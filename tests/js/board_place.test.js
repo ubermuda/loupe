@@ -180,6 +180,27 @@ describe('board-place', () => {
         expect(missed.mock.calls[0][0].detail).toEqual({ cardId: 'a' });
     });
 
+    it('changes nothing and reports a miss when the card it follows sits in another column on the page', () => {
+        const missed = vi.fn();
+        document.addEventListener('board:place-missed', missed, {
+            once: true,
+        });
+        const before = document.body.innerHTML;
+
+        placeCard(
+            stream({
+                id: 'd',
+                column: NEXT,
+                after: 'b',
+                rowAfter: 'b',
+                counts: { [BACKLOG]: 2, [NEXT]: 2 },
+            }),
+        );
+
+        expect(document.body.innerHTML).toBe(before);
+        expect(missed).toHaveBeenCalledOnce();
+    });
+
     it('changes nothing and reports a miss when the card it follows is not on the page', () => {
         const missed = vi.fn();
         document.addEventListener('board:place-missed', missed, { once: true });
