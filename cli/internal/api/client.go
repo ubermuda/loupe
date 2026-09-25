@@ -549,8 +549,11 @@ const (
 	maxHookPackage = 300
 	maxHookRef     = 100
 	maxHookError   = 500
-	maxHookRows    = 100
 )
+
+// MaxHookRows is how many hook rows the server keeps: one per package and
+// event.
+const MaxHookRows = 100
 
 // ErrHeartbeatMissing marks a 404, which is the answer of a server that
 // predates the heartbeat or has agent push switched off. The route sends no
@@ -564,8 +567,8 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) e
 	}
 	hb.CLIVersion = clip(strings.TrimSpace(hb.CLIVersion), maxCLIVersion)
 	if hb.Hooks != nil {
-		rows := make([]HookReport, 0, min(len(hb.Hooks), maxHookRows))
-		for _, row := range hb.Hooks[:min(len(hb.Hooks), maxHookRows)] {
+		rows := make([]HookReport, 0, min(len(hb.Hooks), MaxHookRows))
+		for _, row := range hb.Hooks[:min(len(hb.Hooks), MaxHookRows)] {
 			row.Package = clip(strings.TrimSpace(row.Package), maxHookPackage)
 			row.Ref = clip(strings.TrimSpace(row.Ref), maxHookRef)
 			row.Error = clip(strings.TrimSpace(row.Error), maxHookError)

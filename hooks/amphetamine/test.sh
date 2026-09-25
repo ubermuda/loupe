@@ -116,6 +116,16 @@ expect_marker
 grep -q 'closed-display mode is off' "$work/stderr" || fail 'no closed-display message'
 finish
 
+check 'busy ends its session when the marker cannot be written'
+setup false 0 none false
+mkdir "$work/state/session"
+run busy
+expect_code 4
+expect_called "$START"
+expect_called 'end session'
+grep -q 'cannot write' "$work/stderr" || fail 'no marker message'
+finish
+
 check 'idle ends its own infinite session'
 setup true 0 marker false
 run idle

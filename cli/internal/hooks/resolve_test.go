@@ -72,6 +72,26 @@ func TestResolve(t *testing.T) {
 	}
 }
 
+// Loupe keeps one row per package and event, and 100 rows at most, so a list
+// past that is refused rather than shown in part.
+func TestResolveRefusesMoreEventsThanLoupeShows(t *testing.T) {
+	root := t.TempDir()
+	body := "name: x\nevents:\n  start: [./run]\n  stop: [./run]\n  busy: [./run]\n  idle: [./run]\n"
+	var entries []rules.HookEntry
+	for i := range 26 {
+		e := rules.HookEntry{Package: "acme/tool" + strings.Repeat("x", i), Ref: "v1", SHA: sha}
+		install(t, root, e, body)
+		entries = append(entries, e)
+	}
+
+	if _, err := Resolve(root, entries[:25], "linux"); err != nil {
+		t.Fatalf("100 events: %v", err)
+	}
+	if _, err := Resolve(root, entries, "linux"); err == nil || !strings.Contains(err.Error(), "104 events") {
+		t.Fatalf("104 events: err = %v", err)
+	}
+}
+
 func TestResolveFillsTheDefaults(t *testing.T) {
 	root := t.TempDir()
 	e := rules.HookEntry{Package: "ubermuda/loupe", Path: "hooks/amphetamine", Ref: "v1", SHA: sha}

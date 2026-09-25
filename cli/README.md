@@ -903,7 +903,8 @@ reloads too. The flags of `loupe bridge run` and the instance URL in
 Manages the hook packages that the bridge runs when it starts, when it stops,
 when it gets busy and when it goes idle. A package is a directory of a GitHub
 repository with a `loupe-hook.yaml` manifest. The commands edit the `hooks:`
-list of the rule file and keep the rest of the file, comments included.
+list of the rule file and keep the rest of the file, comments included. They
+rewrite the list itself, so a comment inside it is lost.
 
 ```bash
 loupe bridge hooks install ubermuda/loupe/hooks/amphetamine@<commit sha>

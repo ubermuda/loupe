@@ -148,7 +148,8 @@ commit. It keeps each setting that the new manifest still takes, and names the
 settings it drops.
 
 The rule file must exist before you install. The command writes a `hooks:` list
-into it and keeps the rest of the file, comments included:
+into it and keeps the rest of the file, comments included. It rewrites the
+list itself, so a comment inside the list is lost:
 
 ```yaml
 hooks:
@@ -166,7 +167,8 @@ holds a `hooks:` key.
 
 At start, the bridge loads each package the list names. It refuses to start
 when a package is not in the config directory or does not run on this system.
-It also refuses a setting that does not fit the manifest. A rule file that you
+It also refuses a setting that does not fit the manifest. It refuses more than
+100 events across all packages, because Loupe shows 100 rows at most. A rule file that you
 copy to another machine therefore needs `hooks install` again there.
 
 ## The other commands
@@ -245,6 +247,9 @@ Dismiss it once.
 When the Mac does not support closed-display mode, `busy` fails with exit code
 3 and `closed-display mode is off`. The session stays on, and `idle` ends it as
 usual.
+
+When `busy` cannot write its marker file, it ends the session it started and
+fails with exit code 4. Without the marker, `idle` would leave the session on.
 
 ### Limits
 

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
@@ -105,6 +106,13 @@ func Resolve(root string, entries []rules.HookEntry, goos string) ([]Hook, error
 	}
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
+	}
+	rows := 0
+	for _, h := range out {
+		rows += len(h.Events)
+	}
+	if rows > api.MaxHookRows {
+		return nil, fmt.Errorf("the hooks define %d events in all, and Loupe shows at most %d; remove a package", rows, api.MaxHookRows)
 	}
 
 	return out, nil

@@ -31,8 +31,11 @@ hold() {
         [ "$active" = true ] && exit 0
     fi
     amph 'start new session with options {duration:0, interval:0, displaySleepAllowed:true}' >/dev/null || exit $?
-    mkdir -p "$LOUPE_HOOK_STATE_DIR"
-    : >"$marker"
+    if ! { mkdir -p "$LOUPE_HOOK_STATE_DIR" && true >"$marker"; } 2>/dev/null; then
+        amph 'end session' >/dev/null
+        echo "cannot write $marker, so the session ended" >&2
+        exit 4
+    fi
     amph 'enable closed display mode' >/dev/null || exit $?
     closed=$(amph 'closed display mode enabled') || exit $?
     if [ "$closed" != true ]; then

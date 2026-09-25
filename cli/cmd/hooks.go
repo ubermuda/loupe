@@ -34,7 +34,7 @@ func newBridgeHooksCmd() *cobra.Command {
 			"manifest. The bridge runs its commands when the bridge starts, when it stops, " +
 			"when its first worker starts (busy) and when its last worker ends (idle).\n\n" +
 			"The hooks list of the rule file names each package and the commit it runs. " +
-			"These commands edit that list, and keep the rest of the file and its comments. " +
+			"These commands rewrite that list, so a comment inside it is lost. They keep the rest of the file and its comments. " +
 			"The packages live in the hooks directory of your config directory.",
 	}
 	cmd.PersistentFlags().StringVar(&rulesPath, "rules", "", "edit the rule file at this `path`; empty uses rules.yaml in your config directory")
