@@ -539,6 +539,10 @@ func TestTheOutcomeCarriesTheResultFields(t *testing.T) {
 		// PHP escapes each slash and each non-ASCII character, so it counts more.
 		"large to PHP": {map[string]any{"a": strings.Repeat("/", 2000)}, false, true},
 		"accents":      {map[string]any{"a": strings.Repeat("é", 700)}, false, true},
+		// Go's HTML escapes would count 6 bytes each, but PHP writes 1.
+		"html under PHP limit": {map[string]any{"a": strings.Repeat("<>&", 1300)}, true, false},
+		"html over PHP limit":  {map[string]any{"a": strings.Repeat("<>&", 1400)}, false, true},
+		"line separators":      {map[string]any{"a": strings.Repeat("\u2028", 660)}, true, false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t)

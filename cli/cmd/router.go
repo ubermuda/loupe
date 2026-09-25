@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
@@ -1159,8 +1160,11 @@ func (r *router) resultFields(p pending, fields map[string]any) map[string]any {
 	if len(fields) == 0 {
 		return nil
 	}
-	encoded, err := json.Marshal(fields)
-	size := phpJSONLength(encoded)
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(fields)
+	size := phpJSONLength(bytes.TrimSuffix(buffer.Bytes(), []byte("\n")))
 	if err == nil && size <= maxResultFields {
 		return fields
 	}
@@ -1173,8 +1177,9 @@ func (r *router) resultFields(p pending, fields map[string]any) map[string]any {
 }
 
 // phpJSONLength is the length of PHP's json_encode of the same value, which
-// the server measures. PHP escapes each slash, and writes each UTF-16 unit of
-// a non-ASCII character as \uXXXX. Go's escapes of < > & only count more.
+// the server measures. It takes Go's encoding without HTML escapes, which
+// already writes U+2028 and U+2029 as \u2028 and \u2029 like PHP. PHP also
+// escapes each slash, and writes each UTF-16 unit of a non-ASCII character as \uXXXX.
 func phpJSONLength(encoded []byte) int {
 	n := 0
 	for _, c := range string(encoded) {
