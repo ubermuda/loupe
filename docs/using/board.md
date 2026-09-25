@@ -175,6 +175,8 @@ The board is at **`/projects/<project>/board`**, and the project sidebar links
 to it. The columns read side by side, in board order. Each card shows its
 number, its title, its type, how many pull requests it links to, and how many
 review comments still wait on it.
+A card whose latest worker run gave up or is blocked also shows a warning. See
+[Worker runs](worker-runs.md#a-warning-on-the-card).
 
 Each card type and each column has a colour, and every page that names one uses
 the same colour. The owner picks a column's colour from twelve in its

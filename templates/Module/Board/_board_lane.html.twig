@@ -1,6 +1,6 @@
 {# One board row: an epic lane, or "Other cards" when lane.epic is null. Each cell shows its column's head and is a drop target.
    Props: board (BoardView), lane (BoardLaneView), columnControls (bool: this row holds the column grips and menus),
-   canManage (bool), renameColumnForm (FormView or null). #}
+   canManage (bool), renameColumnForm (FormView or null), runWarnings (CardRunWarning by card id). #}
 {% set epic = lane.epic %}
 {% set laneKey = epic ? epic.id ~ '' : 'other' %}
 <section class="lp-board-lane{{ epic ? '' : ' lp-board-lane--other' }}{{ columnControls ? ' lp-board-lane--controls' }}"
@@ -46,7 +46,7 @@
                  data-lane="{{ laneKey }}"
                  data-rankable="{{ view.column.terminal ? '0' : '1' }}">
                 {% for card in cards %}
-                    {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), inLane: epic is not null} only %}
+                    {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), inLane: epic is not null, runWarning: runWarnings[card.id ~ '']|default(null)} only %}
                 {% endfor %}
             </div>
             {% if not epic %}

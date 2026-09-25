@@ -17,7 +17,7 @@ Open the page from the project sidebar, or go to
 | Column | Meaning |
 |---|---|
 | Card number | the card the worker was started for. It links to the card while the board feature is on |
-| Rule name | the bridge rule that matched the event |
+| Rule name | the bridge rule that matched the event. A resume adds **Resume n of N**, its place in the series and the cap of its rule |
 | Started | when the worker started, on the bridge clock. A run that has not started shows when its first report arrived |
 | Took | how long the worker ran. A run that is still open shows how long it has run so far, and an open interactive run shows "running for" in front. A run with no start, or a run that closed with no reported end, shows nothing |
 | Outcome | the state of the run, from the list below |
@@ -40,8 +40,11 @@ runs to a page.
 | **Running** | the worker runs |
 | **Waiting for a person** | the rule's chain cap stopped the run, and a move by a person starts a new one |
 | **Dropped** | the bridge stopped, a rule died, or a reload removed the rule, before the run started |
-| **Succeeded** | the worker exited with code 0, with a result line |
-| **No result** | the worker exited with code 0, with no result line |
+| **Succeeded** | the worker exited with code 0, with a structured result |
+| **No result** | the worker exited with code 0, with no structured result |
+| **Unfinished** | the worker said that its work still runs or remains |
+| **Blocked** | the worker said that it cannot go on without a person |
+| **Gave up** | the run did not finish, and the bridge already ran every resume the rule allows |
 | **Failed** | the worker exited with any other code |
 | **Never started** | the worker process never ran |
 | **Timed out** | the bridge stopped sending its heartbeat while the run was open |
@@ -55,10 +58,31 @@ fact: the bridge came back without the run, so the run can no longer end. See
 [the worker run API](../reference/worker-runs.md#timed-out-and-lost) for the
 rules.
 
-The result line is the line that starts with `STAGE RESULT:`, which every
-worker prompt asks for. A **No result** run exited cleanly but may have stopped
-before its work was done, so read its output. A run from an older bridge
-carries no result check, and its outcome comes from the exit code alone.
+The structured result is the status and the summary that every worker prompt
+asks for. A **No result** run exited cleanly but may have stopped before its
+work was done, so read its output. A run from an older bridge carries no result
+check, and its outcome comes from the exit code alone.
+
+## Resumed runs
+
+The bridge resumes a run that did not finish, on the same session. A run did
+not finish when it failed, gave no result, or said **Unfinished**. Each resume
+is a new row, labelled **Resume n of N** beside the rule name. The first run of
+a series shows no label. When the last resume allowed still does not finish,
+that run shows **Gave up**. The bridge does not resume a **Blocked** run.
+
+The bridge also skips a resume when the card left the column that started the
+series. The ended run then keeps its own outcome, and its drawer says why the
+resume did not run.
+
+## A warning on the card
+
+A card whose latest outcome is **Gave up** or **Blocked** shows a warning on the
+board. The warning names the state and the start of the run output, and links to
+that run on this page. A later run of the card that ends another way clears it,
+and so does a move of the card to another column. A run from an older bridge
+names no column, so its warning stays in every column. An open run leaves the
+warning in place until it ends.
 
 ## Interactive sessions
 
@@ -103,6 +127,8 @@ Heartbeat health does not show whether an individual worker is running or availa
 
 Select **View attempt** to open a read-only drawer without leaving the list.
 It shows the attempt ID, card, rule, bridge, session and duration. An interactive run shows no bridge.
+A resume also shows its place in the series, and a link to the run it resumes.
+The drawer shows the result status, the reason the bridge skipped a resume, and each extra result field the worker gave.
 It lists each state the run reached, oldest first, with the time of each state, and then the time the first report arrived.
 Agent identity and the triggering event remain unreported rather than inferred.
 Press Escape or select **Close** to return focus to the opening button.
@@ -121,8 +147,8 @@ else the agent chose to say, and the server shows it as plain text.
 
 ## Live updates
 
-The list and the runs section of a card page reload when a report or the
-timeout sweep changes a run of the project. They also reload after the page
+The list, the runs section of a card page and the board reload when a report
+or the timeout sweep changes a run of the project. They also reload after the page
 reconnects to the hub, for any change the page missed. This needs a Mercure hub
 and the `live_updates.enabled` flag. Without them, the page shows a change on
 its next load.

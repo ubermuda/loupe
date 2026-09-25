@@ -12,6 +12,7 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Query;
@@ -434,6 +435,55 @@ class WorkerRunRepository extends ServiceEntityRepository
             static fn (Uuid|string $row): Uuid => $row instanceof Uuid ? $row : Uuid::fromString($row),
             $rows,
         );
+    }
+
+    /**
+     * For each card of the project, its latest outcome, kept only when that
+     * outcome is gave-up or blocked. The pick comes before the filter, so a later
+     * success clears the warning. An open run is no outcome and changes nothing.
+     * Latest means the last the server closed, by the state change that holds
+     * the outcome. A resume jumps the queue, and two bridge clocks can disagree,
+     * so neither the queue time nor the bridge end time orders outcomes.
+     *
+     * @return list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}>
+     */
+    public function findWarningRowsOfProject(Project $project): array
+    {
+        $outcomes = array_values(array_map(
+            static fn (WorkerRunState $state): string => $state->value,
+            array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome()),
+        ));
+
+        // A late report can record an outcome the run does not hold, so the
+        // close is the latest change to the run's own state.
+        /** @var list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->executeQuery(
+            <<<'SQL'
+                SELECT latest.id, latest.card_id, latest.state, latest.output, latest.card_column
+                FROM (
+                    SELECT DISTINCT ON (r.card_id) r.id, r.card_id, r.state, r.output, r.card_column
+                    FROM bridge_worker_runs r
+                    LEFT JOIN LATERAL (
+                        SELECT s.received_at, s.sequence
+                        FROM bridge_worker_run_states s
+                        WHERE s.run_id = r.id AND s.state = r.state
+                        ORDER BY s.sequence DESC
+                        LIMIT 1
+                    ) closed ON true
+                    WHERE r.project_id = :project AND r.state IN (:outcomes)
+                    ORDER BY r.card_id, COALESCE(closed.received_at, r.received_at) DESC, closed.sequence DESC NULLS LAST, r.id DESC
+                ) latest
+                WHERE latest.state IN (:warnings)
+                SQL,
+            [
+                'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
+                'outcomes' => $outcomes,
+                'warnings' => [WorkerRunState::GaveUp->value, WorkerRunState::Blocked->value],
+            ],
+            ['outcomes' => ArrayParameterType::STRING, 'warnings' => ArrayParameterType::STRING],
+        )->fetchAllAssociative();
+
+        return $rows;
     }
 
     /**

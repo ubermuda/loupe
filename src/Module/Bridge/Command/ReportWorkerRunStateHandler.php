@@ -65,6 +65,12 @@ final readonly class ReportWorkerRunStateHandler
                     state: $command->state,
                     runKey: $command->runKey,
                     receivedAt: $receivedAt,
+                    continuesRun: null === $command->continues
+                        ? null
+                        : $this->workerRuns->findOneByRunKey($project, $command->bridgeId, $command->continues),
+                    resumeIndex: $command->resumeIndex,
+                    resumeCap: $command->resumeCap,
+                    cardColumn: $command->cardColumn,
                 );
                 $this->em->persist($run);
                 $moves = true;
@@ -165,6 +171,9 @@ final readonly class ReportWorkerRunStateHandler
             $command->hasResult,
             $command->failureReason,
             $command->output ?? '',
+            $command->resultStatus,
+            $command->resultFields,
+            $command->resumeSkipped,
         );
     }
 
@@ -184,6 +193,14 @@ final readonly class ReportWorkerRunStateHandler
                 'exitCode' => $run->exitCode,
                 'hasResult' => $run->hasResult,
                 'spawnFailed' => WorkerRunState::NotStarted === $run->state,
+                'resultStatus' => $run->resultStatus,
+                // The values are worker prose, so the record keeps the names alone.
+                'resultFieldNames' => null === $run->resultFields ? null : implode(',', array_keys($run->resultFields)),
+                'continuesRunKey' => $run->continuesRun?->runKey?->toRfc4122(),
+                'resumeIndex' => $run->resumeIndex,
+                'resumeCap' => $run->resumeCap,
+                'cardColumn' => $run->cardColumn,
+                'resumeSkipped' => $run->resumeSkipped,
             ],
             new AuditSubject('worker_run', (string) $run->id),
         );

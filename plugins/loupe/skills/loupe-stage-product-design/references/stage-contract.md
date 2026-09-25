@@ -12,6 +12,7 @@ The design stage skills send you here before their own steps. Follow every rule 
 6. A sub-agent prompt carries rules 1 to 4 and 7, and names the instructions the sub-agent must load.
 7. Write in the style that the profile `Instruction files` section names.
 8. Never depend on `board_columns` or `card_search`, which can be missing. When `tag_list` exists, reuse its spellings.
+9. Never end your turn while a command, a monitor or a sub-agent runs in the background. Wait for it in the foreground. The run ends with your turn, and a background command dies with it.
 
 ## Adapters and profile
 
@@ -39,3 +40,11 @@ When no linked document matches, page `document_list` for the title the stage sk
 ## Final reply
 
 Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences.
+
+When the harness asks for a structured result, put the same sentence in `summary`. Set `status` from the `STAGE RESULT:` form:
+
+| `STAGE RESULT:` form | `status` |
+|---|---|
+| `ready`, `fixed`, `created`, `revised`, `comments answered`, `unchanged`, `nothing to fix`, `no open pull request`, `already approved`, `card left` | `finished` |
+| `blocked:`, `loupe MCP unavailable`, `not approved`, `no approved tech design`, `no product document`, `no linked`, `open pull request exists`, `no fix round for column` | `blocked` |
+| No form yet, because work still runs or remains | `unfinished` |

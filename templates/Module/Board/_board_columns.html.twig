@@ -2,6 +2,7 @@
    stream, so the two can never drift apart. Props: board (BoardView),
    renameColumnForm (a refused FormView, or null). #}
 {% set canManage = is_granted(constant('App\\Module\\Board\\Security\\BoardColumnVoter::MANAGE'), board.project) %}
+{% set runWarnings = card_run_warnings(board.project) %}
 <div id="board" class="lp-board" data-controller="board-drag board-filter board-view{{ canManage ? ' board-columns' }}">
     {% set cardCount = 0 %}
     {% for view in board.columns %}{% set cardCount = cardCount + board.shownCounts[view.column.id ~ '']|default(view.count) %}{% endfor %}
@@ -77,7 +78,7 @@
              data-rankable="{{ view.column.terminal ? '0' : '1' }}">
             {% for card in view.cards %}
                 {# `~ ''` casts the Uuid, which cannot itself be an array key. #}
-                {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null)} only %}
+                {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), runWarning: runWarnings[card.id ~ '']|default(null)} only %}
             {% endfor %}
         </div>
 
@@ -86,7 +87,7 @@
     {% endfor %}
     </div>
     {% else %}
-    {% include '@Board/_board_lanes.html.twig' with {board: board, canManage: canManage, renameColumnForm: renameColumnForm} only %}
+    {% include '@Board/_board_lanes.html.twig' with {board: board, canManage: canManage, renameColumnForm: renameColumnForm, runWarnings: runWarnings} only %}
     {% endif %}
     <div class="lp-board-list" data-board-view-target="list" hidden>
         <div class="lp-board-list__header" aria-hidden="true">

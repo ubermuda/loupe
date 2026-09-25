@@ -39,6 +39,15 @@ enum WorkerRunState: string
     /** The process exited cleanly without its final result. */
     case NoResult = 'no-result';
 
+    /** The worker said its work still runs or is not done. */
+    case Unfinished = 'unfinished';
+
+    /** The worker said it cannot go on without a person. */
+    case Blocked = 'blocked';
+
+    /** The bridge used every resume the rule allows, and the run still did not finish. */
+    case GaveUp = 'gave-up';
+
     /** The bridge went quiet. A later report from the bridge replaces this guess. */
     case TimedOut = 'timed-out';
 
@@ -48,13 +57,15 @@ enum WorkerRunState: string
     /** The interactive session ended, or its card moved. A bridge never reports it. */
     case Closed = 'closed';
 
-    /** A null result flag comes from an older bridge, so a clean exit then still reads as a success. */
-    public static function fromExitCode(?int $exitCode, ?bool $hasResult = null): self
+    /** A null result flag or a null status comes from an older bridge, so a clean exit then still reads as a success. */
+    public static function fromOutcome(?int $exitCode, ?bool $hasResult = null, ?string $resultStatus = null): self
     {
         return match (true) {
             null === $exitCode => self::NotStarted,
             0 !== $exitCode => self::Failed,
             false === $hasResult => self::NoResult,
+            'blocked' === $resultStatus => self::Blocked,
+            'unfinished' === $resultStatus => self::Unfinished,
             default => self::Succeeded,
         };
     }
@@ -73,7 +84,7 @@ enum WorkerRunState: string
     /** How a worker process ended. Only these states carry an exit code or a failure reason. */
     public function isOutcome(): bool
     {
-        return \in_array($this, [self::Succeeded, self::Failed, self::NotStarted, self::NoResult], true);
+        return \in_array($this, [self::Succeeded, self::Failed, self::NotStarted, self::NoResult, self::Unfinished, self::Blocked, self::GaveUp], true);
     }
 
     /** The server infers these on its own, and a bridge never reports them. */
@@ -108,6 +119,9 @@ enum WorkerRunState: string
             self::Failed => 'bridge.worker_runs.state.failed',
             self::NotStarted => 'bridge.worker_runs.state.not_started',
             self::NoResult => 'bridge.worker_runs.state.no_result',
+            self::Unfinished => 'bridge.worker_runs.state.unfinished',
+            self::Blocked => 'bridge.worker_runs.state.blocked',
+            self::GaveUp => 'bridge.worker_runs.state.gave_up',
             self::TimedOut => 'bridge.worker_runs.state.timed_out',
             self::Lost => 'bridge.worker_runs.state.lost',
             self::Closed => 'bridge.worker_runs.state.closed',
@@ -119,10 +133,10 @@ enum WorkerRunState: string
     {
         return match ($this) {
             self::Succeeded, self::Closed => 'ok',
-            self::Failed, self::NoResult, self::Dropped, self::TimedOut, self::Lost => 'failed',
+            self::Failed, self::NoResult, self::GaveUp, self::Dropped, self::TimedOut, self::Lost => 'failed',
             // The bridge set these runs aside by design, so nothing waits and nothing failed.
             self::Replaced, self::Skipped => 'resolved',
-            self::Queued, self::Resumed, self::Running, self::WaitingForPerson, self::NotStarted => 'pending',
+            self::Queued, self::Resumed, self::Running, self::WaitingForPerson, self::NotStarted, self::Unfinished, self::Blocked => 'pending',
         };
     }
 }
