@@ -118,6 +118,25 @@ final class CardEditClashTest extends KernelTestCase
         self::assertSame(CardType::Docs, $this->card->type);
     }
 
+    public function test_a_whitespace_only_body_change_is_still_reported(): void
+    {
+        $changes = [];
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(CardChanged::class, static function (CardChanged $event) use (&$changes): void {
+            $changes[] = $event->contentChanged;
+        });
+
+        ($this->updateCard)(new UpdateCardCommand(
+            card: $this->card,
+            actor: CardReporter::Agent,
+            body: "    Opened body\n",
+        ));
+
+        self::assertSame([false], $changes);
+        self::assertSame("    Opened body\n", $this->card->body);
+    }
+
     public function test_a_real_change_to_an_agent_body_still_clashes(): void
     {
         $this->card = $this->createCard("Opened body\n");

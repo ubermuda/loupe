@@ -120,8 +120,12 @@ final readonly class UpdateCardHandler
             // it. A field the command carries may hold what the card already
             // holds, so the record reports what changed rather than what was
             // submitted.
-            $titleChanged = null !== $title && Card::normalText($title) !== Card::normalText($card->title);
-            $bodyChanged = null !== $command->body && Card::normalText($command->body) !== Card::normalText($card->body);
+            $titleChanged = null !== $title && $title !== $card->title;
+            $bodyChanged = null !== $command->body && $command->body !== $card->body;
+            // The web form trims and turns CRLF into LF, so a save of unchanged
+            // text still rewrites the body. Only a change a reader sees counts.
+            $contentChanged = (null !== $title && Card::normalText($title) !== Card::normalText($card->title))
+                || (null !== $command->body && Card::normalText($command->body) !== Card::normalText($card->body));
             $typeChanged = null !== $command->type && $command->type !== $card->type;
 
             if (null !== $title) {
@@ -159,7 +163,7 @@ final readonly class UpdateCardHandler
                 $this->events->dispatch(new CardMoved($card, $move, $command->actor));
             }
 
-            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged);
+            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $contentChanged);
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
@@ -200,7 +204,7 @@ final readonly class UpdateCardHandler
                 $card->project->id ?? throw new \LogicException('Project has no id.'),
                 $card->id ?? throw new \LogicException('Card has no id.'),
                 CardChanged::UPDATED,
-                $outcome->titleChanged || $outcome->bodyChanged,
+                $outcome->contentChanged,
             ));
         }
 
