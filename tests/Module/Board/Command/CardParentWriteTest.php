@@ -197,6 +197,18 @@ final class CardParentWriteTest extends KernelTestCase
         $this->expectRefusal(['parent' => 'board.card.error.epic_cannot_have_parent'], fn () => $this->update($epic, parentCardId: (string) $epic->id));
     }
 
+    public function test_an_epic_that_changes_type_cannot_name_itself_as_parent(): void
+    {
+        $project = $this->makeProject('parent-self-retype');
+        $epic = $this->cardIn($project, CardType::Epic);
+        $this->em->clear();
+
+        $this->expectRefusal(['parent' => 'board.card.error.parent_not_epic'], fn () => $this->update($epic, parentCardId: (string) $epic->id, type: CardType::Feature));
+        $this->em->clear();
+        self::assertSame(CardType::Epic, $this->reload($epic)->type);
+        self::assertNull($this->reload($epic)->parent);
+    }
+
     public function test_a_card_with_a_parent_cannot_become_an_epic(): void
     {
         $project = $this->makeProject('parent-child-to-epic');
