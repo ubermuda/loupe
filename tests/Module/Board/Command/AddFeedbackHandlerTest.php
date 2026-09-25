@@ -202,6 +202,33 @@ final class AddFeedbackHandlerTest extends KernelTestCase
         $this->assertRefused('deliveryId', 'delivery_conflict', $project, body: 'One note', deliveryId: $deliveryId);
     }
 
+    public function test_a_retry_naming_the_card_its_first_attempt_created_is_a_conflict(): void
+    {
+        $project = $this->project('feedback-retry-created-card');
+        $deliveryId = (string) Uuid::v4();
+        $link = ($this->handler)($this->command($project, 'One note', deliveryId: $deliveryId));
+
+        $this->assertRefused('deliveryId', 'delivery_conflict', $project, body: 'One note', cardId: (string) $link->card->id, deliveryId: $deliveryId);
+    }
+
+    public function test_a_retry_to_the_same_epic_still_matches_after_the_card_moved_to_another(): void
+    {
+        $project = $this->project('feedback-retry-moved-card');
+        $epic = $this->card($project, 'backlog', CardType::Epic);
+        $other = $this->card($project, 'backlog', CardType::Epic);
+        $command = $this->command($project, 'One note', parentCardId: (string) $epic->id, deliveryId: (string) Uuid::v4());
+        $first = ($this->handler)($command);
+        self::assertSame(1, $this->em->getConnection()->executeStatement(
+            'UPDATE board_cards SET parent_card_id = ? WHERE id = ?',
+            [(string) $other->id, (string) $first->card->id],
+        ));
+        $this->em->detach($first->card);
+
+        $second = ($this->handler)($command);
+
+        self::assertSame((string) $first->id, (string) $second->id);
+    }
+
     public function test_a_retry_to_the_same_epic_returns_the_saved_note(): void
     {
         $project = $this->project('feedback-retry-same-epic');

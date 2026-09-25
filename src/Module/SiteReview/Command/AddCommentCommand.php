@@ -21,6 +21,11 @@ final readonly class AddCommentCommand
         public array $strokes = [],
         public ?string $context = null,
         public ?string $deliveryId = null,
+        /**
+         * Opaque to this module. It joins the delivery hash, so a retry of a
+         * known delivery id with another scope is a conflict.
+         */
+        public ?string $deliveryScope = null,
     ) {
     }
 }

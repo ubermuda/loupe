@@ -67,20 +67,16 @@ final readonly class AddFeedbackHandler
             ]);
             if (null !== $retried) {
                 try {
-                    // Called for its payload check: a changed body under a known
-                    // delivery id is a conflict, not a retry.
+                    // Called for its payload check: a changed body or target under
+                    // a known delivery id is a conflict, not a retry.
                     ($this->addComment)($this->addCommentCommand($command));
                 } catch (DomainErrors $conflict) {
                     return $conflict;
                 }
 
-                // A comment saved through the old path has no card to return,
-                // and a retry must name the target the first attempt saved to.
-                $saved = $this->cardSiteReviewComments->findOneBy(['comment' => $retried]);
-
-                return null !== $saved && self::sameTarget($command, $saved)
-                    ? $saved
-                    : new DomainErrors(['deliveryId' => 'delivery_conflict']);
+                // A comment saved through the old path has no card to return.
+                return $this->cardSiteReviewComments->findOneBy(['comment' => $retried])
+                    ?? new DomainErrors(['deliveryId' => 'delivery_conflict']);
             }
 
             // After the retry lookup, so a note saved before the board went off
@@ -173,16 +169,22 @@ final readonly class AddFeedbackHandler
             strokes: $command->strokes,
             context: $command->context,
             deliveryId: $command->deliveryId,
+            deliveryScope: self::deliveryScope($command),
         );
     }
 
-    private static function sameTarget(AddFeedbackCommand $command, CardSiteReviewComment $saved): bool
+    /**
+     * The target as the request named it. It joins the delivery hash, so a
+     * retry to another target conflicts whatever happened to the card since.
+     */
+    private static function deliveryScope(AddFeedbackCommand $command): string
     {
         if (null !== $command->cardId) {
-            return (string) $saved->card->id === strtolower($command->cardId);
+            return 'card:'.strtolower(trim($command->cardId));
         }
+        $parentCardId = strtolower(trim((string) $command->parentCardId));
 
-        return $saved->createdCard && (string) $saved->card->parent?->id === strtolower((string) $command->parentCardId);
+        return '' === $parentCardId ? 'new' : 'new:'.$parentCardId;
     }
 
     private static function titleOf(string $body): string

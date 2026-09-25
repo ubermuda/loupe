@@ -32,9 +32,16 @@ final readonly class AddCommentHandler
             throw new DomainErrors(['deliveryId' => 'delivery_invalid']);
         }
         $deliveryId = null === $command->deliveryId ? null : Uuid::fromString($command->deliveryId);
-        $deliveryHash = null === $deliveryId ? null : hash('sha256', json_encode([
-            $command->body, $command->url, $command->anchors, $command->strokes, $command->context,
-        ], \JSON_THROW_ON_ERROR | \JSON_PRESERVE_ZERO_FRACTION));
+        // The scope joins the hash only when given, so a comment saved without
+        // one keeps the hash it was stored with.
+        $delivered = [$command->body, $command->url, $command->anchors, $command->strokes, $command->context];
+        if (null !== $command->deliveryScope) {
+            $delivered[] = $command->deliveryScope;
+        }
+        $deliveryHash = null === $deliveryId ? null : hash('sha256', json_encode(
+            $delivered,
+            \JSON_THROW_ON_ERROR | \JSON_PRESERVE_ZERO_FRACTION,
+        ));
         $created = false;
         // MAX(position) + 1 is read-then-write: two widget requests would
         // otherwise allocate the same position and leave the ordering unstable.
