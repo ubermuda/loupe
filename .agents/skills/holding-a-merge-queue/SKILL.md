@@ -332,7 +332,7 @@ merged entry is published with nobody doing anything. `just changelog` folds
 them into the committed file and deletes them, and that is the release step
 rather than a merge step. Do not run it after a merge.
 
-## Move the card to done after each merge
+## Move the card to a terminal column after each merge
 
 The owner asked on 2026-09-25: "whenever you merge a PR move its card to done".
 The app never contacts the forge, so a merged pull request does not move its
@@ -342,6 +342,8 @@ card. Invoke `loupe-board` for the tool rules, then after each confirmed merge:
    carries the card URL.
 2. Read the terminal column with `board_columns`. Do not assume `done`.
 3. Move the card there with `card_update`.
+
+A pull request whose branch and body name no card needs no move.
 
 ## Send branch work to its owner while the owner is live
 
@@ -390,6 +392,9 @@ skills, so the prompt must carry each rule below:
 
 - Name the branch, its pull request, and its existing worktree `.worktrees/<name>`.
   Run every command there in a subshell: `( cd .worktrees/<name> && ... )`.
+- Check `git worktree list` first. If the worktree is gone, create it from the
+  main checkout with `git worktree add .worktrees/<name> <branch>`, then
+  `just worktree-up <name>`.
 - Make one trivial edit in the worktree first, and confirm it lands. Stop and
   report if the write is rejected.
 - Do not use Serena edit tools, because they are bound to the main checkout.
