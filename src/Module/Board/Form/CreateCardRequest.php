@@ -31,6 +31,8 @@ class CreateCardRequest
         /** @var list<CardLinkRowRequest> replaced whole on every save, like the URLs */
         #[Assert\Valid]
         public array $relatedCards = [],
+        /** An epic of the project, which the choice list of the field guarantees. */
+        public ?Card $parent = null,
     ) {
     }
 

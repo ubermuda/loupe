@@ -54,9 +54,9 @@ When no column fits a role, leave the card where it is and tell the owner.
 |---|---|
 | `board_columns` | Read the columns of the board, in board order. |
 | `card_create` | Put a new card on the board. It lands in the default column unless you pass `status`. |
-| `card_list` | Read one page of the board, with its columns. Filter by `status`, `type` or `reporter`. A terminal column reads newest completion first, and every other column reads in rank order. |
+| `card_list` | Read one page of the board, with its columns. Filter by `status`, `type`, `reporter` or `parentCardId`. A terminal column reads newest completion first, and every other column reads in rank order. |
 | `card_search` | Ask whether a card about something already exists. It reads the title and the body of every card, done ones included. |
-| `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents, its linked cards and the site-review comments pointing at it. |
+| `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents, its linked cards, the site-review comments pointing at it, and its parent or its children. |
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status puts the card at the end of the column it arrives in. |
 | `card_run_open` | Record an open interactive run on a card when an interactive skill starts work on it. It can move the card in the same step. |
 | `card_run_close` | Close the interactive run of your session on a card when the session ends. |
@@ -88,7 +88,7 @@ The search covers done cards. "Yes, and it is already done" is a true answer to
 "is there a card about this?", and it is the one a list of open cards hides.
 
 It pages the way `card_list` does, with `page`, `perPage`, `total` and
-`hasMore`, and `perPage` holds 25 rows by default. A row is the same seven-field
+`hasMore`, and `perPage` holds 25 rows by default. A row is the same eight-field
 summary, best match first, so call `card_get` for a body.
 
 ## `card_list` pages, and its rows are summaries
@@ -101,11 +101,16 @@ The answer carries `page`, `perPage`, `total` and `hasMore`. `total` counts
 every card the filters match, not the cards on the page. Keep reading while
 `hasMore` is true.
 
-A row carries seven fields: `cardId`, `number`, `title`, `type`, `status`,
-`reporter` and `updatedAt`. It carries no body and no links.
+A row carries eight fields: `cardId`, `number`, `title`, `type`, `status`,
+`reporter`, `parentCardId` and `updatedAt`. It carries no body and no links.
+`parentCardId` is null for a card with no parent.
+
+Pass `parentCardId` to `card_list` to read the children of one epic. It combines
+with the other filters.
 
 Pass `full` to get the whole card on every row, with its Markdown body, its pull
-request links, its documents, its linked cards and its site-review comments. A
+request links, its documents, its linked cards, its site-review comments, its
+parent, its lane setting, its children and its progress. A
 full page is much larger than a summary page, and a whole board of full cards once overran a
 caller's context limit. Read the board as summaries, then call `card_get` for the
 one card you want.
@@ -133,7 +138,7 @@ writes that link. Mark one done with `site_review_mark_comment_addressed`, which
 takes the same `commentId`, rather than by editing the card.
 
 `card_create` and `card_update` take a `type` of `feature`, `bug`, `security`,
-`tooling`, `docs` or `idea`.
+`tooling`, `docs`, `idea` or `epic`.
 
 - `feature`: a new or extended capability
 - `bug`: something behaves incorrectly today, including a latent fault
@@ -141,6 +146,7 @@ takes the same `commentId`, rather than by editing the card.
 - `tooling`: the development environment, the gates, the scripts, the build
 - `docs`: documentation-only work
 - `idea`: long-horizon thinking, with no commitment yet
+- `epic`: one feature that is too large for one pull request, split into child cards
 
 There is no delete tool. You finish a card by moving it to a terminal column,
 which stamps its completion time. A move between two terminal columns keeps the
@@ -151,6 +157,27 @@ deletes a card, from the card page.
 is on the board it pages through, however old it is. The board screen shows the
 last 7 days of each terminal column and puts the rest on a history page. A
 person therefore sees fewer finished cards than you do.
+
+## An epic groups child cards
+
+`card_create` and `card_update` take `parentCardId`, the id of an epic of this
+project. On `card_update`, omit it to keep the parent, send an empty string to
+clear it, and send an id to set it. These rules apply:
+
+- A card has at most one parent, and the parent is an epic.
+- An epic has no parent, because epics do not nest.
+- The parent is a card of the same project.
+- A card with a parent cannot become an epic.
+- An epic with children keeps the type `epic`, and a person cannot delete it.
+
+`laneEnabled` says whether the board draws a lane for an epic. It defaults to
+`true`, and only an epic reads it.
+
+The full card carries four more keys. `parent` holds `cardId`, `number`, `title`
+and `status`, or null. `laneEnabled` is a boolean. `children` lists the children
+of an epic with `cardId`, `number`, `title` and `status`. `progress` holds `done`
+and `total` for an epic, and it is null for any other card. A child counts as
+done when it sits in a terminal column.
 
 ## A card that opens with `**Parked.**` is paused
 

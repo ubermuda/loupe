@@ -233,6 +233,105 @@ final class CardUpdateToolTest extends KernelTestCase
         ($this->tool)($created['cardId'], relatedCards: [['cardId' => $created['cardId']]]);
     }
 
+    public function test_a_parent_is_set_kept_when_omitted_and_cleared_by_an_empty_string(): void
+    {
+        $created = $this->card('card-update-parent');
+        $epic = ($this->createTool)('Epic', 'Body', 'epic');
+
+        $set = ($this->tool)($created['cardId'], parentCardId: $epic['cardId']);
+        self::assertSame($epic['cardId'], $set['parent']['cardId'] ?? null);
+
+        $kept = ($this->tool)($created['cardId'], title: 'Renamed');
+        self::assertSame($epic['cardId'], $kept['parent']['cardId'] ?? null);
+
+        $cleared = ($this->tool)($created['cardId'], parentCardId: '');
+        self::assertNull($cleared['parent']);
+    }
+
+    public function test_an_epic_reads_its_children_and_its_progress(): void
+    {
+        $this->card('card-update-epic-payload');
+        $epic = ($this->createTool)('Epic', 'Body', 'epic');
+        $open = ($this->createTool)('Open child', 'Body', 'feature', parentCardId: $epic['cardId']);
+        $done = ($this->createTool)('Done child', 'Body', 'feature', status: 'done', parentCardId: $epic['cardId']);
+
+        $card = ($this->tool)($epic['cardId'], title: 'Epic renamed');
+
+        self::assertSame(['done' => 1, 'total' => 2], $card['progress']);
+        self::assertSame(
+            [
+                ['cardId' => $open['cardId'], 'number' => $open['number'], 'title' => 'Open child', 'status' => 'backlog'],
+                ['cardId' => $done['cardId'], 'number' => $done['number'], 'title' => 'Done child', 'status' => 'done'],
+            ],
+            $card['children'],
+        );
+        self::assertNull($card['parent']);
+    }
+
+    public function test_an_epic_with_no_children_reads_zero_of_zero(): void
+    {
+        $this->card('card-update-empty-epic');
+        $epic = ($this->createTool)('Epic', 'Body', 'epic');
+
+        $card = ($this->tool)($epic['cardId'], title: 'Still empty');
+
+        self::assertSame(['done' => 0, 'total' => 0], $card['progress']);
+        self::assertSame([], $card['children']);
+    }
+
+    public function test_the_lane_setting_changes_and_an_omitted_one_stays(): void
+    {
+        $this->card('card-update-lane');
+        $epic = ($this->createTool)('Epic', 'Body', 'epic');
+
+        self::assertFalse(($this->tool)($epic['cardId'], laneEnabled: false)['laneEnabled']);
+        self::assertFalse(($this->tool)($epic['cardId'], title: 'Renamed')['laneEnabled']);
+        self::assertTrue(($this->tool)($epic['cardId'], laneEnabled: true)['laneEnabled']);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function parentRefusals(): iterable
+    {
+        yield 'a parent that is not an epic' => ['not-epic'];
+        yield 'an epic that takes a parent' => ['epic-with-parent'];
+        yield 'a child that becomes an epic' => ['child-to-epic'];
+        yield 'an epic with children that changes its type' => ['type-locked'];
+        yield 'a parent of no card' => ['unknown'];
+    }
+
+    #[DataProvider('parentRefusals')]
+    public function test_a_parent_refusal_is_reported_as_a_sentence(string $case): void
+    {
+        $created = $this->card('card-update-parent-refusal-'.$case);
+        $epic = ($this->createTool)('Epic', 'Body', 'epic');
+        $child = ($this->createTool)('Child', 'Body', 'feature', parentCardId: $epic['cardId']);
+        $otherEpic = ($this->createTool)('Other epic', 'Body', 'epic');
+
+        [$message, $call] = match ($case) {
+            'not-epic' => ['parentCardId: Only a card of type epic can be a parent.', fn () => ($this->tool)($child['cardId'], parentCardId: $created['cardId'])],
+            'epic-with-parent' => ['parentCardId: An epic cannot have a parent, because epics do not nest.', fn () => ($this->tool)($otherEpic['cardId'], parentCardId: $epic['cardId'])],
+            'child-to-epic' => ['type: A card with a parent cannot become an epic.', fn () => ($this->tool)($child['cardId'], type: 'epic')],
+            'type-locked' => ['type: This epic has child cards, so its type stays epic.', fn () => ($this->tool)($epic['cardId'], type: 'feature')],
+            default => ['parentCardId: That parentCardId names no card of this project.', fn () => ($this->tool)($created['cardId'], parentCardId: '0199c0de-0000-7000-8000-0000000000ff')],
+        };
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage($message);
+        $call();
+    }
+
+    public function test_an_epic_with_open_children_is_not_moved_to_done(): void
+    {
+        $this->card('card-update-epic-open');
+        $epic = ($this->createTool)('Epic', 'Body', 'epic');
+        $first = ($this->createTool)('First', 'Body', 'feature', parentCardId: $epic['cardId']);
+        $second = ($this->createTool)('Second', 'Body', 'feature', parentCardId: $epic['cardId']);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage(\sprintf('status: This epic has open child cards #%d, #%d. Move each of them to a terminal column first.', $first['number'], $second['number']));
+        ($this->tool)($epic['cardId'], status: 'done');
+    }
+
     public function test_both_handles_are_refused(): void
     {
         $created = $this->card('card-update-both');

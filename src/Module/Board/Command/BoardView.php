@@ -31,6 +31,24 @@ final readonly class BoardView
          * @var list<string>
          */
         public array $watchedColumnSlugs = [],
+        /**
+         * The epic lanes, in board order. Empty when no epic has its lane on,
+         * and the board then draws its columns alone.
+         *
+         * @var list<BoardLaneView>
+         */
+        public array $lanes = [],
+        /** The row below the lanes for every card outside them. Null when there are no lanes. */
+        public ?BoardLaneView $otherCards = null,
+        /** @var array<string, CardProgress> epic id => its progress, for every epic on the board; any other card has no key */
+        public array $progress = [],
+        /**
+         * How many cards the board draws per column id. A lane epic is its
+         * lane header rather than a card, so this can be less than the count.
+         *
+         * @var array<string, int>
+         */
+        public array $shownCounts = [],
     ) {
     }
 }

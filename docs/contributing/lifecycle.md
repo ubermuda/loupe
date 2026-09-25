@@ -55,6 +55,59 @@ cards in those two columns is the owner's call.
 A bridge rule names a column by its slug. When a rename changes a slug, every
 rule on the old slug stops working.
 
+## Epics and the breakdown
+
+A card that is too big for one worker becomes an epic with child cards. The
+tech design worker judges the size. When the design needs more than one pull
+request of normal size, the design gets a `Breakdown` section. Otherwise it
+gets none.
+
+Each entry of the section is one child card, with a stable ID, a title, what it
+covers, and its blockers:
+
+```markdown
+1. **B3: Add swimlanes to the board.** Covers D5 and D6. Blocked by: B1, B2.
+```
+
+An ID never changes across revisions. The text after the ID is the title of the
+child. The entry line at the top of the child's body names its entry:
+`Breakdown item B3 of card #214.` A rerun matches an existing child by that
+line, then by the exact title, so it never creates a duplicate.
+`plugins/loupe/skills/loupe-stage-implementation/references/breakdown.md` holds
+the full format.
+
+The implementation worker picks one of three modes after it finds the tech
+design:
+
+1. Child: the card has a parent. The worker builds only the entry that the
+   card body names, from the tech design of the epic. A child skips product
+   design and tech design.
+2. Breakdown: the card is an epic, or its tech design has a `Breakdown`
+   section. The worker writes no code and creates no worktree. It sets the type
+   `epic`, creates each missing child in Backlog, and sets the blocked-by
+   links. Then it moves each child with no open blocker to Implementation. The
+   result line is `STAGE RESULT: breakdown <n> children, <m> started`.
+3. Normal: every other card. The worker builds the whole design into one pull
+   request.
+
+An epic never gets a coding worker. When an epic moves back to Implementation,
+its worker runs the breakdown again, finds no missing child, and stops. That
+rerun also starts a child that a person put back in Backlog on purpose, when
+the child has no open blocker. A parked child stays in Backlog.
+
+The app makes three moves on its own, with the actor `system`:
+
+1. When a card enters a terminal column, each child it blocks moves from
+   Backlog to Implementation, once all of that child's blockers are done. The
+   move starts an implementation worker for the child.
+2. When every child of an epic is done, the epic moves to the first terminal
+   column.
+3. When a child of a done epic leaves Done, or an open card joins it, the epic
+   moves back to Implementation.
+
+A deleted blocks link starts nothing. A child whose last blocker link is gone
+waits in Backlog until a person moves it.
+
 ## Rule file
 
 The rule file is `rules.yaml`. It lives beside `config.json`:
@@ -113,9 +166,11 @@ skill uses both to build the card link in the pull request body. Without the
 instance line, the body names `Loupe card <number>` instead. `cli/README.md` describes every field and
 placeholder.
 
-Every move and every review verdict in this lifecycle comes from a person. A
-person's event resets the chain count of the card, so the `maxChain` cap limits
-nothing here.
+Every review verdict in this lifecycle comes from a person. A person's event
+resets the chain count of the card. A `system` move neither counts toward the
+chain nor resets it. The breakdown moves each child once, as an agent, so that
+move counts one run in the chain of the child. The `maxChain` cap therefore
+limits nothing here.
 
 ## Permissions
 
@@ -138,9 +193,9 @@ that change from one setup to the next.
 1. The repository profile, `.loupe/lifecycle.md`, belongs to the repository. Its
    sections are `Instruction files`, `Worktree`, `Gate`, `Code review`,
    `Changelog`, `Pull request` and `Board`. The profile of this repository names
-   `just cs`, `just ci`, the Codex review, `changelog.d/` and the `in-review`
-   column. The slug lives there because a stage skill never reads the column
-   list, which can be missing.
+   `just cs`, `just ci`, the Codex review, `changelog.d/` and the column slugs
+   that a stage moves a card to or reads. The slugs live there because a stage
+   skill never reads the column list, which can be missing.
 2. A harness adapter maps the steps of a worker to the tools of one agent
    harness: connect to Loupe, load an instruction, bind writes to a worktree,
    run a long command, dispatch a sub-agent, and write and run a plan. The

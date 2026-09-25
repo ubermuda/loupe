@@ -88,6 +88,9 @@ final readonly class CardExporter implements UserDataExporterInterface
                     ],
                     $links[(string) $card->id] ?? [],
                 ),
+                'parentCardId' => null === $card->parent ? null : (string) $card->parent->id,
+                'parentNumber' => $card->parent?->number,
+                'laneEnabled' => $card->laneEnabled,
             ];
         }
     }

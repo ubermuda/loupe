@@ -21,8 +21,12 @@ use App\Module\Board\Command\SetBoardColumnTerminalCommand;
 use App\Module\Board\Command\SetBoardColumnTerminalHandler;
 use App\Module\Board\Command\SetDefaultBoardColumnCommand;
 use App\Module\Board\Command\SetDefaultBoardColumnHandler;
+use App\Module\Board\Command\UpdateCardCommand;
+use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\BoardColumnRenamed;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\EventListener\PublishBoardRefreshOnBoardColumnsChanged;
@@ -109,6 +113,35 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
             // No label: what a board shows depends on who looks at it.
             self::assertSame('{"type":"board.columns_changed","origin":null}', $update->getData());
         }
+    }
+
+    public function test_a_lane_turned_on_or_off_refreshes_the_board_and_other_card_edits_do_not(): void
+    {
+        $epic = new Card($this->project, $this->column($this->project, 'backlog'), 'Epic', '', 1);
+        $epic->type = CardType::Epic;
+        $this->em->persist($epic);
+        $this->em->flush();
+        $update = $this->handler(UpdateCardHandler::class);
+
+        $laneWasOn = $epic->laneEnabled;
+        $update(new UpdateCardCommand($epic, CardReporter::Human, laneEnabled: !$laneWasOn));
+        $this->assertPublishedAtTerminate(2);
+        $update(new UpdateCardCommand($epic, CardReporter::Human, laneEnabled: $laneWasOn));
+        $this->assertPublishedAtTerminate(4);
+        self::assertSame(2, $this->countOfType('board.columns_changed'));
+
+        // An unchanged lane or a title edit places one card and reloads no board.
+        $update(new UpdateCardCommand($epic, CardReporter::Human, laneEnabled: $laneWasOn));
+        $update(new UpdateCardCommand($epic, CardReporter::Human, title: 'Renamed epic'));
+        $this->assertPublishedAtTerminate(5);
+        self::assertSame(2, $this->countOfType('board.columns_changed'));
+    }
+
+    private function countOfType(string $type): int
+    {
+        $types = array_map(static fn (Update $update): mixed => json_decode($update->getData(), true)['type'] ?? null, $this->boardRefreshes());
+
+        return array_count_values(array_filter($types, \is_string(...)))[$type] ?? 0;
     }
 
     public function test_the_publish_waits_for_terminate_and_sends_one_refresh_per_project(): void

@@ -1,9 +1,11 @@
 {# One card face. The whole card is the drag handle, and the grip says so.
    Props: card (Card), pendingComments (int), static (bool, optional): a card
    shown outside the board, which does not drag and names its column instead.
-   A static card also skips the prefetch, because it opens no drawer.
-   runWarning (CardRunWarning, optional) holds until the card leaves its column. #}
+   A static card also skips the prefetch. progress (CardProgress, optional) shows on an epic. inLane (bool,
+   optional) hides the parent tag its lane gives. runWarning (CardRunWarning, optional) holds until the card leaves its column. #}
 {% set static = static ?? false %}
+{% set progress = progress ?? null %}
+{% set inLane = inLane ?? false %}
 {% set runWarning = runWarning ?? null %}
 <article class="lp-board-card{{ static ? ' lp-board-card--static' }}"
          {% if not static %}data-controller="card-prefetch"
@@ -13,6 +15,7 @@
          id="board-card-{{ card.id }}"
          data-card-digest="{{ card_digest(card, pendingComments) }}"{% endif %}
          data-card-id="{{ card.id }}"
+         data-card-type="{{ card.type.value }}"
          data-card-title="{{ card.title }}">
     {% if not static %}
     <span class="lp-board-card__grip" aria-hidden="true">
@@ -24,6 +27,15 @@
     <div class="lp-board-card__identity">
         <span class="lp-board-card__number">#{{ card.number }}</span>
         {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
+        {% if card.parent and not inLane %}
+        <span class="lp-board-card__parent" data-card-parent-tag title="{{ card.parent.title }}">
+            <twig:ux:icon name="lucide:arrow-up" class="w-3 h-3 shrink-0" aria-hidden="true" />
+            #{{ card.parent.number }}
+        </span>
+        {% endif %}
+        {% if progress %}
+        <span class="lp-board-card__progress" data-card-progress>{{ 'board.card.children.progress'|trans({'%done%': progress.done, '%total%': progress.total}) }}</span>
+        {% endif %}
     </div>
     {# draggable="false" stops the browser's own link drag taking the gesture. #}
     <a class="lp-board-card__title"
@@ -87,6 +99,9 @@
         {{ form_widget(moveForm._token) }}
         {{ form_widget(moveForm.column) }}
         {{ form_widget(moveForm.position) }}
+        {{ form_widget(moveForm.parent) }}
+        {{ form_widget(moveForm.beforeCardId) }}
+        {{ form_widget(moveForm.afterCardId) }}
     </form>
     {% endif %}
 </article>

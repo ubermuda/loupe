@@ -100,6 +100,14 @@ class CardRepository extends ServiceEntityRepository
         return $qb;
     }
 
+    /** The cards a card may take as its parent: the epics of the project, less the card itself. */
+    public function parentCandidates(?Uuid $projectId, ?Uuid $excludeCardId): QueryBuilder
+    {
+        return $this->linkCandidates($projectId, $excludeCardId)
+            ->andWhere('c.type = :parentType')
+            ->setParameter('parentType', CardType::Epic->value);
+    }
+
     /**
      * Narrows {@see linkCandidates()} to what a person typed: `12` or `#12`
      * names a card number, anything else is a fragment of the title.
@@ -241,6 +249,169 @@ class CardRepository extends ServiceEntityRepository
             ?? throw new \LogicException('Card row points at a missing column.');
     }
 
+    /**
+     * Reads onto the card its type and its parent, for the reason in
+     * refreshColumn(). A card the database no longer holds is left alone.
+     */
+    public function refreshTypeAndParent(Card $card): void
+    {
+        $row = $this->getEntityManager()->getConnection()->fetchAssociative(
+            'SELECT type, parent_card_id FROM board_cards WHERE id = :id',
+            ['id' => (string) $card->id],
+        );
+
+        if (false === $row) {
+            return;
+        }
+
+        $card->type = CardType::from((string) $row['type']);
+        $card->parent = null === $row['parent_card_id']
+            ? null
+            : $this->getEntityManager()->find(Card::class, Uuid::fromString((string) $row['parent_card_id']));
+    }
+
+    /** The type the database holds for the card now, or null when the row is gone. */
+    public function freshType(Card $card): ?CardType
+    {
+        $type = $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT type FROM board_cards WHERE id = :id',
+            ['id' => (string) $card->id],
+        );
+
+        return false === $type ? null : CardType::from((string) $type);
+    }
+
+    /**
+     * The children of one card, in the order the board shows them.
+     *
+     * @return list<Card>
+     */
+    public function findChildren(Card $parent): array
+    {
+        /** @var list<Card> $children */
+        $children = $this->createQueryBuilder('c')
+            ->join('c.column', 'k')
+            ->addSelect('k')
+            ->andWhere('c.parent = :parent')
+            ->setParameter('parent', $parent)
+            ->getQuery()
+            ->getResult();
+
+        return self::inBoardOrder($children);
+    }
+
+    /**
+     * The children of many cards in one query, in the order of findChildren().
+     *
+     * @param list<Card> $parents
+     *
+     * @return array<string, list<Card>> parent id => its children; a parent with none has no key
+     */
+    public function findChildrenOfCards(array $parents): array
+    {
+        if ([] === $parents) {
+            return [];
+        }
+
+        /** @var list<Card> $children */
+        $children = $this->createQueryBuilder('c')
+            ->join('c.column', 'k')
+            ->addSelect('k')
+            ->andWhere('c.parent IN (:parents)')
+            ->setParameter('parents', $parents)
+            ->getQuery()
+            ->getResult();
+
+        $byParent = [];
+        foreach (self::inBoardOrder($children) as $child) {
+            $byParent[(string) $child->parent?->id][] = $child;
+        }
+
+        return $byParent;
+    }
+
+    /**
+     * Loads, in one query, the parent of each card that the identity map does
+     * not hold yet. The query fills the lazy parent objects in place.
+     *
+     * @param list<Card> $cards
+     */
+    public function loadParentsOf(array $cards): void
+    {
+        $em = $this->getEntityManager();
+        $ids = [];
+        foreach ($cards as $card) {
+            if (null !== $card->parent && $em->isUninitializedObject($card->parent)) {
+                $ids[(string) $card->parent->id] = true;
+            }
+        }
+        if ([] === $ids) {
+            return;
+        }
+
+        $this->createQueryBuilder('c')
+            ->join('c.column', 'k')
+            ->addSelect('k')
+            ->andWhere('c.id IN (:ids)')
+            ->setParameter('ids', array_map(strval(...), array_keys($ids)))
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function countChildren(Card $card): int
+    {
+        return (int) $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM board_cards WHERE parent_card_id = :id',
+            ['id' => (string) $card->id],
+        );
+    }
+
+    /**
+     * The numbers of the card's children in a column that is not terminal, as
+     * the database holds them now.
+     *
+     * @return list<int>
+     */
+    public function openChildNumbers(Card $card): array
+    {
+        return array_map(intval(...), $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT c.number FROM board_cards c JOIN board_columns k ON k.id = c.column_id
+             WHERE c.parent_card_id = :id AND k.terminal = false
+             ORDER BY c.number',
+            ['id' => (string) $card->id],
+        ));
+    }
+
+    /**
+     * The children the card blocks that wait in the default column and whose
+     * every blocker now sits in a terminal column.
+     *
+     * @return list<Card>
+     */
+    public function findChildrenFreedBy(Card $blocker): array
+    {
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            "SELECT t.id FROM board_card_links l
+             JOIN board_cards t ON t.id = l.target_card_id
+             JOIN board_columns k ON k.id = t.column_id
+             WHERE l.source_card_id = :id AND l.kind = 'blocks'
+               AND t.parent_card_id IS NOT NULL AND k.is_default = true
+               AND NOT EXISTS (
+                   SELECT 1 FROM board_card_links b
+                   JOIN board_cards s ON s.id = b.source_card_id
+                   JOIN board_columns sk ON sk.id = s.column_id
+                   WHERE b.target_card_id = t.id AND b.kind = 'blocks' AND sk.terminal = false
+               )
+             ORDER BY t.position, t.number",
+            ['id' => (string) $blocker->id],
+        );
+
+        return array_values(array_filter(array_map(
+            fn (mixed $id): ?Card => \is_string($id) ? $this->getEntityManager()->find(Card::class, Uuid::fromString($id)) : null,
+            $ids,
+        )));
+    }
+
     /** Reads the title and body as the database holds them now, like refreshColumn(). */
     public function refreshContent(Card $card): void
     {
@@ -316,17 +487,50 @@ class CardRepository extends ServiceEntityRepository
      * it, so a column that only ever grows does not become the page's whole
      * height.
      *
+     * A card whose epic sits in a terminal column is left out: the done epic
+     * stands for it on the board, and the history page still lists it.
+     *
      * @return list<Card>
      */
     public function findCompletedSince(BoardColumn $column, \DateTimeImmutable $since): array
     {
         return array_values(
-            $this->withPullRequests($this->completedQuery($column))
-                ->andWhere('c.completedAt >= :since')
-                ->setParameter('since', $since)
+            $this->withPullRequests(
+                $this->completedQuery($column)
+                    ->leftJoin('c.parent', 'parent')
+                    ->addSelect('parent')
+                    ->leftJoin('parent.column', 'parentColumn')
+                    ->andWhere('c.completedAt >= :since')
+                    ->andWhere('parent.id IS NULL OR parentColumn.terminal = false')
+                    ->setParameter('since', $since),
+            )
                 ->getQuery()
                 ->getResult(),
         );
+    }
+
+    /**
+     * How many children each epic of the project has, and how many of them
+     * sit in a terminal column. An epic with no children has no key.
+     *
+     * @return array<string, array{done: int, total: int}> epic id => its counts
+     */
+    public function childProgressForProject(Project $project): array
+    {
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT c.parent_card_id AS id, COUNT(*) AS total, SUM(CASE WHEN k.terminal THEN 1 ELSE 0 END) AS done
+             FROM board_cards c JOIN board_columns k ON k.id = c.column_id
+             WHERE c.project_id = :project AND c.parent_card_id IS NOT NULL
+             GROUP BY c.parent_card_id',
+            ['project' => (string) $project->id],
+        );
+
+        $progress = [];
+        foreach ($rows as $row) {
+            $progress[(string) $row['id']] = ['done' => (int) $row['done'], 'total' => (int) $row['total']];
+        }
+
+        return $progress;
     }
 
     /**
@@ -539,11 +743,11 @@ class CardRepository extends ServiceEntityRepository
      *
      * @return list<Card>
      */
-    public function findForBoard(array $columns, ?CardType $type = null, ?CardReporter $reporter = null): array
+    public function findForBoard(array $columns, ?CardType $type = null, ?CardReporter $reporter = null, ?Card $parent = null): array
     {
         $cards = [];
         foreach ($columns as $column) {
-            $cards = [...$cards, ...$this->findColumn($column, $type, $reporter)];
+            $cards = [...$cards, ...$this->findColumn($column, $type, $reporter, $parent)];
         }
 
         return $cards;
@@ -581,8 +785,8 @@ class CardRepository extends ServiceEntityRepository
     /**
      * Every card on every project the user owns, for the account data export.
      *
-     * The pull request links and the column are fetch-joined, because the
-     * export reads them on every row and they are lazy otherwise.
+     * The pull request links, the column and the parent are fetch-joined,
+     * because the export reads them on every row and they are lazy otherwise.
      *
      * @return list<Card>
      */
@@ -592,6 +796,8 @@ class CardRepository extends ServiceEntityRepository
             ->join('c.project', 'p')
             ->join('c.column', 'k')
             ->addSelect('k')
+            ->leftJoin('c.parent', 'parent')
+            ->addSelect('parent')
             ->leftJoin('c.pullRequests', 'l')
             ->addSelect('l')
             ->andWhere('p.owner = :user')
@@ -604,7 +810,7 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /** @return list<Card> */
-    private function findColumn(BoardColumn $column, ?CardType $type, ?CardReporter $reporter): array
+    private function findColumn(BoardColumn $column, ?CardType $type, ?CardReporter $reporter, ?Card $parent): array
     {
         $qb = $this->createQueryBuilder('c')
             ->andWhere('c.column = :column')
@@ -612,6 +818,9 @@ class CardRepository extends ServiceEntityRepository
 
         if (null !== $type) {
             $qb->andWhere('c.type = :type')->setParameter('type', $type);
+        }
+        if (null !== $parent) {
+            $qb->andWhere('c.parent = :parent')->setParameter('parent', $parent);
         }
         if (null !== $reporter) {
             // COALESCE, not c.reporter: a row an older image wrote after this
@@ -635,6 +844,31 @@ class CardRepository extends ServiceEntityRepository
         }
 
         return array_values($this->withPullRequests($qb)->getQuery()->getResult());
+    }
+
+    /**
+     * Sorts cards as the board shows them: by column, then in each column
+     * the order of findColumn(). The sort runs in PHP, because a terminal
+     * and an open column sort on different keys in opposite directions.
+     *
+     * @param list<Card> $cards
+     *
+     * @return list<Card>
+     */
+    private static function inBoardOrder(array $cards): array
+    {
+        usort($cards, static function (Card $a, Card $b): int {
+            $column = $a->column->position <=> $b->column->position;
+            if (0 !== $column || $a->column !== $b->column) {
+                return 0 !== $column ? $column : strcmp((string) $a->column->id, (string) $b->column->id);
+            }
+
+            return $a->column->terminal
+                ? [$b->completedAt, $b->createdAt, (string) $b->id] <=> [$a->completedAt, $a->createdAt, (string) $a->id]
+                : [$a->position, $a->createdAt, (string) $a->id] <=> [$b->position, $b->createdAt, (string) $b->id];
+        });
+
+        return $cards;
     }
 
     /**

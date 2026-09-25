@@ -19,6 +19,13 @@ use App\Module\Board\Entity\CardType;
  * array removes them all. $relatedCards replaces every link that touches the
  * card, whichever card wrote it.
  *
+ * $parentCardId has three states: null keeps the parent, an empty string
+ * clears it, and a card id sets it.
+ *
+ * $beforeCardId and $afterCardId name a card of the target column that the
+ * card lands above or below. A named neighbour wins over $position, and one
+ * the column does not hold sends the card to the end.
+ *
  * $reporter is absent on purpose. It records who first raised the card.
  *
  * $expectedFingerprint is the Card::contentFingerprint() the editor opened.
@@ -48,6 +55,10 @@ final readonly class UpdateCardCommand
         public ?array $documentIds = null,
         public ?int $position = null,
         public ?array $relatedCards = null,
+        public ?string $parentCardId = null,
+        public ?bool $laneEnabled = null,
+        public ?string $beforeCardId = null,
+        public ?string $afterCardId = null,
         public ?string $expectedFingerprint = null,
         public bool $confirmOverwrite = false,
         public ?OpenInteractiveRun $openInteractiveRun = null,

@@ -1,0 +1,11 @@
+{# What a column carries below its cards: the history link of a terminal column, and Add card. Props: board (BoardView), view (BoardColumnView), placeable (bool, optional: gives the history link the id a card placement writes to). #}
+{% if view.column.terminal %}
+<p class="lp-board__column-note">{{ 'board.terminal.window'|trans({'%days%': board.terminalWindowDays}) }}</p>
+<a class="lp-board__column-link"{% if placeable ?? false %} id="board-history-{{ view.column.id }}"{% endif %} href="{{ path('app_project_board_terminal_column', {projectId: board.project.id, columnId: view.column.id}) }}">
+    {{ 'board.terminal.history_link'|trans({'%count%': view.terminalTotal}) }}
+</a>
+{% endif %}
+<a class="lp-board__add-card" href="{{ path('app_board_card_create', {id: board.project.id, column: view.column.id}) }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
+    <twig:ux:icon name="lucide:plus" class="w-4 h-4" />
+    {{ 'board.column.add_card'|trans }}
+</a>

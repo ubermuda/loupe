@@ -6,6 +6,7 @@ namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
 use App\Exception\DomainErrors;
+use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\ShowCardPlacementCommand;
@@ -69,7 +70,7 @@ final class MoveCardController extends AppController
 
         if (!$form->isSubmitted() || !$form->isValid()) {
             // A stale or forged submission, which the reader cannot correct.
-            $error = 'board.card.flash.move_rejected';
+            $error = $this->translator->trans('board.card.flash.move_rejected');
         } else {
             try {
                 ($this->moveCard)(new MoveCardCommand(
@@ -77,10 +78,16 @@ final class MoveCardController extends AppController
                     actor: CardReporter::Human,
                     column: $data->column ?? throw new \LogicException('column required after validation'),
                     position: $data->position,
+                    parent: $data->parent,
+                    beforeCardId: $data->beforeCardId,
+                    afterCardId: $data->afterCardId,
                 ));
             } catch (DomainErrors $e) {
-                // The column went away between the form check and the lock.
-                $error = array_first($e->errors);
+                // The column went away between the form check and the lock, or the
+                // parent a lane gives breaks a parent rule.
+                $error = $this->translator->trans(array_first($e->errors));
+            } catch (EpicChildrenOpen $e) {
+                $error = $this->translator->trans(EpicChildrenOpen::MESSAGE, ['%cards%' => $e->cardList()]);
             }
         }
 
@@ -90,7 +97,7 @@ final class MoveCardController extends AppController
 
         if (!$stream) {
             if (null !== $error) {
-                $this->addFlash('error', $this->translator->trans($error));
+                $this->addFlash('error', $error);
             }
 
             return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);

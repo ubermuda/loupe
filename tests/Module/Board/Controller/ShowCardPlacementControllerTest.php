@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Command\ShowBoardHandler;
+use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -53,6 +54,28 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertSame(0, $counts[(string) $backlog->id]);
         self::assertSame(2, $counts[(string) $next->id]);
         self::assertCount(4, $counts);
+    }
+
+    public function test_a_placed_epic_keeps_the_progress_of_its_children(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-epic@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
+        $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
+        $url = $this->placementUrl((string) $project->id, (string) $epic->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        // The placement morphs the face on the page, so a face with no badge would remove it.
+        self::assertMatchesRegularExpression('#data-card-progress>\s*1/2 done\s*<#', (string) $client->getResponse()->getContent());
     }
 
     public function test_the_placed_card_keeps_the_warning_of_a_run_that_gave_up(): void

@@ -13,7 +13,7 @@
               data-row-after="{{ placement.rowAfter }}"{% endif %}>
     <template>
         {% if card is not null %}
-            {% include '@Board/_card.html.twig' with {card: card, pendingComments: placement.pendingComments, runWarning: card_run_warnings(card.project)[card.id ~ '']|default(null)} only %}
+            {% include '@Board/_card.html.twig' with {card: card, pendingComments: placement.pendingComments, progress: placement.progress, runWarning: card_run_warnings(card.project)[card.id ~ '']|default(null)} only %}
             {% include '@Board/_card_row.html.twig' with {card: card, column: placement.column, feedbackCount: placement.pendingComments} only %}
         {% endif %}
     </template>

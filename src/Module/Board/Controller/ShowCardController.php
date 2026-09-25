@@ -42,6 +42,8 @@ final class ShowCardController extends AppController
             'card' => $view->card,
             'siteReviewLinks' => $view->siteReviewLinks,
             'relatedCards' => $view->relatedCards,
+            'children' => $view->children,
+            'progress' => $view->progress,
         ]);
         $response->setVary('Turbo-Frame', false);
 

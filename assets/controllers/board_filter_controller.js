@@ -9,7 +9,7 @@ const BEFORE_RENDER_EVENTS = [
 ];
 
 export default class extends Controller {
-    static targets = ['query', 'card', 'row', 'count', 'empty'];
+    static targets = ['query', 'card', 'row', 'count', 'empty', 'laneHead'];
 
     #restoringFocus = false;
 
@@ -76,6 +76,7 @@ export default class extends Controller {
     filter() {
         const query = this.queryTarget.value.trim().toLocaleLowerCase();
         let visibleCount = 0;
+        const matchedLanes = new Set();
 
         for (const card of this.cardTargets) {
             const visible =
@@ -85,6 +86,32 @@ export default class extends Controller {
             card.hidden = !visible;
             if (visible) {
                 visibleCount += 1;
+                if (query !== '') {
+                    matchedLanes.add(card.closest('.lp-board-lane'));
+                }
+            }
+        }
+
+        // A search opens a collapsed lane that holds a match, and leaves the
+        // stored collapse alone, so the lane closes again when it clears.
+        // The event lets the lane's own button say what the reader sees.
+        for (const lane of this.element.querySelectorAll('.lp-board-lane')) {
+            lane.classList.toggle(
+                'lp-board-lane--revealed',
+                matchedLanes.has(lane),
+            );
+            lane.dispatchEvent(new CustomEvent('board-filter:reveal'));
+        }
+
+        // A lane epic is its header rather than a card. The header always
+        // stays, and a matching title counts it once.
+        if (query !== '') {
+            for (const head of this.laneHeadTargets) {
+                if (
+                    head.dataset.cardTitle.toLocaleLowerCase().includes(query)
+                ) {
+                    visibleCount += 1;
+                }
             }
         }
 

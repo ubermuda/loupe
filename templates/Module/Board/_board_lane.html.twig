@@ -1,0 +1,58 @@
+{# One board row: an epic lane, or "Other cards" when lane.epic is null. Each cell shows its column's head and is a drop target.
+   Props: board (BoardView), lane (BoardLaneView), columnControls (bool: this row holds the column grips and menus),
+   canManage (bool), renameColumnForm (FormView or null), runWarnings (CardRunWarning by card id). #}
+{% set epic = lane.epic %}
+{% set laneKey = epic ? epic.id ~ '' : 'other' %}
+<section class="lp-board-lane{{ epic ? '' : ' lp-board-lane--other' }}{{ columnControls ? ' lp-board-lane--controls' }}"
+         data-lane="{{ laneKey }}"
+         {% if epic %}data-controller="board-lane"
+         data-board-lane-project-value="{{ board.project.id }}"
+         data-board-lane-epic-value="{{ epic.id }}"
+         aria-label="#{{ epic.number }} {{ epic.title }}"{% else %}aria-label="{{ 'board.lane.other'|trans }}"{% endif %}>
+    <header class="lp-board-lane__head"{% if epic %} data-board-filter-target="laneHead" data-card-title="{{ epic.title }}"{% endif %}>
+        {% if epic %}
+        {% set progress = board.progress[epic.id ~ ''] %}
+        <button type="button"
+                class="lp-board-lane__collapse"
+                aria-expanded="true"
+                aria-label="{{ 'board.lane.collapse'|trans }}"
+                data-board-lane-target="toggle"
+                data-action="board-lane#toggle">
+            <twig:ux:icon name="lucide:chevron-right" class="lp-board-lane__chevron" />
+        </button>
+        <span class="lp-board-card__number">#{{ epic.number }}</span>
+        <a class="lp-board-lane__title"
+           href="{{ path('app_board_card', {projectId: epic.project.id, cardId: epic.id}) }}"
+           data-turbo-frame="card-drawer-frame"
+           data-action="click->card-drawer#prepare">{{ epic.title }}</a>
+        <span class="lp-board-lane__progress" data-lane-progress>{{ 'board.card.children.progress'|trans({'%done%': progress.done, '%total%': progress.total}) }}</span>
+        {% include '@Board/_card_lane_form.html.twig' with {card: epic, returnTo: 'board'} only %}
+        {% else %}
+        <h2 class="lp-board-lane__title">{{ 'board.lane.other'|trans }}</h2>
+        {% endif %}
+    </header>
+    <div class="lp-board-lane__cells">
+        {% for view in board.columns %}
+        {% set cards = lane.cells[view.column.id ~ '']|default([]) %}
+        <section class="lp-board__column lp-board-lane__column"
+                 aria-label="{{ view.column.label|trans }}"
+                 data-column-slug="{{ view.column.slug }}"
+                 {% if columnControls %}data-column-id="{{ view.column.id }}"
+                 data-board-columns-target="column"{% endif %}>
+            {% include '@Board/_board_column_head.html.twig' with {board: board, view: view, index: loop.index0, canManage: canManage and columnControls, renameColumnForm: renameColumnForm, count: cards|length} only %}
+            <div class="lp-board-lane__cell"
+                 data-board-drag-target="group"
+                 data-column="{{ view.column.id }}"
+                 data-lane="{{ laneKey }}"
+                 data-rankable="{{ view.column.terminal ? '0' : '1' }}">
+                {% for card in cards %}
+                    {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), inLane: epic is not null, runWarning: runWarnings[card.id ~ '']|default(null)} only %}
+                {% endfor %}
+            </div>
+            {% if not epic %}
+                {% include '@Board/_board_column_foot.html.twig' with {board: board, view: view} only %}
+            {% endif %}
+        </section>
+        {% endfor %}
+    </div>
+</section>

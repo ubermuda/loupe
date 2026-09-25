@@ -16,6 +16,12 @@ class MoveCardRequest
         /** The rank inside the target column, counting from 0. Null appends. */
         #[Assert\PositiveOrZero]
         public ?int $position = null,
+        /** Empty keeps the parent, `none` clears it, and a card id sets it. */
+        public ?string $parent = null,
+        /** The card the drop lands above, which wins over the rank. */
+        public ?string $beforeCardId = null,
+        /** The card the drop lands below, when no card is below it. */
+        public ?string $afterCardId = null,
     ) {
     }
 }

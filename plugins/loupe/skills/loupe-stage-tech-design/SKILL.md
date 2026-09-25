@@ -29,12 +29,21 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 
 1. When its `status` is `approved`, stop with `STAGE RESULT: tech design already approved`.
 2. Read the code and those design inputs.
-3. Follow `../loupe-stage-product-design/references/review-round.md`. The document is `tech design`, and the requirement source is the one step 7 chose.
+3. Judge the size again, as "Judge the size" says. A revision never changes the ID of an entry.
+4. Follow `../loupe-stage-product-design/references/review-round.md`. The document is `tech design`, and the requirement source is the one step 7 chose.
 
 ### Create, when neither step finds a design
 
 1. Read the code and those design inputs. Answer each entry that applies.
-2. Call `document_create` with the title `Tech design: <card title>`. Set `references` to the product document id, or leave it empty when the requirement source is the card body. Use the tags `design` and `decisions`, or the spelling `tag_list` already has for them.
-3. Link the new id to the card (contract rule 5). Stop with `STAGE RESULT: tech design created <id>`.
+2. Judge the size, as the next section says.
+3. Call `document_create` with the title `Tech design: <card title>`. Set `references` to the product document id, or leave it empty when the requirement source is the card body. Use the tags `design` and `decisions`, or the spelling `tag_list` already has for them.
+4. Link the new id to the card (contract rule 5). Stop with `STAGE RESULT: tech design created <id>`.
+
+### Judge the size
+
+1. Judge whether one pull request of normal size can build the design. A worker builds a small task with clear limits better than a large one.
+2. When the design needs more than one such pull request, add a Breakdown section. Each entry becomes one child card. Write it in the format of `../loupe-stage-implementation/references/breakdown.md`.
+3. Otherwise add no Breakdown section.
+4. Never write a Breakdown section for a card that has a parent. A child is built from one entry of its epic's design.
 
 Write the final reply as the contract says.

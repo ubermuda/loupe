@@ -1,0 +1,17 @@
+{# A column's header: grip, colour, label, card count and menu. Props: board (BoardView), view (BoardColumnView), index (int), canManage (bool), renameColumnForm (FormView or null), count (int, optional: the cards of one lane cell), placeable (bool, optional: gives the count the id a card placement writes to). #}
+<header class="lp-board__column-head">
+    {% if canManage %}
+    <span class="lp-board__column-grip"
+          draggable="true"
+          title="{{ 'board.column.drag'|trans }}"
+          data-action="dragstart->board-columns#start dragend->board-columns#end">
+        <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
+    </span>
+    {% endif %}
+    <span class="lp-tone-dot lp-tone-dot--{{ view.column.tone.value }}" aria-hidden="true"></span>
+    <h2 class="lp-board__column-title">{{ view.column.label|trans }}</h2>
+    <span class="lp-board__column-count"{% if placeable ?? false %} id="board-count-{{ view.column.id }}"{% endif %}>{{ count is defined ? count : board.shownCounts[view.column.id ~ '']|default(view.count) }}</span>
+    {% if canManage %}
+        {% include '@Board/_board_column_menu.html.twig' with {board: board, view: view, index: index, renameColumnForm: renameColumnForm} only %}
+    {% endif %}
+</header>

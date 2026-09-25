@@ -29,7 +29,7 @@ A skill's name prefix says which side of the product you stand on. A `loupe-*` s
 | `product-design` | An interactive product design session with the owner through the `loupe` MCP, from a card or a one-line idea: `/loupe:product-design` |
 | `loupe-stage-product-design` | One review round on a card's product document, or a prompt that names the skill |
 | `loupe-stage-tech-design` | A card entering the Tech design column, or a prompt that names the skill: write or revise the tech design |
-| `loupe-stage-implementation` | A card entering the Implementation column, or a prompt that names the skill: build the approved tech design into a ready pull request |
+| `loupe-stage-implementation` | A card entering the Implementation column, or a prompt that names the skill: build the approved tech design into a ready pull request, or break an epic down into child cards |
 | `loupe-stage-fix-round` | One round of review feedback on a card's current stage, a document review or a pull request review, run by hand |
 | `symfony-authorization` | Generic Symfony authorization mechanics: Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
 | `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters: `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |

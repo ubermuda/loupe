@@ -1,0 +1,13 @@
+{# The board with epic lanes: one row per lane, then "Other cards". The first lane carries the column controls.
+   Props: board (BoardView, with lanes), canManage (bool), renameColumnForm (FormView or null),
+   runWarnings (CardRunWarning by card id). #}
+<div class="lp-board__columns lp-board__columns--lanes"
+     data-board-view-target="board"
+     {% if canManage %}data-action="dragover->board-columns#over drop->board-columns#drop"{% endif %}>
+    <div class="lp-board-lanes">
+        {% for lane in board.lanes %}
+            {% include '@Board/_board_lane.html.twig' with {board: board, lane: lane, columnControls: loop.first, canManage: canManage, renameColumnForm: renameColumnForm, runWarnings: runWarnings} only %}
+        {% endfor %}
+        {% include '@Board/_board_lane.html.twig' with {board: board, lane: board.otherCards, columnControls: false, canManage: canManage, renameColumnForm: null, runWarnings: runWarnings} only %}
+    </div>
+</div>

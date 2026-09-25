@@ -38,4 +38,4 @@ Answer one round of feedback on the current stage of a card.
 7. Fix every open item and failing check. Follow the implementation skill for sub-agents, the gate, the push, the CI wait and the code review.
 8. Post a marker reply for each handled item, per the reference.
 9. When CI is green and the code review is clean, stop with `STAGE RESULT: fixed <pr url>`.
-10. On a block, record it and stop per implementation step 15.
+10. On a block, record it and stop per implementation step 16.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -52,6 +53,12 @@ final readonly class ShowCardPlacementHandler
 
         $pending = null === $found ? 0 : ($this->cardSiteReviewComments->pendingCountsForProject($command->project)[(string) $found->id] ?? 0);
 
-        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $counts, $terminalTotals);
+        $progress = null;
+        if (CardType::Epic === $found?->type) {
+            $children = $this->cards->childProgressForProject($command->project)[(string) $found->id] ?? ['done' => 0, 'total' => 0];
+            $progress = new CardProgress($children['done'], $children['total']);
+        }
+
+        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $counts, $terminalTotals, $progress);
     }
 }
