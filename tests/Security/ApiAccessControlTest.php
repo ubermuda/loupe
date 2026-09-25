@@ -136,6 +136,17 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertFalse($this->decide('/api/projects', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
         self::assertFalse($this->decide('/api/events', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
         self::assertFalse($this->decide('/api/projects/loupe/board/columns', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
+        self::assertFalse($this->decide('/api/projects/loupe/board/cards/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f', ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
+    }
+
+    /** The card rule grants one route, so a path near it stays denied by default. */
+    public function test_the_card_rule_does_not_open_the_rest_of_a_board(): void
+    {
+        $card = '0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f';
+        self::assertTrue($this->decide('/api/projects/loupe/board/cards/'.$card, ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertFalse($this->decide('/api/projects/loupe/board/cards/', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/board/cards/'.$card.'/move', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/client/app/board/cards/'.$card, self::ALL_ROLES));
     }
 
     /** The column rule grants one route, so another path under a project stays denied by default. */

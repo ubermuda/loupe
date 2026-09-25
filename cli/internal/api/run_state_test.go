@@ -269,8 +269,46 @@ func TestReportRunStateReadsEachAnswer(t *testing.T) {
 	}
 }
 
-func TestIsOutcomeNamesTheFourEndsOfARun(t *testing.T) {
-	for _, state := range []string{RunSucceeded, RunNoResult, RunFailed, RunNotStarted} {
+// A resume series sends its result and its place in the series. A field
+// that is not set is not sent.
+func TestReportRunStateSendsTheResultAndTheResumeFields(t *testing.T) {
+	code, has := 0, true
+	outcome := stateReport(RunUnfinished)
+	outcome.ExitCode, outcome.HasResult = &code, &has
+	outcome.ResultStatus, outcome.ResultFields = "unfinished", map[string]any{"prUrl": "https://example.test/pr/1"}
+	outcome.ResumeSkipped = "card_moved"
+	_, body, _, err := putState(t, outcome, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body["resultStatus"] != "unfinished" || body["resumeSkipped"] != "card_moved" || body["resultFields"].(map[string]any)["prUrl"] != "https://example.test/pr/1" {
+		t.Fatalf("body = %v", body)
+	}
+
+	queued := stateReport(RunQueued)
+	queued.Continues, queued.ResumeIndex, queued.ResumeCap, queued.CardColumn = testRunID, 1, 2, "implementation"
+	_, body, _, err = putState(t, queued, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := withBase("cardColumn", "continues", "resumeCap", "resumeIndex"); keys(body) != want {
+		t.Fatalf("keys = %s, want %s", keys(body), want)
+	}
+	if body["continues"] != testRunID || body["resumeIndex"] != 1.0 || body["resumeCap"] != 2.0 || body["cardColumn"] != "implementation" {
+		t.Fatalf("body = %v", body)
+	}
+
+	_, body, _, err = putState(t, stateReport(RunQueued), http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if keys(body) != withBase() {
+		t.Fatalf("keys = %s", keys(body))
+	}
+}
+
+func TestIsOutcomeNamesTheEndsOfARun(t *testing.T) {
+	for _, state := range []string{RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunGaveUp} {
 		if !IsOutcome(state) {
 			t.Fatalf("IsOutcome(%q) = false", state)
 		}

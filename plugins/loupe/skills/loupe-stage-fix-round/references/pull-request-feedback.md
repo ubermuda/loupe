@@ -8,7 +8,7 @@ Before any other query or reply, find and validate the pull request with the ada
 
 ## Read the checks before a worktree exists
 
-Compare the checks against the head commit of the pull request only. Wait until checks exist for that commit. Then wait and count as "Wait for CI" in `../../loupe-stage-implementation/references/commands.md` says, and skip its comparison with the local head. Read the failed logs of each failing check with the adapter.
+Compare the checks against the head commit of the pull request only. Wait until checks exist for that commit. Then wait and count as "Wait for CI" in `../../loupe-stage-implementation/references/commands.md` says, and skip its comparison with the local head. Poll in the foreground, and never end the turn to wait for a notice. Read the failed logs of each failing check with the adapter.
 
 ## Read the feedback items
 
