@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Module\Board\EventListener;
 
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\StageCard;
+use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Review\ReviewEventType;
 use App\Outbox\OutboxWriter;
@@ -43,6 +45,7 @@ final readonly class WriteOutboxEventOnReviewSubmitted
         private BoardAvailability $board,
         private OutboxWriter $outbox,
         private StageCard $stageCard,
+        private InteractiveRuns $interactiveRuns,
     ) {
     }
 
@@ -63,7 +66,7 @@ final readonly class WriteOutboxEventOnReviewSubmitted
         // outbox, so a rename here is a breaking change there. Identifiers and
         // the verdict only: the note a reviewer typed must never reach an agent
         // through a directive.
-        $this->outbox->write($document->project, ReviewEventType::REVIEW_SUBMITTED, [
+        $payload = [
             'type' => ReviewEventType::REVIEW_SUBMITTED,
             'subject' => ['type' => 'document', 'id' => (string) $document->id],
             'projectId' => (string) $document->project->id,
@@ -73,6 +76,20 @@ final readonly class WriteOutboxEventOnReviewSubmitted
             'cardId' => null === $stageCard ? null : (string) $stageCard->id,
             'cardNumber' => $stageCard?->number,
             'column' => $stageCard?->column->slug,
-        ]);
+        ];
+        if (null !== $stageCard) {
+            $payload['card'] = ['interactiveRun' => $this->hasOpenRun($stageCard)];
+        }
+
+        $this->outbox->write($document->project, ReviewEventType::REVIEW_SUBMITTED, $payload);
+    }
+
+    private function hasOpenRun(Card $card): bool
+    {
+        try {
+            return $this->interactiveRuns->hasOpenRun($card->project, $card->id ?? throw new \LogicException('A stage card has an id.'));
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

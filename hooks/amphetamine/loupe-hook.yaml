@@ -1,0 +1,12 @@
+name: amphetamine
+os: [darwin]
+events:
+  start: [./hook, start]
+  stop: [./hook, stop]
+  busy: [./hook, busy]
+  idle: [./hook, idle]
+settings:
+  takeover:
+    type: bool
+    default: "false"
+    description: Replace and end an Amphetamine session that this hook did not start.

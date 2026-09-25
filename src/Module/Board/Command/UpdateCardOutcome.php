@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Service\CardMove;
+use App\Module\Bridge\Entity\WorkerRun;
 
 /**
  * What one update did, read out of the transaction that did it.
@@ -21,6 +22,7 @@ final readonly class UpdateCardOutcome
         public bool $typeChanged,
         /** A title or body change that survives the form's own normalisation. */
         public bool $contentChanged,
+        public ?WorkerRun $openedRun,
     ) {
     }
 }

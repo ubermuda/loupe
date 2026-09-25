@@ -20,7 +20,7 @@ final class WorkerRunStateTest extends TestCase
     public function test_every_state_has_its_backing_value(): void
     {
         self::assertSame(
-            ['queued', 'replaced', 'resumed', 'skipped', 'running', 'waiting-for-person', 'dropped', 'succeeded', 'failed', 'not-started', 'no-result', 'timed-out', 'lost'],
+            ['queued', 'replaced', 'resumed', 'skipped', 'running', 'waiting-for-person', 'dropped', 'succeeded', 'failed', 'not-started', 'no-result', 'timed-out', 'lost', 'closed'],
             array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::cases()),
         );
     }
@@ -122,6 +122,15 @@ final class WorkerRunStateTest extends TestCase
         self::assertSame('pending', WorkerRunState::WaitingForPerson->chipModifier());
         self::assertSame('ok', WorkerRunState::Succeeded->chipModifier());
         self::assertSame('failed', WorkerRunState::Lost->chipModifier());
+        self::assertSame('ok', WorkerRunState::Closed->chipModifier());
+    }
+
+    /** A person closes an interactive run. No process exit or server guess lies behind it. */
+    public function test_closed_is_neither_open_nor_an_outcome_nor_inferred(): void
+    {
+        self::assertFalse(WorkerRunState::Closed->isOpen());
+        self::assertFalse(WorkerRunState::Closed->isOutcome());
+        self::assertFalse(WorkerRunState::Closed->isInferred());
     }
 
     /** @return iterable<string, array{WorkerRunState}> */

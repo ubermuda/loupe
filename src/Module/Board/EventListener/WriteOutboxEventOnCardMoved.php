@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Board\EventListener;
 
 use App\Module\Board\BoardEventType;
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Event\CardMoved;
+use App\Module\Bridge\Service\InteractiveRuns;
 use App\Outbox\OutboxWriter;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
@@ -23,6 +25,7 @@ final readonly class WriteOutboxEventOnCardMoved
 {
     public function __construct(
         private OutboxWriter $outbox,
+        private InteractiveRuns $interactiveRuns,
     ) {
     }
 
@@ -43,6 +46,16 @@ final readonly class WriteOutboxEventOnCardMoved
             'fromStatus' => $event->move->fromColumn->slug,
             'toStatus' => $card->column->slug,
             'actor' => $event->actor->value,
+            'card' => ['interactiveRun' => $this->hasOpenRun($card)],
         ]);
+    }
+
+    private function hasOpenRun(Card $card): bool
+    {
+        try {
+            return $this->interactiveRuns->hasOpenRun($card->project, $card->id ?? throw new \LogicException('A moved card has an id.'));
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

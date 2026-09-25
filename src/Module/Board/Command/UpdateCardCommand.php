@@ -23,6 +23,9 @@ use App\Module\Board\Entity\CardType;
  *
  * $expectedFingerprint is the Card::contentFingerprint() the editor opened.
  * A card whose text differs from it is refused unless $confirmOverwrite.
+ *
+ * A move to another column closes every open interactive run of the card. A
+ * run that $openInteractiveRun opens in the same update stays open.
  */
 final readonly class UpdateCardCommand
 {
@@ -47,6 +50,7 @@ final readonly class UpdateCardCommand
         public ?array $relatedCards = null,
         public ?string $expectedFingerprint = null,
         public bool $confirmOverwrite = false,
+        public ?OpenInteractiveRun $openInteractiveRun = null,
     ) {
     }
 }

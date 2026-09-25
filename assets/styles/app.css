@@ -1316,6 +1316,16 @@
     .lp-card-run__chevron {
         @apply size-4 shrink-0 text-fg-dim;
     }
+    /* A run row with its close control beside the link, because a form cannot sit inside a link. */
+    .lp-card-run-row {
+        @apply flex items-center gap-2;
+    }
+    .lp-card-run-row > .lp-card-run {
+        @apply min-w-0 flex-1;
+    }
+    .lp-card-run__kind {
+        @apply shrink-0;
+    }
     .lp-card-linked-list,
     .lp-card-feedback-list {
         @apply flex flex-col gap-2 list-none p-0 m-0 mt-3;
@@ -3553,6 +3563,13 @@
     }
     .lp-status-chip--failed .lp-status-chip__dot {
         @apply bg-status-danger;
+    }
+    /* Grey chip for a state that is neither good nor bad, such as a hook that has not run. */
+    .lp-status-chip--neutral {
+        @apply bg-tint text-fg-dim border-line;
+    }
+    .lp-status-chip--neutral .lp-status-chip__dot {
+        @apply bg-fg-faint;
     }
 
     /* Quoted document excerpt a comment thread is anchored to. Shown at the head
@@ -5905,7 +5922,8 @@
     .lp-worker-run__meta {
         @apply flex flex-wrap items-center gap-3 font-mono text-fg-dim text-xs;
     }
-    .lp-worker-run__bridge {
+    .lp-worker-run__bridge,
+    .lp-worker-run__kind {
         @apply ml-auto;
     }
     .lp-worker-run__failure {

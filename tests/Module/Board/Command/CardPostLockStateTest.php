@@ -18,6 +18,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
+use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\RecordingAuditor;
@@ -81,7 +82,9 @@ final class CardPostLockStateTest extends KernelTestCase
         $cards = self::getContainer()->get(CardRepository::class);
         self::assertInstanceOf(CardRepository::class, $cards);
 
-        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), $this->em, $this->audit->auditor, new EventDispatcher());
+        $interactiveRuns = self::getContainer()->get(InteractiveRuns::class);
+        self::assertInstanceOf(InteractiveRuns::class, $interactiveRuns);
+        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), $this->em, $this->audit->auditor, $interactiveRuns, new EventDispatcher());
 
         $owner = new User(fullName: 'Riley', email: 'board-post-lock-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
