@@ -121,11 +121,13 @@ final class ResolveFeedbackOnCardMovedTest extends KernelTestCase
 
         $project = $this->feedbackProject('feedback-failure');
         $card = $this->cardIn($project, 'in-progress');
+        $comment = $this->feedback($card, SiteReviewCommentStatus::Pending);
         $this->em->flush();
 
         $this->move($card, $project, 'done');
 
-        $this->em->clear();
+        // Still pending proves the throwing stub, not the real repository, served the listener.
+        self::assertSame(SiteReviewCommentStatus::Pending, $this->statusOf($comment));
         $moved = $this->em->find(Card::class, $card->id);
         self::assertInstanceOf(Card::class, $moved);
         self::assertSame('done', $moved->column->slug);
