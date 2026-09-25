@@ -56,7 +56,7 @@ type hookRunner struct {
 	hooks     []hooks.Hook
 	last      map[hookKey]hookRun
 	heartbeat *heartbeater
-	inbox     []string
+	inbox     []hookJob
 	started   bool
 	stopped   bool
 	wake      chan struct{}
@@ -67,6 +67,13 @@ type hookRunner struct {
 // reload moves to a new commit starts again as never.
 type hookKey struct {
 	id, sha, event string
+}
+
+// hookJob is one event in the inbox. A job with only set runs those hooks
+// rather than the current list.
+type hookJob struct {
+	event string
+	only  []hooks.Hook
 }
 
 // hookRun is how one run of a hook ended.
@@ -116,7 +123,7 @@ func (hr *hookRunner) fireLocked(event string) {
 	if hr.stopped {
 		return
 	}
-	hr.inbox = append(hr.inbox, event)
+	hr.inbox = append(hr.inbox, hookJob{event: event})
 	select {
 	case hr.wake <- struct{}{}:
 	default:
@@ -139,7 +146,8 @@ func (hr *hookRunner) stop() {
 	}
 }
 
-// setHooks applies the hooks of a reload. A removed package loses its rows.
+// setHooks applies the hooks of a reload. A removed package loses its rows,
+// and runs stop once, so it can release what busy took.
 func (hr *hookRunner) setHooks(list []hooks.Hook) {
 	if hr == nil {
 		return
@@ -147,6 +155,19 @@ func (hr *hookRunner) setHooks(list []hooks.Hook) {
 	hr.mu.Lock()
 	defer hr.mu.Unlock()
 
+	var removed []hooks.Hook
+	for _, h := range hr.hooks {
+		if _, ok := h.Events[hookStop]; ok && !slices.ContainsFunc(list, func(n hooks.Hook) bool { return n.ID == h.ID }) {
+			removed = append(removed, h)
+		}
+	}
+	if len(removed) > 0 && hr.started && !hr.stopped {
+		hr.inbox = append(hr.inbox, hookJob{event: hookStop, only: removed})
+		select {
+		case hr.wake <- struct{}{}:
+		default:
+		}
+	}
 	hr.hooks = list
 	live := map[hookKey]bool{}
 	for _, h := range list {
@@ -229,10 +250,13 @@ func (hr *hookRunner) next() (event string, list []hooks.Hook, ok, wait bool) {
 	if len(hr.inbox) == 0 {
 		return "", nil, false, !hr.stopped
 	}
-	event = hr.inbox[0]
+	job := hr.inbox[0]
 	hr.inbox = hr.inbox[1:]
+	if job.only != nil {
+		return job.event, job.only, true, false
+	}
 
-	return event, hr.hooks, true, false
+	return job.event, hr.hooks, true, false
 }
 
 func (hr *hookRunner) loop() {

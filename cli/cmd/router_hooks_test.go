@@ -26,7 +26,12 @@ func (hr *hookRunner) fired() []string {
 	hr.mu.Lock()
 	defer hr.mu.Unlock()
 
-	return slices.Clone(hr.inbox)
+	var events []string
+	for _, job := range hr.inbox {
+		events = append(events, job.event)
+	}
+
+	return events
 }
 
 func wantFired(t *testing.T, hr *hookRunner, want ...string) {

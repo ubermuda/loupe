@@ -38,10 +38,11 @@ slow hook delays only the hooks that come after it. The bridge does not wait
 for `start`, `busy` or `idle`. At a shutdown it waits for the `stop` hooks, and
 the time limit of each hook bounds that wait.
 
-A reload runs no hook. A package that a reload adds runs first on the next
-event. It gets no `start`, and no `busy` when the bridge is already busy. A
-package that a reload removes gets no `stop`. A package that a reload moves to
-a new commit shows no last run until it runs again.
+A package that a reload adds runs first on the next event. It gets no `start`,
+and no `busy` when the bridge is already busy. A package that a reload removes
+runs its `stop` once, so it can release what `busy` took. A package that a
+reload moves to a new commit gets no `stop`, and shows no last run until it
+runs again.
 
 ## The manifest
 

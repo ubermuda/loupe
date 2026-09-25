@@ -268,3 +268,31 @@ func TestARunSendsTheRowsToTheHeartbeat(t *testing.T) {
 		})
 	})
 }
+
+// A reload that removes a package runs its stop once, so it can release what
+// busy took. A package the reload keeps runs stop only when the bridge stops.
+func TestAReloadRunsStopOnARemovedPackage(t *testing.T) {
+	script := "echo \"$1\" >> \"$LOUPE_HOOK_STATE_DIR/log\"\n"
+	removed := scriptHook(t, "acme/removed", script, hookBusy, hookStop)
+	kept := scriptHook(t, "acme/kept", script, hookBusy, hookStop)
+	hr := newHookRunner([]hooks.Hook{removed, kept}, testBridgeID, newBridgeLogger(&syncBuffer{}))
+
+	hr.start()
+	hr.fire(hookBusy)
+	eventually(t, "busy ran on both packages", func() bool {
+		_, a := os.Stat(filepath.Join(removed.StateDir, "log"))
+		_, b := os.Stat(filepath.Join(kept.StateDir, "log"))
+
+		return a == nil && b == nil
+	})
+	hr.setHooks([]hooks.Hook{kept})
+	hr.fire(hookIdle)
+	hr.stop()
+
+	if got := readFile(t, filepath.Join(removed.StateDir, "log")); got != "busy\nstop\n" {
+		t.Fatalf("removed ran:\n%s", got)
+	}
+	if got := readFile(t, filepath.Join(kept.StateDir, "log")); got != "busy\nstop\n" {
+		t.Fatalf("kept ran:\n%s", got)
+	}
+}
