@@ -249,6 +249,61 @@ describe('the mode', () => {
     });
 });
 
+describe('the delivery id', () => {
+    /** Every feedback save the widget sent, in order. */
+    const feedbackSaves = (fetchMock) =>
+        fetchMock.mock.calls
+            .filter(
+                ([url, init]) =>
+                    init &&
+                    init.method === 'POST' &&
+                    url.endsWith('/api/board/feedback'),
+            )
+            .map(([, init]) => JSON.parse(init.body));
+
+    it('is kept for a retry to the same target and renewed for another one', async () => {
+        const fetchMock = bootWidget({
+            mode: { mode: 'per-review', cardId: CARD },
+            respond: () =>
+                ok({
+                    comments: [],
+                    context: { label: '#3 Review: /', url: null },
+                }),
+        });
+        await settle();
+
+        const root = openNote();
+        await write(root, 'Lost in transit');
+        fetchMock.mockImplementation(async (url, init) =>
+            init && init.method === 'POST'
+                ? rejected(500, {})
+                : ok({ comments: [], context: null }),
+        );
+        root.getElementById('lp-save').click();
+        await settle();
+        root.getElementById('lp-save').click();
+        await settle();
+
+        root.getElementById('lp-context')
+            .querySelector('.lp-context-label')
+            .click();
+        await settle();
+        root.querySelector('[data-mode="per-note"]').click();
+        await settle();
+        root.getElementById('lp-save').click();
+        await settle();
+
+        const saves = feedbackSaves(fetchMock);
+        expect(saves.map((save) => save.target)).toEqual([
+            { cardId: CARD },
+            { cardId: CARD },
+            { newCard: {} },
+        ]);
+        expect(saves[1].deliveryId).toBe(saves[0].deliveryId);
+        expect(saves[2].deliveryId).not.toBe(saves[0].deliveryId);
+    });
+});
+
 describe('the mode picker', () => {
     it('hands focus back to the draft after a choice and after Back', async () => {
         bootWidget({ respond: () => ok({ comments: [], context: null }) });

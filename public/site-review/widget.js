@@ -1213,6 +1213,7 @@
         composeTarget: null,
         draft: '',
         deliveryId: null,
+        deliveryTarget: null, // the wire target the delivery id was minted for
         addAnchor: false, // the add-another-element modifier is held down
         modCancelled: false, // another key went down during this hold, so it adds nothing
         editId: null, // server id of the comment being edited in place, or null for a new one
@@ -3877,8 +3878,27 @@
                 // this copy long after a rollback, and that instance would otherwise save
                 // every comment as an unanchored note. The current API prefers anchors[].
                 const first = anchors[0];
+                const target =
+                    destination.mode === 'per-review'
+                        ? { cardId: destination.cardId }
+                        : {
+                              newCard:
+                                  destination.mode === 'epic'
+                                      ? { parentCardId: destination.cardId }
+                                      : {},
+                          };
+                // A retry keeps its delivery id only while it names the same
+                // target. The server refuses a known id sent to another one.
+                const targetKey = JSON.stringify(target);
+                if (
+                    state.deliveryId === null ||
+                    state.deliveryTarget !== targetKey
+                ) {
+                    state.deliveryId = newDeliveryId();
+                    state.deliveryTarget = targetKey;
+                }
                 const comment = {
-                    deliveryId: (state.deliveryId ??= newDeliveryId()),
+                    deliveryId: state.deliveryId,
                     body,
                     url: location.href,
                     anchors,
@@ -3889,15 +3909,7 @@
                 };
                 const saved = await api('POST', '/api/board/feedback', {
                     ...comment,
-                    target:
-                        destination.mode === 'per-review'
-                            ? { cardId: destination.cardId }
-                            : {
-                                  newCard:
-                                      destination.mode === 'epic'
-                                          ? { parentCardId: destination.cardId }
-                                          : {},
-                              },
+                    target,
                 });
                 comments.push({ id: saved.commentId, ...comment });
                 savedCard =

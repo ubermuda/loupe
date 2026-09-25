@@ -74,9 +74,13 @@ final readonly class AddFeedbackHandler
                     return $conflict;
                 }
 
-                // A comment saved through the old path has no card to return.
-                return $this->cardSiteReviewComments->findOneBy(['comment' => $retried])
-                    ?? new DomainErrors(['deliveryId' => 'delivery_conflict']);
+                // A comment saved through the old path has no card to return,
+                // and a retry must name the target the first attempt saved to.
+                $saved = $this->cardSiteReviewComments->findOneBy(['comment' => $retried]);
+
+                return null !== $saved && self::sameTarget($command, $saved)
+                    ? $saved
+                    : new DomainErrors(['deliveryId' => 'delivery_conflict']);
             }
 
             // After the retry lookup, so a note saved before the board went off
@@ -170,6 +174,15 @@ final readonly class AddFeedbackHandler
             context: $command->context,
             deliveryId: $command->deliveryId,
         );
+    }
+
+    private static function sameTarget(AddFeedbackCommand $command, CardSiteReviewComment $saved): bool
+    {
+        if (null !== $command->cardId) {
+            return (string) $saved->card->id === strtolower($command->cardId);
+        }
+
+        return $saved->createdCard && (string) $saved->card->parent?->id === strtolower((string) $command->parentCardId);
     }
 
     private static function titleOf(string $body): string

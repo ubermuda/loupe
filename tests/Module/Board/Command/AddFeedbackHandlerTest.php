@@ -169,6 +169,51 @@ final class AddFeedbackHandlerTest extends KernelTestCase
         self::assertSame([], $this->audit->operations());
     }
 
+    public function test_a_retry_to_another_card_is_a_conflict(): void
+    {
+        $project = $this->project('feedback-retry-other-card');
+        $first = $this->card($project, 'backlog');
+        $second = $this->card($project, 'backlog');
+        $deliveryId = (string) Uuid::v4();
+        ($this->handler)($this->command($project, 'One note', cardId: (string) $first->id, deliveryId: $deliveryId));
+
+        $this->assertRefused('deliveryId', 'delivery_conflict', $project, body: 'One note', cardId: (string) $second->id, deliveryId: $deliveryId);
+    }
+
+    public function test_a_retry_asking_for_a_new_card_after_landing_on_one_is_a_conflict(): void
+    {
+        $project = $this->project('feedback-retry-new-card');
+        $card = $this->card($project, 'backlog');
+        $deliveryId = (string) Uuid::v4();
+        ($this->handler)($this->command($project, 'One note', cardId: (string) $card->id, deliveryId: $deliveryId));
+
+        $this->assertRefused('deliveryId', 'delivery_conflict', $project, body: 'One note', deliveryId: $deliveryId);
+    }
+
+    public function test_a_retry_under_another_epic_is_a_conflict(): void
+    {
+        $project = $this->project('feedback-retry-other-epic');
+        $epic = $this->card($project, 'backlog', CardType::Epic);
+        $other = $this->card($project, 'backlog', CardType::Epic);
+        $deliveryId = (string) Uuid::v4();
+        ($this->handler)($this->command($project, 'One note', parentCardId: (string) $epic->id, deliveryId: $deliveryId));
+
+        $this->assertRefused('deliveryId', 'delivery_conflict', $project, body: 'One note', parentCardId: (string) $other->id, deliveryId: $deliveryId);
+        $this->assertRefused('deliveryId', 'delivery_conflict', $project, body: 'One note', deliveryId: $deliveryId);
+    }
+
+    public function test_a_retry_to_the_same_epic_returns_the_saved_note(): void
+    {
+        $project = $this->project('feedback-retry-same-epic');
+        $epic = $this->card($project, 'backlog', CardType::Epic);
+        $command = $this->command($project, 'One note', parentCardId: (string) $epic->id, deliveryId: (string) Uuid::v4());
+
+        $first = ($this->handler)($command);
+        $second = ($this->handler)($command);
+
+        self::assertSame((string) $first->id, (string) $second->id);
+    }
+
     public function test_a_delivery_id_reused_for_another_note_is_a_conflict(): void
     {
         $project = $this->project('feedback-conflict');
