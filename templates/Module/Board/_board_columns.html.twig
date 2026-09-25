@@ -65,6 +65,7 @@
     {% for view in board.columns %}
     {% set label = view.column.label|trans %}
     <section class="lp-board__column"
+             id="board-column-{{ view.column.id }}"
              aria-label="{{ label }}"
              data-column-slug="{{ view.column.slug }}"
              data-column-id="{{ view.column.id }}"
@@ -80,13 +81,14 @@
             {% endif %}
             <span class="lp-tone-dot lp-tone-dot--{{ view.column.tone.value }}" aria-hidden="true"></span>
             <h2 class="lp-board__column-title">{{ label }}</h2>
-            <span class="lp-board__column-count">{{ view.count }}</span>
+            <span class="lp-board__column-count" id="board-count-{{ view.column.id }}">{{ view.count }}</span>
             {% if canManage %}
                 {% include '@Board/_board_column_menu.html.twig' with {board: board, view: view, index: loop.index0, renameColumnForm: renameColumnForm} only %}
             {% endif %}
         </header>
 
         <div class="lp-board__group"
+             id="board-group-{{ view.column.id }}"
              data-board-drag-target="group"
              data-column="{{ view.column.id }}"
              data-rankable="{{ view.column.terminal ? '0' : '1' }}">
@@ -119,19 +121,7 @@
         </div>
         {% for view in board.columns %}
             {% for card in view.cards %}
-                {% set feedbackCount = board.pendingComments[card.id ~ '']|default(0) %}
-                <a class="lp-board-list__row"
-                   href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
-                   data-turbo-frame="card-drawer-frame"
-                   data-action="click->card-drawer#prepare"
-                   data-board-filter-target="row"
-                   data-card-title="{{ card.title }}">
-                    <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong></span>
-                    <span>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</span>
-                    <span>{% include '@Board/_column_tag.html.twig' with {column: view.column} only %}</span>
-                    <span aria-label="{{ 'board.list.agent.unassigned'|trans }}">—</span>
-                    <span>{{ feedbackCount }}</span>
-                </a>
+                {% include '@Board/_card_row.html.twig' with {card: card, column: view.column, feedbackCount: board.pendingComments[card.id ~ '']|default(0)} only %}
             {% endfor %}
         {% endfor %}
     </div>

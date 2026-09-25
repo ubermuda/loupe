@@ -1,5 +1,6 @@
 import './stimulus_bootstrap.js';
 import './lib/live.js';
+import './lib/board_place.js';
 /*
  * Welcome to your app's main JavaScript file!
  *
