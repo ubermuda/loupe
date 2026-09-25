@@ -13,7 +13,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class BoardExtensionTest extends KernelTestCase
 {
-    public function testCardDigestChangesWhenTheCardTakesAnotherRankInItsColumn(): void
+    public function test_card_digest_changes_when_the_card_takes_another_rank_in_its_column(): void
     {
         $extension = static::getContainer()->get(BoardExtension::class);
         self::assertInstanceOf(BoardExtension::class, $extension);
