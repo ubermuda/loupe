@@ -382,6 +382,55 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertSame('2026-01-01T09:59:00+00:00', $timeline->first()->filter('time')->attr('datetime'));
     }
 
+    public function test_a_resumed_run_shows_its_place_in_the_series_and_its_result(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'resume-owner@example.com');
+        $project = $this->project($em, $owner, 'Resumes');
+        $cardId = Uuid::v7();
+        $first = $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Unfinished, hasResult: true);
+        $resume = $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::GaveUp, hasResult: true);
+        $first->resumeIndex = 0;
+        $first->resumeCap = 3;
+        $resume->continuesRun = $first;
+        $resume->resumeIndex = 2;
+        $resume->resumeCap = 3;
+        $resume->resultStatus = 'unfinished';
+        $resume->resultFields = ['branch' => '<b>feat/x</b>', 'tests' => 12];
+        $resume->resumeSkipped = 'card_moved';
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $firstId = (string) $first->id;
+        $resumeId = (string) $resume->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('[data-worker-run-id="'.$resumeId.'"]');
+        self::assertSame('Resume 2 of 3', $row->filter('.lp-worker-run__table-row [data-worker-run-resume]')->text());
+        self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$firstId.'"] [data-worker-run-resume]'));
+
+        $drawer = $row->filter('.lp-run-drawer__body');
+        $continues = $drawer->filter('a[data-worker-run-continues]');
+        self::assertSame($firstId, $continues->text());
+        self::assertStringContainsString('search='.$firstId, (string) $continues->attr('href'));
+        self::assertStringContainsString('Unfinished', $drawer->filter('[data-worker-run-result-status]')->text());
+        self::assertSame(
+            ['branch: <b>feat/x</b>', 'tests: 12'],
+            $drawer->filter('[data-worker-run-result-fields] > div')->each(static fn (Crawler $field): string => $field->filter('dt')->text().': '.$field->filter('dd')->text()),
+        );
+        self::assertStringContainsString('card_moved', $drawer->filter('[data-worker-run-resume-skipped]')->text());
+
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('&lt;b&gt;feat/x&lt;/b&gt;', $body);
+        self::assertStringNotContainsString('<b>feat/x</b>', $body);
+    }
+
     /** The live reload refreshes the counts with the list, and an empty page reloads whole to gain its filters. */
     public function test_the_live_reload_covers_the_counts_and_an_empty_page(): void
     {

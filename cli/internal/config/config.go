@@ -61,6 +61,16 @@ func Dir() (string, error) {
 	return filepath.Join(d, "loupe"), nil
 }
 
+// RunsDir is the directory that holds one directory per worker run.
+func RunsDir() (string, error) {
+	d, err := Dir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(d, "runs"), nil
+}
+
 // Load reads stored credentials, returning ErrNotLoggedIn if none are present.
 func Load() (Config, error) {
 	var c Config

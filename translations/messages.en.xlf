@@ -4912,6 +4912,10 @@
                 <source>board.card.error.epic_children_open</source>
                 <target>This epic has open child cards. Move %cards% to a done column first.</target>
             </trans-unit>
+            <trans-unit id="board.card.error.changed_since_opened">
+                <source>board.card.error.changed_since_opened</source>
+                <target>This card changed since you opened it.</target>
+            </trans-unit>
 
             <!-- Card create and edit pages -->
             <trans-unit id="board.card.create.page.title">
@@ -4949,6 +4953,26 @@
             <trans-unit id="board.card.form.linked_cards.remove">
                 <source>board.card.form.linked_cards.remove</source>
                 <target>Remove this link</target>
+            </trans-unit>
+            <trans-unit id="board.card.form.saving">
+                <source>board.card.form.saving</source>
+                <target>Saving…</target>
+            </trans-unit>
+            <trans-unit id="board.card.form.creating">
+                <source>board.card.form.creating</source>
+                <target>Creating…</target>
+            </trans-unit>
+            <trans-unit id="board.card.form.saved">
+                <source>board.card.form.saved</source>
+                <target>Saved</target>
+            </trans-unit>
+            <trans-unit id="board.card.form.view_latest">
+                <source>board.card.form.view_latest</source>
+                <target>View the latest version</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.confirm_overwrite.label">
+                <source>board.form.create_card_form.confirm_overwrite.label</source>
+                <target>Save anyway</target>
             </trans-unit>
 
             <!-- Terminal column history -->
@@ -5419,6 +5443,11 @@
             <trans-unit id="bridge.worker_runs.details.close"><source>bridge.worker_runs.details.close</source><target>Close</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.card"><source>bridge.worker_runs.details.card</source><target>Card</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.session"><source>bridge.worker_runs.details.session</source><target>Session</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.series"><source>bridge.worker_runs.details.series</source><target>Series</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.continues"><source>bridge.worker_runs.details.continues</source><target>Resumes run</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.result_status"><source>bridge.worker_runs.details.result_status</source><target>Result status</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.resume_skipped"><source>bridge.worker_runs.details.resume_skipped</source><target>Resume skipped</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.result_fields"><source>bridge.worker_runs.details.result_fields</source><target>Result fields</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.unreported"><source>bridge.worker_runs.details.unreported</source><target>The bridge does not report the agent identity or the triggering event.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.timeline"><source>bridge.worker_runs.details.timeline</source><target>Reported timeline</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.received"><source>bridge.worker_runs.details.received</source><target>Report received</target></trans-unit>
@@ -5509,6 +5538,18 @@
                 <source>bridge.worker_runs.state.no_result</source>
                 <target>No result</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.unfinished">
+                <source>bridge.worker_runs.state.unfinished</source>
+                <target>Unfinished</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.blocked">
+                <source>bridge.worker_runs.state.blocked</source>
+                <target>Blocked</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.gave_up">
+                <source>bridge.worker_runs.state.gave_up</source>
+                <target>Gave up</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.state.timed_out">
                 <source>bridge.worker_runs.state.timed_out</source>
                 <target>Timed out</target>
@@ -5536,6 +5577,22 @@
             <trans-unit id="bridge.worker_runs.exit_code">
                 <source>bridge.worker_runs.exit_code</source>
                 <target>exit %code%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.resume">
+                <source>bridge.worker_runs.resume</source>
+                <target>Resume %index% of %cap%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_status.finished">
+                <source>bridge.worker_runs.result_status.finished</source>
+                <target>Finished</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_status.blocked">
+                <source>bridge.worker_runs.result_status.blocked</source>
+                <target>Blocked</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.result_status.unfinished">
+                <source>bridge.worker_runs.result_status.unfinished</source>
+                <target>Unfinished</target>
             </trans-unit>
             <trans-unit id="bridge.worker_runs.interactive">
                 <source>bridge.worker_runs.interactive</source>
@@ -5574,6 +5631,7 @@
             <trans-unit id="board.card.drawer.loading"><source>board.card.drawer.loading</source><target>Loading card…</target></trans-unit>
             <trans-unit id="board.card.drawer.failed"><source>board.card.drawer.failed</source><target>The card could not load. Try again.</target></trans-unit>
             <trans-unit id="board.card.drawer.retry"><source>board.card.drawer.retry</source><target>Retry</target></trans-unit>
+            <trans-unit id="board.card.drawer.deleted"><source>board.card.drawer.deleted</source><target>This card was deleted.</target></trans-unit>
             <trans-unit id="nav.global_actions.label"><source>nav.global_actions.label</source><target>Global tools</target></trans-unit>
             <trans-unit id="nav.new_work"><source>nav.new_work</source><target>New work</target></trans-unit>
             <trans-unit id="nav.activity.open"><source>nav.activity.open</source><target>Open project activity</target></trans-unit>
@@ -5874,6 +5932,7 @@
             <trans-unit id="board.filter.search.label"><source>board.filter.search.label</source><target>Search cards</target></trans-unit>
             <trans-unit id="board.filter.search.placeholder"><source>board.filter.search.placeholder</source><target>Find a card…</target></trans-unit>
             <trans-unit id="board.filter.empty"><source>board.filter.empty</source><target>No cards match these filters.</target></trans-unit>
+            <trans-unit id="board.live.paused"><source>board.live.paused</source><target>Live updates paused</target></trans-unit>
             <trans-unit id="nav.link.agents"><source>nav.link.agents</source><target>Agents</target></trans-unit>
             <trans-unit id="nav.link.rules"><source>nav.link.rules</source><target>Rules</target></trans-unit>
             <trans-unit id="nav.link.activity"><source>nav.link.activity</source><target>Activity</target></trans-unit>
@@ -5891,6 +5950,11 @@
             <trans-unit id="bridge.agents.never"><source>bridge.agents.never</source><target>Not reported</target></trans-unit>
             <trans-unit id="bridge.agents.empty.title"><source>bridge.agents.empty.title</source><target>No crew connection yet</target></trans-unit>
             <trans-unit id="bridge.agents.empty.description"><source>bridge.agents.empty.description</source><target>Connect the bridge to make this project available to your local crew.</target></trans-unit>
+            <trans-unit id="bridge.agents.update.current"><source>bridge.agents.update.current</source><target>Up to date</target></trans-unit>
+            <trans-unit id="bridge.agents.update.updating"><source>bridge.agents.update.updating</source><target>Updating</target></trans-unit>
+            <trans-unit id="bridge.agents.update.rolled_back"><source>bridge.agents.update.rolled_back</source><target>Rolled back from %version%</target></trans-unit>
+            <trans-unit id="bridge.agents.update.blocked"><source>bridge.agents.update.blocked</source><target>Update blocked</target></trans-unit>
+            <trans-unit id="bridge.agents.update.incompatible"><source>bridge.agents.update.incompatible</source><target>Needs %range%</target></trans-unit>
             <trans-unit id="bridge.agents.empty.action"><source>bridge.agents.empty.action</source><target>Connect a bridge</target></trans-unit>
             <trans-unit id="board.rules.page.title"><source>board.rules.page.title</source><target>Rules</target></trans-unit>
             <trans-unit id="board.rules.nav"><source>board.rules.nav</source><target>Rules</target></trans-unit>

@@ -9,6 +9,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardAvailability;
@@ -18,6 +19,7 @@ use App\Module\SiteReview\Command\AddCommentHandler;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -44,6 +46,7 @@ final readonly class AddFeedbackHandler
         private BoardAvailability $board,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -124,6 +127,16 @@ final readonly class AddFeedbackHandler
             ],
             new AuditSubject('card', (string) $link->card->id),
         );
+
+        // A created card announced itself, and its face already counts the note.
+        if (!$link->createdCard) {
+            $this->events->dispatch(new CardChanged(
+                $command->project->id ?? throw new \LogicException('Project has no id.'),
+                $link->card->id ?? throw new \LogicException('Card has no id.'),
+                CardChanged::UPDATED,
+                false,
+            ));
+        }
 
         return $link;
     }

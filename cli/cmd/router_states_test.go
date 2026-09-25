@@ -110,6 +110,8 @@ func (syncQueue) Enqueue(report outbound.Report) {
 
 func (syncQueue) SendLatest(string, func(context.Context) error, func(error)) {}
 
+func (syncQueue) Pending() int { return 0 }
+
 func (syncQueue) Close() {}
 
 // states wires a recorder with the run state endpoints to the router.
@@ -199,11 +201,12 @@ func TestAFinishedRunReportsHowItEnded(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t)
 			rec := h.states()
-			h.worker.result = tc.result
+			h.worker.results = []workerResult{tc.result}
+			h.worker.result = finishedRun
 
 			h.send(cardMoved(87))
 
-			sent := rec.states()
+			sent := ofRun(rec.states(), rec.states()[0].runID)
 			// A process that never started never reads as running.
 			if tc.result.err != nil {
 				wantStates(t, sent, api.RunQueued, tc.want)

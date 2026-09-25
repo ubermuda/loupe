@@ -11,7 +11,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -55,7 +54,7 @@ func serveTest(t *testing.T, handle func(context.Context) reloadResult) (string,
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	done := serveControl(ctx, ln, handle)
+	done := serveControl(ctx, ln, controlOps{reload: handle})
 	t.Cleanup(func() {
 		cancel()
 		<-done
@@ -159,7 +158,7 @@ func TestLockBridgeAllowsOneBridgePerRuleFile(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), lock) {
 			t.Fatalf("lock %s: err = %v, want it to name %s", path, err, lock)
 		}
-		if runtime.GOOS != "windows" && !strings.Contains(err.Error(), "/tmp/first.sock") {
+		if !strings.Contains(err.Error(), "/tmp/first.sock") {
 			t.Fatalf("lock %s: err = %v, want it to name the socket of the first bridge", path, err)
 		}
 	}
@@ -254,7 +253,7 @@ func TestAReloadOntoTheRuleFileOfAnotherBridgeFails(t *testing.T) {
 	if res.OK || res.Stage != "lock" || len(res.Problems) != 1 || !strings.Contains(res.Problems[0], "another bridge") {
 		t.Fatalf("result = %+v, want a lock failure", res)
 	}
-	if runtime.GOOS != "windows" && !strings.Contains(res.Problems[0], "/tmp/second.sock") {
+	if !strings.Contains(res.Problems[0], "/tmp/second.sock") {
 		t.Fatalf("problem = %q, want it to name the other bridge", res.Problems[0])
 	}
 	if h.router.rules() != old {
@@ -495,7 +494,7 @@ func TestTheBridgeAnswersAReloadOnItsSocket(t *testing.T) {
 		t.Fatal(err)
 	}
 	log := &syncBuffer{}
-	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: (&fakeWorker{}).ops(), control: control, source: newReloadSource(path, rules.Defaults{}, cfg, nil)}, set)
+	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: (&fakeWorker{result: finishedRun}).ops(), control: control, source: newReloadSource(path, rules.Defaults{}, cfg, nil)}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -1,16 +1,19 @@
 {# One card face. The whole card is the drag handle, and the grip says so.
    Props: card (Card), pendingComments (int), static (bool, optional): a card
    shown outside the board, which does not drag and names its column instead.
-   A static card also skips the prefetch. progress (CardProgress, optional) shows
-   on an epic. inLane (bool, optional) hides the parent tag its lane already gives. #}
+   A static card also skips the prefetch. progress (CardProgress, optional) shows on an epic. inLane (bool,
+   optional) hides the parent tag its lane gives. runWarning (CardRunWarning, optional) holds until the card leaves its column. #}
 {% set static = static ?? false %}
 {% set progress = progress ?? null %}
 {% set inLane = inLane ?? false %}
+{% set runWarning = runWarning ?? null %}
 <article class="lp-board-card{{ static ? ' lp-board-card--static' }}"
          {% if not static %}data-controller="card-prefetch"
          data-board-drag-target="card"
          data-board-filter-target="card"
-         data-action="pointerdown->board-drag#press mouseenter->card-prefetch#enter mouseleave->card-prefetch#leave focusin->card-prefetch#enter"{% endif %}
+         data-action="pointerdown->board-drag#press mouseenter->card-prefetch#enter mouseleave->card-prefetch#leave focusin->card-prefetch#enter"
+         id="board-card-{{ card.id }}"
+         data-card-digest="{{ card_digest(card, pendingComments) }}"{% endif %}
          data-card-id="{{ card.id }}"
          data-card-type="{{ card.type.value }}"
          data-card-title="{{ card.title }}">
@@ -48,6 +51,18 @@
     {% endif %}
     {% if card.body|trim is not empty %}
     <p class="lp-board-card__excerpt">{{ card.body|striptags|slice(0, 110) }}{% if card.body|length > 110 %}…{% endif %}</p>
+    {% endif %}
+    {% if runWarning is not null and runWarning.appliesTo(card.column.slug) %}
+    <a class="lp-board-card__warning"
+       draggable="false"
+       href="{{ path('app_project_worker_runs', {id: card.project.id, search: runWarning.runId}) }}"
+       data-card-run-warning="{{ runWarning.runId }}">
+        <span class="lp-status-chip lp-status-chip--{{ runWarning.state.chipModifier }}">
+            <twig:ux:icon name="lucide:triangle-alert" class="w-3.5 h-3.5 shrink-0" />
+            {{ runWarning.state.translationKey|trans }}
+        </span>
+        <span class="lp-board-card__excerpt">{{ runWarning.summary|slice(0, 140) }}{% if runWarning.summary|length > 140 %}…{% endif %}</span>
+    </a>
     {% endif %}
     {% if pendingComments > 0 or card.pullRequests|length > 0 or card.documents|length > 0 %}
     <div class="lp-board-card__meta">

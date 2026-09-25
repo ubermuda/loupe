@@ -6,13 +6,16 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\BridgeLiveness;
+use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Bridge\View\AgentConnection;
+use App\Module\Bridge\View\AgentUpdateChip;
 
 final readonly class ListAgentsHandler
 {
     public function __construct(
         private BridgeRepository $bridges,
         private BridgeLiveness $liveness,
+        private CliCompatibility $compatibility,
     ) {
     }
 
@@ -31,9 +34,10 @@ final readonly class ListAgentsHandler
         return new ListAgentsView(
             $command->project,
             array_map(
-                static fn ($bridge): AgentConnection => new AgentConnection(
+                fn ($bridge): AgentConnection => new AgentConnection(
                     $bridge,
                     $statuses[$bridge->id->toRfc4122()],
+                    AgentUpdateChip::for($bridge, $this->compatibility->isCompatible($bridge->cliVersion)),
                 ),
                 $bridges,
             ),

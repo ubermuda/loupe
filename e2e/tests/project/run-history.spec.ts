@@ -13,6 +13,91 @@ const test = createTest({
 // is the fix rather than dropping a pass.
 test.setTimeout(60_000);
 
+test('a resume that gave up shows its place in the series and the run it resumes', async ({
+    page,
+}) => {
+    await suppressWidget(page);
+    const seed = await page.request.post('/dev/seed/document', {
+        form: { title: 'Run series', markdown: '# Series' },
+    });
+    expect(seed.status()).toBe(201);
+    const { projectId } = await seed.json();
+    const token = await agentAccessToken(page);
+    const bridgeId = crypto.randomUUID();
+    const card = { cardId: crypto.randomUUID(), cardNumber: 7 };
+    const report = async (runId: string, data: Record<string, unknown>) => {
+        const response = await page.request.put(
+            `/api/projects/${projectId}/worker-runs/${runId}`,
+            {
+                headers: { Authorization: `Bearer ${token}` },
+                data: {
+                    bridgeId,
+                    at: '2026-09-23T10:00:00+00:00',
+                    ruleName: 'implement',
+                    ...card,
+                    ...data,
+                },
+            },
+        );
+        expect(response.status()).toBe(201);
+
+        return (await response.json()).id as string;
+    };
+    const outcome = {
+        sessionId: crypto.randomUUID(),
+        startedAt: '2026-09-23T10:00:00+00:00',
+        endedAt: '2026-09-23T10:05:00+00:00',
+        exitCode: 0,
+        hasResult: true,
+        resultStatus: 'unfinished',
+        output: 'CI still runs',
+    };
+    const first = crypto.randomUUID();
+    await report(first, { state: 'queued', cardColumn: 'implementation' });
+    const firstId = await report(first, { state: 'unfinished', ...outcome });
+    const resume = crypto.randomUUID();
+    await report(resume, {
+        state: 'queued',
+        cardColumn: 'implementation',
+        continues: first,
+        resumeIndex: 2,
+        resumeCap: 2,
+    });
+    const resumeId = await report(resume, {
+        state: 'gave-up',
+        ...outcome,
+        resultFields: { prUrl: 'https://example.com/pull/1' },
+    });
+
+    await page.goto(`/projects/${projectId}/worker-runs`);
+    const row = page.locator(`[data-worker-run-id="${resumeId}"]`);
+    await expect(
+        row.locator('.lp-worker-run__table-row .lp-status-chip'),
+    ).toHaveText('Gave up');
+    await expect(row.locator('[data-worker-run-resume]')).toHaveText(
+        'Resume 2 of 2',
+    );
+    const firstRow = page.locator(`[data-worker-run-id="${firstId}"]`);
+    await expect(
+        firstRow.locator('.lp-worker-run__table-row .lp-status-chip'),
+    ).toHaveText('Unfinished');
+    await expect(firstRow.locator('[data-worker-run-resume]')).toHaveCount(0);
+
+    await row.getByRole('button', { name: 'View attempt' }).click();
+    const drawer = page.getByRole('dialog', { name: 'Run attempt' });
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toContainText('Resume 2 of 2');
+    await expect(
+        drawer.locator('[data-worker-run-result-status]'),
+    ).toContainText('Unfinished');
+    await expect(
+        drawer.locator('[data-worker-run-result-fields]'),
+    ).toContainText('https://example.com/pull/1');
+    await expect(drawer.locator('[data-worker-run-continues]')).toHaveText(
+        firstId,
+    );
+});
+
 test('completed reports retain outcomes and escaped output at enlarged text sizes', async ({
     page,
 }) => {

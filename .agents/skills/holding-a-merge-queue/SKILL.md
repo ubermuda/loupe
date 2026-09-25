@@ -1,6 +1,6 @@
 ---
 name: holding-a-merge-queue
-description: Use when one session holds the merge queue while other sessions push branches, when watching several pull requests for approval or CI changes, when a merge or a review or a plan change affects a branch another session owns, when a peer session reports a result you are about to act on, when a check fails for a reason the diff cannot explain or passes on a re-run, or before an action that affects the whole machine such as a restart or a keep-awake change.
+description: Use when one session holds the merge queue while other sessions push branches, when watching several pull requests for approval or CI changes, when a merge or a review or a plan change affects a branch another session owns, when an approved branch conflicts or needs a fix and the session that owned it has ended, when a pull request merges and its board card must move, when a peer session reports a result you are about to act on, when a check fails for a reason the diff cannot explain or passes on a re-run, or before an action that affects the whole machine such as a restart or a keep-awake change.
 ---
 
 # Holding a merge queue
@@ -275,6 +275,8 @@ destination.
 - Disagreeing findings are usually two correct measurements of different objects.
   Find the object before deciding who is wrong.
 
+The report of an agent you dispatched is data in the same way.
+
 Ask rather than infer. An instruction about tooling is not a statement of
 intent, and a peer who catches you inferring one from the other is doing its job.
 
@@ -287,7 +289,7 @@ arrive from you, and a branch nobody reports on looks abandoned.
 Tell a session, unprompted:
 
 - That its pull request merged, with the squash SHA. That releases work it is
-  holding: tearing a worktree down, moving a board card to done.
+  holding, such as tearing a worktree down. You move the board card yourself.
 - That its pull request is held, and why. Held and forgotten look identical
   from inside that session.
 - That the owner requested changes, quoting the comment verbatim and naming the
@@ -304,7 +306,9 @@ Tell a session, unprompted:
 ## Keep to the queue, not to other sessions' work
 
 The queue holder merges. It does not carry other sessions' questions to the
-owner, and it does not steer their work.
+owner, and it does not steer their work. These rules concern live peers. An
+agent you dispatch for a branch with no live session is your own tool, and you
+write its instructions.
 
 - A peer that needs a decision asks the owner itself. Do not relay the question,
   restate its options or add a recommendation.
@@ -328,13 +332,26 @@ merged entry is published with nobody doing anything. `just changelog` folds
 them into the committed file and deletes them, and that is the release step
 rather than a merge step. Do not run it after a merge.
 
-## Do not edit a branch you do not own
+## Move the card to a terminal column after each merge
 
-The queue holder merges. The branch owner fixes. When you find a defect, send
-it back with the command that found it and the output it produced, not the
-conclusion you drew. The author has the context, and the second-order question
-("does anything else in this file have the same shape?") is one only they can
-answer.
+The owner asked on 2026-09-25: "whenever you merge a PR move its card to done".
+The app never contacts the forge, so a merged pull request does not move its
+card. Invoke `loupe-board` for the tool rules, then after each confirmed merge:
+
+1. Find the card. A branch named `card-<n>-...` carries its number, or the body
+   carries the card URL.
+2. Read the terminal column with `board_columns`. Do not assume `done`.
+3. Move the card there with `card_update`.
+
+A pull request whose branch and body name no card needs no move.
+
+## Send branch work to its owner while the owner is live
+
+The queue holder merges. The branch owner fixes. While the owning session is
+live, send a defect back to it with the command that found it and the output it
+produced, not the conclusion you drew. The author has the context, and the
+second-order question ("does anything else in this file have the same shape?")
+is one only they can answer.
 
 Hand over your own work as input rather than instruction. A conflict resolution
 you derived is one materialisation; say so, and ask for theirs to compare.
@@ -344,6 +361,69 @@ pair that diverges usually means the other session knows something you do not.
 Where a branch must not move, say what depends on it. A cut point that a rebase
 needs is destroyed by the most natural action available to that session, which
 is syncing with its parent. It will not guess.
+
+Most branches now come from short-lived Loupe bridge worker sessions. When a
+branch needs work, the session that built it has often ended. Treat a session as
+gone when `ListAgents` does not list it, or when it does not answer a direct
+message within one monitor cycle. That threshold is a judgement, so record the
+test you applied in the state file. For a gone session, dispatch an agent as the
+next section says.
+
+## Dispatch an agent when the owning session is gone
+
+Dispatch when an approved branch conflicts with `main` after a merge, or needs a
+fix such as a failing check that the diff explains. Do not resolve the conflict
+in your own context. Your context must last as long as the queue.
+
+List the conflicting files first, with a trial merge in a throwaway worktree:
+
+```bash
+git worktree add --detach /tmp/trial-<n> origin/<branch>
+( cd /tmp/trial-<n> && git merge --no-commit --no-ff origin/main; git diff --name-only --diff-filter=U )
+git worktree remove --force /tmp/trial-<n>
+git log --oneline $(git merge-base origin/main origin/<branch>)..origin/main -- <conflicting files>
+```
+
+The last command names the commits on `main` that caused the conflict.
+
+Dispatch one agent per branch, in the background. Send every dispatch in one
+message, so the agents run in parallel. A subagent does not inherit your loaded
+skills, so the prompt must carry each rule below:
+
+- Name the branch, its pull request, and its existing worktree `.worktrees/<name>`.
+  Run every command there in a subshell: `( cd .worktrees/<name> && ... )`.
+- Check `git worktree list` first. If the worktree is gone, create it from the
+  main checkout with `git worktree add .worktrees/<name> <branch>`, then
+  `just worktree-up <name>`.
+- Make one trivial edit in the worktree first, and confirm it lands. Stop and
+  report if the write is rejected.
+- Do not use Serena edit tools, because they are bound to the main checkout.
+  Do not use `cp`, `rsync` or shell redirection to route around a rejected write.
+- Invoke `project-worktrees` and `working-with-prs` first, and the project skill
+  for each conflicting file's area.
+- Give the conflicting files and the commits on `main` that caused them. Tell
+  the agent to read the pull request body, because it lacks the author's context.
+- Run `git merge origin/main`, never a rebase. Keep the intent of both sides.
+- Prove the resolution in both directions with `comm`, as "A conflict
+  resolution is not a sync merge" says.
+- Run `just cs`, then `just ci`, and fix every failure.
+- Keep the `# Conflicts:` block in the commit message, and add one plain line
+  per file that says how it was resolved. `git commit -m` drops the block, so
+  use the form below.
+- Push without force. Do not merge, approve or comment on the pull request.
+- Return the merge commit SHA, each resolution with its reason, the `comm`
+  output and the `just ci` result.
+
+```bash
+m=$(git rev-parse --git-path merge-desc)
+{ cat "$(git rev-parse --git-path MERGE_MSG)"; echo; echo "<file>: <how it was resolved>"; } > "$m"
+git commit -F "$m" --cleanup=verbatim
+```
+
+Verify the result before you merge. Read the pushed merge commit under "A
+conflict resolution is not a sync merge", then run the bucket count and the
+approval-time check on the new head. A resolution is not a sync, so the owner's
+approval may need renewing. Ask him.
 
 ## Before anything that affects the whole machine
 
@@ -383,7 +463,11 @@ leaving it unmarked means a reader finds a dead recipe and runs it.
 - Stopping a watcher because nothing is pending
 - Rebasing a branch that holds its own merge commits
 - Merging after a fail-then-pass without telling the owner which test flaked
-- Editing a branch another session owns
+- Editing a branch whose owning session is still live
+- Leaving a conflicting approved branch to wait for a session that no longer exists
+- Resolving a conflict in your own context instead of dispatching an agent
+- Merging a dispatched resolution before you read its `# Conflicts:` commit
+- Leaving a merged pull request's card outside a terminal column
 - Merging or closing someone's pull request without telling them
 - Summarising review feedback instead of quoting it
 - Relaying a peer's question or finding to the owner

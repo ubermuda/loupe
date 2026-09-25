@@ -2,6 +2,7 @@
 import { Application } from '@hotwired/stimulus';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import CardDrawerController from '../../assets/controllers/card_drawer_controller.js';
+import { on, reset } from '../../assets/lib/live.js';
 
 let application;
 let controller;
@@ -10,6 +11,7 @@ let completions;
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 beforeEach(async () => {
+    reset();
     completions = [];
     vi.stubGlobal('matchMedia', () => ({ matches: false }));
     document.body.innerHTML = `<div data-controller="card-drawer">
@@ -18,6 +20,7 @@ beforeEach(async () => {
         <dialog open data-card-drawer-target="dialog">
             <div data-card-drawer-target="loading" tabindex="-1" hidden>Loading</div>
             <div data-card-drawer-target="error" hidden><button>Retry</button></div>
+            <div data-card-drawer-target="deleted" hidden><button type="button">Close card</button></div>
             <turbo-frame data-card-drawer-target="frame"><div class="lp-flash"><button type="button">Dismiss</button></div><button type="button" data-panel-tabs-target="tab" aria-selected="true">Overview</button><form><textarea>Draft reply</textarea></form></turbo-frame>
         </dialog>
     </div>`;
@@ -185,7 +188,7 @@ it('returns focus to the same link when a board reload replaced the invoker', as
     expect(document.activeElement).toBe(replacement);
 });
 
-it('announces a save in the drawer so the board can reload', () => {
+it('announces a save in the drawer so a list behind it can reload', () => {
     const saved = vi.fn();
     window.addEventListener('card-drawer:saved', saved);
     const cardForm = document.createElement('form');
@@ -198,6 +201,144 @@ it('announces a save in the drawer so the board can reload', () => {
     window.removeEventListener('card-drawer:saved', saved);
     expect(saved).toHaveBeenCalledOnce();
 });
+
+it('tells the page which card an edit saved, as a change of its own', () => {
+    const changes = [];
+    const stop = on('board.card_changed', (change) => changes.push(change));
+    const editForm = cardForm({ cardDrawerCardId: 'card-1' });
+    controller.submitted({ target: editForm, detail: { success: true } });
+    controller.submitted({ target: editForm, detail: { success: false } });
+    stop();
+    expect(changes).toEqual([
+        {
+            cardId: 'card-1',
+            change: 'updated',
+            type: 'board.card_changed',
+            local: true,
+            own: true,
+        },
+    ]);
+});
+
+it('reloads the board behind it after a lane turns on or off', () => {
+    const changes = [];
+    const stop = on('board.columns_changed', (change) => changes.push(change));
+    const cardChanges = [];
+    const stopCards = on('board.card_changed', (change) =>
+        cardChanges.push(change),
+    );
+    const laneForm = document.createElement('form');
+    laneForm.dataset.cardDrawerReloadsBoard = '';
+    controller.submitted({ target: laneForm, detail: { success: true } });
+    controller.submitted({ target: laneForm, detail: { success: false } });
+    stop();
+    stopCards();
+    expect(changes).toEqual([
+        { type: 'board.columns_changed', local: true, own: true },
+    ]);
+    // A lane adds or removes a row, which no placement of one card can show.
+    expect(cardChanges).toEqual([]);
+});
+
+it('closes after a create the server answered with a stream, and stays open on a form', () => {
+    const createForm = cardForm({ cardDrawerCreatesCard: '' });
+    const answer = (contentType) => ({
+        target: createForm,
+        detail: { success: true, fetchResponse: { contentType } },
+    });
+    controller.submitted(answer('text/html; charset=UTF-8'));
+    expect(controller.closeRequest).toBeFalsy();
+    controller.submitted(answer('text/vnd.turbo-stream.html; charset=UTF-8'));
+    expect(controller.closeRequest).toBeTruthy();
+});
+
+it('shows the clash notice when someone else changes the text of the open card', () => {
+    const clash = openEditForm('card-1');
+    controller.cardChanged(remote({ contentChanged: false }));
+    expect(clash.hidden).toBe(true);
+    controller.cardChanged(remote({ contentChanged: true, own: true }));
+    controller.cardChanged(remote({ contentChanged: true, cardId: 'card-2' }));
+    expect(clash.hidden).toBe(true);
+    controller.cardChanged(remote({ contentChanged: true }));
+    expect(clash.hidden).toBe(false);
+    expect(controller.frameTarget.querySelector('textarea').value).toBe(
+        'My text',
+    );
+});
+
+it('shows the deleted state when someone else deletes the open card', () => {
+    openEditForm('card-1');
+    controller.cardChanged(remote({ change: 'deleted', cardId: 'card-2' }));
+    expect(controller.deletedTarget.hidden).toBe(true);
+    controller.cardChanged(remote({ change: 'deleted' }));
+    expect(controller.deletedTarget.hidden).toBe(false);
+    expect(controller.frameTarget.hidden).toBe(true);
+    expect(document.activeElement.textContent).toBe('Close card');
+    // The next card the drawer opens hides the state again.
+    controller.prepare({ currentTarget: document.getElementById('invoker') });
+    expect(controller.deletedTarget.hidden).toBe(true);
+});
+
+it('shows the deleted state for a save the server answers with 404', () => {
+    const form = openEditForm('card-1').closest('form');
+    const event = {
+        target: form,
+        preventDefault: vi.fn(),
+        detail: {
+            fetchResponse: { succeeded: false, isHTML: true, statusCode: 404 },
+        },
+    };
+    controller.received(event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(controller.deletedTarget.hidden).toBe(false);
+    expect(controller.errorTarget.hidden).toBe(true);
+});
+
+it('leaves a 404 from another form on the card, such as a reply, to that form', () => {
+    controller.frameTarget.innerHTML =
+        '<div data-card-drawer-card-id="card-1"><form><textarea>Reply</textarea></form></div>';
+    const event = {
+        target: controller.frameTarget.querySelector('form'),
+        preventDefault: vi.fn(),
+        detail: {
+            fetchResponse: { succeeded: false, isHTML: true, statusCode: 404 },
+        },
+    };
+    controller.received(event);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(controller.deletedTarget.hidden).toBe(true);
+});
+
+function cardForm(dataset) {
+    const form = document.createElement('form');
+    form.dataset.cardDrawerSavesCard = '';
+    Object.assign(form.dataset, dataset);
+
+    return form;
+}
+
+function openEditForm(cardId) {
+    controller.frameTarget.innerHTML = `<form data-card-drawer-saves-card data-card-drawer-card-id="${cardId}">
+        <textarea>My text</textarea>
+        <div data-card-drawer-target="clash" hidden><button type="submit">Save anyway</button></div>
+    </form>`;
+    controller.frameTarget.hidden = false;
+
+    return controller.frameTarget.querySelector(
+        '[data-card-drawer-target="clash"]',
+    );
+}
+
+function remote(overrides) {
+    return {
+        cardId: 'card-1',
+        change: 'updated',
+        contentChanged: false,
+        local: false,
+        own: false,
+        ...overrides,
+    };
+}
 
 it('keeps the focus of a reader already typing in the loaded content', () => {
     controller.frameTarget.insertAdjacentHTML(

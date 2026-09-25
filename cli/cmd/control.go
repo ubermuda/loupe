@@ -13,7 +13,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -54,13 +53,23 @@ func socketPath(rulesPath string) (string, error) {
 		return "", err
 	}
 
-	return bridgeFile(abs, ".sock")
+	return bridgeFile("bridge-", abs, ".sock")
 }
 
 // lockPath names the lock file of the bridge that reads rulesPath. The name
 // comes from the absolute path with symlinks resolved, so two paths to one
 // file share the lock. A path that does not resolve stays as is.
 func lockPath(rulesPath string) (string, error) {
+	key, err := lockKey(rulesPath)
+	if err != nil {
+		return "", err
+	}
+
+	return bridgeFile("bridge-", key, ".lock")
+}
+
+// lockKey is the absolute rule path with symlinks resolved, when they resolve.
+func lockKey(rulesPath string) (string, error) {
 	abs, err := filepath.Abs(rulesPath)
 	if err != nil {
 		return "", err
@@ -69,18 +78,19 @@ func lockPath(rulesPath string) (string, error) {
 		abs = real
 	}
 
-	return bridgeFile(abs, ".lock")
+	return abs, nil
 }
 
-// bridgeFile names a file in the config directory from a hash of key.
-func bridgeFile(key, ext string) (string, error) {
+// bridgeFile names a file in the config directory from a prefix and a hash of
+// key.
+func bridgeFile(prefix, key, ext string) (string, error) {
 	dir, err := config.Dir()
 	if err != nil {
 		return "", err
 	}
 	sum := sha256.Sum256([]byte(key))
 
-	return filepath.Join(dir, "bridge-"+hex.EncodeToString(sum[:])[:12]+ext), nil
+	return filepath.Join(dir, prefix+hex.EncodeToString(sum[:])[:12]+ext), nil
 }
 
 // bridgeLock is the lock that a running bridge holds on the file that its
@@ -162,7 +172,6 @@ func lockFileAt(path, sock string) (*os.File, error) {
 			return nil, fmt.Errorf("lock %s: %w", path, err)
 		}
 		where := ""
-		// Windows refuses a read of the locked byte, so the socket stays unnamed there.
 		if other, err := os.ReadFile(path); err == nil && len(other) > 0 {
 			where = " and listens on " + string(other)
 		}
@@ -206,21 +215,27 @@ func listenControl(path string) (net.Listener, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listen on the control socket: %w", err)
 	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(path, 0o600); err != nil {
-			ln.Close()
+	if err := os.Chmod(path, 0o600); err != nil {
+		ln.Close()
 
-			return nil, fmt.Errorf("restrict the control socket: %w", err)
-		}
+		return nil, fmt.Errorf("restrict the control socket: %w", err)
 	}
 
 	return ln, nil
 }
 
-// serveControl answers each connection on ln with handle until ctx ends. The
+// controlOps answers the ops of the control socket. update may send one early
+// line before an exec ends the connection. When the exec fails, its return
+// value follows as a second line.
+type controlOps struct {
+	reload func(ctx context.Context) reloadResult
+	update func(ctx context.Context, reply func(updateResult)) updateResult
+}
+
+// serveControl answers each connection on ln with ops until ctx ends. The
 // channel closes when the listener and every connection are closed. Closing a
 // Unix listener removes its socket file.
-func serveControl(ctx context.Context, ln net.Listener, handle func(context.Context) reloadResult) <-chan struct{} {
+func serveControl(ctx context.Context, ln net.Listener, ops controlOps) <-chan struct{} {
 	done := make(chan struct{})
 	stop := context.AfterFunc(ctx, func() { ln.Close() })
 	var wg sync.WaitGroup
@@ -242,7 +257,7 @@ func serveControl(ctx context.Context, ln net.Listener, handle func(context.Cont
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				answer(ctx, conn, handle)
+				answer(ctx, conn, ops)
 			}()
 		}
 	}()
@@ -250,9 +265,10 @@ func serveControl(ctx context.Context, ln net.Listener, handle func(context.Cont
 	return done
 }
 
-// answer reads one JSON line and writes one JSON line back. A connection that
-// sends no complete line gets no answer.
-func answer(ctx context.Context, conn net.Conn, handle func(context.Context) reloadResult) {
+// answer reads one JSON line and writes one JSON line back, or an early line
+// and the answer for an update. A connection that sends no complete line gets
+// no answer, and a connection gets one answer only.
+func answer(ctx context.Context, conn net.Conn, ops controlOps) {
 	defer conn.Close()
 	stop := context.AfterFunc(ctx, func() { conn.Close() })
 	defer stop()
@@ -263,29 +279,43 @@ func answer(ctx context.Context, conn net.Conn, handle func(context.Context) rel
 		return
 	}
 
-	var res reloadResult
+	var mu sync.Mutex
+	early, done := false, false
+	write := func(res any, last bool) {
+		mu.Lock()
+		defer mu.Unlock()
+		if done || (!last && early) {
+			return
+		}
+		early = true
+		if b, err := json.Marshal(res); err == nil {
+			conn.SetWriteDeadline(time.Now().Add(requestTimeout))
+			conn.Write(append(b, '\n'))
+		}
+		if last {
+			done = true
+			conn.Close()
+		}
+	}
+	send := func(res any) { write(res, true) }
 	var req struct {
 		Op string `json:"op"`
 	}
 	switch {
 	case err != nil:
-		res = refused(fmt.Sprintf("the request is longer than %d bytes", maxRequest))
+		send(refused(fmt.Sprintf("the request is longer than %d bytes", maxRequest)))
 	case json.Unmarshal([]byte(line), &req) != nil:
-		res = refused("the request is not one JSON object")
-	case req.Op != "reload":
-		res = refused(fmt.Sprintf("unknown op %q: only reload is known", req.Op))
-	default:
-		// A reload can take up to a minute, which is longer than the deadline.
+		send(refused("the request is not one JSON object"))
+	case req.Op == "reload" && ops.reload != nil:
+		// A reload or an update runs longer than the deadline.
 		conn.SetDeadline(time.Time{})
-		res = handle(ctx)
+		send(ops.reload(ctx))
+	case req.Op == "update" && ops.update != nil:
+		conn.SetDeadline(time.Time{})
+		send(ops.update(ctx, func(res updateResult) { write(res, false) }))
+	default:
+		send(refused(fmt.Sprintf("unknown op %q: only reload and update are known", req.Op)))
 	}
-
-	b, err := json.Marshal(res)
-	if err != nil {
-		return
-	}
-	conn.SetWriteDeadline(time.Now().Add(requestTimeout))
-	conn.Write(append(b, '\n'))
 }
 
 func refused(problem string) reloadResult {

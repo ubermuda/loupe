@@ -79,6 +79,7 @@ security:
         # segment, a project id or slug.
         - { path: '^/api/projects$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/board/columns$', roles: ROLE_API_AGENT }
+        - { path: '^/api/projects/[^/]+/board/cards/[^/]+$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/bridges/[^/]+/rules$', roles: ROLE_API_AGENT }
         - { path: '^/api/events$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/worker-runs$', roles: ROLE_API_AGENT }

@@ -13,7 +13,7 @@ import (
 
 func TestHooksRunRunsOneHookWithTheBridgeEnvironment(t *testing.T) {
 	_, path := hooksEnv(t)
-	gh := newFakeGitHub(t)
+	gh := newFakeHookRepo(t)
 	gh.script = "#!/bin/sh\necho \"event=$LOUPE_HOOK_EVENT package=$LOUPE_HOOK_PACKAGE arg=$1\"\n" +
 		"echo \"loud=$LOUPE_HOOK_SETTING_LOUD bridge=$LOUPE_BRIDGE_ID\"\necho oops >&2\n"
 	installTool(t, path)
@@ -42,7 +42,7 @@ func TestHooksRunRunsOneHookWithTheBridgeEnvironment(t *testing.T) {
 
 func TestHooksRunReportsAFailure(t *testing.T) {
 	_, path := hooksEnv(t)
-	gh := newFakeGitHub(t)
+	gh := newFakeHookRepo(t)
 	gh.script = "#!/bin/sh\necho denied\nexit 3\n"
 	installTool(t, path)
 
@@ -57,7 +57,7 @@ func TestHooksRunReportsAFailure(t *testing.T) {
 
 func TestHooksRunRefusesAnEventThePackageLacks(t *testing.T) {
 	_, path := hooksEnv(t)
-	newFakeGitHub(t)
+	newFakeHookRepo(t)
 	installTool(t, path)
 
 	_, err := runHooks(t, "", "run", "acme/tool", "busy", "--rules", path)

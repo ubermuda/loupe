@@ -11,6 +11,7 @@ final readonly class AgentConnection
     public function __construct(
         public Bridge $bridge,
         public BridgeStatus $status,
+        public ?AgentUpdateChip $updateChip,
     ) {
     }
 }

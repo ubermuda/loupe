@@ -248,9 +248,10 @@ services:
       database:
         condition: service_healthy
 
-  # Site-review push, and live refresh of open boards. The hub keeps updates in
-  # memory, so a restart drops undelivered ones: the outbox plus Last-Event-ID
-  # make replay authoritative for the bridge CLI.
+  # Site-review push, and live refresh of open boards. The hub keeps its history
+  # in /data/caddy/mercure.db with no size limit. No volume holds that file, so
+  # recreating the container drops it. The outbox publishes again what a down
+  # hub refused, and it cannot restore a lost history.
   mercure:
     image: dunglas/mercure:v0.24
     restart: unless-stopped

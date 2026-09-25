@@ -9,15 +9,18 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 
 /**
- * Identical fields and constraints to {@see CreateCardRequest}; the only
- * addition is the factory that pre-fills the edit form from the card.
+ * The fields and constraints of {@see CreateCardRequest}, the factory that
+ * pre-fills the edit form from the card, and the fingerprint of its text.
  */
 class UpdateCardRequest extends CreateCardRequest
 {
+    /** Card::contentFingerprint() of the text the form opened with. */
+    public ?string $contentFingerprint = null;
+
     /** @param list<RelatedCard> $relatedCards the card's links, each as the card reads it */
     public static function fromCard(Card $card, array $relatedCards): self
     {
-        return new self(
+        $request = new self(
             title: $card->title,
             body: $card->body,
             type: $card->type,
@@ -32,5 +35,8 @@ class UpdateCardRequest extends CreateCardRequest
             ),
             parent: $card->parent,
         );
+        $request->contentFingerprint = Card::contentFingerprint($card->title, $card->body);
+
+        return $request;
     }
 }

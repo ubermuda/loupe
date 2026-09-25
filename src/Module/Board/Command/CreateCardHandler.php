@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -165,6 +166,13 @@ final readonly class CreateCardHandler
             ],
             new AuditSubject('card', (string) $card->id),
         );
+
+        $this->events->dispatch(new CardChanged(
+            $command->project->id ?? throw new \LogicException('Project has no id.'),
+            $card->id ?? throw new \LogicException('Card has no id.'),
+            CardChanged::CREATED,
+            true,
+        ));
 
         return $card;
     }

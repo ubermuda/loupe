@@ -252,6 +252,40 @@ test('a lane switched off shows the parent tag and the progress', async ({
     ).toHaveText('1/2 done');
 });
 
+test('the lane button in the card drawer shows the lane on the board behind it', async ({
+    page,
+    board,
+}) => {
+    const epic = await board.create(`Drawer epic ${RUN}`, { type: 'epic' });
+    await board.create(`Drawer child ${RUN}`, { parent: epic });
+
+    await page.goto(board.boardUrl);
+    await expect(page.locator(READY)).toBeAttached();
+    await markBoard(page);
+    await lane(page, epic.id)
+        .getByRole('button', { name: 'Hide the lane on the board' })
+        .click();
+    await boardReplaced(page);
+    await expect(page.locator('.lp-board-lane')).toHaveCount(0);
+
+    await page
+        .locator(`${CARD}[data-card-id="${epic.id}"] .lp-board-card__title`)
+        .click();
+    const drawer = page.locator('dialog.lp-card-drawer-overlay');
+    await expect(drawer).toHaveJSProperty('open', true);
+    await markBoard(page);
+    await drawer
+        .getByRole('button', { name: 'Show as a lane on the board' })
+        .click();
+
+    await boardReplaced(page);
+    await expect(lane(page, epic.id)).toBeVisible();
+    await expect(drawer).toHaveJSProperty('open', true);
+    await expect(
+        drawer.getByRole('button', { name: 'Hide the lane on the board' }),
+    ).toBeVisible();
+});
+
 test('a collapsed lane stays collapsed in this browser only', async ({
     page,
     board,

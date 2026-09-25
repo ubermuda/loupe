@@ -102,7 +102,7 @@ final class BoardLanesTest extends WebTestCase
         self::assertCount(4, $other->filter('.lp-board__add-card'));
         self::assertSelectorTextContains('.lp-board-toolbar__count', '3 cards');
         // The list view still lists the epic.
-        self::assertCount(1, $crawler->filter('.lp-board-list__row[data-list-card-id="'.$epicId.'"]'));
+        self::assertCount(1, $crawler->filter('.lp-board-list__row[data-card-id="'.$epicId.'"]'));
     }
 
     public function test_a_lane_switched_off_mixes_its_children_in_with_a_parent_tag(): void

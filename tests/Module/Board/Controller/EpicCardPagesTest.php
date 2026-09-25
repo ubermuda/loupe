@@ -147,6 +147,24 @@ final class EpicCardPagesTest extends WebTestCase
         self::assertTrue($this->reload($em, $epicId)->laneEnabled);
     }
 
+    public function test_the_lane_form_in_the_drawer_reloads_the_board_behind_it(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'epic-lane-drawer@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Drawer epic'), CardType::Epic);
+        $epicId = $epic->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $this->cardUrl($project, $epicId), server: ['HTTP_TURBO_FRAME' => 'card-drawer-frame']);
+
+        // card-drawer#submitted reloads the board for a form that carries this marker.
+        self::assertCount(1, $crawler->filter('form[name="'.SetCardLaneFormType::PREFIX.$epicId.'"][data-card-drawer-reloads-board]'));
+    }
+
     public function test_the_lane_form_returns_to_the_board_when_asked(): void
     {
         $client = static::createClient();
@@ -236,9 +254,9 @@ final class EpicCardPagesTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
 
         self::assertResponseIsSuccessful();
-        $childRow = $crawler->filter('.lp-board-list__row[data-list-card-id="'.$childId.'"] [data-card-parent]');
+        $childRow = $crawler->filter('.lp-board-list__row[data-card-id="'.$childId.'"] [data-card-parent]');
         self::assertSame('#'.$epicNumber, trim($childRow->text()));
-        $epicRow = $crawler->filter('.lp-board-list__row[data-list-card-id="'.$epicId.'"] [data-card-parent]');
+        $epicRow = $crawler->filter('.lp-board-list__row[data-card-id="'.$epicId.'"] [data-card-parent]');
         self::assertSame('—', trim($epicRow->text()));
     }
 

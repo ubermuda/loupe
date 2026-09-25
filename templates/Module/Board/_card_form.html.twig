@@ -1,7 +1,15 @@
 {# The card form, shared by create and edit. Props: form, action, submitLabel,
-   cancelUrl, cancelLeavesFrame (Cancel closes the card drawer rather than
-   loading cancelUrl inside it). #}
-{{ form_start(form, {action: action, attr: {class: 'lp-form', 'data-card-drawer-saves-card': ''}}) }}
+   busyLabel, cancelUrl, cancelLeavesFrame (Cancel closes the card drawer rather
+   than loading cancelUrl inside it), card (the card edited, or null), saved. #}
+{% set formAttributes = {
+    class: 'lp-form',
+    'data-card-drawer-saves-card': '',
+    'data-controller': 'submit-feedback',
+    'data-submit-feedback-saved-label-value': 'board.card.form.saved'|trans,
+} %}
+{% set formAttributes = formAttributes|merge(card ? {'data-card-drawer-card-id': card.id} : {'data-card-drawer-creates-card': ''}) %}
+{% if saved %}{% set formAttributes = formAttributes|merge({'data-submit-feedback-saved-value': 'true'}) %}{% endif %}
+{{ form_start(form, {action: action, attr: formAttributes}) }}
     <div class="lp-field-errors">{{ form_errors(form) }}</div>
 
     <div class="lp-form-field">
@@ -69,6 +77,18 @@
 
     <div class="flex items-center justify-end gap-3 pt-2">
         <a class="lp-btn lp-btn--ghost mr-auto" href="{{ cancelUrl }}"{% if cancelLeavesFrame %} data-turbo-frame="_top" data-action="card-drawer#close"{% endif %}>{{ 'board.card.form.cancel'|trans }}</a>
-        <button type="submit" class="lp-btn lp-btn--primary">{{ submitLabel|trans }}</button>
+        <button type="submit" class="lp-btn lp-btn--primary" data-turbo-submits-with="{{ busyLabel|trans }}" data-submit-feedback-target="button">{{ submitLabel|trans }}</button>
     </div>
+    <p class="sr-only" role="status" data-submit-feedback-target="status"></p>
+
+    {% if card %}
+        {{ form_widget(form.contentFingerprint) }}
+        {# After the Save button, so Enter in a field never submits Save anyway.
+           The server shows it for a refused save, and the drawer for a change it hears of. #}
+        <div class="lp-card-clash" role="alert" data-card-drawer-target="clash"{% if form.contentFingerprint.vars.errors is empty %} hidden{% endif %}>
+            <span class="lp-card-clash__message">{{ 'board.card.error.changed_since_opened'|trans }}</span>
+            <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}">{{ 'board.card.form.view_latest'|trans }}</a>
+            {{ form_widget(form.confirmOverwrite, {attr: {class: 'lp-btn lp-btn--sm', 'data-turbo-submits-with': busyLabel|trans}}) }}
+        </div>
+    {% endif %}
 {{ form_end(form) }}

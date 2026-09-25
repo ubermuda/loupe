@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
+use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
@@ -15,6 +20,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Profiler\Profile;
+use Symfony\Component\Uid\Uuid;
 
 final class ShowBoardControllerTest extends WebTestCase
 {
@@ -282,6 +288,166 @@ final class ShowBoardControllerTest extends WebTestCase
         // The links ride along on the board's own query. Drop the fetch-join in
         // CardRepository and each card on the page loads its own.
         self::assertSame(0, $lazyLinkReads);
+    }
+
+    /** The warning holds while the card stays in the column that started the run, or when the run names none. */
+    public function test_a_card_shows_the_run_that_gave_up_until_it_leaves_the_column(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-run-warning@example.com');
+        $project = $this->project($em, $owner, 'warned');
+        $stays = $this->card($em, $project, 'Stays', 'in-progress');
+        $moved = $this->card($em, $project, 'Moved', 'next');
+        $unnamed = $this->card($em, $project, 'Unnamed', 'backlog');
+        $quiet = $this->card($em, $project, 'Quiet', 'backlog');
+        $gaveUp = $this->workerRun($em, $project, $stays, WorkerRunState::GaveUp, 'in-progress', 'Tests <em>still</em> fail.');
+        $this->workerRun($em, $project, $moved, WorkerRunState::GaveUp, 'in-progress', 'Moved away.');
+        $blocked = $this->workerRun($em, $project, $unnamed, WorkerRunState::Blocked, null, 'Needs a token.');
+        $this->workerRun($em, $project, $quiet, WorkerRunState::Succeeded, 'backlog', 'Done.');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        $warning = $crawler->filter('[data-card-id="'.$stays->id.'"] [data-card-run-warning]');
+        self::assertCount(1, $warning);
+        self::assertSame((string) $gaveUp->id, $warning->attr('data-card-run-warning'));
+        self::assertStringContainsString('search='.$gaveUp->id, (string) $warning->attr('href'));
+        self::assertStringContainsString('Gave up', $warning->text());
+        self::assertStringContainsString('Tests <em>still</em> fail.', $warning->text());
+        self::assertStringContainsString('Tests &lt;em&gt;still&lt;/em&gt; fail.', (string) $client->getResponse()->getContent());
+
+        self::assertSame((string) $blocked->id, $crawler->filter('[data-card-id="'.$unnamed->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
+        self::assertCount(0, $crawler->filter('[data-card-id="'.$moved->id.'"] [data-card-run-warning]'));
+        self::assertCount(0, $crawler->filter('[data-card-id="'.$quiet->id.'"] [data-card-run-warning]'));
+    }
+
+    /** A card inside an epic lane shows its warning too, and lanes render through their own templates. */
+    public function test_a_card_in_an_epic_lane_shows_the_run_that_gave_up(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-lane-warning@example.com');
+        $project = $this->project($em, $owner, 'laned');
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'backlog'));
+        $loose = $this->card($em, $project, 'Loose', 'backlog');
+        $childRun = $this->workerRun($em, $project, $child, WorkerRunState::GaveUp, 'backlog', 'Child gave up.');
+        $looseRun = $this->workerRun($em, $project, $loose, WorkerRunState::Blocked, 'backlog', 'Loose is blocked.');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.lp-board-lane[data-lane="'.$epic->id.'"] [data-card-id="'.$child->id.'"]'));
+        self::assertSame((string) $childRun->id, $crawler->filter('[data-card-id="'.$child->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
+        self::assertSame((string) $looseRun->id, $crawler->filter('.lp-board-lane[data-lane="other"] [data-card-id="'.$loose->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
+    }
+
+    /** A run that changes state reloads the board, so the page listens on the worker-run topic too. */
+    public function test_the_board_subscribes_to_its_board_and_worker_run_topics(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-topics@example.com');
+        $project = $this->project($em, $owner, 'topics');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        $projectId = $project->id ?? throw new \LogicException('Project has no id.');
+        $subscribed = $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value'));
+        self::assertContains($topics->forBoard($projectId), $subscribed);
+        self::assertContains($topics->forWorkerRuns($projectId), $subscribed);
+    }
+
+    /**
+     * A resume is received after an event that waits behind it, and ends before that event runs. The run that
+     * ended last decides the warning, so its later success clears it.
+     */
+    public function test_the_run_that_ended_last_decides_the_warning(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-run-warning-order@example.com');
+        $project = $this->project($em, $owner, 'ordered');
+        $cleared = $this->card($em, $project, 'Cleared', 'in-progress');
+        $warned = $this->card($em, $project, 'Warned', 'in-progress');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-10 minutes', endedAt: '-1 minute', closedAt: '-1 minute');
+        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-5 minutes', endedAt: '-3 minutes', closedAt: '-3 minutes');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-card-id="'.$warned->id.'"] [data-card-run-warning]'));
+        self::assertCount(0, $crawler->filter('[data-card-id="'.$cleared->id.'"] [data-card-run-warning]'));
+    }
+
+    /** Two bridges with different clocks: the server order of the outcome reports decides, not the bridge end times. */
+    public function test_the_run_the_server_closed_last_decides_the_warning_across_bridge_clocks(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-run-warning-clocks@example.com');
+        $project = $this->project($em, $owner, 'clocks');
+        $cleared = $this->card($em, $project, 'Cleared', 'in-progress');
+        $warned = $this->card($em, $project, 'Warned', 'in-progress');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
+        $this->workerRun($em, $project, $cleared, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::Succeeded, 'in-progress', 'Done.', receivedAt: '-20 minutes', endedAt: '-1 minute', closedAt: '-10 minutes');
+        $this->workerRun($em, $project, $warned, WorkerRunState::GaveUp, 'in-progress', 'Gave up.', receivedAt: '-15 minutes', endedAt: '-30 minutes', closedAt: '-2 minutes');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-card-id="'.$warned->id.'"] [data-card-run-warning]'));
+        self::assertCount(0, $crawler->filter('[data-card-id="'.$cleared->id.'"] [data-card-run-warning]'));
+    }
+
+    private function workerRun(EntityManagerInterface $em, Project $project, Card $card, WorkerRunState $state, ?string $column, string $output, string $receivedAt = 'now', string $endedAt = 'now', string $closedAt = 'now'): WorkerRun
+    {
+        $run = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v7(),
+            cardId: $card->id ?? throw new \LogicException('Card has no id.'),
+            cardNumber: $card->number,
+            ruleName: 'implement',
+            state: $state,
+            runKey: Uuid::v7(),
+            endedAt: new \DateTimeImmutable($endedAt),
+            exitCode: 0,
+            hasResult: true,
+            output: $output,
+            receivedAt: new \DateTimeImmutable($receivedAt),
+            cardColumn: $column,
+        );
+        $em->persist($run);
+        $em->persist(new WorkerRunStateChange($run, $state, new \DateTimeImmutable($endedAt), new \DateTimeImmutable($closedAt)));
+        $em->flush();
+
+        return $run;
     }
 
     private function linkedCard(EntityManagerInterface $em, Project $project, string $title): Card

@@ -60,40 +60,61 @@ test('a column adds and edits a card in the drawer, and the board follows', asyn
             .locator('.lp-board__column[data-column-slug="next"]')
             .getAttribute('data-column-id')) ?? '',
     );
+    // The board frame never reloads: the create and the save each place one card.
+    const boardLoads: string[] = [];
+    page.on('request', (request) => {
+        if (request.headers()['turbo-frame'] === 'board-frame') {
+            boardLoads.push(request.url());
+        }
+    });
+    const nextColumn = page.locator(
+        '.lp-board__column[data-column-slug="next"]',
+    );
+    const count = nextColumn.locator('.lp-board__column-count');
+    const before = Number(await count.textContent());
     await drawer.getByLabel('Title', { exact: true }).fill(title);
-    await drawer
-        .getByRole('button', { name: 'Create card', exact: true })
-        .click();
+    const create = drawer.getByRole('button', {
+        name: 'Create card',
+        exact: true,
+    });
+    await expect(create).toHaveAttribute(
+        'data-turbo-submits-with',
+        'Creating…',
+    );
+    await create.click();
 
-    await expect(
-        drawer.getByRole('heading', { name: title, exact: true }),
-    ).toBeVisible();
+    await expect(drawer).toHaveJSProperty('open', false);
+    const card = nextColumn.locator(
+        `.lp-board-card[data-card-title="${title}"]`,
+    );
+    await expect(card).toBeVisible();
+    await expect(count).toHaveText(String(before + 1));
     await expect(page).toHaveURL(boardUrl);
-    await expect(
-        page.locator(
-            `.lp-board__column[data-column-slug="next"] .lp-board-card[data-card-title="${title}"]`,
-        ),
-    ).toBeVisible();
 
+    await card.getByRole('link').first().click();
+    await expect(drawer).toHaveJSProperty('open', true);
     await drawer.getByRole('link', { name: 'Edit card', exact: true }).click();
     await expect(drawer.getByLabel('Title', { exact: true })).toHaveValue(
         title,
     );
-    await expect(drawer).toHaveJSProperty('open', true);
     await drawer.getByLabel('Title', { exact: true }).fill(`${title} edited`);
-    await drawer
-        .getByRole('button', { name: 'Save card', exact: true })
-        .click();
+    const save = drawer.getByRole('button', { name: 'Save card', exact: true });
+    await expect(save).toHaveAttribute('data-turbo-submits-with', 'Saving…');
+    await save.click();
 
-    await expect(
-        drawer.getByRole('heading', { name: `${title} edited`, exact: true }),
-    ).toBeVisible();
-    await expect(
-        drawer.getByRole('tab', { name: 'Overview', exact: true }),
-    ).toHaveAttribute('aria-selected', 'true');
+    // The form stays open, says Saved for a moment, then offers Save again.
+    const saved = drawer.getByRole('button', { name: 'Saved', exact: true });
+    await expect(saved).toBeVisible();
+    await expect(drawer.getByLabel('Title', { exact: true })).toHaveValue(
+        `${title} edited`,
+    );
     await expect(
         page.locator(`.lp-board-card[data-card-title="${title} edited"]`),
     ).toBeVisible();
+    await expect(
+        drawer.getByRole('button', { name: 'Save card', exact: true }),
+    ).toBeVisible({ timeout: 6000 });
+    expect(boardLoads).toEqual([]);
 
     await page.keyboard.press('Escape');
     await expect(drawer).toHaveJSProperty('open', false);

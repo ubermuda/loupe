@@ -14,6 +14,7 @@ use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Ubermuda\AuditBundle\AuditActorProviderInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -33,7 +34,7 @@ final class ResolveSiteReviewCommentHandlerTest extends KernelTestCase
         $actors = self::getContainer()->get(AuditActorProviderInterface::class);
         self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
         $this->audit = new RecordingAuditor($actors);
-        $this->handler = new ResolveSiteReviewCommentHandler($this->em, $this->audit->auditor);
+        $this->handler = new ResolveSiteReviewCommentHandler($this->em, $this->audit->auditor, new EventDispatcher());
     }
 
     public function test_marks_the_comment_resolved(): void

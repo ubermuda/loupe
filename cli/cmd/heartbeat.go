@@ -25,7 +25,7 @@ const heartbeatLane = "heartbeat"
 
 // heartbeatSender sends one heartbeat. *api.Client is one.
 type heartbeatSender interface {
-	Heartbeat(ctx context.Context, bridgeID string, hb api.Heartbeat) error
+	Heartbeat(ctx context.Context, bridgeID string, hb api.Heartbeat) (string, error)
 }
 
 // heartbeater tells Loupe that the bridge runs: once at start, then at each
@@ -40,6 +40,14 @@ type heartbeater struct {
 	log      *slog.Logger
 	// after is time.After, and a field so a test waits for no real interval.
 	after func(time.Duration) <-chan time.Time
+	// onRange receives the CLI range of each answer, on the goroutine of the
+	// lane, so it must not block. update gives the update state of each
+	// heartbeat. Either may be nil.
+	onRange func(string)
+	update  func() api.HeartbeatUpdate
+	// onSent runs after each heartbeat the server accepted, on the goroutine
+	// of the lane. It may be nil.
+	onSent func()
 
 	mu   sync.Mutex
 	body api.Heartbeat
@@ -164,9 +172,19 @@ func (h *heartbeater) send() {
 	body := h.body
 	body.Hooks = h.hooks
 	h.mu.Unlock()
+	if h.update != nil {
+		if u := h.update(); u.State != "" {
+			body.Update = &u
+		}
+	}
 
 	h.queue.SendLatest(heartbeatLane, func(ctx context.Context) error {
-		return h.client.Heartbeat(ctx, h.bridgeID, body)
+		cliRange, err := h.client.Heartbeat(ctx, h.bridgeID, body)
+		if err == nil && h.onRange != nil {
+			h.onRange(cliRange)
+		}
+
+		return err
 	}, h.record)
 }
 
@@ -179,6 +197,9 @@ func (h *heartbeater) record(err error) {
 			h.log.Info("heartbeat_sent", "bridge_id", h.bridgeID, "interval_seconds", int(h.currentInterval()/time.Second), "failed_before", h.failed)
 		}
 		h.sent, h.failed, h.unsupported = true, 0, false
+		if h.onSent != nil {
+			h.onSent()
+		}
 	case errors.Is(err, api.ErrHeartbeatMissing):
 		if !h.unsupported {
 			h.unsupported = true

@@ -1,18 +1,21 @@
 ---
 title: "Command-line bridge"
-description: "A Go binary that runs a Claude Code worker for each board event a local rule matches. Preview, unreleased."
+description: "A Go binary that runs a Claude Code worker for each board event a local rule matches. Preview."
 ---
 
 `cli/` holds a small Go binary that closes the loop: it watches your Loupe
 board and runs a non-interactive Claude Code worker for each event that a rule
 in your rule file matches. The worker is `claude -p --session-id <uuid> -- <prompt>`, with a new session id for each worker. It reads the card
-through the MCP, prints its answer and exits. The bridge reports the exit code.
+through the MCP, prints its answer and exits. The bridge reports the exit code
+and the worker's structured result, and resumes a worker that did not finish.
 A rule on `inbox.ask_closed` resumes the session of a worker that asked the
 owner a question, as [Resume action](#resume-action) describes. A rule on
 `document.review_submitted` can start a fix round on the card of a reviewed
 document.
-Build it with `just cli-build`. See [`cli/README.md`](../../cli/README.md) for
-the commands, the flags and the rule format.
+[Installing the CLI](../getting-started/cli.md) says how to install a release,
+and `just cli-build` builds one from source. See
+[`cli/README.md`](../../cli/README.md) for the commands, the flags and the rule
+format.
 
 The rules live in `rules.yaml`, beside the CLI's `config.json`. Each rule names
 an event type, a project slug, the column a card enters, and the prompt to run.
@@ -59,6 +62,7 @@ itself. There is no static token, so a machine where nobody can open a browser
 cannot run the bridge. See [Connected apps](../using/connected-apps.md) for the
 device flow. The token reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
+`GET /api/projects/{handle}/board/cards/{cardId}`,
 `PUT /api/projects/{handle}/worker-runs/{runId}`,
 `POST /api/projects/{handle}/worker-runs`,
 `PUT /api/bridges/{bridgeId}/runs`,
@@ -92,6 +96,15 @@ events start for one card. That stops two rules from moving a card back and
 forth for ever. A move by a person resets the count. An event of a type no rule
 names resets nothing, because the bridge drops it unread.
 
+Each rule's `maxResumes`, two by default, caps the resumes of a run that did not
+finish. A run did not finish when it exited with a non-zero code, gave no
+structured result, or reported the status `unfinished`. The bridge resumes the
+same session with a fixed prompt, and the resume takes the place of the run in
+the queue. A failed run waits 60 seconds first. Before each resume, the bridge
+reads the card through the [card endpoint](#card-endpoint). It skips the resume
+when the card left the column that started the run, and resumes when the read
+fails. A run at the cap ends as `gave-up`. `maxResumes: 0` turns resumes off.
+
 A column rename, a column delete or a project rename can take away a slug a rule
 names. The bridge reads `board.column_renamed`, `board.column_deleted` and
 `project.renamed` for that reason, and marks each rule on the old slug dead. A
@@ -124,10 +137,13 @@ event carried. Each log line below goes with the state the bridge reports:
 | `worker_queued` | `queued` |
 | `worker_coalesced` | `replaced` for the run that waited, and `queued` for the new run that takes its place. The new run also sends `resumed` when it replaces a resume that passed its check |
 | `chain_capped` | `waiting-for-person` |
-| `resume_skipped` | `skipped` |
-| `worker_started` | `running`. A resume sends `resumed` first |
-| `worker_finished` | `succeeded` for exit code 0, and `failed` for any other code |
+| `resume_skipped` with an `ask` | `skipped` |
+| `resume_skipped` with a `reason` | the outcome of the run that did not finish, with `resumeSkipped` set to the reason |
+| `worker_started` | `running`. The resume of an ask sends `resumed` first |
+| `worker_finished` | `succeeded`, `blocked` or `unfinished` from the status for exit code 0, and `failed` for any other code |
 | `worker_no_result` | `no-result` for exit code 0, and `failed` for any other code |
+| `worker_resuming` | the outcome of the run that did not finish, then `queued` for the resume |
+| `worker_gave_up` | `gave-up` |
 | `worker_failed` | `not-started` |
 | `queue_dropped` | `dropped`, with the reason `shutdown`, `rule_dead` or `reload` |
 
@@ -135,10 +151,19 @@ The [Worker run API](../reference/worker-runs.md#the-states-of-a-run) page says
 what each state means. The server adds `timed-out` and `lost` on its own. It
 also sets `closed` on an interactive run, which no bridge holds.
 
-A clean exit does not prove that the work finished. Every prompt asks the
-worker to end its final reply with a line that starts with `STAGE RESULT:`. The
-bridge reads the whole output for that line. A worker with no such line logs
-`worker_no_result` at `ERROR`, and its record carries `hasResult: false`.
+A clean exit does not prove that the work finished. The bridge runs each
+worker with `--output-format json` and `--json-schema`, and every prompt asks
+for a structured result. The core schema requires `status`, which is
+`finished`, `blocked` or `unfinished`, and a one-sentence `summary`. A rule's
+`resultFields` adds optional fields, each a JSON Schema fragment. A worker with
+no valid structured result logs `worker_no_result` at `ERROR`, and its record
+carries `hasResult: false`. The stage skills still print a `STAGE RESULT:`
+line, and the bridge does not read it. `cli/README.md` covers the schema and
+the resume rules in full.
+
+A server older than the `unfinished`, `blocked` and `gave-up` states refuses
+them with a 422. The bridge logs `report_failed` for that report and does not
+retry it.
 
 The bridge sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` for each worker. Without
 it, `claude -p` ends a worker 600 seconds after its main turn when a background
@@ -177,6 +202,10 @@ which takes one report for each finished run. It counts every open state as
 delivered, and it sends no inventory. A report that already waits in the queue
 takes the fallback when it goes out, so none is lost on the switch.
 
+The old report carries no result status. An `unfinished` or `blocked` run
+therefore reads as `succeeded` there, and a `gave-up` run reads as the outcome
+of its exit code and result flag. Nothing logs this.
+
 The old endpoint keys a run by its project, its bridge, its card and the second
 it started. Two runs of one card that start inside the same second therefore
 count as one report, and the second record is lost. A worker runs for minutes,
@@ -186,8 +215,8 @@ The bridge logs `report_folded` when it happens, so the loss is on the record.
 A bridge built before run states sends only the old report, and a new server
 still takes it.
 
-Stopping the bridge kills its workers, and those runs are the ones only the
-bridge can report. So it gives each report one last attempt, in a window of five
+Stopping the bridge with `Ctrl-C` or `SIGTERM` kills its workers, and those runs
+are the ones only the bridge can report. An [update](#updates) kills no worker. So it gives each report one last attempt, in a window of five
 seconds. It logs `report_dropped` with the count of the reports that miss the
 window. A missing record therefore means "unknown", and never "the worker did
 not run".
@@ -195,8 +224,9 @@ not run".
 The bridge sends a heartbeat to `/api/bridges/{bridgeId}/heartbeat` once at
 start and then at the interval that `bridge.heartbeat_interval_seconds` gives,
 60 seconds by default. The heartbeat names the projects the rule file maps and
-the build of the bridge. A reload sends a heartbeat at once with the new
-projects. The heartbeat has a latest-wins lane in the outbound
+the version of the bridge, and the state of its [update](#updates). The server
+answers with the range of CLI versions it supports. A reload sends a heartbeat
+at once with the new projects. The heartbeat has a latest-wins lane in the outbound
 queue. A newer heartbeat replaces one that has not gone out, and a failed one
 waits for the next interval. A slow or failing heartbeat never delays a run
 report. A server with no heartbeat endpoint answers 404, and the bridge logs
@@ -207,8 +237,156 @@ and to its log file, named by `--log-file`. Each line carries a stable `event`
 key, so `jq` selects what you want. The log file is appended, so it is a history
 across runs.
 
-Unreleased, like the site-review widget it shares a stream with: there is no
-published binary, and it needs a Mercure hub to have anything to subscribe to.
+The bridge needs a Mercure hub to have anything to subscribe to.
+
+## Updates
+
+A release build of the bridge updates itself. A development build, such as one
+from `just cli-build`, has no version. It never updates, and it logs
+`update_skipped` at start.
+
+### The check
+
+The server declares the CLI versions it supports as a caret range, `^1.0` today,
+and sends it in its answer to each [heartbeat](../reference/bridge-heartbeat.md).
+The bridge checks for a release after its first heartbeat, again when the range
+changes, and then every hour plus a random delay of up to 10 minutes. A server
+that sends no range starts no check.
+
+A check reads the newest 100 releases from
+`GET https://api.github.com/repos/ubermuda/loupe/releases`. It picks the
+highest release that meets all of these conditions:
+
+- The release is not a draft or a prerelease, and its tag has the form `vX.Y.Z`.
+- The version is inside the range.
+- The version is not on the skip list.
+- The release has the archive for this OS and CPU, and `checksums.txt`.
+
+The bridge installs that release when the running version is lower, or when the
+running version is outside the range. A bridge above the range therefore
+installs a lower version. When the running version is outside the range and no
+release fits, the bridge logs `update_unavailable` once and keeps running. The
+agents page then shows the chip "Needs ^1.0".
+
+The bridge downloads the archive and `checksums.txt`, and compares the SHA-256
+of the archive with its line in `checksums.txt`. A mismatch logs
+`update_rejected`, and the bridge installs nothing. A match logs
+`update_verified`, and the bridge writes the binary to
+`versions/<version>/loupe` in its config directory. A later check uses that
+file again when it is still there.
+
+With `autoUpdate: false` in `rules.yaml`, the check stops before the download.
+The bridge logs `update_available` once for each version and installs nothing.
+
+### Blocked
+
+The bridge must be able to write the directory that holds its binary, after it
+resolves symlinks. When it cannot, it logs `update_blocked` and the agents page
+shows "Update blocked". This happens, for example, when the binary is in
+`/usr/local/bin` and belongs to root. Move the binary to a directory you own,
+such as `~/.local/bin`.
+
+### The handover
+
+The bridge replaces itself in the same process. These are the steps:
+
+1. The bridge runs the new binary as `loupe bridge preflight`, with a limit of
+   30 seconds. The new binary reads the rule file, runs the start checks
+   against the server and calls `GET /api/events`.
+2. The bridge pauses. It starts no worker, and new events wait in the queue.
+3. The bridge waits up to 10 seconds for its run reports and ask checks to go
+   out, and for each run that did not finish to get or skip its resume. A
+   failed run waits a minute before its resume, so it defers the update. When
+   they do not finish, the bridge resumes, logs `update_deferred`, and tries
+   again at the next check. A reload in progress also defers the update.
+4. The bridge writes its state to `handover-<hash>.json` in its config
+   directory: the queue, the workers in flight, the chain counts and the id of
+   the last event it read. It logs `update_handover`.
+5. The bridge runs the new binary through `exec`. The process keeps its pid, the
+   workers stay its children, and the lock and the control socket stay open.
+
+The new version reads the state and takes over each worker, which logs
+`worker_adopted`. It connects to the hub with the last event id, and the hub
+replays what it published during the handover. The bridge drops each replayed
+event it already handled, and logs `event_duplicate`.
+
+A worker writes its output and its exit code to files, so the new version can
+read how a worker ended that it did not start. Each worker has a directory
+`runs/<runId>/` in the config directory, which holds `run.json`, `stdout`,
+`stderr` and `status.exit`. The bridge deletes the directory after it reports the run.
+
+The new version is healthy when its stream connects and one heartbeat lands,
+both within 60 seconds. It then logs `update_applied`, and the agents page shows
+"Up to date". It copies itself over the installed binary, through a rename in
+the same directory, under `update.lock` in the config directory. It logs
+`update_installed` when the installed binary changed. It deletes the staged
+binaries except the new and the old version.
+
+### Rollback
+
+A new version that is not healthy in 60 seconds, or that fails to start, logs
+`update_unhealthy`. It then runs the old binary through `exec`, with its current
+state. When the old binary is healthy again, it logs `update_rolled_back` with
+the reason `health`. The agents page shows "Rolled back from" and the version.
+When run reports, ask checks or resume decisions do not finish within 10
+seconds, the new version logs `update_rollback_deferred`, keeps running and
+waits another 60 seconds for its health.
+
+A failed preflight or a failed `exec` also logs `update_rolled_back`, with the
+reason `preflight` or `exec`. The old version then never stopped.
+
+Some preflight failures are not a fault of the new binary. The preflight can
+run out of time. The running version can also fail the same checks, for example
+when the server answers 503 or the rule file has an error. The bridge then logs
+`update_deferred` with the reason `preflight`, and the next check tries again.
+
+Each rollback puts the version on the skip list in `update.json`, in the config
+directory. The bridge never installs a skipped version on its own. A version
+that a rollback started never hands over again. When it is not healthy either,
+it logs `update_rollback_skipped` and keeps running.
+
+### Recovery after a crash
+
+A bridge can die between the handover and its health check. The handover file
+then stays in the config directory, and the workers go on without a parent. The
+next `loupe bridge run` on the same rule file reads that file, takes over the
+workers that still run, and logs `update_recovered`. It follows each worker by
+its pid, because the worker is no longer its child. When the bridge that died
+ran another version, the start puts that version on the skip list and logs
+`update_rolled_back` with the reason `crash`. So a supervisor that restarts the
+bridge does not start the same crash again. A handover file that the
+bridge cannot read moves to `handover-<hash>.json.bad`, and the bridge logs
+`update_recovery_failed`.
+
+### Updating by hand
+
+`loupe update` asks each running bridge to check and install at once. With no
+bridge running, it downloads, verifies and installs the release itself. It
+ignores the skip list and `autoUpdate`. See
+[`cli/README.md`](../../cli/README.md#loupe-update).
+
+### Log events
+
+| Event | What happened |
+|---|---|
+| `update_check` | A check starts |
+| `update_available` | A release waits, and `autoUpdate` is `false` |
+| `update_unavailable` | The running version is outside the range, and no release fits |
+| `update_blocked` | The bridge cannot write the directory of its binary |
+| `update_download` | The bridge downloads a release |
+| `update_verified` | The archive matches `checksums.txt` |
+| `update_rejected` | The archive does not match, or holds no binary |
+| `update_deferred` | The handover waits for the next check |
+| `update_handover` | The bridge runs the new binary |
+| `update_applied` | The new version is healthy |
+| `update_installed` | The new binary replaced the installed one |
+| `update_unhealthy` | The new version goes back to the old one |
+| `update_rollback_deferred` | The rollback waits, because run reports are still in flight |
+| `update_rolled_back` | A version went on the skip list |
+| `update_recovered` | A start took over the handover of a bridge that died |
+
+[Output](../../cli/README.md#output) in `cli/README.md` lists every event with
+its fields, the failure events included.
 
 ## Hooks
 
@@ -240,9 +418,14 @@ project the token's user owns:
   "projects": [
     {"id": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7", "slug": "my-app", "name": "My App"}
   ],
-  "flags": {"inbox.enabled": false, "bridge.heartbeat_interval_seconds": 60}
+  "flags": {"inbox.enabled": false, "bridge.heartbeat_interval_seconds": 60},
+  "cliRange": "^1.0"
 }
 ```
+
+`cliRange` is the range of CLI versions that the server supports. `loupe update`
+reads it when no bridge runs. A running bridge reads the same range from the
+heartbeat reply.
 
 `flags` holds the feature flags a bridge reads. The server lists a flag here
 only when its code names the flag, so no other flag reaches a token holder. A
@@ -528,6 +711,34 @@ person typed comes back as typed. `project.slug` is the project's slug.
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |
 | 429 | | more than 60 reads in one minute from one token |
+
+## Card endpoint
+
+`GET /api/projects/{handle}/board/cards/{cardId}` returns the column a card is
+in now. The bridge calls it before it resumes a run that did not finish, and it
+skips the resume when the card left the column that started the run. The
+handle follows the same rules as the columns endpoint, and `cardId` is the
+card's uuid.
+
+```json
+{ "cardId": "01a0a1b2-0000-7c3d-8e4f-5a6b7c8d9e0f", "number": 42, "column": "implementation" }
+```
+
+| Field | Meaning |
+|---|---|
+| `cardId` | the card the path names |
+| `number` | the short number the card shows |
+| `column` | the slug of the card's column |
+
+| Status | Body | When |
+|---|---|---|
+| 200 | the object above | the user owns the project and the project holds the card |
+| 401 | | the request carries no token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
+| 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
+| 404 | `{"error":"card_not_found"}` | the project holds no card with that id, or `cardId` is not a uuid. A card of another project counts as none |
+| 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |
+| 429 | | more than 60 reads in one minute from one token, counted together with the columns endpoint |
 
 ## Rule health endpoint
 

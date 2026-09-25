@@ -41,6 +41,28 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         self::assertSame((string) $keptRunId, (string) $remaining[0]->id);
     }
 
+    /** One statement deletes both ends of a resume link, so the SET NULL never meets a missing row. */
+    public function test_deleting_a_project_takes_runs_that_resume_one_another(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'runs-linked-delete@example.com');
+        $doomed = $this->project($em, $owner, 'Doomed Linked Runs');
+        $kept = $this->project($em, $owner, 'Kept Linked Runs');
+        $first = $this->seedRun($em, $doomed);
+        $this->seedRun($em, $doomed, cardNumber: 2)->continuesRun = $first;
+        $em->flush();
+        $keptRunId = $this->seedRun($em, $kept)->id;
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        $remaining = $this->allRuns();
+        self::assertCount(1, $remaining);
+        self::assertSame((string) $keptRunId, (string) $remaining[0]->id);
+    }
+
     /** The listener deletes with DQL, which skips the ORM, so only the foreign key can take the history. */
     public function test_deleting_a_project_takes_the_state_history_of_its_runs(): void
     {

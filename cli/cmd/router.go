@@ -1,17 +1,22 @@
 package cmd
 
 import (
+	"bytes"
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net"
+	"os"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
+	"unicode/utf16"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
@@ -54,6 +59,10 @@ type router struct {
 	// and never behind the report queue. A nil one resumes with no check.
 	checkAsk     func(ctx context.Context, handle, askID string) (api.AskState, error)
 	checkTimeout time.Duration
+	// readCard reads a card's column before a resume of an unfinished run. A
+	// nil one resumes with no check. after is time.After, which tests replace.
+	readCard func(ctx context.Context, handle, cardID string) (string, error)
+	after    func(time.Duration) <-chan time.Time
 	// control is the socket that `loupe bridge reload` reaches, and source is
 	// what a reload reads. A nil control, as in most tests, opens no socket.
 	control net.Listener
@@ -63,6 +72,9 @@ type router struct {
 	buildTimeout time.Duration
 	// reloadMu lets one reload run at a time. It is never taken under mu.
 	reloadMu sync.Mutex
+	// update hands the bridge over to a new binary. A nil one, as in most
+	// tests, only logs a staged release.
+	update *bridgeUpdate
 
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
@@ -76,7 +88,8 @@ type router struct {
 	fetchSeq uint64
 	setSeq   uint64
 	// queue holds the accepted events in arrival order, at most one for each
-	// card and rule, or for each ask of a resume. running holds the key of each
+	// card and rule, or for each ask of a resume, plus the resumes of unfinished
+	// runs, which never coalesce. running holds the key of each
 	// card with a worker or an ask check. A card runs once, and waits once per
 	// rule or ask.
 	queue   []pending
@@ -89,7 +102,9 @@ type router struct {
 	busy   bool
 	active int
 	closed bool
-	seq    uint64
+	// stopped closes at shutdown, so a resume that waits wakes at once.
+	stopped chan struct{}
+	seq     uint64
 	// inbox is the inbox flag of the last GET /api/events. A worker that starts
 	// while it is on reads both ids in its prompt.
 	inbox bool
@@ -105,6 +120,30 @@ type router struct {
 	// reload can map a slug to another project.
 	unmapped map[string]bool
 	gone     map[string]bool
+
+	// paused stops dispatch, and frozen also holds back the events and the
+	// finished runs that arrive after a freeze, for resume to replay. checking
+	// counts the ask checks in flight, gating the resume gates, and live the
+	// workers that started.
+	paused       bool
+	frozen       bool
+	checking     int
+	gating       int
+	live         map[string]liveRun
+	heldEvents   []heldEvent
+	heldFinishes []func()
+	// lastEventID is the resume point of the stream, and recent the ids of the
+	// last events handled, oldest first, which recentSet indexes.
+	lastEventID string
+	recent      []string
+	recentSet   map[string]bool
+	// eventMu keeps the events in order while resume replays the held ones. It
+	// is taken before mu, never under it.
+	eventMu sync.Mutex
+	// quiesce is read-held by work that changes a run under mu and reports it
+	// after, and freeze takes it, so no state falls between the two. It is
+	// taken after eventMu and before mu.
+	quiesce sync.RWMutex
 
 	// wg counts the workers in flight. Tests wait on it instead of sleeping.
 	wg sync.WaitGroup
@@ -137,25 +176,49 @@ type pending struct {
 	// set is the rule set the event matched. enqueue matches it again when a
 	// reload swapped the set in between.
 	set *rules.Set
+	// continues is the run id a resume of an unfinished run continues, and ""
+	// for any other run. resumeIndex counts from 1 in a series, and maxResumes
+	// is the cap the first run's rule set for the whole series.
+	continues   string
+	resumeIndex int
+	maxResumes  int
+	// column is the card's column when the series started, and "" when unknown.
+	column string
 }
 
 // apply takes the rule, the settings and the prompt of a match. The session id
-// stays empty until start.
+// stays empty until start. A resume of an unfinished run keeps its session,
+// its prompt and its cap.
 func (p *pending) apply(m rules.Match) {
 	p.rule, p.maxChain = m.Rule, m.MaxChain
-	p.spec = workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, prompt: m.Prompt, resume: m.Resume}
+	if p.continues != "" {
+		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Schema
+
+		return
+	}
+	p.maxResumes = m.MaxResumes
+	p.spec = workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt, resume: m.Resume}
 }
 
-// sessionCard is the key a session's worker ran under, and its card when the
-// event named one.
+// sessionCard is the key a session's worker ran under, its card when the
+// event named one, and the column of its series when known.
 type sessionCard struct {
 	key    string
 	id     string
 	number int
+	column string
 }
 
 // askCheckTimeout bounds the ask check. A check that runs out resumes anyway.
+// The card read before a resume uses the same bound.
 const askCheckTimeout = 10 * time.Second
+
+// resumeDelay is the wait before the resume of a failed run.
+const resumeDelay = time.Minute
+
+// maxResultFields is the largest JSON encoding of the result fields the
+// server takes.
+const maxResultFields = 4000
 
 // keyFor keys the running worker and the chain counters by the subject id,
 // which every event type carries. A card number repeats across projects, and a
@@ -213,6 +276,22 @@ func askOf(e event.Event) string {
 	return ""
 }
 
+// columnLocked is the card's column when the event's run starts, and "" when
+// the bridge does not know it. An ask takes the column of the session it
+// resumes. The caller holds mu.
+func (r *router) columnLocked(e event.Event) string {
+	switch e.Type {
+	case event.CardMovedType:
+		return e.ToStatus
+	case event.ReviewSubmittedType:
+		return e.Column
+	case event.AskClosedType:
+		return r.sessions[e.SessionID].column
+	}
+
+	return ""
+}
+
 // label names an event's aggregate to a reader: its card number when the event
 // carries one, and its subject id otherwise.
 func label(e event.Event) (string, any) {
@@ -245,7 +324,12 @@ func aggregate(e event.Event) string {
 	return fmt.Sprintf("%s %v", k, v)
 }
 
+// handler starts the stream at the resume point an adopted state carried.
 func (r *router) handler() transport.Handler {
+	r.mu.Lock()
+	last := r.lastEventID
+	r.mu.Unlock()
+
 	return transport.Handler{
 		OnConnect: func() {
 			r.mu.Lock()
@@ -253,9 +337,14 @@ func (r *router) handler() transport.Handler {
 			r.mu.Unlock()
 			r.log.Info("connected", "topic", r.topic, "projects", projects)
 			r.sendInventory()
+			if r.update != nil {
+				r.update.markConnected()
+			}
 		},
-		OnError: func(err error) { r.log.Error("stream_error", "error", err.Error()) },
-		OnData:  r.onData,
+		OnError:     func(err error) { r.log.Error("stream_error", "error", err.Error()) },
+		OnEvent:     r.onEvent,
+		OnID:        r.onID,
+		LastEventID: last,
 	}
 }
 
@@ -493,8 +582,11 @@ func (r *router) refreshGone(events api.Events, seq uint64) {
 		// that maps the slug to another project. The health report of the kill
 		// most likely gets project_not_found, which the reporter logs once.
 		id := set.ProjectID(slug)
+		r.quiesce.RLock()
 		dead, dropped, ok := r.markGone(id, seq)
 		if !ok {
+			r.quiesce.RUnlock()
+
 			continue
 		}
 
@@ -511,6 +603,7 @@ func (r *router) refreshGone(events api.Events, seq uint64) {
 		)
 		r.logGone(id, dead)
 		r.logDropped(dropped)
+		r.quiesce.RUnlock()
 	}
 }
 
@@ -570,6 +663,7 @@ func (r *router) enqueue(p pending) {
 		p.set = current
 		p.apply(m)
 	}
+	p.column = r.columnLocked(p.event)
 	if p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
 		r.log.Warn("chain_capped", append(about(p.event, p.rule),
 			"max_chain", p.maxChain,
@@ -580,8 +674,10 @@ func (r *router) enqueue(p pending) {
 
 		return
 	}
+	// A queued resume of an unfinished run is never replaced, so the new event
+	// waits behind it.
 	if i := slices.IndexFunc(r.queue, func(q pending) bool {
-		return q.key == p.key && q.rule == p.rule && askOf(q.event) == askOf(p.event)
+		return q.continues == "" && q.key == p.key && q.rule == p.rule && askOf(q.event) == askOf(p.event)
 	}); i >= 0 {
 		p.checked, p.seq = r.queue[i].checked, r.queue[i].seq
 		r.emitLocked(r.queue[i], api.RunStateReport{State: api.RunReplaced, ReplacedBy: p.runID})
@@ -632,6 +728,9 @@ func (r *router) dispatchLocked() []pending {
 
 		return dropped
 	}
+	if r.paused {
+		return nil
+	}
 
 	// waiting holds the keys of events this pass leaves queued, so a later
 	// event of the same card never goes first.
@@ -644,7 +743,7 @@ func (r *router) dispatchLocked() []pending {
 
 			continue
 		}
-		if next.spec.resume && !next.checked && r.checkAsk != nil {
+		if next.continues == "" && next.spec.resume && !next.checked && r.checkAsk != nil {
 			r.queue = slices.Delete(r.queue, i, i+1)
 			r.hold(next.key)
 			r.check(next)
@@ -659,8 +758,9 @@ func (r *router) dispatchLocked() []pending {
 		}
 		r.queue = slices.Delete(r.queue, i, i+1)
 		// Asks never coalesce, so several agent closes of one card can pass the
-		// cap at enqueue and wait together. The cap is read again here.
-		if next.spec.resume && next.event.Actor == event.ActorAgent && r.chains[next.key][next.rule] >= next.maxChain {
+		// cap at enqueue and wait together. The cap is read again here. A resume
+		// of an unfinished run continues a run the chain counted already.
+		if next.continues == "" && next.spec.resume && next.event.Actor == event.ActorAgent && r.chains[next.key][next.rule] >= next.maxChain {
 			r.log.Warn("chain_capped", append(about(next.event, next.rule),
 				"max_chain", next.maxChain,
 				"message", fmt.Sprintf("%s hit the chain cap of rule %s, waiting for a person", aggregate(next.event), next.rule),
@@ -672,7 +772,7 @@ func (r *router) dispatchLocked() []pending {
 		}
 		r.active++
 		r.hold(next.key)
-		if next.event.Actor == event.ActorAgent {
+		if next.continues == "" && next.event.Actor == event.ActorAgent {
 			r.countChain(next.key, next.rule)
 		}
 		r.start(next)
@@ -722,20 +822,26 @@ func (r *router) countChain(key, rule string) {
 	r.chains[key][rule]++
 }
 
-// start runs one worker, as a new claude session or as the resume of the
-// session its ask names. The caller holds mu, and start never takes it.
+// start runs one worker, as a new claude session, as the resume of the session
+// its ask names, or as the resume of an unfinished run. The caller holds mu,
+// and start never takes it.
 //
 // wg counts the worker before the goroutine exists, and the finish call that
 // admits the next worker runs before wg.Done, so a waiter never sees the count
 // reach zero between two queued workers.
 func (r *router) start(p pending) {
-	if p.spec.resume {
+	switch {
+	case p.continues != "":
+		// The resume gate set the session of the run this one continues.
+		r.log.Info("worker_started", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "resume", p.resumeIndex)...)
+	case p.spec.resume:
 		p.spec.sessionID = p.event.SessionID
 		r.log.Info("worker_started", about(p.event, p.rule)...)
-	} else {
+	default:
 		p.spec.sessionID = r.worker.sessionID()
 		r.log.Info("worker_started", append(about(p.event, p.rule), "session_id", p.spec.sessionID)...)
 	}
+	p.spec.runID, p.spec.rule, p.spec.key = p.runID, p.rule, p.key
 	if r.inbox {
 		p.spec.prompt += "\n" + directive.InboxLine(p.spec.sessionID, r.bridgeID)
 	}
@@ -743,7 +849,7 @@ func (r *router) start(p pending) {
 	if r.sessions == nil {
 		r.sessions = map[string]sessionCard{}
 	}
-	r.sessions[p.spec.sessionID] = sessionCard{key: p.key, id: id, number: number}
+	r.sessions[p.spec.sessionID] = sessionCard{key: p.key, id: id, number: number, column: p.column}
 	// A checked resume sent resumed when its check let it through.
 	if p.spec.resume && !p.checked {
 		r.emitLocked(p, api.RunStateReport{State: api.RunResumed, AskID: askOf(p.event)})
@@ -755,16 +861,262 @@ func (r *router) start(p pending) {
 		// The spawn time stands in for a process that never starts, because the
 		// old report needs a start. onStart runs on this goroutine, before run returns.
 		began := time.Now()
-		onStart := func() {
+		onStart := func(proc workerProc) {
 			began = time.Now()
 			r.mu.Lock()
 			defer r.mu.Unlock()
+			r.trackLocked(liveRun{p: p, began: began, proc: proc})
 			r.emitLocked(p, api.RunStateReport{State: api.RunRunning, SessionID: p.spec.sessionID, StartedAt: began})
 		}
 		res := r.worker.run(r.workerContext(), p.spec, onStart)
-		r.report(p, res, began, time.Since(began))
-		r.finish(p.key)
+		r.settle(p, endedRun{res: res, began: began, elapsed: time.Since(began)})
 	}()
+}
+
+// liveRun is a worker that started, with what its report and a handover need.
+type liveRun struct {
+	p     pending
+	began time.Time
+	proc  workerProc
+}
+
+// trackLocked records a started worker. The caller holds mu.
+func (r *router) trackLocked(run liveRun) {
+	if r.live == nil {
+		r.live = map[string]liveRun{}
+	}
+	r.live[run.p.runID] = run
+}
+
+// settle ends a finished worker and removes its run directory. After a
+// freeze, the next image adopts the run from its files, so the run waits here
+// for a resume that may never come.
+func (r *router) settle(p pending, e endedRun) {
+	r.quiesce.RLock()
+	defer r.quiesce.RUnlock()
+	done := func() {
+		r.end(p, e)
+		if e.res.dir != "" {
+			_ = os.RemoveAll(e.res.dir)
+		}
+	}
+	r.mu.Lock()
+	delete(r.live, p.runID)
+	if r.frozen {
+		r.wg.Add(1)
+		r.heldFinishes = append(r.heldFinishes, func() {
+			defer r.wg.Done()
+			done()
+		})
+		r.mu.Unlock()
+
+		return
+	}
+	r.mu.Unlock()
+	done()
+}
+
+// endedRun is how one worker ended. state is the outcome to report, and
+// skipped says why a run worth a resume got none.
+type endedRun struct {
+	res     workerResult
+	began   time.Time
+	elapsed time.Duration
+	state   string
+	skipped string
+}
+
+// classify names the state a run ended in, as the server reads it, and the
+// reason the run is worth a resume. An empty reason means no resume.
+func classify(res workerResult) (string, string) {
+	switch {
+	case res.err != nil:
+		return api.RunNotStarted, ""
+	case res.exitCode != 0:
+		return api.RunFailed, fmt.Sprintf("exit code %d", res.exitCode)
+	case !res.hasResult:
+		return api.RunNoResult, "no structured result"
+	case res.status == "blocked":
+		return api.RunBlocked, ""
+	case res.status == "unfinished":
+		return api.RunUnfinished, "status unfinished"
+	}
+
+	return api.RunSucceeded, ""
+}
+
+// end logs and reports how a worker ended, and frees its card, or hands the
+// card to the resume gate. It runs on the worker goroutine.
+func (r *router) end(p pending, e endedRun) {
+	r.logResult(p, e.res, e.elapsed)
+	var reason string
+	e.state, reason = classify(e.res)
+	r.mu.Lock()
+	shut := r.shut()
+	r.mu.Unlock()
+
+	switch {
+	case reason == "":
+	case e.res.killed || shut:
+		e.skipped = api.DropShutdown
+	case p.resumeIndex >= p.maxResumes:
+		r.log.Error("worker_gave_up", append(about(p.event, p.rule),
+			"resume", p.resumeIndex,
+			"max_resumes", p.maxResumes,
+			"reason", reason,
+			"message", fmt.Sprintf("%s ended with %s after %d of %d resumes, so the bridge stops resuming it", aggregate(p.event), reason, p.resumeIndex, p.maxResumes),
+		)...)
+		e.state = api.RunGaveUp
+	default:
+		r.finishInto(p, e, reason)
+
+		return
+	}
+	r.emit(p, r.outcome(p, e))
+	r.finish(p.key)
+}
+
+// finishInto frees the worker slot and keeps the card key for the resume gate,
+// in one critical section, so no new event of the card starts first.
+func (r *router) finishInto(p pending, e endedRun, reason string) {
+	r.mu.Lock()
+	r.active--
+	r.gating++
+	r.wg.Add(1)
+	go r.resumeGate(p, e, reason, r.stoppedLocked())
+	dropped := r.dispatchLocked()
+	r.mu.Unlock()
+
+	r.logDropped(dropped)
+}
+
+// stoppedLocked is the channel shutdown closes. The caller holds mu.
+func (r *router) stoppedLocked() chan struct{} {
+	if r.stopped == nil {
+		r.stopped = make(chan struct{})
+	}
+
+	return r.stopped
+}
+
+// resumeGate decides whether a run that did not finish resumes. It holds the
+// card key and no worker slot. A failed run waits resumeDelay first. A card
+// that left the column of its series is not resumed, and a failed card read
+// resumes anyway. The ended run's outcome waits for the decision, so it can
+// say why no resume ran.
+func (r *router) resumeGate(p pending, e endedRun, reason string, stopped <-chan struct{}) {
+	defer r.wg.Done()
+
+	if e.state == api.RunFailed {
+		after := r.after
+		if after == nil {
+			after = time.After
+		}
+		select {
+		case <-after(resumeDelay):
+		case <-stopped:
+		case <-r.workerContext().Done():
+		}
+	}
+
+	var column string
+	var readErr error
+	cardID, _ := cardOf(p.event)
+	read := r.readCard != nil && p.column != "" && cardID != ""
+	// A shutdown does not cancel the worker context, so it would not end a read.
+	select {
+	case <-stopped:
+		read = false
+	default:
+	}
+	if read {
+		timeout := r.checkTimeout
+		if timeout <= 0 {
+			timeout = askCheckTimeout
+		}
+		ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
+		column, readErr = r.readCard(ctx, p.event.ProjectID, cardID)
+		cancel()
+	}
+
+	// A handover counts this gate until it decides, and holds back a decision
+	// that comes after the freeze, so the frozen state stays true.
+	r.quiesce.RLock()
+	defer r.quiesce.RUnlock()
+	r.mu.Lock()
+	if r.frozen {
+		r.wg.Add(1)
+		r.heldFinishes = append(r.heldFinishes, func() {
+			defer r.wg.Done()
+			r.mu.Lock()
+			r.decideResume(p, e, reason, read, column, readErr)
+		})
+		r.mu.Unlock()
+
+		return
+	}
+	r.decideResume(p, e, reason, read, column, readErr)
+}
+
+// decideResume queues the resume of a run that did not finish, or reports why
+// it gets none, and frees its card then. The caller holds mu, which
+// decideResume releases.
+func (r *router) decideResume(p pending, e endedRun, reason string, read bool, column string, readErr error) {
+	r.gating--
+	current := r.rules()
+	m, ok := current.MatchRule(p.event, p.rule)
+	switch {
+	case r.shut():
+		e.skipped = api.DropShutdown
+	case !ok:
+		// A dead rule means a kill ended it, and a live one a reload.
+		e.skipped = api.DropRuleDead
+		if current.Live(p.rule) {
+			e.skipped = api.DropReload
+		}
+	case read && readErr != nil:
+		r.log.Warn("card_read_failed", append(about(p.event, p.rule),
+			"error", readErr.Error(),
+			"message", "the bridge could not read the card, so it resumes the session anyway",
+		)...)
+	case read && column != p.column:
+		e.skipped = api.SkipCardMoved
+	}
+	if e.skipped != "" {
+		r.log.Warn("resume_skipped", append(about(p.event, p.rule),
+			"reason", e.skipped,
+			"message", fmt.Sprintf("the bridge does not resume the session of %s, which ended with %s", aggregate(p.event), reason),
+		)...)
+		r.emitLocked(p, r.outcome(p, e))
+		delete(r.running, p.key)
+		dropped := r.dispatchLocked()
+		r.mu.Unlock()
+		r.logDropped(dropped)
+
+		return
+	}
+
+	next := p
+	next.continues, next.runID, next.resumeIndex = p.runID, config.NewUUID(), p.resumeIndex+1
+	next.set, next.checked = current, true
+	next.spec.resume, next.spec.prompt = true, directive.RenderResumeUnfinished(reason)
+	next.apply(m)
+	r.log.Warn("worker_resuming", append(about(p.event, p.rule),
+		"session_id", next.spec.sessionID,
+		"resume", next.resumeIndex,
+		"max_resumes", next.maxResumes,
+		"reason", reason,
+	)...)
+	r.emitLocked(p, r.outcome(p, e))
+	r.emitLocked(next, api.RunStateReport{State: api.RunQueued})
+	// The resume takes the place of the run it continues, ahead of each event
+	// that arrived after that run.
+	i, _ := slices.BinarySearchFunc(r.queue, next.seq, func(q pending, seq uint64) int { return cmp.Compare(q.seq, seq) })
+	r.queue = slices.Insert(r.queue, i, next)
+	dropped := r.dispatchLocked()
+	r.mu.Unlock()
+
+	r.logDropped(dropped)
 }
 
 // check reads the ask of a resume the queue released, on its own goroutine.
@@ -772,6 +1124,7 @@ func (r *router) start(p pending) {
 // read every item of its closed ask is skipped. Any failed check resumes, so a
 // fault never loses a resume. The caller holds mu, and check never takes it.
 func (r *router) check(p pending) {
+	r.checking++
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
@@ -787,7 +1140,10 @@ func (r *router) check(p pending) {
 		// A kill or a reload rewrites queued events only, and this resume was out
 		// of the queue during the check, so its rule matches again under the
 		// same lock.
+		r.quiesce.RLock()
+		defer r.quiesce.RUnlock()
 		r.mu.Lock()
+		r.checking--
 		current := r.rules()
 		m, ok := current.MatchRule(p.event, p.rule)
 		if ok {
@@ -868,13 +1224,17 @@ func (r *router) shut() bool {
 	return r.closed || r.workerContext().Err() != nil
 }
 
-// shutdown stops the queue for good and drops what is still in it.
+// shutdown stops the queue for good and drops what is still in it. A paused or
+// frozen router resumes, so the runs and events it holds back reach the report.
 func (r *router) shutdown() {
 	r.mu.Lock()
+	if !r.closed {
+		close(r.stoppedLocked())
+	}
 	r.closed = true
 	r.mu.Unlock()
 
-	r.dispatch()
+	r.resume()
 }
 
 // logDropped names what a shut queue lost. These workers never started, so a
@@ -900,52 +1260,86 @@ func (r *router) logDropped(dropped []pending, attrs ...any) {
 	}
 }
 
-// report says how a worker ended. The log is the operator's view, and the queue
-// carries the same run to Loupe.
-func (r *router) report(p pending, res workerResult, began time.Time, elapsed time.Duration) {
-	r.logResult(p, res, elapsed)
-	r.reportOutcome(p, res, began, elapsed)
-}
-
-// reportOutcome hands how a run ended to Loupe. A worker that never ran sends
+// outcome is how a run ended, as Loupe takes it. A worker that never ran sends
 // no exit code and says why instead, because the server keeps the two faults
 // apart. A run with no card logs its skip here, once. endedAt is derived from
 // the start, so it never precedes startedAt, whatever the wall clock does.
-func (r *router) reportOutcome(p pending, res workerResult, began time.Time, elapsed time.Duration) {
+func (r *router) outcome(p pending, e endedRun) api.RunStateReport {
 	if !r.reporting() {
-		return
+		return api.RunStateReport{}
 	}
 	if _, cardNumber := cardOf(p.event); cardNumber < 1 {
 		r.log.Warn("report_skipped", append(about(p.event, p.rule),
 			"message", "Loupe records a run against a card, and this event names none",
 		)...)
 
-		return
+		return api.RunStateReport{}
 	}
 
 	report := api.RunStateReport{
-		State:     api.RunSucceeded,
-		SessionID: p.spec.sessionID,
-		StartedAt: began,
-		EndedAt:   began.Add(elapsed),
-		Output:    res.output,
+		State:         e.state,
+		SessionID:     p.spec.sessionID,
+		StartedAt:     e.began,
+		EndedAt:       e.began.Add(e.elapsed),
+		Output:        e.res.output,
+		ResumeSkipped: e.skipped,
 	}
-	if res.err != nil {
-		reason := res.err.Error()
-		report.State, report.FailureReason = api.RunNotStarted, &reason
-		r.emit(p, report)
+	if e.res.err != nil {
+		reason := e.res.err.Error()
+		report.FailureReason = &reason
 
-		return
+		return report
 	}
 	// A process that ran carries its exit code and its result flag together.
-	report.ExitCode, report.HasResult = &res.exitCode, &res.hasResult
-	switch {
-	case res.exitCode != 0:
-		report.State = api.RunFailed
-	case !res.hasResult:
-		report.State = api.RunNoResult
+	report.ExitCode, report.HasResult = &e.res.exitCode, &e.res.hasResult
+	if e.res.hasResult {
+		report.ResultStatus = e.res.status
+		report.ResultFields = r.resultFields(p, e.res.fields)
 	}
-	r.emit(p, report)
+
+	return report
+}
+
+// resultFields are the extra result fields the server takes. Past its limit
+// the bridge sends none, because a 422 would lose the whole outcome.
+func (r *router) resultFields(p pending, fields map[string]any) map[string]any {
+	if len(fields) == 0 {
+		return nil
+	}
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(fields)
+	size := phpJSONLength(bytes.TrimSuffix(buffer.Bytes(), []byte("\n")))
+	if err == nil && size <= maxResultFields {
+		return fields
+	}
+	r.log.Warn("result_fields_dropped", append(about(p.event, p.rule),
+		"bytes", size,
+		"message", fmt.Sprintf("the result fields take %d bytes as JSON, and Loupe takes at most %d", size, maxResultFields),
+	)...)
+
+	return nil
+}
+
+// phpJSONLength is the length of PHP's json_encode of the same value, which
+// the server measures. It takes Go's encoding without HTML escapes, which
+// already writes U+2028 and U+2029 as \u2028 and \u2029 like PHP. PHP also
+// escapes each slash, and writes each UTF-16 unit of a non-ASCII character as \uXXXX.
+func phpJSONLength(encoded []byte) int {
+	n := 0
+	for _, c := range string(encoded) {
+		switch {
+		case c == '/':
+			n += 2
+		case c > unicode.MaxASCII:
+			n += 6 * len(utf16.Encode([]rune{c}))
+		default:
+			n++
+		}
+	}
+
+	return n
 }
 
 // reporting reports whether the router sends run reports at all.
@@ -980,6 +1374,13 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 		delete(r.held, p.runID)
 	}
 
+	// The server stores the series links from the report that creates the run.
+	if report.State == api.RunQueued {
+		report.CardColumn = p.column
+		if p.continues != "" {
+			report.Continues, report.ResumeIndex, report.ResumeCap = p.continues, p.resumeIndex, p.maxResumes
+		}
+	}
 	report.BridgeID, report.At = r.bridgeID, time.Now()
 	report.CardID, report.CardNumber, report.RuleName = cardID, cardNumber, p.rule
 	// The handle is the project id the event carried, which a rename never
@@ -1017,6 +1418,7 @@ func (r *router) logResult(p pending, res workerResult, elapsed time.Duration) {
 	args := append(about(p.event, p.rule),
 		"exit", res.exitCode,
 		"duration_ms", elapsed.Milliseconds(),
+		"status", res.status,
 		"output", res.output,
 	)
 	switch {

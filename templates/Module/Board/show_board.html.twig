@@ -48,10 +48,18 @@
     </section>
     {% endif %}
 
-    {# A column change elsewhere reloads this frame, so every open board shows it. #}
+    {# A column change or a worker run elsewhere reloads this frame, and a card change places that card. #}
     {% do mercure_subscribe(boardTopic) %}
-    <div class="lp-split-region" data-controller="board-refresh" data-board-refresh-board-value="{{ path('app_project_board', {id: board.project.id}) }}" data-action="card-drawer:saved@window->board-refresh#reload">
-        <turbo-frame id="board-frame" target="_top" data-board-refresh-target="frame">
+    {% do mercure_subscribe(worker_runs_topic(board.project)) %}
+    {% set placeholderCardId = '00000000-0000-7000-8000-000000000000' %}
+    <div class="lp-split-region"
+         data-controller="board-refresh board-live"
+         data-board-refresh-board-value="{{ path('app_project_board', {id: board.project.id}) }}"
+         data-board-live-placement-value="{{ path('app_board_card_placement', {projectId: board.project.id, cardId: placeholderCardId}) }}"
+         data-board-live-placeholder-value="{{ placeholderCardId }}"
+         data-action="board-live:reload->board-refresh#reload">
+        {# No src here: board-refresh sets it without a load, so the first reload morphs. #}
+        <turbo-frame id="board-frame" target="_top" refresh="morph" data-board-refresh-target="frame">
             {% include '@Board/_board_columns.html.twig' with {board: board, renameColumnForm: renameColumnForm} only %}
         </turbo-frame>
     </div>

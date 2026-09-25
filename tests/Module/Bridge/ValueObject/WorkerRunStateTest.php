@@ -20,33 +20,44 @@ final class WorkerRunStateTest extends TestCase
     public function test_every_state_has_its_backing_value(): void
     {
         self::assertSame(
-            ['queued', 'replaced', 'resumed', 'skipped', 'running', 'waiting-for-person', 'dropped', 'succeeded', 'failed', 'not-started', 'no-result', 'timed-out', 'lost', 'closed'],
+            ['queued', 'replaced', 'resumed', 'skipped', 'running', 'waiting-for-person', 'dropped', 'succeeded', 'failed', 'not-started', 'no-result', 'unfinished', 'blocked', 'gave-up', 'timed-out', 'lost', 'closed'],
             array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::cases()),
         );
     }
 
-    /** @return iterable<string, array{?int, ?bool, WorkerRunState}> */
-    public static function exits(): iterable
+    /** @return iterable<string, array{?int, ?bool, ?string, WorkerRunState}> */
+    public static function outcomes(): iterable
     {
-        yield 'no exit code' => [null, null, WorkerRunState::NotStarted];
-        yield 'a clean exit with a result' => [0, true, WorkerRunState::Succeeded];
-        yield 'a clean exit from an older bridge' => [0, null, WorkerRunState::Succeeded];
-        yield 'a clean exit with no result' => [0, false, WorkerRunState::NoResult];
-        yield 'a failed exit with no result' => [1, false, WorkerRunState::Failed];
-        yield 'a failed exit with a result' => [1, true, WorkerRunState::Failed];
-        yield 'a failed exit from an older bridge' => [2, null, WorkerRunState::Failed];
-        yield 'a signal' => [-9, false, WorkerRunState::Failed];
+        yield 'no exit code' => [null, null, null, WorkerRunState::NotStarted];
+        yield 'a clean exit with a result' => [0, true, null, WorkerRunState::Succeeded];
+        yield 'a clean exit from an older bridge' => [0, null, null, WorkerRunState::Succeeded];
+        yield 'a clean exit with no result' => [0, false, null, WorkerRunState::NoResult];
+        yield 'a failed exit with no result' => [1, false, null, WorkerRunState::Failed];
+        yield 'a failed exit with a result' => [1, true, null, WorkerRunState::Failed];
+        yield 'a failed exit from an older bridge' => [2, null, null, WorkerRunState::Failed];
+        yield 'a signal' => [-9, false, null, WorkerRunState::Failed];
+        yield 'a finished worker' => [0, true, 'finished', WorkerRunState::Succeeded];
+        yield 'a blocked worker' => [0, true, 'blocked', WorkerRunState::Blocked];
+        yield 'an unfinished worker' => [0, true, 'unfinished', WorkerRunState::Unfinished];
+        yield 'a failed exit wins over the status' => [1, true, 'finished', WorkerRunState::Failed];
     }
 
-    #[DataProvider('exits')]
-    public function test_the_exit_code_and_the_result_flag_give_the_outcome(?int $exitCode, ?bool $hasResult, WorkerRunState $expected): void
+    #[DataProvider('outcomes')]
+    public function test_the_exit_code_the_result_flag_and_the_status_give_the_outcome(?int $exitCode, ?bool $hasResult, ?string $resultStatus, WorkerRunState $expected): void
     {
-        self::assertSame($expected, WorkerRunState::fromExitCode($exitCode, $hasResult));
+        self::assertSame($expected, WorkerRunState::fromOutcome($exitCode, $hasResult, $resultStatus));
     }
 
     public function test_an_exit_code_alone_reads_as_an_older_bridge(): void
     {
-        self::assertSame(WorkerRunState::Succeeded, WorkerRunState::fromExitCode(0));
+        self::assertSame(WorkerRunState::Succeeded, WorkerRunState::fromOutcome(0));
+    }
+
+    public function test_the_new_outcomes_reuse_the_chip_palette(): void
+    {
+        self::assertSame('pending', WorkerRunState::Unfinished->chipModifier());
+        self::assertSame('pending', WorkerRunState::Blocked->chipModifier());
+        self::assertSame('failed', WorkerRunState::GaveUp->chipModifier());
     }
 
     public function test_no_result_reads_as_a_failure_on_the_page(): void
@@ -59,7 +70,7 @@ final class WorkerRunStateTest extends TestCase
     public function test_only_the_exit_code_states_are_outcomes(): void
     {
         self::assertSame(
-            ['succeeded', 'failed', 'not-started', 'no-result'],
+            ['succeeded', 'failed', 'not-started', 'no-result', 'unfinished', 'blocked', 'gave-up'],
             array_values(array_map(
                 static fn (WorkerRunState $state): string => $state->value,
                 array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome()),
