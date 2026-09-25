@@ -85,6 +85,8 @@
         }
     };
     const writeStoredTarget = (target) => {
+        // The landing demo keeps nothing, so every visit shows the picker.
+        if (DEMO) return;
         try {
             if (target) {
                 window.localStorage.setItem(

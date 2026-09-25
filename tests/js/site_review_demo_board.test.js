@@ -137,5 +137,7 @@ describe('the demo board', () => {
         );
         expect(root.getElementById('lp-head-count').textContent).toBe('1');
         expect(fetchMock).not.toHaveBeenCalled();
+        // The next visit asks again, because the demo keeps nothing.
+        expect(window.localStorage.length).toBe(0);
     });
 });
