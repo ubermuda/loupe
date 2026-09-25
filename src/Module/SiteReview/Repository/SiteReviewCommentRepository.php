@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Repository;
 
-use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
@@ -171,26 +170,6 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return null === $max ? 0 : ((int) $max) + 1;
-    }
-
-    /**
-     * Site reviews hang off a project, not the owner directly, so this joins
-     * through the project to filter by its owner.
-     *
-     * @return list<SiteReviewComment>
-     */
-    public function findByOwner(User $user): array
-    {
-        return $this->createQueryBuilder('c')
-            ->join('c.project', 'p')
-            ->leftJoin('c.anchors', 'a')
-            ->addSelect('a')
-            ->where('p.owner = :user')
-            ->setParameter('user', $user)
-            ->orderBy('c.createdAt', 'ASC')
-            ->addOrderBy('a.position', 'ASC')
-            ->getQuery()
-            ->getResult();
     }
 
     /**

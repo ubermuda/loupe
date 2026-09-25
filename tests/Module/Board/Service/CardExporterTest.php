@@ -10,10 +10,13 @@ use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Service\CardExporter;
 use App\Module\Project\Entity\Project;
+use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -110,15 +113,76 @@ final class CardExporterTest extends KernelTestCase
                     'addedAt' => $secondAddedAt->format(\DateTimeInterface::ATOM),
                 ],
             ],
-            // Ids only for both. A document's text and a reviewer's words
-            // belong to their own exporters, so no file repeats another's.
             'documents' => [],
-            'siteReviewComments' => [],
+            'feedback' => [],
             'relatedCards' => [],
             'parentCardId' => null,
             'parentNumber' => null,
             'laneEnabled' => true,
         ], $rows[0]);
+    }
+
+    /**
+     * Feedback lives on its card, so the card's file carries each note in
+     * full: the export is the user's own copy, strokes included.
+     */
+    public function test_a_card_carries_its_feedback_in_full(): void
+    {
+        $owner = $this->user('card-export-feedback');
+        $project = new Project($owner, 'export-'.uniqid());
+        $this->em->persist($project);
+        $this->seedColumns($project);
+        $card = new Card(
+            project: $project,
+            column: $this->column($project, 'backlog'),
+            title: 'Checkout feedback',
+            body: '',
+            number: 1,
+            type: CardType::SiteReview,
+            origin: CardReporter::Reviewer,
+            position: 0,
+        );
+        $this->em->persist($card);
+
+        $createdAt = new \DateTimeImmutable('2026-03-01 09:00:00');
+        $drawn = new SiteReviewComment($project, 0, 'Point here', 'https://example.com/checkout', 'card:preview', $createdAt)
+            ->addAnchor('.hero h1', 'Hello world', 'Hello', 'Say ', ' world');
+        $drawn->strokes = [['space' => 'page', 'points' => [[0.1, 0.2], [0.3, 0.4]]]];
+        $drawn->status = SiteReviewCommentStatus::Addressed;
+        $plain = new SiteReviewComment($project, 1, 'A page note', 'https://example.com/', createdAt: $createdAt->modify('+1 hour'));
+        foreach ([$drawn, $plain] as $comment) {
+            $this->em->persist($comment);
+            $this->em->persist(new CardSiteReviewComment($card, $comment, true));
+        }
+        $this->em->flush();
+        $this->em->clear();
+
+        $rows = iterator_to_array($this->exporter->export($owner), false);
+
+        self::assertSame([
+            [
+                'id' => (string) $drawn->id,
+                'url' => 'https://example.com/checkout',
+                'context' => 'card:preview',
+                'anchors' => [
+                    ['selector' => '.hero h1', 'text' => 'Hello world', 'quote' => 'Hello', 'quotePrefix' => 'Say ', 'quoteSuffix' => ' world'],
+                ],
+                'body' => 'Point here',
+                'strokes' => [['space' => 'page', 'points' => [[0.1, 0.2], [0.3, 0.4]]]],
+                'status' => 'addressed',
+                'createdAt' => $createdAt->format(\DateTimeInterface::ATOM),
+            ],
+            [
+                'id' => (string) $plain->id,
+                'url' => 'https://example.com/',
+                'context' => null,
+                'anchors' => [],
+                'body' => 'A page note',
+                'strokes' => [],
+                'status' => 'pending',
+                'createdAt' => $createdAt->modify('+1 hour')->format(\DateTimeInterface::ATOM),
+            ],
+        ], $rows[0]['feedback']);
     }
 
     public function test_a_child_exports_its_epic_and_an_epic_its_lane_setting(): void
