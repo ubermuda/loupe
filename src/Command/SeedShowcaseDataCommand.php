@@ -90,7 +90,7 @@ final class SeedShowcaseDataCommand extends Command
             return Command::SUCCESS;
         }
 
-        $io->success(\sprintf('Filled "%s" with 4 cards, 2 documents, 9 requests and 4 site comments.', $name));
+        $io->success(\sprintf('Filled "%s" with 5 cards, 2 documents, 9 requests and 4 site comments.', $name));
         $io->writeln('  /projects/'.$project->id.'/inbox');
         $io->writeln('  /projects/'.$project->id.'/inbox?queue=completed');
         $io->writeln('  /projects/'.$project->id.'/board');

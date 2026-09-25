@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Service\Dev;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -387,11 +389,30 @@ final readonly class ProjectShowcaseSeeder
         );
         $wording->status = SiteReviewCommentStatus::Resolved;
 
+        // Every comment has a card, as the widget saves it. The resolved one
+        // sits on a finished site-review card, because finishing resolves it.
+        $done = array_find(
+            $this->boardColumns->findForProject($project),
+            static fn (BoardColumn $column): bool => $column->terminal,
+        ) ?? throw new \LogicException('The project has no terminal column.');
+        $basket = new Card(
+            project: $project,
+            column: $done,
+            title: 'The empty basket reads as an error',
+            body: '',
+            number: $this->cards->nextNumber($project),
+            type: CardType::SiteReview,
+            origin: CardReporter::Reviewer,
+        );
+        $basket->completedAt = $now->modify('-1 day');
+        $this->em->persist($basket);
+
         foreach ([$contrast, $spacing, $recovery, $wording] as $comment) {
             $this->em->persist($comment);
         }
-        // One comment already triaged onto a card, so the card's Feedback tab
-        // and the unlinked queue both have something to show.
-        $this->em->persist(new CardSiteReviewComment($checkout, $spacing));
+        foreach ([$contrast, $spacing, $recovery] as $comment) {
+            $this->em->persist(new CardSiteReviewComment($checkout, $comment));
+        }
+        $this->em->persist(new CardSiteReviewComment($basket, $wording, true));
     }
 }
