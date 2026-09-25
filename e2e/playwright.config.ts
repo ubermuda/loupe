@@ -120,8 +120,8 @@ export default defineConfig({
         },
         {
             name: 'board',
-            // Each board spec turns board.enabled off in its afterAll, which
-            // 404s the board under any other board spec still running.
+            // Board specs flip board.enabled, which 404s the board under any
+            // other board spec still running.
             testMatch: /board\/.*\.spec\.ts/,
             workers: 1,
             use: {

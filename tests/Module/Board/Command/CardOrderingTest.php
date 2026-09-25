@@ -17,6 +17,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Bridge\Service\InteractiveRuns;
@@ -60,6 +61,9 @@ final class CardOrderingTest extends KernelTestCase
         self::assertInstanceOf(UpdateCardHandler::class, $updateCard);
         $this->updateCard = $updateCard;
 
+        $links = self::getContainer()->get(CardSiteReviewCommentRepository::class);
+        self::assertInstanceOf(CardSiteReviewCommentRepository::class, $links);
+
         $cards = self::getContainer()->get(CardRepository::class);
         self::assertInstanceOf(CardRepository::class, $cards);
         $this->cards = $cards;
@@ -68,7 +72,7 @@ final class CardOrderingTest extends KernelTestCase
         // until the board has a controller, so the container inlines it away.
         $interactiveRuns = self::getContainer()->get(InteractiveRuns::class);
         self::assertInstanceOf(InteractiveRuns::class, $interactiveRuns);
-        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), new CardParentPolicy($cards), $this->em, SilentAuditor::create(), new EventDispatcher(), $interactiveRuns);
+        $this->deleteCard = new DeleteCardHandler($cards, $links, new CardGroupOrder($cards), new CardParentPolicy($cards), $this->em, SilentAuditor::create(), new EventDispatcher(), $interactiveRuns);
 
         $owner = new User(fullName: 'Riley', email: 'board-ordering-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
@@ -222,7 +226,7 @@ final class CardOrderingTest extends KernelTestCase
         $last = $this->card('Last');
         self::assertSame([0, 1, 2], [$first->position, $doomed->position, $last->position]);
 
-        ($this->deleteCard)(new DeleteCardCommand($doomed));
+        ($this->deleteCard)(new DeleteCardCommand($doomed, CardReporter::Human));
 
         self::assertSame(0, $first->position);
         self::assertSame(1, $last->position);

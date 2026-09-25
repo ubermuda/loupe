@@ -76,8 +76,7 @@
                         {% include '@Inbox/_open_count.html.twig' with {project: project, openCount: project_inbox_open_count(project)} only %}
                     </a>
                     {% endif %}
-                    {# Opt-in: the flag ships off, so an instance nobody has told
-                       otherwise shows no link to a page that answers 404. #}
+                    {# With the flag off, the board answers 404, so no link points to it. #}
                     {% if is_feature_enabled('board.enabled') %}
                     {% set boardActive = route starts with 'app_project_board' or route starts with 'app_board_card' %}
                     <a href="{{ path('app_project_board', {id: project.id}) }}"
@@ -94,17 +93,6 @@
                         <twig:ux:icon name="lucide:file-text" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
                         <span class="lp-sidebar__pill">{{ project_document_count(project) }}</span>
-                    </a>
-                    <a href="{{ path('app_project_site_review', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if route == 'app_project_site_review' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_project_site_review' %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:globe" />
-                        <span class="lp-sidebar__link-label">{{ 'nav.link.site_review'|trans }}</span>
-                        {# The pill counts every comment; it only turns amber while some
-                           of them are still waiting on the agent. Both figures come from
-                           one call, so the badge costs one query. #}
-                        {% set reviewCounts = project_site_review_counts(project) %}
-                        <span class="lp-sidebar__pill{% if reviewCounts.pending > 0 %} lp-sidebar__pill--amber{% endif %}">{{ reviewCounts.total }}</span>
                     </a>
                     <span class="lp-sidebar__nav-label lp-sidebar__nav-label--spaced">{{ 'bridge.agents.heading'|trans }}</span>
                     <a href="{{ path('app_project_agents', {id: project.id}) }}"

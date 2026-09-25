@@ -124,6 +124,8 @@ final readonly class DeleteBoardColumnHandler
                 targetSlug: $deleted->targetSlug,
                 movedCardIds: $deleted->movedCardIds,
                 actor: $command->actor,
+                terminal: $column->terminal,
+                targetTerminal: [] !== $rows && null !== $target && $target->terminal,
             ));
 
             return $deleted;

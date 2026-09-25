@@ -8,12 +8,14 @@ use App\Mercure\LiveUpdatePublisher;
 use App\Mercure\LiveUpdates;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
-use App\Module\Board\Command\AttachSiteReviewCommentCommand;
-use App\Module\Board\Command\AttachSiteReviewCommentHandler;
+use App\Module\Board\Command\AddFeedbackCommand;
+use App\Module\Board\Command\AddFeedbackHandler;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\DeleteCardCommand;
 use App\Module\Board\Command\DeleteCardHandler;
+use App\Module\Board\Command\DeleteFeedbackCommand;
+use App\Module\Board\Command\DeleteFeedbackHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
@@ -149,7 +151,7 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
         $card = $this->card();
         $expected = $this->message($card, 'deleted', false);
 
-        $this->service(DeleteCardHandler::class)(new DeleteCardCommand($card));
+        $this->service(DeleteCardHandler::class)(new DeleteCardCommand($card, CardReporter::Human));
 
         self::assertSame([$expected], $this->drain());
     }
@@ -216,24 +218,27 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
         self::assertSame([], $this->drain());
     }
 
-    public function test_attaching_a_comment_publishes_updated(): void
+    public function test_a_note_on_an_existing_card_publishes_updated(): void
     {
         $card = $this->card();
-        $comment = $this->comment(null);
         $this->drain();
-
-        $this->service(AttachSiteReviewCommentHandler::class)(new AttachSiteReviewCommentCommand($comment, $card));
-
-        self::assertSame([$this->message($card, 'updated', false)], $this->drain());
-    }
-
-    public function test_a_comment_that_names_a_card_publishes_updated_for_it(): void
-    {
-        $card = $this->card();
 
         $this->comment($card);
 
         self::assertSame([$this->message($card, 'updated', false)], $this->drain());
+    }
+
+    public function test_a_note_that_creates_its_card_publishes_created_alone(): void
+    {
+        $link = $this->service(AddFeedbackHandler::class)(new AddFeedbackCommand(
+            $this->project,
+            'the launcher overlaps the footer',
+            'https://preview/x',
+        ));
+
+        // Guard: the note made the card, so the create is the only message.
+        self::assertTrue($link->createdCard);
+        self::assertSame([$this->message($link->card, 'created', true)], $this->drain());
     }
 
     public function test_each_status_change_of_a_linked_comment_publishes_updated(): void
@@ -283,6 +288,19 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
         self::assertSame([$this->message($card, 'updated', false)], $this->drain());
     }
 
+    public function test_deleting_a_note_that_leaves_its_card_publishes_updated(): void
+    {
+        $card = $this->card();
+        $comment = $this->comment($card);
+        $this->drain();
+
+        $cardDeleted = $this->service(DeleteFeedbackHandler::class)(new DeleteFeedbackCommand($this->project, $comment->id ?? throw new \LogicException('Comment has no id.')));
+
+        // Guard: the card stays, so its face is what changed.
+        self::assertFalse($cardDeleted);
+        self::assertSame([$this->message($card, 'updated', false)], $this->drain());
+    }
+
     public function test_a_status_change_of_an_unlinked_comment_publishes_nothing(): void
     {
         $comment = $this->comment(null);
@@ -329,11 +347,19 @@ final class PublishCardChangedOnCardChangedTest extends KernelTestCase
 
     private function comment(?Card $card): SiteReviewComment
     {
+        if (null !== $card) {
+            return $this->service(AddFeedbackHandler::class)(new AddFeedbackCommand(
+                $this->project,
+                'the launcher overlaps the footer',
+                'https://preview/x',
+                cardId: (string) $card->id,
+            ))->comment;
+        }
+
         return $this->service(AddCommentHandler::class)(new AddCommentCommand(
             $this->project,
             'the launcher overlaps the footer',
             'https://preview/x',
-            context: null === $card ? null : 'card:'.$card->id,
         ));
     }
 

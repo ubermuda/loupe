@@ -54,9 +54,9 @@ test.use({
     viewport: { width: 1600, height: 900 },
 });
 
-// The flag is global, so it goes back off for the specs that run after this one.
+// The flag is global, so it goes back to its shipped value, on, for later specs.
 test.afterAll(async ({ request }) => {
-    await setBoardFlag(request, false);
+    await setBoardFlag(request, true);
 });
 
 test('connection health remains accessible at enlarged text sizes', async ({

@@ -114,6 +114,7 @@ final class ListTerminalColumnCardsControllerTest extends WebTestCase
     public function test_the_history_is_not_found_while_the_flag_is_off(): void
     {
         $client = static::createClient();
+        $this->disableBoard();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $owner = $this->user($em, 'done-flag-off@example.com');

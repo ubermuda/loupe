@@ -1,40 +1,36 @@
 ---
 title: "Site review"
-description: "An embeddable widget for commenting on live web pages. Preview — optional, and not release-ready."
+description: "An embeddable widget for notes on live web pages. Each note becomes feedback on a board card. Preview, optional, and not release-ready."
 ---
 
 The site-review widget brings the select-and-comment flow to any web page. A
-reviewer picks an element, or selects a passage of text, and leaves a comment
-about it; it is saved to the project the moment they press Save, and the agent
-can pull it with `site_review_get` from then on. There is no send step to
-remember.
+reviewer picks an element, or selects a passage of text, and writes a note
+about it. The note saves when the reviewer presses Save. Each note becomes
+feedback on a card of the project [board](board.md), and the agent reads it
+with `feedback_list` or `card_get`. There is no send step.
 
-**This is a preview.** It works and is used daily on this project, but it is not
-covered by any release promise, and the pieces around it — the hub, the
-[command-line bridge](../extending/cli-bridge.md) — are optional and unreleased.
+This is a preview. It works, and this project uses it every day. No release
+promise covers it. The hub and the
+[command-line bridge](../extending/cli-bridge.md) around it are optional and
+unreleased.
 
 ## Embedding it
 
-The Site review header links to Widget setup. The action moves below the title
-when a narrow screen or enlarged text needs more space.
-
 The embed names the project. It carries no credential, so the reviewer signs in
-with a Loupe account before they comment. Paste the snippet the project page
-gives you:
+with a Loupe account before they write a note. The project's Connections page
+shows the snippet with the project ID filled in:
 
 ```html
 <script src="https://your-instance/site-review/widget.js" data-project="PROJECT-ID"></script>
 ```
 
-The widget derives its backend from its own `script.src`, so the host it is
-served from is the instance it talks to.
+The ID is the project's UUID, the same one that is in the project's URLs. The
+widget reads its backend from its own `script.src`, so the host that serves the
+script is the instance it talks to.
 
-The project's Connections page shows this snippet with the project ID filled in.
-The ID is the project's UUID, the same one that is in the project's URLs.
-
-**Install it on staging and preview environments only.** This is a preview, and
-only the owner of the project can sign in. A public page therefore shows a
-launcher that no visitor can use.
+Install it on staging and preview environments only. This is a preview, and
+only the owner of the project can sign in. On a public page, no visitor can use
+the launcher.
 
 ### Allowing a site and signing in
 
@@ -45,7 +41,7 @@ launcher that no visitor can use.
    `https://staging.example.com`, and it covers neither `https://a.staging.example.com` nor `https://example.com`.
    The scheme and the port must still be the same. Loupe refuses a bare `*` and a wildcard over a whole
    registry, such as `*.com` or `*.co.uk`, because one entry would then cover every site under it.
-   A wildcard is what a preview environment needs, where each branch gets its own host.
+   A preview environment gives each branch its own host, so it needs a wildcard.
 2. Paste the snippet into the site.
 3. The reviewer opens the widget and presses **Sign in with Loupe**. A pop-up window opens on your Loupe instance.
 4. The reviewer signs in, checks the project and the site on the consent page, and presses **Allow**.
@@ -55,213 +51,278 @@ snippet does not work on another site. Only the owner of the project can sign in
 for now. Loupe refuses any other account on the consent page.
 
 The widget keeps its tokens in the tab's session storage, so a new tab signs in
-again. It renews its access in the background. When the renewal fails, for example
-after you revoke **Loupe site-review widget** under **Connected apps**, the widget
-shows the sign-in button again. Removing a site from the list stops new sign-ins
-from that site. Revoke the app to end a sign-in that already exists.
+again. It renews its access in the background. When the renewal fails, the
+widget shows the sign-in button again. This happens, for example, after you
+revoke **Loupe site-review widget** under **Connected apps**. Removing a site
+from the list stops new sign-ins from that site. Revoke the app to end a sign-in
+that already exists.
 
-A pop-up blocker must allow pop-ups for the site. Sign in to Loupe with a password
-in the pop-up: a social sign-in provider can cut the link between the pop-up and
-the page, and the widget then gets no answer.
+A pop-up blocker must allow pop-ups for the site. Sign in to Loupe with a
+password in the pop-up. A social sign-in provider can cut the link between the
+pop-up and the page, and the widget then gets no answer.
+
+## Where notes go
+
+Every note lands on a card. Before the first note, the widget asks where notes
+go:
+
+| Choice | What a save does |
+|---|---|
+| A new card for each note | Creates a new card for the note. |
+| One card for this review | Adds the note to one card. Pick an open card, or create one. |
+| A card for each note, under an epic | Creates a new card for the note, as a child of one epic. Pick an open epic, or create one. |
+
+The widget keeps the choice in the browser's local storage, for this instance
+and this project. It holds for every later note, and after a reload, until you
+change it. The row under the composer shows where notes go. Click it to choose
+again.
+
+The second and third choices open a card picker. Search the open cards, or
+type a title and create a card. The title starts as `Review: ` and the page
+path, and you can edit it. The third choice lists epics only, and it creates an
+epic.
+
+A card that the widget creates has these values:
+
+- The type is `site-review` for a note card or a review card, and `epic` for an epic.
+- The column is the board's default column.
+- The reporter is `reviewer`.
+- A note card takes its title from the first line of the note that is not blank, cut to 80 characters.
+
+After a save that creates a card, the widget names the card and links to it.
+
+When the card or the epic you chose is closed or deleted, the widget forgets the
+choice and asks again. A card in a terminal column is closed. Your draft stays.
+
+### A preview page locks the card
+
+A preview deployment can say which card it serves. It sets
+`SITE_REVIEW_WIDGET_CONTEXT` to `card:` followed by the card id, and the embed
+carries that value in `data-context`. See
+[Environment variables](../reference/environment.md).
+
+On such a page, every note goes to that card. The widget does not ask for a
+choice, and it does not change the choice you keep for other pages. When the
+card is closed or deleted, the widget refuses notes and says so.
+
+### The board must be on
+
+Notes need the board. When `board.enabled` is off, the widget shows "Turn on the
+board to use site review". The text box turns read-only and Save stays disabled,
+so you can still copy a draft out. The board ships on. See
+[Turning the board off](board.md#turning-the-board-off).
 
 ## Retrying a save
 
 A failed save keeps the draft open. Press **Save** again to retry it.
-The widget retains the submission ID until you save successfully or cancel the draft.
-If the server saves the comment but its response is lost, an unchanged retry returns the same comment.
-It does not repeat card attachment or create another comment.
+The widget keeps the submission ID until you save successfully or cancel the draft.
+The server can save the note and lose its response. An unchanged retry then returns the same note.
+It creates no second note and no second card.
 
 If you change the content after the server accepts it, the retry reports a conflict and keeps your draft.
-Copy the draft before you reload, then review the saved comment.
-Reloading or cancelling starts a new submission; it does not undo a comment that already reached the server.
+Copy the draft before you reload, then review the saved note.
+A reload or a cancel starts a new submission. It does not undo a note that already reached the server.
 
-The comment API accepts an optional UUID in `deliveryId`.
-Clients must reuse it with unchanged content when retrying a POST to `/api/site-review/comments`.
-Its scope is one project, and its lifetime is the stored comment's lifetime.
+The widget saves through `POST /api/board/feedback`. The request takes an optional UUID in `deliveryId`.
+A client must reuse it with unchanged content when it retries.
+Its scope is one project, and it lives as long as the stored note.
 Reusing it with different content returns HTTP 409 with `delivery_conflict`.
-Older clients without this field remain supported, but their repeated requests create separate comments.
 
-## Resolving a comment
+An old copy of the widget script saved through `POST /api/site-review/comments`.
+That route now answers HTTP 410 with `widget_outdated`, and the widget tells the reviewer to reload the page.
 
-Press the tick on a comment, either in the widget's list or on the card that
-opens from its pin. The comment leaves the widget, because the widget lists the
-comments that are still open.
+## Resolving a note
 
-Resolving keeps the comment. It moves to **Resolved** on the project's
-site-review page, where you can read it again and reopen it. Deleting is the
-control that removes a comment, and it asks you to confirm first.
+Press the tick on a note, either in the widget's list or on the popover that
+opens from its pin. The note leaves the widget, because the widget lists the
+notes that are still open.
 
-## Feedback on a card
+Resolving keeps the note. It shows as **Resolved** on the Feedback tab of its
+card, where you can read it again and reopen it. The Feedback tab also has
+**Resolve** for an open note.
 
-Attach a piece of feedback to a card from the Site review page, either to an
-open card or to a new one you create there. Creating the card opens the card
-form in the drawer. The drawer closes once the card exists, and the feedback
-list refreshes.
+A card that finishes resolves its feedback. When a card moves into a terminal
+column from an open one, every pending or addressed note on it becomes
+resolved. A column delete that moves cards from an open column into a terminal
+column does the same, and so does marking a column that holds cards as
+terminal. A move back out of the
+terminal column leaves the notes resolved.
 
-The card's Feedback tab then shows the same capture as Site review. Use
-**Resolve** or **Reopen** there to change the shared feedback status. The linked
-card opens on its Feedback tab from Site review.
+## Deleting a note
+
+The widget deletes a pending note, and it asks you to confirm first. The delete
+also removes the note's card when all of these are true:
+
+- The note created the card.
+- The card is still in the default column.
+- The card holds no other feedback.
+- The card keeps the site review type and the title that the note gave it.
+- The card body is empty.
+- The card has no pull request, no document and no link to or from another card.
+
+A card that somebody moved, edited or linked, or that holds other notes, stays. Deleting a card
+from the board deletes all of its feedback.
 
 ## Quoting a passage of text
 
-Open the widget, then select text on the page as you normally would. A **Comment
-on this text** button appears under the selection. Click it and the composer
-opens with that exact passage quoted, rather than with the whole paragraph
-picked. The selection may run across bold, links and other inline markup.
+Open the widget, then select text on the page as you normally do. A **Comment
+on this text** button appears under the selection. Click it, and the composer
+opens with that passage quoted. The widget does not pick the whole paragraph.
+The selection can run across bold, links and other inline markup.
 
 The offer appears only while the widget panel is open, so ordinary reading and
-copying on the page are untouched.
+copying on the page do not change.
 
-A quoted anchor behaves like any other. It gets a pin, an outline drawn around
-the words themselves, and a pill in the composer. One comment can hold both
-kinds, so you can quote a sentence and pick a button in the same comment and say
-that the two disagree. A quote holds up to 1000 characters. The widget refuses a
-longer selection and tells you so, rather than storing part of it.
+A quoted anchor behaves like any other. It gets a pin, an outline around the
+words, and a pill in the composer. One note can hold both kinds. You can quote
+a sentence and pick a button in the same note, and say that the two disagree. A
+quote holds up to 1000 characters. The widget refuses a longer selection and
+tells you so. It never stores part of it.
 
 The agent receives the quoted text, so "this sentence is wrong" arrives with the
-sentence attached.
+sentence.
 
 ### When the page changes under a quote
 
-The widget stores the quoted words plus a little of the text on each side, and
-finds them again on your next visit. The surrounding text is what tells two
-identical phrases apart in one paragraph.
+The widget stores the quoted words and a little of the text on each side, and
+finds them again on your next visit. The text around the quote tells two
+identical phrases in one paragraph apart.
 
-If the words are edited or removed, the comment does not disappear. The anchor
-falls back to the element the quote came from: the pin stays, and the outline
-widens from the passage to the whole element. Only the precision is lost.
+If somebody edits or removes the words, the note stays. The anchor falls back to
+the element that held the quote. The pin stays, and the outline grows from the
+passage to the whole element. Only the precision goes.
 
-## Pointing one comment at several elements
+## Pointing one note at several elements
 
 Pick an element, then hold **⌘** (**Ctrl** on Windows and Linux) and click
-another. The picker stays up as long as you hold the key, so you can add several
-elements in one go. You can also hold the key before the first pick. The composer
-shows one pill per element. A comment can hold up to ten elements. Save once,
-and the comment is about all of them.
+another. The picker stays up while you hold the key, so you can add several
+elements at a time. You can also hold the key before the first pick. The
+composer shows one pill for each element. A note can hold up to ten elements.
+Save once, and the note is about all of them.
 
-Point at a pill and the widget emphasises the element that pill names, while the
-other elements stay outlined. Click the pill to scroll to its element when it is
-off screen. Two controls drop an element again: the × on its pill, and the ×
-that appears on the element's own outline when you point at it.
+Point at a pill, and the widget shows the element that the pill names more
+strongly. The other elements stay outlined. Click the pill to scroll to its
+element when it is off the screen. Two controls remove an element: the × on its
+pill, and the × on the element's own outline when you point at it.
 
 Use this when the feedback is about a relationship. "These two should sit side
-by side" is one comment about two elements, not two comments.
+by side" is one note about two elements.
 
-Every element gets its own pin on the page, and every pin of one comment carries
-that comment's number. Point at one pin and the widget outlines every element of
-that comment. That is what shows they belong together.
+Every element gets its own pin on the page, and every pin of one note carries
+that note's number. Point at one pin, and the widget outlines every element of
+that note. That shows that they belong together.
 
-When you come back to a page and one of a comment's elements has gone, the
-widget marks the comment as degraded. The surviving pins take an amber dashed
-border, the popover says how many elements are missing, and the list row reads
-"1 of 2 elements". A comment on a single element that no longer matches simply
-shows no pin, as before.
+When you come back to a page and one of a note's elements is gone, the widget
+marks the note as degraded. The pins that remain get an amber dashed border.
+The popover says how many elements are missing, and the list row reads
+"1 of 2 elements". A note on a single element that no longer matches shows no
+pin.
 
 ## Drawing on the page
 
 **Draw** is the third way to capture something, beside picking an element and
 writing a page note. Press it in the panel, press the pen on the launcher
 without opening the panel, or press **D** with the panel open. Then drag on the
-page to draw. Every drag adds a stroke. **Undo** drops the last one,
-**Clear** drops the whole drawing, and **Done** (or **Esc**) puts the caret back
+page to draw. Every drag adds a stroke. **Undo** removes the last one,
+**Clear** removes the whole drawing, and **Done** (or **Esc**) puts the caret back
 in the text box. Your draft and your elements stay where they are.
 
-A stroke creates no anchor. Drawing over an element does not point the comment
+A stroke creates no anchor. A drawing over an element does not point the note
 at it, and an arrow that ends on a button does not attach to that button. Pick
-the element with the picker when you want the comment anchored, then draw. One
-comment carries elements and a drawing together, which is how you say "move this
+the element with the picker when you want the note anchored, then draw. One
+note can carry elements and a drawing together. That is how you say "move this
 box over there".
 
-Where the drawing goes when the page changes depends on whether the comment has
-an element:
+Where the drawing goes when the page changes depends on the note:
 
-- **With an element.** The strokes are stored as fractions of the first
-  element's box, so the drawing moves and resizes with that element. It survives
-  a window resize and a responsive breakpoint.
-- **Without an element.** The strokes are stored as fractions of the document
-  width. They survive a scroll and a reload. They do not follow a reflow: the
-  drawing scales with the page's width and stays where the page put it, so
-  content that moves leaves the drawing behind. Anchor the comment to an
-  element when that matters.
+- A note with an element stores its strokes as fractions of the first element's
+  box. The drawing moves and resizes with that element. It survives a window
+  resize and a responsive breakpoint.
+- A note with no element stores its strokes as fractions of the document width.
+  The drawing survives a scroll and a reload. It does not follow a reflow. It
+  scales with the page width and stays where the page put it, so content that
+  moves leaves the drawing behind. Anchor the note to an element when that
+  matters.
 
-Two things the first release leaves out. There is no per-stroke eraser, so Undo
-and Clear are the whole of what you can take back. Editing a saved comment
-changes its text alone, so the drawing and the elements stay as you saved them,
-the same way they already do for elements.
+The first release has no eraser for one stroke, so Undo and Clear are the only
+ways to take a stroke back. An edit of a saved note changes its text only. The
+drawing and the elements stay as you saved them.
 
-Your agent is told only **that** a comment carries a drawing, not what the
-drawing looks like. It cannot render vector points over a live page, so treat
-the drawing as something you and it discuss, and put the point in words too.
+Your agent learns only **that** a note carries a drawing. It does not get the
+drawing itself, because it cannot draw vector points over a live page. Discuss
+the drawing with the agent, and put the point in words too.
 
-Drawing sits behind the `site_review.drawing.enabled` feature flag, which is on
-after an install and after an upgrade. Turn it off in `/admin/feature-flags` and
-the widget drops **Draw** from the panel and from the launcher, and the API
-refuses a drawing rather than saving a comment without it. Drawings already saved keep rendering on the page,
-so the switch takes the tool away and never the work.
+Drawing is behind the `site_review.drawing.enabled` feature flag, which is on
+after an install and after an upgrade. Turn it off in `/admin/feature-flags`,
+and the widget removes **Draw** from the panel and from the launcher. The API
+then refuses a drawing, and it does not save the note without it. Saved
+drawings still show on the page, so the switch removes the tool and keeps the
+work.
 
 ## Moving the launcher
 
-The launcher sits in the bottom-right corner, which is where many pages pin
-their own controls. Move it to another corner in either of two ways.
+The launcher sits in the bottom-right corner, where many pages pin their own
+controls. Move it to another corner in one of two ways:
 
 - Open the panel and press the corner button in its header. Each press moves the
-  launcher to the next corner. The button is reachable by Tab and works with
-  Enter or Space.
+  launcher to the next corner. Tab reaches the button, and Enter or Space
+  presses it.
 - Drag the launcher. It follows the pointer, and on release it snaps to the
   nearest corner. A drag never opens the panel.
 
-The panel, the composer and every toast follow the launcher, so
-every corner keeps them on screen. The widget remembers the corner in the
-reviewed page's own browser storage, so it survives a reload. A private window,
-or a browser that blocks site data, gets the bottom-right corner every time and
-works the same otherwise.
+The panel, the composer and every toast follow the launcher, so every corner
+keeps them on the screen. The widget keeps the corner in the reviewed page's
+own browser storage, so it survives a reload. A private window, or a browser
+that blocks site data, gets the bottom-right corner every time. The widget
+works the same way otherwise.
 
 The widget also sets `data-loupe-review-corner` on the page's `<html>` element,
-beside the `data-loupe-review-open` it already sets. A page can read either one
-to move its own pinned chrome out of the way.
+beside `data-loupe-review-open`. A page can read either one to move its own
+pinned controls out of the way.
 
 ## What it needs from the page
 
-Very little. The widget is a `fetch` with a bearer header — no clipboard, no
-cookies, and no browser API that requires a secure context. It writes one
-localStorage key, `loupe.site-review.corner`, and works without it. Cross-origin
-embedding works because the API answers CORS itself.
+The widget needs very little. It is a `fetch` with a bearer header. It uses no
+clipboard, no cookies, and no browser API that needs a secure context. It
+writes two localStorage keys: `loupe.site-review.corner` for the corner, and
+one key that starts with `loupe-site-review:mode:` for where notes go. It works
+without them. Cross-origin embedding works because the API answers CORS itself.
 
-Serving Loupe over plain HTTP is therefore fine when the reviewed page is also
-plain HTTP. Embedding it in an **HTTPS** page while Loupe is on
-`http://localhost` is the doubtful case — not because of mixed content, which
-exempts localhost, but because of Chrome's private-network rules. That is
-untested; see [Reverse proxy](../extending/reverse-proxy.md).
+So you can serve Loupe over plain HTTP when the reviewed page is also plain
+HTTP. The doubtful case is an **HTTPS** page that embeds a Loupe on
+`http://localhost`. Mixed content rules exempt localhost, but Chrome's
+private-network rules can still block the request. Nobody tested that case. See
+[Reverse proxy](../extending/reverse-proxy.md).
 
 ## What the reviewer sees, and for how long
 
-The widget lists the comments still waiting on the agent. A comment stays in
-that list — editable and deletable — until the agent marks it addressed, and
-then it **disappears from the widget**.
+The widget lists the notes that still wait on the agent. A note stays in that
+list, where you can edit and delete it, until the agent marks it addressed.
+Then it **disappears from the widget**.
 
-That is the intended lifecycle, not a loss: the comment is still on the
-project's site-review page in the web UI, where you review the fix and resolve
-it. But it means the widget is a worklist of outstanding feedback rather than a
-record of everything you have said, and a comment can vanish from under you
-while you are looking at the page.
+That is the intended lifecycle. The note is still on the Feedback tab of its
+card, where you check the fix and resolve it. So the widget is a list of open
+feedback. It is not a record of everything you said, and a note can disappear
+while you look at the page.
 
-If you are editing a comment at the moment the agent picks it up, your save is
-refused and the widget tells you so rather than silently discarding it.
+If you edit a note at the moment the agent picks it up, the widget refuses your
+save and tells you so. It does not discard your text without a word.
 
 ## Reaching your agent
 
-Comments do not push. Your agent sees them when it calls `site_review_get`, so
-ask it to look — there is nothing to press, and nothing arrives unprompted.
+Notes do not push. Your agent sees them when it calls `feedback_list` for the
+whole project, or `card_get` for one card. Ask it to look. Nothing arrives
+without a request.
 
-A comment carries no author, so an agent cannot tell yours apart from anyone
-else's on the page. The shipped `loupe-site-review` skill therefore escalates by
-category rather than by who asked: any comment that would change a destination,
-an identity, a credential or third-party code goes to you instead of being
-acted on. That is the same reason the widget belongs on staging only.
+A note carries no author, so an agent cannot tell your notes from anyone else's
+on the page. A card that the widget creates does not make its note trusted
+either. The shipped `loupe-site-review` skill therefore escalates by category.
+It sends to you any note that would change a destination, an identity, a
+credential or third-party code, and it does not act on it. For the same reason,
+the widget belongs on staging only.
 
 Live push over a Mercure hub, an outbox for undelivered events, and the
-[command-line bridge](../extending/cli-bridge.md) are all still present but
-**currently inert**: nothing publishes an event, so the outbox stays empty and
-the per-project and `/admin/outbox` pages have nothing to show.
-That part of the feature is unfinished. Pulling with `site_review_get` is the
-supported path today.
+[command-line bridge](../extending/cli-bridge.md) are all still present, and
+they do nothing now. Nothing publishes an event, so the outbox stays empty, and
+the per-project and `/admin/outbox` pages have nothing to show. That part of the
+feature is not finished. Pull with `feedback_list`.

@@ -16,6 +16,8 @@ use App\Module\Board\Mcp\CardRunCloseTool;
 use App\Module\Board\Mcp\CardRunOpenTool;
 use App\Module\Board\Mcp\CardSearchTool;
 use App\Module\Board\Mcp\CardUpdateTool;
+use App\Module\Board\Mcp\FeedbackListTool;
+use App\Module\Board\Mcp\FeedbackMarkAddressedTool;
 use App\Module\Project\Mcp\AdvertisedTools;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Capability\Registry;
@@ -60,6 +62,8 @@ final class BoardToolRegistrationTest extends KernelTestCase
         yield 'card_search' => [CardSearchTool::NAME, CardSearchTool::class];
         yield 'card_get' => [CardGetTool::NAME, CardGetTool::class];
         yield 'card_update' => [CardUpdateTool::NAME, CardUpdateTool::class];
+        yield 'feedback_list' => [FeedbackListTool::NAME, FeedbackListTool::class];
+        yield 'feedback_mark_addressed' => [FeedbackMarkAddressedTool::NAME, FeedbackMarkAddressedTool::class];
         yield 'card_run_open' => [CardRunOpenTool::NAME, CardRunOpenTool::class];
         yield 'card_run_close' => [CardRunCloseTool::NAME, CardRunCloseTool::class];
     }
@@ -74,6 +78,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
 
     public function test_the_board_tools_are_hidden_while_the_flag_is_off(): void
     {
+        $this->disableBoard();
         $advertised = self::getContainer()->get(AdvertisedTools::class);
         self::assertInstanceOf(AdvertisedTools::class, $advertised);
 
@@ -85,6 +90,8 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertNotContains(BoardColumnsTool::NAME, $names);
         self::assertNotContains(CardSearchTool::NAME, $names);
         self::assertNotContains(CardUpdateTool::NAME, $names);
+        self::assertNotContains(FeedbackListTool::NAME, $names);
+        self::assertNotContains(FeedbackMarkAddressedTool::NAME, $names);
         self::assertNotContains(CardRunOpenTool::NAME, $names);
         self::assertNotContains(CardRunCloseTool::NAME, $names);
     }
@@ -105,6 +112,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertLessThan($order[CardSearchTool::NAME], $order[BoardColumnsTool::NAME]);
         self::assertLessThan($order[CardGetTool::NAME], $order[CardSearchTool::NAME]);
         self::assertLessThan($order[CardUpdateTool::NAME], $order[CardGetTool::NAME]);
+        self::assertLessThan($order[FeedbackMarkAddressedTool::NAME], $order[FeedbackListTool::NAME]);
         self::assertSame($order[CardUpdateTool::NAME] + 1, $order[CardRunOpenTool::NAME]);
         self::assertSame($order[CardRunOpenTool::NAME] + 1, $order[CardRunCloseTool::NAME]);
     }

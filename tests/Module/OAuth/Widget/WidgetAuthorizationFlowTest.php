@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\OAuth\Widget\WidgetClient;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\OAuthScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -17,6 +18,8 @@ use Symfony\Component\HttpFoundation\Request;
 
 final class WidgetAuthorizationFlowTest extends WebTestCase
 {
+    use BoardColumnFixtures;
+
     private const string SITE = 'https://shop.example.com';
 
     private KernelBrowser $browser;
@@ -31,6 +34,8 @@ final class WidgetAuthorizationFlowTest extends WebTestCase
         $this->owner = $this->scenario->createUser('widget-owner@example.com');
         $this->project = $this->scenario->createProject($this->owner, 'Shop');
         $this->project->allowedOrigins = [self::SITE];
+        // A widget note becomes a card, so the board needs its columns.
+        $this->seedColumns($this->project);
         static::getContainer()->get(EntityManagerInterface::class)->flush();
     }
 
@@ -71,10 +76,10 @@ final class WidgetAuthorizationFlowTest extends WebTestCase
         $this->browser->request(Request::METHOD_GET, '/api/site-review/review', server: $this->bearer($tokens['access_token']));
         self::assertResponseIsSuccessful();
 
-        $this->browser->request(Request::METHOD_POST, '/api/site-review/comments', server: [
+        $this->browser->request(Request::METHOD_POST, '/api/board/feedback', server: [
             ...$this->bearer($tokens['access_token']),
             'CONTENT_TYPE' => 'application/json',
-        ], content: (string) json_encode(['body' => 'The button is hard to see', 'url' => self::SITE.'/checkout']));
+        ], content: (string) json_encode(['body' => 'The button is hard to see', 'url' => self::SITE.'/checkout', 'target' => ['newCard' => new \stdClass()]]));
         self::assertResponseStatusCodeSame(201);
         $comments = static::getContainer()->get(EntityManagerInterface::class)->getRepository(SiteReviewComment::class)->findBy(['body' => 'The button is hard to see']);
         self::assertCount(1, $comments);

@@ -93,6 +93,7 @@ final class ProjectCardApiTest extends WebTestCase
         $project = $this->project($em, $owner, 'Card Flag');
         $card = $this->card($em, $project, 'Flagged');
         $raw = AgentCredential::agentToken(static::getContainer(), $owner);
+        $this->disableBoard();
 
         $this->get($client, '/api/projects/'.$project->id.'/board/cards/'.$card->id, $raw);
 

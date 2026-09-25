@@ -9,6 +9,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Command\SetBoardColumnTerminalCommand;
 use App\Module\Board\Command\SetBoardColumnTerminalHandler;
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Security\BoardColumnVoter;
 use App\Module\Board\Service\BoardAvailability;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -51,7 +52,7 @@ final class SetBoardColumnTerminalController extends AppController
         $this->board->requireEnabled();
 
         try {
-            ($this->setTerminal)(new SetBoardColumnTerminalCommand($column, $terminal));
+            ($this->setTerminal)(new SetBoardColumnTerminalCommand($column, $terminal, CardReporter::Human));
         } catch (DomainErrors $e) {
             $this->addFlash('error', $this->translator->trans(array_first($e->errors)));
         }

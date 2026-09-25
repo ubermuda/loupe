@@ -44,10 +44,10 @@ test.use({
     viewport: { width: 1600, height: 900 },
 });
 
-// Both flags are global, so they go back off for the specs that run after this one.
+// Both flags are global, so each goes back to its shipped value for later specs.
 test.afterAll(async ({ request }) => {
     await setFlag(request, 'inbox.enabled', false);
-    await setFlag(request, 'board.enabled', false);
+    await setFlag(request, 'board.enabled', true);
 });
 
 test('card and inbox show linked PRs with readable status and safe actions', async ({

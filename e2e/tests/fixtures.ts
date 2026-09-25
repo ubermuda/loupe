@@ -171,6 +171,10 @@ export type SiteReviewGrant = {
 export const siteReviewGrantKey = (projectId: string): string =>
     `loupe-site-review:oauth:${appOrigin()}:${projectId}`;
 
+/** Where the widget keeps the mode its notes go by, in local storage. */
+export const siteReviewModeKey = (projectId: string): string =>
+    `loupe-site-review:mode:${appOrigin()}:${projectId}`;
+
 /**
  * Signs the site-review widget in on `page`, as the popup would. The grant
  * lands in session storage before any widget script runs, so the next

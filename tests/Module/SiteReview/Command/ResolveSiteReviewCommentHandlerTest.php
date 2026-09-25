@@ -64,6 +64,21 @@ final class ResolveSiteReviewCommentHandlerTest extends KernelTestCase
         self::assertSame([], $this->audit->securityLogLines());
     }
 
+    public function test_a_resolve_that_something_else_caused_records_its_trigger_and_actor(): void
+    {
+        $comment = $this->comment('resolve-trigger@example.com');
+        $comment->status = SiteReviewCommentStatus::Addressed;
+
+        ($this->handler)(new ResolveSiteReviewCommentCommand($comment, trigger: 'card_moved', actor: 'agent'));
+
+        self::assertSame(SiteReviewCommentStatus::Resolved, $comment->status);
+        self::assertSame([
+            'commentId' => (string) $comment->id,
+            'trigger' => 'card_moved',
+            'actor' => 'agent',
+        ], $this->audit->record('site_review.comment_resolved')->context);
+    }
+
     public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
     {
         DirectLogging::assertRemovedFrom(ResolveSiteReviewCommentHandler::class);

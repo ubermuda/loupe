@@ -9,9 +9,11 @@ use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\ShowPendingCommentsCommand;
 use App\Module\SiteReview\Command\ShowPendingCommentsHandler;
 use App\Module\SiteReview\Context\ContextLabelResolver;
+use App\Module\SiteReview\Context\FeedbackAvailabilityInterface;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
 use App\Module\SiteReview\SiteReviewDrawing;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -34,6 +36,10 @@ final class ShowPendingCommentsController extends AppController
         private readonly AuthenticatedProjectResolver $projectResolver,
         private readonly FeatureFlagService $featureFlags,
         private readonly ContextLabelResolver $contextLabels,
+
+        /** @var iterable<FeedbackAvailabilityInterface> */
+        #[AutowireIterator('app.site_review_feedback_availability')]
+        private readonly iterable $feedbackAvailability,
     ) {
     }
 
@@ -46,16 +52,23 @@ final class ShowPendingCommentsController extends AppController
 
         $view = ($this->showPendingComments)(new ShowPendingCommentsCommand($project));
 
-        // The marker travels from the page rather than from the database,
-        // because it describes what this deployment is serving. The widget
-        // sends its own, and a marker nothing resolves comes back as null.
+        // The marker is the page's preview card or the target the widget
+        // stored for its mode. A marker nothing resolves comes back as null,
+        // which tells the widget to ask for the mode again.
         $context = $request->query->get('context');
         $label = $this->contextLabels->resolve(\is_string($context) ? $context : null, $project);
+
+        $feedbackAvailable = false;
+        foreach ($this->feedbackAvailability as $availability) {
+            $feedbackAvailable = $feedbackAvailable || $availability->isAvailable();
+        }
 
         // The widget carries no flag of its own. Its snippet lives in someone
         // else's page and nobody re-pastes it, so the boot load is the only
         // place the instance can tell it whether drawing is offered.
         return $this->json([
+            'projectId' => (string) $project->id,
+            'feedbackAvailable' => $feedbackAvailable,
             'drawingEnabled' => $this->featureFlags->isEnabled(SiteReviewDrawing::FLAG, SiteReviewDrawing::DEFAULT),
             'context' => null === $label ? null : ['label' => $label->label, 'url' => $label->url],
             'comments' => array_values(array_map(

@@ -266,6 +266,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Hidden');
         $url = $this->placementUrl((string) $project->id, (string) $card->id);
+        $this->disableBoard();
         $em->clear();
 
         $client->loginUser($owner);

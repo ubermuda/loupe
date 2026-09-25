@@ -92,7 +92,7 @@ final class SiteReviewMcpScopeTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($projectA);
 
         // Ownership is not the question the MCP surface asks: the owner is the
-        // same person, and SiteReviewCommentVoter would grant this.
+        // same person, and an ownership check would grant this.
         self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::SITE_REVIEW_READ, $projectB));
         self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::SITE_REVIEW_WRITE, $projectB));
         self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::SITE_REVIEW_READ, $commentInB));

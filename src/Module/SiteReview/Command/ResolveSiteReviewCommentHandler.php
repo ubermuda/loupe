@@ -26,10 +26,18 @@ final readonly class ResolveSiteReviewCommentHandler
         $command->comment->status = SiteReviewCommentStatus::Resolved;
         $this->em->flush();
 
+        $context = ['commentId' => (string) $command->comment->id];
+        if (null !== $command->trigger) {
+            $context['trigger'] = $command->trigger;
+        }
+        if (null !== $command->actor) {
+            $context['actor'] = $command->actor;
+        }
+
         $this->auditor->record(
             'site_review.comment_resolved',
             AuditOutcome::Success,
-            ['commentId' => (string) $command->comment->id],
+            $context,
             new AuditSubject('site_review_comment', (string) $command->comment->id),
         );
 

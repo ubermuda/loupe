@@ -56,7 +56,9 @@ When no column fits a role, leave the card where it is and tell the owner.
 | `card_create` | Put a new card on the board. It lands in the default column unless you pass `status`. |
 | `card_list` | Read one page of the board, with its columns. Filter by `status`, `type`, `reporter` or `parentCardId`. A terminal column reads newest completion first, and every other column reads in rank order. |
 | `card_search` | Ask whether a card about something already exists. It reads the title and the body of every card, done ones included. |
-| `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents, its linked cards, the site-review comments pointing at it, and its parent or its children. |
+| `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents, its linked cards, the feedback items that belong to it, and its parent or its children. |
+| `feedback_list` | Read the feedback of the whole project, each item with its card. It returns the pending items unless you pass `status`. |
+| `feedback_mark_addressed` | Mark feedback items addressed after you fix them. |
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status puts the card at the end of the column it arrives in. |
 | `card_run_open` | Record an open interactive run on a card when an interactive skill starts work on it. It can move the card in the same step. |
 | `card_run_close` | Close the interactive run of your session on a card when the session ends. |
@@ -109,7 +111,7 @@ Pass `parentCardId` to `card_list` to read the children of one epic. It combines
 with the other filters.
 
 Pass `full` to get the whole card on every row, with its Markdown body, its pull
-request links, its documents, its linked cards, its site-review comments, its
+request links, its documents, its linked cards, its feedback items, its
 parent, its lane setting, its children and its progress. A
 full page is much larger than a summary page, and a whole board of full cards once overran a
 caller's context limit. Read the board as summaries, then call `card_get` for the
@@ -132,13 +134,16 @@ list replaces every link that touches the card, including links written from the
 other card, and nobody tells that card's writer. Read the card before you write.
 
 `siteReviewComments` is read-only, on `card_get` and on `card_list` with `full`.
-Each item carries `commentId`, `body`, `url`, `status` and `createdAt`. A comment
-reaches a card because the page it was made on named that card, and no board tool
-writes that link. Mark one done with `site_review_mark_comment_addressed`, which
-takes the same `commentId`, rather than by editing the card.
+It lists the feedback items that belong to the card. Each item carries `id`,
+`url`, `anchors`, `body`, `hasDrawing`, `status`, `context` and `createdAt`. A reviewer
+files feedback against a card with the site-review widget, and no board tool
+writes that link. `feedback_list` reads the feedback of the whole project, each
+item with its card. Mark an item done with `feedback_mark_addressed`, which takes
+the same `id`, rather than by editing the card. The `loupe-site-review` skill
+carries the rest of that loop.
 
 `card_create` and `card_update` take a `type` of `feature`, `bug`, `security`,
-`tooling`, `docs`, `idea` or `epic`.
+`tooling`, `docs`, `idea`, `epic` or `site-review`.
 
 - `feature`: a new or extended capability
 - `bug`: something behaves incorrectly today, including a latent fault
@@ -147,11 +152,14 @@ takes the same `commentId`, rather than by editing the card.
 - `docs`: documentation-only work
 - `idea`: long-horizon thinking, with no commitment yet
 - `epic`: one feature that is too large for one pull request, split into child cards
+- `site-review`: feedback that a reviewer left on a page through the site-review widget
 
 There is no delete tool. You finish a card by moving it to a terminal column,
 which stamps its completion time. A move between two terminal columns keeps the
-first stamp. A move to a column that is not terminal clears it. Only a person
-deletes a card, from the card page.
+first stamp. A move to a column that is not terminal clears it. A move into a
+terminal column also resolves the card's pending and addressed feedback, and a
+move back out leaves it resolved. Only a person deletes a card, from the card
+page, or through the widget when they delete the note that created it.
 
 `card_list` applies no time window to a terminal column, so every finished card
 is on the board it pages through, however old it is. The board screen shows the

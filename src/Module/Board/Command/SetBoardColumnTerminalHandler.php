@@ -51,7 +51,7 @@ final readonly class SetBoardColumnTerminalHandler
 
             $column->terminal = $command->terminal;
             $this->em->flush();
-            $this->terminalCards->follow($column, new \DateTimeImmutable());
+            $this->terminalCards->follow($column, new \DateTimeImmutable(), $command->actor);
 
             return true;
         });

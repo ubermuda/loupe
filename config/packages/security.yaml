@@ -71,8 +71,10 @@ security:
         # write to the board. See the Loupe design 'Picking and creating cards
         # from the site-review widget' for the exposure this accepts.
         - { path: ^/api/board/cards, roles: ROLE_API_SITE_REVIEW }
+        # The widget saves each note on a card, creating the card when asked.
+        - { path: ^/api/board/feedback, roles: ROLE_API_SITE_REVIEW }
         # The loupe CLI's own surface, which must refuse the project-bound widget
-        # token the two rules above accept. One rule per route, so a later widget
+        # token the rules above accept. One rule per route, so a later widget
         # route under /api/projects inherits no grant. A handle is one path
         # segment, a project id or slug.
         - { path: '^/api/projects$', roles: ROLE_API_AGENT }

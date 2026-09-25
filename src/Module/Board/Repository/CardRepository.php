@@ -60,7 +60,7 @@ class CardRepository extends ServiceEntityRepository
      *
      * @return list<Card>
      */
-    public function searchOpenForProject(Project $project, string $query, int $limit): array
+    public function searchOpenForProject(Project $project, string $query, int $limit, ?CardType $type = null): array
     {
         $qb = $this->createQueryBuilder('c')
             ->join('c.column', 'k')
@@ -74,6 +74,9 @@ class CardRepository extends ServiceEntityRepository
         if ('' !== $query) {
             $qb->andWhere('LOWER(c.title) LIKE :q ESCAPE \'!\'')
                 ->setParameter('q', self::titleContains($query));
+        }
+        if (null !== $type) {
+            $qb->andWhere('c.type = :type')->setParameter('type', $type);
         }
 
         /* @var list<Card> */
@@ -356,6 +359,22 @@ class CardRepository extends ServiceEntityRepository
             ->setParameter('ids', array_map(strval(...), array_keys($ids)))
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Whether the database shows anyone worked on the card: a body, a title
+     * other than the one it was created with, another type, a pull request, a
+     * document, or a link to or from another card.
+     */
+    public function hasWork(Card $card, string $createdTitle, CardType $createdType): bool
+    {
+        return (bool) $this->getEntityManager()->getConnection()->fetchOne(
+            "SELECT EXISTS (SELECT 1 FROM board_cards WHERE id = :id AND (body <> '' OR title <> :title OR type <> :type))
+                 OR EXISTS (SELECT 1 FROM board_card_pull_requests WHERE card_id = :id)
+                 OR EXISTS (SELECT 1 FROM board_card_documents WHERE card_id = :id)
+                 OR EXISTS (SELECT 1 FROM board_card_links WHERE source_card_id = :id OR target_card_id = :id)",
+            ['id' => (string) $card->id, 'title' => $createdTitle, 'type' => $createdType->value],
+        );
     }
 
     public function countChildren(Card $card): int

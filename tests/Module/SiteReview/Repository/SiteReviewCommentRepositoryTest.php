@@ -77,9 +77,8 @@ final class SiteReviewCommentRepositoryTest extends KernelTestCase
         $em->flush();
 
         self::assertSame(
-            ['pending' => 1, 'addressed' => 1, 'resolved' => 1],
-            $repository->statusCountsForProject($project),
+            [(string) $project->id => ['pending' => 1, 'addressed' => 1, 'resolved' => 1]],
+            $repository->statusCountsForProjects([$project]),
         );
-        self::assertSame(1, $repository->countOpenForProject($project));
     }
 }

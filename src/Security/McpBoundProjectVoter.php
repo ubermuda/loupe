@@ -17,7 +17,7 @@ use Ubermuda\AuditBundle\AuditSubject;
  * project its API token is bound to.
  *
  * This is a different question from the one the ownership voters answer.
- * DocumentVoter, SiteReviewCommentVoter and CardVoter ask whether the *user*
+ * DocumentVoter and CardVoter ask whether the *user*
  * owns the subject, which an MCP request satisfies by construction because it
  * authenticates as the project owner. So a token minted for one project would
  * reach every other project of the same owner, and only the binding is narrow

@@ -17,4 +17,10 @@ final class LabelToneTest extends TestCase
         self::assertCount(count(CardType::cases()), array_unique(array_map(static fn (LabelTone $tone): string => $tone->value, $tones)));
         self::assertSame(LabelTone::Amber, CardType::Bug->tone());
     }
+
+    public function test_a_site_review_card_is_teal(): void
+    {
+        self::assertSame(CardType::SiteReview, CardType::from('site-review'));
+        self::assertSame(LabelTone::Teal, CardType::SiteReview->tone());
+    }
 }

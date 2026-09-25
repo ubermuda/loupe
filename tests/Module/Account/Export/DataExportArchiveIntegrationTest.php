@@ -16,7 +16,6 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
-use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\AgentCredential;
 use App\Tests\Support\OAuthScenario;
@@ -73,9 +72,6 @@ final class DataExportArchiveIntegrationTest extends WebTestCase
         $em->persist($inboxItem);
         $em->persist($inboxReview);
 
-        $siteComment = new SiteReviewComment($project, 0, 'Fix this', 'https://example.com/')->addAnchor('.hero h1', 'Hello world');
-        $em->persist($siteComment);
-
         $em->persist(new GitHubHook($project, GitHubHook::newKey(), 'the-github-hook-secret'));
 
         $em->flush();
@@ -105,7 +101,7 @@ final class DataExportArchiveIntegrationTest extends WebTestCase
             }
             sort($names);
             self::assertSame(
-                ['audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'connected_apps.json', 'documents.json', 'forge_repositories.json', 'github_hooks.json', 'github_installations.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'site_reviews.json', 'worker_runs.json'],
+                ['audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'connected_apps.json', 'documents.json', 'forge_repositories.json', 'github_hooks.json', 'github_installations.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'worker_runs.json'],
                 $names,
             );
 

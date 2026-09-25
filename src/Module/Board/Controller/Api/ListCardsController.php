@@ -8,6 +8,7 @@ use App\Controller\AppController;
 use App\Module\Board\Command\SearchCardsCommand;
 use App\Module\Board\Command\SearchCardsHandler;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -49,10 +50,12 @@ final class ListCardsController extends AppController
         $this->board->requireEnabled();
 
         $query = $request->query->get('q');
+        $type = $request->query->get('type');
         $view = ($this->handler)(new SearchCardsCommand(
             $project,
             \is_string($query) ? trim($query) : '',
             self::LIMIT,
+            \is_string($type) ? CardType::tryFrom($type) : null,
         ));
 
         return $this->json(['cards' => array_map(

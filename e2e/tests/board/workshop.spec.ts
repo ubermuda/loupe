@@ -6,10 +6,14 @@ const test = createTest({
     password: 'e2e_password_123',
 });
 
+// Each flag goes back to its shipped value: the board on, the inbox off.
 test.afterEach(async ({ page }) => {
-    for (const name of ['board.enabled', 'inbox.enabled']) {
+    for (const [name, enabled] of [
+        ['board.enabled', 1],
+        ['inbox.enabled', 0],
+    ] as const) {
         const response = await page.request.post('/dev/e2e/feature-flag', {
-            form: { name, enabled: 0 },
+            form: { name, enabled },
         });
         expect(response.ok()).toBeTruthy();
     }

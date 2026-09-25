@@ -58,6 +58,7 @@ final class CardRunToolsTest extends KernelTestCase
 
     public function test_both_tools_refuse_while_the_flag_is_off(): void
     {
+        $this->disableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-run-flag-off'));
         $sessionId = (string) Uuid::v4();
 

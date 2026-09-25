@@ -1,10 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import {
-    createTest,
-    signWidgetIn,
-    suppressToolbar,
-    suppressWidget,
-} from '../fixtures';
+import { createTest, suppressToolbar, suppressWidget } from '../fixtures';
 
 const EMAIL = 'e2e-card-drawer@example.com';
 const PASSWORD = 'E2eCardDrawer1!';
@@ -24,10 +19,10 @@ test.beforeEach(async ({ page }) => {
     expect(flag.ok()).toBeTruthy();
 });
 
-// The flag is global, so it goes back off for the specs that run after this one.
+// The flag is global, so it goes back to its shipped value, on, for later specs.
 test.afterAll(async ({ request }) => {
     const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 0 },
+        form: { name: 'board.enabled', enabled: 1 },
     });
     expect(response.ok()).toBeTruthy();
 });
@@ -124,67 +119,4 @@ test('a column adds and edits a card in the drawer, and the board follows', asyn
     await page.keyboard.press('Escape');
     await expect(drawer).toHaveJSProperty('open', false);
     await expect(page).toHaveURL(boardUrl);
-});
-
-test('site review opens a linked card in the drawer on its Feedback tab', async ({
-    page,
-}) => {
-    // Before the capture: the harness call that finds the project also resets it.
-    const siteUrl = `/projects/${await projectId(page)}/site-review`;
-    const harness = await page.request.get(
-        '/dev/site-review-harness?email=' + encodeURIComponent(EMAIL),
-    );
-    expect(harness.ok()).toBeTruthy();
-    const harnessProject = /data-project="([^"]+)"/.exec(
-        await harness.text(),
-    )?.[1];
-    expect(harnessProject).toBeTruthy();
-    // The page carries no credential now, so the capture is written with the
-    // grant the widget's own sign-in produces.
-    const { accessToken } = await signWidgetIn(page, harnessProject!);
-    const body = `Drawer capture ${RUN}`;
-    const created = await page.request.post('/api/site-review/comments', {
-        headers: { Authorization: 'Bearer ' + accessToken },
-        data: {
-            body,
-            url: 'https://example.com/drawer-page',
-            anchors: [{ selector: '.hero', text: 'Heading' }],
-        },
-    });
-    expect(created.status()).toBe(201);
-    const { commentId } = await created.json();
-
-    const listItem = page.locator(
-        `button.lp-feedback-list__item[data-master-detail-id="feedback-${commentId}"]`,
-    );
-    await page.goto(siteUrl);
-    await listItem.click();
-    const capture = page.locator(`[data-comment-id="${commentId}"]`);
-    await capture.getByRole('link', { name: 'Create card and attach' }).click();
-    const title = `Linked from review ${RUN}`;
-    await page.getByLabel('Title', { exact: true }).fill(title);
-    await page
-        .getByRole('button', { name: 'Create card', exact: true })
-        .click();
-    // The drawer closes on a created card, and the capture then links it.
-    await expect(
-        page.locator('dialog.lp-card-drawer-overlay'),
-    ).toHaveJSProperty('open', false);
-
-    await page.goto(siteUrl);
-    await listItem.click();
-    await page
-        .locator(`#feedback-${commentId} footer.lp-feedback-detail__actions`)
-        .getByRole('link', { name: /^Open card #/ })
-        .click();
-
-    const drawer = page.locator('dialog.lp-card-drawer-overlay');
-    await expect(
-        drawer.getByRole('heading', { name: title, exact: true }),
-    ).toBeVisible();
-    await expect(
-        drawer.getByRole('tab', { name: 'Feedback', exact: true }),
-    ).toHaveAttribute('aria-selected', 'true');
-    await expect(drawer.locator('#card-panel-feedback')).toContainText(body);
-    expect(new URL(page.url()).pathname).toBe(siteUrl);
 });

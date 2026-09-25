@@ -13,9 +13,8 @@
 {% endblock %}
 
 {% block body %}
-{# The same frame as the card view, so the board opens this form in its drawer.
-   Feedback means the site review page opened it, so Cancel goes back there. #}
-{% set returnUrl = feedback ? path('app_project_site_review', {id: project.id}) : path('app_project_board', {id: project.id}) %}
+{# The same frame as the card view, so the board opens this form in its drawer. #}
+{% set returnUrl = path('app_project_board', {id: project.id}) %}
 <turbo-frame id="card-drawer-frame"{% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' %} target="_top"{% endif %}>
 <div class="lp-card-drawer">
     {% if app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' %}
@@ -35,16 +34,9 @@
         <h1 class="lp-card-drawer__title">{{ 'board.card.create.page.title'|trans }}</h1>
         <p class="lp-workspace-desc">{{ 'board.card.create.page.description'|trans }}</p>
 
-        {% if feedback %}
-        <div class="lp-callout lp-callout--info lp-card-feedback-context">
-            <twig:ux:icon name="lucide:message-square" class="w-4 h-4" />
-            <div><strong>{{ 'site_review.create_card.context_title'|trans }}</strong><p>{{ feedback.body }}</p></div>
-        </div>
-        {% endif %}
-
         {% include '@Board/_card_form.html.twig' with {
             form: form,
-            action: path('app_board_card_create', {id: project.id, feedback: feedback ? feedback.id : null, column: form.vars.data.column.id}),
+            action: path('app_board_card_create', {id: project.id, column: form.vars.data.column.id}),
             submitLabel: 'board.card.create.submit',
             busyLabel: 'board.card.form.creating',
             cancelUrl: returnUrl,

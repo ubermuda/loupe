@@ -95,7 +95,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $order), implode(',', array_reverse($order))));
         $this->assertPublishedAtTerminate(3);
 
-        $this->handler(SetBoardColumnTerminalHandler::class)(new SetBoardColumnTerminalCommand($added, true));
+        $this->handler(SetBoardColumnTerminalHandler::class)(new SetBoardColumnTerminalCommand($added, true, CardReporter::Human));
         $this->assertPublishedAtTerminate(4);
 
         $this->handler(SetDefaultBoardColumnHandler::class)(new SetDefaultBoardColumnCommand($this->column($this->project, 'next'), (string) $this->column($this->project, 'backlog')->id));

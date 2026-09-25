@@ -17,6 +17,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Bridge\Service\InteractiveRuns;
@@ -80,12 +81,15 @@ final class CardPostLockStateTest extends KernelTestCase
         self::assertInstanceOf(UpdateCardHandler::class, $updateCard);
         $this->updateCard = $updateCard;
 
+        $links = self::getContainer()->get(CardSiteReviewCommentRepository::class);
+        self::assertInstanceOf(CardSiteReviewCommentRepository::class, $links);
+
         $cards = self::getContainer()->get(CardRepository::class);
         self::assertInstanceOf(CardRepository::class, $cards);
 
         $interactiveRuns = self::getContainer()->get(InteractiveRuns::class);
         self::assertInstanceOf(InteractiveRuns::class, $interactiveRuns);
-        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), new CardParentPolicy($cards), $this->em, $this->audit->auditor, new EventDispatcher(), $interactiveRuns);
+        $this->deleteCard = new DeleteCardHandler($cards, $links, new CardGroupOrder($cards), new CardParentPolicy($cards), $this->em, $this->audit->auditor, new EventDispatcher(), $interactiveRuns);
 
         $owner = new User(fullName: 'Riley', email: 'board-post-lock-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
@@ -118,7 +122,7 @@ final class CardPostLockStateTest extends KernelTestCase
         $behind = $this->card('Behind the doomed card', 'next');
         $this->putInTheMiddleOfNext($doomed, $behind);
 
-        ($this->deleteCard)(new DeleteCardCommand($doomed));
+        ($this->deleteCard)(new DeleteCardCommand($doomed, CardReporter::Human));
 
         self::assertSame('next', $this->audit->record('board.card_deleted')->context['status']);
         self::assertSame([0, 1], [$this->storedPosition($next), $this->storedPosition($behind)]);

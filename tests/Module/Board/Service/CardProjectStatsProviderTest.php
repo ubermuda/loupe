@@ -95,6 +95,7 @@ final class CardProjectStatsProviderTest extends KernelTestCase
 
     public function test_it_reports_nothing_while_the_flag_is_off(): void
     {
+        $this->disableBoard();
         $project = $this->makeProject('stats-flag-off');
         $this->seedOnePerStatus($project);
         // Guard: the assertion below also passes on a fixture that wrote no

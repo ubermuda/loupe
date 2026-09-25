@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Bridge\Service\InteractiveRuns;
@@ -19,11 +19,15 @@ use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
-/** Deletes a card and its pull request links, which orphanRemoval takes with it. */
+/**
+ * Deletes a card, its pull request links, which orphanRemoval takes with it,
+ * and the site-review comments linked to it.
+ */
 final readonly class DeleteCardHandler
 {
     public function __construct(
         private CardRepository $cards,
+        private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardGroupOrder $groupOrder,
         private CardParentPolicy $parentPolicy,
         private EntityManagerInterface $em,
@@ -36,6 +40,7 @@ final readonly class DeleteCardHandler
     public function __invoke(DeleteCardCommand $command): void
     {
         $card = $command->card;
+        $actor = $command->actor;
 
         // Read before the remove: the flush clears the id. The number and the
         // project are readonly, so no re-read can change them.
@@ -45,7 +50,7 @@ final readonly class DeleteCardHandler
         $cardNumber = $card->number;
         $projectId = (string) $projectUuid;
 
-        $refusal = $this->em->wrapInTransaction(function () use ($card): ?DomainErrors {
+        $refusal = $this->em->wrapInTransaction(function () use ($card, $actor): ?DomainErrors {
             // The renumbering below reads the column first, so it takes the same
             // project lock a create or a move does.
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
@@ -69,6 +74,14 @@ final readonly class DeleteCardHandler
             // reach the database in one flush.
             $this->groupOrder->compact($card->column, $card);
 
+            // The link rows cascade in the database, but the comments would
+            // outlive the card. The link goes through the ORM too, or a later
+            // flush finds it pointing at a removed comment.
+            foreach ($this->cardSiteReviewComments->findForCard($card) as $link) {
+                $this->em->remove($link);
+                $this->em->remove($link->comment);
+            }
+
             // No tool and no page can reach the runs of a deleted card to close them.
             if (null !== $card->id) {
                 $this->interactiveRuns->closeOnMove($card->project, [$card->id]);
@@ -78,10 +91,9 @@ final readonly class DeleteCardHandler
             $this->em->flush();
 
             // After the flush, so the epic counts its children without this
-            // one. A listener must not read the card, which is gone. Only a
-            // person deletes a card.
+            // one. A listener must not read the card, which is gone.
             if (null !== $parent) {
-                $this->events->dispatch(new CardParentChanged($card, $parent, null, CardReporter::Human));
+                $this->events->dispatch(new CardParentChanged($card, $parent, null, $actor));
             }
 
             return null;
@@ -104,6 +116,7 @@ final readonly class DeleteCardHandler
                 'projectId' => $projectId,
                 'status' => $card->column->slug,
                 'columnId' => (string) $card->column->id,
+                'actor' => $actor->value,
             ],
             new AuditSubject('card', $cardId),
         );

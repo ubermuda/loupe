@@ -117,6 +117,7 @@ final class AddCommentHandlerTest extends KernelTestCase
     #[TestWith(['anchors'])]
     #[TestWith(['strokes'])]
     #[TestWith(['context'])]
+    #[TestWith(['deliveryScope'])]
     public function test_reusing_delivery_identity_with_changed_content_is_rejected(string $field): void
     {
         $project = $this->project('delivery-conflict@example.com');
@@ -131,6 +132,7 @@ final class AddCommentHandlerTest extends KernelTestCase
             strokes: 'strokes' === $field ? [new NewStroke('page', [[0.25, 0.5], [0.75, 0.5]])] : [],
             context: 'context' === $field ? 'card:changed' : null,
             deliveryId: $deliveryId,
+            deliveryScope: 'deliveryScope' === $field ? 'elsewhere' : null,
         );
         try {
             ($this->handler)($changed);

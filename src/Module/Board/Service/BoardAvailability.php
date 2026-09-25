@@ -11,8 +11,8 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 /**
  * Whether the board is switched on for this instance.
  *
- * The flag ships off, so a board route on an instance nobody has told otherwise
- * answers as though the feature had never been deployed.
+ * With the flag off, a board route answers as though the feature had never
+ * been deployed.
  */
 final readonly class BoardAvailability
 {

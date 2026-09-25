@@ -213,7 +213,7 @@ final class CardInteractiveRunTest extends KernelTestCase
         $delete = self::getContainer()->get(DeleteCardHandler::class);
         self::assertInstanceOf(DeleteCardHandler::class, $delete);
 
-        $delete(new DeleteCardCommand($deleted));
+        $delete(new DeleteCardCommand($deleted, CardReporter::Human));
 
         self::assertSame(WorkerRunState::Closed, $this->stateOf($deletedRun));
         self::assertSame(WorkerRunState::Running, $this->stateOf($keptRun));

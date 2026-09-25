@@ -162,6 +162,7 @@ final class CardLinkAutocompleteTest extends WebTestCase
     public function test_the_endpoint_is_absent_while_the_board_is_off(): void
     {
         $client = static::createClient();
+        $this->disableBoard();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'link-flag-owner@example.com');
         $project = $this->project($em, $owner);

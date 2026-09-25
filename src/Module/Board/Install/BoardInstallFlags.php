@@ -16,8 +16,7 @@ final readonly class BoardInstallFlags implements InstallFlagDefaultsInterface
     #[\Override]
     public function defaults(SeedInstallFlagsCommand $command): iterable
     {
-        // Off: the operator opts in, because a board an agent writes to is a
-        // second place work is tracked rather than an addition to the first.
-        yield new InstallFlagDefault(self::FLAG_BOARD_ENABLED, FeatureFlagType::Bool, false);
+        // On: site review writes each note to a card, so it needs the board.
+        yield new InstallFlagDefault(self::FLAG_BOARD_ENABLED, FeatureFlagType::Bool, true);
     }
 }

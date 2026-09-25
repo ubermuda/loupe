@@ -20,10 +20,6 @@ use App\Module\Board\Form\CreateCardRequest;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
-use App\Module\SiteReview\Command\FindSiteReviewCommentCommand;
-use App\Module\SiteReview\Command\FindSiteReviewCommentHandler;
-use App\Module\SiteReview\Entity\SiteReviewComment;
-use App\Module\SiteReview\Security\SiteReviewCommentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -44,7 +40,6 @@ final class CreateCardController extends AppController
         private readonly CreateCardHandler $createCard,
         private readonly FindBoardColumnHandler $findBoardColumn,
         private readonly BoardAvailability $board,
-        private readonly FindSiteReviewCommentHandler $findSiteReviewComment,
         private readonly ShowCardPlacementHandler $showPlacement,
     ) {
     }
@@ -57,8 +52,6 @@ final class CreateCardController extends AppController
     ): Response {
         $this->board->requireEnabled();
 
-        $feedbackId = $request->query->getString('feedback');
-        $feedback = $this->feedback($feedbackId, $project);
         $column = $this->column($request->query->getString('column'), $project, $defaultColumn);
 
         $data = new CreateCardRequest(column: $column);
@@ -83,14 +76,13 @@ final class CreateCardController extends AppController
                     // A person filled this form in, whatever an agent may later do to the card.
                     reporter: CardReporter::Human,
                     pullRequestUrls: CreateCardRequest::toUrlList($data->pullRequestUrls),
-                    siteReviewComment: $feedback,
                     relatedCards: $data->linkInputs(),
                     parentCardId: null === $data->parent ? null : (string) $data->parent->id,
                 ));
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);
 
-                return $this->renderFormResponse('@Board/create_card.html.twig', $form, ['feedback' => $feedback]);
+                return $this->renderFormResponse('@Board/create_card.html.twig', $form);
             }
 
             // The drawer closes on this answer, and the board places the card.
@@ -112,23 +104,7 @@ final class CreateCardController extends AppController
             ]);
         }
 
-        return $this->renderFormResponse('@Board/create_card.html.twig', $form, ['feedback' => $feedback]);
-    }
-
-    private function feedback(string $id, Project $project): ?SiteReviewComment
-    {
-        if ('' === $id) {
-            return null;
-        }
-        if (!Uuid::isValid($id)) {
-            throw $this->createNotFoundException();
-        }
-
-        $comment = ($this->findSiteReviewComment)(new FindSiteReviewCommentCommand($id, $project))
-            ?? throw $this->createNotFoundException();
-        $this->denyAccessUnlessGranted(SiteReviewCommentVoter::ATTACH, $comment);
-
-        return $comment;
+        return $this->renderFormResponse('@Board/create_card.html.twig', $form);
     }
 
     private function column(string $id, Project $project, BoardColumn $defaultColumn): BoardColumn

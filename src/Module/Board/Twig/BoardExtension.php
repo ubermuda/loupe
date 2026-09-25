@@ -8,11 +8,8 @@ use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
-use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Form\AddBoardColumnFormType;
 use App\Module\Board\Form\AddBoardColumnRequest;
-use App\Module\Board\Form\AttachSiteReviewCommentFormType;
-use App\Module\Board\Form\AttachSiteReviewCommentRequest;
 use App\Module\Board\Form\ConfigureBoardColumnFormType;
 use App\Module\Board\Form\ConfigureBoardColumnRequest;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
@@ -29,14 +26,11 @@ use App\Module\Board\Form\SetDefaultBoardColumnFormType;
 use App\Module\Board\Form\SetDefaultBoardColumnRequest;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
-use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnTonePicker;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\View\DocumentListItem;
-use App\Module\SiteReview\Entity\SiteReviewComment;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -55,8 +49,6 @@ final class BoardExtension extends AbstractExtension
         private readonly FormFactoryInterface $formFactory,
         private readonly MarkdownRenderer $markdown,
         private readonly TranslatorInterface $translator,
-        private readonly CardSiteReviewCommentRepository $cardSiteReviewComments,
-        private readonly CardRepository $cards,
         private readonly CardDocumentRepository $cardDocuments,
         private readonly BoardColumnRepository $boardColumns,
         private readonly BoardColumnTonePicker $tonePicker,
@@ -78,8 +70,6 @@ final class BoardExtension extends AbstractExtension
             new TwigFunction('board_columns_reorder_form', $this->boardColumnsReorderForm(...)),
             new TwigFunction('board_column_order', $this->boardColumnOrder(...)),
             new TwigFunction('safe_pull_request_url', $this->safePullRequestUrl(...)),
-            new TwigFunction('card_site_review_links', $this->cardSiteReviewLinks(...)),
-            new TwigFunction('site_review_attach_form', $this->siteReviewAttachForm(...)),
             new TwigFunction('document_card_links', $this->documentCardLinks(...)),
             new TwigFunction('document_card_link_map', $this->documentCardLinkMap(...)),
         ];
@@ -134,29 +124,6 @@ final class BoardExtension extends AbstractExtension
             (string) $card->column->id,
             $card->position,
         ], \JSON_THROW_ON_ERROR)), 0, 12);
-    }
-
-    /** @return array<string, CardSiteReviewComment> */
-    public function cardSiteReviewLinks(Project $project): array
-    {
-        $links = [];
-        foreach ($this->cardSiteReviewComments->findForProject($project) as $link) {
-            $links[(string) $link->comment->id] = $link;
-        }
-
-        return $links;
-    }
-
-    public function siteReviewAttachForm(SiteReviewComment $comment): FormView
-    {
-        return $this->formFactory
-            ->createNamed(
-                AttachSiteReviewCommentFormType::nameFor($comment),
-                AttachSiteReviewCommentFormType::class,
-                new AttachSiteReviewCommentRequest(),
-                ['cards' => $this->cards->searchOpenForProject($comment->project, '', 100)],
-            )
-            ->createView();
     }
 
     /** @return list<CardDocument> */

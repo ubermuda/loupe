@@ -7,6 +7,7 @@ namespace App\Module\Board\Repository;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Project\Entity\Project;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -32,11 +33,14 @@ class CardSiteReviewCommentRepository extends ServiceEntityRepository
     {
         /* @var list<CardSiteReviewComment> */
         return $this->createQueryBuilder('l')
-            ->addSelect('c')
+            ->addSelect('c', 'a')
             ->join('l.comment', 'c')
+            ->leftJoin('c.anchors', 'a')
             ->where('l.card = :card')
             ->setParameter('card', $card)
             ->orderBy('c.createdAt', 'ASC')
+            ->addOrderBy('c.position', 'ASC')
+            ->addOrderBy('a.position', 'ASC')
             ->getQuery()
             ->getResult();
     }
@@ -59,11 +63,14 @@ class CardSiteReviewCommentRepository extends ServiceEntityRepository
 
         /** @var list<CardSiteReviewComment> $links */
         $links = $this->createQueryBuilder('l')
-            ->addSelect('c')
+            ->addSelect('c', 'a')
             ->join('l.comment', 'c')
+            ->leftJoin('c.anchors', 'a')
             ->where('l.card IN (:cards)')
             ->setParameter('cards', $cards)
             ->orderBy('c.createdAt', 'ASC')
+            ->addOrderBy('c.position', 'ASC')
+            ->addOrderBy('a.position', 'ASC')
             ->getQuery()
             ->getResult();
 
@@ -86,16 +93,59 @@ class CardSiteReviewCommentRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** @return list<CardSiteReviewComment> */
-    public function findForProject(Project $project): array
+    /**
+     * The card link of each of those comments, keyed by comment id, with the
+     * card already loaded. A comment with no card is absent.
+     *
+     * @param list<SiteReviewComment> $comments
+     *
+     * @return array<string, CardSiteReviewComment>
+     */
+    public function findForComments(array $comments): array
     {
+        if ([] === $comments) {
+            return [];
+        }
+
+        /** @var list<CardSiteReviewComment> $links */
+        $links = $this->createQueryBuilder('l')
+            ->addSelect('card')
+            ->join('l.card', 'card')
+            ->where('l.comment IN (:comments)')
+            ->setParameter('comments', $comments)
+            ->getQuery()
+            ->getResult();
+
+        $byComment = [];
+        foreach ($links as $link) {
+            $byComment[(string) $link->comment->id] = $link;
+        }
+
+        return $byComment;
+    }
+
+    /**
+     * The links of those cards whose comment is not resolved yet.
+     *
+     * @param list<string> $cardIds
+     *
+     * @return list<CardSiteReviewComment>
+     */
+    public function findUnresolvedForCards(array $cardIds): array
+    {
+        if ([] === $cardIds) {
+            return [];
+        }
+
         /* @var list<CardSiteReviewComment> */
-        return $this->createQueryBuilder('link')
-            ->addSelect('card', 'comment')
-            ->join('link.card', 'card')
-            ->join('link.comment', 'comment')
-            ->where('card.project = :project')
-            ->setParameter('project', $project)
+        return $this->createQueryBuilder('l')
+            ->addSelect('c')
+            ->join('l.comment', 'c')
+            ->where('l.card IN (:cards)')
+            ->andWhere('c.status != :resolved')
+            ->setParameter('cards', $cardIds)
+            ->setParameter('resolved', SiteReviewCommentStatus::Resolved)
+            ->orderBy('c.createdAt', 'ASC')
             ->getQuery()
             ->getResult();
     }

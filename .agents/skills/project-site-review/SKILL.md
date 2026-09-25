@@ -6,8 +6,12 @@ description: Use when working on the site-review widget or its backend, `public/
 # Site review (working on it)
 
 A reviewer opens a widget on any web page, points at an element, and leaves a
-comment. It saves to the project at once, and the owner's agent pulls it over
-MCP. There is no draft and no send step.
+comment. It saves at once as feedback on a board card, and the owner's agent
+pulls it over MCP. There is no draft and no send step.
+
+The Board module owns the card side: `POST /api/board/feedback` writes the
+card, the comment and the link in one transaction. `SiteReview` stores the
+comment and stays card-blind.
 
 To consume the site-review MCP tools as an agent, see `loupe-site-review`. That
 job has different hazards.
@@ -28,7 +32,7 @@ Invoke `project-frontend` only for a change in `assets/` or a Twig template.
 
 | Trap | What happens |
 |---|---|
-| Running prettier on it | Prettier's scope is `assets/` and `e2e/` only; `public/` has never been formatted. A `--write` rewrites ~1400 of 1633 lines and buries the real change. `just cs` is safe; prettier by hand is not. |
+| Formatting it by hand | `just cs` runs prettier over `public/site-review/`, and `just lint` checks it. Run `just cs` before you commit. |
 | Serena's edit tools | No language server is configured for JavaScript in this project. `replace_content` and friends fail with "No language servers available". Use Edit/Write. Serena reads are unaffected. |
 | `text-overflow` in the overlay | JS sets `display` as an inline style on several overlay nodes, which beats the stylesheet. `text-overflow: ellipsis` has no effect on a flex container's anonymous text item, so an `inline-flex` label hard-clips mid-word instead of ellipsing. Check the JS-applied `display` before debugging the CSS. |
 | Absolutely-positioned `display` | The overlay's label is `position: absolute`, so `display` blockifies: `inline-block` computes to `block`, `inline-flex` to `flex`. Computed style will not echo what you wrote. |
@@ -42,9 +46,11 @@ Pending  →  Addressed  →  (Resolved)
 
 - `Pending`: the reviewer saved it and the agent has not acted. Comments are
   created in this state. There is no draft.
-- `Addressed`: the agent fixed it (`site_review_mark_comment_addressed`).
-- `Resolved`: a human signed it off, in the web UI or from the widget. An agent
-  cannot reach this state.
+- `Addressed`: the agent fixed it (`feedback_mark_addressed`).
+- `Resolved`: a human signed it off, on the card's Feedback tab or from the
+  widget. A card that moves into a terminal column also resolves its feedback,
+  so an agent that finishes a card with `card_update` reaches this state too.
+  No tool resolves a comment directly.
 
 `Draft` was removed with the send step. Any reference to it is stale.
 
@@ -60,17 +66,19 @@ only `Pending`.
 
 ## Ownership voters do not constrain agents
 
-An MCP request authenticates as the project owner, and `SiteReviewCommentVoter`'s
-whole rule is `$subject->project->owner === $token->getUser()`. Every
-ownership-based voter therefore returns true for an MCP call by construction.
+An MCP request authenticates as the project owner, and `CardFeedbackVoter`'s
+rule (`card_feedback.resolve` / `card_feedback.reopen`, in Board) is an
+ownership check on the card and the comment. Every ownership-based voter
+therefore returns true for an MCP call by construction.
 
-Routing and firewall config stop an agent from resolving a comment, not
-authorization. No tool calls the resolve path, and `OAuthAccessTokenAuthenticator` runs
-only on the `mcp` and `api` firewalls, so a Bearer token cannot reach the
-resolve route on `main` at all.
+Routing and firewall config stop an agent from resolving a comment by hand, not
+authorization. No tool calls a resolve route, and `OAuthAccessTokenAuthenticator` runs
+only on the `mcp` and `api` firewalls, so a Bearer token cannot reach the card
+page's resolve route on `main` at all. A card move is the one path: the
+resolve-on-finish listeners run for a `card_update` move as for any other.
 
 So an ownership voter's result is not a meaningful check on what an agent may
-do. When you add a tool, do not reason "`SiteReviewCommentVoter` will stop it."
+do. When you add a tool, do not reason "`CardFeedbackVoter` will stop it."
 
 `App\Security\McpBoundProjectVoter` (`site_review.mcp_read` /
 `site_review.mcp_write`) is the one voter that does constrain an agent. It is
@@ -97,9 +105,9 @@ cost no migration and no change to this module.
 
 `AddCommentHandler` dispatches `SiteReviewCommentCreated` inside its
 transaction, after the comment has an id. That event is the module's public
-API, the same contract `ProjectDeleting` carries. A listener that persists rows
-needs no flush of its own, and **must never throw**: anything it raises aborts
-the comment save it was told about.
+API, the same contract `ProjectDeleting` carries. Nothing listens to it today.
+A listener that persists rows needs no flush of its own, and **must never
+throw**: anything it raises aborts the comment save it was told about.
 
 ## The push subsystem has no producer
 
@@ -117,8 +125,8 @@ a trigger without a decision; see the card on the project board. Expect a
 permanently empty outbox, a "not reached your agent yet" notice that never
 shows, and a connected bridge CLI that receives nothing.
 
-Counters reading `OutboxEvent` report zero forever. The projects list and
-the site-review page now count comments instead. `unsentCount` and the outbox
+Counters reading `OutboxEvent` report zero forever. The projects list counts
+comments instead. `unsentCount` and the outbox
 notice stay event-sourced on purpose, because zero is *correct* there.
 
 ## API surface
@@ -126,11 +134,12 @@ notice stay event-sourced on purpose, because zero is *correct* there.
 | Route | Method | Purpose |
 |---|---|---|
 | `/api/site-review/review` | GET | Rehydrate the widget's list (Pending only) |
-| `/api/site-review/comments` | POST | Save a comment |
+| `/api/site-review/comments` | POST | Answers 410 `widget_outdated`, so a stale script tells its reviewer to reload |
 | `/api/site-review/comments/{id}` | PATCH | Edit (Pending only) |
-| `/api/site-review/comments/{id}` | DELETE | Delete (Pending only) |
 | `/api/site-review/comments/{id}/resolve` | POST | Resolve (Pending only) |
-| `/api/board/cards` | GET | Open cards, for the widget's picker |
+| `/api/board/feedback` | POST | Save a comment, its target card and the link in one request |
+| `/api/board/feedback/{id}` | DELETE | Delete a pending comment, and the card it created while that card is untouched: default column, no other comment, its site-review type and note title, empty body, no pull request, document or card link |
+| `/api/board/cards` | GET | Open cards for the widget's picker; `type=epic` lists epics alone |
 | `/api/board/cards` | POST | Create a card from the widget |
 
 Two more routes live in this module and are not widget paths. `/api/projects`
@@ -143,8 +152,8 @@ The firewall grants each route by its own rule to `ROLE_API_AGENT`, which the
 `insufficient_scope`. They keep their `ShowEventsController` and
 `ListSitesController` classes here because their command handlers do.
 
-The last two widget routes are Board paths on the `site-review` scope, and `config/packages/security.yaml`
-grants them in their own `access_control` line rather than under the
+The four `/api/board/` widget routes are Board paths on the `site-review` scope, and `config/packages/security.yaml`
+grants them in their own `access_control` lines rather than under the
 `^/api/site-review` prefix, so the grant is visible to anyone reading that file.
 `WidgetApiPaths` is what keeps CORS and the write rate limit covering them: both
 listeners tested one prefix before, and a listener that tests one prefix
@@ -266,7 +275,6 @@ appearance of this race.
 | Mistake | Reality |
 |---|---|
 | Applying `project-frontend`'s token rules to `widget.js` | It is standalone; raw hex and px are correct there. |
-| Running prettier on `widget.js` | ~1400-line phantom diff. |
 | Trusting an ownership voter to stop an agent | Ownership voters return true for every MCP call; `App\Security\McpBoundProjectVoter` is the one that does not. |
 | Assuming a comment is private until "sent" | There is no send step. It is live on save. |
 | Adding a `Draft` branch | The status no longer exists. |

@@ -222,10 +222,9 @@ test.use({
     viewport: { width: 1440, height: 900 },
 });
 
-// The flag is global, so it goes back off: left on, it would change what every
-// later spec's sidebar and routing table look like.
+// The flag is global, so it goes back to its shipped value, on, for later specs.
 test.afterAll(async ({ request }) => {
-    await setBoardFlag(request, false);
+    await setBoardFlag(request, true);
 });
 
 test('the board search filters cards and reports an empty result', async ({

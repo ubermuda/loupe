@@ -378,7 +378,7 @@ SITE_REVIEW_WIDGET_PROJECT=<the worktree's own project id, see below>
 ```
 
 Judge that by what the diff touches, not by the branch name. A change to
-`SiteReviewExporter` is not a widget change; a change to `widget.js` is.
+`ResolveSiteReviewCommentHandler` is not a widget change; a change to `widget.js` is.
 
 ### Bootstrap keeps the pair in step
 

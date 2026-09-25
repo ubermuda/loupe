@@ -64,7 +64,7 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
      * @param int|null          $number          the card number, the short label that counts from 1 inside this project; pass it instead of cardId
      * @param string|null       $title           a new title
      * @param string|null       $body            a new Markdown body, replacing the old one
-     * @param string|null       $type            a new type: feature, bug, security, tooling, docs, idea or epic
+     * @param string|null       $type            a new type: feature, bug, security, tooling, docs, idea, epic or site-review
      * @param string|null       $status          the slug of a new column on this board; board_columns lists the slugs
      * @param string[]|null     $pullRequestUrls the full set of pull request URLs the card carries; omit to keep the current links, send an empty list to remove them all
      * @param string[]|null     $documentIds     the full set of document ids the card carries; omit to keep the current links, send an empty list to remove them all

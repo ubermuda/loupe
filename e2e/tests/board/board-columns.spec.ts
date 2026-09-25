@@ -149,7 +149,7 @@ test.use({
 });
 
 test.afterAll(async ({ request }) => {
-    await setBoardFlag(request, false);
+    await setBoardFlag(request, true);
 });
 
 test('board filters retain an outline in forced colors', async ({ page }) => {

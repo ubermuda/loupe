@@ -137,6 +137,9 @@ final class ProjectsPageTest extends WebTestCase
             $comment->status = 3 === $i ? SiteReviewCommentStatus::Resolved : SiteReviewCommentStatus::Pending;
             $em->persist($comment);
         }
+        $flags = static::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = false;
         $em->flush();
 
         $client->loginUser($owner);
@@ -149,7 +152,7 @@ final class ProjectsPageTest extends WebTestCase
         self::assertStringContainsString('3 open', $meta);
         // The open figure is the amber-tinted span.
         self::assertSame('3 open', trim($crawler->filter('[data-project-id] .lp-project-row__open')->text()));
-        // The board ships off, so the row claims no card count.
+        // With the board off, the row claims no card count.
         self::assertCount(0, $crawler->filter('[data-project-id] .lp-project-row__cards'));
     }
 

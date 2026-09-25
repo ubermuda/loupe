@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Repository;
 
-use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
@@ -57,55 +56,9 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * Open-count for the app-shell nav pill: Pending comments awaiting the
-     * agent. Mirrors {@see findPendingForProject} so the pill and the agent
-     * queue never disagree.
-     */
-    public function countOpenForProject(Project $project): int
-    {
-        return (int) $this->createQueryBuilder('c')
-            ->select('COUNT(c.id)')
-            ->andWhere('c.project = :project')
-            ->andWhere('c.status = :status')
-            ->setParameter('project', $project)
-            ->setParameter('status', SiteReviewCommentStatus::Pending)
-            ->getQuery()
-            ->getSingleScalarResult();
-    }
-
-    /**
-     * Status tally of the project's comments.
-     *
-     * One grouped query rather than a count per status: the app-shell nav pill
-     * needs both the total (its number) and the pending count (its tint) on
-     * every authenticated page render, and asking separately made that two
-     * queries for one badge.
-     *
-     * @return array{pending: int, addressed: int, resolved: int}
-     */
-    public function statusCountsForProject(Project $project): array
-    {
-        /** @var list<array{status: SiteReviewCommentStatus, count: int|string}> $rows */
-        $rows = $this->createQueryBuilder('c')
-            ->select('c.status AS status', 'COUNT(c.id) AS count')
-            ->andWhere('c.project = :project')
-            ->setParameter('project', $project)
-            ->groupBy('c.status')
-            ->getQuery()
-            ->getResult();
-
-        $counts = ['pending' => 0, 'addressed' => 0, 'resolved' => 0];
-        foreach ($rows as $row) {
-            $counts[$row['status']->value] = (int) $row['count'];
-        }
-
-        return $counts;
-    }
-
-    /**
-     * Same counts as statusCountsForProject, for several projects in one query.
-     * The projects list renders every project on the page, so the per-project
-     * form is an N+1 across all of them.
+     * Status tally of each project's comments, in one grouped query. The
+     * projects list renders every project on the page, so a query per project
+     * is an N+1 across all of them.
      *
      * @param list<Project> $projects
      *
@@ -217,26 +170,6 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return null === $max ? 0 : ((int) $max) + 1;
-    }
-
-    /**
-     * Site reviews hang off a project, not the owner directly, so this joins
-     * through the project to filter by its owner.
-     *
-     * @return list<SiteReviewComment>
-     */
-    public function findByOwner(User $user): array
-    {
-        return $this->createQueryBuilder('c')
-            ->join('c.project', 'p')
-            ->leftJoin('c.anchors', 'a')
-            ->addSelect('a')
-            ->where('p.owner = :user')
-            ->setParameter('user', $user)
-            ->orderBy('c.createdAt', 'ASC')
-            ->addOrderBy('a.position', 'ASC')
-            ->getQuery()
-            ->getResult();
     }
 
     /**

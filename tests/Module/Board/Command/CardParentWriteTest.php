@@ -306,7 +306,7 @@ final class CardParentWriteTest extends KernelTestCase
         $second = $this->cardIn($project, parent: $epic);
         $this->em->clear();
 
-        $this->expectRefusal(['card' => 'board.card.error.epic_delete_has_children'], fn () => ($this->deleteCard)(new DeleteCardCommand($this->reload($epic))));
+        $this->expectRefusal(['card' => 'board.card.error.epic_delete_has_children'], fn () => ($this->deleteCard)(new DeleteCardCommand($this->reload($epic), CardReporter::Human)));
         $this->em->clear();
         self::assertNotNull($this->em->find(Card::class, $epic->id));
 
@@ -314,7 +314,7 @@ final class CardParentWriteTest extends KernelTestCase
         $this->update($second, parentCardId: '');
         $this->em->clear();
 
-        ($this->deleteCard)(new DeleteCardCommand($this->reload($epic)));
+        ($this->deleteCard)(new DeleteCardCommand($this->reload($epic), CardReporter::Human));
         $this->em->clear();
         self::assertNull($this->em->find(Card::class, $epic->id));
     }
@@ -326,7 +326,7 @@ final class CardParentWriteTest extends KernelTestCase
         $child = $this->cardIn($project, parent: $epic);
         $this->em->clear();
 
-        ($this->deleteCard)(new DeleteCardCommand($this->reload($child)));
+        ($this->deleteCard)(new DeleteCardCommand($this->reload($child), CardReporter::Human));
         $this->em->clear();
 
         self::assertNull($this->em->find(Card::class, $child->id));

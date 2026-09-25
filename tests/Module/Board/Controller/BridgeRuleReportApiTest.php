@@ -166,6 +166,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
     public function test_the_board_switched_off_answers_before_the_body_is_validated(): void
     {
         $client = static::createClient();
+        $this->disableBoard();
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-flag-invalid@example.com');
         $project = $this->project($em, $owner, 'Flag Invalid App');
@@ -225,6 +226,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
     public function test_it_is_absent_while_the_board_is_switched_off(): void
     {
         $client = static::createClient();
+        $this->disableBoard();
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-flag@example.com');
         $project = $this->project($em, $owner, 'Flag Rules App');

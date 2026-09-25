@@ -8,9 +8,9 @@ piece of work: what it asks for, how urgent it is, and which column it sits in.
 A person works the board on its own screen. An agent reads and writes the same
 board through the MCP endpoint.
 
-The board is behind the `board.enabled` feature flag, and the flag ships off. A
-fresh install has no board until an operator switches it on. See
-[Turning the board on](#turning-the-board-on).
+The board is behind the `board.enabled` feature flag, and the flag ships on.
+[Site review](site-review.md) writes each note to a card, so it needs the board.
+See [Turning the board off](#turning-the-board-off).
 
 ## Columns
 
@@ -86,8 +86,9 @@ The menu of the default column, and of the last terminal column, shows a note
 instead of **Delete column**. Give another column that flag first.
 
 A column that becomes terminal gives a completion time to each card in it that
-has none. A column that stops being terminal ranks its cards by completion time,
-then clears their completion times.
+has none, and resolves the open feedback of those cards. A column that stops
+being terminal ranks its cards by completion time, then clears their completion
+times.
 
 ### Labels and slugs
 
@@ -276,9 +277,11 @@ before its `stop` hooks run.
 A card has its own page at **`/projects/<project>/board/cards/<card id>`**. The
 card id is the UUID, not the number.
 
-The page carries the full Markdown body, every pull request link, the review
-feedback pointing at the card, and the times the card was created, last changed
-and completed. Its Status field is a column control, which moves a card
+The page carries the full Markdown body, every pull request link, and the times
+the card was created, last changed and completed. Its **Feedback** tab shows the
+site-review notes on the card. See
+[Review feedback on a card](#review-feedback-on-a-card). Its Status field is a
+column control, which moves a card
 with no drag. That is the way to move a card from a keyboard.
 
 The page also lists the card's five latest agent runs, with the rule that
@@ -294,7 +297,7 @@ When the inbox is on, the page also lists the inbox items linked to the card,
 and you can answer them there. See
 [On a card page and a document page](inbox.md#on-a-card-page-and-a-document-page).
 
-On the board, the Workshop, a document and the Site review page, a card opens
+On the board, the Workshop and a document, a card opens
 in a drawer that slides in from the right. The drawer shows the same content as
 the card page.
 
@@ -310,8 +313,8 @@ button. A save over that change asks the same question, and keeps the text you
 typed. A move to another column alone shows no notice. When someone deletes the
 card, the drawer shows **This card was deleted** and offers no save.
 
-**Delete** asks for a confirmation first, then removes the card and
-its links. A delete cannot be undone, and the number the card held is not
+**Delete** asks for a confirmation first, then removes the card, its
+links and its feedback. A delete cannot be undone, and the number the card held is not
 issued again.
 
 The create form and the edit form carry a **Linked cards** block. Each row picks
@@ -409,7 +412,7 @@ on the epic page, on the history page of their column, and in the MCP tools.
 | Number | A short number, counting from 1, unique inside the project. |
 | Title | Plain text, up to 255 characters. Loupe trims it and refuses a blank one. |
 | Body | Markdown. It says what the card asks for. |
-| Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`, `epic`. |
+| Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`, `epic`, `site-review`. |
 | Status | The column the card sits in. The tools report the column's slug. |
 | Reporter | `human`, `agent` or `reviewer`. It records who raised the card. |
 | Pull requests | Any number of links. See below. |
@@ -417,6 +420,10 @@ on the epic page, on the history page of their column, and in the MCP tools.
 
 A card also carries the moment it was created and the moment it last changed. A
 card in a terminal column carries its completion time as well.
+
+The site-review widget gives the type `site-review` to each note card and review
+card it creates. The board shows that type in teal. A person or an agent can
+also set it.
 
 The reporter never changes. `card_update` refuses that field, because it answers
 who first raised the card rather than who touched it last. An MCP request
@@ -536,7 +543,7 @@ not the cards on the page, so keep reading while `hasMore` is true.
 
 Each row is a summary: `cardId`, `number`, `title`, `type`, `status`,
 `reporter`, `parentCardId` and `updatedAt`. Pass `full` to get the Markdown body, the pull
-request, document and site-review links, and `relatedCards` as well. A full page
+request and document links, the full feedback items, and `relatedCards` as well. A full page
 is much larger, so read the board as summaries and call `card_get` for the card
 you want.
 
@@ -555,7 +562,7 @@ It pages the same way `card_list` does: `perPage` holds 25 rows by default and
 row is the same summary `card_list` returns, so call `card_get` for a body.
 
 `card_get` returns one card with its full Markdown body, every pull request
-linked to it, and every site-review comment pointing at it. Use a card id that
+linked to it, and all of its feedback, under `siteReviewComments`. Use a card id that
 `card_list`, `card_search` or `card_create` gave you, or the card number.
 
 `card_get` also returns `relatedCards`, the cards linked to this one. Each entry
@@ -564,17 +571,24 @@ this card reads the link. `card_search` does not carry `relatedCards`.
 
 ## Cards raised from the review widget
 
-A reviewer using the site-review widget can pick which card their comment
-attaches to, and can create a card without leaving the page. A card raised that
-way records its reporter as **reviewer**, which says the app could not name who
-raised it: the widget authenticates a project, never a person.
+Every note from the [site-review widget](site-review.md) lands on a card. The
+reviewer chooses once where notes go: a new card for each note, one card for
+the whole review, or a new card for each note under an epic. The widget can
+pick an open card or epic, and it can create one.
+
+A card raised that way records its reporter as **reviewer**. That says the app
+could not name who raised it, because the widget authenticates a project and
+never a person. A note card and a review card have the type `site-review`. An
+epic has the type `epic`.
 
 Such a card always lands in the default column, and carries no pull request
 link. The widget offers neither, so a page visitor cannot file work straight
-into a column.
+into a column. The widget refuses a card or an epic in a terminal column.
 
-This is off unless the board is. Both the picker and the create control need
-`board.enabled`, and the endpoints behind them answer 404 while it is off.
+All of this needs `board.enabled`. While the flag is off, the feedback endpoints
+answer 409 `board_disabled`, and the widget says "Turn on the board to use site
+review".
+
 ## Documents on a card
 
 A card links to any number of documents in the same project, and the card page
@@ -634,18 +648,29 @@ every link of its board.
 
 ## Review feedback on a card
 
-A site-review comment reaches a card when the page it was made on said which
-card it was about. The widget embed carries `data-context`, fed by
-`SITE_REVIEW_WIDGET_CONTEXT`, and a preview instance sets it to `card:` followed
-by the card id. See [Environment variables](../reference/environment.md).
+Each site-review note is feedback on one card. The widget writes the note and
+its card link in one request, so a new note never exists without its card. A
+preview page can lock the widget to one card, through `data-context` and
+`SITE_REVIEW_WIDGET_CONTEXT`. See [Site review](site-review.md#a-preview-page-locks-the-card).
 
-The link is one-way and read-only from the board's side. The card shows the
-comment and its status, and the site-review screen still owns that status.
-`site_review_mark_comment_addressed` is what marks one done.
+The card page's **Feedback** tab lists each note with its page, its elements
+and its status. A note moves through three states:
 
-Nothing is linked while the board is switched off, and a comment naming a card
-of another project is refused. The marker travels through a page, so anyone able
-to load it can name any card, and a widget sign-in belongs to one project.
+| Status | Who sets it |
+|---|---|
+| Pending | The reviewer saves the note. |
+| Addressed | An agent marks it with `feedback_mark_addressed`. |
+| Resolved | A person presses **Resolve** on the Feedback tab or in the widget, or the card finishes. |
+
+A card finishes when it moves into a terminal column from a column that is not
+terminal. Every pending or addressed note on it then becomes resolved. A column
+delete that moves cards from an open column into a terminal column does the same,
+and so does **Mark as terminal** on a column that holds cards. A move between two
+terminal columns resolves nothing new. A move back out of a terminal column
+leaves the notes resolved. **Reopen** on the Feedback tab makes a resolved note
+pending again.
+
+The board screen shows on each card how many notes still wait on it.
 
 `card_update` reads an omitted field as "leave it alone". `pullRequestUrls` is
 the one field where an omitted list and an empty list differ. Omit it and the
@@ -658,24 +683,33 @@ card. An agent finishes a card by moving it to a terminal column, which keeps
 the record of the work.
 
 A person deletes a card from the card page. See
-[The card page](#the-card-page).
+[The card page](#the-card-page). The delete removes the card's feedback too.
 
-## Turning the board on
+The widget deletes a card in one case. A reviewer deletes a pending note, and
+the widget deletes the note's card too when all of these are true:
 
-`board.enabled` is seeded off, because a board an agent writes to is a second
-place work is tracked. The operator opts in.
+- The note created the card.
+- The card is still in the default column.
+- The card holds no other feedback.
+- The card keeps the site review type and the title that the note gave it.
+- The card body is empty.
+- The card has no pull request, no document and no link to or from another card.
 
-While the flag is off, the `card_*` tools and `board_columns` are absent from
-`tools/list` and from the project's Connect page. An agent never learns of a
-tool this instance would refuse. A client that holds an older tool list and
-calls one anyway gets a plain refusal rather than a broken call.
+## Turning the board off
 
-Open the flags page at **`/admin/feature-flags`** and switch `board.enabled`
-on. The change needs no restart. See [The admin area](admin.md).
+`board.enabled` ships on, because site review writes each note to a card. The
+install wizard sets it on for a fresh install. On an instance that upgrades, a
+database migration sets it on, and writes the row when it is missing. Run the
+migrations as part of the upgrade.
 
-Every instance has the row. The install wizard writes it on a fresh install, and
-a database migration writes it on an instance that upgrades. Run the migrations
-as part of the upgrade, and the flags page lists `board.enabled`, set off.
+An operator can switch it off at **`/admin/feature-flags`**. The change needs no
+restart. See [The admin area](admin.md). While the flag is off:
+
+- The `card_*` tools, `board_columns`, `feedback_list` and
+  `feedback_mark_addressed` are absent from `tools/list` and from the project's
+  Connect page. A client that holds an older tool list and calls one anyway gets
+  a plain refusal.
+- The widget refuses notes and says "Turn on the board to use site review".
 
 A missing row reads as off. If the flags page does not list the flag, the
 migration has not run. **`/admin/feature-flags/scan`** lists every flag the code

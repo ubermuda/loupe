@@ -108,6 +108,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em->persist($project);
         $em->persist(new Document($owner, $project, 'First document'));
         $em->persist(new Document($owner, $project, 'Second document'));
+        self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()['board.enabled']->value = false;
         $em->flush();
 
         $client->loginUser($owner);

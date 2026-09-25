@@ -111,7 +111,7 @@ final readonly class ConfigureBoardColumnHandler
                 $this->events->dispatch(new BoardColumnRenamed($column, $renamed->fromSlug, $renamed->toSlug, $command->actor));
             }
             if ($terminalChanged) {
-                $this->terminalCards->follow($column, new \DateTimeImmutable());
+                $this->terminalCards->follow($column, new \DateTimeImmutable(), $command->actor);
             }
 
             return [];

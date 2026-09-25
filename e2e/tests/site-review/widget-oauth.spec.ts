@@ -62,9 +62,14 @@ test('a reviewer signs in through the popup and saves a comment', async ({
     await page
         .getByPlaceholder(/Describe the issue/)
         .fill('Signed in with OAuth');
+    // A first note asks where notes go.
+    await page
+        .locator('#lp-picker')
+        .getByRole('button', { name: 'A new card for each note' })
+        .click();
     const saved = page.waitForResponse(
         (response) =>
-            response.url().includes('/api/site-review/comments') &&
+            response.url().includes('/api/board/feedback') &&
             response.request().method() === 'POST',
     );
     await page.getByRole('button', { name: 'Save' }).click();

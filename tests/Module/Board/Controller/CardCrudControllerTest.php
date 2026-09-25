@@ -12,9 +12,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Form\AttachSiteReviewCommentFormType;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Security\CardFeedbackVoter;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -108,44 +106,28 @@ final class CardCrudControllerTest extends WebTestCase
         }
     }
 
-    public function test_the_owner_attaches_unlinked_feedback_to_an_open_card(): void
+    public function test_a_feedback_url_that_is_not_http_renders_without_a_link(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
-
-        $owner = $this->user($em, 'card-attach-feedback@example.com');
+        $owner = $this->user($em, 'card-feedback-javascript@example.com');
         $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Fix the feedback');
-        $comment = new SiteReviewComment($project, 0, 'Move the control', 'https://example.com');
+        $card = $this->card($em, $project, 'Sneaky capture');
+        $comment = new SiteReviewComment($project, 0, 'sneaky', 'javascript:alert(1)');
         $em->persist($comment);
+        $em->persist(new CardSiteReviewComment($card, $comment));
         $em->flush();
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id.'?tab=feedback');
+
         self::assertResponseIsSuccessful();
-        $create = $crawler->filter('.lp-feedback-attach__create');
-        self::assertStringContainsString('Create card and attach', $create->text());
-        // The form opens in the drawer, and its href stays the page a reader without JavaScript gets.
-        self::assertSame('card-drawer-frame', $create->attr('data-turbo-frame'));
-        self::assertSame('/projects/'.$project->id.'/board/cards/new?feedback='.$comment->id, $create->attr('href'));
-
-        $client->submitForm('Attach to card', [
-            AttachSiteReviewCommentFormType::nameFor($comment).'[card]' => (string) $card->id,
-        ]);
-
-        self::assertResponseRedirects('/projects/'.$project->id.'/site-review#feedback-'.$comment->id);
-        $em->clear();
-        $links = static::getContainer()->get(CardSiteReviewCommentRepository::class);
-        $link = $links->findOneBy(['comment' => $comment->id]);
-        self::assertNotNull($link);
-        self::assertSame((string) $card->id, (string) $link->card->id);
-
-        // The create form's Cancel returns to the site review, not to the board.
-        $form = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/new?feedback='.$comment->id);
-        self::assertResponseIsSuccessful();
-        self::assertSame('/projects/'.$project->id.'/site-review', $form->filter('.lp-form a.lp-btn--ghost')->attr('href'));
+        $entry = $crawler->filter('#card-panel-feedback [data-site-feedback="'.$comment->id.'"]');
+        self::assertCount(1, $entry);
+        self::assertStringContainsString('sneaky', $entry->text());
+        self::assertCount(0, $entry->filter('a[href^="javascript:"]'));
     }
 
     public function test_the_owner_creates_a_card_with_pull_request_links(): void
@@ -221,41 +203,6 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame form[name="create_card_form"]'));
         self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame a[data-action="card-drawer#close"]:contains("Cancel")'));
         self::assertNull($crawler->filter('turbo-frame#card-drawer-frame')->attr('target'));
-    }
-
-    public function test_the_owner_creates_a_card_from_feedback_and_attaches_it(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
-
-        $owner = $this->user($em, 'card-create-from-feedback@example.com');
-        $project = $this->project($em, $owner);
-        $comment = new SiteReviewComment($project, 0, 'Strengthen the button contrast', 'https://example.com');
-        $em->persist($comment);
-        $em->flush();
-        $commentId = $comment->id;
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(
-            Request::METHOD_GET,
-            '/projects/'.$project->id.'/board/cards/new?feedback='.$commentId,
-        );
-        self::assertResponseIsSuccessful();
-        self::assertStringContainsString('Strengthen the button contrast', $crawler->filter('.lp-card-feedback-context')->text());
-
-        $client->submitForm('Create card', [
-            'create_card_form[title]' => 'Improve button contrast',
-        ]);
-
-        self::assertResponseRedirects();
-        $em->clear();
-        $created = static::getContainer()->get(CardRepository::class)->findOneBy(['title' => 'Improve button contrast']);
-        self::assertInstanceOf(Card::class, $created);
-        $link = static::getContainer()->get(CardSiteReviewCommentRepository::class)->findOneBy(['comment' => $commentId]);
-        self::assertNotNull($link);
-        self::assertSame((string) $created->id, (string) $link->card->id);
     }
 
     public function test_a_blank_title_re_renders_the_create_form_with_422(): void
@@ -566,6 +513,7 @@ final class CardCrudControllerTest extends WebTestCase
     public function test_creating_is_not_found_while_the_flag_is_off(): void
     {
         $client = static::createClient();
+        $this->disableBoard();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $owner = $this->user($em, 'card-create-flag-off@example.com');
