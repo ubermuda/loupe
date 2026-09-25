@@ -7,7 +7,7 @@ The CLI watches your Loupe board and runs a **non-interactive Claude Code
 worker** for each event that a rule in your rule file matches. A card you move
 in the browser becomes an agent run with no copy-pasting. A worker is
 `claude -p --session-id <uuid> -- <prompt>`. It prints its answer and exits, and the bridge reports the
-exit code.
+exit code and the worker's structured result.
 
 The bridge runs three workers at once by default and queues the rest. It writes
 one JSON object per line, to stdout and to a log file.
@@ -375,6 +375,8 @@ Each entry in `rules` takes these fields:
 | `permissionMode` | no | Defaults to `defaults.permissionMode`, then to `--permission-mode`. A mode `claude` takes, such as `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `manual` or `plan` |
 | `model` | no | Defaults to `defaults.model`, then to `--model`. An alias such as `opus` or a full model name, with no whitespace |
 | `maxChain` | no | The agent-triggered runs in a row this rule starts for one card. Defaults to `3`. At least 1. See [The chain cap](#the-chain-cap) |
+| `maxResumes` | no | The resumes the bridge runs after a run that did not finish. Defaults to `2`, and `0` turns resumes off. At most 32767. See [Resuming an unfinished run](#resuming-an-unfinished-run) |
+| `resultFields` | no | Optional fields the worker adds to its structured result. Each key is a field name, and each value is a JSON Schema fragment. See [The structured result](#the-structured-result) |
 | `allowUntrusted` | no | Defaults to `false`. See below |
 | `resume` | for `inbox.ask_closed` | `true` resumes the session that asked. A rule on `inbox.ask_closed` needs it, and no other rule can set it. See [Resuming a session](#resuming-a-session) |
 | `verdict` | no | `approved` or `changes-requested`. Omitted, either verdict matches. Only a rule on `document.review_submitted` can set it. See [A review verdict](#a-review-verdict) |
@@ -542,8 +544,10 @@ bridge accepts that.
 ### Workers
 
 A matching event starts one worker. The bridge runs
-`claude -p --session-id <uuid> -- <prompt>` in the project's `dir`, with
-`--permission-mode` and `--model` in front when the rule has them. The bridge
+`claude --output-format json --json-schema <schema> -p --session-id <uuid> -- <prompt>`
+in the project's `dir`, with `--permission-mode` and `--model` in front when
+the rule has them. [The structured result](#the-structured-result) describes
+the schema. The bridge
 generates a new session id for each worker. It logs the id on `worker_started`,
 and sends it as `sessionId` in the worker run report. The prompt is rendered when the event arrives, and it is an argv
 element, so no shell reads it. It follows `--`, so a prompt that starts with `-`
@@ -553,8 +557,10 @@ Each worker runs in its own goroutine, so a long run never blocks the event
 stream and several cards run at the same time. The bridge logs a line when a
 worker starts and a line when it ends, carrying the exit code and how long it
 took. It owns the worker's streams, so it reports what the worker said as well,
-on a clean exit and on a failure alike. Output past 4 KB is dropped and the
-report says so.
+on a clean exit and on a failure alike. The output is the first text that is
+not empty of these: the result's `summary`, claude's `result` text, stderr, and
+a stdout that is not valid JSON. Output past 4 KB is dropped and the report
+says so.
 
 The bridge sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` in each worker's
 environment. Without it, `claude -p` ends a worker 600 seconds after its main
@@ -562,12 +568,6 @@ turn when a background subagent still runs, and exits 0. A hung subagent
 therefore holds its worker slot until you stop the `claude` process. To keep a ceiling,
 set the variable in the bridge's own environment. The bridge then passes your
 value unchanged, and an empty value counts as set.
-
-Every prompt ends with a request to finish the final reply with a line that
-starts with `STAGE RESULT:`. The bridge reads the whole output of both streams
-for that line, past the 4 KB it keeps. A worker that exits with no such line
-logs `worker_no_result`, whatever its exit code. The worker run report carries
-the check as `hasResult`.
 
 One bridge gives a card one worker at a time, on purpose: two agents working one
 card in one checkout undo each other's work. The bridge keys a card by its id,
@@ -594,6 +594,48 @@ The key lives in the bridge process. Two bridges that map one project each keep
 their own, so they can both start a worker for the same card. Map each project
 in one bridge only. One rule file also serves one bridge only, because a second
 bridge on the same file refuses to start.
+
+### The structured result
+
+Every prompt ends with a request for a structured result. `--json-schema` makes
+`claude` return that result as `structured_output` in its JSON reply. The core
+schema requires two fields:
+
+| Field | Value |
+|---|---|
+| `status` | `finished` when the work is done, `blocked` when it cannot go on without a person, and `unfinished` when work still runs or remains |
+| `summary` | one short sentence on what the worker did |
+
+A rule adds optional fields with `resultFields`. Each value is a JSON Schema
+fragment, and `claude` checks it:
+
+```yaml
+rules:
+  - name: implement
+    on: board.card_moved
+    project: my-app
+    to: implementation
+    prompt: Use the loupe-stage-implementation skill on card {cardNumber}.
+    resultFields:
+      prUrl: {type: string}
+```
+
+A field name starts with a letter and holds letters, digits and `_` only. The
+bridge refuses `status` and `summary`, which every result has, and a value that
+is not a mapping. The bridge builds each rule's schema once, when it loads the
+file.
+
+The bridge reads stdout as one JSON document, up to 1 MiB. A worker has a
+result only when `structured_output` holds a known `status` and a string
+`summary`. A stdout past 1 MiB, or one that does not decode, holds no result. A
+worker that exits with no result logs `worker_no_result`, whatever its exit
+code. The worker run report carries the check as `hasResult`, and the status as
+`resultStatus`. The other fields go as `resultFields`. When they take more than
+4000 bytes as JSON, the bridge sends none of them and logs
+`result_fields_dropped`, because Loupe refuses the whole report otherwise.
+
+The stage skills still print a `STAGE RESULT:` line. The bridge does not read
+it.
 
 ### The chain cap
 
@@ -693,6 +735,53 @@ answer such as `ask_not_found`, or a body that does not state both values. A
 failed check also logs `resume_check_failed`. A resume that `claude` cannot
 start, such as a session this machine does not hold, is a failed run and is
 reported like any failed worker.
+
+### Resuming an unfinished run
+
+`claude -p` exits when the worker ends its turn. A command, a monitor or a
+subagent that the worker left in the background dies with it, and no later turn
+sees its result. So the bridge resumes a run that did not finish, on the same
+session. A run did not finish when it exited with a non-zero code, when it had
+no structured result, or when its status is `unfinished`. The bridge does not
+resume a `blocked` run, a run it killed, or a run that ended during a shutdown.
+
+The rule's `maxResumes` caps the resumes that follow one run. The cap comes
+from the rule when the first run starts. A run that did not finish at the cap
+ends as `gave-up`. The bridge then logs `worker_gave_up` at `ERROR`, after the
+`worker_finished` or `worker_no_result` line of that run. With `maxResumes: 0`,
+the first run that did not finish ends as `gave-up`.
+
+The ended run frees its worker slot and keeps its card, so no other worker of
+the card starts meanwhile. A run that exited with a non-zero code waits 60
+seconds first. The bridge then matches the rule again, and reads the card
+through `GET /api/projects/{projectId}/board/cards/{cardId}`, with a timeout of
+10 seconds. The bridge skips the resume and logs `resume_skipped` in these
+cases:
+
+| Reason | Cause |
+|---|---|
+| `card_moved` | the card left the column that started the run series |
+| `shutdown` | the bridge stops |
+| `rule_dead` | the rule died |
+| `reload` | a reload removed the rule |
+
+A failed card read logs `card_read_failed` and resumes anyway. The bridge knows
+the column for `board.card_moved` and `document.review_submitted`, and for an
+`inbox.ask_closed` of a session it started for a card. For any other run it
+reads no card and resumes.
+
+A resume runs `claude --resume <sessionId>` with a fixed prompt, which a rule
+cannot edit. The prompt says why the last turn ended, such as `status
+unfinished` or `exit code 1`, and ends with the card footer. The bridge logs
+`worker_resuming` at `WARN`. The resume takes the place in the queue of the run
+it continues, so a newer event of the card waits behind it and never replaces
+it. A resume skips the ask check and does not count toward `maxChain`.
+
+The outcome of the ended run waits for this decision. When no resume runs, its
+report says why in `resumeSkipped`. A resume is a new run with its own run id.
+Every `queued` report names the column that started the series in
+`cardColumn`. The `queued` report of a resume also names the run it continues
+in `continues`, and its place in the series in `resumeIndex` and `resumeCap`.
 
 ### Dead rules
 
@@ -855,11 +944,15 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `worker_queued` | `card`, `project`, `rule`, `queue_depth` |
 | `worker_coalesced` | `card`, `project`, `rule`: the event replaced one that waits for the same card and rule |
 | `chain_capped` | `card`, `project`, `rule`, `max_chain`, `message`: the rule reached its cap on that card |
-| `worker_started` | `card`, `project`, `rule`, `session_id`, and `ask` for a resume |
-| `resume_skipped` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `message`: the session read every item of its ask, so no worker ran |
+| `worker_started` | `card`, `project`, `rule`, `session_id`, `ask` for the resume of an ask, and `resume` for the resume of an unfinished run |
+| `resume_skipped` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `message`: the session read every item of its ask, so no worker ran. For an unfinished run, the line adds `reason`: `card_moved`, `shutdown`, `rule_dead` or `reload`, at level `WARN` |
 | `resume_check_failed` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `error`, `message`: the ask check failed, and the session resumes. Level `WARN` |
-| `worker_finished` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`. Level `ERROR` for a non-zero `exit` |
-| `worker_no_result` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`: the output held no `STAGE RESULT:` line. Level `ERROR` |
+| `card_read_failed` | `card`, `project`, `rule`, `error`, `message`: the card read before the resume of an unfinished run failed, and the session resumes. Level `WARN` |
+| `worker_resuming` | `card`, `project`, `rule`, `session_id`, `resume`, `max_resumes`, `reason`: the bridge resumes a run that did not finish. Level `WARN` |
+| `worker_gave_up` | `card`, `project`, `rule`, `resume`, `max_resumes`, `reason`, `message`: a run did not finish at the cap of `maxResumes`. Level `ERROR` |
+| `result_fields_dropped` | `card`, `project`, `rule`, `bytes`, `message`: the result fields took more than 4000 bytes as JSON, so the report carries none. Level `WARN` |
+| `worker_finished` | `card`, `project`, `rule`, `exit`, `duration_ms`, `status`, `output`. Level `ERROR` for a non-zero `exit` |
+| `worker_no_result` | `card`, `project`, `rule`, `exit`, `duration_ms`, `status`, `output`: stdout held no valid structured result. Level `ERROR` |
 | `worker_failed` | `card`, `project`, `rule`, `error`: the process never ran |
 | `queue_dropped` | `count`, `dropped`: a list of `{card, rule}`, with `ask` for a resume, and `reason`: `reload` when a reload dropped the events |
 | `control_listening` | `socket`: the path that `loupe bridge reload` reaches |
@@ -905,13 +998,19 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 `queue_depth` counts the accepted events waiting at that moment, the new one
 included. `worker_failed` and `worker_finished` name two different faults: a
 process that never ran, and a process that ran and returned a non-zero code.
-`worker_no_result` names a third: a process that ran and printed no result
-line, so a clean exit does not prove the work finished. A worker writes one of
-`worker_finished` and `worker_no_result`, never both.
+`worker_no_result` names a third: a process that ran and gave no valid
+structured result, so a clean exit does not prove the work finished. A worker
+writes one of `worker_finished` and `worker_no_result`, never both.
+`worker_resuming` or `worker_gave_up` can follow either line.
+
+A Loupe server older than the `unfinished`, `blocked` and `gave-up` states
+refuses a report of one of them with a 422. The bridge does not retry it, and
+logs `report_failed` with `card`, `rule`, `attempts` and `error`. Upgrade the
+server to keep these outcomes.
 
 When the bridge itself shuts down, for example on Ctrl-C, it stops its running
 workers. Each of those logs `worker_finished` at `ERROR`, with or without a
-result line.
+structured result, and the bridge does not resume it.
 
 Read a live run with `jq`:
 

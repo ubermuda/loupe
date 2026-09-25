@@ -2,6 +2,7 @@
    stream, so the two can never drift apart. Props: board (BoardView),
    renameColumnForm (a refused FormView, or null). #}
 {% set canManage = is_granted(constant('App\\Module\\Board\\Security\\BoardColumnVoter::MANAGE'), board.project) %}
+{% set runWarnings = card_run_warnings(board.project) %}
 <div id="board" class="lp-board" data-controller="board-drag board-filter board-view{{ canManage ? ' board-columns' }}">
     {% set cardCount = 0 %}
     {% for view in board.columns %}{% set cardCount = cardCount + view.count %}{% endfor %}
@@ -92,7 +93,7 @@
              data-rankable="{{ view.column.terminal ? '0' : '1' }}">
             {% for card in view.cards %}
                 {# `~ ''` casts the Uuid, which cannot itself be an array key. #}
-                {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0)} only %}
+                {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), runWarning: runWarnings[card.id ~ '']|default(null)} only %}
             {% endfor %}
         </div>
 

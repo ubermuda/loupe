@@ -66,4 +66,59 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
 
         self::assertSame([], self::getContainer()->get(CardWorkerRunsExtension::class)->cardWorkerRuns($project, (string) Uuid::v7()));
     }
+
+    public function test_a_card_whose_latest_outcome_gave_up_or_is_blocked_has_a_warning(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'card-warnings@example.com');
+        $project = $this->project($em, $owner, 'Warnings');
+        $other = $this->project($em, $owner, 'Other warnings');
+        $gaveUp = Uuid::v7();
+        $blocked = Uuid::v7();
+        $cleared = Uuid::v7();
+        $stillRunning = Uuid::v7();
+        $failed = Uuid::v7();
+        $elsewhere = Uuid::v7();
+        $at = static fn (string $time): \DateTimeImmutable => new \DateTimeImmutable('2026-01-01 '.$time);
+
+        $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $gaveUp, state: WorkerRunState::Unfinished, hasResult: true);
+        $lastTry = $this->seedRun($em, $project, receivedAt: $at('10:10'), output: 'Tests still fail.', cardId: $gaveUp, state: WorkerRunState::GaveUp, hasResult: true);
+        $lastTry->cardColumn = 'implementation';
+        $blockedRun = $this->seedRun($em, $project, receivedAt: $at('10:00'), output: 'Needs a token.', cardId: $blocked, state: WorkerRunState::Blocked, hasResult: true);
+        $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $cleared, state: WorkerRunState::GaveUp, hasResult: true);
+        $this->seedRun($em, $project, receivedAt: $at('10:05'), cardId: $cleared, state: WorkerRunState::Succeeded, hasResult: true);
+        $waiting = $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $stillRunning, state: WorkerRunState::Blocked, hasResult: true);
+        $this->seedRun($em, $project, receivedAt: $at('10:05'), cardId: $stillRunning, state: WorkerRunState::Running);
+        $this->seedRun($em, $project, receivedAt: $at('10:00'), exitCode: 1, cardId: $failed);
+        $this->seedRun($em, $other, receivedAt: $at('10:00'), cardId: $elsewhere, state: WorkerRunState::GaveUp, hasResult: true);
+        $em->flush();
+
+        $warnings = self::getContainer()->get(CardWorkerRunsExtension::class)->cardRunWarnings($project);
+
+        ksort($warnings);
+        $expected = [(string) $gaveUp, (string) $blocked, (string) $stillRunning];
+        sort($expected);
+        self::assertSame($expected, array_keys($warnings));
+
+        $warning = $warnings[(string) $gaveUp];
+        self::assertSame((string) $lastTry->id, $warning->runId);
+        self::assertSame(WorkerRunState::GaveUp, $warning->state);
+        self::assertSame('Tests still fail.', $warning->summary);
+        self::assertSame('implementation', $warning->cardColumn);
+
+        self::assertSame((string) $blockedRun->id, $warnings[(string) $blocked]->runId);
+        self::assertNull($warnings[(string) $blocked]->cardColumn);
+        // An open run is not an outcome, so the blocked outcome before it still stands.
+        self::assertSame((string) $waiting->id, $warnings[(string) $stillRunning]->runId);
+    }
+
+    public function test_a_project_with_no_runs_has_no_warnings(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'card-no-warnings@example.com'), 'Calm');
+
+        self::assertSame([], self::getContainer()->get(CardWorkerRunsExtension::class)->cardRunWarnings($project));
+    }
 }

@@ -18,6 +18,7 @@ import (
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/directive"
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
@@ -256,7 +257,7 @@ func TestTheHandoverFileRoundTripsAndRefusesAnotherFormat(t *testing.T) {
 func TestAHandoverAdoptsLiveWorkersAndReportsThem(t *testing.T) {
 	workerClaude(t, `case "$*" in *"Card 1 ("*) code=3;; *) code=0;; esac
 sleep 1
-echo "STAGE RESULT: exit $code"
+echo "{\"structured_output\":{\"status\":\"finished\",\"summary\":\"exit $code\"}}"
 exit $code
 `)
 	h := newHarness(t)
@@ -315,7 +316,7 @@ exit $code
 		if final.ExitCode == nil || *final.ExitCode != want || final.HasResult == nil || !*final.HasResult {
 			t.Fatalf("card %d ended as %+v", run.Event.CardNumber, final)
 		}
-		if final.Output != "STAGE RESULT: exit "+strconv.Itoa(want) || !final.StartedAt.Equal(run.Began) {
+		if final.Output != "exit "+strconv.Itoa(want) || !final.StartedAt.Equal(run.Began) {
 			t.Fatalf("card %d ended as %+v", run.Event.CardNumber, final)
 		}
 	}
@@ -330,7 +331,8 @@ exit $code
 	}
 }
 
-// adoptedRun is a live run of card 9 in the run directory dir.
+// adoptedRun is a live run of card 9 in the run directory dir. Its series
+// allows no resume, so a failed run gives up at once.
 func adoptedRun(dir string) handoverState {
 	e := event.Event{Type: event.CardMovedType, Subject: event.Subject{Type: "card", ID: cardUUID(9)}, ProjectID: testProject, CardNumber: 9, FromStatus: "backlog", ToStatus: "next", Actor: event.ActorHuman}
 
@@ -378,7 +380,7 @@ func TestAnAdoptedWorkerThatIsNoChildIsPolled(t *testing.T) {
 	dir := runDir(t)
 
 	out, err := exec.Command("/bin/sh", "-c",
-		`sh -c 'sleep 1; echo "STAGE RESULT: orphan" > "$1/output"; echo 5 > "$1/status.exit"' orphan "$0" >/dev/null 2>&1 & echo $!`, dir).Output()
+		`sh -c 'sleep 1; : > "$1/stdout"; echo orphan > "$1/stderr"; echo 5 > "$1/status.exit"' orphan "$0" >/dev/null 2>&1 & echo $!`, dir).Output()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -394,7 +396,7 @@ func TestAnAdoptedWorkerThatIsNoChildIsPolled(t *testing.T) {
 	}
 
 	_, final := adoptInto(t, adoptedRun(dir))
-	if final.State != api.RunFailed || final.ExitCode == nil || *final.ExitCode != 5 || final.Output != "STAGE RESULT: orphan" {
+	if final.State != api.RunGaveUp || final.ExitCode == nil || *final.ExitCode != 5 || final.Output != "orphan" {
 		t.Fatalf("the orphan ended as %+v", final)
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
@@ -412,7 +414,7 @@ func TestAnAdoptedWorkerThatEndedIsReportedAtOnce(t *testing.T) {
 	if err := writeRunRecord(dir, runRecord{PID: cmd.Process.Pid, StartTime: "gone", RunID: "run-9"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "output"), []byte("STAGE RESULT: done\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "stdout"), []byte(`{"structured_output":{"status":"finished","summary":"done"}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "status.exit"), []byte("0\n"), 0o600); err != nil {
@@ -432,7 +434,7 @@ func TestAnAdoptedRunWithNoRecordFailsWithAReason(t *testing.T) {
 	dir := runDir(t)
 
 	h, final := adoptInto(t, adoptedRun(dir))
-	if final.State != api.RunFailed || !strings.Contains(final.Output, "lost this run") {
+	if final.State != api.RunGaveUp || !strings.Contains(final.Output, "lost this run") {
 		t.Fatalf("the run with no record ended as %+v", final)
 	}
 	h.router.mu.Lock()
@@ -573,4 +575,151 @@ func TestAFreezeWaitsForARefreshThatDropsTheQueue(t *testing.T) {
 	wantClosable(t, freezeInWindow(t, h, g))
 	h.router.resume()
 	h.router.wg.Wait()
+}
+
+// endedRunDir is a run directory whose worker already exited with the given
+// stdout and exit code.
+func endedRunDir(t *testing.T, stdout string, code int) string {
+	t.Helper()
+	dir := runDir(t)
+	cmd := exec.Command("true")
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeRunRecord(dir, runRecord{PID: cmd.Process.Pid, StartTime: "gone", RunID: "run-9"}); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{"stdout": stdout, "stderr": "", "status.exit": strconv.Itoa(code)} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	return dir
+}
+
+// A live run that is itself a resume keeps its place in the series across a
+// handover, so the next image resumes it again and counts on from it.
+func TestAnAdoptedResumeKeepsItsSeries(t *testing.T) {
+	dir := endedRunDir(t, `{"structured_output":{"status":"unfinished","summary":"CI still runs"}}`, 0)
+	live := adoptedRun(dir).Live[0]
+	p := pending{key: live.Key, rule: live.Rule, event: live.Event, runID: live.RunID, seq: 5, continues: "run-8", resumeIndex: 1, maxResumes: 2, column: "next"}
+	p.spec.sessionID = live.SessionID
+	h1 := newHarness(t)
+	h1.router.mu.Lock()
+	h1.router.hold(p.key)
+	h1.router.active++
+	h1.router.trackLocked(liveRun{p: p, began: time.Now(), proc: workerProc{dir: dir}})
+	h1.router.mu.Unlock()
+	st := roundTrip(t, h1.router.freeze())
+
+	h2 := newHarness(t)
+	rec := h2.states()
+	h2.worker.result = finishedRun
+	h2.router.adopt(st)
+	h2.router.wg.Wait()
+
+	calls := h2.worker.recorded()
+	if len(calls) != 1 || !calls[0].resume || calls[0].sessionID != testSession || calls[0].prompt != directive.RenderResumeUnfinished("status unfinished") {
+		t.Fatalf("workers = %+v", calls)
+	}
+	sent := rec.states()
+	if got := finalOf(t, sent, "run-9"); got.State != api.RunUnfinished {
+		t.Fatalf("the adopted run ended as %+v", got)
+	}
+	ids := runIDs(sent)
+	if len(ids) != 2 {
+		t.Fatalf("runs = %v", ids)
+	}
+	queued := ofRun(sent, ids[1])[0].report
+	if queued.State != api.RunQueued || queued.Continues != "run-9" || queued.ResumeIndex != 2 || queued.ResumeCap != 2 || queued.CardColumn != "next" {
+		t.Fatalf("the resume queued as %+v", queued)
+	}
+}
+
+// A queued resume of an unfinished run crosses a handover as a resume of the
+// same session with the same prompt, not as a new run of its rule.
+func TestAQueuedResumeCrossesAHandover(t *testing.T) {
+	h1 := newHarness(t)
+	e := adoptedRun("").Live[0].Event
+	p := pending{key: cardUUID(9), rule: "plan", event: e, runID: "run-10", seq: 3, checked: true, continues: "run-9", resumeIndex: 1, maxResumes: 2, column: "next"}
+	p.spec.resume, p.spec.sessionID, p.spec.prompt = true, testSession, "resume the run"
+	h1.router.mu.Lock()
+	h1.router.hold(p.key)
+	h1.router.queue = []pending{p}
+	h1.router.mu.Unlock()
+	st := roundTrip(t, h1.router.freeze())
+
+	h2 := newHarness(t)
+	h2.router.adopt(st)
+	h2.router.wg.Wait()
+
+	calls := h2.worker.recorded()
+	if len(calls) != 1 || !calls[0].resume || calls[0].sessionID != testSession || calls[0].prompt != "resume the run" {
+		t.Fatalf("workers = %+v", calls)
+	}
+}
+
+// A resume gate holds a card and no slot. A handover waits for it, because the
+// frozen state could not name the resume it is about to queue.
+func TestDrainWaitsForAResumeGate(t *testing.T) {
+	h := newHarness(t)
+	waited := make(chan time.Duration, 1)
+	fire := make(chan time.Time)
+	h.router.after = func(d time.Duration) <-chan time.Time {
+		waited <- d
+
+		return fire
+	}
+	h.worker.results = []workerResult{{exitCode: 1, output: "boom"}}
+	h.worker.result = finishedRun
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-waited
+	h.router.pause()
+	err := h.router.drain(context.Background(), 50*time.Millisecond)
+	if err == nil || !strings.Contains(err.Error(), "1 resume gates") {
+		t.Fatalf("drain = %v, want the resume gate named", err)
+	}
+	close(fire)
+	h.router.resume()
+	h.router.wg.Wait()
+	if err := h.router.drain(context.Background(), 50*time.Millisecond); err != nil {
+		t.Fatalf("drain after the gate = %v", err)
+	}
+	if got := h.runs(); got != 2 {
+		t.Fatalf("workers = %d, want the resume to run", got)
+	}
+}
+
+// A gate that decides after a freeze holds its decision back, so the frozen
+// state stays true, and the second drain refuses the handover.
+func TestAFreezeHoldsBackAResumeGate(t *testing.T) {
+	h := newHarness(t)
+	waited := make(chan time.Duration, 1)
+	fire := make(chan time.Time)
+	h.router.after = func(d time.Duration) <-chan time.Time {
+		waited <- d
+
+		return fire
+	}
+	h.worker.results = []workerResult{{exitCode: 1, output: "boom"}}
+	h.worker.result = finishedRun
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-waited
+	h.router.pause()
+	st := h.router.freeze()
+	close(fire)
+	if err := h.router.drain(context.Background(), 200*time.Millisecond); err == nil {
+		t.Fatal("the drain after the freeze passed while a gate held its decision")
+	}
+	if len(st.Queue) != 0 || h.runs() != 1 {
+		t.Fatalf("queue = %+v, workers = %d", st.Queue, h.runs())
+	}
+	h.router.resume()
+	h.router.wg.Wait()
+	if got := h.runs(); got != 2 {
+		t.Fatalf("workers = %d, want the held resume to run", got)
+	}
 }

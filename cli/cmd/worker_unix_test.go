@@ -17,15 +17,10 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/config"
 )
 
-// A stand-in claude prints the ceiling it got on stdout and its result line on
-// stderr, so the test sees the environment and the shared stream wiring.
-func TestRunWorkerLiftsTheCeilingAndReadsBothStreams(t *testing.T) {
-	bin := t.TempDir()
-	script := "#!/bin/sh\necho \"ceiling=$" + ceilingEnv + "\"\necho 'STAGE RESULT: done' >&2\n"
-	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+// A stand-in claude prints its result with the ceiling it got on stdout, and
+// noise on stderr, so the test sees the environment and the split streams.
+func TestRunWorkerLiftsTheCeilingAndDecodesStdout(t *testing.T) {
+	fakeClaude(t, "echo '{\"structured_output\":{\"status\":\"finished\",\"summary\":\"ceiling='\"$"+ceilingEnv+"\"'\"}}'\necho 'a warning' >&2\n")
 	shortConfigHome(t)
 	t.Setenv(ceilingEnv, "")
 	if err := os.Unsetenv(ceilingEnv); err != nil {
@@ -36,7 +31,30 @@ func TestRunWorkerLiftsTheCeilingAndReadsBothStreams(t *testing.T) {
 	if res.err != nil || res.exitCode != 0 {
 		t.Fatalf("runWorker = %+v", res)
 	}
-	if !res.hasResult || res.output != "ceiling=0\nSTAGE RESULT: done" {
+	if !res.hasResult || res.status != "finished" || res.output != "ceiling=0" {
+		t.Fatalf("runWorker = %+v", res)
+	}
+}
+
+// Stdout that holds no result leaves stderr as the output.
+func TestRunWorkerFallsBackToStderr(t *testing.T) {
+	fakeClaude(t, "echo 'not json'\necho 'claude: no such option' >&2\nexit 2\n")
+	shortConfigHome(t)
+
+	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, nil)
+	if res.hasResult || res.exitCode != 2 || res.output != "claude: no such option" {
+		t.Fatalf("runWorker = %+v", res)
+	}
+}
+
+// Stdout past the bound reads as no result, and the worker still runs to its
+// end rather than failing on a short write.
+func TestRunWorkerBoundsStdout(t *testing.T) {
+	fakeClaude(t, "head -c 1100000 /dev/zero\necho 'late' >&2\n")
+	shortConfigHome(t)
+
+	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, nil)
+	if res.hasResult || res.exitCode != 0 || res.output != "late" {
 		t.Fatalf("runWorker = %+v", res)
 	}
 }
@@ -44,12 +62,7 @@ func TestRunWorkerLiftsTheCeilingAndReadsBothStreams(t *testing.T) {
 // A claude that the bridge's context kills reads as killed, and one that ends
 // on its own does not.
 func TestRunWorkerSaysWhetherTheBridgeKilledIt(t *testing.T) {
-	bin := t.TempDir()
-	script := "#!/bin/sh\n[ \"$1\" = -p ] && exit 0\nexec sleep 30\n"
-	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	fakeClaude(t, "case \"$*\" in *--permission-mode*) exec sleep 30;; esac\n")
 	shortConfigHome(t)
 
 	if res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, nil); res.killed {
@@ -76,17 +89,17 @@ func workerClaude(t *testing.T, script string) {
 	shortConfigHome(t)
 }
 
-// The worker writes to a file the bridge does not own, and the bridge reads
-// the exit code the shell recorded. The run directory stays for the router,
+// The worker writes each stream to a file the bridge does not own, and the
+// bridge decodes stdout alone and reads the exit code the shell recorded. The run directory stays for the router,
 // which removes it once it reported the run.
 func TestRunWorkerReadsTheExitCodeAndTheOutputFromItsRunDirectory(t *testing.T) {
-	workerClaude(t, "echo working\necho 'STAGE RESULT: ok'\nexit 3\n")
+	workerClaude(t, "echo working >&2\necho '{\"structured_output\":{\"status\":\"unfinished\",\"summary\":\"ok\"}}'\nexit 3\n")
 
 	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, runID: "run-1", prompt: "go"}, nil)
-	if res.err != nil || res.killed || res.exitCode != 3 || !res.hasResult {
+	if res.err != nil || res.killed || res.exitCode != 3 || !res.hasResult || res.status != "unfinished" {
 		t.Fatalf("runWorker = %+v", res)
 	}
-	if res.output != "working\nSTAGE RESULT: ok" {
+	if res.output != "ok" {
 		t.Fatalf("output = %q", res.output)
 	}
 	runs, err := config.RunsDir()
@@ -104,7 +117,7 @@ func TestRunWorkerReadsTheExitCodeAndTheOutputFromItsRunDirectory(t *testing.T) 
 
 // The router removes the run directory once it reported the run.
 func TestTheRouterRemovesTheRunDirectoryOfAFinishedRun(t *testing.T) {
-	workerClaude(t, "echo 'STAGE RESULT: ok'\n")
+	workerClaude(t, "echo '{\"structured_output\":{\"status\":\"finished\",\"summary\":\"ok\"}}'\n")
 	h := newHarness(t)
 	h.router.worker = defaultWorkerOps()
 
@@ -187,7 +200,7 @@ func TestRunWorkerPassesThePromptUnchanged(t *testing.T) {
 // A shell that ends without an exit status, and that the bridge did not kill,
 // reads as a failure with a reason.
 func TestRunWorkerReportsAMissingExitStatus(t *testing.T) {
-	workerClaude(t, "echo 'STAGE RESULT: ok'\nkill -9 $PPID\n")
+	workerClaude(t, "echo '{\"structured_output\":{\"status\":\"finished\",\"summary\":\"ok\"}}'\nkill -9 $PPID\n")
 
 	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, prompt: "go"}, nil)
 	if res.err != nil || res.killed || res.exitCode == 0 {

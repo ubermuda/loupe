@@ -50,6 +50,17 @@ class WorkerRun
 
     public const int MAX_FAILURE_REASON_LENGTH = 1000;
 
+    /** The limit applies to the extra result fields once they are encoded as JSON. */
+    public const int MAX_RESULT_FIELDS_BYTES = 4000;
+
+    /** A board column slug is text, and a 100-character label can give up to 1,700 characters. */
+    public const int MAX_CARD_COLUMN_LENGTH = 2000;
+
+    public const int MAX_RESUME_SKIPPED_LENGTH = 50;
+
+    /** The largest value of a smallint column. */
+    public const int MAX_RESUME_COUNT = 32767;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -65,6 +76,22 @@ class WorkerRun
      */
     #[ORM\Column(name: 'search_vector', type: PostgresType::TSVECTOR, nullable: true, insertable: false, updatable: false)]
     public ?string $searchVector = null;
+
+    /** The status the worker gave in its structured result: finished, blocked or unfinished. */
+    #[ORM\Column(name: 'result_status', length: 20, nullable: true)]
+    public ?string $resultStatus = null;
+
+    /**
+     * The extra fields of the structured result, which the rule defines.
+     *
+     * @var array<string, mixed>|null
+     */
+    #[ORM\Column(name: 'result_fields', type: Types::JSON, nullable: true)]
+    public ?array $resultFields = null;
+
+    /** Why the bridge did not resume this run, such as card_moved. */
+    #[ORM\Column(name: 'resume_skipped', length: self::MAX_RESUME_SKIPPED_LENGTH, nullable: true)]
+    public ?string $resumeSkipped = null;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
@@ -124,6 +151,22 @@ class WorkerRun
         #[ORM\Column(name: 'received_at')]
         public readonly \DateTimeImmutable $receivedAt = new \DateTimeImmutable(),
 
+        /** The run this run resumes. The link goes when that run is deleted. */
+        #[ORM\JoinColumn(name: 'continues_run_id', nullable: true, onDelete: 'SET NULL')]
+        #[ORM\ManyToOne(targetEntity: self::class)]
+        public ?WorkerRun $continuesRun = null,
+
+        /** The place of this run in its series of resumes, and the cap the rule set for the series. */
+        #[ORM\Column(name: 'resume_index', type: Types::SMALLINT, nullable: true)]
+        public ?int $resumeIndex = null,
+
+        #[ORM\Column(name: 'resume_cap', type: Types::SMALLINT, nullable: true)]
+        public ?int $resumeCap = null,
+
+        /** The slug of the column that started the series, as the bridge saw it. */
+        #[ORM\Column(name: 'card_column', type: Types::TEXT, nullable: true)]
+        public ?string $cardColumn = null,
+
         // Rows the previous image writes are worker runs.
         #[ORM\Column(name: 'kind', length: 20, enumType: WorkerRunKind::class, options: ['default' => WorkerRunKind::Worker->value])]
         public readonly WorkerRunKind $kind = WorkerRunKind::Worker,
@@ -143,6 +186,7 @@ class WorkerRun
         $this->startedAt = $startedAt;
     }
 
+    /** @param array<string, mixed>|null $resultFields */
     public function recordOutcome(
         WorkerRunState $state,
         \DateTimeImmutable $endedAt,
@@ -150,6 +194,9 @@ class WorkerRun
         ?bool $hasResult,
         ?string $failureReason,
         string $output,
+        ?string $resultStatus = null,
+        ?array $resultFields = null,
+        ?string $resumeSkipped = null,
     ): void {
         if ($state->isOpen()) {
             throw new \LogicException(\sprintf('An outcome closes the run, and %s is open.', $state->value));
@@ -161,5 +208,8 @@ class WorkerRun
         $this->hasResult = $hasResult;
         $this->failureReason = $failureReason;
         $this->output = $output;
+        $this->resultStatus = $resultStatus;
+        $this->resultFields = $resultFields;
+        $this->resumeSkipped = $resumeSkipped;
     }
 }

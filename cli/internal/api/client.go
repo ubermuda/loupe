@@ -676,6 +676,45 @@ func (c *Client) CheckAsk(ctx context.Context, handle, askID string) (AskState, 
 	return AskState{AskID: raw.AskID, Closed: *raw.Closed, AllRead: *raw.AllRead}, nil
 }
 
+// ReadCard reads the column a card is in now. Any answer other than a 200 that
+// names a column for this card is an error. The caller resumes on every error
+// alike.
+func (c *Client) ReadCard(ctx context.Context, handle, cardID string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/board/cards/"+url.PathEscape(cardID), nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.do(req)
+	if err != nil {
+		return "", fmt.Errorf("read card %s: %w", cardID, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return "", fmt.Errorf("card read failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var raw struct {
+		CardID string `json:"cardId"`
+		Column string `json:"column"`
+	}
+	if err := decodeBody(resp.Body, &raw); err != nil {
+		return "", fmt.Errorf("decode the read of card %s: %w", cardID, err)
+	}
+	if !strings.EqualFold(raw.CardID, cardID) {
+		return "", fmt.Errorf("the read of card %s answers for another card, %q", cardID, raw.CardID)
+	}
+	if raw.Column == "" {
+		return "", fmt.Errorf("the read of card %s names no column", cardID)
+	}
+
+	return raw.Column, nil
+}
+
 // clip cuts s to at most limit characters. The server counts characters, so a
 // byte count would cut a value that holds a multi-byte character too short.
 func clip(s string, limit int) string {

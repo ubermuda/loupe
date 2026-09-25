@@ -43,7 +43,7 @@ eval "card=\${$#}"; card=${card%%[!0-9]*}
 echo $PPID > "$LOUPE_E2E_DIR/started-$card.tmp" && mv "$LOUPE_E2E_DIR/started-$card.tmp" "$LOUPE_E2E_DIR/started-$card"
 n=0
 while [ ! -e "$LOUPE_E2E_DIR/release" ] && [ $n -lt 600 ]; do sleep 0.1; n=$((n+1)); done
-echo "STAGE RESULT: done $card"
+echo "{\"structured_output\":{\"status\":\"finished\",\"summary\":\"done $card\"}}"
 exit "$(cat "$LOUPE_E2E_DIR/exit-$card" 2>/dev/null || echo 0)"
 `
 
@@ -314,8 +314,9 @@ func startE2EBridge(t *testing.T, fake *e2eLoupe, old string, env ...string) *e2
 	}
 	raw, _ := json.Marshal(cfg)
 	rulesPath := filepath.Join(home, "rules.yaml")
+	// No resume, so a failed run reports at once rather than after the delay.
 	rulesBody := "projects:\n  loupe:\n    dir: " + filepath.Join(home, "work") + "\nrules:\n" +
-		"  - on: board.card_moved\n    project: loupe\n    to: next\n    prompt: \"{cardNumber}\"\n"
+		"  - on: board.card_moved\n    project: loupe\n    to: next\n    maxResumes: 0\n    prompt: \"{cardNumber}\"\n"
 	b.installed = filepath.Join(home, "bin", "loupe")
 	oldBytes, err := os.ReadFile(old)
 	if err != nil {
@@ -480,17 +481,17 @@ func (b *e2eBridge) release(codes map[int]int) {
 	for card, code := range codes {
 		want := api.RunSucceeded
 		if code != 0 {
-			want = api.RunFailed
+			want = api.RunGaveUp
 		}
 		var rep api.RunStateReport
 		b.wait(fmt.Sprintf("the final report of card %d", card), func() bool {
 			var ok bool
-			rep, ok = b.fake.report(card, api.RunSucceeded, api.RunFailed, api.RunNoResult, api.RunNotStarted)
+			rep, ok = b.fake.report(card, api.RunSucceeded, api.RunFailed, api.RunGaveUp, api.RunNoResult, api.RunNotStarted)
 
 			return ok
 		})
 		if rep.State != want || rep.ExitCode == nil || *rep.ExitCode != code || rep.HasResult == nil || !*rep.HasResult ||
-			!strings.Contains(rep.Output, fmt.Sprintf("STAGE RESULT: done %d", card)) {
+			rep.Output != fmt.Sprintf("done %d", card) {
 			b.t.Fatalf("card %d: final report = %+v, want %s with exit %d and its result line\n%s", card, rep, want, code, b.dump())
 		}
 	}

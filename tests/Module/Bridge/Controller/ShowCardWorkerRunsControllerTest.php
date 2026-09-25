@@ -46,6 +46,32 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertSame('Running', $row->filter('.lp-status-chip')->text());
     }
 
+    public function test_a_resumed_run_names_its_place_in_the_series(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'card-fragment-resume@example.com');
+        $project = $this->project($em, $owner, 'Fragment resume');
+        $cardId = Uuid::v7();
+        $run = $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::GaveUp, hasResult: true);
+        $run->resumeIndex = 3;
+        $run->resumeCap = 3;
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $runId = (string) $run->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
+
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('[data-card-run="'.$runId.'"]');
+        self::assertSame('Resume 3 of 3', $row->filter('[data-worker-run-resume]')->text());
+        self::assertSame('Gave up', $row->filter('.lp-status-chip')->text());
+    }
+
     public function test_only_a_running_interactive_session_offers_a_close_control(): void
     {
         $client = static::createClient();

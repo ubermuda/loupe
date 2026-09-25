@@ -64,6 +64,13 @@ final class ReportWorkerRunStateController extends AppController
             hasResult: $payload->hasResult,
             failureReason: $payload->failureReason(),
             output: $payload->output,
+            resultStatus: $payload->resultStatus,
+            resultFields: $payload->resultFields(),
+            continues: $payload->continues(),
+            resumeIndex: $payload->resumeIndex,
+            resumeCap: $payload->resumeCap,
+            cardColumn: $payload->cardColumn,
+            resumeSkipped: $payload->resumeSkipped,
         ));
 
         if (null === $result->run) {
