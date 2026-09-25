@@ -68,6 +68,8 @@ One call waits about nine minutes at most. The file holds a deadline 60 minutes 
 - Every required check present, with no `pending`: the checks concluded. Count them as below.
 - Anything else: `pending`, `none`, or fewer checks than required. Run the loop again.
 
+A stacked pull request has no required checks, so `--required` reads `none` until the wait times out. For a stacked pull request, delete `--required` from the loop and from the count below. Keep the required count of the profile base branch in place of `<required>`, as the least number of checks to wait for. Green then means `pass` and no other bucket, with at least that many checks.
+
 Then read the head again, and count the checks:
 
 ```bash
