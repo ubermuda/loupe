@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { registerAndVerify } from '../helpers';
+import { registerAndVerify, submitRedirectingForm } from '../helpers';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -74,9 +74,11 @@ test('project descriptions persist on tiles and can be edited or cleared', async
     await page
         .getByLabel('Description (optional)', { exact: true })
         .fill(description);
-    await page
-        .getByRole('button', { name: 'Add project', exact: true })
-        .click();
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Add project', exact: true }),
+        '/projects?page=1',
+    );
     await expect(page.locator('[data-workshop]')).toBeVisible();
     await expect(page.locator('.lp-sidebar__switcher-name')).toHaveText(name);
     await expect(page).toHaveURL(/\/projects\/[^/]+$/);
@@ -113,24 +115,33 @@ test('project descriptions persist on tiles and can be edited or cleared', async
             ),
         )
         .toBeLessThanOrEqual(1);
-    await tile.getByRole('link', { name: `Edit ${name}`, exact: true }).click();
+    const editLink = tile.getByRole('link', {
+        name: `Edit ${name}`,
+        exact: true,
+    });
+    const editPath = (await editLink.getAttribute('href'))!;
+    await editLink.click();
     await expect(
         page.getByLabel('Description (optional)', { exact: true }),
     ).toHaveValue(description);
     await page
         .getByLabel('Description (optional)', { exact: true })
         .fill('Updated purpose');
-    await page
-        .getByRole('button', { name: 'Save changes', exact: true })
-        .click();
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Save changes', exact: true }),
+        editPath,
+    );
     await expect(tile.locator('.lp-project-row__description')).toHaveText(
         'Updated purpose',
     );
-    await tile.getByRole('link', { name: `Edit ${name}`, exact: true }).click();
+    await editLink.click();
     await page.getByLabel('Description (optional)', { exact: true }).fill('');
-    await page
-        .getByRole('button', { name: 'Save changes', exact: true })
-        .click();
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Save changes', exact: true }),
+        editPath,
+    );
     await expect(tile).toBeVisible();
     await expect(tile.locator('.lp-project-row__description')).toHaveCount(0);
 });
