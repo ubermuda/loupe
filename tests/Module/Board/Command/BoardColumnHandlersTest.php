@@ -234,7 +234,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
         $cardId = $card->id;
         $this->em->getConnection()->executeStatement("UPDATE board_cards SET updated_at = '2020-01-01 00:00:00' WHERE id = :id", ['id' => (string) $cardId]);
 
-        $this->handler(SetBoardColumnTerminalHandler::class)(new SetBoardColumnTerminalCommand($this->column($this->project, 'next'), true));
+        $this->handler(SetBoardColumnTerminalHandler::class)(new SetBoardColumnTerminalCommand($this->column($this->project, 'next'), true, CardReporter::Human));
 
         $this->em->clear();
         $stamped = $this->em->find(Card::class, $cardId);
@@ -247,12 +247,12 @@ final class BoardColumnHandlersTest extends KernelTestCase
 
     public function test_the_last_terminal_column_keeps_its_flag(): void
     {
-        $this->assertRefused(['terminal' => BoardColumns::NO_TERMINAL], fn () => $this->handler(SetBoardColumnTerminalHandler::class)(new SetBoardColumnTerminalCommand($this->column($this->project, 'done'), false)));
+        $this->assertRefused(['terminal' => BoardColumns::NO_TERMINAL], fn () => $this->handler(SetBoardColumnTerminalHandler::class)(new SetBoardColumnTerminalCommand($this->column($this->project, 'done'), false, CardReporter::Human)));
     }
 
     public function test_the_default_column_cannot_turn_terminal(): void
     {
-        $this->assertRefused(['terminal' => BoardColumns::DEFAULT_TERMINAL], fn () => $this->handler(SetBoardColumnTerminalHandler::class)(new SetBoardColumnTerminalCommand($this->column($this->project, 'backlog'), true)));
+        $this->assertRefused(['terminal' => BoardColumns::DEFAULT_TERMINAL], fn () => $this->handler(SetBoardColumnTerminalHandler::class)(new SetBoardColumnTerminalCommand($this->column($this->project, 'backlog'), true, CardReporter::Human)));
     }
 
     public function test_a_column_that_stops_being_terminal_ranks_its_cards_and_clears_their_completion(): void
@@ -261,9 +261,9 @@ final class BoardColumnHandlersTest extends KernelTestCase
         $second = $this->card('Finished second', 'done');
         $ids = [$first->id, $second->id];
         $handler = $this->handler(SetBoardColumnTerminalHandler::class);
-        $handler(new SetBoardColumnTerminalCommand($this->column($this->project, 'next'), true));
+        $handler(new SetBoardColumnTerminalCommand($this->column($this->project, 'next'), true, CardReporter::Human));
 
-        $handler(new SetBoardColumnTerminalCommand($this->column($this->project, 'done'), false));
+        $handler(new SetBoardColumnTerminalCommand($this->column($this->project, 'done'), false, CardReporter::Human));
 
         $this->em->clear();
         $positions = [];

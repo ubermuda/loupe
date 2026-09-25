@@ -144,7 +144,8 @@ card, where you can read it again and reopen it. The Feedback tab also has
 A card that finishes resolves its feedback. When a card moves into a terminal
 column from an open one, every pending or addressed note on it becomes
 resolved. A column delete that moves cards from an open column into a terminal
-column does the same. A move back out of the
+column does the same, and so does marking a column that holds cards as
+terminal. A move back out of the
 terminal column leaves the notes resolved.
 
 ## Deleting a note

@@ -86,8 +86,9 @@ The menu of the default column, and of the last terminal column, shows a note
 instead of **Delete column**. Give another column that flag first.
 
 A column that becomes terminal gives a completion time to each card in it that
-has none. A column that stops being terminal ranks its cards by completion time,
-then clears their completion times.
+has none, and resolves the open feedback of those cards. A column that stops
+being terminal ranks its cards by completion time, then clears their completion
+times.
 
 ### Labels and slugs
 
@@ -608,7 +609,8 @@ and its status. A note moves through three states:
 
 A card finishes when it moves into a terminal column from a column that is not
 terminal. Every pending or addressed note on it then becomes resolved. A column
-delete that moves cards from an open column into a terminal column does the same. A move between two
+delete that moves cards from an open column into a terminal column does the same,
+and so does **Mark as terminal** on a column that holds cards. A move between two
 terminal columns resolves nothing new. A move back out of a terminal column
 leaves the notes resolved. **Reopen** on the Feedback tab makes a resolved note
 pending again.
