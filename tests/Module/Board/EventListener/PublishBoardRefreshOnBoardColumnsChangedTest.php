@@ -123,14 +123,25 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $this->em->flush();
         $update = $this->handler(UpdateCardHandler::class);
 
-        $update(new UpdateCardCommand($epic, CardReporter::Human, laneEnabled: !$epic->laneEnabled));
-        $update(new UpdateCardCommand($epic, CardReporter::Human, laneEnabled: $epic->laneEnabled));
-        $update(new UpdateCardCommand($epic, CardReporter::Human, title: 'Renamed epic'));
-        // Two board.card_changed messages as well, which place one card each.
-        $this->assertPublishedAtTerminate(3);
+        $laneWasOn = $epic->laneEnabled;
+        $update(new UpdateCardCommand($epic, CardReporter::Human, laneEnabled: !$laneWasOn));
+        $this->assertPublishedAtTerminate(2);
+        $update(new UpdateCardCommand($epic, CardReporter::Human, laneEnabled: $laneWasOn));
+        $this->assertPublishedAtTerminate(4);
+        self::assertSame(2, $this->countOfType('board.columns_changed'));
 
+        // An unchanged lane or a title edit places one card and reloads no board.
+        $update(new UpdateCardCommand($epic, CardReporter::Human, laneEnabled: $laneWasOn));
+        $update(new UpdateCardCommand($epic, CardReporter::Human, title: 'Renamed epic'));
+        $this->assertPublishedAtTerminate(5);
+        self::assertSame(2, $this->countOfType('board.columns_changed'));
+    }
+
+    private function countOfType(string $type): int
+    {
         $types = array_map(static fn (Update $update): mixed => json_decode($update->getData(), true)['type'] ?? null, $this->boardRefreshes());
-        self::assertSame(1, array_count_values($types)['board.columns_changed'] ?? 0);
+
+        return array_count_values(array_filter($types, \is_string(...)))[$type] ?? 0;
     }
 
     public function test_the_publish_waits_for_terminate_and_sends_one_refresh_per_project(): void
