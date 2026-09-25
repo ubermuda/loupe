@@ -20,11 +20,31 @@ afterEach(() => {
 async function mount(saved) {
     document.body.innerHTML = `<form data-controller="submit-feedback" data-submit-feedback-saved-label-value="Saved"${saved ? ' data-submit-feedback-saved-value="true"' : ''}>
         <button type="submit" data-submit-feedback-target="button">Save card</button>
+        <p role="status" data-submit-feedback-target="status"></p>
     </form>`;
     await vi.advanceTimersByTimeAsync(0);
 
     return document.querySelector('button');
 }
+
+function status() {
+    return document.querySelector('[role="status"]').textContent;
+}
+
+it('announces the save in the status region, then empties it', async () => {
+    await mount(true);
+    expect(status()).toBe('');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(status()).toBe('Saved');
+    await vi.advanceTimersByTimeAsync(2900);
+    expect(status()).toBe('');
+});
+
+it('announces nothing for a form that is not marked saved', async () => {
+    await mount(false);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(status()).toBe('');
+});
 
 it('shows the saved label on a form the server marks saved, then the normal label', async () => {
     const button = await mount(true);

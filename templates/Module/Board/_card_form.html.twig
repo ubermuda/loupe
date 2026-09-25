@@ -72,6 +72,7 @@
         <a class="lp-btn lp-btn--ghost mr-auto" href="{{ cancelUrl }}"{% if cancelLeavesFrame %} data-turbo-frame="_top" data-action="card-drawer#close"{% endif %}>{{ 'board.card.form.cancel'|trans }}</a>
         <button type="submit" class="lp-btn lp-btn--primary" data-turbo-submits-with="{{ busyLabel|trans }}" data-submit-feedback-target="button">{{ submitLabel|trans }}</button>
     </div>
+    <p class="sr-only" role="status" data-submit-feedback-target="status"></p>
 
     {% if card %}
         {{ form_widget(form.contentFingerprint) }}
