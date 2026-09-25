@@ -43,6 +43,6 @@ final readonly class MoveCardHandler
             },
             beforeCardId: $command->beforeCardId,
             afterCardId: $command->afterCardId,
-        ));
+        ))->card;
     }
 }

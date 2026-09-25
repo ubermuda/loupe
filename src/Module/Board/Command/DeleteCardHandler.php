@@ -10,6 +10,7 @@ use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
+use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -27,6 +28,7 @@ final readonly class DeleteCardHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private EventDispatcherInterface $events,
+        private InteractiveRuns $interactiveRuns,
     ) {
     }
 
@@ -63,6 +65,11 @@ final readonly class DeleteCardHandler
             // Before the remove, so the delete and the renumbering it causes
             // reach the database in one flush.
             $this->groupOrder->compact($card->column, $card);
+
+            // No tool and no page can reach the runs of a deleted card to close them.
+            if (null !== $card->id) {
+                $this->interactiveRuns->closeOnMove($card->project, [$card->id]);
+            }
 
             $this->em->remove($card);
             $this->em->flush();

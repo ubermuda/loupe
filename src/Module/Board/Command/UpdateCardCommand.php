@@ -27,6 +27,9 @@ use App\Module\Board\Entity\CardType;
  * the column does not hold sends the card to the end.
  *
  * $reporter is absent on purpose. It records who first raised the card.
+ *
+ * A move to another column closes every open interactive run of the card. A
+ * run that $openInteractiveRun opens in the same update stays open.
  */
 final readonly class UpdateCardCommand
 {
@@ -53,6 +56,7 @@ final readonly class UpdateCardCommand
         public ?bool $laneEnabled = null,
         public ?string $beforeCardId = null,
         public ?string $afterCardId = null,
+        public ?OpenInteractiveRun $openInteractiveRun = null,
     ) {
     }
 }

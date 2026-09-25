@@ -237,6 +237,21 @@ The rename and delete dialogs of a column warn before they save when a live rule
 watches that column's slug. A rename changes the slug, and a delete removes it,
 so the rule stops matching in both cases.
 
+The Rules page also has a Hooks section. It shows one block for each of your
+bridges whose heartbeat names the project, the latest heartbeat first. Each
+block shows the last 12 characters of the bridge id, with the full id in the
+tooltip, and the time of the last heartbeat. Under it, each
+[hook package](../extending/bridge-hooks.md) of the bridge has one row for each
+event it defines. A row looks like a rule row. It shows the package, its ref,
+the event, the bridge and the time of the last run.
+
+The chip of a row reads OK, Failed, Timed out or Not run yet. A failed or timed
+out row shows the end of the hook's output, or the error when the hook could not
+start. A bridge with no hook shows "No hook is installed." Each heartbeat
+replaces the rows of its bridge, so a bridge that stops keeps its last list. A
+`stop` run never reaches the page, because the bridge closes its send queue
+before its `stop` hooks run.
+
 ### The card page
 
 A card has its own page at **`/projects/<project>/board/cards/<card id>`**. The
@@ -459,10 +474,15 @@ An agent drives the board through the MCP endpoint. See
 | `card_search` | `query` is required. `page` and `perPage` are optional. |
 | `card_get` | Exactly one of `cardId` and `number`. |
 | `card_update` | Exactly one of `cardId` and `number` is required. `title`, `body`, `type`, `status`, `pullRequestUrls`, `documentIds` and `relatedCards` are optional. |
+| `card_run_open` | `sessionId`, `name` and exactly one of `cardId` and `number` are required. `status` is optional. |
+| `card_run_close` | `sessionId` and exactly one of `cardId` and `number` are required. |
 
 `board_columns` lists the columns of the board in board order. Each entry
 carries `slug`, `label`, `terminal` and `default`. `card_list` returns the same
 list in `columns`, beside its cards. The tools read columns and never write one.
+
+`card_run_open` and `card_run_close` record an interactive session on a card.
+See [Interactive sessions](worker-runs.md#interactive-sessions).
 
 `status` takes a column slug on `card_create`, `card_update` and `card_list`. An
 unknown slug is refused. The error lists the slugs the board has, such as

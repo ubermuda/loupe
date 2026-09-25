@@ -41,8 +41,11 @@ type heartbeater struct {
 	// after is time.After, and a field so a test waits for no real interval.
 	after func(time.Duration) <-chan time.Time
 
-	mu       sync.Mutex
-	body     api.Heartbeat
+	mu   sync.Mutex
+	body api.Heartbeat
+	// hooks lives apart from body, because a reload replaces body. Nil sends
+	// no hooks key, which keeps the rows the server holds.
+	hooks    []api.HookReport
 	interval time.Duration
 	// reset wakes the loop to arm its timer with a new interval.
 	reset chan struct{}
@@ -119,6 +122,19 @@ func (h *heartbeater) setBody(b api.Heartbeat) {
 	h.send()
 }
 
+// setHooks applies the rows of the hook runner and sends them at once. A nil
+// heartbeater, which a bridge with no id has, drops them.
+func (h *heartbeater) setHooks(rows []api.HookReport) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	h.hooks = rows
+	h.mu.Unlock()
+
+	h.send()
+}
+
 func (h *heartbeater) currentInterval() time.Duration {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -146,6 +162,7 @@ func (h *heartbeater) loop() {
 func (h *heartbeater) send() {
 	h.mu.Lock()
 	body := h.body
+	body.Hooks = h.hooks
 	h.mu.Unlock()
 
 	h.queue.SendLatest(heartbeatLane, func(ctx context.Context) error {

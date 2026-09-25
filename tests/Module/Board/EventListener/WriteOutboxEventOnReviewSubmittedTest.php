@@ -11,6 +11,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Install\BoardInstallFlags;
+use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -23,6 +24,7 @@ use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
@@ -73,7 +75,22 @@ final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
             'cardId' => (string) $card->id,
             'cardNumber' => $card->number,
             'column' => 'tech-design',
+            'card' => ['interactiveRun' => false],
         ], $this->onlyPayload());
+    }
+
+    /** The row is written before an approval moves the card, so it sees the run open. */
+    public function test_the_row_says_the_stage_card_has_an_open_run(): void
+    {
+        $document = $this->document(['design', 'decisions']);
+        $card = $this->card('tech-design', $document);
+        $runs = self::getContainer()->get(InteractiveRuns::class);
+        self::assertInstanceOf(InteractiveRuns::class, $runs);
+        $runs->open($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), $card->number, Uuid::v4(), 'pairing');
+
+        $this->submit($document, Verdict::Approved);
+
+        self::assertSame(['interactiveRun' => true], $this->onlyPayload()['card']);
     }
 
     /** The row names the column the card left, because it is written before the card moves. */
@@ -106,6 +123,7 @@ final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
         self::assertNull($payload['cardNumber']);
         self::assertArrayHasKey('column', $payload);
         self::assertNull($payload['column']);
+        self::assertArrayNotHasKey('card', $payload);
     }
 
     /** @param list<string> $tags */

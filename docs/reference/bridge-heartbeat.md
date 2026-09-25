@@ -36,6 +36,18 @@ The path holds no project, because one bridge follows several projects.
 |---|---|
 | `projects` | required. A list of at most 500 project ids, which may be empty. The server keeps the ids of projects the token's user owns, and drops every other id |
 | `cliVersion` | required. The build the bridge reports with `loupe version`, 1 to 100 characters after trimming |
+| `hooks` | optional. A list of at most 100 rows, one for each event of each [hook package](../extending/bridge-hooks.md) the bridge runs. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
+
+Each row of `hooks` holds these fields:
+
+| Field | Rule |
+|---|---|
+| `package` | required. The package, as `owner/repo` or `owner/repo/path`, at most 300 characters after trimming |
+| `ref` | required. The ref the operator installed, at most 100 characters after trimming |
+| `event` | required. `start`, `stop`, `busy` or `idle` |
+| `lastRunAt` | optional. The time of the last run, as an RFC 3339 date. It is missing for a hook that has not run since the bridge started |
+| `outcome` | required. `ok`, `failed`, `timeout` or `never` |
+| `error` | optional. The end of the output of a failed or timed out run, or the error of a hook that could not start, at most 500 characters after trimming |
 
 The server drops a project id it cannot match to one of the user's projects. It
 does not refuse the heartbeat. A project deleted while a bridge runs stays in

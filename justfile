@@ -561,8 +561,10 @@ tunnel:
     ngrok http https://localhost --url "https://$host"
 
 # Vet + test the Go CLI (cli/) in a throwaway Go container — no host Go needed.
+# The Amphetamine hook test fakes osascript, so it runs on Linux too.
 cli-test:
     docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local golang:1.26-alpine sh -c 'go vet ./... && GOOS=windows go vet ./... && go test ./...'
+    docker run --rm -v "{{justfile_directory()}}/hooks/amphetamine":/pkg:ro -w /pkg golang:1.26-alpine sh ./test.sh
 
 # Defaults to the dev's mac; override e.g. `just cli-build linux amd64`. The
 # full release matrix is goreleaser's job — see cli/.goreleaser.yaml.
