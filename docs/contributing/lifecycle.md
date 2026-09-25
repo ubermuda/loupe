@@ -37,8 +37,9 @@ card is in In review. No rule starts a worker when a card enters In review.
 
 The owner runs `/loupe:product-design` by hand in Claude Code, from a card or
 from a one-line idea. The session creates the card in Product design, or moves
-an existing card there, and writes the product document with the owner. The
-approval of that document moves the card to Tech design. When a person requests
+an existing card there from an earlier column, such as Backlog or Next. Then it
+writes the product document with the owner. The approval of that document moves
+the card to Tech design. When a person requests
 changes on the document, the `fix-round` rule starts `loupe-stage-fix-round`,
 which answers the review round. Delete any `product-design` rule from your
 `rules.yaml`, then run `loupe bridge reload`.
