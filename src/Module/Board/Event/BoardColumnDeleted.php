@@ -26,6 +26,9 @@ final readonly class BoardColumnDeleted
         public ?string $targetSlug,
         public array $movedCardIds,
         public CardReporter $actor,
+        public bool $terminal,
+        /** Whether the column that received the cards is terminal; false when it received none. */
+        public bool $targetTerminal,
     ) {
     }
 }
