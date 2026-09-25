@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Command\ShowBoardHandler;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Uid\Uuid;
 use Symfony\UX\Turbo\TurboBundle;
 
 final class ShowCardPlacementControllerTest extends WebTestCase
@@ -49,6 +53,43 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertSame(0, $counts[(string) $backlog->id]);
         self::assertSame(2, $counts[(string) $next->id]);
         self::assertCount(4, $counts);
+    }
+
+    public function test_the_placed_card_keeps_the_warning_of_a_run_that_gave_up(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-warning@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Stuck', 'next');
+        $run = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v7(),
+            cardId: $card->id ?? throw new \LogicException('Card has no id.'),
+            cardNumber: $card->number,
+            ruleName: 'implement',
+            state: WorkerRunState::GaveUp,
+            runKey: Uuid::v7(),
+            endedAt: new \DateTimeImmutable(),
+            exitCode: 0,
+            hasResult: true,
+            output: 'Tests still fail.',
+            receivedAt: new \DateTimeImmutable(),
+            cardColumn: 'next',
+        );
+        $em->persist($run);
+        $em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, new \DateTimeImmutable(), new \DateTimeImmutable()));
+        $em->flush();
+        $url = $this->placementUrl((string) $project->id, (string) $card->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('data-card-run-warning="'.$run->id.'"', (string) $client->getResponse()->getContent());
     }
 
     public function test_an_outsider_is_refused(): void
