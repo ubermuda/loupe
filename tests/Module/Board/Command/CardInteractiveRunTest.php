@@ -9,6 +9,8 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\DeleteBoardColumnCommand;
 use App\Module\Board\Command\DeleteBoardColumnHandler;
+use App\Module\Board\Command\DeleteCardCommand;
+use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\OpenInteractiveRun;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
@@ -200,6 +202,21 @@ final class CardInteractiveRunTest extends KernelTestCase
 
         self::assertSame([(string) $this->idOf($moved)], $movedIds);
         self::assertSame(WorkerRunState::Closed, $this->stateOf($run));
+    }
+
+    public function test_a_card_delete_closes_its_runs(): void
+    {
+        $deleted = $this->card('next');
+        $kept = $this->card('next');
+        $deletedRun = $this->openRun($deleted);
+        $keptRun = $this->openRun($kept);
+        $delete = self::getContainer()->get(DeleteCardHandler::class);
+        self::assertInstanceOf(DeleteCardHandler::class, $delete);
+
+        $delete(new DeleteCardCommand($deleted));
+
+        self::assertSame(WorkerRunState::Closed, $this->stateOf($deletedRun));
+        self::assertSame(WorkerRunState::Running, $this->stateOf($keptRun));
     }
 
     private function card(string $column): Card

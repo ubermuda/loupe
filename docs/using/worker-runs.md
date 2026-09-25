@@ -75,6 +75,7 @@ These actions close an open interactive run, and it then shows **Closed**:
   of the card.
 - The card moves to another column. A move inside the same column closes
   nothing. The delete of a column moves its cards, so it closes their runs.
+- A person deletes the card.
 
 No timeout closes the run. A session that stops with no call leaves its run open
 until the owner closes it or the card moves. While the run is open, a bridge
