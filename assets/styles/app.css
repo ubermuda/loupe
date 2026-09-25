@@ -5704,6 +5704,10 @@
     .lp-board-lane__head {
         @apply flex flex-wrap items-center gap-2 px-1;
     }
+    /* The lane toggle closes the lane head, at its right end. */
+    .lp-board-lane__head > form {
+        @apply ml-auto;
+    }
     .lp-board-lane__collapse {
         @apply inline-flex items-center justify-center w-7 h-7 rounded-lg text-fg-mute transition-colors hover:bg-surface-3 hover:text-ink;
     }
