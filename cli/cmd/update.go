@@ -270,15 +270,31 @@ func requestUpdate(sock string) (updateResult, error) {
 	if _, err := conn.Write([]byte(`{"op":"update"}` + "\n")); err != nil {
 		return res, fmt.Errorf("send the update: %w", err)
 	}
-	line, err := bufio.NewReader(conn).ReadString('\n')
+	rd := bufio.NewReader(conn)
+	line, err := rd.ReadString('\n')
 	if err != nil {
 		return res, fmt.Errorf("the bridge closed the connection with no answer: %w", err)
 	}
 	if err := json.Unmarshal([]byte(line), &res); err != nil {
 		return res, fmt.Errorf("read the answer of the bridge: %w", err)
 	}
+	if res.Outcome != outcomeHandingOver {
+		return res, nil
+	}
+	// The exec closes the connection. A second line means the exec failed.
+	line, err = rd.ReadString('\n')
+	if errors.Is(err, io.EOF) && line == "" {
+		return res, nil
+	}
+	if err != nil {
+		return res, fmt.Errorf("the bridge announced a handover and then broke the connection: %w", err)
+	}
+	var final updateResult
+	if err := json.Unmarshal([]byte(line), &final); err != nil {
+		return final, fmt.Errorf("read the answer of the bridge: %w", err)
+	}
 
-	return res, nil
+	return final, nil
 }
 
 // run replaces the running binary with a release, as no bridge runs to hand

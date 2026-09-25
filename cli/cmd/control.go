@@ -224,8 +224,9 @@ func listenControl(path string) (net.Listener, error) {
 	return ln, nil
 }
 
-// controlOps answers the ops of the control socket. update may reply early,
-// before an exec ends the connection, and then its return value is dropped.
+// controlOps answers the ops of the control socket. update may send one early
+// line before an exec ends the connection. When the exec fails, its return
+// value follows as a second line.
 type controlOps struct {
 	reload func(ctx context.Context) reloadResult
 	update func(ctx context.Context, reply func(updateResult)) updateResult
@@ -264,8 +265,9 @@ func serveControl(ctx context.Context, ln net.Listener, ops controlOps) <-chan s
 	return done
 }
 
-// answer reads one JSON line and writes one JSON line back. A connection that
-// sends no complete line gets no answer, and a connection gets one answer only.
+// answer reads one JSON line and writes one JSON line back, or an early line
+// and the answer for an update. A connection that sends no complete line gets
+// no answer, and a connection gets one answer only.
 func answer(ctx context.Context, conn net.Conn, ops controlOps) {
 	defer conn.Close()
 	stop := context.AfterFunc(ctx, func() { conn.Close() })
@@ -277,18 +279,25 @@ func answer(ctx context.Context, conn net.Conn, ops controlOps) {
 		return
 	}
 
-	var once sync.Once
-	send := func(res any) {
-		once.Do(func() {
-			b, err := json.Marshal(res)
-			if err != nil {
-				return
-			}
+	var mu sync.Mutex
+	early, done := false, false
+	write := func(res any, last bool) {
+		mu.Lock()
+		defer mu.Unlock()
+		if done || (!last && early) {
+			return
+		}
+		early = true
+		if b, err := json.Marshal(res); err == nil {
 			conn.SetWriteDeadline(time.Now().Add(requestTimeout))
 			conn.Write(append(b, '\n'))
+		}
+		if last {
+			done = true
 			conn.Close()
-		})
+		}
 	}
+	send := func(res any) { write(res, true) }
 	var req struct {
 		Op string `json:"op"`
 	}
@@ -303,7 +312,7 @@ func answer(ctx context.Context, conn net.Conn, ops controlOps) {
 		send(ops.reload(ctx))
 	case req.Op == "update" && ops.update != nil:
 		conn.SetDeadline(time.Time{})
-		send(ops.update(ctx, func(res updateResult) { send(res) }))
+		send(ops.update(ctx, func(res updateResult) { write(res, false) }))
 	default:
 		send(refused(fmt.Sprintf("unknown op %q: only reload and update are known", req.Op)))
 	}

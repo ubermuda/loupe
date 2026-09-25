@@ -990,6 +990,11 @@ itself. In both cases it ignores the skip list and `autoUpdate`, because you
 asked for the update. It still installs only a release inside the range the
 server supports.
 
+The command prints one line for each bridge. A bridge that hands over prints
+`handing-over`, and the command waits until the bridge runs the new binary.
+When that `exec` fails, the line says `rejected` instead, and the command exits
+with status 1.
+
 ## `loupe version`
 
 Prints the version and the commit the binary was built from, plus the Go

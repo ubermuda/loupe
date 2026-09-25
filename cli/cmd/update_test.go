@@ -202,15 +202,16 @@ func serveUpdateTest(t *testing.T, rulesPath string, handle func(ctx context.Con
 	return sock
 }
 
+// The early line goes out before the exec. When the exec fails, the result
+// follows as a second line.
 func TestServeControlAnswersAnUpdateBeforeTheExec(t *testing.T) {
 	shortConfigHome(t)
 	release := make(chan struct{})
-	defer close(release)
 	sock := serveUpdateTest(t, "rules.yaml", func(_ context.Context, reply func(updateResult)) updateResult {
 		reply(updateResult{OK: true, From: "1.0.0", To: "1.2.0", Outcome: "handing-over"})
 		<-release
 
-		return updateResult{Outcome: "rejected"}
+		return updateResult{From: "1.0.0", To: "1.2.0", Outcome: "rejected"}
 	})
 
 	conn, err := net.Dial("unix", sock)
@@ -220,13 +221,77 @@ func TestServeControlAnswersAnUpdateBeforeTheExec(t *testing.T) {
 	defer conn.Close()
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
 	conn.Write([]byte(`{"op":"update"}` + "\n"))
-	all, err := io.ReadAll(conn)
-	if err != nil {
-		t.Fatalf("read %q: %v", all, err)
+	rd := bufio.NewReader(conn)
+	var first, second updateResult
+	line, err := rd.ReadString('\n')
+	if err != nil || json.Unmarshal([]byte(line), &first) != nil || first.Outcome != "handing-over" || first.To != "1.2.0" {
+		t.Fatalf("first line %q: %v", line, err)
 	}
-	var res updateResult
-	if err := json.Unmarshal(all, &res); err != nil || res.Outcome != "handing-over" || res.To != "1.2.0" || bytes.Count(all, []byte("\n")) != 1 {
-		t.Fatalf("answer %q: %v", all, err)
+	close(release)
+	rest, err := io.ReadAll(rd)
+	if err != nil || json.Unmarshal(rest, &second) != nil || second.Outcome != "rejected" || bytes.Count(rest, []byte("\n")) != 1 {
+		t.Fatalf("rest %q: %v", rest, err)
+	}
+}
+
+// handedOverTest answers an update with the handing-over line and closes the
+// connection, as a successful exec does.
+func handedOverTest(t *testing.T, rulesPath string) string {
+	t.Helper()
+	sock, err := socketPath(rulesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lock, err := lockBridge(rulesPath, sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln, err := listenControl(sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			bufio.NewReader(conn).ReadString('\n')
+			conn.Write([]byte(`{"ok":true,"from":"1.0.0","to":"1.2.0","outcome":"handing-over"}` + "\n"))
+			conn.Close()
+		}
+	}()
+	t.Cleanup(func() {
+		ln.Close()
+		lock.Close()
+	})
+
+	return sock
+}
+
+func TestRequestUpdateTakesAClosedConnectionAfterTheAnnounceAsAHandover(t *testing.T) {
+	shortConfigHome(t)
+	sock := handedOverTest(t, "rules.yaml")
+
+	res, err := requestUpdate(sock)
+	if err != nil || !res.OK || res.Outcome != "handing-over" || res.To != "1.2.0" {
+		t.Fatalf("res = %+v, err = %v", res, err)
+	}
+}
+
+// An exec that fails after the announce makes the command fail.
+func TestUpdateFailsWhenTheExecFailsAfterTheAnnounce(t *testing.T) {
+	shortConfigHome(t)
+	sock := serveUpdateTest(t, "rules.yaml", func(_ context.Context, reply func(updateResult)) updateResult {
+		reply(updateResult{OK: true, From: "1.0.0", To: "1.2.0", Outcome: "handing-over"})
+
+		return updateResult{From: "1.0.0", To: "1.2.0", Outcome: "rejected", Problem: "exec failed"}
+	})
+
+	out, err := updateCmd(t, noSelfUpdate(t))
+
+	if err == nil || !strings.HasPrefix(out, sock+": rejected, from 1.0.0 to 1.2.0: exec failed\n") {
+		t.Fatalf("err = %v, out = %q", err, out)
 	}
 }
 
@@ -267,11 +332,7 @@ func TestUpdateAsksEachRunningBridge(t *testing.T) {
 	shortConfigHome(t)
 	dir := t.TempDir()
 	a, b := filepath.Join(dir, "a.yaml"), filepath.Join(dir, "b.yaml")
-	sockA := serveUpdateTest(t, a, func(_ context.Context, reply func(updateResult)) updateResult {
-		reply(updateResult{OK: true, From: "1.0.0", To: "1.2.0", Outcome: "handing-over"})
-
-		return updateResult{}
-	})
+	sockA := handedOverTest(t, a)
 	sockB := serveUpdateTest(t, b, func(context.Context, func(updateResult)) updateResult {
 		return updateResult{OK: true, From: "1.2.0", Outcome: "current"}
 	})
