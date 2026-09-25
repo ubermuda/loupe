@@ -9,7 +9,6 @@ use App\Exception\DomainErrors;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
-use App\Module\SiteReview\Command\NewAnchor;
 use App\Module\SiteReview\Command\NewStroke;
 use App\Module\SiteReview\SiteReviewDrawing;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -50,8 +49,8 @@ final class AddCommentController extends AppController
             throw new \LogicException('body required after validation');
         }
 
-        $anchors = $this->anchorsOf($payload);
-        $strokes = $this->strokesOf($payload);
+        $anchors = $payload->newAnchors();
+        $strokes = $payload->newStrokes();
 
         // An anchor-space stroke measures against anchor 0, so with no anchor
         // it can never be drawn again. The widget picks the space from the
@@ -80,52 +79,5 @@ final class AddCommentController extends AppController
         }
 
         return $this->json(['commentId' => (string) $comment->id], JsonResponse::HTTP_CREATED);
-    }
-
-    /**
-     * A body that carries neither anchors[] nor a selector is a page note.
-     *
-     * @return list<NewAnchor>
-     */
-    private function anchorsOf(AddCommentRequest $payload): array
-    {
-        if ([] === $payload->anchors) {
-            return '' === $payload->selector ? [] : [new NewAnchor($payload->selector, $payload->text)];
-        }
-
-        return array_values(array_map(
-            static fn (SiteReviewAnchorInput $anchor): NewAnchor => new NewAnchor(
-                selector: $anchor->selector ?? '',
-                text: $anchor->text,
-                quote: $anchor->quote,
-                quotePrefix: $anchor->quotePrefix,
-                quoteSuffix: $anchor->quoteSuffix,
-            ),
-            $payload->anchors,
-        ));
-    }
-
-    /**
-     * Validation has already proved every point is a numeric pair, so the cast
-     * here narrows the type rather than repairing the value.
-     *
-     * @return list<NewStroke>
-     */
-    private function strokesOf(AddCommentRequest $payload): array
-    {
-        return array_values(array_map(
-            static fn (SiteReviewStrokeInput $stroke): NewStroke => new NewStroke(
-                space: $stroke->space,
-                points: array_values(array_map(
-                    /** @param array{0: float|int, 1: float|int} $point */
-                    static fn (array $point): array => [
-                        round((float) $point[0], 5),
-                        round((float) $point[1], 5),
-                    ],
-                    $stroke->points,
-                )),
-            ),
-            $payload->strokes,
-        ));
     }
 }
