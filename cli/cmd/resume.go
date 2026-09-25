@@ -204,6 +204,10 @@ func (b *bridgeUpdate) watchHealth(ctx context.Context, r *router, updates *upda
 		b.markBeat()
 	}
 	timeout := healthTimeout
+	// LOUPE_HEALTH_TIMEOUT shortens the wait, so a test can reach a rollback.
+	if d, err := time.ParseDuration(os.Getenv("LOUPE_HEALTH_TIMEOUT")); err == nil && d > 0 {
+		timeout = d
+	}
 	go func() {
 		defer close(done)
 		timer := time.NewTimer(timeout)

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"log/slog"
@@ -127,14 +128,15 @@ type updater struct {
 }
 
 // newUpdater builds an updater for the running version, which is empty for a
-// development build. dir is the config directory.
+// development build. dir is the config directory. LOUPE_UPDATE_API replaces
+// the GitHub API, for a test that serves a fake one.
 func newUpdater(log *slog.Logger, version, dir string, autoUpdate func() bool, onStaged stagedHook) *updater {
 	return &updater{
 		version:    version,
 		goos:       runtime.GOOS,
 		goarch:     runtime.GOARCH,
 		dir:        dir,
-		apiBase:    update.GitHubAPI,
+		apiBase:    cmp.Or(os.Getenv("LOUPE_UPDATE_API"), update.GitHubAPI),
 		hc:         &http.Client{Timeout: updateTimeout},
 		log:        log,
 		autoUpdate: autoUpdate,
