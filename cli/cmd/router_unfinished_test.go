@@ -434,6 +434,35 @@ func TestShutdownDropsAWaitingResume(t *testing.T) {
 	}
 }
 
+// A shutdown that wakes a waiting resume reads no card, because the read
+// would hold the bridge up to the check timeout.
+func TestShutdownSkipsTheCardReadOfAWaitingResume(t *testing.T) {
+	h := newHarness(t)
+	rec := h.states()
+	reads := &cardReads{column: "next"}
+	h.router.readCard = reads.read
+	waiting := make(chan struct{})
+	h.router.after = func(time.Duration) <-chan time.Time {
+		close(waiting)
+
+		return nil
+	}
+	h.worker.result = workerResult{exitCode: 1, output: "boom"}
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-waiting
+	h.router.shutdown()
+	h.router.wg.Wait()
+
+	if got := reads.recorded(); len(got) != 0 {
+		t.Fatalf("card reads = %v, want none", got)
+	}
+	sent := rec.states()
+	if got := outcomeOf(t, sent, runIDs(sent)[0]); got.ResumeSkipped != api.DropShutdown {
+		t.Fatalf("outcome = %+v", got)
+	}
+}
+
 // A resume is not an agent's event, so it neither counts toward the chain nor
 // stops at its cap.
 func TestAResumeSkipsTheChainCap(t *testing.T) {

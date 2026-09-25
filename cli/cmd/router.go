@@ -904,6 +904,12 @@ func (r *router) resumeGate(p pending, e endedRun, reason string, stopped <-chan
 	var readErr error
 	cardID, _ := cardOf(p.event)
 	read := r.readCard != nil && p.column != "" && cardID != ""
+	// A shutdown does not cancel the worker context, so it would not end a read.
+	select {
+	case <-stopped:
+		read = false
+	default:
+	}
 	if read {
 		timeout := r.checkTimeout
 		if timeout <= 0 {
