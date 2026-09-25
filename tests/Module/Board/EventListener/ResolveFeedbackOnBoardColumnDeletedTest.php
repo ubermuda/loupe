@@ -7,9 +7,16 @@ namespace App\Tests\Module\Board\EventListener;
 use App\Module\Board\Command\DeleteBoardColumnCommand;
 use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Event\BoardColumnDeleted;
+use App\Module\Board\EventListener\ResolveFeedbackOnBoardColumnDeleted;
+use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\CardFeedbackResolver;
 use App\Module\Project\Entity\Project;
+use App\Module\SiteReview\Command\ResolveSiteReviewCommentHandler;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
+use Doctrine\DBAL\Exception\InvalidArgumentException as DbalInvalidArgument;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -74,6 +81,25 @@ final class ResolveFeedbackOnBoardColumnDeletedTest extends KernelTestCase
 
         self::assertSame(SiteReviewCommentStatus::Addressed, $this->statusOf($comment));
         self::assertSame([], $this->audit->records('site_review.comment_resolved'));
+    }
+
+    public function test_a_database_failure_escapes_the_listener_and_other_failures_are_logged(): void
+    {
+        $project = $this->feedbackProject('feedback-delete-failure');
+        $resolve = self::getContainer()->get(ResolveSiteReviewCommentHandler::class);
+        self::assertInstanceOf(ResolveSiteReviewCommentHandler::class, $resolve);
+        $event = new BoardColumnDeleted($project, 'column-id', 'in-progress', 'done', ['card-id'], CardReporter::Human, terminal: false, targetTerminal: true);
+
+        $logger = new RecordingLogger();
+        $failing = $this->createStub(CardSiteReviewCommentRepository::class);
+        $failing->method('findUnresolvedForCards')->willThrowException(new \RuntimeException('boom'));
+        new ResolveFeedbackOnBoardColumnDeleted(new CardFeedbackResolver($failing, $resolve), $this->em, $logger)($event);
+        self::assertSame(['board.feedback_resolve_failed'], array_column($logger->records, 'message'));
+
+        $database = $this->createStub(CardSiteReviewCommentRepository::class);
+        $database->method('findUnresolvedForCards')->willThrowException(new DbalInvalidArgument('database'));
+        $this->expectException(DbalInvalidArgument::class);
+        new ResolveFeedbackOnBoardColumnDeleted(new CardFeedbackResolver($database, $resolve), $this->em, new RecordingLogger())($event);
     }
 
     private function delete(Project $project, string $slug, string $target): void
