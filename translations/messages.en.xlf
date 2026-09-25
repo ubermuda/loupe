@@ -3962,7 +3962,7 @@
             </trans-unit>
             <trans-unit id="landing.feature.site_review.text">
                 <source>landing.feature.site_review.text</source>
-                <target>An embeddable widget that brings the same select-and-comment flow to a live page. Quote a passage of text, or point one comment at several elements to say how they relate.</target>
+                <target>An embeddable widget that brings the same select-and-comment flow to a live page. Each note lands on your board as a card. Quote a passage of text, or point one note at several elements to say how they relate.</target>
             </trans-unit>
             <trans-unit id="landing.tech.title">
                 <source>landing.tech.title</source>
@@ -4002,7 +4002,7 @@
             </trans-unit>
             <trans-unit id="landing.tech.widget.text">
                 <source>landing.tech.widget.text</source>
-                <target>Drop the site review widget into your app and the same select-and-comment flow works on a live page. Your agent reads those comments back over MCP.</target>
+                <target>Drop the site review widget into your app and the same select-and-comment flow works on a live page. Each note lands on your board as a card, and your agent reads it back over MCP.</target>
             </trans-unit>
             <trans-unit id="landing.tech.tablist">
                 <source>landing.tech.tablist</source>
@@ -4258,7 +4258,7 @@
             </trans-unit>
             <trans-unit id="landing.faq.board.answer">
                 <source>landing.faq.board.answer</source>
-                <target>Yes, once you turn the project board on. Your agent then files cards over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. Loupe stores the pull request links and never calls out to check them.</target>
+                <target>Yes. Your agent files cards on the project board over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. Loupe stores the pull request links and never calls out to check them.</target>
             </trans-unit>
             <trans-unit id="landing.faq.technical.question">
                 <source>landing.faq.technical.question</source>
