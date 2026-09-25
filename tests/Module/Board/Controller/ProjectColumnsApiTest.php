@@ -127,6 +127,7 @@ final class ProjectColumnsApiTest extends WebTestCase
     public function test_it_is_absent_while_the_board_is_switched_off(): void
     {
         $client = static::createClient();
+        $this->disableBoard();
         $em = $this->em();
         $owner = $this->user($em, 'columns-api-flag@example.com');
         $project = $this->project($em, $owner, 'Flagged App');

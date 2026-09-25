@@ -359,7 +359,7 @@ on the epic page, on the history page of their column, and in the MCP tools.
 | Number | A short number, counting from 1, unique inside the project. |
 | Title | Plain text, up to 255 characters. Loupe trims it and refuses a blank one. |
 | Body | Markdown. It says what the card asks for. |
-| Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`, `epic`. |
+| Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`, `epic`, `site-review`. |
 | Status | The column the card sits in. The tools report the column's slug. |
 | Reporter | `human`, `agent` or `reviewer`. It records who raised the card. |
 | Pull requests | Any number of links. See below. |

@@ -417,9 +417,9 @@ A `card_list` or `card_search` row is a summary with eight fields: `cardId`,
 `number`, `title`, `type`, `status`, `reporter`, `parentCardId` and
 `updatedAt`. `parentCardId` is null for a card with no parent.
 
-A card has a `type`: `feature`, `bug`, `security`, `tooling`, `docs`, `idea` or
-`epic`. An epic is one feature that is too large for one pull request, and its
-child cards hold the parts. `card_create` and `card_update` take
+A card has a `type`: `feature`, `bug`, `security`, `tooling`, `docs`, `idea`,
+`epic` or `site-review`. An epic is one feature that is too large for one pull
+request, and its child cards hold the parts. `card_create` and `card_update` take
 `parentCardId`, the id of an epic of the same project. On `card_update`, omit it
 to keep the parent, send an empty string to clear it, and send an id to set it.
 Only an epic can be a parent, and an epic cannot have a parent. A card with a

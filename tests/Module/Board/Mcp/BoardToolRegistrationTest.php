@@ -70,6 +70,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
 
     public function test_the_board_tools_are_hidden_while_the_flag_is_off(): void
     {
+        $this->disableBoard();
         $advertised = self::getContainer()->get(AdvertisedTools::class);
         self::assertInstanceOf(AdvertisedTools::class, $advertised);
 

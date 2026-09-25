@@ -89,6 +89,12 @@ final class McpEndpointAuthTest extends WebTestCase
         $raw = $this->persistValidToken($client);
 
         self::assertSame([
+            'board_columns',
+            'card_create',
+            'card_get',
+            'card_list',
+            'card_search',
+            'card_update',
             'document_archive',
             'document_create',
             'document_get',

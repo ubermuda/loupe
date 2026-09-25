@@ -14,6 +14,7 @@ enum CardType: string
     case Docs = 'docs';
     case Idea = 'idea';
     case Epic = 'epic';
+    case SiteReview = 'site-review';
 
     public function tone(): LabelTone
     {
@@ -25,6 +26,7 @@ enum CardType: string
             self::Docs => LabelTone::Green,
             self::Idea => LabelTone::Purple,
             self::Epic => LabelTone::Blue,
+            self::SiteReview => LabelTone::Teal,
         };
     }
 

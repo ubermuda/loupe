@@ -116,6 +116,7 @@ final class BoardCardsApiTest extends WebTestCase
     {
         $client = static::createClient();
         [$raw] = $this->projectWithToken($client, 'cards-api-flag@example.com');
+        $this->setBoardEnabled(false);
 
         $this->api($client, Request::METHOD_GET, '/api/board/cards', $raw);
         self::assertResponseStatusCodeSame(404);
@@ -189,9 +190,14 @@ final class BoardCardsApiTest extends WebTestCase
 
     private function enableBoard(): void
     {
+        $this->setBoardEnabled(true);
+    }
+
+    private function setBoardEnabled(bool $enabled): void
+    {
         $flags = static::getContainer()->get(FeatureFlagRepository::class);
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
+        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
         $this->em()->flush();
     }
 

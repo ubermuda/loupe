@@ -37,6 +37,7 @@ final class CardCreateToolTest extends KernelTestCase
 
     public function test_the_tool_refuses_while_the_flag_is_off(): void
     {
+        $this->disableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-flag-off'));
 
         $this->expectException(ToolCallException::class);

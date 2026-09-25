@@ -20,12 +20,21 @@ trait BoardToolScenario
 {
     use BoardColumnFixtures;
 
-    /** The board ships off, so every test that calls a tool has to switch it on. */
     private function enableBoard(): void
+    {
+        $this->setBoardEnabled(true);
+    }
+
+    private function disableBoard(): void
+    {
+        $this->setBoardEnabled(false);
+    }
+
+    private function setBoardEnabled(bool $enabled): void
     {
         $flags = self::getContainer()->get(FeatureFlagRepository::class);
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
+        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
         $this->em->flush();
     }
 

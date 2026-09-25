@@ -4762,6 +4762,10 @@
                 <source>board.card.type.epic</source>
                 <target>Epic</target>
             </trans-unit>
+            <trans-unit id="board.card.type.site-review">
+                <source>board.card.type.site-review</source>
+                <target>Site review</target>
+            </trans-unit>
             <trans-unit id="board.card.reporter.reviewer">
                 <source>board.card.reporter.reviewer</source>
                 <target>Reviewer</target>

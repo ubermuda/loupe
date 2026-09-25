@@ -78,8 +78,8 @@ final class SeedFlagsControllerTest extends WebTestCase
         // outbound request, so an install must not start making it unasked.
         self::assertFalse($flags[UpdateCheck::FLAG]->value);
         self::assertFalse($flags[DocumentHighlightTool::FLAG]->value);
-        // Seeded off: the operator opts the board in.
-        self::assertFalse($flags[BoardInstallFlags::FLAG_BOARD_ENABLED]->value);
+        // Seeded on: site review writes each note to a card on the board.
+        self::assertTrue($flags[BoardInstallFlags::FLAG_BOARD_ENABLED]->value);
         self::assertFalse($flags[InboxInstallFlags::FLAG_INBOX_ENABLED]->value);
         self::assertFalse($flags[SearchInstallFlags::FLAG_TOPBAR_ENABLED]->value);
         // Same reasoning as the update check: an install sends nothing to a

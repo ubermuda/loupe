@@ -129,7 +129,7 @@ writes that link. Mark one done with `site_review_mark_comment_addressed`, which
 takes the same `commentId`, rather than by editing the card.
 
 `card_create` and `card_update` take a `type` of `feature`, `bug`, `security`,
-`tooling`, `docs`, `idea` or `epic`.
+`tooling`, `docs`, `idea`, `epic` or `site-review`.
 
 - `feature`: a new or extended capability
 - `bug`: something behaves incorrectly today, including a latent fault
@@ -138,6 +138,7 @@ takes the same `commentId`, rather than by editing the card.
 - `docs`: documentation-only work
 - `idea`: long-horizon thinking, with no commitment yet
 - `epic`: one feature that is too large for one pull request, split into child cards
+- `site-review`: feedback that a reviewer left on a page through the site-review widget
 
 There is no delete tool. You finish a card by moving it to a terminal column,
 which stamps its completion time. A move between two terminal columns keeps the

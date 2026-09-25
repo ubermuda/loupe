@@ -31,16 +31,22 @@ trait BoardScenario
      */
     private array $nextCardNumber = [];
 
-    /**
-     * The board ships off, so every test that opens a board route has to switch
-     * it on. The container is read fresh, so this stays correct after a request
-     * has rebooted the kernel.
-     */
     private function enableBoard(): void
+    {
+        $this->setBoardEnabled(true);
+    }
+
+    private function disableBoard(): void
+    {
+        $this->setBoardEnabled(false);
+    }
+
+    /** The container is read fresh, so this stays correct after a request has rebooted the kernel. */
+    private function setBoardEnabled(bool $enabled): void
     {
         $flags = self::getContainer()->get(FeatureFlagRepository::class);
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
+        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = $enabled;
         self::getContainer()->get(EntityManagerInterface::class)->flush();
     }
 
