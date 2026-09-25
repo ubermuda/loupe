@@ -50,9 +50,6 @@ final readonly class AddFeedbackHandler
 
     public function __invoke(AddFeedbackCommand $command): CardSiteReviewComment
     {
-        if (!$this->board->isEnabled()) {
-            throw new DomainErrors(['board' => self::BOARD_DISABLED]);
-        }
         if (null !== $command->deliveryId && !Uuid::isValid($command->deliveryId)) {
             throw new DomainErrors(['deliveryId' => 'delivery_invalid']);
         }
@@ -80,6 +77,12 @@ final readonly class AddFeedbackHandler
                 // A comment saved through the old path has no card to return.
                 return $this->cardSiteReviewComments->findOneBy(['comment' => $retried])
                     ?? new DomainErrors(['deliveryId' => 'delivery_conflict']);
+            }
+
+            // After the retry lookup, so a note saved before the board went off
+            // still answers its retry with the saved item.
+            if (!$this->board->isEnabled()) {
+                return new DomainErrors(['board' => self::BOARD_DISABLED]);
             }
 
             $card = $this->targetCard($command);
@@ -147,6 +150,9 @@ final readonly class AddFeedbackHandler
             }
             if (CardType::Epic !== $parent->type) {
                 return new DomainErrors(['target' => self::TARGET_NOT_EPIC]);
+            }
+            if ($parent->column->terminal) {
+                return new DomainErrors(['target' => self::TARGET_CLOSED]);
             }
         }
 

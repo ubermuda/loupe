@@ -124,6 +124,27 @@ final class AddFeedbackHandlerTest extends KernelTestCase
         $this->assertRefused('target', AddFeedbackHandler::TARGET_NOT_EPIC, $project, parentCardId: (string) $feature->id);
     }
 
+    public function test_an_epic_in_a_terminal_column_is_closed(): void
+    {
+        $project = $this->project('feedback-closed-epic');
+        $epic = $this->card($project, 'done', CardType::Epic);
+
+        $this->assertRefused('target', AddFeedbackHandler::TARGET_CLOSED, $project, parentCardId: (string) $epic->id);
+    }
+
+    public function test_a_retry_after_the_board_went_off_returns_the_saved_note(): void
+    {
+        $project = $this->project('feedback-retry-board-off');
+        $command = $this->command($project, 'Saved before the switch', deliveryId: (string) Uuid::v4());
+        $first = ($this->handler)($command);
+        $this->setBoardEnabled(false);
+
+        $retried = ($this->handler)($command);
+
+        self::assertSame((string) $first->id, (string) $retried->id);
+        $this->assertRefused('board', AddFeedbackHandler::BOARD_DISABLED, $project, deliveryId: (string) Uuid::v4());
+    }
+
     public function test_nothing_is_written_while_the_board_is_off(): void
     {
         $project = $this->project('feedback-board-off');

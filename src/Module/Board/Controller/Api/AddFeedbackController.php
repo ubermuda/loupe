@@ -76,13 +76,14 @@ final class AddFeedbackController extends AppController
             ));
         } catch (DomainErrors $error) {
             $field = array_key_first($error->errors);
-            $status = match ($field) {
-                'target' => JsonResponse::HTTP_UNPROCESSABLE_ENTITY,
-                'board', 'deliveryId' => JsonResponse::HTTP_CONFLICT,
-                default => throw $error,
-            };
 
-            return $this->json(['error' => $error->errors[$field]], $status);
+            // A sub-handler refusal, such as a card write losing a race, carries
+            // a translation key the widget cannot name, so it gets a stable one.
+            return match ($field) {
+                'target' => $this->json(['error' => $error->errors[$field]], JsonResponse::HTTP_UNPROCESSABLE_ENTITY),
+                'board', 'deliveryId' => $this->json(['error' => $error->errors[$field]], JsonResponse::HTTP_CONFLICT),
+                default => $this->json(['error' => 'feedback_refused'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY),
+            };
         }
 
         $card = $link->card;
