@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\SiteReview\Event\SiteReviewCommentCreated;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Uid\Uuid;
@@ -32,6 +34,7 @@ final readonly class LinkCardOnSiteReviewCommentCreated
         private EntityManagerInterface $em,
         private BoardAvailability $board,
         private LoggerInterface $logger,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -82,5 +85,8 @@ final readonly class LinkCardOnSiteReviewCommentCreated
         }
 
         $this->em->persist(new CardSiteReviewComment($card, $comment));
+        if (null !== $card->id && null !== $comment->project->id) {
+            $this->events->dispatch(new CardChanged($comment->project->id, $card->id, CardChanged::UPDATED, false));
+        }
     }
 }

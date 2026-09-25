@@ -11,7 +11,8 @@ on the schedule) and `database` (Postgres).
 
 Two more sit behind compose profiles and stay off unless you ask for them, so
 that the default stack makes no outbound connection of its own. `mercure` (the
-hub) is needed only for site-review push: set `MERCURE_JWT_SECRET` and
+hub) carries live updates for the board, the inbox count, worker runs and site
+review. To turn it on, set `MERCURE_JWT_SECRET` and
 `MERCURE_PUBLIC_URL` in `docker/compose/prod.env`, give the hub's hostname a route
 in your reverse proxy, and add `--profile mercure` to every `docker compose`
 command for this stack. `backup` takes scheduled database dumps and uploads them

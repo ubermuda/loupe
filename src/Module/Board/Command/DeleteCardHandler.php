@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -22,6 +24,7 @@ final readonly class DeleteCardHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private InteractiveRuns $interactiveRuns,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -31,9 +34,11 @@ final readonly class DeleteCardHandler
 
         // Read before the remove: the flush clears the id. The number and the
         // project are readonly, so no re-read can change them.
-        $cardId = (string) $card->id;
+        $cardUuid = $card->id ?? throw new \LogicException('Card has no id.');
+        $projectUuid = $card->project->id ?? throw new \LogicException('Project has no id.');
+        $cardId = (string) $cardUuid;
         $cardNumber = $card->number;
-        $projectId = (string) $card->project->id;
+        $projectId = (string) $projectUuid;
 
         $this->em->wrapInTransaction(function () use ($card): void {
             // The renumbering below reads the column first, so it takes the same
@@ -73,5 +78,7 @@ final readonly class DeleteCardHandler
             ],
             new AuditSubject('card', $cardId),
         );
+
+        $this->events->dispatch(new CardChanged($projectUuid, $cardUuid, CardChanged::DELETED, false));
     }
 }

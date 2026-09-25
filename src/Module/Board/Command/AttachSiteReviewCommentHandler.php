@@ -6,8 +6,10 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -18,6 +20,7 @@ final readonly class AttachSiteReviewCommentHandler
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -44,6 +47,13 @@ final readonly class AttachSiteReviewCommentHandler
             ],
             new AuditSubject('card', (string) $command->card->id),
         );
+
+        $this->events->dispatch(new CardChanged(
+            $command->card->project->id ?? throw new \LogicException('Project has no id.'),
+            $command->card->id ?? throw new \LogicException('Card has no id.'),
+            CardChanged::UPDATED,
+            false,
+        ));
 
         return $link;
     }

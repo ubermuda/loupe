@@ -26,13 +26,40 @@ export default class extends Controller {
         for (const type of BEFORE_RENDER_EVENTS) {
             document.removeEventListener(type, this.rememberFocus);
         }
-        if (this.stateKey !== null) {
+        // A Drive visit moves the permanent toolbar, and its query, out first.
+        if (this.stateKey !== null && this.hasQueryTarget) {
             savedStates.set(this.stateKey, {
                 focused: false,
                 ...savedStates.get(this.stateKey),
                 query: this.queryTarget.value,
             });
         }
+    }
+
+    cardTargetConnected() {
+        this.#scheduleFilter();
+    }
+
+    rowTargetConnected() {
+        this.#scheduleFilter();
+    }
+
+    /** One pass for all the targets that connect together, such as a whole board. */
+    #scheduleFilter() {
+        if (this.filterScheduled) {
+            return;
+        }
+        this.filterScheduled = true;
+        queueMicrotask(() => {
+            this.filterScheduled = false;
+            if (
+                this.hasQueryTarget &&
+                this.hasCountTarget &&
+                this.hasEmptyTarget
+            ) {
+                this.filter();
+            }
+        });
     }
 
     revealField(event) {

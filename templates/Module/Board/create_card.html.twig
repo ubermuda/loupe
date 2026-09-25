@@ -46,8 +46,11 @@
             form: form,
             action: path('app_board_card_create', {id: project.id, feedback: feedback ? feedback.id : null, column: form.vars.data.column.id}),
             submitLabel: 'board.card.create.submit',
+            busyLabel: 'board.card.form.creating',
             cancelUrl: returnUrl,
             cancelLeavesFrame: true,
+            card: null,
+            saved: false,
         } only %}
     </div>
 </div>

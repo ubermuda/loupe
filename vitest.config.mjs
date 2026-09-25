@@ -9,6 +9,10 @@ export default defineConfig({
                 './assets/vendor/@hotwired/stimulus/stimulus.index.js',
                 import.meta.url,
             ).pathname,
+            '@hotwired/turbo': new URL(
+                './assets/vendor/@hotwired/turbo/turbo.index.js',
+                import.meta.url,
+            ).pathname,
         },
     },
     test: {
