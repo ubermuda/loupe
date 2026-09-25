@@ -1203,12 +1203,24 @@
     }
     .lp-card-drawer-overlay__loading[hidden],
     .lp-card-drawer-overlay__error[hidden],
+    .lp-card-drawer-overlay__deleted[hidden],
     .lp-card-drawer-overlay > turbo-frame[hidden] {
         @apply hidden;
     }
-    /** Recovery controls for failed card drawer navigation. */
-    .lp-card-drawer-overlay__error {
+    /** Recovery controls for failed card drawer navigation, and the state of a card deleted while open. */
+    .lp-card-drawer-overlay__error,
+    .lp-card-drawer-overlay__deleted {
         @apply p-6;
+    }
+    /** The notice an edit form shows when its card changed since the form opened. */
+    .lp-card-clash {
+        @apply flex flex-wrap items-center gap-3 px-3.5 py-2.5 rounded-lg bg-sunken text-sm font-medium text-ink;
+    }
+    .lp-card-clash[hidden] {
+        @apply hidden;
+    }
+    .lp-card-clash__message {
+        @apply mr-auto;
     }
     .lp-card-drawer-overlay__loading svg {
         @apply animate-spin;

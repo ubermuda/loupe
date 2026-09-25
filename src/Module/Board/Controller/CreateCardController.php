@@ -10,6 +10,8 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\FindBoardColumnCommand;
 use App\Module\Board\Command\FindBoardColumnHandler;
+use App\Module\Board\Command\ShowCardPlacementCommand;
+use App\Module\Board\Command\ShowCardPlacementHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
@@ -28,6 +30,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Uid\Uuid;
+use Symfony\UX\Turbo\TurboBundle;
 
 #[IsGranted(ProjectVoter::MANAGE, subject: 'project')]
 #[Route(
@@ -42,6 +45,7 @@ final class CreateCardController extends AppController
         private readonly FindBoardColumnHandler $findBoardColumn,
         private readonly BoardAvailability $board,
         private readonly FindSiteReviewCommentHandler $findSiteReviewComment,
+        private readonly ShowCardPlacementHandler $showPlacement,
     ) {
     }
 
@@ -82,14 +86,29 @@ final class CreateCardController extends AppController
                     siteReviewComment: $feedback,
                     relatedCards: $data->linkInputs(),
                 ));
-
-                return $this->redirectToRoute('app_board_card', [
-                    'projectId' => (string) $project->id,
-                    'cardId' => (string) $card->id,
-                ]);
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);
+
+                return $this->renderFormResponse('@Board/create_card.html.twig', $form, ['feedback' => $feedback]);
             }
+
+            // The drawer closes on this answer, and the board places the card.
+            if ('card-drawer-frame' === $request->headers->get('Turbo-Frame')
+                && TurboBundle::STREAM_FORMAT === $request->getPreferredFormat()) {
+                return new Response(
+                    $this->renderView('@Board/_card_placement.stream.html.twig', [
+                        'cardId' => (string) $card->id,
+                        'placement' => ($this->showPlacement)(new ShowCardPlacementCommand($project, $card)),
+                    ]),
+                    Response::HTTP_OK,
+                    ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
+                );
+            }
+
+            return $this->redirectToRoute('app_board_card', [
+                'projectId' => (string) $project->id,
+                'cardId' => (string) $card->id,
+            ]);
         }
 
         return $this->renderFormResponse('@Board/create_card.html.twig', $form, ['feedback' => $feedback]);

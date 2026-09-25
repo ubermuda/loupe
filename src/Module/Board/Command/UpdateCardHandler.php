@@ -29,6 +29,7 @@ final readonly class UpdateCardHandler
 {
     public const string COLUMN_GONE = 'board.card.error.column_gone';
     public const string LINKED_CARD_GONE = 'board.card.error.linked_card_unknown';
+    public const string CONTENT_CHANGED = 'board.card.error.changed_since_opened';
 
     public function __construct(
         private CardRepository $cards,
@@ -86,6 +87,14 @@ final readonly class UpdateCardHandler
             // the queue committed. Both the decision below and the move it
             // makes read the column, so both need the column as it is now.
             $this->cards->refreshColumn($card);
+            // The text too, so the clash check and the change flags below
+            // compare against what the last writer committed.
+            $this->cards->refreshContent($card);
+            if (null !== $command->expectedFingerprint
+                && !$command->confirmOverwrite
+                && $command->expectedFingerprint !== Card::contentFingerprint($card->title, $card->body)) {
+                return self::CONTENT_CHANGED;
+            }
             // The columns too: one deleted or given another terminal flag since
             // the request loaded it decides where the card may go and whether
             // the move stamps it.
@@ -155,7 +164,12 @@ final readonly class UpdateCardHandler
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
         if (\is_string($outcome)) {
-            throw new DomainErrors([self::LINKED_CARD_GONE === $outcome ? 'relatedCards' : 'column' => $outcome]);
+            $field = match ($outcome) {
+                self::LINKED_CARD_GONE => 'relatedCards',
+                self::CONTENT_CHANGED => 'contentFingerprint',
+                default => 'column',
+            };
+            throw new DomainErrors([$field => $outcome]);
         }
 
         // After the commit, never inside it: the sink drains at kernel.terminate,

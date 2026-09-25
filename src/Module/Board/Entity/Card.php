@@ -137,6 +137,12 @@ class Card implements ProjectScopedSubject
         $this->updatedAt = $this->createdAt;
     }
 
+    /** The text an edit form opened with, so a save can tell whether someone changed it since. */
+    public static function contentFingerprint(string $title, string $body): string
+    {
+        return hash('sha256', $title."\0".$body);
+    }
+
     /** Replaces every pull request link with the given set. An empty list clears them. */
     public function replacePullRequests(CardPullRequest ...$links): void
     {

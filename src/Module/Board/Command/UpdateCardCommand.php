@@ -20,6 +20,9 @@ use App\Module\Board\Entity\CardType;
  * card, whichever card wrote it.
  *
  * $reporter is absent on purpose. It records who first raised the card.
+ *
+ * $expectedFingerprint is the Card::contentFingerprint() the editor opened.
+ * A card whose text differs from it is refused unless $confirmOverwrite.
  */
 final readonly class UpdateCardCommand
 {
@@ -42,6 +45,8 @@ final readonly class UpdateCardCommand
         public ?array $documentIds = null,
         public ?int $position = null,
         public ?array $relatedCards = null,
+        public ?string $expectedFingerprint = null,
+        public bool $confirmOverwrite = false,
     ) {
     }
 }

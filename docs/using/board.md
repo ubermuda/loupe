@@ -203,7 +203,7 @@ hub and the `live_updates.enabled` flag, see
 [Environment variables](../reference/environment.md). If either is missing, a
 board shows the change on its next load.
 
-**Add card**, in the page header or under a column, opens the create form in the card drawer. A column's Add card preselects that column. After you save, the drawer shows the new card and the board shows it too. Without JavaScript, the same link opens the form as a page. Under each terminal column, a link opens the
+**Add card**, in the page header or under a column, opens the create form in the card drawer. A column's Add card preselects that column. The button reads **Creating…** while the card saves. Then the drawer closes, and the card appears in its column with no reload of the board. Without JavaScript, the same link opens the form as a page. Under each terminal column, a link opens the
 history page at **`/projects/<project>/board/terminal/<column id>`**. That page
 lists every card in the column, newest completion first, 25 to a page. The
 older address **`/projects/<project>/board/done`** still works. It opens the
@@ -265,7 +265,18 @@ in a drawer that slides in from the right. The drawer shows the same content as
 the card page.
 
 **Edit** opens the card for a change to its title, body, type, column and
-links. In the drawer, the form replaces the card, and saving returns to the card. **Delete** asks for a confirmation first, then removes the card and
+links. In the drawer, the form replaces the card. The button reads **Saving…**
+and then **Saved** for three seconds, and the form stays open. The board changes
+only the card you saved. As a page, saving returns to the card.
+
+The edit form remembers the text it opened with. When someone else changes the
+title or the body while the form is open, the form shows **This card changed
+since you opened it**, with a link to the latest version and a **Save anyway**
+button. A save over that change asks the same question, and keeps the text you
+typed. A move to another column alone shows no notice. When someone deletes the
+card, the drawer shows **This card was deleted** and offers no save.
+
+**Delete** asks for a confirmation first, then removes the card and
 its links. A delete cannot be undone, and the number the card held is not
 issued again.
 
