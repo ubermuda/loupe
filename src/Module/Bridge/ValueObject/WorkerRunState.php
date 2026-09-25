@@ -54,6 +54,9 @@ enum WorkerRunState: string
     /** The bridge reconnected without the run, so the run can no longer end. */
     case Lost = 'lost';
 
+    /** The interactive session ended, or its card moved. A bridge never reports it. */
+    case Closed = 'closed';
+
     /** A null result flag or a null status comes from an older bridge, so a clean exit then still reads as a success. */
     public static function fromOutcome(?int $exitCode, ?bool $hasResult = null, ?string $resultStatus = null): self
     {
@@ -121,6 +124,7 @@ enum WorkerRunState: string
             self::GaveUp => 'bridge.worker_runs.state.gave_up',
             self::TimedOut => 'bridge.worker_runs.state.timed_out',
             self::Lost => 'bridge.worker_runs.state.lost',
+            self::Closed => 'bridge.worker_runs.state.closed',
         };
     }
 
@@ -128,7 +132,7 @@ enum WorkerRunState: string
     public function chipModifier(): string
     {
         return match ($this) {
-            self::Succeeded => 'ok',
+            self::Succeeded, self::Closed => 'ok',
             self::Failed, self::NoResult, self::GaveUp, self::Dropped, self::TimedOut, self::Lost => 'failed',
             // The bridge set these runs aside by design, so nothing waits and nothing failed.
             self::Replaced, self::Skipped => 'resolved',

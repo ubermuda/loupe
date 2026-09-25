@@ -146,7 +146,8 @@ event carried. Each log line below goes with the state the bridge reports:
 | `queue_dropped` | `dropped`, with the reason `shutdown`, `rule_dead` or `reload` |
 
 The [Worker run API](../reference/worker-runs.md#the-states-of-a-run) page says
-what each state means. The server adds `timed-out` and `lost` on its own.
+what each state means. The server adds `timed-out` and `lost` on its own. It
+also sets `closed` on an interactive run, which no bridge holds.
 
 A clean exit does not prove that the work finished. The bridge runs each
 worker with `--output-format json` and `--json-schema`, and every prompt asks
@@ -236,6 +237,23 @@ across runs.
 Unreleased, like the site-review widget it shares a stream with: there is no
 published binary, and it needs a Mercure hub to have anything to subscribe to.
 
+## Hooks
+
+A hook package runs a local program when the bridge starts, stops, gets busy or
+goes idle. The `hooks:` list of `rules.yaml` names each package and the commit
+it runs. [Bridge hooks](bridge-hooks.md) covers the events, the manifest, the
+trust model and the Amphetamine package. These commands manage the list:
+
+| Command | What it does |
+|---|---|
+| `loupe bridge hooks install <owner>/<repo>[/<path>]@<ref>` | Installs or updates a package from GitHub at one commit |
+| `loupe bridge hooks list` | Shows the installed packages and their settings |
+| `loupe bridge hooks remove <owner>/<repo>[/<path>]` | Removes a package from the rule file |
+| `loupe bridge hooks set <owner>/<repo>[/<path>] <name>=<value>` | Sets one setting of a package |
+| `loupe bridge hooks run <owner>/<repo>[/<path>] <event>` | Runs one hook now, from your terminal |
+
+Run `loupe bridge reload` after `install`, `remove` or `set`.
+
 ## Events endpoint
 
 `GET /api/events` returns what a client needs to follow the events of every
@@ -276,6 +294,21 @@ The hub URL and the JWT have the same size however many projects a user owns.
 `projects` lists the projects at the moment of the call. A project created later
 publishes on the same topic, so a subscriber receives its events with no new
 call. Each event names its project in `projectId`.
+
+`board.card_moved` and `document.review_submitted` carry a `card` key,
+`{"interactiveRun": true}` or `{"interactiveRun": false}`. The value is `true`
+when an interactive session has an open run on the card as Loupe writes the
+event. `card_run_open` opens such a run, and the [Worker runs](../using/worker-runs.md#interactive-sessions)
+page says what closes it. A move to another column closes every open run of the
+card first. So a `board.card_moved` event carries `true` only for the move that
+`card_run_open` makes, or for a move inside one column.
+`document.review_submitted` omits the key when it names no stage card.
+
+A rule on either event can set `card: { interactiveRun: false }`, and then it
+skips a card that a person works on. The bridge reads an absent key as `false`,
+as from an older server. See
+[`cli/README.md`](../../cli/README.md#a-card-in-an-interactive-session) for the
+rule block.
 
 Events reach the project owner's topic only. A person who is not the owner
 receives no event there.
@@ -410,7 +443,8 @@ fix round on that card. The bridge parses this type only when a rule names it.
   "actor": "human",
   "cardId": "0192f3a1-7777-7d3e-8f10-a2b3c4d5e6f7",
   "cardNumber": 33,
-  "column": "tech-design"
+  "column": "tech-design",
+  "card": { "interactiveRun": false }
 }
 ```
 
@@ -422,13 +456,15 @@ fix round on that card. The bridge parses this type only when a rule names it.
 | `actor` | always `human` |
 | `cardId`, `cardNumber` | the stage card, or `null` |
 | `column` | the column slug of the stage card when the person gave the verdict, or `null` |
+| `card.interactiveRun` | `true` when an interactive session has an open run on the stage card. The key is absent with no stage card |
 
 The document's tags name its stage. The tag `product` names the stage that
 starts in `product-design`. The tags `design` and `decisions` name the stage
 that starts in `tech-design`. The stage card is the linked card in that column.
 When two linked cards sit there, the lowest card number wins.
 
-`cardId`, `cardNumber` and `column` are `null` together in these cases:
+`cardId`, `cardNumber` and `column` are `null` together, and `card` is absent,
+in these cases:
 
 - The document's tags name no stage, or name both stages.
 - No linked card sits in the column where the stage starts.

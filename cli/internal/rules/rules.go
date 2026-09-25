@@ -95,6 +95,7 @@ type File struct {
 	Defaults FileDefaults       `yaml:"defaults"`
 	Projects map[string]Project `yaml:"projects"`
 	Rules    []Rule             `yaml:"rules"`
+	Hooks    []HookEntry        `yaml:"hooks"`
 }
 
 // FileDefaults fill a rule's empty fields before the bridge flags do. A reload
@@ -130,8 +131,17 @@ type Rule struct {
 	Resume bool `yaml:"resume"`
 	// ResultFields maps an optional result field to its JSON Schema fragment.
 	ResultFields map[string]any `yaml:"resultFields"`
+	// Card limits a board.card_moved or document.review_submitted rule by the
+	// state of its card. Nil matches any card.
+	Card *CardCondition `yaml:"card"`
 
 	schema string
+}
+
+// CardCondition names the card state a rule needs. A nil field matches either
+// value.
+type CardCondition struct {
+	InteractiveRun *bool `yaml:"interactiveRun"`
 }
 
 // Defaults come from the bridge flags. They fill a rule's fields that neither
@@ -163,6 +173,7 @@ func checkWord(field, value string) error {
 type Set struct {
 	rules []Rule
 	dirs  map[string]string
+	hooks []HookEntry
 	// slugs maps a project id to its slug. Check fills it, so an unchecked
 	// set matches nothing.
 	slugs map[string]string
@@ -283,6 +294,8 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		}
 		s.rules = append(s.rules, r)
 	}
+	errs = append(errs, checkHooks(f.Hooks)...)
+	s.hooks = f.Hooks
 	for _, slug := range slices.Sorted(maps.Keys(perProject)) {
 		if perProject[slug] > MaxRulesPerProject {
 			errs = append(errs, fmt.Errorf("project %q has %d rules, and the server takes at most %d in one report", slug, perProject[slug], MaxRulesPerProject))
@@ -434,6 +447,9 @@ func checkRule(r Rule, projects map[string]Project) error {
 		}
 	} else if r.Verdict != "" {
 		errs = append(errs, fmt.Errorf("verdict applies to document.review_submitted only, and this rule is on %s", r.On))
+	}
+	if r.Card != nil && r.On != event.CardMovedType && r.On != event.ReviewSubmittedType {
+		errs = append(errs, fmt.Errorf("card applies to board.card_moved and document.review_submitted only, and this rule is on %s", r.On))
 	}
 
 	if strings.TrimSpace(r.Prompt) == "" {
@@ -747,6 +763,9 @@ func (s *Set) MatchRule(e event.Event, name string) (Match, bool) {
 // The caller holds mu.
 func (s *Set) triggers(r Rule, slug string, e event.Event) bool {
 	if r.On != e.Type || r.Project != slug || s.dead[r.Name] != "" {
+		return false
+	}
+	if r.Card != nil && r.Card.InteractiveRun != nil && *r.Card.InteractiveRun != e.Card.InteractiveRun {
 		return false
 	}
 	// A verdict with no stage card has nothing for a card agent to act on.

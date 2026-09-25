@@ -5,7 +5,9 @@ description: "The page that shows what a command-line bridge told a project abou
 
 A [command-line bridge](../extending/cli-bridge.md) runs a Claude Code worker
 for each board event one of its rules matches. Every worker the bridge reports
-becomes one row on the project's **Worker runs** page.
+becomes one row on the project's **Worker runs** page. An interactive Claude
+Code session on a card gets a row too, as
+[Interactive sessions](#interactive-sessions) says.
 
 Open the page from the project sidebar, or go to
 `/projects/{project}/worker-runs`. Anyone who can view the project can read it.
@@ -17,9 +19,9 @@ Open the page from the project sidebar, or go to
 | Card number | the card the worker was started for. It links to the card while the board feature is on |
 | Rule name | the bridge rule that matched the event. A resume adds **Resume n of N**, its place in the series and the cap of its rule |
 | Started | when the worker started, on the bridge clock. A run that has not started shows when its first report arrived |
-| Took | how long the worker ran. A run that is still open shows how long it has run so far. A run with no start, or a run that closed with no reported end, shows nothing |
+| Took | how long the worker ran. A run that is still open shows how long it has run so far, and an open interactive run shows "running for" in front. A run with no start, or a run that closed with no reported end, shows nothing |
 | Outcome | the state of the run, from the list below |
-| Bridge | the last 12 characters of the bridge's own identifier |
+| Bridge | the last 12 characters of the bridge's own identifier. An interactive run shows the tag **Interactive session** instead |
 
 A run that never started carries the reason instead of an exit code, such as a
 missing `claude` binary.
@@ -47,6 +49,7 @@ runs to a page.
 | **Never started** | the worker process never ran |
 | **Timed out** | the bridge stopped sending its heartbeat while the run was open |
 | **Lost** | the bridge reconnected, and it no longer holds the run |
+| **Closed** | the interactive session ended, or its card moved to another column |
 
 Queued, Resumed and Running are open states. A bridge that dies cannot close
 its runs, so Loupe closes them. **Timed out** is a guess: a bridge can go quiet
@@ -81,6 +84,28 @@ and so does a move of the card to another column. A run from an older bridge
 names no column, so its warning stays in every column. An open run leaves the
 warning in place until it ends.
 
+## Interactive sessions
+
+A Claude Code session that a person runs on a card, such as
+`/loupe:product-design`, calls the MCP tool `card_run_open`. Loupe then records
+an interactive run on the card, with the state **Running** and the skill name
+as its rule. No bridge holds this run, so it has no bridge, no exit code and no
+output. The heartbeat timeout never touches it.
+
+These actions close an open interactive run, and it then shows **Closed**:
+
+- The session calls `card_run_close` when it ends.
+- The owner selects **Close session** on the running row, in the runs section
+  of the card.
+- The card moves to another column. A move inside the same column closes
+  nothing. The delete of a column moves its cards, so it closes their runs.
+- A person deletes the card.
+
+No timeout closes the run. A session that stops with no call leaves its run open
+until the owner closes it or the card moves. While the run is open, a bridge
+rule with `card: { interactiveRun: false }` skips the card. See
+[the command-line bridge](../extending/cli-bridge.md#events-endpoint).
+
 ## A missing record means unknown
 
 A missing record means "unknown". It never means that the worker did not run.
@@ -101,7 +126,7 @@ Heartbeat health does not show whether an individual worker is running or availa
 ## The output
 
 Select **View attempt** to open a read-only drawer without leaving the list.
-It shows the attempt ID, card, rule, bridge, session and duration.
+It shows the attempt ID, card, rule, bridge, session and duration. An interactive run shows no bridge.
 A resume also shows its place in the series, and a link to the run it resumes.
 The drawer shows the result status, the reason the bridge skipped a resume, and each extra result field the worker gave.
 It lists each state the run reached, oldest first, with the time of each state, and then the time the first report arrived.
@@ -139,7 +164,7 @@ Run IDs match without regard to letter case, and the outcome and bridge filters 
 
 Two filters narrow the list further:
 
-- **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=no-result`, `outcome=failed` or `outcome=not-started` still works.
+- **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=no-result`, `outcome=failed` or `outcome=not-started` still works. `outcome=closed` keeps the closed interactive runs.
 - **Bridge** keeps one bridge. It appears once a second bridge has reported.
 
 Every control lands in the URL, so a filtered view is a link you can share.

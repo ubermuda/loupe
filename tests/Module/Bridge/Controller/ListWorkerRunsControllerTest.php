@@ -8,6 +8,7 @@ use App\Mercure\ProjectTopicBuilder;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\MercureCookies;
@@ -586,6 +587,41 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-worker-run-id]'));
         self::assertStringContainsString('#11', (string) $client->getResponse()->getContent());
+    }
+
+    /** No bridge holds an interactive run, so the row names none and the bridge filter offers none. */
+    public function test_an_interactive_run_shows_no_bridge(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'interactive-owner@example.com');
+        $project = $this->project($em, $owner, 'Interactive');
+        $this->seedRun($em, $project, cardNumber: 11);
+        $closed = $this->seedRun($em, $project, cardNumber: 22, exitCode: null, ruleName: 'loupe:product-design', state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
+        $open = $this->seedRun($em, $project, cardNumber: 33, exitCode: null, ruleName: 'loupe:tech-design', state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+
+        $projectId = (string) $project->id;
+        $closedId = (string) $closed->id;
+        $openId = (string) $open->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(3, $crawler->filter('[data-worker-run-id]'));
+        self::assertCount(1, $crawler->filter('.lp-worker-run__bridge'));
+        self::assertCount(0, $crawler->filter('#worker-run-bridge'));
+
+        $closedRow = $crawler->filter('[data-worker-run-id="'.$closedId.'"]');
+        self::assertSame('Interactive session', $closedRow->filter('.lp-worker-run__kind')->text());
+        self::assertSame('loupe:product-design', $closedRow->filter('.lp-worker-run__rule')->text());
+        self::assertSame('5m 0s', trim($closedRow->filter('.lp-worker-run__duration')->text()));
+        self::assertStringNotContainsString('bridge does not report', $closedRow->filter('dialog')->text());
+
+        $openRow = $crawler->filter('[data-worker-run-id="'.$openId.'"]');
+        self::assertStringStartsWith('running for ', trim($openRow->filter('.lp-worker-run__duration')->text()));
     }
 
     /** An unknown filter value shows the unfiltered list rather than a 404. */

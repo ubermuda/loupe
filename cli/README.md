@@ -363,6 +363,7 @@ Each entry in `rules` takes these fields:
 | `allowUntrusted` | no | Defaults to `false`. See below |
 | `resume` | for `inbox.ask_closed` | `true` resumes the session that asked. A rule on `inbox.ask_closed` needs it, and no other rule can set it. See [Resuming a session](#resuming-a-session) |
 | `verdict` | no | `approved` or `changes-requested`. Omitted, either verdict matches. Only a rule on `document.review_submitted` can set it. See [A review verdict](#a-review-verdict) |
+| `card` | no | A block that limits the rule by the state of its card. Only a rule on `board.card_moved` or `document.review_submitted` can set it. See [A card in an interactive session](#a-card-in-an-interactive-session) |
 
 The optional `defaults:` block sets `permissionMode` and `model` for every rule
 of the file:
@@ -440,6 +441,29 @@ authenticate. A rule skips a reviewer's event unless it sets
 `system` is the app acting on a person's approval, such as the move that follows
 an approved document. A rule matches it like any other event. It is neither a
 person's act nor an agent's, so it spends no chain budget and resets none.
+
+#### A card in an interactive session
+
+Loupe tells the bridge when a person runs an interactive session on a card. A
+rule that sets `card.interactiveRun` fires only when the event says the same.
+This rule plans a card only when no person works on it:
+
+```yaml
+rules:
+  - name: plan
+    on: board.card_moved
+    project: my-app
+    to: next
+    card:
+      interactiveRun: false
+    prompt: |
+      Plan card {cardNumber} (cardId {cardId}) in project {projectId}.
+```
+
+`true` fires only on a card with an interactive session. Omit the key, and the
+rule fires on either. A server older than this bridge sends no card state, and
+the bridge reads that as `false`. A CLI older than this key refuses the file,
+because `card` is an unknown key there.
 
 #### Placeholders
 
@@ -800,7 +824,8 @@ right after the first `GET /api/events`, and then once per interval. The
 heartbeat carries the ids of the projects the rule file maps and the build that
 `loupe version` prints, such as `0f4a2c9b (dirty)`. The server stamps the time
 itself. A reload sends a heartbeat at once, so the server reads the new
-projects before the next interval.
+projects before the next interval. The heartbeat also carries the last run of
+each [hook](#loupe-bridge-hooks), and a hook run sends a heartbeat at once.
 
 The interval comes from `bridge.heartbeat_interval_seconds` in the `flags` map,
 60 seconds by default. The bridge falls back to 60 seconds when the map has no
@@ -887,6 +912,9 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `heartbeat_failed` | `error`, `retry_in_seconds`: the first failure of a run. Level `WARN` |
 | `heartbeat_unsupported` | `error`, `message`: the server answered 404, logged once. Level `WARN` |
 | `heartbeat_interval_changed` | `interval_seconds`: a reconnect brought a new interval |
+| `hook_ran` | `package`, `hook_event`, `duration_ms`: a hook exited 0 |
+| `hook_failed` | `package`, `hook_event`, and `exit_code` with `output`, or `error` when the hook could not start. Level `WARN` |
+| `hook_timeout` | `package`, `hook_event`, `timeout_seconds`, `output`: the bridge killed a hook past its time limit. Level `WARN` |
 
 `queue_depth` counts the accepted events waiting at that moment, the new one
 included. `worker_failed` and `worker_finished` name two different faults: a
@@ -965,7 +993,7 @@ their place.
 
 On failure, the command writes one line to stderr for each problem, as
 `<stage>: <problem>`, and exits with status 1. The stage is `lock`, `parse`,
-`check` or `server`. The last line is
+`hooks`, `check` or `server`. The last line is
 `error: the bridge did not apply the rule file`. A failed reload changes
 nothing, and the bridge keeps its old rules and its lock.
 
@@ -986,10 +1014,38 @@ A reload does these things to the running bridge:
 - The bridge sends a new [rule health report](#rule-health-reports) for each
   project, and an empty report for each project the new file no longer maps.
 - The [heartbeat](#heartbeat) names the new projects at once.
+- The bridge runs the hooks of the new `hooks:` list from the next event on. A
+  reload runs no hook itself.
 
 A new project in the `projects` map needs no restart. The `defaults:` block
 reloads too. The flags of `loupe bridge run` and the instance URL in
 `config.json` do not reload, so a change to them still needs a restart.
+
+## `loupe bridge hooks`
+
+Manages the hook packages that the bridge runs when it starts, when it stops,
+when it gets busy and when it goes idle. A package is a directory of a GitHub
+repository with a `loupe-hook.yaml` manifest. The commands edit the `hooks:`
+list of the rule file and keep the rest of the file, comments included. They
+rewrite the list itself, so a comment inside it is lost.
+
+```bash
+loupe bridge hooks install ubermuda/loupe/hooks/amphetamine@<commit sha>
+loupe bridge hooks list
+loupe bridge hooks set ubermuda/loupe/hooks/amphetamine takeover=true
+loupe bridge hooks run ubermuda/loupe/hooks/amphetamine busy
+loupe bridge hooks remove ubermuda/loupe/hooks/amphetamine
+```
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--rules` | `rules.yaml` in your config dir | Edit this rule file |
+| `--yes` | off | `install` only. Install without the prompt |
+
+A hook runs with your rights and no sandbox. `install` shows what the package
+runs and asks you to confirm. Run `loupe bridge reload` after `install`,
+`remove` or `set`. See [Bridge hooks](../docs/extending/bridge-hooks.md) for the
+events, the manifest, the environment and the Amphetamine package.
 
 ## `loupe version`
 

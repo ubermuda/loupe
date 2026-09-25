@@ -10,6 +10,7 @@ use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\WorkerRunExporter;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\MockObject\Stub;
@@ -53,6 +54,7 @@ final class WorkerRunExporterTest extends TestCase
         self::assertCount(1, $rows);
         self::assertSame([
             'project' => 'My project',
+            'kind' => 'worker',
             'bridgeId' => (string) $bridgeId,
             'runKey' => (string) $runKey,
             'state' => 'succeeded',
@@ -164,6 +166,27 @@ final class WorkerRunExporterTest extends TestCase
         self::assertSame(2, $rows[0]['resumeCap']);
         self::assertSame('implementation', $rows[0]['cardColumn']);
         self::assertSame('card_moved', $rows[0]['resumeSkipped']);
+    }
+
+    public function test_an_interactive_run_exports_its_kind_and_no_bridge(): void
+    {
+        $owner = new User('Alice A', 'alice@example.com', 'x');
+        $run = new WorkerRun(
+            project: new Project($owner, 'My project'),
+            bridgeId: null,
+            cardId: Uuid::v7(),
+            cardNumber: 7,
+            ruleName: 'Pairing on the tech design',
+            state: WorkerRunState::Closed,
+            sessionId: Uuid::v4(),
+            kind: WorkerRunKind::Interactive,
+        );
+
+        $rows = iterator_to_array($this->exporter([$run], [])->export($owner));
+
+        self::assertSame('interactive', $rows[0]['kind']);
+        self::assertNull($rows[0]['bridgeId']);
+        self::assertSame('closed', $rows[0]['state']);
     }
 
     public function test_the_archive_entry_is_named_after_the_runs(): void

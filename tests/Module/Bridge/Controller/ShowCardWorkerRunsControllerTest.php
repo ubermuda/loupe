@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Controller;
 
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -69,6 +70,50 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $row = $crawler->filter('[data-card-run="'.$runId.'"]');
         self::assertSame('Resume 3 of 3', $row->filter('[data-worker-run-resume]')->text());
         self::assertSame('Gave up', $row->filter('.lp-status-chip')->text());
+    }
+
+    public function test_only_a_running_interactive_session_offers_a_close_control(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'card-fragment-close@example.com');
+        $project = $this->project($em, $owner, 'Fragment close');
+        $cardId = Uuid::v7();
+        $open = $this->seedRun($em, $project, ruleName: 'loupe:product-design', cardId: $cardId, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+        $closed = $this->seedRun($em, $project, ruleName: 'loupe:tech-design', cardId: $cardId, state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
+        $worker = $this->seedRun($em, $project, ruleName: 'plan', cardId: $cardId, state: WorkerRunState::Running);
+
+        $projectId = (string) $project->id;
+        $openId = (string) $open->id;
+        $closedId = (string) $closed->id;
+        $workerId = (string) $worker->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
+
+        self::assertResponseIsSuccessful();
+        $forms = $crawler->filter('[data-card-runs] form[data-card-run-close]');
+        self::assertCount(1, $forms);
+        self::assertSame('/projects/'.$projectId.'/worker-runs/'.$openId.'/close', $forms->attr('action'));
+        self::assertSame('card-worker-runs', $forms->attr('data-turbo-frame'));
+        self::assertNotEmpty($forms->filter('input[name="_csrf_token"]')->attr('value'));
+
+        $openRow = $crawler->filter('[data-card-run-row="'.$openId.'"]');
+        self::assertCount(1, $openRow->filter('form[data-card-run-close]'));
+        self::assertStringContainsString('loupe:product-design', $openRow->text());
+        self::assertStringContainsString('Interactive session', $openRow->text());
+        self::assertStringContainsString('running for', $openRow->text());
+
+        $closedRow = $crawler->filter('[data-card-run-row="'.$closedId.'"]');
+        self::assertStringContainsString('Interactive session', $closedRow->text());
+        self::assertStringNotContainsString('running for', $closedRow->text());
+        self::assertStringContainsString('5m 0s', $closedRow->text());
+
+        $workerRow = $crawler->filter('[data-card-run-row="'.$workerId.'"]');
+        self::assertStringNotContainsString('Interactive session', $workerRow->text());
+        self::assertCount(0, $workerRow->filter('form'));
     }
 
     public function test_a_card_with_no_runs_says_so(): void
