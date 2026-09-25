@@ -6,6 +6,7 @@ namespace App\Tests\Module\SiteReview\Controller;
 
 use App\Mercure\UserTopicBuilder;
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Project\Entity\Project;
 use App\Outbox\AgentPush;
 use App\Outbox\Command\DrainOutboxCommand;
@@ -59,6 +60,7 @@ final class ShowEventsControllerTest extends WebTestCase
         self::assertNotContains((string) $foreign->id, array_column($data['projects'], 'id'));
 
         self::assertSame([$topicOf($user)], $this->decodeJwtClaims((string) $data['jwt'])['mercure']['subscribe'] ?? null);
+        self::assertSame(CliCompatibility::RANGE, $data['cliRange']);
 
         // The other user's own call names their topic only, never the first user's.
         $foreignData = $this->events($client, $foreignRaw);

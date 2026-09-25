@@ -75,7 +75,7 @@ test('connection health remains accessible at enlarged text sizes', async ({
             data: { projects: [projectId], cliVersion: 'a'.repeat(100) },
         },
     );
-    expect(heartbeat.status()).toBe(204);
+    expect(heartbeat.status()).toBe(200);
     await page.goto(`/projects/${projectId}/agents`);
     const connection = page.locator(`[data-agent-connection-id="${bridgeId}"]`);
     await expect(connection).toBeVisible();

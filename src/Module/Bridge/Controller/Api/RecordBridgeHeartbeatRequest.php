@@ -36,6 +36,9 @@ final class RecordBridgeHeartbeatRequest
         #[Assert\NotBlank(normalizer: 'trim')]
         public ?string $cliVersion = null,
 
+        #[Assert\Valid]
+        public ?CliUpdateInput $update = null,
+
         #[Assert\All([new Assert\Type(BridgeHookInput::class)])]
         #[Assert\Count(max: self::MAX_HOOKS)]
         #[Assert\Type('list')]

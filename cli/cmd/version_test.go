@@ -16,6 +16,13 @@ func injectBuildInfo(t *testing.T, wantCommit, wantDirty string) {
 	commit, dirty = wantCommit, wantDirty
 }
 
+func injectVersion(t *testing.T, want string) {
+	t.Helper()
+	old := version
+	t.Cleanup(func() { version = old })
+	version = want
+}
+
 // runRoot executes the root command, which is the only way to reach the
 // --version flag. The root reads versionString() when it is built, so the
 // injection has to happen first.
@@ -78,6 +85,32 @@ func TestVersionReportsTheRuntimeAndPlatform(t *testing.T) {
 	want := runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH
 	if out := runRoot(t, "version"); !strings.Contains(out, want) {
 		t.Fatalf("out = %q, want it to contain %q", out, want)
+	}
+}
+
+func TestVersionReportsTheReleaseAndItsCommit(t *testing.T) {
+	injectBuildInfo(t, "0f4a2c9b1d", "")
+	injectVersion(t, "1.0.0")
+
+	out := runRoot(t, "version")
+	if !strings.HasPrefix(out, "loupe 1.0.0 (0f4a2c9b1d)\n") {
+		t.Fatalf("out = %q", out)
+	}
+	if want := runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH; !strings.Contains(out, want) {
+		t.Fatalf("out = %q, want it to contain %q", out, want)
+	}
+}
+
+func TestCLIVersionIsTheBareReleaseWhenOneIsSet(t *testing.T) {
+	injectBuildInfo(t, "0f4a2c9b1d", "true")
+
+	if got := cliVersion(); got != "0f4a2c9b1d (dirty)" {
+		t.Fatalf("without a release: cliVersion = %q", got)
+	}
+
+	injectVersion(t, "1.0.0")
+	if got := cliVersion(); got != "1.0.0" {
+		t.Fatalf("with a release: cliVersion = %q", got)
 	}
 }
 

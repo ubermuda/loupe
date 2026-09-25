@@ -513,3 +513,35 @@ func TestAClosedQueueOpensNoLane(t *testing.T) {
 	default:
 	}
 }
+
+// Pending counts a report from Enqueue until the sender is done with it, the
+// attempt in progress included, so a handover waits for the one under retry.
+func TestPendingCountsTheReportUnderRetry(t *testing.T) {
+	release := make(chan struct{})
+	h := newHarnessWithSend(t, 3, func(context.Context) (bool, error) {
+		<-release
+
+		return true, nil
+	})
+	if got := h.queue.Pending(); got != 0 {
+		t.Fatalf("Pending = %d on an empty queue", got)
+	}
+
+	h.queue.Enqueue(h.report(1))
+	h.queue.Enqueue(h.report(2))
+	h.next(t, 1)
+	if got := h.queue.Pending(); got != 2 {
+		t.Fatalf("Pending = %d with one report in flight and one waiting, want 2", got)
+	}
+	close(release)
+	h.next(t, 2)
+
+	deadline := time.After(5 * time.Second)
+	for h.queue.Pending() != 0 {
+		select {
+		case <-deadline:
+			t.Fatalf("Pending = %d after both reports landed", h.queue.Pending())
+		case <-time.After(time.Millisecond):
+		}
+	}
+}

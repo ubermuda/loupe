@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -23,6 +24,7 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
+	"github.com/ubermuda/loupe/cli/internal/update"
 )
 
 // refreshTimeout bounds a credentials fetch. http.DefaultClient has none at
@@ -51,14 +53,21 @@ func newBridgeCmd() *cobra.Command {
 		Use:   "bridge",
 		Short: "Bridge Loupe events into local workers",
 	}
-	cmd.AddCommand(newBridgeRunCmd(), newBridgeReloadCmd(), newBridgeHooksCmd())
+	cmd.AddCommand(newBridgeRunCmd(), newBridgeReloadCmd(), newBridgePreflightCmd(), newBridgeHooksCmd())
 
 	return cmd
 }
 
+// bridgeRunOptions are the flags of `loupe bridge run`.
+type bridgeRunOptions struct {
+	rulesPath, permissionMode, model, logFile string
+	maxWorkers                                int
+	// resumeFile and rolledBackFrom carry a handover from a former image.
+	resumeFile, rolledBackFrom string
+}
+
 func newBridgeRunCmd() *cobra.Command {
-	var rulesPath, permissionMode, model, logFile string
-	var maxWorkers int
+	var o bridgeRunOptions
 
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -81,99 +90,165 @@ func newBridgeRunCmd() *cobra.Command {
 			"while its card has a worker. The bridge writes one JSON " +
 			"object per line to stdout and to --log-file.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if maxWorkers < 1 {
-				return fmt.Errorf("--max-workers must be at least 1, got %d", maxWorkers)
-			}
-
-			defaults := rules.Defaults{PermissionMode: permissionMode, Model: model}
-			if err := defaults.Check(); err != nil {
-				return err
-			}
-
-			path, err := rulesPathOr(rulesPath)
-			if err != nil {
-				return err
-			}
-			set, err := rules.Load(path, defaults)
-			if err != nil {
-				return fmt.Errorf("rule file %s: %w", path, err)
-			}
-			hookList, err := resolveHooks(set)
-			if err != nil {
-				return fmt.Errorf("rule file %s: %w", path, err)
-			}
-			if _, err := lookPath("claude"); err != nil {
-				return fmt.Errorf("claude is not installed or not on PATH")
-			}
-
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
-			if err := set.Check(cmd.Context(), apiClient(cfg)); err != nil {
-				return fmt.Errorf("rule file %s: %w", path, err)
-			}
-			// A bridge with no stored credentials reaches neither the stream nor
-			// the reporting endpoints, so it stops here rather than starting a
-			// worker whose run it can report nothing about.
-			bridgeID, err := config.EnsureBridgeID()
-			if errors.Is(err, config.ErrNotLoggedIn) {
-				return config.ErrNotLoggedIn
-			}
-			if err != nil {
-				return fmt.Errorf("bridge id: %w", err)
-			}
-
-			logPath := logFile
-			if logPath == "" {
-				logPath = defaultLogPath()
-			}
-			f, err := openLogFile(logPath)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			sock, err := socketPath(path)
-			if err != nil {
-				return err
-			}
-			// The listener closes first, because a deferred call runs in reverse order.
-			lock, err := lockBridge(path, sock)
-			if err != nil {
-				return err
-			}
-			defer lock.Close()
-			control, err := listenControl(sock)
-			if err != nil {
-				return err
-			}
-			defer control.Close()
-
-			log := newBridgeLogger(bridgeLogWriter(f, cmd.OutOrStdout()))
-			r := &router{
-				log:        log,
-				maxWorkers: maxWorkers,
-				worker:     defaultWorkerOps(),
-				bridgeID:   bridgeID,
-				control:    control,
-				source:     newReloadSource(path, defaults, cfg, lock),
-				hookRunner: newHookRunner(hookList, bridgeID, log),
-			}
-			r.set.Store(set)
-			r.log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath, "bridge_id", bridgeID)
-			warnUnknownModes(r.log, set)
-
-			return subscribe(cmd, cfg, r)
+			return startBridge(cmd, o)
 		},
 	}
-	cmd.Flags().StringVar(&rulesPath, "rules", "", "read rules from this `path`; empty uses rules.yaml in your config directory")
-	cmd.Flags().StringVar(&permissionMode, "permission-mode", "", "pass this `mode` to every `claude` when neither its rule nor the defaults block of the rule file sets one; empty passes no flag, and a worker cannot answer a prompt")
-	cmd.Flags().StringVar(&model, "model", "", "pass this `model` to every `claude` when neither its rule nor the defaults block of the rule file sets one; empty passes no flag")
-	cmd.Flags().IntVar(&maxWorkers, "max-workers", defaultMaxWorkers, "run at most this `number` of workers at once; later events queue")
-	cmd.Flags().StringVar(&logFile, "log-file", "", "append the JSON log to this `path`; empty uses bridge.log in your config directory")
+	cmd.Flags().StringVar(&o.rulesPath, "rules", "", "read rules from this `path`; empty uses rules.yaml in your config directory")
+	cmd.Flags().StringVar(&o.permissionMode, "permission-mode", "", "pass this `mode` to every `claude` when neither its rule nor the defaults block of the rule file sets one; empty passes no flag, and a worker cannot answer a prompt")
+	cmd.Flags().StringVar(&o.model, "model", "", "pass this `model` to every `claude` when neither its rule nor the defaults block of the rule file sets one; empty passes no flag")
+	cmd.Flags().IntVar(&o.maxWorkers, "max-workers", defaultMaxWorkers, "run at most this `number` of workers at once; later events queue")
+	cmd.Flags().StringVar(&o.logFile, "log-file", "", "append the JSON log to this `path`; empty uses bridge.log in your config directory")
+	cmd.Flags().StringVar(&o.resumeFile, resumeHandoverFlag, "", "take over the bridge that a former image handed over in this `file`")
+	cmd.Flags().StringVar(&o.rolledBackFrom, rolledBackFromFlag, "", "the `version` that handed the bridge back")
+	cmd.Flags().MarkHidden(resumeHandoverFlag)
+	cmd.Flags().MarkHidden(rolledBackFromFlag)
 
 	return cmd
+}
+
+// bridgeLog is the log of a bridge and the file it appends to.
+type bridgeLog struct {
+	path string
+	file *os.File
+	log  *slog.Logger
+}
+
+func openBridgeLog(cmd *cobra.Command, logFile string) (*bridgeLog, error) {
+	path := logFile
+	if path == "" {
+		path = defaultLogPath()
+	}
+	f, err := openLogFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return &bridgeLog{path: path, file: f, log: newBridgeLogger(bridgeLogWriter(f, cmd.OutOrStdout()))}, nil
+}
+
+func startBridge(cmd *cobra.Command, o bridgeRunOptions) error {
+	if o.maxWorkers < 1 {
+		return fmt.Errorf("--max-workers must be at least 1, got %d", o.maxWorkers)
+	}
+	defaults := rules.Defaults{PermissionMode: o.permissionMode, Model: o.model}
+	if err := defaults.Check(); err != nil {
+		return err
+	}
+	path, err := rulesPathOr(o.rulesPath)
+	if err != nil {
+		return err
+	}
+	if o.resumeFile == "" {
+		return runBridgeOn(cmd, o, defaults, path, nil, nil, nil)
+	}
+
+	// A resumed image logs from the start, because a failure before the
+	// health hands the bridge back, and the operator reads why in the log.
+	bl, err := openBridgeLog(cmd, o.logFile)
+	if err != nil {
+		return err
+	}
+	defer bl.file.Close()
+	sock, err := socketPath(path)
+	if err != nil {
+		return err
+	}
+	b, control, err := resumeBridge(bl.log, path, sock, o.resumeFile, o.rolledBackFrom)
+	if err != nil {
+		bl.log.Error("update_resume_failed", "file", o.resumeFile, "error", err.Error())
+
+		return err
+	}
+	err = runBridgeOn(cmd, o, defaults, path, bl, b, control)
+	if err != nil {
+		b.rollbackAtStart(err)
+	}
+	b.dropResumeFile()
+	control.Close()
+	b.close()
+	b.lock.Close()
+
+	return err
+}
+
+// runBridgeOn starts the bridge. A resumed image passes its log, its handover
+// and the control socket it took over. Otherwise it takes the lock and the
+// socket itself.
+func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults, path string, bl *bridgeLog, b *bridgeUpdate, control net.Listener) error {
+	set, err := rules.Load(path, defaults)
+	if err != nil {
+		return fmt.Errorf("rule file %s: %w", path, err)
+	}
+	hookList, err := resolveHooks(set)
+	if err != nil {
+		return fmt.Errorf("rule file %s: %w", path, err)
+	}
+	if _, err := lookPath("claude"); err != nil {
+		return fmt.Errorf("claude is not installed or not on PATH")
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if err := set.Check(cmd.Context(), apiClient(cfg)); err != nil {
+		return fmt.Errorf("rule file %s: %w", path, err)
+	}
+	// A bridge with no stored credentials reaches neither the stream nor
+	// the reporting endpoints, so it stops here rather than starting a
+	// worker whose run it can report nothing about.
+	bridgeID, err := config.EnsureBridgeID()
+	if errors.Is(err, config.ErrNotLoggedIn) {
+		return config.ErrNotLoggedIn
+	}
+	if err != nil {
+		return fmt.Errorf("bridge id: %w", err)
+	}
+
+	if bl == nil {
+		if bl, err = openBridgeLog(cmd, o.logFile); err != nil {
+			return err
+		}
+		defer bl.file.Close()
+	}
+
+	if b == nil {
+		sock, err := socketPath(path)
+		if err != nil {
+			return err
+		}
+		// The listener closes first, because a deferred call runs in reverse order.
+		lock, err := lockBridge(path, sock)
+		if err != nil {
+			return err
+		}
+		defer lock.Close()
+		if control, err = listenControl(sock); err != nil {
+			return err
+		}
+		defer control.Close()
+		if b, err = newBridgeUpdate(bl.log, path, lock, control); err != nil {
+			return err
+		}
+		defer b.close()
+		b.recovered = leftoverHandover(b.file, bl.log)
+	}
+
+	r := &router{
+		log:        bl.log,
+		maxWorkers: o.maxWorkers,
+		worker:     defaultWorkerOps(),
+		bridgeID:   bridgeID,
+		control:    control,
+		source:     newReloadSource(path, defaults, cfg, b.lock),
+		update:     b,
+		hookRunner: newHookRunner(hookList, bridgeID, bl.log),
+	}
+	r.set.Store(set)
+	r.log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()), "max_workers", o.maxWorkers, "log_file", bl.path, "bridge_id", bridgeID)
+	warnUnknownModes(r.log, set)
+
+	return subscribe(cmd, cfg, r)
 }
 
 // warnUnknownModes names each permission mode this build does not know. A newer
@@ -281,13 +356,10 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	r.runs = newRunReports(apiClient(cfg), r.log)
 	defer queue.Close()
 
-	events, err := apiClient(cfg).Events(ctx)
+	set := r.rules()
+	events, err := startEvents(ctx, cfg, set)
 	if err != nil {
 		return err
-	}
-	set := r.rules()
-	if missing := missingProjects(set, events); len(missing) > 0 {
-		return fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
 	}
 	r.projects, r.topic = set.Projects(), events.Topic
 	if r.checkAsk == nil {
@@ -297,19 +369,59 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		r.readCard = apiClient(cfg).ReadCard
 	}
 	r.applyFlags(events)
+	if r.update != nil {
+		r.update.adoptInto(r)
+	}
+	var updates *updater
+	var watched <-chan struct{}
 	if r.bridgeID != "" {
 		r.health = newHealthReporter(ctx, apiClient(cfg), r.bridgeID, r.log)
 		for _, slug := range r.projects {
 			r.reportHealth(set, slug)
 		}
 		r.heartbeat = newHeartbeater(ctx, queue, apiClient(cfg), r.bridgeID, heartbeatBody(set), heartbeatInterval(events), r.log)
+		if dir, err := config.Dir(); err != nil {
+			r.log.Warn("update_skipped", "reason", err.Error())
+		} else {
+			hook := logStaged(r.log, version)
+			if r.update != nil {
+				hook = r.update.handover(r, version)
+			}
+			updates = newUpdater(r.log, version, dir, func() bool { return r.rules().AutoUpdate() }, hook)
+			if r.update != nil {
+				updates.executable = r.update.installed
+				if r.update.crashedFrom != "" {
+					updates.markRolledBack(r.update.crashedFrom)
+				}
+			}
+			r.heartbeat.onRange, r.heartbeat.update = updates.setRange, updates.state
+		}
+		if r.update != nil {
+			r.heartbeat.onSent = r.update.markBeat
+		}
 		r.hookRunner.attach(r.heartbeat)
 		r.heartbeat.start()
+	}
+	if r.update != nil && r.update.resumed != nil {
+		watched = r.update.watchHealth(ctx, r, updates)
+	} else if updates != nil {
+		updates.start(ctx)
 	}
 	// The control socket starts last, so no reload races the writes above.
 	var served <-chan struct{}
 	if r.control != nil {
-		served = serveControl(ctx, r.control, func(ctx context.Context) reloadResult { return r.reload(ctx, r.source) })
+		served = serveControl(ctx, r.control, controlOps{
+			reload: func(ctx context.Context) reloadResult { return r.reload(ctx, r.source) },
+			update: func(ctx context.Context, reply func(updateResult)) updateResult {
+				if updates == nil {
+					return updateResult{From: version, Outcome: outcomeFailed, Problem: "this bridge runs no update checks"}
+				}
+
+				return updates.checkNow(ctx, func(to string) {
+					reply(updateResult{OK: true, From: version, To: to, Outcome: outcomeHandingOver})
+				})
+			},
+		})
 		r.log.Info("control_listening", "socket", r.control.Addr().String())
 	}
 
@@ -326,6 +438,12 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.heartbeat != nil {
 		r.heartbeat.wait()
 	}
+	if watched != nil {
+		<-watched
+	}
+	if updates != nil {
+		updates.stop()
+	}
 	if served != nil {
 		<-served
 	}
@@ -336,15 +454,38 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	return nil
 }
 
-// heartbeatBody names the projects the rule file maps, by id, and the build
-// that `loupe version` reports.
+// logStaged is the hook of a staged release in a bridge that cannot hand over.
+func logStaged(log *slog.Logger, from string) stagedHook {
+	return func(_ context.Context, c update.Candidate, path string) stagedOutcome {
+		log.Info("update_staged", "from", from, "to", c.Version.String(), "path", path)
+
+		return stagedDeferred
+	}
+}
+
+// startEvents reads GET /api/events, and fails when it does not list a mapped
+// project.
+func startEvents(ctx context.Context, cfg config.Config, set *rules.Set) (api.Events, error) {
+	events, err := apiClient(cfg).Events(ctx)
+	if err != nil {
+		return events, err
+	}
+	if missing := missingProjects(set, events); len(missing) > 0 {
+		return events, fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
+	}
+
+	return events, nil
+}
+
+// heartbeatBody names the projects the rule file maps, by id, and the CLI
+// version.
 func heartbeatBody(set *rules.Set) api.Heartbeat {
 	ids := []string{}
 	for _, slug := range set.Projects() {
 		ids = append(ids, set.ProjectID(slug))
 	}
 
-	return api.Heartbeat{Projects: ids, CLIVersion: buildID()}
+	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion()}
 }
 
 // missingProjects names the mapped projects that GET /api/events does not list:

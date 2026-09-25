@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -99,5 +100,18 @@ func TestSaveTightensPermissionsOnAnExistingFile(t *testing.T) {
 	}
 	if got := info.Mode().Perm(); got != 0o600 {
 		t.Fatalf("config permissions are %04o, want 0600", got)
+	}
+}
+
+func TestRunsDirSitsInTheConfigDir(t *testing.T) {
+	useTempConfigHome(t)
+
+	d, err := Dir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	runs, err := RunsDir()
+	if err != nil || runs != filepath.Join(d, "runs") {
+		t.Fatalf("RunsDir = %q, %v; want runs in %q", runs, err, d)
 	}
 }

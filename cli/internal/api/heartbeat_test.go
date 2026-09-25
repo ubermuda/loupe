@@ -23,7 +23,7 @@ func TestHeartbeatPutsTheProjectsAndTheVersion(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	err := New(server.URL, "secret", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{
+	_, err := New(server.URL, "secret", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{
 		Projects:   []string{"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"},
 		CLIVersion: "b4e39aa7 (dirty)",
 	})
@@ -49,7 +49,7 @@ func TestHeartbeatSendsAnEmptyListRatherThanNull(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	if err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v"}); err != nil {
+	if _, err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v"}); err != nil {
 		t.Fatal(err)
 	}
 	if body != `{"projects":[],"cliVersion":"v"}` {
@@ -69,7 +69,7 @@ func TestHeartbeatSendsHooksOnlyWhenTheListIsSet(t *testing.T) {
 	t.Cleanup(server.Close)
 	client := New(server.URL, "t", server.Client())
 
-	if err := client.Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", Hooks: []HookReport{}}); err != nil {
+	if _, err := client.Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", Hooks: []HookReport{}}); err != nil {
 		t.Fatal(err)
 	}
 	if body != `{"projects":[],"cliVersion":"v","hooks":[]}` {
@@ -77,7 +77,7 @@ func TestHeartbeatSendsHooksOnlyWhenTheListIsSet(t *testing.T) {
 	}
 
 	row := HookReport{Package: "acme/tool", Ref: "v1", Event: "busy", LastRunAt: "2026-09-24T10:00:00Z", Outcome: "failed", Error: "boom"}
-	if err := client.Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", Hooks: []HookReport{row, {Package: "acme/tool", Ref: "v1", Event: "idle", Outcome: "never"}}}); err != nil {
+	if _, err := client.Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", Hooks: []HookReport{row, {Package: "acme/tool", Ref: "v1", Event: "idle", Outcome: "never"}}}); err != nil {
 		t.Fatal(err)
 	}
 	want := `{"projects":[],"cliVersion":"v","hooks":[` +
@@ -103,7 +103,7 @@ func TestHeartbeatClipsTheHooksToTheServerCaps(t *testing.T) {
 	for i := range rows {
 		rows[i] = HookReport{Package: strings.Repeat("p", 400), Ref: strings.Repeat("é", 150), Event: "busy", Outcome: "failed", Error: "  " + strings.Repeat("e", 600) + "  "}
 	}
-	if err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", Hooks: rows}); err != nil {
+	if _, err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", Hooks: rows}); err != nil {
 		t.Fatal(err)
 	}
 	if len(sent.Hooks) != 100 {
@@ -139,7 +139,7 @@ func TestHeartbeatSortsEachAnswer(t *testing.T) {
 			_, _ = io.WriteString(w, tc.body)
 		}))
 
-		err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v"})
+		_, err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v"})
 		server.Close()
 
 		if tc.ok != (err == nil) || tc.missing != errors.Is(err, ErrHeartbeatMissing) {
@@ -148,6 +148,49 @@ func TestHeartbeatSortsEachAnswer(t *testing.T) {
 		if !tc.ok && !strings.Contains(err.Error(), strconv.Itoa(tc.status)) && !tc.missing {
 			t.Fatalf("HTTP %d: the error does not name the status: %v", tc.status, err)
 		}
+	}
+}
+
+func TestHeartbeatReturnsTheRangeOfTheReply(t *testing.T) {
+	for _, tc := range []struct {
+		status int
+		body   string
+		want   string
+	}{
+		{status: http.StatusOK, body: `{"cliRange":"^1.0"}`, want: "^1.0"},
+		{status: http.StatusOK, body: ``},
+		{status: http.StatusOK, body: `not json`},
+		{status: http.StatusNoContent},
+	} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(tc.status)
+			_, _ = io.WriteString(w, tc.body)
+		}))
+
+		got, err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v"})
+		server.Close()
+
+		if err != nil || got != tc.want {
+			t.Fatalf("HTTP %d %q: range = %q, err = %v", tc.status, tc.body, got, err)
+		}
+	}
+}
+
+func TestHeartbeatSendsTheUpdateState(t *testing.T) {
+	var body string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+
+	hb := Heartbeat{CLIVersion: "1.0.0", Update: &HeartbeatUpdate{State: "updating", Version: "1.2.0"}}
+	if _, err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, hb); err != nil {
+		t.Fatal(err)
+	}
+	if body != `{"projects":[],"cliVersion":"1.0.0","update":{"state":"updating","version":"1.2.0"}}` {
+		t.Fatalf("body = %s", body)
 	}
 }
 
