@@ -79,7 +79,7 @@ Then write the changelog entry that the profile `Changelog` section names, run i
 
 ## Wait for CI
 
-Keep the SHA that you gated, reviewed and pushed. First wait until checks exist for that head. The head commit of the pull request must equal that SHA. Then watch the required checks with the forge adapter, as a long command, for 60 minutes at most. The profile `Gate` section says which checks are required. A stacked pull request has no required checks, because the ruleset covers the profile base branch only. Watch and count every check of it instead.
+Keep the SHA that you gated, reviewed and pushed. First wait until checks exist for that head. The head commit of the pull request must equal that SHA. Then watch the required checks with the forge adapter, as a long command, for 60 minutes at most. The profile `Gate` section says which checks are required. A stacked pull request has no required checks, because the ruleset covers the profile base branch only. Run the check commands of the forge adapter without `--required`, and count every check.
 
 When the wait ends, read the head commit of the pull request again with the forge adapter. Accept green only when the head still equals the gated SHA, and every required check passes with none pending. When the head moved, sync the branch, run the gate and the code review again, and push. Read each failed log with the forge adapter.
 

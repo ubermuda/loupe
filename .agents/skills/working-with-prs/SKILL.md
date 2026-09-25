@@ -22,7 +22,8 @@ path skips this.
    `gpt-6-sol` needs Codex CLI 0.155.1 or later. An older CLI answers "requires
    a newer version of Codex", so run `npm install -g @openai/codex@latest`.
 
-Review against `origin/main`, never `main`. A worktree's local `main` is often
+Review against `origin/main`, never `main`. Review a stacked branch against
+`origin/<parent-branch>` instead. A worktree's local `main` is often
 stale, so a review against it reports findings for already-merged code.
 
 **One clean pass is not a pass. Run until two consecutive passes come back
