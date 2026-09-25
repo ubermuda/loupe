@@ -60,7 +60,7 @@ class CardRepository extends ServiceEntityRepository
      *
      * @return list<Card>
      */
-    public function searchOpenForProject(Project $project, string $query, int $limit): array
+    public function searchOpenForProject(Project $project, string $query, int $limit, ?CardType $type = null): array
     {
         $qb = $this->createQueryBuilder('c')
             ->join('c.column', 'k')
@@ -74,6 +74,9 @@ class CardRepository extends ServiceEntityRepository
         if ('' !== $query) {
             $qb->andWhere('LOWER(c.title) LIKE :q ESCAPE \'!\'')
                 ->setParameter('q', self::titleContains($query));
+        }
+        if (null !== $type) {
+            $qb->andWhere('c.type = :type')->setParameter('type', $type);
         }
 
         /* @var list<Card> */

@@ -19,6 +19,7 @@ final readonly class SearchCardsHandler
             $command->project,
             $command->query,
             $command->limit,
+            $command->type,
         ));
     }
 }

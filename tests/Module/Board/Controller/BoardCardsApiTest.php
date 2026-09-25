@@ -6,6 +6,7 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
@@ -76,6 +77,50 @@ final class BoardCardsApiTest extends WebTestCase
         $narrowed = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertIsArray($narrowed);
         self::assertSame([1], array_column($narrowed['cards'], 'number'));
+    }
+
+    public function test_the_picker_can_ask_for_open_epics_alone(): void
+    {
+        $client = static::createClient();
+        [$raw, $project] = $this->projectWithToken($client, 'cards-api-epics@example.com');
+        $em = $this->em();
+        $this->enableBoard();
+
+        $em->persist(new Card($project, $this->column($project, 'backlog'), 'Checkout review', '', 1, type: CardType::Epic));
+        $em->persist(new Card($project, $this->column($project, 'backlog'), 'Footer overlaps', '', 2));
+        $em->persist(new Card($project, $this->column($project, 'done'), 'Old review', '', 3, type: CardType::Epic));
+        $em->flush();
+
+        $this->api($client, Request::METHOD_GET, '/api/board/cards?type=epic', $raw);
+        self::assertResponseIsSuccessful();
+        self::assertSame([1], array_column(
+            json_decode((string) $client->getResponse()->getContent(), true)['cards'],
+            'number',
+        ));
+
+        // A type the board does not know filters nothing out rather than
+        // failing, so the list stays usable for a newer widget.
+        $this->api($client, Request::METHOD_GET, '/api/board/cards?type=nonsense', $raw);
+        self::assertSame([2, 1], array_column(
+            json_decode((string) $client->getResponse()->getContent(), true)['cards'],
+            'number',
+        ));
+    }
+
+    public function test_the_widget_creates_a_review_card_and_an_epic(): void
+    {
+        $client = static::createClient();
+        [$raw, $project] = $this->projectWithToken($client, 'cards-api-types@example.com');
+        $this->enableBoard();
+
+        $this->api($client, Request::METHOD_POST, '/api/board/cards', $raw, ['title' => 'Review: /pricing', 'type' => 'site-review']);
+        self::assertResponseStatusCodeSame(201);
+        $this->api($client, Request::METHOD_POST, '/api/board/cards', $raw, ['title' => 'Review: /checkout', 'type' => 'epic']);
+        self::assertResponseStatusCodeSame(201);
+
+        $cards = static::getContainer()->get(CardRepository::class)->findBy(['project' => $project], ['number' => 'ASC']);
+        self::assertSame([CardType::SiteReview, CardType::Epic], array_map(static fn (Card $card) => $card->type, $cards));
+        self::assertSame([CardReporter::Reviewer, CardReporter::Reviewer], array_map(static fn (Card $card) => $card->reporter, $cards));
     }
 
     /**
