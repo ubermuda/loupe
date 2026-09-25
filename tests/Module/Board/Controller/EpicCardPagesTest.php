@@ -161,8 +161,8 @@ final class EpicCardPagesTest extends WebTestCase
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, $this->cardUrl($project, $epicId), server: ['HTTP_TURBO_FRAME' => 'card-drawer-frame']);
 
-        // card-drawer#submitted announces card-drawer:saved only for a form that carries this marker.
-        self::assertCount(1, $crawler->filter('form[name="'.SetCardLaneFormType::PREFIX.$epicId.'"][data-card-drawer-saves-card]'));
+        // card-drawer#submitted reloads the board for a form that carries this marker.
+        self::assertCount(1, $crawler->filter('form[name="'.SetCardLaneFormType::PREFIX.$epicId.'"][data-card-drawer-reloads-board]'));
     }
 
     public function test_the_lane_form_returns_to_the_board_when_asked(): void

@@ -148,6 +148,11 @@ export default class extends ModalController {
      */
     submitted(event) {
         if (!event.detail.success) return;
+        // A lane adds or removes a board row, which no placement of one card shows.
+        if (event.target.closest?.('[data-card-drawer-reloads-board]')) {
+            emit('board.columns_changed');
+            return;
+        }
         const form = event.target.closest?.('[data-card-drawer-saves-card]');
         if (!form) return;
         this.dispatch('saved');

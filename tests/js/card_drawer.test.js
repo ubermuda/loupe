@@ -220,6 +220,26 @@ it('tells the page which card an edit saved, as a change of its own', () => {
     ]);
 });
 
+it('reloads the board behind it after a lane turns on or off', () => {
+    const changes = [];
+    const stop = on('board.columns_changed', (change) => changes.push(change));
+    const cardChanges = [];
+    const stopCards = on('board.card_changed', (change) =>
+        cardChanges.push(change),
+    );
+    const laneForm = document.createElement('form');
+    laneForm.dataset.cardDrawerReloadsBoard = '';
+    controller.submitted({ target: laneForm, detail: { success: true } });
+    controller.submitted({ target: laneForm, detail: { success: false } });
+    stop();
+    stopCards();
+    expect(changes).toEqual([
+        { type: 'board.columns_changed', local: true, own: true },
+    ]);
+    // A lane adds or removes a row, which no placement of one card can show.
+    expect(cardChanges).toEqual([]);
+});
+
 it('closes after a create the server answered with a stream, and stays open on a form', () => {
     const createForm = cardForm({ cardDrawerCreatesCard: '' });
     const answer = (contentType) => ({

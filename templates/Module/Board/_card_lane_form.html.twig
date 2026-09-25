@@ -1,6 +1,6 @@
 {#- The button that turns an epic's board lane on or off. Props: card (Card, an epic), returnTo ('card' or 'board': the page the post comes back to). -#}
 {% set laneForm = card_lane_form(card, returnTo) %}
-{{ form_start(laneForm, {action: path('app_board_card_lane', {projectId: card.project.id, cardId: card.id}), attr: {'data-card-drawer-saves-card': ''}}) }}
+{{ form_start(laneForm, {action: path('app_board_card_lane', {projectId: card.project.id, cardId: card.id}), attr: {'data-card-drawer-reloads-board': ''}}) }}
     {{ form_widget(laneForm.laneEnabled) }}
     {{ form_widget(laneForm.returnTo) }}
     <button type="submit" class="lp-btn lp-btn--ghost">

@@ -9,6 +9,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
@@ -267,6 +268,10 @@ final readonly class UpdateCardHandler
                 CardChanged::UPDATED,
                 $outcome->contentChanged,
             ));
+        }
+        // A lane adds or removes a board row, which no placement of one card shows.
+        if ($outcome->laneChanged) {
+            $this->events->dispatch(new BoardColumnsChanged($card->project));
         }
 
         $view = new UpdateCardView($card, $outcome->openedRun);
