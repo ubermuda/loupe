@@ -34,7 +34,7 @@ async function openBoard(page: Page, boardUrl: string): Promise<void> {
 }
 
 test.afterAll(async ({ request }) => {
-    await setFlag(request, 'board.enabled', false);
+    await setFlag(request, 'board.enabled', true);
 });
 
 test('a column renamed in one browser shows in another without a reload', async ({

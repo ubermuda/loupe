@@ -24,10 +24,10 @@ test.beforeEach(async ({ page }) => {
     expect(flag.ok()).toBeTruthy();
 });
 
-// The flag is global, so it goes back off for the specs that run after this one.
+// The flag is global, so it goes back to its shipped value, on, for later specs.
 test.afterAll(async ({ request }) => {
     const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: 0 },
+        form: { name: 'board.enabled', enabled: 1 },
     });
     expect(response.ok()).toBeTruthy();
 });

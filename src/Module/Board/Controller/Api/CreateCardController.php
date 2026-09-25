@@ -46,8 +46,8 @@ final class CreateCardController extends AppController
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
         }
 
-        // The board ships off, and a widget holding a cached copy of the script
-        // must not reach a feature this instance never switched on.
+        // A widget holding a cached copy of the script must not reach a board
+        // that this instance switched off.
         $this->board->requireEnabled();
 
         $title = trim($payload->title ?? '');

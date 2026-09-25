@@ -76,8 +76,7 @@
                         {% include '@Inbox/_open_count.html.twig' with {project: project, openCount: project_inbox_open_count(project)} only %}
                     </a>
                     {% endif %}
-                    {# Opt-in: the flag ships off, so an instance nobody has told
-                       otherwise shows no link to a page that answers 404. #}
+                    {# With the flag off, the board answers 404, so no link points to it. #}
                     {% if is_feature_enabled('board.enabled') %}
                     {% set boardActive = route starts with 'app_project_board' or route starts with 'app_board_card' %}
                     <a href="{{ path('app_project_board', {id: project.id}) }}"
