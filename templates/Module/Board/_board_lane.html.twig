@@ -1,5 +1,6 @@
-{# One board row: an epic lane, or "Other cards" when lane.epic is null. Each cell is a drop target for one column.
-   Props: board (BoardView), lane (BoardLaneView). #}
+{# One board row: an epic lane, or "Other cards" when lane.epic is null. Each cell shows its column's head and is a drop target.
+   Props: board (BoardView), lane (BoardLaneView), columnControls (bool: this row holds the column grips and menus),
+   canManage (bool), renameColumnForm (FormView or null). #}
 {% set epic = lane.epic %}
 {% set laneKey = epic ? epic.id ~ '' : 'other' %}
 <section class="lp-board-lane{{ epic ? '' : ' lp-board-lane--other' }}"
@@ -32,15 +33,26 @@
     </header>
     <div class="lp-board-lane__cells">
         {% for view in board.columns %}
-        <div class="lp-board-lane__cell"
-             data-board-drag-target="group"
-             data-column="{{ view.column.id }}"
-             data-lane="{{ laneKey }}"
-             data-rankable="{{ view.column.terminal ? '0' : '1' }}">
-            {% for card in lane.cells[view.column.id ~ '']|default([]) %}
-                {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), inLane: epic is not null} only %}
-            {% endfor %}
-        </div>
+        {% set cards = lane.cells[view.column.id ~ '']|default([]) %}
+        <section class="lp-board__column lp-board-lane__column"
+                 aria-label="{{ view.column.label|trans }}"
+                 data-column-slug="{{ view.column.slug }}"
+                 {% if columnControls %}data-column-id="{{ view.column.id }}"
+                 data-board-columns-target="column"{% endif %}>
+            {% include '@Board/_board_column_head.html.twig' with {board: board, view: view, index: loop.index0, canManage: canManage and columnControls, renameColumnForm: renameColumnForm, count: cards|length} only %}
+            <div class="lp-board-lane__cell"
+                 data-board-drag-target="group"
+                 data-column="{{ view.column.id }}"
+                 data-lane="{{ laneKey }}"
+                 data-rankable="{{ view.column.terminal ? '0' : '1' }}">
+                {% for card in cards %}
+                    {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), inLane: epic is not null} only %}
+                {% endfor %}
+            </div>
+            {% if not epic %}
+                {% include '@Board/_board_column_foot.html.twig' with {board: board, view: view} only %}
+            {% endif %}
+        </section>
         {% endfor %}
     </div>
 </section>

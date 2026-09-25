@@ -1,4 +1,4 @@
-{# A column's header: grip, colour, label, card count and menu. Props: board (BoardView), view (BoardColumnView), index (int), canManage (bool), renameColumnForm (FormView or null). #}
+{# A column's header: grip, colour, label, card count and menu. Props: board (BoardView), view (BoardColumnView), index (int), canManage (bool), renameColumnForm (FormView or null), count (int, optional: the cards of one lane cell). #}
 <header class="lp-board__column-head">
     {% if canManage %}
     <span class="lp-board__column-grip"
@@ -10,7 +10,7 @@
     {% endif %}
     <span class="lp-tone-dot lp-tone-dot--{{ view.column.tone.value }}" aria-hidden="true"></span>
     <h2 class="lp-board__column-title">{{ view.column.label|trans }}</h2>
-    <span class="lp-board__column-count">{{ board.shownCounts[view.column.id ~ '']|default(view.count) }}</span>
+    <span class="lp-board__column-count">{{ count is defined ? count : board.shownCounts[view.column.id ~ '']|default(view.count) }}</span>
     {% if canManage %}
         {% include '@Board/_board_column_menu.html.twig' with {board: board, view: view, index: index, renameColumnForm: renameColumnForm} only %}
     {% endif %}

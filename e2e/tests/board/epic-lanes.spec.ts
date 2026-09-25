@@ -133,8 +133,10 @@ function lane(page: Page, key: string) {
 
 async function columnId(page: Page, slug: string): Promise<string> {
     const id = await page
-        .locator(`.lp-board-lanes__column[data-column-slug="${slug}"]`)
-        .getAttribute('data-column-id');
+        .locator(
+            `.lp-board-lane[data-lane="other"] .lp-board-lane__column[data-column-slug="${slug}"] [data-board-drag-target="group"]`,
+        )
+        .getAttribute('data-column');
     expect(id).not.toBeNull();
 
     return id ?? '';

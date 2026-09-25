@@ -5683,23 +5683,18 @@
         @apply select-none;
     }
 
-    /* A board with epic lanes reads in rows: the column headers, one row per
-       lane, then "Other cards". Every row splits its width the same way as the
-       header row, so a cell sits under its column. The whole board scrolls. */
+    /* A board with epic lanes reads in rows: one row per lane, then "Other
+       cards". Every row repeats the column heads and splits its width the same
+       way, so a cell sits under its column. The whole board scrolls. */
     .lp-board__columns--lanes {
         @apply overflow-y-auto;
     }
     .lp-board-lanes {
         @apply flex flex-col gap-4 w-fit min-w-full;
     }
-    .lp-board-lanes__row {
-        @apply sticky top-0 z-10 flex gap-3.5;
-    }
-    .lp-board-lanes__column {
-        @apply gap-2;
-    }
+    /* A lane keeps the height its cards need, and the board scrolls instead. */
     .lp-board-lane {
-        @apply flex flex-col gap-2;
+        @apply flex flex-col gap-2 shrink-0;
     }
     .lp-board-lane__head {
         @apply flex flex-wrap items-center gap-2 px-1;
@@ -5736,9 +5731,13 @@
     .lp-board-lane--collapsed.lp-board-lane--revealed .lp-board-lane__cells {
         @apply flex;
     }
+    /* One column of one lane: the column head over the lane's cards. */
+    .lp-board-lane__column {
+        @apply gap-2;
+    }
     /* A cell is a drop target, so an empty one keeps some height. */
     .lp-board-lane__cell {
-        @apply flex flex-col gap-2.5 grow basis-0 min-w-52 min-h-16 rounded-xl bg-surface-3 p-2.5;
+        @apply flex flex-col gap-2.5 min-h-16 pr-1.5 rounded-lg;
     }
 
     /* The whole card is the drag handle, so its own text is not selectable.
