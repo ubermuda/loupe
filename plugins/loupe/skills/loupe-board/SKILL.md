@@ -1,6 +1,6 @@
 ---
 name: loupe-board
-description: "Use when working a project board in the Loupe app through the loupe MCP, calling board_columns, card_create, card_list, card_get or card_update, writing a card, moving a card between columns, linking a document to a card, or linking a pull request to a card."
+description: "Use when working a project board in the Loupe app through the loupe MCP, calling board_columns, card_create, card_list, card_get, card_update, card_run_open or card_run_close, writing a card, moving a card between columns, linking a document to a card, or linking a pull request to a card."
 ---
 
 # Working a Loupe board
@@ -60,10 +60,19 @@ When no column fits a role, leave the card where it is and tell the owner.
 | `feedback_list` | Read the feedback of the whole project, each item with its card. It returns the pending items unless you pass `status`. |
 | `feedback_mark_addressed` | Mark feedback items addressed after you fix them. |
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status puts the card at the end of the column it arrives in. |
+| `card_run_open` | Record an open interactive run on a card when an interactive skill starts work on it. It can move the card in the same step. |
+| `card_run_close` | Close the interactive run of your session on a card when the session ends. |
 
 `card_get` and `card_update` take a `cardId`, which you read from `card_list`,
 `card_search` or `card_create`. They also take the card `number` in place of the
 `cardId`.
+
+An interactive session, such as `/loupe:product-design`, calls `card_run_open`
+with `sessionId` set to `$CLAUDE_CODE_SESSION_ID` and `name` set to the skill
+name. The run shows on the card and on the worker runs page. While it is open, a
+bridge rule with `card: { interactiveRun: false }` skips the card. A move of the
+card to another column closes the run, except the move that `card_run_open`
+makes with `status`. Call `card_run_close` when the session ends.
 
 ## Search before you write a card
 
@@ -305,6 +314,8 @@ column the card enters.
   nothing.
 - Your own move starts a worker when a rule watches the column you move the
   card to.
+- A move that `card_run_open` makes starts nothing under a rule that sets
+  `card: { interactiveRun: false }`.
 
 `references/bridge-rules.md` says how a rule matches, caps agent chains and
 breaks on a rename.

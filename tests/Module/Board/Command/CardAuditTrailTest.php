@@ -20,6 +20,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
+use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\DirectLogging;
@@ -75,7 +76,9 @@ final class CardAuditTrailTest extends KernelTestCase
 
         // Built by hand rather than fetched: nothing injects the delete handler
         // until the board has a controller, so the container inlines it away.
-        $this->deleteCard = new DeleteCardHandler($cards, $links, new CardGroupOrder($cards), new CardParentPolicy($cards), $this->em, $this->audit->auditor, new EventDispatcher());
+        $interactiveRuns = self::getContainer()->get(InteractiveRuns::class);
+        self::assertInstanceOf(InteractiveRuns::class, $interactiveRuns);
+        $this->deleteCard = new DeleteCardHandler($cards, $links, new CardGroupOrder($cards), new CardParentPolicy($cards), $this->em, $this->audit->auditor, new EventDispatcher(), $interactiveRuns);
 
         $owner = new User(fullName: 'Riley', email: 'board-audit-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);

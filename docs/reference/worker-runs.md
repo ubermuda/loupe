@@ -36,6 +36,7 @@ the `site-review` or the `mcp` scope.
 | `not-started` | the bridge | the worker process never started |
 | `timed-out` | the server | the bridge stopped sending its heartbeat while the run was open |
 | `lost` | the server | the bridge reconnected, and it no longer holds the run |
+| `closed` | the server | an interactive run ended. See [Interactive sessions](../using/worker-runs.md#interactive-sessions) |
 
 `queued`, `resumed` and `running` are open states. Every other state closes the
 run. `succeeded`, `no-result`, `failed` and `not-started` are the outcomes, and
@@ -74,7 +75,7 @@ order.
 | Field | Rule |
 |---|---|
 | `bridgeId` | required. A uuid the bridge generates once and keeps. It points at no table, so any uuid is accepted |
-| `state` | required. One of the eleven states the bridge sets. The server refuses `timed-out` and `lost` |
+| `state` | required. One of the eleven states the bridge sets. The server refuses `timed-out`, `lost` and `closed` |
 | `at` | required. When the run reached the state, on the bridge clock, as an ISO 8601 timestamp |
 | `cardId` | required. The uuid of the card the run is for. It is a plain value, so a deleted card leaves its run history intact |
 | `cardNumber` | required. The short number the card shows, counting from 1 inside the project, at most 2147483647 |
@@ -196,6 +197,7 @@ interval is the `bridge.heartbeat_interval_seconds` flag or the default of 60
 seconds, whichever is longer. A lowered flag therefore never shortens the wait. A bridge
 that sent no heartbeat counts as quiet once the first report of the run is that
 old. One pass times out at most 500 runs, and the next pass takes the rest.
+The task skips an interactive run, because no bridge holds it.
 
 `timed-out` is a guess. A report from the bridge replaces it, and so does a
 run inventory that names the run. `lost` is a fact: the bridge reconnected, and

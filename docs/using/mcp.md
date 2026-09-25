@@ -229,6 +229,8 @@ Roughly in the order an agent uses them:
 | `card_search` | Search every card's title and body by words, finished ones included |
 | `card_get` | Read one card, with the pull requests and the feedback linked to it |
 | `card_update` | Change a card, or move it to another column |
+| `card_run_open` | Record an open interactive session on a card, and optionally move the card in the same step |
+| `card_run_close` | Close the interactive run a session opened on a card |
 | `inbox_ask` | Hand questions and to-dos to the project owner (off by default, see below) |
 | `inbox_search` | Search every inbox item's title and body by words, closed ones included |
 | `inbox_join` | Add an open item that is already in the inbox to the session's own ask |

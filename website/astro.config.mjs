@@ -101,6 +101,7 @@ export default defineConfig({
             { slug: 'extending/oauth' },
             { slug: 'extending/billing' },
             { slug: 'extending/cli-bridge' },
+            { slug: 'extending/bridge-hooks' },
             { slug: 'extending/forge-webhooks' },
           ],
         },

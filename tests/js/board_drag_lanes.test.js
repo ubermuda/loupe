@@ -100,6 +100,23 @@ it('offers an epic card the cells of "Other cards" only', async () => {
     );
 });
 
+it('offers no cell of a collapsed lane, until a search reveals it', async () => {
+    const controller = await mount(`
+        <section class="lp-board-lane lp-board-lane--collapsed">${LANES}</section>`);
+    drag(controller, 'mover');
+
+    expect(
+        controller.groupTargets.filter((group) => controller.accepts(group)),
+    ).toEqual([]);
+
+    document
+        .querySelector('.lp-board-lane')
+        .classList.add('lp-board-lane--revealed');
+    expect(controller.groupUnder(50, 50)).toBe(
+        document.getElementById('lane-a-c1'),
+    );
+});
+
 it('offers every group of a board with no lanes', async () => {
     const controller = await mount(`
         <div id="first" data-board-drag-target="group" data-column="c1"></div>

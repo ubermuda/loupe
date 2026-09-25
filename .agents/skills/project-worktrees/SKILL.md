@@ -25,7 +25,7 @@ the CLI alike.
 
 | Command | Does |
 |---|---|
-| `just worktree-up NAME` | Provision (or repair) a worktree, from anywhere. Idempotent. |
+| `just worktree-up NAME [CONTEXT]` | Provision (or repair) a worktree, from anywhere. Idempotent. `CONTEXT` sets the site-review marker, see "The card marker". |
 | `just worktrees` | Every worktree with its URL, database and sidecar status |
 | `just worktree-down <name>` | Remove worktree + sidecar + both databases |
 | `just worktree-prune` | Clean up sidecars/databases orphaned by `git worktree remove` |
@@ -323,6 +323,8 @@ suspect the branch.
 | A class added in the worktree renders unstyled | `var/tailwind` must be a real directory per worktree, not a symlink to main's. `just worktree-up` fixes it; `just worktree-tailwind` watches. |
 | Layout looks like an older design; a hover/position spec fails but the page logs nothing | The `tailwind-worktrees` service is down. It polls every worktree and rebuilds any whose `assets/` or `templates/` are newer than its `var/tailwind/app.built.css`, which is what keeps a worktree from serving its provision-time CSS while its Twig and PHP are current. Check `docker compose logs tailwind-worktrees`, and `docker compose up -d tailwind-worktrees` if it is not running. A one-off rebuild is `bin/worktrees/compose-exec.sh bin/console tailwind:build`, under a second. Diff the compiled sheet for a class the design introduced before blaming the branch. |
 | The site-review widget shows a red `!` on the launcher, and "This review widget can't connect" | The embed names a project that does not resolve **at the backend the widget actually talks to**, which is `SITE_REVIEW_WIDGET_BACKEND`, not the host serving the page. A worktree keeps the main checkout's project id, which production knows, so suspect an `.env.local` that carries no `SITE_REVIEW_WIDGET_PROJECT`, a production project that does not list `https://<slug>.loupe.dev.localhost` under its allowed sites, or a widget branch pointed at its own tree with the production project id. See "Which backend the widget talks to". |
+| Widget comments on a card preview save, but the card does not list them | The worktree has no `SITE_REVIEW_WIDGET_CONTEXT` in its `.env.local`, so the comment carries no marker. Re-run `just worktree-up card-<number> card:<cardId>` from the main checkout, with the production card id. See "The card marker". |
+| The widget says "This preview's card is closed or gone, so notes cannot be saved here." | The marker names a card that the widget backend does not hold. Suspect a widget branch whose `SITE_REVIEW_WIDGET_BACKEND` is its own worktree host, with a production card id. Remove `SITE_REVIEW_WIDGET_CONTEXT` from its `.env.local`, or set `card:<id>` with a card id from that worktree's database. See "The card marker". |
 | The widget does not appear **at all**, no launcher and no error badge | The `<script>` failed to load, so nothing ever ran. A refused sign-in still renders the widget; an unreachable script renders nothing. Check the backend host resolves and serves `/site-review/widget.js`: a `SERVFAIL` on `loupe.ac` from the machine's own resolver produces exactly this, while the same request succeeds through `1.1.1.1`. |
 | Mail-asserting specs never see their message, or read another run's | Each worktree has its own sidecar, so a run must be pointed at it. Suspect a run launched without `just e2e` (which exports `MAILPIT_URL`) or with `E2E_BASE_URL` set alone, which falls back to the shared instance: the worktree's app then sends where nothing is reading, every registration/login/verification spec times out, and it looks like an auth regression. Set `MAILPIT_URL=https://mailpit-<slug>.<project>.dev.localhost` alongside it. `bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line. |
 | A spec fails, then passes on a quiet re-run | Something else was loading the shared php-fpm, such as a sibling agent running `just ci` or `composer install`. Check what is in flight **before** investigating the branch; this produced a false "regression" nearly filed against a clean PR. |
@@ -390,6 +392,35 @@ back over MCP like any other site.
 Bootstrap captures no local project id. It runs `app:dev:seed`, which creates a
 project in the worktree's own database and prints the id, and it sends that
 output to `/dev/null`.
+
+### The card marker
+
+`just worktree-up NAME CONTEXT` writes `SITE_REVIEW_WIDGET_CONTEXT=CONTEXT` into
+the worktree's `.env.local`. The embed carries it as `data-context`, and every
+widget comment stores it. For a card worktree, `CONTEXT` is `card:<cardId>`.
+Production's `LinkCardOnSiteReviewCommentCreated` then links the comment to that
+card.
+
+The marker must name a card in the database of the widget backend,
+`SITE_REVIEW_WIDGET_BACKEND`. Most card worktrees point the backend at
+production, so `<cardId>` is the production card id. A card id from the
+worktree's own database names no card there.
+
+A branch that changes the widget itself points the backend at its own worktree
+host (see "The rule for a worktree"). A production card id then names no card on
+that backend, and the widget says "This preview's card is closed or gone, so
+notes cannot be saved here." For such a branch, pass no marker, or pass
+`card:<id>` with a card id from the worktree's own database.
+
+The marker is a formal argument all the way. The bridge prompt carries
+`Card <number> (cardId <id>)`, the stage skill passes that id to the profile
+command, and the command passes it to bootstrap. When the prompt lacks it, take
+`cardId` from `card_get`. Never derive the marker from a branch name, a worktree
+name or a card number, and do not add code that does.
+
+Bootstrap writes the marker only when `CONTEXT` is present. A re-run without it
+keeps the old value, so a repair never clears a marker. Pass it again on a
+refresh all the same, because that also fixes a worktree created without it.
 
 A widget branch needs both values changed by hand after provisioning, because
 bootstrap restores neither. Point the backend at the worktree host, then re-run

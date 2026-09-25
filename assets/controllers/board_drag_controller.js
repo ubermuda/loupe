@@ -483,9 +483,18 @@ export default class extends Controller {
 
     /**
      * Whether a drop may land in this group. An epic has no parent, so an
-     * epic card lands in "Other cards" only.
+     * epic card lands in "Other cards" only. A collapsed lane hides its
+     * cells, and takes no drop.
      */
     accepts(group) {
+        if (
+            group.closest(
+                '.lp-board-lane--collapsed:not(.lp-board-lane--revealed)',
+            ) !== null
+        ) {
+            return false;
+        }
+
         return (
             group.dataset.lane === undefined ||
             'other' === group.dataset.lane ||

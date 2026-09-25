@@ -9,11 +9,12 @@ import (
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/hooks"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
 // reloadResult says what a reload changed, or why it changed nothing. Stage
-// names the step that failed: lock, parse, check or server.
+// names the step that failed: lock, parse, hooks, check or server.
 type reloadResult struct {
 	OK       bool     `json:"ok"`
 	Added    []string `json:"added,omitempty"`
@@ -26,12 +27,14 @@ type reloadResult struct {
 }
 
 // reloadSource gives a reload what it needs from the disk and the server; tests
-// replace it. A nil lock takes no lock.
+// replace it. A nil lock takes no lock, and a nil resolveHooks resolves no
+// hooks.
 type reloadSource struct {
-	lock   func() (check func() error, done func(applied bool), err error)
-	load   func() (*rules.Set, error)
-	check  func(ctx context.Context, set *rules.Set) error
-	events func(ctx context.Context) (api.Events, error)
+	lock         func() (check func() error, done func(applied bool), err error)
+	load         func() (*rules.Set, error)
+	resolveHooks func(set *rules.Set) ([]hooks.Hook, error)
+	check        func(ctx context.Context, set *rules.Set) error
+	events       func(ctx context.Context) (api.Events, error)
 }
 
 // newReloadSource reads the rule file at path with the bridge flags as
@@ -39,9 +42,10 @@ type reloadSource struct {
 // when the path resolves to a new file.
 func newReloadSource(path string, defaults rules.Defaults, cfg config.Config, lock *bridgeLock) reloadSource {
 	src := reloadSource{
-		load:   func() (*rules.Set, error) { return rules.Load(path, defaults) },
-		check:  func(ctx context.Context, set *rules.Set) error { return set.Check(ctx, apiClient(cfg)) },
-		events: func(ctx context.Context) (api.Events, error) { return apiClient(cfg).Events(ctx) },
+		load:         func() (*rules.Set, error) { return rules.Load(path, defaults) },
+		resolveHooks: resolveHooks,
+		check:        func(ctx context.Context, set *rules.Set) error { return set.Check(ctx, apiClient(cfg)) },
+		events:       func(ctx context.Context) (api.Events, error) { return apiClient(cfg).Events(ctx) },
 	}
 	if lock != nil {
 		src.lock = lock.follow
@@ -97,7 +101,7 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 		return events, err
 	}
 	buildCtx, cancel := context.WithTimeout(ctx, timeout)
-	set, stage, err := buildSet(buildCtx, src)
+	set, list, stage, err := buildSet(buildCtx, src)
 	cancel()
 	if err != nil {
 		done(false)
@@ -111,7 +115,7 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 
 		return r.lockFailed(err)
 	}
-	res := r.swap(set, seq)
+	res := r.swap(set, list, seq)
 	done(res.OK)
 
 	return res
@@ -127,25 +131,31 @@ func shuttingDown() reloadResult {
 	return reloadResult{Problems: []string{"the bridge is shutting down"}}
 }
 
-// buildSet loads, checks and confirms a new set, and names the stage that
-// failed.
-func buildSet(ctx context.Context, src reloadSource) (*rules.Set, string, error) {
+// buildSet loads, checks and confirms a new set, resolves its hooks, and names
+// the stage that failed.
+func buildSet(ctx context.Context, src reloadSource) (*rules.Set, []hooks.Hook, string, error) {
 	set, err := src.load()
 	if err != nil {
-		return nil, "parse", err
+		return nil, nil, "parse", err
+	}
+	var list []hooks.Hook
+	if src.resolveHooks != nil {
+		if list, err = src.resolveHooks(set); err != nil {
+			return nil, nil, "hooks", err
+		}
 	}
 	if err := src.check(ctx, set); err != nil {
-		return nil, "check", err
+		return nil, nil, "check", err
 	}
 	events, err := src.events(ctx)
 	if err != nil {
-		return nil, "server", err
+		return nil, nil, "server", err
 	}
 	if missing := missingProjects(set, events); len(missing) > 0 {
-		return nil, "server", fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
+		return nil, nil, "server", fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
 	}
 
-	return set, "", nil
+	return set, list, "", nil
 }
 
 // problemsOf gives each problem of a joined error one entry.
@@ -157,11 +167,12 @@ func problemsOf(err error) []string {
 	return strings.Split(err.Error(), "\n")
 }
 
-// swap puts the new set in place in one critical section with the queue
-// rewrite, so no event of the old set starts after it. It first replays on the
-// new set each slug change the old set saw during the reload, and each gone
-// project from an answer newer than seq, the stamp of the reload's answer.
-func (r *router) swap(set *rules.Set, seq uint64) reloadResult {
+// swap puts the new set and its hooks in place in one critical section with
+// the queue rewrite, so no event of the old set starts after it. It first
+// replays on the new set each slug change the old set saw during the reload,
+// and each gone project from an answer newer than seq, the stamp of the
+// reload's answer.
+func (r *router) swap(set *rules.Set, list []hooks.Hook, seq uint64) reloadResult {
 	r.mu.Lock()
 	if r.shut() {
 		r.mu.Unlock()
@@ -186,6 +197,7 @@ func (r *router) swap(set *rules.Set, seq uint64) reloadResult {
 		goneDead[i] = killGone(set, id)
 	}
 	r.set.Store(set)
+	r.hookRunner.setHooks(list)
 	r.setSeq = seq
 	dropped := r.rewriteLocked(set)
 	r.pruneLocked(set, gone)

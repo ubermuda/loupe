@@ -1123,6 +1123,16 @@
     .lp-card-run__chevron {
         @apply size-4 shrink-0 text-fg-dim;
     }
+    /* A run row with its close control beside the link, because a form cannot sit inside a link. */
+    .lp-card-run-row {
+        @apply flex items-center gap-2;
+    }
+    .lp-card-run-row > .lp-card-run {
+        @apply min-w-0 flex-1;
+    }
+    .lp-card-run__kind {
+        @apply shrink-0;
+    }
     .lp-card-linked-list,
     .lp-card-feedback-list {
         @apply flex flex-col gap-2 list-none p-0 m-0 mt-3;
@@ -3361,6 +3371,13 @@
     .lp-status-chip--failed .lp-status-chip__dot {
         @apply bg-status-danger;
     }
+    /* Grey chip for a state that is neither good nor bad, such as a hook that has not run. */
+    .lp-status-chip--neutral {
+        @apply bg-tint text-fg-dim border-line;
+    }
+    .lp-status-chip--neutral .lp-status-chip__dot {
+        @apply bg-fg-faint;
+    }
 
     /* Quoted document excerpt a comment thread is anchored to. Shown at the head
        of every thread — essential for orphaned threads, where the in-document
@@ -5503,26 +5520,25 @@
         @apply select-none;
     }
 
-    /* A board with epic lanes reads in rows: the column headers, one row per
-       lane, then "Other cards". Every row splits its width the same way as the
-       header row, so a cell sits under its column. The whole board scrolls. */
+    /* A board with epic lanes reads in rows: one row per lane, then "Other
+       cards". Every row repeats the column heads and splits its width the same
+       way, so a cell sits under its column. The whole board scrolls. */
     .lp-board__columns--lanes {
         @apply overflow-y-auto;
     }
     .lp-board-lanes {
         @apply flex flex-col gap-4 w-fit min-w-full;
     }
-    .lp-board-lanes__row {
-        @apply sticky top-0 z-10 flex gap-3.5;
-    }
-    .lp-board-lanes__column {
-        @apply gap-2;
-    }
+    /* A lane keeps the height its cards need, and the board scrolls instead. */
     .lp-board-lane {
-        @apply flex flex-col gap-2;
+        @apply flex flex-col gap-2 shrink-0;
     }
     .lp-board-lane__head {
         @apply flex flex-wrap items-center gap-2 px-1;
+    }
+    /* The lane toggle closes the lane head, at its right end. */
+    .lp-board-lane__head > form {
+        @apply ml-auto;
     }
     .lp-board-lane__collapse {
         @apply inline-flex items-center justify-center w-7 h-7 rounded-lg text-fg-mute transition-colors hover:bg-surface-3 hover:text-ink;
@@ -5548,13 +5564,28 @@
     .lp-board-lane--collapsed .lp-board-lane__cells {
         @apply hidden;
     }
+    /* The lane with the column grips and menus keeps its column heads when
+       collapsed, and hides its cards only. */
+    .lp-board-lane--collapsed.lp-board-lane--controls .lp-board-lane__cells {
+        @apply flex;
+    }
+    .lp-board-lane--collapsed.lp-board-lane--controls:not(
+            .lp-board-lane--revealed
+        )
+        .lp-board-lane__cell {
+        @apply hidden;
+    }
     /* A search that matches a card of a collapsed lane shows its cells. */
     .lp-board-lane--collapsed.lp-board-lane--revealed .lp-board-lane__cells {
         @apply flex;
     }
+    /* One column of one lane: the column head over the lane's cards. */
+    .lp-board-lane__column {
+        @apply gap-2;
+    }
     /* A cell is a drop target, so an empty one keeps some height. */
     .lp-board-lane__cell {
-        @apply flex flex-col gap-2.5 grow basis-0 min-w-52 min-h-16 rounded-xl bg-surface-3 p-2.5;
+        @apply flex flex-col gap-2.5 min-h-16 pr-1.5 rounded-lg;
     }
 
     /* The whole card is the drag handle, so its own text is not selectable.
@@ -5768,7 +5799,8 @@
     .lp-worker-run__meta {
         @apply flex flex-wrap items-center gap-3 font-mono text-fg-dim text-xs;
     }
-    .lp-worker-run__bridge {
+    .lp-worker-run__bridge,
+    .lp-worker-run__kind {
         @apply ml-auto;
     }
     .lp-worker-run__failure {

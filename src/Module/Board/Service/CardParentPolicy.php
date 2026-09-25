@@ -52,7 +52,8 @@ final readonly class CardParentPolicy
                     ? new DomainErrors(['parent' => self::EPIC_WITH_PARENT])
                     : new DomainErrors(['type' => self::CHILD_TO_EPIC]);
             }
-            if (CardType::Epic !== $parentType) {
+            // The parent's type is read before this write, so a card that stops being an epic could still name itself.
+            if (CardType::Epic !== $parentType || $parent->id?->toRfc4122() === $card?->id?->toRfc4122()) {
                 return new DomainErrors(['parent' => self::NOT_EPIC]);
             }
         }

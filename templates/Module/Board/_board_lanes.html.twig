@@ -1,24 +1,12 @@
-{# The board with epic lanes: the column headers, one row per lane, then "Other cards".
+{# The board with epic lanes: one row per lane, then "Other cards". The first lane carries the column controls.
    Props: board (BoardView, with lanes), canManage (bool), renameColumnForm (FormView or null). #}
 <div class="lp-board__columns lp-board__columns--lanes"
      data-board-view-target="board"
      {% if canManage %}data-action="dragover->board-columns#over drop->board-columns#drop"{% endif %}>
     <div class="lp-board-lanes">
-        <div class="lp-board-lanes__row">
-            {% for view in board.columns %}
-            <section class="lp-board__column lp-board-lanes__column"
-                     aria-label="{{ view.column.label|trans }}"
-                     data-column-slug="{{ view.column.slug }}"
-                     data-column-id="{{ view.column.id }}"
-                     data-board-columns-target="column">
-                {% include '@Board/_board_column_head.html.twig' with {board: board, view: view, index: loop.index0, canManage: canManage, renameColumnForm: renameColumnForm} only %}
-                {% include '@Board/_board_column_foot.html.twig' with {board: board, view: view} only %}
-            </section>
-            {% endfor %}
-        </div>
         {% for lane in board.lanes %}
-            {% include '@Board/_board_lane.html.twig' with {board: board, lane: lane} only %}
+            {% include '@Board/_board_lane.html.twig' with {board: board, lane: lane, columnControls: loop.first, canManage: canManage, renameColumnForm: renameColumnForm} only %}
         {% endfor %}
-        {% include '@Board/_board_lane.html.twig' with {board: board, lane: board.otherCards} only %}
+        {% include '@Board/_board_lane.html.twig' with {board: board, lane: board.otherCards, columnControls: false, canManage: canManage, renameColumnForm: null} only %}
     </div>
 </div>

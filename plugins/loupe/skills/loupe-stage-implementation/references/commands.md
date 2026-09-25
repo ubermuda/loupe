@@ -25,7 +25,7 @@ Slug a column label from the prompt: lowercase, with hyphens for spaces. Compare
 
 ## Create the card worktree
 
-The profile `Worktree` section names the card worktree path and the command that provisions it. `<base>` is the base branch from the profile `Gate` section. `<short-slug>` is two to four lowercase words from the card title, joined with hyphens. Run these from the main checkout:
+The profile `Worktree` section names the card worktree path and the command that provisions it. `<base>` is the base branch from the profile `Gate` section. `<short-slug>` is two to four lowercase words from the card title, joined with hyphens. `<cardId>` is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. A profile command may use `<cardId>`. Pass it as the command says, and never derive it from a branch name, a worktree name or a card number. Run these from the main checkout:
 
 ```bash
 git fetch origin

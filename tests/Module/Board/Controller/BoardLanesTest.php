@@ -90,7 +90,16 @@ final class BoardLanesTest extends WebTestCase
         self::assertCount(3, $lane->filter('[data-board-drag-target="group"][data-rankable="1"]'));
         self::assertCount(1, $lane->filter('[data-column="'.$doneColumnId.'"][data-rankable="0"]'));
         $counts = $crawler->filter('.lp-board__column-count')->each(static fn (Crawler $node): string => trim($node->text()));
-        self::assertSame(['2', '0', '0', '1'], $counts);
+        // Each lane repeats the column heads and counts its own cards, with no separate head row.
+        self::assertSame(['1', '0', '0', '1', '1', '0', '0', '0'], $counts);
+        self::assertCount(4, $lane->filter('.lp-board-lane__column .lp-board__column-head'));
+        self::assertCount(4, $lane->filter('[data-board-columns-target="column"] .lp-board__column-menu'));
+        self::assertCount(0, $other->filter('[data-board-columns-target="column"], .lp-board__column-menu'));
+        self::assertStringContainsString('lp-board-lane--controls', (string) $lane->attr('class'));
+        self::assertStringNotContainsString('lp-board-lane--controls', (string) $other->attr('class'));
+        self::assertCount(4, $crawler->filter('[data-board-columns-target="column"]'));
+        self::assertCount(0, $lane->filter('.lp-board__add-card'));
+        self::assertCount(4, $other->filter('.lp-board__add-card'));
         self::assertSelectorTextContains('.lp-board-toolbar__count', '3 cards');
         // The list view still lists the epic.
         self::assertCount(1, $crawler->filter('.lp-board-list__row[data-list-card-id="'.$epicId.'"]'));

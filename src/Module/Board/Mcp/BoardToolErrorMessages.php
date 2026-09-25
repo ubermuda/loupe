@@ -7,6 +7,7 @@ namespace App\Module\Board\Mcp;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Bridge\Entity\WorkerRun;
 use Mcp\Exception\ToolCallException;
 
 /**
@@ -48,6 +49,8 @@ final readonly class BoardToolErrorMessages
             'board.card.error.epic_type_locked' => 'This epic has child cards, so its type stays epic. Clear the parent of each child first.',
             'board.card.error.epic_delete_has_children' => 'This epic has child cards, so it cannot be deleted. Delete each child, or clear its parent, first.',
             'board.card.error.column_gone' => 'That column no longer exists on this board. Name another column.',
+            'board.card.error.run_name_blank' => 'Pass the name of the skill that runs the session, such as loupe:product-design.',
+            'board.card.error.run_name_too_long' => \sprintf('A run name must be at most %d characters.', WorkerRun::MAX_RULE_NAME_LENGTH),
             'board.card.error.search_query_blank' => 'Pass a query to search for. To read the whole board instead, call card_list.',
             default => self::UNMAPPED,
         };

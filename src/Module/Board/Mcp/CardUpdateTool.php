@@ -93,7 +93,7 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
                 relatedCards: $this->subjects->optionalRelatedCards($relatedCards),
                 parentCardId: $parentCardId,
                 laneEnabled: $laneEnabled,
-            ));
+            ))->card;
 
             $view = ($this->showCard)(new ShowCardCommand($card));
 

@@ -30,6 +30,7 @@ final readonly class BridgeExporter implements UserDataExporterInterface
                 'projects' => $bridge->projects,
                 'cliVersion' => $bridge->cliVersion,
                 'lastSeenAt' => $bridge->lastSeenAt->format(\DateTimeInterface::ATOM),
+                'hooks' => $bridge->hooks,
             ];
         }
     }
