@@ -32,7 +32,7 @@ test('Workshop shows reported connections and opens the matching details', async
             data: { projects: [projectId], cliVersion: version },
         },
     );
-    expect(heartbeat.status()).toBe(204);
+    expect(heartbeat.status()).toBe(200);
     await page.goto(workshopUrl);
     const connection = page.locator(`[data-workshop-connection="${bridgeId}"]`);
     await expect(connection).toBeVisible();

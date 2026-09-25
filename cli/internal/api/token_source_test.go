@@ -54,7 +54,7 @@ func TestAClientRefreshesARejectedTokenAndRetriesOnce(t *testing.T) {
 	t.Cleanup(server.Close)
 	source := &rotatingSource{current: "stale", fresh: "fresh"}
 
-	err := NewWithSource(server.URL, source, server.Client()).Heartbeat(context.Background(), "bridge-1", Heartbeat{Projects: []string{"p"}, CLIVersion: "v"})
+	_, err := NewWithSource(server.URL, source, server.Client()).Heartbeat(context.Background(), "bridge-1", Heartbeat{Projects: []string{"p"}, CLIVersion: "v"})
 	if err != nil {
 		t.Fatalf("Heartbeat: %v", err)
 	}

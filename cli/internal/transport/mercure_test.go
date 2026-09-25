@@ -445,3 +445,152 @@ func TestSubscribeMintsAFreshTokenAfterA401(t *testing.T) {
 		t.Fatalf("unexpected payload after the retry: %q", received[0])
 	}
 }
+
+// A handover starts a subscription where another one stopped, so the seeded id
+// must reach the hub on the very first request.
+func TestSubscribeSendsTheSeededLastEventIDFirst(t *testing.T) {
+	for _, seed := range []string{"urn:uuid:frozen", ""} {
+		got := make(chan []string, 1)
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case got <- r.Header.Values("Last-Event-ID"):
+			default:
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			_ = Subscribe(ctx, srv.Client(), srv.URL, []string{"https://example.test/topic"},
+				func(context.Context) (string, error) { return "jwt", nil }, Handler{LastEventID: seed})
+		}()
+
+		select {
+		case header := <-got:
+			want := []string{seed}
+			if seed == "" {
+				want = nil
+			}
+			if strings.Join(header, ",") != strings.Join(want, ",") || len(header) != len(want) {
+				t.Errorf("seed %q: first request Last-Event-ID = %q, want %q", seed, header, want)
+			}
+		case <-time.After(4 * time.Second):
+			t.Fatalf("seed %q: the hub saw no connection", seed)
+		}
+		cancel()
+		<-done
+		srv.Close()
+	}
+}
+
+// The caller reads the resume point through OnID, after the event's data, so
+// the id it holds never runs ahead of what it has handled.
+func TestSubscribeReportsEachCommittedEventID(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		trail []string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("id: 1\ndata: a\n\nid: 2\ndata: b\n\nid:\ndata: c\n\nid: 4\ndata: d\n"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = Subscribe(ctx, srv.Client(), srv.URL, []string{"https://example.test/topic"},
+			func(context.Context) (string, error) { return "jwt", nil },
+			Handler{
+				OnData: func(data []byte) {
+					mu.Lock()
+					trail = append(trail, "data:"+string(data))
+					mu.Unlock()
+				},
+				OnID: func(id string) {
+					mu.Lock()
+					trail = append(trail, "id:"+id)
+					mu.Unlock()
+				},
+			})
+	}()
+
+	want := "data:a id:1 data:b id:2 data:c id:"
+	deadline := time.After(4 * time.Second)
+	for {
+		mu.Lock()
+		seen := strings.Join(trail, " ")
+		mu.Unlock()
+		if seen == want {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("trail = %q, want %q", seen, want)
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	cancel()
+	<-done
+}
+
+// OnEvent hands each event over with its own id, so a caller can skip an event
+// it already handled before it acts on it.
+func TestSubscribeHandsEachEventOverWithItsID(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		trail []string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("id: 1\ndata: a\n\ndata: b\nid: 2\n\ndata: c\n\nid: 4\ndata: d\n"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = Subscribe(ctx, srv.Client(), srv.URL, []string{"https://example.test/topic"},
+			func(context.Context) (string, error) { return "jwt", nil },
+			Handler{
+				OnData: func([]byte) { t.Error("OnData ran although OnEvent is set") },
+				OnEvent: func(id string, data []byte) {
+					mu.Lock()
+					trail = append(trail, id+"="+string(data))
+					mu.Unlock()
+				},
+			})
+	}()
+
+	want := "1=a 2=b =c"
+	deadline := time.After(4 * time.Second)
+	for {
+		mu.Lock()
+		seen := strings.Join(trail, " ")
+		mu.Unlock()
+		if seen == want {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("trail = %q, want %q", seen, want)
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	cancel()
+	<-done
+}

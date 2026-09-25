@@ -67,6 +67,7 @@ export default defineConfig({
             { label: 'Choosing a path', slug: 'getting-started' },
             { slug: 'getting-started/demo' },
             { slug: 'getting-started/from-source' },
+            { slug: 'getting-started/cli' },
             { slug: 'getting-started/docker-compose' },
             { slug: 'getting-started/digitalocean' },
             { slug: 'getting-started/architecture' },
