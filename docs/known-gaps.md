@@ -34,7 +34,8 @@ description: "Things the application needs that are not configured on your behal
    only the app's default, `private`. Get this wrong and **every export upload
    fails inside the worker**, where nobody is watching.
 
-4. **Set `MERCURE_JWT_SECRET` if you want site-review push.** On App Platform,
+4. **Set `MERCURE_JWT_SECRET` if you want live updates.** The hub carries them
+   for the board, the inbox count, worker runs and site review. On App Platform,
    setting it runs a Mercure hub as a second service (module v1.6.0's
    `enable_mercure`) and routes `/.well-known/mercure` on the app's own domain
    to it; the module injects `MERCURE_URL`, `MERCURE_PUBLIC_URL` and
