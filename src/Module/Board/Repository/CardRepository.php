@@ -361,6 +361,21 @@ class CardRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Whether the database shows anyone worked on the card: a body, a pull
+     * request, a document, or a link to or from another card.
+     */
+    public function hasWork(Card $card): bool
+    {
+        return (bool) $this->getEntityManager()->getConnection()->fetchOne(
+            "SELECT EXISTS (SELECT 1 FROM board_cards WHERE id = :id AND body <> '')
+                 OR EXISTS (SELECT 1 FROM board_card_pull_requests WHERE card_id = :id)
+                 OR EXISTS (SELECT 1 FROM board_card_documents WHERE card_id = :id)
+                 OR EXISTS (SELECT 1 FROM board_card_links WHERE source_card_id = :id OR target_card_id = :id)",
+            ['id' => (string) $card->id],
+        );
+    }
+
     public function countChildren(Card $card): int
     {
         return (int) $this->getEntityManager()->getConnection()->fetchOne(

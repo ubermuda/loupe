@@ -13,11 +13,16 @@ use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\DeleteFeedbackCommand;
 use App\Module\Board\Command\DeleteFeedbackHandler;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardLink;
+use App\Module\Board\Entity\CardLinkKind;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Entity\Document;
 use App\Module\SiteReview\Command\CommentNotFound;
 use App\Module\SiteReview\Command\NewAnchor;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
@@ -142,6 +147,61 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
         self::assertSame(0, $this->rows('site_review_comments', $project));
     }
 
+    public function test_a_created_card_someone_wrote_a_body_for_stays(): void
+    {
+        $project = $this->project('delete-feedback-body');
+        $link = $this->addNote($project);
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_cards SET body = ? WHERE id = ?',
+            ['Repro: resize to 1280px.', (string) $link->card->id],
+        );
+
+        $this->assertCardStays($project, $link);
+    }
+
+    public function test_a_created_card_with_a_pull_request_stays(): void
+    {
+        $project = $this->project('delete-feedback-pull-request');
+        $link = $this->addNote($project);
+        $this->em->persist(new CardPullRequest($link->card, 'https://example.com/pr/1'));
+        $this->em->flush();
+
+        $this->assertCardStays($project, $link);
+    }
+
+    public function test_a_created_card_with_a_document_stays(): void
+    {
+        $project = $this->project('delete-feedback-document');
+        $link = $this->addNote($project);
+        $this->em->persist($document = new Document($project->owner, $project, 'The design'));
+        $this->em->persist(new CardDocument($link->card, $document));
+        $this->em->flush();
+
+        $this->assertCardStays($project, $link);
+    }
+
+    public function test_a_created_card_that_links_to_another_card_stays(): void
+    {
+        $project = $this->project('delete-feedback-link-out');
+        $other = $this->card($project, 'backlog');
+        $link = $this->addNote($project);
+        $this->em->persist(new CardLink($link->card, $other, CardLinkKind::Blocks));
+        $this->em->flush();
+
+        $this->assertCardStays($project, $link, cards: 2);
+    }
+
+    public function test_a_created_card_that_another_card_links_to_stays(): void
+    {
+        $project = $this->project('delete-feedback-link-in');
+        $other = $this->card($project, 'backlog');
+        $link = $this->addNote($project);
+        $this->em->persist(new CardLink($other, $link->card, CardLinkKind::RelatesTo));
+        $this->em->flush();
+
+        $this->assertCardStays($project, $link, cards: 2);
+    }
+
     public function test_a_note_saved_with_no_card_is_deleted_alone(): void
     {
         $project = $this->project('delete-feedback-unlinked');
@@ -228,6 +288,14 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
         }
 
         self::assertTrue($this->em->isOpen(), 'A refusal must not close the EntityManager.');
+    }
+
+    private function assertCardStays(Project $project, CardSiteReviewComment $link, int $cards = 1): void
+    {
+        self::assertFalse(($this->handler)($this->command($project, $link)));
+
+        self::assertSame($cards, $this->rows('board_cards', $project));
+        self::assertSame(0, $this->rows('site_review_comments', $project));
     }
 
     private function command(Project $project, CardSiteReviewComment $link): DeleteFeedbackCommand
