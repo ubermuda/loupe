@@ -46,25 +46,27 @@ Addressed review <id>: <what changed, commits>'
 
 ## Read the checks
 
-Wait for the checks in the foreground, with a Bash timeout of 600000. Never start this wait as a background command. Put the gated SHA in place of `<sha>`:
+Wait for the checks in the foreground, with a Bash timeout of 600000. Never start this wait as a background command. Put the gated SHA in place of `<sha>`, and the number of required checks in place of `<required>`:
 
 ```bash
 f="${TMPDIR:-/tmp}/loupe-ci-wait-<sha>"; [ -s "$f" ] || echo $(( $(date +%s) + 3600 )) > "$f"
 for i in $(seq 1 9); do
   if [ "$(date +%s)" -ge "$(cat "$f")" ]; then b=timeout; break; fi
-  if ! b=$(gh pr checks <url> --required --json bucket -q '[.[].bucket]|unique|join(",")' 2>&1); then
-    case "$b" in *"no checks reported"*|*"no required checks reported"*) b= ;; *) b="error: $b"; break ;; esac
-  fi
-  case ",$b," in *,fail,*|*,cancel,*) break ;; ,,|*,pending,*) sleep 60 ;; *) break ;; esac
-done; echo "buckets: ${b:-none}"
+  o=$(gh pr checks <url> --required --json bucket -q '([.[].bucket]|unique|join(",")) + " " + (length|tostring)' 2>&1)
+  if printf '%s\n' "$o" | grep -Eqx '((pass|fail|pending|skipping|cancel),?)+ [0-9]+'; then b=${o% *} n=${o##* }
+  elif [ "$o" = " 0" ] || printf '%s\n' "$o" | grep -Eqi 'no (required )?checks reported'; then b=none n=0
+  else b="error: $o"; break; fi
+  case ",$b," in *,fail,*|*,cancel,*) break ;; *,pending,*|,none,) sleep 60 ;; *) [ "$n" -ge <required> ] && break; sleep 60 ;; esac
+done; echo "buckets: $b checks: ${n:-0}/<required>"
 ```
 
-One call waits about nine minutes at most. The file holds a deadline 60 minutes after the first call for that SHA, so repeated calls share one limit. `none` means that no check exists yet.
+One call waits about nine minutes at most. The file holds a deadline 60 minutes after the first call for that SHA, so repeated calls share one limit.
 
-- `pending` or `none`: run the loop again.
-- `timeout`: the wait timed out. Record a block.
+- `fail` or `cancel` in the list: a check failed. Read its log.
+- `timeout`: the wait timed out. Record a block. A `CONFLICTING` pull request runs no checks, so it ends here too.
 - `error:`: `gh` failed. Read the message, then fix the cause or record a block.
-- Any other list: every check concluded. It stops early on the first failed or cancelled check.
+- Every required check present, with no `pending`: the checks concluded. Count them as below.
+- Anything else: `pending`, `none`, or fewer checks than required. Run the loop again.
 
 Then read the head again, and count the checks:
 
