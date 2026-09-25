@@ -152,6 +152,10 @@ type fakeLoupe struct {
 	heartbeatStatus int
 	// heartbeatFailures answers that many first heartbeats with a 502.
 	heartbeatFailures int
+	// hubDelay holds each hub connection back, and heartbeatsAtHub counts the
+	// heartbeats that arrived before the last one went through.
+	hubDelay        time.Duration
+	heartbeatsAtHub int
 }
 
 const (
@@ -185,7 +189,11 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.hubAuth = append(f.hubAuth, r.Header.Get("Authorization"))
 		f.hubTopics = append(f.hubTopics, r.URL.Query()["topic"])
-		attempt := len(f.hubAuth)
+		attempt, delay := len(f.hubAuth), f.hubDelay
+		f.mu.Unlock()
+		time.Sleep(delay)
+		f.mu.Lock()
+		f.heartbeatsAtHub = len(f.heartbeats)
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)

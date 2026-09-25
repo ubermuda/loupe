@@ -630,3 +630,31 @@ func TestAResumedBridgeRetriesAFailedFirstHeartbeat(t *testing.T) {
 		t.Fatalf("exec calls = %d, log = %s", len(calls()), out.String())
 	}
 }
+
+func TestAResumedBridgeRetriesItsHeartbeatWhileTheStreamConnects(t *testing.T) {
+	injectVersion(t, "1.2.0")
+	fake, rulesPath := resumeHome(t)
+	fake.flags = `{"bridge.heartbeat_interval_seconds":3600}`
+	fake.heartbeatFailures = 1
+	fake.hubDelay = 500 * time.Millisecond
+	captureExecFn(t)
+	oldTimeout, oldRetry := healthTimeout, healthBeatRetry
+	healthTimeout, healthBeatRetry = 3*time.Second, 50*time.Millisecond
+	t.Cleanup(func() { healthTimeout, healthBeatRetry = oldTimeout, oldRetry })
+	file := handedBridge(t, rulesPath, handoverState{OldVersion: "1.0.0", OldBinary: filepath.Join(t.TempDir(), "loupe")})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done, out := runCommand(ctx, "--rules", rulesPath, "--resume-handover", file, "--log-file", filepath.Join(t.TempDir(), "bridge.log"))
+	eventually(t, "the health verdict", func() bool { return logged(out, "update_applied") || logged(out, "update_unhealthy") })
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if fake.heartbeatsAtHub < 2 {
+		t.Fatalf("heartbeats before the stream connected = %d, want a retry", fake.heartbeatsAtHub)
+	}
+}

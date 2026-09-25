@@ -195,6 +195,15 @@ func (b *bridgeUpdate) adoptInto(r *router) {
 	b.adopted.Store(true)
 }
 
+func isClosed(ch <-chan struct{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+		return false
+	}
+}
+
 // watchHealth waits for the stream to connect and for a heartbeat to land. A
 // resumed image that gets neither in time hands back to the image before it.
 // The updater starts after, so no update starts before the health is known.
@@ -222,7 +231,7 @@ func (b *bridgeUpdate) watchHealth(ctx context.Context, r *router, updates *upda
 				case <-ch:
 					waiting = false
 				case <-retry.C:
-					if r.heartbeat != nil && ch == b.beat {
+					if r.heartbeat != nil && !isClosed(b.beat) {
 						r.heartbeat.send()
 					}
 				case <-ctx.Done():
