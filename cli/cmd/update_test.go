@@ -333,6 +333,39 @@ func TestUpdateWithRulesFindsTheBridgeAfterItsSymlinkIsRepointed(t *testing.T) {
 	}
 }
 
+func TestUpdateWithRulesPrefersTheBridgeOnTheSocketOfTheRepointedSymlink(t *testing.T) {
+	shortConfigHome(t)
+	dir := t.TempDir()
+	first, second, link := filepath.Join(dir, "first.yaml"), filepath.Join(dir, "second.yaml"), filepath.Join(dir, "rules.yaml")
+	for _, p := range []string{first, second} {
+		if err := os.WriteFile(p, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(first, link); err != nil {
+		t.Fatal(err)
+	}
+	serveUpdateTest(t, link, func(context.Context, func(updateResult)) updateResult {
+		return updateResult{OK: true, From: "1.0.0", Outcome: "current"}
+	})
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(second, link); err != nil {
+		t.Fatal(err)
+	}
+	serveUpdateTest(t, second, func(context.Context, func(updateResult)) updateResult {
+		t.Error("the bridge on the new target was asked")
+
+		return updateResult{}
+	})
+
+	out, err := updateCmd(t, noSelfUpdate(t), "--rules", link)
+	if err != nil || out != link+": current at 1.0.0\n" {
+		t.Fatalf("err = %v, out = %q", err, out)
+	}
+}
+
 func TestUpdateWithRulesFindsTheBridgeThroughASymlinkToItsFile(t *testing.T) {
 	shortConfigHome(t)
 	dir := t.TempDir()

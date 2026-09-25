@@ -138,19 +138,49 @@ func orDev(v string) string {
 // runningBridges finds the bridges whose lock is held, from the lock files in
 // the config directory. Each lock file holds the socket of its bridge. A bridge
 // in a reload can hold two lock files that name one socket. With rulesPath, it
-// keeps the bridge that holds the lock of the resolved file, or that listens on
-// the socket of the path as given, which a repointed symlink keeps.
+// keeps one bridge: the one on the socket of the path as given, which a
+// repointed symlink keeps, or else the one on the lock of the resolved file.
 func runningBridges(rulesPath string) ([]runningBridge, error) {
-	wantSock, wantLock := "", ""
-	if rulesPath != "" {
-		var err error
-		if wantSock, err = socketPath(rulesPath); err != nil {
-			return nil, err
+	all, err := heldBridges()
+	if err != nil {
+		return nil, err
+	}
+	if rulesPath == "" {
+		bridges := make([]runningBridge, 0, len(all))
+		for _, b := range all {
+			bridges = append(bridges, runningBridge{name: b.sock, sock: b.sock})
 		}
-		if wantLock, err = lockPath(rulesPath); err != nil {
-			return nil, err
+
+		return bridges, nil
+	}
+	wantSock, err := socketPath(rulesPath)
+	if err != nil {
+		return nil, err
+	}
+	wantLock, err := lockPath(rulesPath)
+	if err != nil {
+		return nil, err
+	}
+	for _, match := range []func(heldBridge) bool{
+		func(b heldBridge) bool { return b.sock == wantSock },
+		func(b heldBridge) bool { return slices.Contains(b.locks, wantLock) },
+	} {
+		if i := slices.IndexFunc(all, match); i >= 0 {
+			return []runningBridge{{name: absOr(rulesPath), sock: all[i].sock}}, nil
 		}
 	}
+
+	return nil, nil
+}
+
+// heldBridge is a running bridge, with each lock file that names its socket.
+type heldBridge struct {
+	sock  string
+	locks []string
+}
+
+// heldBridges lists the running bridges, named by their socket.
+func heldBridges() ([]heldBridge, error) {
 	dir, err := config.Dir()
 	if err != nil {
 		return nil, err
@@ -160,20 +190,21 @@ func runningBridges(rulesPath string) ([]runningBridge, error) {
 		return nil, err
 	}
 
-	var bridges []runningBridge
+	var bridges []heldBridge
 	for _, path := range locks {
 		sock, err := lockHolder(path)
 		if err != nil {
 			return nil, err
 		}
-		if sock == "" || (rulesPath != "" && sock != wantSock && path != wantLock) || slices.ContainsFunc(bridges, func(b runningBridge) bool { return b.sock == sock }) {
+		if sock == "" {
 			continue
 		}
-		name := sock
-		if rulesPath != "" {
-			name = absOr(rulesPath)
+		if i := slices.IndexFunc(bridges, func(b heldBridge) bool { return b.sock == sock }); i >= 0 {
+			bridges[i].locks = append(bridges[i].locks, path)
+
+			continue
 		}
-		bridges = append(bridges, runningBridge{name: name, sock: sock})
+		bridges = append(bridges, heldBridge{sock: sock, locks: []string{path}})
 	}
 
 	return bridges, nil
