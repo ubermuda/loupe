@@ -6,8 +6,10 @@ namespace App\Module\SiteReview\Command;
 
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\SiteReview\Event\SiteReviewCommentStatusChanged;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -22,6 +24,7 @@ final readonly class MarkSiteReviewCommentsAddressedHandler
         private SiteReviewCommentRepository $siteReviewComments,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -80,6 +83,13 @@ final readonly class MarkSiteReviewCommentsAddressedHandler
                 ],
                 new AuditSubject('site_review_comment', (string) $comment->id),
             );
+
+            if (MarkSiteReviewCommentAddressedOutcome::Addressed === $outcome) {
+                $this->events->dispatch(new SiteReviewCommentStatusChanged(
+                    $comment->project->id ?? throw new \LogicException('Project has no id.'),
+                    $comment->id ?? throw new \LogicException('Comment has no id.'),
+                ));
+            }
         }
 
         return $outcomes;

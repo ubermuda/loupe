@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -179,6 +180,15 @@ final readonly class UpdateCardHandler
             || null !== $command->pullRequestUrls
             || null !== $command->documentIds
             || null !== $command->relatedCards;
+
+        if ($changedSomething || null !== $outcome->move) {
+            $this->events->dispatch(new CardChanged(
+                $card->project->id ?? throw new \LogicException('Project has no id.'),
+                $card->id ?? throw new \LogicException('Card has no id.'),
+                CardChanged::UPDATED,
+                $outcome->titleChanged || $outcome->bodyChanged,
+            ));
+        }
 
         if (!$changedSomething) {
             return $card;

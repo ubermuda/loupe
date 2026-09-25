@@ -24,6 +24,7 @@ use App\Tests\Support\SilentAuditor;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final class CardOrderingTest extends KernelTestCase
 {
@@ -63,7 +64,7 @@ final class CardOrderingTest extends KernelTestCase
 
         // Built by hand rather than fetched: nothing injects the delete handler
         // until the board has a controller, so the container inlines it away.
-        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), $this->em, SilentAuditor::create());
+        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), $this->em, SilentAuditor::create(), new EventDispatcher());
 
         $owner = new User(fullName: 'Riley', email: 'board-ordering-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);

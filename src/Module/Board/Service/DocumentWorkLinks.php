@@ -7,12 +7,14 @@ namespace App\Module\Board\Service;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\DocumentWorkLinksInterface;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
 #[AsAlias(DocumentWorkLinksInterface::class)]
@@ -23,6 +25,7 @@ final readonly class DocumentWorkLinks implements DocumentWorkLinksInterface
         private CardDocumentRepository $cardDocuments,
         private BoardAvailability $board,
         private EntityManagerInterface $em,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -105,6 +108,7 @@ final readonly class DocumentWorkLinks implements DocumentWorkLinksInterface
                 $link->card->documents->removeElement($link);
                 $link->card->updatedAt = new \DateTimeImmutable();
                 $this->em->remove($link);
+                $this->cardChanged($link->card);
             }
         }
         foreach ($wanted as $card) {
@@ -112,6 +116,17 @@ final readonly class DocumentWorkLinks implements DocumentWorkLinksInterface
             $card->documents->add($link);
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->persist($link);
+            $this->cardChanged($card);
         }
+    }
+
+    private function cardChanged(Card $card): void
+    {
+        $this->events->dispatch(new CardChanged(
+            $card->project->id ?? throw new \LogicException('Project has no id.'),
+            $card->id ?? throw new \LogicException('Card has no id.'),
+            CardChanged::UPDATED,
+            false,
+        ));
     }
 }
