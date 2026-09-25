@@ -348,7 +348,7 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
     {
         $delete = self::getContainer()->get(DeleteCardHandler::class);
         self::assertInstanceOf(DeleteCardHandler::class, $delete);
-        $delete(new DeleteCardCommand($this->reload($card)));
+        $delete(new DeleteCardCommand($this->reload($card), CardReporter::Human));
         $this->em->clear();
     }
 
