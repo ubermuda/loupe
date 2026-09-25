@@ -448,6 +448,29 @@ test('a card per note names the card each note became', async ({ page }) => {
     );
 });
 
+test('the mode comes before the first pick', async ({ page }) => {
+    await openHarness(page, null);
+    await page.getByRole('button', { name: 'Review' }).click();
+    const panel = page.locator('#lp-panel');
+    const pickToast = page.locator('#lp-toast');
+    await panel.getByRole('button', { name: 'Pick element' }).click();
+
+    // Pick mode waits for the choice of where notes go.
+    const picker = page.locator('#lp-picker');
+    await expect(picker).toBeVisible();
+    await expect(pickToast).toBeHidden();
+    await picker
+        .getByRole('button', { name: 'A new card for each note' })
+        .click();
+    await expect(picker).toBeHidden();
+
+    await panel.getByRole('button', { name: 'Pick element' }).click();
+    await expect(pickToast).toBeVisible();
+    await page.locator('#target-me').click();
+    await expect(page.getByPlaceholder(/Describe the issue/)).toBeVisible();
+    await expect(picker).toBeHidden();
+});
+
 test('epic mode files each note as a card under the epic', async ({ page }) => {
     await openHarness(page, null);
     await page.getByRole('button', { name: 'Review' }).click();

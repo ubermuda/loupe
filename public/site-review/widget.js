@@ -3206,6 +3206,21 @@
         sync();
         focusTextarea();
     };
+    // Where notes go is the first choice of a review, so a start that would
+    // pick or draw opens the composer and its mode picker instead.
+    const needsMode = () => !lock && feedbackAvailable && !storedTarget;
+    const askModeFirst = () => {
+        if (!needsMode()) return false;
+        if (state.composing && state.editId == null) {
+            state.open = true;
+            setTargeting(false);
+            setDrawing(false);
+            sync();
+        } else {
+            openNoteComposer();
+        }
+        return true;
+    };
     const toggleNote = () => {
         const ct = state.composeTarget || {};
         if (state.composing && ct.type === 'general') {
@@ -3434,6 +3449,7 @@
             return;
         }
         if (state.editId != null) return;
+        if (askModeFirst()) return;
         if (!state.composing) {
             // Same reason as the other two entry points: a new comment must be
             // attached to the card this page names, not the last one.
@@ -3529,7 +3545,8 @@
             state.fatal ||
             !state.composing ||
             state.editId != null ||
-            hidden.matches
+            hidden.matches ||
+            needsMode()
         )
             return;
         // A modifier held while drawing belongs to the drag, not to the picker.
@@ -4137,12 +4154,15 @@
     const toggleTarget = () => {
         if (state.fatal) return;
         const on = !state.target;
+        if (on && askModeFirst()) return;
         // Picking while a new comment is open adds to it. Discarding the draft
         // there would lose the body, the anchors already chosen and the drawing.
         const extending =
             state.composing &&
             state.editId == null &&
-            (composeAnchors().length > 0 || state.strokes.length > 0);
+            (composeAnchors().length > 0 ||
+                state.strokes.length > 0 ||
+                state.draft.trim() !== '');
         if (on && !extending) {
             state.composing = false;
             state.composeTarget = null;

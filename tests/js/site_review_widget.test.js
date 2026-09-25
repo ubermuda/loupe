@@ -77,6 +77,20 @@ const targetText = (root) =>
 
 const CARD = '01a0cafe-0000-7000-8000-000000000001';
 
+/** Draw mode marks the overlay, which lives in a shadow root of its own. */
+const drawing = () =>
+    [...document.documentElement.children]
+        .filter((element) => element.shadowRoot)
+        .some((element) => element.shadowRoot.querySelector('.lp-ov.drawing'));
+
+/** Pick mode shows itself as a crosshair stylesheet on the page. */
+const picking = () =>
+    [...document.documentElement.children].some(
+        (element) =>
+            element.tagName === 'STYLE' &&
+            element.textContent.includes('crosshair'),
+    );
+
 describe('the mode', () => {
     it('is asked for before the first note, and the draft is kept', async () => {
         const fetchMock = bootWidget({
@@ -100,6 +114,85 @@ describe('the mode', () => {
         expect(fetchMock.mock.calls[0][0]).toBe(
             `${BACKEND}/api/site-review/review`,
         );
+    });
+
+    it('comes before pick mode and draw mode', async () => {
+        bootWidget({
+            respond: () =>
+                ok({ comments: [], context: null, drawingEnabled: true }),
+        });
+        await settle();
+        const root = panelRoot();
+        root.getElementById('lp-launch-main').click();
+
+        for (const action of ['target', 'draw']) {
+            root.getElementById(action).click();
+            await settle();
+
+            expect(root.getElementById('lp-picker').style.display).toBe(
+                'block',
+            );
+            expect(picking()).toBe(false);
+            expect(drawing()).toBe(false);
+        }
+    });
+
+    /** Clicks Element and reports whether pick mode started, then leaves it. */
+    async function pickStarts(root, { open = true } = {}) {
+        if (open) root.getElementById('lp-launch-main').click();
+        root.getElementById('target').click();
+        await settle();
+        const started = picking();
+        document.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+        );
+        await settle();
+
+        return started;
+    }
+
+    it('keeps a draft typed before the choice when picking starts', async () => {
+        bootWidget({ respond: () => ok({ comments: [], context: null }) });
+        await settle();
+        const root = panelRoot();
+        root.getElementById('lp-launch-main').click();
+        root.getElementById('target').click();
+        await write(root, 'The footer links are grey on grey');
+        root.querySelector('[data-mode="per-note"]').click();
+        await settle();
+
+        expect(await pickStarts(root, { open: false })).toBe(true);
+        expect(root.getElementById('lp-textarea').value).toBe(
+            'The footer links are grey on grey',
+        );
+    });
+
+    it('is not asked again once it is stored', async () => {
+        bootWidget({
+            mode: { mode: 'per-note', cardId: null },
+            respond: () => ok({ comments: [], context: null }),
+        });
+        await settle();
+        const root = panelRoot();
+
+        expect(await pickStarts(root)).toBe(true);
+        expect(root.getElementById('lp-picker').style.display).toBe('none');
+    });
+
+    it('is not asked on a preview page that names its card', async () => {
+        bootWidget({
+            context: `card:${CARD}`,
+            respond: () =>
+                ok({
+                    comments: [],
+                    context: { label: '#7 Preview card', url: null },
+                }),
+        });
+        await settle();
+        const root = panelRoot();
+
+        expect(await pickStarts(root)).toBe(true);
+        expect(root.getElementById('lp-picker').style.display).toBe('none');
     });
 
     it('per note sends a new card and names the card it became', async () => {
@@ -800,7 +893,10 @@ describe('the quote offer', () => {
     });
 
     it('survives an event that lands while pick mode owns the pointer', async () => {
-        bootWidget({ respond: () => ok({ comments: [] }) });
+        bootWidget({
+            mode: { mode: 'per-note', cardId: null },
+            respond: () => ok({ comments: [] }),
+        });
         await settle();
         openPanel();
         await selectTextIn(document.body);
