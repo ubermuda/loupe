@@ -40,6 +40,10 @@ class CardSiteReviewComment
         #[ORM\ManyToOne(targetEntity: SiteReviewComment::class)]
         public readonly SiteReviewComment $comment,
 
+        /** Whether the comment's save created the card, rather than landing on one that existed. */
+        #[ORM\Column(options: ['default' => false])]
+        public readonly bool $createdCard = false,
+
         #[ORM\Column]
         public readonly \DateTimeImmutable $linkedAt = new \DateTimeImmutable(),
     ) {
