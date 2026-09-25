@@ -136,7 +136,6 @@ export default defineConfig({
             { slug: 'contributing/architectural-priorities' },
             { slug: 'contributing/worktrees' },
             { slug: 'contributing/lifecycle' },
-            { label: 'Decision records', collapsed: true, autogenerate: { directory: 'adr' } },
           ],
         },
         { label: 'Troubleshooting', slug: 'troubleshooting' },
