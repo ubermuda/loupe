@@ -46,7 +46,11 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         self::assertSame('/mercure/authorize', $page->attr('action'));
         self::assertSame([$boardTopic, $runTopic], $page->filter('input[data-mercure-topic]')->each(static fn ($input): ?string => $input->attr('value')));
 
-        self::assertCount(1, $crawler->filter('[data-controller="board-refresh"] turbo-frame#board-frame[target="_top"] #board'));
+        self::assertCount(1, $crawler->filter('[data-controller~="board-refresh"][data-controller~="board-live"] turbo-frame#board-frame[target="_top"][refresh="morph"]:not([src]) #board'));
+        $live = $crawler->filter('[data-controller~="board-live"]');
+        $placeholder = (string) $live->attr('data-board-live-placeholder-value');
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$placeholder.'/placement', $live->attr('data-board-live-placement-value'));
+        self::assertCount(1, $crawler->filter('#board-toolbar-'.$project->id.'[data-turbo-permanent] [data-board-live-target="paused"][role="status"][hidden]'));
     }
 
     /** The workshop hosts the card drawer too, and the drawer's run list reloads on this topic. */

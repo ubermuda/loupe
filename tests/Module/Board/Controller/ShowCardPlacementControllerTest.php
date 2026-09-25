@@ -140,6 +140,59 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertSame(0, $this->counts($content)[(string) $done->id]);
     }
 
+    public function test_the_stream_carries_the_history_link_of_each_terminal_column(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-history@example.com');
+        $project = $this->project($em, $owner);
+        $this->card($em, $project, 'Finished before', 'done');
+        $moved = $this->card($em, $project, 'Just finished', 'done');
+        $done = $this->column($project, 'done');
+        $next = $this->column($project, 'next');
+        $url = $this->placementUrl((string) $project->id, (string) $moved->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $history = $this->history((string) $client->getResponse()->getContent());
+        self::assertSame(['See all 2 finished cards'], array_values($history));
+        self::assertArrayHasKey((string) $done->id, $history);
+        self::assertArrayNotHasKey((string) $next->id, $history);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        self::assertSame('See all 2 finished cards', trim($crawler->filter('#board-history-'.$done->id)->text()));
+    }
+
+    public function test_a_card_of_another_project_gets_a_removal_through_this_project(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $member = $this->user($em, 'placement-cross-member@example.com');
+        $stranger = $this->user($em, 'placement-cross-stranger@example.com');
+        $mine = $this->project($em, $member);
+        $theirs = $this->project($em, $stranger, 'their-app');
+        $foreign = $this->card($em, $theirs, 'Their secret plan', 'next');
+        $url = $this->placementUrl((string) $mine->id, (string) $foreign->id);
+        $em->clear();
+
+        $client->loginUser($member);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('action="board-place" target="board-card-'.$foreign->id.'"', $content);
+        self::assertStringContainsString('data-removed="1"', $content);
+        self::assertStringNotContainsString('Their secret plan', $content);
+        self::assertStringNotContainsString('lp-board-card"', $content);
+    }
+
     public function test_the_placement_is_not_found_while_the_board_is_off(): void
     {
         $client = static::createClient();
@@ -204,5 +257,16 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         /* @var array<string, int> $counts */
         return $counts;
+    }
+
+    /** @return array<string, string> */
+    private function history(string $content): array
+    {
+        self::assertSame(1, preg_match('/data-history="([^"]*)"/', $content, $match));
+        $history = json_decode(html_entity_decode($match[1] ?? ''), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($history);
+
+        /* @var array<string, string> $history */
+        return $history;
     }
 }

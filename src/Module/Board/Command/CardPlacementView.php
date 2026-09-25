@@ -21,6 +21,8 @@ final readonly class CardPlacementView
         public int $pendingComments,
         /** @var array<string, int> column id => the number of cards the column shows */
         public array $counts,
+        /** @var array<string, int> terminal column id => every card the column holds */
+        public array $terminalTotals,
     ) {
     }
 }

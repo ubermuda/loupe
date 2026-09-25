@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
 
@@ -13,6 +14,7 @@ final readonly class ShowCardPlacementHandler
     public function __construct(
         private BoardColumnRepository $boardColumns,
         private BoardColumnCards $columnCards,
+        private CardRepository $cards,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
     ) {
     }
@@ -21,6 +23,7 @@ final readonly class ShowCardPlacementHandler
     {
         $cardId = null === $command->card ? null : (string) $command->card->id;
         $counts = [];
+        $terminalTotals = [];
         $found = null;
         $column = null;
         $after = null;
@@ -32,6 +35,9 @@ final readonly class ShowCardPlacementHandler
         foreach ($this->boardColumns->findForProject($command->project) as $boardColumn) {
             $shown = $this->columnCards->shown($boardColumn);
             $counts[(string) $boardColumn->id] = \count($shown);
+            if ($boardColumn->terminal) {
+                $terminalTotals[(string) $boardColumn->id] = $this->cards->countInColumn($boardColumn);
+            }
 
             $previousInColumn = null;
             foreach ($shown as $card) {
@@ -46,6 +52,6 @@ final readonly class ShowCardPlacementHandler
 
         $pending = null === $found ? 0 : ($this->cardSiteReviewComments->pendingCountsForProject($command->project)[(string) $found->id] ?? 0);
 
-        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $counts);
+        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $counts, $terminalTotals);
     }
 }

@@ -3,6 +3,32 @@ import { Controller } from '@hotwired/stimulus';
 export default class extends Controller {
     static targets = ['query', 'card', 'row', 'count', 'empty'];
 
+    cardTargetConnected() {
+        this.#scheduleFilter();
+    }
+
+    rowTargetConnected() {
+        this.#scheduleFilter();
+    }
+
+    /** One pass for all the targets that connect together, such as a whole board. */
+    #scheduleFilter() {
+        if (this.filterScheduled) {
+            return;
+        }
+        this.filterScheduled = true;
+        queueMicrotask(() => {
+            this.filterScheduled = false;
+            if (
+                this.hasQueryTarget &&
+                this.hasCountTarget &&
+                this.hasEmptyTarget
+            ) {
+                this.filter();
+            }
+        });
+    }
+
     revealField(event) {
         event.target.scrollIntoView({
             block: 'nearest',

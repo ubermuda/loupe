@@ -85,6 +85,11 @@ export default class extends Controller {
         };
 
         this.element.addEventListener('click', this.onClick, true);
+        this.markReady();
+    }
+
+    /** A frame morph drops attributes the server did not render, this one included. */
+    markReady() {
         this.element.dataset.boardDragReady = 'true';
     }
 

@@ -3,6 +3,17 @@ import { Controller } from '@hotwired/stimulus';
 export default class extends Controller {
     static targets = ['board', 'list', 'boardButton', 'listButton'];
 
+    connect() {
+        this.restore();
+    }
+
+    /** The mode buttons sit in a kept toolbar, so they remember the view a render resets. */
+    restore() {
+        const list =
+            this.listButtonTarget.getAttribute('aria-pressed') === 'true';
+        this.#show(list ? 'list' : 'board');
+    }
+
     showBoard() {
         this.#show('board');
     }

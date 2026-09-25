@@ -21,6 +21,7 @@ function renderBoard() {
         </section>
         <section id="board-column-${NEXT}"><span id="board-count-${NEXT}">1</span>
             <div class="lp-board__group" id="board-group-${NEXT}">${card('c', NEXT)}</div>
+            <a id="board-history-${NEXT}">See the one finished card</a>
         </section>
         <div class="lp-board-list">
             <div class="lp-board-list__header"></div>
@@ -35,6 +36,7 @@ function stream({
     after = '',
     rowAfter = '',
     counts,
+    history = {},
     title = id,
     removed = false,
 }) {
@@ -45,7 +47,7 @@ function stream({
     const body = removed
         ? ''
         : card(id, column, title, 'bbb') + row(id, column, title);
-    holder.innerHTML = `<turbo-stream action="board-place" target="board-card-${id}" data-counts='${JSON.stringify(counts)}' ${placement}><template>${body}</template></turbo-stream>`;
+    holder.innerHTML = `<turbo-stream action="board-place" target="board-card-${id}" data-counts='${JSON.stringify(counts)}' data-history='${JSON.stringify(history)}' ${placement}><template>${body}</template></turbo-stream>`;
 
     return holder.firstElementChild;
 }
@@ -160,6 +162,38 @@ describe('board-place', () => {
             cardId: 'a',
             removed: true,
         });
+    });
+
+    it('updates the history link of a terminal column when a card enters it', () => {
+        placeCard(
+            stream({
+                id: 'a',
+                column: NEXT,
+                after: 'c',
+                rowAfter: 'c',
+                counts: { [BACKLOG]: 1, [NEXT]: 2 },
+                history: { [NEXT]: 'See all 2 finished cards' },
+            }),
+        );
+
+        expect(
+            document.getElementById(`board-history-${NEXT}`).textContent,
+        ).toBe('See all 2 finished cards');
+    });
+
+    it('updates the history link when a card leaves the board', () => {
+        placeCard(
+            stream({
+                id: 'c',
+                removed: true,
+                counts: { [BACKLOG]: 2, [NEXT]: 0 },
+                history: { [NEXT]: 'No card is finished yet' },
+            }),
+        );
+
+        expect(
+            document.getElementById(`board-history-${NEXT}`).textContent,
+        ).toBe('No card is finished yet');
     });
 
     it('changes nothing and reports a miss when the column is not on the page', () => {

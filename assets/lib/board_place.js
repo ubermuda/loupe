@@ -11,11 +11,13 @@ import { StreamActions, morphElements } from '@hotwired/turbo';
 export function placeCard(stream) {
     const cardId = stream.getAttribute('target').replace(/^board-card-/, '');
     const counts = JSON.parse(stream.dataset.counts || '{}');
+    const history = JSON.parse(stream.dataset.history || '{}');
 
     if (stream.hasAttribute('data-removed')) {
         document.getElementById(`board-card-${cardId}`)?.remove();
         document.getElementById(`board-row-${cardId}`)?.remove();
-        updateCounts(counts);
+        updateTexts('board-count-', counts);
+        updateTexts('board-history-', history);
         document.dispatchEvent(
             new CustomEvent('board:placed', {
                 detail: { cardId, removed: true },
@@ -58,7 +60,8 @@ export function placeCard(stream) {
         content.querySelector('.lp-board-list__row'),
         (node) => (rowAnchor ? rowAnchor.after(node) : list.prepend(node)),
     );
-    updateCounts(counts);
+    updateTexts('board-count-', counts);
+    updateTexts('board-history-', history);
 
     document.getElementById(`board-card-${cardId}`).dispatchEvent(
         new CustomEvent('board:placed', {
@@ -88,11 +91,12 @@ function place(id, fresh, insert) {
     morphElements(current, fresh);
 }
 
-function updateCounts(counts) {
-    Object.entries(counts).forEach(([columnId, count]) => {
-        const element = document.getElementById(`board-count-${columnId}`);
+/** Writes each column's value into the element `prefix + columnId`, when the page has it. */
+function updateTexts(prefix, byColumn) {
+    Object.entries(byColumn).forEach(([columnId, text]) => {
+        const element = document.getElementById(prefix + columnId);
         if (element) {
-            element.textContent = String(count);
+            element.textContent = String(text);
         }
     });
 }

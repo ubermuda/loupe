@@ -780,6 +780,13 @@
     .lp-board-toolbar__count {
         @apply ml-auto text-sm font-semibold text-fg-dim;
     }
+    /* Says the board no longer receives changes from others. Hidden while live. */
+    .lp-board-toolbar__paused {
+        @apply m-0 rounded-md bg-status-pending-bg px-2 py-1 text-sm font-semibold text-status-pending-deep;
+    }
+    .lp-board-toolbar__paused[hidden] {
+        @apply hidden;
+    }
     .lp-board-filter-empty {
         @apply m-0 rounded-lg bg-surface-2 px-4 py-3 text-sm text-fg-mute;
     }
@@ -5688,6 +5695,11 @@
     .lp-board-card--dragging {
         @apply fixed z-50 pointer-events-none shadow-lg opacity-90;
     }
+    /* Marks a card another person just changed. The controller removes it. */
+    .lp-board-card--flash {
+        @apply outline-2 outline-offset-2;
+        animation: lp-board-card-changed 1500ms ease-out both;
+    }
     .lp-board-card__grip {
         @apply absolute top-2 right-2 touch-none text-fg-faint;
     }
@@ -6234,6 +6246,15 @@
     }
 }
 
+@keyframes lp-board-card-changed {
+    from {
+        outline-color: var(--color-accent);
+    }
+    to {
+        outline-color: transparent;
+    }
+}
+
 @keyframes lp-tab-countdown {
     from {
         transform: scaleX(0);
@@ -6259,6 +6280,11 @@
     }
 
     .lp-demo-widget-hint {
+        animation: none;
+    }
+
+    .lp-board-card--flash {
+        @apply outline-accent;
         animation: none;
     }
 
