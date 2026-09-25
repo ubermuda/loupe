@@ -250,16 +250,6 @@ when@test:
             autowire: true
             public: true
 
-        App\Module\SiteReview\Mcp\SiteReviewGetTool:
-            autowire: true
-            autoconfigure: true
-            public: true
-
-        App\Module\SiteReview\Mcp\SiteReviewMarkCommentAddressedTool:
-            autowire: true
-            autoconfigure: true
-            public: true
-
         App\Module\Project\Service\ProjectDeleter:
             autowire: true
             public: true

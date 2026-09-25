@@ -113,8 +113,6 @@ final class McpEndpointAuthTest extends WebTestCase
             'project_current',
             'series_list',
             'series_rename',
-            'site_review_get',
-            'site_review_mark_comment_addressed',
             'tag_list',
         ], $this->listToolNames($client, $raw));
     }

@@ -2445,14 +2445,6 @@
                 <source>project.connect.tool.series_rename</source>
                 <target>Rename a series. Every document in it keeps its position.</target>
             </trans-unit>
-            <trans-unit id="project.connect.tool.site_review_get">
-                <source>project.connect.tool.site_review_get</source>
-                <target>Fetch all unaddressed site-review comments (DOM-anchored feedback captured in the browser) for the project bound to your MCP token. Address each comment, then mark it with site_review_mark_comment_addressed.</target>
-            </trans-unit>
-            <trans-unit id="project.connect.tool.site_review_mark_comment_addressed">
-                <source>project.connect.tool.site_review_mark_comment_addressed</source>
-                <target>Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by site_review_get. Comments that are unknown, already addressed, or resolved are skipped, not fatal.</target>
-            </trans-unit>
             <trans-unit id="project.connect.tool.feedback_list">
                 <source>project.connect.tool.feedback_list</source>
                 <target>List the feedback reviewers left with the site-review widget, each item with the card it belongs to. Returns the pending items by default. Fix each item, then mark it with feedback_mark_addressed.</target>

@@ -83,6 +83,42 @@ final class FeedbackMarkAddressedToolTest extends KernelTestCase
         self::assertSame(SiteReviewCommentStatus::Pending, $this->statusOf($foreign));
     }
 
+    /**
+     * A person resolves the note after the tool read it. The write goes straight
+     * to the database, so the tool's own copy still says Pending.
+     */
+    public function test_a_resolve_the_identity_map_has_not_seen_is_not_overwritten(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('feedback-mark-race');
+        $pending = $this->feedback($project, SiteReviewCommentStatus::Pending);
+        $this->em->flush();
+        $this->setStatusBehindTheTool($pending, SiteReviewCommentStatus::Resolved);
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)([(string) $pending->id]);
+
+        self::assertSame([], $result['addressed']);
+        self::assertSame([['id' => (string) $pending->id, 'reason' => 'resolved']], $result['skipped']);
+        self::assertSame(SiteReviewCommentStatus::Resolved, $this->statusOf($pending));
+    }
+
+    /** A second agent got there first, and the reason comes from the row it wrote. */
+    public function test_a_concurrent_address_is_reported_as_addressed_not_resolved(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('feedback-mark-concurrent');
+        $pending = $this->feedback($project, SiteReviewCommentStatus::Pending);
+        $this->em->flush();
+        $this->setStatusBehindTheTool($pending, SiteReviewCommentStatus::Addressed);
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)([(string) $pending->id]);
+
+        self::assertSame([], $result['addressed']);
+        self::assertSame([['id' => (string) $pending->id, 'reason' => 'already_addressed']], $result['skipped']);
+    }
+
     public function test_an_unbound_token_is_refused_even_for_an_empty_batch(): void
     {
         $this->enableBoard();
@@ -101,6 +137,15 @@ final class FeedbackMarkAddressedToolTest extends KernelTestCase
         self::assertInstanceOf(SiteReviewComment::class, $fresh);
 
         return $fresh->status;
+    }
+
+    private function setStatusBehindTheTool(SiteReviewComment $comment, SiteReviewCommentStatus $status): void
+    {
+        $this->em->createQuery('UPDATE '.SiteReviewComment::class.' c SET c.status = :status WHERE c.id = :id')
+            ->setParameter('status', $status)
+            ->setParameter('id', $comment->id, 'uuid')
+            ->execute();
+        self::assertSame(SiteReviewCommentStatus::Pending, $comment->status);
     }
 
     private function feedback(Project $project, SiteReviewCommentStatus $status): SiteReviewComment
