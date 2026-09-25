@@ -50,7 +50,9 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $live = $crawler->filter('[data-controller~="board-live"]');
         $placeholder = (string) $live->attr('data-board-live-placeholder-value');
         self::assertSame('/projects/'.$project->id.'/board/cards/'.$placeholder.'/placement', $live->attr('data-board-live-placement-value'));
-        self::assertCount(1, $crawler->filter('#board-toolbar-'.$project->id.'[data-turbo-permanent] [data-board-live-target="paused"][role="status"][hidden]'));
+        $paused = $crawler->filter('#board-toolbar-'.$project->id.'[data-turbo-permanent] [data-board-live-target="paused"][role="status"][data-message]');
+        self::assertCount(1, $paused);
+        self::assertSame('', $paused->text());
     }
 
     /** The workshop hosts the card drawer too, and the drawer's run list reloads on this topic. */
