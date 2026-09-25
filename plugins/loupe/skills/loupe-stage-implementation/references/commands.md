@@ -77,9 +77,9 @@ Then write the changelog entry that the profile `Changelog` section names, run i
 
 ## Wait for CI
 
-Keep the SHA that you gated, reviewed and pushed. First wait until checks exist for that head. The head commit of the pull request must equal that SHA. Then watch the required checks with the forge adapter, as a long command, for 60 minutes at most. The profile `Gate` section says which checks are required.
+Keep the SHA that you gated, reviewed and pushed. First wait until checks exist for that head. The head commit of the pull request must equal that SHA. Then wait for the required checks with the loop in the forge adapter, for 60 minutes at most. The profile `Gate` section says which checks are required.
 
-Poll in the foreground, one tool call at a time, as "Run a long command" in the harness adapter shows. Never end the turn to wait for a notice. The run ends with your turn, and the watch dies with it.
+Run that loop in the foreground, one tool call after another. Never start the wait as a background command, a monitor or a sub-agent. A harness can promise to notify you when a background command ends. A headless run has no next turn, so that notice never arrives. The run ends with your turn, and the wait dies with it.
 
 When the wait ends, read the head commit of the pull request again with the forge adapter. Accept green only when the head still equals the gated SHA, and every required check passes with none pending. When the head moved, sync the branch, run the gate and the code review again, and push. Read each failed log with the forge adapter.
 

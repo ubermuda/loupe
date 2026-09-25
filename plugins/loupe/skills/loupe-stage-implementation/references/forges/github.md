@@ -46,12 +46,13 @@ Addressed review <id>: <what changed, commits>'
 
 ## Read the checks
 
-Wait until checks exist for the head commit, then watch them:
+Wait for the checks in the foreground, with a Bash timeout of 600000. Never start this wait as a background command:
 
 ```bash
-gh pr view <url> --json headRefOid,statusCheckRollup
-gh pr checks <url> --required --watch --fail-fast --interval 60
+for i in $(seq 1 9); do b=$(gh pr checks <url> --required --json bucket -q '[.[].bucket]|unique|join(",")' 2>/dev/null); case ",$b," in *,fail,*|*,cancel,*) break ;; ,,|*,pending,*) sleep 60 ;; *) break ;; esac; done; echo "buckets: ${b:-none}"
 ```
+
+One loop waits about nine minutes at most. An empty list means that no check exists yet. When the loop prints `pending` or `none`, run it again. It stops early on the first failed or cancelled check.
 
 Then read the head again, and count the checks:
 
