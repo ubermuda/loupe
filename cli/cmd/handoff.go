@@ -78,7 +78,10 @@ type bridgeUpdate struct {
 	resumeFile     string
 	rolledBackFrom string
 	recovered      *handoverState
-	adopted        atomic.Bool
+	// crashedFrom is the version a recovered handover ran and this image
+	// put on the skip list.
+	crashedFrom string
+	adopted     atomic.Bool
 
 	connected, beat    chan struct{}
 	connOnce, beatOnce sync.Once
@@ -248,7 +251,7 @@ func (b *bridgeUpdate) handover(r *router, from string) stagedHook {
 
 			return stagedDeferred
 		}
-		st.OldVersion, st.OldBinary = from, b.target
+		st.OldVersion, st.OldBinary, st.NewVersion = from, b.target, to
 		b.log.Info("update_handover", "from", from, "to", to, "file", b.file, "live", len(st.Live), "queued", len(st.Queue))
 
 		err := b.execWith(st, staged, func() { announceHandover(ctx, to) })

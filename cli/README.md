@@ -866,10 +866,10 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `update_installed` | `path`, `version`: the new binary replaced the one on your `PATH` |
 | `update_install_failed` | `path`, `error`: the binary on your `PATH` is still the old one. Level `WARN` |
 | `update_unhealthy` | `from`, `to`, and `timeout_seconds` or `error`: the new version goes back to the old one. Level `ERROR` |
-| `update_rolled_back` | `from`, `to`, `reason`: `preflight`, `exec` or `health`. The version goes on the skip list |
+| `update_rolled_back` | `from`, `to`, `reason`: `preflight`, `exec`, `health` or `crash`. The version goes on the skip list |
 | `update_rollback_failed` | `to`, `error`: the old binary could not run, so the bridge stays on the new one. Level `ERROR` |
 | `update_rollback_skipped` | `message`: a version that a rollback started is not healthy either, and keeps running. Level `ERROR` |
-| `update_recovered` | `file`, `from`, `live`, `queued`: a start took over the handover of a bridge that died |
+| `update_recovered` | `file`, `from`, `live`, `queued`: a start took over the handover of a bridge that died. When that bridge ran another version, `update_rolled_back` with the reason `crash` follows |
 | `update_recovery_failed` | `file`, `error`: a leftover handover could not be read or removed. Level `ERROR` or `WARN` |
 | `update_skip_failed`, `update_drain_failed`, `update_cleanup_failed`, `update_prune_failed` | `error`: housekeeping failed, and the update goes on. Level `WARN` |
 

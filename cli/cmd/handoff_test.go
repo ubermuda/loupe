@@ -193,6 +193,18 @@ func TestRunPreflightOfEndsAHungBinaryAsATimeout(t *testing.T) {
 	}
 }
 
+// The handover file names the version the exec runs, so a recovery knows what
+// to skip.
+func TestTheHandoverFileNamesTheNewVersion(t *testing.T) {
+	h, b, calls := newTestHandoff(t)
+
+	b.handover(h.router, "1.0.0")(context.Background(), candidate(t, "1.2.0"), "/staged/loupe")
+
+	if len(*calls) != 1 || (*calls)[0].st.NewVersion != "1.2.0" || (*calls)[0].st.OldVersion != "1.0.0" {
+		t.Fatalf("exec calls = %+v", *calls)
+	}
+}
+
 // A report that does not leave in time defers the handover to the next check,
 // and the router runs on.
 func TestADrainThatTimesOutDefersTheHandover(t *testing.T) {

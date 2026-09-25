@@ -190,10 +190,25 @@ func (b *bridgeUpdate) adoptInto(r *router) {
 			b.log.Warn("update_recovery_failed", "file", b.file, "error", err.Error())
 		}
 		b.log.Info("update_recovered", "file", b.file, "from", st.OldVersion, "live", len(st.Live), "queued", len(st.Queue))
+		b.skipCrashed(st.NewVersion)
 	default:
 		return
 	}
 	b.adopted.Store(true)
+}
+
+// skipCrashed puts on the skip list the version a dead bridge handed over to,
+// unless this image runs it. Otherwise a supervisor that restarts the bridge
+// would exec that version again, and it would crash again.
+func (b *bridgeUpdate) skipCrashed(target string) {
+	if target == "" || target == version {
+		return
+	}
+	if err := skipVersion(b.dir, target); err != nil {
+		b.log.Warn("update_skip_failed", "version", target, "error", err.Error())
+	}
+	b.crashedFrom = target
+	b.log.Warn("update_rolled_back", "from", target, "to", version, "reason", "crash")
 }
 
 func isClosed(ch <-chan struct{}) bool {
@@ -362,7 +377,7 @@ func (b *bridgeUpdate) unhealthy(ctx context.Context, r *router, timeout time.Du
 	if err := r.drain(ctx, frozenDrainTimeout); err != nil {
 		return deferred(err)
 	}
-	st.OldVersion, st.OldBinary = version, b.target
+	st.OldVersion, st.OldBinary, st.NewVersion = version, b.target, b.resumed.OldVersion
 	err := b.execWith(st, b.resumed.OldBinary, nil, "--"+rolledBackFromFlag, version)
 	os.Remove(b.file)
 	r.resume()
@@ -379,7 +394,7 @@ func (b *bridgeUpdate) rollbackAtStart(cause error) {
 	}
 	b.log.Error("update_unhealthy", "from", b.resumed.OldVersion, "to", version, "error", cause.Error())
 	st := *b.resumed
-	st.OldVersion, st.OldBinary = version, b.target
+	st.OldVersion, st.OldBinary, st.NewVersion = version, b.target, b.resumed.OldVersion
 	if err := b.execWith(st, b.resumed.OldBinary, nil, "--"+rolledBackFromFlag, version); err != nil {
 		b.log.Error("update_rollback_failed", "to", b.resumed.OldVersion, "error", err.Error())
 	}

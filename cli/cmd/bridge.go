@@ -366,6 +366,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 			updates = newUpdater(r.log, version, dir, func() bool { return r.rules().AutoUpdate() }, hook)
 			if r.update != nil {
 				updates.executable = r.update.installed
+				if r.update.crashedFrom != "" {
+					updates.markRolledBack(r.update.crashedFrom)
+				}
 			}
 			r.heartbeat.onRange, r.heartbeat.update = updates.setRange, updates.state
 		}

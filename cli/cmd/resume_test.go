@@ -456,6 +456,80 @@ func TestAPlainStartRecoversALeftoverHandover(t *testing.T) {
 	}
 }
 
+// A bridge that died after it handed over to a new version leaves the file,
+// and the installed old version recovers it. The new version goes on the skip
+// list, so a supervisor that restarts the bridge does not loop on it.
+func TestARecoveryByAnotherVersionSkipsTheVersionThatDied(t *testing.T) {
+	_, rulesPath := resumeHome(t)
+	captureExecFn(t)
+	file, _ := handoverPath(rulesPath)
+	if err := writeHandover(file, handoverState{Format: handoverFormat, OldVersion: "1.0.0", NewVersion: "1.2.0"}); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done, out := runCommand(ctx, "--rules", rulesPath, "--log-file", filepath.Join(t.TempDir(), "bridge.log"))
+	eventually(t, "the recovery", func() bool { return logged(out, "update_recovered") })
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(out.String(), `"reason":"crash"`) {
+		t.Fatalf("log = %s", out.String())
+	}
+	dir, _ := config.Dir()
+	if st, err := update.LoadState(dir); err != nil || !st.Skipped("1.2.0") {
+		t.Fatalf("state = %+v, err = %v", st, err)
+	}
+}
+
+func TestARecoveryByTheVersionItNamesSkipsNothing(t *testing.T) {
+	h, b, _ := newTestHandoff(t)
+	injectVersion(t, "1.0.0")
+	b.recovered = &handoverState{Format: handoverFormat, OldVersion: "1.2.0", NewVersion: "1.0.0"}
+
+	b.adoptInto(h.router)
+
+	if st, err := update.LoadState(b.dir); err != nil || st.Skipped("1.0.0") || b.crashedFrom != "" {
+		t.Fatalf("state = %+v, err = %v, crashedFrom = %q", st, err, b.crashedFrom)
+	}
+	if len(h.events(t, "update_rolled_back")) != 0 {
+		t.Fatal("a recovery by the version it names logged a rollback")
+	}
+}
+
+func TestARecoveryMarksTheVersionThatDied(t *testing.T) {
+	h, b, _ := newTestHandoff(t)
+	injectVersion(t, "1.0.0")
+	b.recovered = &handoverState{Format: handoverFormat, OldVersion: "1.0.0", NewVersion: "1.2.0"}
+
+	b.adoptInto(h.router)
+
+	if st, err := update.LoadState(b.dir); err != nil || !st.Skipped("1.2.0") || b.crashedFrom != "1.2.0" {
+		t.Fatalf("state = %+v, err = %v, crashedFrom = %q", st, err, b.crashedFrom)
+	}
+	line := h.only(t, "update_rolled_back")
+	if str(t, line, "from") != "1.2.0" || str(t, line, "to") != "1.0.0" || str(t, line, "reason") != "crash" {
+		t.Fatalf("update_rolled_back = %v", line)
+	}
+}
+
+// A rollback names the old version as the one the exec runs, so its own
+// recovery by the installed old binary skips nothing.
+func TestARollbackAtStartNamesTheOldVersion(t *testing.T) {
+	_, b, calls := newTestHandoff(t)
+	injectVersion(t, "1.2.0")
+	b.resumed = &handoverState{Format: handoverFormat, OldVersion: "1.0.0", OldBinary: "/old/loupe", NewVersion: "1.2.0"}
+
+	b.rollbackAtStart(errors.New("rule file: bad"))
+
+	if len(*calls) != 1 || (*calls)[0].st.NewVersion != "1.0.0" || (*calls)[0].st.OldVersion != "1.2.0" {
+		t.Fatalf("exec calls = %+v", *calls)
+	}
+}
+
 func TestALeftoverHandoverItCannotReadMovesAside(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "handover.json")
 	if err := os.WriteFile(file, []byte(`{"format":99}`), 0o600); err != nil {

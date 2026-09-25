@@ -320,7 +320,10 @@ A bridge can die between the handover and its health check. The handover file
 then stays in the config directory, and the workers go on without a parent. The
 next `loupe bridge run` on the same rule file reads that file, takes over the
 workers that still run, and logs `update_recovered`. It follows each worker by
-its pid, because the worker is no longer its child. A handover file that the
+its pid, because the worker is no longer its child. When the bridge that died
+ran another version, the start puts that version on the skip list and logs
+`update_rolled_back` with the reason `crash`. So a supervisor that restarts the
+bridge does not start the same crash again. A handover file that the
 bridge cannot read moves to `handover-<hash>.json.bad`, and the bridge logs
 `update_recovery_failed`.
 
