@@ -7,6 +7,8 @@ namespace App\Module\Board\Service;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Bridge\Service\InteractiveRuns;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Puts a card in its new place on the board, and renumbers what that disturbs.
@@ -17,9 +19,11 @@ use App\Module\Board\Repository\CardRepository;
  *
  * The caller owns the transaction, the project lock and the flush. A move reads
  * the column the card sits in and renumbers the one it leaves, so the caller
- * must call CardRepository::refreshColumn() under its lock first. Nothing here
- * writes to the database, so a move and the renumbering it causes land together
- * or not at all.
+ * must call CardRepository::refreshColumn() under its lock first.
+ *
+ * Every move to another column goes through here, so here it closes the open
+ * interactive runs of the card. The close writes inside the caller's
+ * transaction, so it rolls back with the move.
  */
 final readonly class CardMover
 {
@@ -29,6 +33,7 @@ final readonly class CardMover
     public function __construct(
         private CardRepository $cards,
         private CardGroupOrder $groupOrder,
+        private InteractiveRuns $interactiveRuns,
     ) {
     }
 
@@ -40,6 +45,11 @@ final readonly class CardMover
 
         $move = new CardMove($card->column);
         $staysInColumn = $move->fromColumn === $column;
+
+        // Before the card changes, because the close flushes.
+        if (!$staysInColumn && null !== $card->id) {
+            $this->interactiveRuns->closeOnMove($card->project, [$card->id]);
+        }
 
         $card->column = $column;
 
@@ -70,5 +80,20 @@ final readonly class CardMover
         $card->updatedAt = new \DateTimeImmutable();
 
         return $move;
+    }
+
+    /**
+     * Moves every card of one column to another, for a column delete. The rows
+     * change in the database only, so the caller reads a loaded card back with
+     * CardRepository::refreshLoadedFrom().
+     *
+     * @return list<string> the ids of the moved cards
+     */
+    public function moveAll(BoardColumn $from, BoardColumn $to, \DateTimeImmutable $now): array
+    {
+        $movedIds = $this->cards->moveAll($from, $to, $now);
+        $this->interactiveRuns->closeOnMove($from->project, array_map(Uuid::fromString(...), $movedIds));
+
+        return $movedIds;
     }
 }

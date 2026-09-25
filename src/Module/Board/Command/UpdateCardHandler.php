@@ -103,21 +103,19 @@ final readonly class UpdateCardHandler
                 return self::LINKED_CARD_GONE;
             }
 
-            // Close first, so the run this update opens is not the one closed.
-            $cardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
-            if ($column !== $card->column) {
-                $this->interactiveRuns->closeOnMove($card->project, [$cardId]);
-            }
-            $openedRun = null;
-            if (null !== $command->openInteractiveRun) {
-                $openedRun = $this->interactiveRuns->open($card->project, $cardId, $card->number, $command->openInteractiveRun->sessionId, $command->openInteractiveRun->name);
-            }
-
             // A rank is a move of its own: a card dropped elsewhere in the
             // column it already sits in does not change its column.
             $move = $column !== $card->column || null !== $command->position
                 ? $this->mover->move($card, $column, $command->position)
                 : null;
+
+            // After the move, which closes the runs of a card that changes
+            // column, so the run this update opens is not the one closed.
+            $openedRun = null;
+            if (null !== $command->openInteractiveRun) {
+                $cardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
+                $openedRun = $this->interactiveRuns->open($card->project, $cardId, $card->number, $command->openInteractiveRun->sessionId, $command->openInteractiveRun->name);
+            }
 
             // After the move, which must read the card as the database holds
             // it. A field the command carries may hold what the card already

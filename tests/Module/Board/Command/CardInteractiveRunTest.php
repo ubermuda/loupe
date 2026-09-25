@@ -15,6 +15,7 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Service\CardMover;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\InteractiveRuns;
@@ -174,6 +175,31 @@ final class CardInteractiveRunTest extends KernelTestCase
 
         self::assertSame(WorkerRunState::Closed, $this->stateOf($movedRun));
         self::assertSame(WorkerRunState::Running, $this->stateOf($staysRun));
+    }
+
+    public function test_the_mover_closes_the_runs_of_a_card_it_moves_for_any_caller(): void
+    {
+        $card = $this->card('next');
+        $run = $this->openRun($card);
+        $mover = self::getContainer()->get(CardMover::class);
+        self::assertInstanceOf(CardMover::class, $mover);
+
+        $mover->move($card, $this->column($this->project, 'in-progress'));
+
+        self::assertSame(WorkerRunState::Closed, $this->stateOf($run));
+    }
+
+    public function test_the_bulk_mover_closes_the_runs_of_the_cards_it_moves(): void
+    {
+        $moved = $this->card('next');
+        $run = $this->openRun($moved);
+        $mover = self::getContainer()->get(CardMover::class);
+        self::assertInstanceOf(CardMover::class, $mover);
+
+        $movedIds = $mover->moveAll($this->column($this->project, 'next'), $this->column($this->project, 'in-progress'), new \DateTimeImmutable());
+
+        self::assertSame([(string) $this->idOf($moved)], $movedIds);
+        self::assertSame(WorkerRunState::Closed, $this->stateOf($run));
     }
 
     private function card(string $column): Card
