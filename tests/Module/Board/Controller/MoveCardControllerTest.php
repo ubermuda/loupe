@@ -12,6 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\UX\Turbo\TurboBundle;
 
 final class MoveCardControllerTest extends WebTestCase
@@ -89,10 +90,12 @@ final class MoveCardControllerTest extends WebTestCase
         $this->move($client, $card, 'done', null, stream: true);
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString(
-            '<turbo-stream action="replace" target="board">',
-            (string) $client->getResponse()->getContent(),
-        );
+        self::assertStringStartsWith(TurboBundle::STREAM_MEDIA_TYPE, (string) $client->getResponse()->headers->get('Content-Type'));
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('action="board-place" target="board-card-'.$cardId.'"', $body);
+        self::assertSame(1, substr_count($body, '<turbo-stream'));
+        self::assertStringNotContainsString('target="board"', $body);
+        self::assertStringContainsString('data-column-id="'.$this->column($project, 'done')->id.'"', $body);
 
         $em->clear();
         $moved = $em->find(Card::class, $cardId);
@@ -172,10 +175,46 @@ final class MoveCardControllerTest extends WebTestCase
         $this->move($client, $card, 'next', null, columnId: $foreign);
 
         self::assertResponseRedirects('/projects/'.$project->id.'/board');
+        self::assertNotEmpty($this->flashErrors($client));
         $em->clear();
         $unmoved = $em->find(Card::class, $cardId);
         self::assertInstanceOf(Card::class, $unmoved);
         self::assertSame('backlog', $unmoved->column->slug);
+    }
+
+    public function test_a_refused_drag_answers_422_with_no_redirect_and_no_flash(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'move-refused-stream@example.com');
+        $project = $this->project($em, $owner);
+        $other = $this->project($em, $owner, 'other-board');
+        $card = $this->card($em, $project, 'Stays put');
+        $cardId = $card->id;
+        $foreign = (string) $this->column($other, 'next')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->move($client, $card, 'next', null, stream: true, columnId: $foreign);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('', $client->getResponse()->getContent());
+        self::assertSame([], $this->flashErrors($client));
+        $em->clear();
+        $unmoved = $em->find(Card::class, $cardId);
+        self::assertInstanceOf(Card::class, $unmoved);
+        self::assertSame('backlog', $unmoved->column->slug);
+    }
+
+    /** @return array<mixed> */
+    private function flashErrors(KernelBrowser $client): array
+    {
+        $session = $client->getRequest()->getSession();
+        self::assertInstanceOf(FlashBagAwareSessionInterface::class, $session);
+
+        return $session->getFlashBag()->peek('error');
     }
 
     private function move(

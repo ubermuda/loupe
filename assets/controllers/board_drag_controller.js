@@ -5,9 +5,10 @@ import { Controller } from '@hotwired/stimulus';
  * Drag and drop for the board.
  *
  * A drop moves the card in the page at once, then posts. The server stays the
- * authority: its answer replaces the whole board, so a prediction that was
- * wrong is corrected, and a request that fails puts the card back where it came
- * from and says so. The board never keeps an order the database refused.
+ * authority: its answer places the card where the database holds it, so a
+ * prediction that was wrong is corrected, and a request that fails puts the card
+ * back where it came from and says so. The board never keeps an order the
+ * database refused.
  *
  * The whole card is the handle. A press becomes a drag only after the pointer
  * travels far enough, so a click on the title still opens the card.
@@ -27,6 +28,8 @@ const DRAG_THRESHOLD = 5;
 const EDGE_BAND = 56;
 const EDGE_STEP = 14;
 
+const STREAM_TYPE = 'text/vnd.turbo-stream.html';
+
 export default class extends Controller {
     static targets = ['card', 'group', 'moveForm', 'message'];
 
@@ -40,6 +43,7 @@ export default class extends Controller {
         this.originNextCard = null;
         this.originIndex = -1;
         this.pendingForm = null;
+        this.stopAwaitingPlacement = null;
         this.swallowClick = false;
         this.scrollFrame = null;
         this.scrollGroup = null;
@@ -86,6 +90,7 @@ export default class extends Controller {
 
     disconnect() {
         this.abandon();
+        this.stopAwaitingPlacement?.();
         this.element.removeEventListener('click', this.onClick, true);
         delete this.element.dataset.boardDragReady;
     }
@@ -314,10 +319,10 @@ export default class extends Controller {
      * carry the request and the eager CSRF controller stamp the token. A
      * hand-rolled fetch would have to re-implement both.
      *
-     * The card has already moved in the page. A refusal, a failure or a lost
-     * connection puts it back, because `turbo:submit-end` reports all three.
-     * A success answers with the whole board, which replaces this one and makes
-     * the prediction moot rather than applying it twice.
+     * The card has already moved in the page. Any answer but a 2xx stream is
+     * kept from rendering, so no error page replaces the board, and the card
+     * goes back. A success is a board-place stream for this card, which
+     * renders after `turbo:submit-end`, so the next drag waits for it.
      */
     submitMove(card, group, position, origin) {
         const form = card.querySelector('[data-board-drag-target="moveForm"]');
@@ -338,20 +343,61 @@ export default class extends Controller {
         // lands the card where the marker stood.
         rank.value = rankable && position >= 0 ? String(position) : '';
 
+        let refused = false;
+        const answered = (event) => {
+            const response = event.detail.fetchResponse;
+            if (
+                !response.succeeded ||
+                !(response.contentType ?? '').startsWith(STREAM_TYPE)
+            ) {
+                refused = true;
+                event.preventDefault();
+            }
+        };
         const finished = (event) => {
+            form.removeEventListener('turbo:before-fetch-response', answered);
             form.removeEventListener('turbo:submit-end', finished);
-            this.pendingForm = null;
-            card.removeAttribute('aria-busy');
-            if (event.detail.success) {
+            if (event.detail.success && !refused) {
+                this.awaitPlacement(card);
+
                 return;
             }
+            this.release(card);
             this.restore(card, origin);
         };
 
         this.pendingForm = form;
         card.setAttribute('aria-busy', 'true');
+        form.addEventListener('turbo:before-fetch-response', answered);
         form.addEventListener('turbo:submit-end', finished);
         form.requestSubmit();
+    }
+
+    /**
+     * Holds the drag lock until the stream has placed the card. A drag begun
+     * before that would mark a place the placement is about to shift.
+     */
+    awaitPlacement(card) {
+        const cardId = card.id.replace(/^board-card-/, '');
+        this.stopAwaitingPlacement = () => {
+            document.removeEventListener('board:placed', placed);
+            document.removeEventListener('board:place-missed', placed);
+            this.stopAwaitingPlacement = null;
+        };
+        const placed = (event) => {
+            if (event.detail?.cardId !== cardId) {
+                return;
+            }
+            this.release(card);
+        };
+        document.addEventListener('board:placed', placed);
+        document.addEventListener('board:place-missed', placed);
+    }
+
+    release(card) {
+        this.stopAwaitingPlacement?.();
+        this.pendingForm = null;
+        card.removeAttribute('aria-busy');
     }
 
     /** Puts a card back where the drag took it from, and says that it moved back. */
