@@ -105,6 +105,7 @@ final readonly class DeleteCardHandler
                 'projectId' => $projectId,
                 'status' => $card->column->slug,
                 'columnId' => (string) $card->column->id,
+                'actor' => $actor->value,
             ],
             new AuditSubject('card', $cardId),
         );

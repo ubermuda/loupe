@@ -51,6 +51,8 @@ final class DeleteFeedbackApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(404);
         self::assertSame(['error' => 'not_found'], $data);
+        $this->em()->clear();
+        self::assertNotNull($this->service(SiteReviewCommentRepository::class)->find($commentId));
     }
 
     public function test_a_note_of_another_project_is_not_found(): void

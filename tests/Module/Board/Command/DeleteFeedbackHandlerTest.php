@@ -70,7 +70,7 @@ final class DeleteFeedbackHandlerTest extends KernelTestCase
         self::assertSame(0, $this->rows('board_cards', $project));
         self::assertSame(0, $this->rows('site_review_comments', $project));
         self::assertSame(0, $this->anchorRows($project));
-        self::assertContains('board.card_deleted', $this->audit->operations());
+        self::assertSame('reviewer', $this->audit->record('board.card_deleted')->context['actor']);
         self::assertContains('board.feedback_deleted', $this->audit->operations());
     }
 

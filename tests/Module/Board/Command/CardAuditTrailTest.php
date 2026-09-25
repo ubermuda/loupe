@@ -153,6 +153,7 @@ final class CardAuditTrailTest extends KernelTestCase
             'projectId' => (string) $this->project->id,
             'status' => 'next',
             'columnId' => (string) $this->column($this->project, 'next')->id,
+            'actor' => 'human',
         ], $record->context);
 
         $left = $this->em->getConnection()->fetchOne('SELECT count(*) FROM board_cards WHERE id = :id', ['id' => $cardId]);
