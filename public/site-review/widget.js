@@ -1334,8 +1334,8 @@
       .lp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
       .lp-iconbtn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 
-      .lp-context{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:11.5px;line-height:1.4;color:var(--muted);white-space:nowrap}
-      .lp-context svg{flex:0 0 auto;opacity:.75}
+      .lp-context{display:flex;align-items:flex-start;gap:5px;margin-top:6px;font-size:11.5px;line-height:1.4;color:var(--muted);white-space:nowrap}
+      .lp-context svg{flex:0 0 auto;opacity:.75;margin-top:1.5px}
       /* The icon replaced the words "Saves to" on screen. A screen reader would
          otherwise hear a bare card title with nothing saying what it is for. */
       .lp-context-label[data-role="picker"]{cursor:pointer;background:none;border:0;padding:0;font:inherit}
@@ -1367,6 +1367,9 @@
       a.lp-context-label:hover{color:var(--text)}
       /* A statement rather than a control, so it carries no underline. */
       .lp-context-label[data-role="target"]{text-decoration:none}
+      /* A state message is a sentence the reviewer must read in full, and it
+         runs to two lines at most, so it wraps where a card title ellipses. */
+      .lp-context-label[data-wrap]{white-space:normal;overflow:visible}
       .lp-picker-foot .lp-picker-search{flex:1 1 auto}
       .lp-last-card{margin:6px 0 0}
       .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
@@ -2677,22 +2680,24 @@
             // clutter, and the card is context rather than an instruction.
             contextNode.innerHTML = ICON.cards(13);
             contextNode.firstChild.setAttribute('aria-hidden', 'true');
-            const say = (text) => {
+            const say = (text, wrap) => {
                 const line = document.createElement('span');
                 line.className = 'lp-context-label';
                 line.dataset.role = 'target';
                 line.textContent = text;
-                line.title = text;
+                if (wrap) line.dataset.wrap = '';
+                else line.title = text;
                 contextNode.appendChild(line);
             };
             const target = activeTarget();
-            if (!feedbackAvailable) say(BOARD_OFF_MESSAGE);
+            if (!feedbackAvailable) say(BOARD_OFF_MESSAGE, true);
             else if (lock && lock.state === 'broken') {
                 say(
                     'This preview’s card is closed or gone, so notes cannot be saved here.',
+                    true,
                 );
             } else if (lock) say(lock.label || 'This preview’s card');
-            else if (!target) say('Choose where your notes go.');
+            else if (!target) say('Choose where your notes go.', true);
             else {
                 const said = document.createElement('span');
                 said.className = 'lp-sr-only';

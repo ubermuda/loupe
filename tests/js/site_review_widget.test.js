@@ -501,6 +501,13 @@ describe('a preview page that names its card', () => {
         const root = openNote();
 
         expect(targetText(root)).toContain('closed or gone');
+        // A sentence the reviewer must read wraps rather than ellipsing.
+        expect(
+            root
+                .getElementById('lp-context')
+                .querySelector('.lp-context-label')
+                .hasAttribute('data-wrap'),
+        ).toBe(true);
         expect(root.getElementById('lp-picker').style.display).toBe('none');
         expect(root.getElementById('lp-save').disabled).toBe(true);
     });
