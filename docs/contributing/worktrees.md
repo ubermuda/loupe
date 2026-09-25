@@ -8,6 +8,7 @@ checkout:
 
 ```sh
 just worktree-up NAME     # URL, migrated + seeded database, test database, CSS
+just worktree-up NAME card:<cardId>   # the same, and link widget comments to that card
 just worktrees            # list them with URL, database and sidecar status
 just worktree-down NAME   # remove it along with its sidecar, route and databases
 just worktree-prune       # drop sidecars and databases whose worktree is gone
