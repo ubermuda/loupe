@@ -6,8 +6,8 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
