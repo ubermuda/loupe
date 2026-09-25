@@ -780,6 +780,14 @@
     .lp-board-toolbar__count {
         @apply ml-auto text-sm font-semibold text-fg-dim;
     }
+    /* Says the board no longer receives changes from others. Empty while live,
+       and out of the layout but still a live region, so the text is announced. */
+    .lp-board-toolbar__paused {
+        @apply m-0 rounded-md bg-status-pending-bg px-2 py-1 text-sm font-semibold text-status-pending-deep;
+    }
+    .lp-board-toolbar__paused:empty {
+        @apply sr-only;
+    }
     .lp-board-filter-empty {
         @apply m-0 rounded-lg bg-surface-2 px-4 py-3 text-sm text-fg-mute;
     }
@@ -1196,12 +1204,24 @@
     }
     .lp-card-drawer-overlay__loading[hidden],
     .lp-card-drawer-overlay__error[hidden],
+    .lp-card-drawer-overlay__deleted[hidden],
     .lp-card-drawer-overlay > turbo-frame[hidden] {
         @apply hidden;
     }
-    /** Recovery controls for failed card drawer navigation. */
-    .lp-card-drawer-overlay__error {
+    /** Recovery controls for failed card drawer navigation, and the state of a card deleted while open. */
+    .lp-card-drawer-overlay__error,
+    .lp-card-drawer-overlay__deleted {
         @apply p-6;
+    }
+    /** The notice an edit form shows when its card changed since the form opened. */
+    .lp-card-clash {
+        @apply flex flex-wrap items-center gap-3 px-3.5 py-2.5 rounded-lg bg-sunken text-sm font-medium text-ink;
+    }
+    .lp-card-clash[hidden] {
+        @apply hidden;
+    }
+    .lp-card-clash__message {
+        @apply mr-auto;
     }
     .lp-card-drawer-overlay__loading svg {
         @apply animate-spin;
@@ -5705,6 +5725,11 @@
     .lp-board-card--dragging {
         @apply fixed z-50 pointer-events-none shadow-lg opacity-90;
     }
+    /* Marks a card another person just changed. The controller removes it. */
+    .lp-board-card--flash {
+        @apply outline-2 outline-offset-2;
+        animation: lp-board-card-changed 1500ms ease-out both;
+    }
     .lp-board-card__grip {
         @apply absolute top-2 right-2 touch-none text-fg-faint;
     }
@@ -6259,6 +6284,15 @@
     }
 }
 
+@keyframes lp-board-card-changed {
+    from {
+        outline-color: var(--color-accent);
+    }
+    to {
+        outline-color: transparent;
+    }
+}
+
 @keyframes lp-tab-countdown {
     from {
         transform: scaleX(0);
@@ -6284,6 +6318,11 @@
     }
 
     .lp-demo-widget-hint {
+        animation: none;
+    }
+
+    .lp-board-card--flash {
+        @apply outline-accent;
         animation: none;
     }
 

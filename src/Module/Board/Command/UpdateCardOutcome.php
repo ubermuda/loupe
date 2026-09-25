@@ -20,6 +20,8 @@ final readonly class UpdateCardOutcome
         public bool $titleChanged,
         public bool $bodyChanged,
         public bool $typeChanged,
+        /** A title or body change that survives the form's own normalisation. */
+        public bool $contentChanged,
         public ?WorkerRun $openedRun,
     ) {
     }

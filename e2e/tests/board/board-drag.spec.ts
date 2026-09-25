@@ -6,9 +6,10 @@
  * because a drop moves the card in the page before the server has answered, and
  * a reload is what shows whether the server agreed.
  *
- * Two more cases guard the parts a drop can get wrong. A request that never
- * arrives must put the card back and say so. A click on the card title, which
- * is a link inside the drag handle, must still open the card.
+ * More cases guard the parts a drop can get wrong. A request that never
+ * arrives, or an answer that refuses the move, must put the card back and say
+ * so. A click on the card title, which is a link inside the drag handle, must
+ * still open the card.
  */
 
 import {
@@ -30,32 +31,20 @@ const GROUP = '[data-board-drag-target="group"]';
 // The drag controller sets this when it connects. A grab before that reaches no
 // listener, so every drag waits for it rather than for the cards alone.
 const READY = '#board[data-board-drag-ready="true"]';
-// Stamped on the board on screen, so a wait can tell it from the replacement
-// the server sends back.
-const MARK = 'data-e2e-board-generation';
 
 async function waitForDragReady(page: Page): Promise<void> {
     await expect(page.locator(READY)).toBeAttached();
 }
 
-async function markBoard(page: Page): Promise<void> {
-    await page
-        .locator('#board')
-        .evaluate((board, mark) => board.setAttribute(mark, '1'), MARK);
-}
-
 /**
- * Resolves when the answer to a move has replaced the board, and the drag
- * controller on the replacement has connected.
+ * Resolves when the stream that answered a move has placed the card.
  *
- * A move answers with the whole board, and `movePosted` resolves as soon as
- * that answer arrives rather than when Turbo renders it. A second drag started
- * in between grabs a card the replacement is about to detach, and the new board
- * carries no drag listener until its controller connects. The grab then reaches
- * nothing, no move is posted, and the wait for one times out.
+ * `movePosted` resolves when the answer arrives, before Turbo renders it, and
+ * the controller refuses a new drag until then. A second drag started in
+ * between reaches nothing, and the wait for its move times out.
  */
-async function boardReplaced(page: Page): Promise<void> {
-    await expect(page.locator(`${READY}:not([${MARK}])`)).toBeAttached();
+async function cardPlaced(page: Page): Promise<void> {
+    await expect(page.locator(`${CARD}[aria-busy]`)).toHaveCount(0);
 }
 
 async function setBoardFlag(
@@ -331,20 +320,18 @@ test('a drag into another column lands where the marker stood', async ({
     board,
 }) => {
     // Bravo goes to Next first, so Alpha has somewhere to land above it. Each
-    // drag waits for the board the move answered with, because the second drag
-    // otherwise races that replacement.
-    await markBoard(page);
+    // drag waits for the placement the move answered with, because the second
+    // drag is refused until it lands.
     let written = movePosted(page);
     await dragCardTo(page, 'Bravo', await centreOfGroup(page, NEXT));
     await written;
-    await boardReplaced(page);
+    await cardPlaced(page);
     await expect.poll(() => titlesIn(page, NEXT)).toEqual(['Bravo']);
 
-    await markBoard(page);
     written = movePosted(page);
     await dragCardTo(page, 'Alpha', await topEdgeOf(page, 'Bravo'));
     await written;
-    await boardReplaced(page);
+    await cardPlaced(page);
 
     await expect.poll(() => titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
     await page.goto(board.boardUrl);
@@ -446,6 +433,27 @@ test('a move the server never receives puts the card back and says so', async ({
     await page.goto(board.boardUrl);
     await waitForDragReady(page);
     expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
+});
+
+test('a move the server refuses puts the card back and keeps the board', async ({
+    page,
+}) => {
+    await page.route('**/board/cards/*/move', (route) =>
+        route.fulfill({
+            status: 404,
+            contentType: 'text/html',
+            body: '<html><body><h1>Refused page</h1></body></html>',
+        }),
+    );
+    const written = movePosted(page);
+    await dragCardTo(page, 'Alpha', await centreOfGroup(page, NEXT));
+    await written;
+
+    await expect(page.locator('.lp-board__message')).toHaveText(/./);
+    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, NEXT)).toEqual([]);
+    await expect(page.getByText('Refused page')).toHaveCount(0);
+    await page.unroute('**/board/cards/*/move');
 });
 
 test("the card's own page moves it without a pointer", async ({

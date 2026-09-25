@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { subscribe } from '../lib/mercure.js';
+import { on } from '../lib/live.js';
 
 // A burst of worker run changes costs one reload. A card or column drag, a
 // pending card move or column reorder, or an open column menu or dialog defers
@@ -24,21 +24,17 @@ export default class extends Controller {
     static values = { board: String };
 
     connect() {
-        this.hasOpened = false;
-        this.unsubscribe = subscribe(
+        this.adoptSource();
+        this.unsubscribe = on(
             ['board.columns_changed', 'worker_run.changed'],
             () => this.reload(),
             {
-                onOpen: () => {
-                    if (this.hasOpened) {
-                        this.reload();
-                    }
-                    this.hasOpened = true;
+                onReconnect: () => this.reload(),
+                onOpen: () =>
                     this.element.setAttribute(
                         'data-board-refresh-connected',
                         '',
-                    );
-                },
+                    ),
                 onError: () =>
                     this.element.removeAttribute(
                         'data-board-refresh-connected',
@@ -76,11 +72,19 @@ export default class extends Controller {
             return;
         }
         this.pendingSince = undefined;
-        // A frame with no src has nothing to reload, and one given a src loads it.
-        if (this.frameTarget.getAttribute('src') === null) {
-            this.frameTarget.src = this.boardValue;
-        } else {
-            this.frameTarget.reload();
+        this.frameTarget.reload();
+    }
+
+    // Only reload() renders by morph, and it needs a src. A frame given a src
+    // loads it and clears `complete`, unless it is disabled at that moment.
+    adoptSource() {
+        const frame = this.frameTarget;
+        if (frame.hasAttribute('complete')) {
+            return;
         }
+        frame.setAttribute('disabled', '');
+        frame.setAttribute('src', this.boardValue);
+        frame.setAttribute('complete', '');
+        frame.removeAttribute('disabled');
     }
 }

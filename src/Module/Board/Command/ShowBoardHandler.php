@@ -9,20 +9,16 @@ use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\BoardColumnCards;
 
 final readonly class ShowBoardHandler
 {
-    /**
-     * How far back a terminal column reads.
-     *
-     * A terminal column only ever grows, so it shows a recent slice and the
-     * history page carries the rest.
-     */
-    public const int TERMINAL_WINDOW_DAYS = 7;
+    public const int TERMINAL_WINDOW_DAYS = BoardColumnCards::TERMINAL_WINDOW_DAYS;
 
     public function __construct(
         private CardRepository $cards,
         private BoardColumnRepository $boardColumns,
+        private BoardColumnCards $columnCards,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private BridgeRuleReportRepository $bridgeRuleReports,
     ) {
@@ -34,19 +30,13 @@ final readonly class ShowBoardHandler
         $columns = [];
 
         foreach ($this->boardColumns->findForProject($project) as $column) {
-            if ($column->terminal) {
-                $recent = $this->cards->findCompletedSince(
-                    $column,
-                    new \DateTimeImmutable(\sprintf('-%d days', self::TERMINAL_WINDOW_DAYS)),
-                );
-
-                $columns[] = new BoardColumnView($column, $recent, \count($recent), $this->cards->countInColumn($column));
-
-                continue;
-            }
-
-            $cards = $this->cards->findForBoard([$column]);
-            $columns[] = new BoardColumnView($column, $cards, \count($cards));
+            $shown = $this->columnCards->shown($column);
+            $columns[] = new BoardColumnView(
+                $column,
+                $shown,
+                \count($shown),
+                $column->terminal ? $this->cards->countInColumn($column) : null,
+            );
         }
 
         $deadRules = [];

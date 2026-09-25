@@ -25,6 +25,7 @@ use App\Tests\Support\SilentAuditor;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final class CardOrderingTest extends KernelTestCase
 {
@@ -66,7 +67,7 @@ final class CardOrderingTest extends KernelTestCase
         // until the board has a controller, so the container inlines it away.
         $interactiveRuns = self::getContainer()->get(InteractiveRuns::class);
         self::assertInstanceOf(InteractiveRuns::class, $interactiveRuns);
-        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), $this->em, SilentAuditor::create(), $interactiveRuns);
+        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), $this->em, SilentAuditor::create(), $interactiveRuns, new EventDispatcher());
 
         $owner = new User(fullName: 'Riley', email: 'board-ordering-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
