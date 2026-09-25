@@ -69,6 +69,7 @@ final class BoardExtension extends AbstractExtension
         return [
             new TwigFunction('card_move_form', $this->cardMoveForm(...)),
             new TwigFunction('card_lane_form', $this->cardLaneForm(...)),
+            new TwigFunction('card_digest', $this->cardDigest(...)),
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),
             new TwigFunction('board_column_rename_form', $this->boardColumnRenameForm(...)),
             new TwigFunction('board_column_configure_form', $this->boardColumnConfigureForm(...)),
@@ -114,6 +115,25 @@ final class BoardExtension extends AbstractExtension
                 new SetCardLaneRequest($card->laneEnabled ? '0' : '1', $returnTo),
             )
             ->createView();
+    }
+
+    /**
+     * A short hash of what the card face and its list row show, and of where the
+     * card sits, so a page can tell a changed card from an unchanged one.
+     */
+    public function cardDigest(Card $card, int $pendingComments): string
+    {
+        return substr(sha1(json_encode([
+            $card->number,
+            $card->title,
+            $card->body,
+            $card->type->value,
+            $pendingComments,
+            $card->pullRequests->count(),
+            $card->documents->count(),
+            (string) $card->column->id,
+            $card->position,
+        ], \JSON_THROW_ON_ERROR)), 0, 12);
     }
 
     /** @return array<string, CardSiteReviewComment> */

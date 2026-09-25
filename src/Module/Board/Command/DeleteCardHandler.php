@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardParentChanged;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
@@ -38,9 +39,11 @@ final readonly class DeleteCardHandler
 
         // Read before the remove: the flush clears the id. The number and the
         // project are readonly, so no re-read can change them.
-        $cardId = (string) $card->id;
+        $cardUuid = $card->id ?? throw new \LogicException('Card has no id.');
+        $projectUuid = $card->project->id ?? throw new \LogicException('Project has no id.');
+        $cardId = (string) $cardUuid;
         $cardNumber = $card->number;
-        $projectId = (string) $card->project->id;
+        $projectId = (string) $projectUuid;
 
         $refusal = $this->em->wrapInTransaction(function () use ($card): ?DomainErrors {
             // The renumbering below reads the column first, so it takes the same
@@ -104,5 +107,7 @@ final readonly class DeleteCardHandler
             ],
             new AuditSubject('card', $cardId),
         );
+
+        $this->events->dispatch(new CardChanged($projectUuid, $cardUuid, CardChanged::DELETED, false));
     }
 }

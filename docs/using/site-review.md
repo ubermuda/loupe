@@ -95,7 +95,8 @@ control that removes a comment, and it asks you to confirm first.
 
 Attach a piece of feedback to a card from the Site review page, either to an
 open card or to a new one you create there. Creating the card opens the card
-form in the drawer, and the feedback list refreshes once the card exists.
+form in the drawer. The drawer closes once the card exists, and the feedback
+list refreshes.
 
 The card's Feedback tab then shows the same capture as Site review. Use
 **Resolve** or **Reopen** there to change the shared feedback status. The linked

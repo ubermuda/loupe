@@ -254,9 +254,9 @@ final class EpicCardPagesTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
 
         self::assertResponseIsSuccessful();
-        $childRow = $crawler->filter('.lp-board-list__row[data-list-card-id="'.$childId.'"] [data-card-parent]');
+        $childRow = $crawler->filter('.lp-board-list__row[data-card-id="'.$childId.'"] [data-card-parent]');
         self::assertSame('#'.$epicNumber, trim($childRow->text()));
-        $epicRow = $crawler->filter('.lp-board-list__row[data-list-card-id="'.$epicId.'"] [data-card-parent]');
+        $epicRow = $crawler->filter('.lp-board-list__row[data-card-id="'.$epicId.'"] [data-card-parent]');
         self::assertSame('—', trim($epicRow->text()));
     }
 

@@ -9,6 +9,7 @@ export default class extends Controller {
 
     connect() {
         this.stateKey = this.element.parentElement;
+        this.restore();
         if (
             this.stateKey !== null &&
             savedViews.get(this.stateKey) === 'list'
@@ -24,6 +25,13 @@ export default class extends Controller {
                 this.boardTarget.hidden ? 'list' : 'board',
             );
         }
+    }
+
+    /** The mode buttons sit in a kept toolbar, so they remember the view a render resets. */
+    restore() {
+        const list =
+            this.listButtonTarget.getAttribute('aria-pressed') === 'true';
+        this.#show(list ? 'list' : 'board');
     }
 
     showBoard() {

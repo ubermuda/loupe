@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Command;
 
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\SiteReview\Event\SiteReviewCommentStatusChanged;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -24,6 +26,7 @@ final readonly class ResolveCommentHandler
         private SiteReviewCommentRepository $siteReviewComments,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -45,5 +48,10 @@ final readonly class ResolveCommentHandler
             ],
             new AuditSubject('site_review_comment', (string) $command->commentId),
         );
+
+        $this->events->dispatch(new SiteReviewCommentStatusChanged(
+            $command->project->id ?? throw new \LogicException('Project has no id.'),
+            $command->commentId,
+        ));
     }
 }

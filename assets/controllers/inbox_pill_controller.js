@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { subscribe } from '../lib/mercure.js';
+import { on } from '../lib/live.js';
 
 /**
  * Reloads the sidebar pill when the hub reports a change to this project's open
@@ -12,7 +12,7 @@ export default class extends Controller {
     static values = { project: String, url: String };
 
     connect() {
-        this.unsubscribe = subscribe(
+        this.unsubscribe = on(
             'inbox.open_count_changed',
             (data) => {
                 if (data?.projectId === this.projectValue) {

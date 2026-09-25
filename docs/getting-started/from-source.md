@@ -20,8 +20,9 @@ just exec bin/console app:dev:seed   # dev@loupe.test or admin@loupe.test / pass
 just exec bin/console league:oauth2-server:generate-keypair --skip-if-exists   # OAuth keys in var/oauth/
 ```
 
-`just --list` shows every recipe. `just mercure-up` additionally starts the
-Mercure hub, which only site-review push needs.
+`just --list` shows every recipe. `just mercure-up` also starts the Mercure
+hub. The hub carries live updates for the board, the inbox count, worker runs
+and site review.
 
 
 Once you are in, the seed command above is what gives you an account —

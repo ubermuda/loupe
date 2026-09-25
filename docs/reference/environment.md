@@ -38,10 +38,12 @@ Email verification is **mandatory**, so nobody can register until mail works.
 | `MAILER_FROM_ADDRESS` | Sender of every transactional email — verification, password reset, waitlist invite, data export, account deletion. Must be on a domain you control and have published SPF/DKIM/DMARC for. **Falls back to `noreply@localhost`, which real mail servers reject**, so registration breaks. | No |
 | `MAILER_FROM_NAME` | Display name beside the address. Defaults to `Loupe`. | No |
 
-## Site-review push (Mercure)
+## Live updates (Mercure)
 
-Optional. Without it, review submissions still save but never reach a running
-agent, and the publish failure is only logged — it degrades silently.
+Optional. The hub carries live updates for the board, the inbox count, worker
+runs and site review. Without it, a page shows changes by others on its next
+load. Review submissions still save but never reach a running agent, and the
+app only logs the publish failure.
 
 | Variable | Purpose | Add by hand? |
 |---|---|---|

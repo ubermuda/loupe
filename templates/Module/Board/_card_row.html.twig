@@ -1,0 +1,22 @@
+{# One card as a row of the list view. Props: card (Card), column (BoardColumn), feedbackCount (int). #}
+<a class="lp-board-list__row"
+   id="board-row-{{ card.id }}"
+   href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
+   data-turbo-frame="card-drawer-frame"
+   data-action="click->card-drawer#prepare"
+   data-board-filter-target="row"
+   data-card-id="{{ card.id }}"
+   data-column-id="{{ column.id }}"
+   data-card-digest="{{ card_digest(card, feedbackCount) }}"
+   data-card-title="{{ card.title }}">
+    <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong></span>
+    <span>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</span>
+    <span>{% include '@Board/_column_tag.html.twig' with {column: column} only %}</span>
+    {% if card.parent %}
+    <span data-card-parent title="{{ card.parent.title }}">#{{ card.parent.number }}</span>
+    {% else %}
+    <span data-card-parent aria-label="{{ 'board.list.parent.none'|trans }}">—</span>
+    {% endif %}
+    <span aria-label="{{ 'board.list.agent.unassigned'|trans }}">—</span>
+    <span>{{ feedbackCount }}</span>
+</a>

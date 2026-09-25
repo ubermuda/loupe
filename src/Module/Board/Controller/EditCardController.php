@@ -18,6 +18,7 @@ use App\Module\Board\Form\UpdateCardRequest;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Board\Service\BoardAvailability;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\Form\ClickableInterface;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -62,6 +63,7 @@ final class EditCardController extends AppController
                 throw new \LogicException('title required after validation');
             }
 
+            $confirm = $form->get('confirmOverwrite');
             try {
                 ($this->updateCard)(new UpdateCardCommand(
                     card: $card,
@@ -76,17 +78,31 @@ final class EditCardController extends AppController
                     relatedCards: $data->linkInputs(),
                     // An empty field clears the parent.
                     parentCardId: null === $data->parent ? '' : (string) $data->parent->id,
+                    expectedFingerprint: $data->contentFingerprint,
+                    confirmOverwrite: $confirm instanceof ClickableInterface && $confirm->isClicked(),
                 ));
+            } catch (DomainErrors $e) {
+                $this->applyDomainErrors($form, $e);
 
+                return $this->renderFormResponse('@Board/edit_card.html.twig', $form, ['card' => $card]);
+            } catch (EpicChildrenOpen $e) {
+                $form->get('column')->addError(new FormError($this->translator->trans(EpicChildrenOpen::MESSAGE, ['%cards%' => $e->cardList()])));
+
+                return $this->renderFormResponse('@Board/edit_card.html.twig', $form, ['card' => $card]);
+            }
+
+            if ('card-drawer-frame' !== $request->headers->get('Turbo-Frame')) {
                 return $this->redirectToRoute('app_board_card', [
                     'projectId' => (string) $card->project->id,
                     'cardId' => (string) $card->id,
                 ]);
-            } catch (DomainErrors $e) {
-                $this->applyDomainErrors($form, $e);
-            } catch (EpicChildrenOpen $e) {
-                $form->get('column')->addError(new FormError($this->translator->trans(EpicChildrenOpen::MESSAGE, ['%cards%' => $e->cardList()])));
             }
+
+            // The drawer keeps the form open, filled from the card as saved.
+            $saved = ($this->showCard)(new ShowCardCommand($card));
+            $form = $this->createForm(CreateCardFormType::class, UpdateCardRequest::fromCard($card, $saved->relatedCards), ['project' => $card->project, 'card' => $card]);
+
+            return $this->renderFormResponse('@Board/edit_card.html.twig', $form, ['card' => $card, 'saved' => true]);
         }
 
         return $this->renderFormResponse('@Board/edit_card.html.twig', $form, ['card' => $card]);

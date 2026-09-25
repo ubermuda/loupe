@@ -9,8 +9,8 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
-use App\Module\Board\Command\ShowBoardCommand;
-use App\Module\Board\Command\ShowBoardHandler;
+use App\Module\Board\Command\ShowCardPlacementCommand;
+use App\Module\Board\Command\ShowCardPlacementHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\MoveCardFormType;
@@ -30,9 +30,9 @@ use Symfony\UX\Turbo\TurboBundle;
 /**
  * The endpoint a drop, and the card's own move controls, both submit to.
  *
- * The server is the authority on the result: the response carries the whole
- * board back, so a drag that was interrupted or refused cannot leave the page
- * showing an order the database does not have.
+ * A drop answers with the moved card placed where the database holds it, so
+ * the page corrects a wrong prediction without a reload of the board. A
+ * refused drop answers 422 with no body, and the drag puts the card back.
  */
 #[IsGranted(CardVoter::WRITE, subject: 'card')]
 #[Route(
@@ -45,7 +45,7 @@ final class MoveCardController extends AppController
 {
     public function __construct(
         private readonly MoveCardHandler $moveCard,
-        private readonly ShowBoardHandler $showBoard,
+        private readonly ShowCardPlacementHandler $showPlacement,
         private readonly FormFactoryInterface $formFactory,
         private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
@@ -60,6 +60,8 @@ final class MoveCardController extends AppController
 
         $project = $card->project;
         $data = new MoveCardRequest();
+        $stream = TurboBundle::STREAM_FORMAT === $request->getPreferredFormat();
+        $error = null;
 
         // Rebuilt under the name the board rendered it with, so handleRequest()
         // finds the submission and the form component checks its own CSRF token.
@@ -67,43 +69,44 @@ final class MoveCardController extends AppController
         $form->handleRequest($request);
 
         if (!$form->isSubmitted() || !$form->isValid()) {
-            // A rejection is a stale or forged submission rather than something
-            // the reader could correct, so it redirects: the flash below is
-            // rendered outside the board, which a stream response never carries.
-            $this->addFlash('error', $this->translator->trans('board.card.flash.move_rejected'));
-
-            return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
+            // A stale or forged submission, which the reader cannot correct.
+            $error = $this->translator->trans('board.card.flash.move_rejected');
+        } else {
+            try {
+                ($this->moveCard)(new MoveCardCommand(
+                    card: $card,
+                    actor: CardReporter::Human,
+                    column: $data->column ?? throw new \LogicException('column required after validation'),
+                    position: $data->position,
+                    parent: $data->parent,
+                    beforeCardId: $data->beforeCardId,
+                    afterCardId: $data->afterCardId,
+                ));
+            } catch (DomainErrors $e) {
+                // The column went away between the form check and the lock, or the
+                // parent a lane gives breaks a parent rule.
+                $error = $this->translator->trans(array_first($e->errors));
+            } catch (EpicChildrenOpen $e) {
+                $error = $this->translator->trans(EpicChildrenOpen::MESSAGE, ['%cards%' => $e->cardList()]);
+            }
         }
 
-        try {
-            ($this->moveCard)(new MoveCardCommand(
-                card: $card,
-                actor: CardReporter::Human,
-                column: $data->column ?? throw new \LogicException('column required after validation'),
-                position: $data->position,
-                parent: $data->parent,
-                beforeCardId: $data->beforeCardId,
-                afterCardId: $data->afterCardId,
-            ));
-        } catch (DomainErrors $e) {
-            // The column went away between the form check and the lock, or the
-            // parent a lane gives breaks a parent rule.
-            $this->addFlash('error', $this->translator->trans(array_first($e->errors)));
-
-            return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
-        } catch (EpicChildrenOpen $e) {
-            $this->addFlash('error', $this->translator->trans(EpicChildrenOpen::MESSAGE, ['%cards%' => $e->cardList()]));
-
-            return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
+        if (null !== $error && $stream) {
+            return new Response('', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
+        if (!$stream) {
+            if (null !== $error) {
+                $this->addFlash('error', $error);
+            }
+
             return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
         }
 
         return new Response(
-            $this->renderView('@Board/_board.stream.html.twig', [
-                'board' => ($this->showBoard)(new ShowBoardCommand($project)),
+            $this->renderView('@Board/_card_placement.stream.html.twig', [
+                'cardId' => (string) $card->id,
+                'placement' => ($this->showPlacement)(new ShowCardPlacementCommand($project, $card)),
             ]),
             Response::HTTP_OK,
             ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],

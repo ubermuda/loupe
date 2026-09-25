@@ -14,7 +14,7 @@
 
 {% block body %}
 <turbo-frame id="card-drawer-frame"{% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' %} target="_top"{% endif %}>
-<div class="lp-card-drawer" data-controller="panel-tabs" data-panel-tabs-active-value="{{ app.request.query.get('tab', 'overview') }}">
+<div class="lp-card-drawer" data-card-drawer-card-id="{{ card.id }}" data-controller="panel-tabs" data-panel-tabs-active-value="{{ app.request.query.get('tab', 'overview') }}">
     {% if app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' %}
         {% include '_flash_messages.html.twig' with {flashes: app.flashes(['success', 'error', 'warning', 'info'])} only %}
     {% endif %}

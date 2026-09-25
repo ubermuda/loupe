@@ -2,12 +2,12 @@
 import { Application } from '@hotwired/stimulus';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-const mercure = vi.hoisted(() => ({ subscriptions: [] }));
+const live = vi.hoisted(() => ({ subscriptions: [] }));
 
-vi.mock('../../assets/lib/mercure.js', () => ({
-    subscribe: (types, handler, options) => {
+vi.mock('../../assets/lib/live.js', () => ({
+    on: (types, handler, options) => {
         const subscription = { types, handler, options, removed: false };
-        mercure.subscriptions.push(subscription);
+        live.subscriptions.push(subscription);
         return () => {
             subscription.removed = true;
         };
@@ -21,7 +21,7 @@ let application;
 
 beforeEach(() => {
     vi.useFakeTimers();
-    mercure.subscriptions = [];
+    live.subscriptions = [];
     application = Application.start();
     application.register('board-refresh', BoardRefreshController);
 });
@@ -33,19 +33,32 @@ afterEach(async () => {
     vi.useRealTimers();
 });
 
-async function mount({ src = null } = {}) {
+async function mount({ src = null, complete = false } = {}) {
+    const attributes =
+        (src ? ` src="${src}"` : '') + (complete ? ' complete' : '');
     document.body.innerHTML = `<div data-controller="board-refresh" data-board-refresh-board-value="/projects/1/board">
-        <turbo-frame id="board-frame" data-board-refresh-target="frame"${src ? ` src="${src}"` : ''}><div class="lp-board"></div></turbo-frame>
+        <turbo-frame id="board-frame" refresh="morph" data-board-refresh-target="frame"${attributes}><div class="lp-board"></div></turbo-frame>
     </div>`;
     const frame = document.querySelector('turbo-frame');
+    frame.calls = [];
+    const setAttribute = frame.setAttribute.bind(frame);
+    const removeAttribute = frame.removeAttribute.bind(frame);
+    frame.setAttribute = (name, value) => {
+        frame.calls.push(`set ${name}`);
+        setAttribute(name, value);
+    };
+    frame.removeAttribute = (name) => {
+        frame.calls.push(`remove ${name}`);
+        removeAttribute(name);
+    };
     frame.reload = vi.fn();
     await Promise.resolve();
     return frame;
 }
 
 function subscription() {
-    expect(mercure.subscriptions).toHaveLength(1);
-    return mercure.subscriptions[0];
+    expect(live.subscriptions).toHaveLength(1);
+    return live.subscriptions[0];
 }
 
 it('listens for a column change and for a worker run change', async () => {
@@ -56,12 +69,30 @@ it('listens for a column change and for a worker run change', async () => {
     ]);
 });
 
+it('gives the frame its src while disabled, so Turbo loads nothing until a reload', async () => {
+    const frame = await mount();
+    expect(frame.calls).toEqual([
+        'set disabled',
+        'set src',
+        'set complete',
+        'remove disabled',
+    ]);
+    expect(frame.getAttribute('src')).toBe('/projects/1/board');
+    expect(frame.hasAttribute('complete')).toBe(true);
+    expect(frame.hasAttribute('disabled')).toBe(false);
+});
+
+it('leaves a frame that is already complete alone', async () => {
+    const frame = await mount({ src: '/projects/1/board', complete: true });
+    expect(frame.calls).toEqual([]);
+});
+
 it('gives a frame with no src the board url on a signal', async () => {
     const frame = await mount();
     subscription().handler({ type: 'worker_run.changed' });
     vi.advanceTimersByTime(300);
-    expect(frame.src).toBe('/projects/1/board');
-    expect(frame.reload).not.toHaveBeenCalled();
+    expect(frame.getAttribute('src')).toBe('/projects/1/board');
+    expect(frame.reload).toHaveBeenCalledOnce();
 });
 
 it('reloads a frame that has a src on a signal', async () => {
@@ -204,7 +235,7 @@ it('ignores a busy form that is not a card move', async () => {
     expect(frame.reload).toHaveBeenCalledOnce();
 });
 
-it('reloads after the card drawer saves', async () => {
+it('reloads when another controller asks for a reload', async () => {
     const frame = await mount({ src: '/projects/1/board' });
     application
         .getControllerForElementAndIdentifier(
@@ -221,7 +252,7 @@ it('reloads after a reconnect, not after the first open', async () => {
     subscription().options.onOpen();
     vi.advanceTimersByTime(300);
     expect(frame.reload).not.toHaveBeenCalled();
-    subscription().options.onOpen();
+    subscription().options.onReconnect();
     vi.advanceTimersByTime(300);
     expect(frame.reload).toHaveBeenCalledOnce();
 });

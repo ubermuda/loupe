@@ -9,6 +9,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -34,6 +35,7 @@ final readonly class UpdateCardHandler
 {
     public const string COLUMN_GONE = 'board.card.error.column_gone';
     public const string LINKED_CARD_GONE = 'board.card.error.linked_card_unknown';
+    public const string CONTENT_CHANGED = 'board.card.error.changed_since_opened';
 
     public function __construct(
         private CardRepository $cards,
@@ -95,6 +97,14 @@ final readonly class UpdateCardHandler
             // the queue committed. Both the decision below and the move it
             // makes read the column, so both need the column as it is now.
             $this->cards->refreshColumn($card);
+            // The text too, so the clash check and the change flags below
+            // compare against what the last writer committed.
+            $this->cards->refreshContent($card);
+            if (null !== $command->expectedFingerprint
+                && !$command->confirmOverwrite
+                && $command->expectedFingerprint !== Card::contentFingerprint($card->title, $card->body)) {
+                return self::CONTENT_CHANGED;
+            }
             // The columns too: one deleted or given another terminal flag since
             // the request loaded it decides where the card may go and whether
             // the move stamps it.
@@ -162,6 +172,10 @@ final readonly class UpdateCardHandler
             // submitted.
             $titleChanged = null !== $title && $title !== $card->title;
             $bodyChanged = null !== $command->body && $command->body !== $card->body;
+            // The web form trims and turns CRLF into LF, so a save of unchanged
+            // text still rewrites the body. Only a change a reader sees counts.
+            $contentChanged = (null !== $title && Card::normalText($title) !== Card::normalText($card->title))
+                || (null !== $command->body && Card::normalText($command->body) !== Card::normalText($card->body));
             $typeChanged = null !== $command->type && $command->type !== $card->type;
 
             if (null !== $title) {
@@ -205,7 +219,7 @@ final readonly class UpdateCardHandler
                 $this->events->dispatch(new CardParentChanged($card, $oldParent, $card->parent, $command->actor));
             }
 
-            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged, $openedRun);
+            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged, $contentChanged, $openedRun);
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
@@ -213,7 +227,12 @@ final readonly class UpdateCardHandler
             throw $outcome;
         }
         if (\is_string($outcome)) {
-            throw new DomainErrors([self::LINKED_CARD_GONE === $outcome ? 'relatedCards' : 'column' => $outcome]);
+            $field = match ($outcome) {
+                self::LINKED_CARD_GONE => 'relatedCards',
+                self::CONTENT_CHANGED => 'contentFingerprint',
+                default => 'column',
+            };
+            throw new DomainErrors([$field => $outcome]);
         }
 
         // After the commit, never inside it: the sink drains at kernel.terminate,
@@ -240,6 +259,15 @@ final readonly class UpdateCardHandler
             || null !== $command->pullRequestUrls
             || null !== $command->documentIds
             || null !== $command->relatedCards;
+
+        if ($changedSomething || null !== $outcome->move) {
+            $this->events->dispatch(new CardChanged(
+                $card->project->id ?? throw new \LogicException('Project has no id.'),
+                $card->id ?? throw new \LogicException('Card has no id.'),
+                CardChanged::UPDATED,
+                $outcome->contentChanged,
+            ));
+        }
 
         $view = new UpdateCardView($card, $outcome->openedRun);
         if (!$changedSomething) {

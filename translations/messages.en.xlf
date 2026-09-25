@@ -4948,6 +4948,10 @@
                 <source>board.card.error.epic_children_open</source>
                 <target>This epic has open child cards. Move %cards% to a done column first.</target>
             </trans-unit>
+            <trans-unit id="board.card.error.changed_since_opened">
+                <source>board.card.error.changed_since_opened</source>
+                <target>This card changed since you opened it.</target>
+            </trans-unit>
 
             <!-- Card create and edit pages -->
             <trans-unit id="board.card.create.page.title">
@@ -4985,6 +4989,26 @@
             <trans-unit id="board.card.form.linked_cards.remove">
                 <source>board.card.form.linked_cards.remove</source>
                 <target>Remove this link</target>
+            </trans-unit>
+            <trans-unit id="board.card.form.saving">
+                <source>board.card.form.saving</source>
+                <target>Saving…</target>
+            </trans-unit>
+            <trans-unit id="board.card.form.creating">
+                <source>board.card.form.creating</source>
+                <target>Creating…</target>
+            </trans-unit>
+            <trans-unit id="board.card.form.saved">
+                <source>board.card.form.saved</source>
+                <target>Saved</target>
+            </trans-unit>
+            <trans-unit id="board.card.form.view_latest">
+                <source>board.card.form.view_latest</source>
+                <target>View the latest version</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.confirm_overwrite.label">
+                <source>board.form.create_card_form.confirm_overwrite.label</source>
+                <target>Save anyway</target>
             </trans-unit>
 
             <!-- Terminal column history -->
@@ -5639,6 +5663,7 @@
             <trans-unit id="board.card.drawer.loading"><source>board.card.drawer.loading</source><target>Loading card…</target></trans-unit>
             <trans-unit id="board.card.drawer.failed"><source>board.card.drawer.failed</source><target>The card could not load. Try again.</target></trans-unit>
             <trans-unit id="board.card.drawer.retry"><source>board.card.drawer.retry</source><target>Retry</target></trans-unit>
+            <trans-unit id="board.card.drawer.deleted"><source>board.card.drawer.deleted</source><target>This card was deleted.</target></trans-unit>
             <trans-unit id="nav.global_actions.label"><source>nav.global_actions.label</source><target>Global tools</target></trans-unit>
             <trans-unit id="nav.new_work"><source>nav.new_work</source><target>New work</target></trans-unit>
             <trans-unit id="nav.activity.open"><source>nav.activity.open</source><target>Open project activity</target></trans-unit>
@@ -5963,6 +5988,7 @@
             <trans-unit id="board.filter.search.label"><source>board.filter.search.label</source><target>Search cards</target></trans-unit>
             <trans-unit id="board.filter.search.placeholder"><source>board.filter.search.placeholder</source><target>Find a card…</target></trans-unit>
             <trans-unit id="board.filter.empty"><source>board.filter.empty</source><target>No cards match these filters.</target></trans-unit>
+            <trans-unit id="board.live.paused"><source>board.live.paused</source><target>Live updates paused</target></trans-unit>
             <trans-unit id="nav.link.agents"><source>nav.link.agents</source><target>Agents</target></trans-unit>
             <trans-unit id="nav.link.rules"><source>nav.link.rules</source><target>Rules</target></trans-unit>
             <trans-unit id="nav.link.activity"><source>nav.link.activity</source><target>Activity</target></trans-unit>

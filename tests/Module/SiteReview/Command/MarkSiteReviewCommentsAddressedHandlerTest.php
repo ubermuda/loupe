@@ -15,6 +15,7 @@ use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Ubermuda\AuditBundle\AuditActorProviderInterface;
 use Ubermuda\AuditBundle\AuditEvent;
 use Ubermuda\AuditBundle\Auditor;
@@ -42,7 +43,7 @@ final class MarkSiteReviewCommentsAddressedHandlerTest extends KernelTestCase
         self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
         $this->audit = new RecordingAuditor($actors);
 
-        $this->handler = new MarkSiteReviewCommentsAddressedHandler($comments, $this->em, $this->audit->auditor);
+        $this->handler = new MarkSiteReviewCommentsAddressedHandler($comments, $this->em, $this->audit->auditor, new EventDispatcher());
 
         $owner = new User(fullName: 'Owner', email: 'mark-site-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);

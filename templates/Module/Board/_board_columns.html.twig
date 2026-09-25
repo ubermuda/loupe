@@ -1,12 +1,14 @@
-{# The board itself. Rendered by the page and again by the move endpoint's
-   stream, so the two can never drift apart. Props: board (BoardView),
-   renameColumnForm (a refused FormView, or null). #}
+{# The board itself. Props: board (BoardView), renameColumnForm (a refused
+   FormView, or null). A frame reload keeps the toolbar, so the filter and
+   the view come back from it after each render. #}
 {% set canManage = is_granted(constant('App\\Module\\Board\\Security\\BoardColumnVoter::MANAGE'), board.project) %}
 {% set runWarnings = card_run_warnings(board.project) %}
-<div id="board" class="lp-board" data-controller="board-drag board-filter board-view{{ canManage ? ' board-columns' }}">
+<div id="board" class="lp-board"
+     data-controller="board-drag board-filter board-view{{ canManage ? ' board-columns' }}"
+     data-action="turbo:frame-render@document->board-filter#filter board:placed@document->board-filter#filter turbo:frame-render@document->board-view#restore turbo:frame-render@document->board-drag#markReady">
     {% set cardCount = 0 %}
     {% for view in board.columns %}{% set cardCount = cardCount + board.shownCounts[view.column.id ~ '']|default(view.count) %}{% endfor %}
-    <div class="lp-board-toolbar">
+    <div class="lp-board-toolbar" id="board-toolbar-{{ board.project.id }}" data-turbo-permanent>
         <div class="lp-board-toolbar__filters" data-action="focusin->board-filter#revealField">
             <label class="lp-board-toolbar__search">
                 <span class="sr-only">{{ 'board.filter.search.label'|trans }}</span>
@@ -22,6 +24,7 @@
               data-board-filter-target="count"
               data-one="{{ 'board.card.count'|trans({'%count%': 1}) }}"
               data-many="{{ 'board.card.count'|trans({'%count%': 2})|replace({'2': '%count%'}) }}">{{ 'board.card.count'|trans({'%count%': cardCount}) }}</span>
+        <p class="lp-board-toolbar__paused" role="status" data-board-live-target="paused" data-message="{{ 'board.live.paused'|trans }}"></p>
         <div class="lp-board-toolbar__mode" aria-label="{{ 'board.view.label'|trans }}">
             <button type="button"
                     class="lp-board-toolbar__mode-button"
@@ -66,13 +69,15 @@
          {% if canManage %}data-action="dragover->board-columns#over drop->board-columns#drop"{% endif %}>
     {% for view in board.columns %}
     <section class="lp-board__column"
+             id="board-column-{{ view.column.id }}"
              aria-label="{{ view.column.label|trans }}"
              data-column-slug="{{ view.column.slug }}"
              data-column-id="{{ view.column.id }}"
              data-board-columns-target="column">
-        {% include '@Board/_board_column_head.html.twig' with {board: board, view: view, index: loop.index0, canManage: canManage, renameColumnForm: renameColumnForm} only %}
+        {% include '@Board/_board_column_head.html.twig' with {board: board, view: view, index: loop.index0, canManage: canManage, renameColumnForm: renameColumnForm, placeable: true} only %}
 
         <div class="lp-board__group"
+             id="board-group-{{ view.column.id }}"
              data-board-drag-target="group"
              data-column="{{ view.column.id }}"
              data-rankable="{{ view.column.terminal ? '0' : '1' }}">
@@ -82,7 +87,7 @@
             {% endfor %}
         </div>
 
-        {% include '@Board/_board_column_foot.html.twig' with {board: board, view: view} only %}
+        {% include '@Board/_board_column_foot.html.twig' with {board: board, view: view, placeable: true} only %}
     </section>
     {% endfor %}
     </div>
@@ -100,25 +105,7 @@
         </div>
         {% for view in board.columns %}
             {% for card in view.cards %}
-                {% set feedbackCount = board.pendingComments[card.id ~ '']|default(0) %}
-                <a class="lp-board-list__row"
-                   href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
-                   data-turbo-frame="card-drawer-frame"
-                   data-action="click->card-drawer#prepare"
-                   data-board-filter-target="row"
-                   data-list-card-id="{{ card.id }}"
-                   data-card-title="{{ card.title }}">
-                    <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong></span>
-                    <span>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</span>
-                    <span>{% include '@Board/_column_tag.html.twig' with {column: view.column} only %}</span>
-                    {% if card.parent %}
-                    <span data-card-parent title="{{ card.parent.title }}">#{{ card.parent.number }}</span>
-                    {% else %}
-                    <span data-card-parent aria-label="{{ 'board.list.parent.none'|trans }}">—</span>
-                    {% endif %}
-                    <span aria-label="{{ 'board.list.agent.unassigned'|trans }}">—</span>
-                    <span>{{ feedbackCount }}</span>
-                </a>
+                {% include '@Board/_card_row.html.twig' with {card: card, column: view.column, feedbackCount: board.pendingComments[card.id ~ '']|default(0)} only %}
             {% endfor %}
         {% endfor %}
     </div>
