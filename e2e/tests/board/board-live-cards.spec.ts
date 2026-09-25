@@ -114,15 +114,21 @@ test('a card moved in one browser moves in another, marked, with the filter and 
 
     await mover.goto(`/projects/${projectId}/board/cards/${echoId}`);
     await mover.getByRole('tab', { name: 'Details' }).click();
-    await mover
-        .locator('.lp-card-move__select')
-        .selectOption({ label: 'Done' });
-    await expect(mover).toHaveURL(new RegExp(`${boardUrl}$`));
 
     const moved = group(watcher, 'done').locator(
         `${CARD}[data-card-title="Echo live"]`,
     );
-    await expect(moved).toHaveClass(/lp-board-card--flash/);
+    // The mark lasts 1.5 s, so watch for it before the mover's page loads.
+    const flashed = expect(moved).toHaveClass(/lp-board-card--flash/, {
+        timeout: 15000,
+    });
+    await mover
+        .locator('.lp-card-move__select')
+        .selectOption({ label: 'Done' });
+    await Promise.all([
+        flashed,
+        expect(mover).toHaveURL(new RegExp(`${boardUrl}$`)),
+    ]);
     await expect(group(watcher, 'next').locator(CARD)).toHaveCount(0);
     await expect(
         watcher.locator('[data-column-slug="done"] .lp-board__column-link'),

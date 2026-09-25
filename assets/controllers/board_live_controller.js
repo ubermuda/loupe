@@ -28,6 +28,7 @@ export default class extends Controller {
     connect() {
         this.pending = new Map();
         this.expected = new Map();
+        this.flashes = new Map();
         this.onPlaced = (event) => this.placed(event.detail ?? {});
         this.onMissed = (event) => this.missed(event.detail ?? {});
         document.addEventListener('board:placed', this.onPlaced);
@@ -49,14 +50,21 @@ export default class extends Controller {
         this.pending.forEach((entry) => clearTimeout(entry.timer));
         this.pending.clear();
         this.expected.clear();
+        this.flashes.forEach((timer) => clearTimeout(timer));
+        this.flashes.clear();
     }
 
     pausedTargetConnected(element) {
         this.showStatus(element);
     }
 
+    /** The live region stays in place, so a screen reader hears the new text. */
     showStatus(element) {
-        element.hidden = this.liveState !== 'paused';
+        const text =
+            this.liveState === 'paused' ? (element.dataset.message ?? '') : '';
+        if (element.textContent !== text) {
+            element.textContent = text;
+        }
     }
 
     receive(change) {
@@ -124,6 +132,15 @@ export default class extends Controller {
         if (this.pending.get(cardId) !== entry) {
             return;
         }
+        const current = document.getElementById(`board-card-${cardId}`);
+        if (current !== null && this.busy(current)) {
+            entry.remote ||= this.expected.get(cardId)?.remote ?? false;
+            entry.again = false;
+            this.expected.delete(cardId);
+            this.schedule(cardId, entry, BUSY_RETRY_MILLISECONDS);
+
+            return;
+        }
         if (html === null) {
             this.expected.delete(cardId);
             this.reload();
@@ -168,10 +185,21 @@ export default class extends Controller {
         ) {
             return;
         }
+        this.flash(cardId, card);
+    }
+
+    flash(cardId, card) {
+        clearTimeout(this.flashes.get(cardId));
+        card.classList.remove(FLASH_CLASS);
+        // Reading the layout makes the browser start the animation again.
+        void card.offsetWidth;
         card.classList.add(FLASH_CLASS);
-        setTimeout(
-            () => card.classList.remove(FLASH_CLASS),
-            FLASH_MILLISECONDS,
+        this.flashes.set(
+            cardId,
+            setTimeout(() => {
+                this.flashes.delete(cardId);
+                card.classList.remove(FLASH_CLASS);
+            }, FLASH_MILLISECONDS),
         );
     }
 

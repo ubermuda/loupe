@@ -23,7 +23,7 @@
               data-board-filter-target="count"
               data-one="{{ 'board.card.count'|trans({'%count%': 1}) }}"
               data-many="{{ 'board.card.count'|trans({'%count%': 2})|replace({'2': '%count%'}) }}">{{ 'board.card.count'|trans({'%count%': cardCount}) }}</span>
-        <p class="lp-board-toolbar__paused" role="status" data-board-live-target="paused" hidden>{{ 'board.live.paused'|trans }}</p>
+        <p class="lp-board-toolbar__paused" role="status" data-board-live-target="paused" data-message="{{ 'board.live.paused'|trans }}"></p>
         <div class="lp-board-toolbar__mode" aria-label="{{ 'board.view.label'|trans }}">
             <button type="button"
                     class="lp-board-toolbar__mode-button"

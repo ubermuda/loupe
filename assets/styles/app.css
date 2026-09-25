@@ -780,12 +780,13 @@
     .lp-board-toolbar__count {
         @apply ml-auto text-sm font-semibold text-fg-dim;
     }
-    /* Says the board no longer receives changes from others. Hidden while live. */
+    /* Says the board no longer receives changes from others. Empty while live,
+       and out of the layout but still a live region, so the text is announced. */
     .lp-board-toolbar__paused {
         @apply m-0 rounded-md bg-status-pending-bg px-2 py-1 text-sm font-semibold text-status-pending-deep;
     }
-    .lp-board-toolbar__paused[hidden] {
-        @apply hidden;
+    .lp-board-toolbar__paused:empty {
+        @apply sr-only;
     }
     .lp-board-filter-empty {
         @apply m-0 rounded-lg bg-surface-2 px-4 py-3 text-sm text-fg-mute;

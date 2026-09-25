@@ -45,7 +45,7 @@ beforeEach(async () => {
     document.body.innerHTML = `<div id="wrapper" data-controller="board-live"
             data-board-live-placement-value="/projects/p/board/cards/${PLACEHOLDER}/placement"
             data-board-live-placeholder-value="${PLACEHOLDER}">
-        <p data-board-live-target="paused" role="status" hidden>Live updates paused</p>
+        <p data-board-live-target="paused" role="status" data-message="Live updates paused"></p>
         <article id="board-card-a" data-card-digest="old"></article>
         <article id="board-card-b" data-card-digest="old"></article>
     </div>`;
@@ -214,6 +214,67 @@ it('holds a card that is being dragged', async () => {
     expect(fetch).toHaveBeenCalledOnce();
 });
 
+it('drops a placement that returns while the card is dragged, and fetches it again after the drag', async () => {
+    let finish;
+    answer = () =>
+        new Promise((resolve) => {
+            finish = resolve;
+        });
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    expect(fetch).toHaveBeenCalledOnce();
+
+    card().classList.add('lp-board-card--dragging');
+    finish({
+        ok: true,
+        headers: new Headers({ 'Content-Type': STREAM }),
+        text: () => Promise.resolve('<turbo-stream></turbo-stream>'),
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(renderStreamMessage).not.toHaveBeenCalled();
+    expect(reloads).toBe(0);
+
+    answer = () =>
+        Promise.resolve({
+            ok: true,
+            headers: new Headers({ 'Content-Type': STREAM }),
+            text: () => Promise.resolve('<turbo-stream></turbo-stream>'),
+        });
+    card().classList.remove('lp-board-card--dragging');
+    await vi.advanceTimersByTimeAsync(250);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(renderStreamMessage).toHaveBeenCalledOnce();
+    placed('a', 'new');
+    expect(card().classList.contains('lp-board-card--flash')).toBe(true);
+});
+
+it('keeps the mark for the full time after a second change', async () => {
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    placed('a', 'new');
+    await vi.advanceTimersByTimeAsync(1000);
+
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    placed('a', 'newer');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(card().classList.contains('lp-board-card--flash')).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(card().classList.contains('lp-board-card--flash')).toBe(false);
+});
+
+it('clears the mark timers when it disconnects', async () => {
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    placed('a', 'new');
+    expect(vi.getTimerCount()).toBe(1);
+
+    document.getElementById('wrapper').removeAttribute('data-controller');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(0);
+});
+
 it('reloads the board when a placement cannot be applied', async () => {
     receive('a');
     await vi.advanceTimersByTimeAsync(150);
@@ -246,16 +307,19 @@ it('reloads the board when the placement request cannot reach the server', async
     expect(reloads).toBe(1);
 });
 
-it('shows the paused sign only while live updates are paused', () => {
+it('writes the paused sign into its live region only while live updates are paused', () => {
     const sign = document.querySelector('[data-board-live-target="paused"]');
-    expect(sign.hidden).toBe(true);
+    expect(sign.hidden).toBe(false);
+    expect(sign.textContent).toBe('');
 
     setStatus('paused');
-    expect(sign.hidden).toBe(false);
+    expect(sign.textContent).toBe('Live updates paused');
 
     setStatus('live');
-    expect(sign.hidden).toBe(true);
+    expect(sign.textContent).toBe('');
 
+    setStatus('paused');
     setStatus('off');
-    expect(sign.hidden).toBe(true);
+    expect(sign.textContent).toBe('');
+    expect(sign.hidden).toBe(false);
 });
