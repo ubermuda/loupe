@@ -126,7 +126,7 @@ other card, and nobody tells that card's writer. Read the card before you write.
 
 `siteReviewComments` is read-only, on `card_get` and on `card_list` with `full`.
 It lists the feedback items that belong to the card. Each item carries `id`,
-`url`, `anchors`, `body`, `hasDrawing`, `status` and `createdAt`. A reviewer
+`url`, `anchors`, `body`, `hasDrawing`, `status`, `context` and `createdAt`. A reviewer
 files feedback against a card with the site-review widget, and no board tool
 writes that link. `feedback_list` reads the feedback of the whole project, each
 item with its card. Mark an item done with `feedback_mark_addressed`, which takes

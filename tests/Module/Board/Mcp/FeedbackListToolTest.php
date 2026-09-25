@@ -59,7 +59,7 @@ final class FeedbackListToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($project);
         $card = $this->card(($this->createTool)('Fix the header', 'Body', 'site-review')['cardId']);
 
-        $first = $this->feedback($project, 0, 'The logo is blurry', $card);
+        $first = $this->feedback($project, 0, 'The logo is blurry', $card, context: 'card:preview');
         $first->addAnchor('header .logo', 'Logo', 'Acme', 'the ', ' mark');
         $first->strokes = [['space' => 'page', 'points' => [[0.1, 0.2], [0.3, 0.4]]]];
         $this->feedback($project, 1, 'Already fixed', $card, SiteReviewCommentStatus::Addressed);
@@ -83,6 +83,7 @@ final class FeedbackListToolTest extends KernelTestCase
                 'body' => 'The logo is blurry',
                 'hasDrawing' => true,
                 'status' => 'pending',
+                'context' => 'card:preview',
                 'createdAt' => $first->createdAt->format(\DATE_ATOM),
                 'cardId' => (string) $card->id,
                 'number' => $card->number,
@@ -95,6 +96,7 @@ final class FeedbackListToolTest extends KernelTestCase
                 'body' => 'No card for this one',
                 'hasDrawing' => false,
                 'status' => 'pending',
+                'context' => null,
                 'createdAt' => $unlinked->createdAt->format(\DATE_ATOM),
                 'cardId' => null,
                 'number' => null,
@@ -148,6 +150,19 @@ final class FeedbackListToolTest extends KernelTestCase
         self::assertSame(['Yours'], array_column(($this->tool)()['feedback'], 'body'));
     }
 
+    public function test_an_unbound_token_is_refused(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('feedback-list-unbound');
+        $this->feedback($project, 0, 'Not reachable', null);
+        $this->em->flush();
+        $this->actAsUnboundMcpToken($project->owner);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
+        ($this->tool)();
+    }
+
     private function card(string $cardId): Card
     {
         $card = $this->em->find(Card::class, $cardId);
@@ -156,9 +171,9 @@ final class FeedbackListToolTest extends KernelTestCase
         return $card;
     }
 
-    private function feedback(Project $project, int $position, string $body, ?Card $card, SiteReviewCommentStatus $status = SiteReviewCommentStatus::Pending): SiteReviewComment
+    private function feedback(Project $project, int $position, string $body, ?Card $card, SiteReviewCommentStatus $status = SiteReviewCommentStatus::Pending, ?string $context = null): SiteReviewComment
     {
-        $comment = new SiteReviewComment($project, $position, $body, 'https://app.example/page');
+        $comment = new SiteReviewComment($project, $position, $body, 'https://app.example/page', $context);
         $comment->status = $status;
         $this->em->persist($comment);
 

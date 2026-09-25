@@ -386,6 +386,7 @@ final class CardListToolTest extends KernelTestCase
             'body' => 'The logo is blurry',
             'hasDrawing' => true,
             'status' => 'pending',
+            'context' => null,
             'createdAt' => $comment->createdAt->format(\DATE_ATOM),
         ]], $rows['Second']);
     }

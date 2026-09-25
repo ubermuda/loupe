@@ -179,7 +179,7 @@ final class CardGetToolTest extends KernelTestCase
         $card = $this->em->find(Card::class, $created['cardId']);
         self::assertInstanceOf(Card::class, $card);
 
-        $drawn = new SiteReviewComment($project, 0, 'The logo is blurry', 'https://app.example/page')
+        $drawn = new SiteReviewComment($project, 0, 'The logo is blurry', 'https://app.example/page', 'card:preview')
             ->addAnchor('header .logo', 'Logo', 'Acme', 'the ', ' mark');
         $drawn->strokes = [['space' => 'page', 'points' => [[0.1, 0.2], [0.3, 0.4]]]];
         $addressed = new SiteReviewComment($project, 1, 'The footer overlaps', 'https://app.example/other');
@@ -205,6 +205,7 @@ final class CardGetToolTest extends KernelTestCase
                 'body' => 'The logo is blurry',
                 'hasDrawing' => true,
                 'status' => 'pending',
+                'context' => 'card:preview',
                 'createdAt' => $drawn->createdAt->format(\DATE_ATOM),
             ],
             [
@@ -214,6 +215,7 @@ final class CardGetToolTest extends KernelTestCase
                 'body' => 'The footer overlaps',
                 'hasDrawing' => false,
                 'status' => 'addressed',
+                'context' => null,
                 'createdAt' => $addressed->createdAt->format(\DATE_ATOM),
             ],
         ], ($this->tool)($created['cardId'])['siteReviewComments']);

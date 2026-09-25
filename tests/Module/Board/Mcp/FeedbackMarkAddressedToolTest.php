@@ -83,6 +83,17 @@ final class FeedbackMarkAddressedToolTest extends KernelTestCase
         self::assertSame(SiteReviewCommentStatus::Pending, $this->statusOf($foreign));
     }
 
+    public function test_an_unbound_token_is_refused_even_for_an_empty_batch(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('feedback-mark-unbound');
+        $this->actAsUnboundMcpToken($project->owner);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
+        ($this->tool)([]);
+    }
+
     private function statusOf(SiteReviewComment $comment): SiteReviewCommentStatus
     {
         $this->em->clear();

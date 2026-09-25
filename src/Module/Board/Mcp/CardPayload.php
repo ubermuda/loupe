@@ -24,7 +24,7 @@ use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
  *
  * @phpstan-type CardPullRequestSummary array{pullRequestId: string, url: string, forge: string, repository: ?string, number: ?int}
  * @phpstan-type FeedbackAnchorSummary array{selector: string, text: string, quote: ?string, quotePrefix: ?string, quoteSuffix: ?string}
- * @phpstan-type FeedbackSummary array{id: string, url: string, anchors: list<FeedbackAnchorSummary>, body: string, hasDrawing: bool, status: string, createdAt: string}
+ * @phpstan-type FeedbackSummary array{id: string, url: string, anchors: list<FeedbackAnchorSummary>, body: string, hasDrawing: bool, status: string, context: ?string, createdAt: string}
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
  * @phpstan-type CardRelatedCardSummary array{cardId: string, number: int, title: string, status: string, kind: string}
  * @phpstan-type CardRefSummary array{cardId: string, number: int, title: string, status: string}
@@ -207,6 +207,9 @@ final readonly class CardPayload
             // cannot render. The flag says to ask the reviewer rather than guess.
             'hasDrawing' => null !== $comment->strokes && [] !== $comment->strokes,
             'status' => $comment->status->value,
+            // What the page said it was when the note was made. Only a preview
+            // deployment sets it, so null is the common answer.
+            'context' => $comment->context,
             'createdAt' => $comment->createdAt->format(\DATE_ATOM),
         ];
     }
