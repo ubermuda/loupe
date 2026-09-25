@@ -89,12 +89,6 @@ for (const workspace of [
         destination: 'activity',
     },
     {
-        route: 'site-review',
-        action: 'Widget setup',
-        role: 'link',
-        destination: 'connect',
-    },
-    {
         route: 'projects',
         action: 'New project',
         role: 'button',
