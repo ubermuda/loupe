@@ -28,14 +28,18 @@ The path holds no project, because one bridge follows several projects.
 ```json
 {
   "projects": ["0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90"],
-  "cliVersion": "b4e39aa7"
+  "cliVersion": "1.0.0",
+  "update": {"state": "rolled-back", "version": "1.1.0"}
 }
 ```
 
 | Field | Rule |
 |---|---|
 | `projects` | required. A list of at most 500 project ids, which may be empty. The server keeps the ids of projects the token's user owns, and drops every other id |
-| `cliVersion` | required. The build the bridge reports with `loupe version`, 1 to 100 characters after trimming |
+| `cliVersion` | required. The version of a release build, such as `1.0.0`, or the commit of a development build. 1 to 100 characters after trimming |
+| `update` | optional. The state of the bridge's own [update](../extending/cli-bridge.md#updates) |
+| `update.state` | required in `update`. One of the states below |
+| `update.version` | optional. The release the state is about, at most 100 characters |
 | `hooks` | optional. A list of at most 100 rows, one for each event of each [hook package](../extending/bridge-hooks.md) the bridge runs. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 
 Each row of `hooks` holds these fields:
@@ -48,6 +52,22 @@ Each row of `hooks` holds these fields:
 | `lastRunAt` | optional. The time of the last run, as an RFC 3339 date. It is missing for a hook that has not run since the bridge started |
 | `outcome` | required. `ok`, `failed`, `timeout` or `never` |
 | `error` | optional. The end of the output of a failed or timed out run, or the error of a hook that could not start, at most 500 characters after trimming |
+
+| `update.state` | Meaning |
+|---|---|
+| `current` | The running version is inside the range, and no newer release fits |
+| `updating` | The bridge hands over to `version` now |
+| `rolled-back` | The bridge went back from `version`, and skips it |
+| `blocked` | The bridge cannot write the directory of its binary, so it cannot install `version` |
+| `off` | `autoUpdate` is `false`, and `version` waits |
+| `dev` | A development build, which never updates |
+
+The bridge sends no `update` until its first check has a state. Each heartbeat
+replaces the stored state, and a heartbeat with no `update` clears it. The
+agents page shows a chip from the stored state: "Up to date", "Updating",
+"Rolled back from" and the version, or "Update blocked". It shows "Needs ^1.0"
+in place of all of them when `cliVersion` is outside the range, and a
+development build always is. `off` and `dev` show no chip.
 
 The server drops a project id it cannot match to one of the user's projects. It
 does not refuse the heartbeat. A project deleted while a bridge runs stays in
@@ -68,7 +88,7 @@ heartbeat never delays a run report.
 
 | Status | Body | When |
 |---|---|---|
-| 204 | | the heartbeat is accepted |
+| 200 | `{"cliRange":"^1.0"}` | the heartbeat is accepted |
 | 401 | | the request carries no token |
 | 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | | `bridgeId` is not a uuid the server accepts, or agent push is switched off on the instance |
@@ -81,6 +101,11 @@ a row of its own. A heartbeat never changes another account's row.
 
 The first heartbeat of a bridge writes a `bridge.bridge_registered` record to
 the audit log. A heartbeat that replaces the row writes none.
+
+`cliRange` is the caret range of CLI versions the server supports. The bridge
+installs a release inside it, as
+[Updates](../extending/cli-bridge.md#updates) describes. A server built before
+the range answers 204 with no body, and the bridge then checks for no update.
 
 The limit counts per token. Several bridges can share one token, and at the
 default interval each one posts once a minute.
@@ -120,4 +145,4 @@ run of that bridge that the list does not name. See
 ## Deletion and export
 
 Deleting an account deletes the rows of its bridges. The data export holds them
-in `bridges.json`.
+in `bridges.json`, with the stored update state and version.

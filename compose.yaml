@@ -136,9 +136,11 @@ services:
 ###< symfony/mailer ###
 
 ###> symfony/mercure-bundle ###
-  # In-memory Mercure hub (no history — best-effort by design), opt-in via
-  # `just mercure-up`. A missing hub only delays delivery — submissions reach the
-  # outbox first and the scheduled drain replays them — so e2e passes without it.
+  # Mercure hub, opt-in via `just mercure-up`. It keeps its history in
+  # /data/caddy/mercure.db with no size limit, and no volume holds that file, so
+  # recreating the container drops the history. A missing hub only delays
+  # delivery, because the scheduled outbox drain publishes later. So e2e passes
+  # without it.
   mercure:
     image: dunglas/mercure:v0.24
     profiles: ["mercure"]

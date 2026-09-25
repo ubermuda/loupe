@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -169,6 +170,14 @@ type fakeLoupe struct {
 	// askState answers the ask check route. Empty answers 404.
 	askState  string
 	askChecks []string
+	// heartbeatStatus answers each heartbeat. Zero answers 204.
+	heartbeatStatus int
+	// heartbeatFailures answers that many first heartbeats with a 502.
+	heartbeatFailures int
+	// hubDelay holds each hub connection back, and heartbeatsAtHub counts the
+	// heartbeats that arrived before the last one went through.
+	hubDelay        time.Duration
+	heartbeatsAtHub int
 	// cardColumn answers the card read route. Empty answers 404.
 	cardColumn string
 	cardReads  []string
@@ -205,7 +214,11 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		f.hubAuth = append(f.hubAuth, r.Header.Get("Authorization"))
 		f.hubTopics = append(f.hubTopics, r.URL.Query()["topic"])
-		attempt := len(f.hubAuth)
+		attempt, delay := len(f.hubAuth), f.hubDelay
+		f.mu.Unlock()
+		time.Sleep(delay)
+		f.mu.Lock()
+		f.heartbeatsAtHub = len(f.heartbeats)
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
@@ -230,8 +243,13 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 			raw, _ := io.ReadAll(r.Body)
 			f.mu.Lock()
 			f.heartbeats = append(f.heartbeats, string(raw))
+			status := cmp.Or(f.heartbeatStatus, http.StatusNoContent)
+			if f.heartbeatFailures > 0 {
+				f.heartbeatFailures--
+				status = http.StatusBadGateway
+			}
 			f.mu.Unlock()
-			w.WriteHeader(http.StatusNoContent)
+			w.WriteHeader(status)
 
 			return
 		}
@@ -434,6 +452,7 @@ func TestTheBridgeReportsRuleHealthAtStartAndOnAChange(t *testing.T) {
 // The bridge sends a heartbeat as soon as it has read GET /api/events, with the
 // ids of the projects it maps and its build, and stops cleanly with the stream.
 func TestTheBridgeSendsAHeartbeatAtStart(t *testing.T) {
+	injectVersion(t, "1.0.0")
 	fake := &fakeLoupe{flags: `{"bridge.heartbeat_interval_seconds":3600}`}
 	server := httptest.NewServer(http.HandlerFunc(fake.serve))
 	t.Cleanup(server.Close)
@@ -476,8 +495,8 @@ func TestTheBridgeSendsAHeartbeatAtStart(t *testing.T) {
 	if !slices.Equal(sent.Projects, []string{testProject, otherProject}) && !slices.Equal(sent.Projects, []string{otherProject, testProject}) {
 		t.Fatalf("projects = %v", sent.Projects)
 	}
-	if sent.CLIVersion != buildID() {
-		t.Fatalf("cliVersion = %q, want %q", sent.CLIVersion, buildID())
+	if sent.CLIVersion != "1.0.0" {
+		t.Fatalf("cliVersion = %q, want 1.0.0", sent.CLIVersion)
 	}
 	if !strings.Contains(log.String(), `"event":"heartbeat_sent"`) || !strings.Contains(log.String(), `"interval_seconds":3600`) {
 		t.Fatalf("log = %s", log.String())

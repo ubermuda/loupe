@@ -72,6 +72,21 @@ func TestParseFillsDefaults(t *testing.T) {
 	}
 }
 
+func TestAutoUpdateIsOnUnlessTheFileTurnsItOff(t *testing.T) {
+	for _, tc := range []struct {
+		line string
+		want bool
+	}{
+		{line: "", want: true},
+		{line: "autoUpdate: true\n", want: true},
+		{line: "autoUpdate: false\n", want: false},
+	} {
+		if got := parse(t, tc.line+oneRule).AutoUpdate(); got != tc.want {
+			t.Fatalf("%q: AutoUpdate = %v, want %v", tc.line, got, tc.want)
+		}
+	}
+}
+
 // A rule's own permissionMode and model win over the bridge flags.
 func TestParseKeepsARulesOwnSettings(t *testing.T) {
 	text, _ := file(t, `

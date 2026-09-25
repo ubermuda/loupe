@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeRepository;
+use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -28,7 +29,7 @@ final readonly class RecordBridgeHeartbeatHandler
     ) {
     }
 
-    public function __invoke(RecordBridgeHeartbeatCommand $command): Bridge
+    public function __invoke(RecordBridgeHeartbeatCommand $command): RecordBridgeHeartbeatResult
     {
         $ownerId = (string) ($command->owner->id ?? throw new \LogicException('An authenticated user always has an id.'));
         $owned = $this->projects->findIdsOwnedBy($command->owner, $command->projects);
@@ -43,6 +44,8 @@ final readonly class RecordBridgeHeartbeatHandler
             $bridge = $this->bridges->findOneByOwnerAndId($command->owner, $command->bridgeId);
             if (null === $bridge) {
                 $bridge = new Bridge($command->owner, $command->bridgeId, $projects, $command->cliVersion, $now);
+                $bridge->updateState = $command->updateState;
+                $bridge->updateVersion = $command->updateVersion;
                 $bridge->hooks = $command->hooks ?? [];
                 $this->em->persist($bridge);
 
@@ -52,6 +55,8 @@ final readonly class RecordBridgeHeartbeatHandler
             $bridge->projects = $projects;
             $bridge->cliVersion = $command->cliVersion;
             $bridge->lastSeenAt = $now;
+            $bridge->updateState = $command->updateState;
+            $bridge->updateVersion = $command->updateVersion;
             if (null !== $command->hooks) {
                 $bridge->hooks = $command->hooks;
             }
@@ -70,6 +75,6 @@ final readonly class RecordBridgeHeartbeatHandler
             );
         }
 
-        return $bridge;
+        return new RecordBridgeHeartbeatResult($bridge, CliCompatibility::RANGE);
     }
 }

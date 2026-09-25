@@ -5946,6 +5946,11 @@
             <trans-unit id="bridge.agents.never"><source>bridge.agents.never</source><target>Not reported</target></trans-unit>
             <trans-unit id="bridge.agents.empty.title"><source>bridge.agents.empty.title</source><target>No crew connection yet</target></trans-unit>
             <trans-unit id="bridge.agents.empty.description"><source>bridge.agents.empty.description</source><target>Connect the bridge to make this project available to your local crew.</target></trans-unit>
+            <trans-unit id="bridge.agents.update.current"><source>bridge.agents.update.current</source><target>Up to date</target></trans-unit>
+            <trans-unit id="bridge.agents.update.updating"><source>bridge.agents.update.updating</source><target>Updating</target></trans-unit>
+            <trans-unit id="bridge.agents.update.rolled_back"><source>bridge.agents.update.rolled_back</source><target>Rolled back from %version%</target></trans-unit>
+            <trans-unit id="bridge.agents.update.blocked"><source>bridge.agents.update.blocked</source><target>Update blocked</target></trans-unit>
+            <trans-unit id="bridge.agents.update.incompatible"><source>bridge.agents.update.incompatible</source><target>Needs %range%</target></trans-unit>
             <trans-unit id="bridge.agents.empty.action"><source>bridge.agents.empty.action</source><target>Connect a bridge</target></trans-unit>
             <trans-unit id="board.rules.page.title"><source>board.rules.page.title</source><target>Rules</target></trans-unit>
             <trans-unit id="board.rules.nav"><source>board.rules.nav</source><target>Rules</target></trans-unit>

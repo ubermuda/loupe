@@ -46,6 +46,9 @@ type Events struct {
 	// Flags holds values of several types. A server older than the map sends
 	// none, and every flag then reads as off.
 	Flags map[string]any `json:"flags"`
+	// CliRange is the range of CLI versions the server supports. An older
+	// server sends none.
+	CliRange string `json:"cliRange"`
 }
 
 // HeartbeatIntervalFlag is the flag that holds the seconds between two
@@ -523,13 +526,22 @@ func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerR
 }
 
 // Heartbeat is the body of PUT /api/bridges/{bridgeId}/heartbeat: the ids of
-// the projects the bridge follows, the build it runs, and its hooks. The server
-// keeps its stored hooks when the key is absent and clears them on [], so a nil
-// list sends no key and an empty one sends [].
+// the projects the bridge follows, the build it runs, where its own update
+// stands, and its hooks. The server keeps its stored hooks when the key is
+// absent and clears them on [], so a nil list sends no key and an empty one
+// sends [].
 type Heartbeat struct {
-	Projects   []string     `json:"projects"`
-	CLIVersion string       `json:"cliVersion"`
-	Hooks      []HookReport `json:"hooks,omitzero"`
+	Projects   []string         `json:"projects"`
+	CLIVersion string           `json:"cliVersion"`
+	Update     *HeartbeatUpdate `json:"update,omitempty"`
+	Hooks      []HookReport     `json:"hooks,omitzero"`
+}
+
+// HeartbeatUpdate is where the bridge's own update stands. Version names the
+// release the state is about, when there is one.
+type HeartbeatUpdate struct {
+	State   string `json:"state"`
+	Version string `json:"version,omitempty"`
 }
 
 // HookReport is how the last run of one hook package on one event went.
@@ -560,8 +572,9 @@ const MaxHookRows = 100
 // error code, so the two read the same.
 var ErrHeartbeatMissing = errors.New("the server has no heartbeat endpoint, or agent push is switched off")
 
-// Heartbeat tells the server that this bridge runs.
-func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) error {
+// Heartbeat tells the server that this bridge runs, and returns the CLI version
+// range the server supports. A server that sends no range yields "".
+func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (string, error) {
 	if hb.Projects == nil {
 		hb.Projects = []string{}
 	}
@@ -578,31 +591,39 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) e
 	}
 	body, err := json.Marshal(hb)
 	if err != nil {
-		return err
+		return "", err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
 		c.baseURL+"/api/bridges/"+url.PathEscape(bridgeID)+"/heartbeat", bytes.NewReader(body))
 	if err != nil {
-		return err
+		return "", err
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.do(req)
 	if err != nil {
-		return fmt.Errorf("send the heartbeat: %w", err)
+		return "", fmt.Errorf("send the heartbeat: %w", err)
 	}
 	defer resp.Body.Close()
 
-	detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-
 	switch {
-	case resp.StatusCode == http.StatusNoContent, resp.StatusCode == http.StatusOK:
-		return nil
+	case resp.StatusCode == http.StatusOK:
+		// The heartbeat landed, so a reply with no readable range is not a failure.
+		var reply struct {
+			CLIRange string `json:"cliRange"`
+		}
+		_ = decodeBody(resp.Body, &reply)
+
+		return strings.TrimSpace(reply.CLIRange), nil
+	case resp.StatusCode == http.StatusNoContent:
+		return "", nil
 	case resp.StatusCode == http.StatusNotFound:
-		return ErrHeartbeatMissing
+		return "", ErrHeartbeatMissing
 	default:
-		return fmt.Errorf("heartbeat failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
+		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+
+		return "", fmt.Errorf("heartbeat failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
 	}
 }
 
