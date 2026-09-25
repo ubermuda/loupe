@@ -6,6 +6,7 @@ namespace App\Tests\Module\SiteReview\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
@@ -320,6 +321,95 @@ final class SiteReviewApiTest extends WebTestCase
             'strokes' => [['space' => 'anchor', 'points' => [[0.1, 0.2], [0.9, 0.8]]]],
         ]);
         self::assertResponseStatusCodeSame(201);
+    }
+
+    public function test_the_boot_load_names_a_valid_feedback_target(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-target-ok@example.com');
+        $this->seedColumns($project);
+        $em = $this->em();
+        $review = new Card($project, $this->column($project, 'in-progress'), 'Review: /pricing', '', 1);
+        $epic = new Card($project, $this->column($project, 'backlog'), 'Review: /checkout', '', 2, type: CardType::Epic);
+        $em->persist($review);
+        $em->persist($epic);
+        $em->flush();
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review?context='.urlencode('card:'.$review->id), $raw);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('#1 Review: /pricing', $data['context']['label'] ?? null);
+        self::assertStringContainsString((string) $review->id, $data['context']['url'] ?? '');
+        self::assertTrue($data['feedbackAvailable']);
+        self::assertSame((string) $project->id, $data['projectId']);
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review?context='.urlencode('epic:'.$epic->id), $raw);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('#2 Review: /checkout', $data['context']['label'] ?? null);
+    }
+
+    /**
+     * Each refusal answers null, which sends the widget back to the mode
+     * picker. A label for any of these would promise a save that fails.
+     */
+    public function test_the_boot_load_refuses_a_target_the_save_would_refuse(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-target-bad@example.com');
+        [, $other] = $this->projectWithToken($client, 'api-target-other@example.com', 'other-site');
+        $this->seedColumns($project);
+        $this->seedColumns($other);
+        $em = $this->em();
+        $closed = new Card($project, $this->column($project, 'done'), 'Shipped', '', 1);
+        $closedEpic = new Card($project, $this->column($project, 'done'), 'Old review', '', 2, type: CardType::Epic);
+        $feature = new Card($project, $this->column($project, 'backlog'), 'Not an epic', '', 3);
+        $foreign = new Card($other, $this->column($other, 'backlog'), 'Elsewhere', '', 1);
+        foreach ([$closed, $closedEpic, $feature, $foreign] as $card) {
+            $em->persist($card);
+        }
+        $em->flush();
+
+        $refused = [
+            'unknown card' => 'card:'.Uuid::v7(),
+            'unknown epic' => 'epic:'.Uuid::v7(),
+            'another project' => 'card:'.$foreign->id,
+            'another project epic' => 'epic:'.$foreign->id,
+            'terminal column' => 'card:'.$closed->id,
+            'terminal epic' => 'epic:'.$closedEpic->id,
+            'epic mode on a non-epic' => 'epic:'.$feature->id,
+            'malformed' => 'epic:not-a-uuid',
+        ];
+        foreach ($refused as $case => $marker) {
+            $this->api($client, Request::METHOD_GET, '/api/site-review/review?context='.urlencode($marker), $raw);
+            $data = json_decode((string) $client->getResponse()->getContent(), true);
+            self::assertIsArray($data);
+            self::assertArrayHasKey('context', $data, $case);
+            self::assertNull($data['context'], $case);
+        }
+    }
+
+    public function test_the_boot_load_says_whether_feedback_can_be_saved(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$raw] = $this->projectWithToken($client, 'api-feedback-flag@example.com');
+        $flags = static::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertTrue($data['feedbackAvailable']);
+
+        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = false;
+        $this->em()->flush();
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertFalse($data['feedbackAvailable']);
     }
 
     public function test_the_boot_load_reports_drawing_on_for_an_untouched_instance(): void
