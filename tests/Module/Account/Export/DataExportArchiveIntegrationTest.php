@@ -72,7 +72,6 @@ final class DataExportArchiveIntegrationTest extends WebTestCase
         $em->persist($inboxItem);
         $em->persist($inboxReview);
 
-
         $em->persist(new GitHubHook($project, GitHubHook::newKey(), 'the-github-hook-secret'));
 
         $em->flush();
