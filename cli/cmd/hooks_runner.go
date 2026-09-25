@@ -40,9 +40,10 @@ const (
 const maxHookOutput = 500
 
 // hookRunner runs the hook packages on the bridge events, one event at a time
-// in arrival order, and one hook at a time in install order. It runs on its own
-// goroutine with its own context, so a shutdown that kills the workers still
-// runs stop. A failed hook is logged and never stops the bridge.
+// in arrival order, and one hook at a time in install order. coalesceLocked
+// trims a pending busy or idle. It runs on its own goroutine with its own
+// context, so a shutdown that kills the workers still runs stop. A failed hook
+// is logged and never stops the bridge.
 type hookRunner struct {
 	log      *slog.Logger
 	bridgeID string
@@ -57,10 +58,13 @@ type hookRunner struct {
 	last      map[hookKey]hookRun
 	heartbeat *heartbeater
 	inbox     []hookJob
-	started   bool
-	stopped   bool
-	wake      chan struct{}
-	done      chan struct{}
+	// sent is the last busy or idle each package ID got, kept across a reload
+	// that removes the package. No entry means idle.
+	sent    map[string]string
+	started bool
+	stopped bool
+	wake    chan struct{}
+	done    chan struct{}
 }
 
 // hookKey names one event of one package at one commit, so a package that a
@@ -89,6 +93,7 @@ func newHookRunner(list []hooks.Hook, bridgeID string, log *slog.Logger) *hookRu
 		bridgeID: bridgeID,
 		hooks:    list,
 		last:     map[hookKey]hookRun{},
+		sent:     map[string]string{},
 		wake:     make(chan struct{}, 1),
 		done:     make(chan struct{}),
 	}
@@ -131,7 +136,8 @@ func (hr *hookRunner) fireLocked(event string) {
 }
 
 // stop fires stop, takes no event after it, and waits until the loop has run
-// every event it took. Each hook's time limit bounds the wait.
+// every event it took except a pending busy or idle. Each hook's time limit
+// bounds the wait.
 func (hr *hookRunner) stop() {
 	if hr == nil {
 		return
@@ -234,7 +240,7 @@ func (hr *hookRunner) record(h hooks.Hook, event string, run hookRun) {
 	hr.mu.Lock()
 	defer hr.mu.Unlock()
 
-	if !slices.ContainsFunc(hr.hooks, func(c hooks.Hook) bool { return c.ID == h.ID && c.SHA == h.SHA }) {
+	if !slices.ContainsFunc(hr.hooks, func(n hooks.Hook) bool { return n.ID == h.ID && n.SHA == h.SHA }) {
 		return
 	}
 	hr.last[hookKey{h.ID, h.SHA, event}] = run
@@ -247,12 +253,63 @@ func (hr *hookRunner) next() (event string, list []hooks.Hook, ok, wait bool) {
 	hr.mu.Lock()
 	defer hr.mu.Unlock()
 
+	hr.coalesceLocked()
 	if len(hr.inbox) == 0 {
 		return "", nil, false, !hr.stopped
 	}
 	job := hr.inbox[0]
 	hr.inbox = hr.inbox[1:]
+	for _, h := range job.hooks {
+		switch {
+		case isStateEvent(job.event):
+			hr.sent[h.ID] = job.event
+		case job.event == hookStop:
+			delete(hr.sent, h.ID)
+		}
+	}
 	return job.event, job.hooks, true, false
+}
+
+// coalesceLocked keeps only the last pending busy or idle, so a hung hook does
+// not leave a backlog of stale changes. That one keeps only the packages whose
+// state differs, and goes when none do or stop has fired. A stop queued before
+// it resets the state of its packages to idle. The caller holds mu.
+func (hr *hookRunner) coalesceLocked() {
+	last := -1
+	for i, job := range hr.inbox {
+		if isStateEvent(job.event) {
+			last = i
+		}
+	}
+	state := maps.Clone(hr.sent)
+	for _, job := range hr.inbox[:max(last, 0)] {
+		if job.event == hookStop {
+			for _, h := range job.hooks {
+				delete(state, h.ID)
+			}
+		}
+	}
+	kept := hr.inbox[:0]
+	for i, job := range hr.inbox {
+		if isStateEvent(job.event) {
+			if i != last || hr.stopped {
+				continue
+			}
+			job.hooks = slices.DeleteFunc(slices.Clone(job.hooks), func(h hooks.Hook) bool {
+				return cmp.Or(state[h.ID], hookIdle) == job.event
+			})
+			if len(job.hooks) == 0 {
+				continue
+			}
+		}
+		kept = append(kept, job)
+	}
+	clear(hr.inbox[len(kept):])
+	hr.inbox = kept
+}
+
+func isStateEvent(event string) bool {
+	return event == hookBusy || event == hookIdle
 }
 
 func (hr *hookRunner) loop() {

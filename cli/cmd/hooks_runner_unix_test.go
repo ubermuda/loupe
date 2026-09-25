@@ -32,6 +32,18 @@ func scriptHook(t *testing.T, id, script string, events ...string) hooks.Hook {
 	return h
 }
 
+// drain waits until the loop has taken every pending event, so a stop that
+// follows does not supersede them.
+func drain(t *testing.T, hr *hookRunner) {
+	t.Helper()
+	eventually(t, "the inbox drained", func() bool {
+		hr.mu.Lock()
+		defer hr.mu.Unlock()
+
+		return len(hr.inbox) == 0
+	})
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -66,6 +78,7 @@ echo "stdin=$(cat)"
 
 	hr.start()
 	hr.fire(hookBusy)
+	drain(t, hr)
 	hr.stop()
 
 	dir, err := filepath.EvalSymlinks(h.Dir)
@@ -104,7 +117,9 @@ func TestEventsAndHooksRunInOrder(t *testing.T) {
 
 	hr.start()
 	hr.fire(hookBusy)
+	drain(t, hr)
 	hr.fire(hookIdle)
+	drain(t, hr)
 	hr.stop()
 	hr.fire(hookBusy)
 
@@ -124,6 +139,7 @@ func TestAFailedHookIsLoggedAndTheNextRuns(t *testing.T) {
 
 	hr.start()
 	hr.fire(hookBusy)
+	drain(t, hr)
 	hr.stop()
 
 	rows := hr.rows()
@@ -150,6 +166,7 @@ func TestAHookThatCannotStartFails(t *testing.T) {
 
 	hr.start()
 	hr.fire(hookBusy)
+	drain(t, hr)
 	hr.stop()
 
 	row := hr.rows()[0]
@@ -171,6 +188,7 @@ func TestAHookPastItsTimeLimitIsKilled(t *testing.T) {
 	began := time.Now()
 	hr.start()
 	hr.fire(hookBusy)
+	drain(t, hr)
 	hr.stop()
 
 	if elapsed := time.Since(began); elapsed > 3*time.Second {
@@ -256,6 +274,7 @@ func TestARunSendsTheRowsToTheHeartbeat(t *testing.T) {
 	hr.attach(hh.h)
 	hr.start()
 	hr.fire(hookBusy)
+	drain(t, hr)
 	hr.stop()
 
 	eventually(t, "a heartbeat with the run", func() bool {
@@ -280,6 +299,7 @@ func TestAQueuedEventKeepsTheHooksOfItsFiring(t *testing.T) {
 	hr.fire(hookBusy)
 	hr.setHooks([]hooks.Hook{first, added})
 	hr.start()
+	drain(t, hr)
 	hr.stop()
 
 	if got := readFile(t, filepath.Join(first.StateDir, "log")); got != "busy\nstop\n" {
@@ -315,5 +335,195 @@ func TestAReloadRunsStopOnARemovedPackage(t *testing.T) {
 	}
 	if got := readFile(t, filepath.Join(kept.StateDir, "log")); got != "busy\nstop\n" {
 		t.Fatalf("kept ran:\n%s", got)
+	}
+}
+
+// While a hook hangs, only the last busy or idle stays pending, and one that
+// repeats the state the hooks last got is dropped.
+func TestAHungHookLeavesOnlyTheLastStateChangePending(t *testing.T) {
+	for _, tc := range []struct {
+		last, want string
+	}{
+		{hookIdle, "start\nbusy\nidle\nstop\n"},
+		{hookBusy, "start\nbusy\nstop\n"},
+	} {
+		t.Run(tc.last, func(t *testing.T) {
+			gate := filepath.Join(t.TempDir(), "gate")
+			h, journal := journalHook(t)
+			slow := scriptHook(t, "acme/slow", "while [ ! -e "+gate+" ]; do sleep 0.01; done\n", hookBusy)
+			hr := newHookRunner([]hooks.Hook{h, slow}, testBridgeID, newBridgeLogger(&syncBuffer{}))
+
+			hr.start()
+			hr.fire(hookBusy)
+			drain(t, hr)
+			for range 5 {
+				hr.fire(hookIdle)
+				hr.fire(hookBusy)
+			}
+			if tc.last == hookIdle {
+				hr.fire(hookIdle)
+			}
+			if err := os.WriteFile(gate, nil, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			drain(t, hr)
+			hr.stop()
+
+			if got := readFile(t, journal); got != tc.want {
+				t.Fatalf("journal:\n%s", got)
+			}
+		})
+	}
+}
+
+// stop supersedes a pending busy or idle, so a shutdown does not wait for
+// them. A stop that a reload fired for a removed package still runs.
+func TestStopDropsAPendingStateChange(t *testing.T) {
+	gate := filepath.Join(t.TempDir(), "gate")
+	h, journal := journalHook(t)
+	slow := scriptHook(t, "acme/slow", "while [ ! -e "+gate+" ]; do sleep 0.01; done\n", hookStart)
+	removed := scriptHook(t, "acme/removed", "echo \"$1\" >> \"$LOUPE_HOOK_STATE_DIR/log\"\n", hookStop)
+	hr := newHookRunner([]hooks.Hook{slow, h, removed}, testBridgeID, newBridgeLogger(&syncBuffer{}))
+
+	hr.start()
+	drain(t, hr)
+	hr.fire(hookBusy)
+	hr.setHooks([]hooks.Hook{slow, h})
+	hr.fire(hookIdle)
+	hr.fire(hookBusy)
+	done := make(chan struct{})
+	go func() { hr.stop(); close(done) }()
+	eventually(t, "stop to fire", func() bool {
+		hr.mu.Lock()
+		defer hr.mu.Unlock()
+
+		return hr.stopped
+	})
+	if err := os.WriteFile(gate, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	<-done
+
+	if got := readFile(t, journal); got != "start\nstop\n" {
+		t.Fatalf("journal:\n%s", got)
+	}
+	if got := readFile(t, filepath.Join(removed.StateDir, "log")); got != "stop\n" {
+		t.Fatalf("removed ran:\n%s", got)
+	}
+}
+
+// A package that a reload adds while the bridge is busy has no state yet, so
+// it gets the next busy even when the other packages already have it.
+func TestAPackageAddedWhileBusyGetsTheNextBusy(t *testing.T) {
+	gate := filepath.Join(t.TempDir(), "gate")
+	slow := scriptHook(t, "acme/slow", "while [ ! -e "+gate+" ]; do sleep 0.01; done\n", hookBusy)
+	h, journal := journalHook(t)
+	added := scriptHook(t, "acme/added", "echo \"$1\" >> \"$LOUPE_HOOK_STATE_DIR/log\"\n", hookBusy, hookIdle, hookStop)
+	hr := newHookRunner([]hooks.Hook{slow, h}, testBridgeID, newBridgeLogger(&syncBuffer{}))
+
+	hr.start()
+	hr.fire(hookBusy)
+	drain(t, hr)
+	hr.setHooks([]hooks.Hook{slow, h, added})
+	hr.fire(hookIdle)
+	hr.fire(hookBusy)
+	if err := os.WriteFile(gate, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	drain(t, hr)
+	hr.stop()
+
+	if got := readFile(t, filepath.Join(added.StateDir, "log")); got != "busy\nstop\n" {
+		t.Fatalf("added ran:\n%s", got)
+	}
+	if got := readFile(t, journal); got != "start\nbusy\nstop\n" {
+		t.Fatalf("journal:\n%s", got)
+	}
+}
+
+// A reload that moves a busy package to a new commit keeps its state, so the
+// new commit gets the idle that ends the busy of the old one.
+func TestAPackageMovedWhileBusyGetsTheNextIdle(t *testing.T) {
+	log := filepath.Join(t.TempDir(), "log")
+	old := scriptHook(t, "acme/amp", "echo \"$1\" >> "+log+"\n", hookBusy, hookIdle, hookStop)
+	old.SHA = "old"
+	hr := newHookRunner([]hooks.Hook{old}, testBridgeID, newBridgeLogger(&syncBuffer{}))
+
+	hr.start()
+	hr.fire(hookBusy)
+	drain(t, hr)
+	moved := old
+	moved.SHA = "new"
+	hr.setHooks([]hooks.Hook{moved})
+	hr.fire(hookIdle)
+	drain(t, hr)
+	hr.stop()
+
+	if got := readFile(t, log); got != "busy\nidle\nstop\n" {
+		t.Fatalf("acme/amp ran:\n%s", got)
+	}
+}
+
+// A package that reloads remove and add back while busy gets stop, so it gets
+// the next busy even though a pending idle and busy coalesce around the stop.
+func TestAPackageRemovedAndAddedBackWhileBusyGetsTheNextBusy(t *testing.T) {
+	gate := filepath.Join(t.TempDir(), "gate")
+	slow := scriptHook(t, "acme/slow", "while [ ! -e "+gate+" ]; do sleep 0.01; done\n", hookBusy)
+	back := scriptHook(t, "acme/back", "echo \"$1\" >> \"$LOUPE_HOOK_STATE_DIR/log\"\n", hookBusy, hookIdle, hookStop)
+	hr := newHookRunner([]hooks.Hook{slow, back}, testBridgeID, newBridgeLogger(&syncBuffer{}))
+
+	hr.start()
+	hr.fire(hookBusy)
+	drain(t, hr)
+	hr.setHooks([]hooks.Hook{slow})
+	hr.setHooks([]hooks.Hook{slow, back})
+	hr.fire(hookIdle)
+	hr.fire(hookBusy)
+	if err := os.WriteFile(gate, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	drain(t, hr)
+	hr.stop()
+
+	if got := readFile(t, filepath.Join(back.StateDir, "log")); got != "busy\nstop\nbusy\nstop\n" {
+		t.Fatalf("acme/back ran:\n%s", got)
+	}
+}
+
+// A package with no stop keeps its busy when reloads remove it and add it
+// back, so it gets the next idle whatever the loop does meanwhile.
+func TestAPackageWithoutStopRemovedAndAddedBackGetsTheNextIdle(t *testing.T) {
+	for _, running := range []bool{true, false} {
+		t.Run(map[bool]string{true: "hook running", false: "loop waking"}[running], func(t *testing.T) {
+			gate := filepath.Join(t.TempDir(), "gate")
+			if !running {
+				if err := os.WriteFile(gate, nil, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			x := scriptHook(t, "acme/x", "echo \"$1\" >> \"$LOUPE_HOOK_STATE_DIR/log\"\n", hookBusy, hookIdle)
+			slow := scriptHook(t, "acme/slow", "while [ ! -e "+gate+" ]; do sleep 0.01; done\n", hookBusy)
+			hr := newHookRunner([]hooks.Hook{x, slow}, testBridgeID, newBridgeLogger(&syncBuffer{}))
+
+			hr.start()
+			hr.fire(hookBusy)
+			drain(t, hr)
+			hr.setHooks([]hooks.Hook{slow})
+			if !running {
+				hr.fire(hookBusy)
+				drain(t, hr)
+			}
+			hr.setHooks([]hooks.Hook{x, slow})
+			hr.fire(hookIdle)
+			if err := os.WriteFile(gate, nil, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			drain(t, hr)
+			hr.stop()
+
+			if got := readFile(t, filepath.Join(x.StateDir, "log")); got != "busy\nidle\n" {
+				t.Fatalf("acme/x ran:\n%s", got)
+			}
+		})
 	}
 }
