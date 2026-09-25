@@ -32,7 +32,7 @@ Invoke `project-frontend` only for a change in `assets/` or a Twig template.
 
 | Trap | What happens |
 |---|---|
-| Running prettier on it | Prettier's scope is `assets/` and `e2e/` only; `public/` has never been formatted. A `--write` rewrites ~1400 of 1633 lines and buries the real change. `just cs` is safe; prettier by hand is not. |
+| Formatting it by hand | `just cs` runs prettier over `public/site-review/`, and `just lint` checks it. Run `just cs` before you commit. |
 | Serena's edit tools | No language server is configured for JavaScript in this project. `replace_content` and friends fail with "No language servers available". Use Edit/Write. Serena reads are unaffected. |
 | `text-overflow` in the overlay | JS sets `display` as an inline style on several overlay nodes, which beats the stylesheet. `text-overflow: ellipsis` has no effect on a flex container's anonymous text item, so an `inline-flex` label hard-clips mid-word instead of ellipsing. Check the JS-applied `display` before debugging the CSS. |
 | Absolutely-positioned `display` | The overlay's label is `position: absolute`, so `display` blockifies: `inline-block` computes to `block`, `inline-flex` to `flex`. Computed style will not echo what you wrote. |
@@ -275,7 +275,6 @@ appearance of this race.
 | Mistake | Reality |
 |---|---|
 | Applying `project-frontend`'s token rules to `widget.js` | It is standalone; raw hex and px are correct there. |
-| Running prettier on `widget.js` | ~1400-line phantom diff. |
 | Trusting an ownership voter to stop an agent | Ownership voters return true for every MCP call; `App\Security\McpBoundProjectVoter` is the one that does not. |
 | Assuming a comment is private until "sent" | There is no send step. It is live on save. |
 | Adding a `Draft` branch | The status no longer exists. |

@@ -4830,7 +4830,7 @@
             </trans-unit>
             <trans-unit id="board.card.delete.confirm.body">
                 <source>board.card.delete.confirm.body</source>
-                <target>“%title%” and its pull request links go for good. You cannot undo this.</target>
+                <target>“%title%” , its pull request links and its feedback go for good. You cannot undo this.</target>
             </trans-unit>
             <trans-unit id="board.card.delete.confirm.cancel">
                 <source>board.card.delete.confirm.cancel</source>
