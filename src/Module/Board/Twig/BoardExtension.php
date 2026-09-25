@@ -103,8 +103,8 @@ final class BoardExtension extends AbstractExtension
     }
 
     /**
-     * A short hash of what the card face and its list row show, so a page can
-     * tell a changed card from an unchanged one without comparing markup.
+     * A short hash of what the card face and its list row show, and of where the
+     * card sits, so a page can tell a changed card from an unchanged one.
      */
     public function cardDigest(Card $card, int $pendingComments): string
     {
@@ -117,6 +117,7 @@ final class BoardExtension extends AbstractExtension
             $card->pullRequests->count(),
             $card->documents->count(),
             (string) $card->column->id,
+            $card->position,
         ], \JSON_THROW_ON_ERROR)), 0, 12);
     }
 
