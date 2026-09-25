@@ -10,12 +10,13 @@ use App\Module\Account\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Removes the run rows of every project the departing account owned.
+ * Removes the run rows and the usage rows of every project the departing
+ * account owned.
  *
  * ProjectAccountPurger runs first and deletes those projects, which fires
  * DeleteWorkerRunsOnProjectDeleting, so this normally finds nothing. It stays
- * as the backstop the deletion registry asks for: a run row whose project went
- * by any other path would otherwise outlive the account.
+ * as the backstop the deletion registry asks for: a row whose project went by
+ * any other path would otherwise outlive the account.
  */
 final readonly class WorkerRunAccountPurger implements AccountDataPurgerInterface
 {
@@ -39,8 +40,13 @@ final readonly class WorkerRunAccountPurger implements AccountDataPurgerInterfac
         // object.
         $id = (string) ($user->id ?? throw new \LogicException('a persisted user always has an id'));
 
-        $this->em->getConnection()->executeStatement(
+        $connection = $this->em->getConnection();
+        $connection->executeStatement(
             'DELETE FROM bridge_worker_runs WHERE project_id IN (SELECT id FROM projects WHERE owner_id = :id)',
+            ['id' => $id],
+        );
+        $connection->executeStatement(
+            'DELETE FROM bridge_worker_run_usage WHERE project_id IN (SELECT id FROM projects WHERE owner_id = :id)',
             ['id' => $id],
         );
     }

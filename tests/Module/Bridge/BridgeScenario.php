@@ -7,9 +7,11 @@ namespace App\Tests\Module\Bridge;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunUsage;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\AgentCredential;
@@ -95,6 +97,21 @@ trait BridgeScenario
         $this->searchIndexer()->index($run);
 
         return $run;
+    }
+
+    private function seedUsage(EntityManagerInterface $em, WorkerRun $run, string $model = 'claude-opus-5-5'): WorkerRunUsage
+    {
+        $usage = new WorkerRunUsage($run, $run->project, $run->cardId, $run->ruleName, $model, 100, 20, 300, 40, '0.012345');
+        $run->usageSource = WorkerRunUsageSource::Reported;
+        $em->persist($usage);
+        $em->flush();
+
+        return $usage;
+    }
+
+    private function countUsage(EntityManagerInterface $em): int
+    {
+        return (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_worker_run_usage');
     }
 
     /** @param list<string> $projects */

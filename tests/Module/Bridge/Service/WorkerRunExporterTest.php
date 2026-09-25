@@ -76,6 +76,7 @@ final class WorkerRunExporterTest extends TestCase
             'resumeCap' => null,
             'cardColumn' => null,
             'resumeSkipped' => null,
+            'usageSource' => null,
             'history' => [
                 ['state' => 'running', 'at' => '2026-09-13T10:00:00+00:00', 'receivedAt' => '2026-09-13T10:00:01+00:00'],
                 ['state' => 'succeeded', 'at' => '2026-09-13T10:00:21+00:00', 'receivedAt' => '2026-09-13T10:00:22+00:00'],
