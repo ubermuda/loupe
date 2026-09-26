@@ -139,7 +139,8 @@ The controls above the chart change what it shows:
 | Rule and model | keep only the matching part of each bar. A card with no matching part leaves the chart |
 
 A rule or a model keeps its colour when a filter hides other rules or models.
-Past eight rules or models, the rest share one grey, labelled **Other**.
+With more than eight rules or models, the first seven in name order keep their
+colours, and the rest share one grey, labelled **Other**.
 
 Three figures above the chart follow the controls: the median cost per card,
 the total cost, and the number of finished cards with usage.

@@ -13,6 +13,8 @@ final readonly class CostChartSegment
         public string $path,
         /** True when the part is an estimate, or has no price. */
         public bool $estimated,
+        public float $top,
+        public float $bottom,
     ) {
     }
 }

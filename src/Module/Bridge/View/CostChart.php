@@ -16,12 +16,13 @@ final readonly class CostChart
     public const int PLOT_RIGHT = 944;
     public const int PLOT_TOP = 20;
     public const int BASELINE = 248;
-    /** The palette holds eight colours. Past that, the last one gives way to a grey for the rest. */
+    /** The palette holds eight colours. With more than eight keys, the first seven keep theirs and the rest share a grey. */
     public const int PALETTE_SIZE = 8;
 
     private const float MAX_BAR_WIDTH = 24.0;
     private const float MIN_BAR_WIDTH = 2.0;
     private const float GAP = 2.0;
+    private const float MIN_PART_HEIGHT = 1.0;
     private const float RADIUS = 4.0;
     /** A day narrower than this groups its cards by week, and a week narrower than this by month. */
     private const float MIN_PERIOD_WIDTH = 6.0;
@@ -104,25 +105,22 @@ final readonly class CostChart
             foreach ($group['cards'] as $position => $cost) {
                 $shareLeft = self::PLOT_LEFT + $start * $dayWidth + $position * $share;
                 $x = $shareLeft + ($share - $width) / 2;
-                $height = $cost->costMicros / $topMicros * $plotHeight;
                 $segments = [];
-                if ($height >= self::GAP) {
-                    $painted = array_values(array_filter($cost->parts, static fn (CostPart $part): bool => $part->costMicros > 0));
-                    $cursor = (float) self::BASELINE;
-                    foreach ($painted as $index => $part) {
-                        $slot = $slots[$part->key] ?? 0;
-                        $usedSlots[$slot] = $part->key;
-                        $partHeight = $part->costMicros / $topMicros * $plotHeight;
-                        $bottom = 0 === $index ? $cursor : $cursor - self::GAP;
-                        $top = $cursor - $partHeight;
-                        $cursor = $top;
-                        if ($bottom - $top > 0) {
-                            $segments[] = new CostChartSegment($slot, self::path($x, $top, $width, $bottom - $top, $index === \count($painted) - 1), $part->estimated);
-                        }
-                    }
-                } else {
-                    $height = self::GAP;
+                $painted = array_values(array_filter($cost->parts, static fn (CostPart $part): bool => $part->costMicros > 0));
+                $cursor = (float) self::BASELINE;
+                foreach ($painted as $index => $part) {
+                    $slot = $slots[$part->key] ?? 0;
+                    $usedSlots[$slot] = $part->key;
+                    // Every priced part is drawn. Its gap comes out of its own height, and a part too
+                    // short to spare it gives up the gap rather than vanish.
+                    $partHeight = max(self::MIN_PART_HEIGHT, $part->costMicros / $topMicros * $plotHeight);
+                    $gap = 0 === $index ? 0.0 : min(self::GAP, $partHeight - self::MIN_PART_HEIGHT);
+                    $bottom = $cursor - $gap;
+                    $top = $cursor - $partHeight;
+                    $cursor = $top;
+                    $segments[] = new CostChartSegment($slot, self::path($x, $top, $width, $bottom - $top, $index === \count($painted) - 1), $part->estimated, round($top, 2), round($bottom, 2));
                 }
+                $height = [] === $segments ? self::GAP : self::BASELINE - $cursor;
                 $top = self::BASELINE - $height;
                 $hitX = round($shareLeft, 2);
 
@@ -173,7 +171,7 @@ final readonly class CostChart
         );
     }
 
-    /** Zero for a key past the palette. */
+    /** Zero for a key that shares the grey. */
     public function slotOf(string $key): int
     {
         return $this->slots[$key] ?? 0;

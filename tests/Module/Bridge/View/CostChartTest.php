@@ -175,6 +175,25 @@ final class CostChartTest extends TestCase
         self::assertFalse($chart->bars[1]->isStub());
     }
 
+    /** A priced part far shorter than the gap between parts is still drawn, above the part below it. */
+    public function test_a_tiny_priced_part_keeps_a_segment_of_its_own(): void
+    {
+        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 1_000])], ['build', 'plan']);
+
+        $this->assertStacked($chart->bars[0]);
+        self::assertSame([false, false], array_map(static fn (CostChartSegment $segment): bool => $segment->estimated, $chart->bars[0]->segments));
+    }
+
+    /** The hatch of a tiny estimated part stays on that part and does not spread to the whole bar. */
+    public function test_a_tiny_estimated_part_carries_the_estimate_alone(): void
+    {
+        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 1_000], ['plan'])], ['build', 'plan']);
+
+        $this->assertStacked($chart->bars[0]);
+        self::assertSame([false, true], array_map(static fn (CostChartSegment $segment): bool => $segment->estimated, $chart->bars[0]->segments));
+        self::assertFalse($chart->bars[0]->hasHiddenEstimate());
+    }
+
     public function test_only_the_estimated_part_of_a_bar_carries_the_estimate(): void
     {
         $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 1_000_000], ['plan'])], ['build', 'plan']);
@@ -246,6 +265,17 @@ final class CostChartTest extends TestCase
                 self::assertGreaterThanOrEqual($bar->hitX + $bar->hitWidth - 0.001, $next->hitX);
             }
         }
+    }
+
+    /** Two segments, the second at least one unit tall and above the first, with the bar top on the second. */
+    private function assertStacked(CostChartBar $bar): void
+    {
+        self::assertCount(2, $bar->segments);
+        [$large, $tiny] = $bar->segments;
+        self::assertSame([1, 2], [$large->slot, $tiny->slot]);
+        self::assertGreaterThanOrEqual(0.99, $tiny->bottom - $tiny->top);
+        self::assertLessThanOrEqual($large->top + 0.01, $tiny->bottom);
+        self::assertEqualsWithDelta($tiny->top, $bar->top, 0.01);
     }
 
     /** The left edge of a day on an axis that starts on the given day and holds the given number of days. */

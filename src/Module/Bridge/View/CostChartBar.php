@@ -23,7 +23,7 @@ final readonly class CostChartBar
     ) {
     }
 
-    /** A card whose cost rounds to under two pixels gets a neutral stub, so its marks have a place. */
+    /** A card with no priced part gets a neutral stub, so its marks have a place. */
     public function isStub(): bool
     {
         return [] === $this->segments;
