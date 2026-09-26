@@ -259,7 +259,8 @@ A check reads the newest 100 releases from
 `GET https://api.github.com/repos/ubermuda/loupe/releases`. It picks the
 highest release that meets all of these conditions:
 
-- The release is not a draft or a prerelease, and its tag has the form `vX.Y.Z`.
+- The release is not a draft or a prerelease, and its tag has the form
+  `cli/vX.Y.Z`. The bridge skips every other tag, such as a plain `vX.Y.Z`.
 - The version is inside the range.
 - The version is not on the skip list.
 - The release has the archive for this OS and CPU, and `checksums.txt`.

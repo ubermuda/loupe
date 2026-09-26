@@ -13,7 +13,7 @@ func TestFetchReleasesReadsTheReleasesList(t *testing.T) {
 	var path, query, accept, agent string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path, query, accept, agent = r.URL.Path, r.URL.RawQuery, r.Header.Get("Accept"), r.Header.Get("User-Agent")
-		_, _ = io.WriteString(w, `[{"tag_name":"v1.2.0","assets":[{"name":"checksums.txt","browser_download_url":"https://x/c"}]}]`)
+		_, _ = io.WriteString(w, `[{"tag_name":"cli/v1.2.0","assets":[{"name":"checksums.txt","browser_download_url":"https://x/c"}]}]`)
 	}))
 	t.Cleanup(server.Close)
 
@@ -24,7 +24,7 @@ func TestFetchReleasesReadsTheReleasesList(t *testing.T) {
 	if path != "/repos/ubermuda/loupe/releases" || query != "per_page=100" || accept != "application/vnd.github+json" || agent == "" {
 		t.Fatalf("path = %q, query = %q, accept = %q, user agent = %q", path, query, accept, agent)
 	}
-	if len(releases) != 1 || releases[0].TagName != "v1.2.0" || releases[0].Assets[0].URL != "https://x/c" {
+	if len(releases) != 1 || releases[0].TagName != "cli/v1.2.0" || releases[0].Assets[0].URL != "https://x/c" {
 		t.Fatalf("releases = %+v", releases)
 	}
 }
