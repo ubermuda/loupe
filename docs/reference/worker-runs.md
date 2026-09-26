@@ -106,6 +106,7 @@ order.
 | `resumeIndex` | the place of this run in its series, between 0 and 32767. The bridge sends none for the first run |
 | `resumeCap` | the `maxResumes` cap of the series, between 0 and 32767 |
 | `cardColumn` | the slug of the column that started the series, at most 2000 characters |
+| `usage` | the tokens the worker spent. See [Usage](#usage) |
 
 A `gave-up` report needs the exit code, the result flag and the status of the
 outcome the bridge would have resumed: `failed`, `no-result` or `unfinished`.
@@ -119,6 +120,44 @@ from an outcome only.
 
 The server checks the shape of `askId`, `replacedBy`, `maxChain` and `reason`,
 and it does not store them.
+
+### Usage
+
+An outcome can carry the tokens the worker spent, per model. `claude -p
+--output-format json` returns them in `modelUsage`.
+
+```json
+{
+  "usage": {
+    "source": "reported",
+    "models": {
+      "claude-opus-5-5": {
+        "inputTokens": 1200,
+        "outputTokens": 340,
+        "cacheReadTokens": 56000,
+        "cacheWriteTokens": 7800,
+        "costUsd": 0.4321
+      }
+    }
+  }
+}
+```
+
+| Field | Rule |
+|---|---|
+| `usage.source` | required. `reported` when Claude Code gave the counts, `estimated` when the bridge counted them |
+| `usage.models` | required. An object keyed by model name, of at most 20 models. A name is 1 to 100 characters. An empty object means the worker spent nothing |
+| `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens` | required. Integers of 0 or more |
+| `costUsd` | the cost in US dollars, from 0 to 999999.999999. Send `null` for a model the bridge knows no price for. The server stores six decimal places |
+
+The server checks the shape of `usage` on every state, and stores it only from
+the outcome that closes the run. A repeat of that outcome writes nothing. A run
+with no `usage` has unknown usage, which is what a bridge built before the
+field leaves. A run whose `models` is empty spent nothing.
+
+Reported counts replace estimated counts. Estimated counts never replace
+reported counts, and a second report from the same source changes nothing. The
+[session usage report](#reporting-the-usage-of-a-session) follows the same rule.
 
 Send any timestamp in any offset. The server converts each one to UTC and
 stores it to the second.
@@ -207,6 +246,50 @@ never touches a run from the finished run report, because that run has no
 | 401 | | the request carries no token |
 | 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | | `bridgeId` is not a uuid, or agent push is switched off on the instance |
+| 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
+| 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
+
+## Reporting the usage of a session
+
+`PUT /api/projects/{handle}/worker-runs/sessions/{sessionId}/usage`
+
+A session can run more than one worker process, because each resume runs a new
+one. The bridge sends this report when it knows the usage of those processes
+after their runs closed, such as from the session transcript.
+
+```json
+{
+  "processes": [
+    {"source": "estimated", "models": {"claude-opus-5-5": {"inputTokens": 1200, "outputTokens": 340, "cacheReadTokens": 56000, "cacheWriteTokens": 7800, "costUsd": 0.4321}}},
+    {"source": "estimated", "models": {}}
+  ]
+}
+```
+
+| Field | Rule |
+|---|---|
+| `processes` | required. A list of 1 to 100 usage objects, one for each worker process of the session, in the order the processes started |
+| `processes[]` | a usage object, with the rules of [Usage](#usage) |
+
+The server finds the worker runs of that session in the project that have a
+start time. It orders them by `startedAt`, and by its own id for two runs of
+the same second. An interactive run, and a run that never started, is not a
+process. When the count of runs and the count of processes differ, the server
+writes nothing and answers 409. A session with no runs is such a mismatch.
+
+Otherwise each run takes the process at the same place in the list, with the
+rule of [Usage](#usage). The report fills a run with unknown usage, and replaces
+estimated counts with reported ones. It never replaces reported counts.
+
+| Status | Body | When |
+|---|---|---|
+| 200 | `{"runs":2,"updated":1}` | the counts match. `updated` counts the runs whose usage changed |
+| 401 | | the request carries no token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
+| 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
+| 404 | | agent push is switched off on the instance, or the server has no such endpoint |
+| 409 | `{"error":"process_count_mismatch"}` | the session has another count of started worker runs, and the server wrote nothing |
+| 422 | `{"error":"invalid_session_id"}` | `sessionId` is not a uuid |
 | 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
 | 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
 
@@ -325,14 +408,14 @@ this page.
 
 ## Feature flag and rate limit
 
-The three endpoints need the `agent.push.enabled` feature flag, as
+The four endpoints need the `agent.push.enabled` feature flag, as
 `GET /api/events` does. A bridge reaches a worker only through the event
 stream, so an instance with push off can produce no run to report, and each
 endpoint answers 404 there.
 
 ### Rate limit
 
-The three endpoints share one limit, `agent_worker_runs`, of 240 requests in one
+The four endpoints share one limit, `agent_worker_runs`, of 240 requests in one
 minute for each token. A run sends about four state reports. The limit lets a
 bridge drain a full queue of 256 reports before its retries give up.
 
@@ -366,10 +449,15 @@ typed zero cannot take the whole history.
 `app:purge-worker-runs` runs the same sweep by hand. See
 [Console commands](commands.md).
 
+The sweep keeps the usage of a run it deletes. The usage row loses the link to
+its run, and keeps its project, its card and its rule, so the spend of a card
+outlives the run records.
+
 The sweep cuts on the server's arrival time rather than on the bridge clock. A
 bridge with a wrong clock would otherwise stamp a run outside the window and
 lose it on the next sweep.
 
-Deleting a project deletes its run records with it. Deleting an account deletes
-the run records of every project it owned. The account's data export holds
-each run with its state and its history.
+Deleting a project deletes its run records and its usage with it. Deleting an
+account deletes the run records and the usage of every project it owned. The
+account's data export holds each run with its state, its history and its usage
+source in `worker_runs.json`, and every usage row in `worker_run_usage.json`.
