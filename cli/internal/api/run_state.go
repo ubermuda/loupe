@@ -93,6 +93,8 @@ type RunStateReport struct {
 	ResumeIndex int    `json:"resumeIndex,omitempty"`
 	ResumeCap   int    `json:"resumeCap,omitempty"`
 	CardColumn  string `json:"cardColumn,omitempty"`
+	// Usage goes on an outcome alone. A nil usage is unknown.
+	Usage *Usage `json:"usage,omitempty"`
 }
 
 // MarshalJSON sends every field of an outcome, as the old report does, so an
