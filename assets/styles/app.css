@@ -5930,8 +5930,9 @@
             var(--surface-1) calc(var(--spacing) * 0.5) var(--spacing)
         );
     }
-    .lp-cost-legend__ring {
-        @apply inline-block w-2.5 h-2.5 rounded-full border-2 border-ink;
+    /* The glyph a bar carries, such as the + of runs with no usage, shown as it appears on the chart. */
+    .lp-cost-legend__mark {
+        @apply font-bold text-ink tabular-nums;
     }
     /* A short stroke keys a series in the hover card, where a box is too heavy. */
     .lp-cost-legend__key {
@@ -5972,8 +5973,24 @@
     .lp-cost-chart__hatch {
         @apply stroke-surface-1 stroke-2;
     }
-    .lp-cost-chart__partial {
-        @apply fill-surface-1 stroke-ink stroke-2;
+    .lp-cost-chart__count {
+        @apply fill-fg-dim text-xs tabular-nums;
+    }
+    .lp-cost-chart__average {
+        @apply fill-ink text-sm font-semibold tabular-nums;
+    }
+    /* The ×N count and the + of a bar too narrow for its labels. */
+    .lp-cost-chart__mark {
+        @apply fill-ink text-xs font-bold tabular-nums;
+    }
+    .lp-cost-chart__median {
+        @apply stroke-ink stroke-1 opacity-60;
+    }
+    .lp-cost-chart__median-label {
+        @apply fill-fg-dim text-xs;
+    }
+    .lp-cost-chart__median-value {
+        @apply fill-ink text-xs font-semibold tabular-nums;
     }
     .lp-cost-chart__segment--0,
     .lp-cost-legend__swatch--0,
@@ -6026,16 +6043,32 @@
     .lp-cost-card[hidden] {
         @apply hidden;
     }
-    .lp-cost-card__title {
-        @apply m-0 font-semibold text-ink;
-    }
     .lp-cost-card__cost {
         @apply m-0 mt-1 flex items-center gap-2 text-base font-bold text-ink;
     }
-    .lp-cost-card__date,
-    .lp-cost-card__tokens,
-    .lp-cost-card__partial {
-        @apply m-0 mt-1;
+    .lp-cost-card__date {
+        @apply m-0;
+    }
+    .lp-cost-card__per {
+        @apply text-xs font-normal text-fg-mute;
+    }
+    .lp-cost-card__cards {
+        @apply m-0 mt-2 pt-2 p-0 list-none flex flex-col gap-1 border-t border-line-faint;
+    }
+    .lp-cost-card__card {
+        @apply flex flex-wrap items-baseline gap-x-2;
+    }
+    .lp-cost-card__card-name {
+        @apply mr-auto min-w-0 truncate text-ink;
+    }
+    .lp-cost-card__card-cost {
+        @apply font-semibold text-ink tabular-nums;
+    }
+    .lp-cost-card__note {
+        @apply basis-full text-fg-dim;
+    }
+    .lp-cost-card__more {
+        @apply m-0 mt-1 text-fg-dim;
     }
     .lp-cost-card__parts {
         @apply m-0 mt-2 p-0 list-none flex flex-col gap-1;

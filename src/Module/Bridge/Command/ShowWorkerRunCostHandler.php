@@ -53,6 +53,7 @@ final readonly class ShowWorkerRunCostHandler
 
         $options = $this->workerRunUsages->rulesAndModelsOf($project);
         $costs = array_map(static fn (CardCost $cost): int => $cost->costMicros, $cards);
+        $medianMicros = self::median($costs);
 
         return new WorkerRunCostView(
             project: $project,
@@ -61,7 +62,7 @@ final readonly class ShowWorkerRunCostHandler
             rules: $options['rules'],
             models: $options['models'],
             totalMicros: array_sum($costs),
-            medianMicros: self::median($costs),
+            medianMicros: $medianMicros,
             chart: [] === $cards ? null : CostChart::build(
                 $cards,
                 match ($query->split) {
@@ -71,6 +72,8 @@ final readonly class ShowWorkerRunCostHandler
                 },
                 $from ?? $cards[0]->card->completedAt,
                 $now,
+                $query->effectiveGroup(),
+                $medianMicros,
             ),
         );
     }

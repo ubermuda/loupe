@@ -41,11 +41,19 @@
                    {% if query.split == split %}aria-current="true"{% endif %}>{{ split.translationKey()|trans }}</a>
             {% endfor %}
         </nav>
+        <nav class="lp-cost-toggle" aria-label="{{ 'bridge.worker_run_cost.group.label'|trans }}" data-cost-group-toggle>
+            {% for group in groups %}
+                <a class="lp-cost-toggle__option"
+                   href="{{ path(costRoute, {id: project.id}|merge(query.withGroup(group).routeParams)) }}"
+                   {% if query.effectiveGroup == group %}aria-current="true"{% endif %}>{{ group.translationKey()|trans }}</a>
+            {% endfor %}
+        </nav>
 
-        {# A GET form, so the filters land in the URL. The range and the split ride along as hidden fields. #}
+        {# A GET form, so the filters land in the URL. The range, the split and the group ride along as hidden fields. #}
         <form method="get" action="{{ path(costRoute, {id: project.id}) }}" data-controller="autosearch" class="lp-filter-form">
             {% if query.range.value != 'ninety-days' %}<input type="hidden" name="range" value="{{ query.range.value }}">{% endif %}
             {% if query.split.value != 'none' %}<input type="hidden" name="split" value="{{ query.split.value }}">{% endif %}
+            {% if query.routeParams.group is defined %}<input type="hidden" name="group" value="{{ query.routeParams.group }}">{% endif %}
             <label class="sr-only" for="worker-run-cost-rule">{{ 'bridge.worker_run_cost.filter.rule_label'|trans }}</label>
             <select id="worker-run-cost-rule" name="rule" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
                 <option value="">{{ 'bridge.worker_run_cost.filter.all_rules'|trans }}</option>
@@ -62,7 +70,7 @@
             </select>
             <noscript><button type="submit" class="lp-btn">{{ 'bridge.worker_run_cost.filter.apply'|trans }}</button></noscript>
             {% if query.isFiltered %}
-                <a href="{{ path(costRoute, {id: project.id}|merge(query.routeParams|filter((value, key) => key in ['range', 'split']))) }}"
+                <a href="{{ path(costRoute, {id: project.id}|merge(query.routeParams|filter((value, key) => key in ['range', 'split', 'group']))) }}"
                    class="lp-filter-clear">{{ 'bridge.worker_runs.filter.clear'|trans }}</a>
             {% endif %}
         </form>
@@ -86,86 +94,110 @@
     {% set chart = cost.chart %}
     {% if chart is not null %}
     {% set split = query.split.value != 'none' %}
-    {% set hasEstimate = cost.cards|filter(card => card.estimated)|length > 0 %}
-    {% set hasPartial = cost.cards|filter(card => card.partialRuns > 0)|length > 0 %}
+    {% set dayFormat = chart.longSpan ? 'M j, Y' : 'M j' %}
+    {% set plotLeft = constant('App\\Module\\Bridge\\View\\CostChart::PLOT_LEFT') %}
+    {% set plotRight = constant('App\\Module\\Bridge\\View\\CostChart::PLOT_RIGHT') %}
+    {% set plotTop = constant('App\\Module\\Bridge\\View\\CostChart::PLOT_TOP') %}
+    {% set baseline = constant('App\\Module\\Bridge\\View\\CostChart::BASELINE') %}
     <figure class="lp-cost-chart" data-controller="cost-chart" data-action="keydown.esc->cost-chart#hide">
-        {% if (split and chart.series|length > 1) or hasEstimate or hasPartial %}
+        {% if (split and chart.series|length > 1) or chart.hasEstimate or chart.hasPartial or chart.hasCountMark %}
         <ul class="lp-cost-legend" data-cost-legend>
             {% if split and chart.series|length > 1 %}
                 {% for series in chart.series %}
                     <li class="lp-cost-legend__item"><span class="lp-cost-legend__swatch lp-cost-legend__swatch--{{ series.slot }}"></span>{{ series.key ?? 'bridge.worker_run_cost.legend.other'|trans }}</li>
                 {% endfor %}
             {% endif %}
-            {% if hasEstimate %}<li class="lp-cost-legend__item"><span class="lp-cost-legend__swatch lp-cost-legend__swatch--estimated"></span>{{ 'bridge.worker_run_cost.legend.estimated'|trans }}</li>{% endif %}
-            {% if hasPartial %}<li class="lp-cost-legend__item"><span class="lp-cost-legend__ring"></span>{{ 'bridge.worker_run_cost.legend.partial'|trans }}</li>{% endif %}
+            {% if chart.hasEstimate %}<li class="lp-cost-legend__item"><span class="lp-cost-legend__swatch lp-cost-legend__swatch--estimated"></span>{{ 'bridge.worker_run_cost.legend.estimated'|trans }}</li>{% endif %}
+            {% if chart.hasPartial %}<li class="lp-cost-legend__item" data-cost-legend-partial><span class="lp-cost-legend__mark">+</span>{{ 'bridge.worker_run_cost.legend.partial'|trans }}</li>{% endif %}
+            {% if chart.hasCountMark %}<li class="lp-cost-legend__item" data-cost-legend-count><span class="lp-cost-legend__mark">{{ 'bridge.worker_run_cost.legend.count_mark'|trans }}</span>{{ 'bridge.worker_run_cost.legend.count'|trans }}</li>{% endif %}
         </ul>
         {% endif %}
 
         <div class="lp-cost-chart__plot">
             {# A chart drawn from data, not an icon. #}
-            {# twig-cs-fixer-disable-line InlineSvg #}<svg class="lp-cost-chart__svg" viewBox="0 0 {{ constant('App\\Module\\Bridge\\View\\CostChart::WIDTH') }} {{ constant('App\\Module\\Bridge\\View\\CostChart::HEIGHT') }}" role="group" aria-label="{{ 'bridge.worker_run_cost.chart.label'|trans }}">
+            {# twig-cs-fixer-disable-line InlineSvg #}<svg class="lp-cost-chart__svg" viewBox="0 0 {{ constant('App\\Module\\Bridge\\View\\CostChart::WIDTH') }} {{ constant('App\\Module\\Bridge\\View\\CostChart::HEIGHT') }}" role="group" aria-label="{{ ('bridge.worker_run_cost.chart.label_' ~ chart.group.value)|trans }}">
                 <defs>
                     <pattern id="lp-cost-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
                         <line class="lp-cost-chart__hatch" x1="0" y1="0" x2="0" y2="6" />
                     </pattern>
                 </defs>
                 {% for tick in chart.yTicks %}
-                    <line class="lp-cost-chart__grid" x1="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_LEFT') }}" x2="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_RIGHT') }}" y1="{{ tick.position }}" y2="{{ tick.position }}" />
-                    <text class="lp-cost-chart__tick" x="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_LEFT') - 8 }}" y="{{ tick.position }}" text-anchor="end" dominant-baseline="middle">{{ tick.amount|format_currency('USD', {fraction_digit: chart.yTickDecimals}) }}</text>
+                    <line class="lp-cost-chart__grid" x1="{{ plotLeft }}" x2="{{ plotRight }}" y1="{{ tick.position }}" y2="{{ tick.position }}" />
+                    <text class="lp-cost-chart__tick" x="{{ plotLeft - 8 }}" y="{{ tick.position }}" text-anchor="end" dominant-baseline="middle">{{ tick.amount|format_currency('USD', {fraction_digit: chart.yTickDecimals}) }}</text>
                 {% endfor %}
                 {% for tick in chart.xTicks %}
-                    <text class="lp-cost-chart__tick" x="{{ tick.position }}" y="{{ constant('App\\Module\\Bridge\\View\\CostChart::HEIGHT') - 6 }}" text-anchor="middle">{{ tick.day|date(chart.longSpan ? 'M j, Y' : 'M j') }}</text>
+                    <text class="lp-cost-chart__tick" x="{{ tick.position }}" y="{{ constant('App\\Module\\Bridge\\View\\CostChart::HEIGHT') - 6 }}" text-anchor="middle">{{ tick.day|date(chart.group.value == 'month' ? (chart.longSpan ? 'M Y' : 'M') : dayFormat) }}</text>
                 {% endfor %}
+                <g data-cost-median-line="{{ chart.medianMicros }}">
+                    <line class="lp-cost-chart__median" stroke-dasharray="4 4" x1="{{ plotLeft }}" x2="{{ plotRight }}" y1="{{ chart.medianY }}" y2="{{ chart.medianY }}" />
+                    <text class="lp-cost-chart__median-label" x="{{ plotRight + 8 }}" y="{{ chart.medianY - 3 }}">{{ 'bridge.worker_run_cost.chart.median'|trans }}</text>
+                    <text class="lp-cost-chart__median-value" x="{{ plotRight + 8 }}" y="{{ chart.medianY + 12 }}">{{ chart.median|format_currency('USD') }}</text>
+                </g>
                 {% for bar in chart.bars %}
-                    {% set card = bar.cost.card %}
+                    {% set count = bar.cardCount %}
+                    {% set countLabel = 'bridge.worker_run_cost.chart.card_count'|trans({'%count%': count}) %}
+                    {% set average = bar.average|format_currency('USD') %}
+                    {% set periodLabel = chart.group.value == 'week' ? 'bridge.worker_run_cost.period.week'|trans({'%date%': bar.periodStart|date(dayFormat)}) : bar.periodStart|date(chart.group.value == 'month' ? 'F Y' : dayFormat) %}
+                    {% set onlyCard = count == 1 ? bar.cards[0].card : null %}
                     <a class="lp-cost-chart__bar"
-                       {% if boardEnabled %}href="{{ path('app_board_card', {projectId: project.id, cardId: card.id}) }}"{% else %}tabindex="0"{% endif %}
-                       aria-label="{{ 'bridge.worker_run_cost.chart.bar'|trans({'%number%': card.number, '%title%': card.title, '%cost%': bar.cost.cost|format_currency('USD')}) }}"
+                       {% if boardEnabled and onlyCard is not null %}href="{{ path('app_board_card', {projectId: project.id, cardId: onlyCard.id}) }}"{% else %}tabindex="0"{% endif %}
+                       aria-label="{{ onlyCard is not null
+                           ? 'bridge.worker_run_cost.chart.bar_card'|trans({'%period%': periodLabel, '%number%': onlyCard.number, '%title%': onlyCard.title, '%cost%': average})
+                           : 'bridge.worker_run_cost.chart.bar'|trans({'%period%': periodLabel, '%cards%': countLabel, '%cost%': average}) }}"
                        aria-describedby="cost-card-{{ loop.index0 }}"
-                       data-cost-bar="{{ card.id }}"
+                       data-cost-bar="{{ bar.periodStart|date('Y-m-d') }}"
                        data-cost-chart-target="bar"
                        data-cost-chart-index-param="{{ loop.index0 }}"
                        data-action="mouseenter->cost-chart#show focus->cost-chart#show mouseleave->cost-chart#hide blur->cost-chart#hide">
-                        <rect class="lp-cost-chart__hit" x="{{ bar.hitX }}" y="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_TOP') }}" width="{{ bar.hitWidth }}" height="{{ constant('App\\Module\\Bridge\\View\\CostChart::BASELINE') - constant('App\\Module\\Bridge\\View\\CostChart::PLOT_TOP') }}" />
-                        {% if bar.stub %}
-                            <path class="lp-cost-chart__segment lp-cost-chart__segment--stub" d="{{ bar.outline }}" />
-                            {% if bar.cost.estimated %}<path fill="url(#lp-cost-hatch)" d="{{ bar.outline }}" data-cost-estimated />{% endif %}
-                        {% endif %}
+                        <rect class="lp-cost-chart__hit" x="{{ bar.hitX }}" y="{{ plotTop }}" width="{{ bar.hitWidth }}" height="{{ baseline - plotTop }}" />
+                        {% if bar.stub %}<path class="lp-cost-chart__segment lp-cost-chart__segment--stub" d="{{ bar.outline }}" />{% endif %}
                         {% for segment in bar.segments %}
                             <path class="lp-cost-chart__segment lp-cost-chart__segment--{{ segment.slot }}" d="{{ segment.path }}" />
-                            {% if segment.estimated %}<path fill="url(#lp-cost-hatch)" d="{{ segment.path }}" data-cost-estimated />{% endif %}
                         {% endfor %}
-                        {% if bar.hasHiddenEstimate %}<path fill="url(#lp-cost-hatch)" d="{{ bar.outline }}" data-cost-estimated />{% endif %}
-                        {% if bar.cost.partialRuns > 0 %}
-                            <circle class="lp-cost-chart__partial" cx="{{ bar.centre }}" cy="{{ bar.top - 8 }}" r="4" data-cost-partial />
+                        {% if bar.estimated %}<path fill="url(#lp-cost-hatch)" d="{{ bar.outline }}" data-cost-estimated />{% endif %}
+                        {% if bar.wide %}
+                            <text class="lp-cost-chart__count" x="{{ bar.centre }}" y="{{ bar.top - 24 }}" text-anchor="middle" data-cost-count>{{ countLabel }}</text>
+                            <text class="lp-cost-chart__average" x="{{ bar.centre }}" y="{{ bar.top - 8 }}" text-anchor="middle" data-cost-average>{{ average }}{% if bar.partial %}<tspan data-cost-partial>+</tspan>{% endif %}</text>
+                        {% else %}
+                            {% if count > 1 %}<text class="lp-cost-chart__mark" x="{{ bar.centre }}" y="{{ bar.top - 7 }}" text-anchor="middle" data-cost-count>{{ 'bridge.worker_run_cost.chart.count_mark'|trans({'%count%': count}) }}</text>{% endif %}
+                            {% if bar.partial %}<text class="lp-cost-chart__mark" x="{{ bar.centre }}" y="{{ bar.top - (count > 1 ? 20 : 7) }}" text-anchor="middle" data-cost-partial>+</text>{% endif %}
                         {% endif %}
                     </a>
                 {% endfor %}
-                <line class="lp-cost-chart__baseline" x1="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_LEFT') }}" x2="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_RIGHT') }}" y1="{{ constant('App\\Module\\Bridge\\View\\CostChart::BASELINE') }}" y2="{{ constant('App\\Module\\Bridge\\View\\CostChart::BASELINE') }}" />
+                <line class="lp-cost-chart__baseline" x1="{{ plotLeft }}" x2="{{ plotRight }}" y1="{{ baseline }}" y2="{{ baseline }}" />
             </svg>
 
             {% for bar in chart.bars %}
-                {% set item = bar.cost %}
+                {% set count = bar.cardCount %}
+                {% set periodLabel = chart.group.value == 'week' ? 'bridge.worker_run_cost.period.week'|trans({'%date%': bar.periodStart|date(dayFormat)}) : bar.periodStart|date(chart.group.value == 'month' ? 'F Y' : dayFormat) %}
                 <div class="lp-cost-card" id="cost-card-{{ loop.index0 }}" role="tooltip" hidden data-cost-chart-target="card">
-                    <p class="lp-cost-card__title">{{ 'bridge.worker_runs.card_number'|trans({'%number%': item.card.number}) }} {{ item.card.title }}</p>
-                    <p class="lp-cost-card__date"><time datetime="{{ item.card.completedAt|date('c') }}">{{ 'bridge.worker_run_cost.finished_on'|trans({'%date%': item.card.completedAt|date('M j, Y')}) }}</time></p>
-                    <p class="lp-cost-card__cost">{{ item.cost|format_currency('USD') }}{% if item.estimated %} <span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_run_cost.estimated'|trans }}</span>{% endif %}</p>
-                    <p class="lp-cost-card__tokens">{{ 'bridge.worker_run_cost.tokens'|trans({'%input%': item.inputTokens|number_format, '%output%': item.outputTokens|number_format, '%cacheRead%': item.cacheReadTokens|number_format, '%cacheWrite%': item.cacheWriteTokens|number_format}) }}</p>
+                    <p class="lp-cost-card__date"><time datetime="{{ bar.periodStart|date('Y-m-d') }}">{{ periodLabel }}</time> · {{ 'bridge.worker_run_cost.chart.card_count'|trans({'%count%': count}) }}</p>
+                    <p class="lp-cost-card__cost">{{ bar.average|format_currency('USD') }}{% if count > 1 %} <span class="lp-cost-card__per">{{ 'bridge.worker_run_cost.chart.average_per_card'|trans }}</span>{% endif %}</p>
                     {% if split %}
                         <ul class="lp-cost-card__parts">
-                            {% for part in item.parts %}
-                                <li class="lp-cost-card__part"><span class="lp-cost-legend__key lp-cost-legend__key--{{ chart.slotOf(part.key) }}"></span><span class="lp-cost-card__part-name">{{ part.key }}</span><span>{{ part.cost|format_currency('USD') }}</span></li>
+                            {% for key, micros in bar.partAverages %}
+                                <li class="lp-cost-card__part"><span class="lp-cost-legend__key lp-cost-legend__key--{{ chart.slotOf(key) }}"></span><span class="lp-cost-card__part-name">{{ key }}</span><span>{{ (micros / 1000000)|format_currency('USD') }}</span></li>
                             {% endfor %}
                         </ul>
                     {% endif %}
-                    {% if item.partialRuns > 0 %}<p class="lp-cost-card__partial">{{ 'bridge.worker_run_cost.partial'|trans({'%count%': item.partialRuns}) }}</p>{% endif %}
+                    <ul class="lp-cost-card__cards" data-cost-card-list>
+                        {% for item in bar.cards|slice(0, 10) %}
+                            <li class="lp-cost-card__card">
+                                <span class="lp-cost-card__card-name">{{ 'bridge.worker_runs.card_number'|trans({'%number%': item.card.number}) }} {{ item.card.title }}</span>
+                                <span class="lp-cost-card__card-cost">{{ item.cost|format_currency('USD') }}</span>
+                                {% if item.estimated %}<span class="lp-cost-card__note">{{ 'bridge.worker_run_cost.estimated'|trans }}</span>{% endif %}
+                                {% if item.partialRuns > 0 %}<span class="lp-cost-card__note">{{ 'bridge.worker_run_cost.partial'|trans({'%count%': item.partialRuns}) }}</span>{% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    {% if count > 10 %}<p class="lp-cost-card__more">{{ 'bridge.worker_run_cost.chart.more_cards'|trans({'%count%': count - 10}) }}</p>{% endif %}
                 </div>
             {% endfor %}
         </div>
 
         <details class="lp-cost-table">
             <summary class="lp-cost-table__toggle">{{ 'bridge.worker_run_cost.table.toggle'|trans }}</summary>
-            {% if chart.period != 'day' %}<p class="lp-cost-table__note" data-cost-period="{{ chart.period }}">{{ ('bridge.worker_run_cost.table.grouped_' ~ chart.period)|trans }}</p>{% endif %}
+            <p class="lp-cost-table__note" data-cost-group="{{ chart.group.value }}">{{ ('bridge.worker_run_cost.table.grouped_' ~ chart.group.value)|trans }}</p>
             <table class="lp-cost-table__table" data-cost-table>
                 <thead>
                     <tr>

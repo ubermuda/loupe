@@ -114,3 +114,15 @@ it('keeps a hover card inside a plot that is narrower than the card', () => {
     // CSS caps the card at the plot width, so its centre sits in the middle.
     expect(card(0).style.left).toBe('100px');
 });
+
+it('places the hover card above the labels of a bar', () => {
+    const label = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'text',
+    );
+    label.getBoundingClientRect = () => ({ top: 120 });
+    bar(0).appendChild(label);
+    bar(0).dispatchEvent(new MouseEvent('mouseenter'));
+
+    expect(card(0).style.top).toBe('62px');
+});

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\View;
 
-/** One axis label: a dollar amount on the value axis, or a day on the time axis. */
+/** One axis label: a dollar amount on the value axis, or the first day of a period on the time axis. */
 final readonly class CostChartTick
 {
     public function __construct(

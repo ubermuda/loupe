@@ -20,7 +20,7 @@ export default class extends Controller {
 
         const plotBox = card.parentElement.getBoundingClientRect();
         // The link spans the whole plot height, so the top comes from the painted marks.
-        const marks = [...bar.querySelectorAll('path, circle')];
+        const marks = [...bar.querySelectorAll('path, text')];
         const barBox = bar.getBoundingClientRect();
         const top = Math.min(
             ...marks.map((mark) => mark.getBoundingClientRect().top),

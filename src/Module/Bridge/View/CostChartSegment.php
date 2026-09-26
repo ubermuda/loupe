@@ -11,8 +11,6 @@ final readonly class CostChartSegment
         /** The palette slot, from 1, or zero for the other keys. */
         public int $slot,
         public string $path,
-        /** True when the part is an estimate, or has no price. */
-        public bool $estimated,
         public float $top,
         public float $bottom,
     ) {

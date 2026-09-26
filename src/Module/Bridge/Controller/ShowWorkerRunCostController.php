@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Controller;
 use App\Controller\AppController;
 use App\Module\Bridge\Command\ShowWorkerRunCostCommand;
 use App\Module\Bridge\Command\ShowWorkerRunCostHandler;
+use App\Module\Bridge\ValueObject\CostGroup;
 use App\Module\Bridge\ValueObject\CostRange;
 use App\Module\Bridge\ValueObject\CostSplit;
 use App\Module\Bridge\View\WorkerRunCostQuery;
@@ -39,6 +40,7 @@ class ShowWorkerRunCostController extends AppController
             'cost' => $view,
             'ranges' => CostRange::cases(),
             'splits' => CostSplit::cases(),
+            'groups' => CostGroup::cases(),
         ]);
     }
 }

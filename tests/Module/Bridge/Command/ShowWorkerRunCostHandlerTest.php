@@ -11,6 +11,7 @@ use App\Module\Bridge\Cost\FinishedCard;
 use App\Module\Bridge\Cost\FinishedCardSourceInterface;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunUsageRepository;
+use App\Module\Bridge\ValueObject\CostGroup;
 use App\Module\Bridge\ValueObject\CostRange;
 use App\Module\Bridge\ValueObject\CostSplit;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
@@ -142,6 +143,18 @@ final class ShowWorkerRunCostHandlerTest extends KernelTestCase
         self::assertSame([1, 0, 0], array_map(static fn (CardCost $cost): int => $cost->partialRuns, $view->cards));
         // An estimate, and a row with no price.
         self::assertSame([false, true, true], array_map(static fn (CardCost $cost): bool => $cost->estimated, $view->cards));
+    }
+
+    public function test_the_chart_groups_by_the_default_of_the_range_or_the_chosen_group_and_draws_the_median(): void
+    {
+        $default = $this->show(new WorkerRunCostQuery(range: CostRange::ThirtyDays));
+        $chosen = $this->show(new WorkerRunCostQuery(range: CostRange::ThirtyDays, group: CostGroup::Month));
+
+        self::assertNotNull($default->chart);
+        self::assertNotNull($chosen->chart);
+        self::assertSame(CostGroup::Day, $default->chart->group);
+        self::assertSame(CostGroup::Month, $chosen->chart->group);
+        self::assertSame($default->medianMicros, $default->chart->medianMicros);
     }
 
     public function test_no_finished_card_with_usage_gives_no_chart(): void

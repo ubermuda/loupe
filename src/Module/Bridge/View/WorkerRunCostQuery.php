@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\View;
 
+use App\Module\Bridge\ValueObject\CostGroup;
 use App\Module\Bridge\ValueObject\CostRange;
 use App\Module\Bridge\ValueObject\CostSplit;
 use Symfony\Component\HttpFoundation\InputBag;
@@ -19,6 +20,8 @@ final readonly class WorkerRunCostQuery
         public CostSplit $split = CostSplit::None,
         public ?string $rule = null,
         public ?string $model = null,
+        /** Null follows the range, as effectiveGroup() says. */
+        public ?CostGroup $group = null,
     ) {
     }
 
@@ -34,12 +37,24 @@ final readonly class WorkerRunCostQuery
             split: CostSplit::tryFrom($query->getString('split')) ?? CostSplit::None,
             rule: '' === $rule ? null : $rule,
             model: '' === $model ? null : $model,
+            group: CostGroup::tryFrom($query->getString('group')),
         );
     }
 
+    /** A new range drops the group, so the default of that range applies. */
     public function withRange(CostRange $range): self
     {
-        return clone ($this, ['range' => $range]);
+        return clone ($this, ['range' => $range, 'group' => null]);
+    }
+
+    public function withGroup(CostGroup $group): self
+    {
+        return clone ($this, ['group' => $group]);
+    }
+
+    public function effectiveGroup(): CostGroup
+    {
+        return $this->group ?? CostGroup::defaultFor($this->range);
     }
 
     public function withSplit(CostSplit $split): self
@@ -52,7 +67,7 @@ final readonly class WorkerRunCostQuery
         return null !== $this->rule || null !== $this->model;
     }
 
-    /** @return array{range?: string, split?: string, rule?: string, model?: string} */
+    /** @return array{range?: string, split?: string, group?: string, rule?: string, model?: string} */
     public function routeParams(): array
     {
         $params = [];
@@ -63,6 +78,10 @@ final readonly class WorkerRunCostQuery
 
         if (CostSplit::None !== $this->split) {
             $params['split'] = $this->split->value;
+        }
+
+        if (null !== $this->group && CostGroup::defaultFor($this->range) !== $this->group) {
+            $params['group'] = $this->group->value;
         }
 
         if (null !== $this->rule) {

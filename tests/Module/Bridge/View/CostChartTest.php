@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\View;
 
 use App\Module\Bridge\Cost\FinishedCard;
+use App\Module\Bridge\ValueObject\CostGroup;
 use App\Module\Bridge\View\CardCost;
 use App\Module\Bridge\View\CostChart;
 use App\Module\Bridge\View\CostChartBar;
@@ -20,7 +21,7 @@ final class CostChartTest extends TestCase
     private const string FROM = '2026-09-01 12:00:00';
     private const string TO = '2026-09-30 12:00:00';
 
-    public function test_a_bar_stands_at_its_completion_day_with_its_height_in_dollars(): void
+    public function test_a_bar_stands_at_its_day_with_its_height_in_dollars(): void
     {
         $chart = $this->chart([
             $this->cost('2026-09-01 09:00:00', ['' => 1_000_000]),
@@ -28,6 +29,7 @@ final class CostChartTest extends TestCase
         ]);
 
         [$first, $last] = $chart->bars;
+        self::assertEquals(new \DateTimeImmutable('2026-09-01'), $first->periodStart);
         self::assertLessThan($last->x, $first->x);
         self::assertGreaterThanOrEqual(CostChart::PLOT_LEFT, $first->x);
         self::assertLessThanOrEqual(CostChart::PLOT_RIGHT, $last->x + $last->width);
@@ -37,114 +39,147 @@ final class CostChartTest extends TestCase
         self::assertLessThanOrEqual(24.0, $last->width);
     }
 
-    public function test_cards_finished_on_one_day_stand_side_by_side(): void
+    public function test_the_cards_of_one_period_share_one_bar_as_tall_as_their_average(): void
+    {
+        $chart = $this->chart([
+            $this->cost('2026-09-10 09:00:00', ['' => 1_000_000]),
+            $this->cost('2026-09-10 17:00:00', ['' => 3_000_000]),
+            $this->cost('2026-09-20 09:00:00', ['' => 4_000_000]),
+        ]);
+
+        self::assertCount(2, $chart->bars);
+        [$pair, $single] = $chart->bars;
+        self::assertSame(2, $pair->cardCount());
+        self::assertSame(2_000_000, $pair->averageMicros);
+        self::assertSame(4_000_000, $single->averageMicros);
+        self::assertEqualsWithDelta((CostChart::BASELINE + CostChart::PLOT_TOP) / 2, $pair->top, 0.01);
+    }
+
+    public function test_each_part_is_the_average_of_its_key_and_the_parts_add_up_to_the_bar(): void
+    {
+        $chart = $this->chart([
+            $this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 3_000_000]),
+            $this->cost('2026-09-10 17:00:00', ['build' => 1_000_000]),
+        ], ['build', 'plan']);
+
+        $bar = $chart->bars[0];
+        self::assertSame(['build' => 1_000_000, 'plan' => 1_500_000], $bar->partAverages);
+        self::assertSame(2_500_000, $bar->averageMicros);
+        self::assertSame([1, 2], array_map(static fn (CostChartSegment $segment): int => $segment->slot, $bar->segments));
+        self::assertEqualsWithDelta($bar->top, $bar->segments[1]->top, 0.01);
+        // The parts stack from the baseline with one gap between them.
+        $painted = array_sum(array_map(static fn (CostChartSegment $segment): float => $segment->bottom - $segment->top, $bar->segments));
+        self::assertEqualsWithDelta(CostChart::BASELINE - $bar->top, $painted + 2.0, 0.02);
+        $plotHeight = CostChart::BASELINE - CostChart::PLOT_TOP;
+        $topMicros = (int) round($chart->yTicks[\count($chart->yTicks) - 1]->amount * 1_000_000);
+        self::assertEqualsWithDelta(2_500_000 / $topMicros * $plotHeight, CostChart::BASELINE - $bar->top, 0.02);
+    }
+
+    public function test_a_week_starts_on_monday(): void
+    {
+        $chart = $this->chart([
+            $this->cost('2026-09-13 22:00:00', ['' => 1_000_000]),
+            $this->cost('2026-09-14 08:00:00', ['' => 1_000_000]),
+        ], group: CostGroup::Week);
+
+        self::assertSame(['2026-09-07', '2026-09-14'], $this->periods($chart));
+        $this->assertInOrder($chart->bars);
+        // The axis opens on the Monday before the range starts, a Tuesday.
+        $dayWidth = (CostChart::PLOT_RIGHT - CostChart::PLOT_LEFT) / 35;
+        self::assertEqualsWithDelta(CostChart::PLOT_LEFT + 7 * $dayWidth, $chart->bars[0]->hitX, 0.02);
+        self::assertEqualsWithDelta(7 * $dayWidth, $chart->bars[0]->hitWidth, 0.02);
+    }
+
+    public function test_a_month_ends_on_its_last_day(): void
+    {
+        $chart = CostChart::build(
+            [
+                $this->cost('2026-03-31 22:00:00', ['' => 1_000_000]),
+                $this->cost('2026-04-01 08:00:00', ['' => 1_000_000]),
+            ],
+            [''],
+            new \DateTimeImmutable('2026-03-15 12:00:00'),
+            new \DateTimeImmutable('2026-04-20 12:00:00'),
+            CostGroup::Month,
+            1_000_000,
+        );
+
+        self::assertSame(['2026-03-01', '2026-04-01'], $this->periods($chart));
+        // March has 31 days and April 30, and the axis holds both whole.
+        $dayWidth = (CostChart::PLOT_RIGHT - CostChart::PLOT_LEFT) / 61;
+        self::assertEqualsWithDelta((float) CostChart::PLOT_LEFT, $chart->bars[0]->hitX, 0.02);
+        self::assertEqualsWithDelta(31 * $dayWidth, $chart->bars[0]->hitWidth, 0.02);
+        self::assertEqualsWithDelta(30 * $dayWidth, $chart->bars[1]->hitWidth, 0.02);
+        self::assertSame(['Mar', 'Apr'], array_map(static fn (CostChartTick $tick): string => $tick->day?->format('M') ?? '', $chart->xTicks));
+    }
+
+    /** The default ninety-day view groups by week, and its bars have room for their labels. */
+    public function test_ninety_days_by_week_gives_wide_bars(): void
+    {
+        $chart = CostChart::build(
+            [$this->cost('2026-09-10 09:00:00', ['' => 1_000_000]), $this->cost('2026-09-11 09:00:00', ['' => 1_000_000])],
+            [''],
+            new \DateTimeImmutable('2026-06-28 12:00:00'),
+            new \DateTimeImmutable('2026-09-26 12:00:00'),
+            CostGroup::Week,
+            1_000_000,
+        );
+
+        self::assertCount(1, $chart->bars);
+        self::assertTrue($chart->bars[0]->isWide());
+        self::assertFalse($chart->hasCountMark());
+    }
+
+    public function test_a_narrow_bar_of_several_cards_carries_a_count_mark(): void
     {
         $chart = $this->chart([
             $this->cost('2026-09-10 09:00:00', ['' => 1_000_000]),
             $this->cost('2026-09-10 17:00:00', ['' => 1_000_000]),
         ]);
 
-        [$morning, $evening] = $chart->bars;
-        self::assertGreaterThanOrEqual($morning->x + $morning->width + 2, $evening->x + 0.01);
+        self::assertFalse($chart->bars[0]->isWide());
+        self::assertTrue($chart->hasCountMark());
     }
 
-    /** Twenty bars of two pixels and their gaps are wider than one day, so the gaps and then the bars give way. */
-    public function test_a_crowded_day_keeps_every_bar_inside_its_slot(): void
+    public function test_a_lone_narrow_card_needs_no_count_mark(): void
     {
-        $cards = [];
-        for ($hour = 0; $hour < 20; ++$hour) {
-            $cards[] = $this->cost(\sprintf('2026-09-10 %02d:00:00', $hour), ['' => 1_000_000]);
-        }
-        $chart = $this->chart($cards);
+        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['' => 1_000_000])]);
 
-        // The range spans 30 days, and the tenth day is the slot of the group.
-        $dayWidth = (CostChart::PLOT_RIGHT - CostChart::PLOT_LEFT) / 30;
-        $slotLeft = CostChart::PLOT_LEFT + 9 * $dayWidth;
-        $previousRight = $slotLeft;
-        // The view box coordinates are rounded to two decimals, so an edge can move by up to 0.015.
-        foreach ($chart->bars as $bar) {
-            self::assertGreaterThan(0.0, $bar->width);
-            self::assertGreaterThanOrEqual($previousRight - 0.02, $bar->x);
-            self::assertGreaterThanOrEqual($bar->x + $bar->width - 0.02, $bar->hitX + $bar->hitWidth);
-            self::assertLessThanOrEqual($bar->x + 0.02, $bar->hitX);
-            $previousRight = $bar->x + $bar->width;
-        }
-        self::assertLessThanOrEqual($slotLeft + $dayWidth + 0.02, $previousRight);
-        self::assertGreaterThanOrEqual($slotLeft - 0.02, $chart->bars[0]->hitX);
-        self::assertLessThanOrEqual($slotLeft + $dayWidth + 0.02, $chart->bars[19]->hitX + $chart->bars[19]->hitWidth);
+        self::assertFalse($chart->hasCountMark());
     }
 
-    /** A day of 600 is under six units wide, so the bars group by ISO week. */
-    public function test_a_long_range_groups_by_week_and_keeps_bars_and_hit_areas_in_order(): void
+    public function test_the_median_line_sits_at_its_amount_on_the_value_axis(): void
     {
-        $cards = [];
-        for ($hour = 9; $hour < 13; ++$hour) {
-            $cards[] = $this->cost(\sprintf('2025-06-08 %02d:00:00', $hour), ['' => 1_000_000]);
-        }
-        // A Monday, so this card opens the next week.
-        $cards[] = $this->cost('2025-06-09 09:00:00', ['' => 1_000_000]);
-        $chart = CostChart::build($cards, [''], new \DateTimeImmutable('2025-02-07 12:00:00'), new \DateTimeImmutable('2026-09-30 12:00:00'));
+        $chart = $this->chart([
+            $this->cost('2026-09-10 09:00:00', ['' => 1_000_000]),
+            $this->cost('2026-09-11 09:00:00', ['' => 3_000_000]),
+        ], medianMicros: 2_000_000);
 
-        self::assertSame('week', $chart->period);
-        $this->assertInOrder($chart->bars);
-        // The axis runs from the Monday of the first week to the Sunday of the last week.
-        $mondayLeft = $this->axisX('2025-02-03', '2025-06-09', 609);
-        self::assertLessThanOrEqual($mondayLeft + 0.02, $chart->bars[3]->hitX + $chart->bars[3]->hitWidth);
-        self::assertGreaterThanOrEqual($mondayLeft - 0.02, $chart->bars[4]->hitX);
+        self::assertSame([0.0, 1.0, 2.0, 3.0], array_map(static fn (CostChartTick $tick): float => $tick->amount, $chart->yTicks));
+        self::assertSame($chart->yTicks[2]->position, $chart->medianY);
+        self::assertSame(2.0, $chart->median());
     }
 
-    /** Over three years a week is under six units wide, so the bars group by month. */
-    public function test_a_three_year_range_groups_by_month(): void
+    /** One costly card in a period of cheap ones can put the median above every average. */
+    public function test_the_value_axis_reaches_the_median(): void
     {
-        $chart = CostChart::build(
-            [
-                $this->cost('2024-03-02 09:00:00', ['' => 1_000_000]),
-                $this->cost('2024-03-30 09:00:00', ['' => 1_000_000]),
-                $this->cost('2024-04-01 09:00:00', ['' => 1_000_000]),
-            ],
-            [''],
-            new \DateTimeImmutable('2023-09-30 12:00:00'),
-            new \DateTimeImmutable('2026-09-30 12:00:00'),
-        );
+        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['' => 1_000_000])], medianMicros: 5_000_000);
 
-        self::assertSame('month', $chart->period);
-        $this->assertInOrder($chart->bars);
-        // The axis runs from the first day of the first month to the last day of the last month.
-        $marchLeft = $this->axisX('2023-09-01', '2024-03-01', 1126);
-        $aprilLeft = $this->axisX('2023-09-01', '2024-04-01', 1126);
-        self::assertEqualsWithDelta($marchLeft, $chart->bars[0]->hitX, 0.02);
-        self::assertEqualsWithDelta($aprilLeft, $chart->bars[1]->hitX + $chart->bars[1]->hitWidth, 0.02);
-        self::assertEqualsWithDelta($aprilLeft, $chart->bars[2]->hitX, 0.02);
-        self::assertGreaterThanOrEqual(2.0, $chart->bars[2]->width);
+        self::assertGreaterThanOrEqual(5.0, $chart->yTicks[\count($chart->yTicks) - 1]->amount);
+        self::assertGreaterThanOrEqual((float) CostChart::PLOT_TOP, $chart->medianY);
     }
 
-    /** A range that ends on the first day of a month still draws that month whole. */
-    public function test_the_last_month_of_a_range_keeps_its_full_width(): void
+    public function test_one_estimated_card_hatches_its_whole_bar_and_one_partial_card_marks_it(): void
     {
-        $chart = CostChart::build(
-            [
-                $this->cost('2025-09-15 09:00:00', ['' => 1_000_000]),
-                $this->cost('2026-09-01 09:00:00', ['' => 1_000_000]),
-            ],
-            [''],
-            new \DateTimeImmutable('2023-09-01 12:00:00'),
-            new \DateTimeImmutable('2026-09-01 12:00:00'),
-        );
+        $plain = $this->cost('2026-09-10 09:00:00', ['' => 1_000_000]);
+        $estimated = $this->cost('2026-09-10 17:00:00', ['' => 1_000_000], ['']);
+        $partial = $this->cost('2026-09-20 09:00:00', ['' => 1_000_000], partialRuns: 2);
+        $chart = $this->chart([$plain, $estimated, $partial]);
 
-        self::assertSame('month', $chart->period);
-        // Both Septembers have 30 days.
-        self::assertEqualsWithDelta($chart->bars[0]->hitWidth, $chart->bars[1]->hitWidth, 0.02);
-    }
-
-    public function test_the_parts_stack_bottom_up_with_a_gap_and_a_rounded_top(): void
-    {
-        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 3_000_000])], ['build', 'plan']);
-
-        $bar = $chart->bars[0];
-        self::assertSame([1, 2], array_map(static fn (CostChartSegment $segment): int => $segment->slot, $bar->segments));
-        self::assertStringNotContainsString('Q', $bar->segments[0]->path);
-        self::assertStringContainsString('Q', $bar->segments[1]->path);
-        self::assertSame(['build', 'plan'], array_map(static fn (CostChartSeries $series): ?string => $series->key, $chart->series));
+        self::assertSame([true, false], array_map(static fn (CostChartBar $bar): bool => $bar->estimated, $chart->bars));
+        self::assertSame([false, true], array_map(static fn (CostChartBar $bar): bool => $bar->partial, $chart->bars));
+        self::assertTrue($chart->hasEstimate());
+        self::assertTrue($chart->hasPartial());
     }
 
     public function test_a_colour_follows_its_key_whatever_the_filter_shows(): void
@@ -152,6 +187,19 @@ final class CostChartTest extends TestCase
         $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['plan' => 1_000_000])], ['build', 'plan']);
 
         self::assertSame(2, $chart->bars[0]->segments[0]->slot);
+        self::assertSame(['plan'], array_map(static fn (CostChartSeries $series): ?string => $series->key, $chart->series));
+    }
+
+    public function test_the_parts_stack_in_the_order_of_the_project_keys(): void
+    {
+        $chart = $this->chart([
+            $this->cost('2026-09-10 09:00:00', ['plan' => 1_000_000]),
+            $this->cost('2026-09-10 17:00:00', ['build' => 1_000_000]),
+        ], ['build', 'plan']);
+
+        self::assertSame(['build', 'plan'], array_keys($chart->bars[0]->partAverages));
+        self::assertStringNotContainsString('Q', $chart->bars[0]->segments[0]->path);
+        self::assertStringContainsString('Q', $chart->bars[0]->segments[1]->path);
     }
 
     public function test_keys_past_the_palette_share_the_grey_of_the_rest_at_the_end_of_the_legend(): void
@@ -163,7 +211,7 @@ final class CostChartTest extends TestCase
         self::assertSame([[1, 'rule-1'], [0, null]], array_map(static fn (CostChartSeries $series): array => [$series->slot, $series->key], $chart->series));
     }
 
-    public function test_a_card_with_no_priced_usage_keeps_a_stub_for_its_marks(): void
+    public function test_a_period_with_no_priced_usage_keeps_a_stub_for_its_marks(): void
     {
         $chart = $this->chart([
             $this->cost('2026-09-10 09:00:00', ['' => 0]),
@@ -173,15 +221,6 @@ final class CostChartTest extends TestCase
         self::assertTrue($chart->bars[0]->isStub());
         self::assertSame(CostChart::BASELINE - 2.0, $chart->bars[0]->top);
         self::assertFalse($chart->bars[1]->isStub());
-    }
-
-    /** A priced part far shorter than the gap between parts is still drawn, above the part below it. */
-    public function test_a_tiny_priced_part_keeps_a_segment_of_its_own(): void
-    {
-        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 1_000])], ['build', 'plan']);
-
-        $this->assertStacked($chart->bars[0]);
-        self::assertSame([false, false], array_map(static fn (CostChartSegment $segment): bool => $segment->estimated, $chart->bars[0]->segments));
     }
 
     /** Twenty one-unit parts on a bar at the top tick would push it above the plot, so the tallest part gives the room back. */
@@ -203,36 +242,9 @@ final class CostChartTest extends TestCase
         }
     }
 
-    /** The hatch of a tiny estimated part stays on that part and does not spread to the whole bar. */
-    public function test_a_tiny_estimated_part_carries_the_estimate_alone(): void
-    {
-        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 1_000], ['plan'])], ['build', 'plan']);
-
-        $this->assertStacked($chart->bars[0]);
-        self::assertSame([false, true], array_map(static fn (CostChartSegment $segment): bool => $segment->estimated, $chart->bars[0]->segments));
-        self::assertFalse($chart->bars[0]->hasHiddenEstimate());
-    }
-
-    public function test_only_the_estimated_part_of_a_bar_carries_the_estimate(): void
-    {
-        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 1_000_000], ['plan'])], ['build', 'plan']);
-
-        self::assertSame([false, true], array_map(static fn (CostChartSegment $segment): bool => $segment->estimated, $chart->bars[0]->segments));
-        self::assertFalse($chart->bars[0]->hasHiddenEstimate());
-    }
-
-    /** A part with no price paints nothing, so the mark must move to the whole bar. */
-    public function test_an_unpriced_estimate_marks_the_whole_bar(): void
-    {
-        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 0], ['plan'])], ['build', 'plan']);
-
-        self::assertCount(1, $chart->bars[0]->segments);
-        self::assertTrue($chart->bars[0]->hasHiddenEstimate());
-    }
-
     public function test_the_value_axis_has_round_dollar_ticks_from_zero(): void
     {
-        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['' => 3_300_000])]);
+        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['' => 3_300_000])], medianMicros: 3_300_000);
 
         self::assertSame([0.0, 1.0, 2.0, 3.0, 4.0], array_map(static fn (CostChartTick $tick): float => $tick->amount, $chart->yTicks));
         self::assertSame(0, $chart->yTickDecimals);
@@ -241,7 +253,7 @@ final class CostChartTest extends TestCase
 
     public function test_cents_get_two_decimals_on_the_value_axis(): void
     {
-        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['' => 180_000])]);
+        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['' => 180_000])], medianMicros: 180_000);
 
         self::assertSame([0.0, 0.05, 0.1, 0.15, 0.2], array_map(static fn (CostChartTick $tick): float => round($tick->amount, 2), $chart->yTicks));
         self::assertSame(2, $chart->yTickDecimals);
@@ -250,19 +262,36 @@ final class CostChartTest extends TestCase
     /** Unpriced usage alone sums to nothing, and the axis still reads in cents. */
     public function test_an_axis_with_no_priced_usage_counts_in_cents(): void
     {
-        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['' => 0], [''])]);
+        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['' => 0], [''])], medianMicros: 0);
 
         self::assertSame([0.0, 0.01, 0.02, 0.03, 0.04], array_map(static fn (CostChartTick $tick): float => round($tick->amount, 2), $chart->yTicks));
         self::assertSame(2, $chart->yTickDecimals);
     }
 
-    public function test_the_time_axis_labels_at_most_six_days(): void
+    public function test_the_time_axis_labels_at_most_eight_periods(): void
     {
         $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['' => 1_000_000])]);
 
-        self::assertLessThanOrEqual(6, \count($chart->xTicks));
+        self::assertLessThanOrEqual(8, \count($chart->xTicks));
         self::assertEquals(new \DateTimeImmutable('2026-09-01 00:00:00'), $chart->xTicks[0]->day);
         self::assertFalse($chart->longSpan);
+    }
+
+    /** Days over three years are thinner than a unit, and every bar still keeps its place. */
+    public function test_a_long_range_by_day_keeps_its_bars_in_order(): void
+    {
+        $chart = CostChart::build(
+            [$this->cost('2024-03-02 09:00:00', ['' => 1_000_000]), $this->cost('2024-03-03 09:00:00', ['' => 1_000_000])],
+            [''],
+            new \DateTimeImmutable('2023-09-30 12:00:00'),
+            new \DateTimeImmutable('2026-09-30 12:00:00'),
+            CostGroup::Day,
+            1_000_000,
+        );
+
+        $this->assertInOrder($chart->bars);
+        self::assertTrue($chart->longSpan);
+        self::assertLessThanOrEqual(8, \count($chart->xTicks));
     }
 
     /**
@@ -286,45 +315,32 @@ final class CostChartTest extends TestCase
         }
     }
 
-    /** Two segments, the second at least one unit tall and above the first, with the bar top on the second. */
-    private function assertStacked(CostChartBar $bar): void
+    /** @return list<string> */
+    private function periods(CostChart $chart): array
     {
-        self::assertCount(2, $bar->segments);
-        [$large, $tiny] = $bar->segments;
-        self::assertSame([1, 2], [$large->slot, $tiny->slot]);
-        self::assertGreaterThanOrEqual(0.99, $tiny->bottom - $tiny->top);
-        self::assertLessThanOrEqual($large->top + 0.01, $tiny->bottom);
-        self::assertEqualsWithDelta($tiny->top, $bar->top, 0.01);
-    }
-
-    /** The left edge of a day on an axis that starts on the given day and holds the given number of days. */
-    private function axisX(string $firstDay, string $day, int $dayCount): float
-    {
-        $index = (int) new \DateTimeImmutable($firstDay)->diff(new \DateTimeImmutable($day))->format('%a');
-
-        return CostChart::PLOT_LEFT + $index * (CostChart::PLOT_RIGHT - CostChart::PLOT_LEFT) / $dayCount;
+        return array_map(static fn (CostChartBar $bar): string => $bar->periodStart->format('Y-m-d'), $chart->bars);
     }
 
     /**
      * @param non-empty-list<CardCost> $cards
      * @param list<string>             $keys
      */
-    private function chart(array $cards, array $keys = ['']): CostChart
+    private function chart(array $cards, array $keys = [''], CostGroup $group = CostGroup::Day, int $medianMicros = 1_000_000): CostChart
     {
-        return CostChart::build($cards, $keys, new \DateTimeImmutable(self::FROM), new \DateTimeImmutable(self::TO));
+        return CostChart::build($cards, $keys, new \DateTimeImmutable(self::FROM), new \DateTimeImmutable(self::TO), $group, $medianMicros);
     }
 
     /**
      * @param non-empty-array<string, int> $parts
      * @param list<string>                 $estimated the keys of the estimated parts
      */
-    private function cost(string $completedAt, array $parts, array $estimated = []): CardCost
+    private function cost(string $completedAt, array $parts, array $estimated = [], int $partialRuns = 0): CardCost
     {
         $costParts = [];
         foreach ($parts as $key => $micros) {
             $costParts[] = new CostPart((string) $key, $micros, 1, 1, 1, 1, \in_array((string) $key, $estimated, true));
         }
 
-        return new CardCost(new FinishedCard(Uuid::v7(), 1, 'Card', new \DateTimeImmutable($completedAt)), $costParts, 0);
+        return new CardCost(new FinishedCard(Uuid::v7(), 1, 'Card', new \DateTimeImmutable($completedAt)), $costParts, $partialRuns);
     }
 }
