@@ -591,8 +591,70 @@ cli-install dir="":
     [ -n "$target" ] || target="$HOME/bin"
     target="${target/#\~/$HOME}"
 
-    # The host's own platform, so this works on a developer Mac and on a Linux
-    # box without either of them passing anything.
+    read -r goos goarch < <(just _cli-platform)
+    just cli-build "$goos" "$goarch"
+
+    mkdir -p "$target"
+    install -m 0755 "{{justfile_directory()}}/cli/dist/loupe-$goos-$goarch" "$target/loupe"
+    just _cli-verify "$target"
+
+# `just cli-install-release 1.0.0` pins a version; the default is the newest.
+# Download a published CLI release and install it onto your PATH (default ~/bin).
+cli-install-release version="latest" dir="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target="{{dir}}"
+    [ -n "$target" ] || target="$HOME/bin"
+    target="${target/#\~/$HOME}"
+    repo="ubermuda/loupe"
+
+    # CLI releases are tagged cli/vX.Y.Z and share the list with app releases.
+    # Like the self-updater, read up to 10 pages and take the highest stable one.
+    version="{{version}}"
+    if [ "$version" = latest ]; then
+        tags=""
+        for page in 1 2 3 4 5 6 7 8 9 10; do
+            json="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=100&page=$page")"
+            batch="$(printf '%s' "$json" | grep -oE '"tag_name": *"[^"]*"' || true)"
+            tags+="$batch"$'\n'
+            [ "$(printf '%s' "$batch" | grep -c . || true)" -eq 100 ] || break
+        done
+        version="$(printf '%s' "$tags" | grep -oE '"cli/v[0-9]+\.[0-9]+\.[0-9]+"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1 || true)"
+        [ -n "$version" ] || { echo "no stable cli/v* release found on $repo" >&2; exit 1; }
+    fi
+    version="${version#v}"
+
+    read -r goos goarch < <(just _cli-platform)
+    archive="loupe_${version}_${goos}_${goarch}.tar.gz"
+    base="https://github.com/$repo/releases/download/cli/v$version"
+
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    (
+        cd "$work"
+        curl -fsSLO "$base/$archive"
+        curl -fsSLO "$base/checksums.txt"
+        # Check against the archive's own line: --ignore-missing passes when
+        # checksums.txt has no entry for it at all.
+        grep -E "^[0-9a-f]{64}  $archive\$" checksums.txt > archive.sha256 \
+            || { echo "checksums.txt has no entry for $archive" >&2; exit 1; }
+        if command -v sha256sum >/dev/null; then
+            sha256sum -c archive.sha256
+        else
+            shasum -a 256 -c archive.sha256
+        fi
+        tar -xzf "$archive" loupe
+    )
+
+    mkdir -p "$target"
+    install -m 0755 "$work/loupe" "$target/loupe"
+    just _cli-verify "$target"
+
+# Print the host's Go platform as "<goos> <goarch>".
+[private]
+_cli-platform:
+    #!/usr/bin/env bash
+    set -euo pipefail
     case "$(uname -s)" in
         Darwin) goos=darwin ;;
         Linux)  goos=linux ;;
@@ -603,20 +665,20 @@ cli-install dir="":
         x86_64|amd64)  goarch=amd64 ;;
         *) echo "unsupported architecture $(uname -m); build it yourself with just cli-build" >&2; exit 1 ;;
     esac
+    echo "$goos $goarch"
 
-    just cli-build "$goos" "$goarch"
-
-    mkdir -p "$target"
-    install -m 0755 "{{justfile_directory()}}/cli/dist/loupe-$goos-$goarch" "$target/loupe"
+# Run the freshly installed binary and warn when the shell will not pick it.
+[private]
+_cli-verify target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target="{{target}}"
     echo "installed $target/loupe"
 
-    # Prove the binary just written runs, rather than whatever PATH resolves:
-    # with another loupe earlier on PATH, checking `loupe` would report that one
-    # and call a failed install a success.
+    # Run the binary just written, not whatever PATH resolves: another loupe
+    # earlier on PATH would report itself and call a failed install a success.
     "$target/loupe" version
 
-    # An install nobody can reach is the other failure. `command -v` answers what
-    # the shell would actually pick.
     found="$(command -v loupe || true)"
     if [ -z "$found" ]; then
         echo "warning: $target is not on your PATH, so the shell cannot find loupe yet" >&2
