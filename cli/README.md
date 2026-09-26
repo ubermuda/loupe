@@ -1032,6 +1032,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `worker_resuming` | `card`, `project`, `rule`, `session_id`, `resume`, `max_resumes`, `reason`: the bridge resumes a run that did not finish. Level `WARN` |
 | `worker_gave_up` | `card`, `project`, `rule`, `resume`, `max_resumes`, `reason`, `message`: a run did not finish at the cap of `maxResumes`. Level `ERROR` |
 | `result_fields_dropped` | `card`, `project`, `rule`, `bytes`, `message`: the result fields took more than 4000 bytes as JSON, so the report carries none. Level `WARN` |
+| `usage_dropped` | `card`, `project`, `rule`, `message`: Loupe would refuse the token usage of the run, so the report carries none. Level `WARN` |
 | `worker_finished` | `card`, `project`, `rule`, `exit`, `duration_ms`, `status`, `output`. Level `ERROR` for a non-zero `exit` |
 | `worker_no_result` | `card`, `project`, `rule`, `exit`, `duration_ms`, `status`, `output`: stdout held no valid structured result. Level `ERROR` |
 | `worker_failed` | `card`, `project`, `rule`, `error`: the process never ran |

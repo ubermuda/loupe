@@ -16,8 +16,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/ubermuda/loupe/cli/internal/rules"
+	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
 // waitDelay bounds the wait after the context kills the worker's process
@@ -49,6 +51,10 @@ type workerResult struct {
 	err       error
 	// dir is the run directory, which the router removes once it reported.
 	dir string
+	// reported is the modelUsage claude printed, which counts the whole session.
+	// usage is what this process spent, and nil when unknown.
+	reported transcript.Usage
+	usage    *api.Usage
 }
 
 // workerProc is a started worker: its shell's pid, which leads its process
@@ -136,6 +142,9 @@ const workerShell = `claude "$@"; echo $? > "$0.exit"`
 type runRecord struct {
 	PID       int       `json:"pid"`
 	StartedAt time.Time `json:"startedAt"`
+	// LaunchedAt precedes the start, so a transcript count from it misses no
+	// entry the process wrote at once.
+	LaunchedAt time.Time `json:"launchedAt,omitzero"`
 	// StartTime is the OS's start time of PID, so an adopter tells a reused pid
 	// apart. It is empty when the OS did not say.
 	StartTime      string `json:"startTime,omitempty"`
@@ -148,6 +157,9 @@ type runRecord struct {
 	SessionID      string `json:"sessionId"`
 	Resume         bool   `json:"resume,omitempty"`
 	Prompt         string `json:"prompt"`
+	// Baseline is the session's usage before a resume started. A resume with
+	// no baseline could not read it.
+	Baseline *transcript.Usage `json:"baseline,omitempty"`
 }
 
 func writeRunRecord(dir string, rec runRecord) error {
@@ -266,14 +278,22 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 		return err
 	}
 
+	// claude adds to the session's totals as it runs, so the baseline is read
+	// before it starts.
+	var baseline *transcript.Usage
+	if spec.resume {
+		baseline = sessionBaseline(spec.sessionID)
+	}
+	launched := time.Now()
 	if err := cmd.Start(); err != nil {
 		return nil, dir, nil, err
 	}
 	rec := runRecord{
-		PID: cmd.Process.Pid, StartedAt: time.Now(), StartTime: processStart(cmd.Process.Pid),
+		PID: cmd.Process.Pid, StartedAt: time.Now(), LaunchedAt: launched, StartTime: processStart(cmd.Process.Pid),
 		RunID: spec.runID, Rule: spec.rule, Key: spec.key,
 		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model,
 		SessionID: spec.sessionID, Resume: spec.resume, Prompt: spec.prompt,
+		Baseline: baseline,
 	}
 	// A worker with no record cannot outlive this bridge, so it does not run.
 	if err := writeRunRecord(dir, rec); err != nil {
@@ -305,6 +325,9 @@ func workerOutcome(dir string, killed bool, waitErr error) workerResult {
 		res.output = strings.TrimLeft(res.output+"\n"+readErr.Error(), "\n")
 	}
 	res.killed, res.dir = killed, dir
+	if rec, err := readRunRecord(dir); err == nil {
+		res.usage = workerUsage(rec, res.reported)
+	}
 	if waitErr != nil {
 		res.err = waitErr
 
@@ -390,6 +413,7 @@ func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResul
 		StructuredOutput json.RawMessage `json:"structured_output"`
 		Result           string          `json:"result"`
 		IsError          bool            `json:"is_error"`
+		ModelUsage       json.RawMessage `json:"modelUsage"`
 	}
 	var res workerResult
 	var summary, raw string
@@ -398,6 +422,9 @@ func decodeWorkerOutput(stdout []byte, overflow bool, stderr string) workerResul
 		raw = string(stdout)
 	}
 	if decoded {
+		if len(doc.ModelUsage) > 0 && string(doc.ModelUsage) != "null" {
+			res.reported, _ = transcript.DecodeModelUsage(doc.ModelUsage)
+		}
 		var fields map[string]any
 		_ = json.Unmarshal(doc.StructuredOutput, &fields)
 		status, _ := fields["status"].(string)
