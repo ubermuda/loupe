@@ -31,7 +31,7 @@ func (h *updaterHarness) started() {
 }
 
 func TestAForcedCheckIgnoresTheSkipListAndAutoUpdate(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.auto = false
 	h.u.setRange("^1.0")
@@ -51,7 +51,7 @@ func TestAForcedCheckIgnoresTheSkipListAndAutoUpdate(t *testing.T) {
 }
 
 func TestAForcedCheckReportsARejectedHandover(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.outcome = stagedRejected
 	h.u.setRange("^1.0")
@@ -65,7 +65,7 @@ func TestAForcedCheckReportsARejectedHandover(t *testing.T) {
 }
 
 func TestAForcedCheckNamesEachOutcomeWithoutAHandover(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.0.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.0.0")
 	for name, tc := range map[string]struct {
 		running, cliRange, want string
 		ok                      bool
@@ -87,7 +87,7 @@ func TestAForcedCheckNamesEachOutcomeWithoutAHandover(t *testing.T) {
 }
 
 func TestAForcedCheckIsBlockedByAnUnwritableBinaryDir(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.u.setRange("^1.0")
 	h.u.executable = func() (string, error) { return "/nonexistent/dir/loupe", nil }
@@ -99,7 +99,7 @@ func TestAForcedCheckIsBlockedByAnUnwritableBinaryDir(t *testing.T) {
 }
 
 func TestAForcedCheckRejectsAnArchiveThatFailsItsChecksum(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	gh.checksums = []byte(strings.Repeat("0", 64) + "  " + gh.assetName() + "\n")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.u.setRange("^1.0")
@@ -111,7 +111,7 @@ func TestAForcedCheckRejectsAnArchiveThatFailsItsChecksum(t *testing.T) {
 }
 
 func TestAForcedCheckWaitsForTheCheckInFlightThenGivesUp(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.u.setRange("^1.0")
 	h.u.checkWait = 50 * time.Millisecond
@@ -134,7 +134,7 @@ func TestAForcedCheckWaitsForTheCheckInFlightThenGivesUp(t *testing.T) {
 }
 
 func TestAForcedCheckWaitsForTheUpdaterToStart(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.u.setRange("^1.0")
 
@@ -532,7 +532,7 @@ func withServerRange(self selfUpdate, cliRange string) selfUpdate {
 // server range decides, and the skip list does not.
 func TestUpdateWithNoBridgeTakesTheHighestReleaseInTheServerRange(t *testing.T) {
 	shortConfigHome(t)
-	gh := newFakeGitHub(t, "new binary", "v1.0.0", "v1.2.0", "v2.0.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.0.0", "cli/v1.2.0", "cli/v2.0.0")
 	self, exe := selfUpdateAgainst(t, gh, "1.0.0")
 	if err := os.MkdirAll(mustConfigDir(t), 0o700); err != nil {
 		t.Fatal(err)
@@ -550,9 +550,21 @@ func TestUpdateWithNoBridgeTakesTheHighestReleaseInTheServerRange(t *testing.T) 
 	}
 }
 
+// A plain vX.Y.Z tag belongs to the server's version track.
+func TestUpdateWithNoBridgeIgnoresAPlainVersionTag(t *testing.T) {
+	shortConfigHome(t)
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0", "v1.5.0")
+	self, exe := selfUpdateAgainst(t, gh, "")
+
+	out, err := updateCmd(t, withServerRange(self, "^1.0"))
+	if err != nil || !strings.Contains(out, "installed 1.2.0 over "+exe) {
+		t.Fatalf("err = %v, out = %q", err, out)
+	}
+}
+
 func TestUpdateWithNoBridgeLeavesABinaryInRangeWhenOnlyANewerMajorShips(t *testing.T) {
 	shortConfigHome(t)
-	gh := newFakeGitHub(t, "new binary", "v2.0.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v2.0.0")
 	self, exe := selfUpdateAgainst(t, gh, "1.0.0")
 
 	out, err := updateCmd(t, withServerRange(self, "^1.0"))
@@ -563,7 +575,7 @@ func TestUpdateWithNoBridgeLeavesABinaryInRangeWhenOnlyANewerMajorShips(t *testi
 
 func TestUpdateWithNoBridgeOnADevBuildStaysInTheServerRange(t *testing.T) {
 	shortConfigHome(t)
-	gh := newFakeGitHub(t, "new binary", "v1.2.0", "v2.0.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0", "cli/v2.0.0")
 	self, exe := selfUpdateAgainst(t, gh, "")
 
 	out, err := updateCmd(t, withServerRange(self, "^1.0"))
@@ -574,7 +586,7 @@ func TestUpdateWithNoBridgeOnADevBuildStaysInTheServerRange(t *testing.T) {
 
 func TestUpdateWithNoBridgeFailsWhenNoReleaseIsInTheServerRange(t *testing.T) {
 	shortConfigHome(t)
-	gh := newFakeGitHub(t, "new binary", "v2.0.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v2.0.0")
 	self, exe := selfUpdateAgainst(t, gh, "3.0.0")
 
 	_, err := updateCmd(t, withServerRange(self, "^1.0"))
@@ -625,7 +637,7 @@ func TestReadServerRangeFailsWithNoLoginOrNoRange(t *testing.T) {
 
 func TestUpdateWithNoBridgeReplacesTheBinaryWithTheHighestOfItsMajor(t *testing.T) {
 	shortConfigHome(t)
-	gh := newFakeGitHub(t, "new binary", "v1.0.0", "v1.2.0", "v2.0.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.0.0", "cli/v1.2.0", "cli/v2.0.0")
 	self, exe := selfUpdateAgainst(t, gh, "1.0.0")
 	dir, _ := config.Dir()
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -649,7 +661,7 @@ func TestUpdateWithNoBridgeReplacesTheBinaryWithTheHighestOfItsMajor(t *testing.
 
 func TestUpdateWithNoBridgeOnADevBuildTakesTheHighestRelease(t *testing.T) {
 	shortConfigHome(t)
-	gh := newFakeGitHub(t, "new binary", "v1.2.0", "v2.0.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0", "cli/v2.0.0")
 	self, exe := selfUpdateAgainst(t, gh, "")
 
 	out, err := updateCmd(t, self)
@@ -666,7 +678,7 @@ func TestUpdateWithNoBridgeOnADevBuildTakesTheHighestRelease(t *testing.T) {
 
 func TestUpdateWithNoBridgeLeavesACurrentBinary(t *testing.T) {
 	shortConfigHome(t)
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	self, exe := selfUpdateAgainst(t, gh, "1.2.0")
 
 	out, err := updateCmd(t, self)
@@ -677,7 +689,7 @@ func TestUpdateWithNoBridgeLeavesACurrentBinary(t *testing.T) {
 
 func TestUpdateWithNoBridgeFailsOnABadChecksum(t *testing.T) {
 	shortConfigHome(t)
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	gh.checksums = []byte(strings.Repeat("0", 64) + "  " + gh.assetName() + "\n")
 	self, exe := selfUpdateAgainst(t, gh, "1.0.0")
 

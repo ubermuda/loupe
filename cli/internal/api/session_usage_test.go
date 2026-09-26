@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-const testSessionID = "0199a0e2-d3e4-7f66-9b33-405162738400"
+const usageSessionID = "0199a0e2-d3e4-7f66-9b33-405162738400"
 
 func putSessionUsage(t *testing.T, status int, answer string) (string, string, SessionUsageResult, error) {
 	t.Helper()
@@ -32,7 +32,7 @@ func putSessionUsage(t *testing.T, status int, answer string) (string, string, S
 		{Source: UsageEstimated},
 	}
 	result, err := New(server.URL, "t", server.Client()).
-		ReportSessionUsage(context.Background(), "loupe", testSessionID, processes)
+		ReportSessionUsage(context.Background(), "loupe", usageSessionID, processes)
 
 	return gotPath, gotBody, result, err
 }
@@ -42,7 +42,7 @@ func TestReportSessionUsageSendsEachProcess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if path != "/api/projects/loupe/worker-runs/sessions/"+testSessionID+"/usage" {
+	if path != "/api/projects/loupe/worker-runs/sessions/"+usageSessionID+"/usage" {
 		t.Fatalf("path = %s", path)
 	}
 	want := `{"processes":[{"source":"reported","models":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0,"costUsd":0.5}}},{"source":"estimated","models":{}}]}`

@@ -11,7 +11,8 @@ and the worker's structured result, and resumes a worker that did not finish.
 A rule on `inbox.ask_closed` resumes the session of a worker that asked the
 owner a question, as [Resume action](#resume-action) describes. A rule on
 `document.review_submitted` can start a fix round on the card of a reviewed
-document.
+document. A rule with `action: interactive` opens an interactive session in a
+terminal instead, as [Interactive action](#interactive-action) describes.
 [Installing the CLI](../getting-started/cli.md) says how to install a release,
 and `just cli-build` builds one from source. See
 [`cli/README.md`](../../cli/README.md) for the commands, the flags and the rule
@@ -65,6 +66,7 @@ device flow. The token reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/cards/{cardId}`,
 `PUT /api/projects/{handle}/worker-runs/{runId}`,
 `POST /api/projects/{handle}/worker-runs`,
+`PUT /api/projects/{handle}/interactive-runs/{sessionId}`,
 `PUT /api/bridges/{bridgeId}/runs`,
 `GET /api/projects/{handle}/inbox/asks/{askId}`,
 `PUT /api/projects/{handle}/bridges/{bridgeId}/rules` and
@@ -328,11 +330,14 @@ The bridge checks for a release after its first heartbeat, again when the range
 changes, and then every hour plus a random delay of up to 10 minutes. A server
 that sends no range starts no check.
 
-A check reads the newest 100 releases from
-`GET https://api.github.com/repos/ubermuda/loupe/releases`. It picks the
-highest release that meets all of these conditions:
+A check reads the releases from
+`GET https://api.github.com/repos/ubermuda/loupe/releases`, 100 to a page and
+newest first. Server releases share that list, so the check reads every page,
+up to 10 pages. It picks the highest release that meets all of these
+conditions:
 
-- The release is not a draft or a prerelease, and its tag has the form `vX.Y.Z`.
+- The release is not a draft or a prerelease, and its tag has the form
+  `cli/vX.Y.Z`. The bridge skips every other tag, such as a plain `vX.Y.Z`.
 - The version is inside the range.
 - The version is not on the skip list.
 - The release has the archive for this OS and CPU, and `checksums.txt`.
@@ -657,6 +662,87 @@ timeout of 10 seconds:
 A resume is a worker run. The bridge reports it against its card with the same
 session id, and a resume that exits non-zero, such as one for a session this
 machine does not hold, is a failed run.
+
+## Interactive action
+
+A rule on `board.card_moved` with `action: interactive` opens an interactive
+Claude Code session in a terminal window, on the bridge's machine. It is for
+Product design, so the owner does not type `/loupe:product-design` by hand. A
+rule without `action` is a worker rule.
+
+```yaml
+launch:
+  command: ["open", "-a", "Terminal", "{script}"]
+
+rules:
+  - name: product-design
+    on: board.card_moved
+    project: loupe
+    to: product-design
+    action: interactive
+    card: { interactiveRun: false }
+    prompt: /loupe:product-design {cardNumber}
+```
+
+An interactive rule takes `name`, `on`, `project`, `to`, `from`, `prompt`,
+`card`, `allowUntrusted`, `model` and `permissionMode`. The rule check refuses
+`maxChain`, `maxResumes`, `resultFields`, `resume` and `verdict` on it. It also
+refuses the action on any event other than `board.card_moved`, and on Windows,
+because the launch script is a POSIX shell script. The action works on macOS and
+Linux.
+
+The session gets `--model` and `--permission-mode` only when the rule sets
+them. The `defaults:` block and the bridge flags do not fill them. So a worker
+default such as `bypassPermissions` never reaches a session that a person
+drives. The prompt takes the `board.card_moved` placeholders. The session gets
+the rendered prompt only, with no result footer and no inbox line.
+
+The top-level `launch` block of `rules.yaml` names the command that opens the
+terminal. It lives in `rules.yaml` because that file belongs to one machine, so
+each machine sets its own launcher. A file with an interactive rule and no
+`launch.command` fails to load. The bridge then refuses to start, and
+`loupe bridge reload` keeps the old rules.
+
+| Field | Required | Purpose |
+|---|---|---|
+| `command` | with an interactive rule | The argv list of the launcher. No shell reads it. One element must hold `{script}` |
+| `timeout` | no | How long the bridge waits for the launcher, such as `10s`. Defaults to 10 seconds |
+
+`command` takes the placeholders `{script}`, `{dir}`, `{sessionId}`,
+`{cardNumber}` and `{project}`.
+
+For each launch, the bridge writes a script to
+`<temp dir>/loupe-sessions/<sessionId>.sh`, with mode `0700`. The script deletes
+itself, changes to the project's `dir`, and runs
+`claude --session-id <sessionId> -- '<prompt>'`. A terminal app can start with
+a short `PATH`. So the bridge finds `claude` on its own `PATH` at start, and
+writes the absolute path into the script. With an interactive rule and no
+`claude` on its `PATH`, the bridge refuses to start. At start, it also deletes
+scripts older than one day.
+
+The bridge runs the launcher with no shell, and never kills it. An exit with
+code 0 within the timeout is a launch. A launcher that still runs at the timeout
+is a launch too, and the bridge leaves it running, because some Linux terminals
+wait until the window closes. A non-zero exit or an exec error is a failed
+launch.
+
+A launch uses no worker slot, and does not wait for a worker on the same card.
+It does not count toward `maxChain`, and it never coalesces. Two quick moves
+into the column therefore open two windows.
+
+The bridge reports each launch to
+`PUT /api/projects/{handle}/interactive-runs/{sessionId}`. A good launch opens
+an interactive run in the state `running`, with the rule name and the bridge id.
+The session's `/loupe:product-design` skill calls `card_run_open` with the same
+session id, and takes over that run. So the
+[Worker runs](../using/worker-runs.md#interactive-sessions) page shows one row.
+The run ends as `closed` when the skill calls `card_run_close`, when the card
+moves, or when a person closes it on that page. A failed launch records a
+`not-started` run, with the exit code and the launcher output as its reason.
+
+The prompt must close its own run, and the product design skill does. A prompt
+that calls neither `card_run_open` nor `card_run_close` leaves the run open,
+until the card moves or a person closes it.
 
 ## The document.review_submitted event
 

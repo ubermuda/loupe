@@ -14,7 +14,7 @@ import (
 )
 
 // reloadResult says what a reload changed, or why it changed nothing. Stage
-// names the step that failed: lock, parse, hooks, check or server.
+// names the step that failed: lock, parse, hooks, claude, check or server.
 type reloadResult struct {
 	OK       bool     `json:"ok"`
 	Added    []string `json:"added,omitempty"`
@@ -27,14 +27,15 @@ type reloadResult struct {
 }
 
 // reloadSource gives a reload what it needs from the disk and the server; tests
-// replace it. A nil lock takes no lock, and a nil resolveHooks resolves no
-// hooks.
+// replace it. A nil lock takes no lock, a nil resolveHooks resolves no hooks,
+// and a nil resolveClaude keeps the claude path.
 type reloadSource struct {
-	lock         func() (check func() error, done func(applied bool), err error)
-	load         func() (*rules.Set, error)
-	resolveHooks func(set *rules.Set) ([]hooks.Hook, error)
-	check        func(ctx context.Context, set *rules.Set) error
-	events       func(ctx context.Context) (api.Events, error)
+	lock          func() (check func() error, done func(applied bool), err error)
+	load          func() (*rules.Set, error)
+	resolveHooks  func(set *rules.Set) ([]hooks.Hook, error)
+	resolveClaude func() (string, error)
+	check         func(ctx context.Context, set *rules.Set) error
+	events        func(ctx context.Context) (api.Events, error)
 }
 
 // newReloadSource reads the rule file at path with the bridge flags as
@@ -42,10 +43,11 @@ type reloadSource struct {
 // when the path resolves to a new file.
 func newReloadSource(path string, defaults rules.Defaults, cfg config.Config, lock *bridgeLock) reloadSource {
 	src := reloadSource{
-		load:         func() (*rules.Set, error) { return rules.Load(path, defaults) },
-		resolveHooks: resolveHooks,
-		check:        func(ctx context.Context, set *rules.Set) error { return set.Check(ctx, apiClient(cfg)) },
-		events:       func(ctx context.Context) (api.Events, error) { return apiClient(cfg).Events(ctx) },
+		load:          func() (*rules.Set, error) { return rules.Load(path, defaults) },
+		resolveHooks:  resolveHooks,
+		resolveClaude: resolveClaude,
+		check:         func(ctx context.Context, set *rules.Set) error { return set.Check(ctx, apiClient(cfg)) },
+		events:        func(ctx context.Context) (api.Events, error) { return apiClient(cfg).Events(ctx) },
 	}
 	if lock != nil {
 		src.lock = lock.follow
@@ -101,7 +103,7 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 		return events, err
 	}
 	buildCtx, cancel := context.WithTimeout(ctx, timeout)
-	set, list, stage, err := buildSet(buildCtx, src)
+	b, stage, err := buildSet(buildCtx, src)
 	cancel()
 	if err != nil {
 		done(false)
@@ -115,7 +117,7 @@ func (r *router) reload(ctx context.Context, src reloadSource) reloadResult {
 
 		return r.lockFailed(err)
 	}
-	res := r.swap(set, list, seq)
+	res := r.swap(b, seq)
 	done(res.OK)
 
 	return res
@@ -131,31 +133,45 @@ func shuttingDown() reloadResult {
 	return reloadResult{Problems: []string{"the bridge is shutting down"}}
 }
 
-// buildSet loads, checks and confirms a new set, resolves its hooks, and names
-// the stage that failed.
-func buildSet(ctx context.Context, src reloadSource) (*rules.Set, []hooks.Hook, string, error) {
+// built is a set a reload built, with its hooks, and the claude path when the
+// set has an interactive rule.
+type built struct {
+	set    *rules.Set
+	hooks  []hooks.Hook
+	claude string
+}
+
+// buildSet loads, checks and confirms a new set, resolves its hooks and its
+// claude path, and names the stage that failed.
+func buildSet(ctx context.Context, src reloadSource) (built, string, error) {
+	var b built
 	set, err := src.load()
 	if err != nil {
-		return nil, nil, "parse", err
+		return b, "parse", err
 	}
-	var list []hooks.Hook
+	b.set = set
 	if src.resolveHooks != nil {
-		if list, err = src.resolveHooks(set); err != nil {
-			return nil, nil, "hooks", err
+		if b.hooks, err = src.resolveHooks(set); err != nil {
+			return b, "hooks", err
+		}
+	}
+	if src.resolveClaude != nil && set.HasInteractive() {
+		if b.claude, err = src.resolveClaude(); err != nil {
+			return b, "claude", err
 		}
 	}
 	if err := src.check(ctx, set); err != nil {
-		return nil, nil, "check", err
+		return b, "check", err
 	}
 	events, err := src.events(ctx)
 	if err != nil {
-		return nil, nil, "server", err
+		return b, "server", err
 	}
 	if missing := missingProjects(set, events); len(missing) > 0 {
-		return nil, nil, "server", fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
+		return b, "server", fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
 	}
 
-	return set, list, "", nil
+	return b, "", nil
 }
 
 // problemsOf gives each problem of a joined error one entry.
@@ -172,7 +188,8 @@ func problemsOf(err error) []string {
 // replays on the new set each slug change the old set saw during the reload,
 // and each gone project from an answer newer than seq, the stamp of the
 // reload's answer.
-func (r *router) swap(set *rules.Set, list []hooks.Hook, seq uint64) reloadResult {
+func (r *router) swap(b built, seq uint64) reloadResult {
+	set := b.set
 	r.mu.Lock()
 	if r.shut() {
 		r.mu.Unlock()
@@ -197,7 +214,10 @@ func (r *router) swap(set *rules.Set, list []hooks.Hook, seq uint64) reloadResul
 		goneDead[i] = killGone(set, id)
 	}
 	r.set.Store(set)
-	r.hookRunner.setHooks(list)
+	r.hookRunner.setHooks(b.hooks)
+	if b.claude != "" {
+		r.claude = b.claude
+	}
 	r.setSeq = seq
 	dropped := r.rewriteLocked(set)
 	r.pruneLocked(set, gone)
@@ -232,7 +252,7 @@ func (r *router) rewriteLocked(set *rules.Set) []pending {
 	var dropped []pending
 	kept := r.queue[:0]
 	for _, p := range r.queue {
-		m, ok := set.MatchRule(p.event, p.rule)
+		m, ok := matchWorker(set, p.event, p.rule)
 		if !ok {
 			p.dropReason = api.DropReload
 			dropped = append(dropped, p)

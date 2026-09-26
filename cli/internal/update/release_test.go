@@ -31,46 +31,56 @@ func TestAssetName(t *testing.T) {
 }
 
 func TestPickReturnsTheHighestUsableRelease(t *testing.T) {
-	draft := full("v1.9.0", "1.9.0")
+	draft := full("cli/v1.9.0", "1.9.0")
 	draft.Draft = true
-	pre := full("v1.8.0", "1.8.0")
+	pre := full("cli/v1.8.0", "1.8.0")
 	pre.Prerelease = true
 
 	releases := []Release{
-		full("v1.2.0", "1.2.0"),
-		full("v1.5.0", "1.5.0"),
-		full("v1.3.0", "1.3.0"),
+		full("cli/v1.2.0", "1.2.0"),
+		full("cli/v1.5.0", "1.5.0"),
+		full("cli/v1.3.0", "1.3.0"),
 		draft,
 		pre,
-		release("v1.7.0", "checksums.txt"),
-		release("v1.6.0", "loupe_1.6.0_linux_amd64.tar.gz"),
-		full("v1.6.5", "1.6.5"),
-		full("v2.0.0", "2.0.0"),
-		full("cli/v1.9.9", "1.9.9"),
-		full("app-v1", "1"),
-		full("1.9.8", "1.9.8"),
-		full("v1.9.7-rc.1", "1.9.7-rc.1"),
-		release("v1.9.6", "loupe_1.9.6_darwin_amd64.tar.gz", "checksums.txt"),
+		release("cli/v1.7.0", "checksums.txt"),
+		release("cli/v1.6.0", "loupe_1.6.0_linux_amd64.tar.gz"),
+		full("cli/v1.6.5", "1.6.5"),
+		full("cli/v2.0.0", "2.0.0"),
+		full("cli/v1.9.7-rc.1", "1.9.7-rc.1"),
+		release("cli/v1.9.6", "loupe_1.9.6_darwin_amd64.tar.gz", "checksums.txt"),
 	}
 
 	got, ok := Pick(releases, "^1.0", "linux", "amd64", map[string]bool{"1.6.5": true})
 	if !ok {
 		t.Fatal("Pick found nothing")
 	}
-	if got.Tag != "v1.5.0" || got.Version != (Version{1, 5, 0, ""}) {
-		t.Fatalf("Pick = %+v, want v1.5.0", got)
+	if got.Tag != "cli/v1.5.0" || got.Version != (Version{1, 5, 0, ""}) {
+		t.Fatalf("Pick = %+v, want cli/v1.5.0", got)
 	}
-	if got.Archive.Name != "loupe_1.5.0_linux_amd64.tar.gz" || got.Archive.URL != "https://example.test/v1.5.0/loupe_1.5.0_linux_amd64.tar.gz" {
+	if got.Archive.Name != "loupe_1.5.0_linux_amd64.tar.gz" || got.Archive.URL != "https://example.test/cli/v1.5.0/loupe_1.5.0_linux_amd64.tar.gz" {
 		t.Fatalf("Archive = %+v", got.Archive)
 	}
-	if got.Checksums.Name != "checksums.txt" || got.Checksums.URL != "https://example.test/v1.5.0/checksums.txt" {
+	if got.Checksums.Name != "checksums.txt" || got.Checksums.URL != "https://example.test/cli/v1.5.0/checksums.txt" {
 		t.Fatalf("Checksums = %+v", got.Checksums)
 	}
 }
 
+func TestPickSkipsTagsOfOtherVersionTracks(t *testing.T) {
+	for _, tag := range []string{"v1.9.9", "1.9.9", "cli/1.9.9", "cli/vv1.9.9", "cli/v1.9", "app/v1.9.9", "xcli/v1.9.9"} {
+		releases := []Release{full("cli/v1.2.0", "1.2.0"), full(tag, "1.9.9")}
+		got, ok := Pick(releases, "^1.0", "linux", "amd64", nil)
+		if !ok || got.Tag != "cli/v1.2.0" {
+			t.Errorf("Pick with %q = %+v, %v, want cli/v1.2.0", tag, got, ok)
+		}
+	}
+}
+
 func TestPickFindsNothing(t *testing.T) {
-	if _, ok := Pick([]Release{full("v2.0.0", "2.0.0")}, "^1.0", "linux", "amd64", nil); ok {
+	if _, ok := Pick([]Release{full("cli/v2.0.0", "2.0.0")}, "^1.0", "linux", "amd64", nil); ok {
 		t.Fatal("Pick found a release outside the range")
+	}
+	if _, ok := Pick([]Release{full("v1.2.0", "1.2.0")}, "^1.0", "linux", "amd64", nil); ok {
+		t.Fatal("Pick found a release with a plain vX.Y.Z tag")
 	}
 	if _, ok := Pick(nil, "^1.0", "linux", "amd64", nil); ok {
 		t.Fatal("Pick found a release in an empty list")

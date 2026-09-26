@@ -47,6 +47,155 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertSame([['running', self::NOW]], $this->history($run));
     }
 
+    public function test_open_keeps_the_bridge_that_launched_the_session(): void
+    {
+        $project = $this->scenario('interactive-open-bridge');
+        $bridgeId = Uuid::v4();
+
+        $run = $this->runs()->open($project, Uuid::v7(), 17, Uuid::v4(), 'design', $bridgeId);
+
+        self::assertSame($bridgeId->toRfc4122(), $this->reload($run)->bridgeId?->toRfc4122());
+    }
+
+    public function test_one_bridge_can_launch_two_sessions_on_one_card_at_one_moment(): void
+    {
+        $project = $this->scenario('interactive-open-bridge-twice');
+        $cardId = Uuid::v7();
+        $bridgeId = Uuid::v4();
+
+        $first = $this->runs()->open($project, $cardId, 3, Uuid::v4(), 'design', $bridgeId);
+        $second = $this->runs()->open($project, $cardId, 3, Uuid::v4(), 'review', $bridgeId);
+
+        self::assertNotNull($first->id);
+        self::assertFalse($first->id->equals($second->id));
+    }
+
+    /** The session started, so its own open finds the run that the bridge opened. */
+    public function test_an_open_from_the_session_takes_over_the_run_the_bridge_opened(): void
+    {
+        $project = $this->scenario('interactive-takeover');
+        $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $bridgeId = Uuid::v4();
+
+        $launched = $this->runs()->open($project, $cardId, 3, $sessionId, 'design', $bridgeId);
+        $opened = $this->runs()->open($project, $cardId, 3, $sessionId, 'card_run_open');
+
+        self::assertNotNull($launched->id);
+        self::assertTrue($launched->id->equals($opened->id));
+        $run = $this->reload($opened);
+        self::assertSame('design', $run->ruleName);
+        self::assertSame($bridgeId->toRfc4122(), $run->bridgeId?->toRfc4122());
+        self::assertSame([['running', self::NOW]], $this->history($run));
+    }
+
+    public function test_a_launch_of_a_session_that_has_a_run_changes_nothing(): void
+    {
+        $project = $this->scenario('interactive-launch-again');
+        $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $bridgeId = Uuid::v4();
+
+        [$launched, $created] = $this->runs()->recordLaunch($project, $cardId, 3, $sessionId, 'design', $bridgeId);
+        self::assertTrue($created);
+        $this->runs()->closeOnMove($project, [$cardId]);
+
+        [$again, $created] = $this->runs()->recordLaunch($project, $cardId, 3, $sessionId, 'design', $bridgeId);
+
+        self::assertFalse($created);
+        self::assertEquals($launched->id, $again->id);
+
+        $failedSession = Uuid::v4();
+        [$failed] = $this->runs()->recordLaunchFailure($project, $cardId, 3, $failedSession, 'design', $bridgeId, 'launcher exited 1', new \DateTimeImmutable(self::NOW));
+        [$late, $created] = $this->runs()->recordLaunch($project, $cardId, 3, $failedSession, 'design', $bridgeId);
+
+        self::assertFalse($created);
+        self::assertEquals($failed->id, $late->id);
+        self::assertSame(2, $this->runCount($project));
+        self::assertSame(WorkerRunState::Closed, $this->reload($again)->state);
+    }
+
+    public function test_a_launch_failure_records_a_run_that_never_started(): void
+    {
+        $project = $this->scenario('interactive-launch-failure');
+        $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $bridgeId = Uuid::v4();
+        $at = new \DateTimeImmutable('2026-09-23 11:59:00');
+
+        [$run, $created] = $this->runs()->recordLaunchFailure($project, $cardId, 8, $sessionId, 'design', $bridgeId, 'launcher exited 127', $at);
+
+        self::assertTrue($created);
+        $run = $this->reload($run);
+        self::assertSame(WorkerRunKind::Interactive, $run->kind);
+        self::assertSame(WorkerRunState::NotStarted, $run->state);
+        self::assertSame($bridgeId->toRfc4122(), $run->bridgeId?->toRfc4122());
+        self::assertSame($sessionId->toRfc4122(), $run->sessionId?->toRfc4122());
+        self::assertSame(8, $run->cardNumber);
+        self::assertSame('design', $run->ruleName);
+        self::assertSame('launcher exited 127', $run->failureReason);
+        self::assertNull($run->startedAt);
+        self::assertNull($run->exitCode);
+        self::assertSame('2026-09-23 11:59:00', $run->endedAt?->format('Y-m-d H:i:s'));
+        self::assertSame(self::NOW, $run->receivedAt->format('Y-m-d H:i:s'));
+        self::assertSame([['not-started', '2026-09-23 11:59:00']], $this->history($run));
+        self::assertFalse($this->runs()->hasOpenRun($project, $cardId));
+    }
+
+    public function test_a_launch_failure_clips_a_long_reason(): void
+    {
+        $project = $this->scenario('interactive-launch-failure-long');
+
+        [$run] = $this->runs()->recordLaunchFailure($project, Uuid::v7(), 8, Uuid::v4(), 'design', Uuid::v4(), str_repeat('é', WorkerRun::MAX_FAILURE_REASON_LENGTH + 5), new \DateTimeImmutable(self::NOW));
+
+        self::assertSame(str_repeat('é', WorkerRun::MAX_FAILURE_REASON_LENGTH), $this->reload($run)->failureReason);
+    }
+
+    /** The session opened its run, so it started whatever the launcher said. */
+    public function test_a_launch_failure_leaves_an_open_run_of_the_session_alone(): void
+    {
+        $project = $this->scenario('interactive-launch-failure-open');
+        $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $open = $this->runs()->open($project, $cardId, 3, $sessionId, 'card_run_open');
+
+        [$run, $created] = $this->runs()->recordLaunchFailure($project, $cardId, 3, $sessionId, 'design', Uuid::v4(), 'launcher exited 1', new \DateTimeImmutable(self::NOW));
+
+        self::assertFalse($created);
+        self::assertEquals($open->id, $run->id);
+        $run = $this->reload($run);
+        self::assertSame(WorkerRunState::Running, $run->state);
+        self::assertNull($run->failureReason);
+        self::assertNull($run->bridgeId);
+        self::assertSame(1, $this->runCount($project));
+    }
+
+    /** A retry of the report, or a report that arrives after the session closed, adds no row. */
+    public function test_a_launch_failure_of_a_session_that_has_a_run_adds_no_row(): void
+    {
+        $project = $this->scenario('interactive-launch-failure-again');
+        $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $bridgeId = Uuid::v4();
+        $at = new \DateTimeImmutable(self::NOW);
+
+        [$first] = $this->runs()->recordLaunchFailure($project, $cardId, 3, $sessionId, 'design', $bridgeId, 'launcher exited 1', $at);
+        [$again, $created] = $this->runs()->recordLaunchFailure($project, $cardId, 3, $sessionId, 'design', $bridgeId, 'launcher exited 1', $at);
+
+        self::assertFalse($created);
+        self::assertEquals($first->id, $again->id);
+
+        $closedSession = Uuid::v4();
+        $closed = $this->runs()->open($project, $cardId, 3, $closedSession, 'design', $bridgeId);
+        $this->runs()->close($project, $cardId, $closedSession);
+        [$late, $created] = $this->runs()->recordLaunchFailure($project, $cardId, 3, $closedSession, 'design', $bridgeId, 'launcher exited 1', $at);
+
+        self::assertFalse($created);
+        self::assertEquals($closed->id, $late->id);
+        self::assertSame(WorkerRunState::Closed, $this->reload($late)->state);
+        self::assertSame(2, $this->runCount($project));
+    }
+
     public function test_a_second_open_of_the_same_session_returns_the_open_run(): void
     {
         $project = $this->scenario('interactive-reopen');
@@ -270,6 +419,11 @@ final class InteractiveRunsTest extends KernelTestCase
             ['changeId' => Uuid::v7()->toRfc4122(), 'id' => (string) $run->id, 'at' => self::NOW],
         );
         self::assertSame(WorkerRunState::Running, $run->state, 'the entity manager must still hold the stale copy');
+    }
+
+    private function runCount(Project $project): int
+    {
+        return (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_worker_runs WHERE project_id = ?', [(string) $project->id]);
     }
 
     private function reload(WorkerRun $run): WorkerRun

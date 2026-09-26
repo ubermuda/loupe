@@ -37,6 +37,9 @@ type Candidate struct {
 
 const checksumsName = "checksums.txt"
 
+// tagPrefix starts every CLI release tag, such as cli/v1.2.3.
+const tagPrefix = "cli/v"
+
 var (
 	ErrNoChecksum       = errors.New("checksums.txt lists no checksum for the archive")
 	ErrChecksumMismatch = errors.New("the archive does not match its checksum")
@@ -50,7 +53,7 @@ func AssetName(version Version, goos, goarch string) string {
 
 // Pick returns the highest published CLI release in the range that ships an
 // archive for this platform and a checksums file. skip holds X.Y.Z strings.
-// Tags other than vX.Y.Z belong to other parts of the repository.
+// Tags other than cli/vX.Y.Z belong to other parts of the repository.
 func Pick(releases []Release, rangeStr, goos, goarch string, skip map[string]bool) (Candidate, bool) {
 	return PickWhere(releases, goos, goarch, func(v Version) bool {
 		return Satisfies(v.String(), rangeStr) && !skip[v.String()]
@@ -66,8 +69,12 @@ func PickWhere(releases []Release, goos, goarch string, keep func(Version) bool)
 		if r.Draft || r.Prerelease {
 			continue
 		}
-		v, ok := ParseVersion(r.TagName)
-		if !ok || r.TagName != "v"+v.String() || v.Pre != "" {
+		number, cli := strings.CutPrefix(r.TagName, tagPrefix)
+		if !cli {
+			continue
+		}
+		v, ok := ParseVersion(number)
+		if !ok || number != v.String() || v.Pre != "" {
 			continue
 		}
 		if !keep(v) {
