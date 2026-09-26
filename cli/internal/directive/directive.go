@@ -70,6 +70,12 @@ func Render(template string, values map[string]string) string {
 	return fill(template, values) + "\n\n" + Footer
 }
 
+// RenderPlain fills each placeholder and appends nothing. Only a session that
+// a person drives takes it, because that person reads the board text too.
+func RenderPlain(template string, values map[string]string) string {
+	return fill(template, values)
+}
+
 // RenderResume fills each placeholder and appends ResumeFooter.
 func RenderResume(template string, values map[string]string) string {
 	return fill(template, values) + "\n\n" + ResumeFooter

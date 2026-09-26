@@ -9,6 +9,6 @@ enum WorkerRunKind: string
 {
     case Worker = 'worker';
 
-    /** A Claude Code session that a person runs on a card. No bridge holds it. */
+    /** A Claude Code session that a person runs on a card. A bridge can launch it, but never holds it. */
     case Interactive = 'interactive';
 }

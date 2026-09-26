@@ -23,10 +23,16 @@ import (
 // has already gone must be translated. Raw ESRCH makes Run report a fault for a
 // worker that exited cleanly a moment before the cancel.
 func setProcessGroup(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	newProcessGroup(cmd)
 	cmd.Cancel = func() error {
 		return cancelErr(syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL))
 	}
+}
+
+// newProcessGroup gives cmd its own process group, so a Ctrl-C at the bridge's
+// terminal never reaches it. It sets no Cancel, which exec.Command refuses.
+func newProcessGroup(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }
 
 func cancelErr(err error) error {

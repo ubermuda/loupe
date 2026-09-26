@@ -8,7 +8,8 @@ The `loupe` CLI runs on macOS and Linux, on amd64 and arm64. There is no Windows
 build. Each release on the
 [Releases page](https://github.com/ubermuda/loupe/releases) of the Loupe
 repository has an archive for each platform and a `checksums.txt` file. A CLI
-release has a tag of the form `vX.Y.Z`, such as `v1.0.0`.
+release has a tag of the form `cli/vX.Y.Z`, such as `cli/v1.0.0`. The CLI has
+its own version numbers, apart from the server's.
 
 ## Download
 
@@ -26,8 +27,8 @@ Download the archive and `checksums.txt` into one directory. For example, for
 version 1.0.0 on an Apple silicon Mac:
 
 ```bash
-curl -LO https://github.com/ubermuda/loupe/releases/download/v1.0.0/loupe_1.0.0_darwin_arm64.tar.gz
-curl -LO https://github.com/ubermuda/loupe/releases/download/v1.0.0/checksums.txt
+curl -LO https://github.com/ubermuda/loupe/releases/download/cli/v1.0.0/loupe_1.0.0_darwin_arm64.tar.gz
+curl -LO https://github.com/ubermuda/loupe/releases/download/cli/v1.0.0/checksums.txt
 ```
 
 ## Check the archive

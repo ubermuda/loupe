@@ -21,10 +21,10 @@ Open the page from the project sidebar, or go to
 | Started | when the worker started, on the bridge clock. A run that has not started shows when its first report arrived |
 | Took | how long the worker ran. A run that is still open shows how long it has run so far, and an open interactive run shows "running for" in front. A run with no start, or a run that closed with no reported end, shows nothing |
 | Outcome | the state of the run, from the list below |
-| Bridge | the last 12 characters of the bridge's own identifier. An interactive run shows the tag **Interactive session** instead |
+| Bridge | the last 12 characters of the bridge's own identifier. An interactive run shows the tag **Interactive session**, beside the bridge when a bridge launched the session |
 
 A run that never started carries the reason instead of an exit code, such as a
-missing `claude` binary.
+missing `claude` binary, or a terminal launcher that failed.
 
 The list reads newest first, by when the first report of each run arrived, 20
 runs to a page.
@@ -114,8 +114,16 @@ spent nothing, so a card with only such runs shows $0.00. See
 A Claude Code session that a person runs on a card, such as
 `/loupe:product-design`, calls the MCP tool `card_run_open`. Loupe then records
 an interactive run on the card, with the state **Running** and the skill name
-as its rule. No bridge holds this run, so it has no bridge, no exit code and no
-output. The heartbeat timeout never touches it.
+as its rule. No bridge holds this run, so it has no exit code and no output.
+The heartbeat timeout never touches it.
+
+A bridge rule with `action: interactive` can open the session in a terminal
+when a card enters a column. The bridge then records the run first, in the
+state **Running**, with the rule name and the bridge. When the session calls
+`card_run_open`, it takes over that run, so the page shows one row. A launch
+that fails shows **Never started**, with the bridge. Its reason holds the exit
+code and the output of the launcher. See
+[the command-line bridge](../extending/cli-bridge.md#interactive-action).
 
 These actions close an open interactive run, and it then shows **Closed**:
 
@@ -151,7 +159,7 @@ Heartbeat health does not show whether an individual worker is running or availa
 ## The output
 
 Select **View attempt** to open a read-only drawer without leaving the list.
-It shows the attempt ID, card, rule, bridge, session and duration. An interactive run shows no bridge.
+It shows the attempt ID, card, rule, bridge, session and duration. An interactive run shows a bridge only when a bridge launched it.
 A resume also shows its place in the series, and a link to the run it resumes.
 The drawer shows the result status, the reason the bridge skipped a resume, and each extra result field the worker gave.
 It lists each state the run reached, oldest first, with the time of each state, and then the time the first report arrived.

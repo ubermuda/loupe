@@ -186,7 +186,7 @@ func (f *e2eLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		}
-		fmt.Fprintf(w, `[{"tag_name":"v%s","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}]`,
+		fmt.Fprintf(w, `[{"tag_name":"cli/v%s","assets":[{"name":%q,"browser_download_url":%q},{"name":"checksums.txt","browser_download_url":%q}]}]`,
 			e2eNew, f.archiveName, base+"/github/assets/"+f.archiveName, base+"/github/assets/checksums.txt")
 	case path == "/github/assets/"+f.archiveName:
 		w.Write(f.archive)

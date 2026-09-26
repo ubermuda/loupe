@@ -16,10 +16,10 @@ path skips this.
 2. `just ci` is check-only. It reports style and rector violations but never
    rewrites files; `just cs` is the step that applies them. Fix every failure,
    including ones that pre-date your change.
-3. Run a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-sol"`.
+3. Run a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-astra"`.
    Always pass the model explicitly. This Codex account rejects the model the
    tool picks by default.
-   `gpt-6-sol` needs Codex CLI 0.155.1 or later. An older CLI answers "requires
+   `gpt-6-astra` needs Codex CLI 0.153.0 or later. An older CLI answers "requires
    a newer version of Codex", so run `npm install -g @openai/codex@latest`.
 
 Review against `origin/main`, never `main`. Review a stacked branch against
@@ -92,7 +92,7 @@ A `codex review` with no output for ~5 minutes at near-zero CPU is hung,
 typically at MCP startup. Kill it and fall back to:
 
 ```bash
-codex exec -c model="gpt-6-sol" "Review the diff of this branch against origin/main (git diff origin/main...HEAD) for correctness bugs and convention violations. Actionable findings only."
+codex exec -c model="gpt-6-astra" "Review the diff of this branch against origin/main (git diff origin/main...HEAD) for correctness bugs and convention violations. Actionable findings only."
 ```
 
 ## A check is a fault until you have seen it fail
@@ -299,6 +299,35 @@ against that worktree only, and the host resolves on your own machine. The route
 is `#[When('dev')]`, so it does not exist in production.
 
 Open the link yourself before you write it down.
+
+### Prove each preview link shows its state
+
+A headless session cannot look at a page, so it proves each link with `curl`.
+Do this before you write the body. Pick a marker that the diff adds to the
+page: a translated label, a data attribute or a CSS class. A marker that the
+page showed before the branch proves nothing.
+
+```bash
+link=$( ( cd .worktrees/<name> && bin/worktrees/compose-exec.sh \
+    bin/console app:dev:preview-login-link --path=/projects ) | tail -1 )
+jar=$(mktemp) page=$(mktemp)
+/usr/bin/curl -sSL -c "$jar" -b "$jar" -o "$page" \
+    -w '%{http_code} %{url_effective}\n' "$link"
+grep -c 'Your projects' "$page"
+```
+
+The link signs the reader in, sets a session cookie and redirects. Without the
+cookie jar, the redirect lands on `/login`. The macOS `/usr/bin/curl` trusts the
+local certificate authority through the keychain, so it needs no `-k`.
+
+Read two results. The effective URL must end in the `--path` you minted, or the
+sign-in failed. The count must be 1 or more, or the state is not seeded. Fetch
+the bare page URL once without the link, and confirm that the count is 0.
+
+Write one line per link in the Preview section, naming the marker that you
+found. A branch that changes a page and cannot show its marker is not ready.
+"The tests cover it", "the seed holds no X" and "it shows after a bridge
+reports data" do not replace a seeded state.
 
 Every pull request has a Preview section. When a branch changes no page, link
 what the reviewer reads instead: each changed file rendered on GitHub, a
