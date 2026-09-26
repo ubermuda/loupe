@@ -53,6 +53,25 @@ final class WorkerRunAccountPurgerTest extends KernelTestCase
         );
     }
 
+    /** A usage row whose run the retention sweep took still belongs to the account. */
+    public function test_it_takes_the_usage_of_the_departing_account_alone(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $leaving = $this->user($em, 'usage-purge-leaving@example.com');
+        $staying = $this->user($em, 'usage-purge-staying@example.com');
+        $this->seedUsage($em, $this->seedRun($em, $this->project($em, $leaving, 'Leaving Usage')));
+        $orphan = $this->seedRun($em, $this->project($em, $leaving, 'Leaving Orphan Usage'));
+        $this->seedUsage($em, $orphan);
+        $em->getConnection()->executeStatement('DELETE FROM bridge_worker_runs WHERE id = ?', [(string) $orphan->id]);
+        $keptUsageId = $this->seedUsage($em, $this->seedRun($em, $this->project($em, $staying, 'Staying Usage')))->id;
+
+        $this->purge($leaving);
+
+        self::assertSame(1, $this->countUsage($em));
+        self::assertSame((string) $keptUsageId, $em->getConnection()->fetchOne('SELECT id FROM bridge_worker_run_usage'));
+    }
+
     /** ProjectAccountPurger clears the EntityManager, so this slot always gets a detached user. */
     public function test_it_purges_a_detached_user(): void
     {

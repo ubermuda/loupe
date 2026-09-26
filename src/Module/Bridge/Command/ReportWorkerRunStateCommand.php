@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -13,7 +14,7 @@ use Symfony\Component\Uid\Uuid;
  * and the start come with a running report and an outcome. The end, the exit
  * code, the result flag, the failure reason and the output come with an outcome
  * alone. The link to a resumed run and the card column come with the first
- * report, and the structured result comes with an outcome.
+ * report, and the structured result and the usage come with an outcome.
  */
 final readonly class ReportWorkerRunStateCommand
 {
@@ -42,6 +43,8 @@ final readonly class ReportWorkerRunStateCommand
         public ?int $resumeCap = null,
         public ?string $cardColumn = null,
         public ?string $resumeSkipped = null,
+        /** Null when the bridge sent no usage, which leaves the usage of the run unknown. */
+        public ?WorkerRunUsageReport $usage = null,
     ) {
     }
 }
