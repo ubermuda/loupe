@@ -16,9 +16,9 @@ use Psr\Clock\ClockInterface;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Opens and closes the runs of interactive Claude Code sessions on a card. No
- * bridge holds such a run, so only a close from the session, a person or a
- * move of the card ends it.
+ * Opens and closes the runs of interactive Claude Code sessions on a card. A
+ * bridge can launch such a session but never holds its run, so only a close
+ * from the session, a person or a move of the card ends it.
  *
  * Each write runs in its own transaction, which nests as a savepoint inside a
  * caller's transaction.
@@ -35,27 +35,56 @@ final readonly class InteractiveRuns
     }
 
     /** The open run of the session on the card, or a new one. */
-    public function open(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name): WorkerRun
+    public function open(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name, ?Uuid $bridgeId = null): WorkerRun
+    {
+        return $this->openUnlessFound(
+            $project, $cardId, $cardNumber, $sessionId, $name, $bridgeId,
+            fn (): ?WorkerRun => $this->workerRuns->findOpenInteractive($project, $cardId, $sessionId),
+        )[0];
+    }
+
+    /**
+     * Records a session that the bridge launched, and whether this call created
+     * the run. The bridge gives each launch a new session, so any run the
+     * session already has on the card comes back unchanged. A retry that
+     * arrives after a move closed the session thus never opens it again.
+     *
+     * @return array{WorkerRun, bool}
+     */
+    public function recordLaunch(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name, Uuid $bridgeId): array
+    {
+        return $this->openUnlessFound(
+            $project, $cardId, $cardNumber, $sessionId, $name, $bridgeId,
+            fn (): ?WorkerRun => $this->workerRuns->findLatestInteractive($project, $cardId, $sessionId),
+        );
+    }
+
+    /**
+     * @param \Closure(): ?WorkerRun $find the run that stops the open, read under the project lock
+     *
+     * @return array{WorkerRun, bool}
+     */
+    private function openUnlessFound(Project $project, Uuid $cardId, int $cardNumber, Uuid $sessionId, string $name, ?Uuid $bridgeId, \Closure $find): array
     {
         if ('' === trim($name) || mb_strlen($name) > WorkerRun::MAX_RULE_NAME_LENGTH) {
             throw new \InvalidArgumentException(\sprintf('An interactive run needs a name of 1 to %d characters.', WorkerRun::MAX_RULE_NAME_LENGTH));
         }
 
         /** @var array{WorkerRun, bool} $outcome */
-        $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name): array {
+        $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name, $bridgeId, $find): array {
             // The project lock serialises two opens of one session, which would
             // otherwise both miss the read and trip the unique index.
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
-            $open = $this->workerRuns->findOpenInteractive($project, $cardId, $sessionId);
-            if (null !== $open) {
-                return [$open, false];
+            $found = $find();
+            if (null !== $found) {
+                return [$found, false];
             }
 
             $now = $this->clock->now();
             $run = new WorkerRun(
                 project: $project,
-                bridgeId: null,
+                bridgeId: $bridgeId,
                 cardId: $cardId,
                 cardNumber: $cardNumber,
                 ruleName: $name,
@@ -73,12 +102,66 @@ final readonly class InteractiveRuns
             return [$run, true];
         });
 
-        [$run, $created] = $outcome;
-        if ($created) {
-            $this->publisher->runsChanged($run->project);
+        if ($outcome[1]) {
+            $this->publisher->runsChanged($outcome[0]->project);
         }
 
-        return $run;
+        return $outcome;
+    }
+
+    /**
+     * Records a session that the bridge failed to launch, and whether this call
+     * created the row. Any run the session already has on the card comes back
+     * unchanged: a retry of the report, or a session that started after all.
+     *
+     * @return array{WorkerRun, bool}
+     */
+    public function recordLaunchFailure(
+        Project $project,
+        Uuid $cardId,
+        int $cardNumber,
+        Uuid $sessionId,
+        string $name,
+        Uuid $bridgeId,
+        string $failureReason,
+        \DateTimeImmutable $at,
+    ): array {
+        /** @var array{WorkerRun, bool} $outcome */
+        $outcome = $this->em->wrapInTransaction(function () use ($project, $cardId, $cardNumber, $sessionId, $name, $bridgeId, $failureReason, $at): array {
+            $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+
+            $existing = $this->workerRuns->findLatestInteractive($project, $cardId, $sessionId);
+            if (null !== $existing) {
+                return [$existing, false];
+            }
+
+            $now = $this->clock->now();
+            $run = new WorkerRun(
+                project: $project,
+                bridgeId: $bridgeId,
+                cardId: $cardId,
+                cardNumber: $cardNumber,
+                ruleName: $name,
+                state: WorkerRunState::NotStarted,
+                sessionId: $sessionId,
+                endedAt: $at,
+                failureReason: mb_substr($failureReason, 0, WorkerRun::MAX_FAILURE_REASON_LENGTH),
+                receivedAt: $now,
+                kind: WorkerRunKind::Interactive,
+            );
+            $this->em->persist($run);
+            $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::NotStarted, $at, $now));
+            $this->em->flush();
+            $this->searchIndexer->index($run);
+
+            return [$run, true];
+        });
+
+        if ($outcome[1]) {
+            $this->publisher->runsChanged($outcome[0]->project);
+        }
+
+        return $outcome;
     }
 
     /** Null when the session has no run on the card. A closed run comes back unchanged. */

@@ -13,10 +13,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -36,6 +38,19 @@ const DefaultMaxChain = 3
 // DefaultMaxResumes bounds the resumes the bridge runs after one run that did
 // not finish.
 const DefaultMaxResumes = 2
+
+// ActionInteractive is the rule action that opens an interactive claude session
+// in a terminal, instead of a worker.
+const ActionInteractive = "interactive"
+
+// DefaultLaunchTimeout bounds the launch command when the file sets no timeout.
+const DefaultLaunchTimeout = 10 * time.Second
+
+// launchPlaceholders are the names launch.command can hold.
+var launchPlaceholders = []string{"script", "dir", "sessionId", "cardNumber", "project"}
+
+// goos is the OS Parse checks an interactive rule against. Tests replace it.
+var goos = runtime.GOOS
 
 // Example is the file the bridge prints when it finds none.
 const Example = `projects:
@@ -96,6 +111,7 @@ type File struct {
 	Projects map[string]Project `yaml:"projects"`
 	Rules    []Rule             `yaml:"rules"`
 	Hooks    []HookEntry        `yaml:"hooks"`
+	Launch   LaunchConfig       `yaml:"launch"`
 	// AutoUpdate is on when the key is absent.
 	AutoUpdate *bool `yaml:"autoUpdate"`
 }
@@ -107,6 +123,46 @@ type FileDefaults struct {
 	Model          string `yaml:"model"`
 }
 
+// LaunchConfig is the launch block as written.
+type LaunchConfig struct {
+	Command []string `yaml:"command"`
+	Timeout string   `yaml:"timeout"`
+}
+
+// Launch is the command that opens a terminal for an interactive rule. No shell
+// reads Command, so a value needs no quoting.
+type Launch struct {
+	Command []string
+	Timeout time.Duration
+}
+
+// LaunchValues fill the placeholders of one launch.
+type LaunchValues struct {
+	Script     string
+	Dir        string
+	SessionID  string
+	CardNumber string
+	Project    string
+}
+
+// Argv is the command with each placeholder replaced. A value is never read
+// again for a placeholder.
+func (l Launch) Argv(v LaunchValues) []string {
+	r := strings.NewReplacer(
+		"{script}", v.Script,
+		"{dir}", v.Dir,
+		"{sessionId}", v.SessionID,
+		"{cardNumber}", v.CardNumber,
+		"{project}", v.Project,
+	)
+	out := make([]string, len(l.Command))
+	for i, arg := range l.Command {
+		out[i] = r.Replace(arg)
+	}
+
+	return out
+}
+
 // Project maps a project slug to the directory its workers run in.
 type Project struct {
 	Dir string `yaml:"dir"`
@@ -114,7 +170,9 @@ type Project struct {
 
 // Rule starts an agent when an event matches it.
 type Rule struct {
-	Name           string `yaml:"name"`
+	Name string `yaml:"name"`
+	// Action is empty for a worker, or ActionInteractive.
+	Action         string `yaml:"action"`
 	On             string `yaml:"on"`
 	Project        string `yaml:"project"`
 	To             string `yaml:"to"`
@@ -176,6 +234,8 @@ type Set struct {
 	rules []Rule
 	dirs  map[string]string
 	hooks []HookEntry
+	// launch has its default timeout filled.
+	launch Launch
 	// slugs maps a project id to its slug. Check fills it, so an unchecked
 	// set matches nothing.
 	slugs map[string]string
@@ -290,14 +350,20 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 			n := DefaultMaxResumes
 			r.MaxResumes = &n
 		}
-		if r.PermissionMode == "" {
+		// The defaults configure a worker. A launch takes only what its rule sets.
+		if r.PermissionMode == "" && r.Action == "" {
 			r.PermissionMode = defaults.PermissionMode
 		}
-		if r.Model == "" {
+		if r.Model == "" && r.Action == "" {
 			r.Model = defaults.Model
 		}
 		s.rules = append(s.rules, r)
 	}
+	launch, err := checkLaunch(f.Launch, slices.ContainsFunc(f.Rules, func(r Rule) bool { return r.Action == ActionInteractive }))
+	if err != nil {
+		errs = append(errs, err)
+	}
+	s.launch = launch
 	errs = append(errs, checkHooks(f.Hooks)...)
 	s.hooks = f.Hooks
 	for _, slug := range slices.Sorted(maps.Keys(perProject)) {
@@ -387,8 +453,80 @@ func expandHome(dir string) (string, error) {
 	return filepath.Join(home, strings.TrimPrefix(dir, "~")), nil
 }
 
-func checkRule(r Rule, projects map[string]Project) error {
+// checkLaunch validates the launch block and fills its default timeout. An
+// interactive rule needs a command.
+func checkLaunch(c LaunchConfig, interactive bool) (Launch, error) {
+	l := Launch{Command: c.Command, Timeout: DefaultLaunchTimeout}
 	var errs []error
+	if c.Timeout != "" {
+		d, err := time.ParseDuration(c.Timeout)
+		switch {
+		case err != nil:
+			errs = append(errs, fmt.Errorf("launch.timeout %q is not a duration, such as 10s", c.Timeout))
+		case d <= 0:
+			errs = append(errs, fmt.Errorf("launch.timeout must be positive, got %s", c.Timeout))
+		default:
+			l.Timeout = d
+		}
+	}
+	if len(c.Command) == 0 {
+		if interactive {
+			errs = append(errs, fmt.Errorf("launch.command is required for a rule with action: %s", ActionInteractive))
+		}
+
+		return l, errors.Join(errs...)
+	}
+	script := false
+	for _, arg := range c.Command {
+		for _, name := range directive.Placeholders(arg) {
+			if !slices.Contains(launchPlaceholders, name) {
+				errs = append(errs, fmt.Errorf("launch.command: unknown placeholder {%s}; it fills %s", name, braces(launchPlaceholders)))
+			}
+			script = script || name == "script"
+		}
+	}
+	if !script {
+		errs = append(errs, errors.New("no element of launch.command holds {script}, so the terminal cannot run the session"))
+	}
+
+	return l, errors.Join(errs...)
+}
+
+// checkAction refuses an unknown action, and the fields a launch has no use for.
+func checkAction(r Rule) []error {
+	if r.Action == "" {
+		return nil
+	}
+	if r.Action != ActionInteractive {
+		return []error{fmt.Errorf("action %q is not %s; leave it out for a worker rule", r.Action, ActionInteractive)}
+	}
+	var errs []error
+	if r.On != event.CardMovedType {
+		errs = append(errs, fmt.Errorf("action %s applies to %s only, and this rule is on %s", ActionInteractive, event.CardMovedType, r.On))
+	}
+	if goos == "windows" {
+		errs = append(errs, fmt.Errorf("action %s needs a POSIX shell on macOS or Linux", ActionInteractive))
+	}
+	for _, f := range []struct {
+		name string
+		set  bool
+	}{
+		{"maxChain", r.MaxChain != nil},
+		{"maxResumes", r.MaxResumes != nil},
+		{"resultFields", len(r.ResultFields) > 0},
+		{"resume", r.Resume},
+		{"verdict", r.Verdict != ""},
+	} {
+		if f.set {
+			errs = append(errs, fmt.Errorf("%s names worker behaviour, and action %s launches no worker", f.name, ActionInteractive))
+		}
+	}
+
+	return errs
+}
+
+func checkRule(r Rule, projects map[string]Project) error {
+	errs := checkAction(r)
 	switch {
 	case r.On == "":
 		errs = append(errs, errors.New("on is required"))
@@ -555,6 +693,16 @@ func (s *Set) Rules() []Rule {
 	return slices.Clone(s.rules)
 }
 
+// Launch is the launch command and its timeout.
+func (s *Set) Launch() Launch {
+	return Launch{Command: slices.Clone(s.launch.Command), Timeout: s.launch.Timeout}
+}
+
+// HasInteractive reports whether a rule has action interactive.
+func (s *Set) HasInteractive() bool {
+	return slices.ContainsFunc(s.rules, func(r Rule) bool { return r.Action == ActionInteractive })
+}
+
 // ProjectID is the id Check resolved for a mapped slug.
 func (s *Set) ProjectID(slug string) string {
 	for id, sl := range s.slugs {
@@ -704,6 +852,7 @@ const (
 type Match struct {
 	Skip           Skip
 	Rule           string
+	Action         string
 	Project        string
 	Dir            string
 	PermissionMode string
@@ -788,14 +937,18 @@ func (s *Set) triggers(r Rule, slug string, e event.Event) bool {
 
 // run is the match of a rule that starts a worker for the event.
 func (s *Set) run(r Rule, slug string, e event.Event) Match {
-	render := directive.Render
-	if r.Resume {
+	render, schema := directive.Render, r.schema
+	switch {
+	case r.Action == ActionInteractive:
+		render, schema = directive.RenderPlain, ""
+	case r.Resume:
 		render = directive.RenderResume
 	}
 
 	return Match{
 		Skip:           Run,
 		Rule:           r.Name,
+		Action:         r.Action,
 		Project:        slug,
 		Dir:            s.dirs[slug],
 		PermissionMode: r.PermissionMode,
@@ -804,7 +957,7 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 		MaxResumes:     *r.MaxResumes,
 		Prompt:         render(r.Prompt, values(e, slug)),
 		Resume:         r.Resume,
-		Schema:         r.schema,
+		Schema:         schema,
 	}
 }
 

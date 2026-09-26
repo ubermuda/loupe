@@ -74,7 +74,7 @@ trait BridgeScenario
     ): WorkerRun {
         $run = new WorkerRun(
             project: AgentCredential::managed($em, $project, $project->id),
-            bridgeId: WorkerRunKind::Interactive === $kind ? null : $bridgeId ?? Uuid::v7(),
+            bridgeId: WorkerRunKind::Interactive === $kind ? $bridgeId : $bridgeId ?? Uuid::v7(),
             cardId: $cardId ?? Uuid::v7(),
             cardNumber: $cardNumber,
             ruleName: $ruleName,

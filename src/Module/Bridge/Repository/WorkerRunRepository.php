@@ -93,10 +93,12 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->andWhere('r.startedAt = :startedAt')
             // The natural key is unique only among runs that carry no run key.
             ->andWhere('r.runKey IS NULL')
+            ->andWhere('r.kind = :worker')
             ->setParameter('project', $project)
             ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
             ->setParameter('cardId', $cardId, UuidType::NAME)
             ->setParameter('startedAt', $startedAt, Types::DATETIME_IMMUTABLE)
+            ->setParameter('worker', WorkerRunKind::Worker->value)
             ->getQuery()
             ->getOneOrNullResult();
     }
