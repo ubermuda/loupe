@@ -67,11 +67,10 @@ func TestFindTakesTheNewestOfTwoCopies(t *testing.T) {
 	}
 }
 
-// The fixture's subagent wrote messages after the last line.
 func TestLastCostStateReadsTheLastLine(t *testing.T) {
-	got, complete, err := LastCostState(workPath(t))
-	if err != nil || complete {
-		t.Fatalf("complete = %v, err = %v", complete, err)
+	got, _, err := LastCostState(workPath(t))
+	if err != nil {
+		t.Fatal(err)
 	}
 	want := Usage{
 		"claude-opus-5-5":           {InputTokens: 110, OutputTokens: 120, CacheReadTokens: 130, CacheWriteTokens: 140, CostUSD: cost(1.5)},
@@ -92,7 +91,9 @@ func TestLastCostStateOfASessionWithNoneIsZero(t *testing.T) {
 }
 
 // A process that ended with no cost-state line, such as a killed one, left
-// messages after the last line, and the line does not count them.
+// messages after the last line. A cost-state line holds no time, so a subagent
+// message is after the line when it is newer than the next timed entry, or
+// than the file when no timed entry follows.
 func TestLastCostStateSaysWhetherItCountsEveryMessage(t *testing.T) {
 	const (
 		line      = `{"type":"cost-state","modelUsage":{"m":{"inputTokens":1}}}`
@@ -100,9 +101,13 @@ func TestLastCostStateSaysWhetherItCountsEveryMessage(t *testing.T) {
 		after     = `{"type":"assistant","timestamp":"2026-09-25T11:00:00Z","message":{"id":"b","model":"m","usage":{"input_tokens":1}}}`
 		synthetic = `{"type":"assistant","timestamp":"2026-09-25T11:00:00Z","message":{"id":"c","model":"<synthetic>","usage":{"input_tokens":0}}}`
 		prompt    = `{"type":"user","timestamp":"2026-09-25T09:00:00Z","message":{"content":"go"}}`
+		nextRun   = `{"type":"user","timestamp":"2026-09-25T10:30:00Z","message":{"content":"resume"}}`
+		untimed   = `{"type":"artifact-comment-monitor"}`
 		subBefore = `{"type":"assistant","timestamp":"2026-09-25T09:59:00Z","message":{"id":"s","model":"m","usage":{"input_tokens":1}}}`
-		subAfter  = `{"type":"assistant","timestamp":"2026-09-25T10:05:00Z","message":{"id":"s","model":"m","usage":{"input_tokens":1}}}`
+		subLate   = `{"type":"assistant","timestamp":"2026-09-25T10:00:30Z","message":{"id":"s","model":"m","usage":{"input_tokens":1}}}`
+		subAfter  = `{"type":"assistant","timestamp":"2026-09-25T10:40:00Z","message":{"id":"s","model":"m","usage":{"input_tokens":1}}}`
 	)
+	written := time.Date(2026, 9, 25, 10, 1, 0, 0, time.UTC)
 	for name, tc := range map[string]struct {
 		main, sub []string
 		complete  bool
@@ -113,12 +118,21 @@ func TestLastCostStateSaysWhetherItCountsEveryMessage(t *testing.T) {
 		"no messages and no line":            {main: []string{prompt}, complete: true},
 		"a notice after the line":            {main: []string{before, line, synthetic}, complete: true},
 		"a subagent message before the line": {main: []string{before, line}, sub: []string{subBefore}, complete: true},
-		"a subagent message after the line":  {main: []string{before, line}, sub: []string{subAfter}},
-		"a subagent message and no line":     {main: []string{prompt}, sub: []string{subBefore}},
+		// A background subagent ends after the last main entry, and the process
+		// writes the line after it.
+		"a subagent message between the last entry and the line": {main: []string{before, line}, sub: []string{subLate}, complete: true},
+		"a subagent message after the line was written":          {main: []string{before, line}, sub: []string{subAfter}},
+		"a subagent message before the next run":                 {main: []string{before, line, nextRun}, sub: []string{subLate}, complete: true},
+		"a subagent message of the next run":                     {main: []string{before, line, nextRun}, sub: []string{subAfter}},
+		"an untimed entry after the line":                        {main: []string{before, line, untimed}, sub: []string{subLate}, complete: true},
+		"a subagent message and no line":                         {main: []string{prompt}, sub: []string{subBefore}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), workSession+".jsonl")
 			writeLines(t, path, tc.main)
+			if err := os.Chtimes(path, written, written); err != nil {
+				t.Fatal(err)
+			}
 			if tc.sub != nil {
 				writeLines(t, filepath.Join(strings.TrimSuffix(path, ".jsonl"), "subagents", "agent-1.jsonl"), tc.sub)
 			}

@@ -184,7 +184,9 @@ it cannot read the transcript, it sends the whole session marked `estimated`, so
 a later reported count can replace it.
 
 A killed process writes no `cost-state` line. So when an assistant message comes after the last line, in the session or
-in a subagent transcript, the bridge marks the difference `estimated`.
+in a subagent transcript, the bridge marks the difference `estimated`. The line
+holds no time, so a subagent message is after it when the message is newer than
+the next timed entry of the session, or than the last write to the file.
 
 A worker the bridge kills prints nothing, and a worker that crashes can print no
 result. The bridge then counts the assistant messages the process wrote to the

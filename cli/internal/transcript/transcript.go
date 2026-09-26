@@ -116,7 +116,7 @@ func DecodeModelUsage(raw json.RawMessage) (Usage, error) {
 // such as a killed one, spent tokens the line does not count.
 func LastCostState(path string) (usage Usage, complete bool, err error) {
 	var last json.RawMessage
-	var latest, cutoff time.Time
+	var next time.Time
 	after, hasLine := false, false
 	err = eachLine(path, "", func(line []byte) {
 		var entry struct {
@@ -135,19 +135,24 @@ func LastCostState(path string) (usage Usage, complete bool, err error) {
 			if len(entry.ModelUsage) > 0 {
 				last = entry.ModelUsage
 			}
-			hasLine, after, cutoff = true, false, latest
+			hasLine, after, next = true, false, time.Time{}
 		case isMessage(entry.Type, entry.Message.Model):
 			after = true
 		}
-		if entry.Timestamp.After(latest) {
-			latest = entry.Timestamp
+		if hasLine && next.IsZero() {
+			next = entry.Timestamp
 		}
 	})
 	if err != nil {
 		return nil, false, err
 	}
-	// A subagent transcript holds no cost-state line, so its messages are
-	// compared with the time of the last entry before the line.
+	// A cost-state line holds no time, and a background subagent can end after
+	// the last main entry. The first timed entry after the line, or the file's
+	// last write, comes no earlier than the line.
+	cutoff := next
+	if info, statErr := os.Stat(path); cutoff.IsZero() && statErr == nil {
+		cutoff = info.ModTime()
+	}
 	after = after || subagentMessageAfter(path, cutoff, hasLine)
 
 	usage = Usage{}
