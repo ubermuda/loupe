@@ -12,6 +12,9 @@ use Sentry\Event;
 use Sentry\ExceptionDataBag;
 use Sentry\Tracing\Span;
 use Sentry\Tracing\SpanContext;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 
 final class SentryEventScrubberTest extends TestCase
 {
@@ -279,6 +282,25 @@ final class SentryEventScrubberTest extends TestCase
         self::assertSame('Mail to %s failed', $scrubbed->getMessage());
         self::assertSame(['[email]'], $scrubbed->getMessageParams());
         self::assertSame('Mail to [email] failed', $scrubbed->getMessageFormatted());
+    }
+
+    public function test_an_http_client_exception_keeps_only_the_origin_of_its_url(): void
+    {
+        $client = new MockHttpClient(new MockResponse('', ['http_code' => 404]));
+        try {
+            $client->request('GET', 'https://api.example:8443/reset/secret-token?key=s3cr3t#frag')->getContent();
+            self::fail('The 404 response did not throw.');
+        } catch (ClientExceptionInterface $exception) {
+        }
+        $event = Event::createEvent();
+        $event->setExceptions([new ExceptionDataBag($exception)]);
+        $event->setMessage('Call to %s failed', ['http://user:pw@api.example/a?b=c'], "Call to 'http://user:pw@api.example/a?b=c' failed");
+
+        $scrubbed = $this->scrubber()($event, null);
+
+        self::assertSame('HTTP 404 returned for "https://api.example:8443".', $scrubbed->getExceptions()[0]->getValue());
+        self::assertSame(['http://api.example'], $scrubbed->getMessageParams());
+        self::assertSame("Call to 'http://api.example' failed", $scrubbed->getMessageFormatted());
     }
 
     public function test_an_event_with_no_message_gets_none(): void

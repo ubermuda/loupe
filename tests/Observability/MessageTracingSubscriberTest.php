@@ -9,12 +9,14 @@ use App\Observability\TracesSampler;
 use PHPUnit\Framework\TestCase;
 use Sentry\ClientBuilder;
 use Sentry\Event;
+use Sentry\SentryBundle\EventListener\MessengerListener;
 use Sentry\State\Hub;
 use Sentry\Tracing\Span;
 use Sentry\Tracing\Transaction;
 use Sentry\Transport\Result;
 use Sentry\Transport\ResultStatus;
 use Sentry\Transport\TransportInterface;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
 use Symfony\Component\Messenger\Event\WorkerMessageHandledEvent;
@@ -94,9 +96,33 @@ final class MessageTracingSubscriberTest extends TestCase
         $envelope = new Envelope(new \stdClass());
 
         $this->subscriber->onReceived(new WorkerMessageReceivedEvent($envelope, 'async'));
-        $this->subscriber->onFailed(new WorkerMessageFailedEvent($envelope, 'async', new \RuntimeException('boom')));
+        $failed = new WorkerMessageFailedEvent($envelope, 'async', new \RuntimeException('boom'));
+        $this->subscriber->onFailed($failed);
 
         self::assertSame('internal_error', $this->onlySent()->getContexts()['trace']['status'] ?? null);
+        self::assertInstanceOf(Transaction::class, $this->hub->getSpan());
+
+        $this->subscriber->restoreAfterFailure($failed);
+        self::assertNull($this->hub->getSpan());
+    }
+
+    public function test_the_error_of_a_failed_message_shares_the_trace_of_its_transaction(): void
+    {
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addSubscriber($this->subscriber);
+        $dispatcher->addListener(WorkerMessageFailedEvent::class, [new MessengerListener($this->hub), 'handleWorkerMessageFailedEvent'], 50);
+        $envelope = new Envelope(new \stdClass());
+
+        $dispatcher->dispatch(new WorkerMessageReceivedEvent($envelope, 'async'));
+        $dispatcher->dispatch(new WorkerMessageFailedEvent($envelope, 'async', new \RuntimeException('boom')));
+
+        $byType = [];
+        foreach ($this->sent as $event) {
+            $byType[(string) $event->getType()] = $event->getContexts()['trace']['trace_id'] ?? null;
+        }
+        self::assertCount(2, $byType);
+        self::assertNotNull($byType['transaction'] ?? null);
+        self::assertSame($byType['transaction'], $byType['event'] ?? null);
         self::assertNull($this->hub->getSpan());
     }
 

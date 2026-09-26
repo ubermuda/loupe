@@ -9,17 +9,19 @@ use Sentry\Event;
 use Sentry\EventHint;
 
 /**
- * Some paths carry a secret, such as a password reset token, so no URL
- * leaves the instance. The route name in the transaction still identifies
- * the page. A request with no route keeps only its method. Headers are an
- * allowlist, because the SDK filters only a few and a header such as
- * X-Probe-Token carries a secret.
+ * Some paths carry a secret, such as a password reset token, so no URL path
+ * or query leaves the instance. The route name in the transaction still
+ * identifies the page, and a request with no route keeps only its method.
+ * A URL in a message keeps only its origin. Headers are an allowlist,
+ * because the SDK filters only a few and X-Probe-Token carries a secret.
  */
 final readonly class SentryEventScrubber
 {
     private const array URL_DATA_KEYS = ['http.url', 'http.query', 'http.fragment'];
 
     private const array KEPT_HEADERS = ['host', 'user-agent', 'accept', 'accept-language', 'content-type', 'content-length'];
+
+    private const string URL_PATTERN = '~\b[a-z][a-z0-9+.\-]*://[^\s"\'<>]+~i';
 
     private const string EMAIL_PATTERN = '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i';
 
@@ -32,7 +34,7 @@ final readonly class SentryEventScrubber
     {
         $this->scrubRequest($event);
         $this->scrubTrace($event);
-        $this->scrubEmails($event);
+        $this->scrubMessages($event);
 
         $extra = $event->getExtra();
         unset($extra['Full command']);
@@ -125,7 +127,7 @@ final readonly class SentryEventScrubber
         return \sprintf('%s %s://%s%s', $method, $parts['scheme'], $parts['host'], $port);
     }
 
-    private function scrubEmails(Event $event): void
+    private function scrubMessages(Event $event): void
     {
         foreach ($event->getExceptions() as $exception) {
             $exception->setValue(self::redact($exception->getValue()));
@@ -144,6 +146,19 @@ final readonly class SentryEventScrubber
 
     private static function redact(string $text): string
     {
+        $text = preg_replace_callback(self::URL_PATTERN, static function (array $match): string {
+            $parts = parse_url($match[0]);
+            if (false === $parts || !isset($parts['scheme'], $parts['host'])) {
+                return '[url]';
+            }
+            $port = isset($parts['port']) ? ':'.$parts['port'] : '';
+
+            return $parts['scheme'].'://'.$parts['host'].$port;
+        }, $text);
+        if (null === $text) {
+            return '[redacted]';
+        }
+
         return preg_replace(self::EMAIL_PATTERN, '[email]', $text) ?? '[redacted]';
     }
 }

@@ -17,9 +17,10 @@ use Symfony\Component\Messenger\Event\WorkerMessageHandledEvent;
 use Symfony\Component\Messenger\Event\WorkerMessageReceivedEvent;
 
 /**
- * The bundle's MessengerListener runs at priority 50 and flushes the client.
- * This one opens after it and finishes before it, so the transaction nests
- * inside the bundle's scope and is sent with that flush.
+ * The bundle's MessengerListener runs at priority 50, captures a failure and
+ * flushes the client. This one opens after it and finishes before it, so the
+ * transaction nests inside the bundle's scope. On a failure the transaction
+ * stays the hub span until after the capture, so the error shares its trace.
  */
 final class MessageTracingSubscriber implements EventSubscriberInterface
 {
@@ -42,7 +43,7 @@ final class MessageTracingSubscriber implements EventSubscriberInterface
         return [
             WorkerMessageReceivedEvent::class => ['onReceived', 40],
             WorkerMessageHandledEvent::class => ['onHandled', 60],
-            WorkerMessageFailedEvent::class => ['onFailed', 60],
+            WorkerMessageFailedEvent::class => [['onFailed', 60], ['restoreAfterFailure', 40]],
         ];
     }
 
@@ -74,23 +75,35 @@ final class MessageTracingSubscriber implements EventSubscriberInterface
 
     public function onHandled(WorkerMessageHandledEvent $event): void
     {
-        $this->finish($event, SpanStatus::ok());
+        if ($this->owns($event)) {
+            $this->finish(SpanStatus::ok());
+            $this->restore();
+        }
     }
 
     public function onFailed(WorkerMessageFailedEvent $event): void
     {
-        $this->finish($event, SpanStatus::internalError());
+        if ($this->owns($event)) {
+            $this->finish(SpanStatus::internalError());
+        }
     }
 
-    private function finish(AbstractWorkerMessageEvent $event, SpanStatus $status): void
+    public function restoreAfterFailure(WorkerMessageFailedEvent $event): void
     {
-        if (null === $this->transaction || $event->getEnvelope()->getMessage() !== $this->message) {
-            return;
+        if ($this->owns($event)) {
+            $this->restore();
         }
+    }
 
-        $this->transaction->setStatus($status);
-        $this->transaction->finish();
-        $this->restore();
+    private function owns(AbstractWorkerMessageEvent $event): bool
+    {
+        return null !== $this->transaction && $event->getEnvelope()->getMessage() === $this->message;
+    }
+
+    private function finish(SpanStatus $status): void
+    {
+        $this->transaction?->setStatus($status);
+        $this->transaction?->finish();
     }
 
     private function restore(): void
