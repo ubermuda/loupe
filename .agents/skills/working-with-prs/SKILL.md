@@ -300,6 +300,35 @@ is `#[When('dev')]`, so it does not exist in production.
 
 Open the link yourself before you write it down.
 
+### Prove each preview link shows its state
+
+A headless session cannot look at a page, so it proves each link with `curl`.
+Do this before you write the body. Pick a marker that the diff adds to the
+page: a translated label, a data attribute or a CSS class. A marker that the
+page showed before the branch proves nothing.
+
+```bash
+link=$( ( cd .worktrees/<name> && bin/worktrees/compose-exec.sh \
+    bin/console app:dev:preview-login-link --path=/projects ) | tail -1 )
+jar=$(mktemp) page=$(mktemp)
+/usr/bin/curl -sSL -c "$jar" -b "$jar" -o "$page" \
+    -w '%{http_code} %{url_effective}\n' "$link"
+grep -c 'Your projects' "$page"
+```
+
+The link signs the reader in, sets a session cookie and redirects. Without the
+cookie jar, the redirect lands on `/login`. The macOS `/usr/bin/curl` trusts the
+local certificate authority through the keychain, so it needs no `-k`.
+
+Read two results. The effective URL must end in the `--path` you minted, or the
+sign-in failed. The count must be 1 or more, or the state is not seeded. Fetch
+the bare page URL once without the link, and confirm that the count is 0.
+
+Write one line per link in the Preview section, naming the marker that you
+found. A branch that changes a page and cannot show its marker is not ready.
+"The tests cover it", "the seed holds no X" and "it shows after a bridge
+reports data" do not replace a seeded state.
+
 Every pull request has a Preview section. When a branch changes no page, link
 what the reviewer reads instead: each changed file rendered on GitHub, a
 published artifact, or the CI run that shows the change working. Pin a GitHub
