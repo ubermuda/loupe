@@ -183,12 +183,16 @@ resume prints, per model and per count, and a count never goes below zero. When
 it cannot read the transcript, it sends the whole session marked `estimated`, so
 a later reported count can replace it.
 
-A worker the bridge kills prints nothing. The bridge then counts the assistant
-messages the process wrote to the transcript after it started, in the session
-file and in the files of its subagents. A streamed message repeats its entry, so
-the bridge counts each message id once. It sends that sum marked `estimated`.
-With no transcript, the run sends no `usage`, and Loupe reads its usage as
-unknown.
+A worker the bridge kills prints nothing, and a worker that crashes can print no
+result. The bridge then counts the assistant messages the process wrote to the
+transcript after it started, in the session file and in the files of its
+subagents. A streamed message repeats its entry, so the bridge counts each
+message id once. It sends that sum marked `estimated`. With no transcript, the
+run sends no `usage`, and Loupe reads its usage as unknown.
+
+An estimate is low when claude made calls that write no assistant message. On
+local transcripts, the sum matched claude's own counts for the main model. It
+missed side calls, such as uncached calls to a second model.
 
 The bridge finds the transcript at
 `<config>/projects/<directory>/<session id>.jsonl`, where `<config>` is
