@@ -55,6 +55,28 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The worker processes of a claude session in the project, in the order
+     * they started, locked until the transaction ends. A run that never started
+     * ran no process.
+     *
+     * @return list<WorkerRun>
+     */
+    public function findStartedOfSessionForUpdate(Project $project, Uuid $sessionId): array
+    {
+        return array_values(self::forUpdate($this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.sessionId = :sessionId')
+            ->andWhere('r.kind = :worker')
+            ->andWhere('r.startedAt IS NOT NULL')
+            ->setParameter('project', $project)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('worker', WorkerRunKind::Worker->value)
+            ->orderBy('r.startedAt', 'ASC')
+            ->addOrderBy('r.id', 'ASC'))
+            ->getResult());
+    }
+
+    /**
      * The run a report names, by the natural key a retry repeats. Null when the
      * server has not seen this report before.
      */

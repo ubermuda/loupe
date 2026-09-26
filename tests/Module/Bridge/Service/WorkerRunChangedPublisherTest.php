@@ -10,6 +10,8 @@ use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\ReportBridgeRunsCommand;
 use App\Module\Bridge\Command\ReportBridgeRunsHandler;
+use App\Module\Bridge\Command\ReportSessionUsageCommand;
+use App\Module\Bridge\Command\ReportSessionUsageHandler;
 use App\Module\Bridge\Command\ReportWorkerRunCommand;
 use App\Module\Bridge\Command\ReportWorkerRunHandler;
 use App\Module\Bridge\Command\ReportWorkerRunStateCommand;
@@ -19,6 +21,8 @@ use App\Module\Bridge\Scheduler\TimeOutQuietWorkerRunsTask;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\HeldRunKey;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
+use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\FeatureFlags;
@@ -134,6 +138,25 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         self::assertCount(1, $inventory(new ReportBridgeRunsCommand($this->owner, $bridgeId, [])));
         $this->assertPublishedAtTerminate(1);
         $this->assertSignalsTheProject($this->published[0]);
+    }
+
+    public function test_a_session_usage_report_publishes_only_when_it_changes_a_run(): void
+    {
+        $sessionId = Uuid::v4();
+        $run = $this->seedRun($this->em(), $this->project);
+        $run->sessionId = $sessionId;
+        $this->em()->flush();
+        $handler = $this->service(ReportSessionUsageHandler::class);
+        $command = new ReportSessionUsageCommand($this->owner, (string) $this->project->id, $sessionId, [
+            new WorkerRunUsageReport(WorkerRunUsageSource::Reported, []),
+        ]);
+
+        self::assertSame(1, $handler($command)->updated);
+        $this->assertPublishedAtTerminate(1);
+        $this->assertSignalsTheProject($this->published[0]);
+
+        self::assertSame(0, $handler($command)->updated);
+        $this->assertPublishedAtTerminate(1);
     }
 
     /**
