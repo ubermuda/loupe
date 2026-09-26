@@ -1,6 +1,6 @@
 ---
 title: "Bridge hooks"
-description: "Run a local program when the command-line bridge starts, stops, gets busy or goes idle. Preview, unreleased."
+description: "Run a local program when the command-line bridge starts, stops, gets busy or goes idle."
 ---
 
 A hook package is a directory of a GitHub repository that holds a
