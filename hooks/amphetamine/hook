@@ -32,7 +32,9 @@ case $away in
 esac
 while [ "${away#0}" != "$away" ] && [ -n "${away#0}" ]; do away=${away#0}; done
 
-now=$(minutes "$(date +%H:%M)") || exit $?
+stamp=$(date '+%Y-%m-%d %H:%M %s') || exit $?
+today=${stamp%% *} epoch=${stamp##* } clock=${stamp#* }
+now=$(minutes "${clock% *}") || exit $?
 
 in_quiet_hours() {
     [ -n "$quiet" ] || return 1
@@ -58,8 +60,14 @@ release() {
         amph 'end session' >/dev/null || exit $?
         return 0
     fi
-    left=$(((from - now + 1440) % 1440))
-    [ "$left" -gt 0 ] || left=1440
+    # A timestamp, not clock minutes, so a daylight saving change counts.
+    start="$today ${quiet%-*}:00"
+    at=$(date -j -f '%Y-%m-%d %H:%M:%S' "$start" +%s) || exit $?
+    if [ "$at" -le "$epoch" ]; then
+        at=$(date -j -v+1d -f '%Y-%m-%d %H:%M:%S' "$start" +%s) || exit $?
+    fi
+    left=$(((at - epoch) / 60))
+    [ "$left" -gt 0 ] || left=1
     amph "start new session with options {duration:$left, interval:minutes, displaySleepAllowed:true}" >/dev/null || exit $?
 }
 

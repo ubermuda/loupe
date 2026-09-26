@@ -26,9 +26,26 @@ case $cmd in
 esac
 EOF
 
+# The fake clock reads $FAKE/now, and answers the hook's BSD date forms with the
+# real date, BSD on macOS and busybox on Linux.
 cat >"$work/bin/date" <<'EOF'
 #!/bin/sh
-cat "$FAKE/now"
+now=$(cat "$FAKE/now")
+fmt='%Y-%m-%d %H:%M:%S'
+parse() {
+    if /bin/date -j -f "$fmt" "$1" +%s 2>/dev/null; then return; fi
+    /bin/date -d "$1" +%s
+}
+day() { /bin/date -r "$1" +%Y-%m-%d 2>/dev/null || /bin/date -d "@$1" +%Y-%m-%d; }
+case $* in
+    '+%Y-%m-%d %H:%M %s') echo "${now%:*} $(parse "$now")" ;;
+    "-j -f $fmt "*' +%s') parse "$4" ;;
+    "-j -v+1d -f $fmt "*' +%s')
+        d=$(day $(($(parse "${5% *} 12:00:00") + 86400)))
+        parse "$d ${5#* }"
+        ;;
+    *) echo "fake date: unknown call: $*" >&2; exit 64 ;;
+esac
 EOF
 
 cat >"$work/bin/ioreg" <<'EOF'
@@ -46,7 +63,10 @@ setup() {
     rm -rf "$work/fake" "$work/state"
     mkdir -p "$work/fake" "$work/state"
     echo "$1" >"$work/fake/active"
-    echo "$2" >"$work/fake/now"
+    case $2 in
+        *' '*) echo "$2" >"$work/fake/now" ;;
+        *) echo "2026-09-26 $2:00" >"$work/fake/now" ;;
+    esac
     echo "$3" >"$work/fake/idle"
     echo false >"$work/fake/closed"
     echo "${4:-true}" >"$work/fake/closed_after_enable"
@@ -56,7 +76,7 @@ setup() {
 }
 
 run() {
-    (cd "$pkg" && PATH="$work/bin:$PATH" FAKE="$work/fake" LOUPE_HOOK_EVENT="$1" \
+    (cd "$pkg" && TZ=EST5EDT,M3.2.0,M11.1.0 PATH="$work/bin:$PATH" FAKE="$work/fake" LOUPE_HOOK_EVENT="$1" \
         LOUPE_HOOK_PACKAGE=amphetamine LOUPE_BRIDGE_ID=test \
         LOUPE_HOOK_STATE_DIR="$work/state" LOUPE_HOOK_SETTING_QUIET_HOURS="$quiet" \
         LOUPE_HOOK_SETTING_AWAY_MINUTES="$away" \
@@ -179,6 +199,29 @@ quiet='12:00-14:00'
 run idle
 expect_code 0
 expect_called 'end session'
+finish
+
+check 'a timed session counts the hour that spring skips'
+setup true '2026-03-08 01:30:00' 0
+quiet='03:00-01:00'
+run idle
+expect_code 0
+expect_called "$(timed 30)"
+finish
+
+check 'a timed session counts the hour that autumn repeats'
+setup true '2026-11-01 00:45:00' 0
+quiet='05:00-00:30'
+run idle
+expect_code 0
+expect_called "$(timed 315)"
+finish
+
+check 'a timed session drops the seconds, so it ends before quiet hours'
+setup true '2026-09-26 22:58:30' 0
+run idle
+expect_code 0
+expect_called "$(timed 1)"
 finish
 
 check 'idle with no active session does nothing'
