@@ -120,6 +120,15 @@ final class CostChartTest extends TestCase
         self::assertSame(2, $chart->yTickDecimals);
     }
 
+    /** Unpriced usage alone sums to nothing, and the axis still reads in cents. */
+    public function test_an_axis_with_no_priced_usage_counts_in_cents(): void
+    {
+        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['' => 0], [''])]);
+
+        self::assertSame([0.0, 0.01, 0.02, 0.03, 0.04], array_map(static fn (CostChartTick $tick): float => round($tick->amount, 2), $chart->yTicks));
+        self::assertSame(2, $chart->yTickDecimals);
+    }
+
     public function test_the_time_axis_labels_at_most_six_days(): void
     {
         $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['' => 1_000_000])]);

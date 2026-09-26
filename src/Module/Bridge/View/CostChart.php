@@ -26,6 +26,8 @@ final readonly class CostChart
     private const float MIN_HIT_WIDTH = 12.0;
     private const int TARGET_TICKS = 4;
     private const int MAX_DAY_TICKS = 6;
+    /** Four cents, so a chart of unpriced usage still reads in cents. */
+    private const int MIN_TOP_MICROS = 40_000;
 
     /**
      * @param list<CostChartBar>    $bars
@@ -59,7 +61,7 @@ final readonly class CostChart
         $dayWidth = (self::PLOT_RIGHT - self::PLOT_LEFT) / $dayCount;
         $plotHeight = self::BASELINE - self::PLOT_TOP;
 
-        $maxMicros = max(1, ...array_map(static fn (CardCost $cost): int => $cost->costMicros, $cards));
+        $maxMicros = max(self::MIN_TOP_MICROS, ...array_map(static fn (CardCost $cost): int => $cost->costMicros, $cards));
         $step = self::niceStep($maxMicros / self::TARGET_TICKS);
         $topMicros = (int) (ceil($maxMicros / $step) * $step);
 
