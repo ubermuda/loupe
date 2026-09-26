@@ -30,6 +30,10 @@ final readonly class SentryEventScrubber
         $this->scrubTrace($event);
         $this->scrubEmails($event);
 
+        $extra = $event->getExtra();
+        unset($extra['Full command']);
+        $event->setExtra($extra);
+
         if (null !== $this->buildIdentity->version) {
             $event->setRelease($this->buildIdentity->version);
         }
@@ -56,21 +60,59 @@ final readonly class SentryEventScrubber
     private function scrubTrace(Event $event): void
     {
         $trace = $event->getContexts()['trace'] ?? null;
-        if (null !== $trace && isset($trace['data']) && \is_array($trace['data'])) {
-            $trace['data'] = array_diff_key($trace['data'], array_flip(self::URL_DATA_KEYS));
-            if ([] === $trace['data']) {
-                unset($trace['data']);
+        if (null !== $trace) {
+            if (isset($trace['data']) && \is_array($trace['data'])) {
+                $trace['data'] = array_diff_key($trace['data'], array_flip(self::URL_DATA_KEYS));
+                if ([] === $trace['data']) {
+                    unset($trace['data']);
+                }
+            }
+            if (\in_array($trace['op'] ?? null, ['http.server', 'http.client'], true)) {
+                unset($trace['description']);
             }
             $event->setContext('trace', $trace);
         }
 
-        // Span::setData() merges and nothing removes a key, so overwrite the value.
         foreach ($event->getSpans() as $span) {
+            $description = $span->getDescription();
+            if (null !== $description) {
+                $span->setDescription(match ($span->getOp()) {
+                    'http.server' => self::serverDescription($description, $span->getData()),
+                    'http.client' => self::clientDescription($description),
+                    default => $description,
+                });
+            }
+
+            // Span::setData() merges and nothing removes a key, so overwrite the value.
             $present = array_intersect_key($span->getData(), array_flip(self::URL_DATA_KEYS));
             if ([] !== $present) {
                 $span->setData(array_map(static fn (): string => '[Filtered]', $present));
             }
         }
+    }
+
+    /** @param array<string, mixed> $data */
+    private static function serverDescription(string $description, array $data): string
+    {
+        $method = $data['http.request.method'] ?? null;
+        if (!\is_string($method)) {
+            $method = explode(' ', $description, 2)[0];
+        }
+        $route = $data['route'] ?? null;
+
+        return \is_string($route) && '' !== $route ? $method.' '.$route : $method;
+    }
+
+    private static function clientDescription(string $description): string
+    {
+        [$method, $url] = explode(' ', $description, 2) + [1 => ''];
+        $parts = parse_url($url);
+        if (false === $parts || !isset($parts['scheme'], $parts['host'])) {
+            return $method;
+        }
+        $port = isset($parts['port']) ? ':'.$parts['port'] : '';
+
+        return \sprintf('%s %s://%s%s', $method, $parts['scheme'], $parts['host'], $port);
     }
 
     private function scrubEmails(Event $event): void

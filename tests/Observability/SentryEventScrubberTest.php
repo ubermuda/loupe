@@ -103,6 +103,89 @@ final class SentryEventScrubberTest extends TestCase
         ], $scrubbed->getSpans()[0]->getData());
     }
 
+    public function test_a_sub_request_span_is_named_by_its_route(): void
+    {
+        $span = new Span(SpanContext::make()
+            ->setOp('http.server')
+            ->setDescription('GET https://loupe.example/forgot-password/reset/secret-token')
+            ->setData(['http.request.method' => 'GET', 'route' => 'app_reset_password']));
+        $event = Event::createTransaction();
+        $event->setSpans([$span]);
+
+        $scrubbed = $this->scrubber()($event, null);
+
+        self::assertSame('GET app_reset_password', $scrubbed->getSpans()[0]->getDescription());
+    }
+
+    public function test_a_sub_request_span_without_a_route_keeps_only_its_method(): void
+    {
+        $span = new Span(SpanContext::make()
+            ->setOp('http.server')
+            ->setDescription('POST https://loupe.example/forgot-password/reset/secret-token'));
+        $event = Event::createTransaction();
+        $event->setSpans([$span]);
+
+        $scrubbed = $this->scrubber()($event, null);
+
+        self::assertSame('POST', $scrubbed->getSpans()[0]->getDescription());
+    }
+
+    public function test_an_outbound_span_keeps_only_its_method_and_origin(): void
+    {
+        $span = new Span(SpanContext::make()
+            ->setOp('http.client')
+            ->setDescription('GET https://api.example:8443/v1/users/bob@example.com')
+            ->setData(['http.request.method' => 'GET']));
+        $event = Event::createTransaction();
+        $event->setSpans([$span]);
+
+        $scrubbed = $this->scrubber()($event, null);
+
+        self::assertSame('GET https://api.example:8443', $scrubbed->getSpans()[0]->getDescription());
+    }
+
+    public function test_a_span_of_another_op_keeps_its_description(): void
+    {
+        $span = new Span(SpanContext::make()->setOp('db.sql.query')->setDescription('SELECT 1'));
+        $event = Event::createTransaction();
+        $event->setSpans([$span]);
+
+        $scrubbed = $this->scrubber()($event, null);
+
+        self::assertSame('SELECT 1', $scrubbed->getSpans()[0]->getDescription());
+    }
+
+    public function test_an_http_trace_context_loses_its_description(): void
+    {
+        $event = Event::createEvent();
+        $event->setContext('trace', [
+            'span_id' => 'abc',
+            'trace_id' => 'def',
+            'op' => 'http.server',
+            'description' => 'GET https://loupe.example/forgot-password/reset/secret-token',
+        ]);
+
+        $scrubbed = $this->scrubber()($event, null);
+
+        self::assertSame(
+            ['span_id' => 'abc', 'trace_id' => 'def', 'op' => 'http.server'],
+            $scrubbed->getContexts()['trace'],
+        );
+    }
+
+    public function test_the_console_command_line_leaves_the_extras(): void
+    {
+        $event = Event::createEvent();
+        $event->setExtra([
+            'Full command' => "'app:create-admin' 'bob@example.com' 'hunter2'",
+            'kept' => 'value',
+        ]);
+
+        $scrubbed = $this->scrubber()($event, null);
+
+        self::assertSame(['kept' => 'value'], $scrubbed->getExtra());
+    }
+
     public function test_a_span_without_url_data_gains_none(): void
     {
         $span = new Span(SpanContext::make()->setOp('db.sql.query')->setData(['db.system' => 'postgresql']));

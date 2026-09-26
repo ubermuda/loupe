@@ -26,5 +26,6 @@ final class SentryWiringTest extends KernelTestCase
         self::assertNull($options->getTracesSampleRate());
         self::assertInstanceOf(SentryEventScrubber::class, $options->getBeforeSendCallback());
         self::assertInstanceOf(SentryEventScrubber::class, $options->getBeforeSendTransactionCallback());
+        self::assertSame([], $options->getTracePropagationTargets());
     }
 }

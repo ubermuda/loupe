@@ -10,6 +10,7 @@ sentry:
         profiles_sample_rate: '%env(float:SENTRY_PROFILES_SAMPLE_RATE)%'
         before_send: App\Observability\SentryEventScrubber
         before_send_transaction: App\Observability\SentryEventScrubber
+        trace_propagation_targets: []
         ignore_exceptions:
             - Symfony\Component\HttpKernel\Exception\NotFoundHttpException
             - Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException
