@@ -145,10 +145,15 @@ type message struct {
 // subagent transcripts hold from since on. It prices them with the list
 // prices, so a process that left no usage of its own still has an estimate.
 func Since(path string, since time.Time) (Usage, error) {
+	return Between(path, since, time.Time{})
+}
+
+// Between is Since for the messages before until. A zero until has no end.
+func Between(path string, since, until time.Time) (Usage, error) {
 	messages := map[string]message{}
 	add := func(line []byte) {
 		id, m, at, ok := decodeAssistant(line)
-		if !ok || at.Before(since) {
+		if !ok || at.Before(since) || (!until.IsZero() && !at.Before(until)) {
 			return
 		}
 		prev := messages[id]
