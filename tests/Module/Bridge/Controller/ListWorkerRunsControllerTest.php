@@ -624,6 +624,29 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringStartsWith('running for ', trim($openRow->filter('.lp-worker-run__duration')->text()));
     }
 
+    public function test_an_interactive_run_a_bridge_launched_shows_the_bridge_and_the_kind(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'interactive-launched-owner@example.com');
+        $project = $this->project($em, $owner, 'Interactive Launched');
+        $bridgeId = Uuid::v4();
+        $launched = $this->seedRun($em, $project, cardNumber: 11, exitCode: null, bridgeId: $bridgeId, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+
+        $projectId = (string) $project->id;
+        $launchedId = (string) $launched->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('[data-worker-run-id="'.$launchedId.'"]');
+        self::assertSame((string) $bridgeId, $row->filter('.lp-worker-run__bridge')->attr('title'));
+        self::assertSame('Interactive session', $row->filter('.lp-worker-run__kind')->text());
+    }
+
     /** An unknown filter value shows the unfiltered list rather than a 404. */
     public function test_an_unreadable_filter_value_is_dropped(): void
     {

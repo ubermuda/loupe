@@ -9,6 +9,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -116,6 +117,28 @@ final class WorkerRunsApiTest extends WebTestCase
         self::assertSame($first, $this->idOf($client));
         self::assertSame(1, $this->countRuns());
         self::assertSame('ok', $this->onlyRun()->output);
+    }
+
+    public function test_an_interactive_run_with_the_same_key_does_not_absorb_a_worker_report(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'runs-api-interactive-key@example.com');
+        $project = $this->project($em, $owner, 'Interactive Key Runs');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = Uuid::v7();
+        $cardId = Uuid::v7();
+        $interactive = $this->seedRun($em, $project, bridgeId: $bridgeId, cardId: $cardId, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+
+        $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload([
+            'bridgeId' => (string) $bridgeId,
+            'cardId' => (string) $cardId,
+            'startedAt' => $interactive->startedAt?->format(\DATE_ATOM),
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertNotSame((string) $interactive->id, $this->idOf($client));
+        self::assertSame(2, $this->countRuns());
     }
 
     /**

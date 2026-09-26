@@ -64,7 +64,7 @@ func (g *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		var releases []update.Release
 		for _, tag := range g.tags {
-			v, _ := update.ParseVersion(tag)
+			v, _ := update.ParseVersion(strings.TrimPrefix(tag, "cli/"))
 			releases = append(releases, update.Release{TagName: tag, Assets: []update.Asset{
 				{Name: update.AssetName(v, "linux", "amd64"), URL: g.server.URL + "/dl/archive"},
 				{Name: "checksums.txt", URL: g.server.URL + "/dl/checksums/" + v.String()},
@@ -155,7 +155,7 @@ func (h *updaterHarness) events(event string) int {
 }
 
 func TestTheUpdaterStagesAVerifiedRelease(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.0.0", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.0.0", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.u.setRange("^1.0")
 
@@ -191,7 +191,7 @@ func TestTheUpdaterStagesAVerifiedRelease(t *testing.T) {
 }
 
 func TestTheUpdaterDoesNotDownloadAStagedReleaseAgain(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.u.setRange("^1.0")
 
@@ -207,7 +207,7 @@ func TestTheUpdaterDoesNotDownloadAStagedReleaseAgain(t *testing.T) {
 }
 
 func TestTheUpdaterRejectsAMismatchedChecksum(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	gh.checksums = []byte(strings.Repeat("0", 64) + "  " + gh.assetName() + "\n")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.u.setRange("^1.0")
@@ -223,7 +223,7 @@ func TestTheUpdaterRejectsAMismatchedChecksum(t *testing.T) {
 }
 
 func TestTheUpdaterOnlyAnnouncesWhenAutoUpdateIsOff(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.auto = false
 	h.u.setRange("^1.0")
@@ -245,7 +245,7 @@ func TestTheUpdaterOnlyAnnouncesWhenAutoUpdateIsOff(t *testing.T) {
 // Root writes to a directory whatever its mode, so the test makes the parent of
 // the binary a regular file instead.
 func TestTheUpdaterIsBlockedByABinaryItCannotReplace(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	notDir := filepath.Join(t.TempDir(), "file")
 	if err := os.WriteFile(notDir, nil, 0o600); err != nil {
@@ -269,7 +269,7 @@ func TestTheUpdaterIsBlockedByABinaryItCannotReplace(t *testing.T) {
 }
 
 func TestTheUpdaterHonoursTheSkipList(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.1.0", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.1.0", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	st, _ := update.LoadState(h.u.dir)
 	st.Skip("1.2.0")
@@ -286,7 +286,7 @@ func TestTheUpdaterHonoursTheSkipList(t *testing.T) {
 }
 
 func TestTheUpdaterReportsACurrentVersion(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.2.0")
 	h.u.setRange("^1.0")
 
@@ -301,7 +301,7 @@ func TestTheUpdaterReportsACurrentVersion(t *testing.T) {
 }
 
 func TestTheUpdaterWarnsOnceWhenNoReleaseFitsTheRange(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.u.setRange("^2.0")
 
@@ -317,7 +317,7 @@ func TestTheUpdaterWarnsOnceWhenNoReleaseFitsTheRange(t *testing.T) {
 }
 
 func TestAFailedCheckKeepsThePreviousState(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.2.0")
 	h.u.setRange("^1.0")
 	h.u.check(context.Background())
@@ -333,7 +333,7 @@ func TestAFailedCheckKeepsThePreviousState(t *testing.T) {
 }
 
 func TestTheUpdaterWaitsForARange(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 
 	h.u.check(context.Background())
@@ -344,7 +344,7 @@ func TestTheUpdaterWaitsForARange(t *testing.T) {
 }
 
 func TestADevelopmentBuildNeverUpdates(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "")
 	h.u.setRange("^1.0")
 	h.u.start(context.Background())
@@ -365,7 +365,7 @@ func TestADevelopmentBuildNeverUpdates(t *testing.T) {
 // The loop checks at start, when the range changes, and once an hour plus a
 // random delay.
 func TestTheUpdaterChecksOnARangeChangeAndEachHour(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.0.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.0.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	timers := &fakeTimers{}
 	h.u.after = timers.after
@@ -400,7 +400,7 @@ func TestTheUpdaterChecksOnARangeChangeAndEachHour(t *testing.T) {
 // A deferred handover gives back the state before it, so the heartbeat does
 // not claim an update that waits for the next check.
 func TestADeferredHandoverRestoresThePreviousState(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.u.setRange("^1.0")
 	h.u.setState(updateCurrent, "")
@@ -418,7 +418,7 @@ func TestADeferredHandoverRestoresThePreviousState(t *testing.T) {
 // A rejected version goes on the skip list, and the state names it as rolled
 // back until the bridge stops, even when a later check finds nothing newer.
 func TestARejectedReleaseIsSkippedAndStaysRolledBack(t *testing.T) {
-	gh := newFakeGitHub(t, "new binary", "v1.2.0")
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")
 	h.outcome = stagedRejected
 	h.u.setRange("^1.0")

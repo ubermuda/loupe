@@ -64,6 +64,15 @@ func TestRenderAlwaysAppendsTheFooter(t *testing.T) {
 	}
 }
 
+// A person drives an interactive session, so its prompt ends with the rule's
+// own text and asks for no structured result.
+func TestRenderPlainAppendsNothing(t *testing.T) {
+	got := RenderPlain("Design card {cardNumber}.\n\n", map[string]string{"cardNumber": "87"})
+	if got != "Design card 87." {
+		t.Fatalf("RenderPlain = %q", got)
+	}
+}
+
 // Braces that are not a placeholder name stay as written, so a rule can show a
 // JSON example in its prompt.
 func TestRenderLeavesOtherBracesAlone(t *testing.T) {

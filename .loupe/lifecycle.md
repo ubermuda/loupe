@@ -51,7 +51,9 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 1. Open it ready, never draft, against the base branch of the `Gate` section. Never open a stacked pull request against `main`.
 2. Write the title as `<type>(<area>): <summary>`.
 3. Keep the body and the `## Preview` section to the rules of `working-with-prs` "Keep the body brief" and "Make the branch testable, not just reviewable".
-4. Never merge it, and never use `--admin` or `--no-verify`.
+4. A branch that changes a page seeds one state per preview link, before the pull request is ready. "The tests cover it", "the seed holds no X" and "it shows after a bridge reports data" are excuses, and no substitute for the seed.
+5. Prove each link with `working-with-prs` "Prove each preview link shows its state". Write the marker you found on the line of each link. When you cannot seed a state, or a marker is missing, stop with `STAGE RESULT: blocked: preview not seeded`. Do not move the card.
+6. Never merge it, and never use `--admin` or `--no-verify`.
 
 ## Board
 
