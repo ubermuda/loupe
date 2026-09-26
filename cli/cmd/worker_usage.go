@@ -37,7 +37,13 @@ func workerUsage(rec runRecord, reported transcript.Usage) *api.Usage {
 		return apiUsage(api.UsageReported, reported.Minus(*rec.Baseline))
 	case reported != nil:
 		return apiUsage(api.UsageEstimated, reported)
-	case rec.StartedAt.IsZero():
+	}
+	// A record from an older image has no launch time.
+	since := rec.LaunchedAt
+	if since.IsZero() {
+		since = rec.StartedAt
+	}
+	if since.IsZero() {
 		return nil
 	}
 
@@ -49,7 +55,7 @@ func workerUsage(rec runRecord, reported transcript.Usage) *api.Usage {
 	if err != nil {
 		return nil
 	}
-	usage, err := transcript.Since(path, rec.StartedAt)
+	usage, err := transcript.Since(path, since)
 	if err != nil {
 		return nil
 	}

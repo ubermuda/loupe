@@ -95,6 +95,11 @@ func TestWorkerUsage(t *testing.T) {
 			lines: []string{early, costState, streamed1, streamed2, second, `{"type":"assistant","timestamp":"2099-01`},
 			want:  estimated,
 		},
+		"the count starts before the launch, not at the recorded start": {
+			rec:   runRecord{SessionID: testSession, LaunchedAt: time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC), StartedAt: time.Date(2099, 1, 1, 0, 0, 2, 500, time.UTC)},
+			lines: []string{streamed1, streamed2, second},
+			want:  estimated,
+		},
 		"a process with no transcript has unknown usage": {
 			rec: runRecord{SessionID: testSession, StartedAt: started},
 		},

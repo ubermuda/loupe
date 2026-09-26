@@ -99,7 +99,9 @@ func TestRunWorkerReportsANewSessionWhole(t *testing.T) {
 	if !sameUsage(res.usage, want) {
 		t.Fatalf("usage = %s", usageText(res.usage))
 	}
-	if rec, err := readRunRecord(res.dir); err != nil || rec.Baseline != nil {
+	// The transcript count starts before the launch, so it misses no early entry.
+	rec, err := readRunRecord(res.dir)
+	if err != nil || rec.Baseline != nil || rec.LaunchedAt.IsZero() || rec.LaunchedAt.After(rec.StartedAt) {
 		t.Fatalf("run record = %+v, %v", rec, err)
 	}
 }

@@ -142,6 +142,9 @@ const workerShell = `claude "$@"; echo $? > "$0.exit"`
 type runRecord struct {
 	PID       int       `json:"pid"`
 	StartedAt time.Time `json:"startedAt"`
+	// LaunchedAt precedes the start, so a transcript count from it misses no
+	// entry the process wrote at once.
+	LaunchedAt time.Time `json:"launchedAt,omitzero"`
 	// StartTime is the OS's start time of PID, so an adopter tells a reused pid
 	// apart. It is empty when the OS did not say.
 	StartTime      string `json:"startTime,omitempty"`
@@ -281,11 +284,12 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 	if spec.resume {
 		baseline = sessionBaseline(spec.sessionID)
 	}
+	launched := time.Now()
 	if err := cmd.Start(); err != nil {
 		return nil, dir, nil, err
 	}
 	rec := runRecord{
-		PID: cmd.Process.Pid, StartedAt: time.Now(), StartTime: processStart(cmd.Process.Pid),
+		PID: cmd.Process.Pid, StartedAt: time.Now(), LaunchedAt: launched, StartTime: processStart(cmd.Process.Pid),
 		RunID: spec.runID, Rule: spec.rule, Key: spec.key,
 		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model,
 		SessionID: spec.sessionID, Resume: spec.resume, Prompt: spec.prompt,
