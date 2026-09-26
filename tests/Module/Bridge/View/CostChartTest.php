@@ -184,6 +184,25 @@ final class CostChartTest extends TestCase
         self::assertSame([false, false], array_map(static fn (CostChartSegment $segment): bool => $segment->estimated, $chart->bars[0]->segments));
     }
 
+    /** Twenty one-unit parts on a bar at the top tick would push it above the plot, so the tallest part gives the room back. */
+    public function test_tiny_parts_never_push_a_bar_above_the_plot(): void
+    {
+        $parts = ['big' => 999_980];
+        for ($index = 1; $index <= 20; ++$index) {
+            $parts[\sprintf('tiny-%02d', $index)] = 1;
+        }
+        $chart = $this->chart([$this->cost('2026-09-10 09:00:00', $parts)], array_keys($parts));
+
+        $bar = $chart->bars[0];
+        self::assertCount(21, $bar->segments);
+        self::assertEqualsWithDelta((float) CostChart::PLOT_TOP, $bar->top, 0.01);
+        foreach ($bar->segments as $segment) {
+            self::assertGreaterThanOrEqual(0.99, $segment->bottom - $segment->top);
+            self::assertGreaterThanOrEqual(CostChart::PLOT_TOP - 0.01, $segment->top);
+            self::assertLessThanOrEqual((float) CostChart::BASELINE, $segment->bottom);
+        }
+    }
+
     /** The hatch of a tiny estimated part stays on that part and does not spread to the whole bar. */
     public function test_a_tiny_estimated_part_carries_the_estimate_alone(): void
     {

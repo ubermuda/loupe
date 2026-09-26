@@ -107,13 +107,20 @@ final readonly class CostChart
                 $x = $shareLeft + ($share - $width) / 2;
                 $segments = [];
                 $painted = array_values(array_filter($cost->parts, static fn (CostPart $part): bool => $part->costMicros > 0));
+                $heights = array_map(static fn (CostPart $part): float => max(self::MIN_PART_HEIGHT, $part->costMicros / $topMicros * $plotHeight), $painted);
+                // The minimum of the tiny parts must not lift the bar above the plot, so the tallest part gives the room back.
+                $excess = array_sum($heights) - $plotHeight;
+                if ([] !== $heights && $excess > 0) {
+                    $tallest = (int) array_search(max($heights), $heights, true);
+                    $heights[$tallest] = max(self::MIN_PART_HEIGHT, $heights[$tallest] - $excess);
+                }
                 $cursor = (float) self::BASELINE;
                 foreach ($painted as $index => $part) {
                     $slot = $slots[$part->key] ?? 0;
                     $usedSlots[$slot] = $part->key;
                     // Every priced part is drawn. Its gap comes out of its own height, and a part too
                     // short to spare it gives up the gap rather than vanish.
-                    $partHeight = max(self::MIN_PART_HEIGHT, $part->costMicros / $topMicros * $plotHeight);
+                    $partHeight = $heights[$index];
                     $gap = 0 === $index ? 0.0 : min(self::GAP, $partHeight - self::MIN_PART_HEIGHT);
                     $bottom = $cursor - $gap;
                     $top = $cursor - $partHeight;
