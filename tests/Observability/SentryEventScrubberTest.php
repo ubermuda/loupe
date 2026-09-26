@@ -8,10 +8,17 @@ use App\Observability\SentryEventScrubber;
 use App\Service\BuildIdentity;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Sentry\ClientBuilder;
 use Sentry\Event;
+use Sentry\EventHint;
 use Sentry\ExceptionDataBag;
+use Sentry\Stacktrace;
+use Sentry\State\Hub;
 use Sentry\Tracing\Span;
 use Sentry\Tracing\SpanContext;
+use Sentry\Transport\Result;
+use Sentry\Transport\ResultStatus;
+use Sentry\Transport\TransportInterface;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
@@ -268,6 +275,52 @@ final class SentryEventScrubberTest extends TestCase
         self::assertSame(['db.system' => 'postgresql'], $scrubbed->getSpans()[0]->getData());
     }
 
+    public function test_no_stack_frame_keeps_its_arguments(): void
+    {
+        $scrubber = $this->scrubber();
+        $before = 0;
+        $scrubbed = [];
+        $client = ClientBuilder::create([
+            'dsn' => 'https://key@o0.ingest.example/1',
+            'default_integrations' => false,
+            'attach_stacktrace' => true,
+            'before_send' => static function (Event $event, ?EventHint $hint) use ($scrubber, &$before, &$scrubbed): Event {
+                $before += self::framesWithVars($event);
+
+                return $scrubbed[] = $scrubber($event, $hint);
+            },
+        ])->setTransport(new readonly class implements TransportInterface {
+            #[\Override]
+            public function send(Event $event): Result
+            {
+                return new Result(ResultStatus::success(), $event);
+            }
+
+            #[\Override]
+            public function close(?int $timeout = null): Result
+            {
+                return new Result(ResultStatus::success());
+            }
+        })->getClient();
+        $hub = new Hub($client);
+
+        $previous = ini_set('zend.exception_ignore_args', '0');
+        try {
+            self::failWith('bob@example.com', 'secret-token');
+        } catch (\RuntimeException $exception) {
+            $hub->captureException($exception);
+        } finally {
+            ini_set('zend.exception_ignore_args', false === $previous ? '1' : $previous);
+        }
+        self::captureMessageWith($hub, 'bob@example.com', 'secret-token');
+
+        self::assertGreaterThanOrEqual(2, $before);
+        self::assertCount(2, $scrubbed);
+        foreach ($scrubbed as $event) {
+            self::assertSame(0, self::framesWithVars($event));
+        }
+    }
+
     public function test_emails_leave_the_exceptions_and_the_message(): void
     {
         $event = Event::createEvent();
@@ -329,6 +382,31 @@ final class SentryEventScrubberTest extends TestCase
         $scrubbed = $this->scrubber()($event, null);
 
         self::assertSame('from-options', $scrubbed->getRelease());
+    }
+
+    private static function failWith(string $email, string $token): never
+    {
+        throw new \RuntimeException('Sign-in failed.');
+    }
+
+    private static function captureMessageWith(Hub $hub, string $email, string $token): void
+    {
+        $hub->captureMessage('Sign-in failed.');
+    }
+
+    private static function framesWithVars(Event $event): int
+    {
+        $stacktraces = array_map(static fn (ExceptionDataBag $exception): ?Stacktrace => $exception->getStacktrace(), $event->getExceptions());
+        $stacktraces[] = $event->getStacktrace();
+
+        $count = 0;
+        foreach (array_filter($stacktraces) as $stacktrace) {
+            foreach ($stacktrace->getFrames() as $frame) {
+                $count += [] === $frame->getVars() ? 0 : 1;
+            }
+        }
+
+        return $count;
     }
 
     private function scrubber(): SentryEventScrubber

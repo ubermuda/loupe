@@ -55,6 +55,7 @@ a run of repeated queries, and Sentry's N+1 query detector then misses it.
   `Authorization` header, the `Referer` header and every token header stay on
   the instance.
 - A console command line.
+- The arguments of a function in a stack trace.
 - Trace headers. Loupe adds none to an outbound request, so other hosts learn
   nothing about the trace.
 

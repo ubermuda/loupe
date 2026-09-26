@@ -7,6 +7,8 @@ namespace App\Observability;
 use App\Service\BuildIdentity;
 use Sentry\Event;
 use Sentry\EventHint;
+use Sentry\ExceptionDataBag;
+use Sentry\Stacktrace;
 
 /**
  * Some paths carry a secret, such as a password reset token, so no URL path
@@ -35,6 +37,7 @@ final readonly class SentryEventScrubber
         $this->scrubRequest($event);
         $this->scrubTrace($event);
         $this->scrubMessages($event);
+        $this->scrubFrameVars($event);
 
         $extra = $event->getExtra();
         unset($extra['Full command']);
@@ -141,6 +144,19 @@ final readonly class SentryEventScrubber
                 array_map(static fn (mixed $param): mixed => \is_string($param) ? self::redact($param) : $param, $event->getMessageParams()),
                 null !== $formatted ? self::redact($formatted) : null,
             );
+        }
+    }
+
+    // A frame holds its call arguments unless zend.exception_ignore_args is on.
+    private function scrubFrameVars(Event $event): void
+    {
+        $stacktraces = array_map(static fn (ExceptionDataBag $exception): ?Stacktrace => $exception->getStacktrace(), $event->getExceptions());
+        $stacktraces[] = $event->getStacktrace();
+
+        foreach (array_filter($stacktraces) as $stacktrace) {
+            foreach ($stacktrace->getFrames() as $frame) {
+                $frame->setVars([]);
+            }
         }
     }
 
