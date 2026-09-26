@@ -1,41 +1,112 @@
 #!/bin/sh
 set -u
 
-marker="${LOUPE_HOOK_STATE_DIR:?}/session"
-takeover="${LOUPE_HOOK_SETTING_TAKEOVER:-false}"
+quiet="${LOUPE_HOOK_SETTING_QUIET_HOURS-23:00-06:00}"
+away="${LOUPE_HOOK_SETTING_AWAY_MINUTES-30}"
 
 amph() {
     osascript -e "tell application \"Amphetamine\" to $1"
 }
 
-# An infinite session is how this hook starts one, so a finite one is the operator's.
+# minutes HH:MM prints the minute of the day, or fails on a bad time.
+minutes() {
+    case $1 in
+        [01][0-9]:[0-5][0-9] | 2[0-3]:[0-5][0-9]) ;;
+        *) return 1 ;;
+    esac
+    h=${1%%:*} m=${1#*:}
+    echo $((${h#0} * 60 + ${m#0}))
+}
+
+if [ -n "$quiet" ]; then
+    case $quiet in
+        ??:??-??:??) ;;
+        *) quiet="bad $quiet" ;;
+    esac
+    from=$(minutes "${quiet%-*}") && to=$(minutes "${quiet#*-}") || {
+        echo "quiet_hours must be HH:MM-HH:MM, not ${quiet#bad }" >&2
+        exit 5
+    }
+fi
+case $away in
+    '' | *[!0-9]*)
+        echo "away_minutes must be a whole number, not '$away'" >&2
+        exit 5
+        ;;
+esac
+while [ "${away#0}" != "$away" ] && [ -n "${away#0}" ]; do away=${away#0}; done
+
+stamp=$(date '+%H:%M %s') || exit $?
+epoch=${stamp#* }
+now=$(minutes "${stamp% *}") || exit $?
+
+# offset T prints the UTC offset in minutes at Unix time T.
+offset() {
+    z=$(date -r "$1" +%z) || exit $?
+    h=${z#?} m=${z#???}
+    h=${h%??}
+    mins=$((${h#0} * 60 + ${m#0}))
+    case $z in -*) echo $((-mins)) ;; *) echo "$mins" ;; esac
+}
+
+in_quiet_hours() {
+    [ -n "$quiet" ] || return 1
+    if [ "$from" -le "$to" ]; then
+        [ "$now" -ge "$from" ] && [ "$now" -lt "$to" ]
+    else
+        [ "$now" -ge "$from" ] || [ "$now" -lt "$to" ]
+    fi
+}
+
+person_away() {
+    [ "$away" -gt 0 ] || return 1
+    idle=$(ioreg -c IOHIDSystem -d 4 | awk '/HIDIdleTime/ { print int($NF / 1000000000); exit }')
+    [ -n "$idle" ] && [ "$idle" -ge $((away * 60)) ]
+}
+
+# The bridge has no work. The session ends in quiet hours or when nobody uses
+# the Mac. Otherwise it becomes a timed session that ends when quiet hours start.
 release() {
-    [ "$takeover" = true ] || [ -f "$marker" ] || return 0
     active=$(amph 'session is active') || exit $?
-    if [ "$active" = true ]; then
-        if [ "$takeover" = true ]; then
-            amph 'end session' >/dev/null || exit $?
+    [ "$active" = true ] || return 0
+    if in_quiet_hours || person_away || [ -z "$quiet" ]; then
+        amph 'end session' >/dev/null || exit $?
+        return 0
+    fi
+    # Count by the clock, then correct for a change of UTC offset on the way.
+    minute=$((epoch - epoch % 60))
+    at=$((minute + (from - now + 1440) % 1440 * 60))
+    before=$(offset "$minute") && after=$(offset "$at") || exit $?
+    if [ "$before" != "$after" ]; then
+        moved=$((at + (before - after) * 60))
+        shifted=$(offset "$moved") || exit $?
+        if [ "$shifted" = "$after" ]; then
+            at=$moved
         else
-            remaining=$(amph 'session time remaining') || exit $?
-            if [ "$remaining" = 0 ]; then
-                amph 'end session' >/dev/null || exit $?
-            fi
+            # The start is in the skipped hour, so quiet hours start at the change.
+            low=$moved
+            while [ $((at - low)) -gt 60 ]; do
+                mid=$((low + (at - low) / 120 * 60))
+                if [ "$(offset "$mid")" = "$after" ]; then at=$mid; else low=$mid; fi
+            done
         fi
     fi
-    rm -f "$marker"
+    # A start that passed today can come again when the clock falls back.
+    back=$((before - $(offset $((minute + 7200)))))
+    if [ "$back" -gt 0 ]; then
+        again=$((minute + ((from - now + 1440) % 1440 - 1440 + back) * 60))
+        if [ "$again" -gt "$minute" ] && [ "$again" -lt "$at" ] &&
+            [ "$(date -r "$again" +%H:%M)" = "${quiet%-*}" ]; then
+            at=$again
+        fi
+    fi
+    left=$(((at - epoch) / 60))
+    [ "$left" -gt 0 ] || left=1
+    amph "start new session with options {duration:$left, interval:minutes, displaySleepAllowed:true}" >/dev/null || exit $?
 }
 
 hold() {
-    if [ "$takeover" != true ]; then
-        active=$(amph 'session is active') || exit $?
-        [ "$active" = true ] && exit 0
-    fi
     amph 'start new session with options {duration:0, interval:0, displaySleepAllowed:true}' >/dev/null || exit $?
-    if ! { mkdir -p "$LOUPE_HOOK_STATE_DIR" && true >"$marker"; } 2>/dev/null; then
-        amph 'end session' >/dev/null
-        echo "cannot write $marker, so the session ended" >&2
-        exit 4
-    fi
     amph 'enable closed display mode' >/dev/null || exit $?
     closed=$(amph 'closed display mode enabled') || exit $?
     if [ "$closed" != true ]; then

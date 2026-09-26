@@ -60,7 +60,9 @@ type hookRunner struct {
 	inbox     []hookJob
 	// sent is the last busy or idle each package ID got, kept across a reload
 	// that removes the package. No entry means idle.
-	sent    map[string]string
+	sent map[string]string
+	// state is the last busy or idle the bridge fired. Empty means idle.
+	state   string
 	started bool
 	stopped bool
 	wake    chan struct{}
@@ -128,6 +130,9 @@ func (hr *hookRunner) fireLocked(event string) {
 	if hr.stopped {
 		return
 	}
+	if isStateEvent(event) {
+		hr.state = event
+	}
 	hr.inbox = append(hr.inbox, hookJob{event: event, hooks: hr.hooks})
 	select {
 	case hr.wake <- struct{}{}:
@@ -153,7 +158,9 @@ func (hr *hookRunner) stop() {
 }
 
 // setHooks applies the hooks of a reload. A removed package loses its rows,
-// and runs stop once, so it can release what busy took.
+// and runs stop once, so it can release what busy took. When the bridge is
+// busy and the reload adds a package, it fires busy again. coalesceLocked keeps
+// only the packages that have not had it, so the added one gets the next idle.
 func (hr *hookRunner) setHooks(list []hooks.Hook) {
 	if hr == nil {
 		return
@@ -161,6 +168,9 @@ func (hr *hookRunner) setHooks(list []hooks.Hook) {
 	hr.mu.Lock()
 	defer hr.mu.Unlock()
 
+	added := slices.ContainsFunc(list, func(n hooks.Hook) bool {
+		return !slices.ContainsFunc(hr.hooks, func(h hooks.Hook) bool { return h.ID == n.ID })
+	})
 	var removed []hooks.Hook
 	for _, h := range hr.hooks {
 		if _, ok := h.Events[hookStop]; ok && !slices.ContainsFunc(list, func(n hooks.Hook) bool { return n.ID == h.ID }) {
@@ -183,6 +193,9 @@ func (hr *hookRunner) setHooks(list []hooks.Hook) {
 	}
 	maps.DeleteFunc(hr.last, func(k hookKey, _ hookRun) bool { return !live[k] })
 	hr.pushLocked()
+	if added && hr.state == hookBusy {
+		hr.fireLocked(hookBusy)
+	}
 }
 
 // attach gives the runner the heartbeat that carries its rows, and sends the
