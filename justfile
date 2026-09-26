@@ -694,7 +694,7 @@ _cli-verify target:
 # pass a platform to build for the host instead: `just build-prod linux/arm64`.
 # APP_VERSION is what /about reports; an image built without it says so instead.
 build-prod platform="linux/amd64":
-    docker buildx build --platform {{platform}} --load --build-arg APP_VERSION="$(git describe --tags --match 'v[0-9]*' --always --dirty)" --build-arg APP_SOURCE_URL="${APP_SOURCE_URL:-https://github.com/ubermuda/loupe}" -t {{prod_image}} -f docker/prod/Dockerfile .
+    docker buildx build --platform {{platform}} --load --build-arg APP_VERSION="$(git describe --tags --match 'web/v[0-9]*' --always --dirty)" --build-arg APP_SOURCE_URL="${APP_SOURCE_URL:-https://github.com/ubermuda/loupe}" -t {{prod_image}} -f docker/prod/Dockerfile .
 
 # Build and push the image without deploying — the first deploy needs this,
 # because the App Platform app does not exist yet to deploy to.
@@ -717,13 +717,13 @@ shell-prod:
 
 # Host architecture only, because --load cannot take a manifest list.
 build-demo platform=host_platform:
-    PLATFORMS={{platform}} DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --match 'v[0-9]*' --always --dirty)" docker buildx bake -f docker/bake.hcl demo --load
+    PLATFORMS={{platform}} DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --match 'web/v[0-9]*' --always --dirty)" docker buildx bake -f docker/bake.hcl demo --load
 
 # Publish for both architectures — most people running it are on one or the
 # other, and the wrong one fails only after the whole image has been pulled.
 # The GHCR package must be public separately from the repository.
 push-demo:
-    DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --match 'v[0-9]*' --always --dirty)" docker buildx bake -f docker/bake.hcl demo --push
+    DEMO_IMAGE={{demo_image}} APP_VERSION="$(git describe --tags --match 'web/v[0-9]*' --always --dirty)" docker buildx bake -f docker/bake.hcl demo --push
 
 # Loopback-bound: the demo's admin password is published, so a demo on a laptop
 # must not be reachable from the rest of the network.
