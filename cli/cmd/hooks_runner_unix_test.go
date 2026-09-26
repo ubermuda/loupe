@@ -288,23 +288,47 @@ func TestARunSendsTheRowsToTheHeartbeat(t *testing.T) {
 	})
 }
 
-// An event runs the hooks that held when it fired. A package a reload adds
-// while that event waits does not run it.
-func TestAQueuedEventKeepsTheHooksOfItsFiring(t *testing.T) {
+// A package that a reload adds while the bridge is busy gets busy at the
+// reload, so the idle that follows reaches it.
+func TestAPackageAddedWhileBusyGetsTheIdleThatFollows(t *testing.T) {
 	script := "echo \"$1\" >> \"$LOUPE_HOOK_STATE_DIR/log\"\n"
-	first := scriptHook(t, "acme/first", script, hookBusy, hookStop)
-	added := scriptHook(t, "acme/added", script, hookBusy, hookStop)
+	first := scriptHook(t, "acme/first", script, hookBusy, hookIdle, hookStop)
+	added := scriptHook(t, "acme/added", script, hookBusy, hookIdle, hookStop)
 	hr := newHookRunner([]hooks.Hook{first}, testBridgeID, newBridgeLogger(&syncBuffer{}))
 
-	hr.fire(hookBusy)
-	hr.setHooks([]hooks.Hook{first, added})
 	hr.start()
+	hr.fire(hookBusy)
+	drain(t, hr)
+	hr.setHooks([]hooks.Hook{first, added})
+	drain(t, hr)
+	hr.fire(hookIdle)
 	drain(t, hr)
 	hr.stop()
 
-	if got := readFile(t, filepath.Join(first.StateDir, "log")); got != "busy\nstop\n" {
+	if got := readFile(t, filepath.Join(first.StateDir, "log")); got != "busy\nidle\nstop\n" {
 		t.Fatalf("first ran:\n%s", got)
 	}
+	if got := readFile(t, filepath.Join(added.StateDir, "log")); got != "busy\nidle\nstop\n" {
+		t.Fatalf("added ran:\n%s", got)
+	}
+}
+
+// A package that a reload adds while the bridge is idle gets no event until
+// the bridge turns busy.
+func TestAPackageAddedWhileIdleGetsNoEventAtTheReload(t *testing.T) {
+	script := "echo \"$1\" >> \"$LOUPE_HOOK_STATE_DIR/log\"\n"
+	first := scriptHook(t, "acme/first", script, hookBusy, hookIdle)
+	added := scriptHook(t, "acme/added", script, hookBusy, hookIdle, hookStop)
+	hr := newHookRunner([]hooks.Hook{first}, testBridgeID, newBridgeLogger(&syncBuffer{}))
+
+	hr.start()
+	hr.fire(hookBusy)
+	hr.fire(hookIdle)
+	drain(t, hr)
+	hr.setHooks([]hooks.Hook{first, added})
+	drain(t, hr)
+	hr.stop()
+
 	if got := readFile(t, filepath.Join(added.StateDir, "log")); got != "stop\n" {
 		t.Fatalf("added ran:\n%s", got)
 	}
