@@ -12,7 +12,7 @@ use App\Module\Bridge\Repository\WorkerRunUsageRepository;
 final readonly class WorkerRunUsageExporter implements UserDataExporterInterface
 {
     public function __construct(
-        private WorkerRunUsageRepository $usage,
+        private WorkerRunUsageRepository $workerRunUsages,
     ) {
     }
 
@@ -25,7 +25,7 @@ final readonly class WorkerRunUsageExporter implements UserDataExporterInterface
     #[\Override]
     public function export(User $user): iterable
     {
-        foreach ($this->usage->findByOwner($user) as $usage) {
+        foreach ($this->workerRunUsages->findByOwner($user) as $usage) {
             yield [
                 'project' => $usage->project->name,
                 'cardId' => (string) $usage->cardId,

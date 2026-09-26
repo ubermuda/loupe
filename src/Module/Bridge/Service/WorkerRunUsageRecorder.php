@@ -17,7 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 final readonly class WorkerRunUsageRecorder
 {
     public function __construct(
-        private WorkerRunUsageRepository $usage,
+        private WorkerRunUsageRepository $workerRunUsages,
         private EntityManagerInterface $em,
     ) {
     }
@@ -30,7 +30,7 @@ final readonly class WorkerRunUsageRecorder
         }
 
         if (null !== $run->usageSource) {
-            $this->usage->deleteForRun($run);
+            $this->workerRunUsages->deleteForRun($run);
         }
 
         $run->usageSource = $report->source;

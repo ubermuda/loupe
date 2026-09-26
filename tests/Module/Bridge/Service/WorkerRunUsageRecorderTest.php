@@ -36,7 +36,7 @@ final class WorkerRunUsageRecorderTest extends KernelTestCase
     {
         self::bootKernel();
         $em = $this->em();
-        $project = $this->project($em, $this->user($em, 'usage-merge-'.($current?->value ?? 'none').'-'.$incoming->value.'@example.com'), 'Usage Merge');
+        $project = $this->project($em, $this->user($em, 'usage-merge-'.($current->value ?? 'none').'-'.$incoming->value.'@example.com'), 'Usage Merge');
         $run = $this->seedRun($em, $project);
         if (null !== $current) {
             $this->recorder()->record($run, self::report($current, 'claude-old', 1));
