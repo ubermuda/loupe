@@ -57,13 +57,14 @@ class WorkerRunRepository extends ServiceEntityRepository
     /**
      * The worker processes of a claude session in the project, in the order
      * they started, locked until the transaction ends. A run that never started
-     * ran no process.
+     * ran no process. The lock follows id order, as the timeout sweep's does, so
+     * the two cannot deadlock.
      *
      * @return list<WorkerRun>
      */
     public function findStartedOfSessionForUpdate(Project $project, Uuid $sessionId): array
     {
-        return array_values(self::forUpdate($this->createQueryBuilder('r')
+        $runs = array_values(self::forUpdate($this->createQueryBuilder('r')
             ->andWhere('r.project = :project')
             ->andWhere('r.sessionId = :sessionId')
             ->andWhere('r.kind = :worker')
@@ -71,9 +72,12 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->setParameter('project', $project)
             ->setParameter('sessionId', $sessionId, UuidType::NAME)
             ->setParameter('worker', WorkerRunKind::Worker->value)
-            ->orderBy('r.startedAt', 'ASC')
-            ->addOrderBy('r.id', 'ASC'))
+            ->orderBy('r.id', 'ASC'))
             ->getResult());
+
+        usort($runs, static fn (WorkerRun $a, WorkerRun $b): int => [$a->startedAt, (string) $a->id] <=> [$b->startedAt, (string) $b->id]);
+
+        return $runs;
     }
 
     /**

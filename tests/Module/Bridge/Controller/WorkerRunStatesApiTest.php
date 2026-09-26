@@ -223,6 +223,8 @@ final class WorkerRunStatesApiTest extends WebTestCase
             'usage' => ['source' => 'estimated', 'models' => [
                 'claude-opus-5-5' => ['inputTokens' => 1200, 'outputTokens' => 340, 'cacheReadTokens' => 56000, 'cacheWriteTokens' => 7800, 'costUsd' => 0.4321],
                 'claude-unpriced' => ['inputTokens' => 5, 'outputTokens' => 6, 'cacheReadTokens' => 0, 'cacheWriteTokens' => 0, 'costUsd' => null],
+                // Go writes a whole float64 as an integer.
+                'claude-whole-dollars' => ['inputTokens' => 7, 'outputTokens' => 8, 'cacheReadTokens' => 0, 'cacheWriteTokens' => 0, 'costUsd' => 2],
             ]],
         ])));
 
@@ -232,6 +234,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertSame([
             ['model' => 'claude-opus-5-5', 'input_tokens' => 1200, 'output_tokens' => 340, 'cache_read_tokens' => 56000, 'cache_write_tokens' => 7800, 'cost_usd' => '0.432100'],
             ['model' => 'claude-unpriced', 'input_tokens' => 5, 'output_tokens' => 6, 'cache_read_tokens' => 0, 'cache_write_tokens' => 0, 'cost_usd' => null],
+            ['model' => 'claude-whole-dollars', 'input_tokens' => 7, 'output_tokens' => 8, 'cache_read_tokens' => 0, 'cache_write_tokens' => 0, 'cost_usd' => '2.000000'],
         ], $this->em()->getConnection()->fetchAllAssociative(
             'SELECT model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd FROM bridge_worker_run_usage ORDER BY model',
         ));
