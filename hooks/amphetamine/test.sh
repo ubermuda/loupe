@@ -38,6 +38,7 @@ parse() {
 }
 case $* in
     '+%H:%M %s') echo "$(echo "$now" | cut -c12-16) $(cat "$FAKE/epoch" 2>/dev/null || parse "$now")" ;;
+    '-r '*' +%H:%M') /bin/date -r "$2" +%H:%M 2>/dev/null || /bin/date -d "@$2" +%H:%M ;;
     '-r '*' +%z') /bin/date -r "$2" +%z 2>/dev/null || /bin/date -d "@$2" +%z ;;
     *) echo "fake date: unknown call: $*" >&2; exit 64 ;;
 esac
@@ -227,6 +228,15 @@ quiet='01:30-06:00'
 run idle
 expect_code 0
 expect_called "$(timed 20)"
+finish
+
+check 'a start that passed in the first copy of the repeated hour comes again'
+setup true '2026-11-01 01:40:00' 0
+echo 1793511600 >"$work/fake/epoch"
+quiet='01:30-01:35'
+run idle
+expect_code 0
+expect_called "$(timed 50)"
 finish
 
 check 'a start in the repeated hour that has passed twice moves to tomorrow'

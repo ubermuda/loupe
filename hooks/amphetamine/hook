@@ -91,6 +91,15 @@ release() {
             done
         fi
     fi
+    # A start that passed today can come again when the clock falls back.
+    back=$((before - $(offset $((minute + 7200)))))
+    if [ "$back" -gt 0 ]; then
+        again=$((minute + ((from - now + 1440) % 1440 - 1440 + back) * 60))
+        if [ "$again" -gt "$minute" ] && [ "$again" -lt "$at" ] &&
+            [ "$(date -r "$again" +%H:%M)" = "${quiet%-*}" ]; then
+            at=$again
+        fi
+    fi
     left=$(((at - epoch) / 60))
     [ "$left" -gt 0 ] || left=1
     amph "start new session with options {duration:$left, interval:minutes, displaySleepAllowed:true}" >/dev/null || exit $?
