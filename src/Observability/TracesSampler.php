@@ -13,6 +13,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  */
 final readonly class TracesSampler
 {
+    /** Routes whose traces carry no performance signal: an uptime probe and a per-minute ping. */
+    public const array UNTRACED_ROUTES = ['ubermuda_health_check', 'api_bridge_heartbeat'];
+
     public function __construct(
         #[Autowire('%env(default::SENTRY_DSN)%')]
         private ?string $dsn,
@@ -25,6 +28,10 @@ final readonly class TracesSampler
     public function __invoke(SamplingContext $context): float
     {
         if (SentryDsnStatus::Valid !== SentryDsnStatus::of($this->dsn)) {
+            return 0.0;
+        }
+
+        if (\in_array($context->getTransactionContext()?->getData()['route'] ?? null, self::UNTRACED_ROUTES, true)) {
             return 0.0;
         }
 
