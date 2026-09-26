@@ -608,11 +608,17 @@ cli-install-release version="latest" dir="":
     target="${target/#\~/$HOME}"
     repo="ubermuda/loupe"
 
-    # CLI releases are tagged cli/vX.Y.Z, apart from the app's own tags. Like
-    # the self-updater, read one page and take the highest stable version.
+    # CLI releases are tagged cli/vX.Y.Z and share the list with app releases.
+    # Like the self-updater, read up to 10 pages and take the highest stable one.
     version="{{version}}"
     if [ "$version" = latest ]; then
-        version="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=100" | grep -oE '"tag_name": *"cli/v[0-9]+\.[0-9]+\.[0-9]+"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)"
+        tags=""
+        for page in 1 2 3 4 5 6 7 8 9 10; do
+            batch="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=100&page=$page" | grep -oE '"tag_name": *"[^"]*"' || true)"
+            tags+="$batch"$'\n'
+            [ "$(printf '%s' "$batch" | grep -c . || true)" -eq 100 ] || break
+        done
+        version="$(printf '%s' "$tags" | grep -oE '"cli/v[0-9]+\.[0-9]+\.[0-9]+"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1 || true)"
         [ -n "$version" ] || { echo "no stable cli/v* release found on $repo" >&2; exit 1; }
     fi
     version="${version#v}"
