@@ -183,6 +183,9 @@ resume prints, per model and per count, and a count never goes below zero. When
 it cannot read the transcript, it sends the whole session marked `estimated`, so
 a later reported count can replace it.
 
+A killed process writes no `cost-state` line. So when an assistant message comes after the last line, in the session or
+in a subagent transcript, the bridge marks the difference `estimated`.
+
 A worker the bridge kills prints nothing, and a worker that crashes can print no
 result. The bridge then counts the assistant messages the process wrote to the
 transcript after it started, in the session file and in the files of its

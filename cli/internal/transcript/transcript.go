@@ -110,28 +110,84 @@ func DecodeModelUsage(raw json.RawMessage) (Usage, error) {
 	return usage, nil
 }
 
-// LastCostState is the usage on the last cost-state line of the transcript,
-// which Claude Code writes as a process ends. The usage counts the whole
-// session. A transcript with no such line holds zero.
-func LastCostState(path string) (Usage, error) {
+// LastCostState is the session usage on the last cost-state line, which Claude
+// Code writes as a process ends, and zero with no line. complete is false when
+// an assistant message came after the line: a process that ended with no line,
+// such as a killed one, spent tokens the line does not count.
+func LastCostState(path string) (usage Usage, complete bool, err error) {
 	var last json.RawMessage
-	err := eachLine(path, `"cost-state"`, func(line []byte) {
+	var latest, cutoff time.Time
+	after, hasLine := false, false
+	err = eachLine(path, "", func(line []byte) {
 		var entry struct {
 			Type       string          `json:"type"`
+			Timestamp  time.Time       `json:"timestamp"`
 			ModelUsage json.RawMessage `json:"modelUsage"`
+			Message    struct {
+				Model string `json:"model"`
+			} `json:"message"`
 		}
-		if json.Unmarshal(line, &entry) == nil && entry.Type == "cost-state" && len(entry.ModelUsage) > 0 {
-			last = entry.ModelUsage
+		if json.Unmarshal(line, &entry) != nil {
+			return
+		}
+		switch {
+		case entry.Type == "cost-state":
+			if len(entry.ModelUsage) > 0 {
+				last = entry.ModelUsage
+			}
+			hasLine, after, cutoff = true, false, latest
+		case isMessage(entry.Type, entry.Message.Model):
+			after = true
+		}
+		if entry.Timestamp.After(latest) {
+			latest = entry.Timestamp
 		}
 	})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	if last == nil {
-		return Usage{}, nil
+	// A subagent transcript holds no cost-state line, so its messages are
+	// compared with the time of the last entry before the line.
+	after = after || subagentMessageAfter(path, cutoff, hasLine)
+
+	usage = Usage{}
+	if last != nil {
+		usage, err = DecodeModelUsage(last)
 	}
 
-	return DecodeModelUsage(last)
+	return usage, !after, err
+}
+
+func isMessage(entryType, model string) bool {
+	return entryType == "assistant" && model != "<synthetic>"
+}
+
+// subagentMessageAfter reports whether a subagent transcript holds a message
+// after cutoff, or any message when the session has no cost-state line.
+func subagentMessageAfter(path string, cutoff time.Time, hasLine bool) bool {
+	subagents := filepath.Join(strings.TrimSuffix(path, ".jsonl"), "subagents")
+	files, _ := os.ReadDir(subagents)
+	found := false
+	for _, f := range files {
+		if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") {
+			continue
+		}
+		_ = eachLine(filepath.Join(subagents, f.Name()), `"assistant"`, func(line []byte) {
+			var entry struct {
+				Type      string    `json:"type"`
+				Timestamp time.Time `json:"timestamp"`
+				Message   struct {
+					Model string `json:"model"`
+				} `json:"message"`
+			}
+			if json.Unmarshal(line, &entry) == nil && isMessage(entry.Type, entry.Message.Model) &&
+				(!hasLine || entry.Timestamp.After(cutoff)) {
+				found = true
+			}
+		})
+	}
+
+	return found
 }
 
 // message is the usage of one API response. A streamed response repeats its

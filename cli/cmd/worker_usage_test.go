@@ -78,6 +78,13 @@ func TestWorkerUsage(t *testing.T) {
 				"claude-opus-5-5": {InputTokens: 50, OutputTokens: 20, CacheReadTokens: 500, CostUSD: ptr(0.75)},
 			}},
 		},
+		"a resume with an incomplete baseline sends the difference as an estimate": {
+			rec:      runRecord{SessionID: testSession, StartedAt: started, Resume: true, Baseline: &baseline, BaselineIncomplete: true},
+			reported: reported,
+			want: &api.Usage{Source: api.UsageEstimated, Models: map[string]api.ModelUsage{
+				"claude-opus-5-5": {InputTokens: 50, OutputTokens: 20, CacheReadTokens: 500, CostUSD: ptr(0.75)},
+			}},
+		},
 		"a resume that spent nothing sends an empty list": {
 			rec:      runRecord{SessionID: testSession, StartedAt: started, Resume: true, Baseline: &baseline},
 			reported: baseline,
@@ -114,21 +121,25 @@ func TestWorkerUsage(t *testing.T) {
 }
 
 func TestSessionBaseline(t *testing.T) {
-	claudeHome(t, testSession, early, costState, streamed2)
-	got := sessionBaseline(testSession)
 	want := transcript.Usage{"claude-opus-5-5": {InputTokens: 100, OutputTokens: 10, CacheReadTokens: 1000, CacheWriteTokens: 50, CostUSD: ptr(1.25)}}
-	if got == nil || !reflect.DeepEqual(*got, want) {
-		t.Fatalf("sessionBaseline = %v", got)
+	claudeHome(t, testSession, early, costState)
+	if got, incomplete := sessionBaseline(testSession); got == nil || incomplete || !reflect.DeepEqual(*got, want) {
+		t.Fatalf("sessionBaseline = %v, %v", got, incomplete)
 	}
 
-	// A session with no cost-state line spent nothing that claude carries over.
+	// A killed process leaves messages after the last line, and no line of its own.
+	claudeHome(t, testSession, early, costState, streamed2)
+	if got, incomplete := sessionBaseline(testSession); got == nil || !incomplete || !reflect.DeepEqual(*got, want) {
+		t.Fatalf("sessionBaseline = %v, %v, want incomplete", got, incomplete)
+	}
+
 	claudeHome(t, testSession, streamed2)
-	if got := sessionBaseline(testSession); got == nil || len(*got) != 0 {
-		t.Fatalf("sessionBaseline = %v, want zero", got)
+	if got, incomplete := sessionBaseline(testSession); got == nil || !incomplete || len(*got) != 0 {
+		t.Fatalf("sessionBaseline = %v, %v, want an incomplete zero", got, incomplete)
 	}
 
 	claudeHome(t, testSession)
-	if got := sessionBaseline(testSession); got != nil {
+	if got, _ := sessionBaseline(testSession); got != nil {
 		t.Fatalf("sessionBaseline of a missing session = %v, want nil", *got)
 	}
 }

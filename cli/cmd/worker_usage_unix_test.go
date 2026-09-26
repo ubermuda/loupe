@@ -37,6 +37,26 @@ func TestRunWorkerReportsWhatAResumeAdded(t *testing.T) {
 	}
 }
 
+// A killed process before the resume left messages after the last cost-state
+// line. The line may not count them, so the difference is only an estimate.
+func TestRunWorkerEstimatesAResumeAfterAKilledProcess(t *testing.T) {
+	shortConfigHome(t)
+	claudeHome(t, testSession, costState, streamed2)
+	totals := `{"claude-opus-5-5":{"inputTokens":150,"outputTokens":30,"cacheReadInputTokens":1500,"cacheCreationInputTokens":50,"costUSD":2}}`
+	fakeClaude(t, "echo '{\"result\":\"ok\",\"modelUsage\":"+totals+"}'\n")
+
+	res := runWorker(context.Background(), workerSpec{dir: t.TempDir(), sessionID: testSession, resume: true, prompt: "go"}, nil)
+	want := &api.Usage{Source: api.UsageEstimated, Models: map[string]api.ModelUsage{
+		"claude-opus-5-5": {InputTokens: 50, OutputTokens: 20, CacheReadTokens: 500, CostUSD: ptr(0.75)},
+	}}
+	if !sameUsage(res.usage, want) {
+		t.Fatalf("usage = %s, want %s", usageText(res.usage), usageText(want))
+	}
+	if rec, err := readRunRecord(res.dir); err != nil || !rec.BaselineIncomplete {
+		t.Fatalf("run record = %+v, %v", rec, err)
+	}
+}
+
 // A run a former image started keeps its baseline in its run record, so the
 // adopter reports the same difference.
 func TestAdoptWorkerReportsWhatAResumeAdded(t *testing.T) {
