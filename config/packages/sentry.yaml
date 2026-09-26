@@ -6,8 +6,10 @@ sentry:
         max_request_body_size: none
         http_connect_timeout: 1
         http_timeout: 2
-        traces_sample_rate: '%env(float:SENTRY_TRACES_SAMPLE_RATE)%'
+        traces_sampler: App\Observability\TracesSampler
         profiles_sample_rate: '%env(float:SENTRY_PROFILES_SAMPLE_RATE)%'
+        before_send: App\Observability\SentryEventScrubber
+        before_send_transaction: App\Observability\SentryEventScrubber
         ignore_exceptions:
             - Symfony\Component\HttpKernel\Exception\NotFoundHttpException
             - Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException
