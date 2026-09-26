@@ -102,6 +102,7 @@ func TestLastCostStateSaysWhetherItCountsEveryMessage(t *testing.T) {
 		prompt    = `{"type":"user","timestamp":"2026-09-25T09:00:00Z","message":{"content":"go"}}`
 		subBefore = `{"type":"assistant","timestamp":"2026-09-25T09:59:00Z","message":{"id":"s","model":"m","usage":{"input_tokens":1}}}`
 		subAfter  = `{"type":"assistant","timestamp":"2026-09-25T10:05:00Z","message":{"id":"s","model":"m","usage":{"input_tokens":1}}}`
+		subLate   = `{"type":"assistant","timestamp":"2026-09-25T10:00:01Z","message":{"id":"s","model":"m","usage":{"input_tokens":1}}}`
 	)
 	for name, tc := range map[string]struct {
 		main, sub []string
@@ -115,6 +116,9 @@ func TestLastCostStateSaysWhetherItCountsEveryMessage(t *testing.T) {
 		"a subagent message before the line": {main: []string{before, line}, sub: []string{subBefore}, complete: true},
 		"a subagent message after the line":  {main: []string{before, line}, sub: []string{subAfter}},
 		"a subagent message and no line":     {main: []string{prompt}, sub: []string{subBefore}},
+		// A background subagent can end after the last main entry, before or
+		// after the line. The line holds no time, so the bridge cannot tell.
+		"ambiguous timing reads as incomplete": {main: []string{before, line}, sub: []string{subLate}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), workSession+".jsonl")
