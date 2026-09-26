@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Twig;
 
 use App\Module\Bridge\Twig\CardWorkerRunsExtension;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -120,5 +122,146 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         $project = $this->project($em, $this->user($em, 'card-no-warnings@example.com'), 'Calm');
 
         self::assertSame([], self::getContainer()->get(CardWorkerRunsExtension::class)->cardRunWarnings($project));
+    }
+
+    public function test_the_usage_total_sums_every_row_of_the_card_even_when_its_run_is_gone(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'card-usage-total@example.com');
+        $project = $this->project($em, $owner, 'Usage total');
+        $other = $this->project($em, $owner, 'Other usage');
+        $cardId = Uuid::v7();
+        for ($minute = 1; $minute <= 6; ++$minute) {
+            $this->seedUsage($em, $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 11:0'.$minute.':00'), cardId: $cardId));
+        }
+        $deleted = $this->seedRun($em, $project, cardId: $cardId);
+        $this->seedUsage($em, $deleted);
+        $em->getConnection()->executeStatement('DELETE FROM bridge_worker_runs WHERE id = :id', ['id' => (string) $deleted->id]);
+        $this->seedUsage($em, $this->seedRun($em, $project));
+        $this->seedUsage($em, $this->seedRun($em, $other, cardId: $cardId));
+
+        $total = self::getContainer()->get(CardWorkerRunsExtension::class)->cardUsageTotal($project, (string) $cardId);
+
+        self::assertTrue($total->known);
+        self::assertSame('0.086415', $total->costUsd);
+        self::assertSame(700, $total->inputTokens);
+        self::assertSame(140, $total->outputTokens);
+        self::assertSame(2100, $total->cacheReadTokens);
+        self::assertSame(280, $total->cacheWriteTokens);
+        self::assertSame(0, $total->partialRuns);
+        self::assertFalse($total->estimated);
+    }
+
+    public function test_only_a_closed_worker_run_that_started_and_has_no_usage_is_partial(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'card-usage-partial@example.com'), 'Usage partial');
+        $cardId = Uuid::v7();
+        $this->seedUsage($em, $this->seedRun($em, $project, cardId: $cardId));
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Failed);
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::TimedOut);
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Running);
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Queued);
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::NotStarted);
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Replaced)->startedAt = null;
+        $this->seedRun($em, $project, cardId: $cardId)->usageSource = WorkerRunUsageSource::Reported;
+        $em->flush();
+
+        $total = self::getContainer()->get(CardWorkerRunsExtension::class)->cardUsageTotal($project, (string) $cardId);
+
+        self::assertTrue($total->known);
+        self::assertSame(2, $total->partialRuns);
+    }
+
+    public function test_a_card_whose_runs_report_no_usage_has_unknown_usage(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'card-usage-unknown@example.com'), 'Usage unknown');
+        $cardId = Uuid::v7();
+        $this->seedRun($em, $project, cardId: $cardId);
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Running);
+
+        $total = self::getContainer()->get(CardWorkerRunsExtension::class)->cardUsageTotal($project, (string) $cardId);
+
+        self::assertFalse($total->known);
+        self::assertSame(1, $total->partialRuns);
+    }
+
+    public function test_a_run_that_reported_no_models_has_a_known_zero_cost(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'card-usage-zero@example.com'), 'Usage zero');
+        $cardId = Uuid::v7();
+        $this->seedRun($em, $project, cardId: $cardId)->usageSource = WorkerRunUsageSource::Estimated;
+        $em->flush();
+
+        $total = self::getContainer()->get(CardWorkerRunsExtension::class)->cardUsageTotal($project, (string) $cardId);
+
+        self::assertTrue($total->known);
+        self::assertSame('0', $total->costUsd);
+        self::assertSame(0, $total->inputTokens);
+        self::assertFalse($total->estimated);
+    }
+
+    public function test_an_estimated_row_marks_the_total_estimated(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'card-usage-estimated@example.com'), 'Usage estimated');
+        $cardId = Uuid::v7();
+        $this->seedUsage($em, $this->seedRun($em, $project, cardId: $cardId));
+        $this->seedUsage($em, $this->seedRun($em, $project, cardId: $cardId), source: WorkerRunUsageSource::Estimated);
+
+        $total = self::getContainer()->get(CardWorkerRunsExtension::class)->cardUsageTotal($project, (string) $cardId);
+
+        self::assertTrue($total->estimated);
+        self::assertSame('0.024690', $total->costUsd);
+    }
+
+    public function test_a_card_with_only_unpriced_rows_has_no_dollar_total(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'card-usage-unpriced@example.com'), 'Usage unpriced');
+        $cardId = Uuid::v7();
+        $this->seedUsage($em, $this->seedRun($em, $project, cardId: $cardId), source: WorkerRunUsageSource::Estimated, costUsd: null);
+
+        $total = self::getContainer()->get(CardWorkerRunsExtension::class)->cardUsageTotal($project, (string) $cardId);
+
+        self::assertTrue($total->known);
+        self::assertNull($total->costUsd);
+        self::assertSame(100, $total->inputTokens);
+        self::assertTrue($total->estimated);
+    }
+
+    /** A reported row with no price still leaves the dollars short, so it reads as estimated. */
+    public function test_an_unpriced_reported_row_marks_the_total_estimated(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'card-usage-unpriced-reported@example.com'), 'Usage unpriced reported');
+        $cardId = Uuid::v7();
+        $run = $this->seedRun($em, $project, cardId: $cardId);
+        $this->seedUsage($em, $run);
+        $this->seedUsage($em, $run, model: 'claude-unpriced', costUsd: null);
+
+        $total = self::getContainer()->get(CardWorkerRunsExtension::class)->cardUsageTotal($project, (string) $cardId);
+
+        self::assertTrue($total->estimated);
+        self::assertSame('0.012345', $total->costUsd);
+    }
+
+    public function test_a_card_id_that_is_not_a_uuid_has_unknown_usage(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'card-usage-bad-id@example.com'), 'Usage bad id');
+
+        self::assertFalse(self::getContainer()->get(CardWorkerRunsExtension::class)->cardUsageTotal($project, 'not-a-uuid')->known);
     }
 }

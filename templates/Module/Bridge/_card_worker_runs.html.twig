@@ -25,5 +25,20 @@
     {% else %}
     <p class="lp-card-detail__empty">{{ 'board.card.runs.empty'|trans }}</p>
     {% endfor %}
+    {% set usage = card_usage_total(project, cardId) %}
+    {# The usage of a card outlives its runs, so a card with no runs can still have usage. #}
+    {% if runs is not empty or usage.known %}
+    <p class="lp-card-usage-total" data-card-usage-total>
+        <span class="lp-card-usage-total__label">{{ 'board.card.runs.usage.total'|trans }}</span>
+        {% if usage.known %}
+        {% if usage.costUsd is not null %}<span class="lp-card-usage-total__cost" data-card-usage-cost>{{ usage.costUsd|format_currency('USD') }}</span>{% endif %}
+        <span data-card-usage-tokens>{{ 'board.card.runs.usage.tokens'|trans({'%input%': usage.compact(usage.inputTokens), '%output%': usage.compact(usage.outputTokens), '%cacheRead%': usage.compact(usage.cacheReadTokens), '%cacheWrite%': usage.compact(usage.cacheWriteTokens)}) }}</span>
+        {% if usage.estimated %}<span class="lp-tag lp-tag--neutral" data-card-usage-estimated>{{ 'board.card.runs.usage.estimated'|trans }}</span>{% endif %}
+        {% if usage.partialRuns > 0 %}<span class="lp-tag lp-tag--amber" data-card-usage-partial>{{ 'board.card.runs.usage.partial'|trans({'%count%': usage.partialRuns}) }}</span>{% endif %}
+        {% else %}
+        <span data-card-usage-unknown>{{ 'board.card.runs.usage.unknown'|trans }}</span>
+        {% endif %}
+    </p>
+    {% endif %}
 </section>
 </turbo-frame>
