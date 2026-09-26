@@ -93,3 +93,24 @@ it('keeps a hover card inside the plot near its right edge', () => {
     // Centred at 128 from each edge, so a card 256 wide never overflows.
     expect(card(1).style.left).toBe('672px');
 });
+
+it('keeps a hover card inside a plot that is narrower than the card', () => {
+    const plot = document.querySelector('.lp-cost-chart__plot');
+    plot.getBoundingClientRect = () => ({
+        left: 10,
+        top: 50,
+        width: 200,
+        height: 300,
+    });
+    bar(0).getBoundingClientRect = () => ({
+        left: 15,
+        top: 60,
+        width: 4,
+        height: 190,
+    });
+    card(0).getBoundingClientRect = () => ({ width: 256, height: 120 });
+    bar(0).dispatchEvent(new MouseEvent('mouseenter'));
+
+    // CSS caps the card at the plot width, so its centre sits in the middle.
+    expect(card(0).style.left).toBe('100px');
+});

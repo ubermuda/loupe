@@ -26,7 +26,9 @@ export default class extends Controller {
             ...marks.map((mark) => mark.getBoundingClientRect().top),
             barBox.top + barBox.height,
         );
-        const halfWidth = card.getBoundingClientRect().width / 2;
+        // CSS caps the card at the plot width, so its left edge stays in [0, plot width - card width].
+        const halfWidth =
+            Math.min(card.getBoundingClientRect().width, plotBox.width) / 2;
         const centre = barBox.left + barBox.width / 2 - plotBox.left;
         const left = Math.min(
             Math.max(centre, halfWidth),
