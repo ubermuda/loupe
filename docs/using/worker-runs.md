@@ -13,7 +13,7 @@ Open the page from the project sidebar, or go to
 `/projects/{project}/worker-runs`. Anyone who can view the project can read it.
 
 The page has two tabs. **Runs** lists the runs, and the rest of this page
-describes it. **Cost** charts what each finished card cost, as
+describes it. **Cost** charts what a finished card costs on average, as
 [The cost of finished cards](#the-cost-of-finished-cards) says.
 
 ## What a row shows
@@ -116,16 +116,17 @@ spent nothing, so a card with only such runs shows $0.00. See
 ## The cost of finished cards
 
 The **Cost** tab, at `/projects/{project}/worker-runs/cost`, shows one bar for
-each finished card with usage. A card is finished when it sits in a terminal
-column, such as **Done**. The bar stands at the date the card finished, and
-its height is the dollar total of every usage row of the card. The date of a
-run does not matter, so a card that finished this week keeps the runs of
-earlier weeks.
+each day, week or month in which a finished card with usage finished. A card is
+finished when it sits in a terminal column, such as **Done**. The cost of a
+card is the dollar total of every usage row of the card. The date of a run does
+not matter, so a card that finished this week keeps the runs of earlier weeks.
 
-On a long range a day is too narrow for a bar, so the bars group by week or by
-month. A week starts on Monday. Each card of a week or a month gets an equal
-share of it, in the order the cards finished. The hover card and the table
-still give the exact date that each card finished.
+The height of a bar is the average cost per card of its period: the total of
+its cards divided by the number of cards. A period with no finished card has no
+bar, and keeps its place on the time axis. A week starts on Monday.
+
+A dashed line crosses the chart at the median cost per card, the same amount as
+the first figure above the chart.
 
 The dollars are the API list price that claude reports. On a subscription, you
 do not pay this amount.
@@ -135,7 +136,8 @@ The controls above the chart change what it shows:
 | Control | Effect |
 |---|---|
 | Range | **30 days**, **90 days** or **All time**, by the date the card finished. The default is 90 days |
-| Split | **No split**, **By rule** or **By model**. A split stacks each bar in one colour for each rule or model, and adds a legend |
+| Split | **No split**, **By rule** or **By model**. A split stacks each bar in one colour for each rule or model, and adds a legend. Each part is the average of that rule or model over the cards of the period |
+| Group | **Per day**, **Per week** or **Per month**. The default follows the range: per day for 30 days, per week for 90 days and per month for all time. A new range goes back to its default |
 | Rule and model | keep only the matching part of each bar. A card with no matching part leaves the chart |
 
 A rule or a model keeps its colour when a filter hides other rules or models.
@@ -145,14 +147,19 @@ colours, and the rest share one grey, labelled **Other**.
 Three figures above the chart follow the controls: the median cost per card,
 the total cost, and the number of finished cards with usage.
 
-A bar carries the marks of the [usage total](#the-usage-total-of-a-card). A
-hatched part includes an estimate or a model with no price. A ring above the
-bar means that some runs have no usage. The model filter does not apply to the
-ring, because a run with no usage has no model.
+A wide bar shows its number of cards and its average above it. A narrow bar
+shows **×N** when it holds N cards. A bar carries the marks of the
+[usage total](#the-usage-total-of-a-card). The whole bar is hatched when a card
+of the period includes an estimate or a model with no price. A **+** after the
+average, or above a narrow bar, means that some runs of a card have no usage.
+The model filter does not apply to the **+**, because a run with no usage has no
+model.
 
-Point at a bar, or move to it with the Tab key, to see its card, its dollars,
-its tokens by type and its parts. Click the bar, or press Enter, to open the
-card. **Show the data as a table** lists the same cards as text.
+Point at a bar, or move to it with the Tab key, to see its period, its number of
+cards, its average and its parts. The hover card then lists each card of the
+period with its cost. A bar of one card opens that card when you click it or
+press Enter. **Show the data as a table** lists each card as text, with the
+exact date it finished.
 
 When no finished card with usage falls in the range, the tab shows **No
 finished card with usage in this range.**
