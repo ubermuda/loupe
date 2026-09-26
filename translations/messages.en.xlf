@@ -5434,6 +5434,41 @@
             <!-- Audit log (admin) -->
 
             <!-- Worker runs (CLI bridge) -->
+            <trans-unit id="bridge.worker_runs.tabs.label"><source>bridge.worker_runs.tabs.label</source><target>Run history views</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.tabs.runs"><source>bridge.worker_runs.tabs.runs</source><target>Runs</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.tabs.cost"><source>bridge.worker_runs.tabs.cost</source><target>Cost</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.page.title"><source>bridge.worker_run_cost.page.title</source><target>Cost</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.price_basis"><source>bridge.worker_run_cost.price_basis</source><target>The dollars are the API list price that claude reports. On a subscription, you do not pay this amount.</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.range.label"><source>bridge.worker_run_cost.range.label</source><target>Range</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.range.thirty_days"><source>bridge.worker_run_cost.range.thirty_days</source><target>30 days</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.range.ninety_days"><source>bridge.worker_run_cost.range.ninety_days</source><target>90 days</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.range.all_time"><source>bridge.worker_run_cost.range.all_time</source><target>All time</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.split.label"><source>bridge.worker_run_cost.split.label</source><target>Split</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.split.none"><source>bridge.worker_run_cost.split.none</source><target>No split</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.split.rule"><source>bridge.worker_run_cost.split.rule</source><target>By rule</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.split.model"><source>bridge.worker_run_cost.split.model</source><target>By model</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.filter.rule_label"><source>bridge.worker_run_cost.filter.rule_label</source><target>Rule</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.filter.all_rules"><source>bridge.worker_run_cost.filter.all_rules</source><target>All rules</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.filter.model_label"><source>bridge.worker_run_cost.filter.model_label</source><target>Model</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.filter.all_models"><source>bridge.worker_run_cost.filter.all_models</source><target>All models</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.filter.apply"><source>bridge.worker_run_cost.filter.apply</source><target>Apply</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.summary.median"><source>bridge.worker_run_cost.summary.median</source><target>Median cost per card</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.summary.total"><source>bridge.worker_run_cost.summary.total</source><target>Total cost</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.summary.cards"><source>bridge.worker_run_cost.summary.cards</source><target>Finished cards</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.legend.other"><source>bridge.worker_run_cost.legend.other</source><target>Other</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.legend.estimated"><source>bridge.worker_run_cost.legend.estimated</source><target>Part of the usage is estimated</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.legend.partial"><source>bridge.worker_run_cost.legend.partial</source><target>Some runs have no usage</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.chart.label"><source>bridge.worker_run_cost.chart.label</source><target>The cost of each finished card, by completion date</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.chart.bar"><source>bridge.worker_run_cost.chart.bar</source><target>Card #%number%, %title%, %cost%</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.estimated"><source>bridge.worker_run_cost.estimated</source><target>Estimated</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.tokens"><source>bridge.worker_run_cost.tokens</source><target>%input% input · %output% output · %cacheRead% cache read · %cacheWrite% cache write</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.partial"><source>bridge.worker_run_cost.partial</source><target>{0}All runs have usage|{1}1 run has no usage|]1,Inf[%count% runs have no usage</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.table.toggle"><source>bridge.worker_run_cost.table.toggle</source><target>Show the data as a table</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.table.card"><source>bridge.worker_run_cost.table.card</source><target>Card</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.table.finished"><source>bridge.worker_run_cost.table.finished</source><target>Finished</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.table.cost"><source>bridge.worker_run_cost.table.cost</source><target>Cost</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.table.notes"><source>bridge.worker_run_cost.table.notes</source><target>Notes</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.empty"><source>bridge.worker_run_cost.empty</source><target>No finished card with usage in this range.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.page.title">
                 <source>bridge.worker_runs.page.title</source>
                 <target>Run history</target>

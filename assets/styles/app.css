@@ -190,6 +190,15 @@
     --color-tone-pink-bg: var(--tone-pink-bg);
     --color-tone-orange: var(--tone-orange);
     --color-tone-orange-bg: var(--tone-orange-bg);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-chart-6: var(--chart-6);
+    --color-chart-7: var(--chart-7);
+    --color-chart-8: var(--chart-8);
+    --color-chart-other: var(--chart-other);
     --color-strike: var(--strike);
     --color-strike-on-chrome: var(--strike-on-chrome);
 
@@ -315,6 +324,17 @@
     --tone-pink-bg: #fbe8ef;
     --tone-orange: #a14a14;
     --tone-orange-bg: #fdede2;
+
+    /* Chart series, in this order: the order keeps neighbours apart for colour-blind readers. */
+    --chart-1: #2a78d6;
+    --chart-2: #eb6834;
+    --chart-3: #1baf7a;
+    --chart-4: #eda100;
+    --chart-5: #e87ba4;
+    --chart-6: #008300;
+    --chart-7: #4a3aa7;
+    --chart-8: #e34948;
+    --chart-other: #898781;
 
     /* Ink dark enough to sit on the -border rung, which the design uses as a
        solid chip fill (Approved, Changes requested) as well as a hairline. The
@@ -5858,6 +5878,190 @@
         @apply bg-app text-fg-mute rounded-lg m-0 mt-2 py-2 px-3 font-mono text-xs leading-normal overflow-x-auto;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
+    }
+
+    /* ── Worker run cost ───────────────────────────────────────────── */
+
+    .lp-cost-basis {
+        @apply m-0 text-xs text-fg-dim;
+    }
+    .lp-cost-controls {
+        @apply mt-4;
+    }
+    /* A row of links that reads as one control, such as the range presets. */
+    .lp-cost-toggle {
+        @apply inline-flex items-center gap-0.5 rounded-lg bg-surface-3 p-0.5;
+    }
+    .lp-cost-toggle__option {
+        @apply inline-flex items-center h-8 px-2.5 rounded-md text-sm font-semibold text-fg-mute no-underline whitespace-nowrap transition-colors hover:text-ink;
+    }
+    .lp-cost-toggle__option[aria-current='true'] {
+        @apply bg-surface-1 text-ink shadow-sm;
+    }
+    .lp-cost-summary {
+        @apply grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 mb-0;
+    }
+    .lp-cost-summary__figure {
+        @apply rounded-xl bg-surface-2 py-3 px-4;
+    }
+    .lp-cost-summary__label {
+        @apply text-xs text-fg-label;
+    }
+    .lp-cost-summary__value {
+        @apply m-0 mt-1 font-display text-2xl font-bold text-ink;
+    }
+    .lp-cost-chart {
+        @apply m-0 mt-4 rounded-xl border border-line bg-surface-1 p-4;
+    }
+    .lp-cost-legend {
+        @apply flex flex-wrap items-center gap-x-4 gap-y-1 m-0 mb-3 p-0 list-none text-xs text-fg-mute;
+    }
+    .lp-cost-legend__item {
+        @apply inline-flex items-center gap-1.5;
+    }
+    .lp-cost-legend__swatch {
+        @apply inline-block w-3 h-3 rounded-sm;
+    }
+    /* The hatch of an estimated bar, drawn over the grey of the other keys. */
+    .lp-cost-legend__swatch--estimated {
+        background: repeating-linear-gradient(
+            45deg,
+            var(--chart-other) 0 calc(var(--spacing) * 0.5),
+            var(--surface-1) calc(var(--spacing) * 0.5) var(--spacing)
+        );
+    }
+    .lp-cost-legend__ring {
+        @apply inline-block w-2.5 h-2.5 rounded-full border-2 border-ink;
+    }
+    /* A short stroke keys a series in the hover card, where a box is too heavy. */
+    .lp-cost-legend__key {
+        @apply inline-block w-3 h-0.5 rounded-full shrink-0;
+    }
+    .lp-cost-chart__plot {
+        @apply relative;
+    }
+    .lp-cost-chart__svg {
+        @apply block w-full h-auto overflow-visible;
+    }
+    .lp-cost-chart__grid {
+        @apply stroke-line-faint stroke-1;
+    }
+    .lp-cost-chart__baseline {
+        @apply stroke-line-strong stroke-1;
+    }
+    .lp-cost-chart__tick {
+        @apply fill-fg-dim text-xs tabular-nums;
+    }
+    .lp-cost-chart__bar {
+        @apply cursor-pointer outline-none;
+    }
+    /* Wider than a thin bar and as tall as the plot, so a short bar is easy to reach. */
+    .lp-cost-chart__hit {
+        @apply fill-transparent;
+    }
+    .lp-cost-chart__bar:focus-visible .lp-cost-chart__hit {
+        @apply stroke-accent-ink stroke-2;
+    }
+    .lp-cost-chart__bar:hover .lp-cost-chart__segment,
+    .lp-cost-chart__bar:focus-visible .lp-cost-chart__segment {
+        @apply opacity-80;
+    }
+    .lp-cost-chart__segment--stub {
+        @apply fill-chart-other;
+    }
+    .lp-cost-chart__hatch {
+        @apply stroke-surface-1 stroke-2;
+    }
+    .lp-cost-chart__partial {
+        @apply fill-surface-1 stroke-ink stroke-2;
+    }
+    .lp-cost-chart__segment--0,
+    .lp-cost-legend__swatch--0,
+    .lp-cost-legend__key--0 {
+        @apply fill-chart-other bg-chart-other;
+    }
+    .lp-cost-chart__segment--1,
+    .lp-cost-legend__swatch--1,
+    .lp-cost-legend__key--1 {
+        @apply fill-chart-1 bg-chart-1;
+    }
+    .lp-cost-chart__segment--2,
+    .lp-cost-legend__swatch--2,
+    .lp-cost-legend__key--2 {
+        @apply fill-chart-2 bg-chart-2;
+    }
+    .lp-cost-chart__segment--3,
+    .lp-cost-legend__swatch--3,
+    .lp-cost-legend__key--3 {
+        @apply fill-chart-3 bg-chart-3;
+    }
+    .lp-cost-chart__segment--4,
+    .lp-cost-legend__swatch--4,
+    .lp-cost-legend__key--4 {
+        @apply fill-chart-4 bg-chart-4;
+    }
+    .lp-cost-chart__segment--5,
+    .lp-cost-legend__swatch--5,
+    .lp-cost-legend__key--5 {
+        @apply fill-chart-5 bg-chart-5;
+    }
+    .lp-cost-chart__segment--6,
+    .lp-cost-legend__swatch--6,
+    .lp-cost-legend__key--6 {
+        @apply fill-chart-6 bg-chart-6;
+    }
+    .lp-cost-chart__segment--7,
+    .lp-cost-legend__swatch--7,
+    .lp-cost-legend__key--7 {
+        @apply fill-chart-7 bg-chart-7;
+    }
+    .lp-cost-chart__segment--8,
+    .lp-cost-legend__swatch--8,
+    .lp-cost-legend__key--8 {
+        @apply fill-chart-8 bg-chart-8;
+    }
+    .lp-cost-card {
+        @apply absolute z-10 w-64 -translate-x-1/2 -translate-y-full rounded-lg border border-line bg-surface-1 p-3 text-xs text-fg-mute shadow-card pointer-events-none;
+    }
+    .lp-cost-card[hidden] {
+        @apply hidden;
+    }
+    .lp-cost-card__title {
+        @apply m-0 font-semibold text-ink;
+    }
+    .lp-cost-card__cost {
+        @apply m-0 mt-1 flex items-center gap-2 text-base font-bold text-ink;
+    }
+    .lp-cost-card__tokens,
+    .lp-cost-card__partial {
+        @apply m-0 mt-1;
+    }
+    .lp-cost-card__parts {
+        @apply m-0 mt-2 p-0 list-none flex flex-col gap-1;
+    }
+    .lp-cost-card__part {
+        @apply flex items-center gap-2;
+    }
+    .lp-cost-card__part-name {
+        @apply mr-auto truncate;
+    }
+    .lp-cost-table {
+        @apply mt-4;
+    }
+    .lp-cost-table__toggle {
+        @apply cursor-pointer select-none text-xs font-semibold text-fg-dim hover:text-ink;
+    }
+    .lp-cost-table__table {
+        @apply w-full mt-2 text-sm text-fg border-collapse;
+    }
+    .lp-cost-table__table th {
+        @apply py-1.5 pr-3 border-b border-line text-left text-xs font-semibold text-fg-label;
+    }
+    .lp-cost-table__table td {
+        @apply py-1.5 pr-3 border-b border-line-faint;
+    }
+    .lp-cost-table__table .lp-cost-table__number {
+        @apply text-right tabular-nums;
     }
 
     /* ── Inbox page ─────────────────────────────────────────────────────

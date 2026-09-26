@@ -1,0 +1,199 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'bridge.worker_run_cost.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <a class="lp-topbar__crumb" href="{{ path('app_project_worker_runs', {id: project.id}) }}">{{ 'bridge.worker_runs.page.title'|trans }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'bridge.worker_run_cost.page.title'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+{% set boardEnabled = is_feature_enabled('board.enabled') %}
+{% set query = cost.query %}
+{% set costRoute = 'app_project_worker_run_cost' %}
+<div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'bridge.worker_runs.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'bridge.worker_runs.page.description'|trans }}</p>
+        </div>
+    </header>
+
+    {% include '@Bridge/_worker_runs_tabs.html.twig' with {project: project, active: 'cost'} only %}
+
+    <p class="lp-cost-basis" data-cost-basis>{{ 'bridge.worker_run_cost.price_basis'|trans }}</p>
+
+    <div class="lp-list-filters lp-cost-controls">
+        <nav class="lp-cost-toggle" aria-label="{{ 'bridge.worker_run_cost.range.label'|trans }}">
+            {% for range in ranges %}
+                <a class="lp-cost-toggle__option"
+                   href="{{ path(costRoute, {id: project.id}|merge(query.withRange(range).routeParams)) }}"
+                   {% if query.range == range %}aria-current="true"{% endif %}>{{ range.translationKey()|trans }}</a>
+            {% endfor %}
+        </nav>
+        <nav class="lp-cost-toggle" aria-label="{{ 'bridge.worker_run_cost.split.label'|trans }}">
+            {% for split in splits %}
+                <a class="lp-cost-toggle__option"
+                   href="{{ path(costRoute, {id: project.id}|merge(query.withSplit(split).routeParams)) }}"
+                   {% if query.split == split %}aria-current="true"{% endif %}>{{ split.translationKey()|trans }}</a>
+            {% endfor %}
+        </nav>
+
+        {# A GET form, so the filters land in the URL. The range and the split ride along as hidden fields. #}
+        <form method="get" action="{{ path(costRoute, {id: project.id}) }}" data-controller="autosearch" class="lp-filter-form">
+            {% if query.range.value != 'ninety-days' %}<input type="hidden" name="range" value="{{ query.range.value }}">{% endif %}
+            {% if query.split.value != 'none' %}<input type="hidden" name="split" value="{{ query.split.value }}">{% endif %}
+            <label class="sr-only" for="worker-run-cost-rule">{{ 'bridge.worker_run_cost.filter.rule_label'|trans }}</label>
+            <select id="worker-run-cost-rule" name="rule" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+                <option value="">{{ 'bridge.worker_run_cost.filter.all_rules'|trans }}</option>
+                {% for rule in cost.rules %}
+                    <option value="{{ rule }}"{{ query.rule == rule ? ' selected' : '' }}>{{ rule }}</option>
+                {% endfor %}
+            </select>
+            <label class="sr-only" for="worker-run-cost-model">{{ 'bridge.worker_run_cost.filter.model_label'|trans }}</label>
+            <select id="worker-run-cost-model" name="model" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+                <option value="">{{ 'bridge.worker_run_cost.filter.all_models'|trans }}</option>
+                {% for model in cost.models %}
+                    <option value="{{ model }}"{{ query.model == model ? ' selected' : '' }}>{{ model }}</option>
+                {% endfor %}
+            </select>
+            <noscript><button type="submit" class="lp-btn">{{ 'bridge.worker_run_cost.filter.apply'|trans }}</button></noscript>
+            {% if query.isFiltered %}
+                <a href="{{ path(costRoute, {id: project.id}|merge(query.routeParams|filter((value, key) => key in ['range', 'split']))) }}"
+                   class="lp-filter-clear">{{ 'bridge.worker_runs.filter.clear'|trans }}</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <dl class="lp-cost-summary" data-cost-summary>
+        <div class="lp-cost-summary__figure">
+            <dt class="lp-cost-summary__label">{{ 'bridge.worker_run_cost.summary.median'|trans }}</dt>
+            <dd class="lp-cost-summary__value" data-cost-median>{{ (cost.medianMicros / 1000000)|format_currency('USD') }}</dd>
+        </div>
+        <div class="lp-cost-summary__figure">
+            <dt class="lp-cost-summary__label">{{ 'bridge.worker_run_cost.summary.total'|trans }}</dt>
+            <dd class="lp-cost-summary__value" data-cost-total>{{ (cost.totalMicros / 1000000)|format_currency('USD') }}</dd>
+        </div>
+        <div class="lp-cost-summary__figure">
+            <dt class="lp-cost-summary__label">{{ 'bridge.worker_run_cost.summary.cards'|trans }}</dt>
+            <dd class="lp-cost-summary__value" data-cost-cards>{{ cost.cards|length }}</dd>
+        </div>
+    </dl>
+
+    {% set chart = cost.chart %}
+    {% if chart is not null %}
+    {% set split = query.split.value != 'none' %}
+    {% set hasEstimate = cost.cards|filter(card => card.estimated)|length > 0 %}
+    {% set hasPartial = cost.cards|filter(card => card.partialRuns > 0)|length > 0 %}
+    <figure class="lp-cost-chart" data-controller="cost-chart" data-action="keydown.esc->cost-chart#hide">
+        {% if (split and chart.series|length > 1) or hasEstimate or hasPartial %}
+        <ul class="lp-cost-legend" data-cost-legend>
+            {% if split and chart.series|length > 1 %}
+                {% for series in chart.series %}
+                    <li class="lp-cost-legend__item"><span class="lp-cost-legend__swatch lp-cost-legend__swatch--{{ series.slot }}"></span>{{ series.key ?? 'bridge.worker_run_cost.legend.other'|trans }}</li>
+                {% endfor %}
+            {% endif %}
+            {% if hasEstimate %}<li class="lp-cost-legend__item"><span class="lp-cost-legend__swatch lp-cost-legend__swatch--estimated"></span>{{ 'bridge.worker_run_cost.legend.estimated'|trans }}</li>{% endif %}
+            {% if hasPartial %}<li class="lp-cost-legend__item"><span class="lp-cost-legend__ring"></span>{{ 'bridge.worker_run_cost.legend.partial'|trans }}</li>{% endif %}
+        </ul>
+        {% endif %}
+
+        <div class="lp-cost-chart__plot">
+            {# A chart drawn from data, not an icon. #}
+            {# twig-cs-fixer-disable-line InlineSvg #}<svg class="lp-cost-chart__svg" viewBox="0 0 {{ constant('App\\Module\\Bridge\\View\\CostChart::WIDTH') }} {{ constant('App\\Module\\Bridge\\View\\CostChart::HEIGHT') }}" role="group" aria-label="{{ 'bridge.worker_run_cost.chart.label'|trans }}">
+                <defs>
+                    <pattern id="lp-cost-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                        <line class="lp-cost-chart__hatch" x1="0" y1="0" x2="0" y2="6" />
+                    </pattern>
+                </defs>
+                {% for tick in chart.yTicks %}
+                    <line class="lp-cost-chart__grid" x1="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_LEFT') }}" x2="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_RIGHT') }}" y1="{{ tick.position }}" y2="{{ tick.position }}" />
+                    <text class="lp-cost-chart__tick" x="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_LEFT') - 8 }}" y="{{ tick.position }}" text-anchor="end" dominant-baseline="middle">{{ tick.amount|format_currency('USD', {fraction_digit: chart.yTickDecimals}) }}</text>
+                {% endfor %}
+                {% for tick in chart.xTicks %}
+                    <text class="lp-cost-chart__tick" x="{{ tick.position }}" y="{{ constant('App\\Module\\Bridge\\View\\CostChart::HEIGHT') - 6 }}" text-anchor="middle">{{ tick.day|date(chart.longSpan ? 'M j, Y' : 'M j') }}</text>
+                {% endfor %}
+                {% for bar in chart.bars %}
+                    {% set card = bar.cost.card %}
+                    <a class="lp-cost-chart__bar"
+                       {% if boardEnabled %}href="{{ path('app_board_card', {projectId: project.id, cardId: card.id}) }}"{% else %}tabindex="0"{% endif %}
+                       aria-label="{{ 'bridge.worker_run_cost.chart.bar'|trans({'%number%': card.number, '%title%': card.title, '%cost%': bar.cost.cost|format_currency('USD')}) }}"
+                       aria-describedby="cost-card-{{ loop.index0 }}"
+                       data-cost-bar="{{ card.id }}"
+                       data-cost-chart-target="bar"
+                       data-cost-chart-index-param="{{ loop.index0 }}"
+                       data-action="mouseenter->cost-chart#show focus->cost-chart#show mouseleave->cost-chart#hide blur->cost-chart#hide">
+                        <rect class="lp-cost-chart__hit" x="{{ bar.hitX }}" y="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_TOP') }}" width="{{ bar.hitWidth }}" height="{{ constant('App\\Module\\Bridge\\View\\CostChart::BASELINE') - constant('App\\Module\\Bridge\\View\\CostChart::PLOT_TOP') }}" />
+                        {% if bar.stub %}
+                            <path class="lp-cost-chart__segment lp-cost-chart__segment--stub" d="{{ bar.outline }}" />
+                            {% if bar.cost.estimated %}<path fill="url(#lp-cost-hatch)" d="{{ bar.outline }}" data-cost-estimated />{% endif %}
+                        {% endif %}
+                        {% for segment in bar.segments %}
+                            <path class="lp-cost-chart__segment lp-cost-chart__segment--{{ segment.slot }}" d="{{ segment.path }}" />
+                            {% if segment.estimated %}<path fill="url(#lp-cost-hatch)" d="{{ segment.path }}" data-cost-estimated />{% endif %}
+                        {% endfor %}
+                        {% if bar.hasHiddenEstimate %}<path fill="url(#lp-cost-hatch)" d="{{ bar.outline }}" data-cost-estimated />{% endif %}
+                        {% if bar.cost.partialRuns > 0 %}
+                            <circle class="lp-cost-chart__partial" cx="{{ bar.centre }}" cy="{{ bar.top - 8 }}" r="4" data-cost-partial />
+                        {% endif %}
+                    </a>
+                {% endfor %}
+                <line class="lp-cost-chart__baseline" x1="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_LEFT') }}" x2="{{ constant('App\\Module\\Bridge\\View\\CostChart::PLOT_RIGHT') }}" y1="{{ constant('App\\Module\\Bridge\\View\\CostChart::BASELINE') }}" y2="{{ constant('App\\Module\\Bridge\\View\\CostChart::BASELINE') }}" />
+            </svg>
+
+            {% for bar in chart.bars %}
+                {% set item = bar.cost %}
+                <div class="lp-cost-card" id="cost-card-{{ loop.index0 }}" role="tooltip" hidden data-cost-chart-target="card">
+                    <p class="lp-cost-card__title">{{ 'bridge.worker_runs.card_number'|trans({'%number%': item.card.number}) }} {{ item.card.title }}</p>
+                    <p class="lp-cost-card__cost">{{ item.cost|format_currency('USD') }}{% if item.estimated %} <span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_run_cost.estimated'|trans }}</span>{% endif %}</p>
+                    <p class="lp-cost-card__tokens">{{ 'bridge.worker_run_cost.tokens'|trans({'%input%': item.inputTokens|number_format, '%output%': item.outputTokens|number_format, '%cacheRead%': item.cacheReadTokens|number_format, '%cacheWrite%': item.cacheWriteTokens|number_format}) }}</p>
+                    {% if split %}
+                        <ul class="lp-cost-card__parts">
+                            {% for part in item.parts %}
+                                <li class="lp-cost-card__part"><span class="lp-cost-legend__key lp-cost-legend__key--{{ chart.slotOf(part.key) }}"></span><span class="lp-cost-card__part-name">{{ part.key }}</span><span>{{ part.cost|format_currency('USD') }}</span></li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if item.partialRuns > 0 %}<p class="lp-cost-card__partial">{{ 'bridge.worker_run_cost.partial'|trans({'%count%': item.partialRuns}) }}</p>{% endif %}
+                </div>
+            {% endfor %}
+        </div>
+
+        <details class="lp-cost-table">
+            <summary class="lp-cost-table__toggle">{{ 'bridge.worker_run_cost.table.toggle'|trans }}</summary>
+            <table class="lp-cost-table__table" data-cost-table>
+                <thead>
+                    <tr>
+                        <th scope="col">{{ 'bridge.worker_run_cost.table.card'|trans }}</th>
+                        <th scope="col">{{ 'bridge.worker_run_cost.table.finished'|trans }}</th>
+                        <th scope="col" class="lp-cost-table__number">{{ 'bridge.worker_run_cost.table.cost'|trans }}</th>
+                        <th scope="col">{{ 'bridge.worker_run_cost.table.notes'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cost.cards %}
+                        <tr data-cost-row="{{ item.card.id }}">
+                            <td>{{ 'bridge.worker_runs.card_number'|trans({'%number%': item.card.number}) }} {{ item.card.title }}</td>
+                            <td><time datetime="{{ item.card.completedAt|date('c') }}">{{ item.card.completedAt|date('M j, Y') }}</time></td>
+                            <td class="lp-cost-table__number">{{ item.cost|format_currency('USD') }}</td>
+                            <td>
+                                {% if item.estimated %}{{ 'bridge.worker_run_cost.estimated'|trans }}{% endif %}
+                                {% if item.partialRuns > 0 %}{{ 'bridge.worker_run_cost.partial'|trans({'%count%': item.partialRuns}) }}{% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </details>
+    </figure>
+    {% else %}
+    <div class="lp-empty-state" data-cost-empty>
+        <twig:ux:icon name="lucide:chart-column" class="lp-empty-state__icon text-accent w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'bridge.worker_run_cost.empty'|trans }}</h2>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
