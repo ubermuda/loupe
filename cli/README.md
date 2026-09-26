@@ -46,13 +46,32 @@ request the same way broken PHP does.
 
 ## Release
 
-A tag push that matches `v*`, such as `v1.0.0`, runs
-`.github/workflows/cli-release.yml`. The workflow runs `go vet` and `go test`,
-then runs goreleaser from this directory with `.goreleaser.yaml`. The release is
-published at once, not drafted.
+The CLI has its own version numbers, apart from the server's. A CLI release
+has a tag of the form `cli/vX.Y.Z`, such as `cli/v1.0.0`. A plain `vX.Y.Z` tag
+starts no CLI release, and the bridge never installs one.
 
-A CLI tag has no `cli/` prefix, because goreleaser OSS reads no tag prefix. Every
-plain `vX.Y.Z` tag on this repository is therefore a CLI release.
+A tag push that matches `cli/v*` runs `.github/workflows/cli-release.yml`. The
+workflow runs `go vet` and `go test`, then runs goreleaser from this directory
+with `.goreleaser.yaml`. Goreleaser builds the archives and `checksums.txt`, and
+publishes nothing. The workflow then publishes the release with
+`gh release create`, at once and not as a draft.
+
+Goreleaser OSS reads no tag prefix, and a prefix needs Goreleaser Pro. So the
+workflow gives goreleaser the version as `GORELEASER_CURRENT_TAG=vX.Y.Z`, with
+`--skip=publish,validate`. The `validate` step refuses a tag that git does not
+hold. The binary then reports the version `X.Y.Z`.
+
+To make a release, push a tag from `main`:
+
+```bash
+git tag cli/v1.0.0
+git push origin cli/v1.0.0
+```
+
+A binary that you build from source has no version, so it never updates
+itself. Install the first release by hand, as
+[Installing the CLI](../docs/getting-started/cli.md) says. That binary then
+updates itself.
 
 Each release holds a static binary for macOS and Linux on amd64 and arm64. Each
 binary is in an archive named `loupe_<version>_<os>_<arch>.tar.gz`, for example
@@ -372,8 +391,8 @@ Each entry in `rules` takes these fields:
 | `to` | for `board.card_moved` | The column slug the card enters |
 | `from` | no | The column slug the card leaves. Omitted, any column matches |
 | `prompt` | yes | The prompt the worker runs, with placeholders |
-| `permissionMode` | no | Defaults to `defaults.permissionMode`, then to `--permission-mode`. A mode `claude` takes, such as `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `manual` or `plan` |
-| `model` | no | Defaults to `defaults.model`, then to `--model`. An alias such as `opus` or a full model name, with no whitespace |
+| `permissionMode` | no | Defaults to `defaults.permissionMode`, then to `--permission-mode`. An interactive rule takes no default. A mode `claude` takes, such as `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `manual` or `plan` |
+| `model` | no | Defaults to `defaults.model`, then to `--model`. An interactive rule takes no default. An alias such as `opus` or a full model name, with no whitespace |
 | `maxChain` | no | The agent-triggered runs in a row this rule starts for one card. Defaults to `3`. At least 1. See [The chain cap](#the-chain-cap) |
 | `maxResumes` | no | The resumes the bridge runs after a run that did not finish. Defaults to `2`, and `0` turns resumes off. At most 32767. See [Resuming an unfinished run](#resuming-an-unfinished-run) |
 | `resultFields` | no | Optional fields the worker adds to its structured result. Each key is a field name, and each value is a JSON Schema fragment. See [The structured result](#the-structured-result) |
@@ -381,6 +400,7 @@ Each entry in `rules` takes these fields:
 | `resume` | for `inbox.ask_closed` | `true` resumes the session that asked. A rule on `inbox.ask_closed` needs it, and no other rule can set it. See [Resuming a session](#resuming-a-session) |
 | `verdict` | no | `approved` or `changes-requested`. Omitted, either verdict matches. Only a rule on `document.review_submitted` can set it. See [A review verdict](#a-review-verdict) |
 | `card` | no | A block that limits the rule by the state of its card. Only a rule on `board.card_moved` or `document.review_submitted` can set it. See [A card in an interactive session](#a-card-in-an-interactive-session) |
+| `action` | no | `interactive` opens an interactive session in a terminal instead of a worker. Omitted, the rule is a worker rule. See [Opening an interactive session](#opening-an-interactive-session) |
 
 The optional `defaults:` block sets `permissionMode` and `model` for every rule
 of the file:
@@ -491,6 +511,67 @@ rules:
 rule fires on either. A server older than this bridge sends no card state, and
 the bridge reads that as `false`. A CLI older than this key refuses the file,
 because `card` is an unknown key there.
+
+#### Opening an interactive session
+
+A rule with `action: interactive` opens an interactive Claude Code session in a
+terminal window on this machine when a card enters its column. Use it for
+Product design, so that you do not type `/loupe:product-design <n>` by hand:
+
+```yaml
+launch:
+  command: ["open", "-a", "Terminal", "{script}"]
+
+rules:
+  - name: product-design
+    on: board.card_moved
+    project: loupe
+    to: product-design
+    action: interactive
+    card: { interactiveRun: false }
+    prompt: /loupe:product-design {cardNumber}
+```
+
+The top-level `launch` block names the terminal command. `command` is an argv
+list, and no shell reads it. One element must hold `{script}`. The other
+placeholders are `{dir}`, `{sessionId}`, `{cardNumber}` and `{project}`.
+`timeout` is optional, and defaults to `10s`. A file with an interactive rule
+and no `launch.command` fails to load. These launchers work on macOS:
+
+| Terminal | `command` |
+|---|---|
+| Terminal | `["open", "-a", "Terminal", "{script}"]` |
+| Ghostty | `["open", "-na", "Ghostty", "--args", "-e", "{script}"]` |
+| tmux | `["tmux", "new-window", "-n", "card-{cardNumber}", "{script}"]` |
+
+The tmux launcher needs a running tmux server, and opens the window in the most
+recent session. `{script}` is a shell script that runs
+`claude --session-id <id> -- '<prompt>'` in the project's `dir`. The `dir` must
+be a directory that Claude Code already trusts. Otherwise the session stops at
+the trust prompt.
+
+An interactive rule takes `name`, `on`, `project`, `to`, `from`, `prompt`,
+`card`, `allowUntrusted`, `model` and `permissionMode`. It works on
+`board.card_moved` only, and on macOS and Linux only. The session gets `model`
+and `permissionMode` only from the rule, never from `defaults` or the flags.
+The session gets the prompt with no footer and no inbox line. A launch uses no worker slot, and
+two quick moves into the column open two windows.
+
+`card: { interactiveRun: false }` guards against a second window. When
+`/loupe:product-design` moves a card into Product design itself, it opens an
+interactive run first. The move event then says `interactiveRun: true`, and the
+rule skips it.
+
+The session must close its own run. The product design skill calls
+`card_run_open` with the session id the bridge gave it, and `card_run_close`
+when it ends. A prompt that calls neither leaves the run open on the
+[Worker runs](../docs/using/worker-runs.md) page until the card moves or a
+person closes it.
+
+Several bridges can follow one project. Only a bridge whose `rules.yaml` holds
+the interactive rule opens a window, so put the rule on one machine.
+[Interactive action](../docs/extending/cli-bridge.md#interactive-action)
+describes the launch script and how the bridge reports each launch.
 
 #### Placeholders
 
@@ -896,8 +977,8 @@ updates, and logs `update_skipped` once at start.
 The server names the CLI versions it supports as a caret range, such as `^1.0`,
 in its answer to each heartbeat. The bridge checks the releases on GitHub after
 its first heartbeat, again when the range changes, and then every hour plus a
-random delay of up to 10 minutes. It installs the highest release inside the
-range when the running version is lower, or when the running version is
+random delay of up to 10 minutes. It reads only releases with a `cli/vX.Y.Z`
+tag. It installs the highest release inside the range when the running version is lower, or when the running version is
 outside the range. It checks the archive against `checksums.txt` first.
 
 The bridge hands itself over to the new version in the same process, so the
@@ -1145,7 +1226,7 @@ its local socket. When no bridge runs, the command downloads the release,
 checks it against `checksums.txt`, and replaces the binary on your `PATH`
 itself. In both cases it ignores the skip list and `autoUpdate`, because you
 asked for the update. It still installs only a release inside the range the
-server supports.
+server supports, and only a release with a `cli/vX.Y.Z` tag.
 
 The command prints one line for each bridge. A bridge that hands over prints
 `handing-over`, and the command waits until the bridge runs the new binary.

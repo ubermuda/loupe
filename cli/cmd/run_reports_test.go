@@ -16,11 +16,13 @@ type fakeRunClient struct {
 	state     func(state string) (bool, error)
 	inventory func() error
 	post      func(run api.WorkerRun) (bool, error)
+	launch    func() (bool, error)
 
 	mu          sync.Mutex
 	puts        []string
 	posts       []api.WorkerRun
 	inventories [][]api.InventoryRun
+	launches    []launchSent
 }
 
 func (f *fakeRunClient) ReportRunState(_ context.Context, _, _ string, report api.RunStateReport) (bool, error) {
@@ -54,6 +56,24 @@ func (f *fakeRunClient) ReportWorkerRun(_ context.Context, _ string, run api.Wor
 	}
 
 	return f.post(run)
+}
+
+func (f *fakeRunClient) ReportInteractiveLaunch(_ context.Context, handle, sessionID string, report api.InteractiveLaunchReport) (bool, error) {
+	f.mu.Lock()
+	f.launches = append(f.launches, launchSent{handle: handle, sessionID: sessionID, report: report})
+	f.mu.Unlock()
+	if f.launch == nil {
+		return true, nil
+	}
+
+	return f.launch()
+}
+
+// launchSent is one launch report, with the project and the session it named.
+type launchSent struct {
+	handle    string
+	sessionID string
+	report    api.InteractiveLaunchReport
 }
 
 // oldServer is a server that predates the run state endpoints.

@@ -75,6 +75,8 @@ type router struct {
 	// update hands the bridge over to a new binary. A nil one, as in most
 	// tests, only logs a staged release.
 	update *bridgeUpdate
+	// scriptDir holds the launch scripts, and "" means defaultScriptDir.
+	scriptDir string
 
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
@@ -102,6 +104,10 @@ type router struct {
 	busy   bool
 	active int
 	closed bool
+	// claude is the absolute path a launch script runs, which a reload swaps
+	// with the set. launching counts the launches whose report is not queued.
+	claude    string
+	launching int
 	// stopped closes at shutdown, so a resume that waits wakes at once.
 	stopped chan struct{}
 	seq     uint64
@@ -184,13 +190,16 @@ type pending struct {
 	maxResumes  int
 	// column is the card's column when the series started, and "" when unknown.
 	column string
+	// action and project are the rule's action and project slug.
+	action  string
+	project string
 }
 
 // apply takes the rule, the settings and the prompt of a match. The session id
 // stays empty until start. A resume of an unfinished run keeps its session,
 // its prompt and its cap.
 func (p *pending) apply(m rules.Match) {
-	p.rule, p.maxChain = m.Rule, m.MaxChain
+	p.rule, p.maxChain, p.action, p.project = m.Rule, m.MaxChain, m.Action, m.Project
 	if p.continues != "" {
 		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Schema
 
@@ -219,6 +228,14 @@ const resumeDelay = time.Minute
 // maxResultFields is the largest JSON encoding of the result fields the
 // server takes.
 const maxResultFields = 4000
+
+// matchWorker matches a run against its rule by name. A rule that now opens an
+// interactive session starts no worker, so the run no longer matches.
+func matchWorker(set *rules.Set, e event.Event, name string) (rules.Match, bool) {
+	m, ok := set.MatchRule(e, name)
+
+	return m, ok && m.Action != rules.ActionInteractive
+}
 
 // keyFor keys the running worker and the chain counters by the subject id,
 // which every event type carries. A card number repeats across projects, and a
@@ -663,6 +680,13 @@ func (r *router) enqueue(p pending) {
 		p.set = current
 		p.apply(m)
 	}
+	// A match of an interactive rule opens a session and never waits in the queue.
+	if p.action == rules.ActionInteractive {
+		r.launchLocked(p)
+		r.mu.Unlock()
+
+		return
+	}
 	p.column = r.columnLocked(p.event)
 	if p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
 		r.log.Warn("chain_capped", append(about(p.event, p.rule),
@@ -1064,7 +1088,7 @@ func (r *router) resumeGate(p pending, e endedRun, reason string, stopped <-chan
 func (r *router) decideResume(p pending, e endedRun, reason string, read bool, column string, readErr error) {
 	r.gating--
 	current := r.rules()
-	m, ok := current.MatchRule(p.event, p.rule)
+	m, ok := matchWorker(current, p.event, p.rule)
 	switch {
 	case r.shut():
 		e.skipped = api.DropShutdown
@@ -1145,7 +1169,7 @@ func (r *router) check(p pending) {
 		r.mu.Lock()
 		r.checking--
 		current := r.rules()
-		m, ok := current.MatchRule(p.event, p.rule)
+		m, ok := matchWorker(current, p.event, p.rule)
 		if ok {
 			p.set = current
 			p.apply(m)

@@ -208,8 +208,8 @@ func (r *router) resume() {
 	r.dispatch()
 }
 
-// drain waits until no run report waits to go out, no ask check or resume
-// gate runs and no worker is between its spawn and its start. A zero timeout is drainTimeout.
+// drain waits until no run report waits to go out, no ask check, resume gate
+// or launch runs and no worker is between its spawn and its start. A zero timeout is drainTimeout.
 // On an error the caller resumes and gives up the handover.
 func (r *router) drain(ctx context.Context, timeout time.Duration) error {
 	if timeout <= 0 {
@@ -220,29 +220,29 @@ func (r *router) drain(ctx context.Context, timeout time.Duration) error {
 	tick := time.NewTicker(20 * time.Millisecond)
 	defer tick.Stop()
 	for {
-		reports, checks, gates, starting := r.inFlight()
-		if reports == 0 && checks == 0 && gates == 0 && starting == 0 {
+		reports, checks, gates, starting, launches := r.inFlight()
+		if reports == 0 && checks == 0 && gates == 0 && starting == 0 && launches == 0 {
 			return nil
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-deadline.C:
-			return fmt.Errorf("after %s the bridge still holds %d run reports, %d ask checks, %d resume gates and %d starting workers", timeout, reports, checks, gates, starting)
+			return fmt.Errorf("after %s the bridge still holds %d run reports, %d ask checks, %d resume gates, %d starting workers and %d launches", timeout, reports, checks, gates, starting, launches)
 		case <-tick.C:
 		}
 	}
 }
 
-func (r *router) inFlight() (reports, checks, gates, starting int) {
+func (r *router) inFlight() (reports, checks, gates, starting, launches int) {
 	r.mu.Lock()
-	checks, gates, starting = r.checking, r.gating, r.active-len(r.live)
+	checks, gates, starting, launches = r.checking, r.gating, r.active-len(r.live), r.launching
 	r.mu.Unlock()
 	if r.reports != nil {
 		reports = r.reports.Pending()
 	}
 
-	return reports, checks, gates, starting
+	return reports, checks, gates, starting, launches
 }
 
 // freeze takes the routing state for the next image, and holds back what

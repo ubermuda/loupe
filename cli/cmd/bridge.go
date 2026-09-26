@@ -183,8 +183,9 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 	if err != nil {
 		return fmt.Errorf("rule file %s: %w", path, err)
 	}
-	if _, err := lookPath("claude"); err != nil {
-		return fmt.Errorf("claude is not installed or not on PATH")
+	claude, err := resolveClaude()
+	if err != nil {
+		return err
 	}
 
 	cfg, err := config.Load()
@@ -243,8 +244,10 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		source:     newReloadSource(path, defaults, cfg, b.lock),
 		update:     b,
 		hookRunner: newHookRunner(hookList, bridgeID, bl.log),
+		claude:     claude,
 	}
 	r.set.Store(set)
+	cleanLaunchScripts(defaultScriptDir(), time.Now(), r.log)
 	r.log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()), "max_workers", o.maxWorkers, "log_file", bl.path, "bridge_id", bridgeID)
 	warnUnknownModes(r.log, set)
 
