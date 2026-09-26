@@ -16,10 +16,10 @@ path skips this.
 2. `just ci` is check-only. It reports style and rector violations but never
    rewrites files; `just cs` is the step that applies them. Fix every failure,
    including ones that pre-date your change.
-3. Run a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-sol"`.
+3. Run a Codex review with `mcp__codex-cli__review` and `model: "gpt-6-astra"`.
    Always pass the model explicitly. This Codex account rejects the model the
    tool picks by default.
-   `gpt-6-sol` needs Codex CLI 0.155.1 or later. An older CLI answers "requires
+   `gpt-6-astra` needs Codex CLI 0.153.0 or later. An older CLI answers "requires
    a newer version of Codex", so run `npm install -g @openai/codex@latest`.
 
 Review against `origin/main`, never `main`. Review a stacked branch against
@@ -92,7 +92,7 @@ A `codex review` with no output for ~5 minutes at near-zero CPU is hung,
 typically at MCP startup. Kill it and fall back to:
 
 ```bash
-codex exec -c model="gpt-6-sol" "Review the diff of this branch against origin/main (git diff origin/main...HEAD) for correctness bugs and convention violations. Actionable findings only."
+codex exec -c model="gpt-6-astra" "Review the diff of this branch against origin/main (git diff origin/main...HEAD) for correctness bugs and convention violations. Actionable findings only."
 ```
 
 ## A check is a fault until you have seen it fail
