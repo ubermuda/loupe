@@ -6,8 +6,10 @@ namespace App\Module\Bridge\Twig;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\Repository\WorkerRunUsageRepository;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\View\CardRunWarning;
+use App\Module\Bridge\View\CardUsageTotal;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Module\Project\Entity\Project;
 use Psr\Clock\ClockInterface;
@@ -25,6 +27,7 @@ final class CardWorkerRunsExtension extends AbstractExtension
 
     public function __construct(
         private readonly WorkerRunRepository $workerRuns,
+        private readonly WorkerRunUsageRepository $workerRunUsages,
         private readonly ClockInterface $clock,
     ) {
     }
@@ -35,6 +38,7 @@ final class CardWorkerRunsExtension extends AbstractExtension
         return [
             new TwigFunction('card_worker_runs', $this->cardWorkerRuns(...)),
             new TwigFunction('card_run_warnings', $this->cardRunWarnings(...)),
+            new TwigFunction('card_usage_total', $this->cardUsageTotal(...)),
         ];
     }
 
@@ -66,6 +70,29 @@ final class CardWorkerRunsExtension extends AbstractExtension
             // The card shows no history, so it loads none.
             static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, []),
             $this->workerRuns->findRecentForCard($project, Uuid::fromString($cardId), self::LIMIT),
+        );
+    }
+
+    /** Every run of the card counts, not only the ones the card lists. */
+    public function cardUsageTotal(Project $project, string $cardId): CardUsageTotal
+    {
+        if (!Uuid::isValid($cardId)) {
+            return new CardUsageTotal(known: false);
+        }
+
+        $card = Uuid::fromString($cardId);
+        $sums = $this->workerRunUsages->sumForCard($project, $card);
+        $runs = $this->workerRuns->findUsageStateOfCard($project, $card);
+
+        return new CardUsageTotal(
+            known: $runs['reported'] || $sums['rows'] > 0,
+            costUsd: 0 === $sums['rows'] ? '0' : $sums['cost'],
+            inputTokens: $sums['input'],
+            outputTokens: $sums['output'],
+            cacheReadTokens: $sums['cacheRead'],
+            cacheWriteTokens: $sums['cacheWrite'],
+            partialRuns: $runs['partial'],
+            estimated: $sums['estimated'],
         );
     }
 }

@@ -1153,6 +1153,14 @@
     .lp-card-run__kind {
         @apply shrink-0;
     }
+    /* The spend of every run of the card, under its run list. */
+    .lp-card-usage-total {
+        @apply m-0 flex flex-wrap items-center gap-2 text-xs text-fg-mute;
+    }
+    .lp-card-usage-total__label,
+    .lp-card-usage-total__cost {
+        @apply font-semibold text-ink;
+    }
     .lp-card-linked-list,
     .lp-card-feedback-list {
         @apply flex flex-col gap-2 list-none p-0 m-0 mt-3;

@@ -398,6 +398,8 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame('/projects/'.$project->id.'/worker-runs?search='.$runId, $row->attr('href'));
         self::assertStringContainsString('plan the card', $row->text());
         self::assertStringContainsString('Failed', $row->filter('.lp-status-chip')->text());
+        // The run reported no usage, so the total says so rather than show $0.00.
+        self::assertSame('Total usage Usage unknown', $crawler->filter('[data-card-runs] [data-card-usage-total]')->text());
         self::assertSame('/projects/'.$project->id.'/board/cards/'.$cardId.'/edit', $crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('href'));
         self::assertNull($crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('data-turbo-frame'));
 
@@ -418,6 +420,7 @@ final class CardCrudControllerTest extends WebTestCase
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$quiet->id);
         self::assertCount(0, $crawler->filter('[data-card-runs] [data-card-run]'));
+        self::assertCount(0, $crawler->filter('[data-card-usage-total]'));
         self::assertSelectorTextContains('[data-card-runs]', 'No agent has run on this card yet.');
     }
 
