@@ -20,16 +20,19 @@ type Process struct {
 }
 
 // Processes splits the session between the processes that started at starts.
-// A cost-state line belongs to the process of the last timed entry above it.
-// Lines above the first start are a baseline that no process spent.
+// A cost-state line belongs to the process of the last timed entry above it,
+// and lines above the first start are a baseline. A line holds the session
+// totals, so a process spent its last line minus the line above its first. A
+// process that wrote more after its last line was killed, and gets an estimate.
 func Processes(path string, starts []time.Time) ([]Process, error) {
 	if !sort.SliceIsSorted(starts, func(i, j int) bool { return starts[i].Before(starts[j]) }) {
 		return nil, fmt.Errorf("%w: the processes are not in start order", ErrUnmappable)
 	}
 
 	type state struct {
-		process int
-		usage   Usage
+		process  int
+		usage    Usage
+		followed bool
 	}
 	var states []state
 	process, torn := -1, false
@@ -45,12 +48,15 @@ func Processes(path string, starts []time.Time) ([]Process, error) {
 		if entry.Type == "cost-state" {
 			usage, err := DecodeModelUsage(entry.ModelUsage)
 			torn = torn || err != nil
-			states = append(states, state{process, usage})
+			states = append(states, state{process: process, usage: usage})
 
 			return
 		}
 		if ts, err := time.Parse(time.RFC3339Nano, entry.Timestamp); err == nil {
 			process = sort.Search(len(starts), func(i int) bool { return starts[i].After(ts) }) - 1
+			if n := len(states); n > 0 && states[n-1].process == process {
+				states[n-1].followed = true
+			}
 		}
 	})
 	if err != nil {
@@ -61,21 +67,25 @@ func Processes(path string, starts []time.Time) ([]Process, error) {
 	}
 
 	out := make([]Process, len(starts))
+	bases := map[int]Usage{}
 	prev := Usage{}
-	for _, s := range states {
+	for i, s := range states {
 		if !s.usage.covers(prev) {
 			return nil, fmt.Errorf("%w: the session totals go down", ErrUnmappable)
 		}
+		if i > 0 && s.process < states[i-1].process {
+			return nil, fmt.Errorf("%w: the cost-state lines are not in start order", ErrUnmappable)
+		}
 		if s.process >= 0 {
-			if out[s.process].Reported {
-				return nil, fmt.Errorf("%w: process %d has two cost-state lines", ErrUnmappable, s.process+1)
+			if _, ok := bases[s.process]; !ok {
+				bases[s.process] = prev
 			}
-			out[s.process] = Process{Usage: s.usage.Minus(prev), Reported: true}
+			out[s.process] = Process{Usage: s.usage.Minus(bases[s.process]), Reported: !s.followed}
 		}
 		prev = s.usage
 	}
 
-	// A process with no line was killed, so its window ends where the next starts.
+	// A killed process ends where the next one starts.
 	for i := range out {
 		if out[i].Reported {
 			continue

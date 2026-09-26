@@ -91,14 +91,42 @@ func TestProcessesTakeTheLinesBeforeTheFirstWorkerAsTheBaseline(t *testing.T) {
 	assertUsage(t, got[0].Usage, Usage{"claude-opus-5-5": {OutputTokens: 4, CostUSD: cost(0.3)}})
 }
 
-func TestProcessesRefuseTwoLinesInOneProcess(t *testing.T) {
+// A process can write a cost-state line before it ends. Its last line holds
+// its totals.
+func TestProcessesTakeTheLastLineOfAProcess(t *testing.T) {
 	path := writeTranscript(t,
 		userLine(0), costLine(10, "1"),
 		userLine(1), costLine(20, "2"),
+		userLine(5), costLine(25, "2.5"),
 	)
-	if _, err := Processes(path, []time.Time{at(0)}); !errors.Is(err, ErrUnmappable) {
-		t.Fatalf("Processes = %v, want ErrUnmappable", err)
+	got, err := Processes(path, []time.Time{at(0), at(5)})
+	if err != nil {
+		t.Fatal(err)
 	}
+	if len(got) != 2 || !got[0].Reported || !got[1].Reported {
+		t.Fatalf("Processes = %+v", got)
+	}
+	assertUsage(t, got[0].Usage, Usage{"claude-opus-5-5": {InputTokens: 1, OutputTokens: 20, CostUSD: cost(2)}})
+	assertUsage(t, got[1].Usage, Usage{"claude-opus-5-5": {OutputTokens: 5, CostUSD: cost(0.5)}})
+}
+
+// A process that wrote more after its last line was killed. The next process
+// counts from that line, because claude restarts its totals from it.
+func TestProcessesEstimateAProcessKilledAfterALine(t *testing.T) {
+	path := writeTranscript(t,
+		userLine(0), assistantLine(0, "a", 10), costLine(10, "1"),
+		assistantLine(1, "k", 7),
+		userLine(5), costLine(25, "2.5"),
+	)
+	got, err := Processes(path, []time.Time{at(0), at(5)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Reported || !got[1].Reported {
+		t.Fatalf("Processes = %+v", got)
+	}
+	assertUsage(t, got[0].Usage, Usage{"claude-opus-5-5": {OutputTokens: 17, CostUSD: cost(17 * 20 / 1e6)}})
+	assertUsage(t, got[1].Usage, Usage{"claude-opus-5-5": {OutputTokens: 15, CostUSD: cost(1.5)}})
 }
 
 func TestProcessesRefuseTotalsThatGoDown(t *testing.T) {
