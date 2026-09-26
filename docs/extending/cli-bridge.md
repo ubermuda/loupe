@@ -170,6 +170,43 @@ it, `claude -p` ends a worker 600 seconds after its main turn when a background
 subagent still runs, and exits 0. An operator who sets the variable, even to an
 empty value, keeps that value.
 
+Each outcome carries the tokens the worker process spent, per model, as the
+`usage` field of the [Worker run API](../reference/worker-runs.md#usage). A
+worker that ends on its own prints `modelUsage` in its JSON result. The bridge
+sends those counts with the source `reported`, and the cost claude computed.
+
+claude's counts cover the whole session, so a resume would count the earlier
+processes again. Before a resume starts, the bridge reads the last `cost-state`
+line of the session transcript. claude writes that line as each process ends,
+with the totals of the session. The bridge subtracts it from the counts the
+resume prints, per model and per count, and a count never goes below zero. When
+it cannot read the transcript, it sends the whole session marked `estimated`, so
+a later reported count can replace it.
+
+A worker the bridge kills prints nothing. The bridge then counts the assistant
+messages the process wrote to the transcript after it started, in the session
+file and in the files of its subagents. A streamed message repeats its entry, so
+the bridge counts each message id once. It sends that sum marked `estimated`.
+With no transcript, the run sends no `usage`, and Loupe reads its usage as
+unknown.
+
+The bridge finds the transcript at
+`<config>/projects/<directory>/<session id>.jsonl`, where `<config>` is
+`CLAUDE_CONFIG_DIR` or `~/.claude`. Subagent transcripts are in
+`<session id>/subagents/` beside it. The bridge keeps the baseline in the run
+record, so a run that a new image [adopts](#the-handover) reports the same way.
+
+An estimate takes its cost from a price table in the bridge,
+`cli/internal/transcript/prices.go`. The table holds Anthropic's list prices per
+million tokens for input, output and cache reads, and the date they were read. A
+cache write costs 1.25 times the input price for the five-minute cache, and 2
+times for the one-hour cache. A model that is not in the table has a null cost,
+and web search requests have no cost.
+
+The bridge drops a usage the server would refuse, such as one with more than 20
+models, and logs `usage_dropped`. The outcome still goes out. The old report of
+a server built before run states carries no usage.
+
 Loupe records a run against a card. A rule can name an event type that carries
 no card number, and the bridge sends no state for such a run. It logs
 `report_skipped` when the run ends. That run has no record, and the log line is
