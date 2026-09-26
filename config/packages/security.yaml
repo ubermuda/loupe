@@ -84,6 +84,7 @@ security:
         - { path: '^/api/events$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/worker-runs$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/worker-runs/[^/]+$', roles: ROLE_API_AGENT }
+        - { path: '^/api/projects/[^/]+/worker-runs/sessions/[^/]+/usage$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/interactive-runs/[^/]+$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/inbox/asks/[^/]+$', roles: ROLE_API_AGENT }
         - { path: '^/api/bridges/[^/]+/heartbeat$', roles: ROLE_API_AGENT }

@@ -40,6 +40,25 @@ final class PurgeExpiredWorkerRunsHandlerTest extends KernelTestCase
         self::assertNotNull($em->find(WorkerRun::class, $fresh->id));
     }
 
+    /** The spend of a card outlives the retention window of its runs. */
+    public function test_it_keeps_the_usage_of_a_deleted_run_unlinked(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'usage-sweep@example.com'), 'Swept Usage');
+        $expired = $this->seedRun($em, $project, new \DateTimeImmutable('2026-01-01 00:00:00'));
+        $usageId = $this->seedUsage($em, $expired)->id;
+
+        self::assertSame(1, ($this->handler())(new PurgeExpiredWorkerRunsCommand()));
+
+        $em->clear();
+        self::assertNull($em->find(WorkerRun::class, $expired->id));
+        self::assertSame(
+            [['id' => (string) $usageId, 'run_id' => null, 'project_id' => (string) $project->id, 'source' => 'reported']],
+            $em->getConnection()->fetchAllAssociative('SELECT id, run_id, project_id, source FROM bridge_worker_run_usage'),
+        );
+    }
+
     /** The sweep reads the flag, so an operator who shortens the window sees it apply on the next tick. */
     public function test_the_flag_moves_the_cut(): void
     {

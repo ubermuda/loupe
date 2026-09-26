@@ -10,6 +10,7 @@ use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
+use App\Module\Bridge\Service\WorkerRunUsageRecorder;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
@@ -24,7 +25,8 @@ use Ubermuda\AuditBundle\AuditSubject;
  * Records one state of a run, and moves the run forward only. A state the run
  * has not held leaves a history row even when it does not move the run. A late
  * report still fills a missing session and start, but outcome data follows the
- * state that owns it.
+ * state that owns it. The outcome that closes the run also writes its usage,
+ * through WorkerRunUsageRecorder.
  */
 final readonly class ReportWorkerRunStateHandler
 {
@@ -37,6 +39,7 @@ final readonly class ReportWorkerRunStateHandler
         private Auditor $auditor,
         private ClockInterface $clock,
         private WorkerRunChangedPublisher $publisher,
+        private WorkerRunUsageRecorder $usageRecorder,
     ) {
     }
 
@@ -175,6 +178,10 @@ final readonly class ReportWorkerRunStateHandler
             $command->resultFields,
             $command->resumeSkipped,
         );
+
+        if (null !== $command->usage) {
+            $this->usageRecorder->record($run, $command->usage);
+        }
     }
 
     private function audit(WorkerRun $run): void

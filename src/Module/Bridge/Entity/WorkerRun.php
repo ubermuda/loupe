@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Entity;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -92,6 +93,10 @@ class WorkerRun
     /** Why the bridge did not resume this run, such as card_moved. */
     #[ORM\Column(name: 'resume_skipped', length: self::MAX_RESUME_SKIPPED_LENGTH, nullable: true)]
     public ?string $resumeSkipped = null;
+
+    /** Where the WorkerRunUsage rows of the run come from. Null when an older bridge sent no usage. */
+    #[ORM\Column(name: 'usage_source', length: 20, nullable: true, enumType: WorkerRunUsageSource::class)]
+    public ?WorkerRunUsageSource $usageSource = null;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]

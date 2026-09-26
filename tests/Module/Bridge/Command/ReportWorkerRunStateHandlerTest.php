@@ -12,7 +12,10 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunModelUsage;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
+use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
@@ -403,6 +406,85 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertFalse($result->newState);
     }
 
+    public function test_the_outcome_that_closes_the_run_writes_its_usage(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-usage-first');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Running);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Succeeded, usage: self::usage(WorkerRunUsageSource::Reported, 'claude-opus', 10))->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunUsageSource::Reported, $run->usageSource);
+        self::assertSame([['claude-opus', 10]], $this->usageOf($run));
+    }
+
+    public function test_a_repeat_outcome_writes_no_usage(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-usage-repeat');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Succeeded, usage: self::usage(WorkerRunUsageSource::Estimated, 'claude-opus', 10));
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Succeeded, usage: self::usage(WorkerRunUsageSource::Reported, 'claude-sonnet', 20))->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunUsageSource::Estimated, $run->usageSource);
+        self::assertSame([['claude-opus', 10]], $this->usageOf($run));
+    }
+
+    /** The run already holds another closed state, so this outcome writes nothing of its own. */
+    public function test_an_outcome_that_does_not_move_the_run_writes_no_usage(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-usage-kept');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Dropped);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Failed, usage: self::usage(WorkerRunUsageSource::Reported, 'claude-opus', 10))->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertNull($run->usageSource);
+        self::assertSame([], $this->usageOf($run));
+    }
+
+    public function test_an_outcome_with_no_usage_leaves_the_usage_unknown(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-usage-absent');
+
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Succeeded)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertNull($run->usageSource);
+        self::assertSame([], $this->usageOf($run));
+    }
+
+    public function test_usage_with_no_models_records_a_run_that_spent_nothing(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-usage-zero');
+
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::NotStarted, usage: new WorkerRunUsageReport(WorkerRunUsageSource::Reported, []))->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunUsageSource::Reported, $run->usageSource);
+        self::assertSame([], $this->usageOf($run));
+    }
+
+    public function test_an_open_state_ignores_its_usage(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-usage-open');
+
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Running, usage: self::usage(WorkerRunUsageSource::Reported, 'claude-opus', 10))->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertNull($run->usageSource);
+        self::assertSame([], $this->usageOf($run));
+    }
+
     /** @return array{User, Project} */
     private function scenario(string $name): array
     {
@@ -431,6 +513,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         ?array $resultFields = null,
         ?string $resumeSkipped = null,
         ?Uuid $bridgeId = null,
+        ?WorkerRunUsageReport $usage = null,
     ): ReportWorkerRunStateResult {
         $outcome = $state->isOutcome();
         $started = $withStart && ($outcome || WorkerRunState::Running === $state);
@@ -470,7 +553,25 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             resumeCap: $resumeCap,
             cardColumn: $cardColumn,
             resumeSkipped: $resumeSkipped,
+            usage: $usage,
         ));
+    }
+
+    private static function usage(WorkerRunUsageSource $source, string $model, int $inputTokens): WorkerRunUsageReport
+    {
+        return new WorkerRunUsageReport($source, [new WorkerRunModelUsage($model, $inputTokens, 1, 2, 3, '0.500000')]);
+    }
+
+    /** @return list<array{string, int}> */
+    private function usageOf(WorkerRun $run): array
+    {
+        /** @var list<array{model: string, input_tokens: int}> $rows */
+        $rows = $this->em()->getConnection()->fetchAllAssociative(
+            'SELECT model, input_tokens FROM bridge_worker_run_usage WHERE run_id = ? ORDER BY model',
+            [(string) $run->id],
+        );
+
+        return array_map(static fn (array $row): array => [$row['model'], $row['input_tokens']], $rows);
     }
 
     /** What the timeout sweep and the run inventory write. */
