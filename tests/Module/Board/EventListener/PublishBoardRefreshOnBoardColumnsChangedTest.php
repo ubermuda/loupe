@@ -13,14 +13,8 @@ use App\Module\Board\Command\AddBoardColumnCommand;
 use App\Module\Board\Command\AddBoardColumnHandler;
 use App\Module\Board\Command\DeleteBoardColumnCommand;
 use App\Module\Board\Command\DeleteBoardColumnHandler;
-use App\Module\Board\Command\RenameBoardColumnCommand;
-use App\Module\Board\Command\RenameBoardColumnHandler;
 use App\Module\Board\Command\ReorderBoardColumnsCommand;
 use App\Module\Board\Command\ReorderBoardColumnsHandler;
-use App\Module\Board\Command\SetBoardColumnTerminalCommand;
-use App\Module\Board\Command\SetBoardColumnTerminalHandler;
-use App\Module\Board\Command\SetDefaultBoardColumnCommand;
-use App\Module\Board\Command\SetDefaultBoardColumnHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
@@ -88,17 +82,17 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $added = $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'Parked'));
         $this->assertPublishedAtTerminate(1);
 
-        $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($added, CardReporter::Human, 'On hold', $added->label));
+        $this->configureColumn($this->project, $added->slug, label: 'On hold');
         $this->assertPublishedAtTerminate(2);
 
         $order = array_map(static fn (BoardColumn $column): string => (string) $column->id, array_reverse($this->columns()));
         $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $order), implode(',', array_reverse($order))));
         $this->assertPublishedAtTerminate(3);
 
-        $this->handler(SetBoardColumnTerminalHandler::class)(new SetBoardColumnTerminalCommand($added, true, CardReporter::Human));
+        $this->configureColumn($this->project, 'on-hold', terminal: true);
         $this->assertPublishedAtTerminate(4);
 
-        $this->handler(SetDefaultBoardColumnHandler::class)(new SetDefaultBoardColumnCommand($this->column($this->project, 'next'), (string) $this->column($this->project, 'backlog')->id));
+        $this->configureColumn($this->project, 'next', isDefault: true);
         $this->assertPublishedAtTerminate(5);
 
         $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($added, CardReporter::Human));
@@ -160,10 +154,10 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
     public function test_a_change_that_changes_nothing_or_is_refused_publishes_nothing(): void
     {
         $backlog = $this->column($this->project, 'backlog');
-        $this->handler(SetDefaultBoardColumnHandler::class)(new SetDefaultBoardColumnCommand($backlog, (string) $backlog->id));
+        $this->configureColumn($this->project, 'backlog', isDefault: true);
 
         try {
-            $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($backlog, CardReporter::Human, 'Next', $backlog->label));
+            $this->configureColumn($this->project, 'backlog', label: 'Next');
             self::fail('a rename onto a slug the board already holds must be refused');
         } catch (DomainErrors) {
         }
@@ -209,7 +203,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         });
 
         try {
-            $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, 'Up next', $this->column($this->project, 'next')->label));
+            $this->configureColumn($this->project, 'next', label: 'Up next');
             self::fail('a failed transaction must propagate');
         } catch (\RuntimeException $e) {
             self::assertSame('the transaction failed after the rename', $e->getMessage());

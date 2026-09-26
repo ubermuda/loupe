@@ -160,33 +160,6 @@ it('defers a reload while a dropped card move is pending', async () => {
     expect(frame.reload).toHaveBeenCalledOnce();
 });
 
-it('defers a reload while a column drag runs, and reloads once it ends', async () => {
-    const frame = await mount({ src: '/projects/1/board' });
-    const column = document.createElement('section');
-    column.classList.add('lp-board__column--dragging');
-    frame.querySelector('.lp-board').append(column);
-    subscription().handler({ type: 'board.columns_changed' });
-    vi.advanceTimersByTime(3000);
-    expect(frame.reload).not.toHaveBeenCalled();
-    column.classList.remove('lp-board__column--dragging');
-    vi.advanceTimersByTime(300);
-    expect(frame.reload).toHaveBeenCalledOnce();
-});
-
-it('defers a reload while a column reorder is pending', async () => {
-    const frame = await mount({ src: '/projects/1/board' });
-    const form = document.createElement('form');
-    form.dataset.boardColumnsTarget = 'form';
-    form.setAttribute('aria-busy', 'true');
-    frame.querySelector('.lp-board').append(form);
-    subscription().handler({ type: 'board.columns_changed' });
-    vi.advanceTimersByTime(3000);
-    expect(frame.reload).not.toHaveBeenCalled();
-    form.removeAttribute('aria-busy');
-    vi.advanceTimersByTime(300);
-    expect(frame.reload).toHaveBeenCalledOnce();
-});
-
 it('defers a reload while a dialog is open, and reloads once it closes', async () => {
     const frame = await mount({ src: '/projects/1/board' });
     const dialog = document.createElement('dialog');
@@ -200,26 +173,9 @@ it('defers a reload while a dialog is open, and reloads once it closes', async (
     expect(frame.reload).toHaveBeenCalledOnce();
 });
 
-it('defers a reload while a column menu is open, and reloads once it hides', async () => {
+it('ignores a closed dialog', async () => {
     const frame = await mount({ src: '/projects/1/board' });
-    const panel = document.createElement('div');
-    panel.classList.add('lp-board__column-menu-panel');
-    frame.querySelector('.lp-board').append(panel);
-    subscription().handler({ type: 'worker_run.changed' });
-    vi.advanceTimersByTime(3000);
-    expect(frame.reload).not.toHaveBeenCalled();
-    panel.hidden = true;
-    vi.advanceTimersByTime(300);
-    expect(frame.reload).toHaveBeenCalledOnce();
-});
-
-it('ignores a closed dialog and a hidden column menu', async () => {
-    const frame = await mount({ src: '/projects/1/board' });
-    const panel = document.createElement('div');
-    panel.classList.add('lp-board__column-menu-panel');
-    panel.hidden = true;
-    panel.append(document.createElement('dialog'));
-    frame.querySelector('.lp-board').append(panel);
+    frame.querySelector('.lp-board').append(document.createElement('dialog'));
     subscription().handler({ type: 'worker_run.changed' });
     vi.advanceTimersByTime(300);
     expect(frame.reload).toHaveBeenCalledOnce();

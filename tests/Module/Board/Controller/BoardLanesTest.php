@@ -93,11 +93,12 @@ final class BoardLanesTest extends WebTestCase
         // Each lane repeats the column heads and counts its own cards, with no separate head row.
         self::assertSame(['1', '0', '0', '1', '1', '0', '0', '0'], $counts);
         self::assertCount(4, $lane->filter('.lp-board-lane__column .lp-board__column-head'));
-        self::assertCount(4, $lane->filter('[data-board-columns-target="column"] .lp-board__column-menu'));
-        self::assertCount(0, $other->filter('[data-board-columns-target="column"], .lp-board__column-menu'));
-        self::assertStringContainsString('lp-board-lane--controls', (string) $lane->attr('class'));
-        self::assertStringNotContainsString('lp-board-lane--controls', (string) $other->attr('class'));
-        self::assertCount(4, $crawler->filter('[data-board-columns-target="column"]'));
+        // Every lane shows the same column head: colour, label and count.
+        self::assertCount(8, $crawler->filter('.lp-board__column-head'));
+        self::assertCount(0, $crawler->filter('.lp-board__column-head button, .lp-board__column-head [draggable]'));
+        self::assertCount(4, $other->filter('.lp-board-lane__column[data-column-id]'));
+        self::assertStringContainsString('lp-board-lane--epic', (string) $lane->attr('class'));
+        self::assertStringContainsString('lp-board-lane--other', (string) $other->attr('class'));
         self::assertCount(0, $lane->filter('.lp-board__add-card'));
         self::assertCount(4, $other->filter('.lp-board__add-card'));
         self::assertSelectorTextContains('.lp-board-toolbar__count', '3 cards');

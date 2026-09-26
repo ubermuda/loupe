@@ -29,7 +29,7 @@
                 {% set column = view.column %}
                 {% set label = column.label|trans %}
                 {% set index = loop.index0 %}
-                <li class="lp-settings-column" data-column-id="{{ column.id }}">
+                <li class="lp-settings-column" data-column-id="{{ column.id }}" data-column-slug="{{ column.slug }}">
                     <span class="lp-tone-dot lp-tone-dot--{{ column.tone.value }}" aria-hidden="true"></span>
                     <div class="lp-settings-column__name">
                         <h3>{{ label }}</h3>
@@ -42,7 +42,7 @@
                             {% if board.columns[index + move.offset] is defined %}
                                 {% set moveForm = board_columns_reorder_form(board_column_order(board.columns, index, move.offset), board_column_order(board.columns, 0, 0)) %}
                                 {% set moveId = 'settings-move-' ~ column.id ~ '-' ~ loop.index %}
-                                <form method="post" action="{{ path('app_board_columns_reorder', {id: board.project.id, view: 'settings'}) }}">
+                                <form method="post" action="{{ path('app_board_columns_reorder', {id: board.project.id}) }}">
                                     {{ form_widget(moveForm._token, {id: moveId ~ '-token'}) }}
                                     {{ form_widget(moveForm.expectedOrder, {id: moveId ~ '-expected-order'}) }}
                                     {{ form_widget(moveForm.order, {id: moveId ~ '-order'}) }}
@@ -103,7 +103,7 @@
                             <button class="lp-btn lp-btn--ghost lp-btn--icon" type="button" aria-label="{{ 'board.column.delete.named'|trans({'%label%': label}) }}" data-action="click->modal#open">
                                 <twig:ux:icon name="lucide:trash-2" />
                             </button>
-                            {% include '@Board/_board_column_delete_dialog.html.twig' with {board: board, view: view, returnView: 'settings'} only %}
+                            {% include '@Board/_board_column_delete_dialog.html.twig' with {board: board, view: view} only %}
                         </div>
                         {% else %}
                         <span class="lp-settings-column__slot" aria-hidden="true"></span>

@@ -78,28 +78,6 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         self::assertContains($topics->forWorkerRuns($project->id), $subscribed);
     }
 
-    public function test_a_refused_column_form_renders_the_board_with_its_token(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
-
-        $owner = $this->user($em, 'board-refresh-refused@example.com');
-        $project = $this->project($em, $owner);
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
-        // The refusal forwards to the board, and only a main-request cookie is sent.
-        $form = $crawler->filter('form[name^="rename_board_column_"]')->first();
-        $name = $form->attr('name');
-        $crawler = $client->submit($form->form(), [$name.'[label]' => '🚀']);
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertCount(2, self::subscribedTopics($client->getResponse()) ?? []);
-        self::assertCount(2, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]'));
-    }
-
     public function test_a_stranger_gets_no_token(): void
     {
         $client = static::createClient();

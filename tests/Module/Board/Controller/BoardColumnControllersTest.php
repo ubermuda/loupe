@@ -10,7 +10,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\Form\ConfigureBoardColumnFormType;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
-use App\Module\Board\Form\RenameBoardColumnFormType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
@@ -98,8 +97,7 @@ final class BoardColumnControllersTest extends WebTestCase
         self::assertCount(1, $rows->last()->filter('button[aria-label="Move up"]'));
         self::assertCount(0, $rows->last()->filter('button[aria-label="Move down"]'));
         self::assertCount(4, $rows->filter('button[aria-label^="Configure "]'));
-        self::assertCount(0, $rows->filter('.lp-board__column-menu'));
-        // The default and the last terminal column cannot go, as on the board.
+        // The default and the last terminal column cannot go.
         self::assertCount(2, $rows->filter('button[aria-label^="Delete "]'));
 
         $this->client->submit($rows->eq(1)->filter('button[aria-label="Move down"]')->form());
@@ -244,7 +242,7 @@ final class BoardColumnControllersTest extends WebTestCase
         $this->em->clear();
         $crawler = $this->client->request(Request::METHOD_GET, $url);
         self::assertResponseIsSuccessful();
-        $form = $crawler->filter('form[action$="/reorder?view=settings"]')->first()->form();
+        $form = $crawler->filter('form[action$="/columns/reorder"]')->first()->form();
         $this->client->submit($form);
         self::assertResponseRedirects($url);
         $saved = $this->slugs($project);
@@ -258,51 +256,18 @@ final class BoardColumnControllersTest extends WebTestCase
         self::assertSame($saved, $this->slugs($project));
     }
 
-    public function test_the_owner_sees_the_column_controls(): void
+    public function test_the_board_offers_no_column_controls(): void
     {
         [, $project] = $this->ownedBoard('columns-controls@example.com');
 
         $crawler = $this->board($project);
 
-        self::assertCount(4, $crawler->filter('.lp-board__column-menu'));
-        self::assertCount(4, $crawler->filter('[data-board-columns-target="column"] [draggable="true"]'));
-        // Columns are added from board settings, never from the board itself.
-        self::assertCount(0, $crawler->filter('form[action$="/board/columns"]'));
-    }
-
-    public function test_the_owner_renames_a_column_through_its_dialog(): void
-    {
-        [, $project] = $this->ownedBoard('columns-rename@example.com');
-        $next = $this->column($project, 'next');
-        $crawler = $this->board($project);
-
-        $name = RenameBoardColumnFormType::nameFor($next);
-        $form = $crawler->filter('form[name="'.$name.'"]');
-        // A seeded label is a translation key, and the dialog offers the name the board shows.
-        self::assertSame('Next', $form->filter('input[name="'.$name.'[label]"]')->attr('value'));
-
-        $this->client->submit($form->form(), [$name.'[label]' => 'Up next']);
-
-        self::assertResponseRedirects('/projects/'.$project->id.'/board');
-        self::assertSame(['backlog', 'up-next', 'in-progress', 'done'], $this->slugs($project));
-        self::assertSame('human', $this->outboxPayload($project, 'board.column_renamed')['actor'] ?? null);
-    }
-
-    public function test_a_refused_rename_reopens_its_dialog_with_the_error(): void
-    {
-        [, $project] = $this->ownedBoard('columns-rename-refused@example.com');
-        $next = $this->column($project, 'next');
-        $crawler = $this->board($project);
-
-        $name = RenameBoardColumnFormType::nameFor($next);
-        $crawler = $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form(), [$name.'[label]' => '🚀']);
-
-        self::assertResponseStatusCodeSame(422);
-        $menu = $crawler->filter('[data-column-id="'.$next->id.'"] .lp-board__column-menu');
-        self::assertCount(1, $menu->filter('[data-modal-reopen-value="true"]'));
-        self::assertCount(0, $menu->filter('.lp-board__column-menu-panel[hidden]'));
-        self::assertStringContainsString('at least one letter or digit', $menu->filter('.lp-field-errors')->text());
-        self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs($project));
+        // Columns change from board settings only, never from the board itself.
+        self::assertCount(0, $crawler->filter('form[action*="/board/columns"]'));
+        self::assertCount(0, $crawler->filter('.lp-board__column-head button, .lp-board__column-head [draggable]'));
+        $settings = $crawler->filter('.lp-board-toolbar a[href$="/settings/columns"]');
+        self::assertSame('Board settings', $settings->attr('aria-label'));
+        self::assertSame('Board settings', $settings->attr('title'));
     }
 
     public function test_the_rename_preview_answers_with_the_slug_the_server_derives(): void
@@ -316,43 +281,11 @@ final class BoardColumnControllersTest extends WebTestCase
         self::assertSame('wan-le', $crawler->filter('turbo-frame#board-column-slug-'.$next->id.' code')->text());
     }
 
-    public function test_the_owner_moves_a_column_right_from_its_menu(): void
-    {
-        [, $project] = $this->ownedBoard('columns-move@example.com');
-        $crawler = $this->board($project);
-
-        $button = $crawler->filter('[data-column-slug="backlog"] .lp-board__column-menu-item')->reduce(
-            static fn (Crawler $item): bool => 'Move right' === trim($item->text()),
-        );
-        $this->client->submit($button->form());
-
-        self::assertResponseRedirects('/projects/'.$project->id.'/board');
-        self::assertSame(['next', 'backlog', 'in-progress', 'done'], $this->slugs($project));
-    }
-
-    public function test_the_owner_marks_a_column_terminal_and_makes_another_the_default(): void
-    {
-        [, $project] = $this->ownedBoard('columns-flags@example.com');
-        $crawler = $this->board($project);
-
-        $this->client->submit($crawler->filter('form[action$="/columns/'.$this->column($project, 'in-progress')->id.'/terminal"]')->form());
-        self::assertResponseRedirects('/projects/'.$project->id.'/board');
-
-        $crawler = $this->board($project);
-        $this->client->submit($crawler->filter('form[action$="/columns/'.$this->column($project, 'next')->id.'/default"]')->form());
-        self::assertResponseRedirects('/projects/'.$project->id.'/board');
-
-        $this->em->clear();
-        self::assertTrue($this->column($project, 'in-progress')->terminal);
-        self::assertTrue($this->column($project, 'next')->isDefault);
-        self::assertFalse($this->column($project, 'backlog')->isDefault);
-    }
-
-    public function test_the_board_offers_no_delete_for_the_default_or_the_last_terminal_column(): void
+    public function test_settings_offers_no_delete_for_the_default_or_the_last_terminal_column(): void
     {
         [, $project] = $this->ownedBoard('columns-no-delete@example.com');
 
-        $crawler = $this->board($project);
+        $crawler = $this->settings($project);
 
         self::assertCount(0, $crawler->filter('form[name="'.DeleteBoardColumnFormType::nameFor($this->column($project, 'backlog')).'"]'));
         self::assertCount(0, $crawler->filter('form[name="'.DeleteBoardColumnFormType::nameFor($this->column($project, 'done')).'"]'));
@@ -367,7 +300,7 @@ final class BoardColumnControllersTest extends WebTestCase
         $next = $this->column($project, 'next');
         $this->em->clear();
 
-        $crawler = $this->board($project);
+        $crawler = $this->settings($project);
 
         $name = DeleteBoardColumnFormType::nameFor($next);
         $dialog = $crawler->filter('form[name="'.$name.'"]')->ancestors()->filter('dialog');
@@ -385,7 +318,7 @@ final class BoardColumnControllersTest extends WebTestCase
         $name = DeleteBoardColumnFormType::nameFor($this->column($project, 'next'));
         $this->em->clear();
 
-        $crawler = $this->board($project);
+        $crawler = $this->settings($project);
 
         $form = $crawler->filter('form[name="'.$name.'"]');
         self::assertCount(1, $form);
@@ -402,12 +335,12 @@ final class BoardColumnControllersTest extends WebTestCase
         $next = $this->column($project, 'next');
         $target = (string) $this->column($project, 'backlog')->id;
         $this->em->clear();
-        $crawler = $this->board($project);
+        $crawler = $this->settings($project);
 
         $name = DeleteBoardColumnFormType::nameFor($next);
         $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form([$name.'[target]' => $target]));
 
-        self::assertResponseRedirects('/projects/'.$project->id.'/board');
+        self::assertResponseRedirects('/projects/'.$project->id.'/settings/columns');
         self::assertSame(['backlog', 'in-progress', 'done'], $this->slugs($project));
         $this->em->clear();
         $moved = $this->em->find(Card::class, $cardId);
@@ -430,12 +363,12 @@ final class BoardColumnControllersTest extends WebTestCase
         $cardId = $card->id;
         $done = $this->column($project, 'done');
         $target = (string) $this->column($project, 'next')->id;
-        $crawler = $this->board($project);
+        $crawler = $this->settings($project);
 
         $name = DeleteBoardColumnFormType::nameFor($done);
         $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form([$name.'[target]' => $target]));
 
-        self::assertResponseRedirects('/projects/'.$project->id.'/board');
+        self::assertResponseRedirects('/projects/'.$project->id.'/settings/columns');
         self::assertSame(['backlog', 'next', 'in-progress'], $this->slugs($project));
         $moved = $this->em->find(Card::class, $cardId);
         self::assertInstanceOf(Card::class, $moved);
@@ -447,12 +380,12 @@ final class BoardColumnControllersTest extends WebTestCase
     {
         [, $project] = $this->ownedBoard('columns-delete-csrf@example.com');
         $next = $this->column($project, 'next');
-        $crawler = $this->board($project);
+        $crawler = $this->settings($project);
 
         $name = DeleteBoardColumnFormType::nameFor($next);
         $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form([$name.'[_token]' => 'forged']));
 
-        self::assertResponseRedirects('/projects/'.$project->id.'/board');
+        self::assertResponseRedirects('/projects/'.$project->id.'/settings/columns');
         self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs($project));
         $this->client->followRedirect();
         self::assertSelectorTextContains('body', 'The page expired');
@@ -463,11 +396,7 @@ final class BoardColumnControllersTest extends WebTestCase
     {
         yield 'add' => [Request::METHOD_POST, '/columns'];
         yield 'reorder' => [Request::METHOD_POST, '/columns/reorder'];
-        yield 'rename' => [Request::METHOD_POST, 'rename'];
         yield 'rename preview' => [Request::METHOD_GET, 'rename-preview'];
-        yield 'terminal' => [Request::METHOD_POST, 'terminal'];
-        yield 'not terminal' => [Request::METHOD_POST, 'not-terminal'];
-        yield 'default' => [Request::METHOD_POST, 'default'];
         yield 'delete' => [Request::METHOD_POST, 'delete'];
         yield 'configure' => [Request::METHOD_POST, 'configure'];
     }
@@ -495,11 +424,7 @@ final class BoardColumnControllersTest extends WebTestCase
     /** @return iterable<string, array{string, string}> */
     public static function columnRoutes(): iterable
     {
-        yield 'rename' => [Request::METHOD_POST, 'rename'];
         yield 'rename preview' => [Request::METHOD_GET, 'rename-preview'];
-        yield 'terminal' => [Request::METHOD_POST, 'terminal'];
-        yield 'not terminal' => [Request::METHOD_POST, 'not-terminal'];
-        yield 'default' => [Request::METHOD_POST, 'default'];
         yield 'delete' => [Request::METHOD_POST, 'delete'];
         yield 'configure' => [Request::METHOD_POST, 'configure'];
     }

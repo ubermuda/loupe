@@ -44,7 +44,6 @@ final class ShowBoardController extends AppController
         return $this->render($request->attributes->getBoolean('boardSettings') ? '@Board/show_board_settings.html.twig' : '@Board/show_board.html.twig', [
             'board' => ($this->showBoard)(new ShowBoardCommand($project)),
             'addColumnForm' => $this->getInjectedFormView($request, 'addColumnForm'),
-            'renameColumnForm' => $this->getInjectedFormView($request, 'renameColumnForm'),
             'configureColumnForm' => $this->getInjectedFormView($request, 'configureColumnForm'),
             'boardTopic' => $this->topics->forBoard($project->id ?? throw new \LogicException('Project has no id.')),
         ]);

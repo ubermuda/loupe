@@ -56,7 +56,6 @@ final class DeleteBoardColumnController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(columnId, projectId)')] BoardColumn $column,
     ): Response {
         $this->board->requireEnabled();
-        $settings = 'settings' === $request->query->get('view');
 
         $projectId = (string) $column->project->id;
         $label = $this->translator->trans($column->label);
@@ -69,7 +68,7 @@ final class DeleteBoardColumnController extends AppController
         if (!$form->isSubmitted() || !$form->isValid()) {
             $this->addFlash('error', $this->translator->trans(self::rejection($form)));
 
-            return $this->redirectToRoute($settings ? 'app_board_settings' : 'app_project_board', ['id' => $projectId]);
+            return $this->redirectToRoute('app_board_settings', ['id' => $projectId]);
         }
 
         try {
@@ -82,7 +81,7 @@ final class DeleteBoardColumnController extends AppController
             $this->addFlash('error', $this->translator->trans(array_first($e->errors)));
         }
 
-        return $this->redirectToRoute($settings ? 'app_board_settings' : 'app_project_board', ['id' => $projectId]);
+        return $this->redirectToRoute('app_board_settings', ['id' => $projectId]);
     }
 
     /**

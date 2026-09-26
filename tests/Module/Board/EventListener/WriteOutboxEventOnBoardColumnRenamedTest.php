@@ -6,9 +6,6 @@ namespace App\Tests\Module\Board\EventListener;
 
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
-use App\Module\Board\Command\RenameBoardColumnCommand;
-use App\Module\Board\Command\RenameBoardColumnHandler;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnRenamed;
 use App\Module\Project\Entity\Project;
 use App\Outbox\Entity\OutboxEvent;
@@ -23,7 +20,6 @@ final class WriteOutboxEventOnBoardColumnRenamedTest extends KernelTestCase
     use BoardColumnFixtures;
 
     private EntityManagerInterface $em;
-    private RenameBoardColumnHandler $rename;
     private OutboxEventRepository $outbox;
     private Project $project;
 
@@ -34,10 +30,6 @@ final class WriteOutboxEventOnBoardColumnRenamedTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
-
-        $rename = self::getContainer()->get(RenameBoardColumnHandler::class);
-        self::assertInstanceOf(RenameBoardColumnHandler::class, $rename);
-        $this->rename = $rename;
 
         $outbox = self::getContainer()->get(OutboxEventRepository::class);
         self::assertInstanceOf(OutboxEventRepository::class, $outbox);
@@ -56,7 +48,7 @@ final class WriteOutboxEventOnBoardColumnRenamedTest extends KernelTestCase
     {
         $next = $this->column($this->project, 'next');
 
-        ($this->rename)(new RenameBoardColumnCommand($next, CardReporter::Human, 'Up next', $next->label));
+        $this->configureColumn($this->project, 'next', label: 'Up next');
 
         $row = $this->onlyRow();
         self::assertSame([
@@ -80,7 +72,7 @@ final class WriteOutboxEventOnBoardColumnRenamedTest extends KernelTestCase
         $next = $this->column($this->project, 'next');
         $dispatched = $this->countDispatches();
 
-        ($this->rename)(new RenameBoardColumnCommand($next, CardReporter::Human, 'NEXT!', $next->label));
+        $this->configureColumn($this->project, 'next', label: 'NEXT!');
 
         // Guard: the rename happened and dispatched its event, so the empty
         // outbox below is the listener's choice.
@@ -110,7 +102,7 @@ final class WriteOutboxEventOnBoardColumnRenamedTest extends KernelTestCase
         }, -10);
 
         try {
-            ($this->rename)(new RenameBoardColumnCommand($next, CardReporter::Human, 'Up next', $next->label));
+            $this->configureColumn($this->project, 'next', label: 'Up next');
             self::fail('a failed transaction must propagate');
         } catch (\RuntimeException $e) {
             self::assertSame('the transaction failed after the rename', $e->getMessage());

@@ -10,44 +10,6 @@
 
 {% block body %}
 <div class="lp-workspace lp-split-page lp-core-prototype-page lp-core-board" data-controller="card-drawer">
-    <header class="lp-board-head">
-        <div>
-            <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.page.title'|trans }}</h1>
-            <p class="lp-workspace-desc">{{ 'board.page.description'|trans }}</p>
-        </div>
-        <div class="lp-board-head__actions">
-            <a class="lp-btn" href="{{ path('app_board_settings', {id: board.project.id}) }}">
-                <twig:ux:icon name="lucide:settings" class="w-4 h-4 shrink-0" />
-                {{ 'board.settings.action'|trans }}
-            </a>
-            <a class="lp-btn lp-btn--primary" href="{{ path('app_board_card_create', {id: board.project.id}) }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
-                <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
-                {{ 'board.card.create.action'|trans }}
-            </a>
-        </div>
-    </header>
-
-    {% if board.deadBridgeRules is not empty and is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), board.project) %}
-    <section class="lp-board-rules" role="status" data-testid="bridge-rules-banner">
-        <twig:ux:icon name="lucide:triangle-alert" class="lp-board-rules__icon w-4 h-4" />
-        <div class="lp-board-rules__body">
-            <p class="lp-board-rules__title">{{ 'board.bridge_rules.title'|trans({'%count%': board.deadBridgeRules|length}) }}</p>
-            <ul class="lp-board-rules__list">
-                {% for rule in board.deadBridgeRules %}
-                <li class="lp-board-rules__rule" data-bridge-rule="{{ rule.name }}">
-                    <code class="lp-board-rules__code">{{ rule.name }}</code>
-                    <span>{{ 'board.bridge_rules.columns'|trans }} {% for slug in rule.columns %}<code class="lp-board-rules__code">{{ slug }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</span>
-                    <span>{{ 'board.bridge_rules.reason'|trans }} <code class="lp-board-rules__code">{{ rule.reason }}</code></span>
-                    <span>{{ 'board.bridge_rules.bridge'|trans }} <code class="lp-board-rules__code" title="{{ rule.bridgeId }}">{{ rule.bridgeId|slice(0, 8) }}</code></span>
-                    <time datetime="{{ rule.reportedAt|date('c') }}">{{ 'board.bridge_rules.reported'|trans({'%date%': rule.reportedAt|date('M j, Y H:i')}) }}</time>
-                </li>
-                {% endfor %}
-            </ul>
-            <p class="lp-board-rules__hint">{{ 'board.bridge_rules.hint'|trans }}</p>
-        </div>
-    </section>
-    {% endif %}
-
     {# A column change or a worker run elsewhere reloads this frame, and a card change places that card. #}
     {% do mercure_subscribe(boardTopic) %}
     {% do mercure_subscribe(worker_runs_topic(board.project)) %}
@@ -60,7 +22,7 @@
          data-action="board-live:reload->board-refresh#reload">
         {# No src here: board-refresh sets it without a load, so the first reload morphs. #}
         <turbo-frame id="board-frame" target="_top" refresh="morph" data-board-refresh-target="frame">
-            {% include '@Board/_board_columns.html.twig' with {board: board, renameColumnForm: renameColumnForm} only %}
+            {% include '@Board/_board_columns.html.twig' with {board: board} only %}
         </turbo-frame>
     </div>
 

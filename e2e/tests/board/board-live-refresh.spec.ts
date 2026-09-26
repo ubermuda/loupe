@@ -1,6 +1,7 @@
 /**
- * Browser coverage for the live board refresh: a column renamed in one browser
- * shows in a second browser on the same board, with no navigation there. The
+ * Browser coverage for the live board refresh: a column renamed from board
+ * settings in one browser shows in a second browser on the same board, with no
+ * navigation there. The
  * hub delivers the nudge, so the run needs a Mercure hub the browser can reach.
  */
 
@@ -14,7 +15,7 @@ import { signedInPage } from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eBoardRefresh1!';
-const COLUMN = '[data-board-columns-target="column"]';
+const COLUMN = 'section.lp-board__column';
 
 async function setFlag(
     request: APIRequestContext,
@@ -112,15 +113,17 @@ test('a column renamed in one browser shows in another without a reload', async 
             (column as unknown as { kept: boolean }).kept = true;
         });
 
-    const next = editor.locator(`${COLUMN}[data-column-slug="next"]`);
-    await next.locator('.lp-board__column-menu-trigger').click();
-    await next.getByRole('button', { name: 'Rename' }).click();
+    await editor.goto(boardUrl.replace(/\/board$/, '/settings/columns'));
+    const settings = editor.locator('[data-board-column-settings]');
+    await settings
+        .getByRole('button', { name: 'Configure Next', exact: true })
+        .click();
     const dialog = editor.locator('dialog[open]');
-    await dialog.getByLabel('Name').fill('Up next');
-    await dialog.getByRole('button', { name: 'Save name' }).click();
+    await dialog.getByLabel('Column name', { exact: true }).fill('Up next');
+    await dialog.getByRole('button', { name: 'Save column' }).click();
     await expect(
-        editor.locator(`${COLUMN}[data-column-slug="up-next"]`),
-    ).toHaveCount(1);
+        settings.getByRole('heading', { name: 'Up next', exact: true }),
+    ).toBeVisible();
 
     await expect(
         watcher.locator(`${COLUMN}[data-column-slug="up-next"] h2`),

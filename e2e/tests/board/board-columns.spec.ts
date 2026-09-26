@@ -1,8 +1,8 @@
 /**
- * Browser coverage for editing a board's columns: add a column and configure
- * one from board settings, rename one with its slug preview, drag a header to
- * reorder, and delete a column whose cards move to a target. Each change is
- * read back after a reload, because the server is what decides.
+ * Browser coverage for editing a board's columns from board settings: add,
+ * configure, rename with its slug preview, reorder, and delete a column whose
+ * cards move to a target. The board itself offers no column controls. Each
+ * change is read back after a reload, because the server is what decides.
  */
 
 import {
@@ -17,7 +17,7 @@ import { expectFilterFocusRingVisible } from '../helpers';
 const RUN = Date.now();
 const PASSWORD = 'E2eBoardColumns1!';
 
-const COLUMN = '[data-board-columns-target="column"]';
+const COLUMN = 'section.lp-board__column';
 
 // Under a loaded run, the POST and the redirected GET take longer than the 5 s default.
 const ROUND_TRIP = { timeout: process.env.COVERAGE ? 20_000 : 15_000 };
@@ -104,11 +104,16 @@ async function addColumnFromSettings(
     ).toBeVisible(ROUND_TRIP);
 }
 
-async function openMenu(page: Page, slug: string): Promise<void> {
+async function openSettingsDialog(
+    page: Page,
+    projectId: string,
+    slug: string,
+    action: string,
+): Promise<void> {
+    await page.goto(`/projects/${projectId}/settings/columns`);
     await page
-        .locator(
-            `${COLUMN}[data-column-slug="${slug}"] .lp-board__column-menu-trigger`,
-        )
+        .locator(`[data-board-column-settings] [data-column-slug="${slug}"]`)
+        .getByRole('button', { name: action, exact: true })
         .click();
 }
 
@@ -186,7 +191,7 @@ test('board controls remain usable at enlarged text sizes without page overflow'
                 )
                 .toBeLessThanOrEqual(1);
             for (const link of await page
-                .locator('.lp-board-head__actions a')
+                .locator('.lp-board-toolbar__actions a')
                 .all()) {
                 await expect(link).toBeInViewport({ ratio: 1 });
                 expect(
@@ -564,80 +569,72 @@ test('an owner adds a column after the last one', async ({ page, board }) => {
 });
 
 test('a rename shows the new slug before it saves', async ({ page, board }) => {
-    await openMenu(page, 'next');
-    await page
-        .locator(`${COLUMN}[data-column-slug="next"]`)
-        .getByRole('button', { name: 'Rename' })
-        .click();
+    await openSettingsDialog(page, board.projectId, 'next', 'Configure Next');
 
     const dialog = page.locator('dialog[open]');
-    await dialog.getByLabel('Name').fill('Up next!');
+    await dialog.getByLabel('Column name', { exact: true }).fill('Up next!');
     await expect(dialog.locator('.lp-board__slug-value')).toHaveText('up-next');
 
-    await dialog.getByRole('button', { name: 'Save name' }).click();
+    await dialog.getByRole('button', { name: 'Save column' }).click();
+    await expect(
+        page
+            .locator('[data-board-column-settings]')
+            .getByRole('heading', { name: 'Up next!', exact: true }),
+    ).toBeVisible(ROUND_TRIP);
 
-    await expect
-        .poll(() => slugs(page), ROUND_TRIP)
-        .toEqual(['backlog', 'up-next', 'in-progress', 'done']);
     await page.goto(board.boardUrl);
+    expect(await slugs(page)).toEqual([
+        'backlog',
+        'up-next',
+        'in-progress',
+        'done',
+    ]);
     await expect(
         page.locator(`${COLUMN}[data-column-slug="up-next"] h2`),
     ).toHaveText('Up next!');
 });
 
-test('a header dragged past its neighbour reorders the columns', async ({
+test('the board header holds the title and actions on one row, and columns offer no controls', async ({
     page,
-    board,
 }) => {
-    const columnsDoNotOverlap = await page
-        .locator(COLUMN)
-        .evaluateAll((columns) => {
-            const rectangles = columns.map((column) =>
-                column.getBoundingClientRect(),
-            );
-
-            return rectangles.every(
-                (rectangle, index) =>
-                    index === 0 ||
-                    rectangles[index - 1].right <= rectangle.left,
-            );
-        });
-    expect(columnsDoNotOverlap).toBe(true);
-    const grip = page.locator(
-        `${COLUMN}[data-column-slug="backlog"] .lp-board__column-grip`,
-    );
-    const target = page.locator(`${COLUMN}[data-column-slug="in-progress"]`);
-    const width = await target.evaluate(
-        (element) => element.getBoundingClientRect().width,
-    );
-
-    // Past the middle of In progress, so Backlog lands after it.
-    const written = page.waitForResponse((response) =>
-        response.url().endsWith('/board/columns/reorder'),
-    );
-    await grip.dragTo(target, {
-        targetPosition: { x: width - 8, y: 24 },
+    const toolbar = page.locator('.lp-board-toolbar');
+    const title = toolbar.getByRole('heading', { level: 1 });
+    const addCard = toolbar.getByRole('link', {
+        name: 'Add card',
+        exact: true,
     });
-    await written;
+    await expect(title).toBeVisible();
+    const titleBox = await title.boundingBox();
+    const addCardBox = await addCard.boundingBox();
+    expect(titleBox).not.toBeNull();
+    expect(addCardBox).not.toBeNull();
+    // One row: the title and Add card share a vertical band.
+    expect(
+        Math.abs(
+            titleBox!.y +
+                titleBox!.height / 2 -
+                (addCardBox!.y + addCardBox!.height / 2),
+        ),
+    ).toBeLessThanOrEqual(8);
+    await expect(
+        toolbar.getByRole('link', { name: 'Board settings', exact: true }),
+    ).toHaveAttribute('title', 'Board settings');
 
-    await page.goto(board.boardUrl);
-    expect(await slugs(page)).toEqual([
-        'next',
-        'in-progress',
-        'backlog',
-        'done',
-    ]);
+    const heads = page.locator(`${COLUMN} .lp-board__column-head`);
+    await expect(heads).toHaveCount(4);
+    await expect(heads.locator('button, [draggable]')).toHaveCount(0);
 });
 
 test('an empty column asks for confirmation before it is deleted', async ({
     page,
     board,
 }) => {
-    await openMenu(page, 'in-progress');
-    await page
-        .locator(`${COLUMN}[data-column-slug="in-progress"]`)
-        .getByRole('button', { name: 'Delete column' })
-        .click();
+    await openSettingsDialog(
+        page,
+        board.projectId,
+        'in-progress',
+        'Delete In progress',
+    );
 
     const dialog = page.locator('dialog[open]');
     await expect(dialog).toBeVisible();
@@ -654,11 +651,12 @@ test('an empty column asks for confirmation before it is deleted', async ({
         'done',
     ]);
 
-    await openMenu(page, 'in-progress');
-    await page
-        .locator(`${COLUMN}[data-column-slug="in-progress"]`)
-        .getByRole('button', { name: 'Delete column' })
-        .click();
+    await openSettingsDialog(
+        page,
+        board.projectId,
+        'in-progress',
+        'Delete In progress',
+    );
     await page
         .locator('dialog[open]')
         .getByRole('button', { name: 'Delete the column' })
@@ -673,21 +671,11 @@ test('a column with cards is deleted into the target the dialog picks', async ({
     page,
     board,
 }) => {
-    await openMenu(page, 'next');
-    await page
-        .locator(`${COLUMN}[data-column-slug="next"]`)
-        .getByRole('button', { name: 'Delete column' })
-        .click();
+    await openSettingsDialog(page, board.projectId, 'next', 'Delete Next');
 
     const dialog = page.locator('dialog[open]');
     await expect(dialog).toContainText('holds 1 card');
     await expect(dialog.getByLabel('Move the cards to')).toBeVisible();
-    expect(await slugs(page)).toEqual([
-        'backlog',
-        'next',
-        'in-progress',
-        'done',
-    ]);
     await dialog
         .getByLabel('Move the cards to')
         .selectOption({ label: 'In progress' });
