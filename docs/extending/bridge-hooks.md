@@ -274,6 +274,10 @@ checks the time and your input only when an event fires. After an `idle` by
 day, the timed session ends at the start of `quiet_hours`, even when you leave
 the Mac earlier.
 
+On a night when the clock changes, a `quiet_hours` edge between 01:00 and 03:00
+can put the end of a timed session off by up to an hour. The default window
+has no edge in those hours.
+
 When Amphetamine is not installed, each run that calls it fails and logs
 `hook_failed`. `busy` always calls it. The bridge keeps running, and the Mac can
 sleep.
