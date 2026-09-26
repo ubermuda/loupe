@@ -82,6 +82,25 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM bridge_worker_run_states'));
     }
 
+    /** A usage row outlives its run, so the project delete must take it on its own. */
+    public function test_deleting_a_project_takes_its_usage_and_leaves_another_projects_usage(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'usage-delete@example.com');
+        $doomed = $this->project($em, $owner, 'Doomed Usage');
+        $kept = $this->project($em, $owner, 'Kept Usage');
+        $this->seedUsage($em, $this->seedRun($em, $doomed));
+        $keptUsageId = $this->seedUsage($em, $this->seedRun($em, $kept))->id;
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        self::assertSame(1, $this->countUsage($em));
+        self::assertSame((string) $keptUsageId, $em->getConnection()->fetchOne('SELECT id FROM bridge_worker_run_usage'));
+    }
+
     /**
      * One bridge follows several projects, so deleting one of them leaves the
      * bridge row and its list alone. The next heartbeat drops the id.

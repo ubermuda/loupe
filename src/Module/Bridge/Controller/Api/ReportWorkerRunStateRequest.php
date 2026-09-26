@@ -95,6 +95,10 @@ final class ReportWorkerRunStateRequest
 
         #[Assert\Length(max: WorkerRun::MAX_RESUME_SKIPPED_LENGTH)]
         public ?string $resumeSkipped = null,
+
+        /** Checked on every state, and stored from an outcome alone. */
+        #[Assert\Valid]
+        public ?WorkerRunUsageInput $usage = null,
     ) {
     }
 

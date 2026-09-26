@@ -27,17 +27,10 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# A cli/vX.Y.Z tag is no semver, so a snapshot must not read .Version.
 snapshot:
-  version_template: "{{ incpatch .Version }}-next"
+  version_template: "0.0.0-snapshot-{{ .ShortCommit }}"
 
+# The cli-release workflow publishes with `gh`, which writes the notes.
 changelog:
-  use: github
-  filters:
-    exclude:
-      - "^docs:"
-      - "^chore:"
-      - "^test:"
-
-# Published at once: the cli-release workflow runs this on a `v*` tag push.
-release:
-  draft: false
+  disable: true

@@ -63,6 +63,7 @@ final readonly class WorkerRunExporter implements UserDataExporterInterface
                 'resumeCap' => $run->resumeCap,
                 'cardColumn' => $run->cardColumn,
                 'resumeSkipped' => $run->resumeSkipped,
+                'usageSource' => $run->usageSource?->value,
                 'history' => $history[$run] ?? [],
             ];
         }

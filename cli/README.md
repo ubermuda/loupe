@@ -46,13 +46,32 @@ request the same way broken PHP does.
 
 ## Release
 
-A tag push that matches `v*`, such as `v1.0.0`, runs
-`.github/workflows/cli-release.yml`. The workflow runs `go vet` and `go test`,
-then runs goreleaser from this directory with `.goreleaser.yaml`. The release is
-published at once, not drafted.
+The CLI has its own version numbers, apart from the server's. A CLI release
+has a tag of the form `cli/vX.Y.Z`, such as `cli/v1.0.0`. A plain `vX.Y.Z` tag
+starts no CLI release, and the bridge never installs one.
 
-A CLI tag has no `cli/` prefix, because goreleaser OSS reads no tag prefix. Every
-plain `vX.Y.Z` tag on this repository is therefore a CLI release.
+A tag push that matches `cli/v*` runs `.github/workflows/cli-release.yml`. The
+workflow runs `go vet` and `go test`, then runs goreleaser from this directory
+with `.goreleaser.yaml`. Goreleaser builds the archives and `checksums.txt`, and
+publishes nothing. The workflow then publishes the release with
+`gh release create`, at once and not as a draft.
+
+Goreleaser OSS reads no tag prefix, and a prefix needs Goreleaser Pro. So the
+workflow gives goreleaser the version as `GORELEASER_CURRENT_TAG=vX.Y.Z`, with
+`--skip=publish,validate`. The `validate` step refuses a tag that git does not
+hold. The binary then reports the version `X.Y.Z`.
+
+To make a release, push a tag from `main`:
+
+```bash
+git tag cli/v1.0.0
+git push origin cli/v1.0.0
+```
+
+A binary that you build from source has no version, so it never updates
+itself. Install the first release by hand, as
+[Installing the CLI](../docs/getting-started/cli.md) says. That binary then
+updates itself.
 
 Each release holds a static binary for macOS and Linux on amd64 and arm64. Each
 binary is in an archive named `loupe_<version>_<os>_<arch>.tar.gz`, for example
@@ -958,8 +977,8 @@ updates, and logs `update_skipped` once at start.
 The server names the CLI versions it supports as a caret range, such as `^1.0`,
 in its answer to each heartbeat. The bridge checks the releases on GitHub after
 its first heartbeat, again when the range changes, and then every hour plus a
-random delay of up to 10 minutes. It installs the highest release inside the
-range when the running version is lower, or when the running version is
+random delay of up to 10 minutes. It reads only releases with a `cli/vX.Y.Z`
+tag. It installs the highest release inside the range when the running version is lower, or when the running version is
 outside the range. It checks the archive against `checksums.txt` first.
 
 The bridge hands itself over to the new version in the same process, so the
@@ -1206,7 +1225,7 @@ its local socket. When no bridge runs, the command downloads the release,
 checks it against `checksums.txt`, and replaces the binary on your `PATH`
 itself. In both cases it ignores the skip list and `autoUpdate`, because you
 asked for the update. It still installs only a release inside the range the
-server supports.
+server supports, and only a release with a `cli/vX.Y.Z` tag.
 
 The command prints one line for each bridge. A bridge that hands over prints
 `handing-over`, and the command waits until the bridge runs the new binary.
