@@ -165,6 +165,16 @@ func TestMatchCarriesTheAction(t *testing.T) {
 	}
 }
 
+// A person drives the session, so it gets no footer, no inbox line and no
+// result schema.
+func TestAnInteractiveMatchCarriesTheRulePromptAlone(t *testing.T) {
+	s := checked(t, interactiveRule)
+	m := s.Match(moved("backlog", "ready", event.ActorHuman))
+	if m.Prompt != "Design card 87." || m.Schema != "" {
+		t.Fatalf("Match = %+v", m)
+	}
+}
+
 func TestInteractiveRuleHealthAndKill(t *testing.T) {
 	s := checked(t, interactiveRule)
 	if h := s.Health("loupe"); len(h) != 1 || h[0].Name != "design" || !slices.Equal(h[0].Columns, []string{"ready"}) {

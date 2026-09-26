@@ -937,8 +937,11 @@ func (s *Set) triggers(r Rule, slug string, e event.Event) bool {
 
 // run is the match of a rule that starts a worker for the event.
 func (s *Set) run(r Rule, slug string, e event.Event) Match {
-	render := directive.Render
-	if r.Resume {
+	render, schema := directive.Render, r.schema
+	switch {
+	case r.Action == ActionInteractive:
+		render, schema = directive.RenderPlain, ""
+	case r.Resume:
 		render = directive.RenderResume
 	}
 
@@ -954,7 +957,7 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 		MaxResumes:     *r.MaxResumes,
 		Prompt:         render(r.Prompt, values(e, slug)),
 		Resume:         r.Resume,
-		Schema:         r.schema,
+		Schema:         schema,
 	}
 }
 
