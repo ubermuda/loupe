@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\Command;
 
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunUsageRecorder;
@@ -15,8 +16,9 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Gives each started worker run of a session the usage of the process at the
- * same place in the start order. A count that differs writes nothing, because
- * no run can then be matched to its process with certainty.
+ * same place in the start order. A count that differs, or two runs that start
+ * in the same second, write nothing, because no run can then be matched to its
+ * process with certainty. The start column holds whole seconds.
  */
 final readonly class ReportSessionUsageHandler
 {
@@ -45,6 +47,11 @@ final readonly class ReportSessionUsageHandler
                 return [new ReportSessionUsageResult(\count($runs), \count($command->processes), 0), $project];
             }
 
+            $starts = array_map(static fn (WorkerRun $run): string => $run->startedAt?->format('Y-m-d H:i:s') ?? '', $runs);
+            if (\count(array_unique($starts)) !== \count($starts)) {
+                return [new ReportSessionUsageResult(\count($runs), \count($command->processes), 0, ambiguousOrder: true), $project];
+            }
+
             $updated = 0;
             foreach ($runs as $i => $run) {
                 if ($this->usageRecorder->record($run, $command->processes[$i])) {
@@ -70,6 +77,12 @@ final readonly class ReportSessionUsageHandler
         ];
         if ($result->runs !== $result->processes) {
             $this->logger->info('bridge.session_usage_count_mismatch', $context);
+
+            return $result;
+        }
+
+        if ($result->ambiguousOrder) {
+            $this->logger->info('bridge.session_usage_ambiguous_order', $context);
 
             return $result;
         }

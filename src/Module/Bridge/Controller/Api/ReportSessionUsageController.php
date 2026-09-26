@@ -62,6 +62,10 @@ final class ReportSessionUsageController extends AppController
             return $this->json(['error' => 'process_count_mismatch'], JsonResponse::HTTP_CONFLICT);
         }
 
+        if ($result->ambiguousOrder) {
+            return $this->json(['error' => 'ambiguous_start_order'], JsonResponse::HTTP_CONFLICT);
+        }
+
         return $this->json(['runs' => $result->runs, 'updated' => $result->updated]);
     }
 }

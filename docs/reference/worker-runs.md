@@ -272,10 +272,13 @@ after their runs closed, such as from the session transcript.
 | `processes[]` | a usage object, with the rules of [Usage](#usage) |
 
 The server finds the worker runs of that session in the project that have a
-start time. It orders them by `startedAt`, and by its own id for two runs of
-the same second. An interactive run, and a run that never started, is not a
-process. When the count of runs and the count of processes differ, the server
+start time, and orders them by `startedAt`. An interactive run, and a run that
+never started, is not a process. When the count of runs and the count of processes differ, the server
 writes nothing and answers 409. A session with no runs is such a mismatch.
+
+The server stores `startedAt` to the second. When two of those runs start in
+the same second, the server cannot know which process came first. It then
+writes nothing and answers 409 with `ambiguous_start_order`.
 
 Otherwise each run takes the process at the same place in the list, with the
 rule of [Usage](#usage). The report fills a run with unknown usage, and replaces
@@ -289,6 +292,7 @@ estimated counts with reported ones. It never replaces reported counts.
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | | agent push is switched off on the instance, or the server has no such endpoint |
 | 409 | `{"error":"process_count_mismatch"}` | the session has another count of started worker runs, and the server wrote nothing |
+| 409 | `{"error":"ambiguous_start_order"}` | two started worker runs of the session start in the same second, and the server wrote nothing |
 | 422 | `{"error":"invalid_session_id"}` | `sessionId` is not a uuid |
 | 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
 | 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |

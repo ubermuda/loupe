@@ -123,6 +123,29 @@ final class WorkerRunSessionUsageApiTest extends WebTestCase
         self::assertNull($this->runOf($run)->usageSource);
     }
 
+    /** The column holds whole seconds, so two starts in one second leave the process order unknown. */
+    public function test_two_runs_that_start_in_the_same_second_write_nothing(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'session-usage-tie@example.com');
+        $project = $this->project($em, $owner, 'Session Usage Tie');
+        $session = Uuid::v4();
+        $first = $this->sessionRun($project, $session, '2026-09-23 10:00:00');
+        $this->sessionRun($project, $session, '2026-09-23 10:00:00');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $project, (string) $session, $raw, ['processes' => [
+            self::process('reported', 'claude-one'),
+            self::process('reported', 'claude-two'),
+        ]]);
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertJsonStringEqualsJsonString('{"error":"ambiguous_start_order"}', (string) $client->getResponse()->getContent());
+        self::assertSame([], $this->usageRows());
+        self::assertNull($this->runOf($first)->usageSource);
+    }
+
     public function test_a_session_with_no_runs_is_a_count_mismatch(): void
     {
         $client = static::createClient();

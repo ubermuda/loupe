@@ -7,7 +7,8 @@ namespace App\Module\Bridge\Command;
 /**
  * What a session usage report did. $runs is null when the owner has no project
  * by that handle. $updated counts the runs whose usage changed, and it is zero
- * when the count of runs differs from the count of processes.
+ * when the count of runs differs from the count of processes, or when
+ * $ambiguousOrder says two runs started in the same second.
  */
 final readonly class ReportSessionUsageResult
 {
@@ -15,6 +16,7 @@ final readonly class ReportSessionUsageResult
         public ?int $runs,
         public int $processes,
         public int $updated,
+        public bool $ambiguousOrder = false,
     ) {
     }
 }
