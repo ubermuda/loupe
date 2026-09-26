@@ -6,7 +6,11 @@ events:
   busy: [./hook, busy]
   idle: [./hook, idle]
 settings:
-  takeover:
-    type: bool
-    default: "false"
-    description: Replace and end an Amphetamine session that this hook did not start.
+  quiet_hours:
+    type: string
+    default: "23:00-06:00"
+    description: The hours, as HH:MM-HH:MM, when an idle bridge ends any Amphetamine session. Empty ends it at every idle.
+  away_minutes:
+    type: string
+    default: "30"
+    description: The minutes with no keyboard or mouse input after which an idle bridge ends the session at any hour. 0 turns it off.
