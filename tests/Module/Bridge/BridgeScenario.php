@@ -101,7 +101,7 @@ trait BridgeScenario
 
     private function seedUsage(EntityManagerInterface $em, WorkerRun $run, string $model = 'claude-opus-5-5'): WorkerRunUsage
     {
-        $usage = new WorkerRunUsage($run, $run->project, $run->cardId, $run->ruleName, $model, 100, 20, 300, 40, '0.012345');
+        $usage = new WorkerRunUsage($run, $run->project, $run->cardId, $run->ruleName, $model, WorkerRunUsageSource::Reported, 100, 20, 300, 40, '0.012345');
         $run->usageSource = WorkerRunUsageSource::Reported;
         $em->persist($usage);
         $em->flush();

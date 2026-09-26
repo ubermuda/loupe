@@ -32,6 +32,7 @@ final readonly class WorkerRunUsageExporter implements UserDataExporterInterface
                 'ruleName' => $usage->ruleName,
                 'runKey' => $usage->run?->runKey?->toRfc4122(),
                 'model' => $usage->model,
+                'source' => $usage->source->value,
                 'inputTokens' => $usage->inputTokens,
                 'outputTokens' => $usage->outputTokens,
                 'cacheReadTokens' => $usage->cacheReadTokens,

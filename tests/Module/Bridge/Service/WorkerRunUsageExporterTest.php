@@ -40,6 +40,7 @@ final class WorkerRunUsageExporterTest extends KernelTestCase
             'ruleName' => 'plan',
             'runKey' => null,
             'model' => 'claude-haiku',
+            'source' => 'reported',
             'inputTokens' => 100,
             'outputTokens' => 20,
             'cacheReadTokens' => 300,

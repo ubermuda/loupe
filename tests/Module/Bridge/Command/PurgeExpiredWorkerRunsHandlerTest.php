@@ -54,8 +54,8 @@ final class PurgeExpiredWorkerRunsHandlerTest extends KernelTestCase
         $em->clear();
         self::assertNull($em->find(WorkerRun::class, $expired->id));
         self::assertSame(
-            [['id' => (string) $usageId, 'run_id' => null, 'project_id' => (string) $project->id]],
-            $em->getConnection()->fetchAllAssociative('SELECT id, run_id, project_id FROM bridge_worker_run_usage'),
+            [['id' => (string) $usageId, 'run_id' => null, 'project_id' => (string) $project->id, 'source' => 'reported']],
+            $em->getConnection()->fetchAllAssociative('SELECT id, run_id, project_id, source FROM bridge_worker_run_usage'),
         );
     }
 

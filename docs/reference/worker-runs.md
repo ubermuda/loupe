@@ -450,8 +450,8 @@ typed zero cannot take the whole history.
 [Console commands](commands.md).
 
 The sweep keeps the usage of a run it deletes. The usage row loses the link to
-its run, and keeps its project, its card and its rule, so the spend of a card
-outlives the run records.
+its run, and keeps its project, its card, its rule and its source, so the spend
+of a card outlives the run records.
 
 The sweep cuts on the server's arrival time rather than on the bridge clock. A
 bridge with a wrong clock would otherwise stamp a run outside the window and

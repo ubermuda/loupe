@@ -65,6 +65,10 @@ final class WorkerRunUsageRecorderTest extends KernelTestCase
         $em->flush();
 
         self::assertSame([['claude-opus', '7']], $this->rowsOf($run));
+        self::assertSame(['reported'], $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT source FROM bridge_worker_run_usage WHERE run_id = ?',
+            [(string) $run->id],
+        ));
     }
 
     public function test_no_models_records_a_run_that_spent_nothing(): void
@@ -97,6 +101,7 @@ final class WorkerRunUsageRecorderTest extends KernelTestCase
         self::assertSame((string) $project->id, $row['project_id']);
         self::assertSame((string) $run->cardId, $row['card_id']);
         self::assertSame('review', $row['rule_name']);
+        self::assertSame('estimated', $row['source']);
         self::assertSame([10, 20, 30, 40], [$row['input_tokens'], $row['output_tokens'], $row['cache_read_tokens'], $row['cache_write_tokens']]);
         self::assertNull($row['cost_usd']);
     }

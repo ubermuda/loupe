@@ -25,7 +25,8 @@ use Ubermuda\AuditBundle\AuditSubject;
  * Records one state of a run, and moves the run forward only. A state the run
  * has not held leaves a history row even when it does not move the run. A late
  * report still fills a missing session and start, but outcome data follows the
- * state that owns it.
+ * state that owns it. The outcome that closes the run also writes its usage,
+ * through WorkerRunUsageRecorder.
  */
 final readonly class ReportWorkerRunStateHandler
 {

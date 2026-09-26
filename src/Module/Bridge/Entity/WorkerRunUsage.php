@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Entity;
 
 use App\Module\Bridge\Repository\WorkerRunUsageRepository;
+use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -14,7 +15,7 @@ use Symfony\Component\Uid\Uuid;
 /**
  * The tokens one model spent in one run. A row outlives its run, so the
  * retention sweep keeps the spend of a card, and it carries the project, the
- * card and the rule of the run for that reason.
+ * card, the rule and the usage source of the run for that reason.
  */
 #[ORM\Entity(repositoryClass: WorkerRunUsageRepository::class)]
 // The spend of one card.
@@ -50,6 +51,9 @@ class WorkerRunUsage
 
         #[ORM\Column(name: 'model', length: self::MAX_MODEL_LENGTH)]
         public readonly string $model,
+
+        #[ORM\Column(name: 'source', length: 20, enumType: WorkerRunUsageSource::class)]
+        public readonly WorkerRunUsageSource $source,
 
         #[ORM\Column(name: 'input_tokens', type: Types::BIGINT)]
         public readonly int $inputTokens,

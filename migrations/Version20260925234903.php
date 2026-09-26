@@ -17,7 +17,7 @@ final class Version20260925234903 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('CREATE TABLE bridge_worker_run_usage (id UUID NOT NULL, card_id UUID NOT NULL, rule_name VARCHAR(100) NOT NULL, model VARCHAR(100) NOT NULL, input_tokens BIGINT NOT NULL, output_tokens BIGINT NOT NULL, cache_read_tokens BIGINT NOT NULL, cache_write_tokens BIGINT NOT NULL, cost_usd NUMERIC(12, 6) DEFAULT NULL, run_id UUID DEFAULT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE TABLE bridge_worker_run_usage (id UUID NOT NULL, card_id UUID NOT NULL, rule_name VARCHAR(100) NOT NULL, model VARCHAR(100) NOT NULL, source VARCHAR(20) NOT NULL, input_tokens BIGINT NOT NULL, output_tokens BIGINT NOT NULL, cache_read_tokens BIGINT NOT NULL, cache_write_tokens BIGINT NOT NULL, cost_usd NUMERIC(12, 6) DEFAULT NULL, run_id UUID DEFAULT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_C95EFC6184E3FEC4 ON bridge_worker_run_usage (run_id)');
         $this->addSql('CREATE INDEX IDX_C95EFC61166D1F9C ON bridge_worker_run_usage (project_id)');
         $this->addSql('CREATE INDEX idx_bridge_worker_run_usage_card ON bridge_worker_run_usage (project_id, card_id)');

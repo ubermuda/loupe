@@ -41,6 +41,7 @@ final readonly class WorkerRunUsageRecorder
                 cardId: $run->cardId,
                 ruleName: $run->ruleName,
                 model: $model->model,
+                source: $report->source,
                 inputTokens: $model->inputTokens,
                 outputTokens: $model->outputTokens,
                 cacheReadTokens: $model->cacheReadTokens,
