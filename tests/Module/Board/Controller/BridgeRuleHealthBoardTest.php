@@ -96,8 +96,9 @@ final class BridgeRuleHealthBoardTest extends WebTestCase
         $this->report($em, $other, [$this->rule('plan', ['next'], 'live'), $this->rule('gone', ['ready'], 'dead', 'column_deleted')]);
 
         $crawler = $this->board($client, $owner, $project);
-
         self::assertCount(0, $crawler->filter(self::BANNER));
+
+        $crawler = $this->board($client, $owner, $project, '/settings/columns');
         self::assertCount(0, $crawler->filter('.lp-board__rule-warning'));
     }
 
@@ -117,7 +118,7 @@ final class BridgeRuleHealthBoardTest extends WebTestCase
         self::assertStringNotContainsString('column_renamed', (string) $client->getResponse()->getContent());
     }
 
-    public function test_the_rename_and_delete_dialogs_warn_when_a_live_rule_watches_the_column(): void
+    public function test_the_settings_dialogs_warn_when_a_live_rule_watches_the_column(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -130,7 +131,7 @@ final class BridgeRuleHealthBoardTest extends WebTestCase
             $this->rule('stale', ['in-progress'], 'dead', 'column_renamed'),
         ]);
 
-        $crawler = $this->board($client, $owner, $project);
+        $crawler = $this->board($client, $owner, $project, '/settings/columns');
 
         [$rename, $delete] = $this->dialogs($crawler, 'next');
         self::assertStringContainsString('A bridge rule watches this column. Renaming it changes its slug', $rename->filter('.lp-board__rule-warning')->text());
@@ -143,7 +144,7 @@ final class BridgeRuleHealthBoardTest extends WebTestCase
         self::assertCount(0, $this->columnSection($crawler, 'backlog')->filter('.lp-board__rule-warning'));
     }
 
-    /** @return array{Crawler, Crawler} the rename dialog, then the delete dialog */
+    /** @return array{Crawler, Crawler} the configure dialog, then the delete dialog */
     private function dialogs(Crawler $crawler, string $slug): array
     {
         $dialogs = $this->columnSection($crawler, $slug)->filter('dialog');
@@ -160,10 +161,10 @@ final class BridgeRuleHealthBoardTest extends WebTestCase
         return $column;
     }
 
-    private function board(KernelBrowser $client, User $owner, Project $project): Crawler
+    private function board(KernelBrowser $client, User $owner, Project $project, string $page = '/board'): Crawler
     {
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.$page);
         self::assertResponseIsSuccessful();
 
         return $crawler;

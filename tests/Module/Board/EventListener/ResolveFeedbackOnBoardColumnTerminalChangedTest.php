@@ -6,8 +6,6 @@ namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\Command\ConfigureBoardColumnCommand;
 use App\Module\Board\Command\ConfigureBoardColumnHandler;
-use App\Module\Board\Command\SetBoardColumnTerminalCommand;
-use App\Module\Board\Command\SetBoardColumnTerminalHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
@@ -24,7 +22,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-/** Driven through a real flag change, so the listener runs where both column handlers dispatch. */
+/** Driven through a real flag change, so the listener runs where the column settings handler dispatches. */
 final class ResolveFeedbackOnBoardColumnTerminalChangedTest extends KernelTestCase
 {
     use ResolveFeedbackScenario;
@@ -49,7 +47,7 @@ final class ResolveFeedbackOnBoardColumnTerminalChangedTest extends KernelTestCa
         $elsewhere = $this->feedback($this->cardIn($project, 'next', 3), SiteReviewCommentStatus::Pending);
         $this->em->flush();
 
-        $this->setTerminal($project, 'in-progress', true);
+        $this->configureTerminal($project, 'in-progress', true);
 
         self::assertSame(SiteReviewCommentStatus::Resolved, $this->statusOf($first));
         self::assertSame(SiteReviewCommentStatus::Resolved, $this->statusOf($second));
@@ -65,35 +63,6 @@ final class ResolveFeedbackOnBoardColumnTerminalChangedTest extends KernelTestCa
     public function test_a_column_that_stops_being_terminal_resolves_nothing(): void
     {
         $project = $this->feedbackProject('feedback-terminal-off');
-        $card = $this->cardIn($project, 'done');
-        $comment = $this->feedback($card, SiteReviewCommentStatus::Addressed);
-        $this->em->flush();
-        $cardId = $card->id;
-
-        $this->setTerminal($project, 'done', false);
-
-        self::assertSame(SiteReviewCommentStatus::Addressed, $this->statusOf($comment));
-        self::assertSame([], $this->audit->records('site_review.comment_resolved'));
-        $reopened = $this->em->find(Card::class, $cardId);
-        self::assertInstanceOf(Card::class, $reopened);
-        self::assertFalse($reopened->column->terminal);
-    }
-
-    public function test_the_column_settings_dialog_that_turns_a_column_terminal_resolves_its_feedback(): void
-    {
-        $project = $this->feedbackProject('feedback-configure-on');
-        $comment = $this->feedback($this->cardIn($project, 'in-progress'), SiteReviewCommentStatus::Pending);
-        $this->em->flush();
-
-        $this->configureTerminal($project, 'in-progress', true);
-
-        self::assertSame(SiteReviewCommentStatus::Resolved, $this->statusOf($comment));
-        self::assertCount(1, $this->audit->records('site_review.comment_resolved'));
-    }
-
-    public function test_the_column_settings_dialog_that_clears_terminal_resolves_nothing(): void
-    {
-        $project = $this->feedbackProject('feedback-configure-off');
         $card = $this->cardIn($project, 'done');
         $comment = $this->feedback($card, SiteReviewCommentStatus::Addressed);
         $this->em->flush();
@@ -125,14 +94,6 @@ final class ResolveFeedbackOnBoardColumnTerminalChangedTest extends KernelTestCa
         $database->method('findUnresolvedForCards')->willThrowException(new DbalInvalidArgument('database'));
         $this->expectException(DbalInvalidArgument::class);
         new ResolveFeedbackOnBoardColumnTerminalChanged(new CardFeedbackResolver($database, $resolve), $this->em, new RecordingLogger())($event);
-    }
-
-    private function setTerminal(Project $project, string $slug, bool $terminal): void
-    {
-        $handler = self::getContainer()->get(SetBoardColumnTerminalHandler::class);
-        self::assertInstanceOf(SetBoardColumnTerminalHandler::class, $handler);
-
-        $handler(new SetBoardColumnTerminalCommand($this->column($project, $slug), $terminal, CardReporter::Human));
     }
 
     private function configureTerminal(Project $project, string $slug, bool $terminal): void

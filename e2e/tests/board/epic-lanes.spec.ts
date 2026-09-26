@@ -220,6 +220,50 @@ test.afterAll(async ({ request }) => {
     await setBoardFlag(request, true);
 });
 
+test('each lane cell scrolls its own cards and the page stays still', async ({
+    page,
+    board,
+}) => {
+    const epic = await board.create(`Tall epic ${RUN}`, { type: 'epic' });
+    for (let index = 1; index <= 8; index++) {
+        await board.create(`Tall child ${index} ${RUN}`, { parent: epic });
+        await board.create(`Loose card ${index} ${RUN}`);
+    }
+
+    await page.goto(board.boardUrl);
+    await expect(page.locator(READY)).toBeAttached();
+    const backlog = await columnId(page, 'backlog');
+    const scrolls = (laneKey: string) =>
+        cell(page, laneKey, backlog).evaluate((element) => ({
+            overflow: getComputedStyle(element).overflowY,
+            hidden: element.scrollHeight - element.clientHeight,
+        }));
+
+    // An epic lane stops at its height cap, and "Other cards" fills the rest.
+    const cells = await lane(page, epic.id)
+        .locator('.lp-board-lane__cells')
+        .boundingBox();
+    expect(cells?.height).toBeLessThanOrEqual(320);
+    for (const laneKey of [epic.id, 'other']) {
+        const cellScroll = await scrolls(laneKey);
+        expect(cellScroll.overflow).toBe('auto');
+        expect(cellScroll.hidden).toBeGreaterThan(0);
+    }
+    await expect
+        .poll(() =>
+            page.evaluate(
+                () =>
+                    document.documentElement.scrollHeight - window.innerHeight,
+            ),
+        )
+        .toBeLessThanOrEqual(1);
+
+    await cell(page, 'other', backlog).evaluate((element) =>
+        element.scrollTo(0, element.scrollHeight),
+    );
+    await expect(page.getByRole('heading', { level: 1 })).toBeInViewport();
+});
+
 test('a lane switched off shows the parent tag and the progress', async ({
     page,
     board,

@@ -14,20 +14,15 @@
 }
 
 .lp-core-board .lp-board-toolbar {
-    margin-bottom: calc(var(--spacing) * 5);
+    margin-bottom: calc(var(--spacing) * 3);
 }
 
-/* The count and the view switch read as one group on the right, so only the
-   count takes the free space. */
 .lp-core-board .lp-board-toolbar__mode {
-    order: 2;
     border: 1px solid var(--border);
     background: var(--surface-3);
 }
 
 .lp-core-board .lp-board-toolbar__count {
-    order: 1;
-    margin-left: auto;
     color: var(--text-dim);
     font-size: var(--text-xs);
     font-weight: 500;

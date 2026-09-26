@@ -88,31 +88,26 @@ final class BoardColumnsTest extends TestCase
         self::assertSame(BoardColumns::NO_TERMINAL, $this->rules->refuseConfigure($this->columns(), $this->board['done'], 'done', false, false));
     }
 
-    public function test_the_last_terminal_column_cannot_lose_its_flag(): void
-    {
-        self::assertSame(BoardColumns::NO_TERMINAL, $this->rules->refuseTerminal($this->columns(), $this->board['done'], false));
-    }
-
     public function test_a_terminal_column_can_lose_its_flag_while_another_keeps_one(): void
     {
         $this->board['next']->terminal = true;
 
-        self::assertNull($this->rules->refuseTerminal($this->columns(), $this->board['done'], false));
+        self::assertNull($this->rules->refuseConfigure($this->columns(), $this->board['done'], 'done', false, false));
     }
 
     public function test_the_default_column_cannot_become_terminal(): void
     {
-        self::assertSame(BoardColumns::DEFAULT_TERMINAL, $this->rules->refuseTerminal($this->columns(), $this->board['backlog'], true));
+        self::assertSame(BoardColumns::DEFAULT_TERMINAL, $this->rules->refuseConfigure($this->columns(), $this->board['backlog'], 'backlog', true, true));
     }
 
     public function test_a_terminal_column_cannot_become_the_default(): void
     {
-        self::assertSame(BoardColumns::DEFAULT_TERMINAL, $this->rules->refuseDefault($this->columns(), $this->board['done']));
+        self::assertSame(BoardColumns::DEFAULT_TERMINAL, $this->rules->refuseConfigure($this->columns(), $this->board['done'], 'done', true, true));
     }
 
     public function test_any_other_column_can_become_the_default(): void
     {
-        self::assertNull($this->rules->refuseDefault($this->columns(), $this->board['next']));
+        self::assertNull($this->rules->refuseConfigure($this->columns(), $this->board['next'], 'next', false, true));
     }
 
     public function test_the_default_column_cannot_be_deleted(): void
@@ -140,8 +135,8 @@ final class BoardColumnsTest extends TestCase
     public function test_no_change_touches_the_columns_it_checks(): void
     {
         $this->rules->refuseRename($this->columns(), $this->board['next'], 'renamed');
-        $this->rules->refuseTerminal($this->columns(), $this->board['next'], true);
-        $this->rules->refuseDefault($this->columns(), $this->board['next']);
+        $this->rules->refuseConfigure($this->columns(), $this->board['next'], 'next', true, false);
+        $this->rules->refuseConfigure($this->columns(), $this->board['next'], 'next', false, true);
 
         self::assertSame('next', $this->board['next']->slug);
         self::assertFalse($this->board['next']->terminal);

@@ -68,26 +68,6 @@ final readonly class BoardColumns
         ));
     }
 
-    /** @param list<BoardColumn> $columns */
-    public function refuseTerminal(array $columns, BoardColumn $flagged, bool $terminal): ?string
-    {
-        return $this->violation(array_map(
-            static fn (BoardColumn $column): BoardColumnShape => $column === $flagged
-                ? new BoardColumnShape($column->slug, $terminal, $column->isDefault)
-                : BoardColumnShape::of($column),
-            $columns,
-        ));
-    }
-
-    /** @param list<BoardColumn> $columns */
-    public function refuseDefault(array $columns, BoardColumn $chosen): ?string
-    {
-        return $this->violation(array_map(
-            static fn (BoardColumn $column): BoardColumnShape => new BoardColumnShape($column->slug, $column->terminal, $column === $chosen),
-            $columns,
-        ));
-    }
-
     /**
      * All three settings at once, so the answer does not depend on the order
      * the changes would apply in.

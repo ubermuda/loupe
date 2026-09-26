@@ -16,14 +16,10 @@ use App\Module\Board\Form\DeleteBoardColumnFormType;
 use App\Module\Board\Form\DeleteBoardColumnRequest;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Board\Form\MoveCardRequest;
-use App\Module\Board\Form\RenameBoardColumnFormType;
-use App\Module\Board\Form\RenameBoardColumnRequest;
 use App\Module\Board\Form\ReorderBoardColumnsFormType;
 use App\Module\Board\Form\ReorderBoardColumnsRequest;
 use App\Module\Board\Form\SetCardLaneFormType;
 use App\Module\Board\Form\SetCardLaneRequest;
-use App\Module\Board\Form\SetDefaultBoardColumnFormType;
-use App\Module\Board\Form\SetDefaultBoardColumnRequest;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardColumnTonePicker;
@@ -63,10 +59,8 @@ final class BoardExtension extends AbstractExtension
             new TwigFunction('card_lane_form', $this->cardLaneForm(...)),
             new TwigFunction('card_digest', $this->cardDigest(...)),
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),
-            new TwigFunction('board_column_rename_form', $this->boardColumnRenameForm(...)),
             new TwigFunction('board_column_configure_form', $this->boardColumnConfigureForm(...)),
             new TwigFunction('board_column_delete_form', $this->boardColumnDeleteForm(...)),
-            new TwigFunction('board_column_default_form', $this->boardColumnDefaultForm(...)),
             new TwigFunction('board_columns_reorder_form', $this->boardColumnsReorderForm(...)),
             new TwigFunction('board_column_order', $this->boardColumnOrder(...)),
             new TwigFunction('safe_pull_request_url', $this->safePullRequestUrl(...)),
@@ -162,23 +156,6 @@ final class BoardExtension extends AbstractExtension
     }
 
     /**
-     * The refused form a failed rename forwarded, when it belongs to this
-     * column. A fresh form shows the label as the board shows it, so a seeded
-     * column offers its translated name rather than its translation key.
-     */
-    public function boardColumnRenameForm(BoardColumn $column, ?FormView $refused = null): FormView
-    {
-        $name = RenameBoardColumnFormType::nameFor($column);
-        if (null !== $refused && $refused->vars['name'] === $name) {
-            return $refused;
-        }
-
-        return $this->formFactory
-            ->createNamed($name, RenameBoardColumnFormType::class, new RenameBoardColumnRequest($this->translator->trans($column->label), $column->label))
-            ->createView();
-    }
-
-    /**
      * The refused form a failed configure forwarded, when it belongs to this
      * column, or a fresh one that shows the column as it is now.
      */
@@ -215,13 +192,6 @@ final class BoardExtension extends AbstractExtension
                 'column' => $column,
                 'columns' => array_map(static fn (BoardColumnView $view): BoardColumn => $view->column, $columns),
             ])
-            ->createView();
-    }
-
-    public function boardColumnDefaultForm(BoardColumn $column, string $expectedDefaultId): FormView
-    {
-        return $this->formFactory
-            ->createNamed(SetDefaultBoardColumnFormType::nameFor($column), SetDefaultBoardColumnFormType::class, new SetDefaultBoardColumnRequest($expectedDefaultId))
             ->createView();
     }
 
