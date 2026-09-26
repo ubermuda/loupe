@@ -52,6 +52,7 @@ RUN apk add --no-cache postgresql-libs libzip libxslt icu-libs icu-data-full bas
  && docker-php-ext-install bcmath pdo_pgsql zip intl xsl \
  && pecl install excimer-1.2.6 \
  && docker-php-ext-enable excimer \
+ && rm -rf /tmp/pear \
  && apk del .build-deps
 
 # Pinned and copied rather than curl-piped from getcomposer.org: the installer

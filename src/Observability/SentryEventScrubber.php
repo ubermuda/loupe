@@ -11,11 +11,15 @@ use Sentry\EventHint;
 /**
  * Some paths carry a secret, such as a password reset token, so no URL
  * leaves the instance. The route name in the transaction still identifies
- * the page. A request with no route keeps only its method.
+ * the page. A request with no route keeps only its method. Headers are an
+ * allowlist, because the SDK filters only a few and a header such as
+ * X-Probe-Token carries a secret.
  */
 final readonly class SentryEventScrubber
 {
     private const array URL_DATA_KEYS = ['http.url', 'http.query', 'http.fragment'];
+
+    private const array KEPT_HEADERS = ['host', 'user-agent', 'accept', 'accept-language', 'content-type', 'content-length'];
 
     private const string EMAIL_PATTERN = '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i';
 
@@ -49,7 +53,7 @@ final readonly class SentryEventScrubber
         if (isset($request['headers']) && \is_array($request['headers'])) {
             $request['headers'] = array_filter(
                 $request['headers'],
-                static fn (int|string $name): bool => 'referer' !== strtolower((string) $name),
+                static fn (int|string $name): bool => \in_array(strtolower((string) $name), self::KEPT_HEADERS, true),
                 \ARRAY_FILTER_USE_KEY,
             );
         }

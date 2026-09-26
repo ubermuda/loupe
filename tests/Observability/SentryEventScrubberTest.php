@@ -60,6 +60,35 @@ final class SentryEventScrubberTest extends TestCase
         self::assertSame(['method' => 'GET', 'headers' => []], $scrubbed->getRequest());
     }
 
+    public function test_the_request_keeps_only_allowlisted_headers_whatever_their_case(): void
+    {
+        $event = Event::createEvent();
+        $event->setRequest(['method' => 'GET', 'headers' => [
+            'Host' => ['loupe.example'],
+            'user-agent' => ['curl/8'],
+            'ACCEPT' => ['*/*'],
+            'Accept-Language' => ['en'],
+            'Content-Type' => ['text/plain'],
+            'Content-Length' => ['3'],
+            'X-Probe-Token' => ['probe-secret'],
+            'Authorization' => ['[Filtered]'],
+            'Cookie' => ['[Filtered]'],
+            'X-Forwarded-For' => ['203.0.113.7'],
+            'X-Custom' => ['anything'],
+        ]]);
+
+        $scrubbed = $this->scrubber()($event, null);
+
+        self::assertSame(['method' => 'GET', 'headers' => [
+            'Host' => ['loupe.example'],
+            'user-agent' => ['curl/8'],
+            'ACCEPT' => ['*/*'],
+            'Accept-Language' => ['en'],
+            'Content-Type' => ['text/plain'],
+            'Content-Length' => ['3'],
+        ]], $scrubbed->getRequest());
+    }
+
     public function test_the_trace_context_keeps_the_route_and_loses_the_url(): void
     {
         $event = Event::createTransaction();
