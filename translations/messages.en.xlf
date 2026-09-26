@@ -2871,6 +2871,26 @@
                 <source>account.system_status.stripe.missing</source>
                 <target>Billing is enabled but %variables% is not set, so checkout and webhooks will fail.</target>
             </trans-unit>
+            <trans-unit id="check.sentry.label">
+                <source>check.sentry.label</source>
+                <target>Sentry</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.sentry.off">
+                <source>account.system_status.sentry.off</source>
+                <target>SENTRY_DSN is empty or holds an off value such as "false", so this instance sends nothing to Sentry.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.sentry.malformed">
+                <source>account.system_status.sentry.malformed</source>
+                <target>SENTRY_DSN is set but is not a valid DSN, so this instance sends nothing to Sentry. Copy the DSN again from the Client Keys page of the Sentry project.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.sentry.configured">
+                <source>account.system_status.sentry.configured</source>
+                <target>SENTRY_DSN is set and well formed. This page does not call Sentry to check that the DSN works.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.sentry.no_excimer">
+                <source>account.system_status.sentry.no_excimer</source>
+                <target>SENTRY_DSN is set and profiles are sampled, but the Excimer PHP extension is not loaded, so Sentry receives traces and no profiles. Install Excimer, or set SENTRY_PROFILES_SAMPLE_RATE to 0.</target>
+            </trans-unit>
             <trans-unit id="account.system_status.failed_transport.heading">
                 <source>account.system_status.failed_transport.heading</source>
                 <target>Recovering failed messages</target>

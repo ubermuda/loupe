@@ -133,6 +133,9 @@
             "bin/phpunit"
         ]
     },
+    "sentry/sentry-symfony": {
+        "version": "5.13.0"
+    },
     "stripe/stripe-php": {
         "version": "v21.0.0"
     },

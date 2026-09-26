@@ -394,6 +394,25 @@ variable "stripe_webhook_secret" {
   description = "STRIPE_WEBHOOK_SECRET used to verify inbound webhook signatures."
 }
 
+variable "sentry_dsn" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "SENTRY_DSN for error capture, tracing and profiling. Optional: empty sends nothing to Sentry."
+}
+
+variable "sentry_traces_sample_rate" {
+  type        = string
+  default     = ""
+  description = "SENTRY_TRACES_SAMPLE_RATE, from 0.0 to 1.0. Empty keeps the committed default of 1.0."
+}
+
+variable "sentry_profiles_sample_rate" {
+  type        = string
+  default     = ""
+  description = "SENTRY_PROFILES_SAMPLE_RATE, from 0.0 to 1.0, relative to the traced requests. Empty keeps the committed default of 1.0."
+}
+
 variable "github_app_slug" {
   type        = string
   default     = ""

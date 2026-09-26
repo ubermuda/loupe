@@ -79,6 +79,9 @@ return (new GamacheConfig())->registerChecks([
             // The committed .env value is the production answer, and matches the
             // module's own default.
             'MESSENGER_TRANSPORT_DSN',
+            // The Sentry bundle's own default for `release`, seen only in the
+            // generated config/reference.php. Unset, events carry no release.
+            'SENTRY_RELEASE',
             // Development tooling: the IDE link, Symfony's own proxy and sendfile
             // overrides, the PHPUnit database suffix, the dump server and the
             // per-worktree database suffix.
