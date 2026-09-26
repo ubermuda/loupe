@@ -34,10 +34,10 @@ use Symfony\Component\Uid\Uuid;
 // The sweep that times out a quiet bridge's runs reads the open states.
 #[ORM\Index(name: 'idx_bridge_worker_runs_state', columns: ['state'])]
 #[ORM\Table(name: 'bridge_worker_runs')]
-// A bridge that sends no run key reports a finished run once, and retries it
-// when it never saw the response. The start then identifies the run. The
-// predicate is written the way Postgres stores it, so migrate-diff stays quiet.
-#[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_report', columns: ['project_id', 'bridge_id', 'card_id', 'started_at'], options: ['where' => '(run_key IS NULL)'])]
+// A bridge that sends no run key reports a finished worker run once, and
+// retries it when it never saw the response. The start then identifies the run.
+// The predicate is written the way Postgres stores it, so migrate-diff stays quiet.
+#[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_report', columns: ['project_id', 'bridge_id', 'card_id', 'started_at'], options: ['where' => "((run_key IS NULL) AND ((kind)::text = 'worker'::text))"])]
 #[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_key', columns: ['project_id', 'bridge_id', 'run_key'])]
 // One session holds one open interactive run on a card.
 #[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_interactive_open', columns: ['project_id', 'card_id', 'session_id'], options: ['where' => "(((kind)::text = 'interactive'::text) AND ((state)::text = 'running'::text))"])]
@@ -98,7 +98,7 @@ class WorkerRun
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public readonly Project $project,
 
-        /** The bridge that ran the work. An opaque scalar: no table holds a bridge. Null on an interactive run. */
+        /** The bridge that ran the work or launched the session. An opaque scalar: no table holds a bridge. */
         #[ORM\Column(name: 'bridge_id', type: UuidType::NAME, nullable: true)]
         public readonly ?Uuid $bridgeId,
 

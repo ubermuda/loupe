@@ -116,7 +116,8 @@
                     {% endif %}
                     {% if run.bridgeId is not null %}
                         <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
-                    {% elseif item.interactive %}
+                    {% endif %}
+                    {% if item.interactive %}
                         <span class="lp-tag lp-tag--neutral lp-worker-run__kind">{{ 'bridge.worker_runs.interactive'|trans }}</span>
                     {% endif %}
                     <button type="button" class="lp-btn lp-btn--ghost" data-action="modal#open">{{ 'bridge.worker_runs.details.open'|trans }}</button>
