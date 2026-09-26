@@ -36,9 +36,18 @@ case $away in
 esac
 while [ "${away#0}" != "$away" ] && [ -n "${away#0}" ]; do away=${away#0}; done
 
-stamp=$(date '+%Y-%m-%d %H:%M %s') || exit $?
-today=${stamp%% *} epoch=${stamp##* } clock=${stamp#* }
-now=$(minutes "${clock% *}") || exit $?
+stamp=$(date '+%H:%M %s') || exit $?
+epoch=${stamp#* }
+now=$(minutes "${stamp% *}") || exit $?
+
+# offset T prints the UTC offset in minutes at Unix time T.
+offset() {
+    z=$(date -r "$1" +%z) || exit $?
+    h=${z#?} m=${z#???}
+    h=${h%??}
+    mins=$((${h#0} * 60 + ${m#0}))
+    case $z in -*) echo $((-mins)) ;; *) echo "$mins" ;; esac
+}
 
 in_quiet_hours() {
     [ -n "$quiet" ] || return 1
@@ -64,16 +73,23 @@ release() {
         amph 'end session' >/dev/null || exit $?
         return 0
     fi
-    # A timestamp, not clock minutes, so a daylight saving change counts.
-    at=$(date -j -f '%Y-%m-%d %H:%M:%S' "$today ${quiet%-*}:00" +%s) || exit $?
-    # In the hour that autumn repeats, date picks the first copy of the time.
-    if [ "$at" -le "$epoch" ] && [ $((at + 3600)) -gt "$epoch" ] &&
-        [ "$(date -r $((at + 3600)) +%H:%M)" = "${quiet%-*}" ]; then
-        at=$((at + 3600))
-    fi
-    if [ "$at" -le "$epoch" ]; then
-        day=$(date -j -v+1d -f '%Y-%m-%d %H:%M:%S' "$today 12:00:00" +%Y-%m-%d) || exit $?
-        at=$(date -j -f '%Y-%m-%d %H:%M:%S' "$day ${quiet%-*}:00" +%s) || exit $?
+    # Count by the clock, then correct for a change of UTC offset on the way.
+    minute=$((epoch - epoch % 60))
+    at=$((minute + (from - now + 1440) % 1440 * 60))
+    before=$(offset "$minute") && after=$(offset "$at") || exit $?
+    if [ "$before" != "$after" ]; then
+        moved=$((at + (before - after) * 60))
+        shifted=$(offset "$moved") || exit $?
+        if [ "$shifted" = "$after" ]; then
+            at=$moved
+        else
+            # The start is in the skipped hour, so quiet hours start at the change.
+            low=$moved
+            while [ $((at - low)) -gt 60 ]; do
+                mid=$((low + (at - low) / 120 * 60))
+                if [ "$(offset "$mid")" = "$after" ]; then at=$mid; else low=$mid; fi
+            done
+        fi
     fi
     left=$(((at - epoch) / 60))
     [ "$left" -gt 0 ] || left=1
