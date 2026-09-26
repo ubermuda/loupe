@@ -95,6 +95,26 @@ func TestFetchReleasesKeepsTheNewerPagesWhenALaterPageFails(t *testing.T) {
 	}
 }
 
+func TestFetchReleasesFailsWhenALaterPageFailsAfterServerReleasesOnly(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") != "1" {
+			w.WriteHeader(http.StatusForbidden)
+
+			return
+		}
+		items := make([]string, 100)
+		for i := range items {
+			items[i] = `{"tag_name":"v2.0.` + strconv.Itoa(i) + `"}`
+		}
+		_, _ = io.WriteString(w, "["+strings.Join(items, ",")+"]")
+	}))
+	t.Cleanup(server.Close)
+
+	if _, err := FetchReleases(context.Background(), server.Client(), server.URL); err == nil || !strings.Contains(err.Error(), "403") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestFetchReleasesNamesAFailedStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
