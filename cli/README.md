@@ -19,6 +19,17 @@ a directory on your `PATH` that you can write.
 [Installing the CLI](../docs/getting-started/cli.md) gives the steps. A bridge
 then keeps the binary up to date by itself, as [Updates](#updates) says.
 
+From a checkout of this repository, one recipe does all three steps:
+
+```bash
+just cli-install-release                 # newest release, into ~/bin
+just cli-install-release 1.0.0           # a pinned version
+just cli-install-release latest ~/.local/bin
+```
+
+It checks the archive against `checksums.txt` before it installs anything, and
+it runs the same checks after the install as `just cli-install`.
+
 ## Build
 
 No host Go toolchain is needed; both recipes run in a throwaway container.
