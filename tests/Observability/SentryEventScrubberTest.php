@@ -82,6 +82,26 @@ final class SentryEventScrubberTest extends TestCase
         );
     }
 
+    public function test_a_transaction_named_by_its_url_keeps_only_its_method(): void
+    {
+        $event = Event::createTransaction();
+        $event->setTransaction('POST https://loupe.example/forgot-password/reset/secret-token');
+
+        $scrubbed = $this->scrubber()($event, null);
+
+        self::assertSame('POST', $scrubbed->getTransaction());
+    }
+
+    public function test_a_transaction_named_by_a_class_keeps_its_name(): void
+    {
+        $event = Event::createTransaction();
+        $event->setTransaction('App\Module\Mail\Messenger\SendDigest');
+
+        $scrubbed = $this->scrubber()($event, null);
+
+        self::assertSame('App\Module\Mail\Messenger\SendDigest', $scrubbed->getTransaction());
+    }
+
     public function test_a_span_loses_its_url_query_and_fragment(): void
     {
         $span = new Span(SpanContext::make()->setOp('http.client')->setData([

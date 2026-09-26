@@ -11,7 +11,7 @@ use Sentry\EventHint;
 /**
  * Some paths carry a secret, such as a password reset token, so no URL
  * leaves the instance. The route name in the transaction still identifies
- * the page.
+ * the page. A request with no route keeps only its method.
  */
 final readonly class SentryEventScrubber
 {
@@ -59,6 +59,11 @@ final readonly class SentryEventScrubber
 
     private function scrubTrace(Event $event): void
     {
+        $transaction = $event->getTransaction();
+        if (null !== $transaction && str_contains($transaction, '://')) {
+            $event->setTransaction(explode(' ', $transaction, 2)[0]);
+        }
+
         $trace = $event->getContexts()['trace'] ?? null;
         if (null !== $trace) {
             if (isset($trace['data']) && \is_array($trace['data'])) {
