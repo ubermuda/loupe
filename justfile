@@ -614,7 +614,8 @@ cli-install-release version="latest" dir="":
     if [ "$version" = latest ]; then
         tags=""
         for page in 1 2 3 4 5 6 7 8 9 10; do
-            batch="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=100&page=$page" | grep -oE '"tag_name": *"[^"]*"' || true)"
+            json="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=100&page=$page")"
+            batch="$(printf '%s' "$json" | grep -oE '"tag_name": *"[^"]*"' || true)"
             tags+="$batch"$'\n'
             [ "$(printf '%s' "$batch" | grep -c . || true)" -eq 100 ] || break
         done
