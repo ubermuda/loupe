@@ -608,12 +608,12 @@ cli-install-release version="latest" dir="":
     target="${target/#\~/$HOME}"
     repo="ubermuda/loupe"
 
-    # CLI releases are tagged cli/vX.Y.Z, apart from the app's own tags.
+    # CLI releases are tagged cli/vX.Y.Z, apart from the app's own tags. Like
+    # the self-updater, read one page and take the highest stable version.
     version="{{version}}"
     if [ "$version" = latest ]; then
-        tag="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=100" | grep -o '"tag_name": *"cli/v[^"]*"' | head -n 1 | sed 's/.*"\(cli\/v[^"]*\)"/\1/')"
-        [ -n "$tag" ] || { echo "no cli/v* release found on $repo" >&2; exit 1; }
-        version="${tag#cli/v}"
+        version="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=100" | grep -oE '"tag_name": *"cli/v[0-9]+\.[0-9]+\.[0-9]+"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)"
+        [ -n "$version" ] || { echo "no stable cli/v* release found on $repo" >&2; exit 1; }
     fi
     version="${version#v}"
 
@@ -627,10 +627,14 @@ cli-install-release version="latest" dir="":
         cd "$work"
         curl -fsSLO "$base/$archive"
         curl -fsSLO "$base/checksums.txt"
+        # Check against the archive's own line: --ignore-missing passes when
+        # checksums.txt has no entry for it at all.
+        grep -E "^[0-9a-f]{64}  $archive\$" checksums.txt > archive.sha256 \
+            || { echo "checksums.txt has no entry for $archive" >&2; exit 1; }
         if command -v sha256sum >/dev/null; then
-            sha256sum -c --ignore-missing checksums.txt
+            sha256sum -c archive.sha256
         else
-            shasum -a 256 -c --ignore-missing checksums.txt
+            shasum -a 256 -c archive.sha256
         fi
         tar -xzf "$archive" loupe
     )
