@@ -8,7 +8,8 @@ moves a card into a column with a worker, `loupe bridge` starts an unattended
 `claude -p` worker in this repository. The worker runs the stage skill for that
 column, reports one result line, and stops. Product design has no worker,
 because the owner writes the product document in an interactive session. A
-person approves each document.
+bridge rule with `action: interactive` can open that session in a terminal when
+the card enters Product design. A person approves each document.
 
 A card move either reports an agent's own state or carries a person's
 judgement. An agent makes the first kind and never the second. So the
@@ -41,8 +42,16 @@ an existing card there from an earlier column, such as Backlog or Next. Then it
 writes the product document with the owner. The approval of that document moves
 the card to Tech design. When a person requests
 changes on the document, the `fix-round` rule starts `loupe-stage-fix-round`,
-which answers the review round. Delete any `product-design` rule from your
-`rules.yaml`, then run `loupe bridge reload`.
+which answers the review round. Delete any `product-design` worker rule from
+your `rules.yaml`, then run `loupe bridge reload`.
+
+A bridge rule with `action: interactive` on `to: product-design` opens the
+session for you. When a person moves a card into Product design, the bridge
+opens a terminal window on its machine that runs
+`/loupe:product-design <number>`. The owner can still start the session by
+hand. Set `card: { interactiveRun: false }` on the rule, so that a session that
+moves its own card there opens no second window. Put the rule on one machine
+only. `cli/README.md` describes the rule and the `launch` block it needs.
 
 A card does not have to pass Product design. Move it from Backlog straight to
 Tech design when the card body already says what to build. The tech design

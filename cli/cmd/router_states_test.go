@@ -52,6 +52,29 @@ func (s *stateRecorder) ReportWorkerRun(context.Context, string, api.WorkerRun) 
 	return true, nil
 }
 
+func (s *stateRecorder) ReportInteractiveLaunch(_ context.Context, handle, sessionID string, report api.InteractiveLaunchReport) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sent = append(s.sent, launchSent{handle: handle, sessionID: sessionID, report: report})
+
+	return true, nil
+}
+
+// launches is every launch report sent so far, in order.
+func (s *stateRecorder) launches() []launchSent {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var out []launchSent
+	for _, v := range s.sent {
+		if l, ok := v.(launchSent); ok {
+			out = append(out, l)
+		}
+	}
+
+	return out
+}
+
 // states is every run state sent so far, in order.
 func (s *stateRecorder) states() []stateSent {
 	s.mu.Lock()
@@ -67,17 +90,20 @@ func (s *stateRecorder) states() []stateSent {
 	return out
 }
 
-// names is the state of each report sent so far, and "inventory" for a run
-// inventory.
+// names is the state of each report sent so far, "inventory" for a run
+// inventory and "launch" for a launch report.
 func (s *stateRecorder) names() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	out := make([]string, len(s.sent))
 	for i, v := range s.sent {
-		if st, ok := v.(stateSent); ok {
-			out[i] = st.report.State
-		} else {
+		switch v := v.(type) {
+		case stateSent:
+			out[i] = v.report.State
+		case launchSent:
+			out[i] = "launch"
+		default:
 			out[i] = "inventory"
 		}
 	}
