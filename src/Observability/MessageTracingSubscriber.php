@@ -49,6 +49,9 @@ final class MessageTracingSubscriber implements EventSubscriberInterface
     public function onReceived(WorkerMessageReceivedEvent $event): void
     {
         // A later listener can refuse the message, and then no handled or failed event comes.
+        // Finish the stale transaction unsampled, so its profiler stops and nothing is sent.
+        $this->transaction?->setSampled(false);
+        $this->transaction?->finish();
         $this->restore();
 
         if (self::SCHEDULER_TRANSPORT === $event->getReceiverName()) {

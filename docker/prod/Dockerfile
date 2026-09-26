@@ -36,6 +36,7 @@ WORKDIR /var/www/html
 # no toolchain.
 # pdo_pgsql: Postgres driver. intl: locale/translation. zip: composer/asset
 # handling. xsl: XSLT support. bcmath: arbitrary-precision arithmetic.
+# excimer: the sampling profiler that Sentry profiles need.
 # OPcache is already built into php:8.5-fpm-alpine — it just needs tuning (opcache.ini).
 #
 # su-exec is how a worker container drops to www-data *after* the entrypoint has
@@ -49,6 +50,8 @@ WORKDIR /var/www/html
 RUN apk add --no-cache postgresql-libs libzip libxslt icu-libs icu-data-full bash nginx supervisor su-exec \
  && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev libzip-dev libxslt-dev icu-dev \
  && docker-php-ext-install bcmath pdo_pgsql zip intl xsl \
+ && pecl install excimer-1.2.6 \
+ && docker-php-ext-enable excimer \
  && apk del .build-deps
 
 # Pinned and copied rather than curl-piped from getcomposer.org: the installer

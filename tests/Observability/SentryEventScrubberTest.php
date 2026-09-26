@@ -6,6 +6,7 @@ namespace App\Tests\Observability;
 
 use App\Observability\SentryEventScrubber;
 use App\Service\BuildIdentity;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Sentry\Event;
 use Sentry\ExceptionDataBag;
@@ -90,6 +91,24 @@ final class SentryEventScrubberTest extends TestCase
         $scrubbed = $this->scrubber()($event, null);
 
         self::assertSame('POST', $scrubbed->getTransaction());
+    }
+
+    #[DataProvider('bareUrlNames')]
+    public function test_a_transaction_named_by_a_url_alone_is_filtered(string $name): void
+    {
+        $event = Event::createTransaction();
+        $event->setTransaction($name);
+
+        $scrubbed = $this->scrubber()($event, null);
+
+        self::assertSame('[Filtered]', $scrubbed->getTransaction());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function bareUrlNames(): iterable
+    {
+        yield 'no method' => ['https://loupe.example/forgot-password/reset/secret-token'];
+        yield 'leading space' => [' https://loupe.example/forgot-password/reset/secret-token'];
     }
 
     public function test_a_transaction_named_by_a_class_keeps_its_name(): void

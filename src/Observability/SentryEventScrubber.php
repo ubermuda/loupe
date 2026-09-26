@@ -61,7 +61,8 @@ final readonly class SentryEventScrubber
     {
         $transaction = $event->getTransaction();
         if (null !== $transaction && str_contains($transaction, '://')) {
-            $event->setTransaction(explode(' ', $transaction, 2)[0]);
+            $method = strtok($transaction, ' ');
+            $event->setTransaction(false === $method || str_contains($method, '://') ? '[Filtered]' : $method);
         }
 
         $trace = $event->getContexts()['trace'] ?? null;

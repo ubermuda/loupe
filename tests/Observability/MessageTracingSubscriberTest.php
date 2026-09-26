@@ -130,6 +130,7 @@ final class MessageTracingSubscriberTest extends TestCase
         $this->hub->setSpan($previous);
         $this->subscriber->onReceived(new WorkerMessageReceivedEvent(new Envelope(new \stdClass()), 'async'));
         $skipped = $this->hub->getSpan();
+        self::assertInstanceOf(Transaction::class, $skipped);
 
         $next = new Envelope(new \ArrayObject());
         $this->subscriber->onReceived(new WorkerMessageReceivedEvent($next, 'async'));
@@ -137,6 +138,8 @@ final class MessageTracingSubscriberTest extends TestCase
         self::assertInstanceOf(Transaction::class, $current);
         self::assertNotSame($skipped, $current);
         self::assertNull($current->getParentSpanId());
+        self::assertNotNull($skipped->getEndTimestamp());
+        self::assertFalse($skipped->getSampled());
 
         $this->subscriber->onHandled(new WorkerMessageHandledEvent($next, 'async'));
         self::assertSame(\ArrayObject::class, $this->onlySent()->getTransaction());
