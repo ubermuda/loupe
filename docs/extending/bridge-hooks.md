@@ -45,9 +45,10 @@ last one it got. A package that has had no `busy` yet, or that has just run
 slow hook can make a package miss a short flip, and the next `busy` or `idle`
 it gets is the current state.
 
-A package that a reload adds runs first on the next event. It gets no `start`.
-When the bridge is already busy, it gets no `busy` at the reload, and no `idle`
-until it has had a `busy`. It gets the next `busy`.
+A package that a reload adds gets no `start`. When the bridge is idle, it runs
+first on the next `busy`. When the bridge is busy, the reload fires `busy` for
+each package that has not had it, so the added package gets the `idle` that
+follows.
 
 A package that a reload removes runs its `stop` once, so it can release what
 `busy` took. A package with no `stop` hook keeps its `busy` or `idle` state
@@ -100,7 +101,7 @@ bridge, plus these variables, which win over a variable of the same name:
 | `LOUPE_HOOK_PACKAGE` | the package, as `owner/repo` or `owner/repo/path` |
 | `LOUPE_BRIDGE_ID` | the id of the bridge |
 | `LOUPE_HOOK_STATE_DIR` | the state directory of the package |
-| `LOUPE_HOOK_SETTING_<NAME>` | one variable for each setting, with the name in upper case, such as `LOUPE_HOOK_SETTING_TAKEOVER`. A setting that the rule file does not set has its default |
+| `LOUPE_HOOK_SETTING_<NAME>` | one variable for each setting, with the name in upper case, such as `LOUPE_HOOK_SETTING_QUIET_HOURS`. A setting that the rule file does not set has its default |
 
 The state directory is `hooks/state/<package>` in your config directory. The
 bridge creates it before each run, readable by you alone. It stays when you
@@ -169,7 +170,7 @@ hooks:
     ref: 4f0c2a1b9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a
     sha: 4f0c2a1b9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a
     settings:
-      takeover: "true"
+      away_minutes: "45"
 ```
 
 `ref` is the label you typed, and `sha` is the commit the bridge runs. Let the
@@ -216,30 +217,35 @@ loupe bridge reload
 
 | Event | What the hook does |
 |---|---|
-| `busy` | Starts an Amphetamine session with no end, and switches on closed-display mode. The display can still sleep |
-| `idle` | Ends the session that the hook started |
-| `stop` | Ends the session that the hook started |
-| `start` | Ends a session that a crashed bridge left behind |
+| `busy` | Starts an Amphetamine session with no end, and switches on closed-display mode. It replaces any active session. The display can still sleep |
+| `idle` | Ends or shortens the active session, as the next table says |
+| `stop` | The same as `idle` |
+| `start` | The same as `idle`, so a session that a crashed bridge left behind ends |
 
-The hook writes a marker file in its state directory when it starts a session.
-By default, `idle`, `stop` and `start` act only when that marker exists. They end an
-active session only when it has no end. A timed session is yours, and the hook
-leaves it on.
+At `idle`, the hook acts on any active session, whoever started it:
 
-When a session of yours is already active at `busy`, the hook leaves it alone
-and starts nothing. When your session ends, the Mac can sleep while a worker
-runs.
+| When | What the hook does |
+|---|---|
+| The time is inside `quiet_hours` | Ends the session |
+| Nobody used the keyboard or the mouse for `away_minutes` | Ends the session |
+| Neither | Replaces the session with a timed one that ends when `quiet_hours` starts |
 
-### The takeover setting
+A timed session lets the Mac sleep at night even when the bridge fires no more
+events. The next `busy` replaces it with a session that has no end.
+
+### Settings
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `quiet_hours` | `23:00-06:00` | The hours, as `HH:MM-HH:MM` in local time, when `idle` ends the session. The range can cross midnight. Empty makes every `idle` end the session |
+| `away_minutes` | `30` | The minutes with no keyboard or mouse input after which `idle` ends the session at any hour. `0` turns this off |
 
 ```bash
-loupe bridge hooks set ubermuda/loupe/hooks/amphetamine takeover=true
+loupe bridge hooks set ubermuda/loupe/hooks/amphetamine quiet_hours=22:30-07:00
 loupe bridge reload
 ```
 
-With `takeover=true`, `busy` always starts a new session, and it replaces a
-session of yours. `idle`, `stop` and `start` then end any active session,
-whoever started it. The default is `false`.
+A bad value makes each run fail with exit code 5, and the session stays as it is.
 
 ### One-time setup on macOS
 
@@ -259,15 +265,14 @@ When the Mac does not support closed-display mode, `busy` fails with exit code
 3 and `closed-display mode is off`. The session stays on, and `idle` ends it as
 usual.
 
-When `busy` cannot write its marker file, it ends the session it started and
-fails with exit code 4. Without the marker, `idle` would leave the session on.
 
 ### Limits
 
-Amphetamine gives a session no id. The hook knows its own session only by the
-marker file and by a session with no end. You can replace the session of the
-hook with a session of your own that has no end. The hook then ends your
-session at the next `idle` or `stop`.
+The hook does not tell your sessions from its own. A session that you start
+while the bridge is busy ends or becomes timed at the next `idle`. The hook
+checks the time and your input only when an event fires. After an `idle` by
+day, the timed session ends at the start of `quiet_hours`, even when you leave
+the Mac earlier.
 
 When Amphetamine is not installed, each run that calls it fails and logs
 `hook_failed`. `busy` always calls it. The bridge keeps running, and the Mac can

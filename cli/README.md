@@ -1193,7 +1193,7 @@ rewrite the list itself, so a comment inside it is lost.
 ```bash
 loupe bridge hooks install ubermuda/loupe/hooks/amphetamine@<commit sha>
 loupe bridge hooks list
-loupe bridge hooks set ubermuda/loupe/hooks/amphetamine takeover=true
+loupe bridge hooks set ubermuda/loupe/hooks/amphetamine quiet_hours=22:30-07:00
 loupe bridge hooks run ubermuda/loupe/hooks/amphetamine busy
 loupe bridge hooks remove ubermuda/loupe/hooks/amphetamine
 ```
