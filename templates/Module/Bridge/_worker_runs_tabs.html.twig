@@ -1,0 +1,8 @@
+<nav class="lp-tabs lp-worker-runs-tabs" aria-label="{{ 'bridge.worker_runs.tabs.label'|trans }}">
+    <a class="lp-tabs__tab"
+       href="{{ path('app_project_worker_runs', {id: project.id}) }}"
+       {% if active == 'runs' %}aria-current="page"{% endif %}>{{ 'bridge.worker_runs.tabs.runs'|trans }}</a>
+    <a class="lp-tabs__tab"
+       href="{{ path('app_project_worker_run_cost', {id: project.id}) }}"
+       {% if active == 'cost' %}aria-current="page"{% endif %}>{{ 'bridge.worker_runs.tabs.cost'|trans }}</a>
+</nav>

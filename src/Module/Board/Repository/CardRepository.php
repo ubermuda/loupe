@@ -529,6 +529,33 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
+     * The cards of the project in a terminal column, oldest completion first.
+     *
+     * @return list<array{id: Uuid, number: int, title: string, completedAt: \DateTimeImmutable}>
+     */
+    public function findFinishedRows(Project $project, ?\DateTimeImmutable $completedSince): array
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->select('c.id, c.number, c.title, c.completedAt')
+            ->join('c.column', 'k')
+            ->andWhere('c.project = :project')
+            ->andWhere('k.terminal = true')
+            ->andWhere('c.completedAt IS NOT NULL')
+            ->setParameter('project', $project)
+            ->orderBy('c.completedAt', 'ASC')
+            ->addOrderBy('c.number', 'ASC');
+
+        if (null !== $completedSince) {
+            $qb->andWhere('c.completedAt >= :since')->setParameter('since', $completedSince, Types::DATETIME_IMMUTABLE);
+        }
+
+        /** @var list<array{id: Uuid, number: int, title: string, completedAt: \DateTimeImmutable}> $rows */
+        $rows = $qb->getQuery()->getArrayResult();
+
+        return $rows;
+    }
+
+    /**
      * How many children each epic of the project has, and how many of them
      * sit in a terminal column. An epic with no children has no key.
      *
