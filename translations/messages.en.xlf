@@ -2877,7 +2877,7 @@
             </trans-unit>
             <trans-unit id="account.system_status.sentry.off">
                 <source>account.system_status.sentry.off</source>
-                <target>SENTRY_DSN is not set, so this instance sends nothing to Sentry.</target>
+                <target>SENTRY_DSN is empty or holds an off value such as "false", so this instance sends nothing to Sentry.</target>
             </trans-unit>
             <trans-unit id="account.system_status.sentry.malformed">
                 <source>account.system_status.sentry.malformed</source>

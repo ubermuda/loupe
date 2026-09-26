@@ -18,6 +18,9 @@ final class TracesSamplerTest extends TestCase
         yield 'empty DSN' => ['', null];
         yield 'unset DSN' => [null, null];
         yield 'empty DSN under a sampled parent' => ['', true];
+        yield 'off string' => ['false', null];
+        yield 'malformed DSN' => ['not-a-dsn', null];
+        yield 'malformed DSN under a sampled parent' => ['not-a-dsn', true];
     }
 
     #[DataProvider('noDsn')]

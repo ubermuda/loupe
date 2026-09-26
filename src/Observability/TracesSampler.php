@@ -8,7 +8,7 @@ use Sentry\Tracing\SamplingContext;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * With no DSN the SDK would still build and profile every transaction, then
+ * With no usable DSN the SDK would still build and profile every transaction, then
  * drop it at the transport. A zero rate stops that work at the start.
  */
 final readonly class TracesSampler
@@ -24,7 +24,7 @@ final readonly class TracesSampler
 
     public function __invoke(SamplingContext $context): float
     {
-        if (null === $this->dsn || '' === $this->dsn) {
+        if (SentryDsnStatus::Valid !== SentryDsnStatus::of($this->dsn)) {
             return 0.0;
         }
 

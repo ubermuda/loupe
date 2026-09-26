@@ -28,6 +28,7 @@ final class SentryCheckTest extends TestCase
     {
         yield 'null' => [null];
         yield 'empty' => [''];
+        yield 'off string' => ['(null)'];
     }
 
     public function test_a_malformed_dsn_is_a_failure_that_shows_no_value(): void

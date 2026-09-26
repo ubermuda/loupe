@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Observability;
 
-use Sentry\Dsn;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Ubermuda\HealthCheckBundle\Diagnostic;
 use Ubermuda\HealthCheckBundle\DiagnosticInterface;
@@ -35,14 +34,12 @@ final readonly class SentryCheck implements DiagnosticInterface
     #[\Override]
     public function __invoke(): Diagnostic
     {
-        if (null === $this->dsn || '' === $this->dsn) {
+        // The SDK drops a malformed DSN with a debug log, so this row is the only visible sign.
+        $status = SentryDsnStatus::of($this->dsn);
+        if (SentryDsnStatus::Off === $status) {
             return new Diagnostic('sentry', DiagnosticState::Ok, 'account.system_status.sentry.off');
         }
-
-        // The SDK drops a malformed DSN with a debug log, so this row is the only visible sign.
-        try {
-            Dsn::createFromString($this->dsn);
-        } catch (\InvalidArgumentException) {
+        if (SentryDsnStatus::Malformed === $status) {
             return new Diagnostic('sentry', DiagnosticState::Failed, 'account.system_status.sentry.malformed');
         }
 
