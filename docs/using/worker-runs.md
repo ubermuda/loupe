@@ -84,6 +84,30 @@ and so does a move of the card to another column. A run from an older bridge
 names no column, so its warning stays in every column. An open run leaves the
 warning in place until it ends.
 
+## The usage total of a card
+
+The runs section of a card shows one **Total usage** line below its runs. The
+line counts every run of the card, not only the five the card lists. It also
+counts the usage of runs that the retention sweep deleted. The line shows the
+cost in US dollars, then the input, output, cache read and cache write tokens.
+A large count is short, such as `45.3k` or `1.2M`.
+
+The line can carry two marks:
+
+| Mark | Meaning |
+|---|---|
+| **Estimated** | the bridge counted some tokens from the session transcript, or a model has no known price. The dollar total can be low |
+| **n runs have no usage** | n worker runs started and closed, and reported no usage. The total leaves them out |
+
+An open run, a run that never started and an interactive session never count
+as runs with no usage. When no model of the card has a price, the line shows
+the tokens and no dollars.
+
+A card whose runs all come from an older bridge, or are all still open, shows
+**Usage unknown** instead of $0.00. A run that reported usage with no models
+spent nothing, so a card with only such runs shows $0.00. See
+[Usage](../reference/worker-runs.md#usage) for how a bridge reports usage.
+
 ## Interactive sessions
 
 A Claude Code session that a person runs on a card, such as
