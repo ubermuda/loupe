@@ -22,18 +22,18 @@ const (
 )
 
 // FetchReleases reads the releases of the Loupe repository, newest first. Server
-// releases share the list, so it reads every page, up to maxPages.
+// releases share the list, so it reads every page, up to maxPages. A failed later
+// page keeps the newer releases already read.
 func FetchReleases(ctx context.Context, hc *http.Client, apiBase string) ([]Release, error) {
 	var releases []Release
 	for page := 1; page <= maxPages; page++ {
-		url := fmt.Sprintf("%s/repos/ubermuda/loupe/releases?per_page=%d&page=%d", apiBase, perPage, page)
-		data, err := download(ctx, hc, url, "application/vnd.github+json", maxReleases)
+		batch, err := fetchPage(ctx, hc, apiBase, page)
 		if err != nil {
-			return nil, fmt.Errorf("list the releases: %w", err)
-		}
-		var batch []Release
-		if err := json.Unmarshal(data, &batch); err != nil {
-			return nil, fmt.Errorf("read the releases: %w", err)
+			if page == 1 {
+				return nil, err
+			}
+
+			break
 		}
 		releases = append(releases, batch...)
 		if len(batch) < perPage {
@@ -42,6 +42,20 @@ func FetchReleases(ctx context.Context, hc *http.Client, apiBase string) ([]Rele
 	}
 
 	return releases, nil
+}
+
+func fetchPage(ctx context.Context, hc *http.Client, apiBase string, page int) ([]Release, error) {
+	url := fmt.Sprintf("%s/repos/ubermuda/loupe/releases?per_page=%d&page=%d", apiBase, perPage, page)
+	data, err := download(ctx, hc, url, "application/vnd.github+json", maxReleases)
+	if err != nil {
+		return nil, fmt.Errorf("list the releases: %w", err)
+	}
+	var batch []Release
+	if err := json.Unmarshal(data, &batch); err != nil {
+		return nil, fmt.Errorf("read the releases: %w", err)
+	}
+
+	return batch, nil
 }
 
 // Download reads one release asset.

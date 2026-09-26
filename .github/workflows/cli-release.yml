@@ -48,9 +48,9 @@ jobs:
           # The notes start at the next lower CLI tag, never at a server tag.
           previous=$(git tag --list 'cli/v*' --sort=-v:refname \
             | awk -v cur="$GITHUB_REF_NAME" 'found { print; exit } $0 == cur { found = 1 }')
-          start=()
-          if [ -n "$previous" ]; then start=(--notes-start-tag "$previous"); fi
+          notes=(--notes "The first release of the loupe CLI on its own version track.")
+          if [ -n "$previous" ]; then notes=(--generate-notes --notes-start-tag "$previous"); fi
           # The server's update check reads /releases/latest, so "Latest" stays a server release.
           gh release create "$GITHUB_REF_NAME" --verify-tag --latest=false \
-            --title "loupe CLI ${GITHUB_REF_NAME#cli/}" --generate-notes "${start[@]}" \
+            --title "loupe CLI ${GITHUB_REF_NAME#cli/}" "${notes[@]}" \
             cli/dist/*.tar.gz cli/dist/checksums.txt
