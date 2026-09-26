@@ -74,7 +74,7 @@ func TestFetchReleasesReadsTenPagesAtMost(t *testing.T) {
 	}
 }
 
-func TestFetchReleasesKeepsTheNewerPagesWhenALaterPageFails(t *testing.T) {
+func TestFetchReleasesFailsWhenALaterPageFails(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("page") != "1" {
 			w.WriteHeader(http.StatusForbidden)
@@ -84,27 +84,6 @@ func TestFetchReleasesKeepsTheNewerPagesWhenALaterPageFails(t *testing.T) {
 		items := make([]string, 100)
 		for i := range items {
 			items[i] = `{"tag_name":"cli/v1.0.` + strconv.Itoa(i) + `"}`
-		}
-		_, _ = io.WriteString(w, "["+strings.Join(items, ",")+"]")
-	}))
-	t.Cleanup(server.Close)
-
-	releases, err := FetchReleases(context.Background(), server.Client(), server.URL)
-	if err != nil || len(releases) != 100 {
-		t.Fatalf("%d releases, err = %v", len(releases), err)
-	}
-}
-
-func TestFetchReleasesFailsWhenALaterPageFailsAfterServerReleasesOnly(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("page") != "1" {
-			w.WriteHeader(http.StatusForbidden)
-
-			return
-		}
-		items := make([]string, 100)
-		for i := range items {
-			items[i] = `{"tag_name":"v2.0.` + strconv.Itoa(i) + `"}`
 		}
 		_, _ = io.WriteString(w, "["+strings.Join(items, ",")+"]")
 	}))
