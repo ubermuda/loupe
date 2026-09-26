@@ -19,8 +19,12 @@ minutes() {
 }
 
 if [ -n "$quiet" ]; then
+    case $quiet in
+        ??:??-??:??) ;;
+        *) quiet="bad $quiet" ;;
+    esac
     from=$(minutes "${quiet%-*}") && to=$(minutes "${quiet#*-}") || {
-        echo "quiet_hours must be HH:MM-HH:MM, not $quiet" >&2
+        echo "quiet_hours must be HH:MM-HH:MM, not ${quiet#bad }" >&2
         exit 5
     }
 fi
@@ -61,10 +65,10 @@ release() {
         return 0
     fi
     # A timestamp, not clock minutes, so a daylight saving change counts.
-    start="$today ${quiet%-*}:00"
-    at=$(date -j -f '%Y-%m-%d %H:%M:%S' "$start" +%s) || exit $?
+    at=$(date -j -f '%Y-%m-%d %H:%M:%S' "$today ${quiet%-*}:00" +%s) || exit $?
     if [ "$at" -le "$epoch" ]; then
-        at=$(date -j -v+1d -f '%Y-%m-%d %H:%M:%S' "$start" +%s) || exit $?
+        day=$(date -j -v+1d -f '%Y-%m-%d %H:%M:%S' "$today 12:00:00" +%Y-%m-%d) || exit $?
+        at=$(date -j -f '%Y-%m-%d %H:%M:%S' "$day ${quiet%-*}:00" +%s) || exit $?
     fi
     left=$(((at - epoch) / 60))
     [ "$left" -gt 0 ] || left=1

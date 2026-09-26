@@ -40,10 +40,7 @@ day() { /bin/date -r "$1" +%Y-%m-%d 2>/dev/null || /bin/date -d "@$1" +%Y-%m-%d;
 case $* in
     '+%Y-%m-%d %H:%M %s') echo "${now%:*} $(parse "$now")" ;;
     "-j -f $fmt "*' +%s') parse "$4" ;;
-    "-j -v+1d -f $fmt "*' +%s')
-        d=$(day $(($(parse "${5% *} 12:00:00") + 86400)))
-        parse "$d ${5#* }"
-        ;;
+    "-j -v+1d -f $fmt "*' 12:00:00 +%Y-%m-%d') day $(($(parse "$5") + 86400)) ;;
     *) echo "fake date: unknown call: $*" >&2; exit 64 ;;
 esac
 EOF
@@ -217,6 +214,14 @@ expect_code 0
 expect_called "$(timed 315)"
 finish
 
+check 'a timed session to tomorrow starts from the date, not a shifted time'
+setup true '2026-03-08 04:00:00' 0
+quiet='02:30-03:00'
+run idle
+expect_code 0
+expect_called "$(timed 1350)"
+finish
+
 check 'a timed session drops the seconds, so it ends before quiet hours'
 setup true '2026-09-26 22:58:30' 0
 run idle
@@ -248,6 +253,14 @@ run idle
 expect_code 5
 [ ! -s "$work/fake/log" ] || fail 'osascript was called'
 grep -q 'quiet_hours' "$work/stderr" || fail 'no quiet_hours message'
+finish
+
+check 'a quiet_hours with no range exits 5'
+setup true 14:00 0
+quiet='23:00'
+run idle
+expect_code 5
+[ ! -s "$work/fake/log" ] || fail 'osascript was called'
 finish
 
 check 'a bad away_minutes exits 5'
