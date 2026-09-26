@@ -5649,6 +5649,11 @@
             <trans-unit id="board.card.runs.title"><source>board.card.runs.title</source><target>Agent runs</target></trans-unit>
             <trans-unit id="board.card.runs.all"><source>board.card.runs.all</source><target>Run history</target></trans-unit>
             <trans-unit id="board.card.runs.empty"><source>board.card.runs.empty</source><target>No agent has run on this card yet.</target></trans-unit>
+            <trans-unit id="board.card.runs.usage.total"><source>board.card.runs.usage.total</source><target>Total usage</target></trans-unit>
+            <trans-unit id="board.card.runs.usage.tokens"><source>board.card.runs.usage.tokens</source><target>%input% input · %output% output · %cacheRead% cache read · %cacheWrite% cache write</target></trans-unit>
+            <trans-unit id="board.card.runs.usage.estimated"><source>board.card.runs.usage.estimated</source><target>Estimated</target></trans-unit>
+            <trans-unit id="board.card.runs.usage.partial"><source>board.card.runs.usage.partial</source><target>{0}All runs have usage|{1}1 run has no usage|]1,Inf[%count% runs have no usage</target></trans-unit>
+            <trans-unit id="board.card.runs.usage.unknown"><source>board.card.runs.usage.unknown</source><target>Usage unknown</target></trans-unit>
             <trans-unit id="board.card.conversation.title"><source>board.card.conversation.title</source><target>Conversation</target></trans-unit>
             <trans-unit id="board.card.conversation.description"><source>board.card.conversation.description</source><target>Inbox requests linked to this card share their original records.</target></trans-unit>
             <trans-unit id="board.card.feedback.description"><source>board.card.feedback.description</source><target>Feedback captured by the site review widget for this card.</target></trans-unit>

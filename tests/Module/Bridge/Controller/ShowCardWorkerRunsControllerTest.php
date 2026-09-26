@@ -6,6 +6,7 @@ namespace App\Tests\Module\Bridge\Controller;
 
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -116,6 +117,59 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertCount(0, $workerRow->filter('form'));
     }
 
+    public function test_the_usage_total_shows_dollars_tokens_and_its_marks(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'card-fragment-usage@example.com');
+        $project = $this->project($em, $owner, 'Fragment usage');
+        $cardId = Uuid::v7();
+        $this->seedUsage($em, $this->seedRun($em, $project, cardId: $cardId), costUsd: '12.3412', inputTokens: 1_234_567);
+        $this->seedUsage($em, $this->seedRun($em, $project, cardId: $cardId), source: WorkerRunUsageSource::Estimated, costUsd: '0.0005', inputTokens: 45_300);
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Failed);
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Lost);
+
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
+
+        self::assertResponseIsSuccessful();
+        $total = $crawler->filter('turbo-frame#card-worker-runs [data-card-runs] [data-card-usage-total]');
+        self::assertCount(1, $total);
+        self::assertSame('$12.34', $total->filter('[data-card-usage-cost]')->text());
+        self::assertSame('1.3M input · 40 output · 600 cache read · 80 cache write', $total->filter('[data-card-usage-tokens]')->text());
+        self::assertSame('Estimated', $total->filter('[data-card-usage-estimated]')->text());
+        self::assertSame('2 runs have no usage', $total->filter('[data-card-usage-partial]')->text());
+        self::assertCount(0, $total->filter('[data-card-usage-unknown]'));
+    }
+
+    public function test_a_card_whose_runs_report_no_usage_shows_usage_unknown(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'card-fragment-usage-unknown@example.com');
+        $project = $this->project($em, $owner, 'Fragment usage unknown');
+        $cardId = Uuid::v7();
+        $this->seedRun($em, $project, cardId: $cardId);
+
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
+
+        self::assertResponseIsSuccessful();
+        $total = $crawler->filter('[data-card-usage-total]');
+        self::assertSame('Usage unknown', $total->filter('[data-card-usage-unknown]')->text());
+        self::assertCount(0, $total->filter('[data-card-usage-cost]'));
+        self::assertCount(0, $total->filter('[data-card-usage-partial]'));
+        self::assertStringNotContainsString('$0.00', $total->text());
+    }
+
     public function test_a_card_with_no_runs_says_so(): void
     {
         $client = static::createClient();
@@ -142,7 +196,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $stranger = $this->user($em, 'card-fragment-stranger@example.com');
         $project = $this->project($em, $owner, 'Fragment private');
         $cardId = Uuid::v7();
-        $this->seedRun($em, $project, ruleName: 'private rule', cardId: $cardId);
+        $this->seedUsage($em, $this->seedRun($em, $project, ruleName: 'private rule', cardId: $cardId));
 
         $projectId = (string) $project->id;
         $em->clear();
@@ -152,6 +206,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(403);
         self::assertStringNotContainsString('private rule', (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString('data-card-usage-total', (string) $client->getResponse()->getContent());
     }
 
     public function test_a_card_id_that_is_not_a_uuid_is_not_found(): void
