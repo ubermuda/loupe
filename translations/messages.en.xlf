@@ -5468,6 +5468,9 @@
             <trans-unit id="bridge.worker_run_cost.table.finished"><source>bridge.worker_run_cost.table.finished</source><target>Finished</target></trans-unit>
             <trans-unit id="bridge.worker_run_cost.table.cost"><source>bridge.worker_run_cost.table.cost</source><target>Cost</target></trans-unit>
             <trans-unit id="bridge.worker_run_cost.table.notes"><source>bridge.worker_run_cost.table.notes</source><target>Notes</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.finished_on"><source>bridge.worker_run_cost.finished_on</source><target>Finished %date%</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.table.grouped_week"><source>bridge.worker_run_cost.table.grouped_week</source><target>On this range, each bar stands in the week that its card finished, from Monday. The table gives the exact dates.</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.table.grouped_month"><source>bridge.worker_run_cost.table.grouped_month</source><target>On this range, each bar stands in the month that its card finished. The table gives the exact dates.</target></trans-unit>
             <trans-unit id="bridge.worker_run_cost.empty"><source>bridge.worker_run_cost.empty</source><target>No finished card with usage in this range.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.page.title">
                 <source>bridge.worker_runs.page.title</source>

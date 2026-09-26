@@ -122,6 +122,11 @@ its height is the dollar total of every usage row of the card. The date of a
 run does not matter, so a card that finished this week keeps the runs of
 earlier weeks.
 
+On a long range a day is too narrow for a bar, so the bars group by week or by
+month. A week starts on Monday. Each card of a week or a month gets an equal
+share of it, in the order the cards finished. The hover card and the table
+still give the exact date that each card finished.
+
 The dollars are the API list price that claude reports. On a subscription, you
 do not pay this amount.
 

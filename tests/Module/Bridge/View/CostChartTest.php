@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\View;
 use App\Module\Bridge\Cost\FinishedCard;
 use App\Module\Bridge\View\CardCost;
 use App\Module\Bridge\View\CostChart;
+use App\Module\Bridge\View\CostChartBar;
 use App\Module\Bridge\View\CostChartSegment;
 use App\Module\Bridge\View\CostChartSeries;
 use App\Module\Bridge\View\CostChartTick;
@@ -73,42 +74,46 @@ final class CostChartTest extends TestCase
         self::assertLessThanOrEqual($slotLeft + $dayWidth + 0.02, $chart->bars[19]->hitX + $chart->bars[19]->hitWidth);
     }
 
-    /** On a long range a day is under two units wide, and a lone bar must not shrink out of sight. */
-    public function test_a_lone_card_on_a_long_range_stays_two_units_wide(): void
+    /** A day of 600 is under six units wide, so the bars group by ISO week. */
+    public function test_a_long_range_groups_by_week_and_keeps_bars_and_hit_areas_in_order(): void
+    {
+        $cards = [];
+        for ($hour = 9; $hour < 13; ++$hour) {
+            $cards[] = $this->cost(\sprintf('2025-06-08 %02d:00:00', $hour), ['' => 1_000_000]);
+        }
+        // A Monday, so this card opens the next week.
+        $cards[] = $this->cost('2025-06-09 09:00:00', ['' => 1_000_000]);
+        $chart = CostChart::build($cards, [''], new \DateTimeImmutable('2025-02-07 12:00:00'), new \DateTimeImmutable('2026-09-30 12:00:00'));
+
+        self::assertSame('week', $chart->period);
+        $this->assertInOrder($chart->bars);
+        $mondayLeft = $this->axisX('2025-02-07', '2025-06-09', 601);
+        self::assertLessThanOrEqual($mondayLeft + 0.02, $chart->bars[3]->hitX + $chart->bars[3]->hitWidth);
+        self::assertGreaterThanOrEqual($mondayLeft - 0.02, $chart->bars[4]->hitX);
+    }
+
+    /** Over three years a week is under six units wide, so the bars group by month. */
+    public function test_a_three_year_range_groups_by_month(): void
     {
         $chart = CostChart::build(
-            [$this->cost('2025-06-01 09:00:00', ['' => 1_000_000])],
+            [
+                $this->cost('2024-03-02 09:00:00', ['' => 1_000_000]),
+                $this->cost('2024-03-30 09:00:00', ['' => 1_000_000]),
+                $this->cost('2024-04-01 09:00:00', ['' => 1_000_000]),
+            ],
             [''],
-            new \DateTimeImmutable('2025-01-01 12:00:00'),
+            new \DateTimeImmutable('2023-09-30 12:00:00'),
             new \DateTimeImmutable('2026-09-30 12:00:00'),
         );
 
-        self::assertGreaterThanOrEqual(2.0, $chart->bars[0]->width);
-    }
-
-    /**
-     * On a 600-day range the bars of adjacent days overlap, and the later bar paints on top.
-     * Each hit area holds the part of its bar that shows, and no two hit areas overlap.
-     */
-    public function test_hit_areas_on_a_long_range_do_not_overlap(): void
-    {
-        $cards = [];
-        foreach (['2025-06-01', '2025-06-02', '2025-06-03', '2025-06-05', '2025-09-01'] as $day) {
-            $cards[] = $this->cost($day.' 09:00:00', ['' => 1_000_000]);
-        }
-        $chart = CostChart::build($cards, [''], new \DateTimeImmutable('2025-02-07 12:00:00'), new \DateTimeImmutable('2026-09-30 12:00:00'));
-
-        $bars = $chart->bars;
-        foreach ($bars as $index => $bar) {
-            $shownRight = isset($bars[$index + 1]) ? min($bar->x + $bar->width, $bars[$index + 1]->x) : $bar->x + $bar->width;
-            self::assertLessThanOrEqual($bar->x + 0.02, $bar->hitX);
-            self::assertGreaterThanOrEqual($shownRight - 0.02, $bar->hitX + $bar->hitWidth);
-            if (isset($bars[$index + 1])) {
-                self::assertLessThanOrEqual($bars[$index + 1]->hitX + 0.001, $bar->hitX + $bar->hitWidth);
-            }
-        }
-        // The last card stands alone, so it keeps the full minimum hit area.
-        self::assertGreaterThanOrEqual(12.0, $bars[4]->hitWidth);
+        self::assertSame('month', $chart->period);
+        $this->assertInOrder($chart->bars);
+        $marchLeft = $this->axisX('2023-09-30', '2024-03-01', 1097);
+        $aprilLeft = $this->axisX('2023-09-30', '2024-04-01', 1097);
+        self::assertEqualsWithDelta($marchLeft, $chart->bars[0]->hitX, 0.02);
+        self::assertEqualsWithDelta($aprilLeft, $chart->bars[1]->hitX + $chart->bars[1]->hitWidth, 0.02);
+        self::assertEqualsWithDelta($aprilLeft, $chart->bars[2]->hitX, 0.02);
+        self::assertGreaterThanOrEqual(2.0, $chart->bars[2]->width);
     }
 
     public function test_the_parts_stack_bottom_up_with_a_gap_and_a_rounded_top(): void
@@ -200,6 +205,35 @@ final class CostChartTest extends TestCase
         self::assertLessThanOrEqual(6, \count($chart->xTicks));
         self::assertEquals(new \DateTimeImmutable('2026-09-01 00:00:00'), $chart->xTicks[0]->day);
         self::assertFalse($chart->longSpan);
+    }
+
+    /**
+     * Every bar and every hit area has a width, holds its place in x order, and
+     * each hit area holds its bar. Coordinates are rounded to two decimals.
+     *
+     * @param list<CostChartBar> $bars
+     */
+    private function assertInOrder(array $bars): void
+    {
+        foreach ($bars as $index => $bar) {
+            self::assertGreaterThan(0.0, $bar->width);
+            self::assertGreaterThan(0.0, $bar->hitWidth);
+            self::assertLessThanOrEqual($bar->x + 0.02, $bar->hitX);
+            self::assertGreaterThanOrEqual($bar->x + $bar->width - 0.02, $bar->hitX + $bar->hitWidth);
+            $next = $bars[$index + 1] ?? null;
+            if (null !== $next) {
+                self::assertGreaterThanOrEqual($bar->x + $bar->width - 0.02, $next->x);
+                self::assertGreaterThanOrEqual($bar->hitX + $bar->hitWidth - 0.001, $next->hitX);
+            }
+        }
+    }
+
+    /** The left edge of a day on an axis that starts on the given day and holds the given number of days. */
+    private function axisX(string $firstDay, string $day, int $dayCount): float
+    {
+        $index = (int) new \DateTimeImmutable($firstDay)->diff(new \DateTimeImmutable($day))->format('%a');
+
+        return CostChart::PLOT_LEFT + $index * (CostChart::PLOT_RIGHT - CostChart::PLOT_LEFT) / $dayCount;
     }
 
     /**

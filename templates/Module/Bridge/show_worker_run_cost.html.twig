@@ -148,6 +148,7 @@
                 {% set item = bar.cost %}
                 <div class="lp-cost-card" id="cost-card-{{ loop.index0 }}" role="tooltip" hidden data-cost-chart-target="card">
                     <p class="lp-cost-card__title">{{ 'bridge.worker_runs.card_number'|trans({'%number%': item.card.number}) }} {{ item.card.title }}</p>
+                    <p class="lp-cost-card__date"><time datetime="{{ item.card.completedAt|date('c') }}">{{ 'bridge.worker_run_cost.finished_on'|trans({'%date%': item.card.completedAt|date('M j, Y')}) }}</time></p>
                     <p class="lp-cost-card__cost">{{ item.cost|format_currency('USD') }}{% if item.estimated %} <span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_run_cost.estimated'|trans }}</span>{% endif %}</p>
                     <p class="lp-cost-card__tokens">{{ 'bridge.worker_run_cost.tokens'|trans({'%input%': item.inputTokens|number_format, '%output%': item.outputTokens|number_format, '%cacheRead%': item.cacheReadTokens|number_format, '%cacheWrite%': item.cacheWriteTokens|number_format}) }}</p>
                     {% if split %}
@@ -164,6 +165,7 @@
 
         <details class="lp-cost-table">
             <summary class="lp-cost-table__toggle">{{ 'bridge.worker_run_cost.table.toggle'|trans }}</summary>
+            {% if chart.period != 'day' %}<p class="lp-cost-table__note" data-cost-period="{{ chart.period }}">{{ ('bridge.worker_run_cost.table.grouped_' ~ chart.period)|trans }}</p>{% endif %}
             <table class="lp-cost-table__table" data-cost-table>
                 <thead>
                     <tr>

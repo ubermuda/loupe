@@ -23,7 +23,8 @@ final readonly class CostChart
     private const float MIN_BAR_WIDTH = 2.0;
     private const float GAP = 2.0;
     private const float RADIUS = 4.0;
-    private const float MIN_HIT_WIDTH = 12.0;
+    /** A day narrower than this groups its cards by week, and a week narrower than this by month. */
+    private const float MIN_PERIOD_WIDTH = 6.0;
     private const int TARGET_TICKS = 4;
     private const int MAX_DAY_TICKS = 6;
     /** Four cents, so a chart of unpriced usage still reads in cents. */
@@ -35,6 +36,7 @@ final readonly class CostChart
      * @param list<CostChartTick>   $yTicks
      * @param list<CostChartTick>   $xTicks
      * @param array<string, int>    $slots  the palette slot of each key that has a colour of its own
+     * @param 'day'|'week'|'month'  $period
      */
     public function __construct(
         public array $bars,
@@ -45,6 +47,8 @@ final readonly class CostChart
         public array $xTicks,
         /** True when the time axis spans more than a year, so a day label needs its year. */
         public bool $longSpan,
+        /** The stretch of time that one group of bars stands in. */
+        public string $period,
     ) {
     }
 
@@ -65,30 +69,34 @@ final readonly class CostChart
         $step = self::niceStep($maxMicros / self::TARGET_TICKS);
         $topMicros = (int) (ceil($maxMicros / $step) * $step);
 
-        $byDay = [];
+        $period = match (true) {
+            $dayWidth >= self::MIN_PERIOD_WIDTH => 'day',
+            7 * $dayWidth >= self::MIN_PERIOD_WIDTH => 'week',
+            default => 'month',
+        };
+
+        // Each period holds its cards in completion order, oldest period first.
+        $periods = [];
         foreach ($cards as $cost) {
-            $byDay[self::daysBetween($firstDay, self::day($cost->card->completedAt))][] = $cost;
+            [$start, $end] = self::periodOf($period, self::day($cost->card->completedAt), $firstDay, $dayCount);
+            $periods[$start] ??= ['end' => $end, 'cards' => []];
+            $periods[$start]['cards'][] = $cost;
         }
 
-        $layouts = [];
+        $bars = [];
         $usedSlots = [];
-        foreach ($byDay as $dayIndex => $dayCards) {
-            $count = \count($dayCards);
-            // A group stays in its day: the gap gives way first, then the bars. A day narrower
-            // than one bar lends its group two units, so a lone bar never vanishes.
-            $space = max($dayWidth, self::MIN_BAR_WIDTH);
-            $gap = self::GAP;
-            $width = min(self::MAX_BAR_WIDTH, ($space - $gap * $count) / $count);
-            if ($width < self::MIN_BAR_WIDTH) {
-                $gap = max(0.0, ($space - self::MIN_BAR_WIDTH * $count) / $count);
-                $width = ($space - $gap * $count) / $count;
-            }
-            $groupWidth = $count * $width + $gap * ($count - 1);
-            $left = self::PLOT_LEFT + ($dayIndex + 0.5) * $dayWidth - $groupWidth / 2;
-            $hitWidth = 1 === $count ? max(self::MIN_HIT_WIDTH, $width + 2 * $gap) : $width + $gap;
+        foreach ($periods as $start => $group) {
+            // Each card gets an equal share of its period, and its bar and hit area stay in that share.
+            $share = ($group['end'] - $start) * $dayWidth / \count($group['cards']);
+            $width = match (true) {
+                $share >= self::MIN_BAR_WIDTH + self::GAP => min(self::MAX_BAR_WIDTH, $share - self::GAP),
+                $share >= self::MIN_BAR_WIDTH => self::MIN_BAR_WIDTH,
+                default => $share,
+            };
 
-            foreach ($dayCards as $position => $cost) {
-                $x = $left + $position * ($width + $gap);
+            foreach ($group['cards'] as $position => $cost) {
+                $shareLeft = self::PLOT_LEFT + $start * $dayWidth + $position * $share;
+                $x = $shareLeft + ($share - $width) / 2;
                 $height = $cost->costMicros / $topMicros * $plotHeight;
                 $segments = [];
                 if ($height >= self::GAP) {
@@ -109,44 +117,19 @@ final readonly class CostChart
                     $height = self::GAP;
                 }
                 $top = self::BASELINE - $height;
+                $hitX = round($shareLeft, 2);
 
-                $layouts[] = [
-                    'cost' => $cost,
-                    'x' => $x,
-                    'width' => $width,
-                    'top' => $top,
-                    'segments' => $segments,
-                    'outline' => self::path($x, $top, $width, $height, true),
-                    'hitWidth' => $hitWidth,
-                ];
+                $bars[] = new CostChartBar(
+                    cost: $cost,
+                    x: round($x, 2),
+                    width: round($width, 2),
+                    top: round($top, 2),
+                    segments: $segments,
+                    outline: self::path($x, $top, $width, $height, true),
+                    hitX: $hitX,
+                    hitWidth: round(round($shareLeft + $share, 2) - $hitX, 2),
+                );
             }
-        }
-
-        // A hit area stops where the next bar starts, or halfway to it when there is room,
-        // so a later link never takes the pointer from the bar before it.
-        $bars = [];
-        foreach ($layouts as $index => $layout) {
-            $centre = $layout['x'] + $layout['width'] / 2;
-            $hitLeft = $centre - $layout['hitWidth'] / 2;
-            $hitRight = $centre + $layout['hitWidth'] / 2;
-            if (isset($layouts[$index - 1])) {
-                $hitLeft = max($hitLeft, self::boundary($layouts[$index - 1], $layout));
-            }
-            if (isset($layouts[$index + 1])) {
-                $hitRight = min($hitRight, self::boundary($layout, $layouts[$index + 1]));
-            }
-            $hitX = round($hitLeft, 2);
-
-            $bars[] = new CostChartBar(
-                cost: $layout['cost'],
-                x: round($layout['x'], 2),
-                width: round($layout['width'], 2),
-                top: round($layout['top'], 2),
-                segments: $layout['segments'],
-                outline: $layout['outline'],
-                hitX: $hitX,
-                hitWidth: round(round($hitRight, 2) - $hitX, 2),
-            );
         }
 
         ksort($usedSlots);
@@ -179,19 +162,8 @@ final readonly class CostChart
             yTickDecimals: $step >= 1_000_000 ? 0 : max(2, (int) ceil(-log10($step / 1_000_000))),
             xTicks: $xTicks,
             longSpan: $dayCount > 366,
+            period: $period,
         );
-    }
-
-    /**
-     * Where the hit area of one bar ends and the next begins. The next bar paints on top
-     * of an overlap, so it owns the overlap.
-     *
-     * @param array{x: float, width: float} $before
-     * @param array{x: float, width: float} $after
-     */
-    private static function boundary(array $before, array $after): float
-    {
-        return min($after['x'], ($before['x'] + $before['width'] + $after['x']) / 2);
     }
 
     /** Zero for a key past the palette. */
@@ -243,6 +215,33 @@ final readonly class CostChart
         }
 
         return (int) ceil($dayCount / self::MAX_DAY_TICKS);
+    }
+
+    /**
+     * The first day of the period of a day, and the day after its last, as day
+     * indices of the axis. A week starts on Monday, as in ISO 8601.
+     *
+     * @param 'day'|'week'|'month' $period
+     *
+     * @return array{int, int}
+     */
+    private static function periodOf(string $period, \DateTimeImmutable $day, \DateTimeImmutable $firstDay, int $dayCount): array
+    {
+        $start = match ($period) {
+            'day' => $day,
+            'week' => $day->modify(\sprintf('-%d days', (int) $day->format('N') - 1)),
+            'month' => $day->modify('first day of this month'),
+        };
+        $end = match ($period) {
+            'day' => $start->modify('+1 day'),
+            'week' => $start->modify('+7 days'),
+            'month' => $start->modify('first day of next month'),
+        };
+
+        return [
+            max(0, self::daysBetween($firstDay, $start)),
+            min($dayCount, self::daysBetween($firstDay, $end)),
+        ];
     }
 
     private static function day(\DateTimeImmutable $moment): \DateTimeImmutable

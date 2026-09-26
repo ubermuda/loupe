@@ -6032,6 +6032,7 @@
     .lp-cost-card__cost {
         @apply m-0 mt-1 flex items-center gap-2 text-base font-bold text-ink;
     }
+    .lp-cost-card__date,
     .lp-cost-card__tokens,
     .lp-cost-card__partial {
         @apply m-0 mt-1;
@@ -6050,6 +6051,9 @@
     }
     .lp-cost-table__toggle {
         @apply cursor-pointer select-none text-xs font-semibold text-fg-dim hover:text-ink;
+    }
+    .lp-cost-table__note {
+        @apply m-0 mt-2 text-xs text-fg-dim;
     }
     .lp-cost-table__table {
         @apply w-full mt-2 text-sm text-fg border-collapse;
