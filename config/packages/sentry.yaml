@@ -1,0 +1,29 @@
+sentry:
+    dsn: '%env(SENTRY_DSN)%'
+    options:
+        environment: '%kernel.environment%'
+        send_default_pii: false
+        max_request_body_size: none
+        http_connect_timeout: 1
+        http_timeout: 2
+        traces_sample_rate: '%env(float:SENTRY_TRACES_SAMPLE_RATE)%'
+        profiles_sample_rate: '%env(float:SENTRY_PROFILES_SAMPLE_RATE)%'
+        ignore_exceptions:
+            - Symfony\Component\HttpKernel\Exception\NotFoundHttpException
+            - Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException
+    tracing:
+        enabled: true
+        dbal:
+            enabled: true
+            ignore_prepare_spans: true
+        twig:
+            enabled: false
+        cache:
+            enabled: false
+        http_client:
+            enabled: true
+
+when@test:
+    sentry:
+        tracing:
+            enabled: false

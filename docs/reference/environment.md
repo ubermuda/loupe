@@ -94,6 +94,8 @@ A new key pair makes every issued access token invalid. The apps then refresh, s
 |---|---|---|
 | `APP_ENCRYPTION_KEY` | Encrypts `encrypted_string` columns. The secret of a per-project GitHub webhook is one, so while the key is unset no project can create a webhook. **Losing it makes existing encrypted columns unreadable.** | No |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing. Nothing instantiates the Stripe client until the `billing.enabled` feature flag is on. | No |
+| `SENTRY_DSN` | Sends errors, traces and profiles to Sentry. **Secret.** Optional and off by default: while it is empty, nothing goes to Sentry. | No |
+| `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_PROFILES_SAMPLE_RATE` | The share of requests that Sentry traces, and the share of traced requests that it profiles, from `0.0` to `1.0`. Both default to `1.0`. They have no effect while `SENTRY_DSN` is empty. Profiling also needs the Excimer PHP extension. | No |
 | `GITHUB_APP_SLUG` | The GitHub App that project owners install to connect repositories. The slug is the last segment of the App's public page, `https://github.com/apps/<slug>`. Not a secret. Set the four `GITHUB_APP_*` variables together. While one is empty, projects connect with a webhook only, and the *GitHub App* row on `/admin/status` names the empty ones. [Forge webhooks](../extending/forge-webhooks.md) lists the App settings. | No |
 | `GITHUB_APP_CLIENT_ID` | The client ID on the *General* page of the App settings on GitHub. Not a secret. | No |
 | `GITHUB_APP_CLIENT_SECRET` | A client secret, which you generate on the *General* page of the App settings. **Secret.** On each install, Loupe uses it to get a user token, and reads with that token which installations the user can reach. | No |
