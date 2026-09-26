@@ -46,8 +46,36 @@ final class TracesSamplerTest extends TestCase
         self::assertSame(0.0, $sampler(self::context(false)));
     }
 
-    private static function context(?bool $parentSampled): SamplingContext
+    /** @return iterable<string, array{string}> */
+    public static function untracedRoutes(): iterable
     {
-        return SamplingContext::getDefault(new TransactionContext())->setParentSampled($parentSampled);
+        yield 'health check' => ['ubermuda_health_check'];
+        yield 'bridge heartbeat' => ['api_bridge_heartbeat'];
+    }
+
+    #[DataProvider('untracedRoutes')]
+    public function test_an_untraced_route_samples_nothing(string $route): void
+    {
+        $sampler = new TracesSampler('https://key@sentry.example/1', 1.0);
+
+        self::assertSame(0.0, $sampler(self::context(null, $route)));
+        self::assertSame(0.0, $sampler(self::context(true, $route)));
+    }
+
+    public function test_another_route_samples_at_the_configured_rate(): void
+    {
+        $sampler = new TracesSampler('https://key@sentry.example/1', 0.25);
+
+        self::assertSame(0.25, $sampler(self::context(null, 'app_project_list')));
+    }
+
+    private static function context(?bool $parentSampled, ?string $route = null): SamplingContext
+    {
+        $transaction = new TransactionContext();
+        if (null !== $route) {
+            $transaction->setData(['route' => $route]);
+        }
+
+        return SamplingContext::getDefault($transaction)->setParentSampled($parentSampled);
     }
 }

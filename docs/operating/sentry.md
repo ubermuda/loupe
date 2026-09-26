@@ -28,7 +28,8 @@ as a failure. They check the DSN format only, and never call Sentry.
 ## What Sentry receives
 
 - A trace for each sampled web request, with a span for each Doctrine query and
-  each outbound HTTP call.
+  each outbound HTTP call. The health check and the bridge heartbeat get no
+  trace, because they carry no performance signal. Their errors still reach Sentry.
 - A trace for each sampled worker message, named after the message class.
 - A trace for each sampled console command, named after the command.
   `messenger:consume` itself gets no trace, because each message it handles
