@@ -29,7 +29,7 @@ means App Platform's deployment history is the only record of what ran."
 ## Ship code
 
 ```bash
-just deploy          # build-prod, push-prod, then create-deployment --wait
+just deploy          # build-prod, push-prod, then create-deployment --force-rebuild --wait
 ```
 
 Or, when the image is already pushed:
