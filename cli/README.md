@@ -1156,6 +1156,7 @@ It prints one line for each session:
 
 | Line | Meaning |
 |---|---|
+| `warning <session> (card <n>): process <i> has no end in the bridge log, ...` | Printed before the line of the session. The process can still run, so its usage can be short |
 | `would send <session> (card <n>): reported $0.5000, ...` | `--dry-run` only. The source and the dollars of each process |
 | `sent <session> (card <n>): runs 2, updated 1` | Loupe took the usage. `updated` counts the runs whose usage changed |
 | `skipped <session> (card <n>): <reason>` | The command cannot map the session, such as when it has no transcript |

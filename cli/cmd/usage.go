@@ -59,12 +59,12 @@ func newUsageBackfillCmd() *cobra.Command {
 	return cmd
 }
 
-// workerSession is one session of the bridge log, with the start time of each
-// of its worker processes in log order.
+// workerSession is one session of the bridge log, with the window of each of
+// its worker processes in log order.
 type workerSession struct {
 	id, project string
 	card        int
-	starts      []time.Time
+	windows     []transcript.Window
 	// skip says why the session cannot be sent, whatever its transcript holds.
 	skip string
 }
@@ -102,6 +102,11 @@ func backfill(cmd *cobra.Command, o backfillOptions) error {
 	out := cmd.OutOrStdout()
 	failed := 0
 	for _, s := range sessions {
+		for i, w := range s.windows {
+			if w.End.IsZero() && s.skip == "" {
+				fmt.Fprintf(out, "warning %s: process %d has no end in the bridge log, so it may still run\n", s.label(), i+1)
+			}
+		}
 		processes, skip, err := sessionUsage(dir, s)
 		switch {
 		case err != nil:
@@ -139,9 +144,12 @@ func backfill(cmd *cobra.Command, o backfillOptions) error {
 	return nil
 }
 
+// workerEnds are the log events that end a worker.
+var workerEnds = map[string]bool{"worker_finished": true, "worker_no_result": true, "worker_failed": true}
+
 // readWorkerSessions groups the worker_started lines of the log by session, in
-// the order each session first appears. A line with no session id comes from
-// an older bridge, and the command cannot find its transcript.
+// the order each session first appears. A worker ends at the first end line of
+// its card and rule, because a card runs one worker at a time.
 func readWorkerSessions(path, project string) ([]*workerSession, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -149,33 +157,54 @@ func readWorkerSessions(path, project string) ([]*workerSession, error) {
 	}
 	defer f.Close()
 
+	type running struct {
+		session *workerSession
+		process int
+		rule    string
+	}
 	var sessions []*workerSession
 	byID := map[string]*workerSession{}
+	byCard := map[string]*running{}
 	r := bufio.NewReaderSize(f, 1<<16)
 	for {
 		line, err := r.ReadBytes('\n')
-		if bytes.Contains(line, []byte(`"worker_started"`)) {
+		if bytes.Contains(line, []byte(`"worker_`)) {
 			var entry struct {
 				Time      time.Time `json:"time"`
 				Event     string    `json:"event"`
 				Card      int       `json:"card"`
 				Project   string    `json:"project"`
+				Rule      string    `json:"rule"`
 				SessionID string    `json:"session_id"`
 			}
-			if json.Unmarshal(line, &entry) == nil && entry.Event == "worker_started" && entry.SessionID != "" &&
-				(project == "" || strings.EqualFold(entry.Project, project)) {
-				s := byID[entry.SessionID]
-				if s == nil {
-					s = &workerSession{id: entry.SessionID, project: entry.Project, card: entry.Card}
-					byID[entry.SessionID] = s
-					sessions = append(sessions, s)
-				}
-				s.starts = append(s.starts, entry.Time)
+			if json.Unmarshal(line, &entry) == nil && (project == "" || strings.EqualFold(entry.Project, project)) {
+				card := fmt.Sprintf("%s/%d", entry.Project, entry.Card)
 				switch {
-				case entry.Card == 0:
-					s.skip = "a run with no card has no record in Loupe"
-				case entry.Project != s.project || entry.Card != s.card:
-					s.skip = "the processes of the session name different cards or projects"
+				case entry.Event == "worker_started":
+					delete(byCard, card)
+					if entry.SessionID == "" {
+						break
+					}
+					s := byID[entry.SessionID]
+					if s == nil {
+						s = &workerSession{id: entry.SessionID, project: entry.Project, card: entry.Card}
+						byID[entry.SessionID] = s
+						sessions = append(sessions, s)
+					}
+					s.windows = append(s.windows, transcript.Window{Start: entry.Time})
+					switch {
+					case entry.Card == 0:
+						s.skip = "a run with no card has no record in Loupe"
+					case entry.Project != s.project || entry.Card != s.card:
+						s.skip = "the processes of the session name different cards or projects"
+					default:
+						byCard[card] = &running{s, len(s.windows) - 1, entry.Rule}
+					}
+				case workerEnds[entry.Event]:
+					if w := byCard[card]; w != nil && w.rule == entry.Rule {
+						w.session.windows[w.process].End = entry.Time
+						delete(byCard, card)
+					}
 				}
 			}
 		}
@@ -201,7 +230,7 @@ func sessionUsage(dir string, s *workerSession) ([]api.Usage, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	processes, err := transcript.Processes(path, s.starts)
+	processes, err := transcript.Processes(path, s.windows)
 	if errors.Is(err, transcript.ErrUnmappable) {
 		return nil, err.Error(), nil
 	}

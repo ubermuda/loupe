@@ -76,7 +76,8 @@ func runBackfill(t *testing.T, args ...string) (string, error) {
 }
 
 // A dry run reads every session of the log, prints what it would send and
-// why it skips the others, and sends nothing.
+// why it skips the others, and sends nothing. Session 1 was resumed by hand
+// after its worker ended, and that spend counts for no worker.
 func TestBackfillDryRunSendsNothing(t *testing.T) {
 	got := backfillServer(t, nil)
 	out, err := runBackfill(t, "--dry-run")
@@ -89,6 +90,7 @@ func TestBackfillDryRunSendsNothing(t *testing.T) {
 		"would send " + backfillSession + "3 (card 3): estimated $0.0200, reported $0.2500",
 		"skipped " + backfillSession + "4 (card 4): no transcript of the session",
 		"skipped " + backfillSession + "5 (card 5): the transcript does not fit the worker processes: the session totals go down",
+		"warning " + backfillSession + "6 (card 6): process 1 has no end in the bridge log, so it may still run",
 		"would send " + backfillSession + "6 (card 6): reported $0.1000",
 		"skipped " + backfillSession + "7 (no card): a run with no card has no record in Loupe",
 	}, "\n") + "\n"
@@ -106,7 +108,9 @@ func TestBackfillTakesOneProject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out != "would send "+backfillSession+"6 (card 6): reported $0.1000\n" {
+	want := "warning " + backfillSession + "6 (card 6): process 1 has no end in the bridge log, so it may still run\n" +
+		"would send " + backfillSession + "6 (card 6): reported $0.1000\n"
+	if out != want {
 		t.Fatalf("output = %q", out)
 	}
 }

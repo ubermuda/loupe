@@ -1,3 +1,6 @@
 {"type":"user","timestamp":"2026-09-20T10:00:01Z","message":{"role":"user","content":"go"}}
 {"type":"assistant","timestamp":"2026-09-20T10:00:02Z","message":{"id":"a","model":"claude-opus-5-5","usage":{"input_tokens":0,"output_tokens":10,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
 {"type":"cost-state","modelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":10,"cacheReadInputTokens":0,"cacheCreationInputTokens":0,"costUSD":0.5}}}
+{"type":"user","timestamp":"2026-09-20T10:07:01Z","message":{"role":"user","content":"a person resumes the session"}}
+{"type":"assistant","timestamp":"2026-09-20T10:07:02Z","message":{"id":"m","model":"claude-opus-5-5","usage":{"input_tokens":0,"output_tokens":20,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+{"type":"cost-state","modelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":30,"cacheReadInputTokens":0,"cacheCreationInputTokens":0,"costUSD":0.9}}}

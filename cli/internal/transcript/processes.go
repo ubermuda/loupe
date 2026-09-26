@@ -19,14 +19,38 @@ type Process struct {
 	Reported bool
 }
 
-// Processes splits the session between the processes that started at starts.
+// Window is when a worker process ran. A zero End means the bridge log holds
+// no end, and the window then runs to the next start.
+type Window struct {
+	Start, End time.Time
+}
+
+// Processes splits the session between the processes that ran in windows.
 // A cost-state line belongs to the process of the last timed entry above it,
-// and lines above the first start are a baseline. A line holds the session
+// and a line outside every window belongs to none. A line holds the session
 // totals, so a process spent its last line minus the line above its first. A
 // process that wrote more after its last line was killed, and gets an estimate.
-func Processes(path string, starts []time.Time) ([]Process, error) {
-	if !sort.SliceIsSorted(starts, func(i, j int) bool { return starts[i].Before(starts[j]) }) {
-		return nil, fmt.Errorf("%w: the processes are not in start order", ErrUnmappable)
+func Processes(path string, windows []Window) ([]Process, error) {
+	limits := make([]time.Time, len(windows))
+	for i, w := range windows {
+		limits[i] = w.End
+		if i+1 < len(windows) {
+			next := windows[i+1].Start
+			if !next.After(w.Start) || (!w.End.IsZero() && w.End.After(next)) {
+				return nil, fmt.Errorf("%w: the processes overlap or are not in start order", ErrUnmappable)
+			}
+			if w.End.IsZero() {
+				limits[i] = next
+			}
+		}
+	}
+	processOf := func(ts time.Time) int {
+		i := sort.Search(len(windows), func(i int) bool { return windows[i].Start.After(ts) }) - 1
+		if i < 0 || (!limits[i].IsZero() && !ts.Before(limits[i])) {
+			return -1
+		}
+
+		return i
 	}
 
 	type state struct {
@@ -53,7 +77,7 @@ func Processes(path string, starts []time.Time) ([]Process, error) {
 			return
 		}
 		if ts, err := time.Parse(time.RFC3339Nano, entry.Timestamp); err == nil {
-			process = sort.Search(len(starts), func(i int) bool { return starts[i].After(ts) }) - 1
+			process = processOf(ts)
 			if n := len(states); n > 0 && states[n-1].process == process {
 				states[n-1].followed = true
 			}
@@ -66,17 +90,18 @@ func Processes(path string, starts []time.Time) ([]Process, error) {
 		return nil, fmt.Errorf("%w: a cost-state line holds no model usage", ErrUnmappable)
 	}
 
-	out := make([]Process, len(starts))
+	out := make([]Process, len(windows))
 	bases := map[int]Usage{}
-	prev := Usage{}
-	for i, s := range states {
+	prev, last := Usage{}, -1
+	for _, s := range states {
 		if !s.usage.covers(prev) {
 			return nil, fmt.Errorf("%w: the session totals go down", ErrUnmappable)
 		}
-		if i > 0 && s.process < states[i-1].process {
-			return nil, fmt.Errorf("%w: the cost-state lines are not in start order", ErrUnmappable)
-		}
 		if s.process >= 0 {
+			if s.process < last {
+				return nil, fmt.Errorf("%w: the cost-state lines are not in start order", ErrUnmappable)
+			}
+			last = s.process
 			if _, ok := bases[s.process]; !ok {
 				bases[s.process] = prev
 			}
@@ -85,16 +110,11 @@ func Processes(path string, starts []time.Time) ([]Process, error) {
 		prev = s.usage
 	}
 
-	// A killed process ends where the next one starts.
 	for i := range out {
 		if out[i].Reported {
 			continue
 		}
-		var until time.Time
-		if i+1 < len(starts) {
-			until = starts[i+1]
-		}
-		usage, err := Between(path, starts[i], until)
+		usage, err := Between(path, windows[i].Start, limits[i])
 		if err != nil {
 			return nil, err
 		}

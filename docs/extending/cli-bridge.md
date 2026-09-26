@@ -220,7 +220,9 @@ bridge captured usage. It reads the `worker_started` lines of the bridge log
 and the transcript of each session. It sends each session once, to the
 [session usage report](../reference/worker-runs.md#reporting-the-usage-of-a-session),
 with the login of `loupe bridge`. Each `worker_started` line is one process of
-its session.
+its session. The process ends at the first `worker_finished`, `worker_no_result`
+or `worker_failed` line after it with the same card and rule, because a card
+runs one worker at a time.
 
 claude can write more than one `cost-state` line in a process, and each line
 holds the session totals. A line belongs to the process that wrote the last
@@ -228,8 +230,13 @@ timed transcript entry above it. A process that ended on its own spent its last
 line minus the line above its first line. The command sends that difference and
 claude's own dollars, marked `reported`. A process with no line, or with timed
 entries after its last line, was killed. The command sends the priced sum of its
-messages up to the start of the next process, marked `estimated`. Lines above
-the first process belong to no process.
+messages up to its end, marked `estimated`.
+
+A line or a message outside every process belongs to no process. That covers
+the lines above the first process, and a resume by hand between the end of one
+process and the start of the next. A process with no end line runs to the start
+of the next. The command then prints a `warning` line for its session, because
+the process can still run.
 
 Run the command on the machine that ran the bridge, before claude deletes the
 transcripts after about 30 days. Run it when the bridge has no worker in
