@@ -59,6 +59,6 @@ final class ReorderBoardColumnsController extends AppController
             $this->addFlash('error', $this->translator->trans($refusal));
         }
 
-        return $this->redirectToRoute('settings' === $request->query->get('view') ? 'app_board_settings' : 'app_project_board', ['id' => (string) $project->id]);
+        return $this->redirectToRoute('app_board_settings', ['id' => (string) $project->id]);
     }
 }

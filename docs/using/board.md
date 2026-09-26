@@ -46,8 +46,9 @@ time. A board has at least one terminal column, and it can have more. See
 
 ### Change the columns
 
-Only the project owner changes columns, through the board or project settings.
-No MCP tool and no API route writes a column.
+Only the project owner changes columns, in **Board settings**. The board itself
+has no column controls, and its columns cannot be dragged. No MCP tool and no
+API route writes a column.
 Another reader of the board sees no column controls.
 
 Open **Board settings** to manage columns beside the other project settings.
@@ -56,8 +57,7 @@ The **Board columns** section lists the columns in order. Each row has
 gear opens a dialog with the column name, **Default for new cards**,
 **A finishing point for completed work**, and **Colour**. **Save column** saves
 them together, so one save can move the default flag to a terminal column and clear
-its terminal flag. Each action returns to this section. The board header menus
-remain available.
+its terminal flag. Each action returns to this section.
 
 Reorder and configure changes check the state shown when the form opens.
 If another editor changes that state first, Loupe refuses the stale change.
@@ -67,23 +67,11 @@ A refused reorder shows the current order with an error message.
 The owner adds a column with **Add a column** in board settings. A new column
 is neither terminal nor the default. The dialog preselects a colour that no
 other column on the board uses, and the owner can pick another before saving.
-When every colour is in use, Loupe picks one at random. The owner drags a column header by its grip
-to reorder the columns. Board settings shows a **Default** or **Terminal** badge
-on a flagged column.
+When every colour is in use, Loupe picks one at random. Board settings shows a
+**Default** or **Terminal** badge on a flagged column.
 
-Each column header has a menu for the owner:
-
-| Menu item | What it does | When the menu shows it |
-|---|---|---|
-| **Rename** | Opens the rename dialog. | Always. |
-| **Move left**, **Move right** | Moves the column one place. | When a column is on that side. |
-| **Mark as terminal** | Makes the column terminal. | On a column that is neither terminal nor the default. |
-| **Unmark as terminal** | Makes the column not terminal. | On a terminal column, while the board has another one. |
-| **Make the default for new cards** | Moves the default flag to this column. | On a column that is neither terminal nor the default. |
-| **Delete column** | Opens the delete dialog. | On a column that is neither the default nor the last terminal column. |
-
-The menu of the default column, and of the last terminal column, shows a note
-instead of **Delete column**. Give another column that flag first.
+The default column and the last terminal column have no delete button. Give
+another column that flag first.
 
 A column that becomes terminal gives a completion time to each card in it that
 has none, and resolves the open feedback of those cards. A column that stops
@@ -103,7 +91,7 @@ Loupe refuses a label when one of these is true:
   both give `done`.
 - The label is text the app uses internally, such as a translation key.
 
-The rename dialog shows the new slug as you type, and it shows a refusal before
+The column dialog shows the new slug as you type, and it shows a refusal before
 you save. A seeded column shows its label in the reader's language. A rename
 stores the label as typed, so a renamed column is no longer translated.
 
@@ -123,8 +111,8 @@ old slug and the new slug. A rename that keeps the slug writes no event.
 
 ### Delete a column
 
-**Delete column** opens a dialog. The dialog for an empty column asks for a
-confirmation only.
+The delete button of a column in board settings opens a dialog. The dialog for
+an empty column asks for a confirmation only.
 
 The dialog for a column that holds cards shows the count and asks for a target
 column. Every card moves to the target. A card that enters a terminal column
@@ -183,7 +171,13 @@ Each card type and each column has a colour, and every page that names one uses
 the same colour. The owner picks a column's colour from twelve in its
 **Colour** setting. The colour stays with the column when the columns move.
 
-Board settings and Add card stack when their labels need more space.
+The page header is one row: the title, the search, the card count, the
+**Board** and **List** switch, a **Board settings** button with a gear icon,
+and **Add card**. It wraps on a narrow screen, and it stays in place when the
+cards scroll.
+
+Each column head shows the column colour, its label and its card count. Each
+column scrolls its own cards, and the board scrolls sideways as one block.
 
 Drag a card to move it. The whole card is the handle, and the grip on its left
 says so. Where you drop the card decides what the move does.
@@ -253,7 +247,7 @@ that bridge id, as the [bridge page](../extending/cli-bridge.md) describes. The
 banner shows the first eight characters of the bridge id, and the full id is in
 their tooltip.
 
-The rename and delete dialogs of a column warn before they save when a live rule
+The column dialog and the delete dialog in board settings warn before they save when a live rule
 watches that column's slug. A rename changes the slug, and a delete removes it,
 so the rule stops matching in both cases.
 
@@ -352,9 +346,13 @@ lanes follow the order of their epics: by column, then by rank. The last row,
 **Other cards**, holds every card that is in no lane.
 
 Each lane repeats the column headers, and each count shows the cards of that
-lane only. The first lane holds the column grips and menus, and keeps its
-column headers when you collapse it. **Other cards**
-holds the Add card links and the link to the finished cards.
+lane only. **Other cards** holds the Add card links and the link to the
+finished cards.
+
+An epic lane has a maximum height, and each of its cells scrolls its own cards.
+**Other cards** takes the height that the epic lanes leave, and each of its
+columns scrolls on its own. When the epic lanes need more height than the page
+has, the board scrolls down.
 
 The lane header shows the epic number, its title, the "3/7 done" count, a
 collapse button and a lane toggle. An epic with its lane on shows as the lane

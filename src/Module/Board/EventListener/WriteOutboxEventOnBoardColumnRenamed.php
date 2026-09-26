@@ -13,7 +13,7 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
  * Tells the reader of the outbox that a slug it may match on is gone. A rename
  * that keeps the slug changes nothing the reader sees, so it writes no row.
  *
- * It runs inside RenameBoardColumnHandler's transaction, so it persists and
+ * It runs inside ConfigureBoardColumnHandler's transaction, so it persists and
  * lets that transaction flush. It must never throw: anything raised here aborts
  * the rename.
  */

@@ -1,17 +1,14 @@
 import { Controller } from '@hotwired/stimulus';
 import { on } from '../lib/live.js';
 
-// A burst of worker run changes costs one reload. A card or column drag, a
-// pending card move or column reorder, or an open column menu or dialog defers
-// it. A steady stream still reloads once per max wait.
+// A burst of worker run changes costs one reload. A card drag, a pending card
+// move or an open dialog defers it. A steady stream still reloads once per max
+// wait.
 const RELOAD_DELAY_MS = 300;
 const RELOAD_MAX_WAIT_MS = 2000;
 const BUSY_SELECTOR = [
     '.lp-board--dragging',
     '[data-board-drag-target="card"][aria-busy="true"]',
-    '.lp-board__column--dragging',
-    '[data-board-columns-target="form"][aria-busy="true"]',
-    '.lp-board__column-menu-panel:not([hidden])',
     'dialog[open]',
 ].join(', ');
 

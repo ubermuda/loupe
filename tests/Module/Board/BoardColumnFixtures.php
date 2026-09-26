@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board;
 
+use App\Module\Board\Command\ConfigureBoardColumnCommand;
+use App\Module\Board\Command\ConfigureBoardColumnHandler;
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Entity\Project;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * The four seeded columns for a project a test persists by hand. A hand-built
@@ -41,5 +45,31 @@ trait BoardColumnFixtures
         $managed = null === $project->id ? null : $repository->findOneBy(['project' => $project->id, 'slug' => $slug]);
 
         return $managed ?? $this->seededColumns[$project->id.'/'.$slug] ?? throw new \LogicException(\sprintf('The project has no column "%s".', $slug));
+    }
+
+    /** Saves one column's configure dialog. A field left out keeps what the column holds. */
+    private function configureColumn(Project $project, string $slug, ?string $label = null, ?bool $isDefault = null, ?bool $terminal = null): void
+    {
+        $container = self::getContainer();
+        $handler = $container->get(ConfigureBoardColumnHandler::class);
+        self::assertInstanceOf(ConfigureBoardColumnHandler::class, $handler);
+        $translator = $container->get(TranslatorInterface::class);
+        self::assertInstanceOf(TranslatorInterface::class, $translator);
+        $repository = $container->get(BoardColumnRepository::class);
+        self::assertInstanceOf(BoardColumnRepository::class, $repository);
+
+        $column = $this->column($project, $slug);
+        $default = array_find($repository->findForProject($project), static fn (BoardColumn $other): bool => $other->isDefault);
+
+        $handler(new ConfigureBoardColumnCommand(
+            $column,
+            CardReporter::Human,
+            $label ?? $translator->trans($column->label),
+            $isDefault ?? $column->isDefault,
+            $terminal ?? $column->terminal,
+            $column->label,
+            (string) $default?->id,
+            $column->terminal,
+        ));
     }
 }

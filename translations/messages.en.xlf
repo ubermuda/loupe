@@ -4700,10 +4700,6 @@
                 <source>board.page.title</source>
                 <target>Project board</target>
             </trans-unit>
-            <trans-unit id="board.page.description">
-                <source>board.page.description</source>
-                <target>Every card has a next step.</target>
-            </trans-unit>
             <trans-unit id="board.card.create.action">
                 <source>board.card.create.action</source>
                 <target>Add card</target>
@@ -5158,10 +5154,6 @@
                 <source>board.form.add_board_column_form.label.placeholder</source>
                 <target>Column name</target>
             </trans-unit>
-            <trans-unit id="board.form.rename_board_column_form.label.label">
-                <source>board.form.rename_board_column_form.label.label</source>
-                <target>Name</target>
-            </trans-unit>
             <trans-unit id="board.form.configure_board_column_form.label.label">
                 <source>board.form.configure_board_column_form.label.label</source>
                 <target>Column name</target>
@@ -5242,10 +5234,6 @@
                 <source>board.column.add.submit</source>
                 <target>Add column</target>
             </trans-unit>
-            <trans-unit id="board.column.drag">
-                <source>board.column.drag</source>
-                <target>Drag to reorder the columns</target>
-            </trans-unit>
             <trans-unit id="board.column.flag.default">
                 <source>board.column.flag.default</source>
                 <target>Default</target>
@@ -5253,18 +5241,6 @@
             <trans-unit id="board.column.flag.terminal">
                 <source>board.column.flag.terminal</source>
                 <target>Terminal</target>
-            </trans-unit>
-            <trans-unit id="board.column.menu.label">
-                <source>board.column.menu.label</source>
-                <target>Actions for the column %label%</target>
-            </trans-unit>
-            <trans-unit id="board.column.rename.action">
-                <source>board.column.rename.action</source>
-                <target>Rename</target>
-            </trans-unit>
-            <trans-unit id="board.column.rename.title">
-                <source>board.column.rename.title</source>
-                <target>Rename %label%</target>
             </trans-unit>
             <trans-unit id="board.column.rename.description">
                 <source>board.column.rename.description</source>
@@ -5278,21 +5254,9 @@
                 <source>board.column.rename.cancel</source>
                 <target>Cancel</target>
             </trans-unit>
-            <trans-unit id="board.column.rename.submit">
-                <source>board.column.rename.submit</source>
-                <target>Save name</target>
-            </trans-unit>
             <trans-unit id="board.column.rename.bridge_rule_warning">
                 <source>board.column.rename.bridge_rule_warning</source>
                 <target>A bridge rule watches this column. Renaming it changes its slug, and the rule stops matching.</target>
-            </trans-unit>
-            <trans-unit id="board.column.move.left">
-                <source>board.column.move.left</source>
-                <target>Move left</target>
-            </trans-unit>
-            <trans-unit id="board.column.move.right">
-                <source>board.column.move.right</source>
-                <target>Move right</target>
             </trans-unit>
             <trans-unit id="board.column.move.up">
                 <source>board.column.move.up</source>
@@ -5317,30 +5281,6 @@
             <trans-unit id="board.column.delete.named">
                 <source>board.column.delete.named</source>
                 <target>Delete %label%</target>
-            </trans-unit>
-            <trans-unit id="board.column.terminal.set">
-                <source>board.column.terminal.set</source>
-                <target>Mark as terminal</target>
-            </trans-unit>
-            <trans-unit id="board.column.terminal.clear">
-                <source>board.column.terminal.clear</source>
-                <target>Unmark as terminal</target>
-            </trans-unit>
-            <trans-unit id="board.column.default.set">
-                <source>board.column.default.set</source>
-                <target>Make the default for new cards</target>
-            </trans-unit>
-            <trans-unit id="board.column.delete.action">
-                <source>board.column.delete.action</source>
-                <target>Delete column</target>
-            </trans-unit>
-            <trans-unit id="board.column.delete.blocked_default">
-                <source>board.column.delete.blocked_default</source>
-                <target>You cannot delete the default column. Make another column the default first.</target>
-            </trans-unit>
-            <trans-unit id="board.column.delete.blocked_terminal">
-                <source>board.column.delete.blocked_terminal</source>
-                <target>You cannot delete the last terminal column. Mark another column as terminal first.</target>
             </trans-unit>
             <trans-unit id="board.column.delete.title">
                 <source>board.column.delete.title</source>

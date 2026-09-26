@@ -1,8 +1,8 @@
 /**
  * Browser coverage for bridge rule health. A report is sent through the real
  * endpoint with an agent token from the device flow, so no bridge runs.
- * The board then shows a banner for the dead rule, and the rename and delete
- * dialogs of a watched column warn before they save.
+ * The board then shows a banner for the dead rule, and the configure and
+ * delete dialogs of a watched column in board settings warn before they save.
  */
 
 import {
@@ -15,7 +15,6 @@ import { agentAccessToken, suppressToolbar, suppressWidget } from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eBridgeRules1!';
-const COLUMN = '[data-board-columns-target="column"]';
 
 async function setBoardFlag(
     request: APIRequestContext,
@@ -196,9 +195,13 @@ test('a dead rule shows a banner and a watched column warns before a rename or a
     );
     await expect(banner).not.toContainText('review');
 
-    const column = page.locator(`${COLUMN}[data-column-slug="in-progress"]`);
-    await column.locator('.lp-board__column-menu-trigger').click();
-    await column.getByRole('button', { name: 'Rename' }).click();
+    await page.goto(`/projects/${projectId}/settings/columns`);
+    const column = page.locator(
+        '[data-board-column-settings] [data-column-slug="in-progress"]',
+    );
+    await column
+        .getByRole('button', { name: 'Configure In progress', exact: true })
+        .click();
     const rename = page.locator('dialog[open]');
     await expect(rename.locator('.lp-board__rule-warning')).toContainText(
         'A bridge rule watches this column.',
@@ -206,7 +209,9 @@ test('a dead rule shows a banner and a watched column warns before a rename or a
     await rename.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.locator('dialog[open]')).toHaveCount(0);
 
-    await column.getByRole('button', { name: 'Delete column' }).click();
+    await column
+        .getByRole('button', { name: 'Delete In progress', exact: true })
+        .click();
     const remove = page.locator('dialog[open]');
     await expect(remove.locator('.lp-board__rule-warning')).toContainText(
         'Deleting it removes its slug',

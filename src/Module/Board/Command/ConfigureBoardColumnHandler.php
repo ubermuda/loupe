@@ -25,6 +25,9 @@ use Ubermuda\AuditBundle\AuditSubject;
  */
 final readonly class ConfigureBoardColumnHandler
 {
+    public const string GONE = 'board.column.error.gone';
+    public const string LABEL_STALE = 'board.column.error.rename_stale';
+    public const string DEFAULT_STALE = 'board.column.error.default_stale';
     public const string TERMINAL_STALE = 'board.column.error.terminal_stale';
 
     /** The form field each board rule reports on. */
@@ -66,14 +69,14 @@ final readonly class ConfigureBoardColumnHandler
             $this->em->lock($column->project, LockMode::PESSIMISTIC_WRITE);
             $columns = $this->boardColumns->findForProjectFresh($column->project);
             if (!\in_array($column, $columns, true)) {
-                return ['column' => RenameBoardColumnHandler::GONE];
+                return ['column' => self::GONE];
             }
             $default = array_find($columns, static fn (BoardColumn $other): bool => $other->isDefault);
             if ($command->expectedLabel !== $column->label) {
-                return ['label' => RenameBoardColumnHandler::STALE];
+                return ['label' => self::LABEL_STALE];
             }
             if ($command->expectedDefaultId !== (string) $default?->id) {
-                return ['isDefault' => SetDefaultBoardColumnHandler::STALE];
+                return ['isDefault' => self::DEFAULT_STALE];
             }
             if ($command->expectedTerminal !== $column->terminal) {
                 return ['terminal' => self::TERMINAL_STALE];
