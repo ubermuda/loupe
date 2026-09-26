@@ -70,7 +70,7 @@ final readonly class CostChart
             $byDay[self::daysBetween($firstDay, self::day($cost->card->completedAt))][] = $cost;
         }
 
-        $bars = [];
+        $layouts = [];
         $usedSlots = [];
         foreach ($byDay as $dayIndex => $dayCards) {
             $count = \count($dayCards);
@@ -85,7 +85,6 @@ final readonly class CostChart
             }
             $groupWidth = $count * $width + $gap * ($count - 1);
             $left = self::PLOT_LEFT + ($dayIndex + 0.5) * $dayWidth - $groupWidth / 2;
-            // Bars of one day share it without overlap. A lone bar may reach past a narrow day, so it stays easy to hit.
             $hitWidth = 1 === $count ? max(self::MIN_HIT_WIDTH, $width + 2 * $gap) : $width + $gap;
 
             foreach ($dayCards as $position => $cost) {
@@ -111,17 +110,43 @@ final readonly class CostChart
                 }
                 $top = self::BASELINE - $height;
 
-                $bars[] = new CostChartBar(
-                    cost: $cost,
-                    x: round($x, 2),
-                    width: round($width, 2),
-                    top: round($top, 2),
-                    segments: $segments,
-                    outline: self::path($x, $top, $width, $height, true),
-                    hitX: round($x + $width / 2 - $hitWidth / 2, 2),
-                    hitWidth: round($hitWidth, 2),
-                );
+                $layouts[] = [
+                    'cost' => $cost,
+                    'x' => $x,
+                    'width' => $width,
+                    'top' => $top,
+                    'segments' => $segments,
+                    'outline' => self::path($x, $top, $width, $height, true),
+                    'hitWidth' => $hitWidth,
+                ];
             }
+        }
+
+        // A hit area stops where the next bar starts, or halfway to it when there is room,
+        // so a later link never takes the pointer from the bar before it.
+        $bars = [];
+        foreach ($layouts as $index => $layout) {
+            $centre = $layout['x'] + $layout['width'] / 2;
+            $hitLeft = $centre - $layout['hitWidth'] / 2;
+            $hitRight = $centre + $layout['hitWidth'] / 2;
+            if (isset($layouts[$index - 1])) {
+                $hitLeft = max($hitLeft, self::boundary($layouts[$index - 1], $layout));
+            }
+            if (isset($layouts[$index + 1])) {
+                $hitRight = min($hitRight, self::boundary($layout, $layouts[$index + 1]));
+            }
+            $hitX = round($hitLeft, 2);
+
+            $bars[] = new CostChartBar(
+                cost: $layout['cost'],
+                x: round($layout['x'], 2),
+                width: round($layout['width'], 2),
+                top: round($layout['top'], 2),
+                segments: $layout['segments'],
+                outline: $layout['outline'],
+                hitX: $hitX,
+                hitWidth: round(round($hitRight, 2) - $hitX, 2),
+            );
         }
 
         ksort($usedSlots);
@@ -155,6 +180,18 @@ final readonly class CostChart
             xTicks: $xTicks,
             longSpan: $dayCount > 366,
         );
+    }
+
+    /**
+     * Where the hit area of one bar ends and the next begins. The next bar paints on top
+     * of an overlap, so it owns the overlap.
+     *
+     * @param array{x: float, width: float} $before
+     * @param array{x: float, width: float} $after
+     */
+    private static function boundary(array $before, array $after): float
+    {
+        return min($after['x'], ($before['x'] + $before['width'] + $after['x']) / 2);
     }
 
     /** Zero for a key past the palette. */

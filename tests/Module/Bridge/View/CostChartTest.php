@@ -86,6 +86,31 @@ final class CostChartTest extends TestCase
         self::assertGreaterThanOrEqual(2.0, $chart->bars[0]->width);
     }
 
+    /**
+     * On a 600-day range the bars of adjacent days overlap, and the later bar paints on top.
+     * Each hit area holds the part of its bar that shows, and no two hit areas overlap.
+     */
+    public function test_hit_areas_on_a_long_range_do_not_overlap(): void
+    {
+        $cards = [];
+        foreach (['2025-06-01', '2025-06-02', '2025-06-03', '2025-06-05', '2025-09-01'] as $day) {
+            $cards[] = $this->cost($day.' 09:00:00', ['' => 1_000_000]);
+        }
+        $chart = CostChart::build($cards, [''], new \DateTimeImmutable('2025-02-07 12:00:00'), new \DateTimeImmutable('2026-09-30 12:00:00'));
+
+        $bars = $chart->bars;
+        foreach ($bars as $index => $bar) {
+            $shownRight = isset($bars[$index + 1]) ? min($bar->x + $bar->width, $bars[$index + 1]->x) : $bar->x + $bar->width;
+            self::assertLessThanOrEqual($bar->x + 0.02, $bar->hitX);
+            self::assertGreaterThanOrEqual($shownRight - 0.02, $bar->hitX + $bar->hitWidth);
+            if (isset($bars[$index + 1])) {
+                self::assertLessThanOrEqual($bars[$index + 1]->hitX + 0.001, $bar->hitX + $bar->hitWidth);
+            }
+        }
+        // The last card stands alone, so it keeps the full minimum hit area.
+        self::assertGreaterThanOrEqual(12.0, $bars[4]->hitWidth);
+    }
+
     public function test_the_parts_stack_bottom_up_with_a_gap_and_a_rounded_top(): void
     {
         $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 3_000_000])], ['build', 'plan']);
