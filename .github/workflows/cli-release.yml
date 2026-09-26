@@ -50,6 +50,7 @@ jobs:
             | awk -v cur="$GITHUB_REF_NAME" 'found { print; exit } $0 == cur { found = 1 }')
           start=()
           if [ -n "$previous" ]; then start=(--notes-start-tag "$previous"); fi
-          gh release create "$GITHUB_REF_NAME" --verify-tag \
+          # The server's update check reads /releases/latest, so "Latest" stays a server release.
+          gh release create "$GITHUB_REF_NAME" --verify-tag --latest=false \
             --title "loupe CLI ${GITHUB_REF_NAME#cli/}" --generate-notes "${start[@]}" \
             cli/dist/*.tar.gz cli/dist/checksums.txt
