@@ -513,6 +513,40 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * How many closed worker runs of a card started and reported no usage, and
+     * whether any run of the card reported usage. An interactive run never reports it.
+     *
+     * @return array{partial: int, reported: bool}
+     */
+    public function findUsageStateOfCard(Project $project, Uuid $cardId): array
+    {
+        /** @var array{partial: int|string, reported: bool|null} $row */
+        $row = $this->getEntityManager()->getConnection()->executeQuery(
+            <<<'SQL'
+                SELECT
+                    COUNT(*) FILTER (
+                        WHERE started_at IS NOT NULL AND usage_source IS NULL AND kind = :worker AND state NOT IN (:unfinished)
+                    ) AS partial,
+                    BOOL_OR(usage_source IS NOT NULL) AS reported
+                FROM bridge_worker_runs
+                WHERE project_id = :project AND card_id = :card
+                SQL,
+            [
+                'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
+                'card' => (string) $cardId,
+                'worker' => WorkerRunKind::Worker->value,
+                'unfinished' => [
+                    ...array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()),
+                    WorkerRunState::NotStarted->value,
+                ],
+            ],
+            ['unfinished' => ArrayParameterType::STRING],
+        )->fetchAssociative();
+
+        return ['partial' => (int) $row['partial'], 'reported' => true === $row['reported']];
+    }
+
+    /**
      * Deletes every run the server received before the given moment, and answers
      * how many rows went.
      *

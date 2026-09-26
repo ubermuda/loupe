@@ -99,10 +99,16 @@ trait BridgeScenario
         return $run;
     }
 
-    private function seedUsage(EntityManagerInterface $em, WorkerRun $run, string $model = 'claude-opus-5-5'): WorkerRunUsage
-    {
-        $usage = new WorkerRunUsage($run, $run->project, $run->cardId, $run->ruleName, $model, WorkerRunUsageSource::Reported, 100, 20, 300, 40, '0.012345');
-        $run->usageSource = WorkerRunUsageSource::Reported;
+    private function seedUsage(
+        EntityManagerInterface $em,
+        WorkerRun $run,
+        string $model = 'claude-opus-5-5',
+        WorkerRunUsageSource $source = WorkerRunUsageSource::Reported,
+        ?string $costUsd = '0.012345',
+        int $inputTokens = 100,
+    ): WorkerRunUsage {
+        $usage = new WorkerRunUsage($run, $run->project, $run->cardId, $run->ruleName, $model, $source, $inputTokens, 20, 300, 40, $costUsd);
+        $run->usageSource = $source;
         $em->persist($usage);
         $em->flush();
 
