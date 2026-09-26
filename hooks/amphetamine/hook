@@ -66,6 +66,11 @@ release() {
     fi
     # A timestamp, not clock minutes, so a daylight saving change counts.
     at=$(date -j -f '%Y-%m-%d %H:%M:%S' "$today ${quiet%-*}:00" +%s) || exit $?
+    # In the hour that autumn repeats, date picks the first copy of the time.
+    if [ "$at" -le "$epoch" ] && [ $((at + 3600)) -gt "$epoch" ] &&
+        [ "$(date -r $((at + 3600)) +%H:%M)" = "${quiet%-*}" ]; then
+        at=$((at + 3600))
+    fi
     if [ "$at" -le "$epoch" ]; then
         day=$(date -j -v+1d -f '%Y-%m-%d %H:%M:%S' "$today 12:00:00" +%Y-%m-%d) || exit $?
         at=$(date -j -f '%Y-%m-%d %H:%M:%S' "$day ${quiet%-*}:00" +%s) || exit $?

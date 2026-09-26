@@ -38,7 +38,8 @@ parse() {
 }
 day() { /bin/date -r "$1" +%Y-%m-%d 2>/dev/null || /bin/date -d "@$1" +%Y-%m-%d; }
 case $* in
-    '+%Y-%m-%d %H:%M %s') echo "${now%:*} $(parse "$now")" ;;
+    '+%Y-%m-%d %H:%M %s') echo "${now%:*} $(cat "$FAKE/epoch" 2>/dev/null || parse "$now")" ;;
+    '-r '*' +%H:%M') /bin/date -r "$2" +%H:%M 2>/dev/null || /bin/date -d "@$2" +%H:%M ;;
     "-j -f $fmt "*' +%s') parse "$4" ;;
     "-j -v+1d -f $fmt "*' 12:00:00 +%Y-%m-%d') day $(($(parse "$5") + 86400)) ;;
     *) echo "fake date: unknown call: $*" >&2; exit 64 ;;
@@ -220,6 +221,24 @@ quiet='02:30-03:00'
 run idle
 expect_code 0
 expect_called "$(timed 1350)"
+finish
+
+check 'a start in the hour that autumn repeats is its second copy'
+setup true '2026-11-01 01:10:00' 0
+echo 1793513400 >"$work/fake/epoch"
+quiet='01:30-06:00'
+run idle
+expect_code 0
+expect_called "$(timed 20)"
+finish
+
+check 'a start in the repeated hour that has passed twice moves to tomorrow'
+setup true '2026-11-01 01:40:00' 0
+echo 1793515200 >"$work/fake/epoch"
+quiet='01:30-01:35'
+run idle
+expect_code 0
+expect_called "$(timed 1430)"
 finish
 
 check 'a timed session drops the seconds, so it ends before quiet hours'
