@@ -113,6 +113,7 @@ export default defineConfig({
             { slug: 'operating/first-run' },
             { slug: 'operating/migrations' },
             { slug: 'operating/post-deploy-checks' },
+            { slug: 'operating/sentry' },
             { slug: 'operating/failed-messages' },
             { slug: 'operating/recovering' },
             { slug: 'operating/backups' },
