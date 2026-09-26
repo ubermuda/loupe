@@ -74,12 +74,20 @@ final readonly class CostChart
         $usedSlots = [];
         foreach ($byDay as $dayIndex => $dayCards) {
             $count = \count($dayCards);
-            $width = min(self::MAX_BAR_WIDTH, max(self::MIN_BAR_WIDTH, ($dayWidth - self::GAP * $count) / $count));
-            $groupWidth = $count * $width + self::GAP * ($count - 1);
+            // A group never leaves its day: the gap gives way first, then the bar drops below its minimum width.
+            $gap = self::GAP;
+            $width = min(self::MAX_BAR_WIDTH, ($dayWidth - $gap * $count) / $count);
+            if ($width < self::MIN_BAR_WIDTH) {
+                $gap = max(0.0, ($dayWidth - self::MIN_BAR_WIDTH * $count) / $count);
+                $width = ($dayWidth - $gap * $count) / $count;
+            }
+            $groupWidth = $count * $width + $gap * ($count - 1);
             $left = self::PLOT_LEFT + ($dayIndex + 0.5) * $dayWidth - $groupWidth / 2;
+            // Bars of one day share it without overlap. A lone bar may reach past a narrow day, so it stays easy to hit.
+            $hitWidth = 1 === $count ? max(self::MIN_HIT_WIDTH, $width + 2 * $gap) : $width + $gap;
 
             foreach ($dayCards as $position => $cost) {
-                $x = $left + $position * ($width + self::GAP);
+                $x = $left + $position * ($width + $gap);
                 $height = $cost->costMicros / $topMicros * $plotHeight;
                 $segments = [];
                 if ($height >= self::GAP) {
@@ -100,7 +108,6 @@ final readonly class CostChart
                     $height = self::GAP;
                 }
                 $top = self::BASELINE - $height;
-                $hitWidth = max(self::MIN_HIT_WIDTH, $width + 2 * self::GAP);
 
                 $bars[] = new CostChartBar(
                     cost: $cost,

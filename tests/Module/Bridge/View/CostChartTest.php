@@ -47,6 +47,32 @@ final class CostChartTest extends TestCase
         self::assertGreaterThanOrEqual($morning->x + $morning->width + 2, $evening->x + 0.01);
     }
 
+    /** Twenty bars of two pixels and their gaps are wider than one day, so the gaps and then the bars give way. */
+    public function test_a_crowded_day_keeps_every_bar_inside_its_slot(): void
+    {
+        $cards = [];
+        for ($hour = 0; $hour < 20; ++$hour) {
+            $cards[] = $this->cost(\sprintf('2026-09-10 %02d:00:00', $hour), ['' => 1_000_000]);
+        }
+        $chart = $this->chart($cards);
+
+        // The range spans 30 days, and the tenth day is the slot of the group.
+        $dayWidth = (CostChart::PLOT_RIGHT - CostChart::PLOT_LEFT) / 30;
+        $slotLeft = CostChart::PLOT_LEFT + 9 * $dayWidth;
+        $previousRight = $slotLeft;
+        // The view box coordinates are rounded to two decimals, so an edge can move by up to 0.015.
+        foreach ($chart->bars as $bar) {
+            self::assertGreaterThan(0.0, $bar->width);
+            self::assertGreaterThanOrEqual($previousRight - 0.02, $bar->x);
+            self::assertGreaterThanOrEqual($bar->x + $bar->width - 0.02, $bar->hitX + $bar->hitWidth);
+            self::assertLessThanOrEqual($bar->x + 0.02, $bar->hitX);
+            $previousRight = $bar->x + $bar->width;
+        }
+        self::assertLessThanOrEqual($slotLeft + $dayWidth + 0.02, $previousRight);
+        self::assertGreaterThanOrEqual($slotLeft - 0.02, $chart->bars[0]->hitX);
+        self::assertLessThanOrEqual($slotLeft + $dayWidth + 0.02, $chart->bars[19]->hitX + $chart->bars[19]->hitWidth);
+    }
+
     public function test_the_parts_stack_bottom_up_with_a_gap_and_a_rounded_top(): void
     {
         $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 3_000_000])], ['build', 'plan']);
