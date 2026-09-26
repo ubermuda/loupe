@@ -1127,6 +1127,45 @@ runs and asks you to confirm. Run `loupe bridge reload` after `install`,
 `remove` or `set`. See [Bridge hooks](../docs/extending/bridge-hooks.md) for the
 events, the manifest, the environment and the Amphetamine package.
 
+## `loupe usage backfill`
+
+Sends the token usage of past worker runs to Loupe. Use it once, for the runs
+that ended before the bridge captured usage.
+
+```bash
+loupe usage backfill --dry-run
+loupe usage backfill
+loupe usage backfill --project 01a007cc-5419-7085-a0a2-23a0875be12c
+```
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--log-file` | `bridge.log` in your config dir | Read this bridge log |
+| `--project` | every project | Send only the sessions of the project with this id, as the log names it |
+| `--dry-run` | off | Print what the command would send, and send nothing |
+
+The command reads the `worker_started` lines of the log and the Claude Code
+transcript of each session. It sends the usage of each worker process of a
+session, in start order, with one request for each session.
+[Command-line bridge](../docs/extending/cli-bridge.md) says how it splits a
+session between its processes. Run it on the machine that ran the bridge,
+before the transcripts expire after about 30 days. Run it when no worker is in
+flight.
+
+It prints one line for each session:
+
+| Line | Meaning |
+|---|---|
+| `would send <session> (card <n>): reported $0.5000, ...` | `--dry-run` only. The source and the dollars of each process |
+| `sent <session> (card <n>): runs 2, updated 1` | Loupe took the usage. `updated` counts the runs whose usage changed |
+| `skipped <session> (card <n>): <reason>` | The command cannot map the session, such as when it has no transcript |
+| `refused <session> (card <n>): <error>` | Loupe wrote nothing, such as with `process_count_mismatch` |
+| `failed <session> (card <n>): <error>` | A read or a request failed |
+
+The command goes on after a refusal or a failure, and then exits with status 1.
+A skip is not a failure. A second run is safe, because Loupe never replaces
+reported usage and a repeat changes nothing. `--dry-run` needs no login.
+
 ## `loupe update`
 
 Updates the CLI now, without waiting for the next hourly check.

@@ -215,6 +215,29 @@ The bridge drops a usage the server would refuse, such as one with more than 20
 models, and logs `usage_dropped`. The outcome still goes out. The old report of
 a server built before run states carries no usage.
 
+`loupe usage backfill` sends the usage of worker runs that ended before the
+bridge captured usage. It reads the `worker_started` lines of the bridge log
+and the transcript of each session. It sends each session once, to the
+[session usage report](../reference/worker-runs.md#reporting-the-usage-of-a-session),
+with the login of `loupe bridge`. Each `worker_started` line is one process of
+its session.
+
+claude can write more than one `cost-state` line in a process, and each line
+holds the session totals. A line belongs to the process that wrote the last
+timed transcript entry above it. A process that ended on its own spent its last
+line minus the line above its first line. The command sends that difference and
+claude's own dollars, marked `reported`. A process with no line, or with timed
+entries after its last line, was killed. The command sends the priced sum of its
+messages up to the start of the next process, marked `estimated`. Lines above
+the first process belong to no process.
+
+Run the command on the machine that ran the bridge, before claude deletes the
+transcripts after about 30 days. Run it when the bridge has no worker in
+flight, because a running process sends only what it spent so far. The command
+skips a session that has no transcript, a run with no card, and a session
+whose totals go down or do not follow the start order. `cli/README.md` lists
+its flags and its output.
+
 Loupe records a run against a card. A rule can name an event type that carries
 no card number, and the bridge sends no state for such a run. It logs
 `report_skipped` when the run ends. That run has no record, and the log line is
