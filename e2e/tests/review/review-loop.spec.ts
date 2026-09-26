@@ -774,6 +774,8 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
     context,
     review,
 }) => {
+    // Two tabs, three verdict changes and two reloads, each a server round trip.
+    test.slow();
     await page
         .getByRole('button', { name: 'Finish review', exact: true })
         .click();
