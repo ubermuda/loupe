@@ -6,7 +6,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 )
@@ -67,11 +66,10 @@ func TestFindTakesTheNewestOfTwoCopies(t *testing.T) {
 	}
 }
 
-// The fixture's subagent wrote messages after the last line.
 func TestLastCostStateReadsTheLastLine(t *testing.T) {
-	got, complete, err := LastCostState(workPath(t))
-	if err != nil || complete {
-		t.Fatalf("complete = %v, err = %v", complete, err)
+	got, err := LastCostState(workPath(t))
+	if err != nil {
+		t.Fatal(err)
 	}
 	want := Usage{
 		"claude-opus-5-5":           {InputTokens: 110, OutputTokens: 120, CacheReadTokens: 130, CacheWriteTokens: 140, CostUSD: cost(1.5)},
@@ -85,66 +83,14 @@ func TestLastCostStateOfASessionWithNoneIsZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, complete, err := LastCostState(path)
-	if err != nil || !complete || got == nil || len(got) != 0 {
-		t.Fatalf("LastCostState = %v, %v, %v", got, complete, err)
-	}
-}
-
-// A process that ended with no cost-state line, such as a killed one, left
-// messages after the last line, and the line does not count them.
-func TestLastCostStateSaysWhetherItCountsEveryMessage(t *testing.T) {
-	const (
-		line      = `{"type":"cost-state","modelUsage":{"m":{"inputTokens":1}}}`
-		before    = `{"type":"assistant","timestamp":"2026-09-25T10:00:00Z","message":{"id":"a","model":"m","usage":{"input_tokens":1}}}`
-		after     = `{"type":"assistant","timestamp":"2026-09-25T11:00:00Z","message":{"id":"b","model":"m","usage":{"input_tokens":1}}}`
-		synthetic = `{"type":"assistant","timestamp":"2026-09-25T11:00:00Z","message":{"id":"c","model":"<synthetic>","usage":{"input_tokens":0}}}`
-		prompt    = `{"type":"user","timestamp":"2026-09-25T09:00:00Z","message":{"content":"go"}}`
-		subBefore = `{"type":"assistant","timestamp":"2026-09-25T09:59:00Z","message":{"id":"s","model":"m","usage":{"input_tokens":1}}}`
-		subAfter  = `{"type":"assistant","timestamp":"2026-09-25T10:05:00Z","message":{"id":"s","model":"m","usage":{"input_tokens":1}}}`
-		subLate   = `{"type":"assistant","timestamp":"2026-09-25T10:00:01Z","message":{"id":"s","model":"m","usage":{"input_tokens":1}}}`
-	)
-	for name, tc := range map[string]struct {
-		main, sub []string
-		complete  bool
-	}{
-		"every message before the line":      {main: []string{prompt, before, line}, complete: true},
-		"a message after the line":           {main: []string{before, line, after}},
-		"messages and no line":               {main: []string{prompt, before}},
-		"no messages and no line":            {main: []string{prompt}, complete: true},
-		"a notice after the line":            {main: []string{before, line, synthetic}, complete: true},
-		"a subagent message before the line": {main: []string{before, line}, sub: []string{subBefore}, complete: true},
-		"a subagent message after the line":  {main: []string{before, line}, sub: []string{subAfter}},
-		"a subagent message and no line":     {main: []string{prompt}, sub: []string{subBefore}},
-		// A background subagent can end after the last main entry, before or
-		// after the line. The line holds no time, so the bridge cannot tell.
-		"ambiguous timing reads as incomplete": {main: []string{before, line}, sub: []string{subLate}},
-	} {
-		t.Run(name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), workSession+".jsonl")
-			writeLines(t, path, tc.main)
-			if tc.sub != nil {
-				writeLines(t, filepath.Join(strings.TrimSuffix(path, ".jsonl"), "subagents", "agent-1.jsonl"), tc.sub)
-			}
-			if _, complete, err := LastCostState(path); err != nil || complete != tc.complete {
-				t.Fatalf("complete = %v, err = %v, want %v", complete, err, tc.complete)
-			}
-		})
-	}
-}
-
-func writeLines(t *testing.T, path string, lines []string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {
-		t.Fatal(err)
+	got, err := LastCostState(path)
+	if err != nil || got == nil || len(got) != 0 {
+		t.Fatalf("LastCostState = %v, %v", got, err)
 	}
 }
 
 func TestLastCostStateOfAMissingFileFails(t *testing.T) {
-	if _, _, err := LastCostState(filepath.Join(t.TempDir(), "gone.jsonl")); err == nil {
+	if _, err := LastCostState(filepath.Join(t.TempDir(), "gone.jsonl")); err == nil {
 		t.Fatal("LastCostState read a file that does not exist")
 	}
 }

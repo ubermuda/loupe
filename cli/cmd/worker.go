@@ -155,10 +155,8 @@ type runRecord struct {
 	Resume         bool   `json:"resume,omitempty"`
 	Prompt         string `json:"prompt"`
 	// Baseline is the session's usage before a resume started. A resume with
-	// no baseline could not read it. BaselineIncomplete says messages came after
-	// the cost-state line the baseline holds.
-	Baseline           *transcript.Usage `json:"baseline,omitempty"`
-	BaselineIncomplete bool              `json:"baselineIncomplete,omitempty"`
+	// no baseline could not read it.
+	Baseline *transcript.Usage `json:"baseline,omitempty"`
 }
 
 func writeRunRecord(dir string, rec runRecord) error {
@@ -280,9 +278,8 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 	// claude adds to the session's totals as it runs, so the baseline is read
 	// before it starts.
 	var baseline *transcript.Usage
-	var incomplete bool
 	if spec.resume {
-		baseline, incomplete = sessionBaseline(spec.sessionID)
+		baseline = sessionBaseline(spec.sessionID)
 	}
 	if err := cmd.Start(); err != nil {
 		return nil, dir, nil, err
@@ -292,7 +289,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 		RunID: spec.runID, Rule: spec.rule, Key: spec.key,
 		Dir: spec.dir, PermissionMode: spec.permissionMode, Model: spec.model,
 		SessionID: spec.sessionID, Resume: spec.resume, Prompt: spec.prompt,
-		Baseline: baseline, BaselineIncomplete: incomplete,
+		Baseline: baseline,
 	}
 	// A worker with no record cannot outlive this bridge, so it does not run.
 	if err := writeRunRecord(dir, rec); err != nil {
