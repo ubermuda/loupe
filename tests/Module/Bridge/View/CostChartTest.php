@@ -73,6 +73,19 @@ final class CostChartTest extends TestCase
         self::assertLessThanOrEqual($slotLeft + $dayWidth + 0.02, $chart->bars[19]->hitX + $chart->bars[19]->hitWidth);
     }
 
+    /** On a long range a day is under two units wide, and a lone bar must not shrink out of sight. */
+    public function test_a_lone_card_on_a_long_range_stays_two_units_wide(): void
+    {
+        $chart = CostChart::build(
+            [$this->cost('2025-06-01 09:00:00', ['' => 1_000_000])],
+            [''],
+            new \DateTimeImmutable('2025-01-01 12:00:00'),
+            new \DateTimeImmutable('2026-09-30 12:00:00'),
+        );
+
+        self::assertGreaterThanOrEqual(2.0, $chart->bars[0]->width);
+    }
+
     public function test_the_parts_stack_bottom_up_with_a_gap_and_a_rounded_top(): void
     {
         $chart = $this->chart([$this->cost('2026-09-10 09:00:00', ['build' => 1_000_000, 'plan' => 3_000_000])], ['build', 'plan']);

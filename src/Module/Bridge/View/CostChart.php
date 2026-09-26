@@ -74,12 +74,14 @@ final readonly class CostChart
         $usedSlots = [];
         foreach ($byDay as $dayIndex => $dayCards) {
             $count = \count($dayCards);
-            // A group never leaves its day: the gap gives way first, then the bar drops below its minimum width.
+            // A group stays in its day: the gap gives way first, then the bars. A day narrower
+            // than one bar lends its group two units, so a lone bar never vanishes.
+            $space = max($dayWidth, self::MIN_BAR_WIDTH);
             $gap = self::GAP;
-            $width = min(self::MAX_BAR_WIDTH, ($dayWidth - $gap * $count) / $count);
+            $width = min(self::MAX_BAR_WIDTH, ($space - $gap * $count) / $count);
             if ($width < self::MIN_BAR_WIDTH) {
-                $gap = max(0.0, ($dayWidth - self::MIN_BAR_WIDTH * $count) / $count);
-                $width = ($dayWidth - $gap * $count) / $count;
+                $gap = max(0.0, ($space - self::MIN_BAR_WIDTH * $count) / $count);
+                $width = ($space - $gap * $count) / $count;
             }
             $groupWidth = $count * $width + $gap * ($count - 1);
             $left = self::PLOT_LEFT + ($dayIndex + 0.5) * $dayWidth - $groupWidth / 2;
