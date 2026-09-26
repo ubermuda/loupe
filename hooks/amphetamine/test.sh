@@ -215,6 +215,21 @@ expect_code 5
 grep -q 'away_minutes' "$work/stderr" || fail 'no away_minutes message'
 finish
 
+check 'away_minutes with a leading zero is decimal'
+setup true 14:00 540
+away=09
+run idle
+expect_code 0
+expect_called 'end session'
+finish
+
+check 'an empty away_minutes exits 5'
+setup true 14:00 0
+away=''
+run idle
+expect_code 5
+finish
+
 check 'an osascript failure passes its exit code on'
 setup false 14:00 0
 echo 7 >"$work/fake/fail"

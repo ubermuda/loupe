@@ -2,7 +2,7 @@
 set -u
 
 quiet="${LOUPE_HOOK_SETTING_QUIET_HOURS-23:00-06:00}"
-away="${LOUPE_HOOK_SETTING_AWAY_MINUTES:-30}"
+away="${LOUPE_HOOK_SETTING_AWAY_MINUTES-30}"
 
 amph() {
     osascript -e "tell application \"Amphetamine\" to $1"
@@ -25,11 +25,12 @@ if [ -n "$quiet" ]; then
     }
 fi
 case $away in
-    *[!0-9]*)
-        echo "away_minutes must be a whole number, not $away" >&2
+    '' | *[!0-9]*)
+        echo "away_minutes must be a whole number, not '$away'" >&2
         exit 5
         ;;
 esac
+while [ "${away#0}" != "$away" ] && [ -n "${away#0}" ]; do away=${away#0}; done
 
 now=$(minutes "$(date +%H:%M)") || exit $?
 
