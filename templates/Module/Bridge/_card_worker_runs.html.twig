@@ -25,8 +25,9 @@
     {% else %}
     <p class="lp-card-detail__empty">{{ 'board.card.runs.empty'|trans }}</p>
     {% endfor %}
-    {% if runs is not empty %}
     {% set usage = card_usage_total(project, cardId) %}
+    {# The usage of a card outlives its runs, so a card with no runs can still have usage. #}
+    {% if runs is not empty or usage.known %}
     <p class="lp-card-usage-total" data-card-usage-total>
         <span class="lp-card-usage-total__label">{{ 'board.card.runs.usage.total'|trans }}</span>
         {% if usage.known %}

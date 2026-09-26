@@ -88,7 +88,8 @@ warning in place until it ends.
 
 The runs section of a card shows one **Total usage** line below its runs. The
 line counts every run of the card, not only the five the card lists. It also
-counts the usage of runs that the retention sweep deleted. The line shows the
+counts the usage of runs that the retention sweep deleted. A card whose runs
+were all deleted still shows the line, under the text that no agent has run. The line shows the
 cost in US dollars, then the input, output, cache read and cache write tokens.
 A large count is short, such as `45.3k` or `1.2M`.
 

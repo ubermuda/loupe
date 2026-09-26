@@ -170,6 +170,32 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertStringNotContainsString('$0.00', $total->text());
     }
 
+    public function test_a_card_whose_runs_were_all_deleted_still_shows_its_usage(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'card-fragment-usage-swept@example.com');
+        $project = $this->project($em, $owner, 'Fragment usage swept');
+        $cardId = Uuid::v7();
+        $run = $this->seedRun($em, $project, cardId: $cardId);
+        $this->seedUsage($em, $run);
+        $em->getConnection()->executeStatement('DELETE FROM bridge_worker_runs WHERE id = :id', ['id' => (string) $run->id]);
+
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[data-card-runs] [data-card-run]'));
+        self::assertSelectorTextContains('[data-card-runs] .lp-card-detail__empty', 'No agent has run on this card yet.');
+        $total = $crawler->filter('[data-card-runs] .lp-card-detail__empty + [data-card-usage-total]');
+        self::assertCount(1, $total);
+        self::assertSame('$0.01', $total->filter('[data-card-usage-cost]')->text());
+    }
+
     public function test_a_card_with_no_runs_says_so(): void
     {
         $client = static::createClient();
@@ -185,6 +211,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('turbo-frame#card-worker-runs [data-card-runs]', 'No agent has run on this card yet.');
+        self::assertSelectorNotExists('[data-card-usage-total]');
     }
 
     public function test_another_users_project_is_refused(): void
