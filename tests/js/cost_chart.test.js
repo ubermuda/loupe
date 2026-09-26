@@ -134,4 +134,17 @@ it('opens a hover card below the plot when the room above the bar is too small',
     expect(card(1).classList.contains('lp-cost-card--below')).toBe(true);
     // The bar box ends at 250 in the viewport and the plot starts at 50.
     expect(card(1).style.top).toBe('208px');
+    // jsdom's window is 768 tall, so 510 is left below the plot.
+    expect(card(1).style.maxHeight).toBe('');
+});
+
+it('cuts a hover card that fits neither above nor below to the larger side', () => {
+    window.innerHeight = 400;
+    card(1).getBoundingClientRect = () => ({ width: 256, height: 900 });
+    bar(1).dispatchEvent(new MouseEvent('mouseenter'));
+
+    // 142 below the plot beats 62 above the painted marks.
+    expect(card(1).classList.contains('lp-cost-card--below')).toBe(true);
+    expect(card(1).style.maxHeight).toBe('142px');
+    window.innerHeight = 768;
 });

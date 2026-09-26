@@ -17,6 +17,7 @@ export default class extends Controller {
 
         this.hide();
         card.hidden = false;
+        card.style.maxHeight = '';
 
         const plotBox = card.parentElement.getBoundingClientRect();
         // The link spans the whole plot height, so the top comes from the painted marks.
@@ -36,11 +37,18 @@ export default class extends Controller {
         );
 
         card.style.left = `${left}px`;
-        // A card taller than the room above the bar opens below the plot instead.
-        const below = top - 8 - card.getBoundingClientRect().height < 0;
+        // A card taller than the room above the bar opens below the plot when that side has more room.
+        // A card that fits neither side is cut to the larger one.
+        const plotBottom = barBox.top + barBox.height;
+        const roomAbove = top - 8;
+        const roomBelow = window.innerHeight - plotBottom - 8;
+        const height = card.getBoundingClientRect().height;
+        const below = height > roomAbove && roomBelow > roomAbove;
+        const room = Math.max(below ? roomBelow : roomAbove, 0);
         card.classList.toggle('lp-cost-card--below', below);
+        card.style.maxHeight = height > room ? `${room}px` : '';
         card.style.top = below
-            ? `${barBox.top + barBox.height - plotBox.top + 8}px`
+            ? `${plotBottom - plotBox.top + 8}px`
             : `${top - plotBox.top - 8}px`;
     }
 
