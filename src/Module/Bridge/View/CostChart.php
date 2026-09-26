@@ -74,12 +74,19 @@ final readonly class CostChart
             7 * $dayWidth >= self::MIN_PERIOD_WIDTH => 'week',
             default => 'month',
         };
+        if ('day' !== $period) {
+            // The axis grows to whole periods, so the first and last ones are never cut short.
+            $firstDay = self::periodStart($period, $firstDay);
+            $dayCount = self::daysBetween($firstDay, self::periodEnd($period, self::periodStart($period, self::day($to))));
+            $dayWidth = (self::PLOT_RIGHT - self::PLOT_LEFT) / $dayCount;
+        }
 
         // Each period holds its cards in completion order, oldest period first.
         $periods = [];
         foreach ($cards as $cost) {
-            [$start, $end] = self::periodOf($period, self::day($cost->card->completedAt), $firstDay, $dayCount);
-            $periods[$start] ??= ['end' => $end, 'cards' => []];
+            $periodStart = self::periodStart($period, self::day($cost->card->completedAt));
+            $start = self::daysBetween($firstDay, $periodStart);
+            $periods[$start] ??= ['end' => self::daysBetween($firstDay, self::periodEnd($period, $periodStart)), 'cards' => []];
             $periods[$start]['cards'][] = $cost;
         }
 
@@ -218,30 +225,31 @@ final readonly class CostChart
     }
 
     /**
-     * The first day of the period of a day, and the day after its last, as day
-     * indices of the axis. A week starts on Monday, as in ISO 8601.
+     * The first day of the period of a day. A week starts on Monday, as in ISO 8601.
      *
      * @param 'day'|'week'|'month' $period
-     *
-     * @return array{int, int}
      */
-    private static function periodOf(string $period, \DateTimeImmutable $day, \DateTimeImmutable $firstDay, int $dayCount): array
+    private static function periodStart(string $period, \DateTimeImmutable $day): \DateTimeImmutable
     {
-        $start = match ($period) {
+        return match ($period) {
             'day' => $day,
             'week' => $day->modify(\sprintf('-%d days', (int) $day->format('N') - 1)),
             'month' => $day->modify('first day of this month'),
         };
-        $end = match ($period) {
+    }
+
+    /**
+     * The day after the last day of the period that starts on the given day.
+     *
+     * @param 'day'|'week'|'month' $period
+     */
+    private static function periodEnd(string $period, \DateTimeImmutable $start): \DateTimeImmutable
+    {
+        return match ($period) {
             'day' => $start->modify('+1 day'),
             'week' => $start->modify('+7 days'),
             'month' => $start->modify('first day of next month'),
         };
-
-        return [
-            max(0, self::daysBetween($firstDay, $start)),
-            min($dayCount, self::daysBetween($firstDay, $end)),
-        ];
     }
 
     private static function day(\DateTimeImmutable $moment): \DateTimeImmutable

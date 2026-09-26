@@ -87,7 +87,8 @@ final class CostChartTest extends TestCase
 
         self::assertSame('week', $chart->period);
         $this->assertInOrder($chart->bars);
-        $mondayLeft = $this->axisX('2025-02-07', '2025-06-09', 601);
+        // The axis runs from the Monday of the first week to the Sunday of the last week.
+        $mondayLeft = $this->axisX('2025-02-03', '2025-06-09', 609);
         self::assertLessThanOrEqual($mondayLeft + 0.02, $chart->bars[3]->hitX + $chart->bars[3]->hitWidth);
         self::assertGreaterThanOrEqual($mondayLeft - 0.02, $chart->bars[4]->hitX);
     }
@@ -108,12 +109,31 @@ final class CostChartTest extends TestCase
 
         self::assertSame('month', $chart->period);
         $this->assertInOrder($chart->bars);
-        $marchLeft = $this->axisX('2023-09-30', '2024-03-01', 1097);
-        $aprilLeft = $this->axisX('2023-09-30', '2024-04-01', 1097);
+        // The axis runs from the first day of the first month to the last day of the last month.
+        $marchLeft = $this->axisX('2023-09-01', '2024-03-01', 1126);
+        $aprilLeft = $this->axisX('2023-09-01', '2024-04-01', 1126);
         self::assertEqualsWithDelta($marchLeft, $chart->bars[0]->hitX, 0.02);
         self::assertEqualsWithDelta($aprilLeft, $chart->bars[1]->hitX + $chart->bars[1]->hitWidth, 0.02);
         self::assertEqualsWithDelta($aprilLeft, $chart->bars[2]->hitX, 0.02);
         self::assertGreaterThanOrEqual(2.0, $chart->bars[2]->width);
+    }
+
+    /** A range that ends on the first day of a month still draws that month whole. */
+    public function test_the_last_month_of_a_range_keeps_its_full_width(): void
+    {
+        $chart = CostChart::build(
+            [
+                $this->cost('2025-09-15 09:00:00', ['' => 1_000_000]),
+                $this->cost('2026-09-01 09:00:00', ['' => 1_000_000]),
+            ],
+            [''],
+            new \DateTimeImmutable('2023-09-01 12:00:00'),
+            new \DateTimeImmutable('2026-09-01 12:00:00'),
+        );
+
+        self::assertSame('month', $chart->period);
+        // Both Septembers have 30 days.
+        self::assertEqualsWithDelta($chart->bars[0]->hitWidth, $chart->bars[1]->hitWidth, 0.02);
     }
 
     public function test_the_parts_stack_bottom_up_with_a_gap_and_a_rounded_top(): void
