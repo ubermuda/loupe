@@ -591,8 +591,59 @@ cli-install dir="":
     [ -n "$target" ] || target="$HOME/bin"
     target="${target/#\~/$HOME}"
 
-    # The host's own platform, so this works on a developer Mac and on a Linux
-    # box without either of them passing anything.
+    read -r goos goarch < <(just _cli-platform)
+    just cli-build "$goos" "$goarch"
+
+    mkdir -p "$target"
+    install -m 0755 "{{justfile_directory()}}/cli/dist/loupe-$goos-$goarch" "$target/loupe"
+    just _cli-verify "$target"
+
+# `just cli-install-release 1.0.0` pins a version; the default is the newest.
+# Download a published CLI release and install it onto your PATH (default ~/bin).
+cli-install-release version="latest" dir="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target="{{dir}}"
+    [ -n "$target" ] || target="$HOME/bin"
+    target="${target/#\~/$HOME}"
+    repo="ubermuda/loupe"
+
+    # CLI releases are tagged cli/vX.Y.Z, apart from the app's own tags.
+    version="{{version}}"
+    if [ "$version" = latest ]; then
+        tag="$(curl -fsSL "https://api.github.com/repos/$repo/releases?per_page=100" | grep -o '"tag_name": *"cli/v[^"]*"' | head -n 1 | sed 's/.*"\(cli\/v[^"]*\)"/\1/')"
+        [ -n "$tag" ] || { echo "no cli/v* release found on $repo" >&2; exit 1; }
+        version="${tag#cli/v}"
+    fi
+    version="${version#v}"
+
+    read -r goos goarch < <(just _cli-platform)
+    archive="loupe_${version}_${goos}_${goarch}.tar.gz"
+    base="https://github.com/$repo/releases/download/cli/v$version"
+
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    (
+        cd "$work"
+        curl -fsSLO "$base/$archive"
+        curl -fsSLO "$base/checksums.txt"
+        if command -v sha256sum >/dev/null; then
+            sha256sum -c --ignore-missing checksums.txt
+        else
+            shasum -a 256 -c --ignore-missing checksums.txt
+        fi
+        tar -xzf "$archive" loupe
+    )
+
+    mkdir -p "$target"
+    install -m 0755 "$work/loupe" "$target/loupe"
+    just _cli-verify "$target"
+
+# Print the host's Go platform as "<goos> <goarch>".
+[private]
+_cli-platform:
+    #!/usr/bin/env bash
+    set -euo pipefail
     case "$(uname -s)" in
         Darwin) goos=darwin ;;
         Linux)  goos=linux ;;
@@ -603,20 +654,20 @@ cli-install dir="":
         x86_64|amd64)  goarch=amd64 ;;
         *) echo "unsupported architecture $(uname -m); build it yourself with just cli-build" >&2; exit 1 ;;
     esac
+    echo "$goos $goarch"
 
-    just cli-build "$goos" "$goarch"
-
-    mkdir -p "$target"
-    install -m 0755 "{{justfile_directory()}}/cli/dist/loupe-$goos-$goarch" "$target/loupe"
+# Run the freshly installed binary and warn when the shell will not pick it.
+[private]
+_cli-verify target:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target="{{target}}"
     echo "installed $target/loupe"
 
-    # Prove the binary just written runs, rather than whatever PATH resolves:
-    # with another loupe earlier on PATH, checking `loupe` would report that one
-    # and call a failed install a success.
+    # Run the binary just written, not whatever PATH resolves: another loupe
+    # earlier on PATH would report itself and call a failed install a success.
     "$target/loupe" version
 
-    # An install nobody can reach is the other failure. `command -v` answers what
-    # the shell would actually pick.
     found="$(command -v loupe || true)"
     if [ -z "$found" ]; then
         echo "warning: $target is not on your PATH, so the shell cannot find loupe yet" >&2
