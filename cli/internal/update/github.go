@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
-	"strings"
 )
 
 // GitHubAPI is the default base of the GitHub REST API.
@@ -24,7 +22,7 @@ const (
 )
 
 // FetchReleases reads the releases of the Loupe repository, newest first. Server
-// releases share the list, so it reads on until a page holds a CLI release.
+// releases share the list, so it reads every page, up to maxPages.
 func FetchReleases(ctx context.Context, hc *http.Client, apiBase string) ([]Release, error) {
 	var releases []Release
 	for page := 1; page <= maxPages; page++ {
@@ -38,16 +36,12 @@ func FetchReleases(ctx context.Context, hc *http.Client, apiBase string) ([]Rele
 			return nil, fmt.Errorf("read the releases: %w", err)
 		}
 		releases = append(releases, batch...)
-		if len(batch) < perPage || slices.ContainsFunc(batch, isCLI) {
+		if len(batch) < perPage {
 			break
 		}
 	}
 
 	return releases, nil
-}
-
-func isCLI(r Release) bool {
-	return strings.HasPrefix(r.TagName, tagPrefix)
 }
 
 // Download reads one release asset.

@@ -30,7 +30,7 @@ func TestFetchReleasesReadsTheReleasesList(t *testing.T) {
 	}
 }
 
-func TestFetchReleasesReadsOnPastPagesOfServerReleases(t *testing.T) {
+func TestFetchReleasesReadsEveryPage(t *testing.T) {
 	var pages []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		page := r.URL.Query().Get("page")
@@ -42,7 +42,7 @@ func TestFetchReleasesReadsOnPastPagesOfServerReleases(t *testing.T) {
 		}
 		items := make([]string, 100)
 		for i := range items {
-			items[i] = `{"tag_name":"v2.` + page + `.` + strconv.Itoa(i) + `"}`
+			items[i] = `{"tag_name":"cli/v2.` + page + `.` + strconv.Itoa(i) + `"}`
 		}
 		_, _ = io.WriteString(w, "["+strings.Join(items, ",")+"]")
 	}))
@@ -54,23 +54,6 @@ func TestFetchReleasesReadsOnPastPagesOfServerReleases(t *testing.T) {
 	}
 	if strings.Join(pages, ",") != "1,2,3" || len(releases) != 202 || releases[200].TagName != "cli/v1.2.0" {
 		t.Fatalf("pages = %v, %d releases", pages, len(releases))
-	}
-}
-
-func TestFetchReleasesStopsAtAPageWithACLIRelease(t *testing.T) {
-	calls := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		calls++
-		items := make([]string, 100)
-		for i := range items {
-			items[i] = `{"tag_name":"cli/v1.0.` + strconv.Itoa(i) + `"}`
-		}
-		_, _ = io.WriteString(w, "["+strings.Join(items, ",")+"]")
-	}))
-	t.Cleanup(server.Close)
-
-	if _, err := FetchReleases(context.Background(), server.Client(), server.URL); err != nil || calls != 1 {
-		t.Fatalf("calls = %d, err = %v", calls, err)
 	}
 }
 
