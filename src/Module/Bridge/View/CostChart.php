@@ -82,7 +82,7 @@ final readonly class CostChart
         $periods = [];
         $periodStarts = [];
         foreach ($cards as $cost) {
-            $periodStart = $group->start(self::day($cost->card->completedAt));
+            $periodStart = $group->start(self::day($cost->card->completedAt->setTimezone($from->getTimezone())));
             $periodStarts[$periodStart->format('Y-m-d')] ??= $periodStart;
             $periods[$periodStart->format('Y-m-d')][] = $cost;
         }

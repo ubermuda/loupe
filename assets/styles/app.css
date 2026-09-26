@@ -6040,6 +6040,9 @@
     .lp-cost-card {
         @apply absolute z-10 w-64 max-w-full -translate-x-1/2 -translate-y-full rounded-lg border border-line bg-surface-1 p-3 text-xs text-fg-mute shadow-card pointer-events-none;
     }
+    .lp-cost-card--below {
+        @apply translate-y-0;
+    }
     .lp-cost-card[hidden] {
         @apply hidden;
     }

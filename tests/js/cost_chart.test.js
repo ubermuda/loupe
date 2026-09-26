@@ -126,3 +126,12 @@ it('places the hover card above the labels of a bar', () => {
 
     expect(card(0).style.top).toBe('62px');
 });
+
+it('opens a hover card below the plot when the room above the bar is too small', () => {
+    card(1).getBoundingClientRect = () => ({ width: 256, height: 400 });
+    bar(1).dispatchEvent(new MouseEvent('mouseenter'));
+
+    expect(card(1).classList.contains('lp-cost-card--below')).toBe(true);
+    // The bar box ends at 250 in the viewport and the plot starts at 50.
+    expect(card(1).style.top).toBe('208px');
+});

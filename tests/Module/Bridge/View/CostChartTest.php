@@ -114,6 +114,23 @@ final class CostChartTest extends TestCase
         self::assertEqualsWithDelta(CostChart::PLOT_LEFT + $dayWidth, $chart->bars[0]->hitX, 0.02);
     }
 
+    /** A card dated in another timezone falls in the day of the axis that holds its moment. */
+    public function test_a_card_in_another_timezone_falls_in_the_day_of_the_axis(): void
+    {
+        $utc = new \DateTimeZone('UTC');
+        $chart = CostChart::build(
+            [$this->cost('2026-09-02 00:30:00', ['' => 1_000_000], timezone: new \DateTimeZone('Asia/Tokyo'))],
+            [''],
+            new \DateTimeImmutable(self::FROM, $utc),
+            new \DateTimeImmutable(self::TO, $utc),
+            CostGroup::Day,
+            1_000_000,
+        );
+
+        self::assertSame('2026-09-01', $chart->bars[0]->periodStart->format('Y-m-d'));
+        self::assertEqualsWithDelta((float) CostChart::PLOT_LEFT, $chart->bars[0]->hitX, 0.02);
+    }
+
     public function test_a_month_ends_on_its_last_day(): void
     {
         $chart = CostChart::build(

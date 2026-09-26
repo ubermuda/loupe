@@ -36,7 +36,12 @@ export default class extends Controller {
         );
 
         card.style.left = `${left}px`;
-        card.style.top = `${top - plotBox.top - 8}px`;
+        // A card taller than the room above the bar opens below the plot instead.
+        const below = top - 8 - card.getBoundingClientRect().height < 0;
+        card.classList.toggle('lp-cost-card--below', below);
+        card.style.top = below
+            ? `${barBox.top + barBox.height - plotBox.top + 8}px`
+            : `${top - plotBox.top - 8}px`;
     }
 
     hide() {
