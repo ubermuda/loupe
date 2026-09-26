@@ -22,6 +22,8 @@
         </div>
     </header>
 
+    {% include '@Bridge/_worker_runs_tabs.html.twig' with {project: project, active: 'runs'} only %}
+
     {# Required on every render, empty list included: without it the page reads
        as a complete history, and a report lost with its bridge would read as a
        worker that never ran. #}
