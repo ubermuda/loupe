@@ -80,8 +80,11 @@ final readonly class CostChart
         $plotHeight = self::BASELINE - self::PLOT_TOP;
 
         $periods = [];
+        $periodStarts = [];
         foreach ($cards as $cost) {
-            $periods[$group->start(self::day($cost->card->completedAt))->format('Y-m-d')][] = $cost;
+            $periodStart = $group->start(self::day($cost->card->completedAt));
+            $periodStarts[$periodStart->format('Y-m-d')] ??= $periodStart;
+            $periods[$periodStart->format('Y-m-d')][] = $cost;
         }
 
         $averages = [];
@@ -107,7 +110,7 @@ final readonly class CostChart
         $bars = [];
         $usedSlots = [];
         foreach ($periods as $start => $periodCards) {
-            $periodStart = new \DateTimeImmutable((string) $start);
+            $periodStart = $periodStarts[$start];
             $startIndex = self::daysBetween($firstDay, $periodStart);
             $slotWidth = self::daysBetween($periodStart, $group->end($periodStart)) * $dayWidth;
             $slotLeft = self::PLOT_LEFT + $startIndex * $dayWidth;
@@ -169,13 +172,13 @@ final readonly class CostChart
             $yTicks[] = new CostChartTick(round(self::BASELINE - $micros / $topMicros * $plotHeight, 2), $micros / 1_000_000);
         }
 
-        $periodStarts = [];
+        $axisPeriods = [];
         for ($periodStart = $firstDay; $periodStart < $endDay; $periodStart = $group->end($periodStart)) {
-            $periodStarts[] = $periodStart;
+            $axisPeriods[] = $periodStart;
         }
-        $tickStep = self::tickStep($group, \count($periodStarts));
+        $tickStep = self::tickStep($group, \count($axisPeriods));
         $xTicks = [];
-        foreach ($periodStarts as $index => $periodStart) {
+        foreach ($axisPeriods as $index => $periodStart) {
             if (0 === $index % $tickStep) {
                 $centre = (self::daysBetween($firstDay, $periodStart) + self::daysBetween($firstDay, $group->end($periodStart))) / 2;
                 $xTicks[] = new CostChartTick(round(self::PLOT_LEFT + $centre * $dayWidth, 2), day: $periodStart);

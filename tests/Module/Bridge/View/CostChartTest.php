@@ -90,6 +90,30 @@ final class CostChartTest extends TestCase
         self::assertEqualsWithDelta(7 * $dayWidth, $chart->bars[0]->hitWidth, 0.02);
     }
 
+    /** A period start keeps the timezone of the dates, whatever the default of PHP. */
+    public function test_a_bar_keeps_its_day_in_the_timezone_of_the_dates(): void
+    {
+        $utc = new \DateTimeZone('UTC');
+        $default = date_default_timezone_get();
+        date_default_timezone_set('Asia/Tokyo');
+        try {
+            $chart = CostChart::build(
+                [$this->cost('2026-09-02 09:00:00', ['' => 1_000_000], timezone: $utc)],
+                [''],
+                new \DateTimeImmutable(self::FROM, $utc),
+                new \DateTimeImmutable(self::TO, $utc),
+                CostGroup::Day,
+                1_000_000,
+            );
+        } finally {
+            date_default_timezone_set($default);
+        }
+
+        $dayWidth = (CostChart::PLOT_RIGHT - CostChart::PLOT_LEFT) / 30;
+        self::assertSame('2026-09-02', $chart->bars[0]->periodStart->format('Y-m-d'));
+        self::assertEqualsWithDelta(CostChart::PLOT_LEFT + $dayWidth, $chart->bars[0]->hitX, 0.02);
+    }
+
     public function test_a_month_ends_on_its_last_day(): void
     {
         $chart = CostChart::build(
@@ -334,13 +358,13 @@ final class CostChartTest extends TestCase
      * @param non-empty-array<string, int> $parts
      * @param list<string>                 $estimated the keys of the estimated parts
      */
-    private function cost(string $completedAt, array $parts, array $estimated = [], int $partialRuns = 0): CardCost
+    private function cost(string $completedAt, array $parts, array $estimated = [], int $partialRuns = 0, ?\DateTimeZone $timezone = null): CardCost
     {
         $costParts = [];
         foreach ($parts as $key => $micros) {
             $costParts[] = new CostPart((string) $key, $micros, 1, 1, 1, 1, \in_array((string) $key, $estimated, true));
         }
 
-        return new CardCost(new FinishedCard(Uuid::v7(), 1, 'Card', new \DateTimeImmutable($completedAt)), $costParts, $partialRuns);
+        return new CardCost(new FinishedCard(Uuid::v7(), 1, 'Card', new \DateTimeImmutable($completedAt, $timezone)), $costParts, $partialRuns);
     }
 }
