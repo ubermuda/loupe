@@ -1296,8 +1296,24 @@ func (r *router) outcome(p pending, e endedRun) api.RunStateReport {
 		report.ResultStatus = e.res.status
 		report.ResultFields = r.resultFields(p, e.res.fields)
 	}
+	report.Usage = r.usage(p, e.res.usage)
 
 	return report
+}
+
+// usage is the usage the server takes. The bridge sends none rather than one
+// the server refuses, because a 422 would lose the whole outcome.
+func (r *router) usage(p pending, usage *api.Usage) *api.Usage {
+	if usage == nil {
+		return nil
+	}
+	if err := usage.Check(); err != nil {
+		r.log.Warn("usage_dropped", append(about(p.event, p.rule), "message", err.Error())...)
+
+		return nil
+	}
+
+	return usage
 }
 
 // resultFields are the extra result fields the server takes. Past its limit

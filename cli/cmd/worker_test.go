@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
 const ceilingVar = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="
@@ -104,6 +106,24 @@ func TestDecodeWorkerOutput(t *testing.T) {
 			overflow: true,
 			stderr:   "too much",
 			want:     workerResult{output: "too much"},
+		},
+		"usage": {
+			stdout: `{"result":"r","total_cost_usd":0.5,"modelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":2,"cacheReadInputTokens":3,"cacheCreationInputTokens":4,"costUSD":0.5}}}`,
+			want: workerResult{output: "r", reported: transcript.Usage{
+				"claude-opus-5-5": {InputTokens: 1, OutputTokens: 2, CacheReadTokens: 3, CacheWriteTokens: 4, CostUSD: ptr(0.5)},
+			}},
+		},
+		"usage of nothing": {
+			stdout: `{"result":"r","modelUsage":{}}`,
+			want:   workerResult{output: "r", reported: transcript.Usage{}},
+		},
+		"null usage": {
+			stdout: `{"result":"r","modelUsage":null}`,
+			want:   workerResult{output: "r"},
+		},
+		"usage that is no object": {
+			stdout: `{"result":"r","modelUsage":[]}`,
+			want:   workerResult{output: "r"},
 		},
 		"a long summary is capped": {
 			stdout: `{"structured_output":{"status":"finished","summary":"` + long + `"}}`,
