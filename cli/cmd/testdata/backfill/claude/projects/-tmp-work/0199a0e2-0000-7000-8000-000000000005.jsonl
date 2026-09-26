@@ -1,0 +1,4 @@
+{"type":"user","timestamp":"2026-09-20T11:00:01Z","message":{"role":"user","content":"go"}}
+{"type":"cost-state","modelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":2,"cacheReadInputTokens":0,"cacheCreationInputTokens":0,"costUSD":0.2}}}
+{"type":"user","timestamp":"2026-09-20T11:00:05Z","message":{"role":"user","content":"go on"}}
+{"type":"cost-state","modelUsage":{"claude-opus-5-5":{"inputTokens":1,"outputTokens":1,"cacheReadInputTokens":0,"cacheCreationInputTokens":0,"costUSD":0.1}}}
