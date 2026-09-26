@@ -255,9 +255,11 @@ The bridge checks for a release after its first heartbeat, again when the range
 changes, and then every hour plus a random delay of up to 10 minutes. A server
 that sends no range starts no check.
 
-A check reads the newest 100 releases from
-`GET https://api.github.com/repos/ubermuda/loupe/releases`. It picks the
-highest release that meets all of these conditions:
+A check reads the releases from
+`GET https://api.github.com/repos/ubermuda/loupe/releases`, 100 to a page and
+newest first. Server releases share that list, so the check reads on until a
+page holds a CLI release, for 10 pages at most. It picks the highest release
+that meets all of these conditions:
 
 - The release is not a draft or a prerelease, and its tag has the form
   `cli/vX.Y.Z`. The bridge skips every other tag, such as a plain `vX.Y.Z`.

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -21,11 +22,72 @@ func TestFetchReleasesReadsTheReleasesList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if path != "/repos/ubermuda/loupe/releases" || query != "per_page=100" || accept != "application/vnd.github+json" || agent == "" {
+	if path != "/repos/ubermuda/loupe/releases" || query != "per_page=100&page=1" || accept != "application/vnd.github+json" || agent == "" {
 		t.Fatalf("path = %q, query = %q, accept = %q, user agent = %q", path, query, accept, agent)
 	}
 	if len(releases) != 1 || releases[0].TagName != "cli/v1.2.0" || releases[0].Assets[0].URL != "https://x/c" {
 		t.Fatalf("releases = %+v", releases)
+	}
+}
+
+func TestFetchReleasesReadsOnPastPagesOfServerReleases(t *testing.T) {
+	var pages []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page := r.URL.Query().Get("page")
+		pages = append(pages, page)
+		if page == "3" {
+			_, _ = io.WriteString(w, `[{"tag_name":"cli/v1.2.0"},{"tag_name":"v0.9.0"}]`)
+
+			return
+		}
+		items := make([]string, 100)
+		for i := range items {
+			items[i] = `{"tag_name":"v2.` + page + `.` + strconv.Itoa(i) + `"}`
+		}
+		_, _ = io.WriteString(w, "["+strings.Join(items, ",")+"]")
+	}))
+	t.Cleanup(server.Close)
+
+	releases, err := FetchReleases(context.Background(), server.Client(), server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(pages, ",") != "1,2,3" || len(releases) != 202 || releases[200].TagName != "cli/v1.2.0" {
+		t.Fatalf("pages = %v, %d releases", pages, len(releases))
+	}
+}
+
+func TestFetchReleasesStopsAtAPageWithACLIRelease(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		items := make([]string, 100)
+		for i := range items {
+			items[i] = `{"tag_name":"cli/v1.0.` + strconv.Itoa(i) + `"}`
+		}
+		_, _ = io.WriteString(w, "["+strings.Join(items, ",")+"]")
+	}))
+	t.Cleanup(server.Close)
+
+	if _, err := FetchReleases(context.Background(), server.Client(), server.URL); err != nil || calls != 1 {
+		t.Fatalf("calls = %d, err = %v", calls, err)
+	}
+}
+
+func TestFetchReleasesReadsTenPagesAtMost(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		items := make([]string, 100)
+		for i := range items {
+			items[i] = `{"tag_name":"v2.0.` + strconv.Itoa(i) + `"}`
+		}
+		_, _ = io.WriteString(w, "["+strings.Join(items, ",")+"]")
+	}))
+	t.Cleanup(server.Close)
+
+	if _, err := FetchReleases(context.Background(), server.Client(), server.URL); err != nil || calls != 10 {
+		t.Fatalf("calls = %d, err = %v", calls, err)
 	}
 }
 

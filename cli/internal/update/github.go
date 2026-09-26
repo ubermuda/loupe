@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
+	"strings"
 )
 
 // GitHubAPI is the default base of the GitHub REST API.
@@ -13,24 +15,39 @@ const GitHubAPI = "https://api.github.com"
 
 const (
 	userAgent = "loupe-cli"
-	// maxReleases caps the releases list. A page of 100 releases is far smaller.
+	// maxReleases caps one page of the releases list. A page of 100 is far smaller.
 	maxReleases = 10 << 20
+	perPage     = 100
+	maxPages    = 10
 	// maxDownload caps an archive or a checksums file.
 	maxDownload = 200 << 20
 )
 
-// FetchReleases reads the newest page of releases of the Loupe repository.
+// FetchReleases reads the releases of the Loupe repository, newest first. Server
+// releases share the list, so it reads on until a page holds a CLI release.
 func FetchReleases(ctx context.Context, hc *http.Client, apiBase string) ([]Release, error) {
-	data, err := download(ctx, hc, apiBase+"/repos/ubermuda/loupe/releases?per_page=100", "application/vnd.github+json", maxReleases)
-	if err != nil {
-		return nil, fmt.Errorf("list the releases: %w", err)
-	}
 	var releases []Release
-	if err := json.Unmarshal(data, &releases); err != nil {
-		return nil, fmt.Errorf("read the releases: %w", err)
+	for page := 1; page <= maxPages; page++ {
+		url := fmt.Sprintf("%s/repos/ubermuda/loupe/releases?per_page=%d&page=%d", apiBase, perPage, page)
+		data, err := download(ctx, hc, url, "application/vnd.github+json", maxReleases)
+		if err != nil {
+			return nil, fmt.Errorf("list the releases: %w", err)
+		}
+		var batch []Release
+		if err := json.Unmarshal(data, &batch); err != nil {
+			return nil, fmt.Errorf("read the releases: %w", err)
+		}
+		releases = append(releases, batch...)
+		if len(batch) < perPage || slices.ContainsFunc(batch, isCLI) {
+			break
+		}
 	}
 
 	return releases, nil
+}
+
+func isCLI(r Release) bool {
+	return strings.HasPrefix(r.TagName, tagPrefix)
 }
 
 // Download reads one release asset.
