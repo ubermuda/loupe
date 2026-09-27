@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardRepository;
@@ -50,7 +51,7 @@ final readonly class DeleteCardHandler
         $cardNumber = $card->number;
         $projectId = (string) $projectUuid;
 
-        $refusal = $this->em->wrapInTransaction(function () use ($card, $actor): ?DomainErrors {
+        $drawsLane = $this->em->wrapInTransaction(function () use ($card, $actor): DomainErrors|bool {
             // The renumbering below reads the column first, so it takes the same
             // project lock a create or a move does.
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
@@ -69,6 +70,7 @@ final readonly class DeleteCardHandler
 
             $this->cards->refreshTypeAndParent($card);
             $parent = $card->parent;
+            $drawsLane = $card->drawsLane();
 
             // Before the remove, so the delete and the renumbering it causes
             // reach the database in one flush.
@@ -96,12 +98,12 @@ final readonly class DeleteCardHandler
                 $this->events->dispatch(new CardParentChanged($card, $parent, null, $actor));
             }
 
-            return null;
+            return $drawsLane;
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
-        if (null !== $refusal) {
-            throw $refusal;
+        if ($drawsLane instanceof DomainErrors) {
+            throw $drawsLane;
         }
 
         // After the commit, never inside it: the sink drains at kernel.terminate,
@@ -122,5 +124,8 @@ final readonly class DeleteCardHandler
         );
 
         $this->events->dispatch(new CardChanged($projectUuid, $cardUuid, CardChanged::DELETED, false));
+        if ($drawsLane) {
+            $this->events->dispatch(new BoardColumnsChanged($card->project));
+        }
     }
 }
