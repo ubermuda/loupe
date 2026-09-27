@@ -30,6 +30,9 @@ const (
 	RunUnfinished       = "unfinished"
 	RunBlocked          = "blocked"
 	RunGaveUp           = "gave-up"
+	// RunWaitingOnForge is a run that ended with its work waiting on the
+	// forge, such as checks on a pushed pull request.
+	RunWaitingOnForge = "waiting-on-forge"
 )
 
 // The reasons of a dropped run.
@@ -47,7 +50,7 @@ const SkipCardMoved = "card_moved"
 // onto the old report.
 func IsOutcome(state string) bool {
 	switch state {
-	case RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunGaveUp:
+	case RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunGaveUp, RunWaitingOnForge:
 		return true
 	}
 
