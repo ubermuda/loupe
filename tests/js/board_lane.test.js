@@ -113,3 +113,68 @@ it('reads a damaged stored value as no collapsed lane', async () => {
     lane('epic-a').querySelector('button').click();
     expect(JSON.parse(window.localStorage.getItem(KEY))).toEqual(['epic-a']);
 });
+
+// A frame morph keeps the element, so Stimulus does not connect it again.
+function morph(element) {
+    element.dispatchEvent(
+        new CustomEvent('turbo:morph-element', { bubbles: true }),
+    );
+}
+
+function resetToServerMarkup(element) {
+    element.className = '';
+    element.querySelector('button').setAttribute('aria-expanded', 'true');
+}
+
+it('collapses the lane again after a morph resets it to the server markup', async () => {
+    window.localStorage.setItem(KEY, JSON.stringify(['epic-a']));
+    await mount('epic-a');
+
+    resetToServerMarkup(lane('epic-a'));
+    morph(lane('epic-a'));
+
+    expect(lane('epic-a').classList.contains('lp-board-lane--collapsed')).toBe(
+        true,
+    );
+    expect(
+        lane('epic-a').querySelector('button').getAttribute('aria-expanded'),
+    ).toBe('false');
+});
+
+it('ignores a morph event that bubbles from a child of the lane', async () => {
+    window.localStorage.setItem(KEY, JSON.stringify(['epic-a']));
+    await mount('epic-a');
+
+    resetToServerMarkup(lane('epic-a'));
+    morph(lane('epic-a').querySelector('.cells'));
+
+    expect(lane('epic-a').classList.contains('lp-board-lane--collapsed')).toBe(
+        false,
+    );
+});
+
+it('collapses a lane on the first click when it shows expanded with a stored collapse', async () => {
+    window.localStorage.setItem(KEY, JSON.stringify(['epic-a']));
+    await mount('epic-a');
+    resetToServerMarkup(lane('epic-a'));
+
+    lane('epic-a').querySelector('button').click();
+
+    expect(lane('epic-a').classList.contains('lp-board-lane--collapsed')).toBe(
+        true,
+    );
+    expect(JSON.parse(window.localStorage.getItem(KEY))).toEqual(['epic-a']);
+});
+
+it('stops listening for morphs when the lane disconnects', async () => {
+    window.localStorage.setItem(KEY, JSON.stringify(['epic-a']));
+    await mount('epic-a');
+    const element = lane('epic-a');
+
+    element.remove();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    resetToServerMarkup(element);
+    morph(element);
+
+    expect(element.classList.contains('lp-board-lane--collapsed')).toBe(false);
+});
