@@ -32,6 +32,25 @@ final class ForgeRepositoryRepository extends ServiceEntityRepository
         return $this->findOneBy(['forge' => $forge, 'externalId' => $externalId, 'source' => ForgeRepositorySource::Installation]);
     }
 
+    /** The newest installation row of the project under this path, compared without case. */
+    public function findInstallationRowByPath(Project $project, string $forge, string $path): ?ForgeRepository
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.forge = :forge')
+            ->andWhere('r.source = :source')
+            ->andWhere('LOWER(r.path) = :path')
+            ->setParameter('project', $project)
+            ->setParameter('forge', $forge)
+            ->setParameter('source', ForgeRepositorySource::Installation->value)
+            ->setParameter('path', mb_strtolower($path))
+            ->orderBy('r.createdAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** @return list<ForgeRepository> */
     public function findByInstallation(string $forge, string $sourceRef): array
     {
