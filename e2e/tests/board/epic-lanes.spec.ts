@@ -127,6 +127,49 @@ async function boardReplaced(page: Page): Promise<void> {
     await expect(page.locator(`${READY}:not([${MARK}])`)).toBeAttached();
 }
 
+/** Counts the board:placed and board:place-missed events of one card until the next page load. */
+async function watchPlacements(page: Page, card: Card): Promise<void> {
+    await page.evaluate((cardId) => {
+        const counts = { placed: 0, missed: 0 };
+        (window as unknown as { e2ePlacements: typeof counts }).e2ePlacements =
+            counts;
+        const count = (outcome: keyof typeof counts) => (event: Event) => {
+            if ((event as CustomEvent).detail?.cardId === cardId) {
+                counts[outcome] += 1;
+            }
+        };
+        document.addEventListener('board:placed', count('placed'));
+        document.addEventListener('board:place-missed', count('missed'));
+    }, card.id);
+}
+
+async function placements(
+    page: Page,
+): Promise<{ placed: number; missed: number }> {
+    return page.evaluate(
+        () =>
+            (
+                window as unknown as {
+                    e2ePlacements: { placed: number; missed: number };
+                }
+            ).e2ePlacements,
+    );
+}
+
+/** Resolves when the answer to a move has placed the card in place, with no board reload. */
+async function cardPlaced(
+    page: Page,
+    card: ReturnType<Page['locator']>,
+): Promise<void> {
+    await expect(card).not.toHaveAttribute('aria-busy', 'true');
+    await expect
+        .poll(async () => (await placements(page)).placed)
+        .toBeGreaterThan(0);
+    expect((await placements(page)).missed).toBe(0);
+    await expect(page.locator(`${READY}[${MARK}]`)).toBeAttached();
+    await expect(card).not.toHaveAttribute('data-board-stale');
+}
+
 function lane(page: Page, key: string) {
     return page.locator(`.lp-board-lane[data-lane="${key}"]`);
 }
@@ -440,10 +483,11 @@ test('a drag into another lane changes the parent, and a drag into "Other cards"
     const childCard = page.locator(`${CARD}[data-card-id="${child.id}"]`);
 
     await markBoard(page);
+    await watchPlacements(page, child);
     let written = page.waitForResponse((r) => r.url().endsWith('/move'));
     await dragCardToCell(page, child, cell(page, to.id, next));
     await written;
-    await boardReplaced(page);
+    await cardPlaced(page, childCard);
     await expect(cell(page, to.id, next).locator(childCard)).toHaveCount(1);
 
     await page.reload();
@@ -451,10 +495,12 @@ test('a drag into another lane changes the parent, and a drag into "Other cards"
     await expect(cell(page, to.id, next).locator(childCard)).toHaveCount(1);
 
     await markBoard(page);
+    await watchPlacements(page, child);
     written = page.waitForResponse((r) => r.url().endsWith('/move'));
     await dragCardToCell(page, child, cell(page, 'other', next));
     await written;
-    await boardReplaced(page);
+    await cardPlaced(page, childCard);
+    await expect(cell(page, 'other', next).locator(childCard)).toHaveCount(1);
 
     await page.reload();
     await expect(page.locator(READY)).toBeAttached();
