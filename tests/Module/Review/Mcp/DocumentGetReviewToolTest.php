@@ -12,6 +12,7 @@ use App\Module\Review\Command\SetSectionApprovalCommand;
 use App\Module\Review\Command\SetSectionApprovalHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Mcp\DocumentGetReviewTool;
+use App\Tests\Support\McpRefusalMessages;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -126,7 +127,7 @@ final class DocumentGetReviewToolTest extends KernelTestCase
         $this->actAsUnboundMcpToken($owner);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
+        $this->expectExceptionMessage(McpRefusalMessages::NO_PROJECT_REACHED);
         ($this->tool)((string) $document->id);
     }
 }

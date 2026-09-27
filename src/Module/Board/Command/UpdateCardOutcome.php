@@ -22,6 +22,8 @@ final readonly class UpdateCardOutcome
         public bool $typeChanged,
         public bool $parentChanged,
         public bool $laneChanged,
+        /** Whether the board draws a lane for the card now where it did not, or the reverse. */
+        public bool $laneShownChanged,
         /** A title or body change that survives the form's own normalisation. */
         public bool $contentChanged,
         public ?WorkerRun $openedRun,

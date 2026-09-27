@@ -74,12 +74,21 @@ func Load(dir string) (File, error) {
 	return f, nil
 }
 
+// Valid refuses a projectID that is not an RFC 4122 id in either case.
+func Valid(projectID string) error {
+	if !uuidPattern.MatchString(strings.ToLower(projectID)) {
+		return fmt.Errorf("project id must be a project id such as 0192f3c4-5d6e-7f80-9123-456789abcdef, got %q", projectID)
+	}
+
+	return nil
+}
+
 // Write replaces .loupe.yaml in dir with one naming projectID. It writes
 // through a temporary file and a rename, so an interrupted write leaves the
 // previous file intact.
 func Write(dir, projectID string) error {
-	if !uuidPattern.MatchString(strings.ToLower(projectID)) {
-		return fmt.Errorf("project id must be a project id such as 0192f3c4-5d6e-7f80-9123-456789abcdef, got %q", projectID)
+	if err := Valid(projectID); err != nil {
+		return err
 	}
 
 	body := "# The Loupe project this repository belongs to. `loupe mcp` sends it with\n" +

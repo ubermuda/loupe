@@ -9,6 +9,10 @@ use Sentry\Event;
 use Sentry\EventHint;
 use Sentry\ExceptionDataBag;
 use Sentry\Stacktrace;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
  * Some paths carry a secret, such as a password reset token, so no URL path
@@ -16,6 +20,8 @@ use Sentry\Stacktrace;
  * identifies the page, and a request with no route keeps only its method.
  * A URL in a message keeps only its origin. Headers are an allowlist,
  * because the SDK filters only a few and X-Probe-Token carries a secret.
+ * An access denial on an anonymous web request is dropped, because the
+ * firewall answers it by asking the client to sign in.
  */
 final readonly class SentryEventScrubber
 {
@@ -29,11 +35,22 @@ final readonly class SentryEventScrubber
 
     public function __construct(
         private BuildIdentity $buildIdentity,
+
+        // The tracking storage would mark the session as used on every bot hit.
+        #[Autowire(service: 'security.untracked_token_storage')]
+        private TokenStorageInterface $tokenStorage,
+        private RequestStack $requestStack,
     ) {
     }
 
-    public function __invoke(Event $event, ?EventHint $hint): Event
+    public function __invoke(Event $event, ?EventHint $hint): ?Event
     {
+        if ($hint?->exception instanceof AccessDeniedException
+            && null !== $this->requestStack->getMainRequest()
+            && null === $this->tokenStorage->getToken()?->getUser()) {
+            return null;
+        }
+
         $this->scrubRequest($event);
         $this->scrubTrace($event);
         $this->scrubMessages($event);

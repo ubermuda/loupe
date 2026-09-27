@@ -22,6 +22,7 @@ use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\CardParentResolver;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
+use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
@@ -43,6 +44,7 @@ final readonly class UpdateCardHandler
         private BoardColumnRepository $boardColumns,
         private CardMover $mover,
         private PullRequestUrlResolver $pullRequests,
+        private PullRequestTracking $pullRequestTracking,
         private DocumentLinkResolver $documentLinks,
         private CardLinkResolver $cardLinks,
         private CardLinkSync $cardLinkSync,
@@ -136,8 +138,12 @@ final readonly class UpdateCardHandler
                     return $refusal;
                 }
                 $card->parent = $parent;
+            } elseif (null !== $command->laneEnabled || null !== $command->column) {
+                // A lane toggle or a move decides whether a lane shows, from the committed setting.
+                $this->cards->refreshTypeAndParent($card);
             }
             $laneChanged = null !== $command->laneEnabled && $command->laneEnabled !== $card->laneEnabled;
+            $lanesBefore = $card->drawsLane();
 
             // Only a card with children can be refused, and only an epic has
             // children. The app itself closes an epic by the same path.
@@ -194,7 +200,9 @@ final readonly class UpdateCardHandler
             if (null !== $documents) {
                 $card->syncDocuments(...$documents);
             }
+            $trackedBefore = null;
             if (null !== $command->pullRequestUrls) {
+                $trackedBefore = $this->pullRequestTracking->referencesOf($card);
                 $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
             }
             if (null !== $relatedCards) {
@@ -203,6 +211,11 @@ final readonly class UpdateCardHandler
 
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
+            $lanesAfter = $card->drawsLane();
+
+            if (null !== $trackedBefore) {
+                $this->pullRequestTracking->apply($card->project, $trackedBefore, $this->pullRequestTracking->referencesOf($card));
+            }
 
             // Only the two columns the vector is built from. A move or a link
             // change leaves the searchable text alone, so it costs no reindex.
@@ -220,7 +233,7 @@ final readonly class UpdateCardHandler
                 $this->events->dispatch(new CardParentChanged($card, $oldParent, $card->parent, $command->actor));
             }
 
-            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged, $contentChanged, $openedRun);
+            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged, $lanesBefore !== $lanesAfter, $contentChanged, $openedRun);
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
@@ -270,7 +283,7 @@ final readonly class UpdateCardHandler
             ));
         }
         // A lane adds or removes a board row, which no placement of one card shows.
-        if ($outcome->laneChanged) {
+        if ($outcome->laneShownChanged) {
             $this->events->dispatch(new BoardColumnsChanged($card->project));
         }
 
