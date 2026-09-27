@@ -163,7 +163,7 @@ final class GitHubRepositoriesComponentTest extends WebTestCase
         $this->em()->persist(new GitHubInstallation($this->projectOf($this->signedUpUser('otherapp')), 14, 'not-mine', GitHubRepositorySelection::All));
         $this->em()->flush();
         $this->em()->clear();
-        static::getContainer()->set(GitHubAppConfiguration::class, new GitHubAppConfiguration('loupe', 'client', 'secret', 'hook'));
+        static::getContainer()->set(GitHubAppConfiguration::class, new GitHubAppConfiguration('loupe', 'client', 'secret', 'hook', null, null));
 
         $client->loginUser($owner);
         $crawler = $this->connectPage($client, $project);
@@ -188,7 +188,7 @@ final class GitHubRepositoriesComponentTest extends WebTestCase
         $project = $this->projectOf($owner);
         $this->em()->clear();
         static::getContainer()->set(HookSecretKey::class, new HookSecretKey(new EncryptionKeyProvider('')));
-        static::getContainer()->set(GitHubAppConfiguration::class, new GitHubAppConfiguration('loupe', 'client', 'secret', 'hook'));
+        static::getContainer()->set(GitHubAppConfiguration::class, new GitHubAppConfiguration('loupe', 'client', 'secret', 'hook', null, null));
 
         $client->loginUser($owner);
         $crawler = $this->connectPage($client, $project);

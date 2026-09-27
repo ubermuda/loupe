@@ -68,7 +68,7 @@ final class GitHubAppInstallFlowTest extends WebTestCase
         $this->tokenResponse = $this->json(['access_token' => self::TOKEN, 'token_type' => 'bearer']);
         $this->installations = [$this->installation(self::INSTALLATION_ID, 'acme', 'selected')];
         $container = static::getContainer();
-        $container->set(GitHubAppConfiguration::class, new GitHubAppConfiguration('loupe-test', 'the-client-id', 'the-client-secret', 'hook'));
+        $container->set(GitHubAppConfiguration::class, new GitHubAppConfiguration('loupe-test', 'the-client-id', 'the-client-secret', 'hook', null, null));
         $container->set('github.oauth_client', new MockHttpClient(function (string $method, string $url, array $options): MockResponse {
             self::assertSame('POST', $method);
             self::assertSame('https://github.com/login/oauth/access_token', $url);
@@ -127,7 +127,7 @@ final class GitHubAppInstallFlowTest extends WebTestCase
         self::ensureKernelShutdown();
         $this->client = static::createClient();
         $this->client->disableReboot();
-        static::getContainer()->set(GitHubAppConfiguration::class, new GitHubAppConfiguration(null, null, null, null));
+        static::getContainer()->set(GitHubAppConfiguration::class, new GitHubAppConfiguration(null, null, null, null, null, null));
         $owner = $this->signedUpUser('noapp');
         $project = $this->projectOf($owner);
         $this->em()->clear();

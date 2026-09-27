@@ -13,7 +13,7 @@ final class GitHubAppCheckTest extends TestCase
 {
     public function test_all_four_variables_pass(): void
     {
-        $diagnostic = new GitHubAppCheck(new GitHubAppConfiguration('loupe', 'client', 'secret', 'hook'))();
+        $diagnostic = new GitHubAppCheck(new GitHubAppConfiguration('loupe', 'client', 'secret', 'hook', null, null))();
 
         self::assertSame(DiagnosticState::Ok, $diagnostic->state);
         self::assertSame('github.system_status.app.configured', $diagnostic->detail);
@@ -21,7 +21,7 @@ final class GitHubAppCheckTest extends TestCase
 
     public function test_no_variable_leaves_the_app_off_without_a_failure(): void
     {
-        $diagnostic = new GitHubAppCheck(new GitHubAppConfiguration(null, '', null, ''))();
+        $diagnostic = new GitHubAppCheck(new GitHubAppConfiguration(null, '', null, '', null, null))();
 
         self::assertSame(DiagnosticState::Ok, $diagnostic->state);
         self::assertSame('github.system_status.app.not_offered', $diagnostic->detail);
@@ -29,7 +29,7 @@ final class GitHubAppCheckTest extends TestCase
 
     public function test_a_partial_set_fails_and_names_the_missing_variables_alone(): void
     {
-        $diagnostic = new GitHubAppCheck(new GitHubAppConfiguration('loupe', 'client', 'the-client-secret', null))();
+        $diagnostic = new GitHubAppCheck(new GitHubAppConfiguration('loupe', 'client', 'the-client-secret', null, null, null))();
 
         self::assertSame(DiagnosticState::Failed, $diagnostic->state);
         self::assertSame('github.system_status.app.incomplete', $diagnostic->detail);
