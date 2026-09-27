@@ -15,7 +15,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /** The manual backstop for the scheduled sweep. */
 #[AsCommand(
     name: 'app:sweep-forge-pull-requests',
-    description: 'Queue a state refresh of each open pull request not read in the last ten minutes.',
+    description: 'Queue a state refresh of each open pull request not read in the last nine minutes.',
 )]
 final class SweepForgePullRequestsConsoleCommand extends Command
 {

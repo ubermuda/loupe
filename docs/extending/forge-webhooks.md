@@ -145,13 +145,38 @@ GitHub sends the installation events without a subscription.
 
 | Event | Why |
 |---|---|
-| Pull request | the merge arrives as `closed` with `merged` true |
+| Pull request | the merge arrives as `closed` with `merged` true, and a push to the branch arrives as `synchronize` |
 | Pull request review | the review verdict |
 | Check suite | the aggregate conclusion of a run |
+| Check run | the conclusion of one check |
+| Commit status | the state of a check that reports through the Statuses API |
+| Push | a push to a base branch can make a pull request conflict |
 | Repository | a rename or a transfer changes the path |
 
-A merge has no event of its own. A check run fires once for each check, so
-Loupe reads the check suite instead.
+A merge has no event of its own. The lifecycle events come from the check
+suite, because a check run fires once for each check.
+
+### Pull request state
+
+Loupe keeps the state of each GitHub pull request that a card links: open,
+merged or closed, the head commit, the checks, the mergeability and the review.
+Only a repository connected through the App gets this state, because Loupe
+reads it with the installation token.
+
+A delivery is only a hint. Each pull request, check suite, check run, commit
+status or review delivery makes the worker read the pull request again. A push
+to a branch makes the worker read each open pull request with that base branch,
+30 seconds later, because GitHub computes a conflict after the push. While
+GitHub still computes the mergeability, the worker reads again after 30, 60, 120
+and 240 seconds.
+
+The checks verdict reads only the required checks of the base branch. Loupe
+takes them from the branch rules of the repository. A required check that has
+not started yet counts as pending. When the rules require an up-to-date branch,
+Loupe compares the head with the base to find a branch that is behind.
+
+`app:sweep-forge-pull-requests` reads each open pull request again every ten
+minutes, so a lost delivery changes nothing for long.
 
 Then set the four install variables.
 [Environment variables](../reference/environment.md) describes each one.

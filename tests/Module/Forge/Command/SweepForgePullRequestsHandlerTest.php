@@ -40,11 +40,11 @@ final class SweepForgePullRequestsHandlerTest extends KernelTestCase
         $em->flush();
     }
 
-    public function test_the_sweep_queues_each_open_row_unread_for_ten_minutes(): void
+    public function test_the_sweep_queues_each_open_row_unread_for_nine_minutes(): void
     {
         $never = $this->row(1, null);
-        $stale = $this->row(2, '2026-09-27 11:49:59');
-        $this->row(3, '2026-09-27 11:50:00');
+        $stale = $this->row(2, '2026-09-27 11:50:59');
+        $this->row(3, '2026-09-27 11:51:00');
         $this->row(4, '2026-09-27 11:59:00');
         $this->row(5, null, PullRequestState::Merged);
         $this->row(6, '2026-09-27 10:00:00', PullRequestState::Closed);

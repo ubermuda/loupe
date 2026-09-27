@@ -17,7 +17,8 @@ final readonly class SweepForgePullRequestsHandler
 {
     public const int BATCH_SIZE = 500;
 
-    private const string STALE_AFTER = '-10 minutes';
+    // A minute under the cron interval, so a row read by the previous tick is due at the next one.
+    private const string STALE_AFTER = '-9 minutes';
 
     public function __construct(
         private ForgePullRequestRepository $forgePullRequests,
