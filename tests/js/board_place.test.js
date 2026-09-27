@@ -254,3 +254,228 @@ describe('board-place', () => {
         expect(missed).toHaveBeenCalledOnce();
     });
 });
+
+const EPIC = 'epic';
+
+function cell(lane, column, cards) {
+    return `<section class="lp-board-lane__column"><span data-cell-count>${cards.length}</span>
+        <div class="lp-board-lane__cell" id="board-cell-${lane}-${column}">${cards.map((id) => card(id, column)).join('')}</div>
+    </section>`;
+}
+
+function laneHead(title, progress, expanded = 'true') {
+    return `<header class="lp-board-lane__head"><button aria-expanded="${expanded}"></button><a class="lp-board-lane__title">${title}</a><span data-lane-progress>${progress}</span></header>`;
+}
+
+function renderLaneBoard() {
+    document.body.innerHTML = `<div id="board">
+        <div class="lp-board-lanes">
+            <section class="lp-board-lane" id="board-lane-${EPIC}">
+                ${laneHead('Epic', '0/2 done', 'false')}
+                ${cell(EPIC, BACKLOG, ['a'])}${cell(EPIC, NEXT, ['b'])}
+            </section>
+            <section class="lp-board-lane">
+                ${cell('other', BACKLOG, ['c'])}${cell('other', NEXT, [])}
+            </section>
+        </div>
+        <div class="lp-board-list">
+            <div class="lp-board-list__header"></div>
+            ${row('a', BACKLOG)}${row('c', BACKLOG)}${row(EPIC, NEXT)}${row('b', NEXT)}
+        </div>
+    </div>`;
+}
+
+function laneStream({
+    id,
+    column,
+    lane,
+    after = '',
+    rowAfter = '',
+    head = false,
+    body,
+}) {
+    const holder = document.createElement('div');
+    const laneAttribute = lane === undefined ? '' : `data-lane="${lane}"`;
+    const content = body ?? card(id, column, id, 'bbb') + row(id, column);
+    holder.innerHTML = `<turbo-stream action="board-place" target="board-card-${id}" data-counts='{}' data-history='{}' data-column-id="${column}" data-after="${after}" data-row-after="${rowAfter}" ${laneAttribute} ${head ? 'data-lane-head' : ''}><template>${content}</template></turbo-stream>`;
+
+    return holder.firstElementChild;
+}
+
+const cellCount = (lane, column) =>
+    document
+        .getElementById(`board-cell-${lane}-${column}`)
+        .closest('.lp-board-lane__column')
+        .querySelector('[data-cell-count]').textContent;
+
+describe('board-place on a board with lanes', () => {
+    beforeEach(renderLaneBoard);
+
+    it('moves a card into the cell of its lane and recounts both cells', () => {
+        const placed = vi.fn();
+        document.addEventListener('board:placed', placed, { once: true });
+
+        placeCard(
+            laneStream({
+                id: 'a',
+                column: NEXT,
+                lane: EPIC,
+                after: 'b',
+                rowAfter: 'b',
+            }),
+        );
+
+        expect(order(`#board-cell-${EPIC}-${NEXT} .lp-board-card`)).toEqual([
+            'b',
+            'a',
+        ]);
+        expect(order(`#board-cell-${EPIC}-${BACKLOG} .lp-board-card`)).toEqual(
+            [],
+        );
+        expect(cellCount(EPIC, NEXT)).toBe('2');
+        expect(cellCount(EPIC, BACKLOG)).toBe('0');
+        expect(placed).toHaveBeenCalledOnce();
+    });
+
+    it('moves a card from one lane to another', () => {
+        placeCard(
+            laneStream({ id: 'a', column: NEXT, lane: 'other', rowAfter: 'b' }),
+        );
+
+        expect(order(`#board-cell-other-${NEXT} .lp-board-card`)).toEqual([
+            'a',
+        ]);
+        expect(cellCount('other', NEXT)).toBe('1');
+        expect(cellCount(EPIC, BACKLOG)).toBe('0');
+    });
+
+    it('recounts the cell a removed card leaves', () => {
+        const holder = document.createElement('div');
+        holder.innerHTML = `<turbo-stream action="board-place" target="board-card-a" data-counts='{}' data-history='{}' data-removed="1"><template></template></turbo-stream>`;
+
+        placeCard(holder.firstElementChild);
+
+        expect(document.getElementById('board-card-a')).toBeNull();
+        expect(cellCount(EPIC, BACKLOG)).toBe('0');
+    });
+
+    it('reports a miss when the card it follows sits in another cell', () => {
+        const missed = vi.fn();
+        document.addEventListener('board:place-missed', missed, { once: true });
+        const before = document.body.innerHTML;
+
+        placeCard(
+            laneStream({
+                id: 'd',
+                column: NEXT,
+                lane: 'other',
+                after: 'b',
+                rowAfter: 'b',
+            }),
+        );
+
+        expect(document.body.innerHTML).toBe(before);
+        expect(missed).toHaveBeenCalledOnce();
+    });
+
+    it('reports a miss when the page lacks the cell', () => {
+        const missed = vi.fn();
+        document.addEventListener('board:place-missed', missed, { once: true });
+        const before = document.body.innerHTML;
+
+        placeCard(laneStream({ id: 'a', column: NEXT, lane: 'unknown-epic' }));
+
+        expect(document.body.innerHTML).toBe(before);
+        expect(missed).toHaveBeenCalledOnce();
+    });
+
+    it('reports a miss when the stream names no lane', () => {
+        const missed = vi.fn();
+        document.addEventListener('board:place-missed', missed, { once: true });
+        const before = document.body.innerHTML;
+
+        placeCard(laneStream({ id: 'a', column: NEXT }));
+
+        expect(document.body.innerHTML).toBe(before);
+        expect(missed).toHaveBeenCalledOnce();
+    });
+
+    it('reports a miss when a lane epic comes as a card face', () => {
+        const missed = vi.fn();
+        document.addEventListener('board:place-missed', missed, { once: true });
+        const before = document.body.innerHTML;
+
+        placeCard(laneStream({ id: EPIC, column: NEXT, lane: 'other' }));
+
+        expect(document.body.innerHTML).toBe(before);
+        expect(missed).toHaveBeenCalledOnce();
+    });
+
+    it('morphs the head of a lane epic, keeps its collapse, and places its row', () => {
+        const section = document.getElementById(`board-lane-${EPIC}`);
+        const head = section.querySelector('.lp-board-lane__head');
+        const placed = vi.fn();
+        document.addEventListener('board:placed', placed, { once: true });
+
+        placeCard(
+            laneStream({
+                id: EPIC,
+                column: BACKLOG,
+                lane: 'other',
+                rowAfter: 'c',
+                head: true,
+                body: laneHead('Renamed', '1/2 done') + row(EPIC, BACKLOG),
+            }),
+        );
+
+        expect(section.querySelector('.lp-board-lane__head')).toBe(head);
+        expect(head.querySelector('.lp-board-lane__title').textContent).toBe(
+            'Renamed',
+        );
+        expect(head.querySelector('[data-lane-progress]').textContent).toBe(
+            '1/2 done',
+        );
+        expect(head.querySelector('button').getAttribute('aria-expanded')).toBe(
+            'false',
+        );
+        expect(order('.lp-board-list__row')).toEqual(['a', 'c', EPIC, 'b']);
+        expect(
+            document.getElementById(`board-row-${EPIC}`).dataset.columnId,
+        ).toBe(BACKLOG);
+        expect(placed).toHaveBeenCalledOnce();
+        expect(placed.mock.calls[0][0].target).toBe(section);
+        expect(placed.mock.calls[0][0].detail).toEqual({ cardId: EPIC });
+    });
+
+    it('reports a miss for a lane head the page has no lane for', () => {
+        const missed = vi.fn();
+        document.addEventListener('board:place-missed', missed, { once: true });
+        const before = document.body.innerHTML;
+
+        placeCard(
+            laneStream({
+                id: 'new-epic',
+                column: NEXT,
+                lane: 'other',
+                head: true,
+                body: laneHead('New', '0/0 done') + row('new-epic', NEXT),
+            }),
+        );
+
+        expect(document.body.innerHTML).toBe(before);
+        expect(missed).toHaveBeenCalledOnce();
+    });
+});
+
+describe('board-place on a board with no lane', () => {
+    it('reports a miss when the stream names a lane', () => {
+        const missed = vi.fn();
+        document.addEventListener('board:place-missed', missed, { once: true });
+        const before = document.body.innerHTML;
+
+        placeCard(laneStream({ id: 'a', column: NEXT, lane: 'other' }));
+
+        expect(document.body.innerHTML).toBe(before);
+        expect(missed).toHaveBeenCalledOnce();
+    });
+});
