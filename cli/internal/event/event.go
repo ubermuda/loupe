@@ -13,12 +13,10 @@ import (
 	"unicode/utf8"
 )
 
-// Event mirrors the Mercure update payloads the server publishes.
-//
-// Every field is a server-generated identifier, or a forge value that Parse
-// checks against a strict shape, such as a failed check name. Card titles and
-// bodies are controlled by whoever can write to the board, so they are never
-// carried here and never reach a prompt.
+// Event mirrors the Mercure update payloads the server publishes. Each field
+// is a server identifier, or a forge value that Parse checks against a strict
+// shape. Whoever can write to the board controls card titles and bodies, so
+// they are never carried here and never reach a prompt.
 type Event struct {
 	Type       string  `json:"type"`
 	Subject    Subject `json:"subject"`
@@ -158,10 +156,9 @@ var SlugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // ForAnotherBridge reports whether data is an inbox.ask_closed event that does
 // not name bridgeID as a string, whatever its case, or a
-// pull_request.fix_requested event that names another bridge. A fix request
-// with no bridge, or a null one, is for any bridge. The caller drops such an
-// event before Parse, so a malformed field of another bridge's event logs
-// nothing. Data that is not a JSON object is left to Parse.
+// pull_request.fix_requested event that names another bridge. The caller drops
+// it before Parse, so another bridge's malformed event logs nothing. Data that
+// is not a JSON object is left to Parse.
 func ForAnotherBridge(data []byte, bridgeID string) bool {
 	var head struct {
 		Type     string          `json:"type"`

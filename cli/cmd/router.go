@@ -850,8 +850,8 @@ func (r *router) countChain(key, rule string) {
 }
 
 // start runs one worker, as a new claude session, as the resume of the session
-// its ask names, or as the resume of an unfinished run. The caller holds mu,
-// and start never takes it.
+// its ask or fix request names, or as the resume of an unfinished run. The
+// caller holds mu, and start never takes it.
 //
 // wg counts the worker before the goroutine exists, and the finish call that
 // admits the next worker runs before wg.Done, so a waiter never sees the count
