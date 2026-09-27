@@ -83,7 +83,7 @@ final class GitHubPullRequestStateReader implements PullRequestStateReader
             try {
                 $data = $this->api->graphql($installationId, self::QUERY, ['owner' => $owner, 'name' => $name, 'n' => $number, 'after' => $after]);
             } catch (GitHubAppApiFailed $e) {
-                throw new PullRequestUnreadable('api_failed_'.$e->reason, $e, transient: \in_array($e->reason, ['transport', 'http_status'], true));
+                throw new PullRequestUnreadable('api_failed_'.$e->reason, $e, transient: \in_array($e->reason, ['transport', 'http_status', 'graphql_error'], true));
             }
 
             $pageNode = $data['repository']['pullRequest'] ?? null;

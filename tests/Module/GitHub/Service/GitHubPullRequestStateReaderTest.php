@@ -221,6 +221,23 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertSame('not_found', $this->unreadable($pullRequest));
     }
 
+    public function test_a_graphql_answer_without_data_is_transient(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 70_012);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer(['errors' => [['type' => 'RATE_LIMITED']]]),
+        ];
+
+        try {
+            $this->reader()->read($pullRequest);
+            self::fail('A GraphQL answer without data must be unreadable.');
+        } catch (PullRequestUnreadable $e) {
+            self::assertSame('api_failed_graphql_error', $e->reason);
+            self::assertTrue($e->transient);
+        }
+    }
+
     public function test_a_failed_api_call_names_its_reason(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 70_007);
