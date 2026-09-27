@@ -383,7 +383,8 @@ describe('board-place on a board with lanes', () => {
         expect(missed).toHaveBeenCalledOnce();
     });
 
-    it('changes nothing and reports a miss for a lane epic', () => {
+    it('changes nothing and reports a miss for the first lane epic on a page drawn with no lanes', () => {
+        renderBoard();
         const missed = vi.fn();
         document.addEventListener('board:place-missed', missed, { once: true });
         const before = document.body.innerHTML;
@@ -397,7 +398,6 @@ describe('board-place on a board with lanes', () => {
                 counts: { [BACKLOG]: 3, [NEXT]: 1 },
                 laneCounts: {
                     c: { [BACKLOG]: 0, [NEXT]: 0 },
-                    [EPIC]: { [BACKLOG]: 1, [NEXT]: 0 },
                     other: { [BACKLOG]: 2, [NEXT]: 0 },
                 },
             }),
