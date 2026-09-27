@@ -65,6 +65,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $owner = $this->user($em, 'placement-epic@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $epic->laneEnabled = false;
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
         $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
         $url = $this->placementUrl((string) $project->id, (string) $epic->id);
@@ -76,6 +77,103 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         // The placement morphs the face on the page, so a face with no badge would remove it.
         self::assertMatchesRegularExpression('#data-card-progress>\s*1/2 done\s*<#', (string) $client->getResponse()->getContent());
+    }
+
+    public function test_a_lane_epic_gets_its_lane_head_and_its_row(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-lane-head@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
+        $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
+        $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
+        $url = $this->placementUrl((string) $project->id, (string) $epic->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertMatchesRegularExpression('#\sdata-lane-head[\s>]#', $content);
+        self::assertStringContainsString('class="lp-board-lane__head"', $content);
+        self::assertMatchesRegularExpression('#data-lane-progress>\s*1/2 done\s*<#', $content);
+        self::assertStringNotContainsString('id="board-card-'.$epic->id.'"', $content);
+        self::assertStringContainsString('id="board-row-'.$epic->id.'"', $content);
+    }
+
+    public function test_a_child_in_a_lane_names_its_lane_and_skips_the_lane_epic(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-lane-child@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next', 0), CardType::Epic);
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next', 1));
+        $url = $this->placementUrl((string) $project->id, (string) $child->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('data-lane="'.$epic->id.'"', $content);
+        self::assertStringContainsString('data-after=""', $content);
+        self::assertStringContainsString('data-row-after="'.$epic->id.'"', $content);
+        self::assertStringNotContainsString('data-lane-head', $content);
+        self::assertStringNotContainsString('data-card-parent-tag', $content);
+    }
+
+    public function test_a_card_on_a_board_with_no_lane_names_no_lane(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-no-lane@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Plain', 'next');
+        $url = $this->placementUrl((string) $project->id, (string) $card->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('data-lane', (string) $client->getResponse()->getContent());
+    }
+
+    public function test_the_lane_board_gives_each_lane_cell_and_cell_count_a_hook(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-lane-ids@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next', 0), CardType::Epic);
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next', 1));
+        $orphan = $this->card($em, $project, 'Orphan', 'backlog');
+        $next = $this->column($project, 'next');
+        $backlog = $this->column($project, 'backlog');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#board-lane-'.$epic->id.' > .lp-board-lane__head [data-lane-progress]'));
+        self::assertCount(1, $crawler->filter('#board-lane-'.$epic->id.' #board-cell-'.$epic->id.'-'.$next->id.' > #board-card-'.$child->id));
+        self::assertCount(1, $crawler->filter('#board-cell-other-'.$backlog->id.' > #board-card-'.$orphan->id));
+        $cellCounts = $crawler->filter('#board-lane-'.$epic->id.' [data-cell-count]')->each(static fn ($node): string => trim($node->text()));
+        self::assertSame(['0', '1', '0', '0'], $cellCounts);
+        self::assertCount(0, $crawler->filter('#board-group-'.$next->id));
     }
 
     public function test_the_placed_card_keeps_the_warning_of_a_run_that_gave_up(): void

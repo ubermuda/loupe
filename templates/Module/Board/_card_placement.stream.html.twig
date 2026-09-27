@@ -10,10 +10,16 @@
               data-history="{{ history|json_encode }}"
               {% if card is null %}data-removed="1"{% else %}data-column-id="{{ placement.column.id }}"
               data-after="{{ placement.after }}"
-              data-row-after="{{ placement.rowAfter }}"{% endif %}>
+              data-row-after="{{ placement.rowAfter }}"{% if placement.lane is not null %}
+              data-lane="{{ placement.lane }}"{% endif %}{% if placement.laneHead %}
+              data-lane-head{% endif %}{% endif %}>
     <template>
         {% if card is not null %}
-            {% include '@Board/_card.html.twig' with {card: card, pendingComments: placement.pendingComments, progress: placement.progress, runWarning: card_run_warnings(card.project)[card.id ~ '']|default(null)} only %}
+            {% if placement.laneHead %}
+                {% include '@Board/_board_lane_head.html.twig' with {epic: card, progress: placement.progress} only %}
+            {% else %}
+                {% include '@Board/_card.html.twig' with {card: card, pendingComments: placement.pendingComments, progress: placement.progress, inLane: placement.lane not in [null, 'other'], runWarning: card_run_warnings(card.project)[card.id ~ '']|default(null)} only %}
+            {% endif %}
             {% include '@Board/_card_row.html.twig' with {card: card, column: placement.column, feedbackCount: placement.pendingComments, progress: placement.progress} only %}
         {% endif %}
     </template>
