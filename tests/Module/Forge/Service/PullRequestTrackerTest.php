@@ -100,17 +100,25 @@ final class PullRequestTrackerTest extends KernelTestCase
         self::assertSame(43, $rows[0]->number);
     }
 
-    public function test_refresh_queues_the_open_row_of_one_number_only(): void
+    public function test_refresh_queues_the_row_of_one_number_only(): void
     {
         $project = $this->project();
         $open = $this->row($project, 42);
         $this->row($project, 43);
-        $this->row($project, 44, state: PullRequestState::Merged);
 
         $this->tracker->refresh($project, FakePullRequestStateReader::FORGE, 'ACME/widgets', 42);
-        $this->tracker->refresh($project, FakePullRequestStateReader::FORGE, 'acme/widgets', 44);
 
         self::assertSame([(string) $open->id], $this->queuedIds());
+    }
+
+    public function test_refresh_queues_a_closed_row_so_a_reopen_is_read(): void
+    {
+        $project = $this->project();
+        $closed = $this->row($project, 44, state: PullRequestState::Closed);
+
+        $this->tracker->refresh($project, FakePullRequestStateReader::FORGE, 'acme/widgets', 44);
+
+        self::assertSame([(string) $closed->id], $this->queuedIds());
     }
 
     public function test_refresh_head_queues_every_open_row_on_that_commit(): void
@@ -144,6 +152,9 @@ final class PullRequestTrackerTest extends KernelTestCase
 
         self::assertSame([(string) $onMain->id], $this->queuedIds());
         self::assertSame(30_000, $this->sent()[0]->last(DelayStamp::class)?->getDelay());
+        $message = $this->sent()[0]->getMessage();
+        self::assertInstanceOf(RefreshPullRequestState::class, $message);
+        self::assertEquals(new \DateTimeImmutable('2026-09-27 12:00:30'), $message->requestedAt);
     }
 
     private function project(): Project

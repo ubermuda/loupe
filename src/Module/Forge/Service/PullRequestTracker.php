@@ -44,31 +44,33 @@ final readonly class PullRequestTracker
         $this->forgePullRequests->deleteByKey(self::projectId($project), $forge, $repository, $number);
     }
 
+    /** Reads a closed row too, because a delivery for one number can say that it reopened. */
     public function refresh(Project $project, string $forge, string $repository, int $number): void
     {
-        foreach ($this->forgePullRequests->findOpenIds(self::projectId($project), $forge, $repository, ['number' => $number]) as $id) {
+        foreach ($this->forgePullRequests->findIds(self::projectId($project), $forge, $repository, ['number' => $number], openOnly: false) as $id) {
             $this->queue($id);
         }
     }
 
     public function refreshHead(Project $project, string $forge, string $repository, string $sha): void
     {
-        foreach ($this->forgePullRequests->findOpenIds(self::projectId($project), $forge, $repository, ['headSha' => $sha]) as $id) {
+        foreach ($this->forgePullRequests->findIds(self::projectId($project), $forge, $repository, ['headSha' => $sha], openOnly: true) as $id) {
             $this->queue($id);
         }
     }
 
     public function refreshBase(Project $project, string $forge, string $repository, string $branch): void
     {
-        foreach ($this->forgePullRequests->findOpenIds(self::projectId($project), $forge, $repository, ['baseBranch' => $branch]) as $id) {
+        foreach ($this->forgePullRequests->findIds(self::projectId($project), $forge, $repository, ['baseBranch' => $branch], openOnly: true) as $id) {
             $this->queue($id, self::BASE_DELAY_MILLISECONDS);
         }
     }
 
+    /** A delayed refresh is requested for when it runs, so a read inside the delay does not absorb it. */
     private function queue(Uuid $id, int $delayMilliseconds = 0): void
     {
         $this->bus->dispatch(
-            new RefreshPullRequestState((string) $id, $this->clock->now()),
+            new RefreshPullRequestState((string) $id, $this->clock->now()->modify(\sprintf('+%d milliseconds', $delayMilliseconds))),
             $delayMilliseconds > 0 ? [new DelayStamp($delayMilliseconds)] : [],
         );
     }

@@ -68,25 +68,26 @@ final class ForgePullRequestRepository extends ServiceEntityRepository
     }
 
     /**
-     * The open rows of one repository in one project, narrowed by at most one
-     * of a number, a head commit or a base branch.
+     * The rows of one repository in one project, narrowed by at most one of a
+     * number, a head commit or a base branch, and by the open state on request.
      *
      * @param array{number?: int, headSha?: string, baseBranch?: string} $match
      *
      * @return list<Uuid>
      */
-    public function findOpenIds(Uuid $projectId, string $forge, string $repository, array $match): array
+    public function findIds(Uuid $projectId, string $forge, string $repository, array $match, bool $openOnly): array
     {
         $query = $this->createQueryBuilder('pr')
             ->select('pr.id')
             ->andWhere('pr.project = :project')
             ->andWhere('pr.forge = :forge')
             ->andWhere('pr.repository = :repository')
-            ->andWhere('pr.state = :open')
             ->setParameter('project', $projectId, UuidType::NAME)
             ->setParameter('forge', $forge)
-            ->setParameter('repository', mb_strtolower($repository))
-            ->setParameter('open', PullRequestState::Open->value);
+            ->setParameter('repository', mb_strtolower($repository));
+        if ($openOnly) {
+            $query->andWhere('pr.state = :open')->setParameter('open', PullRequestState::Open->value);
+        }
         foreach ($match as $field => $value) {
             $query->andWhere(\sprintf('pr.%1$s = :%1$s', $field))->setParameter($field, $value);
         }
