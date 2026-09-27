@@ -54,6 +54,28 @@ func TestMcpStopsBeforeConnectingOnAMalformedProjectFile(t *testing.T) {
 	}
 }
 
+func TestMcpStopsBeforeConnectingOnAMalformedProjectFlag(t *testing.T) {
+	inRepo(t, "https://loupe.invalid")
+
+	err := runMcp(t, "--project", "my-board")
+	if err == nil {
+		t.Fatal("mcp with a malformed --project: got no error")
+	}
+	if !strings.Contains(err.Error(), `"my-board"`) {
+		t.Fatalf("error must quote the value, got %v", err)
+	}
+}
+
+func TestMcpSendsAProjectFlagInLowerCase(t *testing.T) {
+	project, err := mcpProject(strings.ToUpper(projectA), io.Discard)
+	if err != nil {
+		t.Fatalf("mcpProject: %v", err)
+	}
+	if got := project(); got != projectA {
+		t.Fatalf("project: got %q, want %q", got, projectA)
+	}
+}
+
 const (
 	projectA = "01a0c0d9-905c-7922-a586-ccc8ce043704"
 	projectB = "0192f3c4-5d6e-7f80-9123-456789abcdef"
