@@ -276,7 +276,7 @@ final class GitHubDeliveryTest extends TestCase
     }
 
     #[DataProvider('checkEvents')]
-    public function test_a_completed_check_hints_its_pull_requests_and_its_head(string $event): void
+    public function test_a_check_that_starts_or_completes_hints_its_pull_requests_and_its_head(string $event): void
     {
         $delivery = fn (string $action): GitHubDelivery => $this->delivery($event, [
             'action' => $action,
@@ -284,11 +284,14 @@ final class GitHubDeliveryTest extends TestCase
             $event => ['head_sha' => 'abc123', 'pull_requests' => [['number' => 3], ['number' => 'x'], 'junk', ['number' => 4]]],
         ]);
 
-        self::assertEquals(
-            [PullRequestRefreshHint::number(3), PullRequestRefreshHint::number(4), PullRequestRefreshHint::head('abc123')],
-            $delivery('completed')->refreshHints(),
-        );
-        self::assertSame([], $delivery('created')->refreshHints());
+        foreach (['completed', 'created', 'requested', 'rerequested'] as $action) {
+            self::assertEquals(
+                [PullRequestRefreshHint::number(3), PullRequestRefreshHint::number(4), PullRequestRefreshHint::head('abc123')],
+                $delivery($action)->refreshHints(),
+                $action,
+            );
+        }
+        self::assertSame([], $delivery('requested_action')->refreshHints());
     }
 
     public function test_a_check_without_pull_requests_still_hints_its_head(): void

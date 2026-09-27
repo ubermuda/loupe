@@ -133,7 +133,8 @@ final readonly class GitHubDelivery
         $hints = match ($this->event) {
             'pull_request' => \in_array($action, self::PULL_REQUEST_ACTIONS, true) ? $this->pullRequestHints() : [],
             'pull_request_review' => \in_array($action, ['submitted', 'dismissed'], true) ? $this->numberHints([$this->payload['pull_request'] ?? null]) : [],
-            'check_suite', 'check_run' => 'completed' === $action ? $this->checkHints($this->payload[$this->event] ?? null) : [],
+            // A check that starts again turns a passed verdict back to pending, so its start is a hint too.
+            'check_suite', 'check_run' => 'requested_action' !== $action ? $this->checkHints($this->payload[$this->event] ?? null) : [],
             'status' => $this->headHints($this->payload['sha'] ?? null),
             'push' => $this->pushHints(),
             default => [],
