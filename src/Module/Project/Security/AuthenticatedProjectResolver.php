@@ -110,9 +110,11 @@ final readonly class AuthenticatedProjectResolver
         if (null === $requested) {
             $owned = $this->projects->findByOwner($user);
 
-            return 1 === \count($owned)
-                ? ProjectResolution::of($owned[0])
-                : $this->refuse(ProjectRefusal::SeveralProjectsAndNoHeader, $owned);
+            return match (\count($owned)) {
+                0 => $this->refuse(ProjectRefusal::NoProject, []),
+                1 => ProjectResolution::of($owned[0]),
+                default => $this->refuse(ProjectRefusal::SeveralProjectsAndNoHeader, $owned),
+            };
         }
 
         $project = $this->projects->findOneByIdOrSlugForOwner($requested->toRfc4122(), $user);
@@ -130,7 +132,7 @@ final readonly class AuthenticatedProjectResolver
             return ProjectResolution::refused(ProjectRefusal::Unbound);
         }
         if (null !== $requested && $bound->id?->toRfc4122() !== $requested->toRfc4122()) {
-            return $this->refuse(ProjectRefusal::HeaderNotCovered, [$bound]);
+            return $this->refuse(ProjectRefusal::HeaderNotBound, [$bound]);
         }
 
         return ProjectResolution::of($bound);
@@ -142,31 +144,41 @@ final readonly class AuthenticatedProjectResolver
      */
     private function requestedProject(): Uuid|false|null
     {
+        $value = $this->headerValue();
+        if (null === $value) {
+            return null;
+        }
+
+        return Uuid::isValid($value) ? Uuid::fromString($value) : false;
+    }
+
+    /** The trimmed header value, or null when the header is absent or blank. */
+    private function headerValue(): ?string
+    {
         // No request at all on the console, which is not a header problem.
         $header = $this->requests->getCurrentRequest()?->headers->get(self::PROJECT_HEADER);
         if (null === $header || '' === trim($header)) {
             return null;
         }
 
-        $value = trim($header);
-
-        return Uuid::isValid($value) ? Uuid::fromString($value) : false;
+        return trim($header);
     }
 
     /**
-     * Records the refusals the header introduced. The others are pre-existing
+     * Records the refusals a caller can act on. The others are pre-existing
      * silent answers that McpBoundProjectVoter already audits.
      *
      * @param list<Project> $covered
      */
     private function refuse(ProjectRefusal $refusal, array $covered): ProjectResolution
     {
+        $requested = $this->headerValue();
         $this->logger->info('project.mcp_project_refused', [
             'reason' => $refusal->value,
-            'requestedProjectId' => $this->requests->getCurrentRequest()?->headers->get(self::PROJECT_HEADER),
+            'requestedProjectId' => $requested,
             'coveredProjectCount' => \count($covered),
         ]);
 
-        return ProjectResolution::refused($refusal, $covered);
+        return ProjectResolution::refused($refusal, $covered, $requested);
     }
 }

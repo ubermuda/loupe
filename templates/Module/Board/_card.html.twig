@@ -13,7 +13,7 @@
          data-board-filter-target="card"
          data-action="pointerdown->board-drag#press mouseenter->card-prefetch#enter mouseleave->card-prefetch#leave focusin->card-prefetch#enter"
          id="board-card-{{ card.id }}"
-         data-card-digest="{{ card_digest(card, pendingComments, documentCount) }}"{% endif %}
+         data-card-digest="{{ card_digest(card, pendingComments, documentCount, progress) }}"{% endif %}
          data-card-id="{{ card.id }}"
          data-card-type="{{ card.type.value }}"
          data-card-title="{{ card.title }}">

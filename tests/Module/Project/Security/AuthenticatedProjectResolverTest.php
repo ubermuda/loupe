@@ -90,6 +90,39 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         self::assertNull($resolution->project);
         self::assertSame(ProjectRefusal::HeaderNotCovered, $resolution->refusal);
         self::assertSame([$mine], $resolution->covered);
+        self::assertSame((string) $theirs->id, $resolution->requested);
+    }
+
+    public function test_a_grant_covering_no_project_refuses_without_a_header(): void
+    {
+        $owner = new User(fullName: 'U', email: 'resolver-no-project@example.com', password: 'x');
+        $this->em->persist($owner);
+        $this->em->flush();
+
+        $this->tokenStorage->setToken($this->credentialCoveringEveryProject($owner));
+
+        $resolution = $this->resolver->mcpResolution();
+
+        self::assertNull($resolution->project);
+        self::assertSame(ProjectRefusal::NoProject, $resolution->refusal);
+        self::assertSame([], $resolution->covered);
+        self::assertNull($resolution->requested);
+    }
+
+    public function test_a_grant_covering_no_project_refuses_a_header_as_not_covered(): void
+    {
+        $owner = new User(fullName: 'U', email: 'resolver-no-project-header@example.com', password: 'x');
+        $this->em->persist($owner);
+        $theirs = $this->project('no-project-theirs');
+        $this->em->flush();
+
+        $this->tokenStorage->setToken($this->credentialCoveringEveryProject($owner));
+        $this->requestNaming($theirs);
+
+        $resolution = $this->resolver->mcpResolution();
+
+        self::assertSame(ProjectRefusal::HeaderNotCovered, $resolution->refusal);
+        self::assertSame([], $resolution->covered);
     }
 
     public function test_a_grant_covering_one_project_needs_no_header(): void
@@ -116,6 +149,7 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         self::assertNull($resolution->project);
         self::assertSame(ProjectRefusal::SeveralProjectsAndNoHeader, $resolution->refusal);
         self::assertCount(2, $resolution->covered);
+        self::assertNull($resolution->requested);
     }
 
     public function test_a_header_that_is_not_a_project_id_is_refused(): void
@@ -124,9 +158,12 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         $this->em->flush();
 
         $this->tokenStorage->setToken($this->credentialCoveringEveryProject($project->owner));
-        $this->requestWithHeader('not-a-project');
+        $this->requestWithHeader('  not-a-project  ');
 
-        self::assertSame(ProjectRefusal::HeaderMalformed, $this->resolver->mcpResolution()->refusal);
+        $resolution = $this->resolver->mcpResolution();
+
+        self::assertSame(ProjectRefusal::HeaderMalformed, $resolution->refusal);
+        self::assertSame('not-a-project', $resolution->requested);
     }
 
     public function test_a_bound_grant_accepts_a_header_naming_its_own_project(): void
@@ -152,7 +189,9 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
         $resolution = $this->resolver->mcpResolution();
 
         self::assertNull($resolution->project);
-        self::assertSame(ProjectRefusal::HeaderNotCovered, $resolution->refusal);
+        self::assertSame(ProjectRefusal::HeaderNotBound, $resolution->refusal);
+        self::assertSame([$bound], $resolution->covered);
+        self::assertSame((string) $other->id, $resolution->requested);
     }
 
     /** A stray header on a widget request refuses rather than being ignored. */

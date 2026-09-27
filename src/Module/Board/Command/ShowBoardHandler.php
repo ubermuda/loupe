@@ -107,7 +107,7 @@ final readonly class ShowBoardHandler
                 continue;
             }
             foreach ($view->cards as $card) {
-                if (CardType::Epic === $card->type && $card->laneEnabled) {
+                if ($card->drawsLane()) {
                     $epics[(string) $card->id] = $card;
                 }
             }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Twig;
 
 use App\Module\Board\Command\BoardColumnView;
+use App\Module\Board\Command\CardProgress;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
@@ -105,7 +106,7 @@ final class BoardExtension extends AbstractExtension
      * A short hash of what the card face and its list row show, and of where the
      * card sits, so a page can tell a changed card from an unchanged one.
      */
-    public function cardDigest(Card $card, int $pendingComments, int $documentCount): string
+    public function cardDigest(Card $card, int $pendingComments, int $documentCount, ?CardProgress $progress): string
     {
         return substr(sha1(json_encode([
             $card->number,
@@ -117,6 +118,7 @@ final class BoardExtension extends AbstractExtension
             $documentCount,
             (string) $card->column->id,
             $card->position,
+            null === $progress ? null : [$progress->done, $progress->total],
         ], \JSON_THROW_ON_ERROR)), 0, 12);
     }
 
