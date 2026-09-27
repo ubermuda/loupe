@@ -8,12 +8,24 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CardProgress;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Form\MoveCardFormType;
+use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\CardDocumentRepository;
+use App\Module\Board\Service\BoardColumnTonePicker;
 use App\Module\Board\Twig\BoardExtension;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Service\MarkdownRenderer;
+use App\Tests\Module\Board\Controller\BoardScenario;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
+use Twig\Environment;
 
 final class BoardExtensionTest extends KernelTestCase
 {
+    use BoardScenario;
+
     public function test_card_digest_changes_when_the_card_takes_another_rank_in_its_column(): void
     {
         $extension = static::getContainer()->get(BoardExtension::class);
@@ -56,6 +68,104 @@ final class BoardExtensionTest extends KernelTestCase
         $card = $this->makeCard();
 
         self::assertNotSame($extension->cardDigest($card, 0, 0, null), $extension->cardDigest($card, 0, 0, new CardProgress(0, 0)));
+    }
+
+    public function test_the_move_fields_of_two_cards_differ_only_by_the_card_name(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $project = $this->project($em, $this->user($em, 'fields-name@example.com'));
+        $first = $this->card($em, $project, 'First');
+        $second = $this->card($em, $project, 'Second', 'next');
+
+        $firstHtml = $this->renderFields($first);
+        $secondHtml = $this->renderFields($second);
+
+        foreach ([[$first, $firstHtml], [$second, $secondHtml]] as [$card, $html]) {
+            $name = MoveCardFormType::nameFor($card);
+            self::assertStringContainsString('name="'.$name.'[column]"', $html);
+            self::assertStringContainsString('id="'.$name.'_column"', $html);
+            self::assertSame(substr_count($html, 'move_card_'), substr_count($html, $name));
+        }
+        self::assertNotSame($firstHtml, $secondHtml);
+        self::assertSame(
+            str_replace(MoveCardFormType::nameFor($first), 'CARD', $firstHtml),
+            str_replace(MoveCardFormType::nameFor($second), 'CARD', $secondHtml),
+        );
+    }
+
+    public function test_the_second_card_of_a_project_builds_no_form(): void
+    {
+        $container = static::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        $project = $this->project($em, $this->user($em, 'fields-once@example.com'));
+        $first = $this->card($em, $project, 'First');
+        $second = $this->card($em, $project, 'Second');
+
+        $realFactory = $container->get(FormFactoryInterface::class);
+        self::assertInstanceOf(FormFactoryInterface::class, $realFactory);
+        $factory = $this->createMock(FormFactoryInterface::class);
+        $factory->expects($this->exactly(2))->method('createNamed')->willReturnCallback($realFactory->createNamed(...));
+        $extension = new BoardExtension(
+            $factory,
+            $container->get(MarkdownRenderer::class),
+            $container->get(TranslatorInterface::class),
+            $container->get(CardDocumentRepository::class),
+            $container->get(BoardColumnRepository::class),
+            $container->get(BoardColumnTonePicker::class),
+        );
+
+        $extension->cardMoveFields($this->twig(), $first);
+        $html = $extension->cardMoveFields($this->twig(), $second);
+        self::assertStringContainsString('name="'.MoveCardFormType::nameFor($second).'[column]"', $html);
+
+        // The reset builds the prototype again, which is the second and last call.
+        $extension->reset();
+        $extension->cardMoveFields($this->twig(), $second);
+    }
+
+    public function test_each_project_gets_its_own_columns(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'fields-projects@example.com');
+        $alpha = $this->project($em, $owner, 'alpha');
+        $beta = $this->project($em, $owner, 'beta');
+
+        $alphaOptions = $this->optionValues($this->renderFields($this->card($em, $alpha, 'Alpha card')));
+        $betaOptions = $this->optionValues($this->renderFields($this->card($em, $beta, 'Beta card')));
+
+        self::assertSame($this->columnIds($alpha), $alphaOptions);
+        self::assertSame($this->columnIds($beta), $betaOptions);
+        self::assertSame([], array_intersect($alphaOptions, $betaOptions));
+    }
+
+    /** @return list<string> */
+    private function optionValues(string $html): array
+    {
+        preg_match_all('/<option value="([^"]+)"/', $html, $matches);
+
+        return $matches[1];
+    }
+
+    /** @return list<string> */
+    private function columnIds(Project $project): array
+    {
+        $columns = static::getContainer()->get(BoardColumnRepository::class);
+        self::assertInstanceOf(BoardColumnRepository::class, $columns);
+
+        return array_map(static fn (BoardColumn $column): string => (string) $column->id, $columns->findForProject($project));
+    }
+
+    private function renderFields(Card $card): string
+    {
+        return $this->twig()->createTemplate('{{ card_move_fields(card) }}')->render(['card' => $card]);
+    }
+
+    private function twig(): Environment
+    {
+        $twig = static::getContainer()->get('twig');
+        self::assertInstanceOf(Environment::class, $twig);
+
+        return $twig;
     }
 
     private function makeCard(): Card

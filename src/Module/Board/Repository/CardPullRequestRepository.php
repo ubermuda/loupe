@@ -62,6 +62,28 @@ class CardPullRequestRepository extends ServiceEntityRepository
     }
 
     /**
+     * The GitHub pull requests one card links, as the database holds them.
+     *
+     * @return list<array{repository: string, number: int}>
+     */
+    public function findGitHubReferences(Card $card): array
+    {
+        /** @var list<array{repository: string, number: int}> $rows */
+        $rows = $this->createQueryBuilder('link')
+            ->select('link.repository', 'link.number')
+            ->andWhere('link.card = :card')
+            ->andWhere('link.forge = :forge')
+            ->andWhere('link.repository IS NOT NULL')
+            ->andWhere('link.number IS NOT NULL')
+            ->setParameter('card', $card)
+            ->setParameter('forge', Forge::GitHub)
+            ->getQuery()
+            ->getArrayResult();
+
+        return $rows;
+    }
+
+    /**
      * Points every link of one repository in one project at its new path, and
      * answers how many moved. The stored path is the key a later delivery joins on.
      */
