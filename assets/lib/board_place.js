@@ -12,16 +12,17 @@ export function placeCard(stream) {
     const cardId = stream.getAttribute('target').replace(/^board-card-/, '');
     const counts = JSON.parse(stream.dataset.counts || '{}');
     const history = JSON.parse(stream.dataset.history || '{}');
-    const sourceCell = document.getElementById(
-        `board-card-${cardId}`,
-    )?.parentElement;
-
     if (stream.hasAttribute('data-removed')) {
+        if (document.getElementById(`board-lane-${cardId}`)) {
+            missed(cardId);
+
+            return;
+        }
         document.getElementById(`board-card-${cardId}`)?.remove();
         document.getElementById(`board-row-${cardId}`)?.remove();
         updateTexts('board-count-', counts);
         updateTexts('board-history-', history);
-        recountCells([sourceCell]);
+        recountCells();
         document.dispatchEvent(
             new CustomEvent('board:placed', {
                 detail: { cardId, removed: true },
@@ -49,9 +50,7 @@ export function placeCard(stream) {
         rowAfter === undefined ||
         stale
     ) {
-        document.dispatchEvent(
-            new CustomEvent('board:place-missed', { detail: { cardId } }),
-        );
+        missed(cardId);
 
         return;
     }
@@ -70,7 +69,7 @@ export function placeCard(stream) {
     );
     updateTexts('board-count-', counts);
     updateTexts('board-history-', history);
-    recountCells([sourceCell, group]);
+    recountCells();
 
     document.getElementById(`board-card-${cardId}`).dispatchEvent(
         new CustomEvent('board:placed', {
@@ -108,9 +107,7 @@ function placeLaneHead(stream, cardId, counts, history) {
     const rowAfter = anchor(stream.dataset.rowAfter, 'board-row-');
     const head = section?.querySelector('.lp-board-lane__head');
     if (!head || !list || rowAfter === undefined) {
-        document.dispatchEvent(
-            new CustomEvent('board:place-missed', { detail: { cardId } }),
-        );
+        missed(cardId);
 
         return;
     }
@@ -118,7 +115,7 @@ function placeLaneHead(stream, cardId, counts, history) {
     const content = stream.querySelector('template').content.cloneNode(true);
     const rowAnchor = rowAfter ?? list.querySelector('.lp-board-list__header');
     // The lane controller owns the collapse, and the fresh head always says expanded.
-    const toggle = head.querySelector('[aria-expanded]');
+    const toggle = head.querySelector('.lp-board-lane__collapse');
     const expanded = toggle?.getAttribute('aria-expanded');
     morphElements(head, content.querySelector('.lp-board-lane__head'));
     if (toggle && expanded !== null) {
@@ -140,12 +137,13 @@ function placeLaneHead(stream, cardId, counts, history) {
     );
 }
 
-/** Writes the number of cards each lane cell holds into the count of its column head. */
-function recountCells(cells) {
-    new Set(cells).forEach((cell) => {
-        if (!cell?.classList.contains('lp-board-lane__cell')) {
-            return;
-        }
+/**
+ * Writes the number of cards each lane cell holds into the count of its
+ * column head. A drop moves the card before the stream comes, so the stream
+ * cannot know the cell the card left, and every cell is recounted.
+ */
+function recountCells() {
+    document.querySelectorAll('.lp-board-lane__cell').forEach((cell) => {
         const count = cell
             .closest('.lp-board-lane__column')
             ?.querySelector('[data-cell-count]');
@@ -155,6 +153,12 @@ function recountCells(cells) {
             );
         }
     });
+}
+
+function missed(cardId) {
+    document.dispatchEvent(
+        new CustomEvent('board:place-missed', { detail: { cardId } }),
+    );
 }
 
 /** The element an id names, null for no id, undefined when the page lacks it. */

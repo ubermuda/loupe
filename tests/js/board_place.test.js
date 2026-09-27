@@ -264,7 +264,7 @@ function cell(lane, column, cards) {
 }
 
 function laneHead(title, progress, expanded = 'true') {
-    return `<header class="lp-board-lane__head"><button aria-expanded="${expanded}"></button><a class="lp-board-lane__title">${title}</a><span data-lane-progress>${progress}</span></header>`;
+    return `<header class="lp-board-lane__head"><button class="lp-board-lane__collapse" aria-expanded="${expanded}"></button><a class="lp-board-lane__title">${title}</a><span data-lane-progress>${progress}</span></header>`;
 }
 
 function renderLaneBoard() {
@@ -357,6 +357,32 @@ describe('board-place on a board with lanes', () => {
 
         expect(document.getElementById('board-card-a')).toBeNull();
         expect(cellCount(EPIC, BACKLOG)).toBe('0');
+    });
+
+    it('recounts the cell a dropped card left before the stream came', () => {
+        document
+            .getElementById(`board-cell-other-${NEXT}`)
+            .append(document.getElementById('board-card-a'));
+
+        placeCard(
+            laneStream({ id: 'a', column: NEXT, lane: 'other', rowAfter: 'b' }),
+        );
+
+        expect(cellCount(EPIC, BACKLOG)).toBe('0');
+        expect(cellCount('other', NEXT)).toBe('1');
+    });
+
+    it('reports a miss when a removed card is a lane the page draws', () => {
+        const missed = vi.fn();
+        document.addEventListener('board:place-missed', missed, { once: true });
+        const before = document.body.innerHTML;
+        const holder = document.createElement('div');
+        holder.innerHTML = `<turbo-stream action="board-place" target="board-card-${EPIC}" data-counts='{}' data-history='{}' data-removed="1"><template></template></turbo-stream>`;
+
+        placeCard(holder.firstElementChild);
+
+        expect(document.body.innerHTML).toBe(before);
+        expect(missed).toHaveBeenCalledOnce();
     });
 
     it('reports a miss when the card it follows sits in another cell', () => {
