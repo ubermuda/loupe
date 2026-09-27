@@ -264,7 +264,7 @@ function cell(lane, column, cards) {
 }
 
 function laneHead(title, progress, expanded = 'true') {
-    return `<header class="lp-board-lane__head"><button class="lp-board-lane__collapse" aria-expanded="${expanded}"></button><a class="lp-board-lane__title">${title}</a><span data-lane-progress>${progress}</span></header>`;
+    return `<header class="lp-board-lane__head"><button class="lp-board-lane__collapse" aria-expanded="${expanded}"></button><span class="lp-board-card__number">#7</span><a class="lp-board-lane__title">${title}</a><span data-lane-progress>${progress}</span></header>`;
 }
 
 function renderLaneBoard() {
@@ -372,6 +372,18 @@ describe('board-place on a board with lanes', () => {
         expect(cellCount('other', NEXT)).toBe('1');
     });
 
+    it('leaves the ghost of a drag out of the cell count', () => {
+        const ghost = document.createElement('div');
+        ghost.className = 'lp-board-card lp-board__ghost';
+        document.getElementById(`board-cell-${EPIC}-${BACKLOG}`).append(ghost);
+
+        placeCard(
+            laneStream({ id: 'c', column: NEXT, lane: 'other', rowAfter: 'b' }),
+        );
+
+        expect(cellCount(EPIC, BACKLOG)).toBe('1');
+    });
+
     it('reports a miss when a removed card is a lane the page draws', () => {
         const missed = vi.fn();
         document.addEventListener('board:place-missed', missed, { once: true });
@@ -468,6 +480,7 @@ describe('board-place on a board with lanes', () => {
         expect(
             document.getElementById(`board-row-${EPIC}`).dataset.columnId,
         ).toBe(BACKLOG);
+        expect(section.getAttribute('aria-label')).toBe('#7 Renamed');
         expect(placed).toHaveBeenCalledOnce();
         expect(placed.mock.calls[0][0].target).toBe(section);
         expect(placed.mock.calls[0][0].detail).toEqual({ cardId: EPIC });

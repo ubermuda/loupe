@@ -118,6 +118,11 @@ function placeLaneHead(stream, cardId, counts, history) {
     const toggle = head.querySelector('.lp-board-lane__collapse');
     const expanded = toggle?.getAttribute('aria-expanded');
     morphElements(head, content.querySelector('.lp-board-lane__head'));
+    const number = head.querySelector('.lp-board-card__number')?.textContent;
+    const title = head.querySelector('.lp-board-lane__title')?.textContent;
+    if (number && title) {
+        section.setAttribute('aria-label', `${number} ${title}`);
+    }
     if (toggle && expanded !== null) {
         toggle.setAttribute('aria-expanded', expanded);
     }
@@ -149,7 +154,9 @@ function recountCells() {
             ?.querySelector('[data-cell-count]');
         if (count) {
             count.textContent = String(
-                cell.querySelectorAll(':scope > .lp-board-card').length,
+                cell.querySelectorAll(
+                    ':scope > .lp-board-card:not(.lp-board__ghost)',
+                ).length,
             );
         }
     });
