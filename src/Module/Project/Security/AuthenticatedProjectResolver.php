@@ -165,7 +165,7 @@ final readonly class AuthenticatedProjectResolver
     }
 
     /**
-     * Records the refusals the header introduced. The others are pre-existing
+     * Records the refusals a caller can act on. The others are pre-existing
      * silent answers that McpBoundProjectVoter already audits.
      *
      * @param list<Project> $covered
