@@ -91,6 +91,7 @@ func TestAnEndedRunIsClassified(t *testing.T) {
 	}{
 		"finished":           {finishedRun, api.RunSucceeded, 1},
 		"blocked":            {workerResult{hasResult: true, status: "blocked", output: "needs a person"}, api.RunBlocked, 1},
+		"waiting":            {workerResult{hasResult: true, status: "waiting", output: "checks run"}, api.RunWaitingOnForge, 1},
 		"killed":             {workerResult{exitCode: -1, killed: true}, api.RunFailed, 1},
 		"not started":        {workerResult{err: errors.New("fork/exec claude: permission denied")}, api.RunNotStarted, 1},
 		"unfinished":         {unfinishedRun, api.RunUnfinished, 2},

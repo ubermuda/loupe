@@ -99,7 +99,61 @@ var (
 	askClosedPlaceholders       = []string{"askId", "sessionId", "cardNumber", "projectId", "project"}
 	reviewSubmittedPlaceholders = []string{"cardId", "cardNumber", "column", "documentId", "verdict", "projectId", "project"}
 	genericPlaceholders         = []string{"projectId", "project"}
+	pullRequestPlaceholders     = []string{"cardId", "cardNumber", "projectId", "project", "forge", "repository", "pullRequestNumber", "pullRequestUrl", "headSha"}
+	// pullRequestExtras are the placeholders a pull request type adds to the
+	// base set.
+	pullRequestExtras = map[string][]string{
+		event.ChecksConcludedType:            {"conclusion", "failedChecks"},
+		event.PullRequestReviewSubmittedType: {"verdict"},
+		event.FixRequestedType:               {"reason", "sessionId"},
+	}
 )
+
+// placeholdersOf lists the placeholders a pull request type fills.
+func placeholdersOf(on string) []string {
+	return slices.Concat(pullRequestPlaceholders, pullRequestExtras[on])
+}
+
+// knownPlaceholder reports whether some event type fills the name.
+func knownPlaceholder(name string) bool {
+	for _, set := range [][]string{cardMovedPlaceholders, askClosedPlaceholders, reviewSubmittedPlaceholders, pullRequestPlaceholders} {
+		if slices.Contains(set, name) {
+			return true
+		}
+	}
+	for _, extras := range pullRequestExtras {
+		if slices.Contains(extras, name) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// whenFields maps each type a rule can filter with when to the fields it
+// takes, and each field to its values.
+var whenFields = map[string]map[string][]string{
+	event.ChecksConcludedType:            {"conclusion": {event.ConclusionPassed, event.ConclusionFailed}},
+	event.PullRequestReviewSubmittedType: {"verdict": {event.VerdictApproved, event.VerdictChangesRequested}},
+	event.FixRequestedType:               {"reason": {event.ReasonChecksFailed, event.ReasonConflict, event.ReasonChangesRequested}},
+}
+
+// whenTypes lists the types that take when, in the order an error names them.
+var whenTypes = []string{event.ChecksConcludedType, event.PullRequestReviewSubmittedType, event.FixRequestedType}
+
+// whenValue is the event's value of a when field.
+func whenValue(e event.Event, field string) string {
+	switch field {
+	case "conclusion":
+		return e.Conclusion
+	case "verdict":
+		return e.Verdict
+	case "reason":
+		return e.Reason
+	}
+
+	return ""
+}
 
 // UnknownCard is what {cardNumber} renders for a resume whose card neither the
 // server nor the bridge knows.
@@ -187,8 +241,12 @@ type Rule struct {
 	// matches either.
 	Verdict string `yaml:"verdict"`
 	// Resume runs claude --resume on the session an inbox ask names, instead
-	// of a new session.
+	// of a new session. On a fix request it resumes the session the event
+	// names, and with none it starts a new session.
 	Resume bool `yaml:"resume"`
+	// When limits a pull request rule to events whose fields hold these
+	// values. whenFields lists the fields each type takes.
+	When map[string]string `yaml:"when"`
 	// ResultFields maps an optional result field to its JSON Schema fragment.
 	ResultFields map[string]any `yaml:"resultFields"`
 	// Card limits a board.card_moved or document.review_submitted rule by the
@@ -516,6 +574,7 @@ func checkAction(r Rule) []error {
 		{"resultFields", len(r.ResultFields) > 0},
 		{"resume", r.Resume},
 		{"verdict", r.Verdict != ""},
+		{"when", len(r.When) > 0},
 	} {
 		if f.set {
 			errs = append(errs, fmt.Errorf("%s names worker behaviour, and action %s launches no worker", f.name, ActionInteractive))
@@ -579,9 +638,13 @@ func checkRule(r Rule, projects map[string]Project) error {
 		if !r.Resume {
 			errs = append(errs, errors.New("inbox.ask_closed needs resume: true, because resuming the session that asked is the one action it takes"))
 		}
-	} else if r.Resume {
-		errs = append(errs, fmt.Errorf("resume applies to inbox.ask_closed only, and this rule is on %s", r.On))
+	} else if r.Resume && r.On != event.FixRequestedType {
+		errs = append(errs, fmt.Errorf("resume applies to %s and %s only, and this rule is on %s", event.AskClosedType, event.FixRequestedType, r.On))
 	}
+	if event.IsPullRequest(r.On) {
+		allowed = placeholdersOf(r.On)
+	}
+	errs = append(errs, checkWhen(r)...)
 	if r.On == event.ReviewSubmittedType {
 		allowed = reviewSubmittedPlaceholders
 		if r.Verdict != "" && r.Verdict != event.VerdictApproved && r.Verdict != event.VerdictChangesRequested {
@@ -600,7 +663,7 @@ func checkRule(r Rule, projects map[string]Project) error {
 	for _, name := range directive.Placeholders(r.Prompt) {
 		switch {
 		case slices.Contains(allowed, name):
-		case slices.Contains(cardMovedPlaceholders, name), slices.Contains(askClosedPlaceholders, name), slices.Contains(reviewSubmittedPlaceholders, name):
+		case knownPlaceholder(name):
 			errs = append(errs, fmt.Errorf("placeholder {%s} has no value for %s events; this type fills %s", name, r.On, braces(allowed)))
 		default:
 			errs = append(errs, fmt.Errorf("unknown placeholder {%s}; this type fills %s", name, braces(allowed)))
@@ -618,6 +681,39 @@ func checkRule(r Rule, projects map[string]Project) error {
 	return errors.Join(errs...)
 }
 
+// checkWhen refuses a when on a type that takes none, a field the type does
+// not carry, and a value outside the field's values.
+func checkWhen(r Rule) []error {
+	if len(r.When) == 0 {
+		return nil
+	}
+	fields, ok := whenFields[r.On]
+	if !ok {
+		return []error{fmt.Errorf("when applies to %s only, and this rule is on %s", orList(whenTypes, "and"), r.On)}
+	}
+	var errs []error
+	for _, name := range slices.Sorted(maps.Keys(r.When)) {
+		values, ok := fields[name]
+		switch {
+		case !ok:
+			errs = append(errs, fmt.Errorf("when.%s is not a field of %s; it takes %s", name, r.On, strings.Join(slices.Sorted(maps.Keys(fields)), ", ")))
+		case !slices.Contains(values, r.When[name]):
+			errs = append(errs, fmt.Errorf("when.%s %q is not %s", name, r.When[name], orList(values, "or")))
+		}
+	}
+
+	return errs
+}
+
+// orList joins names as "a, b or c", with the given last word.
+func orList(names []string, last string) string {
+	if len(names) < 2 {
+		return strings.Join(names, "")
+	}
+
+	return strings.Join(names[:len(names)-1], ", ") + " " + last + " " + names[len(names)-1]
+}
+
 func braces(names []string) string {
 	out := make([]string, len(names))
 	for i, n := range names {
@@ -633,7 +729,7 @@ func (s *Set) AutoUpdate() bool {
 }
 
 // ResultStatuses are the values of a worker result's status.
-var ResultStatuses = []string{"finished", "blocked", "unfinished"}
+var ResultStatuses = []string{"finished", "blocked", "unfinished", "waiting"}
 
 // resultFieldPattern is the shape of a result field name.
 var resultFieldPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*$`)
@@ -926,6 +1022,11 @@ func (s *Set) triggers(r Rule, slug string, e event.Event) bool {
 	if r.Card != nil && r.Card.InteractiveRun != nil && *r.Card.InteractiveRun != e.Card.InteractiveRun {
 		return false
 	}
+	for field, value := range r.When {
+		if whenValue(e, field) != value {
+			return false
+		}
+	}
 	// A verdict with no stage card has nothing for a card agent to act on.
 	if e.Type == event.ReviewSubmittedType {
 		return e.CardID != "" && (r.Verdict == "" || e.Verdict == r.Verdict)
@@ -941,9 +1042,11 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 	switch {
 	case r.Action == ActionInteractive:
 		render, schema = directive.RenderPlain, ""
-	case r.Resume:
+	case r.Resume && e.Type == event.AskClosedType:
 		render = directive.RenderResume
 	}
+	// A fix request with no session has none to resume.
+	resume := r.Resume && (e.Type == event.AskClosedType || e.SessionID != "")
 
 	return Match{
 		Skip:           Run,
@@ -956,7 +1059,7 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 		MaxChain:       *r.MaxChain,
 		MaxResumes:     *r.MaxResumes,
 		Prompt:         render(r.Prompt, values(e, slug)),
-		Resume:         r.Resume,
+		Resume:         resume,
 		Schema:         schema,
 	}
 }
@@ -1052,6 +1155,18 @@ func (s *Set) Health(slug string) []api.RuleHealth {
 	return out
 }
 
+// quotedList puts each name in double quotes and separates them with commas.
+// The forge names a check, so the quotes mark it as a value. Parse refuses a
+// name that holds a double quote or a backslash.
+func quotedList(names []string) string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = `"` + n + `"`
+	}
+
+	return strings.Join(out, ", ")
+}
+
 // values fills placeholders from fields Parse validated and from the slug the
 // rule file maps. Nothing a person wrote on the board is among them.
 func values(e event.Event, slug string) map[string]string {
@@ -1075,6 +1190,28 @@ func values(e event.Event, slug string) map[string]string {
 		v["column"] = e.Column
 		v["documentId"] = e.Subject.ID
 		v["verdict"] = e.Verdict
+	}
+	if event.IsPullRequest(e.Type) {
+		v["cardId"] = e.CardID
+		v["cardNumber"] = strconv.Itoa(e.CardNumber)
+		v["forge"] = e.Forge
+		v["repository"] = e.Repository
+		v["pullRequestNumber"] = ""
+		if e.PullRequestNumber > 0 {
+			v["pullRequestNumber"] = strconv.Itoa(e.PullRequestNumber)
+		}
+		v["pullRequestUrl"] = e.PullRequestURL
+		v["headSha"] = e.HeadSHA
+		switch e.Type {
+		case event.ChecksConcludedType:
+			v["conclusion"] = e.Conclusion
+			v["failedChecks"] = quotedList(e.FailedChecks)
+		case event.PullRequestReviewSubmittedType:
+			v["verdict"] = e.Verdict
+		case event.FixRequestedType:
+			v["reason"] = e.Reason
+			v["sessionId"] = e.SessionID
+		}
 	}
 
 	return v

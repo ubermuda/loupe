@@ -978,7 +978,7 @@ rules:
 // Every rule asks claude for the core result, and a rule's resultFields add
 // optional properties to it. Marshal sorts the keys, so the schema is stable.
 func TestParseBuildsTheResultSchema(t *testing.T) {
-	core := `"status":{"enum":["finished","blocked","unfinished"],"type":"string"},"summary":{"type":"string"}`
+	core := `"status":{"enum":["finished","blocked","unfinished","waiting"],"type":"string"},"summary":{"type":"string"}`
 	extras := "    to: ready\n    resultFields:\n      prUrl: {type: string}\n      card_count:\n        type: integer\n        minimum: 1\n"
 	for name, tc := range map[string]struct{ body, want string }{
 		"no extras": {oneRule, `{"properties":{` + core + `},"required":["status","summary"],"type":"object"}`},
