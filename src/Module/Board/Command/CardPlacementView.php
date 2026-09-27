@@ -14,7 +14,7 @@ final readonly class CardPlacementView
         /** Null when the board does not show the card: it is deleted, or outside its terminal window. */
         public ?Card $card,
         public ?BoardColumn $column,
-        /** The id of the card before it in its column, or null when it comes first. */
+        /** The id of the card before it in its column, or in its lane cell on a board with lanes. Null when it comes first. */
         public ?string $after,
         /** The id of the card before it in the list view, which runs column by column. */
         public ?string $rowAfter,
@@ -26,6 +26,12 @@ final readonly class CardPlacementView
         public array $terminalTotals,
         /** The done and total children of an epic, null for any other card. */
         public ?CardProgress $progress = null,
+        /** On a board with lanes, the lane that holds the card: its epic id, or "other". Null on a board with no lanes, and for a lane epic. */
+        public ?string $lane = null,
+        /** @var array<string, array<string, int>> lane => column id => the number of cards the lane cell shows; empty on a board with no lanes */
+        public array $laneCounts = [],
+        /** True when the card heads a lane, and so is no card of any cell. */
+        public bool $laneEpic = false,
     ) {
     }
 }

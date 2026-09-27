@@ -48,7 +48,7 @@
                 {% endfor %}
             </div>
             {% if not epic %}
-                {% include '@Board/_board_column_foot.html.twig' with {board: board, view: view} only %}
+                {% include '@Board/_board_column_foot.html.twig' with {board: board, view: view, placeable: true} only %}
             {% endif %}
         </section>
         {% endfor %}

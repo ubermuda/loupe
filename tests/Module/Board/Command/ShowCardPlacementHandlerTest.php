@@ -6,6 +6,7 @@ namespace App\Tests\Module\Board\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\BoardColumnView;
+use App\Module\Board\Command\BoardLaneView;
 use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Command\ShowCardPlacementCommand;
@@ -150,6 +151,117 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
 
         self::assertSame([1, 1, 0, 1], array_values($pageCounts));
         self::assertSame($pageCounts, $view->counts);
+    }
+
+    public function test_a_board_with_no_lane_reports_no_lane(): void
+    {
+        $card = $this->card('Plain', 'next', 0);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $card));
+
+        self::assertNull($view->lane);
+        self::assertSame([], $view->laneCounts);
+        self::assertFalse($view->laneEpic);
+    }
+
+    public function test_a_child_follows_the_card_before_it_in_its_lane(): void
+    {
+        $epic = $this->epic('Epic', 'next');
+        $this->card('Other first', 'backlog', 0);
+        $firstChild = $this->child($epic, $this->card('Child first', 'backlog', 1));
+        $otherSecond = $this->card('Other second', 'backlog', 2);
+        $secondChild = $this->child($epic, $this->card('Child second', 'backlog', 3));
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $secondChild));
+
+        self::assertSame((string) $epic->id, $view->lane);
+        self::assertSame((string) $firstChild->id, $view->after);
+        self::assertSame((string) $otherSecond->id, $view->rowAfter);
+        self::assertFalse($view->laneEpic);
+    }
+
+    public function test_a_card_outside_every_lane_follows_the_card_before_it_in_the_other_row(): void
+    {
+        $epic = $this->epic('Epic', 'next');
+        $otherFirst = $this->card('Other first', 'backlog', 0);
+        $child = $this->child($epic, $this->card('Child', 'backlog', 1));
+        $otherSecond = $this->card('Other second', 'backlog', 2);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $otherSecond));
+
+        self::assertSame('other', $view->lane);
+        self::assertSame((string) $otherFirst->id, $view->after);
+        self::assertSame((string) $child->id, $view->rowAfter);
+    }
+
+    public function test_the_lane_counts_match_the_cells_of_the_board_page(): void
+    {
+        $epic = $this->epic('Epic', 'next');
+        $this->child($epic, $this->card('Child', 'backlog', 0));
+        $this->child($epic, $this->card('Child done', 'done', 0));
+        $this->card('Other', 'backlog', 1);
+        $this->card('Other next', 'next', 1);
+
+        $showBoard = self::getContainer()->get(ShowBoardHandler::class);
+        self::assertInstanceOf(ShowBoardHandler::class, $showBoard);
+        $board = $showBoard(new ShowBoardCommand($this->project));
+        $pageCounts = [];
+        foreach ([...$board->lanes, $board->otherCards] as $lane) {
+            self::assertInstanceOf(BoardLaneView::class, $lane);
+            foreach ($board->columns as $columnView) {
+                self::assertInstanceOf(BoardColumnView::class, $columnView);
+                $columnId = (string) $columnView->column->id;
+                $pageCounts[null === $lane->epic ? 'other' : (string) $lane->epic->id][$columnId] = \count($lane->cells[$columnId] ?? []);
+            }
+        }
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, null));
+
+        self::assertSame($pageCounts, $view->laneCounts);
+        self::assertSame([1, 0, 0, 1], array_values($view->laneCounts[(string) $epic->id]));
+        self::assertSame([1, 1, 0, 0], array_values($view->laneCounts['other']));
+    }
+
+    public function test_a_lane_epic_is_a_lane_head_and_not_a_card_of_any_lane(): void
+    {
+        $epic = $this->epic('Epic', 'next');
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $epic));
+
+        self::assertSame($epic, $view->card);
+        self::assertTrue($view->laneEpic);
+        self::assertNull($view->lane);
+    }
+
+    public function test_an_epic_with_its_lane_off_is_a_card_of_the_other_row(): void
+    {
+        $open = $this->epic('Open epic', 'next');
+        $closed = $this->epic('Lane off', 'next');
+        $closed->laneEnabled = false;
+        $this->em->flush();
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $closed));
+
+        self::assertFalse($view->laneEpic);
+        self::assertSame('other', $view->lane);
+        self::assertArrayHasKey((string) $open->id, $view->laneCounts);
+    }
+
+    private function epic(string $title, string $slug): Card
+    {
+        $epic = $this->card($title, $slug, 0);
+        $epic->type = CardType::Epic;
+        $this->em->flush();
+
+        return $epic;
+    }
+
+    private function child(Card $epic, Card $child): Card
+    {
+        $child->parent = $epic;
+        $this->em->flush();
+
+        return $child;
     }
 
     private function card(string $title, string $slug, int $position): Card

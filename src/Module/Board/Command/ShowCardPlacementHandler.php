@@ -10,6 +10,7 @@ use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
+use App\Module\Board\Service\BoardLanes;
 
 final readonly class ShowCardPlacementHandler
 {
@@ -19,6 +20,7 @@ final readonly class ShowCardPlacementHandler
         private CardRepository $cards,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardDocumentRepository $cardDocuments,
+        private BoardLanes $boardLanes,
     ) {
     }
 
@@ -32,12 +34,14 @@ final readonly class ShowCardPlacementHandler
         $after = null;
         $rowAfter = null;
         $previousRow = null;
+        $columnViews = [];
 
         // Every column is read as the board page reads it, so the list order
         // across columns and the counts come from the same query as the page.
         foreach ($this->boardColumns->findForProject($command->project) as $boardColumn) {
             $shown = $this->columnCards->shown($boardColumn);
             $counts[(string) $boardColumn->id] = \count($shown);
+            $columnViews[] = new BoardColumnView($boardColumn, $shown, \count($shown));
             if ($boardColumn->terminal) {
                 $terminalTotals[(string) $boardColumn->id] = $this->cards->countInColumn($boardColumn);
             }
@@ -53,6 +57,23 @@ final readonly class ShowCardPlacementHandler
             }
         }
 
+        [$lane, $laneCounts, $laneEpic] = [null, [], false];
+        [$lanes, $otherCards] = $this->boardLanes->sort($columnViews);
+        foreach (null === $otherCards ? [] : [...$lanes, $otherCards] as $laneView) {
+            $key = null === $laneView->epic ? BoardLanes::OTHER : (string) $laneView->epic->id;
+            $laneEpic = $laneEpic || $key === $cardId;
+            foreach ($columnViews as $columnView) {
+                $columnId = (string) $columnView->column->id;
+                $cell = $laneView->cells[$columnId] ?? [];
+                $laneCounts[$key][$columnId] = \count($cell);
+                foreach ($cell as $index => $card) {
+                    if ((string) $card->id === $cardId) {
+                        [$lane, $after] = [$key, 0 === $index ? null : (string) $cell[$index - 1]->id];
+                    }
+                }
+            }
+        }
+
         $pending = null === $found ? 0 : ($this->cardSiteReviewComments->pendingCountsForProject($command->project)[(string) $found->id] ?? 0);
         $documentCount = null === $found ? 0 : ($this->cardDocuments->countsForProject($command->project)[(string) $found->id] ?? 0);
 
@@ -62,6 +83,6 @@ final readonly class ShowCardPlacementHandler
             $progress = new CardProgress($children['done'], $children['total']);
         }
 
-        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $documentCount, $counts, $terminalTotals, $progress);
+        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $documentCount, $counts, $terminalTotals, $progress, $lane, $laneCounts, $laneEpic);
     }
 }
