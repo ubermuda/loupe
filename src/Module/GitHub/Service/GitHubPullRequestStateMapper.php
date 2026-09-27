@@ -69,8 +69,9 @@ final readonly class GitHubPullRequestStateMapper
     }
 
     /**
-     * The ruleset names the required checks when it was read. Otherwise the
-     * head's own `isRequired` flags do, and those miss a check that never ran.
+     * A check is required when the ruleset names it or the head flags it. The
+     * ruleset finds a check that never ran, and the flag finds one that classic
+     * branch protection requires.
      *
      * @param array<mixed> $pullRequest
      *
@@ -98,7 +99,7 @@ final readonly class GitHubPullRequestStateMapper
             }
         }
 
-        $required = $rules->requiredChecks ?? array_map(strval(...), array_keys($flaggedRequired));
+        $required = array_values(array_unique([...$rules->requiredChecks ?? [], ...array_map(strval(...), array_keys($flaggedRequired))]));
         if ([] === $required) {
             return [$blocked ? PullRequestChecks::Pending : PullRequestChecks::Passed, []];
         }

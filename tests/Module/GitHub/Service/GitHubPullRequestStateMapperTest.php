@@ -52,7 +52,7 @@ final class GitHubPullRequestStateMapperTest extends TestCase
         $node = self::allPassed(self::pullRequest604());
         $node = self::withContext($node, self::checkRun('phpunit', 'COMPLETED', 'FAILURE'));
         $node = self::withContext($node, self::checkRun('e2e-rest', 'COMPLETED', 'TIMED_OUT'));
-        $node = self::withContext($node, self::checkRun('coverage', 'COMPLETED', 'FAILURE'));
+        $node = self::withContext($node, self::checkRun('coverage', 'COMPLETED', 'FAILURE', required: false));
 
         $snapshot = new GitHubPullRequestStateMapper()->map($node, self::rules604(), null);
 
@@ -106,6 +106,16 @@ final class GitHubPullRequestStateMapperTest extends TestCase
         self::assertSame(PullRequestChecks::Passed, $mapper->map($node, null, null)->checks);
     }
 
+    public function test_a_check_that_classic_branch_protection_requires_counts_beside_an_empty_ruleset(): void
+    {
+        $node = self::withContexts(self::pullRequest604(), [self::checkRun('build', 'COMPLETED', 'FAILURE')]);
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, new GitHubBranchRules([], false), null);
+
+        self::assertSame(PullRequestChecks::Failed, $snapshot->checks);
+        self::assertSame(['build'], $snapshot->failedChecks);
+    }
+
     /** @return iterable<string, array{string, PullRequestChecks}> */
     public static function emptyRequiredSets(): iterable
     {
@@ -116,7 +126,7 @@ final class GitHubPullRequestStateMapperTest extends TestCase
     #[DataProvider('emptyRequiredSets')]
     public function test_with_no_required_check_the_merge_state_decides(string $mergeStateStatus, PullRequestChecks $expected): void
     {
-        $node = self::pullRequest604();
+        $node = self::withContexts(self::pullRequest604(), []);
         $node['mergeStateStatus'] = $mergeStateStatus;
 
         $snapshot = new GitHubPullRequestStateMapper()->map($node, new GitHubBranchRules([], false), null);

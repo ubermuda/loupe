@@ -81,9 +81,38 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertSame('https://api.github.com/graphql', $this->requests[1]['url']);
         $body = json_decode($this->requests[1]['options']['body'] ?? '', true, flags: \JSON_THROW_ON_ERROR);
         self::assertIsArray($body);
-        self::assertSame(['owner' => 'Ubermuda', 'name' => 'Loupe', 'n' => 604], $body['variables']);
+        self::assertSame(['owner' => 'Ubermuda', 'name' => 'Loupe', 'n' => 604, 'after' => null], $body['variables']);
         self::assertSame('https://api.github.com/repos/Ubermuda/Loupe/rules/branches/main', $this->requests[2]['url']);
         self::assertSame('https://api.github.com/repos/Ubermuda/Loupe/compare/main...'.self::HEAD, $this->requests[3]['url']);
+    }
+
+    public function test_every_page_of_the_check_contexts_is_read(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 70_010);
+        $first = $this->fixture('graphql');
+        $first['data']['repository']['pullRequest']['commits']['nodes'][0]['commit']['statusCheckRollup']['contexts'] = [
+            'pageInfo' => ['hasNextPage' => true, 'endCursor' => 'cursor-1'],
+            'nodes' => [['__typename' => 'CheckRun', 'name' => 'lint', 'status' => 'COMPLETED', 'conclusion' => 'SUCCESS', 'isRequired' => true]],
+        ];
+        $second = $first;
+        $second['data']['repository']['pullRequest']['commits']['nodes'][0]['commit']['statusCheckRollup']['contexts'] = [
+            'pageInfo' => ['hasNextPage' => false, 'endCursor' => 'cursor-2'],
+            'nodes' => [['__typename' => 'CheckRun', 'name' => 'e2e', 'status' => 'COMPLETED', 'conclusion' => 'FAILURE', 'isRequired' => true]],
+        ];
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer($first),
+            $this->answer($second),
+            $this->answer([['type' => 'required_status_checks', 'parameters' => ['strict_required_status_checks_policy' => false, 'required_status_checks' => [['context' => 'lint'], ['context' => 'e2e']]]]]),
+        ];
+
+        $snapshot = $this->reader()->read($pullRequest);
+
+        self::assertSame(PullRequestChecks::Failed, $snapshot->checks);
+        self::assertSame(['e2e'], $snapshot->failedChecks);
+        $body = json_decode($this->requests[2]['options']['body'] ?? '', true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertSame('cursor-1', $body['variables']['after'] ?? null);
     }
 
     public function test_behind_the_base_under_strict_rules_reads_as_behind(): void

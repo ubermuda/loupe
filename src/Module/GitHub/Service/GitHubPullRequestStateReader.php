@@ -22,10 +22,13 @@ use Psr\Log\LoggerInterface;
 final class GitHubPullRequestStateReader implements PullRequestStateReader
 {
     private const string QUERY = <<<'GRAPHQL'
-        query($owner:String!,$name:String!,$n:Int!){repository(owner:$owner,name:$name){pullRequest(number:$n){state isDraft headRefOid baseRefName mergeable mergeStateStatus reviewDecision commits(last:1){nodes{commit{oid statusCheckRollup{contexts(first:100){nodes{__typename ... on CheckRun{name status conclusion isRequired(pullRequestNumber:$n)} ... on StatusContext{context state isRequired(pullRequestNumber:$n)}}}}}}}}}}
+        query($owner:String!,$name:String!,$n:Int!,$after:String){repository(owner:$owner,name:$name){pullRequest(number:$n){state isDraft headRefOid baseRefName mergeable mergeStateStatus reviewDecision commits(last:1){nodes{commit{oid statusCheckRollup{contexts(first:100,after:$after){pageInfo{hasNextPage endCursor} nodes{__typename ... on CheckRun{name status conclusion isRequired(pullRequestNumber:$n)} ... on StatusContext{context state isRequired(pullRequestNumber:$n)}}}}}}}}}}
         GRAPHQL;
 
     private const string RULES_TTL = '+5 minutes';
+
+    /** A head with more contexts than this reads its first 1,000 only. */
+    private const int MAX_CONTEXT_PAGES = 10;
 
     /** @var array<string, array{rules: GitHubBranchRules, until: \DateTimeImmutable}> */
     private array $rules = [];
@@ -52,16 +55,7 @@ final class GitHubPullRequestStateReader implements PullRequestStateReader
         [$installationId, $path] = $this->installationFor($pullRequest);
         [$owner, $name] = explode('/', $path, 2) + [1 => ''];
 
-        try {
-            $data = $this->api->graphql($installationId, self::QUERY, ['owner' => $owner, 'name' => $name, 'n' => $pullRequest->number]);
-        } catch (GitHubAppApiFailed $e) {
-            throw new PullRequestUnreadable('api_failed_'.$e->reason, $e);
-        }
-
-        $node = $data['repository']['pullRequest'] ?? null;
-        if (!\is_array($node)) {
-            throw new PullRequestUnreadable('not_found');
-        }
+        $node = $this->pullRequestNode($installationId, $owner, $name, $pullRequest->number);
 
         $base = $node['baseRefName'] ?? null;
         $rules = \is_string($base) && '' !== $base ? $this->rules($installationId, $path, $base) : null;
@@ -71,6 +65,51 @@ final class GitHubPullRequestStateReader implements PullRequestStateReader
         }
 
         return $this->mapper->map($node, $rules, $behindBy);
+    }
+
+    /**
+     * Reads the pull request, and every page of the check contexts of its head.
+     *
+     * @return array<mixed>
+     *
+     * @throws PullRequestUnreadable
+     */
+    private function pullRequestNode(int $installationId, string $owner, string $name, int $number): array
+    {
+        $node = null;
+        $contexts = [];
+        $after = null;
+        for ($page = 1; $page <= self::MAX_CONTEXT_PAGES; ++$page) {
+            try {
+                $data = $this->api->graphql($installationId, self::QUERY, ['owner' => $owner, 'name' => $name, 'n' => $number, 'after' => $after]);
+            } catch (GitHubAppApiFailed $e) {
+                throw new PullRequestUnreadable('api_failed_'.$e->reason, $e);
+            }
+
+            $pageNode = $data['repository']['pullRequest'] ?? null;
+            if (!\is_array($pageNode)) {
+                throw new PullRequestUnreadable('not_found');
+            }
+            $node ??= $pageNode;
+
+            $connection = $pageNode['commits']['nodes'][0]['commit']['statusCheckRollup']['contexts'] ?? null;
+            $nodes = \is_array($connection) ? ($connection['nodes'] ?? null) : null;
+            if (\is_array($nodes)) {
+                $contexts = [...$contexts, ...array_values($nodes)];
+            }
+
+            $cursor = \is_array($connection) ? ($connection['pageInfo']['endCursor'] ?? null) : null;
+            if (!\is_array($connection) || true !== ($connection['pageInfo']['hasNextPage'] ?? null) || !\is_string($cursor)) {
+                break;
+            }
+            $after = $cursor;
+        }
+
+        if (\is_array($node['commits']['nodes'][0]['commit']['statusCheckRollup']['contexts'] ?? null)) {
+            $node['commits']['nodes'][0]['commit']['statusCheckRollup']['contexts']['nodes'] = $contexts;
+        }
+
+        return $node;
     }
 
     /**

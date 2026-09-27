@@ -171,8 +171,9 @@ GitHub still computes the mergeability, the worker reads again after 30, 60, 120
 and 240 seconds.
 
 The checks verdict reads only the required checks of the base branch. Loupe
-takes them from the branch rules of the repository. A required check that has
-not started yet counts as pending. When the rules require an up-to-date branch,
+takes them from the branch rules of the repository and from the checks that
+GitHub marks as required on the head. A required check that has not started yet
+counts as pending. When the rules require an up-to-date branch,
 Loupe compares the head with the base to find a branch that is behind.
 
 `app:sweep-forge-pull-requests` reads each open pull request again every ten
