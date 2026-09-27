@@ -292,12 +292,16 @@ function laneStream({
     after = '',
     rowAfter = '',
     head = false,
+    laneAfter = '',
     body,
 }) {
     const holder = document.createElement('div');
     const laneAttribute = lane === undefined ? '' : `data-lane="${lane}"`;
+    const headAttributes = head
+        ? `data-lane-head data-lane-after="${laneAfter}"`
+        : '';
     const content = body ?? card(id, column, id, 'bbb') + row(id, column);
-    holder.innerHTML = `<turbo-stream action="board-place" target="board-card-${id}" data-counts='{}' data-history='{}' data-column-id="${column}" data-after="${after}" data-row-after="${rowAfter}" ${laneAttribute} ${head ? 'data-lane-head' : ''}><template>${content}</template></turbo-stream>`;
+    holder.innerHTML = `<turbo-stream action="board-place" target="board-card-${id}" data-counts='{}' data-history='{}' data-column-id="${column}" data-after="${after}" data-row-after="${rowAfter}" ${laneAttribute} ${headAttributes}><template>${content}</template></turbo-stream>`;
 
     return holder.firstElementChild;
 }
@@ -484,6 +488,81 @@ describe('board-place on a board with lanes', () => {
         expect(placed).toHaveBeenCalledOnce();
         expect(placed.mock.calls[0][0].target).toBe(section);
         expect(placed.mock.calls[0][0].detail).toEqual({ cardId: EPIC });
+    });
+
+    describe('the order of the lanes', () => {
+        const SECOND = 'epic-2';
+        const lanes = () =>
+            [...document.querySelectorAll('.lp-board-lanes > section')].map(
+                (section) => section.id || 'other',
+            );
+        const headStream = (id, laneAfter) =>
+            laneStream({
+                id,
+                column: NEXT,
+                lane: 'other',
+                rowAfter: 'b',
+                head: true,
+                laneAfter,
+                body: laneHead(id, '0/0 done') + row(id, NEXT),
+            });
+
+        beforeEach(() => {
+            document
+                .getElementById(`board-lane-${EPIC}`)
+                .insertAdjacentHTML(
+                    'afterend',
+                    `<section class="lp-board-lane" id="board-lane-${SECOND}">${laneHead('Second', '0/0 done')}</section>`,
+                );
+        });
+
+        it('moves a lane after the lane the server names', () => {
+            placeCard(headStream(EPIC, SECOND));
+
+            expect(lanes()).toEqual([
+                `board-lane-${SECOND}`,
+                `board-lane-${EPIC}`,
+                'other',
+            ]);
+        });
+
+        it('moves a lane first when no lane comes before it', () => {
+            placeCard(headStream(SECOND, ''));
+
+            expect(lanes()).toEqual([
+                `board-lane-${SECOND}`,
+                `board-lane-${EPIC}`,
+                'other',
+            ]);
+        });
+
+        it('keeps a lane that is already in its place', () => {
+            const section = document.getElementById(`board-lane-${SECOND}`);
+
+            placeCard(headStream(SECOND, EPIC));
+
+            expect(lanes()).toEqual([
+                `board-lane-${EPIC}`,
+                `board-lane-${SECOND}`,
+                'other',
+            ]);
+            expect(document.getElementById(`board-lane-${SECOND}`)).toBe(
+                section,
+            );
+        });
+
+        it('reports a miss when the page lacks the lane before it', () => {
+            const missed = vi.fn();
+            document.addEventListener('board:place-missed', missed, {
+                once: true,
+            });
+            const before = document.body.innerHTML;
+
+            placeCard(headStream(EPIC, 'unknown-epic'));
+
+            expect(document.body.innerHTML).toBe(before);
+            expect(missed).toHaveBeenCalledOnce();
+        });
     });
 
     it('reports a miss for a lane head the page has no lane for', () => {

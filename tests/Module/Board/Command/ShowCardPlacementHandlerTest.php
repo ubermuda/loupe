@@ -233,6 +233,30 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         self::assertNotNull($view->progress);
     }
 
+    public function test_a_lane_head_follows_the_lane_before_it_in_board_order(): void
+    {
+        $this->card('Plain', 'backlog', 0);
+        $first = $this->card('First epic', 'backlog', 1, CardType::Epic);
+        $second = $this->card('Second epic', 'next', 0, CardType::Epic);
+        $third = $this->card('Third epic', 'next', 1, CardType::Epic);
+
+        $firstView = ($this->placement)(new ShowCardPlacementCommand($this->project, $first));
+        $thirdView = ($this->placement)(new ShowCardPlacementCommand($this->project, $third));
+
+        self::assertNull($firstView->laneAfter);
+        self::assertSame((string) $second->id, $thirdView->laneAfter);
+    }
+
+    public function test_a_card_that_is_no_lane_head_follows_no_lane(): void
+    {
+        $epic = $this->card('Epic', 'backlog', 0, CardType::Epic);
+        $child = $this->card('Child', 'next', 0, parent: $epic);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $child));
+
+        self::assertNull($view->laneAfter);
+    }
+
     public function test_an_epic_in_a_terminal_column_is_no_lane_head(): void
     {
         $this->card('Lane epic', 'next', 0, CardType::Epic);

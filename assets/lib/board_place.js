@@ -106,7 +106,15 @@ function placeLaneHead(stream, cardId, counts, history) {
     const list = document.querySelector('.lp-board-list');
     const rowAfter = anchor(stream.dataset.rowAfter, 'board-row-');
     const head = section?.querySelector('.lp-board-lane__head');
-    if (!head || !list || rowAfter === undefined) {
+    const laneAfter = anchor(stream.dataset.laneAfter, 'board-lane-');
+    const lanes = document.querySelector('.lp-board-lanes');
+    if (
+        !head ||
+        !list ||
+        !lanes ||
+        rowAfter === undefined ||
+        laneAfter === undefined
+    ) {
         missed(cardId);
 
         return;
@@ -125,6 +133,18 @@ function placeLaneHead(stream, cardId, counts, history) {
     }
     if (toggle && expanded !== null) {
         toggle.setAttribute('aria-expanded', expanded);
+    }
+    // A move in the page reconnects the lane controller, so a lane in place stays.
+    if (
+        laneAfter
+            ? laneAfter.nextElementSibling !== section
+            : lanes.firstElementChild !== section
+    ) {
+        if (laneAfter) {
+            laneAfter.after(section);
+        } else {
+            lanes.prepend(section);
+        }
     }
     place(
         `board-row-${cardId}`,

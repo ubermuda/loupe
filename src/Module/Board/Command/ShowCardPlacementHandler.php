@@ -69,6 +69,14 @@ final readonly class ShowCardPlacementHandler
             }
         }
 
+        // The board page draws the lanes in the order sortIntoLanes() finds their epics.
+        $laneAfter = null;
+        if ($laneHead) {
+            $epicIds = array_map(strval(...), array_keys($laneEpics));
+            $index = array_search($cardId, $epicIds, true);
+            $laneAfter = \is_int($index) && $index > 0 ? $epicIds[$index - 1] : null;
+        }
+
         $pending = null === $found ? 0 : ($this->cardSiteReviewComments->pendingCountsForProject($command->project)[(string) $found->id] ?? 0);
 
         $progress = null;
@@ -77,7 +85,7 @@ final readonly class ShowCardPlacementHandler
             $progress = new CardProgress($children['done'], $children['total']);
         }
 
-        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $counts, $terminalTotals, $progress, $lane, $laneHead);
+        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $counts, $terminalTotals, $progress, $lane, $laneHead, $laneAfter);
     }
 
     /**

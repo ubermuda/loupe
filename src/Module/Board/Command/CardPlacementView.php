@@ -29,6 +29,8 @@ final readonly class CardPlacementView
         public ?string $lane,
         /** Whether the card is a lane epic, which the board draws as the head of its lane. */
         public bool $laneHead,
+        /** For a lane head, the epic of the lane before it on the page, or null when its lane comes first. */
+        public ?string $laneAfter,
     ) {
     }
 }

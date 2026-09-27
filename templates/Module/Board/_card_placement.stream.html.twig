@@ -12,7 +12,8 @@
               data-after="{{ placement.after }}"
               data-row-after="{{ placement.rowAfter }}"{% if placement.lane is not null %}
               data-lane="{{ placement.lane }}"{% endif %}{% if placement.laneHead %}
-              data-lane-head{% endif %}{% endif %}>
+              data-lane-head
+              data-lane-after="{{ placement.laneAfter }}"{% endif %}{% endif %}>
     <template>
         {% if card is not null %}
             {% if placement.laneHead %}

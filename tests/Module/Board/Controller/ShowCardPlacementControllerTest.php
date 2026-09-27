@@ -87,6 +87,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-lane-head@example.com');
         $project = $this->project($em, $owner);
+        $before = $this->typed($em, $this->card($em, $project, 'Earlier epic', 'backlog'), CardType::Epic);
         $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
         $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
@@ -99,6 +100,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $content = (string) $client->getResponse()->getContent();
         self::assertMatchesRegularExpression('#\sdata-lane-head[\s>]#', $content);
+        self::assertStringContainsString('data-lane-after="'.$before->id.'"', $content);
         self::assertStringContainsString('class="lp-board-lane__head"', $content);
         self::assertMatchesRegularExpression('#data-lane-progress>\s*1/2 done\s*<#', $content);
         self::assertStringNotContainsString('id="board-card-'.$epic->id.'"', $content);
