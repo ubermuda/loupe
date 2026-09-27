@@ -867,7 +867,7 @@ takes these placeholders:
 |---|---|
 | `{cardId}`, `{cardNumber}` | the card's id and number |
 | `{forge}`, `{repository}`, `{pullRequestNumber}`, `{pullRequestUrl}`, `{headSha}` | the pull request fields |
-| `{conclusion}`, `{failedChecks}` | on `pull_request.checks_concluded`. The names are separated by commas |
+| `{conclusion}`, `{failedChecks}` | on `pull_request.checks_concluded`. Each name is in double quotes, and commas separate the names |
 | `{verdict}` | on `pull_request.review_submitted` |
 | `{reason}`, `{sessionId}` | on `pull_request.fix_requested` |
 | `{projectId}`, `{project}` | the project's id and slug |

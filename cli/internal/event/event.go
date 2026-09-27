@@ -407,7 +407,8 @@ func isPullRequestURL(s string) bool {
 }
 
 // checkFailedChecks checks the check names, which the forge names and a
-// prompt reads. A brace could read as a placeholder, so none is taken.
+// prompt reads. A brace could read as a placeholder, and a double quote or a
+// backslash could break the quotes a prompt puts round a name.
 func checkFailedChecks(e Event) error {
 	if len(e.FailedChecks) == 0 {
 		return nil
@@ -420,8 +421,8 @@ func checkFailedChecks(e Event) error {
 	}
 	for _, name := range e.FailedChecks {
 		if n := utf8.RuneCountInString(name); n < 1 || n > maxCheckName ||
-			strings.ContainsFunc(name, unicode.IsControl) || strings.ContainsAny(name, "{}") {
-			return fmt.Errorf("%s event has a failed check name that is empty, too long, or holds a control character or a brace", e.Type)
+			strings.ContainsFunc(name, unicode.IsControl) || strings.ContainsAny(name, "{}\"\\") {
+			return fmt.Errorf("%s event has a failed check name that is empty, too long, or holds a control character, a brace, a double quote or a backslash", e.Type)
 		}
 	}
 

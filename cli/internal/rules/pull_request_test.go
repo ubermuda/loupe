@@ -66,7 +66,7 @@ func TestMatchRendersEachPullRequestPlaceholder(t *testing.T) {
 		event  event.Event
 		values map[string]string
 	}{
-		"checks": {checks, map[string]string{"{conclusion}": "failed", "{failedChecks}": "phpunit, e2e (chromium)"}},
+		"checks": {checks, map[string]string{"{conclusion}": "failed", "{failedChecks}": `"phpunit", "e2e (chromium)"`}},
 		"review": {review, map[string]string{"{verdict}": "approved"}},
 		"fix":    {fix, map[string]string{"{reason}": "conflict", "{sessionId}": prSession}},
 		"merged": {pullRequest("pull_request.merged"), nil},

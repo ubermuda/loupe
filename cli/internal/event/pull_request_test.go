@@ -122,6 +122,8 @@ func TestParseRejectsAMalformedPullRequestEvent(t *testing.T) {
 		"failed check empty":    pullRequest(ChecksConcludedType, `"failedChecks":[""]`),
 		"failed check too long": pullRequest(ChecksConcludedType, `"failedChecks":["`+strings.Repeat("a", 201)+`"]`),
 		"failed check control":  pullRequest(ChecksConcludedType, `"failedChecks":["a\nb"]`),
+		"failed check a quote":  pullRequest(ChecksConcludedType, `"failedChecks":["a\"b"]`),
+		"failed check a slash":  pullRequest(ChecksConcludedType, `"failedChecks":["a\\b"]`),
 		"too many checks":       pullRequest(ChecksConcludedType, `"failedChecks":[`+strings.TrimSuffix(strings.Repeat(`"a",`, 101), ",")+`]`),
 		"a check not a string":  pullRequest(ChecksConcludedType, `"failedChecks":[1]`),
 		"unknown verdict":       pullRequest(PullRequestReviewSubmittedType, `"verdict":"commented"`),

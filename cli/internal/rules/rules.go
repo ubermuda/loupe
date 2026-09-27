@@ -1155,6 +1155,18 @@ func (s *Set) Health(slug string) []api.RuleHealth {
 	return out
 }
 
+// quotedList puts each name in double quotes and separates them with commas.
+// The forge names a check, so the quotes mark it as a value. Parse refuses a
+// name that holds a double quote or a backslash.
+func quotedList(names []string) string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = `"` + n + `"`
+	}
+
+	return strings.Join(out, ", ")
+}
+
 // values fills placeholders from fields Parse validated and from the slug the
 // rule file maps. Nothing a person wrote on the board is among them.
 func values(e event.Event, slug string) map[string]string {
@@ -1193,7 +1205,7 @@ func values(e event.Event, slug string) map[string]string {
 		switch e.Type {
 		case event.ChecksConcludedType:
 			v["conclusion"] = e.Conclusion
-			v["failedChecks"] = strings.Join(e.FailedChecks, ", ")
+			v["failedChecks"] = quotedList(e.FailedChecks)
 		case event.PullRequestReviewSubmittedType:
 			v["verdict"] = e.Verdict
 		case event.FixRequestedType:
