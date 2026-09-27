@@ -8,6 +8,7 @@ use App\Module\Board\Mcp\FeedbackMarkAddressedTool;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Tests\Support\McpRefusalMessages;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -126,7 +127,7 @@ final class FeedbackMarkAddressedToolTest extends KernelTestCase
         $this->actAsUnboundMcpToken($project->owner);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
+        $this->expectExceptionMessage(McpRefusalMessages::NO_PROJECT_REACHED);
         ($this->tool)([]);
     }
 

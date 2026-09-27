@@ -436,7 +436,7 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         ], content: '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"document_list","arguments":{}}}');
         $body = (string) $this->browser->getResponse()->getContent();
         self::assertResponseIsSuccessful();
-        self::assertStringNotContainsString('not bound to a project', $body);
+        self::assertStringNotContainsString('reaches no project', $body);
         self::assertStringContainsString('"documents"', $body);
     }
 

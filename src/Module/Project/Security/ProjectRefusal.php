@@ -15,5 +15,7 @@ enum ProjectRefusal: string
     case HeaderMalformed = 'header-malformed';
     case HeaderNotCovered = 'header-not-covered';
     case SeveralProjectsAndNoHeader = 'several-projects-and-no-header';
+    case NoProject = 'no-project';
+    case HeaderNotBound = 'header-not-bound';
     case Unbound = 'unbound';
 }
