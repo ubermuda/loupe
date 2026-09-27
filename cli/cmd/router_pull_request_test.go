@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/directive"
@@ -193,6 +196,41 @@ func TestAnAskResumeWithAMissingSessionIsUnchanged(t *testing.T) {
 		t.Fatalf("workers = %+v", calls)
 	}
 	if got := h.events(t, "resume_session_missing"); len(got) != 0 {
+		t.Fatalf("resume_session_missing = %v", got)
+	}
+}
+
+// A fix request resume that a handover adopts while it runs is still a
+// resume. When its session is missing, the adopter starts one fresh run.
+func TestAnAdoptedFixRequestResumeFallsBackToAFreshRun(t *testing.T) {
+	dir := endedRunDir(t, "", 1)
+	if err := os.WriteFile(filepath.Join(dir, "stderr"), []byte(missingSession+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e, err := event.Parse([]byte(fix{card: 87, session: askSession, bridge: testBridgeID}.payload()), map[string]bool{event.FixRequestedType: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := pending{key: cardUUID(87), rule: "fix", event: e, runID: "run-9", seq: 3}
+	p.spec.resume, p.spec.sessionID = true, askSession
+	h1 := newHarnessWith(t, fixRules, rules.Defaults{})
+	h1.router.mu.Lock()
+	h1.router.hold(p.key)
+	h1.router.active++
+	h1.router.trackLocked(liveRun{p: p, began: time.Now(), proc: workerProc{dir: dir}})
+	h1.router.mu.Unlock()
+	st := roundTrip(t, h1.router.freeze())
+
+	h2 := newHarnessWith(t, fixRules, rules.Defaults{})
+	h2.worker.result = finishedRun
+	h2.router.adopt(st)
+	h2.router.wg.Wait()
+
+	calls := h2.worker.recorded()
+	if len(calls) != 1 || calls[0].resume || calls[0].sessionID != testSession || calls[0].prompt != fixPrompt("87") {
+		t.Fatalf("workers = %+v", calls)
+	}
+	if got := h2.events(t, "resume_session_missing"); len(got) != 1 {
 		t.Fatalf("resume_session_missing = %v", got)
 	}
 }

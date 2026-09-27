@@ -99,6 +99,10 @@ type handoverRun struct {
 	PID       int         `json:"pid"`
 	Dir       string      `json:"dir"`
 	Seq       uint64      `json:"seq,omitempty"`
+	// Resume says the run resumed the session its event names, and Fresh that
+	// it replaced such a resume. A missing session reads both.
+	Resume bool `json:"resume,omitempty"`
+	Fresh  bool `json:"fresh,omitempty"`
 	handoverSeries
 }
 
@@ -293,7 +297,8 @@ func (r *router) freeze() handoverState {
 	for _, run := range r.live {
 		st.Live = append(st.Live, handoverRun{
 			RunID: run.p.runID, Key: run.p.key, Rule: run.p.rule, Event: run.p.event, SessionID: run.p.spec.sessionID,
-			Began: run.began, PID: run.proc.pid, Dir: run.proc.dir, Seq: run.p.seq, handoverSeries: seriesOf(run.p),
+			Began: run.began, PID: run.proc.pid, Dir: run.proc.dir, Seq: run.p.seq, Resume: run.p.spec.resume, Fresh: run.p.fresh,
+			handoverSeries: seriesOf(run.p),
 		})
 	}
 	slices.SortFunc(st.Live, func(a, b handoverRun) int {
@@ -346,9 +351,9 @@ func (r *router) adopt(st handoverState) {
 // adoptLocked waits for one worker a former image started, on its own
 // goroutine. The caller holds mu.
 func (r *router) adoptLocked(run handoverRun) {
-	p := pending{key: run.Key, rule: run.Rule, event: run.Event, runID: run.RunID, seq: run.Seq}
+	p := pending{key: run.Key, rule: run.Rule, event: run.Event, runID: run.RunID, seq: run.Seq, fresh: run.Fresh}
 	run.applyTo(&p)
-	p.spec.sessionID = run.SessionID
+	p.spec.sessionID, p.spec.resume = run.SessionID, run.Resume
 	r.active++
 	r.hold(p.key)
 	r.trackLocked(liveRun{p: p, began: run.Began, proc: workerProc{pid: run.PID, dir: run.Dir}})
