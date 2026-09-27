@@ -152,7 +152,99 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         self::assertSame($pageCounts, $view->counts);
     }
 
-    private function card(string $title, string $slug, int $position): Card
+    public function test_a_board_with_no_lane_gives_no_lane_key(): void
+    {
+        $card = $this->card('Alone', 'next', 0);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $card));
+
+        self::assertNull($view->lane);
+        self::assertFalse($view->laneHead);
+    }
+
+    public function test_a_child_of_a_lane_epic_sits_in_the_lane_of_its_epic(): void
+    {
+        $epic = $this->card('Epic', 'next', 0, CardType::Epic);
+        $child = $this->card('Child', 'next', 1, parent: $epic);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $child));
+
+        self::assertSame((string) $epic->id, $view->lane);
+        self::assertFalse($view->laneHead);
+    }
+
+    public function test_a_card_with_no_parent_sits_in_the_other_lane(): void
+    {
+        $this->card('Epic', 'next', 0, CardType::Epic);
+        $orphan = $this->card('Orphan', 'backlog', 0);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $orphan));
+
+        self::assertSame('other', $view->lane);
+    }
+
+    public function test_a_child_of_an_epic_with_its_lane_off_sits_in_the_other_lane(): void
+    {
+        $this->card('Lane epic', 'next', 0, CardType::Epic);
+        $laneOff = $this->card('Epic with no lane', 'next', 1, CardType::Epic);
+        $laneOff->laneEnabled = false;
+        $this->em->flush();
+        $child = $this->card('Child', 'backlog', 0, parent: $laneOff);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $child));
+
+        self::assertSame('other', $view->lane);
+        self::assertFalse($view->laneHead);
+    }
+
+    public function test_a_card_in_a_lane_follows_the_card_before_it_in_the_same_lane(): void
+    {
+        $epic = $this->card('Epic', 'next', 0, CardType::Epic);
+        $first = $this->card('First child', 'next', 1, parent: $epic);
+        $orphan = $this->card('Orphan', 'next', 2);
+        $second = $this->card('Second child', 'next', 3, parent: $epic);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $second));
+
+        self::assertSame((string) $first->id, $view->after);
+        self::assertSame((string) $orphan->id, $view->rowAfter);
+    }
+
+    public function test_the_first_card_of_a_lane_skips_the_lane_epic_before_it(): void
+    {
+        $epic = $this->card('Epic', 'next', 0, CardType::Epic);
+        $child = $this->card('Child', 'next', 1, parent: $epic);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $child));
+
+        self::assertNull($view->after);
+        self::assertSame((string) $epic->id, $view->rowAfter);
+    }
+
+    public function test_a_lane_epic_is_a_lane_head(): void
+    {
+        $this->card('Before', 'next', 0);
+        $epic = $this->card('Epic', 'next', 1, CardType::Epic);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $epic));
+
+        self::assertTrue($view->laneHead);
+        self::assertNull($view->after);
+        self::assertNotNull($view->progress);
+    }
+
+    public function test_an_epic_in_a_terminal_column_is_no_lane_head(): void
+    {
+        $this->card('Lane epic', 'next', 0, CardType::Epic);
+        $finished = $this->card('Finished epic', 'done', 0, CardType::Epic);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $finished));
+
+        self::assertFalse($view->laneHead);
+        self::assertSame('other', $view->lane);
+    }
+
+    private function card(string $title, string $slug, int $position, CardType $type = CardType::Feature, ?Card $parent = null): Card
     {
         $column = $this->column($this->project, $slug);
         $card = new Card(
@@ -161,9 +253,10 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
             title: $title,
             body: '',
             number: $this->nextNumber++,
-            type: CardType::Feature,
+            type: $type,
             position: $position,
         );
+        $card->parent = $parent;
         if ($column->terminal) {
             $card->completedAt = new \DateTimeImmutable();
         }
