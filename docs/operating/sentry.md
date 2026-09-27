@@ -39,7 +39,9 @@ as a failure. They check the DSN format only, and never call Sentry.
   local instance with a DSN sends traces and no profiles. `/admin/status`
   warns when profiles are sampled and Excimer is missing.
 - Each unhandled exception from a web request, a worker message or a console
-  command, except a 404 or 405 response.
+  command, except a 404 or 405 response. An access denial on a web request
+  with no signed-in user is also left out, because Loupe answers it with a
+  redirect to the login page or a 401 response.
 - The errors of scheduled tasks. Scheduled tasks send no traces.
 
 Twig and cache spans are off. A render or cache span between two queries hides
