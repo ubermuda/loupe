@@ -22,6 +22,7 @@ use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\CardParentResolver;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
+use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
@@ -43,6 +44,7 @@ final readonly class UpdateCardHandler
         private BoardColumnRepository $boardColumns,
         private CardMover $mover,
         private PullRequestUrlResolver $pullRequests,
+        private PullRequestTracking $pullRequestTracking,
         private DocumentLinkResolver $documentLinks,
         private CardLinkResolver $cardLinks,
         private CardLinkSync $cardLinkSync,
@@ -194,7 +196,9 @@ final readonly class UpdateCardHandler
             if (null !== $documents) {
                 $card->syncDocuments(...$documents);
             }
+            $trackedBefore = null;
             if (null !== $command->pullRequestUrls) {
+                $trackedBefore = $this->pullRequestTracking->referencesOf($card);
                 $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
             }
             if (null !== $relatedCards) {
@@ -203,6 +207,10 @@ final readonly class UpdateCardHandler
 
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
+
+            if (null !== $trackedBefore) {
+                $this->pullRequestTracking->apply($card->project, $trackedBefore, $this->pullRequestTracking->referencesOf($card));
+            }
 
             // Only the two columns the vector is built from. A move or a link
             // change leaves the searchable text alone, so it costs no reindex.
