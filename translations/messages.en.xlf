@@ -6206,6 +6206,7 @@
             <trans-unit id="github.repositories.remove.confirm"><source>github.repositories.remove.confirm</source><target>Remove</target></trans-unit>
             <trans-unit id="github.repositories.hook.eyebrow"><source>github.repositories.hook.eyebrow</source><target>Webhook</target></trans-unit>
             <trans-unit id="github.repositories.hook.unavailable"><source>github.repositories.hook.unavailable</source><target>The operator has not enabled webhooks on this instance.</target></trans-unit>
+            <trans-unit id="github.repositories.hook.no_automation"><source>github.repositories.hook.no_automation</source><target>A webhook connection gets no pull request automation. A GitHub App connection does.</target></trans-unit>
             <trans-unit id="github.repositories.hook.purpose"><source>github.repositories.hook.purpose</source><target>Create a webhook, then add it to each repository on GitHub. Each repository that sends a delivery becomes connected to this project.</target></trans-unit>
             <trans-unit id="github.repositories.hook.create"><source>github.repositories.hook.create</source><target>Create a webhook</target></trans-unit>
             <trans-unit id="github.repositories.hook.health.waiting"><source>github.repositories.hook.health.waiting</source><target>Waiting for the first delivery</target></trans-unit>

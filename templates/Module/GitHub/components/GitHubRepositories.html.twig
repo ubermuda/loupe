@@ -72,6 +72,9 @@
 
         <div class="lp-connect-block" id="github-hook">
             <p class="lp-eyebrow">{{ 'github.repositories.hook.eyebrow'|trans }}</p>
+            {% if hookAvailable %}
+            <p class="lp-connect-hint" data-testid="github-hook-no-automation">{{ 'github.repositories.hook.no_automation'|trans }}</p>
+            {% endif %}
             {% if not hookAvailable %}
             <p class="lp-connect-hint" data-testid="github-hook-disabled">{{ 'github.repositories.hook.unavailable'|trans }}</p>
             {% elseif hook is null %}

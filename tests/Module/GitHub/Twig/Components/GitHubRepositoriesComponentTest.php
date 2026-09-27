@@ -34,6 +34,7 @@ final class GitHubRepositoriesComponentTest extends WebTestCase
         self::assertCount(0, $section->filter('[data-forge-repository]'));
         self::assertCount(1, $section->filter('[data-testid="github-hook-create"]'));
         self::assertCount(0, $section->filter('[data-testid="github-hook-url"]'));
+        self::assertStringContainsString('no pull request automation', $section->filter('#github-hook [data-testid="github-hook-no-automation"]')->text());
     }
 
     public function test_a_stranger_cannot_open_the_page_of_another_project(): void
@@ -97,6 +98,7 @@ final class GitHubRepositoriesComponentTest extends WebTestCase
         self::assertCount(0, $section->filter('[data-testid="github-hook-secret"]'));
         self::assertStringNotContainsString($secret, (string) $client->getResponse()->getContent());
         self::assertCount(1, $section->filter('[data-testid="github-hook-rotate"]'));
+        self::assertCount(1, $section->filter('#github-hook [data-testid="github-hook-no-automation"]'));
     }
 
     public function test_an_unreadable_key_says_webhooks_are_off_and_hides_the_actions(): void
@@ -197,5 +199,7 @@ final class GitHubRepositoriesComponentTest extends WebTestCase
         self::assertStringNotContainsString('The operator has not enabled forge connections', $section->text());
         self::assertStringContainsString('The operator has not enabled webhooks', $section->text());
         self::assertCount(0, $section->filter('[data-testid="github-hook-create"]'));
+        self::assertCount(1, $section->filter('#github-hook'));
+        self::assertCount(0, $section->filter('[data-testid="github-hook-no-automation"]'));
     }
 }
