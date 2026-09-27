@@ -357,6 +357,46 @@ test('a collapsed lane stays collapsed in this browser only', async ({
     await expectBothLanesOpenElsewhere(browser, board, [first, second]);
 });
 
+test('a collapsed lane stays collapsed when a live update morphs the board', async ({
+    page,
+    board,
+}) => {
+    const epic = await board.create(`Morphed epic ${RUN}`, { type: 'epic' });
+    await board.create(`Morphed child ${RUN}`, { parent: epic });
+
+    await page.goto(board.boardUrl);
+    await expect(page.locator(READY)).toBeAttached();
+    const toggle = lane(page, epic.id).locator(
+        'button[data-action="board-lane#toggle"]',
+    );
+    await toggle.click();
+    await expect(lane(page, epic.id)).toHaveClass(/lp-board-lane--collapsed/);
+
+    // The frame reload is what a worker run or a column change triggers.
+    await lane(page, epic.id).evaluate(async (section) => {
+        (section as unknown as { kept: boolean }).kept = true;
+        const frame = document.getElementById('board-frame') as HTMLElement & {
+            reload(): void;
+        };
+        const rendered = new Promise((resolve) =>
+            document.addEventListener('turbo:frame-render', resolve, {
+                once: true,
+            }),
+        );
+        frame.reload();
+        await rendered;
+    });
+
+    await expect(lane(page, epic.id)).toHaveJSProperty('kept', true);
+    await expect(lane(page, epic.id)).toHaveClass(/lp-board-lane--collapsed/);
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await toggle.click();
+    await expect(lane(page, epic.id)).not.toHaveClass(
+        /lp-board-lane--collapsed/,
+    );
+});
+
 /** A second browser context has its own storage, so it shows every lane open. */
 async function expectBothLanesOpenElsewhere(
     browser: Browser,
