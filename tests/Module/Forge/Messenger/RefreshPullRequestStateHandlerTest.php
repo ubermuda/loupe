@@ -119,6 +119,17 @@ final class RefreshPullRequestStateHandlerTest extends KernelTestCase
         self::assertSame([], $this->changes);
     }
 
+    public function test_the_skip_rule_keeps_microseconds_through_the_database(): void
+    {
+        $row = $this->row(refreshedAt: '2026-09-27 11:59:00.200000');
+        $this->em->clear();
+
+        $this->handle($row, '2026-09-27 11:59:00.150000');
+
+        self::assertSame(0, $this->reader->reads);
+        self::assertSame('2026-09-27 11:59:00.200000', $this->reload($row)->refreshedAt?->format('Y-m-d H:i:s.u'));
+    }
+
     public function test_a_row_read_before_the_request_is_read_again(): void
     {
         $row = $this->row(refreshedAt: '2026-09-27 11:59:00');

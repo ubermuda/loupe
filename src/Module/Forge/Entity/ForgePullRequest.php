@@ -8,6 +8,7 @@ use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Types\Types;
+use App\Doctrine\Type\MicrosecondDateTimeImmutableType;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -61,7 +62,8 @@ class ForgePullRequest
     #[ORM\Column]
     public bool $readyToMerge = false;
 
-    #[ORM\Column(nullable: true)]
+    /** Kept to the microsecond, because the refresh skip rule compares it with the request time of a message. */
+    #[ORM\Column(type: MicrosecondDateTimeImmutableType::NAME, nullable: true, columnDefinition: 'TIMESTAMP(6) WITHOUT TIME ZONE DEFAULT NULL')]
     public ?\DateTimeImmutable $refreshedAt = null;
 
     /** The reads in a row that found the mergeability unknown. */
