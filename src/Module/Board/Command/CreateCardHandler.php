@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -173,6 +174,9 @@ final readonly class CreateCardHandler
             CardChanged::CREATED,
             true,
         ));
+        if ($card->drawsLane()) {
+            $this->events->dispatch(new BoardColumnsChanged($command->project));
+        }
 
         return $card;
     }
