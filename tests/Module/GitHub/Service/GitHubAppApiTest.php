@@ -193,6 +193,61 @@ final class GitHubAppApiTest extends TestCase
         self::assertSame(['statuses', 'metadata'], $access->missingReadAccess(['checks', 'contents', 'statuses', 'metadata']));
     }
 
+    public function test_graphql_posts_the_query_with_the_installation_token_and_answers_the_data(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            $this->ok(['data' => ['repository' => ['pullRequest' => null]], 'errors' => [['type' => 'NOT_FOUND']]]),
+        ]);
+
+        $data = $api->graphql(42, 'query($n:Int!){x}', ['n' => 7]);
+
+        self::assertSame(['repository' => ['pullRequest' => null]], $data);
+        self::assertCount(2, $this->requests);
+        self::assertSame('POST', $this->requests[1]['method']);
+        self::assertSame('https://api.github.com/graphql', $this->requests[1]['url']);
+        self::assertSame(self::TOKEN, $this->bearer(1));
+        $body = $this->requests[1]['options']['body'] ?? null;
+        self::assertIsString($body);
+        self::assertSame(['query' => 'query($n:Int!){x}', 'variables' => ['n' => 7]], json_decode($body, true, flags: \JSON_THROW_ON_ERROR));
+    }
+
+    public function test_graphql_without_data_fails_as_graphql_error(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            $this->ok(['errors' => [['message' => 'Parse error']]]),
+        ]);
+
+        self::assertSame('graphql_error', $this->failure(static fn () => $api->graphql(42, '{', []))->reason);
+    }
+
+    public function test_get_sends_the_query_with_the_installation_token(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            $this->ok([['type' => 'deletion']]),
+        ]);
+
+        self::assertSame([['type' => 'deletion']], $api->get(42, '/repos/acme/widgets/rules/branches/main', ['page' => 1]));
+        self::assertSame('GET', $this->requests[1]['method']);
+        self::assertSame('https://api.github.com/repos/acme/widgets/rules/branches/main?page=1', $this->requests[1]['url']);
+        self::assertSame(self::TOKEN, $this->bearer(1));
+    }
+
+    public function test_get_names_the_status_of_a_refused_request(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            new MockResponse('{"message":"Not Found"}', ['http_code' => 404]),
+        ]);
+
+        $failure = $this->failure(static fn () => $api->get(42, '/repos/acme/widgets/compare/main...abc'));
+
+        self::assertSame('http_status', $failure->reason);
+        self::assertSame(404, $failure->status);
+    }
+
     /** @param list<MockResponse> $responses */
     private function api(array $responses, ?string $appId = '123456', ?string $key = null, ?MockClock $clock = null): GitHubAppApi
     {

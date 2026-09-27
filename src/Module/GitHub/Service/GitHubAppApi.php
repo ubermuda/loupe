@@ -16,8 +16,9 @@ use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * The calls Loupe makes as the App itself. Installation tokens stay in this
- * object's memory only: a shared cache pool would rest them in the database.
+ * The calls Loupe makes as the App and as one of its installations. Tokens
+ * stay in this object's memory only: a shared cache pool would rest them in
+ * the database.
  */
 final class GitHubAppApi
 {
@@ -96,6 +97,36 @@ final class GitHubAppApi
         return $installations;
     }
 
+    /**
+     * Answers the `data` member. GitHub reports a missing node as null data
+     * beside an `errors` entry, so errors alone do not fail the call.
+     *
+     * @param array<string, mixed> $variables
+     *
+     * @return array<mixed>
+     *
+     * @throws GitHubAppApiFailed
+     */
+    public function graphql(int $installationId, string $query, array $variables): array
+    {
+        $body = $this->send('POST', '/graphql', ['json' => ['query' => $query, 'variables' => $variables]], $this->installationToken($installationId));
+        $data = $body['data'] ?? null;
+
+        return \is_array($data) ? $data : throw new GitHubAppApiFailed('graphql_error');
+    }
+
+    /**
+     * @param array<string, scalar> $query
+     *
+     * @return array<mixed>
+     *
+     * @throws GitHubAppApiFailed
+     */
+    public function get(int $installationId, string $path, array $query = []): array
+    {
+        return $this->send('GET', $path, [] === $query ? [] : ['query' => $query], $this->installationToken($installationId));
+    }
+
     /** @throws GitHubAppApiFailed */
     private function jwt(): string
     {
@@ -126,9 +157,9 @@ final class GitHubAppApi
      *
      * @throws GitHubAppApiFailed
      */
-    private function send(string $method, string $path, array $options): array
+    private function send(string $method, string $path, array $options, ?string $installationToken = null): array
     {
-        $options['headers'] = ['Authorization' => 'Bearer '.$this->jwt()];
+        $options['headers'] = ['Authorization' => 'Bearer '.($installationToken ?? $this->jwt())];
         try {
             $response = $this->githubApiClient->request($method, $path, $options);
             $status = $response->getStatusCode();
