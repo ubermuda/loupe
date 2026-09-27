@@ -37,7 +37,8 @@ repository as its working directory, and `loupe mcp` reads `.loupe.yaml` from
 there, so the project comes from the repository rather than from the
 declaration. A worktree gets it for free. A repository with no `.loupe.yaml`
 still starts the server, with no project: your login then acts on your single
-project, or refuses and asks which one when you own several.
+project, or refuses and asks which one when you own several. The refusal
+names `loupe init` as the fix.
 
 `loupe mcp` reads `.loupe.yaml` again when the file changes, so a new project
 reaches the agent at its next request. A file that fails to parse keeps the last

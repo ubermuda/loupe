@@ -20,7 +20,7 @@ final class WorkerRunStateTest extends TestCase
     public function test_every_state_has_its_backing_value(): void
     {
         self::assertSame(
-            ['queued', 'replaced', 'resumed', 'skipped', 'running', 'waiting-for-person', 'dropped', 'succeeded', 'failed', 'not-started', 'no-result', 'unfinished', 'blocked', 'gave-up', 'timed-out', 'lost', 'closed'],
+            ['queued', 'replaced', 'resumed', 'skipped', 'running', 'waiting-for-person', 'dropped', 'succeeded', 'failed', 'not-started', 'no-result', 'unfinished', 'blocked', 'waiting-on-forge', 'gave-up', 'timed-out', 'lost', 'closed'],
             array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::cases()),
         );
     }
@@ -39,6 +39,7 @@ final class WorkerRunStateTest extends TestCase
         yield 'a finished worker' => [0, true, 'finished', WorkerRunState::Succeeded];
         yield 'a blocked worker' => [0, true, 'blocked', WorkerRunState::Blocked];
         yield 'an unfinished worker' => [0, true, 'unfinished', WorkerRunState::Unfinished];
+        yield 'a worker that waits on the forge' => [0, true, 'waiting', WorkerRunState::WaitingOnForge];
         yield 'a failed exit wins over the status' => [1, true, 'finished', WorkerRunState::Failed];
     }
 
@@ -60,6 +61,12 @@ final class WorkerRunStateTest extends TestCase
         self::assertSame('failed', WorkerRunState::GaveUp->chipModifier());
     }
 
+    public function test_a_run_that_waits_on_the_forge_reads_as_pending(): void
+    {
+        self::assertSame('bridge.worker_runs.state.waiting_on_forge', WorkerRunState::WaitingOnForge->translationKey());
+        self::assertSame('pending', WorkerRunState::WaitingOnForge->chipModifier());
+    }
+
     public function test_no_result_reads_as_a_failure_on_the_page(): void
     {
         self::assertSame('no-result', WorkerRunState::NoResult->value);
@@ -70,7 +77,7 @@ final class WorkerRunStateTest extends TestCase
     public function test_only_the_exit_code_states_are_outcomes(): void
     {
         self::assertSame(
-            ['succeeded', 'failed', 'not-started', 'no-result', 'unfinished', 'blocked', 'gave-up'],
+            ['succeeded', 'failed', 'not-started', 'no-result', 'unfinished', 'blocked', 'waiting-on-forge', 'gave-up'],
             array_values(array_map(
                 static fn (WorkerRunState $state): string => $state->value,
                 array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome()),

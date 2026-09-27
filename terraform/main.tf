@@ -175,6 +175,8 @@ module "app" {
     var.github_app_client_id == "" ? {} : { GITHUB_APP_CLIENT_ID = { value = var.github_app_client_id } },
     var.github_app_client_secret == "" ? {} : { GITHUB_APP_CLIENT_SECRET = { value = var.github_app_client_secret, type = "SECRET" } },
     var.github_app_webhook_secret == "" ? {} : { GITHUB_APP_WEBHOOK_SECRET = { value = var.github_app_webhook_secret, type = "SECRET" } },
+    var.github_app_id == "" ? {} : { GITHUB_APP_ID = { value = var.github_app_id } },
+    var.github_app_private_key == "" ? {} : { GITHUB_APP_PRIVATE_KEY = { value = var.github_app_private_key, type = "SECRET" } },
 
     var.oauth_google_id == "" ? {} : { OAUTH_GOOGLE_ID = { value = var.oauth_google_id } },
     var.oauth_google_secret == "" ? {} : { OAUTH_GOOGLE_SECRET = { value = var.oauth_google_secret, type = "SECRET" } },

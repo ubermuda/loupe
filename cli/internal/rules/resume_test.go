@@ -60,8 +60,8 @@ func TestParseRefusesAMisplacedResume(t *testing.T) {
 		body string
 		want string
 	}{
-		"resume on card_moved":       {rule("on: board.card_moved\nproject: loupe\nto: ready\nresume: true\nprompt: x"), "resume applies to inbox.ask_closed only"},
-		"resume on a generic type":   {rule("on: board.card_created\nproject: loupe\nresume: true\nprompt: x"), "resume applies to inbox.ask_closed only"},
+		"resume on card_moved":       {rule("on: board.card_moved\nproject: loupe\nto: ready\nresume: true\nprompt: x"), "resume applies to inbox.ask_closed and pull_request.fix_requested only"},
+		"resume on a generic type":   {rule("on: board.card_created\nproject: loupe\nresume: true\nprompt: x"), "resume applies to inbox.ask_closed and pull_request.fix_requested only"},
 		"ask_closed without resume":  {rule("on: inbox.ask_closed\nproject: loupe\nprompt: x"), "inbox.ask_closed needs resume: true"},
 		"ask_closed with resume off": {rule("on: inbox.ask_closed\nproject: loupe\nresume: false\nprompt: x"), "inbox.ask_closed needs resume: true"},
 		"ask_closed with a column":   {rule("on: inbox.ask_closed\nproject: loupe\nresume: true\nto: ready\nprompt: x"), "apply to board.card_moved only"},
