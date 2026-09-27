@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Module\Forge\Messenger;
+namespace App\Tests\Module\Forge\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Forge\Command\ReadPullRequestStateCommand;
+use App\Module\Forge\Command\ReadPullRequestStateHandler;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -28,7 +30,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
-final class RefreshPullRequestStateHandlerTest extends KernelTestCase
+final class ReadPullRequestStateHandlerTest extends KernelTestCase
 {
     private const string NOW = '2026-09-27 12:00:00';
 
@@ -40,7 +42,7 @@ final class RefreshPullRequestStateHandlerTest extends KernelTestCase
     /** @var list<PullRequestStateChanged> */
     private array $changes = [];
 
-    private RefreshPullRequestStateHandler $handler;
+    private ReadPullRequestStateHandler $handler;
 
     protected function setUp(): void
     {
@@ -64,7 +66,7 @@ final class RefreshPullRequestStateHandlerTest extends KernelTestCase
         $this->reader = new FakePullRequestStateReader();
         $this->clock = new MockClock(self::NOW);
         $this->logger = new RecordingLogger();
-        $this->handler = new RefreshPullRequestStateHandler(
+        $this->handler = new ReadPullRequestStateHandler(
             $forgePullRequests,
             new PullRequestStateReaders([$this->reader]),
             $em,
@@ -155,8 +157,8 @@ final class RefreshPullRequestStateHandlerTest extends KernelTestCase
     {
         $gitlab = $this->row(forge: 'gitlab');
 
-        ($this->handler)(new RefreshPullRequestState('0199a0b8-0000-7000-8000-000000000000', new \DateTimeImmutable(self::NOW)));
-        ($this->handler)(new RefreshPullRequestState('not-a-uuid', new \DateTimeImmutable(self::NOW)));
+        ($this->handler)(new ReadPullRequestStateCommand('0199a0b8-0000-7000-8000-000000000000', new \DateTimeImmutable(self::NOW)));
+        ($this->handler)(new ReadPullRequestStateCommand('not-a-uuid', new \DateTimeImmutable(self::NOW)));
         $this->handle($gitlab, self::NOW);
 
         self::assertSame(0, $this->reader->reads);
@@ -167,11 +169,11 @@ final class RefreshPullRequestStateHandlerTest extends KernelTestCase
     {
         $row = $this->row();
         $this->reader->answers = array_fill(0, 5, new PullRequestSnapshot());
-        $message = new RefreshPullRequestState((string) $row->id, new \DateTimeImmutable(self::NOW));
+        $command = new ReadPullRequestStateCommand((string) $row->id, new \DateTimeImmutable(self::NOW));
 
         $delays = [];
         for ($read = 1; $read <= 5; ++$read) {
-            ($this->handler)($message);
+            ($this->handler)($command);
             $this->em->clear();
             $sent = $this->sent();
             if (\count($sent) < $read) {
@@ -186,7 +188,7 @@ final class RefreshPullRequestStateHandlerTest extends KernelTestCase
             self::assertSame($read, $fresh->refreshAttempts);
             self::assertEquals($this->clock->now()->modify('+'.($delay ?? 0) / 1000 .' seconds'), $fresh->nextRefreshAt);
             self::assertEquals($fresh->nextRefreshAt, $next->requestedAt);
-            $message = $next;
+            $command = new ReadPullRequestStateCommand($next->pullRequestId, $next->requestedAt);
         }
 
         self::assertSame(5, $this->reader->reads, 'A re-queued message is never skipped as already read.');
@@ -271,7 +273,7 @@ final class RefreshPullRequestStateHandlerTest extends KernelTestCase
 
     private function handle(ForgePullRequest $row, string $requestedAt): void
     {
-        ($this->handler)(new RefreshPullRequestState((string) $row->id, new \DateTimeImmutable($requestedAt)));
+        ($this->handler)(new ReadPullRequestStateCommand((string) $row->id, new \DateTimeImmutable($requestedAt)));
         $this->em->clear();
     }
 
