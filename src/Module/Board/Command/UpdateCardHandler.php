@@ -138,8 +138,12 @@ final readonly class UpdateCardHandler
                     return $refusal;
                 }
                 $card->parent = $parent;
+            } elseif (null !== $command->laneEnabled || null !== $command->column) {
+                // A lane toggle or a move decides whether a lane shows, from the committed setting.
+                $this->cards->refreshTypeAndParent($card);
             }
             $laneChanged = null !== $command->laneEnabled && $command->laneEnabled !== $card->laneEnabled;
+            $lanesBefore = $card->drawsLane();
 
             // Only a card with children can be refused, and only an epic has
             // children. The app itself closes an epic by the same path.
@@ -207,6 +211,7 @@ final readonly class UpdateCardHandler
 
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
+            $lanesAfter = $card->drawsLane();
 
             if (null !== $trackedBefore) {
                 $this->pullRequestTracking->apply($card->project, $trackedBefore, $this->pullRequestTracking->referencesOf($card));
@@ -228,7 +233,7 @@ final readonly class UpdateCardHandler
                 $this->events->dispatch(new CardParentChanged($card, $oldParent, $card->parent, $command->actor));
             }
 
-            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged, $contentChanged, $openedRun);
+            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged, $lanesBefore !== $lanesAfter, $contentChanged, $openedRun);
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
@@ -278,7 +283,7 @@ final readonly class UpdateCardHandler
             ));
         }
         // A lane adds or removes a board row, which no placement of one card shows.
-        if ($outcome->laneChanged) {
+        if ($outcome->laneShownChanged) {
             $this->events->dispatch(new BoardColumnsChanged($card->project));
         }
 

@@ -8,9 +8,9 @@ use App\Module\Project\Entity\Project;
 
 /**
  * Dispatched after a change to the board's layout commits: a column add,
- * rename, reorder, flag change or delete, or an epic lane turned on or off. A
- * listener sees only committed state, so it may call out of the process, and a
- * rollback dispatches nothing.
+ * rename, reorder, flag change or delete, or an epic lane that appears or
+ * disappears. An update that runs inside another handler's transaction
+ * dispatches it before that commit, so a rollback costs a board one reload.
  */
 final readonly class BoardColumnsChanged
 {

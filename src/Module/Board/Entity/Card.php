@@ -165,6 +165,12 @@ class Card implements ProjectScopedSubject
         return trim(str_replace(["\r\n", "\r"], "\n", $text));
     }
 
+    /** Whether the board draws this card as a lane of its own. */
+    public function drawsLane(): bool
+    {
+        return CardType::Epic === $this->type && $this->laneEnabled && !$this->column->terminal;
+    }
+
     /** Replaces every pull request link with the given set. An empty list clears them. */
     public function replacePullRequests(CardPullRequest ...$links): void
     {
