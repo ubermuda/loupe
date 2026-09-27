@@ -91,6 +91,16 @@ final class GitHubPullRequestStateMapperTest extends TestCase
         self::assertSame(PullRequestChecks::Passed, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->checks);
     }
 
+    public function test_a_check_run_and_a_status_that_share_a_name_must_both_pass(): void
+    {
+        $node = self::withContexts(self::pullRequest604(), [self::checkRun('build', 'COMPLETED', 'FAILURE'), self::statusContext('build', 'SUCCESS')]);
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, new GitHubBranchRules(['build'], false), null);
+
+        self::assertSame(PullRequestChecks::Failed, $snapshot->checks);
+        self::assertSame(['build'], $snapshot->failedChecks);
+    }
+
     public function test_without_a_ruleset_the_contexts_marked_required_decide(): void
     {
         $mapper = new GitHubPullRequestStateMapper();

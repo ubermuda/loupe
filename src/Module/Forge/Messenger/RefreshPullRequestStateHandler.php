@@ -49,15 +49,16 @@ final readonly class RefreshPullRequestStateHandler
             return;
         }
 
-        $this->em->wrapInTransaction(function () use ($message): void {
+        // A transient failure leaves the transaction as a value, so the rollback does not close the EntityManager.
+        $transient = $this->em->wrapInTransaction(function () use ($message): ?PullRequestUnreadable {
             $pullRequest = $this->forgePullRequests->findForUpdate(Uuid::fromString($message->pullRequestId));
             if (null === $pullRequest || $pullRequest->refreshedAt >= $message->requestedAt) {
-                return;
+                return null;
             }
 
             $reader = $this->readers->for($pullRequest->forge);
             if (null === $reader) {
-                return;
+                return null;
             }
 
             // Stamped before the read, so a hint that arrives during the read is not skipped.
@@ -71,9 +72,12 @@ final readonly class RefreshPullRequestStateHandler
                     'forge' => $pullRequest->forge,
                     'reason' => $e->reason,
                 ]);
+                if ($e->transient) {
+                    return $e;
+                }
                 $pullRequest->refreshedAt = $readStartedAt;
 
-                return;
+                return null;
             }
 
             $pullRequest->apply($current);
@@ -83,7 +87,14 @@ final readonly class RefreshPullRequestStateHandler
             if (!$current->equals($previous)) {
                 $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current));
             }
+
+            return null;
         });
+
+        // The retry strategy of the transport reads it again. The sweep skips a closed row, so a reopen would otherwise stay unread.
+        if (null !== $transient) {
+            throw $transient;
+        }
     }
 
     private function retryUnknownMergeability(ForgePullRequest $pullRequest): void

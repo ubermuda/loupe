@@ -235,6 +235,22 @@ final class RefreshPullRequestStateHandlerTest extends KernelTestCase
         );
     }
 
+    public function test_a_transient_failure_is_thrown_for_a_retry_and_leaves_the_row_unread(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestUnreadable('api_failed_transport', transient: true)];
+
+        try {
+            $this->handle($row, self::NOW);
+            self::fail('A transient failure must reach the retry strategy.');
+        } catch (PullRequestUnreadable $e) {
+            self::assertSame('api_failed_transport', $e->reason);
+        }
+
+        self::assertTrue($this->em->isOpen());
+        self::assertNull($this->reload($row)->refreshedAt);
+    }
+
     public function test_the_container_routes_the_message_to_the_handler(): void
     {
         $handler = self::getContainer()->get(RefreshPullRequestStateHandler::class);

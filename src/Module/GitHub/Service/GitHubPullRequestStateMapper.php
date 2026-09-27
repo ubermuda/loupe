@@ -80,37 +80,35 @@ final readonly class GitHubPullRequestStateMapper
     private function checks(array $pullRequest, ?GitHubBranchRules $rules, bool $blocked): array
     {
         $verdicts = [];
-        $flaggedRequired = [];
+        $flags = [];
         foreach ($this->contexts($pullRequest) as $context) {
-            [$name, $verdict] = match ($context['__typename'] ?? null) {
-                'CheckRun' => [$context['name'] ?? null, $this->checkRunVerdict($context)],
-                'StatusContext' => [$context['context'] ?? null, $this->statusVerdict($context)],
-                default => [null, null],
+            [$type, $name, $verdict] = match ($context['__typename'] ?? null) {
+                'CheckRun' => ['CheckRun', $context['name'] ?? null, $this->checkRunVerdict($context)],
+                'StatusContext' => ['StatusContext', $context['context'] ?? null, $this->statusVerdict($context)],
+                default => [null, null, null],
             };
-            if (!\is_string($name) || '' === $name || null === $verdict) {
+            if (null === $type || !\is_string($name) || '' === $name || null === $verdict) {
                 continue;
             }
 
-            $verdicts[$name] = $verdict;
-            if (true === ($context['isRequired'] ?? null)) {
-                $flaggedRequired[$name] = true;
-            } else {
-                unset($flaggedRequired[$name]);
-            }
+            // A check run and a commit status can share a name, and each must pass.
+            $verdicts[$name][$type] = $verdict;
+            $flags[$name][$type] = true === ($context['isRequired'] ?? null);
         }
 
-        $required = array_values(array_unique([...$rules->requiredChecks ?? [], ...array_map(strval(...), array_keys($flaggedRequired))]));
+        $flaggedRequired = array_keys(array_filter($flags, static fn (array $byType): bool => \in_array(true, $byType, true)));
+        $required = array_values(array_unique([...$rules->requiredChecks ?? [], ...array_map(strval(...), $flaggedRequired)]));
         if ([] === $required) {
             return [$blocked ? PullRequestChecks::Pending : PullRequestChecks::Passed, []];
         }
 
         $failed = [];
         foreach ($required as $name) {
-            $verdict = $verdicts[$name] ?? PullRequestChecks::Pending;
-            if (PullRequestChecks::Pending === $verdict) {
+            $named = $verdicts[$name] ?? [PullRequestChecks::Pending];
+            if (\in_array(PullRequestChecks::Pending, $named, true)) {
                 return [PullRequestChecks::Pending, []];
             }
-            if (PullRequestChecks::Failed === $verdict) {
+            if (\in_array(PullRequestChecks::Failed, $named, true)) {
                 $failed[] = $name;
             }
         }

@@ -83,7 +83,7 @@ final class GitHubPullRequestStateReader implements PullRequestStateReader
             try {
                 $data = $this->api->graphql($installationId, self::QUERY, ['owner' => $owner, 'name' => $name, 'n' => $number, 'after' => $after]);
             } catch (GitHubAppApiFailed $e) {
-                throw new PullRequestUnreadable('api_failed_'.$e->reason, $e);
+                throw new PullRequestUnreadable('api_failed_'.$e->reason, $e, transient: \in_array($e->reason, ['transport', 'http_status'], true));
             }
 
             $pageNode = $data['repository']['pullRequest'] ?? null;
@@ -91,6 +91,10 @@ final class GitHubPullRequestStateReader implements PullRequestStateReader
                 throw new PullRequestUnreadable('not_found');
             }
             $node ??= $pageNode;
+            // A push between two pages would mix the checks of two commits.
+            if (($pageNode['commits']['nodes'][0]['commit']['oid'] ?? null) !== ($node['commits']['nodes'][0]['commit']['oid'] ?? null)) {
+                throw new PullRequestUnreadable('head_moved', transient: true);
+            }
 
             $connection = $pageNode['commits']['nodes'][0]['commit']['statusCheckRollup']['contexts'] ?? null;
             $nodes = \is_array($connection) ? ($connection['nodes'] ?? null) : null;

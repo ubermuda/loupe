@@ -115,6 +115,28 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertSame('cursor-1', $body['variables']['after'] ?? null);
     }
 
+    public function test_a_head_that_moves_between_pages_is_a_transient_failure(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 70_011);
+        $first = $this->fixture('graphql');
+        $first['data']['repository']['pullRequest']['commits']['nodes'][0]['commit']['statusCheckRollup']['contexts']['pageInfo'] = ['hasNextPage' => true, 'endCursor' => 'cursor-1'];
+        $second = $first;
+        $second['data']['repository']['pullRequest']['commits']['nodes'][0]['commit']['oid'] = 'another-head';
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer($first),
+            $this->answer($second),
+        ];
+
+        try {
+            $this->reader()->read($pullRequest);
+            self::fail('A moved head must not mix the checks of two commits.');
+        } catch (PullRequestUnreadable $e) {
+            self::assertSame('head_moved', $e->reason);
+            self::assertTrue($e->transient);
+        }
+    }
+
     public function test_behind_the_base_under_strict_rules_reads_as_behind(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 70_002);
