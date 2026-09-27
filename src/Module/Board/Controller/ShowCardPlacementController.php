@@ -11,6 +11,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Session\ReadOnlyAwareSessionHandler;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -30,6 +31,7 @@ use Symfony\UX\Turbo\TurboBundle;
     '/projects/{projectId}/board/cards/{cardId}/placement',
     name: 'app_board_card_placement',
     requirements: ['projectId' => Requirement::UUID, 'cardId' => Requirement::UUID],
+    defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => true],
     methods: ['GET'],
 )]
 final class ShowCardPlacementController extends AppController
