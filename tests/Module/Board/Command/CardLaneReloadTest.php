@@ -196,8 +196,8 @@ final class CardLaneReloadTest extends KernelTestCase
             $fresh,
             CardReporter::Human,
             title: $title,
-            column: null === $column ? null : $this->column($fresh->project, $column),
             type: $type,
+            column: null === $column ? null : $this->column($fresh->project, $column),
             laneEnabled: $laneEnabled,
         ));
         $this->em->clear();
