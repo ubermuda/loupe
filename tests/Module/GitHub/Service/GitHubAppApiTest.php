@@ -229,6 +229,7 @@ final class GitHubAppApiTest extends TestCase
         $authorization = $headers['authorization'][0] ?? null;
         self::assertIsString($authorization);
         self::assertStringStartsWith('Authorization: Bearer ', $authorization);
+
         return substr($authorization, \strlen('Authorization: Bearer ')) ?: self::fail('Empty bearer.');
     }
 
