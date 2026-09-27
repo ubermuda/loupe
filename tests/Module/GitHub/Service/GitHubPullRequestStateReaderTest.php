@@ -82,7 +82,7 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         $body = json_decode($this->requests[1]['options']['body'] ?? '', true, flags: \JSON_THROW_ON_ERROR);
         self::assertIsArray($body);
         self::assertSame(['owner' => 'Ubermuda', 'name' => 'Loupe', 'n' => 604, 'after' => null], $body['variables']);
-        self::assertSame('https://api.github.com/repos/Ubermuda/Loupe/rules/branches/main', $this->requests[2]['url']);
+        self::assertSame('https://api.github.com/repos/Ubermuda/Loupe/rules/branches/main?per_page=100&page=1', $this->requests[2]['url']);
         self::assertSame('https://api.github.com/repos/Ubermuda/Loupe/compare/main...'.self::HEAD, $this->requests[3]['url']);
     }
 
@@ -137,6 +137,26 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         }
     }
 
+    public function test_every_page_of_the_branch_rules_is_read(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 70_013);
+        $graphql = $this->fixture('graphql');
+        $graphql['data']['repository']['pullRequest']['mergeable'] = 'CONFLICTING';
+        $filler = array_fill(0, 100, ['type' => 'deletion']);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer($graphql),
+            $this->answer($filler),
+            $this->answer([['type' => 'required_status_checks', 'parameters' => ['strict_required_status_checks_policy' => true, 'required_status_checks' => [['context' => 'late-check']]]]]),
+        ];
+
+        $snapshot = $this->reader()->read($pullRequest);
+
+        self::assertSame(PullRequestChecks::Pending, $snapshot->checks);
+        self::assertCount(4, $this->requests);
+        self::assertStringEndsWith('/rules/branches/main?per_page=100&page=2', $this->requests[3]['url']);
+    }
+
     public function test_behind_the_base_under_strict_rules_reads_as_behind(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 70_002);
@@ -173,7 +193,7 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         $this->clock->modify('+1 minute');
         $reader->read($pullRequest);
         self::assertCount(6, $this->requests);
-        self::assertStringEndsWith('/rules/branches/main', $this->requests[5]['url']);
+        self::assertStringEndsWith('/rules/branches/main?per_page=100&page=1', $this->requests[5]['url']);
     }
 
     public function test_unreadable_branch_rules_fall_back_to_the_required_flags_and_skip_the_compare(): void
@@ -191,7 +211,7 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
 
         self::assertSame(PullRequestChecks::Pending, $snapshot->checks);
         self::assertCount(3, $this->requests);
-        self::assertSame('https://api.github.com/repos/ubermuda/loupe/rules/branches/release%2F1.x', $this->requests[2]['url']);
+        self::assertSame('https://api.github.com/repos/ubermuda/loupe/rules/branches/release%2F1.x?per_page=100&page=1', $this->requests[2]['url']);
         self::assertSame('forge.ruleset_unreadable', $this->logger->records[0]['message']);
         self::assertSame('http_status', $this->logger->records[0]['context']['reason']);
     }

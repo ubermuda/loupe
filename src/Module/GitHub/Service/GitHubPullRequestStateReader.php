@@ -27,6 +27,10 @@ final class GitHubPullRequestStateReader implements PullRequestStateReader
 
     private const string RULES_TTL = '+5 minutes';
 
+    private const int RULES_PER_PAGE = 100;
+
+    private const int MAX_RULE_PAGES = 10;
+
     /** A head with more contexts than this reads its first 1,000 only. */
     private const int MAX_CONTEXT_PAGES = 10;
 
@@ -150,7 +154,18 @@ final class GitHubPullRequestStateReader implements PullRequestStateReader
         }
 
         try {
-            $rules = GitHubBranchRules::fromRules($this->api->get($installationId, self::repositoryPath($path).'/rules/branches/'.rawurlencode($base)));
+            $all = [];
+            for ($page = 1; $page <= self::MAX_RULE_PAGES; ++$page) {
+                $items = $this->api->get($installationId, self::repositoryPath($path).'/rules/branches/'.rawurlencode($base), ['per_page' => self::RULES_PER_PAGE, 'page' => $page]);
+                if (!array_is_list($items)) {
+                    throw new \UnexpectedValueException('The branch rules are not a list.');
+                }
+                $all = [...$all, ...$items];
+                if (\count($items) < self::RULES_PER_PAGE) {
+                    break;
+                }
+            }
+            $rules = GitHubBranchRules::fromRules($all);
         } catch (GitHubAppApiFailed|\UnexpectedValueException $e) {
             $this->logger->warning('forge.ruleset_unreadable', [
                 'installationId' => $installationId,
