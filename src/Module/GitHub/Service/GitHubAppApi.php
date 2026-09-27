@@ -99,7 +99,8 @@ final class GitHubAppApi
 
     /**
      * Answers the `data` member. GitHub reports a missing node as null data
-     * beside an `errors` entry, so errors alone do not fail the call.
+     * beside a `NOT_FOUND` error, so that error alone does not fail the call.
+     * Any other error does, because it can null a node that exists.
      *
      * @param array<string, mixed> $variables
      *
@@ -111,6 +112,12 @@ final class GitHubAppApi
     {
         $body = $this->send('POST', '/graphql', ['json' => ['query' => $query, 'variables' => $variables]], $this->installationToken($installationId));
         $data = $body['data'] ?? null;
+        $errors = \is_array($body['errors'] ?? null) ? $body['errors'] : [];
+        foreach ($errors as $error) {
+            if (!\is_array($error) || 'NOT_FOUND' !== ($error['type'] ?? null)) {
+                throw new GitHubAppApiFailed('graphql_error');
+            }
+        }
 
         return \is_array($data) ? $data : throw new GitHubAppApiFailed('graphql_error');
     }

@@ -222,6 +222,16 @@ final class GitHubAppApiTest extends TestCase
         self::assertSame('graphql_error', $this->failure(static fn () => $api->graphql(42, '{', []))->reason);
     }
 
+    public function test_graphql_with_data_and_an_error_other_than_not_found_fails_as_graphql_error(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            $this->ok(['data' => ['repository' => ['pullRequest' => null]], 'errors' => [['type' => 'NOT_FOUND'], ['type' => 'SERVICE_UNAVAILABLE']]]),
+        ]);
+
+        self::assertSame('graphql_error', $this->failure(static fn () => $api->graphql(42, '{x}', []))->reason);
+    }
+
     public function test_get_sends_the_query_with_the_installation_token(): void
     {
         $api = $this->api([
