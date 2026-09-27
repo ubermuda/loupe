@@ -1,0 +1,146 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Module\GitHub\Service;
+
+use Lcobucci\JWT\Encoding\ChainedFormatter;
+use Lcobucci\JWT\Encoding\JoseEncoder;
+use Lcobucci\JWT\Exception as JwtException;
+use Lcobucci\JWT\Signer\Key\InMemory;
+use Lcobucci\JWT\Signer\Rsa\Sha256;
+use Lcobucci\JWT\Token\Builder;
+use Psr\Clock\ClockInterface;
+use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+
+/**
+ * The calls Loupe makes as the App itself. Installation tokens stay in this
+ * object's memory only: a shared cache pool would rest them in the database.
+ */
+final class GitHubAppApi
+{
+    private const int PAGE_SIZE = 100;
+    private const int MAX_PAGES = 10;
+
+    /** @var array<int, array{token: non-empty-string, until: \DateTimeImmutable}> */
+    private array $tokens = [];
+
+    public function __construct(
+        private readonly HttpClientInterface $githubApiClient,
+        private readonly GitHubAppConfiguration $configuration,
+        private readonly ClockInterface $clock,
+    ) {
+    }
+
+    /**
+     * @return non-empty-string
+     *
+     * @throws GitHubAppApiFailed
+     */
+    public function installationToken(int $installationId): string
+    {
+        $now = $this->clock->now();
+        $cached = $this->tokens[$installationId] ?? null;
+        if (null !== $cached && $now < $cached['until']) {
+            return $cached['token'];
+        }
+
+        $body = $this->send('POST', '/app/installations/'.$installationId.'/access_tokens', []);
+        $token = $body['token'] ?? null;
+        if (!\is_string($token) || '' === $token) {
+            throw new GitHubAppApiFailed('malformed_body');
+        }
+
+        // GitHub issues the token for one hour.
+        $this->tokens[$installationId] = ['token' => $token, 'until' => $now->modify('+50 minutes')];
+
+        return $token;
+    }
+
+    /**
+     * @return list<GitHubAppInstallationAccess>
+     *
+     * @throws GitHubAppApiFailed
+     */
+    public function installations(): array
+    {
+        $installations = [];
+        for ($page = 1; $page <= self::MAX_PAGES; ++$page) {
+            $items = $this->send('GET', '/app/installations', ['query' => ['per_page' => self::PAGE_SIZE, 'page' => $page]]);
+            if (!array_is_list($items)) {
+                throw new GitHubAppApiFailed('malformed_body');
+            }
+
+            foreach ($items as $item) {
+                $id = \is_array($item) ? ($item['id'] ?? null) : null;
+                if (!\is_int($id)) {
+                    continue;
+                }
+
+                $login = \is_array($item['account'] ?? null) ? ($item['account']['login'] ?? null) : null;
+                $permissions = \is_array($item['permissions'] ?? null) ? $item['permissions'] : [];
+                $installations[] = new GitHubAppInstallationAccess(
+                    $id,
+                    \is_string($login) && '' !== $login ? $login : '#'.$id,
+                    array_filter($permissions, fn (mixed $grant, mixed $name): bool => \is_string($name) && \is_string($grant), \ARRAY_FILTER_USE_BOTH),
+                );
+            }
+
+            if (\count($items) < self::PAGE_SIZE) {
+                break;
+            }
+        }
+
+        return $installations;
+    }
+
+    /** @throws GitHubAppApiFailed */
+    private function jwt(): string
+    {
+        $appId = $this->configuration->appId;
+        $key = str_replace('\n', "\n", trim((string) $this->configuration->appPrivateKey));
+        if (null === $appId || '' === $appId || '' === $key) {
+            throw new GitHubAppApiFailed('not_configured');
+        }
+
+        // GitHub refuses an iat ahead of its own clock, and an exp more than ten minutes out.
+        $now = $this->clock->now();
+        try {
+            return Builder::new(new JoseEncoder(), ChainedFormatter::withUnixTimestampDates())
+                ->issuedBy($appId)
+                ->issuedAt($now->modify('-60 seconds'))
+                ->expiresAt($now->modify('+9 minutes'))
+                ->getToken(new Sha256(), InMemory::plainText($key))
+                ->toString();
+        } catch (JwtException) {
+            throw new GitHubAppApiFailed('bad_key');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     *
+     * @return array<mixed>
+     *
+     * @throws GitHubAppApiFailed
+     */
+    private function send(string $method, string $path, array $options): array
+    {
+        $options['headers'] = ['Authorization' => 'Bearer '.$this->jwt()];
+        try {
+            $response = $this->githubApiClient->request($method, $path, $options);
+            $status = $response->getStatusCode();
+            if ($status < 200 || $status >= 300) {
+                throw new GitHubAppApiFailed('http_status', $status);
+            }
+
+            return $response->toArray();
+        } catch (TransportExceptionInterface) {
+            throw new GitHubAppApiFailed('transport');
+        } catch (DecodingExceptionInterface) {
+            throw new GitHubAppApiFailed('malformed_body');
+        }
+    }
+}
