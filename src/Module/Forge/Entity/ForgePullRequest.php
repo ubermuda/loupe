@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Forge\Entity;
 
+use App\Doctrine\Type\MicrosecondDateTimeImmutableType;
 use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Types\Types;
-use App\Doctrine\Type\MicrosecondDateTimeImmutableType;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
