@@ -149,6 +149,26 @@ final class CardLaneReloadTest extends KernelTestCase
         self::assertSame(2, $this->reloads);
     }
 
+    public function test_a_move_reads_the_lane_setting_another_request_committed(): void
+    {
+        $project = $this->makeProject('lane-stale');
+        $epic = $this->card($project, column: 'done', type: CardType::Epic, laneEnabled: false);
+        $this->reset();
+
+        $loaded = $this->reload($epic);
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_cards SET lane_enabled = true WHERE id = :id',
+            ['id' => (string) $epic->id],
+        );
+        ($this->updateCard)(new UpdateCardCommand(
+            $loaded,
+            CardReporter::Human,
+            column: $this->column($loaded->project, 'backlog'),
+        ));
+
+        self::assertSame(1, $this->reloads);
+    }
+
     public function test_a_change_that_leaves_every_lane_as_it_was_reloads_nothing(): void
     {
         $project = $this->makeProject('lane-none');
