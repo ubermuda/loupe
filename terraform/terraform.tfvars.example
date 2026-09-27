@@ -197,6 +197,8 @@ export_bucket_region = "tor1"
 # github_app_client_id      = "Iv23..."
 # github_app_client_secret  = "..."
 # github_app_webhook_secret = "the webhook secret of the GitHub App"
+# github_app_id             = "123456"
+# github_app_private_key    = "-----BEGIN RSA PRIVATE KEY-----\\n...\\n-----END RSA PRIVATE KEY-----"
 
 # oauth_google_id     = "..."
 # oauth_google_secret = "..."

@@ -21,7 +21,7 @@ final class ReportWorkerRunStateRequest
     public const array DROP_REASONS = ['shutdown', 'rule_dead', 'reload'];
 
     /** The status a worker gives in its structured result. */
-    public const array RESULT_STATUSES = ['finished', 'blocked', 'unfinished'];
+    public const array RESULT_STATUSES = ['finished', 'blocked', 'unfinished', 'waiting'];
 
     public function __construct(
         #[Assert\NotBlank]

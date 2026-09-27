@@ -416,7 +416,7 @@ variable "sentry_profiles_sample_rate" {
 variable "github_app_slug" {
   type        = string
   default     = ""
-  description = "GITHUB_APP_SLUG, the name of the GitHub App in its public URL. Set the four github_app_* variables together, or projects connect with a webhook only."
+  description = "GITHUB_APP_SLUG, the name of the GitHub App in its public URL. Set it with github_app_client_id, github_app_client_secret and github_app_webhook_secret, or projects connect with a webhook only."
 }
 
 variable "github_app_client_id" {
@@ -437,6 +437,19 @@ variable "github_app_webhook_secret" {
   default     = ""
   sensitive   = true
   description = "GITHUB_APP_WEBHOOK_SECRET, the GitHub App webhook secret. Empty refuses every App delivery."
+}
+
+variable "github_app_id" {
+  type        = string
+  default     = ""
+  description = "GITHUB_APP_ID, the App ID on the General page of the GitHub App. Set it with github_app_private_key so Loupe can read repositories as the App."
+}
+
+variable "github_app_private_key" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "GITHUB_APP_PRIVATE_KEY, a private key of the GitHub App in PEM. A literal \\n counts as a line break."
 }
 
 variable "oauth_google_id" {

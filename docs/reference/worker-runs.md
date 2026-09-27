@@ -34,6 +34,7 @@ the `site-review` or the `mcp` scope.
 | `no-result` | the bridge | the worker exited with code 0, with no structured result |
 | `unfinished` | the bridge | the worker exited with code 0 and the status `unfinished`: its work still runs or remains |
 | `blocked` | the bridge | the worker exited with code 0 and the status `blocked`: it cannot go on without a person |
+| `waiting-on-forge` | the bridge | the worker exited with code 0 and the status `waiting`: its work waits on the forge, such as the checks of a pushed pull request. The bridge does not resume the run |
 | `gave-up` | the bridge | the run did not finish, and the bridge already ran every resume its rule allows |
 | `failed` | the bridge | the worker exited with any other code |
 | `not-started` | the bridge | the worker process never started |
@@ -42,13 +43,14 @@ the `site-review` or the `mcp` scope.
 | `closed` | the server | an interactive run ended. See [Interactive sessions](../using/worker-runs.md#interactive-sessions) |
 
 `queued`, `resumed` and `running` are open states. Every other state closes the
-run. `succeeded`, `no-result`, `unfinished`, `blocked`, `gave-up`, `failed`
-and `not-started` are the outcomes. Only an outcome carries an exit code, a
-result flag, a result status, result fields, a failure reason and an output.
+run. `succeeded`, `no-result`, `unfinished`, `blocked`, `waiting-on-forge`,
+`gave-up`, `failed` and `not-started` are the outcomes. Only an outcome carries
+an exit code, a result flag, a result status, result fields, a failure reason
+and an output.
 
 A structured result is the JSON object that `claude` returns for the schema the
-bridge passes. It holds a `status` of `finished`, `blocked` or `unfinished`, a
-`summary`, and any optional fields the rule asks for. A worker that exits with
+bridge passes. It holds a `status` of `finished`, `blocked`, `unfinished` or
+`waiting`, a `summary`, and any optional fields the rule asks for. A worker that exits with
 code 0 and gives none may have stopped before its work was done.
 
 A bridge resumes a run that did not finish, on the same session, up to the cap
@@ -83,7 +85,7 @@ order.
 | Field | Rule |
 |---|---|
 | `bridgeId` | required. A uuid the bridge generates once and keeps. It points at no table, so any uuid is accepted |
-| `state` | required. One of the fourteen states the bridge sets. The server refuses `timed-out`, `lost` and `closed` |
+| `state` | required. One of the fifteen states the bridge sets. The server refuses `timed-out`, `lost` and `closed` |
 | `at` | required. When the run reached the state, on the bridge clock, as an ISO 8601 timestamp |
 | `cardId` | required. The uuid of the card the run is for. It is a plain value, so a deleted card leaves its run history intact |
 | `cardNumber` | required. The short number the card shows, counting from 1 inside the project, at most 2147483647 |
@@ -91,9 +93,9 @@ order.
 | `sessionId` | the uuid of the Claude Code session the worker runs as. Required for `running` |
 | `startedAt` | when the worker started, on the bridge clock. Required for `running` |
 | `endedAt` | when the worker ended, on the bridge clock. Required for an outcome, and it cannot be before `startedAt` |
-| `exitCode` | the process exit code, between -255 and 255. `succeeded`, `no-result`, `unfinished` and `blocked` need 0, `failed` needs any other code, and `not-started` needs `null` |
-| `hasResult` | whether the worker gave a structured result. `no-result` needs `false`, and `succeeded`, `unfinished` and `blocked` refuse `false`. Send `null` for `not-started`, because a value is refused when `exitCode` is `null` |
-| `resultStatus` | the `status` of the structured result: `finished`, `blocked` or `unfinished`. It needs `hasResult: true`. `blocked` and `unfinished` need the state of the same name, and `succeeded` takes `finished` or `null` |
+| `exitCode` | the process exit code, between -255 and 255. `succeeded`, `no-result`, `unfinished`, `blocked` and `waiting-on-forge` need 0, `failed` needs any other code, and `not-started` needs `null` |
+| `hasResult` | whether the worker gave a structured result. `no-result` needs `false`, and `succeeded`, `unfinished`, `blocked` and `waiting-on-forge` refuse `false`. Send `null` for `not-started`, because a value is refused when `exitCode` is `null` |
+| `resultStatus` | the `status` of the structured result: `finished`, `blocked`, `unfinished` or `waiting`. It needs `hasResult: true`. `blocked` and `unfinished` need the state of the same name, `waiting` needs `waiting-on-forge`, and `succeeded` takes `finished` or `null` |
 | `failureReason` | why the process never started, at most 1000 characters. Required for `not-started`, and refused with an exit code |
 | `output` | what the worker printed, at most 4000 characters. Required for an outcome, and it may be empty |
 | `askId` | the ask a `resumed` run continues, at most 100 characters |
