@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Twig;
 
 use App\Module\Board\Command\BoardColumnView;
+use App\Module\Board\Command\CardProgress;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
@@ -23,6 +24,8 @@ use App\Module\Board\Form\SetCardLaneRequest;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardColumnTonePicker;
+use App\Module\Board\Service\CardDigest;
+use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
@@ -48,6 +51,7 @@ final class BoardExtension extends AbstractExtension
         private readonly CardDocumentRepository $cardDocuments,
         private readonly BoardColumnRepository $boardColumns,
         private readonly BoardColumnTonePicker $tonePicker,
+        private readonly CardDigest $digest,
     ) {
     }
 
@@ -101,23 +105,9 @@ final class BoardExtension extends AbstractExtension
             ->createView();
     }
 
-    /**
-     * A short hash of what the card face and its list row show, and of where the
-     * card sits, so a page can tell a changed card from an unchanged one.
-     */
-    public function cardDigest(Card $card, int $pendingComments, int $documentCount): string
+    public function cardDigest(Card $card, int $pendingComments, int $documentCount, ?CardProgress $progress, ?CardRunWarning $runWarning): string
     {
-        return substr(sha1(json_encode([
-            $card->number,
-            $card->title,
-            $card->body,
-            $card->type->value,
-            $pendingComments,
-            $card->pullRequests->count(),
-            $documentCount,
-            (string) $card->column->id,
-            $card->position,
-        ], \JSON_THROW_ON_ERROR)), 0, 12);
+        return $this->digest->forCard($card, $pendingComments, $documentCount, $card->pullRequests->count(), $progress, $runWarning);
     }
 
     /** @return list<CardDocument> */

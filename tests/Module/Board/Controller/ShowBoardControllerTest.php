@@ -392,6 +392,35 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame($boardDigest, $placement->filter('#board-row-'.$card->id)->attr('data-card-digest'));
     }
 
+    public function test_the_card_and_its_row_agree_on_the_digest_of_an_epic_with_a_warning(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-epic-digest@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'in-progress'), CardType::Epic);
+        $epic->laneEnabled = false;
+        $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next'));
+        $this->workerRun($em, $project, $epic, WorkerRunState::GaveUp, 'in-progress', 'Gave up.');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#board-card-'.$epic->id.' [data-card-progress]'));
+        self::assertCount(1, $crawler->filter('#board-card-'.$epic->id.' [data-card-run-warning]'));
+        $boardDigest = $crawler->filter('#board-card-'.$epic->id)->attr('data-card-digest');
+        self::assertSame($boardDigest, $crawler->filter('#board-row-'.$epic->id)->attr('data-card-digest'));
+
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$epic->id.'/placement');
+        self::assertResponseIsSuccessful();
+        $placement = new Crawler((string) $client->getResponse()->getContent());
+        self::assertSame($boardDigest, $placement->filter('#board-card-'.$epic->id)->attr('data-card-digest'));
+        self::assertSame($boardDigest, $placement->filter('#board-row-'.$epic->id)->attr('data-card-digest'));
+    }
+
     /** The warning holds while the card stays in the column that started the run, or when the run names none. */
     public function test_a_card_shows_the_run_that_gave_up_until_it_leaves_the_column(): void
     {
