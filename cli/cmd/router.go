@@ -193,6 +193,9 @@ type pending struct {
 	// action and project are the rule's action and project slug.
 	action  string
 	project string
+	// fresh marks the new session that replaces a resume whose session is
+	// missing. It never resumes the event's session, so it never falls back.
+	fresh bool
 }
 
 // apply takes the rule, the settings and the prompt of a match. The session id
@@ -206,7 +209,7 @@ func (p *pending) apply(m rules.Match) {
 		return
 	}
 	p.maxResumes = m.MaxResumes
-	p.spec = workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt, resume: m.Resume}
+	p.spec = workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt, resume: m.Resume && !p.fresh}
 }
 
 // sessionCard is the key a session's worker ran under, its card when the
@@ -251,7 +254,7 @@ func keyFor(e event.Event) string {
 // fills the event's card from the session, so the prompt and the report name
 // it too.
 func (r *router) resolve(e event.Event) (event.Event, string) {
-	if e.Type == event.ReviewSubmittedType && e.CardID != "" {
+	if (e.Type == event.ReviewSubmittedType || event.IsPullRequest(e.Type)) && e.CardID != "" {
 		return e, e.CardID
 	}
 	if e.Type != event.AskClosedType {
@@ -276,7 +279,7 @@ func (r *router) resolve(e event.Event) (event.Event, string) {
 // cardOf is the card a run of the event reports against. A number below 1
 // means the event names no card.
 func cardOf(e event.Event) (string, int) {
-	if e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType {
+	if e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType || event.IsPullRequest(e.Type) {
 		return e.CardID, e.CardNumber
 	}
 
@@ -312,7 +315,7 @@ func (r *router) columnLocked(e event.Event) string {
 // label names an event's aggregate to a reader: its card number when the event
 // carries one, and its subject id otherwise.
 func label(e event.Event) (string, any) {
-	if e.Type == event.CardMovedType || ((e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType) && e.CardNumber > 0) {
+	if e.Type == event.CardMovedType || ((e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType || event.IsPullRequest(e.Type)) && e.CardNumber > 0) {
 		return "card", e.CardNumber
 	}
 
@@ -698,10 +701,10 @@ func (r *router) enqueue(p pending) {
 
 		return
 	}
-	// A queued resume of an unfinished run is never replaced, so the new event
-	// waits behind it.
+	// A queued resume of an unfinished run, or a fresh run, is never replaced,
+	// so the new event waits behind it.
 	if i := slices.IndexFunc(r.queue, func(q pending) bool {
-		return q.continues == "" && q.key == p.key && q.rule == p.rule && askOf(q.event) == askOf(p.event)
+		return q.continues == "" && !q.fresh && q.key == p.key && q.rule == p.rule && askOf(q.event) == askOf(p.event)
 	}); i >= 0 {
 		p.checked, p.seq = r.queue[i].checked, r.queue[i].seq
 		r.emitLocked(r.queue[i], api.RunStateReport{State: api.RunReplaced, ReplacedBy: p.runID})
@@ -767,7 +770,7 @@ func (r *router) dispatchLocked() []pending {
 
 			continue
 		}
-		if next.continues == "" && next.spec.resume && !next.checked && r.checkAsk != nil {
+		if next.continues == "" && next.spec.resume && !next.checked && r.checkAsk != nil && next.event.Type == event.AskClosedType {
 			r.queue = slices.Delete(r.queue, i, i+1)
 			r.hold(next.key)
 			r.check(next)
@@ -796,7 +799,7 @@ func (r *router) dispatchLocked() []pending {
 		}
 		r.active++
 		r.hold(next.key)
-		if next.continues == "" && next.event.Actor == event.ActorAgent {
+		if next.continues == "" && !next.fresh && next.event.Actor == event.ActorAgent {
 			r.countChain(next.key, next.rule)
 		}
 		r.start(next)
@@ -860,7 +863,12 @@ func (r *router) start(p pending) {
 		r.log.Info("worker_started", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "resume", p.resumeIndex)...)
 	case p.spec.resume:
 		p.spec.sessionID = p.event.SessionID
-		r.log.Info("worker_started", about(p.event, p.rule)...)
+		args := about(p.event, p.rule)
+		// about names the session of an ask already.
+		if p.event.Type != event.AskClosedType {
+			args = append(args, "session_id", p.spec.sessionID)
+		}
+		r.log.Info("worker_started", args...)
 	default:
 		p.spec.sessionID = r.worker.sessionID()
 		r.log.Info("worker_started", append(about(p.event, p.rule), "session_id", p.spec.sessionID)...)
@@ -873,7 +881,10 @@ func (r *router) start(p pending) {
 	if r.sessions == nil {
 		r.sessions = map[string]sessionCard{}
 	}
-	r.sessions[p.spec.sessionID] = sessionCard{key: p.key, id: id, number: number, column: p.column}
+	// A fix request knows no column, and its resume keeps the one the session
+	// had, which a later ask on the session reads.
+	column := cmp.Or(p.column, r.sessions[p.spec.sessionID].column)
+	r.sessions[p.spec.sessionID] = sessionCard{key: p.key, id: id, number: number, column: column}
 	// A checked resume sent resumed when its check let it through.
 	if p.spec.resume && !p.checked {
 		r.emitLocked(p, api.RunStateReport{State: api.RunResumed, AskID: askOf(p.event)})
@@ -962,6 +973,8 @@ func classify(res workerResult) (string, string) {
 		return api.RunNoResult, "no structured result"
 	case res.status == "blocked":
 		return api.RunBlocked, ""
+	case res.status == "waiting":
+		return api.RunWaitingOnForge, ""
 	case res.status == "unfinished":
 		return api.RunUnfinished, "status unfinished"
 	}
@@ -979,6 +992,9 @@ func (r *router) end(p pending, e endedRun) {
 	shut := r.shut()
 	r.mu.Unlock()
 
+	if !e.res.killed && !shut && sessionMissing(p, e.res) && r.startFresh(p, e) {
+		return
+	}
 	switch {
 	case reason == "":
 	case e.res.killed || shut:
@@ -998,6 +1014,50 @@ func (r *router) end(p pending, e endedRun) {
 	}
 	r.emit(p, r.outcome(p, e))
 	r.finish(p.key)
+}
+
+// missingSessionOutput starts what claude prints when it has no session to
+// resume.
+const missingSessionOutput = "No conversation found with session ID"
+
+// sessionMissing reports whether a fix request's resume of the session its
+// event names failed because this machine has no such session.
+func sessionMissing(p pending, res workerResult) bool {
+	return p.event.Type == event.FixRequestedType && p.continues == "" && p.spec.resume && !p.fresh &&
+		res.err == nil && res.exitCode != 0 && !res.hasResult &&
+		strings.HasPrefix(strings.TrimSpace(res.output), missingSessionOutput)
+}
+
+// startFresh reports the run whose session is missing, and queues one run of
+// the same event and rule in a new session. The new run keeps the card key, so
+// no other event of the card starts first. When the rule no longer runs the
+// event, startFresh does nothing and returns false.
+func (r *router) startFresh(p pending, e endedRun) bool {
+	r.mu.Lock()
+	current := r.rules()
+	m, ok := matchWorker(current, p.event, p.rule)
+	if !ok {
+		r.mu.Unlock()
+
+		return false
+	}
+	r.log.Warn("resume_session_missing", append(about(p.event, p.rule),
+		"session_id", p.spec.sessionID,
+		"message", fmt.Sprintf("the session of %s is not on this machine, so the bridge starts a new session", aggregate(p.event)),
+	)...)
+	r.emitLocked(p, r.outcome(p, e))
+	next := pending{key: p.key, event: p.event, set: current, runID: config.NewUUID(), seq: p.seq, checked: true, fresh: true, column: p.column}
+	next.apply(m)
+	r.emitLocked(next, api.RunStateReport{State: api.RunQueued})
+	i, _ := slices.BinarySearchFunc(r.queue, next.seq, func(q pending, seq uint64) int { return cmp.Compare(q.seq, seq) })
+	r.queue = slices.Insert(r.queue, i, next)
+	r.active--
+	dropped := r.dispatchLocked()
+	r.mu.Unlock()
+
+	r.logDropped(dropped)
+
+	return true
 }
 
 // finishInto frees the worker slot and keeps the card key for the resume gate,

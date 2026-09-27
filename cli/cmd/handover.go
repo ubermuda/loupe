@@ -59,6 +59,7 @@ type handoverPending struct {
 	Seq        uint64      `json:"seq"`
 	Checked    bool        `json:"checked,omitempty"`
 	DropReason string      `json:"dropReason,omitempty"`
+	Fresh      bool        `json:"fresh,omitempty"`
 	handoverSeries
 	SessionID string `json:"sessionId,omitempty"`
 	Prompt    string `json:"prompt,omitempty"`
@@ -281,7 +282,7 @@ func (r *router) freeze() handoverState {
 	}
 	for _, p := range r.queue {
 		q := handoverPending{
-			Event: p.event, Rule: p.rule, Key: p.key, RunID: p.runID, Seq: p.seq, Checked: p.checked, DropReason: p.dropReason,
+			Event: p.event, Rule: p.rule, Key: p.key, RunID: p.runID, Seq: p.seq, Checked: p.checked, DropReason: p.dropReason, Fresh: p.fresh,
 			handoverSeries: seriesOf(p),
 		}
 		if p.continues != "" {
@@ -323,7 +324,7 @@ func (r *router) adopt(st handoverState) {
 	}
 	for _, q := range st.Queue {
 		p := pending{
-			key: q.Key, rule: q.Rule, event: q.Event, runID: q.RunID, seq: q.Seq, checked: q.Checked, dropReason: q.DropReason,
+			key: q.Key, rule: q.Rule, event: q.Event, runID: q.RunID, seq: q.Seq, checked: q.Checked, dropReason: q.DropReason, fresh: q.Fresh,
 		}
 		q.applyTo(&p)
 		if p.continues != "" {
