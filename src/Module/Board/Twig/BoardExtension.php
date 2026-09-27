@@ -105,7 +105,7 @@ final class BoardExtension extends AbstractExtension
      * A short hash of what the card face and its list row show, and of where the
      * card sits, so a page can tell a changed card from an unchanged one.
      */
-    public function cardDigest(Card $card, int $pendingComments): string
+    public function cardDigest(Card $card, int $pendingComments, int $documentCount): string
     {
         return substr(sha1(json_encode([
             $card->number,
@@ -114,7 +114,7 @@ final class BoardExtension extends AbstractExtension
             $card->type->value,
             $pendingComments,
             $card->pullRequests->count(),
-            $card->documents->count(),
+            $documentCount,
             (string) $card->column->id,
             $card->position,
         ], \JSON_THROW_ON_ERROR)), 0, 12);

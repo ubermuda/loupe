@@ -19,6 +19,7 @@ final readonly class CardPlacementView
         /** The id of the card before it in the list view, which runs column by column. */
         public ?string $rowAfter,
         public int $pendingComments,
+        public int $documentCount,
         /** @var array<string, int> column id => the number of cards the column shows */
         public array $counts,
         /** @var array<string, int> terminal column id => every card the column holds */

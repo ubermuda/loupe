@@ -1,5 +1,5 @@
 {# One card face. The whole card is the drag handle, and the grip says so.
-   Props: card (Card), pendingComments (int), static (bool, optional): a card
+   Props: card (Card), pendingComments (int), documentCount (int), static (bool, optional): a card
    shown outside the board, which does not drag and names its column instead.
    A static card also skips the prefetch. progress (CardProgress, optional) shows on an epic. inLane (bool,
    optional) hides the parent tag its lane gives. runWarning (CardRunWarning, optional) holds until the card leaves its column. #}
@@ -13,7 +13,7 @@
          data-board-filter-target="card"
          data-action="pointerdown->board-drag#press mouseenter->card-prefetch#enter mouseleave->card-prefetch#leave focusin->card-prefetch#enter"
          id="board-card-{{ card.id }}"
-         data-card-digest="{{ card_digest(card, pendingComments) }}"{% endif %}
+         data-card-digest="{{ card_digest(card, pendingComments, documentCount) }}"{% endif %}
          data-card-id="{{ card.id }}"
          data-card-type="{{ card.type.value }}"
          data-card-title="{{ card.title }}">
@@ -64,7 +64,7 @@
         <span class="lp-board-card__excerpt">{{ runWarning.summary|slice(0, 140) }}{% if runWarning.summary|length > 140 %}…{% endif %}</span>
     </a>
     {% endif %}
-    {% if pendingComments > 0 or card.pullRequests|length > 0 or card.documents|length > 0 %}
+    {% if pendingComments > 0 or card.pullRequests|length > 0 or documentCount > 0 %}
     <div class="lp-board-card__meta">
         {% if pendingComments > 0 %}
         <span class="lp-board-card__reviews" title="{{ 'board.card.site_review.count'|trans({'%count%': pendingComments}) }}">
@@ -78,10 +78,10 @@
             {{ card.pullRequests|length }}
         </span>
         {% endif %}
-        {% if card.documents|length > 0 %}
-        <span class="lp-board-card__documents" title="{{ 'board.card.documents.count'|trans({'%count%': card.documents|length}) }}">
+        {% if documentCount > 0 %}
+        <span class="lp-board-card__documents" title="{{ 'board.card.documents.count'|trans({'%count%': documentCount}) }}">
             <twig:ux:icon name="lucide:file-text" class="w-3.5 h-3.5 shrink-0" />
-            {{ card.documents|length }}
+            {{ documentCount }}
         </span>
         {% endif %}
     </div>
