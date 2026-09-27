@@ -60,6 +60,8 @@ final readonly class RefreshPullRequestStateHandler
                 return;
             }
 
+            // Stamped before the read, so a hint that arrives during the read is not skipped.
+            $readStartedAt = $this->clock->now();
             $previous = $pullRequest->snapshot();
             try {
                 $current = $reader->read($pullRequest);
@@ -69,13 +71,13 @@ final readonly class RefreshPullRequestStateHandler
                     'forge' => $pullRequest->forge,
                     'reason' => $e->reason,
                 ]);
-                $pullRequest->refreshedAt = $this->clock->now();
+                $pullRequest->refreshedAt = $readStartedAt;
 
                 return;
             }
 
             $pullRequest->apply($current);
-            $pullRequest->refreshedAt = $this->clock->now();
+            $pullRequest->refreshedAt = $readStartedAt;
             $this->retryUnknownMergeability($pullRequest);
 
             if (!$current->equals($previous)) {

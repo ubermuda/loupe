@@ -16,6 +16,9 @@ final class FakePullRequestStateReader implements PullRequestStateReader
 
     public int $reads = 0;
 
+    /** Runs inside each read, such as a clock that moves while the forge answers. */
+    public ?\Closure $duringRead = null;
+
     /** @param list<PullRequestSnapshot|PullRequestUnreadable> $answers */
     public function __construct(
         public array $answers = [],
@@ -32,6 +35,9 @@ final class FakePullRequestStateReader implements PullRequestStateReader
     public function read(ForgePullRequest $pullRequest): PullRequestSnapshot
     {
         ++$this->reads;
+        if (null !== $this->duringRead) {
+            ($this->duringRead)();
+        }
         $answer = array_shift($this->answers) ?? new PullRequestSnapshot();
         if ($answer instanceof PullRequestUnreadable) {
             throw $answer;

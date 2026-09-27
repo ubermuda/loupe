@@ -128,6 +128,18 @@ final class RefreshPullRequestStateHandlerTest extends KernelTestCase
         self::assertSame(1, $this->reader->reads);
     }
 
+    public function test_a_hint_that_arrives_during_a_read_is_read_again(): void
+    {
+        $row = $this->row();
+        $this->reader->duringRead = fn () => $this->clock->modify('+10 seconds');
+
+        $this->handle($row, self::NOW);
+        $this->handle($row, '2026-09-27 12:00:05');
+
+        self::assertSame(2, $this->reader->reads);
+        self::assertEquals(new \DateTimeImmutable('2026-09-27 12:00:10'), $this->reload($row)->refreshedAt);
+    }
+
     public function test_a_missing_row_and_a_forge_with_no_reader_are_skipped(): void
     {
         $gitlab = $this->row(forge: 'gitlab');
