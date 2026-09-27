@@ -108,6 +108,24 @@ func TestWriteRefusesAValueThatIsNotAnIdentifier(t *testing.T) {
 	}
 }
 
+func TestValidAcceptsAnIdentifierInEitherCase(t *testing.T) {
+	for _, id := range []string{validID, strings.ToUpper(validID)} {
+		if err := Valid(id); err != nil {
+			t.Fatalf("Valid(%q): got %v, want nil", id, err)
+		}
+	}
+}
+
+func TestValidRefusesAValueThatIsNotAnIdentifier(t *testing.T) {
+	err := Valid("my-board")
+	if err == nil {
+		t.Fatal("Valid of a non-identifier: got no error")
+	}
+	if !strings.Contains(err.Error(), `"my-board"`) {
+		t.Fatalf("error must quote the value, got %v", err)
+	}
+}
+
 func TestAFileLargerThanTheCapIsRefused(t *testing.T) {
 	_, err := Load(write(t, strings.Repeat("# padding\n", maxSize/10+16)))
 	if err == nil {
