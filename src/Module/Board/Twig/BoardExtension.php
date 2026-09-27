@@ -104,8 +104,9 @@ final class BoardExtension extends AbstractExtension
     /**
      * A short hash of what the card face and its list row show, and of where the
      * card sits, so a page can tell a changed card from an unchanged one.
+     * `$warningRunId` names the run whose warning the card face shows, if any.
      */
-    public function cardDigest(Card $card, int $pendingComments): string
+    public function cardDigest(Card $card, int $pendingComments, ?string $warningRunId): string
     {
         return substr(sha1(json_encode([
             $card->number,
@@ -117,6 +118,7 @@ final class BoardExtension extends AbstractExtension
             $card->documents->count(),
             (string) $card->column->id,
             $card->position,
+            $warningRunId,
         ], \JSON_THROW_ON_ERROR)), 0, 12);
     }
 

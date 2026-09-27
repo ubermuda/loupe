@@ -20,11 +20,25 @@ final class BoardExtensionTest extends KernelTestCase
         $card = $this->makeCard();
 
         $card->position = 2;
-        $before = $extension->cardDigest($card, 0);
-        self::assertSame($before, $extension->cardDigest($card, 0));
+        $before = $extension->cardDigest($card, 0, null);
+        self::assertSame($before, $extension->cardDigest($card, 0, null));
 
         $card->position = 0;
-        self::assertNotSame($before, $extension->cardDigest($card, 0));
+        self::assertNotSame($before, $extension->cardDigest($card, 0, null));
+    }
+
+    public function test_card_digest_changes_with_the_run_warning_the_card_shows(): void
+    {
+        $extension = static::getContainer()->get(BoardExtension::class);
+        self::assertInstanceOf(BoardExtension::class, $extension);
+        $card = $this->makeCard();
+
+        $none = $extension->cardDigest($card, 0, null);
+        $first = $extension->cardDigest($card, 0, 'run-1');
+
+        self::assertNotSame($none, $first);
+        self::assertSame($first, $extension->cardDigest($card, 0, 'run-1'));
+        self::assertNotSame($first, $extension->cardDigest($card, 0, 'run-2'));
     }
 
     private function makeCard(): Card

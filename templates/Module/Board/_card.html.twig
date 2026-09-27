@@ -6,14 +6,14 @@
 {% set static = static ?? false %}
 {% set progress = progress ?? null %}
 {% set inLane = inLane ?? false %}
-{% set runWarning = runWarning ?? null %}
+{% set runWarning = (runWarning ?? null) is not null and runWarning.appliesTo(card.column.slug) ? runWarning : null %}
 <article class="lp-board-card{{ static ? ' lp-board-card--static' }}"
          {% if not static %}data-controller="card-prefetch"
          data-board-drag-target="card"
          data-board-filter-target="card"
          data-action="pointerdown->board-drag#press mouseenter->card-prefetch#enter mouseleave->card-prefetch#leave focusin->card-prefetch#enter"
          id="board-card-{{ card.id }}"
-         data-card-digest="{{ card_digest(card, pendingComments) }}"{% endif %}
+         data-card-digest="{{ card_digest(card, pendingComments, runWarning.runId ?? null) }}"{% endif %}
          data-card-id="{{ card.id }}"
          data-card-type="{{ card.type.value }}"
          data-card-title="{{ card.title }}">
@@ -52,7 +52,7 @@
     {% if card.body|trim is not empty %}
     <p class="lp-board-card__excerpt">{{ card.body|striptags|slice(0, 110) }}{% if card.body|length > 110 %}…{% endif %}</p>
     {% endif %}
-    {% if runWarning is not null and runWarning.appliesTo(card.column.slug) %}
+    {% if runWarning is not null %}
     <a class="lp-board-card__warning"
        draggable="false"
        href="{{ path('app_project_worker_runs', {id: card.project.id, search: runWarning.runId}) }}"
