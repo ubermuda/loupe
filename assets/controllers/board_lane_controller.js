@@ -4,8 +4,8 @@ import { Controller } from '@hotwired/stimulus';
  * Collapses one epic lane of the board to its header.
  *
  * Collapse belongs to the browser, so the collapsed epic ids live in
- * localStorage, one list per project. The class is applied on connect, so a
- * board that a Turbo stream draws again keeps the lanes the reader collapsed.
+ * localStorage, one list per project. The class is applied on connect, and
+ * again after a frame morph, which keeps this element and resets its class.
  */
 export default class extends Controller {
     static targets = ['toggle'];
@@ -13,12 +13,23 @@ export default class extends Controller {
 
     connect() {
         this.onReveal = () => this.render(this.isCollapsed());
+        this.onMorph = (event) => {
+            if (event.target === this.element) {
+                this.restore();
+            }
+        };
         this.element.addEventListener('board-filter:reveal', this.onReveal);
-        this.render(this.collapsedIds().includes(this.epicValue));
+        this.element.addEventListener('turbo:morph-element', this.onMorph);
+        this.restore();
     }
 
     disconnect() {
         this.element.removeEventListener('board-filter:reveal', this.onReveal);
+        this.element.removeEventListener('turbo:morph-element', this.onMorph);
+    }
+
+    restore() {
+        this.render(this.collapsedIds().includes(this.epicValue));
     }
 
     /**
@@ -36,7 +47,7 @@ export default class extends Controller {
         }
 
         const ids = new Set(this.collapsedIds());
-        const collapsed = !ids.has(this.epicValue);
+        const collapsed = !this.isCollapsed();
         if (collapsed) {
             ids.add(this.epicValue);
         } else {
