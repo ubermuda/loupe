@@ -45,7 +45,7 @@ final class PullRequestTrackerTest extends KernelTestCase
         $bus = $container->get(MessageBusInterface::class);
         self::assertInstanceOf(MessageBusInterface::class, $bus);
 
-        // No forge module ships a reader yet, and the registry is private, so the tracker is built by hand.
+        // The container registry holds no reader for the fake forge, so the tracker is built by hand.
         $this->tracker = new PullRequestTracker(
             $pullRequests,
             new PullRequestStateReaders([new FakePullRequestStateReader()]),
