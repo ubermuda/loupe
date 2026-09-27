@@ -81,6 +81,8 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         $cleared = Uuid::v7();
         $stillRunning = Uuid::v7();
         $failed = Uuid::v7();
+        $onForge = Uuid::v7();
+        $forgeAfterGaveUp = Uuid::v7();
         $elsewhere = Uuid::v7();
         $at = static fn (string $time): \DateTimeImmutable => new \DateTimeImmutable('2026-01-01 '.$time);
 
@@ -93,6 +95,9 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         $waiting = $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $stillRunning, state: WorkerRunState::Blocked, hasResult: true);
         $this->seedRun($em, $project, receivedAt: $at('10:05'), cardId: $stillRunning, state: WorkerRunState::Running);
         $this->seedRun($em, $project, receivedAt: $at('10:00'), exitCode: 1, cardId: $failed);
+        $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $onForge, state: WorkerRunState::WaitingOnForge, hasResult: true);
+        $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $forgeAfterGaveUp, state: WorkerRunState::GaveUp, hasResult: true);
+        $this->seedRun($em, $project, receivedAt: $at('10:05'), cardId: $forgeAfterGaveUp, state: WorkerRunState::WaitingOnForge, hasResult: true);
         $this->seedRun($em, $other, receivedAt: $at('10:00'), cardId: $elsewhere, state: WorkerRunState::GaveUp, hasResult: true);
         $em->flush();
 

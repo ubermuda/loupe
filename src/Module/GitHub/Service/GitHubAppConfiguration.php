@@ -21,6 +21,12 @@ final readonly class GitHubAppConfiguration
 
         #[Autowire(env: 'default::GITHUB_APP_WEBHOOK_SECRET')]
         private ?string $webhookSecret,
+
+        #[Autowire(env: 'default::GITHUB_APP_ID')]
+        public ?string $appId,
+
+        #[Autowire(env: 'default::GITHUB_APP_PRIVATE_KEY')]
+        public ?string $appPrivateKey,
     ) {
     }
 
@@ -49,6 +55,20 @@ final readonly class GitHubAppConfiguration
             'GITHUB_APP_CLIENT_SECRET' => $this->clientSecret,
             'GITHUB_APP_WEBHOOK_SECRET' => $this->webhookSecret,
         ];
+    }
+
+    /** Whether Loupe can sign as the App to read repositories through an installation token. */
+    public function canReadForge(): bool
+    {
+        return [] === $this->missingApiVariables();
+    }
+
+    /** @return list<non-empty-string> the names of the unset variables, never their values */
+    public function missingApiVariables(): array
+    {
+        $values = ['GITHUB_APP_ID' => $this->appId, 'GITHUB_APP_PRIVATE_KEY' => $this->appPrivateKey];
+
+        return array_keys(array_filter($values, fn (?string $value): bool => null === $value || '' === $value));
     }
 
     public function installUrl(string $state): string

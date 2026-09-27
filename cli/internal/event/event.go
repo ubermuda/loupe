@@ -5,15 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
+	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
-// Event mirrors the Mercure update payloads the server publishes.
-//
-// Every field is a server-generated identifier. Card titles and bodies are
-// controlled by whoever can write to the board, so they are never carried here
-// and never reach a prompt.
+// Event mirrors the Mercure update payloads the server publishes. Each field
+// is a server identifier, or a forge value that Parse checks against a strict
+// shape. Whoever can write to the board controls card titles and bodies, so
+// they are never carried here and never reach a prompt.
 type Event struct {
 	Type       string  `json:"type"`
 	Subject    Subject `json:"subject"`
@@ -27,9 +30,11 @@ type Event struct {
 	FromSlug string `json:"fromSlug"`
 	ToSlug   string `json:"toSlug"`
 	Slug     string `json:"slug"`
-	// SessionID and BridgeID belong to inbox.ask_closed, and CardID to it and
-	// to document.review_submitted. Verdict and Column belong to
-	// document.review_submitted. A null value decodes as "" or 0.
+	// SessionID and BridgeID belong to inbox.ask_closed and
+	// pull_request.fix_requested. CardID belongs to those, to
+	// document.review_submitted and to every pull_request type. Verdict belongs
+	// to both review types, and Column to document.review_submitted. A null
+	// value decodes as "" or 0.
 	SessionID string `json:"sessionId"`
 	BridgeID  string `json:"bridgeId"`
 	CardID    string `json:"cardId"`
@@ -38,6 +43,17 @@ type Event struct {
 	// Card belongs to board.card_moved and document.review_submitted. An older
 	// server, or a review with no stage card, sends none.
 	Card CardState `json:"card"`
+	// Every pull_request type can carry the fields below up to HeadSHA.
+	// Conclusion and FailedChecks belong to pull_request.checks_concluded, and
+	// Reason to pull_request.fix_requested.
+	Forge             string   `json:"forge"`
+	Repository        string   `json:"repository"`
+	PullRequestNumber int      `json:"pullRequestNumber"`
+	PullRequestURL    string   `json:"pullRequestUrl"`
+	HeadSHA           string   `json:"headSha"`
+	Conclusion        string   `json:"conclusion"`
+	FailedChecks      []string `json:"failedChecks"`
+	Reason            string   `json:"reason"`
 }
 
 // CardState is what the server says about the card an event names.
@@ -79,6 +95,35 @@ const (
 	VerdictChangesRequested = "changes-requested"
 )
 
+// PullRequestPrefix starts the type of every event about a card's pull request.
+// The bridge parses such a type only when a rule names it.
+const PullRequestPrefix = "pull_request."
+
+// The pull request types whose own fields a rule can read.
+const (
+	ChecksConcludedType            = "pull_request.checks_concluded"
+	PullRequestReviewSubmittedType = "pull_request.review_submitted"
+	FixRequestedType               = "pull_request.fix_requested"
+)
+
+// IsPullRequest reports whether t is a pull request type.
+func IsPullRequest(t string) bool {
+	return strings.HasPrefix(t, PullRequestPrefix)
+}
+
+// The conclusions a pull_request.checks_concluded event carries.
+const (
+	ConclusionPassed = "passed"
+	ConclusionFailed = "failed"
+)
+
+// The reasons a pull_request.fix_requested event carries.
+const (
+	ReasonChecksFailed     = "checks-failed"
+	ReasonConflict         = "conflict"
+	ReasonChangesRequested = "changes-requested"
+)
+
 // The actors the server names. Reviewer is someone using the site-review
 // widget, whom the app cannot authenticate. System is the app acting on a
 // person's approval, which nobody judged as a move of its own: it neither
@@ -110,23 +155,30 @@ func IsID(s string) bool {
 var SlugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // ForAnotherBridge reports whether data is an inbox.ask_closed event that does
-// not name bridgeID as a string, whatever its case. The caller drops such an
-// event before Parse, so a malformed field of another bridge's event logs
-// nothing. Data that is not a JSON object is left to Parse.
+// not name bridgeID as a string, whatever its case, or a
+// pull_request.fix_requested event that names another bridge. The caller drops
+// it before Parse, so another bridge's malformed event logs nothing. Data that
+// is not a JSON object is left to Parse.
 func ForAnotherBridge(data []byte, bridgeID string) bool {
 	var head struct {
 		Type     string          `json:"type"`
 		BridgeID json.RawMessage `json:"bridgeId"`
 	}
-	if json.Unmarshal(data, &head) != nil || head.Type != AskClosedType {
+	if json.Unmarshal(data, &head) != nil || (head.Type != AskClosedType && head.Type != FixRequestedType) {
+		return false
+	}
+	if head.Type == FixRequestedType && len(head.BridgeID) == 0 {
 		return false
 	}
 	var id string
 	if json.Unmarshal(head.BridgeID, &id) != nil {
 		return true
 	}
+	if id == "" {
+		return head.Type == AskClosedType
+	}
 
-	return id == "" || !strings.EqualFold(id, bridgeID)
+	return !strings.EqualFold(id, bridgeID)
 }
 
 // Parse decodes a Mercure data payload into an Event.
@@ -161,6 +213,10 @@ func Parse(data []byte, extraTypes map[string]bool) (Event, error) {
 		}
 	case e.Type == ReviewSubmittedType && extraTypes[e.Type]:
 		if err := checkReviewSubmitted(e); err != nil {
+			return e, err
+		}
+	case IsPullRequest(e.Type) && extraTypes[e.Type]:
+		if err := checkPullRequest(&e); err != nil {
 			return e, err
 		}
 	case e.Type != "" && extraTypes[e.Type]:
@@ -262,6 +318,133 @@ func checkCard(e Event) error {
 	}
 	if e.CardNumber < 0 || (e.CardID == "") != (e.CardNumber == 0) {
 		return fmt.Errorf("%s event names half a card: cardId %q, cardNumber %d", e.Type, e.CardID, e.CardNumber)
+	}
+
+	return nil
+}
+
+// The shapes of the pull request fields that reach a prompt.
+var (
+	repositoryPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)+$`)
+	urlPattern        = regexp.MustCompile(`^https://[A-Za-z0-9._~:/?#\[\]@!$&()*+,;=%-]+$`)
+	shaPattern        = regexp.MustCompile(`^[0-9a-f]{7,64}$`)
+)
+
+// The limits on the pull request fields.
+const (
+	maxRepository   = 255
+	maxURL          = 2000
+	maxFailedChecks = 100
+	maxCheckName    = 200
+)
+
+// checkPullRequest checks a pull request event, whose subject is its card. It
+// fills the card id from the subject when the server sends none. Each field
+// that a type does not carry must be empty.
+func checkPullRequest(e *Event) error {
+	if e.CardID == "" {
+		e.CardID = e.Subject.ID
+	}
+	if err := checkCommon(*e); err != nil {
+		return err
+	}
+	if err := checkCard(*e); err != nil {
+		return err
+	}
+	if e.CardNumber <= 0 {
+		return fmt.Errorf("%s event has an invalid cardNumber %d", e.Type, e.CardNumber)
+	}
+	if !strings.EqualFold(e.CardID, e.Subject.ID) {
+		return fmt.Errorf("%s event names card %s and subject %s", e.Type, e.CardID, e.Subject.ID)
+	}
+	if e.Forge != "" && !SlugPattern.MatchString(e.Forge) {
+		return fmt.Errorf("%s event has a forge that is not a slug", e.Type)
+	}
+	if e.Repository != "" && (len(e.Repository) > maxRepository || !repositoryPattern.MatchString(e.Repository)) {
+		return fmt.Errorf("%s event has a repository that is not owner/name", e.Type)
+	}
+	if e.PullRequestNumber < 0 {
+		return fmt.Errorf("%s event has an invalid pullRequestNumber %d", e.Type, e.PullRequestNumber)
+	}
+	if e.PullRequestURL != "" && !isPullRequestURL(e.PullRequestURL) {
+		return fmt.Errorf("%s event has a pullRequestUrl that is not an https URL", e.Type)
+	}
+	if e.HeadSHA != "" && !shaPattern.MatchString(e.HeadSHA) {
+		return fmt.Errorf("%s event has a headSha that is not a commit hash", e.Type)
+	}
+	if err := checkFailedChecks(*e); err != nil {
+		return err
+	}
+	for _, f := range []struct {
+		name, value, owner string
+		allowed            []string
+	}{
+		{"conclusion", e.Conclusion, ChecksConcludedType, []string{ConclusionPassed, ConclusionFailed}},
+		{"verdict", e.Verdict, PullRequestReviewSubmittedType, []string{VerdictApproved, VerdictChangesRequested}},
+		{"reason", e.Reason, FixRequestedType, []string{ReasonChecksFailed, ReasonConflict, ReasonChangesRequested}},
+	} {
+		if f.value == "" {
+			continue
+		}
+		if e.Type != f.owner {
+			return fmt.Errorf("%s event has a %s, which only %s carries", e.Type, f.name, f.owner)
+		}
+		if !slices.Contains(f.allowed, f.value) {
+			return fmt.Errorf("%s event has an unknown %s %q", e.Type, f.name, f.value)
+		}
+	}
+
+	return checkFixSession(*e)
+}
+
+func isPullRequestURL(s string) bool {
+	if len(s) > maxURL || !urlPattern.MatchString(s) {
+		return false
+	}
+	u, err := url.Parse(s)
+
+	return err == nil && u.Host != ""
+}
+
+// checkFailedChecks checks the check names, which the forge names and a
+// prompt reads. A brace could read as a placeholder, and a double quote or a
+// backslash could break the quotes a prompt puts round a name.
+func checkFailedChecks(e Event) error {
+	if len(e.FailedChecks) == 0 {
+		return nil
+	}
+	if e.Type != ChecksConcludedType {
+		return fmt.Errorf("%s event has failedChecks, which only %s carries", e.Type, ChecksConcludedType)
+	}
+	if len(e.FailedChecks) > maxFailedChecks {
+		return fmt.Errorf("%s event names %d failed checks, and the bridge takes at most %d", e.Type, len(e.FailedChecks), maxFailedChecks)
+	}
+	for _, name := range e.FailedChecks {
+		if n := utf8.RuneCountInString(name); n < 1 || n > maxCheckName ||
+			strings.ContainsFunc(name, unicode.IsControl) || strings.ContainsAny(name, "{}\"\\") {
+			return fmt.Errorf("%s event has a failed check name that is empty, too long, or holds a control character, a brace, a double quote or a backslash", e.Type)
+		}
+	}
+
+	return nil
+}
+
+// checkFixSession checks the session a fix request resumes. The session and
+// the bridge come together, or neither comes, and only a fix request carries
+// them.
+func checkFixSession(e Event) error {
+	if e.Type != FixRequestedType {
+		if e.SessionID != "" || e.BridgeID != "" {
+			return fmt.Errorf("%s event names a session or a bridge, which only %s carries", e.Type, FixRequestedType)
+		}
+
+		return nil
+	}
+	if (e.SessionID == "") != (e.BridgeID == "") {
+		return fmt.Errorf("%s event names half a session: sessionId %q, bridgeId %q", e.Type, e.SessionID, e.BridgeID)
+	}
+	if e.SessionID != "" && (!uuidPattern.MatchString(e.SessionID) || !uuidPattern.MatchString(e.BridgeID)) {
+		return fmt.Errorf("%s event has a sessionId or a bridgeId that is not a uuid", e.Type)
 	}
 
 	return nil

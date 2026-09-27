@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/ubermuda/loupe/cli/internal/projectfile"
@@ -16,7 +17,12 @@ import (
 // directory decides, and a malformed file at start is an error.
 func mcpProject(flag string, notes io.Writer) (func() string, error) {
 	if flag != "" {
-		return func() string { return flag }, nil
+		if err := projectfile.Valid(flag); err != nil {
+			return nil, err
+		}
+		id := strings.ToLower(flag)
+
+		return func() string { return id }, nil
 	}
 
 	dir, err := os.Getwd()

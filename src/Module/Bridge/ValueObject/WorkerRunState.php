@@ -45,6 +45,9 @@ enum WorkerRunState: string
     /** The worker said it cannot go on without a person. */
     case Blocked = 'blocked';
 
+    /** The worker said its work waits on the forge, such as checks on a pushed pull request. The bridge does not resume it. */
+    case WaitingOnForge = 'waiting-on-forge';
+
     /** The bridge used every resume the rule allows, and the run still did not finish. */
     case GaveUp = 'gave-up';
 
@@ -66,6 +69,7 @@ enum WorkerRunState: string
             false === $hasResult => self::NoResult,
             'blocked' === $resultStatus => self::Blocked,
             'unfinished' === $resultStatus => self::Unfinished,
+            'waiting' === $resultStatus => self::WaitingOnForge,
             default => self::Succeeded,
         };
     }
@@ -84,7 +88,7 @@ enum WorkerRunState: string
     /** How a worker process ended. Only these states carry an exit code or a failure reason. */
     public function isOutcome(): bool
     {
-        return \in_array($this, [self::Succeeded, self::Failed, self::NotStarted, self::NoResult, self::Unfinished, self::Blocked, self::GaveUp], true);
+        return \in_array($this, [self::Succeeded, self::Failed, self::NotStarted, self::NoResult, self::Unfinished, self::Blocked, self::WaitingOnForge, self::GaveUp], true);
     }
 
     /** The server infers these on its own, and a bridge never reports them. */
@@ -121,6 +125,7 @@ enum WorkerRunState: string
             self::NoResult => 'bridge.worker_runs.state.no_result',
             self::Unfinished => 'bridge.worker_runs.state.unfinished',
             self::Blocked => 'bridge.worker_runs.state.blocked',
+            self::WaitingOnForge => 'bridge.worker_runs.state.waiting_on_forge',
             self::GaveUp => 'bridge.worker_runs.state.gave_up',
             self::TimedOut => 'bridge.worker_runs.state.timed_out',
             self::Lost => 'bridge.worker_runs.state.lost',
@@ -136,7 +141,7 @@ enum WorkerRunState: string
             self::Failed, self::NoResult, self::GaveUp, self::Dropped, self::TimedOut, self::Lost => 'failed',
             // The bridge set these runs aside by design, so nothing waits and nothing failed.
             self::Replaced, self::Skipped => 'resolved',
-            self::Queued, self::Resumed, self::Running, self::WaitingForPerson, self::NotStarted, self::Unfinished, self::Blocked => 'pending',
+            self::Queued, self::Resumed, self::Running, self::WaitingForPerson, self::NotStarted, self::Unfinished, self::Blocked, self::WaitingOnForge => 'pending',
         };
     }
 }

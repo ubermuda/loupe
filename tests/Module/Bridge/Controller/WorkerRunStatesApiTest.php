@@ -211,6 +211,31 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertNull($run->resultFields);
     }
 
+    public function test_a_worker_that_waits_on_the_forge_closes_as_waiting_on_forge(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-forge@example.com');
+        $project = $this->project($em, $owner, 'Run States Forge');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload([
+            'state' => 'waiting-on-forge',
+            'sessionId' => (string) Uuid::v4(),
+            'startedAt' => '2026-09-23T10:00:00+00:00',
+            'endedAt' => '2026-09-23T10:01:00+00:00',
+            'exitCode' => 0,
+            'hasResult' => true,
+            'resultStatus' => 'waiting',
+            'output' => 'checks run on the pull request',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunState::WaitingOnForge, $run->state);
+        self::assertSame('waiting', $run->resultStatus);
+    }
+
     public function test_an_outcome_stores_its_usage(): void
     {
         $client = static::createClient();
@@ -335,6 +360,11 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'unfinished with no result' => [array_merge($outcome, ['state' => 'unfinished', 'hasResult' => false])];
         yield 'gave-up after a finished worker' => [array_merge($result, ['state' => 'gave-up', 'resultStatus' => 'finished'])];
         yield 'gave-up after a blocked worker' => [array_merge($result, ['state' => 'gave-up', 'resultStatus' => 'blocked'])];
+        yield 'succeeded with a waiting status' => [array_merge($result, ['state' => 'succeeded', 'resultStatus' => 'waiting'])];
+        yield 'waiting-on-forge with a finished status' => [array_merge($result, ['state' => 'waiting-on-forge', 'resultStatus' => 'finished'])];
+        yield 'waiting-on-forge with a non-zero exit code' => [array_merge($result, ['state' => 'waiting-on-forge', 'exitCode' => 1, 'resultStatus' => 'waiting'])];
+        yield 'waiting-on-forge with no result' => [array_merge($outcome, ['state' => 'waiting-on-forge', 'hasResult' => false])];
+        yield 'gave-up after a worker that waits on the forge' => [array_merge($result, ['state' => 'gave-up', 'resultStatus' => 'waiting'])];
         yield 'gave-up after a run that never started' => [array_merge($outcome, ['state' => 'gave-up', 'exitCode' => null, 'failureReason' => 'no claude'])];
         yield 'result fields above the limit' => [array_merge($result, ['state' => 'succeeded', 'resultStatus' => 'finished', 'resultFields' => ['note' => str_repeat('x', 4000)]])];
         yield 'result fields as a list' => [array_merge($result, ['state' => 'succeeded', 'resultStatus' => 'finished', 'resultFields' => ['a', 'b']])];

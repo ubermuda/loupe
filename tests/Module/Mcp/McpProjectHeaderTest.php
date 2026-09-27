@@ -48,7 +48,10 @@ final class McpProjectHeaderTest extends WebTestCase
         // 200 with isError, never the 404 an ended session answers.
         self::assertSame(200, $client->getResponse()->getStatusCode());
         self::assertTrue($answer['result']['isError']);
-        self::assertStringContainsString('does not cover', $answer['result']['content'][0]['text']);
+        self::assertSame(
+            \sprintf('This credential is bound to one project, and the X-Loupe-Project header names another ("%s"). Remove the header, or set it to Bound other (%s).', $elsewhere->id, $project->id),
+            $answer['result']['content'][0]['text'],
+        );
     }
 
     public function test_a_header_that_is_not_a_project_id_is_refused(): void
@@ -60,7 +63,7 @@ final class McpProjectHeaderTest extends WebTestCase
 
         self::assertSame(200, $client->getResponse()->getStatusCode());
         self::assertTrue($answer['result']['isError']);
-        self::assertStringContainsString('must be a project id', $answer['result']['content'][0]['text']);
+        self::assertStringStartsWith('The project this request names is not a project id ("the-board"). Run `loupe init`', $answer['result']['content'][0]['text']);
     }
 
     public function test_no_header_leaves_the_bound_project_in_place(): void

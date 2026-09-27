@@ -136,6 +136,8 @@ Grant these repository permissions, all read-only.
 |---|---|
 | Pull requests | the merge and the review verdict |
 | Checks | the aggregate check conclusion |
+| Contents | GitHub offers the Push event only with it |
+| Commit statuses | the status of each check context |
 | Metadata | GitHub requires it, and it carries the Repository event |
 
 Subscribe to these events. The permissions decide which events GitHub offers.
@@ -151,8 +153,8 @@ GitHub sends the installation events without a subscription.
 A merge has no event of its own. A check run fires once for each check, so
 Loupe reads the check suite instead.
 
-Then set four variables. [Environment variables](../reference/environment.md)
-describes each one.
+Then set the four install variables.
+[Environment variables](../reference/environment.md) describes each one.
 
 - `GITHUB_APP_SLUG`, the last segment of `https://github.com/apps/<slug>`
 - `GITHUB_APP_CLIENT_ID`
@@ -161,6 +163,19 @@ describes each one.
 
 Set all four or none. While one is empty, the App is not offered, and the
 *GitHub App* row on `/admin/status` names the empty variables.
+
+A separate optional pair lets Loupe sign as the App and read repositories
+through an installation token. The install does not need it.
+
+- `GITHUB_APP_ID`, the App ID on the *General* page of the App settings
+- `GITHUB_APP_PRIVATE_KEY`, a private key that you generate on the same page.
+  Paste the PEM file as it is, or on one line with `\n` for each line break.
+
+Set both or neither. The *GitHub App access* row on `/admin/status` reports a
+key that GitHub refuses, and an installation that misses a permission.
+
+A repository connected through a per-project webhook gets no pull request
+automation, because Loupe has no installation token for it.
 
 The install runs in this order. The owner selects Install on GitHub, and GitHub
 shows its install page. GitHub then sends the owner to the setup URL. Loupe asks
