@@ -142,7 +142,8 @@ event carried. Each log line below goes with the state the bridge reports:
 | `resume_skipped` with an `ask` | `skipped` |
 | `resume_skipped` with a `reason` | the outcome of the run that did not finish, with `resumeSkipped` set to the reason |
 | `worker_started` | `running`. The resume of an ask sends `resumed` first |
-| `worker_finished` | `succeeded`, `blocked` or `unfinished` from the status for exit code 0, and `failed` for any other code |
+| `worker_finished` | `succeeded`, `blocked`, `unfinished` or `waiting-on-forge` from the status for exit code 0, and `failed` for any other code |
+| `resume_session_missing` | `failed` for the fix request whose session is missing, then `queued` for the new session |
 | `worker_no_result` | `no-result` for exit code 0, and `failed` for any other code |
 | `worker_resuming` | the outcome of the run that did not finish, then `queued` for the resume |
 | `worker_gave_up` | `gave-up` |
@@ -156,15 +157,19 @@ also sets `closed` on an interactive run, which no bridge holds.
 A clean exit does not prove that the work finished. The bridge runs each
 worker with `--output-format json` and `--json-schema`, and every prompt asks
 for a structured result. The core schema requires `status`, which is
-`finished`, `blocked` or `unfinished`, and a one-sentence `summary`. A rule's
+`finished`, `blocked`, `unfinished` or `waiting`, and a one-sentence `summary`. A rule's
 `resultFields` adds optional fields, each a JSON Schema fragment. A worker with
 no valid structured result logs `worker_no_result` at `ERROR`, and its record
 carries `hasResult: false`. The stage skills still print a `STAGE RESULT:`
 line, and the bridge does not read it. `cli/README.md` covers the schema and
 the resume rules in full.
 
+A worker reports `waiting` when its work waits on the forge, such as checks on
+a pushed pull request. The bridge reports that run as `waiting-on-forge` and
+does not resume it.
+
 A server older than the `unfinished`, `blocked` and `gave-up` states refuses
-them with a 422. The bridge logs `report_failed` for that report and does not
+them with a 422, and so does a server older than `waiting-on-forge`. The bridge logs `report_failed` for that report and does not
 retry it.
 
 The bridge sets `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0` for each worker. Without
@@ -279,7 +284,8 @@ which takes one report for each finished run. It counts every open state as
 delivered, and it sends no inventory. A report that already waits in the queue
 takes the fallback when it goes out, so none is lost on the switch.
 
-The old report carries no result status. An `unfinished` or `blocked` run
+The old report carries no result status. An `unfinished`, `blocked` or
+`waiting-on-forge` run
 therefore reads as `succeeded` there, and a `gave-up` run reads as the outcome
 of its exit code and result flag. Nothing logs this.
 
@@ -810,6 +816,76 @@ The bridge keys the run on the stage card, as it keys a resume. The run waits
 behind a worker of that card, a second verdict for the same rule replaces a
 waiting one, and the bridge reports the run against the card. The event comes
 from a person, so it resets the chain counts of the card.
+
+## The pull_request events
+
+Loupe writes a `pull_request.*` event for each card that links the pull request.
+The subject is the card. The bridge parses such a type only when a rule names
+it.
+
+```json
+{
+  "type": "pull_request.fix_requested",
+  "projectId": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7",
+  "subject": { "type": "card", "id": "0192f3a1-7777-7d3e-8f10-a2b3c4d5e6f7" },
+  "actor": "system",
+  "cardId": "0192f3a1-7777-7d3e-8f10-a2b3c4d5e6f7",
+  "cardNumber": 33,
+  "forge": "github",
+  "repository": "owner/name",
+  "pullRequestNumber": 42,
+  "pullRequestUrl": "https://github.com/owner/name/pull/42",
+  "headSha": "4ce0422d5b1e8f4c1a3a3f0f5c2d7e9b8a6c4d21",
+  "reason": "checks-failed",
+  "sessionId": "0192f3a1-8888-7d3e-8f10-a2b3c4d5e6f7",
+  "bridgeId": "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `cardId`, `cardNumber` | the card that links the pull request. The bridge takes `cardId` from `subject.id` when the field is absent |
+| `forge` | the forge, such as `github` |
+| `repository`, `pullRequestNumber`, `pullRequestUrl` | the pull request |
+| `headSha` | the head commit that the event describes |
+| `conclusion`, `failedChecks` | on `pull_request.checks_concluded` only: `passed` or `failed`, and the names of the failed required checks |
+| `verdict` | on `pull_request.review_submitted` only: `approved` or `changes-requested` |
+| `reason` | on `pull_request.fix_requested` only: `checks-failed`, `conflict` or `changes-requested` |
+| `sessionId`, `bridgeId` | on `pull_request.fix_requested` only: the session to resume and the bridge that ran it. Both are present, or neither is |
+
+The bridge checks the shape of each field that is present, because a prompt
+reads it. An event with a field of the wrong shape, or a field that its type
+does not carry, is logged as `event_malformed`. A server older than this bridge
+sends only `cardNumber` and `forge`, and the other placeholders render empty.
+
+A rule on a `pull_request.*` type takes a `when` map. `checks_concluded` takes
+`conclusion`, `review_submitted` takes `verdict`, and `fix_requested` takes
+`reason`. The rule matches only an event that holds every value. The prompt
+takes these placeholders:
+
+| Placeholder | Value |
+|---|---|
+| `{cardId}`, `{cardNumber}` | the card's id and number |
+| `{forge}`, `{repository}`, `{pullRequestNumber}`, `{pullRequestUrl}`, `{headSha}` | the pull request fields |
+| `{conclusion}`, `{failedChecks}` | on `pull_request.checks_concluded`. The names are separated by commas |
+| `{verdict}` | on `pull_request.review_submitted` |
+| `{reason}`, `{sessionId}` | on `pull_request.fix_requested` |
+| `{projectId}`, `{project}` | the project's id and slug |
+
+A rule on `pull_request.fix_requested` can set `resume: true`. When the event
+names a session, the bridge resumes it with the rule's prompt and the card
+footer. When it names no session, the bridge starts a new session. The bridge
+drops an event that names another bridge before it parses it. An event that
+names no bridge is for every bridge.
+
+When the named session is not on the machine, `claude --resume` exits with code
+1 and prints `No conversation found with session ID: <id>`. The bridge reports
+that run as `failed`, logs `resume_session_missing`, and queues one new session
+for the same event and rule.
+
+The bridge keys the run on the card, so it waits behind a worker of that card.
+The actor is `system`, so the run neither counts toward nor resets the chain
+count of the card.
 
 ## Ask check endpoint
 

@@ -47,4 +47,5 @@ When the harness asks for a structured result, put the same sentence in `summary
 |---|---|
 | `ready`, `fixed`, `created`, `revised`, `comments answered`, `unchanged`, `nothing to fix`, `no open pull request`, `already approved`, `card left` | `finished` |
 | `blocked:`, `loupe MCP unavailable`, `not approved`, `no approved tech design`, `no product document`, `no linked`, `open pull request exists`, `no fix round for column` | `blocked` |
+| `waiting`, because the work waits on the forge, such as checks on a pushed pull request | `waiting` |
 | No form yet, because work still runs or remains | `unfinished` |
