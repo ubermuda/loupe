@@ -136,6 +136,9 @@ final readonly class UpdateCardHandler
                     return $refusal;
                 }
                 $card->parent = $parent;
+            } elseif (null !== $command->laneEnabled) {
+                // A lane toggle compares against the committed setting.
+                $this->cards->refreshTypeAndParent($card);
             }
             $laneChanged = null !== $command->laneEnabled && $command->laneEnabled !== $card->laneEnabled;
             $lanesBefore = $card->drawsLane();
