@@ -5561,6 +5561,10 @@
     .lp-board-lane__head {
         @apply flex flex-wrap items-center gap-2 px-1;
     }
+    /* A lane head whose live placement failed. The shape shows it, not the colour. */
+    .lp-board-lane__head--stale {
+        @apply rounded-lg outline-2 outline-offset-2 outline-dashed outline-line-strong opacity-75;
+    }
     /* The lane toggle closes the lane head, at its right end. */
     .lp-board-lane__head > form {
         @apply ml-auto;

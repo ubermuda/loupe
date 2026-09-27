@@ -490,6 +490,35 @@ describe('board-place on a board with lanes', () => {
         expect(placed.mock.calls[0][0].detail).toEqual({ cardId: EPIC });
     });
 
+    it('drops the stale mark of a lane head it morphs', () => {
+        const head = document.querySelector(
+            `#board-lane-${EPIC} .lp-board-lane__head`,
+        );
+        head.classList.add('lp-board-lane__head--stale');
+        head.setAttribute('data-board-stale', '');
+        head.title = 'This card may be out of date';
+        head.insertAdjacentHTML(
+            'beforeend',
+            '<span class="sr-only" data-board-stale-text>This card may be out of date</span>',
+        );
+
+        placeCard(
+            laneStream({
+                id: EPIC,
+                column: NEXT,
+                lane: 'other',
+                rowAfter: 'c',
+                head: true,
+                body: laneHead('Epic', '0/2 done') + row(EPIC, NEXT),
+            }),
+        );
+
+        expect(head.className).toBe('lp-board-lane__head');
+        expect(head.hasAttribute('data-board-stale')).toBe(false);
+        expect(head.hasAttribute('title')).toBe(false);
+        expect(head.querySelector('[data-board-stale-text]')).toBeNull();
+    });
+
     describe('the order of the lanes', () => {
         const SECOND = 'epic-2';
         const lanes = () =>

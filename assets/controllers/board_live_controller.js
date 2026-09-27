@@ -22,9 +22,23 @@ const RETRY_JITTER = 0.2;
 const FLASH_MILLISECONDS = 1500;
 const STREAM_TYPE = 'text/vnd.turbo-stream.html';
 const FLASH_CLASS = 'lp-board-card--flash';
+// A lane epic has no card face. The head of its lane stands for it.
 const STALE_MARKS = [
-    ['board-card-', 'lp-board-card--stale'],
-    ['board-row-', 'lp-board-list__row--stale'],
+    [
+        (cardId) => document.getElementById(`board-card-${cardId}`),
+        'lp-board-card--stale',
+    ],
+    [
+        (cardId) => document.getElementById(`board-row-${cardId}`),
+        'lp-board-list__row--stale',
+    ],
+    [
+        (cardId) =>
+            document
+                .getElementById(`board-lane-${cardId}`)
+                ?.querySelector('.lp-board-lane__head') ?? null,
+        'lp-board-lane__head--stale',
+    ],
 ];
 const RETRY = 'retry';
 const STALE = 'stale';
@@ -223,8 +237,8 @@ export default class extends Controller {
     }
 
     markStale(cardId) {
-        STALE_MARKS.forEach(([prefix, className]) => {
-            const element = document.getElementById(prefix + cardId);
+        STALE_MARKS.forEach(([find, className]) => {
+            const element = find(cardId);
             if (element === null || element.hasAttribute('data-board-stale')) {
                 return;
             }
@@ -241,8 +255,8 @@ export default class extends Controller {
 
     /** The morph of fresh markup drops the mark too; this covers any other render. */
     clearStale(cardId) {
-        STALE_MARKS.forEach(([prefix, className]) => {
-            const element = document.getElementById(prefix + cardId);
+        STALE_MARKS.forEach(([find, className]) => {
+            const element = find(cardId);
             if (element === null || !element.hasAttribute('data-board-stale')) {
                 return;
             }

@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { Application } from '@hotwired/stimulus';
 import { renderStreamMessage } from '@hotwired/turbo';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BoardLiveController from '../../assets/controllers/board_live_controller.js';
 import { on, status } from '../../assets/lib/live.js';
 
@@ -537,6 +537,58 @@ it('clears the stale mark when the card is placed again', async () => {
         expect(element.hasAttribute('title')).toBe(false);
         expect(element.querySelectorAll('.sr-only')).toHaveLength(0);
     }
+});
+
+describe('a lane epic', () => {
+    const head = () =>
+        document.querySelector('#board-lane-e .lp-board-lane__head');
+
+    beforeEach(() => {
+        document
+            .getElementById('wrapper')
+            .insertAdjacentHTML(
+                'beforeend',
+                '<section id="board-lane-e"><header class="lp-board-lane__head"><a class="lp-board-lane__title">Epic</a></header></section><a id="board-row-e" href="#"></a>',
+            );
+    });
+
+    it('marks the head of its lane stale for the eye and for a screen reader', async () => {
+        answer = () => Promise.resolve(failure(404));
+        receive('e');
+        await vi.advanceTimersByTimeAsync(150);
+
+        expect(head().classList.contains('lp-board-lane__head--stale')).toBe(
+            true,
+        );
+        expect(head().hasAttribute('data-board-stale')).toBe(true);
+        expect(head().title).toBe(STALE_TEXT);
+        const hidden = head().querySelectorAll('.sr-only');
+        expect(hidden).toHaveLength(1);
+        expect(hidden[0].textContent).toBe(STALE_TEXT);
+        expect(
+            document
+                .getElementById('board-row-e')
+                .hasAttribute('data-board-stale'),
+        ).toBe(true);
+    });
+
+    it('clears the stale mark of the head when the lane is placed again', async () => {
+        answer = () => Promise.resolve(failure(404));
+        receive('e');
+        await vi.advanceTimersByTimeAsync(150);
+
+        document.getElementById('board-lane-e').dispatchEvent(
+            new CustomEvent('board:placed', {
+                bubbles: true,
+                detail: { cardId: 'e' },
+            }),
+        );
+
+        expect(head().className).toBe('lp-board-lane__head');
+        expect(head().hasAttribute('data-board-stale')).toBe(false);
+        expect(head().hasAttribute('title')).toBe(false);
+        expect(head().querySelectorAll('.sr-only')).toHaveLength(0);
+    });
 });
 
 it('counts a new change as a fresh start, and cancels the waiting retry', async () => {
