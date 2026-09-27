@@ -11,7 +11,8 @@ use App\Module\Project\Entity\Project;
  *
  * `covered` lists the projects the credential does reach, so a caller can say
  * what to choose from. It holds only projects the credential's own user owns,
- * so naming them leaks nothing the caller could not already list.
+ * so naming them leaks nothing the caller could not already list. `requested`
+ * holds the trimmed header value, so a refusal can quote it back.
  */
 final readonly class ProjectResolution
 {
@@ -20,6 +21,7 @@ final readonly class ProjectResolution
         public ?Project $project,
         public ?ProjectRefusal $refusal,
         public array $covered,
+        public ?string $requested = null,
     ) {
     }
 
@@ -29,8 +31,8 @@ final readonly class ProjectResolution
     }
 
     /** @param list<Project> $covered */
-    public static function refused(ProjectRefusal $refusal, array $covered = []): self
+    public static function refused(ProjectRefusal $refusal, array $covered = [], ?string $requested = null): self
     {
-        return new self(null, $refusal, $covered);
+        return new self(null, $refusal, $covered, $requested);
     }
 }

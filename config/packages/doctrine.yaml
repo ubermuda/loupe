@@ -16,6 +16,7 @@ doctrine:
 
         types:
             tsvector: MartinGeorgiev\Doctrine\DBAL\Types\Tsvector
+            datetime_immutable_us: App\Doctrine\Type\MicrosecondDateTimeImmutableType
 
         # Required, not redundant: BaseType::getSQLDeclaration() calls
         # getDoctrineTypeMapping('tsvector'), which throws without an entry here.

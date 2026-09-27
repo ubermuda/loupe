@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -18,6 +19,7 @@ use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\CardParentResolver;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
+use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -32,6 +34,7 @@ final readonly class CreateCardHandler
         private CardRepository $cards,
         private BoardColumnRepository $boardColumns,
         private PullRequestUrlResolver $pullRequests,
+        private PullRequestTracking $pullRequestTracking,
         private DocumentLinkResolver $documentLinks,
         private CardLinkResolver $cardLinks,
         private CardLinkSync $cardLinkSync,
@@ -130,6 +133,7 @@ final readonly class CreateCardHandler
             // from exists. Inside the transaction, so the card and its vector
             // commit together.
             $this->searchIndexer->index($card);
+            $this->pullRequestTracking->apply($command->project, [], $this->pullRequestTracking->referencesOf($card));
 
             if (null !== $parent) {
                 $this->events->dispatch(new CardParentChanged($card, null, $parent, $command->reporter));
@@ -173,6 +177,9 @@ final readonly class CreateCardHandler
             CardChanged::CREATED,
             true,
         ));
+        if ($card->drawsLane()) {
+            $this->events->dispatch(new BoardColumnsChanged($command->project));
+        }
 
         return $card;
     }

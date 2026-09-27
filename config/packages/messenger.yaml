@@ -24,6 +24,7 @@ framework:
             Symfony\Component\Notifier\Message\SmsMessage: async
             App\Module\Account\Messenger\GenerateDataExportMessage: async
             App\Module\Billing\Messenger\CancelSubscriptionMessage: async
+            App\Module\Forge\Messenger\RefreshPullRequestState: async
 
             # Route your messages to the transports
             # 'App\Message\YourMessage': async

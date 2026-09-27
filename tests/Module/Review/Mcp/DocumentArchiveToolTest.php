@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Mcp\DocumentArchiveTool;
+use App\Tests\Support\McpRefusalMessages;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -167,7 +168,7 @@ final class DocumentArchiveToolTest extends KernelTestCase
             ($this->tool)((string) $document->id, 'superseded by the v2 plan');
             self::fail('an unbound token must throw');
         } catch (ToolCallException $e) {
-            self::assertSame('MCP token is not bound to a project. Mint a project token from the Connect page.', $e->getMessage());
+            self::assertSame(McpRefusalMessages::NO_PROJECT_REACHED, $e->getMessage());
         }
 
         self::assertNull($document->archivedAt);

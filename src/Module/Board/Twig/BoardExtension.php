@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Twig;
 
 use App\Module\Board\Command\BoardColumnView;
+use App\Module\Board\Command\CardProgress;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
@@ -106,7 +107,7 @@ final class BoardExtension extends AbstractExtension
      * card sits, so a page can tell a changed card from an unchanged one.
      * `$warningRunId` names the run whose warning the card face shows, if any.
      */
-    public function cardDigest(Card $card, int $pendingComments, ?string $warningRunId): string
+    public function cardDigest(Card $card, int $pendingComments, ?CardProgress $progress, ?string $warningRunId): string
     {
         return substr(sha1(json_encode([
             $card->number,
@@ -118,6 +119,7 @@ final class BoardExtension extends AbstractExtension
             $card->documents->count(),
             (string) $card->column->id,
             $card->position,
+            null === $progress ? null : [$progress->done, $progress->total],
             $warningRunId,
         ], \JSON_THROW_ON_ERROR)), 0, 12);
     }

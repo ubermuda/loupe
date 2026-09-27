@@ -57,4 +57,19 @@ final class CardRepositoryTest extends KernelTestCase
         self::assertSame($theirCard, $this->cards->findOneByProjectAndNumber($theirs, 1));
         self::assertNull($this->cards->findOneByProjectAndNumber($mine, 2));
     }
+
+    public function test_refresh_type_and_parent_reads_the_lane_setting_the_database_holds(): void
+    {
+        $card = $this->cardIn($this->makeProject('repo-refresh-lane'));
+        self::assertTrue($card->laneEnabled);
+
+        $this->em->getConnection()->executeStatement(
+            "UPDATE board_cards SET lane_enabled = false, type = 'epic' WHERE id = :id",
+            ['id' => (string) $card->id],
+        );
+        $this->cards->refreshTypeAndParent($card);
+
+        self::assertFalse($card->laneEnabled);
+        self::assertSame(CardType::Epic, $card->type);
+    }
 }

@@ -15,7 +15,7 @@
         {% if card is not null %}
             {% set runWarning = card_run_warning(card.project, card.id) %}
             {% include '@Board/_card.html.twig' with {card: card, pendingComments: placement.pendingComments, progress: placement.progress, runWarning: runWarning} only %}
-            {% include '@Board/_card_row.html.twig' with {card: card, column: placement.column, feedbackCount: placement.pendingComments, runWarning: runWarning} only %}
+            {% include '@Board/_card_row.html.twig' with {card: card, column: placement.column, feedbackCount: placement.pendingComments, progress: placement.progress, runWarning: runWarning} only %}
         {% endif %}
     </template>
 </turbo-stream>
