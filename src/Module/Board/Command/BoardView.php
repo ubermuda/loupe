@@ -55,6 +55,8 @@ final readonly class BoardView
          * @var array<string, int>
          */
         public array $shownCounts = [],
+        /** A hash of the columns and the lanes, which the page compares after it reconnects. */
+        public string $structureDigest = '',
     ) {
     }
 }

@@ -21,7 +21,7 @@ const FLASH_CLASS = 'lp-board-card--flash';
 
 export default class extends Controller {
     static targets = ['paused'];
-    static values = { placement: String, placeholder: String };
+    static values = { placement: String, placeholder: String, manifest: String };
 
     initialize() {
         this.liveState = 'off';

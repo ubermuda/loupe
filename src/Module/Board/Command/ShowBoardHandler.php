@@ -13,6 +13,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
+use App\Module\Board\Service\BoardStructureDigest;
 
 final readonly class ShowBoardHandler
 {
@@ -26,6 +27,7 @@ final readonly class ShowBoardHandler
         private BridgeRuleReportRepository $bridgeRuleReports,
         private CardDocumentRepository $cardDocuments,
         private BoardLanes $boardLanes,
+        private BoardStructureDigest $structureDigest,
     ) {
     }
 
@@ -90,6 +92,7 @@ final readonly class ShowBoardHandler
             $otherCards,
             $progress,
             $shownCounts,
+            $this->structureDigest->forBoard($columns, $lanes, $progress),
         );
     }
 }

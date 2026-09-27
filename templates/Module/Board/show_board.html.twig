@@ -19,6 +19,7 @@
          data-board-refresh-board-value="{{ path('app_project_board', {id: board.project.id}) }}"
          data-board-live-placement-value="{{ path('app_board_card_placement', {projectId: board.project.id, cardId: placeholderCardId}) }}"
          data-board-live-placeholder-value="{{ placeholderCardId }}"
+         data-board-live-manifest-value="{{ path('app_board_manifest', {projectId: board.project.id}) }}"
          data-action="board-live:reload->board-refresh#reload">
         {# No src here: board-refresh sets it without a load, so the first reload morphs. #}
         <turbo-frame id="board-frame" target="_top" refresh="morph" data-board-refresh-target="frame">
