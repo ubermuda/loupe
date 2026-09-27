@@ -836,6 +836,10 @@
     .lp-board-list__row[hidden] {
         @apply hidden;
     }
+    /* A row whose live placement failed. The shape shows it, not the colour. */
+    .lp-board-list__row--stale {
+        @apply outline-2 -outline-offset-2 outline-dashed outline-line-strong opacity-75;
+    }
     .lp-board-list__work {
         @apply flex min-w-0 items-center gap-2 pr-4;
     }
@@ -5609,6 +5613,10 @@
     }
     .lp-board-card--dragging {
         @apply fixed z-50 pointer-events-none shadow-lg opacity-90;
+    }
+    /* A card whose live placement failed. The shape shows it, not the colour. */
+    .lp-board-card--stale {
+        @apply outline-2 outline-offset-2 outline-dashed outline-line-strong opacity-75;
     }
     /* Marks a card another person just changed. The controller removes it. */
     .lp-board-card--flash {
