@@ -21,6 +21,12 @@ use Sentry\Transport\ResultStatus;
 use Sentry\Transport\TransportInterface;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Component\Security\Core\User\InMemoryUser;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 
 final class SentryEventScrubberTest extends TestCase
@@ -55,7 +61,7 @@ final class SentryEventScrubberTest extends TestCase
             ],
         ]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame(['method' => 'POST', 'headers' => ['Accept' => ['text/html']]], $scrubbed->getRequest());
     }
@@ -65,7 +71,7 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createEvent();
         $event->setRequest(['method' => 'GET', 'headers' => ['referer' => ['https://loupe.example/x']]]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame(['method' => 'GET', 'headers' => []], $scrubbed->getRequest());
     }
@@ -87,7 +93,7 @@ final class SentryEventScrubberTest extends TestCase
             'X-Custom' => ['anything'],
         ]]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame(['method' => 'GET', 'headers' => [
             'Host' => ['loupe.example'],
@@ -113,7 +119,7 @@ final class SentryEventScrubberTest extends TestCase
             ],
         ]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('POST app_reset_password', $scrubbed->getTransaction());
         self::assertSame(
@@ -127,7 +133,7 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createTransaction();
         $event->setTransaction('POST https://loupe.example/forgot-password/reset/secret-token');
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('POST', $scrubbed->getTransaction());
     }
@@ -138,7 +144,7 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createTransaction();
         $event->setTransaction($name);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('[Filtered]', $scrubbed->getTransaction());
     }
@@ -155,7 +161,7 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createTransaction();
         $event->setTransaction('App\Module\Mail\Messenger\SendDigest');
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('App\Module\Mail\Messenger\SendDigest', $scrubbed->getTransaction());
     }
@@ -171,7 +177,7 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createTransaction();
         $event->setSpans([$span]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame([
             'http.url' => '[Filtered]',
@@ -190,7 +196,7 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createTransaction();
         $event->setSpans([$span]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('GET app_reset_password', $scrubbed->getSpans()[0]->getDescription());
     }
@@ -203,7 +209,7 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createTransaction();
         $event->setSpans([$span]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('POST', $scrubbed->getSpans()[0]->getDescription());
     }
@@ -217,7 +223,7 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createTransaction();
         $event->setSpans([$span]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('GET https://api.example:8443', $scrubbed->getSpans()[0]->getDescription());
     }
@@ -228,7 +234,7 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createTransaction();
         $event->setSpans([$span]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('SELECT 1', $scrubbed->getSpans()[0]->getDescription());
     }
@@ -243,7 +249,7 @@ final class SentryEventScrubberTest extends TestCase
             'description' => 'GET https://loupe.example/forgot-password/reset/secret-token',
         ]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame(
             ['span_id' => 'abc', 'trace_id' => 'def', 'op' => 'http.server'],
@@ -259,7 +265,7 @@ final class SentryEventScrubberTest extends TestCase
             'kept' => 'value',
         ]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame(['kept' => 'value'], $scrubbed->getExtra());
     }
@@ -270,7 +276,7 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createTransaction();
         $event->setSpans([$span]);
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame(['db.system' => 'postgresql'], $scrubbed->getSpans()[0]->getData());
     }
@@ -287,7 +293,7 @@ final class SentryEventScrubberTest extends TestCase
             'before_send' => static function (Event $event, ?EventHint $hint) use ($scrubber, &$before, &$scrubbed): Event {
                 $before += self::framesWithVars($event);
 
-                return $scrubbed[] = $scrubber($event, $hint);
+                return $scrubbed[] = $scrubber($event, $hint) ?? self::fail('The scrubber dropped the event.');
             },
         ])->setTransport(new readonly class implements TransportInterface {
             #[\Override]
@@ -329,7 +335,7 @@ final class SentryEventScrubberTest extends TestCase
         ]);
         $event->setMessage('Mail to %s failed', ['bob@example.com'], 'Mail to bob@example.com failed');
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('No account for [email].', $scrubbed->getExceptions()[0]->getValue());
         self::assertSame('Mail to %s failed', $scrubbed->getMessage());
@@ -349,7 +355,7 @@ final class SentryEventScrubberTest extends TestCase
         $event->setExceptions([new ExceptionDataBag($exception)]);
         $event->setMessage('Call to %s failed', ['http://user:pw@api.example/a?b=c'], "Call to 'http://user:pw@api.example/a?b=c' failed");
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('HTTP 404 returned for "https://api.example:8443".', $scrubbed->getExceptions()[0]->getValue());
         self::assertSame(['http://api.example'], $scrubbed->getMessageParams());
@@ -358,7 +364,7 @@ final class SentryEventScrubberTest extends TestCase
 
     public function test_an_event_with_no_message_gets_none(): void
     {
-        $scrubbed = $this->scrubber()(Event::createEvent(), null);
+        $scrubbed = $this->scrub(Event::createEvent());
 
         self::assertNull($scrubbed->getMessage());
     }
@@ -369,7 +375,7 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createEvent();
         $event->setRelease('ignored');
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('v1.2.3', $scrubbed->getRelease());
     }
@@ -379,9 +385,42 @@ final class SentryEventScrubberTest extends TestCase
         $event = Event::createEvent();
         $event->setRelease('from-options');
 
-        $scrubbed = $this->scrubber()($event, null);
+        $scrubbed = $this->scrub($event);
 
         self::assertSame('from-options', $scrubbed->getRelease());
+    }
+
+    public function test_an_access_denial_for_an_anonymous_web_request_is_dropped(): void
+    {
+        $hint = EventHint::fromArray(['exception' => new AccessDeniedException()]);
+
+        self::assertNull($this->scrubber(requestStack: self::webRequest())(Event::createEvent(), $hint));
+    }
+
+    public function test_an_access_denial_for_a_signed_in_user_is_kept(): void
+    {
+        $hint = EventHint::fromArray(['exception' => new AccessDeniedException()]);
+
+        self::assertNotNull($this->scrubber(self::signedIn(), self::webRequest())(Event::createEvent(), $hint));
+    }
+
+    public function test_an_access_denial_outside_a_web_request_is_kept(): void
+    {
+        $hint = EventHint::fromArray(['exception' => new AccessDeniedException()]);
+
+        self::assertNotNull($this->scrubber()(Event::createEvent(), $hint));
+    }
+
+    public function test_another_exception_for_an_anonymous_web_request_is_kept(): void
+    {
+        $hint = EventHint::fromArray(['exception' => new \RuntimeException('Boom.')]);
+
+        self::assertNotNull($this->scrubber(requestStack: self::webRequest())(Event::createEvent(), $hint));
+    }
+
+    public function test_a_transaction_for_an_anonymous_web_request_is_kept(): void
+    {
+        self::assertNotNull($this->scrubber(requestStack: self::webRequest())(Event::createTransaction(), null));
     }
 
     private static function failWith(string $email, string $token): never
@@ -409,8 +448,33 @@ final class SentryEventScrubberTest extends TestCase
         return $count;
     }
 
-    private function scrubber(): SentryEventScrubber
+    private function scrub(Event $event): Event
     {
-        return new SentryEventScrubber(new BuildIdentity($this->projectDir));
+        return $this->scrubber()($event, null) ?? self::fail('The scrubber dropped the event.');
+    }
+
+    private function scrubber(?TokenStorage $tokenStorage = null, ?RequestStack $requestStack = null): SentryEventScrubber
+    {
+        return new SentryEventScrubber(
+            new BuildIdentity($this->projectDir),
+            $tokenStorage ?? new TokenStorage(),
+            $requestStack ?? new RequestStack(),
+        );
+    }
+
+    private static function webRequest(): RequestStack
+    {
+        $requestStack = new RequestStack();
+        $requestStack->push(Request::create('/projects'));
+
+        return $requestStack;
+    }
+
+    private static function signedIn(): TokenStorage
+    {
+        $tokenStorage = new TokenStorage();
+        $tokenStorage->setToken(new UsernamePasswordToken(new InMemoryUser('riley@example.com', null, ['ROLE_USER']), 'main', ['ROLE_USER']));
+
+        return $tokenStorage;
     }
 }
