@@ -5922,6 +5922,10 @@
     .lp-data-table--runs .lp-data-table__row > .lp-data-table__cell {
         @apply truncate;
     }
+    /* Above the row target, like the chip, so a hover shows the absolute time. */
+    .lp-data-table--runs .lp-data-table__row time {
+        @apply relative z-10;
+    }
 
     /* ── Worker run cost ───────────────────────────────────────────── */
 
