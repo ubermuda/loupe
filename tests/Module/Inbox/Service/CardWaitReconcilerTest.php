@@ -244,6 +244,32 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertSame(2, $this->onlyWait($watches[1])->versionNumber);
     }
 
+    public function test_a_dismissal_leaves_a_wait_that_had_already_ended_free_to_open_again(): void
+    {
+        $approved = $this->linkedDocument('Tech design');
+        $this->linkedDocument('Product design');
+        $this->reconcile();
+        $approved->status = DocumentStatus::Approved;
+        $this->em->flush();
+        $this->reconcile();
+        $dismissed = $this->onlyWatch();
+        $now = new \DateTimeImmutable();
+        $dismissed->item->state = InboxItemState::Declined;
+        $dismissed->item->closedAt = $now;
+        $dismissed->dismissedAt = $now;
+        $this->em->flush();
+        $this->reconcile();
+
+        $approved->status = DocumentStatus::InReview;
+        $this->em->flush();
+        $this->reconcile();
+
+        $watches = $this->watches();
+        self::assertCount(2, $watches);
+        self::assertSame($dismissed, $watches[0]);
+        self::assertSame('Tech design in review, version 1', $watches[1]->item->body);
+    }
+
     public function test_an_item_closed_by_another_path_frees_the_card_for_a_new_item(): void
     {
         $this->linkedDocument('Tech design');

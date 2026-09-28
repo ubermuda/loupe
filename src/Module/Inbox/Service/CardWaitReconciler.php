@@ -164,7 +164,9 @@ final readonly class CardWaitReconciler
         $dismissed = [];
         foreach ($this->inboxCardWatches->findDismissedForCards($project, $cardIds) as $watch) {
             foreach ($watch->waits as $wait) {
-                $dismissed[(string) $watch->cardId][$wait->key()] = true;
+                if (InboxCardWaitEndReason::Dismissed === $wait->endReason) {
+                    $dismissed[(string) $watch->cardId][$wait->key()] = true;
+                }
             }
         }
 

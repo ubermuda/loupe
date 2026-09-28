@@ -33,6 +33,9 @@ final class Version20260928175142 extends AbstractMigration
     #[\Override]
     public function down(Schema $schema): void
     {
+        // The older schema has no wait kind and no ask without a session.
+        $this->addSql("DELETE FROM inbox_items WHERE kind = 'wait'");
+        $this->addSql("DELETE FROM inbox_asks WHERE origin = 'loupe' OR session_id IS NULL");
         $this->addSql('ALTER TABLE inbox_card_waits DROP CONSTRAINT FK_3A51A152C7C58135');
         $this->addSql('ALTER TABLE inbox_card_watches DROP CONSTRAINT FK_FCCE4BE6166D1F9C');
         $this->addSql('ALTER TABLE inbox_card_watches DROP CONSTRAINT FK_FCCE4BE6126F525E');
