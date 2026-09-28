@@ -13,7 +13,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Mercure\HubInterface;
+use Symfony\Component\Messenger\Event\WorkerMessageHandledEvent;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 /**
@@ -70,6 +72,17 @@ final class ImmediateOutboxPublisherTest extends TestCase
         $publisher->publish();
 
         self::assertSame(1, $this->drains);
+    }
+
+    /** A worker resets this service after each message, so a row a worker writes is published when its message is handled. */
+    public function test_it_publishes_after_a_worker_message(): void
+    {
+        $events = array_map(
+            static fn (\ReflectionAttribute $attribute): ?string => $attribute->newInstance()->event,
+            new \ReflectionMethod(ImmediateOutboxPublisher::class, 'publish')->getAttributes(AsEventListener::class),
+        );
+
+        self::assertContains(WorkerMessageHandledEvent::class, $events);
     }
 
     public function test_reset_drops_a_pending_row(): void

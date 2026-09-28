@@ -119,9 +119,9 @@ decisions.
 
 Loupe writes a hook event in the request that receives the delivery. It
 publishes the event when that request ends. A state read runs in the messenger
-worker, on the `async` transport. The worker does not publish the rows it
-writes. The outbox drain publishes them, and the drain runs every five minutes.
-So an App event can reach the bridge up to five minutes after the read.
+worker, on the `async` transport. The worker publishes the rows it writes when
+it finishes the message. The outbox drain runs every five minutes, and it
+publishes a row that the first attempt missed.
 
 ## Ownership
 

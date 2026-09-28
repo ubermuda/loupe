@@ -11,11 +11,13 @@ use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\DependencyInjection\Attribute\AutowireServiceClosure;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Component\Messenger\Event\WorkerMessageHandledEvent;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
- * Drains the outbox at terminate, so an event reaches a bridge in the time a
- * request takes rather than in the time the cron takes.
+ * Drains the outbox at terminate, or after a worker message, so an event
+ * reaches a bridge in the time a request takes rather than in the time the
+ * cron takes.
  *
  * It runs after the response, so it is after the producer's transaction
  * committed. A publish inside that transaction would push an event for a write
@@ -58,6 +60,8 @@ final class ImmediateOutboxPublisher implements ResetInterface
         $this->pending = true;
     }
 
+    /** The messenger worker resets this service after each message, so a worker publishes when the message is handled. */
+    #[AsEventListener(WorkerMessageHandledEvent::class)]
     #[AsEventListener(KernelEvents::TERMINATE)]
     #[AsEventListener(ConsoleEvents::TERMINATE)]
     public function publish(): void
