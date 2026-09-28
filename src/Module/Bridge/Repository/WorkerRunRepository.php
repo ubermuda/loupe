@@ -477,16 +477,45 @@ class WorkerRunRepository extends ServiceEntityRepository
      */
     public function findWarningRowsOfProject(Project $project): array
     {
+        return $this->findWarningRows($project, null);
+    }
+
+    /**
+     * The warning of one card, by the rule of {@see findWarningRowsOfProject()}.
+     *
+     * @return array{id: string, card_id: string, state: string, output: string, card_column: ?string}|null
+     */
+    public function findWarningRowOfCard(Project $project, Uuid $cardId): ?array
+    {
+        return $this->findWarningRows($project, $cardId)[0] ?? null;
+    }
+
+    /** @return list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> */
+    private function findWarningRows(Project $project, ?Uuid $cardId): array
+    {
         $outcomes = array_values(array_map(
             static fn (WorkerRunState $state): string => $state->value,
             array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome()),
         ));
+        $params = [
+            'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
+            'outcomes' => $outcomes,
+            'warnings' => array_values(array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isWarning()),
+            )),
+        ];
+        $cardFilter = '';
+        if (null !== $cardId) {
+            $cardFilter = 'AND r.card_id = :card';
+            $params['card'] = (string) $cardId;
+        }
 
         // A late report can record an outcome the run does not hold, so the
         // close is the latest change to the run's own state.
         /** @var list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> $rows */
         $rows = $this->getEntityManager()->getConnection()->executeQuery(
-            <<<'SQL'
+            <<<SQL
                 SELECT latest.id, latest.card_id, latest.state, latest.output, latest.card_column
                 FROM (
                     SELECT DISTINCT ON (r.card_id) r.id, r.card_id, r.state, r.output, r.card_column
@@ -498,16 +527,12 @@ class WorkerRunRepository extends ServiceEntityRepository
                         ORDER BY s.sequence DESC
                         LIMIT 1
                     ) closed ON true
-                    WHERE r.project_id = :project AND r.state IN (:outcomes)
+                    WHERE r.project_id = :project AND r.state IN (:outcomes) {$cardFilter}
                     ORDER BY r.card_id, COALESCE(closed.received_at, r.received_at) DESC, closed.sequence DESC NULLS LAST, r.id DESC
                 ) latest
                 WHERE latest.state IN (:warnings)
                 SQL,
-            [
-                'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
-                'outcomes' => $outcomes,
-                'warnings' => [WorkerRunState::GaveUp->value, WorkerRunState::Blocked->value],
-            ],
+            $params,
             ['outcomes' => ArrayParameterType::STRING, 'warnings' => ArrayParameterType::STRING],
         )->fetchAllAssociative();
 

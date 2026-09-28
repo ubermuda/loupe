@@ -6,7 +6,7 @@
 {% set static = static ?? false %}
 {% set progress = progress ?? null %}
 {% set inLane = inLane ?? false %}
-{% set runWarning = runWarning ?? null %}
+{% set runWarning = (runWarning ?? null) is not null and runWarning.appliesTo(card.column.slug) ? runWarning : null %}
 <article class="lp-board-card{{ static ? ' lp-board-card--static' }}"
          {% if not static %}data-controller="card-prefetch"
          data-board-drag-target="card"
@@ -52,7 +52,7 @@
     {% if card.body|trim is not empty %}
     <p class="lp-board-card__excerpt">{{ card.body|striptags|slice(0, 110) }}{% if card.body|length > 110 %}…{% endif %}</p>
     {% endif %}
-    {% if runWarning is not null and runWarning.appliesTo(card.column.slug) %}
+    {% if runWarning is not null %}
     <a class="lp-board-card__warning"
        draggable="false"
        href="{{ path('app_project_worker_runs', {id: card.project.id, search: runWarning.runId}) }}"

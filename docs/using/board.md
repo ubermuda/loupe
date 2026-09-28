@@ -206,6 +206,8 @@ Every open board of the project shows a change as it happens, with no reload.
 
 - When someone else adds, edits, moves or deletes a card, that card changes in
   place. The other cards, the scroll position and the filter stay.
+- On a board with epic lanes, a card also changes in place, in the cell of its
+  lane and column. The head of an epic lane changes in place too.
 - A card that someone else changed gets a short highlight. With reduced motion
   on, the highlight is a still outline.
 - A card that you drag waits. The change shows when the drag ends.
@@ -215,6 +217,9 @@ Every open board of the project shows a change as it happens, with no reload.
 - When the owner adds, renames, reorders, flags or deletes a column, the board
   changes in place. A drag in progress on another screen can then fail, and
   the card goes back.
+- When the board cannot show a change to a card after a few tries, the card
+  gets a dashed outline, with the tooltip **This card may be out of date**.
+  The next change to that card, or a reload of the page, removes the mark.
 
 When the connection to the server stops for about 5 seconds, the toolbar
 shows **Live updates paused**. When the connection comes back, the board asks

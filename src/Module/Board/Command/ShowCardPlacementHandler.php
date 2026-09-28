@@ -57,15 +57,17 @@ final readonly class ShowCardPlacementHandler
             }
         }
 
-        [$lane, $laneCounts, $laneEpic] = [null, [], false];
+        [$lane, $laneHead, $laneAfter, $previousEpic] = [null, false, null, null];
         [$lanes, $otherCards] = $this->boardLanes->sort($columnViews);
         foreach (null === $otherCards ? [] : [...$lanes, $otherCards] as $laneView) {
             $key = null === $laneView->epic ? BoardLanes::OTHER : (string) $laneView->epic->id;
-            $laneEpic = $laneEpic || $key === $cardId;
-            foreach ($columnViews as $columnView) {
-                $columnId = (string) $columnView->column->id;
-                $cell = $laneView->cells[$columnId] ?? [];
-                $laneCounts[$key][$columnId] = \count($cell);
+            if ($key === $cardId) {
+                [$laneHead, $after, $laneAfter] = [true, null, $previousEpic];
+            }
+            if (null !== $laneView->epic) {
+                $previousEpic = $key;
+            }
+            foreach ($laneView->cells as $cell) {
                 foreach ($cell as $index => $card) {
                     if ((string) $card->id === $cardId) {
                         [$lane, $after] = [$key, 0 === $index ? null : (string) $cell[$index - 1]->id];
@@ -83,6 +85,6 @@ final readonly class ShowCardPlacementHandler
             $progress = new CardProgress($children['done'], $children['total']);
         }
 
-        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $documentCount, $counts, $terminalTotals, $progress, $lane, $laneCounts, $laneEpic);
+        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $documentCount, $counts, $terminalTotals, $progress, $lane, $laneHead, $laneAfter);
     }
 }

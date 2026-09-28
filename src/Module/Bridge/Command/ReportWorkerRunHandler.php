@@ -42,13 +42,14 @@ final readonly class ReportWorkerRunHandler
         // One transaction, so a failed index update never leaves a run that no
         // search can reach. The project lock serialises two reports of one run,
         // which would otherwise both miss the read and trip the unique index.
-        $result = $this->em->wrapInTransaction(function () use ($command): ReportWorkerRunResult {
+        /** @var array{ReportWorkerRunResult, bool} $reported */
+        $reported = $this->em->wrapInTransaction(function () use ($command): array {
             // Owner-scoped, so another user's project reads as absent. Read
             // again under the lock: a delete in flight holds the row, so the
             // lock waits for it and the second read then finds nothing.
             $project = $this->lockedProject($command);
             if (null === $project) {
-                return new ReportWorkerRunResult(null, created: false);
+                return [new ReportWorkerRunResult(null, created: false), false];
             }
 
             $existing = $this->workerRuns->findOneByReportKey(
@@ -58,8 +59,11 @@ final readonly class ReportWorkerRunHandler
                 $command->startedAt,
             );
             if (null !== $existing) {
-                return new ReportWorkerRunResult($existing, created: false);
+                return [new ReportWorkerRunResult($existing, created: false), false];
             }
+
+            // Read before the write: the new outcome is the latest of its card.
+            $warned = null !== $this->workerRuns->findWarningRowOfCard($project, $command->cardId);
 
             $receivedAt = $this->clock->now();
             $outcome = WorkerRunState::fromOutcome($command->exitCode, $command->hasResult);
@@ -88,11 +92,15 @@ final readonly class ReportWorkerRunHandler
             $this->em->flush();
             $this->searchIndexer->index($run);
 
-            return new ReportWorkerRunResult($run, created: true);
+            return [new ReportWorkerRunResult($run, created: true), $warned || $outcome->isWarning()];
         });
 
+        [$result, $warningChanged] = $reported;
         if ($result->created && null !== $result->run) {
             $this->publisher->runsChanged($result->run->project);
+            if ($warningChanged) {
+                $this->publisher->cardWarningChanged($result->run->project, $command->cardId);
+            }
             $this->auditor->record(
                 'bridge.worker_run_recorded',
                 AuditOutcome::Success,

@@ -14,6 +14,8 @@ use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardColumnTonePicker;
 use App\Module\Board\Service\CardDigest;
 use App\Module\Board\Twig\BoardExtension;
+use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Tests\Module\Board\Controller\BoardScenario;
@@ -60,6 +62,20 @@ final class BoardExtensionTest extends KernelTestCase
             $extension->cardDigest($card, 0, 0, null, null),
             $extension->cardDigest($card, 0, 0, new CardProgress(1, 2), null),
         );
+    }
+
+    public function test_card_digest_changes_with_the_run_warning_the_card_shows(): void
+    {
+        $extension = static::getContainer()->get(BoardExtension::class);
+        self::assertInstanceOf(BoardExtension::class, $extension);
+        $card = $this->makeCard();
+
+        $none = $extension->cardDigest($card, 0, 0, null, null);
+        $first = $extension->cardDigest($card, 0, 0, null, $this->gaveUp('run-1'));
+
+        self::assertNotSame($none, $first);
+        self::assertSame($first, $extension->cardDigest($card, 0, 0, null, $this->gaveUp('run-1')));
+        self::assertNotSame($first, $extension->cardDigest($card, 0, 0, null, $this->gaveUp('run-2')));
     }
 
     public function test_card_digest_changes_with_the_progress_of_an_epic(): void
@@ -180,6 +196,11 @@ final class BoardExtensionTest extends KernelTestCase
         self::assertInstanceOf(Environment::class, $twig);
 
         return $twig;
+    }
+
+    private function gaveUp(string $runId): CardRunWarning
+    {
+        return new CardRunWarning($runId, WorkerRunState::GaveUp, 'Tests fail.', null);
     }
 
     private function makeCard(): Card

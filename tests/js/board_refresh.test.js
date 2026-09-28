@@ -61,12 +61,24 @@ function subscription() {
     return live.subscriptions[0];
 }
 
-it('listens for a column change and for a worker run change', async () => {
+function signal(type = 'board.columns_changed') {
+    const { types, handler } = subscription();
+    if ([types].flat().includes(type)) {
+        handler({ type });
+    }
+}
+
+it('listens for a column change alone', async () => {
     await mount();
-    expect(subscription().types).toEqual([
-        'board.columns_changed',
-        'worker_run.changed',
-    ]);
+    expect([subscription().types].flat()).toEqual(['board.columns_changed']);
+});
+
+it('does not reload on a worker run change', async () => {
+    const frame = await mount({ src: '/projects/1/board' });
+    signal('worker_run.changed');
+    signal('worker_run.card_warning_changed');
+    vi.advanceTimersByTime(3000);
+    expect(frame.reload).not.toHaveBeenCalled();
 });
 
 it('gives the frame its src while disabled, so Turbo loads nothing until a reload', async () => {
@@ -89,7 +101,7 @@ it('leaves a frame that is already complete alone', async () => {
 
 it('gives a frame with no src the board url on a signal', async () => {
     const frame = await mount();
-    subscription().handler({ type: 'worker_run.changed' });
+    signal();
     vi.advanceTimersByTime(300);
     expect(frame.getAttribute('src')).toBe('/projects/1/board');
     expect(frame.reload).toHaveBeenCalledOnce();
@@ -97,18 +109,18 @@ it('gives a frame with no src the board url on a signal', async () => {
 
 it('reloads a frame that has a src on a signal', async () => {
     const frame = await mount({ src: '/projects/1/board' });
-    subscription().handler({ type: 'worker_run.changed' });
+    signal();
     vi.advanceTimersByTime(300);
     expect(frame.reload).toHaveBeenCalledOnce();
 });
 
 it('coalesces a burst of signals into one reload', async () => {
     const frame = await mount({ src: '/projects/1/board' });
-    subscription().handler({ type: 'worker_run.changed' });
+    signal();
     vi.advanceTimersByTime(200);
-    subscription().handler({ type: 'worker_run.changed' });
+    signal();
     vi.advanceTimersByTime(200);
-    subscription().handler({ type: 'board.columns_changed' });
+    signal();
     vi.advanceTimersByTime(299);
     expect(frame.reload).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
@@ -121,7 +133,7 @@ it('reloads a steady stream of signals at least once per max wait', async () => 
     frame.reload.mockImplementation(() => reloadTimes.push(Date.now()));
     const start = Date.now();
     for (let elapsed = 0; elapsed < 5000; elapsed += 100) {
-        subscription().handler({ type: 'worker_run.changed' });
+        signal();
         vi.advanceTimersByTime(100);
     }
     const times = [start, ...reloadTimes, Date.now()];
@@ -134,7 +146,7 @@ it('defers a reload while a drag runs, and reloads once it ends', async () => {
     const frame = await mount({ src: '/projects/1/board' });
     const board = frame.querySelector('.lp-board');
     board.classList.add('lp-board--dragging');
-    subscription().handler({ type: 'worker_run.changed' });
+    signal();
     vi.advanceTimersByTime(3000);
     expect(frame.reload).not.toHaveBeenCalled();
     board.classList.remove('lp-board--dragging');
@@ -149,7 +161,7 @@ it('defers a reload while a dropped card move is pending', async () => {
     card.dataset.boardDragTarget = 'card';
     board.append(card);
     board.classList.add('lp-board--dragging');
-    subscription().handler({ type: 'worker_run.changed' });
+    signal();
     vi.advanceTimersByTime(300);
     board.classList.remove('lp-board--dragging');
     card.setAttribute('aria-busy', 'true');
@@ -165,7 +177,7 @@ it('defers a reload while a dialog is open, and reloads once it closes', async (
     const dialog = document.createElement('dialog');
     dialog.setAttribute('open', '');
     frame.querySelector('.lp-board').append(dialog);
-    subscription().handler({ type: 'worker_run.changed' });
+    signal();
     vi.advanceTimersByTime(3000);
     expect(frame.reload).not.toHaveBeenCalled();
     dialog.removeAttribute('open');
@@ -176,7 +188,7 @@ it('defers a reload while a dialog is open, and reloads once it closes', async (
 it('ignores a closed dialog', async () => {
     const frame = await mount({ src: '/projects/1/board' });
     frame.querySelector('.lp-board').append(document.createElement('dialog'));
-    subscription().handler({ type: 'worker_run.changed' });
+    signal();
     vi.advanceTimersByTime(300);
     expect(frame.reload).toHaveBeenCalledOnce();
 });
@@ -186,7 +198,7 @@ it('ignores a busy form that is not a card move', async () => {
     const form = document.createElement('form');
     form.setAttribute('aria-busy', 'true');
     frame.querySelector('.lp-board').append(form);
-    subscription().handler({ type: 'worker_run.changed' });
+    signal();
     vi.advanceTimersByTime(300);
     expect(frame.reload).toHaveBeenCalledOnce();
 });
@@ -221,7 +233,7 @@ it('stops listening on disconnect', async () => {
 
 it('drops a pending reload on disconnect', async () => {
     const frame = await mount({ src: '/projects/1/board' });
-    subscription().handler({ type: 'worker_run.changed' });
+    signal();
     document.body.replaceChildren();
     await Promise.resolve();
     vi.advanceTimersByTime(300);

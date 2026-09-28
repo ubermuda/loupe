@@ -39,6 +39,7 @@ final class CardWorkerRunsExtension extends AbstractExtension
         return [
             new TwigFunction('card_worker_runs', $this->cardWorkerRuns(...)),
             new TwigFunction('card_run_warnings', $this->cardRunWarnings(...)),
+            new TwigFunction('card_run_warning', $this->cardRunWarning(...)),
             new TwigFunction('card_usage_total', $this->cardUsageTotal(...)),
         ];
     }
@@ -47,6 +48,11 @@ final class CardWorkerRunsExtension extends AbstractExtension
     public function cardRunWarnings(Project $project): array
     {
         return $this->runWarnings->forProject($project);
+    }
+
+    public function cardRunWarning(Project $project, Uuid $cardId): ?CardRunWarning
+    {
+        return $this->runWarnings->forCard($project, $cardId);
     }
 
     /** @return list<WorkerRunListItem> */

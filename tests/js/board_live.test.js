@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { Application } from '@hotwired/stimulus';
 import { renderStreamMessage } from '@hotwired/turbo';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BoardLiveController from '../../assets/controllers/board_live_controller.js';
 import { on, status } from '../../assets/lib/live.js';
 
@@ -15,18 +15,14 @@ const PLACEHOLDER = '00000000-0000-7000-8000-000000000000';
 const STREAM = 'text/vnd.turbo-stream.html; charset=UTF-8';
 const MANIFEST = '/projects/p/board/manifest';
 
+const STALE_TEXT = 'This card may be out of date';
+
 let application;
-let reloads;
 let change;
 let reconnect;
 let setStatus;
 let answer;
-
-const stream = (body = '<turbo-stream></turbo-stream>') => ({
-    ok: true,
-    headers: new Headers({ 'Content-Type': STREAM }),
-    text: () => Promise.resolve(body),
-});
+let reloads;
 
 /** Answers the manifest read with the given response, and each placement with a stream. */
 function answerManifest(response) {
@@ -72,20 +68,44 @@ function placed(cardId, digest) {
     );
 }
 
+function missed(cardId) {
+    document.dispatchEvent(
+        new CustomEvent('board:place-missed', { detail: { cardId } }),
+    );
+}
+
 const card = () => document.getElementById('board-card-a');
+const row = () => document.getElementById('board-row-a');
+const stream = (body = '<turbo-stream></turbo-stream>') => ({
+    ok: true,
+    status: 200,
+    headers: new Headers({ 'Content-Type': STREAM }),
+    text: () => Promise.resolve(body),
+});
+const failure = (status, type = 'text/html') => ({
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers({ 'Content-Type': type }),
+    text: () => Promise.resolve('<html></html>'),
+});
+const isStale = () =>
+    card().classList.contains('lp-board-card--stale') ||
+    card().hasAttribute('data-board-stale') ||
+    row().classList.contains('lp-board-list__row--stale');
 
 beforeEach(async () => {
     document.body.innerHTML = `<div id="wrapper" data-controller="board-live"
             data-board-live-placement-value="/projects/p/board/cards/${PLACEHOLDER}/placement"
             data-board-live-placeholder-value="${PLACEHOLDER}"
-            data-board-live-manifest-value="${MANIFEST}">
+            data-board-live-manifest-value="${MANIFEST}"
+            data-board-live-stale-value="${STALE_TEXT}">
         <p data-board-live-target="paused" role="status" data-message="Live updates paused"></p>
         <div id="board" data-board-structure-digest="frame">
             <div class="lp-board__group" data-column="k">
                 <article id="board-card-a" class="lp-board-card" data-card-id="a" data-card-digest="old"></article>
                 <article id="board-card-b" class="lp-board-card" data-card-id="b" data-card-digest="old"></article>
             </div>
-            <a class="lp-board-list__row" data-card-id="a" data-card-digest="old"></a>
+            <a id="board-row-a" class="lp-board-list__row" data-card-id="a" data-card-digest="old"></a>
             <a class="lp-board-list__row" data-card-id="b" data-card-digest="old"></a>
         </div>
     </div>`;
@@ -93,12 +113,7 @@ beforeEach(async () => {
     document
         .getElementById('wrapper')
         .addEventListener('board-live:reload', () => (reloads += 1));
-    answer = () =>
-        Promise.resolve({
-            ok: true,
-            headers: new Headers({ 'Content-Type': STREAM }),
-            text: () => Promise.resolve('<turbo-stream></turbo-stream>'),
-        });
+    answer = () => Promise.resolve(stream());
     vi.stubGlobal(
         'fetch',
         vi.fn((url, options) => answer(url, options)),
@@ -113,7 +128,8 @@ beforeEach(async () => {
         listener('live');
         return () => {};
     });
-    renderStreamMessage.mockClear();
+    renderStreamMessage.mockReset();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
 
     application = Application.start();
     application.register('board-live', BoardLiveController);
@@ -127,11 +143,12 @@ afterEach(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     application.stop();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
 });
 
 it('listens for card changes and for a reconnect', () => {
     expect(on).toHaveBeenCalledWith(
-        'board.card_changed',
+        ['board.card_changed', 'worker_run.card_warning_changed'],
         expect.any(Function),
         expect.objectContaining({ onReconnect: expect.any(Function) }),
     );
@@ -635,6 +652,29 @@ it('aborts a manifest read when it disconnects, and does not reload', async () =
     expect(vi.getTimerCount()).toBe(0);
 });
 
+it('listens for card changes and for run warning changes', () => {
+    expect(on).toHaveBeenCalledWith(
+        ['board.card_changed', 'worker_run.card_warning_changed'],
+        expect.any(Function),
+        expect.any(Object),
+    );
+});
+
+it('fetches the placement of the card a run warning names, and marks it when its face changed', async () => {
+    change({
+        type: 'worker_run.card_warning_changed',
+        cardId: 'a',
+        local: false,
+        own: false,
+    });
+    await vi.advanceTimersByTimeAsync(150);
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+        '/projects/p/board/cards/a/placement',
+    ]);
+    placed('a', 'new');
+    expect(card().classList.contains('lp-board-card--flash')).toBe(true);
+});
+
 it('fetches a card once for a burst of messages, 150 ms after the last one', async () => {
     receive('a');
     await vi.advanceTimersByTimeAsync(100);
@@ -815,7 +855,6 @@ it('drops a placement that returns while the card is dragged, and fetches it aga
     });
     await vi.advanceTimersByTimeAsync(1000);
     expect(renderStreamMessage).not.toHaveBeenCalled();
-    expect(reloads).toBe(0);
 
     answer = () =>
         Promise.resolve({
@@ -858,67 +897,6 @@ it('clears the mark timers when it disconnects', async () => {
     expect(vi.getTimerCount()).toBe(0);
 });
 
-it('reloads the board when a placement cannot be applied', async () => {
-    receive('a');
-    await vi.advanceTimersByTimeAsync(150);
-    document.dispatchEvent(
-        new CustomEvent('board:place-missed', { detail: { cardId: 'a' } }),
-    );
-
-    expect(reloads).toBe(1);
-});
-
-it('reloads the board when the placement request fails', async () => {
-    answer = () =>
-        Promise.resolve({
-            ok: false,
-            headers: new Headers({ 'Content-Type': 'text/html' }),
-            text: () => Promise.resolve('<html></html>'),
-        });
-    receive('a');
-    await vi.advanceTimersByTimeAsync(150);
-
-    expect(renderStreamMessage).not.toHaveBeenCalled();
-    expect(reloads).toBe(1);
-});
-
-it('reloads the board when the placement request cannot reach the server', async () => {
-    answer = () => Promise.reject(new TypeError('offline'));
-    receive('a');
-    await vi.advanceTimersByTimeAsync(150);
-
-    expect(reloads).toBe(1);
-});
-
-it('gives up on a stalled placement, reloads, and still fetches the next card', async () => {
-    answer = (url, options) =>
-        url.includes('/a/')
-            ? new Promise((resolve, reject) => {
-                  options.signal.addEventListener('abort', () =>
-                      reject(new DOMException('Aborted', 'AbortError')),
-                  );
-              })
-            : Promise.resolve({
-                  ok: true,
-                  headers: new Headers({ 'Content-Type': STREAM }),
-                  text: () => Promise.resolve('b'),
-              });
-    receive('a');
-    receive('b');
-    await vi.advanceTimersByTimeAsync(150);
-    expect(fetch).toHaveBeenCalledOnce();
-
-    await vi.advanceTimersByTimeAsync(9999);
-    expect(fetch).toHaveBeenCalledOnce();
-    expect(reloads).toBe(0);
-
-    await vi.advanceTimersByTimeAsync(1);
-    expect(reloads).toBe(1);
-    expect(fetch).toHaveBeenCalledTimes(2);
-    expect(fetch.mock.calls[1][0]).toBe('/projects/p/board/cards/b/placement');
-    expect(renderStreamMessage).toHaveBeenCalledWith('b');
-});
-
 it('still fetches the next card after a placement request fails', async () => {
     answer = (url) =>
         url.includes('/a/')
@@ -933,7 +911,6 @@ it('still fetches the next card after a placement request fails', async () => {
     await vi.advanceTimersByTimeAsync(150);
 
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(reloads).toBe(1);
     expect(renderStreamMessage).toHaveBeenCalledWith('b');
 });
 
@@ -981,4 +958,376 @@ it('writes the paused sign into its live region only while live updates are paus
     setStatus('off');
     expect(sign.textContent).toBe('');
     expect(sign.hidden).toBe(false);
+});
+
+it.each([
+    ['cannot reach the server', () => Promise.reject(new TypeError('offline'))],
+    ['answers 500', () => Promise.resolve(failure(500))],
+    ['answers 503', () => Promise.resolve(failure(503))],
+    ['answers 429', () => Promise.resolve(failure(429))],
+    ['answers 408', () => Promise.resolve(failure(408))],
+    [
+        'answers a page that is not a stream',
+        () => Promise.resolve(failure(200)),
+    ],
+])(
+    'retries a placement request that %s, after one second',
+    async (name, fail) => {
+        answer = fail;
+        receive('a');
+        await vi.advanceTimersByTimeAsync(150);
+        expect(fetch).toHaveBeenCalledOnce();
+        expect(renderStreamMessage).not.toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(999);
+        expect(fetch).toHaveBeenCalledOnce();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect(isStale()).toBe(false);
+    },
+);
+
+it('gives up on a stalled placement, retries it, and still fetches the next card', async () => {
+    answer = (url, options) =>
+        url.includes('/a/')
+            ? new Promise((resolve, reject) => {
+                  options.signal.addEventListener('abort', () =>
+                      reject(new DOMException('Aborted', 'AbortError')),
+                  );
+              })
+            : Promise.resolve(stream('b'));
+    receive('a');
+    receive('b');
+    await vi.advanceTimersByTimeAsync(150);
+    expect(fetch).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(9999);
+    expect(fetch).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][0]).toBe('/projects/p/board/cards/b/placement');
+    expect(renderStreamMessage).toHaveBeenCalledWith('b');
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch.mock.calls[2][0]).toBe('/projects/p/board/cards/a/placement');
+});
+
+it.each([403, 404, 400, 401, 410])(
+    'marks the card stale at once, with no retry, when the placement answers %i',
+    async (status) => {
+        answer = () => Promise.resolve(failure(status));
+        receive('a');
+        await vi.advanceTimersByTimeAsync(150);
+        expect(isStale()).toBe(true);
+
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(fetch).toHaveBeenCalledOnce();
+    },
+);
+
+it('waits 1, 3 and 9 seconds between retries, then marks the card stale', async () => {
+    answer = () => Promise.resolve(failure(503));
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    for (const [wait, calls] of [
+        [1000, 2],
+        [3000, 3],
+        [9000, 4],
+    ]) {
+        await vi.advanceTimersByTimeAsync(wait - 1);
+        expect(fetch).toHaveBeenCalledTimes(calls - 1);
+        expect(isStale()).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(fetch).toHaveBeenCalledTimes(calls);
+    }
+
+    expect(isStale()).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(fetch).toHaveBeenCalledTimes(4);
+});
+
+it('adds up to 20 percent random time to each retry wait', async () => {
+    Math.random.mockReturnValue(1);
+    answer = () => Promise.resolve(failure(503));
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    for (const [wait, calls] of [
+        [1200, 2],
+        [3600, 3],
+        [10800, 4],
+    ]) {
+        await vi.advanceTimersByTimeAsync(wait - 1);
+        expect(fetch).toHaveBeenCalledTimes(calls - 1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(fetch).toHaveBeenCalledTimes(calls);
+    }
+    expect(Math.random).toHaveBeenCalledTimes(3);
+});
+
+it('marks the stale card and its list row for the eye and for a screen reader', async () => {
+    answer = () => Promise.resolve(failure(404));
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+
+    for (const [element, className] of [
+        [card(), 'lp-board-card--stale'],
+        [row(), 'lp-board-list__row--stale'],
+    ]) {
+        expect(element.classList.contains(className)).toBe(true);
+        expect(element.hasAttribute('data-board-stale')).toBe(true);
+        expect(element.title).toBe(STALE_TEXT);
+        const hidden = element.querySelectorAll('.sr-only');
+        expect(hidden).toHaveLength(1);
+        expect(hidden[0].textContent).toBe(STALE_TEXT);
+    }
+});
+
+it('keeps one hidden text when a stale card is marked again', async () => {
+    answer = () => Promise.resolve(failure(404));
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(card().querySelectorAll('.sr-only')).toHaveLength(1);
+    expect(row().querySelectorAll('.sr-only')).toHaveLength(1);
+});
+
+it('clears the stale mark when the card is placed again', async () => {
+    answer = () => Promise.resolve(failure(404));
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    expect(isStale()).toBe(true);
+
+    answer = () => Promise.resolve(stream());
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    placed('a', 'old');
+
+    for (const [element, className] of [
+        [card(), 'lp-board-card'],
+        [row(), 'lp-board-list__row'],
+    ]) {
+        expect(element.className).toBe(className);
+        expect(element.hasAttribute('data-board-stale')).toBe(false);
+        expect(element.hasAttribute('title')).toBe(false);
+        expect(element.querySelectorAll('.sr-only')).toHaveLength(0);
+    }
+});
+
+describe('a lane epic', () => {
+    const head = () =>
+        document.querySelector('#board-lane-e .lp-board-lane__head');
+
+    beforeEach(() => {
+        document
+            .getElementById('wrapper')
+            .insertAdjacentHTML(
+                'beforeend',
+                '<section id="board-lane-e"><header class="lp-board-lane__head"><a class="lp-board-lane__title">Epic</a></header></section><a id="board-row-e" href="#"></a>',
+            );
+    });
+
+    it('marks the head of its lane stale for the eye and for a screen reader', async () => {
+        answer = () => Promise.resolve(failure(404));
+        receive('e');
+        await vi.advanceTimersByTimeAsync(150);
+
+        expect(head().classList.contains('lp-board-lane__head--stale')).toBe(
+            true,
+        );
+        expect(head().hasAttribute('data-board-stale')).toBe(true);
+        expect(head().title).toBe(STALE_TEXT);
+        const hidden = head().querySelectorAll('.sr-only');
+        expect(hidden).toHaveLength(1);
+        expect(hidden[0].textContent).toBe(STALE_TEXT);
+        expect(
+            document
+                .getElementById('board-row-e')
+                .hasAttribute('data-board-stale'),
+        ).toBe(true);
+    });
+
+    it('clears the stale mark of the head when the lane is placed again', async () => {
+        answer = () => Promise.resolve(failure(404));
+        receive('e');
+        await vi.advanceTimersByTimeAsync(150);
+
+        document.getElementById('board-lane-e').dispatchEvent(
+            new CustomEvent('board:placed', {
+                bubbles: true,
+                detail: { cardId: 'e' },
+            }),
+        );
+
+        expect(head().className).toBe('lp-board-lane__head');
+        expect(head().hasAttribute('data-board-stale')).toBe(false);
+        expect(head().hasAttribute('title')).toBe(false);
+        expect(head().querySelectorAll('.sr-only')).toHaveLength(0);
+    });
+});
+
+it('counts a new change as a fresh start, and cancels the waiting retry', async () => {
+    answer = () => Promise.resolve(failure(503));
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetch).toHaveBeenCalledTimes(2);
+
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    expect(fetch).toHaveBeenCalledTimes(3);
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetch).toHaveBeenCalledTimes(4);
+    expect(isStale()).toBe(false);
+});
+
+it('counts a change that arrives during a failed fetch as a fresh start', async () => {
+    let finish;
+    answer = () =>
+        new Promise((resolve) => {
+            finish = resolve;
+        });
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    receive('a');
+    finish(failure(503));
+    await vi.advanceTimersByTimeAsync(149);
+    expect(fetch).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
+
+    answer = () => Promise.resolve(failure(503));
+    finish(failure(503));
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetch).toHaveBeenCalledTimes(3);
+});
+
+it('counts no attempt while the card waits for a drag to settle', async () => {
+    answer = () => Promise.resolve(failure(503));
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    card().setAttribute('aria-busy', 'true');
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(fetch).toHaveBeenCalledOnce();
+
+    card().removeAttribute('aria-busy');
+    await vi.advanceTimersByTimeAsync(200);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(2999);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(isStale()).toBe(false);
+});
+
+it('lets another card through while one card waits to retry', async () => {
+    answer = (url) =>
+        Promise.resolve(url.includes('/a/') ? failure(503) : stream('b'));
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    receive('b');
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(renderStreamMessage).toHaveBeenCalledWith('b');
+});
+
+it.each([
+    ['at once', 0],
+    ['after a repaint', 16],
+])(
+    'counts a placement the page cannot apply %s as one failed attempt',
+    async (name, delay) => {
+        renderStreamMessage.mockImplementation(() =>
+            delay === 0 ? missed('a') : setTimeout(() => missed('a'), delay),
+        );
+        receive('a');
+        await vi.advanceTimersByTimeAsync(150);
+        for (const [wait, calls] of [
+            [1000 + delay, 2],
+            [3000 + delay, 3],
+            [9000 + delay, 4],
+        ]) {
+            await vi.advanceTimersByTimeAsync(wait - 1);
+            expect(fetch).toHaveBeenCalledTimes(calls - 1);
+            await vi.advanceTimersByTimeAsync(1);
+            expect(fetch).toHaveBeenCalledTimes(calls);
+        }
+
+        await vi.advanceTimersByTimeAsync(delay);
+        expect(isStale()).toBe(true);
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(fetch).toHaveBeenCalledTimes(4);
+    },
+);
+
+it('fetches a card whose placement the page could not apply, with no change message', async () => {
+    missed('b');
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetch).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch.mock.calls[0][0]).toBe('/projects/p/board/cards/b/placement');
+});
+
+it('counts no miss for an older placement while a newer fetch of the card runs', async () => {
+    let finish;
+    answer = () =>
+        new Promise((resolve) => {
+            finish = resolve;
+        });
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    missed('a');
+    finish(stream());
+    await vi.advanceTimersByTimeAsync(0);
+    placed('a', 'old');
+
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(fetch).toHaveBeenCalledOnce();
+});
+
+it('clears a waiting retry when it disconnects', async () => {
+    answer = () => Promise.resolve(failure(503));
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    expect(vi.getTimerCount()).toBe(1);
+
+    document.getElementById('wrapper').removeAttribute('data-controller');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(0);
+});
+
+it('still marks a card another person changed when its placement failed once', async () => {
+    answer = () => Promise.resolve(failure(500));
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    answer = () => Promise.resolve(stream());
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    placed('a', 'new');
+
+    expect(card().classList.contains('lp-board-card--flash')).toBe(true);
+});
+
+it('still marks a card another person changed when its placement missed once', async () => {
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    missed('a');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    placed('a', 'new');
+
+    expect(card().classList.contains('lp-board-card--flash')).toBe(true);
 });

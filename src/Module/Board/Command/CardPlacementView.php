@@ -25,13 +25,13 @@ final readonly class CardPlacementView
         /** @var array<string, int> terminal column id => every card the column holds */
         public array $terminalTotals,
         /** The done and total children of an epic, null for any other card. */
-        public ?CardProgress $progress = null,
-        /** On a board with lanes, the lane that holds the card: its epic id, or "other". Null on a board with no lanes, and for a lane epic. */
-        public ?string $lane = null,
-        /** @var array<string, array<string, int>> lane => column id => the number of cards the lane cell shows; empty on a board with no lanes */
-        public array $laneCounts = [],
-        /** True when the card heads a lane, and so is no card of any cell. */
-        public bool $laneEpic = false,
+        public ?CardProgress $progress,
+        /** The lane key the board page gives the card: a lane epic id or "other". Null on a board with no lane, and for a lane head. */
+        public ?string $lane,
+        /** Whether the card is a lane epic, which the board draws as the head of its lane. */
+        public bool $laneHead,
+        /** For a lane head, the epic of the lane before it on the page, or null when its lane comes first. */
+        public ?string $laneAfter,
     ) {
     }
 }

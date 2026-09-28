@@ -9,15 +9,20 @@
               data-counts="{{ placement.counts|json_encode }}"
               data-history="{{ history|json_encode }}"
               data-history-totals="{{ placement.terminalTotals|json_encode }}"
-              {% if placement.laneCounts is not empty %}data-lane-counts="{{ placement.laneCounts|json_encode }}"{% endif %}
-              {% if placement.laneEpic %}data-lane-epic="1"{% elseif placement.lane is not null %}data-lane="{{ placement.lane }}"{% endif %}
               {% if card is null %}data-removed="1"{% else %}data-column-id="{{ placement.column.id }}"
               data-after="{{ placement.after }}"
-              data-row-after="{{ placement.rowAfter }}"{% endif %}>
+              data-row-after="{{ placement.rowAfter }}"{% if placement.lane is not null %}
+              data-lane="{{ placement.lane }}"{% endif %}{% if placement.laneHead %}
+              data-lane-head
+              data-lane-after="{{ placement.laneAfter }}"{% endif %}{% endif %}>
     <template>
         {% if card is not null %}
-            {% set runWarning = card_run_warnings(card.project)[card.id ~ '']|default(null) %}
-            {% include '@Board/_card.html.twig' with {card: card, pendingComments: placement.pendingComments, documentCount: placement.documentCount, progress: placement.progress, inLane: placement.lane is not null and placement.lane != 'other', runWarning: runWarning} only %}
+            {% set runWarning = card_run_warning(card.project, card.id) %}
+            {% if placement.laneHead %}
+                {% include '@Board/_board_lane_head.html.twig' with {epic: card, progress: placement.progress} only %}
+            {% else %}
+                {% include '@Board/_card.html.twig' with {card: card, pendingComments: placement.pendingComments, documentCount: placement.documentCount, progress: placement.progress, inLane: placement.lane not in [null, 'other'], runWarning: runWarning} only %}
+            {% endif %}
             {% include '@Board/_card_row.html.twig' with {card: card, column: placement.column, feedbackCount: placement.pendingComments, documentCount: placement.documentCount, progress: placement.progress, runWarning: runWarning} only %}
         {% endif %}
     </template>
