@@ -121,7 +121,51 @@ final class ShowCardControllerTest extends WebTestCase
         $blocked = $crawler->filter('[data-card-automation-blocked]');
         self::assertCount(1, $blocked);
         self::assertStringContainsString('the checks fail', $blocked->text());
-        self::assertStringContainsString('When a person moves the card', $blocked->text());
+        self::assertStringContainsString('when a person moves the card, when the checks pass, or when a reviewer approves or requests changes', $blocked->text());
+    }
+
+    public function test_a_finished_card_shows_no_block(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'card-automation-finished@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Merged by the agent', 'done');
+        $automation = new CardAutomation($card);
+        $automation->blockedReason = 'checks-failed';
+        $automation->lastAction = CardAutomationAction::Stopped;
+        $em->persist($automation);
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[data-card-automation-blocked]'));
+    }
+
+    public function test_a_stop_whose_block_was_cleared_shows_no_line(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'card-automation-cleared@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Moved back by a person');
+        $automation = new CardAutomation($card);
+        $automation->lastAction = CardAutomationAction::Stopped;
+        $automation->lastActionAt = new \DateTimeImmutable('-2 hours');
+        $em->persist($automation);
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[data-card-automation]'));
     }
 
     public function test_the_card_page_shows_a_fix_round_with_no_block(): void

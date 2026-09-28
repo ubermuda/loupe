@@ -90,13 +90,16 @@ final class CardPullRequestStatesTest extends KernelTestCase
         $automations = self::getContainer()->get(CardAutomationRepository::class);
         self::assertInstanceOf(CardAutomationRepository::class, $automations);
         $this->em->wrapInTransaction(static fn () => $automations->findOrCreateForUpdate($blocked)->blockedReason = 'conflict');
+        $finished = $this->cardIn($project, 'done');
+        $this->em->wrapInTransaction(static fn () => $automations->findOrCreateForUpdate($finished)->blockedReason = 'conflict');
 
-        $states = $this->states->forCards([$failing, $neverRead, $merged, $blocked]);
+        $states = $this->states->forCards([$failing, $neverRead, $merged, $blocked, $finished]);
 
         self::assertSame([CardBadge::ChecksFailed, CardBadge::Conflict], $states->badgesOf($failing));
         self::assertSame([], $states->badgesOf($neverRead));
         self::assertSame([], $states->badgesOf($merged));
         self::assertSame([CardBadge::Blocked], $states->badgesOf($blocked));
+        self::assertSame([], $states->badgesOf($finished));
     }
 
     public function test_cards_of_two_projects_are_refused(): void
@@ -126,11 +129,11 @@ final class CardPullRequestStatesTest extends KernelTestCase
         $this->em->flush();
     }
 
-    private function cardIn(Project $project): Card
+    private function cardIn(Project $project, ?string $column = null): Card
     {
         $handler = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $handler);
 
-        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature));
+        return $handler(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature, null === $column ? null : $this->column($project, $column)));
     }
 }

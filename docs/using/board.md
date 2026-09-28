@@ -171,10 +171,10 @@ A card also shows a badge for each problem on its open pull requests.
 **Checks failed** means that the checks of a linked pull request fail.
 **Conflict** means that a linked pull request has a merge conflict.
 **Automation blocked** means that the automation stopped asking for fixes on
-the card. A card and its row in the **List** view show the same badges. The
-badges change when Loupe reads a new state, with no reload. They come only from
-a state that Loupe read, so a pull request that shows **Not reported** adds no
-badge.
+the card. A card in a terminal column shows no such badge. A card and its row
+in the **List** view show the same badges. The badges change when Loupe reads a
+new state, with no reload. They come only from a state that Loupe read, so a
+pull request that shows **Not reported** adds no badge.
 
 Each card type and each column has a colour, and every page that names one uses
 the same colour. The owner picks a column's colour from twelve in its
@@ -317,8 +317,10 @@ When the automation acted on the card, a line under the links says what it did
 last, and when. It asked for a fix round, it stopped, or it marked the pull
 request ready to merge. See [Automation](#automation). When the automation is
 blocked, a notice gives the reason: the checks fail, the pull request has a
-merge conflict, or a reviewer requested changes. When a person moves the card to
-another column, Loupe clears the block and resets the fix count.
+merge conflict, or a reviewer requested changes. Loupe clears the block and
+resets the fix count when a person moves the card to another column, when the
+checks pass, or when a reviewer approves or requests changes. A card in a
+terminal column shows no block.
 
 The card page and the drawer show the state from when they opened. Reload the
 page to see a newer state. The board tiles update by themselves.
