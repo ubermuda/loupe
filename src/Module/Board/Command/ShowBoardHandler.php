@@ -37,8 +37,13 @@ final readonly class ShowBoardHandler
     {
         $project = $command->project;
         $columns = [];
+        $backlog = null;
 
-        foreach ($this->boardColumns->findBoardColumns($project) as $column) {
+        foreach ($this->boardColumns->findForProject($project) as $column) {
+            if ($column->backlog) {
+                $backlog = $column;
+                continue;
+            }
             $shown = $this->columnCards->shown($column);
             $columns[] = new BoardColumnView(
                 $column,
@@ -62,7 +67,8 @@ final readonly class ShowBoardHandler
             }
         }
 
-        [$lanes, $otherCards] = $this->boardLanes->sort($columns);
+        $backlog ??= throw new \LogicException('Every board has a Backlog.');
+        [$lanes, $otherCards] = $this->boardLanes->sort($columns, $this->cards->findLaneEpics($project));
 
         $counts = $this->cards->childProgressForProject($project);
         $progress = [];
@@ -79,6 +85,12 @@ final readonly class ShowBoardHandler
                 }
             }
         }
+        // A lane epic in the Backlog has a lane head and no card in any column.
+        foreach ($lanes as $lane) {
+            $epicId = (string) $lane->epic?->id;
+            $epicCounts = $counts[$epicId] ?? ['done' => 0, 'total' => 0];
+            $progress[$epicId] ??= new CardProgress($epicCounts['done'], $epicCounts['total']);
+        }
 
         // One aggregate each for the whole board. A count per card would be
         // a query per card, on the page that renders the most of them.
@@ -90,6 +102,8 @@ final readonly class ShowBoardHandler
             $project,
             $columns,
             self::TERMINAL_WINDOW_DAYS,
+            $backlog,
+            $this->cards->countInColumn($backlog),
             $pendingComments,
             $documentCounts,
             $deadRules,

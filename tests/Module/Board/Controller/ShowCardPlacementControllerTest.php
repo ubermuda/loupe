@@ -57,7 +57,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $counts = $this->counts($content);
         self::assertSame(0, $counts[(string) $triage->id]);
         self::assertSame(2, $counts[(string) $next->id]);
-        self::assertCount(4, $counts);
+        self::assertSame(0, $counts[(string) $this->column($project, 'backlog')->id]);
+        self::assertCount(5, $counts);
     }
 
     public function test_a_placed_epic_keeps_the_progress_of_its_children(): void
@@ -113,6 +114,56 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertMatchesRegularExpression('#data-lane-progress>\s*1/2 done\s*<#', $content);
         self::assertStringNotContainsString('id="board-card-'.$epic->id.'"', $content);
         self::assertStringContainsString('id="board-row-'.$epic->id.'"', $content);
+    }
+
+    public function test_a_lane_epic_in_the_backlog_gets_its_lane_head_and_no_row(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-backlog-lane-head@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Waiting epic', 'backlog'), CardType::Epic);
+        $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'next'));
+        $backlog = $this->column($project, 'backlog');
+        $url = $this->placementUrl((string) $project->id, (string) $epic->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertMatchesRegularExpression('#\sdata-lane-head[\s>]#', $content);
+        self::assertStringContainsString('data-column-id="'.$backlog->id.'"', $content);
+        self::assertStringContainsString('class="lp-board-lane__head"', $content);
+        self::assertStringNotContainsString('data-removed', $content);
+        self::assertStringNotContainsString('id="board-row-'.$epic->id.'"', $content);
+        self::assertSame(1, $this->counts($content)[(string) $backlog->id]);
+    }
+
+    public function test_a_card_in_the_backlog_gets_a_removal_and_the_backlog_count(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-backlog-card@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Waiting', 'backlog');
+        $this->card($em, $project, 'Waiting too', 'backlog');
+        $backlog = $this->column($project, 'backlog');
+        $url = $this->placementUrl((string) $project->id, (string) $card->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('data-removed="1"', $content);
+        self::assertSame(2, $this->counts($content)[(string) $backlog->id]);
     }
 
     public function test_a_child_in_a_lane_names_its_lane_and_skips_the_lane_epic(): void

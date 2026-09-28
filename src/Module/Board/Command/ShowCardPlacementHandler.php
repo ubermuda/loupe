@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
@@ -28,10 +29,19 @@ final readonly class ShowCardPlacementHandler
     public function __invoke(ShowCardPlacementCommand $command): CardPlacementView
     {
         $windowStart = BoardColumnCards::windowStart();
-        $columns = $this->boardColumns->findBoardColumns($command->project);
+        $columns = [];
+        $backlog = null;
+        foreach ($this->boardColumns->findForProject($command->project) as $boardColumn) {
+            if ($boardColumn->backlog) {
+                $backlog = $boardColumn;
+            } else {
+                $columns[] = $boardColumn;
+            }
+        }
+        $backlog ??= throw new \LogicException('Every board has a Backlog.');
 
         $stored = $this->columnCards->counts($command->project, $windowStart);
-        $counts = [];
+        $counts = [(string) $backlog->id => $stored[(string) $backlog->id]['shown'] ?? 0];
         $terminalTotals = [];
         foreach ($columns as $boardColumn) {
             $id = (string) $boardColumn->id;
@@ -43,37 +53,46 @@ final readonly class ShowCardPlacementHandler
 
         $card = $command->card;
         $columnId = null === $card ? null : $this->columnCards->shownColumnId($card, $windowStart);
-        $index = null === $columnId ? null : array_find_key($columns, static fn (BoardColumn $column): bool => (string) $column->id === $columnId);
-        if (null === $card || null === $index) {
-            return new CardPlacementView(null, null, null, null, 0, 0, $counts, $terminalTotals, null, null, false, null);
-        }
-
-        $column = $columns[$index];
-        $previous = $this->columnCards->previousShown($card, $column, $windowStart);
-        $rowAfter = $previous;
-        for ($earlier = $index - 1; null === $rowAfter && $earlier >= 0; --$earlier) {
-            $rowAfter = $this->columnCards->lastShown($columns[$earlier], $windowStart);
-        }
-
-        $laneEpicIds = $this->columnCards->laneEpicIds($command->project, $columns);
-        $lane = null;
-        $laneIndex = array_search((string) $card->id, $laneEpicIds, true);
+        $laneEpicIds = null === $columnId ? [] : array_map(
+            static fn (Card $epic): string => (string) $epic->id,
+            $this->cards->findLaneEpics($command->project),
+        );
+        $laneIndex = null === $card ? false : array_search((string) $card->id, $laneEpicIds, true);
         $laneHead = \is_int($laneIndex);
         $laneAfter = $laneHead && $laneIndex > 0 ? $laneEpicIds[$laneIndex - 1] : null;
-        if ($laneHead) {
-            $after = null;
-        } elseif ([] === $laneEpicIds) {
-            $after = $previous;
-        } else {
-            $parentId = null === $card->parent ? null : (string) $card->parent->id;
-            $lane = null !== $parentId && \in_array($parentId, $laneEpicIds, true) ? $parentId : BoardLanes::OTHER;
-            $after = $this->columnCards->previousShown($card, $column, $windowStart, $lane, $laneEpicIds);
+
+        // The Backlog is no column of the board, and a lane epic there still heads its lane.
+        $index = null === $columnId ? null : array_find_key($columns, static fn (BoardColumn $column): bool => (string) $column->id === $columnId);
+        $inBacklog = $laneHead && (string) $backlog->id === $columnId;
+        if (null === $card || (null === $index && !$inBacklog)) {
+            return new CardPlacementView(null, null, null, null, 0, 0, $counts, $terminalTotals, null, null, false, null);
         }
 
         $progress = null;
         if (CardType::Epic === $card->type) {
             $children = $this->cards->childProgressOf($card);
             $progress = new CardProgress($children['done'], $children['total']);
+        }
+
+        $column = $backlog;
+        $after = $rowAfter = $lane = null;
+        if (null !== $index) {
+            $column = $columns[$index];
+            $previous = $this->columnCards->previousShown($card, $column, $windowStart);
+            $rowAfter = $previous;
+            for ($earlier = $index - 1; null === $rowAfter && $earlier >= 0; --$earlier) {
+                $rowAfter = $this->columnCards->lastShown($columns[$earlier], $windowStart);
+            }
+
+            if ($laneHead) {
+                $after = null;
+            } elseif ([] === $laneEpicIds) {
+                $after = $previous;
+            } else {
+                $parentId = null === $card->parent ? null : (string) $card->parent->id;
+                $lane = null !== $parentId && \in_array($parentId, $laneEpicIds, true) ? $parentId : BoardLanes::OTHER;
+                $after = $this->columnCards->previousShown($card, $column, $windowStart, $lane, $laneEpicIds);
+            }
         }
 
         return new CardPlacementView(

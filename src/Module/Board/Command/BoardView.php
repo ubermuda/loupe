@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 
@@ -15,6 +16,9 @@ final readonly class BoardView
         public Project $project,
         public array $columns,
         public int $terminalWindowDays,
+        /** The board draws no Backlog column, and its header button shows this count. */
+        public BoardColumn $backlog,
+        public int $backlogCount,
         /**
          * Unaddressed site-review comments per card id. A card with none is
          * absent rather than zero, so the template asks with a default. The

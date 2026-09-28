@@ -493,6 +493,41 @@ describe('board-place on a board with lanes', () => {
         expect(placed.mock.calls[0][0].detail).toEqual({ cardId: EPIC });
     });
 
+    it('morphs a lane head that comes with no row, and removes the row the list had', () => {
+        const placed = vi.fn();
+        document.addEventListener('board:placed', placed, { once: true });
+
+        placeCard(
+            laneStream({
+                id: EPIC,
+                column: 'col-waiting',
+                head: true,
+                body: laneHead('Waiting', '1/2 done'),
+            }),
+        );
+
+        expect(
+            document.querySelector(`#board-lane-${EPIC} .lp-board-lane__title`)
+                .textContent,
+        ).toBe('Waiting');
+        expect(order('.lp-board-list__row')).toEqual(['a', 'c', 'b']);
+        expect(placed).toHaveBeenCalledOnce();
+
+        placeCard(
+            laneStream({
+                id: EPIC,
+                column: 'col-waiting',
+                head: true,
+                body: laneHead('Still waiting', '1/2 done'),
+            }),
+        );
+
+        expect(order('.lp-board-list__row')).toEqual(['a', 'c', 'b']);
+        expect(
+            document.querySelector('.lp-board-list').textContent,
+        ).not.toContain('null');
+    });
+
     it('drops the stale mark of a lane head it morphs', () => {
         const head = document.querySelector(
             `#board-lane-${EPIC} .lp-board-lane__head`,

@@ -722,22 +722,29 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * The epics the board draws as lanes, with the id of their column, in
-     * the order findColumn() reads an open column. Card::drawsLane() says which.
+     * The epics the board draws as lanes, Backlog included, in board order:
+     * column by column, then down each column. Card::drawsLane() says which.
      *
-     * @return list<array{id: string, column_id: string}>
+     * @return list<Card>
      */
-    public function laneEpicRowsOf(Project $project): array
+    public function findLaneEpics(Project $project): array
     {
-        /** @var list<array{id: string, column_id: string}> $rows */
-        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT c.id, c.column_id FROM board_cards c JOIN board_columns k ON k.id = c.column_id
-             WHERE k.project_id = :project AND c.type = :epic AND c.lane_enabled AND NOT k.terminal
-             ORDER BY c.position ASC, c.created_at ASC, c.id ASC',
-            ['project' => (string) $project->id, 'epic' => CardType::Epic->value],
-        );
-
-        return $rows;
+        return array_values($this->createQueryBuilder('c')
+            ->join('c.column', 'k')
+            ->addSelect('k')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.type = :epic')
+            ->andWhere('c.laneEnabled = true')
+            ->andWhere('k.terminal = false')
+            ->setParameter('project', $project)
+            ->setParameter('epic', CardType::Epic)
+            ->orderBy('k.position', 'ASC')
+            ->addOrderBy('k.id', 'ASC')
+            ->addOrderBy('c.position', 'ASC')
+            ->addOrderBy('c.createdAt', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult());
     }
 
     /** The id of the last card the board shows in the column, or null when it shows none. */

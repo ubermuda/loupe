@@ -13,6 +13,7 @@ final readonly class CardPlacementView
     public function __construct(
         /** Null when the board does not show the card: it is deleted, or outside its terminal window. */
         public ?Card $card,
+        /** The Backlog for a lane epic there, which heads its lane and has no list row. */
         public ?BoardColumn $column,
         /** The id of the card before it in its column, or in its lane cell on a board with lanes. Null when it comes first. */
         public ?string $after,

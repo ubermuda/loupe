@@ -81,6 +81,39 @@ final class ShowBoardHandlerTest extends KernelTestCase
         );
     }
 
+    public function test_an_epic_in_the_backlog_keeps_its_lane_first_and_its_progress(): void
+    {
+        $this->epic('Next epic', 'next');
+        $waiting = $this->epic('Waiting epic', 'backlog');
+        $this->child($waiting, 'Child in progress', 'in-progress');
+        $this->child($waiting, 'Child done', 'done');
+        $this->epic('Waiting with its lane off', 'backlog')->laneEnabled = false;
+        $this->em->flush();
+
+        $board = $this->board();
+
+        self::assertSame(
+            ['Waiting epic', 'Next epic'],
+            array_map(static fn (BoardLaneView $lane): string => (string) $lane->epic?->title, $board->lanes),
+        );
+        self::assertSame(['Child in progress'], $this->cell($board->lanes[0], 'in-progress'));
+        self::assertSame(['done' => 1, 'total' => 2], $this->progressOf($board, $waiting));
+        // The Backlog is no cell of any lane.
+        self::assertArrayNotHasKey((string) $this->column($this->project, 'backlog')->id, $board->lanes[0]->cells);
+    }
+
+    public function test_the_board_carries_the_backlog_and_every_card_it_holds(): void
+    {
+        $this->card('Waiting', 'backlog');
+        $this->epic('Waiting epic', 'backlog');
+        $this->card('Plain', 'next');
+
+        $board = $this->board();
+
+        self::assertSame((string) $this->column($this->project, 'backlog')->id, (string) $board->backlog->id);
+        self::assertSame(2, $board->backlogCount);
+    }
+
     public function test_children_sit_in_their_epic_lane_and_every_other_card_in_the_other_row(): void
     {
         $epic = $this->epic('Epic', 'next');

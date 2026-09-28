@@ -149,11 +149,15 @@ function placeLaneHead(stream, cardId, counts, history, historyTotals) {
             lanes.prepend(section);
         }
     }
-    place(
-        `board-row-${cardId}`,
-        content.querySelector('.lp-board-list__row'),
-        (node) => (rowAnchor ? rowAnchor.after(node) : list.prepend(node)),
-    );
+    // A lane epic in the Backlog has no list row.
+    const freshRow = content.querySelector('.lp-board-list__row');
+    if (freshRow) {
+        place(`board-row-${cardId}`, freshRow, (node) =>
+            rowAnchor ? rowAnchor.after(node) : list.prepend(node),
+        );
+    } else {
+        document.getElementById(`board-row-${cardId}`)?.remove();
+    }
     updateTexts('board-count-', counts);
     updateTexts('board-history-', history);
     updateHistoryTotals(historyTotals);

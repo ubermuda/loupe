@@ -72,4 +72,39 @@ final class CardRepositoryTest extends KernelTestCase
         self::assertFalse($card->laneEnabled);
         self::assertSame(CardType::Epic, $card->type);
     }
+
+    public function test_lane_epics_are_the_open_epics_with_their_lane_on_in_column_then_rank_order(): void
+    {
+        $project = $this->makeProject('repo-lane-epics');
+        $this->epicIn($project, 'Next second', 'next', 1);
+        $this->epicIn($project, 'Next first', 'next', 0);
+        $this->epicIn($project, 'In progress', 'in-progress', 0);
+        $this->epicIn($project, 'Waiting in the Backlog', 'backlog', 3);
+        $this->epicIn($project, 'Lane off', 'next', 2)->laneEnabled = false;
+        $this->epicIn($project, 'Done', 'done', 0);
+        $this->epicIn($project, 'Plain card', 'backlog', 0, CardType::Feature);
+        $this->epicIn($this->makeProject('repo-lane-epics-other'), 'Other project', 'next', 0);
+        $this->em->flush();
+        $this->em->clear();
+
+        $project = $this->em->find(Project::class, $project->id) ?? throw new \LogicException('The project is gone.');
+
+        self::assertSame(
+            ['Waiting in the Backlog', 'Next first', 'Next second', 'In progress'],
+            array_map(static fn (Card $card): string => $card->title, $this->cards->findLaneEpics($project)),
+        );
+    }
+
+    private function epicIn(Project $project, string $title, string $slug, int $position, CardType $type = CardType::Epic): Card
+    {
+        $column = $this->column($project, $slug);
+        $card = new Card(project: $project, column: $column, title: $title, body: '', number: random_int(1, 1_000_000), type: $type, position: $position);
+        if ($column->terminal) {
+            $card->completedAt = new \DateTimeImmutable();
+        }
+        $this->em->persist($card);
+        $this->em->flush();
+
+        return $card;
+    }
 }
