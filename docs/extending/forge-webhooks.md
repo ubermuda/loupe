@@ -108,9 +108,10 @@ These events set the count back to zero and clear the block:
 The reset comes before the decision. So the fix request after a
 `changes-requested` review is round 1, whatever the count was before.
 
-One read sends at most one `fix_requested` to a card. When a read finds more
-than one reason, the reason is `conflict` first, then `checks-failed`. The
-facts all go out.
+One read sends at most one `fix_requested` to a card. A review delivery and a
+state change can come in the same read. When a read finds more than one reason,
+the reason is `conflict` first, then `checks-failed`, then `changes-requested`.
+The facts all go out.
 
 ### Events from a hook repository
 

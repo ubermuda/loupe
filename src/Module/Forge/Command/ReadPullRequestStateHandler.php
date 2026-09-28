@@ -7,10 +7,8 @@ namespace App\Module\Forge\Command;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestState;
-use App\Module\Forge\Event\PullRequestReviewed;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
-use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\PullRequestStateReaders;
 use App\Module\Forge\Service\PullRequestUnreadable;
@@ -59,7 +57,7 @@ final readonly class ReadPullRequestStateHandler
             }
 
             if ($pullRequest->refreshedAt >= $command->requestedAt) {
-                $this->announceReview($command, $pullRequest, $pullRequest->snapshot());
+                $this->announceVerdict($command, $pullRequest);
 
                 return null;
             }
@@ -80,7 +78,7 @@ final readonly class ReadPullRequestStateHandler
                     return $e;
                 }
                 $pullRequest->refreshedAt = $readStartedAt;
-                $this->announceReview($command, $pullRequest, $pullRequest->snapshot());
+                $this->announceVerdict($command, $pullRequest);
 
                 return null;
             }
@@ -89,10 +87,10 @@ final readonly class ReadPullRequestStateHandler
             $pullRequest->refreshedAt = $readStartedAt;
             $this->retryUnknownMergeability($pullRequest);
 
-            if (!$current->equals($previous)) {
-                $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current));
+            // One event per read, so Board asks at most one fix for a verdict and a state change together.
+            if (!$current->equals($previous) || null !== $command->verdict) {
+                $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current, $command->verdict));
             }
-            $this->announceReview($command, $pullRequest, $current);
 
             return null;
         });
@@ -103,10 +101,12 @@ final readonly class ReadPullRequestStateHandler
         }
     }
 
-    private function announceReview(ReadPullRequestStateCommand $command, ForgePullRequest $pullRequest, PullRequestSnapshot $snapshot): void
+    /** A read that stored no new state still delivers its verdict, against the stored state. */
+    private function announceVerdict(ReadPullRequestStateCommand $command, ForgePullRequest $pullRequest): void
     {
         if (null !== $command->verdict) {
-            $this->events->dispatch(new PullRequestReviewed($pullRequest, $command->verdict, $snapshot));
+            $snapshot = $pullRequest->snapshot();
+            $this->events->dispatch(new PullRequestStateChanged($pullRequest, $snapshot, $snapshot, $command->verdict));
         }
     }
 

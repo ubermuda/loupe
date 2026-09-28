@@ -123,12 +123,8 @@ final readonly class PublishPullRequestEventsHandler
         $facts = [];
 
         $verdict = $command->reviewVerdict;
-        if (null !== $verdict) {
-            if (PullRequestReview::Approved === $verdict || PullRequestReview::ChangesRequested === $verdict) {
-                $facts[] = $this->fact(ForgeEventType::REVIEW_SUBMITTED, ['verdict' => $verdict->value], true, PullRequestReview::ChangesRequested === $verdict ? 'changes-requested' : null);
-            }
-
-            return $facts;
+        if (PullRequestReview::Approved === $verdict || PullRequestReview::ChangesRequested === $verdict) {
+            $facts[] = $this->fact(ForgeEventType::REVIEW_SUBMITTED, ['verdict' => $verdict->value], true, PullRequestReview::ChangesRequested === $verdict ? 'changes-requested' : null);
         }
 
         $concluded = PullRequestChecks::Passed === $current->checks || PullRequestChecks::Failed === $current->checks;

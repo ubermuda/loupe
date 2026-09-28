@@ -26,6 +26,6 @@ final readonly class PublishPullRequestEventsOnStateChanged
             return;
         }
 
-        ($this->publish)(new PublishPullRequestEventsCommand($event->pullRequest, $event->previous, $event->current));
+        ($this->publish)(new PublishPullRequestEventsCommand($event->pullRequest, $event->previous, $event->current, $event->reviewVerdict));
     }
 }

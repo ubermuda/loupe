@@ -8,7 +8,7 @@ use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\PullRequestSnapshot;
 
-/** A review passes its verdict and one snapshot as both $previous and $current, so only its own facts follow. */
+/** One read of a pull request. A read that only carries a review passes one snapshot as both $previous and $current. */
 final readonly class PublishPullRequestEventsCommand
 {
     public function __construct(

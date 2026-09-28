@@ -26,7 +26,6 @@ use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
-use App\Module\Forge\Event\PullRequestReviewed;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Project\Entity\Project;
@@ -303,6 +302,18 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         self::assertSame(CardAutomationAction::FixRequested, $automation->lastAction);
     }
 
+    public function test_one_read_with_a_changes_requested_verdict_and_failed_checks_asks_for_one_fix(): void
+    {
+        $card = $this->linkedCard();
+
+        $this->handler()(new PublishPullRequestEventsCommand($this->pullRequest, new PullRequestSnapshot(), $this->failed(self::SHA), PullRequestReview::ChangesRequested));
+
+        $events = $this->outbox();
+        self::assertSame(['pull_request.review_submitted', 'pull_request.checks_concluded', 'pull_request.fix_requested'], array_column($events, 'type'));
+        self::assertSame('checks-failed', $events[2]['reason']);
+        self::assertSame(1, $this->automationOf($card)->fixRounds);
+    }
+
     public function test_ready_to_merge_fires_only_when_it_turns_true_under_the_worker_strategy(): void
     {
         $card = $this->linkedCard();
@@ -377,26 +388,24 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         self::assertSame(1, $this->automationOf($second)->fixRounds);
     }
 
-    public function test_the_listeners_publish_while_the_board_is_on(): void
+    public function test_the_listener_publishes_while_the_board_is_on(): void
     {
         $this->linkedCard();
 
-        $this->dispatch(new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(), $this->failed(self::SHA)));
-        $this->dispatch(new PullRequestReviewed($this->pullRequest, PullRequestReview::Approved, new PullRequestSnapshot()));
+        $this->dispatch(new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(), $this->failed(self::SHA), PullRequestReview::Approved));
 
         self::assertSame(
-            ['pull_request.checks_concluded', 'pull_request.fix_requested', 'pull_request.review_submitted'],
+            ['pull_request.review_submitted', 'pull_request.checks_concluded', 'pull_request.fix_requested'],
             array_column($this->outbox(), 'type'),
         );
     }
 
-    public function test_the_listeners_do_nothing_while_the_board_is_off(): void
+    public function test_the_listener_does_nothing_while_the_board_is_off(): void
     {
         $this->disableBoard();
         $card = $this->linkedCard();
 
-        $this->dispatch(new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(), $this->failed(self::SHA)));
-        $this->dispatch(new PullRequestReviewed($this->pullRequest, PullRequestReview::Approved, new PullRequestSnapshot()));
+        $this->dispatch(new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(), $this->failed(self::SHA), PullRequestReview::Approved));
 
         self::assertSame([], $this->outbox());
         self::assertNull($this->findAutomation($card));
@@ -448,7 +457,7 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         return $handler;
     }
 
-    /** Forge dispatches both events inside its own transaction. */
+    /** Forge dispatches the event inside its own transaction. */
     private function dispatch(object $event): void
     {
         $events = self::getContainer()->get(EventDispatcherInterface::class);
