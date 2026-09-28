@@ -40,6 +40,8 @@ const GROUPS = [
             "dispatch('reload')",
             'dispatch("reload")',
             'Turbo.visit',
+            'Turbo?.visit',
+            "setAttribute('src'",
             'location.reload',
             'board-frame',
             'board-refresh',

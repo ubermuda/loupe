@@ -88,7 +88,7 @@ export default class extends Controller {
         this.markReady();
     }
 
-    /** A frame morph drops attributes the server did not render, this one included. */
+    /** A morph drops attributes the server did not render, this one included. */
     markReady() {
         this.element.dataset.boardDragReady = 'true';
     }

@@ -230,7 +230,7 @@ shows **Live updates paused**. When the connection comes back, the board asks
 the server which cards changed, and only those cards update. A change to the
 columns or to an epic lane updates only that column or lane. The sign then goes
 away. When the board cannot catch up after a lost connection or a column change,
-it tries again a few times. Then the toolbar shows **Live updates stopped.
+it tries again a few times, unless the server refuses the request. Then the toolbar shows **Live updates stopped.
 Reload the page to catch up.**
 
 Live changes need a Mercure hub and the `live_updates.enabled` flag, see

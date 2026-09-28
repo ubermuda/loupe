@@ -352,7 +352,7 @@ export default class extends Controller {
         });
     }
 
-    /** Answers the stream, or null with `final` true when a retry cannot help. */
+    /** Answers the stream, or null; `final` is true when a retry cannot help. */
     async readStructure(abort) {
         const timeout = setTimeout(
             () => abort.abort(),
