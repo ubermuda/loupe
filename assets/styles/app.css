@@ -3076,7 +3076,7 @@
     }
     /* The paper scrolls, not this pane, so a jump from the contents or decisions
        panel would otherwise land its target under the sticky metadata bar. */
-    .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) {
+    .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6, li[id^='ref-']) {
         @apply scroll-mt-16;
     }
     .lp-review-doc__prose h1 {
