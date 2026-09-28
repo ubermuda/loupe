@@ -5793,7 +5793,7 @@
             <trans-unit id="activity.event_type.inbox.ask_closed"><source>activity.event_type.inbox.ask_closed</source><target>Question closed</target></trans-unit>
             <trans-unit id="activity.event_type.project.renamed"><source>activity.event_type.project.renamed</source><target>Project renamed</target></trans-unit>
             <trans-unit id="project.workshop.activity.empty"><source>project.workshop.activity.empty</source><target>No recorded activity yet.</target></trans-unit>
-            <trans-unit id="project.workshop.cards.empty"><source>project.workshop.cards.empty</source><target>No open cards. Open the board to create work.</target></trans-unit>
+            <trans-unit id="project.workshop.cards.empty"><source>project.workshop.cards.empty</source><target>Nothing in motion. A card shows here when a bridge queues it or a session works on it.</target></trans-unit>
             <trans-unit id="project.workshop.cards.disabled"><source>project.workshop.cards.disabled</source><target>The board is disabled on this instance.</target></trans-unit>
             <trans-unit id="project.workshop.needs_you.disabled"><source>project.workshop.needs_you.disabled</source><target>The inbox is disabled on this instance.</target></trans-unit>
             <trans-unit id="project.workshop.needs_you.clear">
@@ -5811,6 +5811,30 @@
             <trans-unit id="project.workshop.in_motion.action">
                 <source>project.workshop.in_motion.action</source>
                 <target>Open board</target>
+            </trans-unit>
+            <trans-unit id="project.workshop.in_motion.more">
+                <source>project.workshop.in_motion.more</source>
+                <target>+%count% more</target>
+            </trans-unit>
+            <trans-unit id="project.workshop.in_motion.kind.interactive">
+                <source>project.workshop.in_motion.kind.interactive</source>
+                <target>Interactive</target>
+            </trans-unit>
+            <trans-unit id="project.workshop.in_motion.kind.worker">
+                <source>project.workshop.in_motion.kind.worker</source>
+                <target>Worker</target>
+            </trans-unit>
+            <trans-unit id="project.workshop.in_motion.elapsed.minutes">
+                <source>project.workshop.in_motion.elapsed.minutes</source>
+                <target>%count% min</target>
+            </trans-unit>
+            <trans-unit id="project.workshop.in_motion.elapsed.hours">
+                <source>project.workshop.in_motion.elapsed.hours</source>
+                <target>%count% h</target>
+            </trans-unit>
+            <trans-unit id="project.workshop.in_motion.elapsed.days">
+                <source>project.workshop.in_motion.elapsed.days</source>
+                <target>%count% d</target>
             </trans-unit>
             <trans-unit id="project.workshop.connection.eyebrow">
                 <source>project.workshop.connection.eyebrow</source>

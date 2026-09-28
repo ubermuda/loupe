@@ -66,15 +66,12 @@
                 <h2 class="lp-workshop-section__title">{{ 'project.workshop.in_motion.title'|trans }}</h2>
                 {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-text-link" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{{ 'project.workshop.in_motion.action'|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>{% endif %}
             </div>
-            <div class="lp-workshop-work-grid">
-                {% for card in workshop.cards %}
-                <a class="lp-workshop-work-card" href="{{ card.url }}" data-workshop-card="{{ card.number }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
-                    <header><span>#{{ card.number }}</span>{% include '_tone_tag.html.twig' with {label: card.column|trans, tone: card.columnTone, class: 'lp-workshop-work-card__badge'} only %}</header>
-                    <h3>{{ card.title }}</h3>
-                </a>
-                {% else %}
-                <p class="lp-workspace-desc">{{ is_feature_enabled('board.enabled') ? 'project.workshop.cards.empty'|trans : 'project.workshop.cards.disabled'|trans }}</p>
-                {% endfor %}
+            {% if is_feature_enabled('board.enabled') %}{% do mercure_subscribe(board_topic(workshop.project)) %}{% endif %}
+            <div class="lp-live-frame"
+                 data-controller="worker-run-refresh"
+                 data-worker-run-refresh-url-value="{{ path('app_project_workshop_in_motion', {id: workshop.project.id}) }}"
+                 data-worker-run-refresh-events-value="{{ ['worker_run.changed', 'board.card_changed']|json_encode }}">
+                {% include '@Project/_workshop_in_motion.html.twig' with {project: workshop.project, inMotion: workshop.inMotion} only %}
             </div>
         </section>
         </div>

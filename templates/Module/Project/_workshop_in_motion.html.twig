@@ -1,0 +1,26 @@
+{#- The In motion section of the Workshop. The page and its reload route both render it. Props: project, inMotion. -#}
+<turbo-frame id="workshop-in-motion" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
+    <div class="lp-workshop-work-grid">
+        {% for card in inMotion.cards %}
+        <a class="lp-workshop-work-card" href="{{ card.url }}" data-workshop-card="{{ card.number }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
+            <header><span>#{{ card.number }}</span>{% include '_tone_tag.html.twig' with {label: card.column|trans, tone: card.columnTone, class: 'lp-workshop-work-card__badge'} only %}</header>
+            <h3>{{ card.title }}</h3>
+            <footer class="lp-workshop-work-card__run">
+                <span class="lp-status-chip lp-status-chip--{{ card.stateTone }}"><span class="lp-status-chip__dot"></span>{{ card.stateLabel|trans }}</span>
+                <span class="lp-workshop-work-card__kind">{% if card.kind is null %}{{ 'project.workshop.in_motion.kind.interactive'|trans }}{% elseif card.kind is same as('') %}{{ 'project.workshop.in_motion.kind.worker'|trans }}{% else %}{{ card.kind }}{% endif %}</span>
+                <time class="lp-workshop-work-card__elapsed"
+                      datetime="{{ card.since|date('c') }}"
+                      data-controller="elapsed"
+                      data-elapsed-minutes-value="{{ 'project.workshop.in_motion.elapsed.minutes'|trans }}"
+                      data-elapsed-hours-value="{{ 'project.workshop.in_motion.elapsed.hours'|trans }}"
+                      data-elapsed-days-value="{{ 'project.workshop.in_motion.elapsed.days'|trans }}">{{ card.since|workshop_elapsed }}</time>
+            </footer>
+        </a>
+        {% else %}
+        <p class="lp-workspace-desc">{{ is_feature_enabled('board.enabled') ? 'project.workshop.cards.empty'|trans : 'project.workshop.cards.disabled'|trans }}</p>
+        {% endfor %}
+    </div>
+    {% if inMotion.more > 0 %}
+    <a class="lp-workshop-text-link lp-workshop-work-more" href="{{ path('app_project_worker_runs', {id: project.id, outcome: 'open'}) }}" data-workshop-more>{{ 'project.workshop.in_motion.more'|trans({'%count%': inMotion.more}) }}</a>
+    {% endif %}
+</turbo-frame>
