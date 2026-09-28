@@ -147,6 +147,38 @@ it('lets a successful stream render, and refuses a new drag until the card is pl
     expect(moved.hasAttribute('aria-busy')).toBe(false);
 });
 
+it('adds the option of a column that appeared after the page loaded, and submits it', () => {
+    const board = document.getElementById('board');
+    board.insertAdjacentHTML(
+        'beforeend',
+        `<section class="lp-board__column" aria-label="Review">
+            <div id="board-group-review" data-board-drag-target="group" data-column="review" data-rankable="1"></div>
+        </section>`,
+    );
+    const moved = document.getElementById('board-card-a');
+    const review = document.getElementById('board-group-review');
+    const form = moved.querySelector('form');
+    form.requestSubmit = vi.fn();
+    review.append(moved);
+    controller.submitMove(moved, review, 0, {
+        group: document.getElementById('board-group-backlog'),
+        before: document.getElementById('board-card-b'),
+    });
+
+    const select = form.querySelector('select');
+    expect(select.value).toBe('review');
+    expect(select.selectedOptions[0].textContent).toBe('Review');
+    expect(select.querySelectorAll('option[value="review"]')).toHaveLength(1);
+    expect(form.requestSubmit).toHaveBeenCalledOnce();
+});
+
+it('adds no option for a column the select already has', () => {
+    const form = drop();
+
+    expect(form.querySelectorAll('option')).toHaveLength(2);
+    expect(form.querySelector('select').value).toBe('next');
+});
+
 it('releases the drag when the page cannot place the card', () => {
     const form = drop();
 
