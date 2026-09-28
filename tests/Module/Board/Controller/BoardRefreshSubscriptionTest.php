@@ -51,7 +51,7 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $placeholder = (string) $live->attr('data-board-live-placeholder-value');
         self::assertSame('/projects/'.$project->id.'/board/cards/'.$placeholder.'/placement', $live->attr('data-board-live-placement-value'));
         self::assertSame('This card may be out of date', $live->attr('data-board-live-stale-value'));
-        self::assertNull($live->attr('data-action'));
+        self::assertSame('board-live:reload->board-refresh#reload', $live->attr('data-action'));
         $paused = $crawler->filter('#board-toolbar-'.$project->id.'[data-turbo-permanent] [data-board-live-target="paused"][role="status"][data-message]');
         self::assertCount(1, $paused);
         self::assertSame('', $paused->text());

@@ -54,6 +54,31 @@ class CardRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
+    /**
+     * @param list<Uuid> $ids
+     *
+     * @return array<string, string> card id => title
+     */
+    public function findTitlesByIds(Project $project, array $ids): array
+    {
+        /** @var list<array{id: Uuid, title: string}> $rows */
+        $rows = $this->createQueryBuilder('c')
+            ->select('c.id, c.title')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.id IN (:ids)')
+            ->setParameter('project', $project)
+            ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
+            ->getQuery()
+            ->getArrayResult();
+
+        $titles = [];
+        foreach ($rows as $row) {
+            $titles[(string) $row['id']] = $row['title'];
+        }
+
+        return $titles;
+    }
+
     public function findOneByProjectAndNumber(Project $project, int $number): ?Card
     {
         return $this->findOneBy(['project' => $project, 'number' => $number]);

@@ -11,6 +11,7 @@ use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
+use App\Module\Board\Service\BoardLanes;
 
 /** Reads one card and its neighbours, so the cost does not grow with the board. */
 final readonly class ShowCardPlacementHandler
@@ -59,12 +60,14 @@ final readonly class ShowCardPlacementHandler
         $laneIndex = array_search((string) $card->id, $laneEpicIds, true);
         $laneHead = \is_int($laneIndex);
         $laneAfter = $laneHead && $laneIndex > 0 ? $laneEpicIds[$laneIndex - 1] : null;
-        if ([] === $laneEpicIds) {
+        if ($laneHead) {
+            $after = null;
+        } elseif ([] === $laneEpicIds) {
             $after = $previous;
         } else {
             $parentId = null === $card->parent ? null : (string) $card->parent->id;
-            $lane = null !== $parentId && \in_array($parentId, $laneEpicIds, true) ? $parentId : 'other';
-            $after = $laneHead ? null : $this->columnCards->previousShown($card, $column, $windowStart, $lane, $laneEpicIds);
+            $lane = null !== $parentId && \in_array($parentId, $laneEpicIds, true) ? $parentId : BoardLanes::OTHER;
+            $after = $this->columnCards->previousShown($card, $column, $windowStart, $lane, $laneEpicIds);
         }
 
         $progress = null;

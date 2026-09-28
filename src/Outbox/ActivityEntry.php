@@ -13,4 +13,9 @@ final readonly class ActivityEntry
         public ?ActivityLink $link,
     ) {
     }
+
+    public function family(): ?ActivityFamily
+    {
+        return ActivityFamily::fromType($this->event->type);
+    }
 }
