@@ -176,6 +176,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $cellCounts = $crawler->filter('#board-lane-'.$epic->id.' [data-cell-count]')->each(static fn ($node): string => trim($node->text()));
         self::assertSame(['0', '1', '0', '0'], $cellCounts);
         self::assertCount(0, $crawler->filter('#board-group-'.$next->id));
+        self::assertCount(1, $crawler->filter('#board-history-'.$this->column($project, 'done')->id));
     }
 
     public function test_the_placed_card_keeps_the_warning_of_a_run_that_gave_up(): void
