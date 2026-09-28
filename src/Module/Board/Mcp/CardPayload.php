@@ -25,7 +25,7 @@ use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
  * The one shape every board tool returns a card in, so a card read by card_list
  * and a card read by card_get describe themselves the same way.
  *
- * @phpstan-type PullRequestStateSummary array{state: string, draft: bool, checks: string, failedChecks: list<string>, mergeability: string, review: string, readyToMerge: bool, refreshedAt: ?string}
+ * @phpstan-type PullRequestStateSummary array{state: string, draft: bool, checks: string, failedChecks: list<string>, mergeability: string, review: string, readyToMerge: bool, refreshedAt: string}
  * @phpstan-type CardPullRequestSummary array{pullRequestId: string, url: string, forge: string, repository: ?string, number: ?int, state: ?PullRequestStateSummary}
  * @phpstan-type CardAutomationSummary array{fixRounds: int, blockedReason: ?string, lastAction: ?string, lastActionAt: ?string}
  * @phpstan-type FeedbackAnchorSummary array{selector: string, text: string, quote: ?string, quotePrefix: ?string, quoteSuffix: ?string}
@@ -234,7 +234,8 @@ final readonly class CardPayload
     /** @return ?PullRequestStateSummary */
     private static function pullRequestState(?PullRequestStateView $state): ?array
     {
-        if (null === $state) {
+        $refreshedAt = $state?->refreshedAt;
+        if (null === $state || null === $refreshedAt) {
             return null;
         }
 
@@ -246,7 +247,7 @@ final readonly class CardPayload
             'mergeability' => $state->mergeability->value,
             'review' => $state->review->value,
             'readyToMerge' => $state->readyToMerge,
-            'refreshedAt' => $state->refreshedAt?->format(\DATE_ATOM),
+            'refreshedAt' => $refreshedAt->format(\DATE_ATOM),
         ];
     }
 

@@ -145,6 +145,29 @@ final class CardPayloadTest extends TestCase
         self::assertNull($rows[0]['automation']);
     }
 
+    public function test_a_pull_request_that_loupe_never_read_reads_a_null_state(): void
+    {
+        $card = $this->card();
+        $link = new CardPullRequest($card, 'https://github.com/ubermuda/loupe/pull/8', Forge::GitHub, 'ubermuda/loupe', 8);
+        $this->setId($link, Uuid::v7());
+        $card->pullRequests->add($link);
+        $states = $this->createStub(CardPullRequestStates::class);
+        $states->method('forCards')->willReturn(new PullRequestStates([(string) $link->id => new PullRequestStateView(
+            PullRequestState::Open,
+            false,
+            PullRequestChecks::Pending,
+            [],
+            PullRequestMergeability::Unknown,
+            PullRequestReview::None,
+            false,
+            null,
+        )]));
+
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states)->forCards([$card]);
+
+        self::assertNull($rows[0]['pullRequests'][0]['state']);
+    }
+
     private function states(): CardPullRequestStates
     {
         $states = $this->createStub(CardPullRequestStates::class);

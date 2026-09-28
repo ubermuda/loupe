@@ -81,7 +81,7 @@ final readonly class ReadPullRequestStateHandler
                 if ($e->transient) {
                     return $e;
                 }
-                $pullRequest->refreshedAt = $readStartedAt;
+                // No stamp, so a row never read keeps a null refreshedAt and the card shows it as not reported.
                 $this->announceVerdict($verdict, $command->reviewId, $pullRequest);
 
                 return null;

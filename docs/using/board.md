@@ -645,8 +645,8 @@ linked to it, and all of its feedback, under `siteReviewComments`. Use a card id
 Each entry of `pullRequests` carries `state`, the last state Loupe read:
 `state`, `draft`, `checks`, `failedChecks`, `mergeability`, `review`,
 `readyToMerge` and `refreshedAt`. It is null when Loupe holds no reading, such
-as for a link it cannot parse. A null `refreshedAt` means that Loupe never read
-the pull request, which the card page shows as **Not reported**. The card also
+as for a link it cannot parse or a pull request it never read. The card page
+shows a pull request that Loupe never read as **Not reported**. The card also
 carries `automation`, with
 `fixRounds`, `blockedReason`, `lastAction` and `lastActionAt`. It is null when
 the automation never acted on the card. `card_update`, `card_create`,
