@@ -7,6 +7,8 @@ namespace App\Module\Inbox\Service\Dev;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardAutomation;
+use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
@@ -14,6 +16,11 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestReview;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItem;
@@ -58,6 +65,7 @@ final readonly class ProjectShowcaseSeeder
         private InboxItemRepository $inboxItems,
         private SiteReviewCommentRepository $siteReviewComments,
         private PullRequestUrlResolver $pullRequests,
+        private ForgePullRequestRepository $forgePullRequests,
         private InboxSearchIndexer $inboxSearch,
         private DocumentSearchIndexer $documentSearch,
     ) {
@@ -125,14 +133,47 @@ final readonly class ProjectShowcaseSeeder
         foreach ([$checkout, $history, $columnRules, $onboarding] as $card) {
             $this->em->persist($card);
         }
-        $links = $this->pullRequests->linksFor($checkout, ['https://github.com/example/atlas/pull/438']);
-        $pullRequest = $links[0] ?? throw new \LogicException('The pull request resolver returned no link.');
-        foreach ($links as $link) {
-            $this->em->persist($link);
-        }
+        $pullRequest = $this->linkPullRequest($checkout, 438, PullRequestChecks::Failed, PullRequestMergeability::Mergeable, PullRequestReview::Required, ['phpunit', 'e2e-chromium']);
+        $this->linkPullRequest($history, 441, PullRequestChecks::Passed, PullRequestMergeability::Conflicting, PullRequestReview::Required);
+        $this->linkPullRequest($columnRules, 445, PullRequestChecks::Failed, PullRequestMergeability::Mergeable, PullRequestReview::ChangesRequested, ['lint']);
+        $this->linkPullRequest($onboarding, 447, PullRequestChecks::Passed, PullRequestMergeability::Mergeable, PullRequestReview::Approved);
+
+        $automation = new CardAutomation($columnRules);
+        $automation->fixRounds = 3;
+        $automation->blockedReason = 'checks-failed';
+        $automation->lastAction = CardAutomationAction::Stopped;
+        $automation->lastActionAt = new \DateTimeImmutable('-20 minutes');
+        $this->em->persist($automation);
         $this->em->flush();
 
         return ['checkout' => $checkout, 'history' => $history, 'columns' => $columnRules, 'onboarding' => $onboarding, 'pullRequest' => $pullRequest];
+    }
+
+    /**
+     * No App installation reads example/atlas, so a refresh fails as not
+     * transient and keeps this state.
+     *
+     * @param list<string> $failedChecks
+     */
+    private function linkPullRequest(Card $card, int $number, PullRequestChecks $checks, PullRequestMergeability $mergeability, PullRequestReview $review, array $failedChecks = []): CardPullRequest
+    {
+        $links = $this->pullRequests->linksFor($card, ['https://github.com/example/atlas/pull/'.$number]);
+        $link = $links[0] ?? throw new \LogicException('The pull request resolver returned no link.');
+        $this->em->persist($link);
+
+        $state = $this->forgePullRequests->findOneBy(['project' => $card->project, 'forge' => 'github', 'repository' => 'example/atlas', 'number' => $number])
+            ?? new ForgePullRequest($card->project, 'github', 'example/atlas', $number);
+        $state->headSha = hash('sha1', 'atlas-'.$number);
+        $state->baseBranch = 'main';
+        $state->checks = $checks;
+        $state->checksSha = $state->headSha;
+        $state->failedChecks = $failedChecks;
+        $state->mergeability = $mergeability;
+        $state->review = $review;
+        $state->refreshedAt = new \DateTimeImmutable('-5 minutes');
+        $this->em->persist($state);
+
+        return $link;
     }
 
     /** @return array{history: Document, rules: Document} */
