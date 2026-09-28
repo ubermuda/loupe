@@ -5020,6 +5020,30 @@
                 <source>board.terminal.empty.action</source>
                 <target>Back to the board</target>
             </trans-unit>
+            <trans-unit id="board.backlog.page.description">
+                <source>board.backlog.page.description</source>
+                <target>Every card that waits for its turn, in rank order. The board does not show these cards.</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.meta.total">
+                <source>board.backlog.meta.total</source>
+                <target>{0}no card|{1}1 card|]1,Inf[ %count% cards</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.added">
+                <source>board.backlog.added</source>
+                <target>Added %when%</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.empty.title">
+                <source>board.backlog.empty.title</source>
+                <target>The Backlog is empty</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.empty.body">
+                <source>board.backlog.empty.body</source>
+                <target>A new card lands here when nobody gives it a column.</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.empty.action">
+                <source>board.backlog.empty.action</source>
+                <target>Back to the board</target>
+            </trans-unit>
 
             <!-- Card form -->
             <trans-unit id="board.form.create_card_form.title.label">

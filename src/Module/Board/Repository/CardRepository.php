@@ -810,6 +810,27 @@ class CardRepository extends ServiceEntityRepository
         return array_values(iterator_to_array(new Paginator($query, fetchJoinCollection: true), false));
     }
 
+    /**
+     * One page of an open column in rank order, with the epic of each card.
+     *
+     * @return list<Card>
+     */
+    public function findRankedPage(BoardColumn $column, int $offset, int $limit): array
+    {
+        return array_values($this->createQueryBuilder('c')
+            ->leftJoin('c.parent', 'parent')
+            ->addSelect('parent')
+            ->andWhere('c.column = :column')
+            ->setParameter('column', $column)
+            ->orderBy('c.position', 'ASC')
+            ->addOrderBy('c.createdAt', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult());
+    }
+
     public function countInColumn(BoardColumn $column): int
     {
         return (int) $this->createQueryBuilder('c')

@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ backlog.label|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'nav.link.board'|trans }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ backlog.label|trans }}</span>
+{% endblock %}
+
+{% block topbar_meta %}
+    <span class="lp-topbar__meta">{{ 'board.backlog.meta.total'|trans({'%count%': total}) }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ backlog.label|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'board.backlog.page.description'|trans }}</p>
+
+    {% if items|length > 0 %}
+    <div class="lp-done-list">
+        {% for card in items %}
+        <div class="lp-done-row" data-backlog-card-id="{{ card.id }}">
+            <span class="lp-board-card__number">#{{ card.number }}</span>
+            <a class="lp-done-row__title" href="{{ path('app_board_card', {projectId: project.id, cardId: card.id}) }}">{{ card.title }}</a>
+            {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
+            {% if card.parent %}
+            <span class="lp-done-row__when">#{{ card.parent.number }} {{ card.parent.title }}</span>
+            {% endif %}
+            <span class="lp-done-row__when">{{ 'board.backlog.added'|trans({'%when%': card.createdAt|relative_time}) }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <twig:Pagination route="app_project_board_backlog" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="routeParams" />
+    {% else %}
+    <div class="lp-empty-state">
+        <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'board.backlog.empty.title'|trans }}</h2>
+        <p class="lp-empty-state__body">{{ 'board.backlog.empty.body'|trans }}</p>
+        <a class="lp-btn" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'board.backlog.empty.action'|trans }}</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
