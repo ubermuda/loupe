@@ -6,7 +6,6 @@ namespace App\Module\Board\Service;
 
 use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Command\BoardLaneView;
-use App\Module\Board\Command\CardProgress;
 
 /**
  * A short hash of the columns and the lanes the board page draws, so a page
@@ -15,11 +14,11 @@ use App\Module\Board\Command\CardProgress;
 final readonly class BoardStructureDigest
 {
     /**
-     * @param list<BoardColumnView>       $columns
-     * @param list<BoardLaneView>         $lanes
-     * @param array<string, CardProgress> $progress epic id => its progress
+     * @param list<BoardColumnView> $columns
+     * @param list<BoardLaneView>   $lanes
+     * @param array<string, string> $epicDigests lane epic id => its card digest, which the manifest leaves out
      */
-    public function forBoard(array $columns, array $lanes, array $progress): string
+    public function forBoard(array $columns, array $lanes, array $epicDigests): string
     {
         $shape = ['columns' => [], 'lanes' => []];
         foreach ($columns as $view) {
@@ -31,8 +30,7 @@ final readonly class BoardStructureDigest
             if (null === $epic) {
                 continue;
             }
-            $epicProgress = $progress[(string) $epic->id] ?? null;
-            $shape['lanes'][] = [(string) $epic->id, $epic->number, $epic->title, $epic->laneEnabled, $epicProgress?->done, $epicProgress?->total];
+            $shape['lanes'][] = [(string) $epic->id, $epic->laneEnabled, $epicDigests[(string) $epic->id] ?? null];
         }
 
         return substr(sha1(json_encode($shape, \JSON_THROW_ON_ERROR)), 0, 12);

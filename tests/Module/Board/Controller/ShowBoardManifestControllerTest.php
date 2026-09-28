@@ -254,6 +254,29 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertSame($after['structure'], $this->page($client, $project)['structure']);
     }
 
+    public function test_the_structure_digest_changes_with_the_body_of_a_lane_epic(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'manifest-lane-body@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->closedEpic($em, $this->card($em, $project, 'Epic', 'next'));
+        $this->updateCard($epic, static function (Card $card): void {
+            $card->laneEnabled = true;
+        });
+
+        $client->loginUser($owner);
+        $before = $this->manifest($client, $project)['structure'];
+        $this->updateCard($epic, static function (Card $card): void {
+            $card->body = 'A new body.';
+        });
+        $after = $this->manifest($client, $project)['structure'];
+
+        self::assertNotSame($before, $after);
+        self::assertSame($after, $this->page($client, $project)['structure']);
+    }
+
     public function test_the_manifest_reads_each_card_input_in_one_query_whatever_the_card_count(): void
     {
         $client = static::createClient();

@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Service\CardDigest;
-use App\Module\Bridge\Service\CardRunWarnings;
 
 final readonly class ShowBoardManifestHandler
 {
     public function __construct(
         private ShowBoardHandler $showBoard,
-        private CardRunWarnings $runWarnings,
         private CardDigest $digest,
     ) {
     }
@@ -20,7 +18,6 @@ final readonly class ShowBoardManifestHandler
     {
         // The board page's own view, so each digest reads the inputs the page renders.
         $board = ($this->showBoard)(new ShowBoardCommand($command->project));
-        $warnings = $this->runWarnings->forProject($command->project);
         $laneEpics = [];
         foreach ($board->lanes as $lane) {
             if (null !== $lane->epic) {
@@ -41,7 +38,7 @@ final readonly class ShowBoardManifestHandler
                     $board->documentCounts[$id] ?? 0,
                     $card->pullRequests->count(),
                     $board->progress[$id] ?? null,
-                    $warnings[$id] ?? null,
+                    $board->runWarnings[$id] ?? null,
                 )];
             }
         }

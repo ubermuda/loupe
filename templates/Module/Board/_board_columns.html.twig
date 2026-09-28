@@ -1,7 +1,7 @@
 {# The board itself, with the page's heading row. Props: board (BoardView).
    A frame reload keeps the toolbar, so the filter and the view come back
    from it after each render. #}
-{% set runWarnings = card_run_warnings(board.project) %}
+{% set runWarnings = board.runWarnings %}
 <div id="board" class="lp-board"
      data-board-structure-digest="{{ board.structureDigest }}"
      data-controller="board-drag board-filter board-view"

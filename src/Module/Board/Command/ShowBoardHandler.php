@@ -14,6 +14,8 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\BoardStructureDigest;
+use App\Module\Board\Service\CardDigest;
+use App\Module\Bridge\Service\CardRunWarnings;
 
 final readonly class ShowBoardHandler
 {
@@ -28,6 +30,8 @@ final readonly class ShowBoardHandler
         private CardDocumentRepository $cardDocuments,
         private BoardLanes $boardLanes,
         private BoardStructureDigest $structureDigest,
+        private CardDigest $cardDigest,
+        private CardRunWarnings $runWarnings,
     ) {
     }
 
@@ -78,21 +82,41 @@ final readonly class ShowBoardHandler
             }
         }
 
+        // One aggregate each for the whole board. A count per card would be
+        // a query per card, on the page that renders the most of them.
+        $pendingComments = $this->cardSiteReviewComments->pendingCountsForProject($project);
+        $documentCounts = $this->cardDocuments->countsForProject($project);
+        $runWarnings = $this->runWarnings->forProject($project);
+
+        $epicDigests = [];
+        foreach ($lanes as $lane) {
+            if (null !== $lane->epic) {
+                $id = (string) $lane->epic->id;
+                $epicDigests[$id] = $this->cardDigest->forCard(
+                    $lane->epic,
+                    $pendingComments[$id] ?? 0,
+                    $documentCounts[$id] ?? 0,
+                    $lane->epic->pullRequests->count(),
+                    $progress[$id] ?? null,
+                    $runWarnings[$id] ?? null,
+                );
+            }
+        }
+
         return new BoardView(
             $project,
             $columns,
             self::TERMINAL_WINDOW_DAYS,
-            // One aggregate each for the whole board. A count per card would be
-            // a query per card, on the page that renders the most of them.
-            $this->cardSiteReviewComments->pendingCountsForProject($project),
-            $this->cardDocuments->countsForProject($project),
+            $pendingComments,
+            $documentCounts,
             $deadRules,
             array_values(array_unique($watchedSlugs)),
             $lanes,
             $otherCards,
             $progress,
             $shownCounts,
-            $this->structureDigest->forBoard($columns, $lanes, $progress),
+            $this->structureDigest->forBoard($columns, $lanes, $epicDigests),
+            $runWarnings,
         );
     }
 }
