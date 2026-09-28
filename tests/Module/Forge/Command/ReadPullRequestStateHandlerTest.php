@@ -201,6 +201,19 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         self::assertSame('102', $this->reload($row)->lastReviewId);
     }
 
+    public function test_a_redelivery_that_crosses_a_newer_review_announces_nothing(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestSnapshot()];
+
+        $this->handle($row, self::NOW, PullRequestReview::ChangesRequested, '101');
+        $this->handle($row, self::NOW, PullRequestReview::Approved, '102');
+        $this->handle($row, self::NOW, PullRequestReview::ChangesRequested, '101');
+
+        self::assertSame([PullRequestReview::ChangesRequested, PullRequestReview::Approved], array_map(static fn (PullRequestStateChanged $change): ?PullRequestReview => $change->reviewVerdict, $this->changes));
+        self::assertSame('102', $this->reload($row)->lastReviewId);
+    }
+
     public function test_a_verdict_with_no_review_id_announces_each_time(): void
     {
         $row = $this->row();

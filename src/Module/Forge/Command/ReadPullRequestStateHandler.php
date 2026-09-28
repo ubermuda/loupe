@@ -57,9 +57,7 @@ final readonly class ReadPullRequestStateHandler
                 return null;
             }
 
-            // A redelivered review keeps its id, so its verdict has already gone out.
-            $consumed = null !== $command->reviewId && $command->reviewId === $pullRequest->lastReviewId;
-            $verdict = $consumed ? null : $command->verdict;
+            $verdict = self::consumed($command->reviewId, $pullRequest->lastReviewId) ? null : $command->verdict;
 
             if ($pullRequest->refreshedAt >= $command->requestedAt) {
                 $this->announceVerdict($verdict, $command->reviewId, $pullRequest);
@@ -107,6 +105,23 @@ final readonly class ReadPullRequestStateHandler
         if (null !== $transient) {
             throw $transient;
         }
+    }
+
+    /**
+     * A redelivered review keeps its id. A forge that numbers reviews in order
+     * also makes an older review stale, so a redelivery that crosses a newer one
+     * stays consumed.
+     */
+    private static function consumed(?string $reviewId, ?string $lastReviewId): bool
+    {
+        if (null === $reviewId || null === $lastReviewId) {
+            return false;
+        }
+        if (ctype_digit($reviewId) && ctype_digit($lastReviewId)) {
+            return (int) $reviewId <= (int) $lastReviewId;
+        }
+
+        return $reviewId === $lastReviewId;
     }
 
     /** A read that stored no new state still delivers its verdict, against the stored state. */
