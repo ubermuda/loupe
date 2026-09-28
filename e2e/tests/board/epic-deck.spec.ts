@@ -1,0 +1,328 @@
+/**
+ * Browser coverage for the Up next deck of an epic lane: the count it shows,
+ * a drag out of it into a cell, a drop on it that sends a card back to the
+ * Backlog, and the slim bar of a collapsed lane.
+ *
+ * The cards come from the MCP card_create tool, because it sets the type, the
+ * column and the parent in one call.
+ */
+
+import {
+    test as base,
+    expect,
+    type APIRequestContext,
+    type Locator,
+    type Page,
+} from '@playwright/test';
+import { accessToken, signedInPage } from '../fixtures';
+
+const RUN = Date.now();
+const PASSWORD = 'E2eEpicDeck1!';
+const READY = '#board[data-board-drag-ready="true"]';
+
+async function setFlag(
+    request: APIRequestContext,
+    name: string,
+    enabled: boolean,
+): Promise<void> {
+    const response = await request.post('/dev/e2e/feature-flag', {
+        form: { name, enabled: enabled ? 1 : 0 },
+    });
+    expect(response.ok()).toBeTruthy();
+}
+
+interface Card {
+    id: string;
+    number: number;
+}
+
+type CreateCard = (
+    title: string,
+    options?: { type?: string; status?: string; parent?: Card },
+) => Promise<Card>;
+
+/** Opens an MCP session with a token bound to the project, and returns a card_create call. */
+async function mcpCards(page: Page, projectId: string): Promise<CreateCard> {
+    const token = await accessToken(page, 'mcp', projectId);
+    const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+    };
+
+    const initialize = await page.request.post('/mcp', {
+        headers,
+        data: {
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'initialize',
+            params: {
+                protocolVersion: '2024-11-05',
+                capabilities: {},
+                clientInfo: { name: 'e2e', version: '1' },
+            },
+        },
+    });
+    expect(initialize.ok()).toBeTruthy();
+    headers['Mcp-Session-Id'] = initialize.headers()['mcp-session-id'] ?? '';
+    expect(headers['Mcp-Session-Id']).not.toBe('');
+    await page.request.post('/mcp', {
+        headers,
+        data: { jsonrpc: '2.0', method: 'notifications/initialized' },
+    });
+
+    let id = 2;
+
+    return async (title, options = {}) => {
+        const response = await page.request.post('/mcp', {
+            headers,
+            data: {
+                jsonrpc: '2.0',
+                id: id++,
+                method: 'tools/call',
+                params: {
+                    name: 'card_create',
+                    arguments: {
+                        title,
+                        body: '',
+                        type: options.type ?? 'feature',
+                        status: options.status ?? 'backlog',
+                        ...(options.parent
+                            ? { parentCardId: options.parent.id }
+                            : {}),
+                    },
+                },
+            },
+        });
+        const answer = await response.json();
+        expect(answer.result?.isError, JSON.stringify(answer)).toBeFalsy();
+        const card = answer.result.structuredContent;
+
+        return { id: card.cardId, number: card.number };
+    };
+}
+
+function lane(page: Page, epic: Card): Locator {
+    return page.locator(`.lp-board-lane[data-lane="${epic.id}"]`);
+}
+
+function deck(page: Page, epic: Card): Locator {
+    return lane(page, epic).locator('.lp-deck');
+}
+
+async function nextCell(page: Page, epic: Card): Promise<Locator> {
+    const column = await page
+        .locator(
+            '.lp-board-lane[data-lane="other"] .lp-board-lane__column[data-column-slug="next"] [data-board-drag-target="group"]',
+        )
+        .getAttribute('data-column');
+    expect(column).not.toBeNull();
+
+    return page.locator(
+        `[data-board-drag-target="group"][data-lane="${epic.id}"][data-column="${column}"]`,
+    );
+}
+
+/** Drags from the middle of one element to the middle of another, with pointer events. */
+async function drag(page: Page, from: Locator, to: Locator): Promise<void> {
+    const start = await from.boundingBox();
+    const end = await to.boundingBox();
+    expect(start).not.toBeNull();
+    expect(end).not.toBeNull();
+    if (start === null || end === null) {
+        return;
+    }
+    const x = end.x + end.width / 2;
+    const y = end.y + end.height / 2;
+
+    await page.mouse.move(
+        start.x + start.width / 2,
+        start.y + start.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(x, y, { steps: 20 });
+    await page.mouse.move(x, y + 1, { steps: 4 });
+    await page.mouse.up();
+}
+
+interface Board {
+    page: Page;
+    boardUrl: string;
+    create: CreateCard;
+}
+
+// The board page comes from signedInPage, which keeps the test headers off
+// the hub request: a custom header there makes the EventSource preflight.
+const test = base.extend<{ board: Board }>({
+    board: async ({ browser, request }, use, testInfo) => {
+        await setFlag(request, 'board.enabled', true);
+        await setFlag(request, 'live_updates.enabled', true);
+
+        const tag = testInfo.testId.replace(/[^a-z0-9]/gi, '');
+        const email = `e2e+epic-deck+${tag}+${RUN}@example.com`;
+        const registered = await request.post('/dev/register-and-verify', {
+            form: { fullName: 'E2E Deck User', email, password: PASSWORD },
+        });
+        expect(registered.status()).toBe(200);
+        const page = await signedInPage(browser, email, PASSWORD);
+
+        const seeded = await page.request.post('/dev/seed/document', {
+            form: { title: 'E2E Deck Project', markdown: '# Deck' },
+        });
+        expect(seeded.status()).toBe(201);
+        const projectId = (await seeded.json()).projectId as string;
+
+        await use({
+            page,
+            boardUrl: `/projects/${projectId}/board`,
+            create: await mcpCards(page, projectId),
+        });
+        await page.context().close();
+    },
+});
+
+// The flags are global, so they go back to their shipped value, on, for later specs.
+test.afterAll(async ({ request }) => {
+    await setFlag(request, 'board.enabled', true);
+    await setFlag(request, 'live_updates.enabled', true);
+});
+
+/** The deck count changes through the hub, which keeps no history, so a move waits for it. */
+async function openLive(page: Page, url: string): Promise<void> {
+    await page.goto(url);
+    await expect(page.locator(READY)).toBeAttached();
+    await expect(page.locator('[data-board-refresh-connected]')).toHaveCount(
+        1,
+        { timeout: 15000 },
+    );
+}
+
+test('the deck counts the Backlog cards of its epic, fans them out, and gives one up to a cell', async ({
+    board,
+}) => {
+    const page = board.page;
+    // It waits for the hub, which a cold worktree connects slowly.
+    test.slow();
+    const epic = await board.create(`Deck epic ${RUN}`, {
+        type: 'epic',
+        status: 'next',
+    });
+    const waiting: Card[] = [];
+    for (let index = 1; index <= 5; index++) {
+        waiting.push(
+            await board.create(`Waiting ${index} ${RUN}`, { parent: epic }),
+        );
+    }
+
+    await openLive(page, board.boardUrl);
+    const label = lane(page, epic).locator('[data-lane-deck-count]');
+    await expect(label).toHaveText('5 in Backlog');
+
+    await deck(page, epic).hover();
+    for (const card of waiting) {
+        await expect(
+            deck(page, epic).locator(
+                `[data-card-id="${card.id}"] .lp-deck__title`,
+            ),
+        ).toBeVisible();
+    }
+
+    const cell = await nextCell(page, epic);
+    await drag(
+        page,
+        deck(page, epic).locator(`[data-card-id="${waiting[0].id}"]`),
+        cell,
+    );
+
+    await expect(
+        cell.locator(
+            `[data-board-drag-target="card"][data-card-id="${waiting[0].id}"]`,
+        ),
+    ).toHaveCount(1);
+    await expect(label).toHaveText('4 in Backlog');
+    await expect(
+        deck(page, epic).locator(`[data-card-id="${waiting[0].id}"]`),
+    ).toHaveCount(0);
+});
+
+test('a card dropped on the deck of its epic goes back to the Backlog', async ({
+    board,
+}) => {
+    const page = board.page;
+    // It waits for the hub, which a cold worktree connects slowly.
+    test.slow();
+    const epic = await board.create(`Return epic ${RUN}`, {
+        type: 'epic',
+        status: 'next',
+    });
+    await board.create(`Already waiting ${RUN}`, { parent: epic });
+    const working = await board.create(`Working ${RUN}`, {
+        parent: epic,
+        status: 'next',
+    });
+
+    await openLive(page, board.boardUrl);
+    const cell = await nextCell(page, epic);
+    const face = cell.locator(`[data-card-id="${working.id}"]`);
+    await expect(face).toHaveCount(1);
+    const label = lane(page, epic).locator('[data-lane-deck-count]');
+    await expect(label).toHaveText('1 in Backlog');
+
+    await drag(page, face.locator('.lp-board-card__title'), deck(page, epic));
+
+    await expect(face).toHaveCount(0);
+    await expect(label).toHaveText('2 in Backlog');
+    await expect(
+        deck(page, epic).locator(`[data-card-id="${working.id}"]`),
+    ).toHaveCount(1);
+
+    await page.reload();
+    await expect(page.locator(READY)).toBeAttached();
+    await expect(
+        deck(page, epic).locator(`[data-card-id="${working.id}"]`),
+    ).toHaveCount(1);
+    await expect(cell.locator(`[data-card-id="${working.id}"]`)).toHaveCount(0);
+});
+
+test('a collapsed lane is a slim bar with its number, title and progress only', async ({
+    board,
+}) => {
+    const page = board.page;
+    const epic = await board.create(`Slim epic ${RUN}`, {
+        type: 'epic',
+        status: 'next',
+    });
+    await board.create(`Slim waiting ${RUN}`, { parent: epic });
+    await board.create(`Slim working ${RUN}`, { parent: epic, status: 'next' });
+
+    await page.goto(board.boardUrl);
+    await expect(page.locator(READY)).toBeAttached();
+    const epicLane = lane(page, epic);
+    await expect(deck(page, epic)).toBeVisible();
+
+    await epicLane.locator('button[data-action="board-lane#toggle"]').click();
+
+    await expect(epicLane).toHaveClass(/lp-board-lane--collapsed/);
+    await expect(epicLane.locator('.lp-board-lane__title')).toBeVisible();
+    await expect(epicLane.locator('.lp-board-lane__title')).toHaveText(
+        `Slim epic ${RUN}`,
+    );
+    await expect(epicLane.locator('.lp-board-lane__number')).toHaveText(
+        `#${epic.number}`,
+    );
+    await expect(epicLane.locator('.lp-board-lane__bar')).toBeVisible();
+    await expect(epicLane.locator('.lp-board-lane__done')).toHaveCSS(
+        'opacity',
+        '0',
+    );
+    await expect(epicLane.locator('.lp-board-lane__up-next')).toBeHidden();
+    await expect(epicLane.locator('.lp-board-lane__cells')).toBeHidden();
+    await expect(
+        epicLane.getByRole('button', { name: 'Hide the lane on the board' }),
+    ).toBeHidden();
+    const bar = await epicLane.locator('.lp-board-lane__head').boundingBox();
+    expect(bar?.height).toBeLessThanOrEqual(56);
+
+    await epicLane.locator('button[data-action="board-lane#toggle"]').click();
+    await expect(deck(page, epic)).toBeVisible();
+    await expect(epicLane.locator('.lp-board-lane__cells')).toBeVisible();
+});
