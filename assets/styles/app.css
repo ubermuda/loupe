@@ -5561,7 +5561,7 @@
         @apply select-none;
     }
     /* A card dropped on the Backlog button, hidden until the move answers. */
-    .lp-board-card--sent {
+    .lp-board-card.lp-board-card--sent {
         @apply hidden;
     }
 
