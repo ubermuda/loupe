@@ -281,6 +281,34 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         }
     }
 
+    public function test_the_open_runs_filter_keeps_queued_resumed_and_running_runs(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'open-filter-owner@example.com');
+        $project = $this->project($em, $owner, 'Open Runs');
+        $this->seedRun($em, $project, cardNumber: 1, state: WorkerRunState::Queued);
+        $this->seedRun($em, $project, cardNumber: 2, state: WorkerRunState::Resumed);
+        $this->seedRun($em, $project, cardNumber: 3, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+        $this->seedRun($em, $project, cardNumber: 4, state: WorkerRunState::Blocked);
+        $this->seedRun($em, $project, cardNumber: 5, exitCode: 0);
+
+        $projectId = (string) $project->id;
+        $em->clear();
+        $client->loginUser($owner);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?outcome=open');
+
+        self::assertResponseIsSuccessful();
+        $cards = $crawler->filter('.lp-worker-run__card')->each(static fn ($node): string => trim($node->text()));
+        sort($cards);
+        self::assertSame(['#1', '#2', '#3'], $cards);
+        self::assertSame('Open runs', trim($crawler->filter('#worker-run-outcome option[value="open"]')->text()));
+        self::assertCount(1, $crawler->filter('#worker-run-outcome option[value="open"][selected]'));
+        self::assertCount(0, $crawler->filter('#worker-run-outcome option[value="queued"][selected]'));
+    }
+
     public function test_the_outcome_filter_offers_no_result(): void
     {
         $client = static::createClient();
@@ -321,7 +349,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
         self::assertSame(
-            ['', ...array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::cases())],
+            ['', 'open', ...array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::cases())],
             $crawler->filter('#worker-run-outcome option')->each(static fn (Crawler $option): string => (string) $option->attr('value')),
         );
 

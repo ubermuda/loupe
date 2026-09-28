@@ -41,6 +41,7 @@ final readonly class ListWorkerRunsHandler
             $listQuery->search,
             $listQuery->state,
             $listQuery->bridgeId,
+            $listQuery->open,
         );
         $total = \count($paginator);
         $totalPages = max(1, (int) ceil($total / $perPage));

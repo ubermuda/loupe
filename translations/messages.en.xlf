@@ -5490,6 +5490,10 @@
                 <source>bridge.worker_runs.filter.all_outcomes</source>
                 <target>All outcomes</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.open_runs">
+                <source>bridge.worker_runs.filter.open_runs</source>
+                <target>Open runs</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.filter.bridge_label">
                 <source>bridge.worker_runs.filter.bridge_label</source>
                 <target>Bridge</target>

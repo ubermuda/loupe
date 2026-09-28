@@ -418,6 +418,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         ?string $search = null,
         ?WorkerRunState $state = null,
         ?Uuid $bridgeId = null,
+        bool $open = false,
     ): Paginator {
         $qb = $this->createQueryBuilder('r')
             ->andWhere('r.project = :project')
@@ -447,6 +448,11 @@ class WorkerRunRepository extends ServiceEntityRepository
 
         if (null !== $state) {
             $qb->andWhere('r.state = :state')->setParameter('state', $state->value);
+        }
+
+        if ($open) {
+            $qb->andWhere('r.state IN (:openStates)')
+                ->setParameter('openStates', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()));
         }
 
         if (null !== $bridgeId) {
