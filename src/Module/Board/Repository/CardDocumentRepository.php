@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Repository;
 
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -37,6 +38,16 @@ final class CardDocumentRepository extends ServiceEntityRepository
         }
 
         return $counts;
+    }
+
+    public function countForCard(Card $card): int
+    {
+        return (int) $this->createQueryBuilder('link')
+            ->select('COUNT(link.id)')
+            ->where('link.card = :card')
+            ->setParameter('card', $card)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     /** @return list<CardDocument> */
