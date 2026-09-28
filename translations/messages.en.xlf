@@ -5670,6 +5670,7 @@
             <trans-unit id="board.card.link.review.approved"><source>board.card.link.review.approved</source><target>Approved</target></trans-unit>
             <trans-unit id="board.card.link.review.changes_requested"><source>board.card.link.review.changes_requested</source><target>Changes requested</target></trans-unit>
             <trans-unit id="board.card.link.review.required"><source>board.card.link.review.required</source><target>Review required</target></trans-unit>
+            <trans-unit id="board.card.badge.blocked"><source>board.card.badge.blocked</source><target>Automation blocked</target></trans-unit>
             <trans-unit id="board.card.automation.fix_requested"><source>board.card.automation.fix_requested</source><target>The automation asked for fix round %rounds%.</target></trans-unit>
             <trans-unit id="board.card.automation.stopped"><source>board.card.automation.stopped</source><target>The automation stopped.</target></trans-unit>
             <trans-unit id="board.card.automation.ready_to_merge"><source>board.card.automation.ready_to_merge</source><target>The automation marked the pull request ready to merge.</target></trans-unit>

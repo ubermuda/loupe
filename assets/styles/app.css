@@ -5679,6 +5679,13 @@
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;
     }
+    /* The pull request and automation problems of a card, on its tile and its list row. */
+    .lp-board-card__badges {
+        @apply flex flex-wrap items-center gap-1;
+    }
+    .lp-board-card__badges .lp-status-chip {
+        @apply ml-0;
+    }
     /* The epic of a card that sits outside that epic's lane. */
     .lp-board-card__parent {
         @apply inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-fg-dim;

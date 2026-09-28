@@ -11,8 +11,13 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardAutomationRepository;
+use App\Module\Board\Service\CardBadge;
 use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestState;
+use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
@@ -67,6 +72,33 @@ final class CardPullRequestStatesTest extends KernelTestCase
         self::assertNull($states->automationOf($second));
     }
 
+    public function test_the_badges_of_a_card_come_from_its_open_read_pull_requests_and_its_block(): void
+    {
+        $project = $this->makeProject('badges');
+        $failing = $this->cardIn($project);
+        $this->stored($project, 1, new PullRequestSnapshot(checks: PullRequestChecks::Failed, mergeability: PullRequestMergeability::Conflicting));
+        $this->stored($project, 2, new PullRequestSnapshot(checks: PullRequestChecks::Failed));
+        $this->link($failing, 'acme/app', 1);
+        $this->link($failing, 'acme/app', 2);
+        $neverRead = $this->cardIn($project);
+        $this->stored($project, 3, new PullRequestSnapshot(checks: PullRequestChecks::Failed), read: false);
+        $this->link($neverRead, 'acme/app', 3);
+        $merged = $this->cardIn($project);
+        $this->stored($project, 4, new PullRequestSnapshot(state: PullRequestState::Merged, checks: PullRequestChecks::Failed));
+        $this->link($merged, 'acme/app', 4);
+        $blocked = $this->cardIn($project);
+        $automations = self::getContainer()->get(CardAutomationRepository::class);
+        self::assertInstanceOf(CardAutomationRepository::class, $automations);
+        $this->em->wrapInTransaction(static fn () => $automations->findOrCreateForUpdate($blocked)->blockedReason = 'conflict');
+
+        $states = $this->states->forCards([$failing, $neverRead, $merged, $blocked]);
+
+        self::assertSame([CardBadge::ChecksFailed, CardBadge::Conflict], $states->badgesOf($failing));
+        self::assertSame([], $states->badgesOf($neverRead));
+        self::assertSame([], $states->badgesOf($merged));
+        self::assertSame([CardBadge::Blocked], $states->badgesOf($blocked));
+    }
+
     public function test_cards_of_two_projects_are_refused(): void
     {
         $cards = [$this->cardIn($this->makeProject('states-one')), $this->cardIn($this->makeProject('states-two'))];
@@ -83,6 +115,15 @@ final class CardPullRequestStatesTest extends KernelTestCase
         $this->em->flush();
 
         return $link;
+    }
+
+    private function stored(Project $project, int $number, PullRequestSnapshot $snapshot, bool $read = true): void
+    {
+        $row = new ForgePullRequest($project, 'github', 'acme/app', $number);
+        $row->apply($snapshot);
+        $row->refreshedAt = $read ? new \DateTimeImmutable() : null;
+        $this->em->persist($row);
+        $this->em->flush();
     }
 
     private function cardIn(Project $project): Card

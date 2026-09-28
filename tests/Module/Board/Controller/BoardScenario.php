@@ -7,8 +7,12 @@ namespace App\Tests\Module\Board\Controller;
 use App\Mercure\LiveUpdates;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Install\BoardInstallFlags;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Project\Entity\Project;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -115,6 +119,17 @@ trait BoardScenario
         $em->flush();
 
         return $card;
+    }
+
+    /** Links a pull request to the card and stores the state a read found, or no read at all. */
+    private function linkReadPullRequest(EntityManagerInterface $em, Card $card, PullRequestSnapshot $snapshot, bool $read = true): void
+    {
+        $card->replacePullRequests(new CardPullRequest($card, 'https://github.com/acme/app/pull/'.$card->number, Forge::GitHub, 'acme/app', $card->number));
+        $row = new ForgePullRequest($card->project, 'github', 'acme/app', $card->number);
+        $row->apply($snapshot);
+        $row->refreshedAt = $read ? new \DateTimeImmutable() : null;
+        $em->persist($row);
+        $em->flush();
     }
 
     private function typed(EntityManagerInterface $em, Card $card, CardType $type): Card
