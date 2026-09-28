@@ -1,10 +1,10 @@
 {# The board with epic lanes: one row per lane, then "Other cards".
-   Props: board (BoardView, with lanes), runWarnings (CardRunWarning by card id). #}
+   Props: board (BoardView, with lanes), runWarnings (CardRunWarning by card id), withCards (bool, optional, default true). #}
 <div class="lp-board__columns lp-board__columns--lanes" data-board-view-target="board">
     <div class="lp-board-lanes">
         {% for lane in board.lanes %}
-            {% include '@Board/_board_lane.html.twig' with {board: board, lane: lane, runWarnings: runWarnings} only %}
+            {% include '@Board/_board_lane.html.twig' with {board: board, lane: lane, runWarnings: runWarnings, withCards: withCards ?? true} only %}
         {% endfor %}
-        {% include '@Board/_board_lane.html.twig' with {board: board, lane: board.otherCards, runWarnings: runWarnings} only %}
+        {% include '@Board/_board_lane.html.twig' with {board: board, lane: board.otherCards, runWarnings: runWarnings, withCards: withCards ?? true} only %}
     </div>
 </div>

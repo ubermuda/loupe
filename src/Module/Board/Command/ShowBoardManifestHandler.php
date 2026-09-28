@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\CardDigest;
 
 final readonly class ShowBoardManifestHandler
@@ -19,9 +20,17 @@ final readonly class ShowBoardManifestHandler
         // The board page's own view, so each digest reads the inputs the page renders.
         $board = ($this->showBoard)(new ShowBoardCommand($command->project));
         $laneEpics = [];
-        foreach ($board->lanes as $lane) {
+        $laneKeys = [];
+        foreach (array_filter([...$board->lanes, $board->otherCards]) as $lane) {
+            $laneKey = null === $lane->epic ? BoardLanes::OTHER : (string) $lane->epic->id;
             if (null !== $lane->epic) {
-                $laneEpics[(string) $lane->epic->id] = true;
+                $laneEpics[$laneKey] = true;
+                $laneKeys[$laneKey] = $laneKey;
+            }
+            foreach ($lane->cells as $cards) {
+                foreach ($cards as $card) {
+                    $laneKeys[(string) $card->id] = $laneKey;
+                }
             }
         }
 
@@ -40,7 +49,7 @@ final readonly class ShowBoardManifestHandler
                     $card->pullRequests->count(),
                     $board->progress[$id] ?? null,
                     $board->runWarnings[$id] ?? null,
-                ), (string) $view->column->id];
+                ), (string) $view->column->id, $laneKeys[$id] ?? null];
                 // A lane epic has a list row and no card face.
                 if (isset($laneEpics[$id])) {
                     $entry[] = true;

@@ -56,29 +56,29 @@ async function mount({ src = null, complete = false } = {}) {
     return frame;
 }
 
-function subscription() {
-    expect(live.subscriptions).toHaveLength(1);
-    return live.subscriptions[0];
+function requestReload() {
+    application
+        .getControllerForElementAndIdentifier(
+            document.querySelector('[data-controller="board-refresh"]'),
+            'board-refresh',
+        )
+        .reload();
 }
 
-function signal(type = 'board.columns_changed') {
-    const { types, handler } = subscription();
-    if ([types].flat().includes(type)) {
-        handler({ type });
-    }
-}
-
-it('listens for a column change alone', async () => {
-    await mount();
-    expect([subscription().types].flat()).toEqual(['board.columns_changed']);
-});
-
-it('does not reload on a worker run change', async () => {
+it('subscribes to no live change, so a column change does not reload the frame', async () => {
     const frame = await mount({ src: '/projects/1/board' });
-    signal('worker_run.changed');
-    signal('worker_run.card_warning_changed');
+    expect(live.subscriptions).toEqual([]);
     vi.advanceTimersByTime(3000);
     expect(frame.reload).not.toHaveBeenCalled();
+});
+
+it('leaves the connected marker to the board live controller', async () => {
+    await mount();
+    expect(
+        document
+            .querySelector('[data-controller="board-refresh"]')
+            .hasAttribute('data-board-refresh-connected'),
+    ).toBe(false);
 });
 
 it('gives the frame its src while disabled, so Turbo loads nothing until a reload', async () => {
@@ -99,41 +99,43 @@ it('leaves a frame that is already complete alone', async () => {
     expect(frame.calls).toEqual([]);
 });
 
-it('gives a frame with no src the board url on a signal', async () => {
+it('gives a frame with no src the board url on a reload', async () => {
     const frame = await mount();
-    signal();
+    requestReload();
     vi.advanceTimersByTime(300);
     expect(frame.getAttribute('src')).toBe('/projects/1/board');
     expect(frame.reload).toHaveBeenCalledOnce();
 });
 
-it('reloads a frame that has a src on a signal', async () => {
+it('reloads when another controller asks for a reload', async () => {
     const frame = await mount({ src: '/projects/1/board' });
-    signal();
-    vi.advanceTimersByTime(300);
-    expect(frame.reload).toHaveBeenCalledOnce();
-});
-
-it('coalesces a burst of signals into one reload', async () => {
-    const frame = await mount({ src: '/projects/1/board' });
-    signal();
-    vi.advanceTimersByTime(200);
-    signal();
-    vi.advanceTimersByTime(200);
-    signal();
+    requestReload();
     vi.advanceTimersByTime(299);
     expect(frame.reload).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(frame.reload).toHaveBeenCalledOnce();
 });
 
-it('reloads a steady stream of signals at least once per max wait', async () => {
+it('coalesces a burst of reload requests into one reload', async () => {
+    const frame = await mount({ src: '/projects/1/board' });
+    requestReload();
+    vi.advanceTimersByTime(200);
+    requestReload();
+    vi.advanceTimersByTime(200);
+    requestReload();
+    vi.advanceTimersByTime(299);
+    expect(frame.reload).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(frame.reload).toHaveBeenCalledOnce();
+});
+
+it('reloads a steady stream of requests at least once per max wait', async () => {
     const frame = await mount({ src: '/projects/1/board' });
     const reloadTimes = [];
     frame.reload.mockImplementation(() => reloadTimes.push(Date.now()));
     const start = Date.now();
     for (let elapsed = 0; elapsed < 5000; elapsed += 100) {
-        signal();
+        requestReload();
         vi.advanceTimersByTime(100);
     }
     const times = [start, ...reloadTimes, Date.now()];
@@ -146,7 +148,7 @@ it('defers a reload while a drag runs, and reloads once it ends', async () => {
     const frame = await mount({ src: '/projects/1/board' });
     const board = frame.querySelector('.lp-board');
     board.classList.add('lp-board--dragging');
-    signal();
+    requestReload();
     vi.advanceTimersByTime(3000);
     expect(frame.reload).not.toHaveBeenCalled();
     board.classList.remove('lp-board--dragging');
@@ -161,7 +163,7 @@ it('defers a reload while a dropped card move is pending', async () => {
     card.dataset.boardDragTarget = 'card';
     board.append(card);
     board.classList.add('lp-board--dragging');
-    signal();
+    requestReload();
     vi.advanceTimersByTime(300);
     board.classList.remove('lp-board--dragging');
     card.setAttribute('aria-busy', 'true');
@@ -177,7 +179,7 @@ it('defers a reload while a dialog is open, and reloads once it closes', async (
     const dialog = document.createElement('dialog');
     dialog.setAttribute('open', '');
     frame.querySelector('.lp-board').append(dialog);
-    signal();
+    requestReload();
     vi.advanceTimersByTime(3000);
     expect(frame.reload).not.toHaveBeenCalled();
     dialog.removeAttribute('open');
@@ -188,7 +190,7 @@ it('defers a reload while a dialog is open, and reloads once it closes', async (
 it('ignores a closed dialog', async () => {
     const frame = await mount({ src: '/projects/1/board' });
     frame.querySelector('.lp-board').append(document.createElement('dialog'));
-    signal();
+    requestReload();
     vi.advanceTimersByTime(300);
     expect(frame.reload).toHaveBeenCalledOnce();
 });
@@ -198,42 +200,14 @@ it('ignores a busy form that is not a card move', async () => {
     const form = document.createElement('form');
     form.setAttribute('aria-busy', 'true');
     frame.querySelector('.lp-board').append(form);
-    signal();
+    requestReload();
     vi.advanceTimersByTime(300);
     expect(frame.reload).toHaveBeenCalledOnce();
-});
-
-it('reloads when another controller asks for a reload', async () => {
-    const frame = await mount({ src: '/projects/1/board' });
-    application
-        .getControllerForElementAndIdentifier(
-            document.querySelector('[data-controller="board-refresh"]'),
-            'board-refresh',
-        )
-        .reload();
-    vi.advanceTimersByTime(300);
-    expect(frame.reload).toHaveBeenCalledOnce();
-});
-
-it('leaves a reconnect to the board live controller', async () => {
-    const frame = await mount({ src: '/projects/1/board' });
-    subscription().options.onOpen();
-    vi.advanceTimersByTime(300);
-    expect(subscription().options.onReconnect).toBeUndefined();
-    expect(frame.reload).not.toHaveBeenCalled();
-});
-
-it('stops listening on disconnect', async () => {
-    await mount();
-    const listening = subscription();
-    document.body.replaceChildren();
-    await Promise.resolve();
-    expect(listening.removed).toBe(true);
 });
 
 it('drops a pending reload on disconnect', async () => {
     const frame = await mount({ src: '/projects/1/board' });
-    signal();
+    requestReload();
     document.body.replaceChildren();
     await Promise.resolve();
     vi.advanceTimersByTime(300);
