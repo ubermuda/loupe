@@ -214,6 +214,7 @@ final readonly class PublishPullRequestEventsHandler
     /**
      * The session and the bridge come together or not at all. Only the named
      * bridge takes the event, so a quiet one would leave the fix with nobody.
+     * A bridge that stopped following the project drops the event too.
      *
      * @return array{sessionId?: string, bridgeId?: string}
      */
@@ -226,7 +227,8 @@ final readonly class PublishPullRequestEventsHandler
 
         $bridge = $this->bridges->findOneByOwnerAndId($card->project->owner, $run->bridgeId);
         $freshSince = $this->clock->now()->modify(\sprintf('-%d seconds', self::RESUME_BRIDGE_SECONDS));
-        if (null === $bridge || $bridge->lastSeenAt < $freshSince) {
+        $projectId = ($card->project->id ?? throw new \LogicException('A linked card has a project id.'))->toRfc4122();
+        if (null === $bridge || $bridge->lastSeenAt < $freshSince || !\in_array($projectId, $bridge->projects, true)) {
             return [];
         }
 

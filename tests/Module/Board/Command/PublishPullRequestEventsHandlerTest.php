@@ -358,7 +358,7 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         $this->handle(new PullRequestSnapshot(), $this->failed('aaaaaaa'));
 
         $bridgeId = Uuid::v4();
-        $bridge = new Bridge($this->project->owner, $bridgeId, [], 'v1', $this->clock->now()->modify('-4 minutes'));
+        $bridge = new Bridge($this->project->owner, $bridgeId, [$this->projectId()], 'v1', $this->clock->now()->modify('-4 minutes'));
         $sessionId = Uuid::v4();
         $run = new WorkerRun($this->project, $bridgeId, $card->id ?? throw new \LogicException('Flushed.'), $card->number, 'fix', WorkerRunState::Succeeded, sessionId: $sessionId, receivedAt: $this->clock->now());
         $this->em->persist($bridge);
@@ -378,6 +378,28 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         self::assertSame($bridgeId->toRfc4122(), $fixes[1]['bridgeId']);
         self::assertArrayNotHasKey('sessionId', $fixes[2]);
         self::assertArrayNotHasKey('bridgeId', $fixes[2]);
+    }
+
+    public function test_a_resumed_fix_names_no_session_when_its_bridge_follows_another_project(): void
+    {
+        $card = $this->linkedCard();
+        $this->configure(fixStrategy: BoardFixStrategy::Resume);
+        $bridgeId = Uuid::v4();
+        $this->em->persist(new Bridge($this->project->owner, $bridgeId, [Uuid::v4()->toRfc4122()], 'v1', $this->clock->now()));
+        $this->em->persist(new WorkerRun($this->project, $bridgeId, $card->id ?? throw new \LogicException('Flushed.'), $card->number, 'fix', WorkerRunState::Succeeded, sessionId: Uuid::v4(), receivedAt: $this->clock->now()));
+        $this->em->flush();
+
+        $this->handle(new PullRequestSnapshot(), $this->failed(self::SHA));
+
+        $fixes = array_values(array_filter($this->outbox(), static fn (array $event): bool => 'pull_request.fix_requested' === $event['type']));
+        self::assertCount(1, $fixes);
+        self::assertArrayNotHasKey('sessionId', $fixes[0]);
+        self::assertArrayNotHasKey('bridgeId', $fixes[0]);
+    }
+
+    private function projectId(): string
+    {
+        return ($this->project->id ?? throw new \LogicException('Flushed.'))->toRfc4122();
     }
 
     public function test_a_fresh_fix_names_no_session(): void
