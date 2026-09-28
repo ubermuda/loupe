@@ -4282,7 +4282,7 @@
             </trans-unit>
             <trans-unit id="landing.faq.board.answer">
                 <source>landing.faq.board.answer</source>
-                <target>Yes. Your agent files cards on the project board over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. Loupe stores the pull request links and never calls out to check them.</target>
+                <target>Yes. Your agent files cards on the project board over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. When you connect a repository through the GitHub App, Loupe follows the pull request of each card and shows its checks, conflicts and review on the board.</target>
             </trans-unit>
             <trans-unit id="landing.faq.technical.question">
                 <source>landing.faq.technical.question</source>
@@ -5656,6 +5656,28 @@
             <trans-unit id="board.card.link.status_unavailable"><source>board.card.link.status_unavailable</source><target>Unavailable</target></trans-unit>
             <trans-unit id="board.card.link.pull_request"><source>board.card.link.pull_request</source><target>Pull request</target></trans-unit>
             <trans-unit id="board.card.link.open_pull_request"><source>board.card.link.open_pull_request</source><target>Open pull request</target></trans-unit>
+            <trans-unit id="board.card.link.state.open"><source>board.card.link.state.open</source><target>Open</target></trans-unit>
+            <trans-unit id="board.card.link.state.draft"><source>board.card.link.state.draft</source><target>Draft</target></trans-unit>
+            <trans-unit id="board.card.link.state.merged"><source>board.card.link.state.merged</source><target>Merged</target></trans-unit>
+            <trans-unit id="board.card.link.state.closed"><source>board.card.link.state.closed</source><target>Closed</target></trans-unit>
+            <trans-unit id="board.card.link.checks.pending"><source>board.card.link.checks.pending</source><target>Checks pending</target></trans-unit>
+            <trans-unit id="board.card.link.checks.passed"><source>board.card.link.checks.passed</source><target>Checks passed</target></trans-unit>
+            <trans-unit id="board.card.link.checks.failed"><source>board.card.link.checks.failed</source><target>Checks failed</target></trans-unit>
+            <trans-unit id="board.card.link.checks.failed_names"><source>board.card.link.checks.failed_names</source><target>Failed checks: %checks%</target></trans-unit>
+            <trans-unit id="board.card.link.mergeability.conflicting"><source>board.card.link.mergeability.conflicting</source><target>Conflict</target></trans-unit>
+            <trans-unit id="board.card.link.mergeability.behind"><source>board.card.link.mergeability.behind</source><target>Behind base</target></trans-unit>
+            <trans-unit id="board.card.link.mergeability.blocked"><source>board.card.link.mergeability.blocked</source><target>Merge blocked</target></trans-unit>
+            <trans-unit id="board.card.link.review.approved"><source>board.card.link.review.approved</source><target>Approved</target></trans-unit>
+            <trans-unit id="board.card.link.review.changes_requested"><source>board.card.link.review.changes_requested</source><target>Changes requested</target></trans-unit>
+            <trans-unit id="board.card.link.review.required"><source>board.card.link.review.required</source><target>Review required</target></trans-unit>
+            <trans-unit id="board.card.badge.blocked"><source>board.card.badge.blocked</source><target>Automation blocked</target></trans-unit>
+            <trans-unit id="board.card.automation.fix_requested"><source>board.card.automation.fix_requested</source><target>The automation asked for a fix.</target></trans-unit>
+            <trans-unit id="board.card.automation.stopped"><source>board.card.automation.stopped</source><target>The automation stopped.</target></trans-unit>
+            <trans-unit id="board.card.automation.ready_to_merge"><source>board.card.automation.ready_to_merge</source><target>The automation marked the pull request ready to merge.</target></trans-unit>
+            <trans-unit id="board.card.automation.blocked"><source>board.card.automation.blocked</source><target>The automation is blocked: %reason%. The block clears when a person moves the card, when the checks pass, or when a reviewer approves or requests changes.</target></trans-unit>
+            <trans-unit id="board.card.automation.reason.conflict"><source>board.card.automation.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
+            <trans-unit id="board.card.automation.reason.checks_failed"><source>board.card.automation.reason.checks_failed</source><target>the checks fail</target></trans-unit>
+            <trans-unit id="board.card.automation.reason.changes_requested"><source>board.card.automation.reason.changes_requested</source><target>a reviewer requested changes</target></trans-unit>
             <trans-unit id="board.card.linked_work.title"><source>board.card.linked_work.title</source><target>Linked work</target></trans-unit>
             <trans-unit id="board.card.linked_work.empty"><source>board.card.linked_work.empty</source><target>No documents or pull requests are linked to this card.</target></trans-unit>
             <trans-unit id="board.card.linked_cards.title"><source>board.card.linked_cards.title</source><target>Linked cards</target></trans-unit>

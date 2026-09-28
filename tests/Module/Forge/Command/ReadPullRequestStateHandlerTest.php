@@ -420,7 +420,7 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
 
         $fresh = $this->reload($row);
         self::assertSame('abc', $fresh->headSha);
-        self::assertEquals(new \DateTimeImmutable(self::NOW), $fresh->refreshedAt);
+        self::assertNull($fresh->refreshedAt);
         self::assertSame([], $this->changes);
         self::assertSame([], $this->sent());
         self::assertSame(
@@ -431,6 +431,16 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
             ]]],
             array_map(static fn (array $record): array => ['message' => $record['message'], 'context' => $record['context']], $this->logger->records),
         );
+    }
+
+    public function test_an_unreadable_pull_request_keeps_the_time_of_its_last_read(): void
+    {
+        $row = $this->row(refreshedAt: '2026-09-27 11:00:00');
+        $this->reader->answers = [new PullRequestUnreadable('not_found')];
+
+        $this->handle($row, self::NOW);
+
+        self::assertEquals(new \DateTimeImmutable('2026-09-27 11:00:00'), $this->reload($row)->refreshedAt);
     }
 
     public function test_a_transient_failure_is_thrown_for_a_retry_and_leaves_the_row_unread(): void
