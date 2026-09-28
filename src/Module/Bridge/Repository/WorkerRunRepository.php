@@ -477,6 +477,22 @@ class WorkerRunRepository extends ServiceEntityRepository
      */
     public function findWarningRowsOfProject(Project $project): array
     {
+        return $this->findWarningRows($project, null);
+    }
+
+    /**
+     * The warning of one card, picked as findWarningRowsOfProject() picks it.
+     *
+     * @return array{id: string, card_id: string, state: string, output: string, card_column: ?string}|null
+     */
+    public function findWarningRowOfCard(Project $project, Uuid $cardId): ?array
+    {
+        return $this->findWarningRows($project, $cardId)[0] ?? null;
+    }
+
+    /** @return list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> */
+    private function findWarningRows(Project $project, ?Uuid $cardId): array
+    {
         $outcomes = array_values(array_map(
             static fn (WorkerRunState $state): string => $state->value,
             array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isOutcome()),
@@ -486,7 +502,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         // close is the latest change to the run's own state.
         /** @var list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> $rows */
         $rows = $this->getEntityManager()->getConnection()->executeQuery(
-            <<<'SQL'
+            \sprintf(<<<'SQL'
                 SELECT latest.id, latest.card_id, latest.state, latest.output, latest.card_column
                 FROM (
                     SELECT DISTINCT ON (r.card_id) r.id, r.card_id, r.state, r.output, r.card_column
@@ -498,15 +514,16 @@ class WorkerRunRepository extends ServiceEntityRepository
                         ORDER BY s.sequence DESC
                         LIMIT 1
                     ) closed ON true
-                    WHERE r.project_id = :project AND r.state IN (:outcomes)
+                    WHERE r.project_id = :project AND r.state IN (:outcomes)%s
                     ORDER BY r.card_id, COALESCE(closed.received_at, r.received_at) DESC, closed.sequence DESC NULLS LAST, r.id DESC
                 ) latest
                 WHERE latest.state IN (:warnings)
-                SQL,
+                SQL, null === $cardId ? '' : ' AND r.card_id = :card'),
             [
                 'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
                 'outcomes' => $outcomes,
                 'warnings' => [WorkerRunState::GaveUp->value, WorkerRunState::Blocked->value],
+                ...(null === $cardId ? [] : ['card' => $cardId->toRfc4122()]),
             ],
             ['outcomes' => ArrayParameterType::STRING, 'warnings' => ArrayParameterType::STRING],
         )->fetchAllAssociative();

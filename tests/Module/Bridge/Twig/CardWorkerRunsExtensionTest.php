@@ -118,6 +118,12 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         self::assertNull($warnings[(string) $blocked]->cardColumn);
         // An open run is not an outcome, so the blocked outcome before it still stands.
         self::assertSame((string) $waiting->id, $warnings[(string) $stillRunning]->runId);
+
+        $extension = self::getContainer()->get(CardWorkerRunsExtension::class);
+        foreach ([$gaveUp, $blocked, $cleared, $stillRunning, $failed, $onForge, $forgeAfterGaveUp, $elsewhere] as $cardId) {
+            self::assertEquals($warnings[(string) $cardId] ?? null, $extension->cardRunWarning($project, (string) $cardId));
+        }
+        self::assertNull($extension->cardRunWarning($project, 'not-a-uuid'));
     }
 
     public function test_a_project_with_no_runs_has_no_warnings(): void
