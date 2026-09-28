@@ -19,11 +19,16 @@ use Symfony\Component\Uid\Uuid;
  */
 final readonly class WorkerRunListQuery
 {
+    /** The `outcome` word of the open runs filter. No state has this value. */
+    public const string OPEN = 'open';
+
     public function __construct(
         public int $page = 1,
         public ?string $search = null,
         public ?WorkerRunState $state = null,
         public ?Uuid $bridgeId = null,
+        /** Every open run, whatever its state. It shares the `outcome` word with $state, so at most one of them is set. */
+        public bool $open = false,
     ) {
     }
 
@@ -32,6 +37,7 @@ final readonly class WorkerRunListQuery
     {
         $search = trim($query->getString('search'));
         $bridgeId = trim($query->getString('bridge'));
+        $outcome = $query->getString('outcome');
 
         return new self(
             page: max(1, $query->getInt('page', 1)),
@@ -39,8 +45,9 @@ final readonly class WorkerRunListQuery
             // An unknown value is dropped rather than refused: a hand-edited URL
             // should show the unfiltered list, not a 404. The query word stays
             // `outcome`, so a saved link keeps working.
-            state: WorkerRunState::tryFrom($query->getString('outcome')),
+            state: WorkerRunState::tryFrom($outcome),
             bridgeId: Uuid::isValid($bridgeId) ? Uuid::fromString($bridgeId) : null,
+            open: self::OPEN === $outcome,
         );
     }
 
@@ -57,7 +64,7 @@ final readonly class WorkerRunListQuery
     /** Whether the reader has narrowed the list, which separates "no runs yet" from "nothing matched". */
     public function isNarrowed(): bool
     {
-        return null !== $this->search || null !== $this->state || null !== $this->bridgeId;
+        return null !== $this->search || null !== $this->state || $this->open || null !== $this->bridgeId;
     }
 
     /** @return array{page: int, search?: string, outcome?: string, bridge?: string} */
@@ -71,6 +78,10 @@ final readonly class WorkerRunListQuery
 
         if (null !== $this->state) {
             $params['outcome'] = $this->state->value;
+        }
+
+        if ($this->open) {
+            $params['outcome'] = self::OPEN;
         }
 
         if (null !== $this->bridgeId) {

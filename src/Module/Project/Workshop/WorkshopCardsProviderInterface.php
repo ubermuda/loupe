@@ -8,6 +8,5 @@ use App\Module\Project\Entity\Project;
 
 interface WorkshopCardsProviderInterface
 {
-    /** @return list<WorkshopCard> */
-    public function forProject(Project $project): array;
+    public function forProject(Project $project): WorkshopCardsInMotion;
 }

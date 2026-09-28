@@ -6,6 +6,10 @@ This file describes the feedback model in forge terms: pull request, review thre
 
 Before any other query or reply, find and validate the pull request with the adapter. When its base repository is not the repository of the checkout, or its head branch lives in another repository, stop with `STAGE RESULT: blocked: pull request outside this repository`.
 
+## Read the mergeability first
+
+Read the mergeability of the pull request as "Check mergeability" in the forge adapter says. A conflicting pull request runs no checks, so a check wait on it only times out. For a conflicting pull request, skip the next section and read the feedback items. Resolve the conflict after the worktree is set up.
+
 ## Read the checks before a worktree exists
 
 Compare the checks against the head commit of the pull request only. Wait until checks exist for that commit. Then wait and count as "Wait for CI" in `../../loupe-stage-implementation/references/commands.md` says, and skip its comparison with the local head. Poll in the foreground, and never end the turn to wait for a notice. Read the failed logs of each failing check with the adapter.
@@ -85,3 +89,41 @@ git -C <card worktree> merge --ff-only origin/<head branch>
 When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push.
 
 Then provision it as the profile `Worktree` section says. When the sync brought commits, refresh it as that section says. A profile command may name `<cardId>`. It is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. Never derive it from a branch name, a worktree name or a card number. Bind writes to the worktree, and verify it, as "Bind writes and verify" in `../../loupe-stage-implementation/references/commands.md` says. The branch must be the head branch.
+
+## Resolve a conflict with the base
+
+`<base>` is the base branch of the pull request, from the forge adapter. For a stacked pull request, it is the parent's branch. Run these in the worktree:
+
+```bash
+git fetch origin
+git merge origin/<base>
+git diff --name-only --diff-filter=U
+git log --oneline $(git merge-base HEAD origin/<base>)..origin/<base> -- <conflicting files>
+```
+
+The last command names the commits on the base that caused the conflict. Read them and the pull request body before you resolve. Keep the intent of both sides. This procedure replaces the rule of the gate that resolves only a mechanical conflict. The gate's own `git merge origin/<base>` then has nothing to merge.
+
+Never rebase. A rebase drops the merge commits that the branch already holds, and asks for each earlier resolution again.
+
+When the two sides change one behaviour in ways that cannot both hold, run `git merge --abort`. Then stop with `STAGE RESULT: blocked: merge conflict with <base> in <files>`.
+
+Prove each resolved file `$F` in both directions:
+
+```bash
+comm -23 <(git show origin/<base>:$F | grep "^#" | sort) <(grep "^#" $F | sort)   # must be empty
+comm -13 <(git show origin/<base>:$F | grep "^#" | sort) <(grep "^#" $F | sort)   # the branch's own additions
+```
+
+The first command must print nothing, because each line it prints is work of the base that the resolution dropped. The second must list only this branch's own additions. Choose the grep to suit the file: headings for prose, test method names for a test file, entry prefixes for a list. Then check the structure of the file. A union of both sides can leave two bodies and one closing brace, so absent markers prove nothing.
+
+Keep the `# Conflicts:` block in the commit message, and add one plain line per file that says how it was resolved. `git commit -m` drops the block, and the queue holder reads it to verify the resolution. Commit like this:
+
+```bash
+m=$(git rev-parse --git-path merge-desc)
+{ cat "$(git rev-parse --git-path MERGE_MSG)"; echo; echo "<file>: <how it was resolved>"; } > "$m"
+git commit -F "$m" --cleanup=verbatim
+```
+
+Put the resolution and nothing else in the merge commit. The owner's approval covers a sync, a rebase and a conflict resolution, but not new content. A fix for a check or a review goes in a later commit of its own, and it needs a new approval.
+
+Then run the gate, and push without force. Never merge or approve the pull request.

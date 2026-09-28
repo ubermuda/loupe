@@ -8,6 +8,7 @@ use App\Mercure\UserTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Project\Entity\Project;
+use App\Outbox\ActivityChangedPublisher;
 use App\Outbox\AgentPush;
 use App\Outbox\Command\DrainOutboxCommand;
 use App\Outbox\Command\DrainOutboxHandler;
@@ -115,7 +116,9 @@ final class ShowEventsControllerTest extends WebTestCase
         self::assertInstanceOf(UserTopicBuilder::class, $userTopics);
         $outboxEvents = static::getContainer()->get(OutboxEventRepository::class);
         self::assertInstanceOf(OutboxEventRepository::class, $outboxEvents);
-        (new DrainOutboxHandler($outboxEvents, $em, $hub, new NullLogger(), FeatureFlags::service([AgentPush::FLAG => true]), $userTopics))(new DrainOutboxCommand());
+        $activityChanged = static::getContainer()->get(ActivityChangedPublisher::class);
+        self::assertInstanceOf(ActivityChangedPublisher::class, $activityChanged);
+        (new DrainOutboxHandler($outboxEvents, $em, $hub, new NullLogger(), FeatureFlags::service([AgentPush::FLAG => true]), $userTopics, $activityChanged))(new DrainOutboxCommand());
 
         $reached = [];
         foreach ($hub->updates as $update) {

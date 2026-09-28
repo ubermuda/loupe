@@ -55,6 +55,31 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
+     * The cards of a project among the ids given, with their columns. An id of
+     * another project, or of a deleted card, finds nothing.
+     *
+     * @param list<Uuid> $ids
+     *
+     * @return list<Card>
+     */
+    public function findByIdsInProject(Project $project, array $ids): array
+    {
+        if ([] === $ids) {
+            return [];
+        }
+
+        return array_values($this->createQueryBuilder('c')
+            ->join('c.column', 'k')
+            ->addSelect('k')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.id IN (:ids)')
+            ->setParameter('project', $project)
+            ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * @param list<Uuid> $ids
      *
      * @return array<string, string> card id => title

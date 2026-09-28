@@ -10,7 +10,7 @@ final readonly class ListActivityCommand
 {
     public function __construct(
         public Project $project,
-        public int $limit = 100,
+        public int $limit,
     ) {
     }
 }

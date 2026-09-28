@@ -55,6 +55,18 @@ final readonly class ProjectTopicBuilder
         return $this->projectIdFrom($topic, '/worker-runs');
     }
 
+    /** The topic the Events pages of a project listen on. The message names no event. */
+    public function forActivity(Uuid $projectId): string
+    {
+        return rtrim($this->appUrl, '/').'/projects/'.$projectId.'/activity';
+    }
+
+    /** The project a forActivity() topic names, or null for any other string. */
+    public function projectIdFromActivityTopic(string $topic): ?Uuid
+    {
+        return $this->projectIdFrom($topic, '/activity');
+    }
+
     private function projectIdFrom(string $topic, string $suffix): ?Uuid
     {
         $prefix = rtrim($this->appUrl, '/').'/projects/';

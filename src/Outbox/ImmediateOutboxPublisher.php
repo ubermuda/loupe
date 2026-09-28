@@ -60,10 +60,13 @@ final class ImmediateOutboxPublisher implements ResetInterface
         $this->pending = true;
     }
 
-    /** The messenger worker resets this service after each message, so a worker publishes when the message is handled. */
-    #[AsEventListener(WorkerMessageHandledEvent::class)]
-    #[AsEventListener(KernelEvents::TERMINATE)]
-    #[AsEventListener(ConsoleEvents::TERMINATE)]
+    /**
+     * Ahead of LiveUpdatePublisher, so the signal the drain queues goes out in the same terminate.
+     * The messenger worker resets this service after each message, so a worker publishes when the message is handled.
+     */
+    #[AsEventListener(WorkerMessageHandledEvent::class, priority: 16)]
+    #[AsEventListener(KernelEvents::TERMINATE, priority: 16)]
+    #[AsEventListener(ConsoleEvents::TERMINATE, priority: 16)]
     public function publish(): void
     {
         if (!$this->pending) {

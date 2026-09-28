@@ -48,6 +48,7 @@
                         class="lp-input lp-select lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'bridge.worker_runs.filter.all_outcomes'|trans }}</option>
+                    <option value="open"{{ listQuery.open ? ' selected' : '' }}>{{ 'bridge.worker_runs.filter.open_runs'|trans }}</option>
                     {% for state in states %}
                         <option value="{{ state.value }}"{{ listQuery.state == state ? ' selected' : '' }}>{{ state.translationKey()|trans }}</option>
                     {% endfor %}

@@ -148,6 +148,23 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The open runs of a project, of either kind.
+     *
+     * @return list<WorkerRun>
+     */
+    public function findOpenOfProject(Project $project): array
+    {
+        return array_values($this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.state IN (:states)')
+            ->setParameter('project', $project)
+            ->setParameter('states', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()))
+            ->orderBy('r.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * The open runs whose bridge went quiet: its owner's row for the bridge has
      * no heartbeat since the moment given. A bridge with no row at all sent no
      * heartbeat yet, so its run counts as quiet once it arrived that long ago.
@@ -418,6 +435,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         ?string $search = null,
         ?WorkerRunState $state = null,
         ?Uuid $bridgeId = null,
+        bool $open = false,
     ): Paginator {
         $qb = $this->createQueryBuilder('r')
             ->andWhere('r.project = :project')
@@ -447,6 +465,11 @@ class WorkerRunRepository extends ServiceEntityRepository
 
         if (null !== $state) {
             $qb->andWhere('r.state = :state')->setParameter('state', $state->value);
+        }
+
+        if ($open) {
+            $qb->andWhere('r.state IN (:openStates)')
+                ->setParameter('openStates', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()));
         }
 
         if (null !== $bridgeId) {

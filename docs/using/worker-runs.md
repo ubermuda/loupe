@@ -11,9 +11,10 @@ interactive Claude Code session on a card gets a row too, as
 
 Open **Activity** in the project sidebar, or go to
 `/projects/{project}/worker-runs`. Anyone who can view the project can read it.
+The open runs also show on the [Workshop](workshop.md), under In motion.
 
 The Activity page has three tabs. **Runs** lists the runs, and the rest of this
-page describes it. **Events** shows the [project activity](activity.md) feed.
+page describes it. **Events** lists the [project events](activity.md).
 **Cost** charts what a finished card costs on average, as
 [The cost of finished cards](#the-cost-of-finished-cards) says.
 
@@ -257,7 +258,7 @@ Run IDs match without regard to letter case, and the outcome and bridge filters 
 
 Two filters narrow the list further:
 
-- **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=no-result`, `outcome=failed` or `outcome=not-started` still works. `outcome=closed` keeps the closed interactive runs.
+- **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=no-result`, `outcome=failed` or `outcome=not-started` still works. `outcome=closed` keeps the closed interactive runs. **Open runs** (`outcome=open`) keeps every queued, resumed and running run, of both kinds.
 - **Bridge** keeps one bridge. It appears once a second bridge has reported.
 
 Every control lands in the URL, so a filtered view is a link you can share.
