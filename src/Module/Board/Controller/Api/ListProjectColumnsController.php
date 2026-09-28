@@ -59,6 +59,7 @@ final class ListProjectColumnsController extends AppController
                     'label' => $this->translator->trans($column->label),
                     'terminal' => $column->terminal,
                     'default' => $column->backlog,
+                    'backlog' => $column->backlog,
                 ],
                 $view->columns,
             ),

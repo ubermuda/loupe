@@ -523,7 +523,8 @@ An agent drives the board through the MCP endpoint. See
 | `card_run_close` | `sessionId` and exactly one of `cardId` and `number` are required. |
 
 `board_columns` lists the columns of the board in board order. Each entry
-carries `slug`, `label`, `terminal` and `default`. `card_list` returns the same
+carries `slug`, `label`, `terminal`, `default` and `backlog`. The Backlog row
+has `default` and `backlog` both true. `card_list` returns the same
 list in `columns`, beside its cards. The tools read columns and never write one.
 
 `card_run_open` and `card_run_close` record an interactive session on a card.
@@ -536,7 +537,7 @@ unknown slug is refused. The error lists the slugs the board has, such as
 A write to a column that was deleted after your read is also refused. That error
 says "That column no longer exists on this board. Name another column."
 
-`card_create` with no `status` puts the card in the default column. An agent
+`card_create` with no `status` puts the card in Backlog. An agent
 finishes a card by moving it to a terminal column.
 
 `card_list` reads the whole board when you give it no filter. A column that is

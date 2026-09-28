@@ -226,7 +226,7 @@ Roughly in the order an agent uses them:
 | `feedback_mark_addressed` | Mark feedback items acted on, so the next `feedback_list` skips them (off with the board, see below) |
 | `card_create` | Put a card on the project board (off with the board, see below) |
 | `card_list` | Read a page of the board, filtered by status, type, reporter or parent, with the board's columns |
-| `board_columns` | List the board's columns, each with its slug, label, terminal flag and default flag |
+| `board_columns` | List the board's columns, each with its slug, label, terminal flag, default flag and backlog flag |
 | `card_search` | Search every card's title and body by words, finished ones included |
 | `card_get` | Read one card, with the pull requests and the feedback linked to it |
 | `card_update` | Change a card, or move it to another column |
@@ -404,8 +404,10 @@ unknown slug is refused, and the error lists the slugs the board has. A terminal
 column is where finished work goes, and a card that enters one gets a
 `completedAt`.
 
-A card created with no `status` lands in the default column. Renaming a column
-changes its slug. No tool writes a column.
+A card created with no `status` lands in Backlog, whose slug is `backlog`.
+Backlog is not drawn as a board column, and it has its own page. `board_columns`
+lists it with `default` and `backlog` both true. Renaming a column changes its
+slug. No tool writes a column.
 
 The board has no delete tool. An agent moves a card to a terminal column; only a
 person removes one. `card_update` also refuses to change `reporter`, because
