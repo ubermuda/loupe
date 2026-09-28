@@ -11,7 +11,12 @@ export const DEBOUNCE_MILLISECONDS = 300;
  */
 export default class extends Controller {
     static targets = ['frame'];
-    static values = { url: String, frames: Array, whole: Boolean };
+    static values = {
+        url: String,
+        frames: Array,
+        whole: Boolean,
+        events: { type: Array, default: ['worker_run.changed'] },
+    };
 
     connect() {
         this.held = false;
@@ -22,7 +27,7 @@ export default class extends Controller {
             }
         };
         this.element.addEventListener('close', this.onDialogClose, true);
-        this.unsubscribe = on('worker_run.changed', () => this.schedule(), {
+        this.unsubscribe = on(this.eventsValue, () => this.schedule(), {
             onReconnect: () => this.schedule(),
         });
     }
