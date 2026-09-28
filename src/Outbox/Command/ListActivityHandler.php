@@ -19,9 +19,6 @@ final readonly class ListActivityHandler
     {
         $events = $this->outboxEvents->findRecentForProject($command->project, $command->limit);
 
-        return new ListActivityView(
-            $command->project,
-            $this->entries->entriesFor($command->project, $events),
-        );
+        return new ListActivityView($this->entries->entriesFor($command->project, $events));
     }
 }

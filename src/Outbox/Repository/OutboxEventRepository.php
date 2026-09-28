@@ -100,7 +100,7 @@ class OutboxEventRepository extends ServiceEntityRepository
     }
 
     /** @return list<OutboxEvent> */
-    public function findRecentForProject(Project $project, int $limit = 100): array
+    public function findRecentForProject(Project $project, int $limit): array
     {
         return $this->findBy(['project' => $project], ['createdAt' => 'DESC', 'sequence' => 'DESC'], $limit);
     }
