@@ -84,8 +84,13 @@ export default defineConfig({
             { slug: 'using/site-review' },
             { slug: 'using/board' },
             { slug: 'using/inbox' },
-            { slug: 'using/worker-runs' },
-            { slug: 'using/activity' },
+            {
+              label: 'Activity',
+              items: [
+                { label: 'Runs', slug: 'using/worker-runs' },
+                { label: 'Events', slug: 'using/activity' },
+              ],
+            },
             { slug: 'using/search' },
             { slug: 'using/workshop' },
             { slug: 'using/admin' },

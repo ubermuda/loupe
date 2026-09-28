@@ -1,6 +1,6 @@
 ---
-title: "Worker runs"
-description: "The page that shows what a command-line bridge told a project about the Claude Code workers it ran."
+title: "Activity: Runs"
+description: "The Runs tab of the Activity page, which shows what a command-line bridge told a project about the Claude Code workers it ran."
 ---
 
 A [command-line bridge](../extending/cli-bridge.md) runs a Claude Code worker
