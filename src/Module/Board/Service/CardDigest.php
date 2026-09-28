@@ -16,6 +16,7 @@ use App\Module\Bridge\View\CardRunWarning;
  */
 final readonly class CardDigest
 {
+    /** @param list<CardBadge> $badges */
     public function forCard(
         Card $card,
         int $pendingComments,
@@ -23,6 +24,7 @@ final readonly class CardDigest
         int $pullRequestCount,
         ?CardProgress $progress,
         ?CardRunWarning $runWarning,
+        array $badges,
     ): string {
         $warning = null !== $runWarning && $runWarning->appliesTo($card->column->slug) ? $runWarning : null;
 
@@ -41,6 +43,7 @@ final readonly class CardDigest
             $progress?->total,
             $warning?->runId,
             $warning?->state->value,
+            array_map(static fn (CardBadge $badge): string => $badge->value, $badges),
         ], \JSON_THROW_ON_ERROR)), 0, 12);
     }
 

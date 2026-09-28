@@ -6,12 +6,15 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Project\Entity\Project;
 use App\Session\ReadOnlyAwareSessionHandler;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
@@ -319,6 +322,34 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $after = $this->manifest($client, $project);
 
         self::assertNotSame($before, $this->digestOf($after, $card));
+        self::assertSame($this->page($client, $project)['cards'], array_column($after['cards'], 1, 0));
+    }
+
+    public function test_a_digest_changes_with_a_badge_and_stays_the_page_one(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'manifest-badge@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Failing', 'next');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $before = $this->digestOf($this->manifest($client, $project), $card);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->linkReadPullRequest($em, $em->find(Card::class, $card->id) ?? throw new \LogicException('No card.'), new PullRequestSnapshot(checks: PullRequestChecks::Failed));
+        $linked = $this->digestOf($this->manifest($client, $project), $card);
+        $em->clear();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $blocked = new CardAutomation($em->find(Card::class, $card->id) ?? throw new \LogicException('No card.'));
+        $blocked->blockedReason = 'checks-failed';
+        $em->persist($blocked);
+        $em->flush();
+        $em->clear();
+        $after = $this->manifest($client, $project);
+
+        self::assertCount(3, array_unique([$before, $linked, $this->digestOf($after, $card)]));
         self::assertSame($this->page($client, $project)['cards'], array_column($after['cards'], 1, 0));
     }
 

@@ -16,6 +16,7 @@ use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Bridge\Entity\Bridge;
@@ -35,6 +36,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface as SymfonyEventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
 
 final class PublishPullRequestEventsHandlerTest extends KernelTestCase
@@ -431,6 +433,51 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         self::assertSame(1, $this->automationOf($second)->fixRounds);
     }
 
+    public function test_a_displayed_change_tells_each_linked_card_once_and_an_unchanged_read_tells_none(): void
+    {
+        $first = $this->linkedCard();
+        $second = $this->linkedCard();
+        $this->linkedCardAlso($second, 'https://github.com/acme/widgets/pull/5');
+        $changes = $this->cardChanges();
+
+        $this->handle(new PullRequestSnapshot(baseBranch: 'main'), new PullRequestSnapshot(baseBranch: 'develop'));
+        self::assertSame([], $changes->getArrayCopy());
+
+        $this->handle(new PullRequestSnapshot(), $this->failed(self::SHA));
+        $expected = [[(string) $first->id, CardChanged::UPDATED, false], [(string) $second->id, CardChanged::UPDATED, false]];
+        self::assertEqualsCanonicalizing($expected, $changes->getArrayCopy());
+    }
+
+    /** A new push clears failed checks, and neither this nor a solved conflict publishes a fact. */
+    public function test_a_displayed_change_with_no_fact_still_tells_the_card(): void
+    {
+        $card = $this->linkedCard();
+        $changes = $this->cardChanges();
+
+        $this->handle(
+            new PullRequestSnapshot(headSha: 'aaa1111', checks: PullRequestChecks::Failed, checksSha: 'aaa1111', mergeability: PullRequestMergeability::Conflicting),
+            new PullRequestSnapshot(headSha: 'bbb2222', mergeability: PullRequestMergeability::Mergeable),
+        );
+
+        self::assertSame([], $this->outbox());
+        self::assertSame([[(string) $card->id, CardChanged::UPDATED, false]], $changes->getArrayCopy());
+    }
+
+    public function test_a_verdict_that_clears_a_block_tells_the_card(): void
+    {
+        $card = $this->linkedCard();
+        $this->configure(enabled: true, loopLimit: 1);
+        $this->handle(new PullRequestSnapshot(), $this->failed(self::SHA));
+        $this->handle($this->failed(self::SHA), $this->failed('def5678abc'));
+        self::assertSame('checks-failed', $this->automationOf($card)->blockedReason);
+        $changes = $this->cardChanges();
+
+        $this->review(PullRequestReview::Approved, $this->failed('def5678abc'));
+
+        self::assertNull($this->automationOf($card)->blockedReason);
+        self::assertSame([[(string) $card->id, CardChanged::UPDATED, false]], $changes->getArrayCopy());
+    }
+
     public function test_the_listener_publishes_while_the_board_is_on(): void
     {
         $this->linkedCard();
@@ -569,6 +616,26 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         $this->em->flush();
 
         return $card;
+    }
+
+    private function linkedCardAlso(Card $card, string $url): void
+    {
+        $this->em->persist(new CardPullRequest($card, $url, Forge::GitHub, 'acme/widgets', 5));
+        $this->em->flush();
+    }
+
+    /** @return \ArrayObject<int, array{string, string, bool}> */
+    private function cardChanges(): \ArrayObject
+    {
+        /** @var \ArrayObject<int, array{string, string, bool}> $changes */
+        $changes = new \ArrayObject();
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(SymfonyEventDispatcherInterface::class, $dispatcher);
+        $dispatcher->addListener(CardChanged::class, static function (CardChanged $event) use ($changes): void {
+            $changes[] = [(string) $event->cardId, $event->change, $event->contentChanged];
+        });
+
+        return $changes;
     }
 
     private function eventsOfType(string $type): int

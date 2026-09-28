@@ -14,6 +14,7 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\BoardStructureDigest;
+use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\LaneDecks;
 use App\Module\Bridge\Service\CardRunWarnings;
 
@@ -32,6 +33,7 @@ final readonly class ShowBoardHandler
         private BoardStructureDigest $structureDigest,
         private CardRunWarnings $runWarnings,
         private LaneDecks $laneDecks,
+        private CardPullRequestStates $pullRequestStates,
     ) {
     }
 
@@ -99,6 +101,15 @@ final readonly class ShowBoardHandler
         $pendingComments = $this->cardSiteReviewComments->pendingCountsForProject($project);
         $documentCounts = $this->cardDocuments->countsForProject($project);
         $runWarnings = $this->runWarnings->forProject($project);
+        $shownCards = array_merge(...array_map(static fn (BoardColumnView $view): array => $view->cards, $columns));
+        $states = $this->pullRequestStates->forCards($shownCards);
+        $badges = [];
+        foreach ($shownCards as $card) {
+            $cardBadges = $states->badgesOf($card);
+            if ([] !== $cardBadges) {
+                $badges[(string) $card->id] = $cardBadges;
+            }
+        }
 
         return new BoardView(
             $project,
@@ -117,6 +128,7 @@ final readonly class ShowBoardHandler
             $this->structureDigest->forBoard($columns, $lanes, $deadRules),
             $runWarnings,
             $this->laneDecks->forEpics($backlog, array_map(static fn (BoardLaneView $lane): string => (string) $lane->epic?->id, $lanes)),
+            $badges,
         );
     }
 }
