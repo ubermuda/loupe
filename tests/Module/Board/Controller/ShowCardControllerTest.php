@@ -188,7 +188,7 @@ final class ShowCardControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('The automation asked for fix round 2.', $crawler->filter('[data-card-automation]')->text());
+        self::assertStringContainsString('The automation asked for a fix.', $crawler->filter('[data-card-automation]')->text());
         self::assertCount(0, $crawler->filter('[data-card-automation] time'));
         self::assertCount(0, $crawler->filter('[data-card-automation-blocked]'));
     }
