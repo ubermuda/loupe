@@ -156,15 +156,18 @@ test('a debounced search filters the list and stays linkable in the URL', async 
     const listUrl = await openDocumentList(page, 'url');
 
     await page.locator(SEARCH_BOX).click();
+    // Turbo moves the address bar only when the search answer arrives, and a
+    // loaded CI runner took 4.7 s to send it. Wait for it before the URL check.
+    const answered = page.waitForResponse(
+        (r) => new URL(r.url()).searchParams.get('search') === 'kafka',
+    );
     await page.keyboard.type('kafka');
+    expect((await answered).status()).toBe(200);
 
     // The address bar has to carry the query, or a search cannot be shared or
     // survive a reload — that is what a full navigation buys, and a fix that
     // quietly dropped it would be a regression traded for a fix.
-    // A loaded CI runner took 4.7 s to answer this search.
-    await expect(page).toHaveURL(new RegExp(`${listUrl}\\?.*search=kafka`), {
-        timeout: 15000,
-    });
+    await expect(page).toHaveURL(new RegExp(`${listUrl}\\?.*search=kafka`));
 
     await expect(page.getByText('Kafka partition rebalancing')).toBeVisible();
     await expect(page.getByText('Onboarding wizard copy')).toHaveCount(0);
