@@ -105,3 +105,17 @@ it('shows every card and no tile when they all fit', async () => {
     expect(document.querySelectorAll('.lp-deck__card--spare')).toHaveLength(0);
     expect(document.querySelector('.lp-deck__more').hidden).toBe(true);
 });
+
+it('fits the fan again after a morph resets the deck to the server markup', async () => {
+    await mount(8, 12, 5);
+    const deck = document.querySelector('.lp-deck');
+    deck.removeAttribute('style');
+
+    deck.dispatchEvent(
+        new CustomEvent('turbo:morph-element', { bubbles: true }),
+    );
+
+    expect(deck.style.getPropertyValue('--deck-reach')).toBe(
+        `${5 * 222 - 10}px`,
+    );
+});

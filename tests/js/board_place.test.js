@@ -572,6 +572,48 @@ describe('board-place on a board with lanes', () => {
         ).not.toContain('null');
     });
 
+    it('takes a lane epic placed as a lane head out of the deck it left', () => {
+        document
+            .querySelector('.lp-board-lane')
+            .insertAdjacentHTML(
+                'beforeend',
+                `<article id="board-deck-card-${EPIC}" data-card-id="${EPIC}"></article>`,
+            );
+
+        placeCard(
+            laneStream({
+                id: EPIC,
+                column: NEXT,
+                head: true,
+                body: laneHead('Epic', '0/2 done') + row(EPIC, NEXT),
+            }),
+        );
+
+        expect(document.getElementById(`board-deck-card-${EPIC}`)).toBeNull();
+    });
+
+    it('keeps the deck copy of a lane epic that still waits in the Backlog', () => {
+        document
+            .querySelector('.lp-board-lane')
+            .insertAdjacentHTML(
+                'beforeend',
+                `<div class="lp-deck" data-column="col-waiting"><article id="board-deck-card-${EPIC}" data-card-id="${EPIC}"></article></div>`,
+            );
+
+        placeCard(
+            laneStream({
+                id: EPIC,
+                column: 'col-waiting',
+                head: true,
+                body: laneHead('Renamed', '0/2 done'),
+            }),
+        );
+
+        expect(
+            document.getElementById(`board-deck-card-${EPIC}`),
+        ).not.toBeNull();
+    });
+
     it('drops the stale mark of a lane head it morphs', () => {
         const head = document.querySelector(
             `#board-lane-${EPIC} .lp-board-lane__head`,

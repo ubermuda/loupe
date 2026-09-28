@@ -34,6 +34,8 @@ export function placeCard(stream) {
         return;
     }
 
+    leaveDeck(cardId, stream.dataset.columnId);
+
     if (stream.hasAttribute('data-lane-head')) {
         placeLaneHead(stream, cardId, counts, history, historyTotals);
 
@@ -59,8 +61,6 @@ export function placeCard(stream) {
 
     const content = stream.querySelector('template').content.cloneNode(true);
     const rowAnchor = rowAfter ?? list.querySelector('.lp-board-list__header');
-    // A card on the board has left the Backlog, so the deck copy a drag moved goes too.
-    document.getElementById(`board-deck-card-${cardId}`)?.remove();
     place(
         `board-card-${cardId}`,
         content.querySelector('.lp-board-card'),
@@ -190,6 +190,14 @@ function recountCells() {
             );
         }
     });
+}
+
+/** A card placed outside the Backlog leaves its deck, where a drag may have left a copy. */
+function leaveDeck(cardId, columnId) {
+    const deckCard = document.getElementById(`board-deck-card-${cardId}`);
+    if (deckCard && deckCard.closest('.lp-deck')?.dataset.column !== columnId) {
+        deckCard.remove();
+    }
 }
 
 function missed(cardId) {

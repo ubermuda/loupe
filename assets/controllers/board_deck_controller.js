@@ -15,6 +15,13 @@ export default class extends Controller {
     static values = { count: Number, more: String };
 
     connect() {
+        // A lane head morph drops the style this controller wrote.
+        this.onMorph = (event) => {
+            if (event.target === this.element) {
+                this.layout();
+            }
+        };
+        this.element.addEventListener('turbo:morph-element', this.onMorph);
         this.resizeObserver = new ResizeObserver(() => this.layout());
         this.resizeObserver.observe(
             this.element.closest('.lp-board-lane__head') ?? this.element,
@@ -22,6 +29,7 @@ export default class extends Controller {
     }
 
     disconnect() {
+        this.element.removeEventListener('turbo:morph-element', this.onMorph);
         this.resizeObserver?.disconnect();
     }
 
