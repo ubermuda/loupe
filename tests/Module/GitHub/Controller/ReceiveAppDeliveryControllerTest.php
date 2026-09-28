@@ -63,6 +63,7 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
+        $this->configureAppKey();
         $this->enableBoard();
         $project = $this->project('all');
         $this->installation($project, 9_000_604, GitHubRepositorySelection::All);
@@ -133,6 +134,7 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $client->disableReboot();
+        $this->configureAppKey();
         $project = $this->project('app-review');
         $this->installation($project, 9_000_607);
         $this->owned($project, 607, 'acme/v', ForgeRepositorySource::Installation, 9_000_607);
@@ -149,6 +151,30 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame([[$tracked, false]], $this->queuedRefreshes());
         self::assertSame([[PullRequestReview::ChangesRequested, '70001']], $this->queuedVerdicts());
+    }
+
+    public function test_an_installation_without_the_app_key_gets_the_bare_facts_and_no_verdict(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->enableBoard();
+        $project = $this->project('no-key');
+        $this->installation($project, 9_000_608);
+        $this->owned($project, 608, 'acme/k', ForgeRepositorySource::Installation, 9_000_608);
+        $card = $this->linkedCard($project, 'acme/k', 12);
+        $this->trackedPullRequest($project, 'acme/k', 12, 'aaa111');
+
+        $this->deliver($client, self::PATH, 'pull_request_review', [
+            'action' => 'submitted',
+            'installation' => ['id' => 9_000_608],
+            'repository' => ['id' => 608, 'full_name' => 'acme/k'],
+            'pull_request' => ['number' => 12],
+            'review' => ['id' => 70_002, 'state' => 'changes_requested'],
+        ], self::SECRET);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([(string) $card->id], $this->outboxSubjects($project));
+        self::assertSame([[null, null]], $this->queuedVerdicts());
     }
 
     public function test_a_completed_check_suite_queues_a_refresh_of_each_tracked_pull_request_it_touches(): void

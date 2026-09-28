@@ -6,7 +6,6 @@ namespace App\Tests\Module\Forge\EventListener;
 
 use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgePullRequest;
-use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Event\ForgeDeliveryReceived;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
@@ -81,7 +80,7 @@ final class RepointForgePullRequestsOnDeliveryReceivedTest extends KernelTestCas
     {
         $dispatcher = self::getContainer()->get(EventDispatcherInterface::class);
         self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
-        $dispatcher->dispatch(new ForgeDeliveryReceived($project->id ?? throw new \LogicException('persisted'), [$delivery], ForgeRepositorySource::Hook));
+        $dispatcher->dispatch(new ForgeDeliveryReceived($project->id ?? throw new \LogicException('persisted'), [$delivery], false));
         $this->em->clear();
     }
 

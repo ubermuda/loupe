@@ -115,18 +115,20 @@ state change can come in the same read. When a read finds more than one reason,
 the reason is `conflict` first, then `checks-failed`, then `changes-requested`.
 The facts all go out.
 
-### Events from a hook repository
+### Events from a repository with no state reads
 
-A repository that a per-project webhook feeds gets no state reads. Its
-deliveries give three bare events: `pull_request.review_submitted`,
+A state read needs an installation token. So two kinds of repository get no
+state reads: one that a per-project webhook feeds, and one that the App feeds
+while `GITHUB_APP_ID` or `GITHUB_APP_PRIVATE_KEY` is unset. Their deliveries
+give three bare events: `pull_request.review_submitted`,
 `pull_request.checks_concluded` and `pull_request.merged`. Each carries
-`cardNumber` and `forge`, and none of the other pull request fields. A bridge rule with `when` never
-matches one, because the field it reads is absent. A hook repository gets no
-decisions.
+`cardNumber` and `forge`, and none of the other pull request fields. A bridge
+rule with `when` never matches one, because the field it reads is absent. Such
+a repository gets no decisions.
 
 ### When an event reaches the bridge
 
-Loupe writes a hook event in the request that receives the delivery. It
+Loupe writes a bare event in the request that receives the delivery. It
 publishes the event when that request ends. A state read runs in the messenger
 worker, on the `async` transport. The worker publishes the rows it writes when
 it finishes the message. The outbox drain runs every five minutes, and it
@@ -274,7 +276,8 @@ Set both or neither. The *GitHub App access* row on `/admin/status` reports a
 key that GitHub refuses, and an installation that misses a permission.
 
 A repository connected through a per-project webhook gets no pull request
-automation, because Loupe has no installation token for it.
+automation, because Loupe has no installation token for it. An App without this
+pair gets none either, and its repositories get the bare events.
 
 The install runs in this order. The owner selects Install on GitHub, and GitHub
 shows its install page. GitHub then sends the owner to the setup URL. Loupe asks

@@ -20,6 +20,7 @@ use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\GitHub\Entity\GitHubInstallation;
 use App\Module\GitHub\Entity\GitHubRepositorySelection;
+use App\Module\GitHub\Service\GitHubAppConfiguration;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -45,6 +46,12 @@ trait GitHubDeliveryScenario
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
         $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         $this->em()->flush();
+    }
+
+    /** Sets the App id and key, so an installation repository gets state reads. Call it before the first request. */
+    private function configureAppKey(): void
+    {
+        self::getContainer()->set(GitHubAppConfiguration::class, new GitHubAppConfiguration(null, null, null, 'github_app_webhook_test', '123456', 'key'));
     }
 
     private function project(string $label): Project

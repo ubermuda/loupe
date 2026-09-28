@@ -11,7 +11,6 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
-use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
 use App\Module\Project\Entity\Project;
@@ -58,7 +57,7 @@ final class RecordForgeDeliveryHandlerTest extends KernelTestCase
         self::assertSame(['acme/old'], $this->pathsOf($strangerCard));
     }
 
-    public function test_a_hook_delivery_writes_a_bare_fact_row_and_an_installation_delivery_does_not(): void
+    public function test_a_delivery_without_state_reads_writes_a_bare_fact_row_and_one_with_state_reads_does_not(): void
     {
         $project = $this->project('installed');
         $card = $this->linkedCard($project, 'acme/widgets', 5);
@@ -66,29 +65,29 @@ final class RecordForgeDeliveryHandlerTest extends KernelTestCase
         self::assertSame([(string) $card->id], $this->outboxSubjects($project));
 
         foreach ([ForgeEventType::MERGED, ForgeEventType::REVIEW_SUBMITTED, ForgeEventType::CHECKS_CONCLUDED] as $type) {
-            $this->handle($project, new ForgeDelivery($type, 'github', 'acme/widgets', 5), ForgeRepositorySource::Installation);
+            $this->handle($project, new ForgeDelivery($type, 'github', 'acme/widgets', 5), stateReadable: true);
         }
 
         self::assertSame([(string) $card->id], $this->outboxSubjects($project));
     }
 
-    public function test_an_installation_move_still_repoints_the_links(): void
+    public function test_a_move_with_state_reads_still_repoints_the_links(): void
     {
         $project = $this->project('installed');
         $card = $this->linkedCard($project, 'acme/old', 1);
 
-        $this->handle($project, new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, 'github', 'acme/old', movedTo: 'acme/new'), ForgeRepositorySource::Installation);
+        $this->handle($project, new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, 'github', 'acme/old', movedTo: 'acme/new'), stateReadable: true);
 
         $this->em->clear();
         self::assertSame(['acme/new'], $this->pathsOf($card));
     }
 
-    private function handle(Project $project, ForgeDelivery $delivery, ForgeRepositorySource $source = ForgeRepositorySource::Hook): void
+    private function handle(Project $project, ForgeDelivery $delivery, bool $stateReadable = false): void
     {
         $handler = self::getContainer()->get(RecordForgeDeliveryHandler::class);
         self::assertInstanceOf(RecordForgeDeliveryHandler::class, $handler);
 
-        $handler(new RecordForgeDeliveryCommand($project->id ?? throw new \LogicException('Flushed.'), [$delivery], $source));
+        $handler(new RecordForgeDeliveryCommand($project->id ?? throw new \LogicException('Flushed.'), [$delivery], $stateReadable));
     }
 
     /** @return list<string> */

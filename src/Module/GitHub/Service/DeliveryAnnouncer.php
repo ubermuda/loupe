@@ -26,6 +26,7 @@ final readonly class DeliveryAnnouncer
         private EventDispatcherInterface $events,
         private PullRequestTracker $tracker,
         private LoggerInterface $logger,
+        private GitHubAppConfiguration $configuration,
     ) {
     }
 
@@ -67,8 +68,8 @@ final readonly class DeliveryAnnouncer
             $this->dispatch($project, $deliveries, $source);
         }
 
-        // A hook repository gets the bare events alone, so its review verdict never reaches the automation.
-        $verdicts = ForgeRepositorySource::Installation === $source;
+        // A repository with no state reads gets the bare events alone, so its review verdict never reaches the automation.
+        $verdicts = $this->stateReadable($source);
         foreach ($delivery->refreshHints() as $hint) {
             match (true) {
                 null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number, $verdicts ? $hint->verdict : null, $verdicts ? $hint->reviewId : null),
@@ -81,6 +82,12 @@ final readonly class DeliveryAnnouncer
     /** @param non-empty-list<ForgeDelivery> $deliveries */
     private function dispatch(Project $project, array $deliveries, ForgeRepositorySource $source): void
     {
-        $this->events->dispatch(new ForgeDeliveryReceived($project->id ?? throw new \LogicException('A claimed project has an id.'), $deliveries, $source));
+        $this->events->dispatch(new ForgeDeliveryReceived($project->id ?? throw new \LogicException('A claimed project has an id.'), $deliveries, $this->stateReadable($source)));
+    }
+
+    /** A state read needs an installation token, and only the App id and private key mint one. */
+    private function stateReadable(ForgeRepositorySource $source): bool
+    {
+        return ForgeRepositorySource::Installation === $source && $this->configuration->canReadForge();
     }
 }

@@ -7,7 +7,6 @@ namespace App\Module\Board\Command;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
-use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
 use App\Outbox\OutboxWriter;
@@ -24,8 +23,8 @@ use Ubermuda\AuditBundle\AuditOutcome;
  * the project that owns the repository match, because another project can link
  * the same pull request.
  *
- * Only a hook repository gets the bare fact rows. An installation repository
- * gets richer events from state reads, and must not get each fact twice.
+ * Only a repository with no state reads gets the bare fact rows. A repository
+ * with state reads gets richer events from them, and must not get each fact twice.
  */
 final readonly class RecordForgeDeliveryHandler
 {
@@ -46,7 +45,7 @@ final readonly class RecordForgeDeliveryHandler
                 continue;
             }
 
-            if (ForgeRepositorySource::Hook === $command->source) {
+            if (!$command->stateReadable) {
                 $this->publish($command->projectId, $delivery);
             }
         }
