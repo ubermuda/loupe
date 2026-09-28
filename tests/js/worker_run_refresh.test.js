@@ -38,8 +38,8 @@ afterEach(async () => {
     vi.useRealTimers();
 });
 
-async function mount({ url = '', src = null } = {}) {
-    document.body.innerHTML = `<div data-controller="worker-run-refresh"${url ? ` data-worker-run-refresh-url-value="${url}"` : ''}>
+async function mount({ url = '', src = null, events = null } = {}) {
+    document.body.innerHTML = `<div data-controller="worker-run-refresh"${url ? ` data-worker-run-refresh-url-value="${url}"` : ''}${events ? ` data-worker-run-refresh-events-value='${JSON.stringify(events)}'` : ''}>
         <turbo-frame id="runs" data-worker-run-refresh-target="frame"${src ? ` src="${src}"` : ''}>
             <dialog id="drawer"></dialog>
         </turbo-frame>
@@ -61,7 +61,26 @@ async function signal() {
 
 it('listens for the worker run signal only', async () => {
     await mount();
-    expect(subscription().types).toBe('worker_run.changed');
+    expect(subscription().types).toEqual(['worker_run.changed']);
+});
+
+it('reloads on a card change when the events value lists it', async () => {
+    const frame = await mount({
+        src: '/projects/1/worker-runs',
+        events: ['worker_run.changed', 'board.card_changed'],
+    });
+    expect(subscription().types).toEqual([
+        'worker_run.changed',
+        'board.card_changed',
+    ]);
+    subscription().handler({ type: 'board.card_changed' });
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
+    expect(frame.reload).toHaveBeenCalledOnce();
+});
+
+it('does not listen for a card change without the events value', async () => {
+    await mount({ src: '/projects/1/worker-runs' });
+    expect(subscription().types).not.toContain('board.card_changed');
 });
 
 it('gives a frame with no src the current page on the first signal', async () => {
