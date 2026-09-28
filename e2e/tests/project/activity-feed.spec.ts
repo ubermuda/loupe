@@ -63,6 +63,8 @@ async function moveNewCard(page: Page, projectId: string, title: string) {
 test('the events list links, searches and filters through the URL', async ({
     page,
 }) => {
+    // About fifteen page loads, and one stall can take 17s of the 30s default.
+    test.setTimeout(90_000);
     await suppressWidget(page);
     const run = Date.now().toString(36);
     const projectId = await seedProject(page, `Events ${run}`);
