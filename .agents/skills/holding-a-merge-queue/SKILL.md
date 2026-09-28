@@ -118,7 +118,12 @@ gh pr view <n> --json commits,latestReviews | jq -r '
 Every line it prints is a commit the approval did not see. Ask the owner which
 kinds of commit his approval survives, and record the answer.
 
-The answer on 2026-09-22 was that an approval survives `gh pr update-branch`.
+The answer on 2026-09-27 was that an approval survives a sync, a rebase and a
+conflict resolution. The owner said: "I don't want to need to re-approve
+everything". Merge after any of those three without asking. A commit that adds
+new content still needs a fresh approval. A review fix and a test fix are new
+content. The answer replaced the 2026-09-22 one, which covered
+`gh pr update-branch` only.
 
 ### A sync always prints one unseen commit
 
@@ -422,8 +427,8 @@ git commit -F "$m" --cleanup=verbatim
 
 Verify the result before you merge. Read the pushed merge commit under "A
 conflict resolution is not a sync merge", then run the bucket count and the
-approval-time check on the new head. A resolution is not a sync, so the owner's
-approval may need renewing. Ask him.
+approval-time check on the new head. The owner's approval covers a resolution
+that passes the `comm` check, so merge without asking him again.
 
 ## Before anything that affects the whole machine
 
