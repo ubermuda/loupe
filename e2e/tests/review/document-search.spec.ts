@@ -161,7 +161,10 @@ test('a debounced search filters the list and stays linkable in the URL', async 
     // The address bar has to carry the query, or a search cannot be shared or
     // survive a reload — that is what a full navigation buys, and a fix that
     // quietly dropped it would be a regression traded for a fix.
-    await expect(page).toHaveURL(new RegExp(`${listUrl}\\?.*search=kafka`));
+    // A loaded CI runner took 4.7 s to answer this search.
+    await expect(page).toHaveURL(new RegExp(`${listUrl}\\?.*search=kafka`), {
+        timeout: 15000,
+    });
 
     await expect(page.getByText('Kafka partition rebalancing')).toBeVisible();
     await expect(page.getByText('Onboarding wizard copy')).toHaveCount(0);
