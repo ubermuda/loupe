@@ -214,6 +214,18 @@ final class BacklogCardMovesTest extends KernelTestCase
         self::assertSame([$epic->number, $child->number], $movedNumbers);
     }
 
+    public function test_a_bulk_move_takes_an_epic_and_its_last_child_to_a_terminal_column_that_is_not_the_first(): void
+    {
+        $this->configureColumn($this->project, 'in-progress', terminal: true);
+        $epic = $this->card('Epic', type: CardType::Epic);
+        $child = $this->card('Child', parent: $epic);
+
+        $this->bulkMove([(string) $epic->id, (string) $child->id], 'done');
+
+        self::assertSame('done', $epic->column->slug);
+        self::assertSame('done', $child->column->slug);
+    }
+
     public function test_a_bulk_move_refuses_the_whole_move_when_one_card_is_not_writable(): void
     {
         $waiting = $this->card('Waiting');

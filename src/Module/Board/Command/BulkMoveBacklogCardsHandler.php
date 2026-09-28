@@ -6,6 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Board\Service\CardMover;
@@ -78,12 +79,14 @@ final readonly class BulkMoveBacklogCardsHandler
                 if ($card->column === $command->column) {
                     continue;
                 }
+                // It closes into the first terminal column, and still goes on to the one chosen.
+                $closedEpic = CardType::Epic === $card->type && $card->column->terminal;
                 ($this->updateCard)(new UpdateCardCommand(
                     card: $card,
                     actor: $command->actor,
                     column: $command->column,
                     position: CardMover::END_OF_COLUMN,
-                    expectedColumn: $command->backlog,
+                    expectedColumn: $closedEpic ? $card->column : $command->backlog,
                 ));
             }
         });
