@@ -6,7 +6,7 @@ pr=${1:?usage: merge-ready.sh <number>}
 owner=${OWNER:-$(gh repo view --json owner -q .owner.login 2>/dev/null)}
 id=$(gh api repos/{owner}/{repo}/rulesets -q '.[]|select(.name=="main")|.id' 2>/dev/null)
 n=$(gh api "repos/{owner}/{repo}/rulesets/$id" -q '[.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[]]|length' 2>/dev/null)
-fields=headRefOid,baseRefName,isDraft,mergeStateStatus,reviewDecision,latestReviews,commits,changedFiles
+fields=headRefOid,baseRefName,isDraft,mergeStateStatus,reviewDecision,reviews,commits,changedFiles
 view=$(gh pr view "$pr" --json "$fields" 2>/dev/null)
 checks=$(gh pr checks "$pr" --required --json bucket 2>&1)
 head2=$(gh pr view "$pr" --json headRefOid -q .headRefOid 2>/dev/null)
@@ -18,11 +18,19 @@ case "$checks" in
   *) echo "#$pr UNREAD: gh pr checks said: ${checks%%$'\n'*}"; exit 2 ;;
 esac
 
-line=$(jq -r --arg owner "$owner" --argjson n "$n" --argjson b "$buckets" --arg head2 "$head2" '
-  ([.latestReviews[]|select(.author.login==$owner and .state=="APPROVED")|.submittedAt][0]) as $at
+# A merge from main is a sync when git re-creates its tree with no conflict.
+git fetch -q origin main "refs/pull/$pr/head" 2>/dev/null
+merges=$(for c in $(jq -r '.commits[]|select(.messageHeadline|startswith("Merge "))|.oid' <<<"$view"); do
+  git merge-base --is-ancestor "$c^2" origin/main 2>/dev/null || continue
+  t=$(git merge-tree --write-tree "$c^1" "$c^2" 2>/dev/null) && [ "$t" = "$(git rev-parse "$c^{tree}")" ] && k=sync || k=conflict
+  echo "{\"$c\":\"$k\"}"
+done | jq -sc 'add // {}')
+line=$(jq -r --arg owner "$owner" --argjson n "$n" --argjson b "$buckets" --arg head2 "$head2" --argjson merges "$merges" '
+  ([.reviews[]|select(.author.login==$owner and (.state|IN("APPROVED","CHANGES_REQUESTED","DISMISSED")))]|last) as $last
+  | (if $last.state == "APPROVED" then $last.submittedAt else null end) as $at
   | [.commits[]|select($at != null and .committedDate > $at)] as $unseen
-  | [$unseen[]|select((.messageHeadline|test("^Merge (remote-tracking )?branch \u0027(origin/)?main\u0027 into ")) and ((.messageBody // "")|test("Conflicts:")|not))] as $sync
-  | [$unseen[]|select((.messageBody // "")|test("Conflicts:"))] as $conflict
+  | [$unseen[]|select($merges[.oid] == "sync")] as $sync
+  | [$unseen[]|select($merges[.oid] == "conflict")] as $conflict
   | [$unseen[]|select(.oid as $o|[$sync[],$conflict[]]|map(.oid)|index($o)|not)] as $new
   | ($b|to_entries|map("\(.key)=\(.value)")|join(" ")) as $counts
   | [

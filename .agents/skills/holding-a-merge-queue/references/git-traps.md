@@ -9,10 +9,11 @@ Both print as `Merge branch 'main' into <branch>`. Only the sync is safe to wave
 through. A resolution carries a judgement somebody made by hand, and the failure
 it hides is that it kept one side and dropped the other. Nothing reports that.
 
-A merge commit whose message lists `# Conflicts:` is a resolution.
-`merge-ready.sh` finds it by that block, so a resolution committed with
-`git commit -m` loses the block and reads as a sync. Read the commit, and prove
-the resolution lost nothing in **both** directions before merging:
+A merge commit whose message lists `# Conflicts:` is a resolution. The block
+can be missing, because `git commit -m` drops it. `merge-ready.sh` therefore
+re-creates each merge from `main` with `git merge-tree`, and treats any merge
+whose tree differs as a resolution. Read the commit, and prove the resolution
+lost nothing in **both** directions before merging:
 
 ```bash
 comm -23 <(git show origin/main:$F | grep "^#" | sort) <(grep "^#" $F | sort)

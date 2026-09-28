@@ -107,7 +107,8 @@ Set the threshold from that number, not from your patience. Below it, wait.
 
 A review's `commit_id` does not show what the reviewer saw. GitHub moves it onto
 the head that a later merge sync creates. `merge-ready.sh` therefore compares
-the approval's `submittedAt` with each commit's time.
+the time of the owner's last approving or blocking review with each commit's
+time. A later comment from the owner does not hide the approval.
 
 The owner said on 2026-09-27 that an approval survives a sync, a rebase and a
 conflict resolution: "I don't want to need to re-approve everything". Merge
@@ -117,10 +118,11 @@ replaced the 2026-09-22 one, which covered `gh pr update-branch` only.
 
 `merge-ready.sh` sorts each commit after the approval into one of three kinds:
 
-- A sync merge from `main` passes, and the script counts it. A sync creates a
-  merge commit that is always later than the approval.
-- A merge whose message lists `# Conflicts:` holds. Prove it with the `comm`
-  check in `references/git-traps.md`. When it passes, the approval covers it.
+- A merge from `main` that `git merge-tree` re-creates exactly is a sync. It
+  passes, and the script counts it. A sync is always later than the approval.
+- A merge from `main` that git cannot re-create holds as a conflict resolution.
+  Prove it with the `comm` check in `references/git-traps.md`. When it passes,
+  the approval covers it.
 - Any other commit holds as "commits after approval". A rebase rewrites every
   commit, so it lands here too. Read the commits and decide which case it is.
 
