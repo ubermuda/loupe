@@ -11,6 +11,7 @@ use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\View\WorkerRunListQuery;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Session\ReadOnlyAwareSessionHandler;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,6 +22,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route(
     '/projects/{id:project}/worker-runs',
     name: 'app_project_worker_runs',
+    defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => 'worker-runs-frame'],
     methods: ['GET'],
 )]
 class ListWorkerRunsController extends AppController

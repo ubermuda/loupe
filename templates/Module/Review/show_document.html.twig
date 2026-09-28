@@ -327,7 +327,7 @@
                             <dt>{{ 'review.document.margin.linked_card'|trans }}</dt>
                             <dd>
                                 {% for link in cardLinks %}
-                                {% include '@Board/_card.html.twig' with {card: link.card, pendingComments: 0, static: true} only %}
+                                {% include '@Board/_card.html.twig' with {card: link.card, pendingComments: 0, documentCount: link.card.documents|length, static: true} only %}
                                 {% endfor %}
                             </dd>
                         </div>

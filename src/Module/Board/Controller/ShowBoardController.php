@@ -11,6 +11,7 @@ use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Session\ReadOnlyAwareSessionHandler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -20,6 +21,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route(
     '/projects/{id:project}/board',
     name: 'app_project_board',
+    defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => 'board-frame'],
     methods: ['GET'],
 )]
 #[Route(

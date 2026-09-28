@@ -77,6 +77,8 @@ parameters:
     # Every minute, because a bridge goes quiet after three heartbeat intervals
     # and a run shown as running for longer than that misleads.
     app.bridge.run_timeout_schedule: '* * * * *'
+    # The backstop for a forge delivery that never arrived.
+    app.forge.sweep_schedule: '*/10 * * * *'
     # How often a CLI bridge posts its heartbeat, in seconds, as the default the
     # `bridge.heartbeat_interval_seconds` feature flag starts from.
     app.bridge.default_heartbeat_interval_seconds: 60
@@ -86,11 +88,6 @@ parameters:
     app.hosted_price: '10'
 
 services:
-    # A vendor class, so it cannot carry our attributes. Built by a factory
-    # because DATABASE_URL alone is wrong — see PdoSessionHandlerFactory.
-    Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler:
-        factory: ['@App\Session\PdoSessionHandlerFactory', '__invoke']
-
     # default configuration for services in *this* file
     _defaults:
         autowire: true      # Automatically injects dependencies in your services.
@@ -103,6 +100,18 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    # Built by a factory because DATABASE_URL alone is wrong, and because it
+    # wraps two vendor handlers. See PdoSessionHandlerFactory.
+    App\Session\ReadOnlyAwareSessionHandler:
+        factory: ['@App\Session\PdoSessionHandlerFactory', '__invoke']
+
+    # The bundle's listener adds `sessions` to the ORM schema only for a
+    # PdoSessionHandler. Without this, migrate-diff proposes DROP TABLE sessions.
+    app.session_schema_listener:
+        class: Symfony\Bridge\Doctrine\SchemaListener\PdoSessionHandlerSchemaListener
+        decorates: doctrine.orm.listeners.pdo_session_handler_schema_listener
+        arguments: ['@=service("App\\Session\\ReadOnlyAwareSessionHandler").locking']
 
     # Backs the `export.storage.s3` Flysystem storage. Only constructed when
     # EXPORT_STORAGE=s3, because `export.storage` resolves its source lazily —

@@ -100,7 +100,7 @@
              data-rankable="{{ view.column.terminal ? '0' : '1' }}">
             {% for card in view.cards %}
                 {# `~ ''` casts the Uuid, which cannot itself be an array key. #}
-                {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), runWarning: runWarnings[card.id ~ '']|default(null)} only %}
+                {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), documentCount: board.documentCounts[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), runWarning: runWarnings[card.id ~ '']|default(null)} only %}
             {% endfor %}
         </div>
 
@@ -122,7 +122,7 @@
         </div>
         {% for view in board.columns %}
             {% for card in view.cards %}
-                {% include '@Board/_card_row.html.twig' with {card: card, column: view.column, feedbackCount: board.pendingComments[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null)} only %}
+                {% include '@Board/_card_row.html.twig' with {card: card, column: view.column, feedbackCount: board.pendingComments[card.id ~ '']|default(0), documentCount: board.documentCounts[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), runWarning: runWarnings[card.id ~ '']|default(null)} only %}
             {% endfor %}
         {% endfor %}
     </div>

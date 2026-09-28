@@ -19,6 +19,7 @@ final readonly class GitHubDelivery
 
     private const string SIGNATURE_HEADER = 'X-Hub-Signature-256';
     private const string EVENT_HEADER = 'X-GitHub-Event';
+    private const array PULL_REQUEST_ACTIONS = ['opened', 'reopened', 'synchronize', 'closed', 'edited', 'ready_for_review', 'converted_to_draft'];
 
     /** @param array<mixed> $payload */
     private function __construct(
@@ -118,6 +119,99 @@ final readonly class GitHubDelivery
             'check_suite' => $this->fromCheckSuite($repository),
             default => [],
         };
+    }
+
+    /**
+     * The pull requests whose state this delivery may have changed. A merge
+     * also moves its base, so every other pull request on it may fall behind.
+     *
+     * @return list<PullRequestRefreshHint>
+     */
+    public function refreshHints(): array
+    {
+        $action = $this->action();
+        $hints = match ($this->event) {
+            'pull_request' => \in_array($action, self::PULL_REQUEST_ACTIONS, true) ? $this->pullRequestHints() : [],
+            'pull_request_review' => \in_array($action, ['submitted', 'dismissed'], true) ? $this->numberHints([$this->payload['pull_request'] ?? null]) : [],
+            // A check that starts again turns a passed verdict back to pending, so its start is a hint too.
+            'check_suite', 'check_run' => 'requested_action' !== $action ? $this->checkHints($this->payload[$this->event] ?? null) : [],
+            'status' => $this->headHints($this->payload['sha'] ?? null),
+            'push' => $this->pushHints(),
+            default => [],
+        };
+
+        $unique = [];
+        foreach ($hints as $hint) {
+            $unique[$hint->key()] ??= $hint;
+        }
+
+        return array_values($unique);
+    }
+
+    /** @return list<PullRequestRefreshHint> */
+    private function pullRequestHints(): array
+    {
+        $pullRequest = $this->payload['pull_request'] ?? null;
+        $hints = $this->numberHints([$pullRequest]);
+        if (!\is_array($pullRequest) || 'closed' !== $this->action() || true !== ($pullRequest['merged'] ?? null)) {
+            return $hints;
+        }
+
+        $base = \is_array($pullRequest['base'] ?? null) ? ($pullRequest['base']['ref'] ?? null) : null;
+        if ([] !== $hints && \is_string($base) && '' !== $base) {
+            $hints[] = PullRequestRefreshHint::base($base);
+        }
+
+        return $hints;
+    }
+
+    /** @return list<PullRequestRefreshHint> */
+    private function checkHints(mixed $check): array
+    {
+        if (!\is_array($check)) {
+            return [];
+        }
+
+        $pullRequests = $check['pull_requests'] ?? null;
+
+        return [...$this->numberHints(\is_array($pullRequests) ? $pullRequests : []), ...$this->headHints($check['head_sha'] ?? null)];
+    }
+
+    /** @return list<PullRequestRefreshHint> */
+    private function pushHints(): array
+    {
+        $ref = $this->payload['ref'] ?? null;
+        if (true === ($this->payload['deleted'] ?? null) || !\is_string($ref) || !str_starts_with($ref, 'refs/heads/')) {
+            return [];
+        }
+
+        $branch = substr($ref, \strlen('refs/heads/'));
+
+        return '' === $branch ? [] : [PullRequestRefreshHint::base($branch)];
+    }
+
+    /**
+     * @param array<mixed> $pullRequests
+     *
+     * @return list<PullRequestRefreshHint>
+     */
+    private function numberHints(array $pullRequests): array
+    {
+        $hints = [];
+        foreach ($pullRequests as $pullRequest) {
+            $number = \is_array($pullRequest) ? ($pullRequest['number'] ?? null) : null;
+            if (\is_int($number) && $number > 0) {
+                $hints[] = PullRequestRefreshHint::number($number);
+            }
+        }
+
+        return $hints;
+    }
+
+    /** @return list<PullRequestRefreshHint> */
+    private function headHints(mixed $sha): array
+    {
+        return \is_string($sha) && '' !== $sha ? [PullRequestRefreshHint::head($sha)] : [];
     }
 
     /**

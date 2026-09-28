@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
@@ -18,6 +19,7 @@ final readonly class ShowCardPlacementHandler
         private BoardColumnCards $columnCards,
         private CardRepository $cards,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
+        private CardDocumentRepository $cardDocuments,
     ) {
     }
 
@@ -78,6 +80,7 @@ final readonly class ShowCardPlacementHandler
         }
 
         $pending = null === $found ? 0 : ($this->cardSiteReviewComments->pendingCountsForProject($command->project)[(string) $found->id] ?? 0);
+        $documentCount = null === $found ? 0 : ($this->cardDocuments->countsForProject($command->project)[(string) $found->id] ?? 0);
 
         $progress = null;
         if (CardType::Epic === $found?->type) {
@@ -85,7 +88,7 @@ final readonly class ShowCardPlacementHandler
             $progress = new CardProgress($children['done'], $children['total']);
         }
 
-        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $counts, $terminalTotals, $progress, $lane, $laneHead, $laneAfter);
+        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $documentCount, $counts, $terminalTotals, $progress, $lane, $laneHead, $laneAfter);
     }
 
     /**

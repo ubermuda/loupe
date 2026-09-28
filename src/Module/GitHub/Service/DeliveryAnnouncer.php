@@ -11,18 +11,20 @@ use App\Module\Forge\ForgeEventType;
 use App\Module\Forge\Service\ForgeClaim;
 use App\Module\Forge\Service\ForgeClaimOutcome;
 use App\Module\Forge\Service\ForgeRepositories;
+use App\Module\Forge\Service\PullRequestTracker;
 use App\Module\GitHub\GitHubDelivery;
 use App\Module\GitHub\GitHubRepositoryRef;
 use App\Module\Project\Entity\Project;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 
-/** Claims the repository a delivery names for one project, then announces what the delivery says. */
+/** Claims the repository a delivery names for one project, then announces what the delivery says and queues the refreshes it hints. */
 final readonly class DeliveryAnnouncer
 {
     public function __construct(
         private ForgeRepositories $forgeRepositories,
         private EventDispatcherInterface $events,
+        private PullRequestTracker $tracker,
         private LoggerInterface $logger,
     ) {
     }
@@ -63,6 +65,14 @@ final readonly class DeliveryAnnouncer
         $deliveries = $delivery->forgeDeliveries();
         if ([] !== $deliveries) {
             $this->dispatch($project, $deliveries);
+        }
+
+        foreach ($delivery->refreshHints() as $hint) {
+            match (true) {
+                null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number),
+                null !== $hint->headSha => $this->tracker->refreshHead($project, GitHubDelivery::FORGE, $repository->fullName, $hint->headSha),
+                default => $this->tracker->refreshBase($project, GitHubDelivery::FORGE, $repository->fullName, $hint->baseBranch ?? throw new \LogicException('A hint sets one field.')),
+            };
         }
     }
 

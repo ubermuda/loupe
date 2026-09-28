@@ -10,8 +10,10 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Install\BoardInstallFlags;
+use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Entity\ForgeRepositorySource;
+use App\Module\Forge\Messenger\RefreshPullRequestState;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\GitHub\Entity\GitHubInstallation;
@@ -20,6 +22,8 @@ use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /** Fixtures the GitHub delivery tests share. */
@@ -87,6 +91,34 @@ trait GitHubDeliveryScenario
         $this->em()->flush();
 
         return $card;
+    }
+
+    private function trackedPullRequest(Project $project, string $repository, int $number, string $headSha, string $baseBranch = 'main'): string
+    {
+        $pullRequest = new ForgePullRequest($project, 'github', $repository, $number);
+        $pullRequest->headSha = $headSha;
+        $pullRequest->baseBranch = $baseBranch;
+        $this->em()->persist($pullRequest);
+        $this->em()->flush();
+
+        return (string) $pullRequest->id;
+    }
+
+    /** @return list<array{string, bool}> the pull request id of each queued refresh, and whether it waits */
+    private function queuedRefreshes(): array
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        $refreshes = [];
+        foreach ($transport->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof RefreshPullRequestState) {
+                $refreshes[] = [$message->pullRequestId, null !== $envelope->last(DelayStamp::class)];
+            }
+        }
+
+        return $refreshes;
     }
 
     /** @param array<mixed> $payload */

@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Controller;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
@@ -14,6 +15,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Entity\Document;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -292,6 +294,104 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame(0, $lazyLinkReads);
     }
 
+    public function test_the_board_reads_document_counts_in_one_query_whatever_the_card_count(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'board-document-queries@example.com');
+        $boards = [];
+        foreach (['three-cards' => 3, 'twelve-cards' => 12] as $name => $size) {
+            $project = $this->project($em, $owner, $name);
+            for ($index = 0; $index < $size; ++$index) {
+                $this->documentedCard($em, $project, 'Card '.$index, 1 + $index % 2);
+            }
+            $boards[$name] = '/projects/'.$project->id.'/board';
+        }
+        $em->clear();
+
+        $client->loginUser($owner);
+        // The first request shares the kernel the fixtures used, so its profile holds their queries too.
+        $client->request(Request::METHOD_GET, $boards['three-cards']);
+
+        $reads = [];
+        foreach ($boards as $name => $url) {
+            $client->enableProfiler();
+            $client->request(Request::METHOD_GET, $url);
+            self::assertResponseIsSuccessful();
+
+            $profile = $client->getProfile();
+            self::assertInstanceOf(Profile::class, $profile);
+            $collector = $profile->getCollector('db');
+            self::assertInstanceOf(DoctrineDataCollector::class, $collector);
+
+            $selects = 0;
+            $documentReads = 0;
+            foreach ($collector->getQueries() as $queries) {
+                foreach ($queries as $query) {
+                    $sql = (string) $query['sql'];
+                    if (!str_starts_with($sql, 'SELECT')) {
+                        continue;
+                    }
+                    ++$selects;
+                    if (str_contains($sql, 'FROM board_card_documents')) {
+                        ++$documentReads;
+                    }
+                }
+            }
+            $reads[$name] = ['selects' => $selects, 'documents' => $documentReads];
+        }
+
+        self::assertSame(1, $reads['three-cards']['documents']);
+        self::assertSame(1, $reads['twelve-cards']['documents']);
+        self::assertSame($reads['three-cards']['selects'], $reads['twelve-cards']['selects']);
+    }
+
+    public function test_a_card_shows_how_many_documents_it_links(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-document-badge@example.com');
+        $project = $this->project($em, $owner);
+        $documented = $this->documentedCard($em, $project, 'Documented', 2);
+        $plain = $this->card($em, $project, 'Plain');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('2', trim($crawler->filter('#board-card-'.$documented->id.' .lp-board-card__documents')->text()));
+        self::assertCount(0, $crawler->filter('#board-card-'.$plain->id.' .lp-board-card__documents'));
+    }
+
+    public function test_the_board_and_the_placement_agree_on_the_digest_of_a_card_with_documents(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-document-digest@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->documentedCard($em, $project, 'Documented', 2);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        self::assertResponseIsSuccessful();
+        $boardDigest = $crawler->filter('#board-card-'.$card->id)->attr('data-card-digest');
+        self::assertNotEmpty($boardDigest);
+        self::assertSame($boardDigest, $crawler->filter('#board-row-'.$card->id)->attr('data-card-digest'));
+
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id.'/placement');
+        self::assertResponseIsSuccessful();
+        $placement = new Crawler((string) $client->getResponse()->getContent());
+        self::assertSame($boardDigest, $placement->filter('#board-card-'.$card->id)->attr('data-card-digest'));
+        self::assertSame($boardDigest, $placement->filter('#board-row-'.$card->id)->attr('data-card-digest'));
+    }
+
     /** The warning holds while the card stays in the column that started the run, or when the run names none. */
     public function test_a_card_shows_the_run_that_gave_up_until_it_leaves_the_column(): void
     {
@@ -326,6 +426,13 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame((string) $blocked->id, $crawler->filter('[data-card-id="'.$unnamed->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$moved->id.'"] [data-card-run-warning]'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$quiet->id.'"] [data-card-run-warning]'));
+
+        foreach ([$stays, $moved, $unnamed, $quiet] as $card) {
+            self::assertSame(
+                $crawler->filter('#board-card-'.$card->id)->attr('data-card-digest'),
+                $crawler->filter('#board-row-'.$card->id)->attr('data-card-digest'),
+            );
+        }
     }
 
     /** A card inside an epic lane shows its warning too, and lanes render through their own templates. */
@@ -462,6 +569,20 @@ final class ShowBoardControllerTest extends WebTestCase
             repository: 'loupe/loupe',
             number: 1,
         ));
+        $em->flush();
+
+        return $card;
+    }
+
+    private function documentedCard(EntityManagerInterface $em, Project $project, string $title, int $documents): Card
+    {
+        $card = $this->card($em, $project, $title);
+        for ($index = 0; $index < $documents; ++$index) {
+            $document = new Document($project->owner, $project, $title.' design '.$index);
+            $document->addVersion('# Design', '<h1>Design</h1>');
+            $em->persist($document);
+            $em->persist(new CardDocument($card, $document));
+        }
         $em->flush();
 
         return $card;

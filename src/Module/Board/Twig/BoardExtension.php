@@ -29,19 +29,28 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\View\DocumentListItem;
 use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\FormRenderer;
 use Symfony\Component\Form\FormView;
+use Symfony\Contracts\Service\ResetInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Twig\Environment;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
 
 /**
- * The board renders one move form per card, so the forms are built here rather
- * than passed down as an array from the controller. Each one carries the card's
- * own name, so the rendered field ids and names do not collide across cards.
+ * The board face renders the move fields of one prototype form per project,
+ * then puts each card's own form name in place of the prototype's name.
  */
-final class BoardExtension extends AbstractExtension
+final class BoardExtension extends AbstractExtension implements ResetInterface
 {
+    private const array MOVE_FIELDS = ['_token', 'column', 'position', 'parent', 'beforeCardId', 'afterCardId'];
+
+    private readonly string $prototypeName;
+
+    /** @var array<string, string> project id => rendered prototype fields */
+    private array $moveFields = [];
+
     public function __construct(
         private readonly FormFactoryInterface $formFactory,
         private readonly MarkdownRenderer $markdown,
@@ -50,6 +59,13 @@ final class BoardExtension extends AbstractExtension
         private readonly BoardColumnRepository $boardColumns,
         private readonly BoardColumnTonePicker $tonePicker,
     ) {
+        $this->prototypeName = 'move_card_'.bin2hex(random_bytes(8));
+    }
+
+    #[\Override]
+    public function reset(): void
+    {
+        $this->moveFields = [];
     }
 
     #[\Override]
@@ -57,6 +73,7 @@ final class BoardExtension extends AbstractExtension
     {
         return [
             new TwigFunction('card_move_form', $this->cardMoveForm(...)),
+            new TwigFunction('card_move_fields', $this->cardMoveFields(...), ['needs_environment' => true, 'is_safe' => ['html']]),
             new TwigFunction('card_lane_form', $this->cardLaneForm(...)),
             new TwigFunction('card_digest', $this->cardDigest(...)),
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),
@@ -90,6 +107,27 @@ final class BoardExtension extends AbstractExtension
             ->createView();
     }
 
+    /** The column select is left unselected, because the drag controller writes it before it submits. */
+    public function cardMoveFields(Environment $env, Card $card): string
+    {
+        $html = $this->moveFields[(string) $card->project->id] ??= $this->renderMovePrototype($env, $card->project);
+
+        return str_replace($this->prototypeName, MoveCardFormType::nameFor($card), $html);
+    }
+
+    private function renderMovePrototype(Environment $env, Project $project): string
+    {
+        $view = $this->formFactory
+            ->createNamed($this->prototypeName, MoveCardFormType::class, new MoveCardRequest(), ['project' => $project])
+            ->createView();
+        $renderer = $env->getRuntime(FormRenderer::class);
+
+        return implode('', array_map(
+            static fn (string $field): string => $renderer->searchAndRenderBlock($view[$field], 'widget'),
+            self::MOVE_FIELDS,
+        ));
+    }
+
     /** A form that asks for the opposite of the lane setting the epic holds now. */
     public function cardLaneForm(Card $card, string $returnTo): FormView
     {
@@ -105,8 +143,9 @@ final class BoardExtension extends AbstractExtension
     /**
      * A short hash of what the card face and its list row show, and of where the
      * card sits, so a page can tell a changed card from an unchanged one.
+     * `$warningRunId` names the run whose warning the card face shows, if any.
      */
-    public function cardDigest(Card $card, int $pendingComments, ?CardProgress $progress): string
+    public function cardDigest(Card $card, int $pendingComments, int $documentCount, ?CardProgress $progress, ?string $warningRunId): string
     {
         return substr(sha1(json_encode([
             $card->number,
@@ -115,10 +154,11 @@ final class BoardExtension extends AbstractExtension
             $card->type->value,
             $pendingComments,
             $card->pullRequests->count(),
-            $card->documents->count(),
+            $documentCount,
             (string) $card->column->id,
             $card->position,
             null === $progress ? null : [$progress->done, $progress->total],
+            $warningRunId,
         ], \JSON_THROW_ON_ERROR)), 0, 12);
     }
 

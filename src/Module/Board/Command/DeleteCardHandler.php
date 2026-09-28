@@ -12,6 +12,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
+use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -31,6 +32,7 @@ final readonly class DeleteCardHandler
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardGroupOrder $groupOrder,
         private CardParentPolicy $parentPolicy,
+        private PullRequestTracking $pullRequestTracking,
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private EventDispatcherInterface $events,
@@ -89,8 +91,10 @@ final readonly class DeleteCardHandler
                 $this->interactiveRuns->closeOnMove($card->project, [$card->id]);
             }
 
+            $trackedBefore = $this->pullRequestTracking->referencesOf($card);
             $this->em->remove($card);
             $this->em->flush();
+            $this->pullRequestTracking->apply($card->project, $trackedBefore, []);
 
             // After the flush, so the epic counts its children without this
             // one. A listener must not read the card, which is gone.
