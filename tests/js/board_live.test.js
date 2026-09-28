@@ -630,19 +630,20 @@ it('fetches no extra card for a history total when a changed card refreshes the 
     expect(placements()).toEqual(['b']);
 });
 
-it('places nothing and dispatches nothing when a history total changed and the board has no card', async () => {
+it('resyncs the structure when a history total changed and the board has no card', async () => {
     document.getElementById('board').innerHTML =
         '<a id="board-history-done" data-history-total="1"></a>';
     answerManifest(
         json({ cards: [], structure: 'frame', terminalTotals: { done: 0 } }),
     );
     reconnect();
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(structureReads()).toHaveLength(0);
 
-    expect(manifestReads()).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(structureReads()).toHaveLength(1);
     expect(placements()).toEqual([]);
     expect(dispatch).not.toHaveBeenCalled();
-    expect(sign().textContent).toBe('');
 });
 
 it('ignores the digest of the list row of a card with a face', async () => {
@@ -1675,6 +1676,28 @@ describe('a structure resync', () => {
         await vi.advanceTimersByTimeAsync(60000);
         expect(structureReads()).toHaveLength(1);
         expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('resyncs once when the history total stays stale on a board with no card', async () => {
+        board().innerHTML =
+            '<a id="board-history-done" data-history-total="1"></a>';
+        answerRoutes({
+            manifest: () =>
+                json({
+                    cards: [],
+                    structure: 'frame',
+                    terminalTotals: { done: 0 },
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(16);
+        expect(manifestReads()).toHaveLength(1);
+
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(structureReads()).toHaveLength(1);
+        expect(manifestReads()).toHaveLength(1);
+        expect(sign().textContent).toBe('');
     });
 
     it('runs the card pass only after the structure has rendered', async () => {

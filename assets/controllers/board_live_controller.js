@@ -186,7 +186,7 @@ export default class extends Controller {
 
             return;
         }
-        this.cardPass(manifest);
+        this.cardPass(manifest, { afterResync: false });
         this.setFailed(false);
     }
 
@@ -308,7 +308,7 @@ export default class extends Controller {
 
             return;
         }
-        this.cardPass(read.manifest);
+        this.cardPass(read.manifest, { afterResync: true });
         this.resyncAttempts = 0;
         this.setFailed(false);
         this.finishResync();
@@ -399,7 +399,7 @@ export default class extends Controller {
      * Places each card that the page misses, shows out of order, in another
      * lane, or with another digest than the manifest has.
      */
-    cardPass(manifest) {
+    cardPass(manifest, { afterResync }) {
         const shown = new Map();
         this.element
             .querySelectorAll('.lp-board-card[data-card-digest]')
@@ -499,13 +499,13 @@ export default class extends Controller {
             .map(([cardId]) => cardId);
         const queued = [...removed, ...changed];
         // Any placement rewrites every history link, so one card is enough.
-        // A board with no card face has nothing to place.
-        if (
-            queued.length === 0 &&
-            faces.length > 0 &&
-            staleHistory(manifest.terminalTotals)
-        ) {
-            queued.push(faces[0][0]);
+        // With no card face, the structure render rewrites them, once.
+        if (queued.length === 0 && staleHistory(manifest.terminalTotals)) {
+            if (faces.length > 0) {
+                queued.push(faces[0][0]);
+            } else if (!afterResync) {
+                this.resyncStructure();
+            }
         }
         queued.forEach((cardId) =>
             this.receive({ cardId, local: false, own: false }),
