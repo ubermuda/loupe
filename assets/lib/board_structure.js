@@ -190,10 +190,16 @@ function home(layout, column) {
     );
 }
 
+/** A face from an epic lane hides its parent badge, so an empty digest makes the card pass re-place it. */
 function moveCards(from, to) {
-    if (to) {
-        to.append(...from.querySelectorAll(':scope > .lp-board-card'));
+    if (!to) {
+        return;
     }
+    const cards = [...from.querySelectorAll(':scope > .lp-board-card')];
+    if ((from.dataset.lane ?? 'other') !== 'other') {
+        cards.forEach((card) => (card.dataset.cardDigest = ''));
+    }
+    to.append(...cards);
 }
 
 /** Puts the nodes in order after the anchor, and moves only a node out of place, because a move reconnects its controllers. */

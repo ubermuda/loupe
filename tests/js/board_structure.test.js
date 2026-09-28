@@ -530,6 +530,28 @@ describe('board-structure with lanes', () => {
         expectSame(cards);
     });
 
+    it('clears the digest of a card that leaves an epic lane, so the card pass re-places its face', () => {
+        renderPage({ ...page, lanes: [EPIC, 'epic-2'] });
+
+        applyStructure(stream({ columns: page.columns, lanes: ['epic-2'] }));
+
+        expect(byId('board-card-a').dataset.cardDigest).toBe('');
+        expect(byId('board-card-b').dataset.cardDigest).toBe('');
+        expect(byId('board-card-c').dataset.cardDigest).toBe('d');
+        expect(byId('board-card-d').dataset.cardDigest).toBe('d');
+    });
+
+    it('clears the digest of the epic lane cards when the last lane goes', () => {
+        renderPage(page);
+
+        applyStructure(stream({ columns: page.columns }));
+
+        expect(byId('board-card-a').dataset.cardDigest).toBe('');
+        expect(byId('board-card-b').dataset.cardDigest).toBe('');
+        expect(byId('board-card-c').dataset.cardDigest).toBe('d');
+        expect(byId('board-card-d').dataset.cardDigest).toBe('d');
+    });
+
     it('switches to plain columns when the last lane goes', () => {
         renderPage(page);
         const cards = snapshot(['a', 'b', 'c', 'd']);

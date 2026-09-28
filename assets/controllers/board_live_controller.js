@@ -365,9 +365,23 @@ export default class extends Controller {
             ),
         );
         const faces = manifest.cards.filter(([, , , , laneHead]) => !laneHead);
-        const removed = [...shown.keys()].filter(
-            (cardId) => !listed.has(cardId) || listed.get(cardId).laneHead,
+        const rowIds = new Set(
+            [
+                ...this.element.querySelectorAll(
+                    '.lp-board-list__row[data-card-id]',
+                ),
+            ].map((row) => row.dataset.cardId),
         );
+        // A lane epic has no face, so only its list row shows that it is gone.
+        const removed = [
+            ...new Set([
+                ...[...shown.keys()].filter(
+                    (cardId) =>
+                        !listed.has(cardId) || listed.get(cardId).laneHead,
+                ),
+                ...[...rowIds].filter((cardId) => !listed.has(cardId)),
+            ]),
+        ];
         const moved = new Set();
         this.element
             .querySelectorAll(
@@ -421,6 +435,9 @@ export default class extends Controller {
                 }
                 if (!laneHead) {
                     return shown.get(cardId) !== digest;
+                }
+                if (!rowIds.has(cardId)) {
+                    return true;
                 }
 
                 return (

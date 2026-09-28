@@ -350,6 +350,7 @@ it('fetches a list row that moved across lane cells while each cell kept its ord
     answerManifest(
         json({
             cards: [
+                ['epic', 'old', 'k', 'epic', true],
                 ['b', 'old', 'k', 'other'],
                 ['a', 'old', 'k', 'epic'],
             ],
@@ -387,7 +388,7 @@ it('fetches a lane epic whose list row moved past an ordinary row', async () => 
     expect(reloads).toBe(0);
 });
 
-it('never counts a lane head as an added or a removed card', async () => {
+it('never counts a lane head with a list row as an added or a removed card', async () => {
     document
         .getElementById('board')
         .insertAdjacentHTML(
@@ -400,7 +401,6 @@ it('never counts a lane head as an added or a removed card', async () => {
                 ['a', 'old', 'k', null],
                 ['b', 'old', 'k', null],
                 ['epic', 'new', 'k', 'epic', true],
-                ['gone', 'new', 'k', 'gone', true],
             ],
             structure: 'frame',
         }),
@@ -410,6 +410,64 @@ it('never counts a lane head as an added or a removed card', async () => {
 
     expect(placements()).toEqual([]);
     expect(reloads).toBe(0);
+});
+
+it('fetches a lane head that has no list row on the page', async () => {
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['epic', 'new', 'k', 'epic', true],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['epic']);
+    expect(reloads).toBe(0);
+});
+
+it('fetches a list row whose card the manifest no longer has, such as a deleted lane epic', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a id="board-row-epic" class="lp-board-list__row" data-card-id="epic" data-card-digest="old"></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['epic']);
+    expect(reloads).toBe(0);
+});
+
+it('fetches a card whose face lost its digest when it left an epic lane', async () => {
+    card().dataset.cardDigest = '';
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['a']);
 });
 
 it('fetches a lane head whose list row digest changed, and not one that kept it', async () => {
@@ -487,6 +545,7 @@ it('fetches nothing when the list rows keep the manifest order', async () => {
     answerManifest(
         json({
             cards: [
+                ['epic', 'old', 'k', 'epic', true],
                 ['a', 'old', 'k', null],
                 ['b', 'old', 'k', null],
             ],
@@ -585,13 +644,7 @@ it('reloads when a history total changed and the board has no card to fetch', as
     expect(reloads).toBe(1);
 });
 
-it('ignores the list rows, which carry a digest too', async () => {
-    document
-        .getElementById('board')
-        .insertAdjacentHTML(
-            'beforeend',
-            '<a class="lp-board-list__row" data-card-id="z" data-card-digest="old"></a>',
-        );
+it('ignores the digest of the list row of a card with a face', async () => {
     document.querySelector('.lp-board-list__row').dataset.cardDigest = 'stale';
     answerManifest(
         json({
