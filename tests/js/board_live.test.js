@@ -17,6 +17,7 @@ const MANIFEST = '/projects/p/board/manifest';
 const STRUCTURE = '/projects/p/board/structure';
 
 const STALE_TEXT = 'This card may be out of date';
+const FAILED_TEXT = 'Live updates stopped. Reload the page to catch up.';
 
 let application;
 let change;
@@ -25,7 +26,7 @@ let columnsChanged;
 let columnsOptions;
 let setStatus;
 let answer;
-let reloads;
+let dispatch;
 
 /** Answers the manifest read with the given response, and each placement with a stream. */
 function answerManifest(response) {
@@ -81,6 +82,7 @@ function missed(cardId) {
 }
 
 const card = () => document.getElementById('board-card-a');
+const sign = () => document.querySelector('[data-board-live-target="paused"]');
 const row = () => document.getElementById('board-row-a');
 const stream = (body = '<turbo-stream></turbo-stream>') => ({
     ok: true,
@@ -106,7 +108,7 @@ beforeEach(async () => {
             data-board-live-manifest-value="${MANIFEST}"
             data-board-live-structure-value="${STRUCTURE}"
             data-board-live-stale-value="${STALE_TEXT}">
-        <p data-board-live-target="paused" role="status" data-message="Live updates paused"></p>
+        <p data-board-live-target="paused" role="status" data-message="Live updates paused" data-failed-message="${FAILED_TEXT}"></p>
         <div id="board" data-board-structure-digest="frame">
             <div class="lp-board__group" data-column="k">
                 <article id="board-card-a" class="lp-board-card" data-card-id="a" data-card-digest="old"></article>
@@ -116,10 +118,7 @@ beforeEach(async () => {
             <a class="lp-board-list__row" data-card-id="b" data-card-digest="old"></a>
         </div>
     </div>`;
-    reloads = 0;
-    document
-        .getElementById('wrapper')
-        .addEventListener('board-live:reload', () => (reloads += 1));
+    dispatch = vi.spyOn(BoardLiveController.prototype, 'dispatch');
     answer = () => Promise.resolve(stream());
     vi.stubGlobal(
         'fetch',
@@ -169,7 +168,7 @@ it('listens for card changes and for a reconnect', () => {
 it('does not read the manifest when it first connects', async () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(fetch).not.toHaveBeenCalled();
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('reads the manifest after a reconnect and fetches a card whose digest changed', async () => {
@@ -191,7 +190,7 @@ it('reads the manifest after a reconnect and fetches a card whose digest changed
     expect(options.credentials).toBe('same-origin');
     expect(options.signal).toBeInstanceOf(AbortSignal);
     expect(placements()).toEqual(['b']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a card the manifest has and the page does not', async () => {
@@ -225,7 +224,7 @@ it('fetches a removed card first, then the rest in manifest order', async () => 
     await vi.advanceTimersByTimeAsync(150);
 
     expect(placements()).toEqual(['b', 'c', 'a']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('does nothing more when the page already shows every card', async () => {
@@ -243,7 +242,7 @@ it('does nothing more when the page already shows every card', async () => {
 
     expect(manifestReads()).toHaveLength(1);
     expect(placements()).toEqual([]);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a card that moved in its column, and not its unchanged neighbours', async () => {
@@ -267,7 +266,7 @@ it('fetches a card that moved in its column, and not its unchanged neighbours', 
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['b']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('compares the order in each lane cell on its own', async () => {
@@ -314,7 +313,7 @@ it('fetches a card whose lane changed within its column while its cell kept its 
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['b']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a card that the page shows in a plain column while the manifest puts it in a lane', async () => {
@@ -331,7 +330,7 @@ it('fetches a card that the page shows in a plain column while the manifest puts
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['b']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a list row that moved across lane cells while each cell kept its order', async () => {
@@ -361,7 +360,7 @@ it('fetches a list row that moved across lane cells while each cell kept its ord
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['a']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a lane epic whose list row moved past an ordinary row', async () => {
@@ -385,7 +384,7 @@ it('fetches a lane epic whose list row moved past an ordinary row', async () => 
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['epic']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('never counts a lane head with a list row as an added or a removed card', async () => {
@@ -409,7 +408,7 @@ it('never counts a lane head with a list row as an added or a removed card', asy
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual([]);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a lane head that has no list row on the page', async () => {
@@ -427,7 +426,7 @@ it('fetches a lane head that has no list row on the page', async () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['epic']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a list row whose card the manifest no longer has, such as a deleted lane epic', async () => {
@@ -450,7 +449,7 @@ it('fetches a list row whose card the manifest no longer has, such as a deleted 
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['epic']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a card whose face lost its digest when it left an epic lane', async () => {
@@ -493,7 +492,7 @@ it('fetches a lane head whose list row digest changed, and not one that kept it'
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['changed']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('makes no reload on a reconnect after a live lane head placement', async () => {
@@ -532,7 +531,7 @@ it('makes no reload on a reconnect after a live lane head placement', async () =
 
     expect(placements()).toEqual(['epic']);
     expect(manifestReads()).toHaveLength(1);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches nothing when the list rows keep the manifest order', async () => {
@@ -580,7 +579,7 @@ it('fetches one card when only a history total changed, so the history links ref
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['a']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches nothing more when the history totals match the page', async () => {
@@ -605,7 +604,7 @@ it('fetches nothing more when the history totals match the page', async () => {
 
     expect(manifestReads()).toHaveLength(1);
     expect(placements()).toEqual([]);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches no extra card for a history total when a changed card refreshes the links', async () => {
@@ -631,17 +630,20 @@ it('fetches no extra card for a history total when a changed card refreshes the 
     expect(placements()).toEqual(['b']);
 });
 
-it('reloads when a history total changed and the board has no card to fetch', async () => {
+it('resyncs the structure when a history total changed and the board has no card', async () => {
     document.getElementById('board').innerHTML =
         '<a id="board-history-done" data-history-total="1"></a>';
     answerManifest(
         json({ cards: [], structure: 'frame', terminalTotals: { done: 0 } }),
     );
     reconnect();
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(structureReads()).toHaveLength(0);
 
+    await vi.advanceTimersByTimeAsync(300);
+    expect(structureReads()).toHaveLength(1);
     expect(placements()).toEqual([]);
-    expect(reloads).toBe(1);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('ignores the digest of the list row of a card with a face', async () => {
@@ -659,7 +661,7 @@ it('ignores the digest of the list row of a card with a face', async () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual([]);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('resyncs the structure, and does not reload, when the structure changed', async () => {
@@ -678,7 +680,7 @@ it('resyncs the structure, and does not reload, when the structure changed', asy
 
     await vi.advanceTimersByTimeAsync(300);
     expect(structureReads()).toHaveLength(1);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('reads the structure digest at compare time, after the frame re-rendered', async () => {
@@ -703,13 +705,18 @@ it('reads the structure digest at compare time, after the frame re-rendered', as
     );
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it.each([
     [
         'a response that is not 2xx',
-        () => Promise.resolve({ ok: false, json: () => Promise.resolve({}) }),
+        () =>
+            Promise.resolve({
+                ok: false,
+                status: 500,
+                json: () => Promise.resolve({}),
+            }),
     ],
     ['a network error', () => Promise.reject(new TypeError('offline'))],
     [
@@ -753,16 +760,101 @@ it.each([
                 json({ cards: [['a', 'old', 'k', 7]], structure: 'frame' }),
             ),
     ],
-])('reloads the board after %s', async (label, response) => {
-    answerManifest(response);
-    reconnect();
-    await vi.advanceTimersByTimeAsync(1000);
+])(
+    'retries the catch-up after %s, and says live updates stopped after the last retry',
+    async (label, response) => {
+        answerManifest(response);
+        reconnect();
+        await vi.advanceTimersByTimeAsync(999);
+        expect(manifestReads()).toHaveLength(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(manifestReads()).toHaveLength(2);
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(manifestReads()).toHaveLength(3);
+        expect(sign().textContent).toBe('');
 
-    expect(reloads).toBe(1);
-    expect(placements()).toEqual([]);
+        await vi.advanceTimersByTimeAsync(9000);
+        expect(manifestReads()).toHaveLength(4);
+        expect(sign().textContent).toBe(FAILED_TEXT);
+
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(manifestReads()).toHaveLength(4);
+        expect(placements()).toEqual([]);
+        expect(dispatch).not.toHaveBeenCalled();
+    },
+);
+
+it.each([403, 404, 401])(
+    'stops the catch-up at once on a %s, and says live updates stopped',
+    async (code) => {
+        answerManifest({ ok: false, status: code, json: () => ({}) });
+        reconnect();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(sign().textContent).toBe(FAILED_TEXT);
+
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(manifestReads()).toHaveLength(1);
+        expect(dispatch).not.toHaveBeenCalled();
+    },
+);
+
+it('clears the message on the next successful catch-up', async () => {
+    answerManifest({ ok: false, status: 404, json: () => ({}) });
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sign().textContent).toBe(FAILED_TEXT);
+
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'new', 'k', null],
+                ['b', 'old', 'k', null],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(sign().textContent).toBe('');
+    expect(placements()).toEqual(['a']);
 });
 
-it('gives up on a stalled manifest read and reloads', async () => {
+it('cancels a waiting catch-up retry when a new reconnect starts', async () => {
+    answerManifest({ ok: false, status: 500, json: () => ({}) });
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    answerManifest(json({ cards: [], structure: 'frame' }));
+    reconnect();
+    await vi.advanceTimersByTimeAsync(60000);
+
+    expect(manifestReads()).toHaveLength(2);
+    expect(sign().textContent).toBe('');
+});
+
+it('clears a waiting catch-up retry when it disconnects', async () => {
+    answerManifest({ ok: false, status: 500, json: () => ({}) });
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(1);
+
+    document.getElementById('wrapper').removeAttribute('data-controller');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(0);
+});
+
+it('shows the paused sign before the failed sign, and the failed sign while live', async () => {
+    answerManifest({ ok: false, status: 403, json: () => ({}) });
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sign().textContent).toBe(FAILED_TEXT);
+
+    setStatus('paused');
+    expect(sign().textContent).toBe('Live updates paused');
+    setStatus('live');
+    expect(sign().textContent).toBe(FAILED_TEXT);
+});
+
+it('gives up on a stalled manifest read and retries it', async () => {
     answerManifest(
         (options) =>
             new Promise((resolve, reject) => {
@@ -772,11 +864,12 @@ it('gives up on a stalled manifest read and reloads', async () => {
             }),
     );
     reconnect();
-    await vi.advanceTimersByTimeAsync(9999);
-    expect(reloads).toBe(0);
+    await vi.advanceTimersByTimeAsync(10000 + 999);
+    expect(manifestReads()).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(1);
-    expect(reloads).toBe(1);
+    expect(manifestReads()).toHaveLength(2);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('aborts an older manifest read on a second reconnect and uses the newer one', async () => {
@@ -800,7 +893,7 @@ it('aborts an older manifest read on a second reconnect and uses the newer one',
     expect(signals).toHaveLength(2);
     expect(signals[0].aborted).toBe(true);
     expect(signals[1].aborted).toBe(false);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 
     finishes[1](
         json({
@@ -813,7 +906,7 @@ it('aborts an older manifest read on a second reconnect and uses the newer one',
     );
     await vi.advanceTimersByTimeAsync(150);
     expect(placements()).toEqual(['a']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('aborts a manifest read when it disconnects, and does not reload', async () => {
@@ -835,7 +928,7 @@ it('aborts a manifest read when it disconnects, and does not reload', async () =
     await vi.advanceTimersByTimeAsync(0);
 
     expect(signal.aborted).toBe(true);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
 });
 
@@ -1557,16 +1650,54 @@ describe('a structure resync', () => {
     const signal = () => columnsChanged({ type: 'board.columns_changed' });
     const board = () => document.getElementById('board');
 
-    it('reloads when the structure renders and the manifest read fails', async () => {
+    it('retries the resync when the structure renders and the manifest read fails', async () => {
         answerRoutes({ manifest: () => failure(500) });
         signal();
         await vi.advanceTimersByTimeAsync(300);
-        await vi.advanceTimersByTimeAsync(1000);
+        await vi.advanceTimersByTimeAsync(16);
 
         expect(renderStreamMessage).toHaveBeenCalledWith('<s></s>');
         expect(manifestReads()).toHaveLength(1);
-        expect(reloads).toBe(1);
+        await vi.advanceTimersByTimeAsync(999);
+        expect(structureReads()).toHaveLength(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(structureReads()).toHaveLength(2);
         expect(placements()).toEqual([]);
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('stops the resync at once when the manifest read after the render answers 403', async () => {
+        answerRoutes({ manifest: () => failure(403) });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(16);
+        expect(sign().textContent).toBe(FAILED_TEXT);
+
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(structureReads()).toHaveLength(1);
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('resyncs once when the history total stays stale on a board with no card', async () => {
+        board().innerHTML =
+            '<a id="board-history-done" data-history-total="1"></a>';
+        answerRoutes({
+            manifest: () =>
+                json({
+                    cards: [],
+                    structure: 'frame',
+                    terminalTotals: { done: 0 },
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(16);
+        expect(manifestReads()).toHaveLength(1);
+
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(structureReads()).toHaveLength(1);
+        expect(manifestReads()).toHaveLength(1);
+        expect(sign().textContent).toBe('');
     });
 
     it('runs the card pass only after the structure has rendered', async () => {
@@ -1581,20 +1712,21 @@ describe('a structure resync', () => {
         structureChanged();
         await vi.advanceTimersByTimeAsync(150);
         expect(placements()).toEqual(['a']);
-        expect(reloads).toBe(0);
+        expect(dispatch).not.toHaveBeenCalled();
     });
 
-    it('reloads when the structure never renders', async () => {
+    it('retries the resync when the structure never renders', async () => {
         answerRoutes();
         renderStreamMessage.mockImplementation(() => {});
         signal();
         await vi.advanceTimersByTimeAsync(300);
-        await vi.advanceTimersByTimeAsync(4999);
-        expect(reloads).toBe(0);
+        await vi.advanceTimersByTimeAsync(5000 + 999);
+        expect(structureReads()).toHaveLength(1);
 
         await vi.advanceTimersByTimeAsync(1);
-        expect(reloads).toBe(1);
+        expect(structureReads()).toHaveLength(2);
         expect(placements()).toEqual([]);
+        expect(dispatch).not.toHaveBeenCalled();
     });
 
     it('listens for a column change', () => {
@@ -1657,7 +1789,7 @@ describe('a structure resync', () => {
             fetch.mock.invocationCallOrder[manifestCall],
         );
         expect(placements()).toEqual(['a']);
-        expect(reloads).toBe(0);
+        expect(dispatch).not.toHaveBeenCalled();
     });
 
     it('places the cards even when the manifest structure differs from the page', async () => {
@@ -1669,7 +1801,7 @@ describe('a structure resync', () => {
 
         expect(placements()).toEqual(['a']);
         expect(structureReads()).toHaveLength(1);
-        expect(reloads).toBe(0);
+        expect(dispatch).not.toHaveBeenCalled();
     });
 
     it('waits while a drag runs, and resyncs once it ends', async () => {
@@ -1759,18 +1891,106 @@ describe('a structure resync', () => {
         ['a response that is not 2xx', () => failure(500)],
         ['a response that is not a stream', () => failure(200)],
         ['a network error', () => Promise.reject(new TypeError('offline'))],
-    ])('reloads the board after %s', async (label, structure) => {
-        answerRoutes({ structure });
+    ])(
+        'retries the resync after %s, and says live updates stopped after the last retry',
+        async (label, structure) => {
+            answerRoutes({ structure });
+            signal();
+            await vi.advanceTimersByTimeAsync(300);
+            expect(structureReads()).toHaveLength(1);
+            await vi.advanceTimersByTimeAsync(999);
+            expect(structureReads()).toHaveLength(1);
+            await vi.advanceTimersByTimeAsync(1);
+            expect(structureReads()).toHaveLength(2);
+            await vi.advanceTimersByTimeAsync(3000);
+            expect(structureReads()).toHaveLength(3);
+            expect(sign().textContent).toBe('');
+
+            await vi.advanceTimersByTimeAsync(9000);
+            expect(structureReads()).toHaveLength(4);
+            expect(sign().textContent).toBe(FAILED_TEXT);
+
+            await vi.advanceTimersByTimeAsync(60000);
+            expect(structureReads()).toHaveLength(4);
+            expect(renderStreamMessage).not.toHaveBeenCalled();
+            expect(manifestReads()).toHaveLength(0);
+            expect(dispatch).not.toHaveBeenCalled();
+        },
+    );
+
+    it.each([403, 404])(
+        'stops the resync at once on a %s structure read',
+        async (code) => {
+            answerRoutes({ structure: () => failure(code) });
+            signal();
+            await vi.advanceTimersByTimeAsync(300);
+            expect(sign().textContent).toBe(FAILED_TEXT);
+
+            await vi.advanceTimersByTimeAsync(60000);
+            expect(structureReads()).toHaveLength(1);
+        },
+    );
+
+    it('clears the message on the next successful resync', async () => {
+        answerRoutes({ structure: () => failure(404) });
         signal();
         await vi.advanceTimersByTimeAsync(300);
-        await vi.advanceTimersByTimeAsync(0);
+        expect(sign().textContent).toBe(FAILED_TEXT);
 
-        expect(reloads).toBe(1);
-        expect(renderStreamMessage).not.toHaveBeenCalled();
-        expect(manifestReads()).toHaveLength(0);
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(300 + 16 + 150);
+        expect(sign().textContent).toBe('');
+        expect(placements()).toEqual(['a']);
     });
 
-    it('leaves a change that arrives during a failed read to the reload', async () => {
+    it('counts the attempts afresh after a successful resync', async () => {
+        answerRoutes({ structure: () => failure(500) });
+        signal();
+        await vi.advanceTimersByTimeAsync(300 + 1000 + 3000);
+        expect(structureReads()).toHaveLength(3);
+
+        answerRoutes();
+        await vi.advanceTimersByTimeAsync(9000 + 16 + 150);
+        expect(structureReads()).toHaveLength(4);
+
+        answerRoutes({ structure: () => failure(500) });
+        signal();
+        await vi.advanceTimersByTimeAsync(300 + 1000 + 3000);
+        expect(structureReads()).toHaveLength(7);
+        expect(sign().textContent).toBe('');
+    });
+
+    it('lets a column change that arrives during a retry wait take over the retry', async () => {
+        answerRoutes({ structure: () => failure(500) });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        expect(structureReads()).toHaveLength(1);
+
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        expect(structureReads()).toHaveLength(2);
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(structureReads()).toHaveLength(2);
+    });
+
+    it('cancels a waiting catch-up retry when a resync starts', async () => {
+        answerRoutes({ manifest: () => failure(500) });
+        reconnect();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(manifestReads()).toHaveLength(1);
+
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(300 + 16 + 150);
+        expect(manifestReads()).toHaveLength(2);
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(manifestReads()).toHaveLength(2);
+        expect(sign().textContent).toBe('');
+    });
+
+    it('leaves a change that arrives during a failed read to the retry', async () => {
         let finish;
         answerRoutes({
             structure: () =>
@@ -1782,13 +2002,15 @@ describe('a structure resync', () => {
         await vi.advanceTimersByTimeAsync(300);
         signal();
         finish(failure(500));
-        await vi.advanceTimersByTimeAsync(3000);
-
-        expect(reloads).toBe(1);
+        await vi.advanceTimersByTimeAsync(999);
         expect(structureReads()).toHaveLength(1);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(structureReads()).toHaveLength(2);
+        expect(dispatch).not.toHaveBeenCalled();
     });
 
-    it('gives up on a stalled structure read and reloads', async () => {
+    it('gives up on a stalled structure read and retries it', async () => {
         answerRoutes({
             structure: (options) =>
                 new Promise((resolve, reject) => {
@@ -1798,14 +2020,15 @@ describe('a structure resync', () => {
                 }),
         });
         signal();
-        await vi.advanceTimersByTimeAsync(300 + 9999);
-        expect(reloads).toBe(0);
+        await vi.advanceTimersByTimeAsync(300 + 10000 + 999);
+        expect(structureReads()).toHaveLength(1);
 
         await vi.advanceTimersByTimeAsync(1);
-        expect(reloads).toBe(1);
+        expect(structureReads()).toHaveLength(2);
+        expect(dispatch).not.toHaveBeenCalled();
     });
 
-    it('aborts a structure read when it disconnects, and neither renders nor reloads', async () => {
+    it('aborts a structure read when it disconnects, and neither renders nor retries', async () => {
         let readSignal;
         answerRoutes({
             structure: (options) =>
@@ -1824,7 +2047,7 @@ describe('a structure resync', () => {
         await vi.advanceTimersByTimeAsync(0);
 
         expect(readSignal.aborted).toBe(true);
-        expect(reloads).toBe(0);
+        expect(dispatch).not.toHaveBeenCalled();
         expect(renderStreamMessage).not.toHaveBeenCalled();
         expect(vi.getTimerCount()).toBe(0);
     });
@@ -1840,8 +2063,7 @@ describe('a structure resync', () => {
 
     it('marks the element while the column subscription is open', async () => {
         const wrapper = document.getElementById('wrapper');
-        const marked = () =>
-            wrapper.hasAttribute('data-board-refresh-connected');
+        const marked = () => wrapper.hasAttribute('data-board-live-connected');
         expect(marked()).toBe(false);
         columnsOptions.onOpen();
         expect(marked()).toBe(true);

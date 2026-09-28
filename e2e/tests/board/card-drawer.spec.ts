@@ -60,10 +60,13 @@ test('a column adds and edits a card in the drawer, and the board follows', asyn
             .locator('.lp-board__column[data-column-slug="next"]')
             .getAttribute('data-column-id')) ?? '',
     );
-    // The board frame never reloads: the create and the save each place one card.
+    // The board never loads again: the create and the save each place one card.
     const boardLoads: string[] = [];
     page.on('request', (request) => {
-        if (request.headers()['turbo-frame'] === 'board-frame') {
+        if (
+            request.method() === 'GET' &&
+            new URL(request.url()).pathname === boardUrl
+        ) {
             boardLoads.push(request.url());
         }
     });

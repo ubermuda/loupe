@@ -16,7 +16,6 @@ beforeEach(async () => {
     vi.stubGlobal('matchMedia', () => ({ matches: false }));
     document.body.innerHTML = `<div data-controller="card-drawer">
         <a id="invoker" href="/card">Open card</a>
-        <turbo-frame id="board-frame"></turbo-frame>
         <dialog open data-card-drawer-target="dialog">
             <div data-card-drawer-target="loading" tabindex="-1" hidden>Loading</div>
             <div data-card-drawer-target="error" hidden><button>Retry</button></div>

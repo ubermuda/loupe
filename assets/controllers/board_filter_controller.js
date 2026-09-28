@@ -1,7 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 
 // A board re-render replaces this element and keeps its parent, so the parent
-// keys the query across a reload of the board frame or a stream replace.
+// keys the query across a stream replace.
 const savedStates = new WeakMap();
 const BEFORE_RENDER_EVENTS = [
     'turbo:before-frame-render',

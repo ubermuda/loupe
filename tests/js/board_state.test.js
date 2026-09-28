@@ -43,9 +43,9 @@ function boardHtml() {
 }
 
 async function mount() {
-    document.body.innerHTML = `<turbo-frame id="board-frame">${boardHtml()}</turbo-frame>`;
+    document.body.innerHTML = `<div class="lp-split-region">${boardHtml()}</div>`;
     await Promise.resolve();
-    return document.querySelector('turbo-frame');
+    return document.querySelector('.lp-split-region');
 }
 
 async function rerender(frame, eventType = 'turbo:before-frame-render') {

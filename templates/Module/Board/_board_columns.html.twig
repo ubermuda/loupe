@@ -1,5 +1,5 @@
 {# The board itself, with the page's heading row. Props: board (BoardView).
-   A frame reload keeps the toolbar, so the filter and the view come back
+   A structure update keeps the toolbar, so the filter and the view come back
    from it after each render. #}
 {% set runWarnings = board.runWarnings %}
 <div id="board" class="lp-board"
@@ -25,7 +25,7 @@
               data-board-filter-target="count"
               data-one="{{ 'board.card.count'|trans({'%count%': 1}) }}"
               data-many="{{ 'board.card.count'|trans({'%count%': 2})|replace({'2': '%count%'}) }}">{{ 'board.card.count'|trans({'%count%': cardCount}) }}</span>
-        <p class="lp-board-toolbar__paused" role="status" data-board-live-target="paused" data-message="{{ 'board.live.paused'|trans }}"></p>
+        <p class="lp-board-toolbar__paused" role="status" data-board-live-target="paused" data-message="{{ 'board.live.paused'|trans }}" data-failed-message="{{ 'board.live.catch_up_failed'|trans }}"></p>
         <div class="lp-board-toolbar__actions">
             <div class="lp-board-toolbar__mode" aria-label="{{ 'board.view.label'|trans }}">
                 <button type="button"
