@@ -31,7 +31,22 @@ async function setFlag(
 async function openBoard(page: Page, boardUrl: string): Promise<void> {
     await page.goto(boardUrl);
     // The hub keeps no history, so a change made before this connects is lost.
-    await expect(page.locator('[data-board-refresh-connected]')).toHaveCount(1);
+    await expect(page.locator('[data-board-live-connected]')).toHaveCount(1);
+}
+
+/** Collects each later GET of the board page, which would be a whole board reload. */
+function countBoardLoads(page: Page, boardUrl: string): string[] {
+    const loads: string[] = [];
+    page.on('request', (request) => {
+        if (
+            request.method() === 'GET' &&
+            new URL(request.url()).pathname === boardUrl
+        ) {
+            loads.push(request.url());
+        }
+    });
+
+    return loads;
 }
 
 test.afterAll(async ({ request }) => {
@@ -77,15 +92,8 @@ test('a column renamed in one browser shows in another without a reload', async 
     const renewal = watcher.waitForResponse((response) =>
         response.url().endsWith('/mercure/authorize'),
     );
-    const frameLoads: string[] = [];
-    watcher.on('request', (request) => {
-        if (request.headers()['turbo-frame'] === 'board-frame') {
-            frameLoads.push(request.url());
-        }
-    });
     await openBoard(watcher, boardUrl);
-    // The frame gets its src without a load, so the page loads the board once.
-    expect(frameLoads).toEqual([]);
+    const boardLoads = countBoardLoads(watcher, boardUrl);
     const renewed = await renewal;
     expect(renewed.status()).toBe(200);
     // The board topic, and the run topic of the card drawer the board hosts.
@@ -150,8 +158,8 @@ test('a column renamed in one browser shows in another without a reload', async 
                 (column) => (column as unknown as { kept?: boolean }).kept,
             ),
     ).toBe(true);
-    // The column change updates the structure in place, with no frame reload.
-    expect(frameLoads).toEqual([]);
+    // The column change updates the structure in place, with no board reload.
+    expect(boardLoads).toEqual([]);
 
     await editor.context().close();
     await watcher.context().close();
@@ -204,13 +212,8 @@ test('columns added, reordered and deleted in one browser update another in plac
     await createCard(editor, projectId, 'Moved', 'Next');
 
     const watcher = await signedInPage(browser, email, PASSWORD);
-    const frameLoads: string[] = [];
-    watcher.on('request', (request) => {
-        if (request.headers()['turbo-frame'] === 'board-frame') {
-            frameLoads.push(request.url());
-        }
-    });
     await openBoard(watcher, boardUrl);
+    const boardLoads = countBoardLoads(watcher, boardUrl);
     const kept = watcher.locator('.lp-board-card[data-card-title="Kept"]');
     await expect(kept).toBeVisible();
     // A re-render replaces the card element, and the new one lacks this property.
@@ -272,7 +275,7 @@ test('columns added, reordered and deleted in one browser update another in plac
         ),
     ).toBeVisible();
     await expect(kept).toHaveJSProperty('kept', true);
-    expect(frameLoads).toEqual([]);
+    expect(boardLoads).toEqual([]);
 
     await editor.context().close();
     await watcher.context().close();

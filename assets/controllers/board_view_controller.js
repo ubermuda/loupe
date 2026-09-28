@@ -1,7 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 
 // A board re-render replaces this element and keeps its parent, so the parent
-// keys the chosen view across a reload of the board frame or a stream replace.
+// keys the chosen view across a stream replace.
 const savedViews = new WeakMap();
 
 export default class extends Controller {
