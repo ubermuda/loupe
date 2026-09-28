@@ -164,8 +164,8 @@ it('reads the manifest after a reconnect and fetches a card whose digest changed
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'new', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'new', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -186,9 +186,9 @@ it('fetches a card the manifest has and the page does not', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['c', 'new', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['c', 'new', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -203,8 +203,8 @@ it('fetches a removed card first, then the rest in manifest order', async () => 
     answerManifest(
         json({
             cards: [
-                ['c', 'new', 'k'],
-                ['a', 'changed', 'k'],
+                ['c', 'new', 'k', null],
+                ['a', 'changed', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -220,8 +220,8 @@ it('does nothing more when the page already shows every card', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -243,10 +243,10 @@ it('fetches a card that moved in its column, and not its unchanged neighbours', 
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['c', 'old', 'k'],
-                ['d', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['c', 'old', 'k', null],
+                ['d', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -268,9 +268,9 @@ it('compares the order in each lane cell on its own', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['c', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['c', 'old', 'k', 'epic'],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -279,6 +279,47 @@ it('compares the order in each lane cell on its own', async () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual([]);
+});
+
+it('fetches a card whose lane changed within its column while its cell kept its order', async () => {
+    document.getElementById('board').innerHTML = `
+        <div class="lp-board-lane__cell" data-column="k" data-lane="epic">
+            <article id="board-card-a" class="lp-board-card" data-card-id="a" data-card-digest="old"></article>
+        </div>
+        <div class="lp-board-lane__cell" data-column="k" data-lane="other">
+            <article id="board-card-b" class="lp-board-card" data-card-id="b" data-card-digest="old"></article>
+        </div>`;
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', 'epic'],
+                ['b', 'old', 'k', 'epic'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['b']);
+    expect(reloads).toBe(0);
+});
+
+it('fetches a card that the page shows in a plain column while the manifest puts it in a lane', async () => {
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', 'other'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['b']);
+    expect(reloads).toBe(0);
 });
 
 it('fetches a list row that moved across lane cells while each cell kept its order', async () => {
@@ -297,8 +338,8 @@ it('fetches a list row that moved across lane cells while each cell kept its ord
     answerManifest(
         json({
             cards: [
-                ['b', 'old', 'k'],
-                ['a', 'old', 'k'],
+                ['b', 'old', 'k', 'other'],
+                ['a', 'old', 'k', 'epic'],
             ],
             structure: 'frame',
         }),
@@ -320,9 +361,9 @@ it('fetches a lane epic whose list row moved past an ordinary row', async () => 
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
-                ['epic', 'old', 'k', true],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['epic', 'old', 'k', 'epic', true],
             ],
             structure: 'frame',
         }),
@@ -344,10 +385,10 @@ it('never counts a lane head as an added or a removed card', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
-                ['epic', 'new', 'k', true],
-                ['gone', 'new', 'k', true],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['epic', 'new', 'k', 'epic', true],
+                ['gone', 'new', 'k', 'gone', true],
             ],
             structure: 'frame',
         }),
@@ -370,10 +411,10 @@ it('fetches a lane head whose list row digest changed, and not one that kept it'
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
-                ['changed', 'new', 'k', true],
-                ['kept', 'old', 'k', true],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['changed', 'new', 'k', 'changed', true],
+                ['kept', 'old', 'k', 'kept', true],
             ],
             structure: 'frame',
         }),
@@ -409,9 +450,9 @@ it('makes no reload on a reconnect after a live lane head placement', async () =
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
-                ['epic', 'new', 'k', true],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['epic', 'new', 'k', 'epic', true],
             ],
             structure: 'frame',
         }),
@@ -434,8 +475,8 @@ it('fetches nothing when the list rows keep the manifest order', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -457,8 +498,8 @@ it('fetches one card when only a history total changed, so the history links ref
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
             terminalTotals: { done: 3 },
@@ -481,8 +522,8 @@ it('fetches nothing more when the history totals match the page', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
             terminalTotals: { done: 4 },
@@ -506,8 +547,8 @@ it('fetches no extra card for a history total when a changed card refreshes the 
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'new', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'new', 'k', null],
             ],
             structure: 'frame',
             terminalTotals: { done: 3 },
@@ -543,8 +584,8 @@ it('ignores the list rows, which carry a digest too', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -560,8 +601,8 @@ it('reloads the board and fetches no card when the structure changed', async () 
     answerManifest(
         json({
             cards: [
-                ['a', 'new', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'new', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'other',
         }),
@@ -587,8 +628,8 @@ it('reads the structure digest at compare time, after the frame re-rendered', as
     finish(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'renamed',
         }),
@@ -629,6 +670,20 @@ it.each([
         () =>
             Promise.resolve(
                 json({ cards: [['a', 'old']], structure: 'frame' }),
+            ),
+    ],
+    [
+        'a manifest card entry with no lane key',
+        () =>
+            Promise.resolve(
+                json({ cards: [['a', 'old', 'k']], structure: 'frame' }),
+            ),
+    ],
+    [
+        'a manifest card entry whose lane key is not a string',
+        () =>
+            Promise.resolve(
+                json({ cards: [['a', 'old', 'k', 7]], structure: 'frame' }),
             ),
     ],
 ])('reloads the board after %s', async (label, response) => {
@@ -683,8 +738,8 @@ it('aborts an older manifest read on a second reconnect and uses the newer one',
     finishes[1](
         json({
             cards: [
-                ['a', 'new', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'new', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),

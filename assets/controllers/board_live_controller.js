@@ -146,6 +146,14 @@ export default class extends Controller {
 
             return;
         }
+        this.cardPass(manifest);
+    }
+
+    /**
+     * Places each card that the page misses, shows out of order, in another
+     * lane, or with another digest than the manifest has.
+     */
+    cardPass(manifest) {
         const shown = new Map();
         this.element
             .querySelectorAll('.lp-board-card[data-card-digest]')
@@ -155,12 +163,14 @@ export default class extends Controller {
         // A lane epic has no card face, only a list row, so it counts for the
         // list order alone.
         const listed = new Map(
-            manifest.cards.map(([cardId, , columnId, laneHead], index) => [
-                cardId,
-                { columnId, index, laneHead: laneHead === true },
-            ]),
+            manifest.cards.map(
+                ([cardId, , columnId, laneKey, laneHead], index) => [
+                    cardId,
+                    { columnId, laneKey, index, laneHead: laneHead === true },
+                ],
+            ),
         );
-        const faces = manifest.cards.filter(([, , , laneHead]) => !laneHead);
+        const faces = manifest.cards.filter(([, , , , laneHead]) => !laneHead);
         const removed = [...shown.keys()].filter(
             (cardId) => !listed.has(cardId) || listed.get(cardId).laneHead,
         );
@@ -170,17 +180,24 @@ export default class extends Controller {
                 '.lp-board__group[data-column], .lp-board-lane__cell[data-column]',
             )
             .forEach((group) => {
+                const lane = group.matches('.lp-board-lane__cell')
+                    ? group.dataset.lane
+                    : null;
                 const cards = [...group.querySelectorAll('.lp-board-card')]
+                    .filter((card) => listed.has(card.dataset.cardId))
                     .map((card) => ({
                         cardId: card.dataset.cardId,
                         ...listed.get(card.dataset.cardId),
                     }))
-                    .filter(
-                        (card) =>
-                            !card.laneHead &&
-                            card.columnId === group.dataset.column,
-                    );
-                outOfOrder(cards).forEach((cardId) => moved.add(cardId));
+                    .filter((card) => !card.laneHead);
+                cards
+                    .filter((card) => card.laneKey !== lane)
+                    .forEach((card) => moved.add(card.cardId));
+                outOfOrder(
+                    cards.filter(
+                        (card) => card.columnId === group.dataset.column,
+                    ),
+                ).forEach((cardId) => moved.add(cardId));
             });
         // Two lane cells of one column can each keep their order while the
         // list, which runs through the whole column, does not.
@@ -204,7 +221,7 @@ export default class extends Controller {
                 rowDigests.set(row.dataset.cardId, row.dataset.cardDigest),
             );
         const changed = manifest.cards
-            .filter(([cardId, digest, , laneHead]) => {
+            .filter(([cardId, digest, , , laneHead]) => {
                 if (moved.has(cardId)) {
                     return true;
                 }
@@ -496,8 +513,9 @@ function isManifest(manifest) {
                 typeof entry[0] === 'string' &&
                 typeof entry[1] === 'string' &&
                 typeof entry[2] === 'string' &&
-                (entry.length === 3 ||
-                    (entry.length === 4 && entry[3] === true)),
+                (typeof entry[3] === 'string' || entry[3] === null) &&
+                (entry.length === 4 ||
+                    (entry.length === 5 && entry[4] === true)),
         )
     );
 }
