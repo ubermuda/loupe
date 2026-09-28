@@ -4,7 +4,8 @@ import { Controller } from '@hotwired/stimulus';
  * Changes the rank of a Backlog row by a drag on its handle. The row moves in
  * the list at once, and the drop submits the row's hidden form with the
  * visible row below it, or the visible row above it when it lands last. A
- * refused rank puts the row back. One drag waits for the last to settle.
+ * refused rank puts the row back, and its stream answer says why. One drag
+ * waits for the last to settle.
  */
 
 // Above mouse jitter, below what a person reads as a drag.

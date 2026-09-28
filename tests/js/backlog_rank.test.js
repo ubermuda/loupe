@@ -115,6 +115,22 @@ it('puts the row back when the rank is refused, and takes a new drag after it', 
     expect(order()).toEqual(['a', 'c', 'b']);
 });
 
+it('lets the stream of a refused rank render its reason, and keeps an error page out', () => {
+    drag('c', 90, 10);
+    const answer = (contentType) => {
+        const event = new CustomEvent('turbo:before-fetch-response', {
+            cancelable: true,
+            detail: { fetchResponse: { succeeded: false, contentType } },
+        });
+        form('c').dispatchEvent(event);
+
+        return event.defaultPrevented;
+    };
+
+    expect(answer('text/vnd.turbo-stream.html; charset=UTF-8')).toBe(false);
+    expect(answer('text/html; charset=UTF-8')).toBe(true);
+});
+
 it('refuses a second drag while a rank is in flight', () => {
     drag('c', 90, 10);
     drag('b', 50, 200);

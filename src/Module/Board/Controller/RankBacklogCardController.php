@@ -27,8 +27,8 @@ use Symfony\UX\Turbo\TurboBundle;
 
 /**
  * The endpoint a drag on the Backlog page submits to. The drag already moved
- * the row, so a stream answer is empty. A refused rank answers 422 with no
- * body, and the drag puts the row back.
+ * the row, so a stream answer is empty. A refused rank answers 422 with a
+ * stream that says why, and the drag puts the row back.
  */
 #[IsGranted(CardVoter::WRITE, subject: 'card')]
 #[Route(
@@ -71,7 +71,11 @@ final class RankBacklogCardController extends AppController
         }
 
         if (null !== $error && $stream) {
-            return new Response('', Response::HTTP_UNPROCESSABLE_ENTITY);
+            return new Response(
+                $this->renderView('@Board/_backlog_refused.stream.html.twig', ['error' => $error]),
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
+            );
         }
 
         if (!$stream) {

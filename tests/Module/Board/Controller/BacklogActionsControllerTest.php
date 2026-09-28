@@ -94,6 +94,28 @@ final class BacklogActionsControllerTest extends WebTestCase
         self::assertSame(['Third', 'First', 'Second'], $this->titlesIn($project, 'backlog'));
     }
 
+    public function test_a_refused_rank_answers_a_stream_with_the_reason(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'backlog-rank-refused@example.com');
+        $project = $this->project($em, $owner);
+        $waiting = $this->card($em, $project, 'Waiting');
+        $onBoard = $this->card($em, $project, 'On the board', 'next');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $this->cardUrl($onBoard, 'rank'), RankBacklogCardFormType::nameFor($onBoard), ['beforeCardId' => (string) $waiting->id], stream: true);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringStartsWith(TurboBundle::STREAM_MEDIA_TYPE, (string) $client->getResponse()->headers->get('Content-Type'));
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('target="backlog-confirmation"', $body);
+        self::assertStringContainsString('no longer in the Backlog', $body);
+    }
+
     public function test_a_move_removes_the_row_and_confirms_it(): void
     {
         $client = static::createClient();
