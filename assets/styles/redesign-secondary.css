@@ -103,49 +103,12 @@
         @apply mt-0.5 h-4 w-4 shrink-0;
     }
 
-    /* Run history reads as a dense table while preserving expandable output. */
+    /* The run history filters sit on top of the runs table. */
     .lp-redesign-runs .lp-list-filters {
         @apply mt-6 rounded-t-xl border border-b-0 border-line bg-surface-1 px-4 py-3;
     }
     .lp-redesign-runs .lp-filter-form > .lp-filter-select {
         @apply max-w-full;
-    }
-    .lp-redesign-runs .lp-worker-run-list {
-        @apply gap-0 overflow-x-auto rounded-xl border border-line bg-surface-1;
-    }
-    .lp-redesign-runs .lp-list-filters + .lp-worker-run-list {
-        @apply rounded-t-none;
-    }
-    .lp-redesign-runs .lp-worker-run-list__header {
-        @apply grid min-w-4xl grid-cols-5 gap-4 border-b border-line bg-app px-5 py-3 text-xs font-semibold uppercase tracking-wider text-fg-dim;
-    }
-    .lp-redesign-runs .lp-worker-run {
-        @apply min-w-4xl rounded-none border-b border-line bg-white px-5 py-4 last:border-b-0;
-    }
-    .lp-redesign-runs .lp-worker-run__table-row {
-        @apply grid grid-cols-5 gap-4;
-    }
-    .lp-redesign-runs .lp-worker-run__table-row .lp-status-chip {
-        @apply self-start justify-self-start;
-    }
-    .lp-redesign-runs .lp-worker-run__work {
-        @apply flex min-w-0 flex-col gap-1;
-    }
-    .lp-redesign-runs .lp-worker-run__rule {
-        @apply min-w-0 break-all text-xs;
-    }
-    .lp-redesign-runs .lp-worker-run__bridge {
-        @apply m-0 text-xs text-fg-dim;
-    }
-    .lp-redesign-runs .lp-worker-run__duration,
-    .lp-redesign-runs .lp-worker-run__table-row time {
-        @apply text-xs text-fg-dim;
-    }
-    .lp-redesign-runs .lp-worker-run__duration small {
-        @apply mt-1 block;
-    }
-    .lp-redesign-runs .lp-worker-run__output-disclosure {
-        @apply mt-1;
     }
 
     /* Activity uses a compact chronological feed, not a second run table. */

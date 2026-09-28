@@ -215,14 +215,12 @@ it('reloads when another controller asks for a reload', async () => {
     expect(frame.reload).toHaveBeenCalledOnce();
 });
 
-it('reloads after a reconnect, not after the first open', async () => {
+it('leaves a reconnect to the board live controller', async () => {
     const frame = await mount({ src: '/projects/1/board' });
     subscription().options.onOpen();
     vi.advanceTimersByTime(300);
+    expect(subscription().options.onReconnect).toBeUndefined();
     expect(frame.reload).not.toHaveBeenCalled();
-    subscription().options.onReconnect();
-    vi.advanceTimersByTime(300);
-    expect(frame.reload).toHaveBeenCalledOnce();
 });
 
 it('stops listening on disconnect', async () => {

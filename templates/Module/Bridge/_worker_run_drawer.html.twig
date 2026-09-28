@@ -61,6 +61,7 @@
         {% if run.failureReason %}<p class="lp-worker-run__failure">{{ run.failureReason }}</p>{% endif %}
         <h3 class="lp-run-drawer__heading">{{ 'bridge.worker_runs.output.toggle'|trans }}</h3>
         {% if run.output is empty %}<p>{{ 'bridge.worker_runs.output.empty'|trans }}</p>{% endif %}
+        {# The bridge writes this and no person approves it, so it is rendered as text. Never add |raw here. #}
         <pre class="lp-worker-run__output" data-worker-run-output-target="output">{{ run.output }}</pre>
     </div>
     <footer class="lp-run-drawer__footer">
