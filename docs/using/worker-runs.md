@@ -5,15 +5,16 @@ description: "The page that shows what a command-line bridge told a project abou
 
 A [command-line bridge](../extending/cli-bridge.md) runs a Claude Code worker
 for each board event one of its rules matches. Every worker the bridge reports
-becomes one row on the project's **Worker runs** page. An interactive Claude
-Code session on a card gets a row too, as
+becomes one row on the **Runs** tab of the project's **Activity** page. An
+interactive Claude Code session on a card gets a row too, as
 [Interactive sessions](#interactive-sessions) says.
 
-Open the page from the project sidebar, or go to
+Open **Activity** in the project sidebar, or go to
 `/projects/{project}/worker-runs`. Anyone who can view the project can read it.
 
-The page has two tabs. **Runs** lists the runs, and the rest of this page
-describes it. **Cost** charts what a finished card costs on average, as
+The Activity page has three tabs. **Runs** lists the runs, and the rest of this
+page describes it. **Events** shows the [project activity](activity.md) feed.
+**Cost** charts what a finished card costs on average, as
 [The cost of finished cards](#the-cost-of-finished-cards) says.
 
 ## What a row shows
