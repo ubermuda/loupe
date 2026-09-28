@@ -322,7 +322,7 @@ it('fetches a lane epic whose list row moved past an ordinary row', async () => 
             cards: [
                 ['a', 'old', 'k'],
                 ['b', 'old', 'k'],
-                ['epic', 'old', 'k', true],
+                ['epic', 'old', 'k', 'head'],
             ],
             structure: 'frame',
         }),
@@ -346,8 +346,8 @@ it('never counts a lane head as an added or a removed card', async () => {
             cards: [
                 ['a', 'old', 'k'],
                 ['b', 'old', 'k'],
-                ['epic', 'new', 'k', true],
-                ['gone', 'new', 'k', true],
+                ['epic', 'new', 'k', 'head'],
+                ['gone', 'new', 'k', 'head'],
             ],
             structure: 'frame',
         }),
@@ -372,8 +372,8 @@ it('fetches a lane head whose list row digest changed, and not one that kept it'
             cards: [
                 ['a', 'old', 'k'],
                 ['b', 'old', 'k'],
-                ['changed', 'new', 'k', true],
-                ['kept', 'old', 'k', true],
+                ['changed', 'new', 'k', 'head'],
+                ['kept', 'old', 'k', 'head'],
             ],
             structure: 'frame',
         }),
@@ -383,6 +383,62 @@ it('fetches a lane head whose list row digest changed, and not one that kept it'
 
     expect(placements()).toEqual(['changed']);
     expect(reloads).toBe(0);
+});
+
+it('fetches a lane head in the Backlog whose head digest changed, and not one that kept it', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<section id="board-lane-changed"><header class="lp-board-lane__head" data-lane-digest="old"></header></section>' +
+                '<section id="board-lane-kept"><header class="lp-board-lane__head" data-lane-digest="old"></header></section>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k'],
+                ['b', 'old', 'k'],
+                ['changed', 'new', 'backlog', 'new'],
+                ['kept', 'old', 'backlog', 'old'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['changed']);
+    expect(reloads).toBe(0);
+});
+
+it('fetches the epic of a deck card whose card the board does not show', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<div class="lp-deck" data-lane="epic"><article id="board-deck-card-x" data-card-id="x"></article></div>',
+        );
+    document.dispatchEvent(
+        new CustomEvent('board:placed', {
+            detail: { cardId: 'x', removed: true },
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(placements()).toEqual(['epic']);
+});
+
+it('holds a deck card that is being dragged', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<div class="lp-deck" data-lane="epic"><article id="board-deck-card-x" data-card-id="x" class="lp-deck__card lp-board-card--dragging"></article></div>',
+        );
+    receive('x');
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual([]);
 });
 
 it('makes no reload on a reconnect after a live lane head placement', async () => {
@@ -411,7 +467,7 @@ it('makes no reload on a reconnect after a live lane head placement', async () =
             cards: [
                 ['a', 'old', 'k'],
                 ['b', 'old', 'k'],
-                ['epic', 'new', 'k', true],
+                ['epic', 'new', 'k', 'head'],
             ],
             structure: 'frame',
         }),

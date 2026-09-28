@@ -162,9 +162,40 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertSame([(string) $child->id, (string) $other->id, (string) $epic->id], array_column($manifest['cards'], 0));
         self::assertSame($page['rows'], array_column($manifest['cards'], 0));
         self::assertSame([3, 3, 4], array_map(\count(...), $manifest['cards']));
-        self::assertTrue($manifest['cards'][2][3] ?? false);
+        self::assertSame($page['laneDigests'][(string) $epic->id], $manifest['cards'][2][3] ?? null);
         self::assertSame($page['cards'], array_column($this->faces($manifest), 1, 0));
         self::assertSame($page['rowDigests'][(string) $epic->id], $manifest['cards'][2][1]);
+    }
+
+    public function test_a_lane_epic_in_the_backlog_is_a_lane_head_with_the_digest_its_deck_shows(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'manifest-backlog-lane@example.com');
+        $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
+        $epic = $this->typed($em, $this->card($em, $project, 'Waiting epic', 'backlog'), CardType::Epic);
+        $this->childOf($em, $epic, $this->card($em, $project, 'Waiting child', 'backlog', 1));
+        $other = $this->card($em, $project, 'Outside', 'triage');
+        $joining = $this->card($em, $project, 'Waiting with no epic yet', 'backlog', 2);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $manifest = $this->manifest($client, $project);
+        $page = $this->page($client, $project);
+
+        self::assertSame([(string) $other->id, (string) $epic->id], array_column($manifest['cards'], 0));
+        self::assertSame((string) $this->column($project, 'backlog')->id, $manifest['cards'][1][2]);
+        self::assertSame($page['laneDigests'], [(string) $epic->id => $manifest['cards'][1][3] ?? null]);
+
+        static::getContainer()->get(EntityManagerInterface::class)->getConnection()->executeStatement(
+            'UPDATE board_cards SET parent_card_id = :epic WHERE id = :card',
+            ['epic' => (string) $epic->id, 'card' => (string) $joining->id],
+        );
+
+        self::assertNotSame($page['laneDigests'][(string) $epic->id], $this->manifest($client, $project)['cards'][1][3] ?? null);
     }
 
     public function test_the_terminal_totals_are_the_ones_the_history_links_show(): void
@@ -437,13 +468,13 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         return '/projects/'.$project->id.'/board/manifest';
     }
 
-    /** @return array{cards: list<array{0: string, 1: string, 2: string, 3?: true}>, structure: string, terminalTotals: array<string, int>} */
+    /** @return array{cards: list<array{0: string, 1: string, 2: string, 3?: string}>, structure: string, terminalTotals: array<string, int>} */
     private function manifest(KernelBrowser $client, Project $project): array
     {
         $client->request(Request::METHOD_GET, $this->manifestUrl($project));
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        /** @var array{cards: list<array{0: string, 1: string, 2: string, 3?: true}>, structure: string, terminalTotals: array<string, int>} $manifest */
+        /** @var array{cards: list<array{0: string, 1: string, 2: string, 3?: string}>, structure: string, terminalTotals: array<string, int>} $manifest */
         $manifest = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
         self::assertSame(['cards', 'structure', 'terminalTotals'], array_keys($manifest));
 
@@ -455,7 +486,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
      * in order with their digests, the structure digest, and the total of each
      * history link.
      *
-     * @return array{cards: array<string, string>, rows: list<string>, rowDigests: array<string, string>, structure: string, historyTotals: array<string, int>}
+     * @return array{cards: array<string, string>, laneDigests: array<string, string>, rows: list<string>, rowDigests: array<string, string>, structure: string, historyTotals: array<string, int>}
      */
     private function page(KernelBrowser $client, Project $project): array
     {
@@ -480,8 +511,16 @@ final class ShowBoardManifestControllerTest extends WebTestCase
             $rowDigests[$row->getAttribute('data-card-id')] = $row->getAttribute('data-card-digest');
         }
 
+        $laneDigests = [];
+        foreach ($crawler->filter('section[id^="board-lane-"] .lp-board-lane__head') as $head) {
+            self::assertInstanceOf(\DOMElement::class, $head);
+            self::assertInstanceOf(\DOMElement::class, $head->parentNode);
+            $laneDigests[substr($head->parentNode->getAttribute('id'), \strlen('board-lane-'))] = $head->getAttribute('data-lane-digest');
+        }
+
         return [
             'cards' => $cards,
+            'laneDigests' => $laneDigests,
             'rows' => array_keys($rowDigests),
             'rowDigests' => $rowDigests,
             'structure' => (string) $crawler->filter('#board')->attr('data-board-structure-digest'),
@@ -490,16 +529,16 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     }
 
     /**
-     * @param array{cards: list<array{0: string, 1: string, 2: string, 3?: true}>, structure: string, terminalTotals: array<string, int>} $manifest
+     * @param array{cards: list<array{0: string, 1: string, 2: string, 3?: string}>, structure: string, terminalTotals: array<string, int>} $manifest
      *
-     * @return list<array{0: string, 1: string, 2: string, 3?: true}>
+     * @return list<array{0: string, 1: string, 2: string, 3?: string}>
      */
     private function faces(array $manifest): array
     {
         return array_values(array_filter($manifest['cards'], static fn (array $entry): bool => !isset($entry[3])));
     }
 
-    /** @param array{cards: list<array{0: string, 1: string, 2: string, 3?: true}>, structure: string, terminalTotals: array<string, int>} $manifest */
+    /** @param array{cards: list<array{0: string, 1: string, 2: string, 3?: string}>, structure: string, terminalTotals: array<string, int>} $manifest */
     private function digestOf(array $manifest, Card $card): string
     {
         $digests = array_column($manifest['cards'], 1, 0);

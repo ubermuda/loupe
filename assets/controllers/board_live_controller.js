@@ -33,13 +33,7 @@ const STALE_MARKS = [
         (cardId) => document.getElementById(`board-row-${cardId}`),
         'lp-board-list__row--stale',
     ],
-    [
-        (cardId) =>
-            document
-                .getElementById(`board-lane-${cardId}`)
-                ?.querySelector('.lp-board-lane__head') ?? null,
-        'lp-board-lane__head--stale',
-    ],
+    [laneHeadOf, 'lp-board-lane__head--stale'],
 ];
 const RETRY = 'retry';
 const STALE = 'stale';
@@ -152,15 +146,17 @@ export default class extends Controller {
             .forEach((card) =>
                 shown.set(card.dataset.cardId, card.dataset.cardDigest),
             );
-        // A lane epic has no card face, only a list row, so it counts for the
-        // list order alone.
+        // A lane epic has no card face: its lane head digest comes fourth, and
+        // it counts for the list order alone.
         const listed = new Map(
-            manifest.cards.map(([cardId, , columnId, laneHead], index) => [
+            manifest.cards.map(([cardId, , columnId, headDigest], index) => [
                 cardId,
-                { columnId, index, laneHead: laneHead === true },
+                { columnId, index, laneHead: headDigest !== undefined },
             ]),
         );
-        const faces = manifest.cards.filter(([, , , laneHead]) => !laneHead);
+        const faces = manifest.cards.filter(
+            ([, , , headDigest]) => headDigest === undefined,
+        );
         const removed = [...shown.keys()].filter(
             (cardId) => !listed.has(cardId) || listed.get(cardId).laneHead,
         );
@@ -204,16 +200,21 @@ export default class extends Controller {
                 rowDigests.set(row.dataset.cardId, row.dataset.cardDigest),
             );
         const changed = manifest.cards
-            .filter(([cardId, digest, , laneHead]) => {
+            .filter(([cardId, digest, , headDigest]) => {
                 if (moved.has(cardId)) {
                     return true;
                 }
-                if (!laneHead) {
+                if (headDigest === undefined) {
                     return shown.get(cardId) !== digest;
                 }
+                // A lane epic in the Backlog has a head and no list row.
+                const head = laneHeadOf(cardId);
 
                 return (
-                    rowDigests.has(cardId) && rowDigests.get(cardId) !== digest
+                    (rowDigests.has(cardId) &&
+                        rowDigests.get(cardId) !== digest) ||
+                    (head?.dataset.laneDigest !== undefined &&
+                        head.dataset.laneDigest !== headDigest)
                 );
             })
             .map(([cardId]) => cardId);
@@ -287,7 +288,8 @@ export default class extends Controller {
             return;
         }
         const card = document.getElementById(`board-card-${cardId}`);
-        if (card !== null && this.busy(card)) {
+        const dragged = card ?? deckCardOf(cardId);
+        if (dragged !== null && this.busy(dragged)) {
             entry.inFlight = false;
             entry.again = false;
             this.schedule(cardId, entry, BUSY_RETRY_MILLISECONDS);
@@ -335,7 +337,9 @@ export default class extends Controller {
         if (this.pending.get(cardId) !== entry) {
             return;
         }
-        const current = document.getElementById(`board-card-${cardId}`);
+        const current =
+            document.getElementById(`board-card-${cardId}`) ??
+            deckCardOf(cardId);
         if (current !== null && this.busy(current)) {
             entry.remote ||= this.expected.get(cardId)?.remote ?? false;
             entry.again = false;
@@ -425,6 +429,13 @@ export default class extends Controller {
 
     placed({ cardId, removed }) {
         this.clearStale(cardId);
+        // A Backlog card has no placement of its own, so its epic redraws the deck that shows it.
+        const deckEpic = removed
+            ? deckCardOf(cardId)?.closest('.lp-deck')?.dataset.lane
+            : undefined;
+        if (deckEpic !== undefined) {
+            this.receive({ cardId: deckEpic, local: false, own: false });
+        }
         const entry = this.pending.get(cardId);
         if (entry !== undefined) {
             entry.attempts = 0;
@@ -497,7 +508,7 @@ function isManifest(manifest) {
                 typeof entry[1] === 'string' &&
                 typeof entry[2] === 'string' &&
                 (entry.length === 3 ||
-                    (entry.length === 4 && entry[3] === true)),
+                    (entry.length === 4 && typeof entry[3] === 'string')),
         )
     );
 }
@@ -509,6 +520,18 @@ function staleHistory(totals) {
 
         return link !== null && link.dataset.historyTotal !== String(total);
     });
+}
+
+function laneHeadOf(cardId) {
+    return (
+        document
+            .getElementById(`board-lane-${cardId}`)
+            ?.querySelector('.lp-board-lane__head') ?? null
+    );
+}
+
+function deckCardOf(cardId) {
+    return document.getElementById(`board-deck-card-${cardId}`);
 }
 
 function previousCardId(card) {

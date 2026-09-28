@@ -18,10 +18,11 @@ final readonly class ShowBoardManifestHandler
     {
         // The board page's own view, so each digest reads the inputs the page renders.
         $board = ($this->showBoard)(new ShowBoardCommand($command->project));
-        $laneEpics = [];
+        $laneHeads = [];
         foreach ($board->lanes as $lane) {
             if (null !== $lane->epic) {
-                $laneEpics[(string) $lane->epic->id] = true;
+                $id = (string) $lane->epic->id;
+                $laneHeads[$id] = $this->digest->forLaneHead($lane->epic, $board->progress[$id] ?? null, $board->decks[$id] ?? null);
             }
         }
 
@@ -41,12 +42,17 @@ final readonly class ShowBoardManifestHandler
                     $board->progress[$id] ?? null,
                     $board->runWarnings[$id] ?? null,
                 ), (string) $view->column->id];
-                // A lane epic has a list row and no card face.
-                if (isset($laneEpics[$id])) {
-                    $entry[] = true;
+                // A lane epic has a list row and a lane head, and no card face.
+                if (isset($laneHeads[$id])) {
+                    $entry[] = $laneHeads[$id];
+                    unset($laneHeads[$id]);
                 }
                 $cards[] = $entry;
             }
+        }
+        // A lane epic in the Backlog has no list row, so its head digest stands in for one.
+        foreach ($laneHeads as $id => $headDigest) {
+            $cards[] = [$id, $headDigest, (string) $board->backlog->id, $headDigest];
         }
 
         return new BoardManifestView($command->project, $cards, $board->structureDigest, $terminalTotals);
