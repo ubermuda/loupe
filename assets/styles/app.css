@@ -5913,15 +5913,24 @@
     .lp-data-table__target:focus-visible::after {
         @apply outline-solid outline-2 -outline-offset-2 outline-accent-ink;
     }
-    /* Work, Outcome, Rule, Duration, Started. From md up the box does not scroll, so the
-       tracks take shares of the width: rem tracks grow with the text size and spill out. */
+    /* Work, Outcome, Rule, Duration, Started. A long rule name truncates, so a row stays one line. */
     .lp-data-table--runs {
         --lp-data-table-columns: minmax(0, 1fr) calc(var(--spacing) * 36)
             calc(var(--spacing) * 48) calc(var(--spacing) * 28)
             calc(var(--spacing) * 24);
-        @variant md {
-            --lp-data-table-columns: minmax(0, 3fr) auto minmax(0, 2fr)
-                minmax(0, 1.25fr) minmax(0, 1fr);
+    }
+    /* The md breakpoint ignores the text size, so a large text size also scrolls the runs table
+       when the page is narrower than its columns. */
+    .lp-redesign-runs {
+        @apply @container;
+    }
+    @container (width < 56rem) {
+        .lp-data-table--runs {
+            @apply overflow-x-auto;
+        }
+        .lp-data-table--runs .lp-data-table__header,
+        .lp-data-table--runs .lp-data-table__row {
+            @apply min-w-4xl;
         }
     }
     .lp-data-table--runs .lp-data-table__row > .lp-data-table__cell {

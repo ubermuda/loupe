@@ -228,6 +228,19 @@ test('completed reports retain outcomes and escaped output at enlarged text size
                     `${fontSize} at ${width}px`,
                 ).toBeLessThanOrEqual(1);
             }
+            // Each row is its own grid, so its columns line up with the header only on shared tracks.
+            const outcomeHeader = await list
+                .locator('.lp-data-table__header > .lp-data-table__cell')
+                .nth(1)
+                .boundingBox();
+            for (const chip of await list
+                .locator('[data-worker-run-id] > .lp-status-chip')
+                .all()) {
+                expect(
+                    Math.abs((await chip.boundingBox())!.x - outcomeHeader!.x),
+                    `${fontSize} at ${width}px`,
+                ).toBeLessThanOrEqual(1);
+            }
             const bridgeFilter = page.locator('#worker-run-bridge');
             const bridgeBounds = (await bridgeFilter.boundingBox())!;
             const formBounds = (await page
@@ -261,7 +274,10 @@ test('completed reports retain outcomes and escaped output at enlarged text size
                     ),
                 };
             });
-            expect(badge.height).toBeCloseTo(badge.contentHeight, 1);
+            expect(badge.height, `${fontSize} at ${width}px`).toBeCloseTo(
+                badge.contentHeight,
+                1,
+            );
             await outcome.scrollIntoViewIfNeeded();
             await expect(outcome, `${fontSize} at ${width}px`).toBeInViewport({
                 ratio: 1,
