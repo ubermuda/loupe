@@ -17,6 +17,19 @@ final class Version20260928155635 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
+        $defaults = $this->connection->fetchFirstColumn(
+            'SELECT project_id FROM board_columns GROUP BY project_id HAVING COUNT(*) FILTER (WHERE is_default) <> 1 ORDER BY project_id',
+        );
+        $this->abortIf([] !== $defaults, 'Each board needs exactly one default column. Fix these projects by hand: '.implode(', ', $defaults));
+
+        $lastTerminal = $this->connection->fetchFirstColumn(<<<'SQL'
+            SELECT o.project_id FROM board_columns o
+            WHERE o.slug = 'backlog' AND NOT o.is_default AND o.terminal
+              AND NOT EXISTS (SELECT 1 FROM board_columns t WHERE t.project_id = o.project_id AND t.terminal AND t.id <> o.id)
+            ORDER BY o.project_id
+            SQL);
+        $this->abortIf([] !== $lastTerminal, 'The column named backlog is the only terminal column of its board, and this migration folds it into the Backlog. Mark another column terminal in these projects first: '.implode(', ', $lastTerminal));
+
         // Another column that holds the slug backlog gives its cards to the end of the Backlog, in rank order.
         $this->addSql(<<<'SQL'
             UPDATE board_cards c
@@ -53,5 +66,6 @@ final class Version20260928155635 extends AbstractMigration
     #[\Override]
     public function down(Schema $schema): void
     {
+        $this->throwIrreversibleMigrationException('The folded columns and the old column names are gone.');
     }
 }

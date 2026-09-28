@@ -10,6 +10,8 @@ use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\Schema;
+use Doctrine\Migrations\Exception\AbortMigration;
+use Doctrine\Migrations\Exception\IrreversibleMigration;
 use Doctrine\ORM\EntityManagerInterface;
 use DoctrineMigrations\Version20260928155635;
 use Psr\Log\NullLogger;
@@ -117,6 +119,49 @@ final class BoardColumnsBacklogMigrationTest extends KernelTestCase
             $this->connection->fetchAllAssociative('SELECT slug, position, is_default FROM board_columns WHERE project_id = :id ORDER BY position', ['id' => $projectId]),
         );
         self::assertSame(0, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $projectId]));
+    }
+
+    public function test_up_aborts_before_any_write_on_a_board_without_exactly_one_default_column(): void
+    {
+        $projectId = $this->project(cardsIn: []);
+        $this->connection->executeStatement('UPDATE board_columns SET is_default = true WHERE project_id = :id', ['id' => $projectId]);
+
+        $this->expectAbort($projectId);
+    }
+
+    public function test_up_aborts_when_the_folded_column_is_the_only_terminal_column_of_its_board(): void
+    {
+        $projectId = $this->project(cardsIn: ['backlog' => 1]);
+        $this->connection->executeStatement(
+            'UPDATE board_columns SET is_default = (slug = :default), terminal = (slug = :folded) WHERE project_id = :id',
+            ['default' => 'next', 'folded' => 'backlog', 'id' => $projectId],
+        );
+
+        $this->expectAbort($projectId);
+        self::assertSame(1, (int) $this->connection->fetchOne(
+            "SELECT COUNT(*) FROM board_columns WHERE project_id = :id AND slug = 'backlog'",
+            ['id' => $projectId],
+        ));
+    }
+
+    public function test_down_is_irreversible(): void
+    {
+        $migration = new Version20260928155635($this->connection, new NullLogger());
+
+        $this->expectException(IrreversibleMigration::class);
+        $migration->down(new Schema());
+    }
+
+    private function expectAbort(string $projectId): void
+    {
+        $migration = new Version20260928155635($this->connection, new NullLogger());
+        try {
+            $migration->up(new Schema());
+            self::fail('Expected the migration to abort.');
+        } catch (AbortMigration $e) {
+            self::assertStringContainsString($projectId, $e->getMessage());
+        }
+        self::assertSame([], $migration->getSql());
     }
 
     /** @param array<string, int> $cardsIn slug => how many cards that column holds, in rank order */
