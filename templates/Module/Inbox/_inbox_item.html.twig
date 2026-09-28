@@ -22,10 +22,12 @@
     {% endif %}
     {% set watch = item.kind.value == 'wait' ? inbox_card_watch(item) : null %}
     {% if watch %}
+        {# A deleted document drops its link row, so a wait of it shows as text. #}
+        {% set linkedDocumentIds = item.documents|map(link => link.document.id.toRfc4122) %}
         <ul class="lp-inbox-waits" data-inbox-waits>
             {% for wait in watch.waits|filter(wait => wait.endedAt is null)|merge(watch.waits|filter(wait => wait.endedAt is not null)) %}
                 <li{% if wait.endedAt %} class="lp-inbox-waits__wait--ended"{% endif %} data-inbox-wait="{{ wait.endedAt ? 'ended' : 'current' }}">
-                    {%- if wait.documentId -%}
+                    {%- if wait.documentId and wait.documentId.toRfc4122 in linkedDocumentIds -%}
                         <a class="lp-inbox-waits__link" href="{{ path('app_document_review', {projectId: item.project.id, documentId: wait.documentId}) }}" data-turbo-frame="_top">{{ wait.reason }}</a>
                     {%- else -%}
                         {{ wait.reason }}

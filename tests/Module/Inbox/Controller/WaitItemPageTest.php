@@ -154,6 +154,22 @@ final class WaitItemPageTest extends WebTestCase
         self::assertCount(1, $crawler->filter('#inbox-item-1 button[type="submit"]'));
     }
 
+    public function test_a_wait_of_a_deleted_document_shows_its_reason_with_no_link(): void
+    {
+        $this->reconcile();
+        $this->em->remove($this->document);
+        $this->em->flush();
+        $this->em->clear();
+
+        $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl());
+
+        self::assertResponseIsSuccessful();
+        $wait = $crawler->filter('#inbox-item-1 [data-inbox-wait]');
+        self::assertCount(1, $wait);
+        self::assertStringContainsString('Tech design in review, version 1', $wait->text());
+        self::assertCount(0, $wait->filter('a'));
+    }
+
     public function test_dismiss_closes_the_item_declined_and_moves_it_to_completed(): void
     {
         $this->reconcile();
