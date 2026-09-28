@@ -35,7 +35,9 @@ A card that needs no product design does not use this skill. The owner moves it 
 2. P1: Intake. Read the card, the linked documents and the code for the current behaviour before you ask anything. Read the unapproved draft too, when one exists. Then ask for a brain dump with one open prompt. From the brain dump, draft the problem: who feels it, and the situation that triggers the need. Ask one question only when either is unclear. Keep solutions out of the problem.
 3. P2: Calibrate. Propose the session level (L3), and let the owner confirm it.
 4. P4: Options. When the solution is not obvious, show two or three solution shapes, and recommend one. Skip this phase for a small card.
+   - In a Full session, first find two or three products, also when the solution is obvious. Choose products that solve the same problem. Use a subagent or a web search, when the tools exist. The findings go in "How others do it".
 5. P5: Scope. Fix the first slice, which is the smallest end-to-end slice that works. Fix the no-gos, and what waits for later.
+   - In a Full session, then name two or three trade-offs that this feature faces. Ask the owner to pick a side on each (Q7). The answers go in "Priorities".
 6. P6: Behaviour. Settle the main journeys, the empty and error states, and who may act. Work through the coverage checklist of `question-rules.md`. Ask about docs and the landing page here when the profile is missing.
 7. P7: Pre-mortem. Ask one question: "This shipped and failed. Why?" The answers go in "Risks".
 8. P8: Acceptance. Draft Given/When/Then scenarios that cite `R` IDs. Let the owner confirm or correct them. They go in "Scenarios".

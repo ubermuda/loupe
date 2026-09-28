@@ -1729,6 +1729,7 @@
     const pickerTitleNode = $('lp-picker-title');
     const lastCardNode = $('lp-last-card');
     const composeHead = $('lp-compose-head');
+    let composeHeadHtml = null;
     const textareaNode = $('lp-textarea');
     const errorNode = $('lp-error');
     const emptyAnim = $('lp-empty-anim');
@@ -2748,10 +2749,11 @@
                       strokeCount === 1 ? '1 stroke' : `${strokeCount} strokes`
                   }</span><button class="lp-chip-x" type="button" data-stroke-clear="1" aria-label="Remove the strokes">×</button></span>`
                 : '';
+            let headHtml;
             if (ct.type === 'general') {
                 // The hold points a page note at an element and keeps the draft, so the
                 // note says the key does something rather than changing type in silence.
-                composeHead.innerHTML =
+                headHtml =
                     `<span class="lp-compose-general"><span class="lp-dot"></span>General comment</span>` +
                     strokeChip +
                     (state.editId == null
@@ -2782,12 +2784,18 @@
                     })
                     .join('');
                 const canAdd = editable && anchors.length < MAX_ANCHORS;
-                composeHead.innerHTML =
+                headHtml =
                     chips +
                     strokeChip +
                     (canAdd
                         ? `<span class="lp-compose-hint">Hold ${MOD_LABEL} to add another</span>`
                         : '');
+            }
+            // A repaint that changes nothing keeps the nodes. Replacing them takes the
+            // focus off a pill and the hover off a chip, and no event comes to restore it.
+            if (headHtml !== composeHeadHtml) {
+                composeHeadHtml = headHtml;
+                composeHead.innerHTML = headHtml;
                 composeHead
                     .querySelectorAll('[data-anchor-remove]')
                     .forEach((button) => {
@@ -2836,15 +2844,16 @@
                             showAnchor(Number(button.dataset.anchorPill)),
                         );
                     });
+                composeHead
+                    .querySelectorAll('[data-stroke-clear]')
+                    .forEach((button) => {
+                        button.addEventListener('mousedown', (event) =>
+                            event.preventDefault(),
+                        );
+                        button.addEventListener('click', () => clearStrokes());
+                    });
             }
-            composeHead
-                .querySelectorAll('[data-stroke-clear]')
-                .forEach((button) => {
-                    button.addEventListener('mousedown', (event) =>
-                        event.preventDefault(),
-                    );
-                    button.addEventListener('click', () => clearStrokes());
-                });
+            paintAnchorChips();
         }
         // Composer just closed but the textarea kept focus would keep isTyping() true and
         // trap the single-key shortcuts (t/c). Blur it once the composer is hidden.
@@ -3389,18 +3398,22 @@
         sync();
     };
 
+    const paintAnchorChips = () => {
+        composeHead.querySelectorAll('[data-anchor-chip]').forEach((chip) => {
+            chip.classList.toggle(
+                'lit',
+                Number(chip.dataset.anchorChip) === state.hoverAnchor,
+            );
+        });
+    };
+
     // Emphasise one anchor of the comment being composed, on the page and on its
     // pill. Either end can set it: a pill points at an element, and an element's
     // own box points back at its pill.
     const setHoverAnchor = (anchorIndex) => {
         if (state.hoverAnchor === anchorIndex) return;
         state.hoverAnchor = anchorIndex;
-        composeHead.querySelectorAll('[data-anchor-chip]').forEach((chip) => {
-            chip.classList.toggle(
-                'lit',
-                Number(chip.dataset.anchorChip) === anchorIndex,
-            );
-        });
+        paintAnchorChips();
         updateHighlight();
     };
 
