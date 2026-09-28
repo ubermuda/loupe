@@ -209,6 +209,28 @@ final class ActivityPageTest extends WebTestCase
         self::assertSame('25 events', trim($crawler->filter('turbo-frame#activity-count')->text()));
     }
 
+    public function test_the_page_links_keep_the_filters(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'activity-page-links@example.com');
+        $project = new Project($owner, 'Page links');
+        $em->persist($project);
+        for ($index = 0; $index < 21; ++$index) {
+            $em->persist(new OutboxEvent($project, 'board.card_moved', 'topic', '{}', new \DateTimeImmutable('-'.$index.' minutes')));
+        }
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/activity?search=moved&family=board');
+
+        self::assertSame(
+            '/projects/'.$project->id.'/activity?page=2&search=moved&family=board',
+            $crawler->filter('.lp-pagination a[aria-label="Next page"]')->attr('href'),
+        );
+    }
+
     public function test_search_matches_the_type_and_the_event_data(): void
     {
         $client = static::createClient();
@@ -322,7 +344,7 @@ final class ActivityPageTest extends WebTestCase
         self::assertSame('false', $crawler->filter('[data-controller="worker-run-refresh"]')->attr('data-worker-run-refresh-whole-value'));
     }
 
-    public function test_a_frame_reload_renders_the_frame_without_the_filters(): void
+    public function test_the_frame_sends_its_links_to_the_top_page(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -338,7 +360,6 @@ final class ActivityPageTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('turbo-frame#activity-frame[target="_top"] [data-activity-event-id]'));
-        self::assertCount(0, $crawler->filter('turbo-frame#activity-frame form'));
     }
 
     public function test_every_frame_the_live_refresh_reloads_keeps_the_session_read_only(): void
