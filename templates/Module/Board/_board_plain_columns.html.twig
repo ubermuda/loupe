@@ -1,0 +1,28 @@
+{# The board with no lanes: one section per column.
+   Props: board (BoardView), runWarnings (CardRunWarning by card id), withCards (bool, optional, default true). #}
+<div class="lp-board__columns" data-board-view-target="board">
+{% for view in board.columns %}
+<section class="lp-board__column"
+         id="board-column-{{ view.column.id }}"
+         aria-label="{{ view.column.label|trans }}"
+         data-column-slug="{{ view.column.slug }}"
+         data-column-id="{{ view.column.id }}">
+    {% include '@Board/_board_column_head.html.twig' with {board: board, view: view, placeable: true} only %}
+
+    <div class="lp-board__group"
+         id="board-group-{{ view.column.id }}"
+         data-board-drag-target="group"
+         data-column="{{ view.column.id }}"
+         data-rankable="{{ view.column.terminal ? '0' : '1' }}">
+        {% if withCards ?? true %}
+        {% for card in view.cards %}
+            {# `~ ''` casts the Uuid, which cannot itself be an array key. #}
+            {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), documentCount: board.documentCounts[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), runWarning: runWarnings[card.id ~ '']|default(null)} only %}
+        {% endfor %}
+        {% endif %}
+    </div>
+
+    {% include '@Board/_board_column_foot.html.twig' with {board: board, view: view, placeable: true} only %}
+</section>
+{% endfor %}
+</div>

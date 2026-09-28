@@ -214,9 +214,13 @@ Every open board of the project shows a change as it happens, with no reload.
 - When a child joins, leaves, finishes or reopens, the progress of its epic
   changes. When an epic lane appears or disappears, the board adds or removes
   the lane.
-- When the owner adds, renames, reorders, flags or deletes a column, the board
-  changes in place. A drag in progress on another screen can then fail, and
-  the card goes back.
+- When the owner adds, renames, reorders, flags or deletes a column, only that
+  column changes in place. A change to an epic lane or to the rules banner
+  also updates only that lane or banner. The cards of a deleted column or lane
+  then move to their new place.
+- A change to the columns, the lanes or the banner waits while you drag a card,
+  while a move you made is not saved yet, or while a dialog is open. You can
+  drop a card into a column that appeared while the board was open.
 - When the board cannot show a change to a card after a few tries, the card
   gets a dashed outline, with the tooltip **This card may be out of date**.
   The next change to that card, or a reload of the page, removes the mark.
@@ -224,8 +228,8 @@ Every open board of the project shows a change as it happens, with no reload.
 When the connection to the server stops for about 5 seconds, the toolbar
 shows **Live updates paused**. When the connection comes back, the board asks
 the server which cards changed, and only those cards update. A change to the
-columns or to an epic lane still loads the board again in place. The sign then
-goes away.
+columns or to an epic lane updates only that column or lane. The sign then goes
+away.
 
 Live changes need a Mercure hub and the `live_updates.enabled` flag, see
 [Environment variables](../reference/environment.md). If either is missing,

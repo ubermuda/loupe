@@ -365,8 +365,12 @@ test('the lane button in the card drawer shows the lane on the board behind it',
         .getByRole('button', { name: 'Show as a lane on the board' })
         .click();
 
-    await boardReplaced(page);
     await expect(lane(page, epic.id)).toBeVisible();
+    await expect(
+        page.locator(`${CARD}[data-card-id="${epic.id}"]`),
+    ).toHaveCount(0);
+    // The lane shows in place, so the board keeps its mark.
+    await expect(page.locator(`${READY}[${MARK}]`)).toBeAttached();
     await expect(drawer).toHaveJSProperty('open', true);
     await expect(
         drawer.getByRole('button', { name: 'Hide the lane on the board' }),
@@ -415,7 +419,7 @@ test('a collapsed lane stays collapsed when a live update morphs the board', asy
     await toggle.click();
     await expect(lane(page, epic.id)).toHaveClass(/lp-board-lane--collapsed/);
 
-    // The frame reload is what a worker run or a column change triggers.
+    // The board falls back to a frame reload when it cannot read its structure or manifest.
     await lane(page, epic.id).evaluate(async (section) => {
         (section as unknown as { kept: boolean }).kept = true;
         const frame = document.getElementById('board-frame') as HTMLElement & {
