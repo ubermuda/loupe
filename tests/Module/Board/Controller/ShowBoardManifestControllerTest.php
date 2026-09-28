@@ -13,12 +13,14 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
+use App\Session\ReadOnlyAwareSessionHandler;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Profiler\Profile;
+use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Uid\Uuid;
 
 final class ShowBoardManifestControllerTest extends WebTestCase
@@ -68,6 +70,14 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, $this->manifestUrl($project));
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function test_the_manifest_route_does_not_write_the_session(): void
+    {
+        $route = static::getContainer()->get(RouterInterface::class)->getRouteCollection()->get('app_board_manifest');
+
+        self::assertNotNull($route);
+        self::assertTrue($route->getDefault(ReadOnlyAwareSessionHandler::READ_ONLY));
     }
 
     public function test_an_empty_board_has_an_empty_card_list(): void

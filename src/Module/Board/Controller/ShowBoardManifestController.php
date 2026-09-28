@@ -10,6 +10,7 @@ use App\Module\Board\Command\ShowBoardManifestHandler;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Session\ReadOnlyAwareSessionHandler;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -22,6 +23,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
     '/projects/{projectId}/board/manifest',
     name: 'app_board_manifest',
     requirements: ['projectId' => Requirement::UUID],
+    defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => true],
     methods: ['GET'],
 )]
 final class ShowBoardManifestController extends AppController
