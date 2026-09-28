@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\BulkMoveBacklogCardsCommand;
 use App\Module\Board\Command\BulkMoveBacklogCardsHandler;
+use App\Module\Board\Command\CardLinkInput;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\EpicChildrenOpen;
@@ -18,6 +19,7 @@ use App\Module\Board\Command\RankBacklogCardHandler;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
@@ -226,6 +228,20 @@ final class BacklogCardMovesTest extends KernelTestCase
         self::assertSame('done', $child->column->slug);
     }
 
+    public function test_a_bulk_move_takes_a_child_that_an_earlier_card_of_the_batch_released(): void
+    {
+        $this->em->persist(new BoardColumn(project: $this->project, label: 'Implementation', slug: 'implementation', position: 4));
+        $this->em->flush();
+        $epic = $this->card('Epic', type: CardType::Epic);
+        $blocker = $this->card('Blocker');
+        $child = $this->card('Child', parent: $epic, relatedCards: [new CardLinkInput((string) $blocker->id, CardLinkKind::BlockedBy)]);
+
+        $this->bulkMove([(string) $blocker->id, (string) $child->id], 'done');
+
+        self::assertSame('done', $blocker->column->slug);
+        self::assertSame('done', $child->column->slug);
+    }
+
     public function test_a_bulk_move_refuses_the_whole_move_when_one_card_is_not_writable(): void
     {
         $waiting = $this->card('Waiting');
@@ -306,7 +322,8 @@ final class BacklogCardMovesTest extends KernelTestCase
         }
     }
 
-    private function card(string $title, string $slug = 'backlog', CardType $type = CardType::Feature, ?Card $parent = null): Card
+    /** @param list<CardLinkInput> $relatedCards */
+    private function card(string $title, string $slug = 'backlog', CardType $type = CardType::Feature, ?Card $parent = null, array $relatedCards = []): Card
     {
         $handler = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $handler);
@@ -318,6 +335,7 @@ final class BacklogCardMovesTest extends KernelTestCase
             type: $type,
             column: $this->column($this->project, $slug),
             parentCardId: null === $parent ? null : (string) $parent->id,
+            relatedCards: $relatedCards,
         ));
     }
 
