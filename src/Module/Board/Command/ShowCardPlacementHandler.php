@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
@@ -11,6 +12,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
 
+/** Reads one card and its neighbours, so the cost does not grow with the board. */
 final readonly class ShowCardPlacementHandler
 {
     public function __construct(
@@ -24,44 +26,50 @@ final readonly class ShowCardPlacementHandler
 
     public function __invoke(ShowCardPlacementCommand $command): CardPlacementView
     {
-        $cardId = null === $command->card ? null : (string) $command->card->id;
+        $windowStart = BoardColumnCards::windowStart();
+        $columns = $this->boardColumns->findForProject($command->project);
+
+        $stored = $this->columnCards->counts($command->project, $windowStart);
         $counts = [];
         $terminalTotals = [];
-        $found = null;
-        $column = null;
-        $after = null;
-        $rowAfter = null;
-        $previousRow = null;
-
-        // Every column is read as the board page reads it, so the list order
-        // across columns and the counts come from the same query as the page.
-        foreach ($this->boardColumns->findForProject($command->project) as $boardColumn) {
-            $shown = $this->columnCards->shown($boardColumn);
-            $counts[(string) $boardColumn->id] = \count($shown);
+        foreach ($columns as $boardColumn) {
+            $id = (string) $boardColumn->id;
+            $counts[$id] = $stored[$id]['shown'] ?? 0;
             if ($boardColumn->terminal) {
-                $terminalTotals[(string) $boardColumn->id] = $this->cards->countInColumn($boardColumn);
-            }
-
-            $previousInColumn = null;
-            foreach ($shown as $card) {
-                $id = (string) $card->id;
-                if ($id === $cardId) {
-                    [$found, $column, $after, $rowAfter] = [$card, $boardColumn, $previousInColumn, $previousRow];
-                }
-                $previousInColumn = $id;
-                $previousRow = $id;
+                $terminalTotals[$id] = $stored[$id]['total'] ?? 0;
             }
         }
 
-        $pending = null === $found ? 0 : ($this->cardSiteReviewComments->pendingCountsForProject($command->project)[(string) $found->id] ?? 0);
-        $documentCount = null === $found ? 0 : ($this->cardDocuments->countsForProject($command->project)[(string) $found->id] ?? 0);
+        $card = $command->card;
+        $columnId = null === $card ? null : $this->columnCards->shownColumnId($card, $windowStart);
+        $index = null === $columnId ? null : array_find_key($columns, static fn (BoardColumn $column): bool => (string) $column->id === $columnId);
+        if (null === $card || null === $index) {
+            return new CardPlacementView(null, null, null, null, 0, 0, $counts, $terminalTotals);
+        }
+
+        $column = $columns[$index];
+        $after = $this->columnCards->previousShown($card, $column, $windowStart);
+        $rowAfter = $after;
+        for ($earlier = $index - 1; null === $rowAfter && $earlier >= 0; --$earlier) {
+            $rowAfter = $this->columnCards->lastShown($columns[$earlier], $windowStart);
+        }
 
         $progress = null;
-        if (CardType::Epic === $found?->type) {
-            $children = $this->cards->childProgressForProject($command->project)[(string) $found->id] ?? ['done' => 0, 'total' => 0];
+        if (CardType::Epic === $card->type) {
+            $children = $this->cards->childProgressOf($card);
             $progress = new CardProgress($children['done'], $children['total']);
         }
 
-        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $documentCount, $counts, $terminalTotals, $progress);
+        return new CardPlacementView(
+            $card,
+            $column,
+            $after,
+            $rowAfter,
+            $this->cardSiteReviewComments->pendingCountForCard($card),
+            $this->cardDocuments->countForCard($card),
+            $counts,
+            $terminalTotals,
+            $progress,
+        );
     }
 }
