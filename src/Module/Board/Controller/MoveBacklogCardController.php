@@ -83,7 +83,11 @@ final class MoveBacklogCardController extends AppController
         }
 
         if (null !== $error && $stream) {
-            return new Response('', Response::HTTP_UNPROCESSABLE_ENTITY);
+            return new Response(
+                $this->renderView('@Board/_backlog_refused.stream.html.twig', ['error' => $error]),
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
+            );
         }
 
         if (!$stream) {
@@ -97,9 +101,11 @@ final class MoveBacklogCardController extends AppController
             ]);
         }
 
-        // A page the move emptied shows the page before it, or the empty state.
+        // The page on screen held the moved row, so it empties when that was its last row.
+        // It then shows the rows that moved up, the page before it, or the empty state.
         $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $listQuery));
-        $refill = [] === $view->items;
+        $shownBefore = min(ListBacklogCardsHandler::PER_PAGE, $view->filteredTotal + 1 - ($listQuery->page - 1) * ListBacklogCardsHandler::PER_PAGE);
+        $refill = $shownBefore <= 1;
         if (null !== $view->clampedPage) {
             $listQuery = $listQuery->withPage($view->clampedPage);
             $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $listQuery));

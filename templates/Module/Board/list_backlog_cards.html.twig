@@ -89,7 +89,7 @@
           data-backlog-select-target="bar"
           hidden>
         <input type="hidden" name="{{ bulkName }}[_token]" value="{{ csrf_token('submit') }}" data-controller="csrf-protection">
-        <span><span class="lp-backlog-bulk__count" data-backlog-select-target="count">0</span>{{ 'board.backlog.bulk.selected'|trans }}</span>
+        <span><span class="lp-backlog-bulk__count" data-backlog-select-target="count">0</span> {{ 'board.backlog.bulk.selected'|trans }}</span>
         {% if view.nextColumn %}
         <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm" name="{{ bulkName }}[column]" value="{{ view.nextColumn.id }}">{{ 'board.backlog.bulk.move_to_next'|trans({'%column%': view.nextColumn.label|trans}) }}</button>
         {% endif %}

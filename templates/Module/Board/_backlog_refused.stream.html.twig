@@ -1,0 +1,4 @@
+{#- A move the Backlog page asked for was refused. It reads no database, because a refused bulk move closes the entity manager. Props: error (string). -#}
+<turbo-stream action="update" target="backlog-confirmation">
+    <template><p class="lp-backlog-notice lp-backlog-notice--error" role="alert"><span class="lp-flash__dot"></span>{{ error }}</p></template>
+</turbo-stream>

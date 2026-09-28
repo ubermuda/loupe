@@ -89,7 +89,11 @@ final class BulkMoveBacklogCardsController extends AppController
         // A refusal rolled the moves back and closed the entity manager, so
         // neither answer reads the database again.
         if (null !== $error && $stream) {
-            return new Response('', Response::HTTP_UNPROCESSABLE_ENTITY);
+            return new Response(
+                $this->renderView('@Board/_backlog_refused.stream.html.twig', ['error' => $error]),
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+                ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
+            );
         }
 
         if (!$stream) {
@@ -103,9 +107,11 @@ final class BulkMoveBacklogCardsController extends AppController
             ]);
         }
 
-        // A page the moves emptied shows the page before it, or the empty state.
+        // The page on screen held every moved row, so it empties when they were all its rows.
+        // It then shows the rows that moved up, the page before it, or the empty state.
         $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $listQuery));
-        $refill = [] === $view->items;
+        $shownBefore = min(ListBacklogCardsHandler::PER_PAGE, $view->filteredTotal + \count($moved) - ($listQuery->page - 1) * ListBacklogCardsHandler::PER_PAGE);
+        $refill = \count($moved) >= $shownBefore;
         if (null !== $view->clampedPage) {
             $listQuery = $listQuery->withPage($view->clampedPage);
             $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $listQuery));

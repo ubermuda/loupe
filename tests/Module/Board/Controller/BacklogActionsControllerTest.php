@@ -140,6 +140,82 @@ final class BacklogActionsControllerTest extends WebTestCase
         self::assertStringContainsString('The Backlog is empty', $body);
     }
 
+    public function test_a_bulk_move_of_a_whole_page_redraws_it_with_the_next_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'backlog-bulk-page@example.com');
+        $project = $this->project($em, $owner);
+        $ids = [];
+        for ($index = 0; $index < 27; ++$index) {
+            $card = $this->card($em, $project, 'Card '.$index, 'backlog', $index);
+            if ($index < 25) {
+                $ids[] = (string) $card->id;
+            }
+        }
+        $next = (string) $this->column($project, 'next')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $this->bulkUrl($project), BulkMoveBacklogCardsFormType::NAME, ['ids' => $ids, 'column' => $next], stream: true);
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('target="backlog-results"', $body);
+        self::assertStringContainsString('Card 26', $body);
+        self::assertStringNotContainsString('action="remove"', $body);
+    }
+
+    public function test_a_move_that_leaves_rows_on_the_page_only_removes_its_row(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'backlog-move-page-two@example.com');
+        $project = $this->project($em, $owner);
+        $cards = [];
+        for ($index = 0; $index < 27; ++$index) {
+            $cards[] = $this->card($em, $project, 'Card '.$index, 'backlog', $index);
+        }
+        $next = (string) $this->column($project, 'next')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $this->cardUrl($cards[25], 'move').'?page=2', MoveBacklogCardFormType::nameFor($cards[25]), ['column' => $next], stream: true);
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('action="remove" target="backlog-row-'.$cards[25]->id.'"', $body);
+        self::assertStringNotContainsString('target="backlog-results"', $body);
+    }
+
+    public function test_a_refused_move_answers_a_stream_with_the_reason(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'backlog-move-reason@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic'), CardType::Epic);
+        $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'next'));
+        $done = (string) $this->column($project, 'done')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $this->cardUrl($epic, 'move'), MoveBacklogCardFormType::nameFor($epic), ['column' => $done], stream: true);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringStartsWith(TurboBundle::STREAM_MEDIA_TYPE, (string) $client->getResponse()->headers->get('Content-Type'));
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('target="backlog-confirmation"', $body);
+        self::assertStringContainsString('#2', $body);
+        self::assertSame(['Epic'], $this->titlesIn($project, 'backlog'));
+    }
+
     public function test_a_move_without_turbo_redirects_back_with_the_filters(): void
     {
         $client = static::createClient();

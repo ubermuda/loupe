@@ -757,23 +757,35 @@
         @apply col-span-full;
     }
 
-    /* The Backlog page reuses the document table with its own columns. It
-       lets the row menus overflow, so a menu is never clipped by the table. */
+    /* The Backlog page reuses the document table with its own columns. From
+       lg up the table fits the page and lets the row menus overflow it, so a
+       menu is never clipped. Below lg it scrolls sideways as the documents do. */
     .lp-document-table--backlog {
-        @apply overflow-visible;
+        @apply lg:overflow-visible;
+    }
+    /* Three classes on the row, to win over the documents row of redesign-core.css. */
+    .lp-document-table--backlog .lp-document-table__head,
+    .lp-document-table--backlog .lp-document-list,
+    .lp-document-table--backlog .lp-document-row.lp-backlog-row {
+        @apply lg:min-w-0;
     }
     .lp-document-table--backlog .lp-document-table__head,
-    .lp-document-table--backlog .lp-document-row {
+    .lp-document-table--backlog .lp-document-row.lp-backlog-row {
         @apply gap-3;
         grid-template-columns:
             calc(var(--spacing) * 4) calc(var(--spacing) * 4)
             minmax(0, 2.6fr) minmax(calc(var(--spacing) * 24), 0.55fr)
-            minmax(calc(var(--spacing) * 36), 1.2fr)
+            minmax(calc(var(--spacing) * 24), 1.2fr)
             calc(var(--spacing) * 19) calc(var(--spacing) * 25)
             calc(var(--spacing) * 28);
     }
-    .lp-document-table--backlog .lp-document-row {
+    .lp-document-table--backlog .lp-document-row.lp-backlog-row {
         @apply min-h-15 py-2.5;
+    }
+    /* Each actions cell stacks at z-10, so the one with an open menu goes above the rows below it. */
+    .lp-document-table--backlog
+        .lp-document-row__actions:has(.lp-backlog-menu:not([hidden])) {
+        @apply z-30;
     }
     /* A ticked row. */
     .lp-document-table--backlog
@@ -840,6 +852,9 @@
     }
     .lp-backlog-notice[hidden] {
         @apply hidden;
+    }
+    .lp-backlog-notice--error .lp-flash__dot {
+        @apply bg-status-danger;
     }
     .lp-backlog-notice__link {
         @apply font-bold text-accent-ink underline;
