@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Session;
 
+use App\Observability\RequestTimeline;
 use App\Session\PdoSessionHandlerFactory;
 use App\Session\ReadOnlyAwareSessionHandler;
-use Sentry\State\HubInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -116,10 +116,10 @@ final class ReadOnlyAwareSessionHandlerLockTest extends KernelTestCase
         $requests = new RequestStack();
         $requests->push($request);
 
-        $hub = static::getContainer()->get(HubInterface::class);
-        self::assertInstanceOf(HubInterface::class, $hub);
+        $timeline = static::getContainer()->get(RequestTimeline::class);
+        self::assertInstanceOf(RequestTimeline::class, $timeline);
 
-        return new ReadOnlyAwareSessionHandler($locking, $nonLocking, $requests, $hub);
+        return new ReadOnlyAwareSessionHandler($locking, $nonLocking, $requests, $timeline);
     }
 
     private function releaseHolder(): void

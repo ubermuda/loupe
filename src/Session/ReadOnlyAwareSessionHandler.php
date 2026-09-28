@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Session;
 
-use Sentry\State\HubInterface;
-use Sentry\Tracing\SpanContext;
+use App\Observability\RequestTimeline;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -21,11 +20,14 @@ final class ReadOnlyAwareSessionHandler implements \SessionHandlerInterface, \Se
 
     private SessionLockMode $mode = SessionLockMode::Locking;
 
+    /** @var array<int, true> */
+    private array $opened = [];
+
     public function __construct(
         public readonly \SessionHandlerInterface&\SessionUpdateTimestampHandlerInterface $locking,
         public readonly \SessionHandlerInterface&\SessionUpdateTimestampHandlerInterface $nonLocking,
         private readonly RequestStack $requestStack,
-        private readonly HubInterface $hub,
+        private readonly RequestTimeline $timeline,
     ) {
     }
 
@@ -33,8 +35,20 @@ final class ReadOnlyAwareSessionHandler implements \SessionHandlerInterface, \Se
     public function open(string $path, string $name): bool
     {
         $this->mode = $this->modeFor($this->requestStack->getMainRequest());
+        $inner = $this->inner();
 
-        return $this->inner()->open($path, $name);
+        if (isset($this->opened[spl_object_id($inner)])) {
+            return $inner->open($path, $name);
+        }
+
+        $this->opened[spl_object_id($inner)] = true;
+
+        // A PdoSessionHandler builds its PDO on its first open(), so this times the connect.
+        return $this->timeline->span(
+            'session.connect',
+            static fn (): bool => $inner->open($path, $name),
+            data: ['session.mode' => $this->mode->value],
+        );
     }
 
     #[\Override]
@@ -109,19 +123,9 @@ final class ReadOnlyAwareSessionHandler implements \SessionHandlerInterface, \Se
      */
     private function traced(\Closure $read): mixed
     {
-        $span = $this->hub->getSpan()?->startChild(
-            SpanContext::make()
-                ->setOp('session.read')
-                ->setData([
-                    'session.locked' => SessionLockMode::Locking === $this->mode,
-                    'session.mode' => $this->mode->value,
-                ]),
-        );
-
-        try {
-            return $read();
-        } finally {
-            $span?->finish();
-        }
+        return $this->timeline->span('session.read', $read, data: [
+            'session.locked' => SessionLockMode::Locking === $this->mode,
+            'session.mode' => $this->mode->value,
+        ]);
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Session;
 
+use App\Observability\RecordedSpan;
+use App\Observability\RequestTimeline;
 use App\Session\ReadOnlyAwareSessionHandler;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -104,7 +106,7 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
         $nonLocking->method('open')->willReturn(true);
         $nonLocking->expects($this->never())->method('write');
 
-        $handler = new ReadOnlyAwareSessionHandler($locking, $nonLocking, $requests, $this->createStub(HubInterface::class));
+        $handler = new ReadOnlyAwareSessionHandler($locking, $nonLocking, $requests, new RequestTimeline($this->createStub(HubInterface::class)));
 
         $requests->push(self::marked(true, Request::create('/count')));
         $handler->open('', 'PHPSESSID');
@@ -130,7 +132,7 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
 
         $requests = new RequestStack();
         $requests->push(Request::create('/board', Request::METHOD_POST));
-        $handler = new ReadOnlyAwareSessionHandler($locking, self::stubInner(), $requests, $hub);
+        $handler = new ReadOnlyAwareSessionHandler($locking, self::stubInner(), $requests, new RequestTimeline($hub));
 
         $handler->open('', 'PHPSESSID');
         $handler->validateId('sid');
@@ -160,6 +162,54 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
         $handler->open('', 'PHPSESSID');
 
         self::assertSame('data', $handler->read('sid'));
+    }
+
+    public function test_it_times_the_first_open_of_each_inner_handler_as_the_session_connect(): void
+    {
+        $locking = self::stubInner();
+        $locking->method('open')->willReturn(true);
+        $nonLocking = self::stubInner();
+        $nonLocking->method('open')->willReturn(true);
+        $requests = new RequestStack();
+        $timeline = new RequestTimeline($this->createStub(HubInterface::class));
+        $handler = new ReadOnlyAwareSessionHandler($locking, $nonLocking, $requests, $timeline);
+
+        $requests->push(Request::create('/board', Request::METHOD_POST));
+        $handler->open('', 'PHPSESSID');
+        $handler->open('', 'PHPSESSID');
+        $requests->pop();
+        $requests->push(Request::create('/board'));
+        $handler->open('', 'PHPSESSID');
+        $handler->open('', 'PHPSESSID');
+
+        $connects = array_values(array_filter(
+            $timeline->drain(),
+            static fn (RecordedSpan $span): bool => 'session.connect' === $span->op,
+        ));
+        self::assertCount(2, $connects);
+        self::assertSame(['session.mode' => 'locking'], $connects[0]->data);
+        self::assertSame(['session.mode' => 'non-locking'], $connects[1]->data);
+    }
+
+    public function test_with_no_hub_span_it_records_each_read_with_the_lock_it_took(): void
+    {
+        $nonLocking = self::stubInner();
+        $nonLocking->method('open')->willReturn(true);
+        $nonLocking->method('read')->willReturn('data');
+        $requests = new RequestStack();
+        $requests->push(Request::create('/board'));
+        $timeline = new RequestTimeline($this->createStub(HubInterface::class));
+        $handler = new ReadOnlyAwareSessionHandler(self::stubInner(), $nonLocking, $requests, $timeline);
+
+        $handler->open('', 'PHPSESSID');
+        self::assertSame('data', $handler->read('sid'));
+
+        $reads = array_values(array_filter(
+            $timeline->drain(),
+            static fn (RecordedSpan $span): bool => 'session.read' === $span->op,
+        ));
+        self::assertCount(1, $reads);
+        self::assertSame(['session.locked' => false, 'session.mode' => 'non-locking'], $reads[0]->data);
     }
 
     /** @param string|list<string>|bool $mark */
@@ -209,6 +259,6 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
             $requests->push($request);
         }
 
-        return new ReadOnlyAwareSessionHandler($locking, $nonLocking, $requests, $this->createStub(HubInterface::class));
+        return new ReadOnlyAwareSessionHandler($locking, $nonLocking, $requests, new RequestTimeline($this->createStub(HubInterface::class)));
     }
 }
