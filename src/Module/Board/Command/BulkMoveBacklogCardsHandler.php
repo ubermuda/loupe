@@ -7,15 +7,20 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Security\CardVoter;
 use App\Module\Board\Service\CardMover;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Uid\Uuid;
 
 /**
  * Moves the cards ticked on one page of the Backlog to one column, all or none.
  *
- * Each move runs through UpdateCardHandler, whose transaction nests as a
- * savepoint in this one, so one refusal rolls every move back.
+ * Every refusal known before the first write comes first. Each move runs
+ * through UpdateCardHandler, whose transaction nests as a savepoint in this
+ * one, so a refusal from a concurrent change still rolls every move back.
+ * Only then can a move already audited be rolled back.
  */
 final readonly class BulkMoveBacklogCardsHandler
 {
@@ -29,6 +34,7 @@ final readonly class BulkMoveBacklogCardsHandler
         private CardRepository $cards,
         private UpdateCardHandler $updateCard,
         private EntityManagerInterface $em,
+        private AuthorizationCheckerInterface $authorization,
     ) {
     }
 
@@ -51,6 +57,11 @@ final readonly class BulkMoveBacklogCardsHandler
 
         $valid = array_values(array_filter($cardIds, Uuid::isValid(...)));
         $cards = $this->cards->findByIdsInProject($command->backlog->project, array_map(Uuid::fromString(...), $valid));
+        foreach ($cards as $card) {
+            if (!$this->authorization->isGranted(CardVoter::WRITE, $card)) {
+                throw new AccessDeniedException();
+            }
+        }
         $outside = array_filter($cards, static fn (Card $card): bool => $card->column !== $command->backlog);
         if (\count($cards) !== \count($cardIds) || [] !== $outside) {
             throw new DomainErrors(['ids' => RankBacklogCardHandler::NOT_IN_BACKLOG]);
@@ -59,8 +70,14 @@ final readonly class BulkMoveBacklogCardsHandler
         // Backlog order, so the cards keep their rank among themselves at the end of the target.
         usort($cards, static fn (Card $left, Card $right): int => [$left->position, $left->createdAt] <=> [$right->position, $right->createdAt]);
 
-        $this->em->wrapInTransaction(function () use ($cards, $command): void {
-            foreach ($cards as $card) {
+        $moveOrder = $command->column->terminal ? $this->childrenFirst($cards) : $cards;
+
+        $this->em->wrapInTransaction(function () use ($moveOrder, $command): void {
+            foreach ($moveOrder as $card) {
+                // The last open child of an epic closes the epic as it moves.
+                if ($card->column === $command->column) {
+                    continue;
+                }
                 ($this->updateCard)(new UpdateCardCommand(
                     card: $card,
                     actor: $command->actor,
@@ -71,5 +88,35 @@ final readonly class BulkMoveBacklogCardsHandler
         });
 
         return $cards;
+    }
+
+    /**
+     * The same refusal UpdateCardHandler makes for a terminal column, made
+     * before any write. A child that moves with its epic does not count, and
+     * a terminal column keeps no rank, so the epics move last.
+     *
+     * @param list<Card> $cards
+     *
+     * @return list<Card>
+     */
+    private function childrenFirst(array $cards): array
+    {
+        $moving = array_map(static fn (Card $card): int => $card->number, $cards);
+        $children = [];
+        $epics = [];
+        foreach ($cards as $card) {
+            $allChildren = $this->cards->openChildNumbers($card);
+            $open = array_values(array_diff($allChildren, $moving));
+            if ([] !== $open) {
+                throw new EpicChildrenOpen($open);
+            }
+            if ([] === $allChildren) {
+                $children[] = $card;
+            } else {
+                $epics[] = $card;
+            }
+        }
+
+        return [...$children, ...$epics];
     }
 }

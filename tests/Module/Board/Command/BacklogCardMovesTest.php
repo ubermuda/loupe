@@ -21,9 +21,12 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
-use Doctrine\DBAL\Connection;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /** The three writes of the Backlog page, each a shell over UpdateCardHandler. */
 final class BacklogCardMovesTest extends KernelTestCase
@@ -47,6 +50,7 @@ final class BacklogCardMovesTest extends KernelTestCase
         $this->em->persist($this->project);
         $this->seedColumns($this->project);
         $this->em->flush();
+        $this->actAs($owner);
     }
 
     public function test_a_rank_puts_the_card_above_the_card_below_the_drop(): void
@@ -140,25 +144,62 @@ final class BacklogCardMovesTest extends KernelTestCase
         $this->expectDomainError(['ids' => BulkMoveBacklogCardsHandler::TOO_MANY], fn () => $this->bulkMove($ids, 'next'));
     }
 
-    public function test_one_refused_card_rolls_the_whole_bulk_move_back(): void
+    public function test_a_bulk_move_to_a_terminal_column_refuses_an_epic_with_open_children_before_any_write(): void
     {
+        $audit = RecordingAuditor::installedIn(self::getContainer());
         $plain = $this->card('Plain');
         $epic = $this->card('Epic', type: CardType::Epic);
         $this->card('Open child', 'next', parent: $epic);
+        $audit->forget();
 
         try {
             $this->bulkMove([(string) $plain->id, (string) $epic->id], 'done');
             self::fail('Expected EpicChildrenOpen.');
-        } catch (EpicChildrenOpen) {
+        } catch (EpicChildrenOpen $e) {
+            self::assertSame([3], $e->numbers);
         }
 
-        // The refusal closes the entity manager, so the rows are read straight from the connection.
-        $connection = self::getContainer()->get(Connection::class);
-        self::assertInstanceOf(Connection::class, $connection);
-        self::assertSame(['Epic', 'Plain'], $connection->fetchFirstColumn(
-            'SELECT c.title FROM board_cards c JOIN board_columns k ON k.id = c.column_id WHERE c.project_id = ? AND k.slug = ? ORDER BY c.title',
-            [(string) $this->project->id, 'backlog'],
-        ));
+        self::assertSame(['Plain', 'Epic'], $this->backlogTitles());
+        self::assertSame([], $audit->operations());
+    }
+
+    public function test_a_bulk_move_takes_an_epic_to_a_terminal_column_with_its_open_children(): void
+    {
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $epic = $this->card('Epic', type: CardType::Epic);
+        $child = $this->card('Child', parent: $epic);
+        $audit->forget();
+
+        $this->bulkMove([(string) $epic->id, (string) $child->id], 'done');
+
+        self::assertSame([], $this->backlogTitles());
+        $movedNumbers = array_map(static fn ($record): mixed => $record->context['cardNumber'] ?? null, $audit->records('board.card_moved'));
+        sort($movedNumbers);
+        self::assertSame([$epic->number, $child->number], $movedNumbers);
+    }
+
+    public function test_a_bulk_move_refuses_the_whole_move_when_one_card_is_not_writable(): void
+    {
+        $waiting = $this->card('Waiting');
+        $stranger = new User(fullName: 'Sam', email: 'backlog-moves-stranger-'.uniqid().'@example.com', password: 'hashed');
+        $this->em->persist($stranger);
+        $this->em->flush();
+        $this->actAs($stranger);
+
+        try {
+            $this->bulkMove([(string) $waiting->id], 'next');
+            self::fail('Expected AccessDeniedException.');
+        } catch (AccessDeniedException) {
+        }
+
+        self::assertSame(['Waiting'], $this->backlogTitles());
+    }
+
+    private function actAs(User $user): void
+    {
+        $tokens = self::getContainer()->get('security.token_storage');
+        self::assertInstanceOf(TokenStorageInterface::class, $tokens);
+        $tokens->setToken(new UsernamePasswordToken($user, 'main', $user->getRoles()));
     }
 
     private function rank(Card $card, ?Card $before = null, ?Card $after = null): void

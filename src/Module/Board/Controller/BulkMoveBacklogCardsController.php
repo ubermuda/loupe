@@ -31,11 +31,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\UX\Turbo\TurboBundle;
 
 /**
- * The bulk bar of the Backlog page. It names many cards, so the gate is the
- * project attribute that grants a card write today. The handler refuses a
- * card of another project or outside the Backlog.
+ * The bulk bar of the Backlog page. It names many cards, so the handler checks
+ * CardVoter::WRITE on each card it loads, and refuses a card of another project
+ * or outside the Backlog. The project gate here only keeps strangers out.
  */
-#[IsGranted(ProjectVoter::MANAGE, subject: 'project')]
+#[IsGranted(ProjectVoter::VIEW, subject: 'project')]
 #[Route(
     '/projects/{projectId}/board/backlog/bulk-move',
     name: 'app_project_board_backlog_bulk_move',
@@ -86,8 +86,8 @@ final class BulkMoveBacklogCardsController extends AppController
             }
         }
 
-        // A refusal rolled the moves back and closed the entity manager, so
-        // neither answer reads the database again.
+        // A refusal inside the transaction rolls the moves back and closes the
+        // entity manager, so neither answer reads the database again.
         if (null !== $error && $stream) {
             return new Response(
                 $this->renderView('@Board/_backlog_refused.stream.html.twig', ['error' => $error]),
