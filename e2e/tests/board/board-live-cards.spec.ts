@@ -80,12 +80,12 @@ test('a card moved in one browser moves in another, marked, with the filter and 
         'Charlie live',
         'Delta other',
     ]) {
-        await createCard(mover, projectId, title, 'Backlog');
+        await createCard(mover, projectId, title, 'Next');
     }
-    await createCard(mover, projectId, 'Echo live', 'Next');
+    await createCard(mover, projectId, 'Echo live', 'In progress');
 
     const watcher = await signedInPage(browser, email, PASSWORD);
-    // Short, so the Backlog column scrolls its cards.
+    // Short, so the Next column scrolls its cards.
     await watcher.setViewportSize({ width: 1400, height: 460 });
     await watcher.goto(boardUrl);
     // The hub keeps no history, so a change made before this connects is lost.
@@ -97,7 +97,7 @@ test('a card moved in one browser moves in another, marked, with the filter and 
     const other = watcher.locator(`${CARD}[data-card-title="Delta other"]`);
     await expect(other).toBeHidden();
 
-    const scrolled = await group(watcher, 'backlog').evaluate((element) => {
+    const scrolled = await group(watcher, 'next').evaluate((element) => {
         element.scrollBy({ top: 30, behavior: 'instant' });
         return element.scrollTop;
     });
@@ -129,16 +129,14 @@ test('a card moved in one browser moves in another, marked, with the filter and 
         flashed,
         expect(mover).toHaveURL(new RegExp(`${boardUrl}$`)),
     ]);
-    await expect(group(watcher, 'next').locator(CARD)).toHaveCount(0);
+    await expect(group(watcher, 'in-progress').locator(CARD)).toHaveCount(0);
     await expect(
         watcher.locator('[data-column-slug="done"] .lp-board__column-link'),
     ).toHaveText('See the one finished card');
 
     await expect(other).toBeHidden();
     expect(
-        await group(watcher, 'backlog').evaluate(
-            (element) => element.scrollTop,
-        ),
+        await group(watcher, 'next').evaluate((element) => element.scrollTop),
     ).toBe(scrolled);
     expect(
         await watcher.evaluate(

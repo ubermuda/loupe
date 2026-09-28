@@ -108,7 +108,7 @@ test('a column renamed in one browser shows in another without a reload', async 
     });
     // A morph keeps the element of a column that did not change, and a replace does not.
     await watcher
-        .locator(`${COLUMN}[data-column-slug="backlog"]`)
+        .locator(`${COLUMN}[data-column-slug="in-progress"]`)
         .evaluate((column) => {
             (column as unknown as { kept: boolean }).kept = true;
         });
@@ -145,7 +145,7 @@ test('a column renamed in one browser shows in another without a reload', async 
     ).toBe(true);
     expect(
         await watcher
-            .locator(`${COLUMN}[data-column-slug="backlog"]`)
+            .locator(`${COLUMN}[data-column-slug="in-progress"]`)
             .evaluate(
                 (column) => (column as unknown as { kept?: boolean }).kept,
             ),
