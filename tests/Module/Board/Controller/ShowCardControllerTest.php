@@ -60,7 +60,7 @@ final class ShowCardControllerTest extends WebTestCase
         $failingRow = $crawler->filter('[data-linked-pull-request="'.$failing->id.'"]');
         self::assertSame(['Open', 'Checks failed', 'Conflict', 'Changes requested'], $this->chips($failingRow));
         self::assertSame(3, $failingRow->filter('.lp-status-chip--failed')->count());
-        self::assertSame('Failed checks: phpunit, phpstan', trim($failingRow->filter('.lp-tooltip')->text()));
+        self::assertSame('Failed checks: phpunit, phpstan', trim($failingRow->filter('.lp-pull-request-state__failed')->text()));
         self::assertSame(['Merged'], $this->chips($crawler->filter('[data-linked-pull-request="'.$merged->id.'"]')));
         self::assertSame(['Draft', 'Checks passed', 'Approved'], $this->chips($crawler->filter('[data-linked-pull-request="'.$draft->id.'"]')));
         $unreadRow = $crawler->filter('[data-linked-pull-request="'.$unread->id.'"]');

@@ -5774,6 +5774,9 @@
     .lp-pull-request-state .lp-status-chip {
         @apply ml-0 whitespace-nowrap;
     }
+    .lp-pull-request-state__failed {
+        @apply basis-full text-xs text-fg-mute;
+    }
     /* What the board automation last did on the card. */
     .lp-card-automation {
         @apply flex items-center gap-1.5 text-xs text-fg-mute m-0 mt-3;
