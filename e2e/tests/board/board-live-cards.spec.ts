@@ -89,9 +89,7 @@ test('a card moved in one browser moves in another, marked, with the filter and 
     await watcher.setViewportSize({ width: 1400, height: 460 });
     await watcher.goto(boardUrl);
     // The hub keeps no history, so a change made before this connects is lost.
-    await expect(watcher.locator('[data-board-refresh-connected]')).toHaveCount(
-        1,
-    );
+    await expect(watcher.locator('[data-board-live-connected]')).toHaveCount(1);
 
     await watcher.getByRole('searchbox', { name: 'Search cards' }).fill('live');
     const other = watcher.locator(`${CARD}[data-card-title="Delta other"]`);

@@ -198,7 +198,7 @@ export default class extends ModalController {
         this.deletedTarget.querySelector('button')?.focus();
     }
 
-    // A board reload replaces the link that opened the drawer; its twin keeps the place.
+    // A board update can replace the link that opened the drawer; its twin keeps the place.
     #repairReturnFocus() {
         const href = this.invoker?.getAttribute('href');
         if (href && !this.returnFocusTo?.isConnected) {
