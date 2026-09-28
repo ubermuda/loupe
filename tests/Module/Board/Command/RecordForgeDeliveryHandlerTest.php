@@ -58,16 +58,18 @@ final class RecordForgeDeliveryHandlerTest extends KernelTestCase
         self::assertSame(['acme/old'], $this->pathsOf($strangerCard));
     }
 
-    public function test_an_installation_delivery_writes_no_bare_fact_row(): void
+    public function test_a_hook_delivery_writes_a_bare_fact_row_and_an_installation_delivery_does_not(): void
     {
         $project = $this->project('installed');
-        $this->linkedCard($project, 'acme/widgets', 5);
+        $card = $this->linkedCard($project, 'acme/widgets', 5);
+        $this->handle($project, new ForgeDelivery(ForgeEventType::MERGED, 'github', 'acme/widgets', 5));
+        self::assertSame([(string) $card->id], $this->outboxSubjects($project));
 
         foreach ([ForgeEventType::MERGED, ForgeEventType::REVIEW_SUBMITTED, ForgeEventType::CHECKS_CONCLUDED] as $type) {
             $this->handle($project, new ForgeDelivery($type, 'github', 'acme/widgets', 5), ForgeRepositorySource::Installation);
         }
 
-        self::assertSame([], $this->outboxSubjects($project));
+        self::assertSame([(string) $card->id], $this->outboxSubjects($project));
     }
 
     public function test_an_installation_move_still_repoints_the_links(): void
