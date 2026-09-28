@@ -1,8 +1,8 @@
 /**
- * Browser coverage for the live board refresh: a column renamed from board
- * settings in one browser shows in a second browser on the same board, with no
- * navigation there. The
- * hub delivers the nudge, so the run needs a Mercure hub the browser can reach.
+ * Browser coverage for the live board refresh: a column added, renamed,
+ * reordered or deleted from board settings in one browser shows in a second
+ * browser on the same board, with no navigation there. The hub delivers the
+ * nudge, so the run needs a Mercure hub the browser can reach.
  */
 
 import {
@@ -151,6 +151,127 @@ test('a column renamed in one browser shows in another without a reload', async 
             ),
     ).toBe(true);
     // The column change updates the structure in place, with no frame reload.
+    expect(frameLoads).toEqual([]);
+
+    await editor.context().close();
+    await watcher.context().close();
+});
+
+async function createCard(
+    page: Page,
+    projectId: string,
+    title: string,
+    column: string,
+): Promise<void> {
+    await page.goto(`/projects/${projectId}/board/cards/new`);
+    await page.getByLabel('Title').fill(title);
+    await page.getByLabel('Column').selectOption({ label: column });
+    await page.getByRole('button', { name: 'Create card' }).click();
+    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+}
+
+function slugs(page: Page): Promise<string[]> {
+    return page
+        .locator(COLUMN)
+        .evaluateAll((columns) =>
+            columns.map(
+                (column) => column.getAttribute('data-column-slug') ?? '',
+            ),
+        );
+}
+
+test('columns added, reordered and deleted in one browser update another in place', async ({
+    browser,
+    request,
+}) => {
+    await setFlag(request, 'board.enabled', true);
+    await setFlag(request, 'live_updates.enabled', true);
+
+    const email = `e2e+refresh+columns+${RUN}@example.com`;
+    const registered = await request.post('/dev/register-and-verify', {
+        form: { fullName: 'E2E Refresh User', email, password: PASSWORD },
+    });
+    expect(registered.status()).toBe(200);
+
+    const editor = await signedInPage(browser, email, PASSWORD);
+    const seeded = await editor.request.post('/dev/seed/document', {
+        form: { title: 'E2E Refresh Columns', markdown: '# Columns' },
+    });
+    expect(seeded.status()).toBe(201);
+    const projectId: string = (await seeded.json()).projectId;
+    const boardUrl = `/projects/${projectId}/board`;
+    await createCard(editor, projectId, 'Kept', 'Backlog');
+    await createCard(editor, projectId, 'Moved', 'Next');
+
+    const watcher = await signedInPage(browser, email, PASSWORD);
+    const frameLoads: string[] = [];
+    watcher.on('request', (request) => {
+        if (request.headers()['turbo-frame'] === 'board-frame') {
+            frameLoads.push(request.url());
+        }
+    });
+    await openBoard(watcher, boardUrl);
+    const kept = watcher.locator('.lp-board-card[data-card-title="Kept"]');
+    await expect(kept).toBeVisible();
+    // A re-render replaces the card element, and the new one lacks this property.
+    await kept.evaluate((card) => {
+        (card as unknown as { kept: boolean }).kept = true;
+    });
+
+    await editor.goto(`/projects/${projectId}/settings/columns`);
+    const settings = editor.locator('[data-board-column-settings]');
+    await settings
+        .getByRole('button', { name: 'Add a column', exact: true })
+        .click();
+    const addDialog = editor.getByRole('dialog');
+    await addDialog.getByRole('textbox').fill('Parked');
+    await addDialog
+        .getByRole('button', { name: 'Add column', exact: true })
+        .click();
+    await expect(
+        settings.getByRole('heading', { name: 'Parked', exact: true }),
+    ).toBeVisible();
+    await expect
+        .poll(() => slugs(watcher))
+        .toEqual(['backlog', 'next', 'in-progress', 'done', 'parked']);
+    await expect(kept).toHaveJSProperty('kept', true);
+
+    await settings
+        .locator('[data-column-id]')
+        .filter({
+            has: editor.getByRole('heading', { name: 'Parked', exact: true }),
+        })
+        .getByRole('button', { name: 'Move up', exact: true })
+        .click();
+    await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
+        ['backlog', 'next', 'in-progress', 'parked', 'done'],
+    );
+    await expect
+        .poll(() => slugs(watcher))
+        .toEqual(['backlog', 'next', 'in-progress', 'parked', 'done']);
+    await expect(kept).toHaveJSProperty('kept', true);
+
+    await settings
+        .locator('[data-column-slug="next"]')
+        .getByRole('button', { name: 'Delete Next', exact: true })
+        .click();
+    const deleteDialog = editor.locator('dialog[open]');
+    await deleteDialog
+        .getByLabel('Move the cards to')
+        .selectOption({ label: 'In progress' });
+    await deleteDialog
+        .getByRole('button', { name: 'Move the cards and delete' })
+        .click();
+    await expect(editor.getByText('moved its card')).toBeVisible();
+    await expect
+        .poll(() => slugs(watcher))
+        .toEqual(['backlog', 'in-progress', 'parked', 'done']);
+    await expect(
+        watcher.locator(
+            `${COLUMN}[data-column-slug="in-progress"] .lp-board-card[data-card-title="Moved"]`,
+        ),
+    ).toBeVisible();
+    await expect(kept).toHaveJSProperty('kept', true);
     expect(frameLoads).toEqual([]);
 
     await editor.context().close();

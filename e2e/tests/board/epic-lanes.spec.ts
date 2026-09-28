@@ -415,7 +415,7 @@ test('a collapsed lane stays collapsed when a live update morphs the board', asy
     await toggle.click();
     await expect(lane(page, epic.id)).toHaveClass(/lp-board-lane--collapsed/);
 
-    // The frame reload is what a worker run or a column change triggers.
+    // The board falls back to a frame reload when it cannot read its structure or manifest.
     await lane(page, epic.id).evaluate(async (section) => {
         (section as unknown as { kept: boolean }).kept = true;
         const frame = document.getElementById('board-frame') as HTMLElement & {
