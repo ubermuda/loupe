@@ -21,7 +21,11 @@ const FLASH_CLASS = 'lp-board-card--flash';
 
 export default class extends Controller {
     static targets = ['paused'];
-    static values = { placement: String, placeholder: String, manifest: String };
+    static values = {
+        placement: String,
+        placeholder: String,
+        manifest: String,
+    };
 
     initialize() {
         this.liveState = 'off';
@@ -36,8 +40,10 @@ export default class extends Controller {
         this.onMissed = (event) => this.missed(event.detail ?? {});
         document.addEventListener('board:placed', this.onPlaced);
         document.addEventListener('board:place-missed', this.onMissed);
-        this.unsubscribe = on('board.card_changed', (change) =>
-            this.receive(change),
+        this.unsubscribe = on(
+            'board.card_changed',
+            (change) => this.receive(change),
+            { onReconnect: () => this.catchUp() },
         );
         this.stopStatus = status((state) => {
             this.liveState = state;
@@ -48,6 +54,8 @@ export default class extends Controller {
     disconnect() {
         this.unsubscribe?.();
         this.stopStatus?.();
+        this.manifestAbort?.abort();
+        this.manifestAbort = undefined;
         document.removeEventListener('board:placed', this.onPlaced);
         document.removeEventListener('board:place-missed', this.onMissed);
         this.pending.forEach((entry) => clearTimeout(entry.timer));
@@ -68,6 +76,65 @@ export default class extends Controller {
         if (element.textContent !== text) {
             element.textContent = text;
         }
+    }
+
+    /**
+     * After a reconnect, compares the page with the board manifest and places
+     * each card that the page missed. A newer reconnect aborts an older read.
+     */
+    async catchUp() {
+        this.manifestAbort?.abort();
+        const abort = new AbortController();
+        this.manifestAbort = abort;
+        const timeout = setTimeout(
+            () => abort.abort(),
+            FETCH_TIMEOUT_MILLISECONDS,
+        );
+        let manifest = null;
+        try {
+            // A read of the board's card digests, with no form to submit.
+            // eslint-disable-next-line no-restricted-syntax
+            const response = await fetch(this.manifestValue, {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin',
+                signal: abort.signal,
+            });
+            if (response.ok) {
+                manifest = await response.json();
+            }
+        } catch {
+            manifest = null;
+        } finally {
+            clearTimeout(timeout);
+        }
+        if (this.manifestAbort !== abort) {
+            return;
+        }
+        this.manifestAbort = undefined;
+
+        const structure =
+            this.element.querySelector('#board')?.dataset.boardStructureDigest;
+        if (!isManifest(manifest) || manifest.structure !== structure) {
+            this.reload();
+
+            return;
+        }
+        const shown = new Map();
+        this.element
+            .querySelectorAll('.lp-board-card[data-card-digest]')
+            .forEach((card) =>
+                shown.set(card.dataset.cardId, card.dataset.cardDigest),
+            );
+        const listed = new Set(manifest.cards.map(([cardId]) => cardId));
+        const removed = [...shown.keys()].filter(
+            (cardId) => !listed.has(cardId),
+        );
+        const changed = manifest.cards
+            .filter(([cardId, digest]) => shown.get(cardId) !== digest)
+            .map(([cardId]) => cardId);
+        [...removed, ...changed].forEach((cardId) =>
+            this.receive({ cardId, local: false, own: false }),
+        );
     }
 
     receive(change) {
@@ -236,4 +303,17 @@ export default class extends Controller {
     reload() {
         this.dispatch('reload');
     }
+}
+
+function isManifest(manifest) {
+    return (
+        typeof manifest?.structure === 'string' &&
+        Array.isArray(manifest.cards) &&
+        manifest.cards.every(
+            (entry) =>
+                Array.isArray(entry) &&
+                typeof entry[0] === 'string' &&
+                typeof entry[1] === 'string',
+        )
+    );
 }

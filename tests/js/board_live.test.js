@@ -13,12 +13,45 @@ vi.mock('../../assets/lib/live.js', () => ({
 
 const PLACEHOLDER = '00000000-0000-7000-8000-000000000000';
 const STREAM = 'text/vnd.turbo-stream.html; charset=UTF-8';
+const MANIFEST = '/projects/p/board/manifest';
 
 let application;
 let reloads;
 let change;
+let reconnect;
 let setStatus;
 let answer;
+
+const stream = (body = '<turbo-stream></turbo-stream>') => ({
+    ok: true,
+    headers: new Headers({ 'Content-Type': STREAM }),
+    text: () => Promise.resolve(body),
+});
+
+/** Answers the manifest read with the given response, and each placement with a stream. */
+function answerManifest(response) {
+    answer = (url, options) =>
+        url === MANIFEST
+            ? typeof response === 'function'
+                ? response(options)
+                : Promise.resolve(response)
+            : Promise.resolve(stream());
+}
+
+const json = (body) => ({
+    ok: true,
+    headers: new Headers({ 'Content-Type': 'application/json' }),
+    json: () => Promise.resolve(body),
+});
+
+const placements = () =>
+    fetch.mock.calls
+        .map(([url]) => url)
+        .filter((url) => url !== MANIFEST)
+        .map((url) => url.split('/')[5]);
+
+const manifestReads = () =>
+    fetch.mock.calls.filter(([url]) => url === MANIFEST);
 
 function receive(cardId, flags = {}) {
     change({
@@ -44,10 +77,15 @@ const card = () => document.getElementById('board-card-a');
 beforeEach(async () => {
     document.body.innerHTML = `<div id="wrapper" data-controller="board-live"
             data-board-live-placement-value="/projects/p/board/cards/${PLACEHOLDER}/placement"
-            data-board-live-placeholder-value="${PLACEHOLDER}">
+            data-board-live-placeholder-value="${PLACEHOLDER}"
+            data-board-live-manifest-value="${MANIFEST}">
         <p data-board-live-target="paused" role="status" data-message="Live updates paused"></p>
-        <article id="board-card-a" data-card-digest="old"></article>
-        <article id="board-card-b" data-card-digest="old"></article>
+        <div id="board" data-board-structure-digest="frame">
+            <article id="board-card-a" class="lp-board-card" data-card-id="a" data-card-digest="old"></article>
+            <article id="board-card-b" class="lp-board-card" data-card-id="b" data-card-digest="old"></article>
+            <a class="lp-board-list__row" data-card-id="a" data-card-digest="old"></a>
+            <a class="lp-board-list__row" data-card-id="b" data-card-digest="old"></a>
+        </div>
     </div>`;
     reloads = 0;
     document
@@ -63,8 +101,9 @@ beforeEach(async () => {
         'fetch',
         vi.fn((url, options) => answer(url, options)),
     );
-    on.mockImplementation((types, handler) => {
+    on.mockImplementation((types, handler, options = {}) => {
         change = handler;
+        reconnect = options.onReconnect;
         return () => {};
     });
     status.mockImplementation((listener) => {
@@ -88,8 +127,270 @@ afterEach(async () => {
     vi.unstubAllGlobals();
 });
 
-it('listens for card changes', () => {
-    expect(on).toHaveBeenCalledWith('board.card_changed', expect.any(Function));
+it('listens for card changes and for a reconnect', () => {
+    expect(on).toHaveBeenCalledWith(
+        'board.card_changed',
+        expect.any(Function),
+        expect.objectContaining({ onReconnect: expect.any(Function) }),
+    );
+});
+
+it('does not read the manifest when it first connects', async () => {
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(reloads).toBe(0);
+});
+
+it('reads the manifest after a reconnect and fetches a card whose digest changed', async () => {
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old'],
+                ['b', 'new'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(150);
+
+    const [url, options] = manifestReads()[0];
+    expect(url).toBe(MANIFEST);
+    expect(options.headers.Accept).toBe('application/json');
+    expect(options.credentials).toBe('same-origin');
+    expect(options.signal).toBeInstanceOf(AbortSignal);
+    expect(placements()).toEqual(['b']);
+    expect(reloads).toBe(0);
+});
+
+it('fetches a card the manifest has and the page does not', async () => {
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old'],
+                ['c', 'new'],
+                ['b', 'old'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(placements()).toEqual(['c']);
+});
+
+it('fetches a removed card first, then the rest in manifest order', async () => {
+    answerManifest(
+        json({
+            cards: [
+                ['c', 'new'],
+                ['a', 'changed'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(placements()).toEqual(['b', 'c', 'a']);
+    expect(reloads).toBe(0);
+});
+
+it('does nothing more when the page already shows every card', async () => {
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old'],
+                ['b', 'old'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(manifestReads()).toHaveLength(1);
+    expect(placements()).toEqual([]);
+    expect(reloads).toBe(0);
+});
+
+it('ignores the list rows, which carry a digest too', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a class="lp-board-list__row" data-card-id="z" data-card-digest="old"></a>',
+        );
+    document.querySelector('.lp-board-list__row').dataset.cardDigest = 'stale';
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old'],
+                ['b', 'old'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual([]);
+    expect(reloads).toBe(0);
+});
+
+it('reloads the board and fetches no card when the structure changed', async () => {
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'new'],
+                ['b', 'old'],
+            ],
+            structure: 'other',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(reloads).toBe(1);
+    expect(placements()).toEqual([]);
+});
+
+it('reads the structure digest at compare time, after the frame re-rendered', async () => {
+    let finish;
+    answerManifest(
+        () =>
+            new Promise((resolve) => {
+                finish = resolve;
+            }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    document.getElementById('board').dataset.boardStructureDigest = 'renamed';
+    finish(
+        json({
+            cards: [
+                ['a', 'old'],
+                ['b', 'old'],
+            ],
+            structure: 'renamed',
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(reloads).toBe(0);
+});
+
+it.each([
+    [
+        'a response that is not 2xx',
+        () => Promise.resolve({ ok: false, json: () => Promise.resolve({}) }),
+    ],
+    ['a network error', () => Promise.reject(new TypeError('offline'))],
+    [
+        'a body that is not JSON',
+        () =>
+            Promise.resolve({
+                ok: true,
+                json: () => Promise.reject(new SyntaxError('bad')),
+            }),
+    ],
+    [
+        'a manifest with no structure',
+        () => Promise.resolve(json({ cards: [] })),
+    ],
+    [
+        'a manifest with no cards',
+        () => Promise.resolve(json({ structure: 'frame' })),
+    ],
+    [
+        'a manifest with a bad card entry',
+        () => Promise.resolve(json({ cards: [['a']], structure: 'frame' })),
+    ],
+])('reloads the board after %s', async (label, response) => {
+    answerManifest(response);
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(reloads).toBe(1);
+    expect(placements()).toEqual([]);
+});
+
+it('gives up on a stalled manifest read and reloads', async () => {
+    answerManifest(
+        (options) =>
+            new Promise((resolve, reject) => {
+                options.signal.addEventListener('abort', () =>
+                    reject(new DOMException('Aborted', 'AbortError')),
+                );
+            }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(9999);
+    expect(reloads).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(reloads).toBe(1);
+});
+
+it('aborts an older manifest read on a second reconnect and uses the newer one', async () => {
+    const signals = [];
+    const finishes = [];
+    answerManifest(
+        (options) =>
+            new Promise((resolve, reject) => {
+                signals.push(options.signal);
+                finishes.push(resolve);
+                options.signal.addEventListener('abort', () =>
+                    reject(new DOMException('Aborted', 'AbortError')),
+                );
+            }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(signals).toHaveLength(2);
+    expect(signals[0].aborted).toBe(true);
+    expect(signals[1].aborted).toBe(false);
+    expect(reloads).toBe(0);
+
+    finishes[1](
+        json({
+            cards: [
+                ['a', 'new'],
+                ['b', 'old'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(150);
+    expect(placements()).toEqual(['a']);
+    expect(reloads).toBe(0);
+});
+
+it('aborts a manifest read when it disconnects, and does not reload', async () => {
+    let signal;
+    answerManifest(
+        (options) =>
+            new Promise((resolve, reject) => {
+                signal = options.signal;
+                options.signal.addEventListener('abort', () =>
+                    reject(new DOMException('Aborted', 'AbortError')),
+                );
+            }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+
+    const wrapper = document.getElementById('wrapper');
+    wrapper.removeAttribute('data-controller');
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(signal.aborted).toBe(true);
+    expect(reloads).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
 });
 
 it('fetches a card once for a burst of messages, 150 ms after the last one', async () => {

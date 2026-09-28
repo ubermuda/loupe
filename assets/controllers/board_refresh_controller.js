@@ -14,7 +14,7 @@ const BUSY_SELECTOR = [
 
 /**
  * Reloads the board frame when the Mercure hub reports a column change or a
- * worker run change, and after each reconnect for any change it missed.
+ * worker run change, or when another controller asks for a reload.
  */
 export default class extends Controller {
     static targets = ['frame'];
@@ -26,7 +26,6 @@ export default class extends Controller {
             ['board.columns_changed', 'worker_run.changed'],
             () => this.reload(),
             {
-                onReconnect: () => this.reload(),
                 onOpen: () =>
                     this.element.setAttribute(
                         'data-board-refresh-connected',
