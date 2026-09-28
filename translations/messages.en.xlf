@@ -4549,6 +4549,10 @@
                 <source>inbox.item.closed_by_agent</source>
                 <target>The agent closed this item, so it takes no response.</target>
             </trans-unit>
+            <trans-unit id="inbox.item.closed_by_loupe">
+                <source>inbox.item.closed_by_loupe</source>
+                <target>Loupe closed this item, so it takes no response.</target>
+            </trans-unit>
             <trans-unit id="inbox.item.respond_elsewhere">
                 <source>inbox.item.respond_elsewhere</source>
                 <target>Respond to item %number% at the request that holds it</target>
@@ -4564,6 +4568,10 @@
             <trans-unit id="inbox.item.error.closed_by_agent">
                 <source>inbox.item.error.closed_by_agent</source>
                 <target>The agent closed this item, so it takes no response.</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.error.closed_by_loupe">
+                <source>inbox.item.error.closed_by_loupe</source>
+                <target>Loupe closed this item, so it takes no response.</target>
             </trans-unit>
             <trans-unit id="inbox.answer.pick_one">
                 <source>inbox.answer.pick_one</source>

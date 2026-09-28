@@ -79,7 +79,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertSame(InboxAskOrigin::Loupe, $ask->origin);
         self::assertNull($ask->sessionId);
         self::assertNull($ask->bridgeId);
-        self::assertSame('#12 Ship it', $ask->context);
+        self::assertNull($ask->context);
         self::assertNull($ask->closedAt);
 
         $wait = $this->onlyWait($watch);

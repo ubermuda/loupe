@@ -78,7 +78,7 @@ class InboxReviewRepository extends ServiceEntityRepository
         $rows = $this->createQueryBuilder('review')
             ->select('DISTINCT IDENTITY(review.document) AS documentId')
             ->join('review.item', 'item')
-            ->join(InboxAskItem::class, 'link', Join::WITH, 'link.item = item')
+            ->join(InboxAskItem::class, 'link', Join::ON, 'link.item = item')
             ->join('link.ask', 'ask')
             ->andWhere('review.document IN (:documents)')
             ->andWhere('item.state = :state')

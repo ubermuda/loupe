@@ -24,8 +24,10 @@ use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\Entity\InboxReviewVerdict;
+use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\CardWaitReconciler;
+use App\Module\Inbox\Service\InboxAvailability;
 use App\Module\Inbox\Service\InboxSearchIndexer;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -63,26 +65,40 @@ final readonly class ProjectShowcaseSeeder
         private InboxSearchIndexer $inboxSearch,
         private DocumentSearchIndexer $documentSearch,
         private CardWaitReconciler $cardWaits,
+        private InboxCardWatchRepository $inboxCardWatches,
+        private InboxAvailability $inbox,
     ) {
     }
 
-    /** False when the project already holds the showcase, so a second run writes nothing. */
-    public function __invoke(Project $project, User $owner, User $reviewer): bool
+    /** The card whose document in review gives the showcase its wait item. */
+    public const string WAITING_CARD_TITLE = 'Board onboarding';
+
+    /**
+     * A second run writes nothing but asks Loupe for the wait item again, so
+     * a run after inbox.enabled goes on opens it.
+     */
+    public function __invoke(Project $project, User $owner, User $reviewer): ShowcaseSeeding
     {
-        if ($this->inboxItems->findOneBy(['project' => $project, 'title' => self::MARKER_TITLE]) instanceof InboxItem) {
-            return false;
+        $written = !$this->inboxItems->findOneBy(['project' => $project, 'title' => self::MARKER_TITLE]) instanceof InboxItem;
+        if ($written) {
+            $cards = $this->seedCards($project);
+            $documents = $this->seedDocuments($owner, $project, $cards['onboarding']);
+            $this->seedInbox($project, $owner, $reviewer, $cards, $documents);
+            $this->seedSiteFeedback($project, $cards['checkout']);
+            $this->em->flush();
+            $waitingCard = $cards['onboarding'];
+        } else {
+            $waitingCard = $this->cards->findOneBy(['project' => $project, 'title' => self::WAITING_CARD_TITLE]);
         }
 
-        $cards = $this->seedCards($project);
-        $documents = $this->seedDocuments($owner, $project, $cards['onboarding']);
-        $this->seedInbox($project, $owner, $reviewer, $cards, $documents);
-        $this->seedSiteFeedback($project, $cards['checkout']);
-        $this->em->flush();
-        // The onboarding card links a document in review, so Loupe opens its
-        // wait item. The reconciler writes nothing while the inbox is off.
-        $this->cardWaits->reconcile($project, [(string) $cards['onboarding']->id]);
+        $enabled = $this->inbox->isEnabled();
+        if (!$waitingCard instanceof Card) {
+            return new ShowcaseSeeding($written, false, $enabled);
+        }
+        $cardId = $waitingCard->id ?? throw new \LogicException('A stored card has an id.');
+        $this->cardWaits->reconcile($project, [(string) $cardId]);
 
-        return true;
+        return new ShowcaseSeeding($written, [] !== $this->inboxCardWatches->findOpenForCards($project, [$cardId]), $enabled);
     }
 
     /** @return array{checkout: Card, history: Card, columns: Card, onboarding: Card, pullRequest: CardPullRequest} */
@@ -122,7 +138,7 @@ final readonly class ProjectShowcaseSeeder
         $onboarding = new Card(
             project: $project,
             column: $backlog,
-            title: 'Board onboarding',
+            title: self::WAITING_CARD_TITLE,
             body: 'Make the first agent handoff obvious. Explain which rule runs when a card enters Ready and what the person should expect back.',
             number: $number + 3,
             type: CardType::Feature,

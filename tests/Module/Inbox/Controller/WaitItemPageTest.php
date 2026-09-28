@@ -13,9 +13,11 @@ use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Service\CardWaitReconciler;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentStatus;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Inbox\InboxScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -65,6 +67,53 @@ final class WaitItemPageTest extends WebTestCase
         self::assertCount(1, $crawler->filter('.lp-inbox-ask__head [data-inbox-source="loupe"]'));
         self::assertCount(0, $crawler->filter('[data-inbox-presence]'));
         self::assertCount(0, $crawler->filter('.lp-presence__dot'));
+    }
+
+    public function test_the_panel_names_the_card_once_and_shows_no_ask_context(): void
+    {
+        $this->reconcile();
+
+        $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl());
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextSame('.lp-inbox-ask__title', '#4 Ship it');
+        self::assertCount(0, $crawler->filter('.lp-inbox-ask__context'));
+        self::assertCount(1, $crawler->filter('#inbox-item-1 [data-linked-card="'.$this->card->id.'"]'));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function loupeCloses(): iterable
+    {
+        yield 'done, after a verdict' => ['approve'];
+        yield 'obsolete, after the card finished' => ['finish'];
+    }
+
+    #[DataProvider('loupeCloses')]
+    public function test_an_item_loupe_closed_says_so_and_refuses_a_dismissal(string $cause): void
+    {
+        $this->reconcile();
+        if ('approve' === $cause) {
+            $this->document->status = DocumentStatus::Approved;
+        } else {
+            $this->card->column = $this->column($this->project, 'done');
+        }
+        $this->em->flush();
+        $this->reconcile();
+        $item = $this->onlyWatch()->item;
+        self::assertSame('approve' === $cause ? InboxItemState::Done : InboxItemState::Obsolete, $item->state);
+
+        $this->client->request(Request::METHOD_GET, $this->pageUrl().'?queue=completed');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextSame('#inbox-item-1 [data-inbox-editable]', 'Loupe closed this item, so it takes no response.');
+        self::assertSelectorTextNotContains('#inbox-item-1', 'The agent closed');
+
+        $url = '/projects/'.$this->project->id.'/inbox/items/'.$item->id.'/decline';
+        $this->client->request(Request::METHOD_POST, $url, ['inbox_decline_'.$item->id => ['closeNote' => '', '_token' => 'csrf-token']], [], ['HTTP_REFERER' => 'http://localhost'.$url]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('#inbox-item-1 [data-inbox-refusal]', 'Loupe closed this item');
+        self::assertSame($item->state, $this->onlyWatch()->item->state);
     }
 
     public function test_a_search_result_outside_its_ask_still_names_loupe(): void
