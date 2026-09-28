@@ -57,26 +57,7 @@
             </a>
         </div>
     </div>
-    {% if board.deadBridgeRules is not empty and is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), board.project) %}
-    <section class="lp-board-rules" role="status" data-testid="bridge-rules-banner">
-        <twig:ux:icon name="lucide:triangle-alert" class="lp-board-rules__icon w-4 h-4" />
-        <div class="lp-board-rules__body">
-            <p class="lp-board-rules__title">{{ 'board.bridge_rules.title'|trans({'%count%': board.deadBridgeRules|length}) }}</p>
-            <ul class="lp-board-rules__list">
-                {% for rule in board.deadBridgeRules %}
-                <li class="lp-board-rules__rule" data-bridge-rule="{{ rule.name }}">
-                    <code class="lp-board-rules__code">{{ rule.name }}</code>
-                    <span>{{ 'board.bridge_rules.columns'|trans }} {% for slug in rule.columns %}<code class="lp-board-rules__code">{{ slug }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</span>
-                    <span>{{ 'board.bridge_rules.reason'|trans }} <code class="lp-board-rules__code">{{ rule.reason }}</code></span>
-                    <span>{{ 'board.bridge_rules.bridge'|trans }} <code class="lp-board-rules__code" title="{{ rule.bridgeId }}">{{ rule.bridgeId|slice(0, 8) }}</code></span>
-                    <time datetime="{{ rule.reportedAt|date('c') }}">{{ 'board.bridge_rules.reported'|trans({'%date%': rule.reportedAt|date('M j, Y H:i')}) }}</time>
-                </li>
-                {% endfor %}
-            </ul>
-            <p class="lp-board-rules__hint">{{ 'board.bridge_rules.hint'|trans }}</p>
-        </div>
-    </section>
-    {% endif %}
+    {% include '@Board/_board_rules_banner.html.twig' with {board: board} only %}
     <p class="lp-board-filter-empty" data-board-filter-target="empty" hidden>{{ 'board.filter.empty'|trans }}</p>
     {# A drop moves the card at once. This says so when the server refuses. #}
     <p class="lp-board__message"
@@ -85,30 +66,7 @@
        role="status"
        aria-live="polite"></p>
     {% if board.lanes is empty %}
-    <div class="lp-board__columns" data-board-view-target="board">
-    {% for view in board.columns %}
-    <section class="lp-board__column"
-             id="board-column-{{ view.column.id }}"
-             aria-label="{{ view.column.label|trans }}"
-             data-column-slug="{{ view.column.slug }}"
-             data-column-id="{{ view.column.id }}">
-        {% include '@Board/_board_column_head.html.twig' with {board: board, view: view, placeable: true} only %}
-
-        <div class="lp-board__group"
-             id="board-group-{{ view.column.id }}"
-             data-board-drag-target="group"
-             data-column="{{ view.column.id }}"
-             data-rankable="{{ view.column.terminal ? '0' : '1' }}">
-            {% for card in view.cards %}
-                {# `~ ''` casts the Uuid, which cannot itself be an array key. #}
-                {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0), documentCount: board.documentCounts[card.id ~ '']|default(0), progress: board.progress[card.id ~ '']|default(null), runWarning: runWarnings[card.id ~ '']|default(null)} only %}
-            {% endfor %}
-        </div>
-
-        {% include '@Board/_board_column_foot.html.twig' with {board: board, view: view, placeable: true} only %}
-    </section>
-    {% endfor %}
-    </div>
+    {% include '@Board/_board_plain_columns.html.twig' with {board: board, runWarnings: runWarnings} only %}
     {% else %}
     {% include '@Board/_board_lanes.html.twig' with {board: board, runWarnings: runWarnings} only %}
     {% endif %}
