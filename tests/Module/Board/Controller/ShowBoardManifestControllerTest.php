@@ -258,6 +258,31 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertSame($after['structure'], $this->page($client, $project)['structure']);
     }
 
+    public function test_the_structure_digest_changes_when_two_lane_epics_swap_places(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'manifest-lane-swap@example.com');
+        $project = $this->project($em, $owner);
+        $first = $this->typed($em, $this->card($em, $project, 'First epic', 'next', 0), CardType::Epic);
+        $second = $this->typed($em, $this->card($em, $project, 'Second epic', 'next', 1), CardType::Epic);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $before = $this->manifest($client, $project);
+        $this->updateCard($first, static function (Card $card): void {
+            $card->position = 1;
+        });
+        $this->updateCard($second, static function (Card $card): void {
+            $card->position = 0;
+        });
+        $after = $this->manifest($client, $project);
+
+        self::assertNotSame($before['structure'], $after['structure']);
+        self::assertSame($after['structure'], $this->page($client, $project)['structure']);
+    }
+
     public function test_the_structure_digest_changes_with_the_body_of_a_lane_epic(): void
     {
         $client = static::createClient();
