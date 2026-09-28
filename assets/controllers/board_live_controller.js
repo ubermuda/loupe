@@ -149,6 +149,19 @@ export default class extends Controller {
                     .filter((card) => card.columnId === group.dataset.column);
                 outOfOrder(cards).forEach((cardId) => moved.add(cardId));
             });
+        // Two lane cells of one column can each keep their order while the
+        // list, which runs through the whole column, does not.
+        const rows = [
+            ...this.element.querySelectorAll(
+                '.lp-board-list__row[data-card-id]',
+            ),
+        ]
+            .filter((row) => listed.has(row.dataset.cardId))
+            .map((row) => ({
+                cardId: row.dataset.cardId,
+                ...listed.get(row.dataset.cardId),
+            }));
+        outOfOrder(rows).forEach((cardId) => moved.add(cardId));
         const changed = manifest.cards
             .filter(
                 ([cardId, digest]) =>

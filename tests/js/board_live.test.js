@@ -264,6 +264,58 @@ it('compares the order in each lane cell on its own', async () => {
     expect(placements()).toEqual([]);
 });
 
+it('fetches a list row that moved across lane cells while each cell kept its order', async () => {
+    document.getElementById('board').innerHTML = `
+        <div class="lp-board-lane__cell" data-column="k" data-lane="epic">
+            <article id="board-card-a" class="lp-board-card" data-card-id="a" data-card-digest="old"></article>
+        </div>
+        <div class="lp-board-lane__cell" data-column="k" data-lane="other">
+            <article id="board-card-b" class="lp-board-card" data-card-id="b" data-card-digest="old"></article>
+        </div>
+        <div class="lp-board-list">
+            <a class="lp-board-list__row" data-card-id="epic"></a>
+            <a class="lp-board-list__row" data-card-id="a" data-card-digest="old"></a>
+            <a class="lp-board-list__row" data-card-id="b" data-card-digest="old"></a>
+        </div>`;
+    answerManifest(
+        json({
+            cards: [
+                ['b', 'old', 'k'],
+                ['a', 'old', 'k'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['a']);
+    expect(reloads).toBe(0);
+});
+
+it('fetches nothing when the list rows keep the manifest order', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'afterbegin',
+            '<a class="lp-board-list__row" data-card-id="epic"></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k'],
+                ['b', 'old', 'k'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(manifestReads()).toHaveLength(1);
+    expect(placements()).toEqual([]);
+});
+
 it('ignores the list rows, which carry a digest too', async () => {
     document
         .getElementById('board')
