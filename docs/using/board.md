@@ -243,8 +243,9 @@ When one move is refused, no card moves.
 An empty Backlog shows **The Backlog is empty**. Filters that match no card
 show **No card matches** and a **Clear filters** button.
 
-When someone else changes a card or the columns, the page shows **The Backlog
-changed.** and a **Reload** link. The page does not reload by itself, so a
+When someone else changes a card or the columns of the board, the page shows
+**The board changed.** and a **Reload** link. The change can be outside the
+Backlog. The page does not reload by itself, so a
 selection or an open menu stays. A change made on this page shows no notice.
 The notice needs live changes, as the board does.
 

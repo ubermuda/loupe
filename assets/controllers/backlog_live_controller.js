@@ -3,7 +3,8 @@ import { on } from '../lib/live.js';
 
 /**
  * Shows the reload notice of the Backlog page when another person or an agent
- * changes the board. A change this page made is its own, so it shows nothing.
+ * changes any card or column of the board, in the Backlog or not. A change
+ * this page made is its own, so it shows nothing.
  */
 export default class extends Controller {
     static targets = ['notice'];

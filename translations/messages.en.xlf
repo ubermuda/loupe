@@ -5170,7 +5170,7 @@
             </trans-unit>
             <trans-unit id="board.backlog.live.changed">
                 <source>board.backlog.live.changed</source>
-                <target>The Backlog changed.</target>
+                <target>The board changed.</target>
             </trans-unit>
             <trans-unit id="board.backlog.live.reload">
                 <source>board.backlog.live.reload</source>

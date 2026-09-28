@@ -17,7 +17,7 @@ beforeEach(async () => {
         return () => {};
     });
     document.body.innerHTML = `<div data-controller="backlog-live">
-        <p data-backlog-live-target="notice" hidden>The Backlog changed.</p>
+        <p data-backlog-live-target="notice" hidden>The board changed.</p>
     </div>`;
     application = Application.start();
     application.register('backlog-live', BacklogLiveController);
