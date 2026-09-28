@@ -1,7 +1,8 @@
 # Git traps for a queue holder
 
 Read this file when `merge-ready.sh` reports a conflict resolution, before you
-rebase or resolve anything, or before you test whether a branch merged.
+rebase anything, or before you test whether a branch merged. A bridge worker
+resolves a conflict, and the queue holder proves it.
 
 ## A conflict resolution is not a sync merge
 
