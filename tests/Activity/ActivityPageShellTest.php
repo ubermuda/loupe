@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Activity;
 
+use App\Mercure\ProjectTopicBuilder;
+use App\Outbox\Entity\OutboxEvent;
 use App\Tests\Module\Bridge\BridgeScenario;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 
 final class ActivityPageShellTest extends WebTestCase
@@ -61,20 +64,30 @@ final class ActivityPageShellTest extends WebTestCase
         self::assertSame('Activity', trim($active->text()));
     }
 
-    public function test_the_events_header_keeps_the_feed_controls_inside_the_filter_controller(): void
+    public function test_the_events_page_subscribes_to_the_activity_topic_and_wraps_the_frame_in_the_refresh_controller(): void
     {
         $client = static::createClient();
         $em = $this->em();
-        $owner = $this->user($em, 'activity-shell-controls@example.com');
-        $project = $this->project($em, $owner, 'Controls project');
+        $owner = $this->user($em, 'activity-shell-live@example.com');
+        $project = $this->project($em, $owner, 'Live project');
+        $em->persist(new OutboxEvent($project, 'board.card_moved', 'topic', '{}'));
+        $em->flush();
         $projectId = (string) $project->id;
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
+        $topic = $topics->forActivity($project->id ?? throw new \LogicException('The project has no id.'));
         $em->clear();
 
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/activity');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('[data-controller="activity-filter"] header [data-activity-filter-target="status"]'));
-        self::assertCount(1, $crawler->filter('[data-controller="activity-filter"] header [data-activity-filter-target="toggle"]'));
+        self::assertContains($topic, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value')));
+        $refresh = $crawler->filter('[data-controller="worker-run-refresh"]');
+        self::assertCount(1, $refresh);
+        self::assertSame(['activity.changed'], json_decode((string) $refresh->attr('data-worker-run-refresh-events-value'), true));
+        self::assertSame(['activity-count'], json_decode((string) $refresh->attr('data-worker-run-refresh-frames-value'), true));
+        self::assertCount(1, $refresh->filter('turbo-frame#activity-frame[target="_top"][data-worker-run-refresh-target="frame"] [data-activity-event-id]'));
+        self::assertStringNotContainsString('Pause feed', $crawler->text());
     }
 }

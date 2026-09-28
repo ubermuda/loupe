@@ -15,6 +15,7 @@ final readonly class OutboxWriter
         private ProjectTopicBuilder $topics,
         private EntityManagerInterface $em,
         private ImmediateOutboxPublisher $publisher,
+        private ActivityChangedPublisher $activityChanged,
     ) {
     }
 
@@ -31,5 +32,6 @@ final readonly class OutboxWriter
         // Marks only. The publish runs at terminate, once this transaction has
         // committed, because a rollback must take its event with it.
         $this->publisher->rowWritten();
+        $this->activityChanged->activityChanged($project);
     }
 }

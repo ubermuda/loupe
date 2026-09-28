@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Outbox\Command;
 
 use App\Mercure\UserTopicBuilder;
+use App\Outbox\ActivityChangedPublisher;
 use App\Outbox\AgentPush;
 use App\Outbox\Repository\OutboxEventRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -33,6 +34,7 @@ final readonly class DrainOutboxHandler
         private LoggerInterface $logger,
         private FeatureFlagService $featureFlags,
         private UserTopicBuilder $userTopics,
+        private ActivityChangedPublisher $activityChanged,
     ) {
     }
 
@@ -86,6 +88,14 @@ final readonly class DrainOutboxHandler
         }
 
         $this->em->flush();
+
+        $projects = [];
+        foreach ($events as $event) {
+            $projects[(string) $event->project->id] = $event->project;
+        }
+        foreach ($projects as $project) {
+            $this->activityChanged->activityChanged($project);
+        }
 
         if ($published > 0 || $failed > 0) {
             $this->logger->info('outbox.drained', [

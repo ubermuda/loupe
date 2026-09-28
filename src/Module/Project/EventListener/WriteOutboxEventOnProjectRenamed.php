@@ -7,6 +7,7 @@ namespace App\Module\Project\EventListener;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Project\Event\ProjectRenamed;
 use App\Module\Project\ProjectEventType;
+use App\Outbox\ActivityChangedPublisher;
 use App\Outbox\Entity\OutboxEvent;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -22,6 +23,7 @@ final readonly class WriteOutboxEventOnProjectRenamed
     public function __construct(
         private ProjectTopicBuilder $topics,
         private EntityManagerInterface $em,
+        private ActivityChangedPublisher $activity,
     ) {
     }
 
@@ -47,5 +49,6 @@ final readonly class WriteOutboxEventOnProjectRenamed
             topic: $this->topics->forProject($project->id ?? throw new \LogicException('Project has no id.')),
             payload: json_encode($payload, \JSON_THROW_ON_ERROR),
         ));
+        $this->activity->activityChanged($project);
     }
 }

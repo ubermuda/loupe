@@ -103,29 +103,13 @@
         @apply mt-0.5 h-4 w-4 shrink-0;
     }
 
-    /* The run history filters sit on top of the runs table. */
-    .lp-redesign-runs .lp-list-filters {
+    /* The run and event filters sit on top of their table. */
+    .lp-redesign-runs .lp-list-filters,
+    .lp-redesign-events .lp-list-filters {
         @apply mt-6 rounded-t-xl border border-b-0 border-line bg-surface-1 px-4 py-3;
     }
     .lp-redesign-runs .lp-filter-form > .lp-filter-select {
         @apply max-w-full;
-    }
-
-    /* Activity uses a compact chronological feed, not a second run table. */
-    .lp-activity-header-actions {
-        @apply flex flex-wrap items-center gap-2;
-    }
-    .lp-redesign-activity .lp-activity-feed {
-        @apply gap-0 overflow-hidden rounded-xl border border-line bg-surface-1;
-    }
-    .lp-redesign-activity .lp-activity-row {
-        @apply rounded-none border-0 border-b border-line bg-white px-5 py-4 last:border-b-0;
-    }
-    .lp-redesign-activity .lp-activity-row__icon {
-        @apply h-9 w-9 rounded-lg bg-accent-faint text-accent-ink;
-    }
-    .lp-redesign-activity .lp-activity-row__heading h2 {
-        @apply max-w-full break-words;
     }
 
     /* Project choices use the prototype's three-column destination tiles. */
