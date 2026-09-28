@@ -107,11 +107,8 @@ final class BulkMoveBacklogCardsController extends AppController
             ]);
         }
 
-        // The page on screen held every moved row, so it empties when they were all its rows.
-        // It then shows the rows that moved up, the page before it, or the empty state.
         $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $listQuery));
-        $shownBefore = min(ListBacklogCardsHandler::PER_PAGE, $view->filteredTotal + \count($moved) - ($listQuery->page - 1) * ListBacklogCardsHandler::PER_PAGE);
-        $refill = \count($moved) >= $shownBefore;
+        $refill = $listQuery->redrawsAfterMoving(\count($moved), $view->filteredTotal);
         if (null !== $view->clampedPage) {
             $listQuery = $listQuery->withPage($view->clampedPage);
             $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $listQuery));

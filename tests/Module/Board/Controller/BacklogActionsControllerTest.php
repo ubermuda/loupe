@@ -192,6 +192,31 @@ final class BacklogActionsControllerTest extends WebTestCase
         self::assertStringNotContainsString('target="backlog-results"', $body);
     }
 
+    public function test_a_move_on_a_page_before_the_last_redraws_it_with_the_row_that_moves_up(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'backlog-move-page-one@example.com');
+        $project = $this->project($em, $owner);
+        $cards = [];
+        for ($index = 0; $index < 27; ++$index) {
+            $cards[] = $this->card($em, $project, 'Card '.$index, 'backlog', $index);
+        }
+        $next = (string) $this->column($project, 'next')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $this->cardUrl($cards[0], 'move'), MoveBacklogCardFormType::nameFor($cards[0]), ['column' => $next], stream: true);
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('target="backlog-results"', $body);
+        self::assertStringContainsString('Card 25', $body);
+        self::assertStringNotContainsString('action="remove"', $body);
+    }
+
     public function test_a_refused_move_answers_a_stream_with_the_reason(): void
     {
         $client = static::createClient();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\View;
 
+use App\Module\Board\Command\ListBacklogCardsHandler;
 use App\Module\Board\Entity\CardType;
 use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\Uid\Uuid;
@@ -48,6 +49,19 @@ final readonly class BacklogListQuery
     }
 
     /** Whether a filter narrows the list, which separates an empty Backlog from no match. */
+    /**
+     * Whether this page must be drawn again after rows left it, from the count
+     * the filters match after the move. A page before the last takes rows from
+     * the next page, and a page that lost every row shows another page or the
+     * empty state. Only the last page keeps its other rows as they are.
+     */
+    public function redrawsAfterMoving(int $moved, int $filteredTotal): bool
+    {
+        $rowsLeft = $filteredTotal - ($this->page - 1) * ListBacklogCardsHandler::PER_PAGE;
+
+        return $rowsLeft <= 0 || $rowsLeft + $moved > ListBacklogCardsHandler::PER_PAGE;
+    }
+
     public function isNarrowed(): bool
     {
         return null !== $this->search || null !== $this->type || null !== $this->epic;
