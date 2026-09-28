@@ -9,6 +9,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Board\Service\CardMover;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -17,10 +18,10 @@ use Symfony\Component\Uid\Uuid;
 /**
  * Moves the cards ticked on one page of the Backlog to one column, all or none.
  *
- * Every refusal known before the first write comes first. Each move runs
- * through UpdateCardHandler, whose transaction nests as a savepoint in this
- * one, so a refusal from a concurrent change still rolls every move back.
- * Only then can a move already audited be rolled back.
+ * The batch holds the project lock, which every card write takes, and makes
+ * every refusal it can before the first write. Each move runs through
+ * UpdateCardHandler, whose transaction nests as a savepoint in this one, so
+ * a later refusal still rolls every move back, with its audit records kept.
  */
 final readonly class BulkMoveBacklogCardsHandler
 {
@@ -70,16 +71,22 @@ final readonly class BulkMoveBacklogCardsHandler
         // Backlog order, so the cards keep their rank among themselves at the end of the target.
         usort($cards, static fn (Card $left, Card $right): int => [$left->position, $left->createdAt] <=> [$right->position, $right->createdAt]);
 
-        $moveOrder = $command->column->terminal ? $this->childrenFirst($cards) : $cards;
-
-        $this->em->wrapInTransaction(function () use ($moveOrder, $command): void {
+        $this->em->wrapInTransaction(function () use ($cards, $command): void {
+            // One lock for the batch, so no other request changes a card between the checks and the moves.
+            $this->em->lock($command->backlog->project, LockMode::PESSIMISTIC_WRITE);
+            $moveOrder = $command->column->terminal ? $this->childrenFirst($cards) : $cards;
+            foreach ($moveOrder as $card) {
+                $this->cards->refreshColumn($card);
+                if ($card->column !== $command->backlog) {
+                    throw new DomainErrors(['column' => UpdateCardHandler::COLUMN_CHANGED]);
+                }
+            }
             foreach ($moveOrder as $card) {
                 // The last open child of an epic closes the epic as it moves.
                 if ($card->column === $command->column) {
                     continue;
                 }
-                // An earlier move of this batch can close an epic or release a child, and
-                // that updates the loaded card. Only another request leaves it stale.
+                // An earlier move of this batch can close an epic or release a child.
                 ($this->updateCard)(new UpdateCardCommand(
                     card: $card,
                     actor: $command->actor,
