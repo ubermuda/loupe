@@ -147,6 +147,27 @@ final class ActivityPageTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-activity-filter-target="filters"]:not([hidden])'));
     }
 
+    public function test_a_page_past_the_end_redirects_to_the_last_page_and_keeps_the_filters(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $owner = new User(fullName: 'Owner', email: 'activity-clamp@example.com', password: 'x');
+        $owner->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($owner, static::getContainer());
+        $project = new Project($owner, 'Clamp');
+        $em->persist($owner);
+        $em->persist($project);
+        $em->persist(new OutboxEvent($project, 'board.card_moved', 'topic', '{}'));
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/activity?page=9&search=moved&family=board');
+
+        self::assertResponseRedirects('/projects/'.$project->id.'/activity?page=1&search=moved&family=board');
+    }
+
     public function test_a_project_with_no_events_shows_no_filter_bar(): void
     {
         $client = static::createClient();
