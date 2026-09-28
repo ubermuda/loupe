@@ -4282,7 +4282,7 @@
             </trans-unit>
             <trans-unit id="landing.faq.board.answer">
                 <source>landing.faq.board.answer</source>
-                <target>Yes. Your agent files cards on the project board over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. Loupe stores the pull request links and never calls out to check them.</target>
+                <target>Yes. Your agent files cards on the project board over MCP, in the columns you set for each board, and links the pull requests that carry each one. An epic card groups the small cards of one large feature, and the board shows each epic as a swimlane with its progress. When you connect a repository through the GitHub App, Loupe follows the pull request of each card and shows its checks, conflicts and review on the board.</target>
             </trans-unit>
             <trans-unit id="landing.faq.technical.question">
                 <source>landing.faq.technical.question</source>
