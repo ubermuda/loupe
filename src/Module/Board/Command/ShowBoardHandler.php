@@ -115,7 +115,7 @@ final readonly class ShowBoardHandler
             $otherCards,
             $progress,
             $shownCounts,
-            $this->structureDigest->forBoard($columns, $lanes, $epicDigests),
+            $this->structureDigest->forBoard($columns, $lanes, $epicDigests, $deadRules),
             $runWarnings,
         );
     }
