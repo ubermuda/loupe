@@ -7,7 +7,7 @@ namespace App\Module\Bridge\Twig;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunUsageRepository;
-use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\Service\CardRunWarnings;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Bridge\View\CardUsageTotal;
 use App\Module\Bridge\View\WorkerRunListItem;
@@ -29,6 +29,7 @@ final class CardWorkerRunsExtension extends AbstractExtension
         private readonly WorkerRunRepository $workerRuns,
         private readonly WorkerRunUsageRepository $workerRunUsages,
         private readonly ClockInterface $clock,
+        private readonly CardRunWarnings $runWarnings,
     ) {
     }
 
@@ -43,27 +44,15 @@ final class CardWorkerRunsExtension extends AbstractExtension
         ];
     }
 
-    /**
-     * One query for the whole board, keyed by card id.
-     *
-     * @return array<string, CardRunWarning>
-     */
+    /** @return array<string, CardRunWarning> */
     public function cardRunWarnings(Project $project): array
     {
-        $warnings = [];
-        foreach ($this->workerRuns->findWarningRowsOfProject($project) as $row) {
-            $warnings[$row['card_id']] = new CardRunWarning($row['id'], WorkerRunState::from($row['state']), $row['output'], $row['card_column']);
-        }
-
-        return $warnings;
+        return $this->runWarnings->forProject($project);
     }
 
-    /** One card placed alone reads its own warning, not the whole board's. */
     public function cardRunWarning(Project $project, Uuid $cardId): ?CardRunWarning
     {
-        $row = $this->workerRuns->findWarningRowOfCard($project, $cardId);
-
-        return null === $row ? null : new CardRunWarning($row['id'], WorkerRunState::from($row['state']), $row['output'], $row['card_column']);
+        return $this->runWarnings->forCard($project, $cardId);
     }
 
     /** @return list<WorkerRunListItem> */

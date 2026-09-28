@@ -12,6 +12,9 @@ use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
+use App\Module\Board\Service\BoardLanes;
+use App\Module\Board\Service\BoardStructureDigest;
+use App\Module\Bridge\Service\CardRunWarnings;
 
 final readonly class ShowBoardHandler
 {
@@ -24,6 +27,9 @@ final readonly class ShowBoardHandler
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private BridgeRuleReportRepository $bridgeRuleReports,
         private CardDocumentRepository $cardDocuments,
+        private BoardLanes $boardLanes,
+        private BoardStructureDigest $structureDigest,
+        private CardRunWarnings $runWarnings,
     ) {
     }
 
@@ -56,7 +62,7 @@ final readonly class ShowBoardHandler
             }
         }
 
-        [$lanes, $otherCards] = self::sortIntoLanes($columns);
+        [$lanes, $otherCards] = $this->boardLanes->sort($columns);
 
         $counts = $this->cards->childProgressForProject($project);
         $progress = [];
@@ -74,71 +80,26 @@ final readonly class ShowBoardHandler
             }
         }
 
+        // One aggregate each for the whole board. A count per card would be
+        // a query per card, on the page that renders the most of them.
+        $pendingComments = $this->cardSiteReviewComments->pendingCountsForProject($project);
+        $documentCounts = $this->cardDocuments->countsForProject($project);
+        $runWarnings = $this->runWarnings->forProject($project);
+
         return new BoardView(
             $project,
             $columns,
             self::TERMINAL_WINDOW_DAYS,
-            // One aggregate each for the whole board. A count per card would be
-            // a query per card, on the page that renders the most of them.
-            $this->cardSiteReviewComments->pendingCountsForProject($project),
-            $this->cardDocuments->countsForProject($project),
+            $pendingComments,
+            $documentCounts,
             $deadRules,
             array_values(array_unique($watchedSlugs)),
             $lanes,
             $otherCards,
             $progress,
             $shownCounts,
+            $this->structureDigest->forBoard($columns, $lanes, $deadRules),
+            $runWarnings,
         );
-    }
-
-    /**
-     * A lane is an epic in an open column with its lane on, in board order.
-     * Its children fill its row, and every other card goes to the last row.
-     *
-     * @param list<BoardColumnView> $columns
-     *
-     * @return array{list<BoardLaneView>, ?BoardLaneView}
-     */
-    private static function sortIntoLanes(array $columns): array
-    {
-        $epics = [];
-        foreach ($columns as $view) {
-            if ($view->column->terminal) {
-                continue;
-            }
-            foreach ($view->cards as $card) {
-                if ($card->drawsLane()) {
-                    $epics[(string) $card->id] = $card;
-                }
-            }
-        }
-
-        if ([] === $epics) {
-            return [[], null];
-        }
-
-        $cells = array_fill_keys(array_keys($epics), []);
-        $other = [];
-        foreach ($columns as $view) {
-            $columnId = (string) $view->column->id;
-            foreach ($view->cards as $card) {
-                if (isset($epics[(string) $card->id])) {
-                    continue;
-                }
-                $parentId = null === $card->parent ? null : (string) $card->parent->id;
-                if (null !== $parentId && isset($epics[$parentId])) {
-                    $cells[$parentId][$columnId][] = $card;
-                } else {
-                    $other[$columnId][] = $card;
-                }
-            }
-        }
-
-        $lanes = [];
-        foreach ($epics as $epicId => $epic) {
-            $lanes[] = new BoardLaneView($epic, $cells[$epicId]);
-        }
-
-        return [$lanes, new BoardLaneView(null, $other)];
     }
 }

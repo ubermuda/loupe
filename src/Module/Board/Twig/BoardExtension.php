@@ -24,6 +24,8 @@ use App\Module\Board\Form\SetCardLaneRequest;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardColumnTonePicker;
+use App\Module\Board\Service\CardDigest;
+use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
@@ -58,6 +60,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
         private readonly CardDocumentRepository $cardDocuments,
         private readonly BoardColumnRepository $boardColumns,
         private readonly BoardColumnTonePicker $tonePicker,
+        private readonly CardDigest $digest,
     ) {
         $this->prototypeName = 'move_card_'.bin2hex(random_bytes(8));
     }
@@ -140,26 +143,9 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
             ->createView();
     }
 
-    /**
-     * A short hash of what the card face and its list row show, and of where the
-     * card sits, so a page can tell a changed card from an unchanged one.
-     * `$warningRunId` names the run whose warning the card face shows, if any.
-     */
-    public function cardDigest(Card $card, int $pendingComments, int $documentCount, ?CardProgress $progress, ?string $warningRunId): string
+    public function cardDigest(Card $card, int $pendingComments, int $documentCount, ?CardProgress $progress, ?CardRunWarning $runWarning): string
     {
-        return substr(sha1(json_encode([
-            $card->number,
-            $card->title,
-            $card->body,
-            $card->type->value,
-            $pendingComments,
-            $card->pullRequests->count(),
-            $documentCount,
-            (string) $card->column->id,
-            $card->position,
-            null === $progress ? null : [$progress->done, $progress->total],
-            $warningRunId,
-        ], \JSON_THROW_ON_ERROR)), 0, 12);
+        return $this->digest->forCard($card, $pendingComments, $documentCount, $card->pullRequests->count(), $progress, $runWarning);
     }
 
     /** @return list<CardDocument> */

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 
 /** Everything one board page renders. */
@@ -55,6 +56,10 @@ final readonly class BoardView
          * @var array<string, int>
          */
         public array $shownCounts = [],
+        /** A hash of the columns and the lanes, which the page compares after it reconnects. */
+        public string $structureDigest = '',
+        /** @var array<string, CardRunWarning> card id => the warning its last run left */
+        public array $runWarnings = [],
     ) {
     }
 }
