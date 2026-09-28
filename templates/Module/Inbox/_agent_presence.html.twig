@@ -1,6 +1,9 @@
 {#- The agent's avatar with a presence dot, and a tooltip that names the bridge's
-    state and the session. Props: ask (InboxAsk or null), bridge (BridgeStatus or null). -#}
-{% if ask is null %}
+    state and the session. Loupe has no session, so it shows its avatar alone.
+    Props: ask (InboxAsk or null), bridge (BridgeStatus or null), origin (InboxAskOrigin). -#}
+{% if origin.value == 'loupe' %}
+    <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:search" class="w-4 h-4" /></span>
+{% elseif ask is null %}
     <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
 {% else %}
     {% set state = ask.closedAt ? 'closed' : (bridge is null ? 'none' : (bridge.quiet ? 'quiet' : 'live')) %}

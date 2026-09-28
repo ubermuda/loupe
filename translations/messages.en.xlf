@@ -4505,6 +4505,10 @@
                 <source>inbox.item.kind.wait</source>
                 <target>Waiting</target>
             </trans-unit>
+            <trans-unit id="inbox.item.dismiss">
+                <source>inbox.item.dismiss</source>
+                <target>Dismiss</target>
+            </trans-unit>
             <trans-unit id="inbox.item.blocking">
                 <source>inbox.item.blocking</source>
                 <target>Blocking</target>
@@ -5713,6 +5717,7 @@
             <trans-unit id="inbox.tabs.open"><source>inbox.tabs.open</source><target>Open</target></trans-unit>
             <trans-unit id="inbox.tabs.completed"><source>inbox.tabs.completed</source><target>Completed</target></trans-unit>
             <trans-unit id="inbox.source.agent"><source>inbox.source.agent</source><target>Agent request</target></trans-unit>
+            <trans-unit id="inbox.source.loupe"><source>inbox.source.loupe</source><target>Loupe</target></trans-unit>
             <trans-unit id="inbox.linked_items.title"><source>inbox.linked_items.title</source><target>Linked items</target></trans-unit>
             <trans-unit id="inbox.linked_items.item"><source>inbox.linked_items.item</source><target>Item</target></trans-unit>
             <trans-unit id="inbox.linked_items.status"><source>inbox.linked_items.status</source><target>Status</target></trans-unit>

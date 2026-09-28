@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Repository;
 
 use App\Module\Inbox\Entity\InboxCardWatch;
+use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
@@ -57,6 +58,19 @@ class InboxCardWatchRepository extends ServiceEntityRepository
             ->andWhere('watch.dismissedAt IS NOT NULL')
             ->getQuery()
             ->getResult());
+    }
+
+    public function findOneForItem(InboxItem $item): ?InboxCardWatch
+    {
+        $watch = $this->createQueryBuilder('watch')
+            ->addSelect('wait')
+            ->leftJoin('watch.waits', 'wait')
+            ->andWhere('watch.item = :item')
+            ->setParameter('item', $item)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $watch instanceof InboxCardWatch ? $watch : null;
     }
 
     /** @return list<string> */

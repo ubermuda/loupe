@@ -16,8 +16,23 @@
     {% endif %}
     {# A one-item ask shows the title once, as its own heading. #}
     {% if showTitle ?? true %}<h3 class="lp-inbox-item__title">{{ item.title }}</h3>{% endif %}
-    {% if item.body|trim is not empty %}
+    {# The waits below say what the body of a wait item says, with links. #}
+    {% if item.kind.value != 'wait' and item.body|trim is not empty %}
         <div class="prose lp-prose lp-inbox-item__body">{{ item.body|inbox_markdown }}</div>
+    {% endif %}
+    {% set watch = item.kind.value == 'wait' ? inbox_card_watch(item) : null %}
+    {% if watch %}
+        <ul class="lp-inbox-waits" data-inbox-waits>
+            {% for wait in watch.waits|filter(wait => wait.endedAt is null)|merge(watch.waits|filter(wait => wait.endedAt is not null)) %}
+                <li{% if wait.endedAt %} class="lp-inbox-waits__wait--ended"{% endif %} data-inbox-wait="{{ wait.endedAt ? 'ended' : 'current' }}">
+                    {%- if wait.documentId -%}
+                        <a class="lp-inbox-waits__link" href="{{ path('app_document_review', {projectId: item.project.id, documentId: wait.documentId}) }}" data-turbo-frame="_top">{{ wait.reason }}</a>
+                    {%- else -%}
+                        {{ wait.reason }}
+                    {%- endif -%}
+                </li>
+            {% endfor %}
+        </ul>
     {% endif %}
 
     {# The document or pull request under review is a linked item as well, shown once. #}
@@ -177,6 +192,8 @@
                         <div class="lp-inbox-item__refusal" role="alert">{% for message in reviewRefusals %}<p>{{ message }}</p>{% endfor %}</div>
                     {% endif %}
                 {% endif %}
+            {% elseif item.kind.value == 'wait' %}
+                {# Dismiss is the one response. Its button sits in the decline form below. #}
             {% elseif open or item.state.value != 'done' %}
                 {% set doneForm = inbox_done_form(item, refusedForm) %}
                 {{ form_start(doneForm, {action: path('app_inbox_item_done', actionParams), attr: {class: 'lp-inbox-done', 'data-turbo-frame': responseFrame}}) }}
@@ -196,6 +213,11 @@
             {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {id: declineForm.vars.id, class: 'lp-inbox-decline__form', 'data-turbo-frame': responseFrame}}) }}
                 {{ form_widget(declineForm.closeNote, {attr: {'data-inbox-decline-target': 'value'}}) }}
                 <div class="lp-field-errors">{{ form_errors(declineForm) }}{{ form_errors(declineForm.closeNote) }}</div>
+                {% if item.kind.value == 'wait' %}
+                    <div class="lp-inbox-item__buttons">
+                        <button type="submit" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'inbox.item.dismiss'|trans }}</button>
+                    </div>
+                {% endif %}
             {{ form_end(declineForm) }}
         </div>
     {% endif %}

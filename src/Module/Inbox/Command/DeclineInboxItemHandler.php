@@ -4,21 +4,28 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\Command;
 
+use App\Module\Inbox\Entity\InboxCardWaitEndReason;
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Service\CardWaitTrigger;
 use App\Module\Inbox\Service\InboxItemCloser;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
-/** Declines a question or a to-do, with an optional note for the agent. */
+/**
+ * Declines a question or a to-do, with an optional note for the agent. A wait
+ * item declines as a dismissal, which its watch remembers.
+ */
 final readonly class DeclineInboxItemHandler
 {
     public function __construct(
         private InboxItemCloser $closer,
         private Auditor $auditor,
         private CardWaitTrigger $cardWaits,
+        private InboxCardWatchRepository $inboxCardWatches,
     ) {
     }
 
@@ -27,14 +34,21 @@ final readonly class DeclineInboxItemHandler
         $item = $command->item;
         $note = trim($command->note);
 
-        $this->closer->respond($item, InboxItemState::Declined, 'closeNote', static function (InboxItem $item) use ($note): ?array {
+        $dismissedCardId = null;
+        $this->closer->respond($item, InboxItemState::Declined, 'closeNote', function (InboxItem $item) use ($note, &$dismissedCardId): ?array {
             $item->selectedOptions = [];
             $item->answerText = null;
             $item->closeNote = '' === $note ? null : $note;
+            if (InboxItemKind::Wait === $item->kind) {
+                $dismissedCardId = $this->dismiss($item);
+            }
 
             return null;
         });
         $this->cardWaits->forReviewItems([$item]);
+        if (null !== $dismissedCardId) {
+            $this->cardWaits->forCards($item->project->id ?? throw new \LogicException('Project has no id.'), [$dismissedCardId]);
+        }
 
         $this->auditor->record(
             'inbox.item_declined',
@@ -44,5 +58,23 @@ final readonly class DeclineInboxItemHandler
         );
 
         return $item;
+    }
+
+    /** Runs under the project lock of the decline. It returns the card of the watch. */
+    private function dismiss(InboxItem $item): string
+    {
+        $watch = $this->inboxCardWatches->findOneForItem($item)
+            ?? throw new \LogicException('A wait item has a card watch.');
+        $now = new \DateTimeImmutable();
+        $watch->dismissedAt = $now;
+        $watch->closedAt = $now;
+        foreach ($watch->waits as $wait) {
+            if (null === $wait->endedAt) {
+                $wait->endedAt = $now;
+                $wait->endReason = InboxCardWaitEndReason::Dismissed;
+            }
+        }
+
+        return (string) $watch->cardId;
     }
 }

@@ -7,6 +7,7 @@ namespace App\Module\Inbox\Service\Dev;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
@@ -24,6 +25,7 @@ use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\Entity\InboxReviewVerdict;
 use App\Module\Inbox\Repository\InboxItemRepository;
+use App\Module\Inbox\Service\CardWaitReconciler;
 use App\Module\Inbox\Service\InboxSearchIndexer;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -60,6 +62,7 @@ final readonly class ProjectShowcaseSeeder
         private PullRequestUrlResolver $pullRequests,
         private InboxSearchIndexer $inboxSearch,
         private DocumentSearchIndexer $documentSearch,
+        private CardWaitReconciler $cardWaits,
     ) {
     }
 
@@ -71,10 +74,13 @@ final readonly class ProjectShowcaseSeeder
         }
 
         $cards = $this->seedCards($project);
-        $documents = $this->seedDocuments($owner, $project);
+        $documents = $this->seedDocuments($owner, $project, $cards['onboarding']);
         $this->seedInbox($project, $owner, $reviewer, $cards, $documents);
         $this->seedSiteFeedback($project, $cards['checkout']);
         $this->em->flush();
+        // The onboarding card links a document in review, so Loupe opens its
+        // wait item. The reconciler writes nothing while the inbox is off.
+        $this->cardWaits->reconcile($project, [(string) $cards['onboarding']->id]);
 
         return true;
     }
@@ -135,8 +141,8 @@ final readonly class ProjectShowcaseSeeder
         return ['checkout' => $checkout, 'history' => $history, 'columns' => $columnRules, 'onboarding' => $onboarding, 'pullRequest' => $pullRequest];
     }
 
-    /** @return array{history: Document, rules: Document} */
-    private function seedDocuments(User $owner, Project $project): array
+    /** @return array{history: Document, rules: Document, onboarding: Document} */
+    private function seedDocuments(User $owner, Project $project, Card $onboardingCard): array
     {
         $history = new Document($owner, $project, 'Worker run history');
         $history->addVersion(
@@ -156,20 +162,27 @@ final readonly class ProjectShowcaseSeeder
         );
         $rules->status = DocumentStatus::Approved;
 
-        foreach ([$history, $rules] as $document) {
+        $onboarding = new Document($owner, $project, 'First handoff guide');
+        $onboarding->addVersion(
+            "# First handoff guide\n\n## The first five minutes\n\nMove a card to Ready. The rule of that column starts an agent, and the card shows the run.\n",
+            '<h1>First handoff guide</h1><h2>The first five minutes</h2><p>Move a card to Ready. The rule of that column starts an agent, and the card shows the run.</p>',
+        );
+        $onboardingCard->documents->add(new CardDocument($onboardingCard, $onboarding));
+
+        foreach ([$history, $rules, $onboarding] as $document) {
             $this->em->persist($document);
         }
         $this->em->flush();
-        foreach ([$history, $rules] as $document) {
+        foreach ([$history, $rules, $onboarding] as $document) {
             $this->documentSearch->index($document);
         }
 
-        return ['history' => $history, 'rules' => $rules];
+        return ['history' => $history, 'rules' => $rules, 'onboarding' => $onboarding];
     }
 
     /**
      * @param array{checkout: Card, history: Card, columns: Card, onboarding: Card, pullRequest: CardPullRequest} $cards
-     * @param array{history: Document, rules: Document}                                                           $documents
+     * @param array{history: Document, rules: Document, onboarding: Document}                                     $documents
      */
     private function seedInbox(Project $project, User $owner, User $reviewer, array $cards, array $documents): void
     {
@@ -260,7 +273,7 @@ final readonly class ProjectShowcaseSeeder
      * a to-do left open inside a closed ask, which is where the loose row and
      * its jump link come from.
      *
-     * @param array{history: Document, rules: Document} $documents
+     * @param array{history: Document, rules: Document, onboarding: Document} $documents
      */
     private function seedCompleted(Project $project, User $owner, User $reviewer, array $documents, int $number, \DateTimeImmutable $now): void
     {
