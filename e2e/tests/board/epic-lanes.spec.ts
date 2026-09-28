@@ -365,8 +365,12 @@ test('the lane button in the card drawer shows the lane on the board behind it',
         .getByRole('button', { name: 'Show as a lane on the board' })
         .click();
 
-    await boardReplaced(page);
     await expect(lane(page, epic.id)).toBeVisible();
+    await expect(
+        page.locator(`${CARD}[data-card-id="${epic.id}"]`),
+    ).toHaveCount(0);
+    // The lane shows in place, so the board keeps its mark.
+    await expect(page.locator(`${READY}[${MARK}]`)).toBeAttached();
     await expect(drawer).toHaveJSProperty('open', true);
     await expect(
         drawer.getByRole('button', { name: 'Hide the lane on the board' }),
