@@ -50,9 +50,10 @@ export default class extends Controller {
         this.onPointerUp = (upEvent) => this.release(upEvent);
         // A cancel is the browser taking the gesture back, so it never commits.
         this.onPointerCancel = (cancelEvent) => this.cancel(cancelEvent);
-        grip.addEventListener('pointermove', this.onPointerMove);
-        grip.addEventListener('pointerup', this.onPointerUp);
-        grip.addEventListener('pointercancel', this.onPointerCancel);
+        // Moving the row drops the grip's pointer capture, so the window listens.
+        window.addEventListener('pointermove', this.onPointerMove);
+        window.addEventListener('pointerup', this.onPointerUp);
+        window.addEventListener('pointercancel', this.onPointerCancel);
     }
 
     move(event) {
@@ -182,9 +183,9 @@ export default class extends Controller {
         if (!grip) {
             return;
         }
-        grip.removeEventListener('pointermove', this.onPointerMove);
-        grip.removeEventListener('pointerup', this.onPointerUp);
-        grip.removeEventListener('pointercancel', this.onPointerCancel);
+        window.removeEventListener('pointermove', this.onPointerMove);
+        window.removeEventListener('pointerup', this.onPointerUp);
+        window.removeEventListener('pointercancel', this.onPointerCancel);
         if (grip.hasPointerCapture?.(this.drag.pointerId)) {
             grip.releasePointerCapture(this.drag.pointerId);
         }

@@ -139,6 +139,25 @@ it('refuses a second drag while a rank is in flight', () => {
     expect(form('b').requestSubmit).not.toHaveBeenCalled();
 });
 
+it('commits a drop released away from the grip, after the row moved', () => {
+    controller.press(
+        pointer(90, { currentTarget: document.querySelector('#row-c .grip') }),
+    );
+    const at = (type, y) =>
+        window.dispatchEvent(
+            Object.assign(new Event(type), {
+                pointerId: 1,
+                clientX: 10,
+                clientY: y,
+            }),
+        );
+    at('pointermove', 10);
+    at('pointerup', 10);
+
+    expect(order()).toEqual(['c', 'a', 'b']);
+    expect(form('c').requestSubmit).toHaveBeenCalledOnce();
+});
+
 it('puts the row back and submits nothing on a pointer cancel', () => {
     controller.press(
         pointer(90, { currentTarget: document.querySelector('#row-c .grip') }),
