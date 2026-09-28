@@ -10,8 +10,12 @@ use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Command\ShowCardPlacementCommand;
 use App\Module\Board\Command\ShowCardPlacementHandler;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -150,6 +154,125 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
 
         self::assertSame([1, 1, 0, 1], array_values($pageCounts));
         self::assertSame($pageCounts, $view->counts);
+    }
+
+    /**
+     * Every card of a board is placed as the board page places it: the page
+     * reads each column in full, and the placement must agree card by card.
+     */
+    public function test_every_card_is_placed_where_the_board_page_shows_it(): void
+    {
+        $this->em->persist(new BoardColumn($this->project, 'Archive', 'archive', 4, terminal: true));
+        $this->em->persist(new BoardColumn($this->project, 'Icebox', 'icebox', 5));
+        $this->em->flush();
+
+        $second = static fn (int $secondsAgo): \DateTimeImmutable => new \DateTimeImmutable(date('Y-m-d H:i:s', time() - $secondsAgo));
+        $created = $second(86400 * 20);
+
+        // The first card of the board is one of two cards that tie on position and creation.
+        $this->boardCard('Backlog tie one', 'backlog', 0, $created);
+        $this->boardCard('Backlog tie two', 'backlog', 0, $created);
+        $moved = $this->boardCard('Backlog later', 'backlog', 1);
+        $openEpic = $this->boardCard('Open epic', 'backlog', 2, type: CardType::Epic);
+        // The next column stays empty, between two columns that hold cards.
+        $this->boardCard('In progress one', 'in-progress', 0);
+        $this->boardCard('In progress two', 'in-progress', 1);
+
+        $restamped = $this->boardCard('Done recent', 'done', 0, completedAt: $second(3600));
+        $finished = $second(7200);
+        $this->boardCard('Done tie one', 'done', 0, $created, $finished);
+        $this->boardCard('Done tie two', 'done', 0, $created, $finished);
+        $doneEpic = $this->boardCard('Done epic', 'done', 0, completedAt: $second(10800), type: CardType::Epic);
+        $this->boardCard('Child of the done epic', 'done', 0, completedAt: $second(3600), parent: $doneEpic);
+        $this->boardCard('Done too long ago', 'done', 0, completedAt: $second(86400 * (ShowBoardHandler::TERMINAL_WINDOW_DAYS + 1)));
+        $this->boardCard('Child of the open epic', 'done', 0, completedAt: $second(14400), parent: $openEpic);
+
+        $this->boardCard('Archived long ago', 'archive', 0, completedAt: $second(86400 * 10));
+        $this->boardCard('Archived child of the done epic', 'archive', 0, completedAt: $second(60), parent: $doneEpic);
+        $this->boardCard('Icebox', 'icebox', 0);
+
+        // A bulk write the loaded cards do not see: the placement must read the rows.
+        $connection = $this->em->getConnection();
+        $connection->executeStatement('UPDATE board_cards SET position = -1 WHERE id = :id', ['id' => (string) $moved->id]);
+        $connection->executeStatement('UPDATE board_cards SET completed_at = :at WHERE id = :id', ['id' => (string) $restamped->id, 'at' => $second(18000)->format('Y-m-d H:i:s')]);
+
+        [$expected, $counts, $totals] = $this->boardPagePlacements();
+        self::assertSame([4, 0, 2, 5, 0, 1], array_values($counts));
+
+        $cards = self::getContainer()->get(CardRepository::class)->findBy(['project' => $this->project]);
+        self::assertCount(16, $cards);
+        foreach ($cards as $card) {
+            $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $card));
+            $place = $expected[(string) $card->id] ?? null;
+
+            self::assertSame($counts, $view->counts, $card->title);
+            self::assertSame($totals, $view->terminalTotals, $card->title);
+            if (null === $place) {
+                self::assertNull($view->card, $card->title);
+                self::assertNull($view->column, $card->title);
+                continue;
+            }
+
+            self::assertSame($card, $view->card, $card->title);
+            self::assertSame($place, [(string) $view->column?->id, $view->after, $view->rowAfter], $card->title);
+        }
+    }
+
+    /**
+     * The board page's reading, column by column in board order.
+     *
+     * @return array{array<string, array{string, ?string, ?string}>, array<string, int>, array<string, int>}
+     */
+    private function boardPagePlacements(): array
+    {
+        $container = self::getContainer();
+        $columnCards = $container->get(BoardColumnCards::class);
+        $cards = $container->get(CardRepository::class);
+        $expected = [];
+        $counts = [];
+        $totals = [];
+        $previousRow = null;
+        foreach ($container->get(BoardColumnRepository::class)->findForProject($this->project) as $column) {
+            $shown = $columnCards->shown($column);
+            $counts[(string) $column->id] = \count($shown);
+            if ($column->terminal) {
+                $totals[(string) $column->id] = $cards->countInColumn($column);
+            }
+            $previousInColumn = null;
+            foreach ($shown as $card) {
+                $expected[(string) $card->id] = [(string) $column->id, $previousInColumn, $previousRow];
+                $previousInColumn = $previousRow = (string) $card->id;
+            }
+        }
+
+        return [$expected, $counts, $totals];
+    }
+
+    private function boardCard(
+        string $title,
+        string $slug,
+        int $position,
+        ?\DateTimeImmutable $createdAt = null,
+        ?\DateTimeImmutable $completedAt = null,
+        ?Card $parent = null,
+        CardType $type = CardType::Feature,
+    ): Card {
+        $card = new Card(
+            project: $this->project,
+            column: $this->column($this->project, $slug),
+            title: $title,
+            body: '',
+            number: $this->nextNumber++,
+            type: $type,
+            position: $position,
+            createdAt: $createdAt ?? new \DateTimeImmutable(),
+        );
+        $card->completedAt = $completedAt;
+        $card->parent = $parent;
+        $this->em->persist($card);
+        $this->em->flush();
+
+        return $card;
     }
 
     private function card(string $title, string $slug, int $position): Card
