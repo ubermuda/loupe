@@ -182,7 +182,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $live = $page->filter('[data-controller="worker-run-refresh"]');
         self::assertSame('/projects/'.$project->id.'/in-motion', $live->attr('data-worker-run-refresh-url-value'));
-        self::assertSame(['worker_run.changed', 'board.card_changed'], json_decode((string) $live->attr('data-worker-run-refresh-events-value'), true));
+        self::assertSame(['worker_run.changed', 'board.card_changed', 'board.columns_changed'], json_decode((string) $live->attr('data-worker-run-refresh-events-value'), true));
         self::assertSame('frame', $live->filter('turbo-frame#workshop-in-motion')->attr('data-worker-run-refresh-target'));
         self::assertSame('_top', $live->filter('turbo-frame#workshop-in-motion')->attr('target'));
         $pageFrame = $page->filter('turbo-frame#workshop-in-motion')->outerHtml();
