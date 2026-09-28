@@ -16,6 +16,7 @@
         <h2 class="lp-board-lane__title">{{ 'board.lane.other'|trans }}</h2>
     </header>
     {% endif %}
+    <div class="lp-board-lane__body">
     <div class="lp-board-lane__cells">
         {% for view in board.columns %}
         {% set cards = lane.cells[view.column.id ~ '']|default([]) %}
@@ -39,5 +40,6 @@
             {% endif %}
         </section>
         {% endfor %}
+    </div>
     </div>
 </section>
