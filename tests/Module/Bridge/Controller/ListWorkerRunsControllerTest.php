@@ -307,7 +307,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?outcome=open');
 
         self::assertResponseIsSuccessful();
-        $cards = $crawler->filter('.lp-worker-run__card')->each(static fn ($node): string => trim($node->text()));
+        $cards = $crawler->filter('[data-worker-run-id] .lp-data-table__number')->each(static fn ($node): string => trim($node->text()));
         sort($cards);
         self::assertSame(['#1', '#2', '#3'], $cards);
         self::assertSame('Open runs', trim($crawler->filter('#worker-run-outcome option[value="open"]')->text()));
