@@ -26,7 +26,11 @@ final readonly class ShowBoardManifestHandler
         }
 
         $cards = [];
+        $terminalTotals = [];
         foreach ($board->columns as $view) {
+            if (null !== $view->terminalTotal) {
+                $terminalTotals[(string) $view->column->id] = $view->terminalTotal;
+            }
             foreach ($view->cards as $card) {
                 $id = (string) $card->id;
                 if (isset($laneEpics[$id])) {
@@ -43,6 +47,6 @@ final readonly class ShowBoardManifestHandler
             }
         }
 
-        return new BoardManifestView($command->project, $cards, $board->structureDigest);
+        return new BoardManifestView($command->project, $cards, $board->structureDigest, $terminalTotals);
     }
 }

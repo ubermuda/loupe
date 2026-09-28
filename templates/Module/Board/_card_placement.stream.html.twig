@@ -8,6 +8,7 @@
 <turbo-stream action="board-place" target="board-card-{{ cardId }}"
               data-counts="{{ placement.counts|json_encode }}"
               data-history="{{ history|json_encode }}"
+              data-history-totals="{{ placement.terminalTotals|json_encode }}"
               {% if placement.laneCounts is not empty %}data-lane-counts="{{ placement.laneCounts|json_encode }}"{% endif %}
               {% if placement.laneEpic %}data-lane-epic="1"{% elseif placement.lane is not null %}data-lane="{{ placement.lane }}"{% endif %}
               {% if card is null %}data-removed="1"{% else %}data-column-id="{{ placement.column.id }}"

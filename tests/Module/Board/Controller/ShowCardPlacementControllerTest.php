@@ -212,9 +212,13 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertSame(['See all 2 finished cards'], array_values($history));
         self::assertArrayHasKey((string) $done->id, $history);
         self::assertArrayNotHasKey((string) $next->id, $history);
+        self::assertSame(1, preg_match('/data-history-totals="([^"]*)"/', (string) $client->getResponse()->getContent(), $match));
+        self::assertSame([(string) $done->id => 2], json_decode(html_entity_decode($match[1] ?? ''), true, flags: \JSON_THROW_ON_ERROR));
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
-        self::assertSame('See all 2 finished cards', trim($crawler->filter('#board-history-'.$done->id)->text()));
+        $link = $crawler->filter('#board-history-'.$done->id);
+        self::assertSame('See all 2 finished cards', trim($link->text()));
+        self::assertSame('2', $link->attr('data-history-total'));
     }
 
     public function test_a_card_of_another_project_gets_a_removal_through_this_project(): void

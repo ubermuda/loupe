@@ -316,6 +316,91 @@ it('fetches nothing when the list rows keep the manifest order', async () => {
     expect(placements()).toEqual([]);
 });
 
+it('fetches one card when only a history total changed, so the history links refresh', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a id="board-history-done" data-history-total="4"></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k'],
+                ['b', 'old', 'k'],
+            ],
+            structure: 'frame',
+            terminalTotals: { done: 3 },
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['a']);
+    expect(reloads).toBe(0);
+});
+
+it('fetches nothing more when the history totals match the page', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a id="board-history-done" data-history-total="4"></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k'],
+                ['b', 'old', 'k'],
+            ],
+            structure: 'frame',
+            terminalTotals: { done: 4 },
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(manifestReads()).toHaveLength(1);
+    expect(placements()).toEqual([]);
+    expect(reloads).toBe(0);
+});
+
+it('fetches no extra card for a history total when a changed card refreshes the links', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a id="board-history-done" data-history-total="4"></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k'],
+                ['b', 'new', 'k'],
+            ],
+            structure: 'frame',
+            terminalTotals: { done: 3 },
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['b']);
+});
+
+it('reloads when a history total changed and the board has no card to fetch', async () => {
+    document.getElementById('board').innerHTML =
+        '<a id="board-history-done" data-history-total="1"></a>';
+    answerManifest(
+        json({ cards: [], structure: 'frame', terminalTotals: { done: 0 } }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual([]);
+    expect(reloads).toBe(1);
+});
+
 it('ignores the list rows, which carry a digest too', async () => {
     document
         .getElementById('board')

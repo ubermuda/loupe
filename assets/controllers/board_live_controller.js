@@ -168,7 +168,17 @@ export default class extends Controller {
                     shown.get(cardId) !== digest || moved.has(cardId),
             )
             .map(([cardId]) => cardId);
-        [...removed, ...changed].forEach((cardId) =>
+        const queued = [...removed, ...changed];
+        // Any placement rewrites every history link, so one card is enough.
+        if (queued.length === 0 && staleHistory(manifest.terminalTotals)) {
+            if (manifest.cards.length === 0) {
+                this.reload();
+
+                return;
+            }
+            queued.push(manifest.cards[0][0]);
+        }
+        queued.forEach((cardId) =>
             this.receive({ cardId, local: false, own: false }),
         );
     }
@@ -357,6 +367,15 @@ function isManifest(manifest) {
                 typeof entry[2] === 'string',
         )
     );
+}
+
+/** A terminal column whose history link on the page shows another total. */
+function staleHistory(totals) {
+    return Object.entries(totals ?? {}).some(([columnId, total]) => {
+        const link = document.getElementById(`board-history-${columnId}`);
+
+        return link !== null && link.dataset.historyTotal !== String(total);
+    });
 }
 
 function previousCardId(card) {

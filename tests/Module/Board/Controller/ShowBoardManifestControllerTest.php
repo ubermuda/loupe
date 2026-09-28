@@ -141,6 +141,29 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertSame($page['cards'], array_column($manifest['cards'], 1, 0));
     }
 
+    public function test_the_terminal_totals_are_the_ones_the_history_links_show(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'manifest-history@example.com');
+        $project = $this->project($em, $owner);
+        $this->card($em, $project, 'Finished today', 'done');
+        $old = $this->card($em, $project, 'Finished long ago', 'done');
+        $old->completedAt = new \DateTimeImmutable('-1 year');
+        $em->flush();
+        $doneId = (string) $this->column($project, 'done')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $manifest = $this->manifest($client, $project);
+        $page = $this->page($client, $project);
+
+        self::assertCount(1, $manifest['cards']);
+        self::assertSame([$doneId => 2], $manifest['terminalTotals']);
+        self::assertSame($page['historyTotals'], $manifest['terminalTotals']);
+    }
+
     public function test_a_digest_changes_with_the_parent_title(): void
     {
         $client = static::createClient();
@@ -366,24 +389,24 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         return '/projects/'.$project->id.'/board/manifest';
     }
 
-    /** @return array{cards: list<array{string, string, string}>, structure: string} */
+    /** @return array{cards: list<array{string, string, string}>, structure: string, terminalTotals: array<string, int>} */
     private function manifest(KernelBrowser $client, Project $project): array
     {
         $client->request(Request::METHOD_GET, $this->manifestUrl($project));
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        /** @var array{cards: list<array{string, string, string}>, structure: string} $manifest */
+        /** @var array{cards: list<array{string, string, string}>, structure: string, terminalTotals: array<string, int>} $manifest */
         $manifest = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
-        self::assertSame(['cards', 'structure'], array_keys($manifest));
+        self::assertSame(['cards', 'structure', 'terminalTotals'], array_keys($manifest));
 
         return $manifest;
     }
 
     /**
      * The digest of each card face on the board page, the ids of the list rows
-     * in order, and the structure digest.
+     * in order, the structure digest, and the total of each history link.
      *
-     * @return array{cards: array<string, string>, rows: list<string>, structure: string}
+     * @return array{cards: array<string, string>, rows: list<string>, structure: string, historyTotals: array<string, int>}
      */
     private function page(KernelBrowser $client, Project $project): array
     {
@@ -396,14 +419,21 @@ final class ShowBoardManifestControllerTest extends WebTestCase
             $cards[$face->getAttribute('data-card-id')] = $face->getAttribute('data-card-digest');
         }
 
+        $historyTotals = [];
+        foreach ($crawler->filter('[id^="board-history-"]') as $link) {
+            self::assertInstanceOf(\DOMElement::class, $link);
+            $historyTotals[substr($link->getAttribute('id'), \strlen('board-history-'))] = (int) $link->getAttribute('data-history-total');
+        }
+
         return [
             'cards' => $cards,
             'rows' => $crawler->filter('[id^="board-row-"]')->each(static fn ($row): string => (string) $row->attr('data-card-id')),
             'structure' => (string) $crawler->filter('#board')->attr('data-board-structure-digest'),
+            'historyTotals' => $historyTotals,
         ];
     }
 
-    /** @param array{cards: list<array{string, string, string}>, structure: string} $manifest */
+    /** @param array{cards: list<array{string, string, string}>, structure: string, terminalTotals: array<string, int>} $manifest */
     private function digestOf(array $manifest, Card $card): string
     {
         $digests = array_column($manifest['cards'], 1, 0);

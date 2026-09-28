@@ -37,6 +37,10 @@ final class ShowBoardManifestController extends AppController
         $this->board->requireEnabled();
         $manifest = ($this->handler)(new ShowBoardManifestCommand($project));
 
-        return $this->json(['cards' => $manifest->cards, 'structure' => $manifest->structure]);
+        return $this->json([
+            'cards' => $manifest->cards,
+            'structure' => $manifest->structure,
+            'terminalTotals' => $manifest->terminalTotals,
+        ]);
     }
 }

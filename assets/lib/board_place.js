@@ -14,6 +14,7 @@ export function placeCard(stream) {
     const cardId = stream.getAttribute('target').replace(/^board-card-/, '');
     const counts = JSON.parse(stream.dataset.counts || '{}');
     const history = JSON.parse(stream.dataset.history || '{}');
+    const historyTotals = JSON.parse(stream.dataset.historyTotals || '{}');
     const laneCounts = JSON.parse(stream.dataset.laneCounts || '{}');
     const missed = () =>
         document.dispatchEvent(
@@ -36,6 +37,7 @@ export function placeCard(stream) {
         document.getElementById(`board-row-${cardId}`)?.remove();
         updateTexts('board-count-', counts);
         updateTexts('board-history-', history);
+        updateHistoryTotals(historyTotals);
         updateLaneCounts(laneCounts);
         document.dispatchEvent(
             new CustomEvent('board:placed', {
@@ -79,6 +81,7 @@ export function placeCard(stream) {
     );
     updateTexts('board-count-', counts);
     updateTexts('board-history-', history);
+    updateHistoryTotals(historyTotals);
     updateLaneCounts(laneCounts);
 
     document.getElementById(`board-card-${cardId}`).dispatchEvent(
@@ -115,6 +118,16 @@ function updateTexts(prefix, byColumn) {
         const element = document.getElementById(prefix + columnId);
         if (element) {
             element.textContent = String(text);
+        }
+    });
+}
+
+/** Keeps the total each history link shows, for the reconnect catch-up to compare. */
+function updateHistoryTotals(byColumn) {
+    Object.entries(byColumn).forEach(([columnId, total]) => {
+        const element = document.getElementById(`board-history-${columnId}`);
+        if (element) {
+            element.dataset.historyTotal = String(total);
         }
     });
 }
