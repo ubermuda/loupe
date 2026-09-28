@@ -1,5 +1,5 @@
 import { expect, type Route } from '@playwright/test';
-import { createTest } from '../fixtures';
+import { agentAccessToken, createTest } from '../fixtures';
 
 const test = createTest({
     email: 'e2e-workshop-records@example.com',
@@ -44,6 +44,26 @@ test('workshop opens the matching request and keeps card details in its drawer',
     await expect(
         page.getByRole('heading', { name: title, exact: true }),
     ).toBeVisible();
+    await expect(page).toHaveURL(/\/board\/cards\/[0-9a-f-]+$/);
+    const cardId = new URL(page.url()).pathname.split('/').pop();
+    // In motion shows only a card with an open run, so the card needs one.
+    const token = await agentAccessToken(page);
+    const queued = await page.request.put(
+        `/api/projects/${projectId}/worker-runs/${crypto.randomUUID()}`,
+        {
+            headers: { Authorization: `Bearer ${token}` },
+            data: {
+                bridgeId: crypto.randomUUID(),
+                at: new Date().toISOString(),
+                state: 'queued',
+                cardId,
+                cardNumber: 1,
+                ruleName: 'implement',
+                cardColumn: 'backlog',
+            },
+        },
+    );
+    expect(queued.status()).toBe(201);
     await page.goto(workshopUrl);
     await page
         .locator(
@@ -56,6 +76,10 @@ test('workshop opens the matching request and keeps card details in its drawer',
     const card = page
         .locator('[data-workshop-card]')
         .filter({ hasText: title });
+    await expect(card.locator('.lp-status-chip')).toHaveText('Queued');
+    await expect(card.locator('.lp-workshop-work-card__kind')).toHaveText(
+        'implement',
+    );
     await expect(
         page.locator('[data-workshop-stat="completed-cards"]'),
     ).toContainText('Completed cards');

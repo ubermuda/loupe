@@ -5,7 +5,7 @@ import { on } from '../lib/live.js';
 export const DEBOUNCE_MILLISECONDS = 300;
 
 /**
- * Reloads a list frame when the Mercure hub reports a change, and
+ * Reloads a frame of worker runs when the Mercure hub reports a change, and
  * after each reconnect for any change it missed. An open run drawer holds the
  * reload until it closes, so the reader keeps what they are reading.
  */
@@ -15,7 +15,7 @@ export default class extends Controller {
         url: String,
         frames: Array,
         whole: Boolean,
-        event: { type: String, default: 'worker_run.changed' },
+        events: { type: Array, default: ['worker_run.changed'] },
     };
 
     connect() {
@@ -27,7 +27,7 @@ export default class extends Controller {
             }
         };
         this.element.addEventListener('close', this.onDialogClose, true);
-        this.unsubscribe = on(this.eventValue, () => this.schedule(), {
+        this.unsubscribe = on(this.eventsValue, () => this.schedule(), {
             onReconnect: () => this.schedule(),
         });
     }

@@ -83,8 +83,9 @@ final class ActivityPageShellTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertContains($topic, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value')));
-        $refresh = $crawler->filter('[data-controller="worker-run-refresh"][data-worker-run-refresh-event-value="activity.changed"]');
+        $refresh = $crawler->filter('[data-controller="worker-run-refresh"]');
         self::assertCount(1, $refresh);
+        self::assertSame(['activity.changed'], json_decode((string) $refresh->attr('data-worker-run-refresh-events-value'), true));
         self::assertSame(['activity-count'], json_decode((string) $refresh->attr('data-worker-run-refresh-frames-value'), true));
         self::assertCount(1, $refresh->filter('turbo-frame#activity-frame[target="_top"][data-worker-run-refresh-target="frame"] [data-activity-event-id]'));
         self::assertStringNotContainsString('Pause feed', $crawler->text());

@@ -9,6 +9,7 @@ use App\Mercure\Command\AuthorizeMercureTopicsCommand;
 use App\Mercure\Command\AuthorizeMercureTopicsHandler;
 use App\Mercure\Form\AuthorizeMercureTopicsFormType;
 use App\Mercure\Form\AuthorizeMercureTopicsRequest;
+use App\Session\ReadOnlyAwareSessionHandler;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,11 +20,13 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Each topic passes through its module's authorizer, so this route needs a
- * signed-in user and nothing more. access_control requires one.
+ * signed-in user and nothing more. access_control requires one. Every Mercure
+ * reconnect calls it in the background, so it takes no session lock.
  */
 #[Route(
     '/mercure/authorize',
     name: 'app_mercure_authorize',
+    defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => true],
     methods: ['POST'],
 )]
 final class AuthorizeMercureTopicsController extends AppController

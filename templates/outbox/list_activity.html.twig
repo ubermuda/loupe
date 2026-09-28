@@ -61,7 +61,7 @@
     {% set live = page == 1 %}
     {% if live %}{% do mercure_subscribe(activity_topic(project)) %}{% endif %}
     <div class="lp-live-frame"{% if live %} data-controller="worker-run-refresh"
-         data-worker-run-refresh-event-value="activity.changed"
+         data-worker-run-refresh-events-value="{{ ['activity.changed']|json_encode }}"
          data-worker-run-refresh-frames-value="{{ ['activity-count']|json_encode }}"
          data-worker-run-refresh-whole-value="{{ filtered ? 'false' : 'true' }}"{% endif %}>
     <turbo-frame id="activity-frame" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
