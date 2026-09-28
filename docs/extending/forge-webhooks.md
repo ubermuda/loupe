@@ -106,7 +106,9 @@ These events set the count back to zero and clear the block:
   reset the count.
 
 The reset comes before the decision. So the fix request after a
-`changes-requested` review is round 1, whatever the count was before.
+`changes-requested` review is round 1, whatever the count was before. A
+redelivered review sends no second `review_submitted`, so it resets nothing and
+asks no second fix.
 
 One read sends at most one `fix_requested` to a card. A review delivery and a
 state change can come in the same read. When a read finds more than one reason,

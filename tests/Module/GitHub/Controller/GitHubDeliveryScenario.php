@@ -123,7 +123,7 @@ trait GitHubDeliveryScenario
         return $refreshes;
     }
 
-    /** @return list<?PullRequestReview> the verdict of each queued refresh */
+    /** @return list<array{?PullRequestReview, ?string}> the verdict and the review id of each queued refresh */
     private function queuedVerdicts(): array
     {
         $transport = self::getContainer()->get('messenger.transport.async');
@@ -133,7 +133,7 @@ trait GitHubDeliveryScenario
         foreach ($transport->getSent() as $envelope) {
             $message = $envelope->getMessage();
             if ($message instanceof RefreshPullRequestState) {
-                $verdicts[] = $message->verdict;
+                $verdicts[] = [$message->verdict, $message->reviewId];
             }
         }
 

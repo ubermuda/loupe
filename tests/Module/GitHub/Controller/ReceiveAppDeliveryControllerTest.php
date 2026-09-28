@@ -143,12 +143,12 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
             'installation' => ['id' => 9_000_607],
             'repository' => ['id' => 607, 'full_name' => 'acme/v'],
             'pull_request' => ['number' => 12],
-            'review' => ['state' => 'changes_requested'],
+            'review' => ['id' => 70_001, 'state' => 'changes_requested'],
         ], self::SECRET);
 
         self::assertResponseIsSuccessful();
         self::assertSame([[$tracked, false]], $this->queuedRefreshes());
-        self::assertSame([PullRequestReview::ChangesRequested], $this->queuedVerdicts());
+        self::assertSame([[PullRequestReview::ChangesRequested, '70001']], $this->queuedVerdicts());
     }
 
     public function test_a_completed_check_suite_queues_a_refresh_of_each_tracked_pull_request_it_touches(): void

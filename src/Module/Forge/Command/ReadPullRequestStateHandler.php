@@ -6,6 +6,7 @@ namespace App\Module\Forge\Command;
 
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
@@ -56,8 +57,12 @@ final readonly class ReadPullRequestStateHandler
                 return null;
             }
 
+            // A redelivered review keeps its id, so its verdict has already gone out.
+            $consumed = null !== $command->reviewId && $command->reviewId === $pullRequest->lastReviewId;
+            $verdict = $consumed ? null : $command->verdict;
+
             if ($pullRequest->refreshedAt >= $command->requestedAt) {
-                $this->announceVerdict($command, $pullRequest);
+                $this->announceVerdict($verdict, $command->reviewId, $pullRequest);
 
                 return null;
             }
@@ -78,7 +83,7 @@ final readonly class ReadPullRequestStateHandler
                     return $e;
                 }
                 $pullRequest->refreshedAt = $readStartedAt;
-                $this->announceVerdict($command, $pullRequest);
+                $this->announceVerdict($verdict, $command->reviewId, $pullRequest);
 
                 return null;
             }
@@ -88,8 +93,11 @@ final readonly class ReadPullRequestStateHandler
             $this->retryUnknownMergeability($pullRequest);
 
             // One event per read, so Board asks at most one fix for a verdict and a state change together.
-            if (!$current->equals($previous) || null !== $command->verdict) {
-                $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current, $command->verdict));
+            if (null !== $verdict) {
+                $pullRequest->lastReviewId = $command->reviewId ?? $pullRequest->lastReviewId;
+            }
+            if (!$current->equals($previous) || null !== $verdict) {
+                $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current, $verdict));
             }
 
             return null;
@@ -102,11 +110,12 @@ final readonly class ReadPullRequestStateHandler
     }
 
     /** A read that stored no new state still delivers its verdict, against the stored state. */
-    private function announceVerdict(ReadPullRequestStateCommand $command, ForgePullRequest $pullRequest): void
+    private function announceVerdict(?PullRequestReview $verdict, ?string $reviewId, ForgePullRequest $pullRequest): void
     {
-        if (null !== $command->verdict) {
+        if (null !== $verdict) {
+            $pullRequest->lastReviewId = $reviewId ?? $pullRequest->lastReviewId;
             $snapshot = $pullRequest->snapshot();
-            $this->events->dispatch(new PullRequestStateChanged($pullRequest, $snapshot, $snapshot, $command->verdict));
+            $this->events->dispatch(new PullRequestStateChanged($pullRequest, $snapshot, $snapshot, $verdict));
         }
     }
 

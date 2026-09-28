@@ -261,6 +261,10 @@ final class GitHubDeliveryTest extends TestCase
         yield 'no review' => ['submitted', null, [PullRequestRefreshHint::number(7)]];
         yield 'dismissed' => ['dismissed', ['state' => 'approved'], [PullRequestRefreshHint::number(7)]];
         yield 'edited' => ['edited', ['state' => 'approved'], []];
+        yield 'review id' => ['submitted', ['id' => 80, 'state' => 'changes_requested'], [PullRequestRefreshHint::number(7, PullRequestReview::ChangesRequested, '80')]];
+        yield 'review id of a comment' => ['submitted', ['id' => 80, 'state' => 'commented'], [PullRequestRefreshHint::number(7)]];
+        yield 'review id not a number' => ['submitted', ['id' => '80', 'state' => 'approved'], [PullRequestRefreshHint::number(7, PullRequestReview::Approved)]];
+        yield 'review id not positive' => ['submitted', ['id' => 0, 'state' => 'approved'], [PullRequestRefreshHint::number(7, PullRequestReview::Approved)]];
     }
 
     /** @param list<PullRequestRefreshHint> $hints */

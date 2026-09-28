@@ -18,6 +18,6 @@ final readonly class RefreshPullRequestStateHandler
 
     public function __invoke(RefreshPullRequestState $message): void
     {
-        ($this->readPullRequestState)(new ReadPullRequestStateCommand($message->pullRequestId, $message->requestedAt, $message->verdict));
+        ($this->readPullRequestState)(new ReadPullRequestStateCommand($message->pullRequestId, $message->requestedAt, $message->verdict, $message->reviewId));
     }
 }

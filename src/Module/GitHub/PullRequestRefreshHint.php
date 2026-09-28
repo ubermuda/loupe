@@ -8,7 +8,8 @@ use App\Module\Forge\Entity\PullRequestReview;
 
 /**
  * One delivery fact that can change the state of tracked pull requests. Exactly
- * one of number, head and base is set. A verdict marks a submitted review.
+ * one of number, head and base is set. A verdict marks a submitted review, and
+ * the review id names it.
  */
 final readonly class PullRequestRefreshHint
 {
@@ -17,12 +18,13 @@ final readonly class PullRequestRefreshHint
         public ?string $headSha = null,
         public ?string $baseBranch = null,
         public ?PullRequestReview $verdict = null,
+        public ?string $reviewId = null,
     ) {
     }
 
-    public static function number(int $number, ?PullRequestReview $verdict = null): self
+    public static function number(int $number, ?PullRequestReview $verdict = null, ?string $reviewId = null): self
     {
-        return new self(number: $number, verdict: $verdict);
+        return new self(number: $number, verdict: $verdict, reviewId: null === $verdict ? null : $reviewId);
     }
 
     public static function head(string $sha): self

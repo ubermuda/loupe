@@ -71,7 +71,7 @@ final readonly class DeliveryAnnouncer
         $verdicts = ForgeRepositorySource::Installation === $source;
         foreach ($delivery->refreshHints() as $hint) {
             match (true) {
-                null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number, $verdicts ? $hint->verdict : null),
+                null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number, $verdicts ? $hint->verdict : null, $verdicts ? $hint->reviewId : null),
                 null !== $hint->headSha => $this->tracker->refreshHead($project, GitHubDelivery::FORGE, $repository->fullName, $hint->headSha),
                 default => $this->tracker->refreshBase($project, GitHubDelivery::FORGE, $repository->fullName, $hint->baseBranch ?? throw new \LogicException('A hint sets one field.')),
             };

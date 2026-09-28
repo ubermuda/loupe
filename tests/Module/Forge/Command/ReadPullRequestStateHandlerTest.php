@@ -174,6 +174,62 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         $this->assertVerdictOnly(PullRequestReview::Approved, new PullRequestSnapshot());
     }
 
+    public function test_a_redelivered_review_announces_its_verdict_once(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestSnapshot(), new PullRequestSnapshot()];
+
+        $this->handle($row, self::NOW, PullRequestReview::ChangesRequested, '101');
+        $this->handle($row, self::NOW, PullRequestReview::ChangesRequested, '101');
+        $this->clock->modify('+1 minute');
+        $this->handle($row, '2026-09-27 12:01:00', PullRequestReview::ChangesRequested, '101');
+
+        self::assertSame(2, $this->reader->reads, 'The redelivered message still reads the pull request.');
+        $this->assertVerdictOnly(PullRequestReview::ChangesRequested, new PullRequestSnapshot());
+        self::assertSame('101', $this->reload($row)->lastReviewId);
+    }
+
+    public function test_two_reviews_announce_two_verdicts(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestSnapshot()];
+
+        $this->handle($row, self::NOW, PullRequestReview::ChangesRequested, '101');
+        $this->handle($row, self::NOW, PullRequestReview::ChangesRequested, '102');
+
+        self::assertSame([PullRequestReview::ChangesRequested, PullRequestReview::ChangesRequested], array_map(static fn (PullRequestStateChanged $change): ?PullRequestReview => $change->reviewVerdict, $this->changes));
+        self::assertSame('102', $this->reload($row)->lastReviewId);
+    }
+
+    public function test_a_verdict_with_no_review_id_announces_each_time(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestSnapshot()];
+
+        $this->handle($row, self::NOW, PullRequestReview::Approved);
+        $this->handle($row, self::NOW, PullRequestReview::Approved);
+
+        self::assertCount(2, $this->changes);
+        self::assertNull($this->reload($row)->lastReviewId);
+    }
+
+    public function test_a_transient_failure_keeps_the_review_id_for_the_retry(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestUnreadable('api_failed_transport', transient: true), new PullRequestSnapshot()];
+
+        try {
+            $this->handle($row, self::NOW, PullRequestReview::Approved, '101');
+            self::fail('A transient failure must reach the retry strategy.');
+        } catch (PullRequestUnreadable) {
+        }
+        self::assertNull($this->reload($row)->lastReviewId);
+
+        $this->handle($row, self::NOW, PullRequestReview::Approved, '101');
+
+        $this->assertVerdictOnly(PullRequestReview::Approved, new PullRequestSnapshot());
+    }
+
     public function test_a_missing_row_and_a_forge_with_no_reader_announce_no_review(): void
     {
         $gitlab = $this->row(forge: 'gitlab', refreshedAt: '2026-09-27 11:59:00');
@@ -362,9 +418,9 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         self::assertInstanceOf(RefreshPullRequestStateHandler::class, $handler);
     }
 
-    private function handle(ForgePullRequest $row, string $requestedAt, ?PullRequestReview $verdict = null): void
+    private function handle(ForgePullRequest $row, string $requestedAt, ?PullRequestReview $verdict = null, ?string $reviewId = null): void
     {
-        ($this->handler)(new ReadPullRequestStateCommand((string) $row->id, new \DateTimeImmutable($requestedAt), $verdict));
+        ($this->handler)(new ReadPullRequestStateCommand((string) $row->id, new \DateTimeImmutable($requestedAt), $verdict, $reviewId));
         $this->em->clear();
     }
 

@@ -77,12 +77,12 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
             'action' => $action,
             'repository' => ['id' => 631, 'full_name' => 'acme/u'],
             'pull_request' => ['number' => 11],
-            'review' => ['state' => $state],
+            'review' => ['id' => 70_002, 'state' => $state],
         ], $hook->secret);
 
         self::assertResponseIsSuccessful();
         self::assertSame([[$tracked, false]], $this->queuedRefreshes());
-        self::assertSame([null], $this->queuedVerdicts());
+        self::assertSame([[null, null]], $this->queuedVerdicts());
     }
 
     public function test_a_changes_requested_review_on_a_hook_repository_sends_the_bare_event_and_asks_no_fix(): void

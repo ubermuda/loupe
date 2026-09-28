@@ -17,6 +17,9 @@ final class RefreshPullRequestStateTest extends TestCase
     /** A message the Doctrine transport stored while the marker was a bool. */
     private const string QUEUED_WITH_BOOL_MARKER = 'O:50:"App\Module\Forge\Messenger\RefreshPullRequestState":3:{s:13:"pullRequestId";s:36:"0199a0b8-0000-7000-8000-000000000000";s:11:"requestedAt";O:17:"DateTimeImmutable":3:{s:4:"date";s:26:"2026-09-27 12:00:00.000000";s:13:"timezone_type";i:3;s:8:"timezone";s:3:"UTC";}s:15:"reviewSubmitted";b:1;}';
 
+    /** A message the Doctrine transport stored before the review id existed. */
+    private const string QUEUED_WITHOUT_REVIEW_ID = 'O:50:"App\Module\Forge\Messenger\RefreshPullRequestState":3:{s:13:"pullRequestId";s:36:"0199a0b8-0000-7000-8000-000000000000";s:11:"requestedAt";O:17:"DateTimeImmutable":3:{s:4:"date";s:26:"2026-09-27 12:00:00.000000";s:13:"timezone_type";i:3;s:8:"timezone";s:3:"UTC";}s:7:"verdict";E:58:"App\Module\Forge\Entity\PullRequestReview:ChangesRequested";}';
+
     /** @return iterable<string, array{string}> */
     public static function oldPayloads(): iterable
     {
@@ -33,13 +36,24 @@ final class RefreshPullRequestStateTest extends TestCase
         self::assertSame('0199a0b8-0000-7000-8000-000000000000', $message->pullRequestId);
         self::assertEquals(new \DateTimeImmutable('2026-09-27 12:00:00', new \DateTimeZone('UTC')), $message->requestedAt);
         self::assertNull($message->verdict);
+        self::assertNull($message->reviewId);
+    }
+
+    public function test_an_old_verdict_reads_with_no_review_id(): void
+    {
+        $message = unserialize(self::QUEUED_WITHOUT_REVIEW_ID);
+
+        self::assertInstanceOf(RefreshPullRequestState::class, $message);
+        self::assertSame(PullRequestReview::ChangesRequested, $message->verdict);
+        self::assertNull($message->reviewId);
     }
 
     public function test_the_verdict_survives_a_round_trip(): void
     {
-        $message = unserialize(serialize(new RefreshPullRequestState('id', new \DateTimeImmutable(), PullRequestReview::ChangesRequested)));
+        $message = unserialize(serialize(new RefreshPullRequestState('id', new \DateTimeImmutable(), PullRequestReview::ChangesRequested, '9')));
 
         self::assertInstanceOf(RefreshPullRequestState::class, $message);
         self::assertSame(PullRequestReview::ChangesRequested, $message->verdict);
+        self::assertSame('9', $message->reviewId);
     }
 }

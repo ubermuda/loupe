@@ -73,6 +73,10 @@ class ForgePullRequest
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $nextRefreshAt = null;
 
+    /** The forge id of the last review whose verdict went out, so a redelivered review is announced once. */
+    #[ORM\Column(length: 64, nullable: true)]
+    public ?string $lastReviewId = null;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         #[ORM\ManyToOne(targetEntity: Project::class)]

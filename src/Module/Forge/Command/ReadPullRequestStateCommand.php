@@ -13,6 +13,7 @@ final readonly class ReadPullRequestStateCommand
         public string $pullRequestId,
         public \DateTimeImmutable $requestedAt,
         public ?PullRequestReview $verdict = null,
+        public ?string $reviewId = null,
     ) {
     }
 }

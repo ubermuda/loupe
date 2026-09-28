@@ -117,14 +117,14 @@ final class PullRequestTrackerTest extends KernelTestCase
         $project = $this->project();
         $this->row($project, 42);
 
-        $this->tracker->refresh($project, FakePullRequestStateReader::FORGE, 'acme/widgets', 42, PullRequestReview::ChangesRequested);
+        $this->tracker->refresh($project, FakePullRequestStateReader::FORGE, 'acme/widgets', 42, PullRequestReview::ChangesRequested, '80');
         $this->tracker->refresh($project, FakePullRequestStateReader::FORGE, 'acme/widgets', 42);
 
-        self::assertSame([PullRequestReview::ChangesRequested, null], array_map(static function (Envelope $envelope): ?PullRequestReview {
+        self::assertSame([[PullRequestReview::ChangesRequested, '80'], [null, null]], array_map(static function (Envelope $envelope): array {
             $message = $envelope->getMessage();
             self::assertInstanceOf(RefreshPullRequestState::class, $message);
 
-            return $message->verdict;
+            return [$message->verdict, $message->reviewId];
         }, $this->sent()));
     }
 
