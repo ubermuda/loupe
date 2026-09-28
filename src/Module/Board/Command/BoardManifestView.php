@@ -11,7 +11,7 @@ final readonly class BoardManifestView
 {
     public function __construct(
         public Project $project,
-        /** @var list<array{0: string, 1: string, 2: string, 3?: string}> card id, card digest, column id and, for a lane epic only, its lane head digest; in board order, then the lane epics in Backlog */
+        /** @var list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}> card id, card digest, column id, lane key and, for a lane epic only, its lane head digest; in board order, then the lane epics in Backlog */
         public array $cards,
         public string $structure,
         /** @var array<string, int> the card count of each terminal column, by column id */

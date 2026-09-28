@@ -26,6 +26,7 @@ final readonly class DeliveryAnnouncer
         private EventDispatcherInterface $events,
         private PullRequestTracker $tracker,
         private LoggerInterface $logger,
+        private GitHubAppConfiguration $configuration,
     ) {
     }
 
@@ -47,7 +48,7 @@ final readonly class DeliveryAnnouncer
         }
 
         if (null !== $claim->movedFrom) {
-            $this->dispatch($project, [new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, GitHubDelivery::FORGE, $claim->movedFrom, movedTo: $repository->fullName)]);
+            $this->dispatch($project, [new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, GitHubDelivery::FORGE, $claim->movedFrom, movedTo: $repository->fullName)], $source);
         }
 
         return $claim;
@@ -64,12 +65,14 @@ final readonly class DeliveryAnnouncer
 
         $deliveries = $delivery->forgeDeliveries();
         if ([] !== $deliveries) {
-            $this->dispatch($project, $deliveries);
+            $this->dispatch($project, $deliveries, $source);
         }
 
+        // A repository with no state reads gets the bare events alone, so its review verdict never reaches the automation.
+        $verdicts = $this->stateReadable($source);
         foreach ($delivery->refreshHints() as $hint) {
             match (true) {
-                null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number),
+                null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number, $verdicts ? $hint->verdict : null, $verdicts ? $hint->reviewId : null),
                 null !== $hint->headSha => $this->tracker->refreshHead($project, GitHubDelivery::FORGE, $repository->fullName, $hint->headSha),
                 default => $this->tracker->refreshBase($project, GitHubDelivery::FORGE, $repository->fullName, $hint->baseBranch ?? throw new \LogicException('A hint sets one field.')),
             };
@@ -77,8 +80,14 @@ final readonly class DeliveryAnnouncer
     }
 
     /** @param non-empty-list<ForgeDelivery> $deliveries */
-    private function dispatch(Project $project, array $deliveries): void
+    private function dispatch(Project $project, array $deliveries, ForgeRepositorySource $source): void
     {
-        $this->events->dispatch(new ForgeDeliveryReceived($project->id ?? throw new \LogicException('A claimed project has an id.'), $deliveries));
+        $this->events->dispatch(new ForgeDeliveryReceived($project->id ?? throw new \LogicException('A claimed project has an id.'), $deliveries, $this->stateReadable($source)));
+    }
+
+    /** A state read needs an installation token, and only the App id and private key mint one. */
+    private function stateReadable(ForgeRepositorySource $source): bool
+    {
+        return ForgeRepositorySource::Installation === $source && $this->configuration->canReadForge();
     }
 }

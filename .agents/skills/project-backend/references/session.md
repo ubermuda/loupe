@@ -32,10 +32,10 @@ Use `true` when only background code calls the route:
 Use the frame id when the same route also serves the full page:
 
 ```php
-defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => 'board-frame'],
+defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => 'worker-runs-frame'],
 ```
 
-The request is then read-only only when its `Turbo-Frame` header equals that id. A normal page load keeps its writes, so it still consumes the flash messages that a redirect set. `app_project_board` and `app_project_worker_runs` use this form.
+The request is then read-only only when its `Turbo-Frame` header equals that id. A normal page load keeps its writes, so it still consumes the flash messages that a redirect set. `app_project_worker_runs` uses this form.
 
 Give a list of ids when the reload fetches more than one frame, such as `['activity-frame', 'activity-count']` on `app_project_activity`. Name every frame that the refresh reloads.
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\CardDigest;
 
 final readonly class ShowBoardManifestHandler
@@ -19,10 +20,17 @@ final readonly class ShowBoardManifestHandler
         // The board page's own view, so each digest reads the inputs the page renders.
         $board = ($this->showBoard)(new ShowBoardCommand($command->project));
         $laneHeads = [];
-        foreach ($board->lanes as $lane) {
+        $laneKeys = [];
+        foreach (array_filter([...$board->lanes, $board->otherCards]) as $lane) {
+            $laneKey = null === $lane->epic ? BoardLanes::OTHER : (string) $lane->epic->id;
             if (null !== $lane->epic) {
-                $id = (string) $lane->epic->id;
-                $laneHeads[$id] = $this->digest->forLaneHead($lane->epic, $board->progress[$id] ?? null, $board->decks[$id] ?? null);
+                $laneHeads[$laneKey] = $this->digest->forLaneHead($lane->epic, $board->progress[$laneKey] ?? null, $board->decks[$laneKey] ?? null);
+                $laneKeys[$laneKey] = $laneKey;
+            }
+            foreach ($lane->cells as $cards) {
+                foreach ($cards as $card) {
+                    $laneKeys[(string) $card->id] = $laneKey;
+                }
             }
         }
 
@@ -41,7 +49,7 @@ final readonly class ShowBoardManifestHandler
                     $card->pullRequests->count(),
                     $board->progress[$id] ?? null,
                     $board->runWarnings[$id] ?? null,
-                ), (string) $view->column->id];
+                ), (string) $view->column->id, $laneKeys[$id] ?? null];
                 // A lane epic has a list row and a lane head, and no card face.
                 if (isset($laneHeads[$id])) {
                     $entry[] = $laneHeads[$id];
@@ -52,7 +60,7 @@ final readonly class ShowBoardManifestHandler
         }
         // A lane epic in the Backlog has no list row, so its head digest stands in for one.
         foreach ($laneHeads as $id => $headDigest) {
-            $cards[] = [$id, $headDigest, (string) $board->backlog->id, $headDigest];
+            $cards[] = [$id, $headDigest, (string) $board->backlog->id, $id, $headDigest];
         }
 
         return new BoardManifestView($command->project, $cards, $board->structureDigest, $terminalTotals);

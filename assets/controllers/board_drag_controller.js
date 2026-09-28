@@ -92,7 +92,7 @@ export default class extends Controller {
         this.markReady();
     }
 
-    /** A frame morph drops attributes the server did not render, this one included. */
+    /** A morph drops attributes the server did not render, this one included. */
     markReady() {
         this.element.dataset.boardDragReady = 'true';
     }
@@ -399,7 +399,17 @@ export default class extends Controller {
 
         const rankable = '1' === group.dataset.rankable;
 
-        column.value = group.dataset.column;
+        // A column added live is missing from a select rendered before it.
+        // The server still checks the column against the project.
+        const columnId = group.dataset.column;
+        if (![...column.options].some((option) => option.value === columnId)) {
+            const label =
+                group
+                    .closest('.lp-board__column')
+                    ?.getAttribute('aria-label') ?? columnId;
+            column.add(new Option(label, columnId));
+        }
+        column.value = columnId;
         // A terminal column keeps no rank, so it takes none. Every other column
         // lands the card where the marker stood.
         rank.value =

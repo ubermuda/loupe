@@ -10,22 +10,18 @@
 
 {% block body %}
 <div class="lp-workspace lp-split-page lp-core-prototype-page lp-core-board" data-controller="card-drawer">
-    {# A column change or a worker run elsewhere reloads this frame, and a card change places that card. #}
+    {# A column change updates the board skeleton in place, and a card change places that card. #}
     {% do mercure_subscribe(boardTopic) %}
     {% do mercure_subscribe(worker_runs_topic(board.project)) %}
     {% set placeholderCardId = '00000000-0000-7000-8000-000000000000' %}
     <div class="lp-split-region"
-         data-controller="board-refresh board-live"
-         data-board-refresh-board-value="{{ path('app_project_board', {id: board.project.id}) }}"
+         data-controller="board-live"
          data-board-live-placement-value="{{ path('app_board_card_placement', {projectId: board.project.id, cardId: placeholderCardId}) }}"
          data-board-live-placeholder-value="{{ placeholderCardId }}"
          data-board-live-manifest-value="{{ path('app_board_manifest', {projectId: board.project.id}) }}"
-         data-board-live-stale-value="{{ 'board.live.stale'|trans }}"
-         data-action="board-live:reload->board-refresh#reload">
-        {# No src here: board-refresh sets it without a load, so the first reload morphs. #}
-        <turbo-frame id="board-frame" target="_top" refresh="morph" data-board-refresh-target="frame">
-            {% include '@Board/_board_columns.html.twig' with {board: board} only %}
-        </turbo-frame>
+         data-board-live-structure-value="{{ path('app_board_structure', {projectId: board.project.id}) }}"
+         data-board-live-stale-value="{{ 'board.live.stale'|trans }}">
+        {% include '@Board/_board_columns.html.twig' with {board: board} only %}
     </div>
 
     {% include '@Board/_card_drawer.html.twig' with {project: board.project} only %}

@@ -63,9 +63,7 @@ test('the drawer warns about a change made elsewhere, and shows a card deleted e
 
     await editor.goto(boardUrl);
     // The hub keeps no history, so a change made before this connects is lost.
-    await expect(editor.locator('[data-board-refresh-connected]')).toHaveCount(
-        1,
-    );
+    await expect(editor.locator('[data-board-live-connected]')).toHaveCount(1);
     await editor
         .locator('.lp-board-card[data-card-title="Shared card"]')
         .getByRole('link')

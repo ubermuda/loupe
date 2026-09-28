@@ -6,6 +6,7 @@ namespace App\Module\Forge\Command;
 
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
@@ -51,12 +52,17 @@ final readonly class ReadPullRequestStateHandler
         // A transient failure leaves the transaction as a value, so the rollback does not close the EntityManager.
         $transient = $this->em->wrapInTransaction(function () use ($command): ?PullRequestUnreadable {
             $pullRequest = $this->forgePullRequests->findForUpdate(Uuid::fromString($command->pullRequestId));
-            if (null === $pullRequest || $pullRequest->refreshedAt >= $command->requestedAt) {
+            $reader = null === $pullRequest ? null : $this->readers->for($pullRequest->forge);
+            if (null === $pullRequest || null === $reader) {
                 return null;
             }
 
-            $reader = $this->readers->for($pullRequest->forge);
-            if (null === $reader) {
+            // A redelivered review keeps its id, so its verdict has already gone out.
+            $verdict = null !== $command->reviewId && $pullRequest->hasAnnouncedReview($command->reviewId) ? null : $command->verdict;
+
+            if ($pullRequest->refreshedAt >= $command->requestedAt) {
+                $this->announceVerdict($verdict, $command->reviewId, $pullRequest);
+
                 return null;
             }
 
@@ -71,10 +77,12 @@ final readonly class ReadPullRequestStateHandler
                     'forge' => $pullRequest->forge,
                     'reason' => $e->reason,
                 ]);
+                // The retry carries the verdict, so a transient failure leaves the review to it.
                 if ($e->transient) {
                     return $e;
                 }
                 $pullRequest->refreshedAt = $readStartedAt;
+                $this->announceVerdict($verdict, $command->reviewId, $pullRequest);
 
                 return null;
             }
@@ -83,8 +91,12 @@ final readonly class ReadPullRequestStateHandler
             $pullRequest->refreshedAt = $readStartedAt;
             $this->retryUnknownMergeability($pullRequest);
 
-            if (!$current->equals($previous)) {
-                $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current));
+            // One event per read, so Board asks at most one fix for a verdict and a state change together.
+            if (null !== $verdict && null !== $command->reviewId) {
+                $pullRequest->recordAnnouncedReview($command->reviewId);
+            }
+            if (!$current->equals($previous) || null !== $verdict) {
+                $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current, $verdict));
             }
 
             return null;
@@ -93,6 +105,18 @@ final readonly class ReadPullRequestStateHandler
         // The retry strategy of the transport reads it again. The sweep skips a closed row, so a reopen would otherwise stay unread.
         if (null !== $transient) {
             throw $transient;
+        }
+    }
+
+    /** A read that stored no new state still delivers its verdict, against the stored state. */
+    private function announceVerdict(?PullRequestReview $verdict, ?string $reviewId, ForgePullRequest $pullRequest): void
+    {
+        if (null !== $verdict) {
+            if (null !== $reviewId) {
+                $pullRequest->recordAnnouncedReview($reviewId);
+            }
+            $snapshot = $pullRequest->snapshot();
+            $this->events->dispatch(new PullRequestStateChanged($pullRequest, $snapshot, $snapshot, $verdict));
         }
     }
 

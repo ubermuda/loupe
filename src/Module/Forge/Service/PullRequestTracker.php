@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Forge\Service;
 
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
@@ -45,10 +46,10 @@ final readonly class PullRequestTracker
     }
 
     /** Reads a closed row too, because a delivery for one number can say that it reopened. */
-    public function refresh(Project $project, string $forge, string $repository, int $number): void
+    public function refresh(Project $project, string $forge, string $repository, int $number, ?PullRequestReview $verdict = null, ?string $reviewId = null): void
     {
         foreach ($this->forgePullRequests->findIds(self::projectId($project), $forge, $repository, ['number' => $number], openOnly: false) as $id) {
-            $this->queue($id);
+            $this->queue($id, verdict: $verdict, reviewId: $reviewId);
         }
     }
 
@@ -67,10 +68,10 @@ final readonly class PullRequestTracker
     }
 
     /** A delayed refresh is requested for when it runs, so a read inside the delay does not absorb it. */
-    private function queue(Uuid $id, int $delayMilliseconds = 0): void
+    private function queue(Uuid $id, int $delayMilliseconds = 0, ?PullRequestReview $verdict = null, ?string $reviewId = null): void
     {
         $this->bus->dispatch(
-            new RefreshPullRequestState((string) $id, $this->clock->now()->modify(\sprintf('+%d milliseconds', $delayMilliseconds))),
+            new RefreshPullRequestState((string) $id, $this->clock->now()->modify(\sprintf('+%d milliseconds', $delayMilliseconds)), $verdict, $reviewId),
             $delayMilliseconds > 0 ? [new DelayStamp($delayMilliseconds)] : [],
         );
     }

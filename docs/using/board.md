@@ -263,9 +263,13 @@ Every open board of the project shows a change as it happens, with no reload.
 - When a child joins, leaves, finishes or reopens, the progress of its epic
   changes. When an epic lane appears or disappears, the board adds or removes
   the lane.
-- When the owner adds, renames, reorders, flags or deletes a column, the board
-  changes in place. A drag in progress on another screen can then fail, and
-  the card goes back.
+- When the owner adds, renames, reorders, flags or deletes a column, only that
+  column changes in place. A change to an epic lane or to the rules banner
+  also updates only that lane or banner. The cards of a deleted column or lane
+  then move to their new place.
+- A change to the columns, the lanes or the banner waits while you drag a card,
+  while a move you made is not saved yet, or while a dialog is open. You can
+  drop a card into a column that appeared while the board was open.
 - When the board cannot show a change to a card after a few tries, the card
   gets a dashed outline, with the tooltip **This card may be out of date**.
   The next change to that card, or a reload of the page, removes the mark.
@@ -273,8 +277,10 @@ Every open board of the project shows a change as it happens, with no reload.
 When the connection to the server stops for about 5 seconds, the toolbar
 shows **Live updates paused**. When the connection comes back, the board asks
 the server which cards changed, and only those cards update. A change to the
-columns or to an epic lane still loads the board again in place. The sign then
-goes away.
+columns or to an epic lane updates only that column or lane. The sign then goes
+away. When the board cannot catch up after a lost connection or a column change,
+it tries again a few times, unless the server refuses the request. Then the toolbar shows **Live updates stopped.
+Reload the page to catch up.**
 
 Live changes need a Mercure hub and the `live_updates.enabled` flag, see
 [Environment variables](../reference/environment.md). If either is missing,
@@ -563,9 +569,36 @@ project which links the pull request. Your agent receives it as an event.
 A card in another project gets nothing, even when it links the same pull
 request.
 
-Loupe does not ask GitHub about a pull request. It learns only what GitHub
-sends. A card does not move by itself when its pull request merges. Move it to
-a terminal column yourself, or have your agent move it with `card_update`.
+For a repository connected through the GitHub App, Loupe reads the pull request
+again after each delivery. It also tells the card about a conflict, a branch
+behind its base, and a pull request closed without a merge. For a repository
+connected through a webhook, Loupe learns only what GitHub sends.
+[Forge webhooks](../extending/forge-webhooks.md#one-vocabulary-for-every-forge)
+lists each event.
+
+A card does not move by itself when its pull request merges. Move it to a
+terminal column yourself, or have your agent move it with `card_update`.
+
+### Automation
+
+Loupe can also ask your agent to act on a pull request: to fix it, or to merge
+it. The owner sets this on the **Automation** tab of the project settings,
+beside **Board columns**. Only a repository connected through the GitHub App
+gets these requests. A card in a terminal column never gets one.
+
+| Setting | Default | Does |
+|---|---|---|
+| **Send fix and merge requests** | on | When off, Loupe sends no fix or merge request. It still sends the pull request facts |
+| **Merge strategy** | Worker | Worker sends a ready-to-merge event when a pull request can merge. Off sends none |
+| **Fix strategy** | Fresh | Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card, and falls back to a new worker |
+| **Loop limit** | 3 | The number of fix requests a card gets in a row, from 1 to 20 |
+
+Loupe asks for a fix when the required checks fail, when the pull request
+conflicts with its base, and when a reviewer requests changes. At the loop
+limit, Loupe stops asking for the card. Passed checks, an approval, a change
+request, or a move of the card by a person start the count again. A comment
+review does not. A bridge rule decides what the agent does with each request. See
+[Forge webhooks](../extending/forge-webhooks.md#the-loop-limit).
 
 ## The MCP tools
 

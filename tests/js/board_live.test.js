@@ -14,15 +14,19 @@ vi.mock('../../assets/lib/live.js', () => ({
 const PLACEHOLDER = '00000000-0000-7000-8000-000000000000';
 const STREAM = 'text/vnd.turbo-stream.html; charset=UTF-8';
 const MANIFEST = '/projects/p/board/manifest';
+const STRUCTURE = '/projects/p/board/structure';
 
 const STALE_TEXT = 'This card may be out of date';
+const FAILED_TEXT = 'Live updates stopped. Reload the page to catch up.';
 
 let application;
 let change;
 let reconnect;
+let columnsChanged;
+let columnsOptions;
 let setStatus;
 let answer;
-let reloads;
+let dispatch;
 
 /** Answers the manifest read with the given response, and each placement with a stream. */
 function answerManifest(response) {
@@ -43,11 +47,14 @@ const json = (body) => ({
 const placements = () =>
     fetch.mock.calls
         .map(([url]) => url)
-        .filter((url) => url !== MANIFEST)
+        .filter((url) => url !== MANIFEST && url !== STRUCTURE)
         .map((url) => url.split('/')[5]);
 
 const manifestReads = () =>
     fetch.mock.calls.filter(([url]) => url === MANIFEST);
+
+const structureReads = () =>
+    fetch.mock.calls.filter(([url]) => url === STRUCTURE);
 
 function receive(cardId, flags = {}) {
     change({
@@ -75,6 +82,7 @@ function missed(cardId) {
 }
 
 const card = () => document.getElementById('board-card-a');
+const sign = () => document.querySelector('[data-board-live-target="paused"]');
 const row = () => document.getElementById('board-row-a');
 const stream = (body = '<turbo-stream></turbo-stream>') => ({
     ok: true,
@@ -98,8 +106,9 @@ beforeEach(async () => {
             data-board-live-placement-value="/projects/p/board/cards/${PLACEHOLDER}/placement"
             data-board-live-placeholder-value="${PLACEHOLDER}"
             data-board-live-manifest-value="${MANIFEST}"
+            data-board-live-structure-value="${STRUCTURE}"
             data-board-live-stale-value="${STALE_TEXT}">
-        <p data-board-live-target="paused" role="status" data-message="Live updates paused"></p>
+        <p data-board-live-target="paused" role="status" data-message="Live updates paused" data-failed-message="${FAILED_TEXT}"></p>
         <div id="board" data-board-structure-digest="frame">
             <div class="lp-board__group" data-column="k">
                 <article id="board-card-a" class="lp-board-card" data-card-id="a" data-card-digest="old"></article>
@@ -109,18 +118,20 @@ beforeEach(async () => {
             <a class="lp-board-list__row" data-card-id="b" data-card-digest="old"></a>
         </div>
     </div>`;
-    reloads = 0;
-    document
-        .getElementById('wrapper')
-        .addEventListener('board-live:reload', () => (reloads += 1));
+    dispatch = vi.spyOn(BoardLiveController.prototype, 'dispatch');
     answer = () => Promise.resolve(stream());
     vi.stubGlobal(
         'fetch',
         vi.fn((url, options) => answer(url, options)),
     );
     on.mockImplementation((types, handler, options = {}) => {
-        change = handler;
-        reconnect = options.onReconnect;
+        if ([types].flat().includes('board.columns_changed')) {
+            columnsChanged = handler;
+            columnsOptions = options;
+        } else {
+            change = handler;
+            reconnect = options.onReconnect;
+        }
         return () => {};
     });
     status.mockImplementation((listener) => {
@@ -157,15 +168,15 @@ it('listens for card changes and for a reconnect', () => {
 it('does not read the manifest when it first connects', async () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(fetch).not.toHaveBeenCalled();
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('reads the manifest after a reconnect and fetches a card whose digest changed', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'new', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'new', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -179,16 +190,16 @@ it('reads the manifest after a reconnect and fetches a card whose digest changed
     expect(options.credentials).toBe('same-origin');
     expect(options.signal).toBeInstanceOf(AbortSignal);
     expect(placements()).toEqual(['b']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a card the manifest has and the page does not', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['c', 'new', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['c', 'new', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -203,8 +214,8 @@ it('fetches a removed card first, then the rest in manifest order', async () => 
     answerManifest(
         json({
             cards: [
-                ['c', 'new', 'k'],
-                ['a', 'changed', 'k'],
+                ['c', 'new', 'k', null],
+                ['a', 'changed', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -213,15 +224,15 @@ it('fetches a removed card first, then the rest in manifest order', async () => 
     await vi.advanceTimersByTimeAsync(150);
 
     expect(placements()).toEqual(['b', 'c', 'a']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('does nothing more when the page already shows every card', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -231,7 +242,7 @@ it('does nothing more when the page already shows every card', async () => {
 
     expect(manifestReads()).toHaveLength(1);
     expect(placements()).toEqual([]);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a card that moved in its column, and not its unchanged neighbours', async () => {
@@ -243,10 +254,10 @@ it('fetches a card that moved in its column, and not its unchanged neighbours', 
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['c', 'old', 'k'],
-                ['d', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['c', 'old', 'k', null],
+                ['d', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -255,7 +266,7 @@ it('fetches a card that moved in its column, and not its unchanged neighbours', 
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['b']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('compares the order in each lane cell on its own', async () => {
@@ -268,9 +279,9 @@ it('compares the order in each lane cell on its own', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['c', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['c', 'old', 'k', 'epic'],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -279,6 +290,47 @@ it('compares the order in each lane cell on its own', async () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual([]);
+});
+
+it('fetches a card whose lane changed within its column while its cell kept its order', async () => {
+    document.getElementById('board').innerHTML = `
+        <div class="lp-board-lane__cell" data-column="k" data-lane="epic">
+            <article id="board-card-a" class="lp-board-card" data-card-id="a" data-card-digest="old"></article>
+        </div>
+        <div class="lp-board-lane__cell" data-column="k" data-lane="other">
+            <article id="board-card-b" class="lp-board-card" data-card-id="b" data-card-digest="old"></article>
+        </div>`;
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', 'epic'],
+                ['b', 'old', 'k', 'epic'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['b']);
+    expect(dispatch).not.toHaveBeenCalled();
+});
+
+it('fetches a card that the page shows in a plain column while the manifest puts it in a lane', async () => {
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', 'other'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['b']);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a list row that moved across lane cells while each cell kept its order', async () => {
@@ -297,8 +349,9 @@ it('fetches a list row that moved across lane cells while each cell kept its ord
     answerManifest(
         json({
             cards: [
-                ['b', 'old', 'k'],
-                ['a', 'old', 'k'],
+                ['epic', 'old', 'k', 'epic', 'head'],
+                ['b', 'old', 'k', 'other'],
+                ['a', 'old', 'k', 'epic'],
             ],
             structure: 'frame',
         }),
@@ -307,7 +360,7 @@ it('fetches a list row that moved across lane cells while each cell kept its ord
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['a']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a lane epic whose list row moved past an ordinary row', async () => {
@@ -320,9 +373,9 @@ it('fetches a lane epic whose list row moved past an ordinary row', async () => 
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
-                ['epic', 'old', 'k', 'head'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['epic', 'old', 'k', 'epic', 'head'],
             ],
             structure: 'frame',
         }),
@@ -331,23 +384,24 @@ it('fetches a lane epic whose list row moved past an ordinary row', async () => 
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['epic']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
-it('never counts a lane head as an added or a removed card', async () => {
+it('never counts a lane head with a list row as an added or a removed card', async () => {
     document
         .getElementById('board')
         .insertAdjacentHTML(
             'beforeend',
-            '<a class="lp-board-list__row" data-card-id="epic"></a>',
+            '<a class="lp-board-list__row" data-card-id="epic"></a>' +
+                '<a class="lp-board-backlog" data-column="backlog"></a>',
         );
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
-                ['epic', 'new', 'k', 'head'],
-                ['gone', 'new', 'k', 'head'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['epic', 'new', 'k', 'epic', 'head'],
+                ['gone', 'new', 'backlog', 'gone', 'head'],
             ],
             structure: 'frame',
         }),
@@ -356,7 +410,65 @@ it('never counts a lane head as an added or a removed card', async () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual([]);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
+});
+
+it('fetches a lane head that has no list row on the page', async () => {
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['epic', 'new', 'k', 'epic', 'head'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['epic']);
+    expect(dispatch).not.toHaveBeenCalled();
+});
+
+it('fetches a list row whose card the manifest no longer has, such as a deleted lane epic', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a id="board-row-epic" class="lp-board-list__row" data-card-id="epic" data-card-digest="old"></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['epic']);
+    expect(dispatch).not.toHaveBeenCalled();
+});
+
+it('fetches a card whose face lost its digest when it left an epic lane', async () => {
+    card().dataset.cardDigest = '';
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['a']);
 });
 
 it('fetches a lane head whose list row digest changed, and not one that kept it', async () => {
@@ -370,10 +482,10 @@ it('fetches a lane head whose list row digest changed, and not one that kept it'
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
-                ['changed', 'new', 'k', 'head'],
-                ['kept', 'old', 'k', 'head'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['changed', 'new', 'k', 'changed', 'head'],
+                ['kept', 'old', 'k', 'kept', 'head'],
             ],
             structure: 'frame',
         }),
@@ -382,7 +494,7 @@ it('fetches a lane head whose list row digest changed, and not one that kept it'
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['changed']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches a lane head in the Backlog whose head digest changed, and not one that kept it', async () => {
@@ -391,15 +503,16 @@ it('fetches a lane head in the Backlog whose head digest changed, and not one th
         .insertAdjacentHTML(
             'beforeend',
             '<section id="board-lane-changed"><header class="lp-board-lane__head" data-lane-digest="old"></header></section>' +
-                '<section id="board-lane-kept"><header class="lp-board-lane__head" data-lane-digest="old"></header></section>',
+                '<section id="board-lane-kept"><header class="lp-board-lane__head" data-lane-digest="old"></header></section>' +
+                '<a class="lp-board-backlog" data-column="backlog"></a>',
         );
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
-                ['changed', 'new', 'backlog', 'new'],
-                ['kept', 'old', 'backlog', 'old'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['changed', 'new', 'backlog', 'changed', 'new'],
+                ['kept', 'old', 'backlog', 'kept', 'old'],
             ],
             structure: 'frame',
         }),
@@ -408,7 +521,7 @@ it('fetches a lane head in the Backlog whose head digest changed, and not one th
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['changed']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches the epic of a deck card whose card the board does not show', async () => {
@@ -465,9 +578,9 @@ it('makes no reload on a reconnect after a live lane head placement', async () =
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
-                ['epic', 'new', 'k', 'head'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['epic', 'new', 'k', 'epic', 'head'],
             ],
             structure: 'frame',
         }),
@@ -477,7 +590,7 @@ it('makes no reload on a reconnect after a live lane head placement', async () =
 
     expect(placements()).toEqual(['epic']);
     expect(manifestReads()).toHaveLength(1);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches nothing when the list rows keep the manifest order', async () => {
@@ -490,8 +603,9 @@ it('fetches nothing when the list rows keep the manifest order', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['epic', 'old', 'k', 'epic', 'head'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -513,8 +627,8 @@ it('fetches one card when only a history total changed, so the history links ref
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
             terminalTotals: { done: 3 },
@@ -524,7 +638,7 @@ it('fetches one card when only a history total changed, so the history links ref
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['a']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches nothing more when the history totals match the page', async () => {
@@ -537,8 +651,8 @@ it('fetches nothing more when the history totals match the page', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
             terminalTotals: { done: 4 },
@@ -549,7 +663,7 @@ it('fetches nothing more when the history totals match the page', async () => {
 
     expect(manifestReads()).toHaveLength(1);
     expect(placements()).toEqual([]);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('fetches no extra card for a history total when a changed card refreshes the links', async () => {
@@ -562,8 +676,8 @@ it('fetches no extra card for a history total when a changed card refreshes the 
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'new', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'new', 'k', null],
             ],
             structure: 'frame',
             terminalTotals: { done: 3 },
@@ -575,32 +689,29 @@ it('fetches no extra card for a history total when a changed card refreshes the 
     expect(placements()).toEqual(['b']);
 });
 
-it('reloads when a history total changed and the board has no card to fetch', async () => {
+it('resyncs the structure when a history total changed and the board has no card', async () => {
     document.getElementById('board').innerHTML =
         '<a id="board-history-done" data-history-total="1"></a>';
     answerManifest(
         json({ cards: [], structure: 'frame', terminalTotals: { done: 0 } }),
     );
     reconnect();
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(structureReads()).toHaveLength(0);
 
+    await vi.advanceTimersByTimeAsync(300);
+    expect(structureReads()).toHaveLength(1);
     expect(placements()).toEqual([]);
-    expect(reloads).toBe(1);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
-it('ignores the list rows, which carry a digest too', async () => {
-    document
-        .getElementById('board')
-        .insertAdjacentHTML(
-            'beforeend',
-            '<a class="lp-board-list__row" data-card-id="z" data-card-digest="old"></a>',
-        );
+it('ignores the digest of the list row of a card with a face', async () => {
     document.querySelector('.lp-board-list__row').dataset.cardDigest = 'stale';
     answerManifest(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
@@ -609,24 +720,26 @@ it('ignores the list rows, which carry a digest too', async () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual([]);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
-it('reloads the board and fetches no card when the structure changed', async () => {
+it('resyncs the structure, and does not reload, when the structure changed', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'new', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'new', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'other',
         }),
     );
     reconnect();
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(structureReads()).toHaveLength(0);
 
-    expect(reloads).toBe(1);
-    expect(placements()).toEqual([]);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(structureReads()).toHaveLength(1);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('reads the structure digest at compare time, after the frame re-rendered', async () => {
@@ -643,21 +756,26 @@ it('reads the structure digest at compare time, after the frame re-rendered', as
     finish(
         json({
             cards: [
-                ['a', 'old', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'renamed',
         }),
     );
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it.each([
     [
         'a response that is not 2xx',
-        () => Promise.resolve({ ok: false, json: () => Promise.resolve({}) }),
+        () =>
+            Promise.resolve({
+                ok: false,
+                status: 500,
+                json: () => Promise.resolve({}),
+            }),
     ],
     ['a network error', () => Promise.reject(new TypeError('offline'))],
     [
@@ -687,16 +805,115 @@ it.each([
                 json({ cards: [['a', 'old']], structure: 'frame' }),
             ),
     ],
-])('reloads the board after %s', async (label, response) => {
-    answerManifest(response);
-    reconnect();
-    await vi.advanceTimersByTimeAsync(1000);
+    [
+        'a manifest card entry with no lane key',
+        () =>
+            Promise.resolve(
+                json({ cards: [['a', 'old', 'k']], structure: 'frame' }),
+            ),
+    ],
+    [
+        'a manifest card entry whose lane key is not a string',
+        () =>
+            Promise.resolve(
+                json({ cards: [['a', 'old', 'k', 7]], structure: 'frame' }),
+            ),
+    ],
+])(
+    'retries the catch-up after %s, and says live updates stopped after the last retry',
+    async (label, response) => {
+        answerManifest(response);
+        reconnect();
+        await vi.advanceTimersByTimeAsync(999);
+        expect(manifestReads()).toHaveLength(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(manifestReads()).toHaveLength(2);
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(manifestReads()).toHaveLength(3);
+        expect(sign().textContent).toBe('');
 
-    expect(reloads).toBe(1);
-    expect(placements()).toEqual([]);
+        await vi.advanceTimersByTimeAsync(9000);
+        expect(manifestReads()).toHaveLength(4);
+        expect(sign().textContent).toBe(FAILED_TEXT);
+
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(manifestReads()).toHaveLength(4);
+        expect(placements()).toEqual([]);
+        expect(dispatch).not.toHaveBeenCalled();
+    },
+);
+
+it.each([403, 404, 401])(
+    'stops the catch-up at once on a %s, and says live updates stopped',
+    async (code) => {
+        answerManifest({ ok: false, status: code, json: () => ({}) });
+        reconnect();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(sign().textContent).toBe(FAILED_TEXT);
+
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(manifestReads()).toHaveLength(1);
+        expect(dispatch).not.toHaveBeenCalled();
+    },
+);
+
+it('clears the message on the next successful catch-up', async () => {
+    answerManifest({ ok: false, status: 404, json: () => ({}) });
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sign().textContent).toBe(FAILED_TEXT);
+
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'new', 'k', null],
+                ['b', 'old', 'k', null],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(150);
+    expect(sign().textContent).toBe('');
+    expect(placements()).toEqual(['a']);
 });
 
-it('gives up on a stalled manifest read and reloads', async () => {
+it('cancels a waiting catch-up retry when a new reconnect starts', async () => {
+    answerManifest({ ok: false, status: 500, json: () => ({}) });
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    answerManifest(json({ cards: [], structure: 'frame' }));
+    reconnect();
+    await vi.advanceTimersByTimeAsync(60000);
+
+    expect(manifestReads()).toHaveLength(2);
+    expect(sign().textContent).toBe('');
+});
+
+it('clears a waiting catch-up retry when it disconnects', async () => {
+    answerManifest({ ok: false, status: 500, json: () => ({}) });
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(1);
+
+    document.getElementById('wrapper').removeAttribute('data-controller');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(0);
+});
+
+it('shows the paused sign before the failed sign, and the failed sign while live', async () => {
+    answerManifest({ ok: false, status: 403, json: () => ({}) });
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sign().textContent).toBe(FAILED_TEXT);
+
+    setStatus('paused');
+    expect(sign().textContent).toBe('Live updates paused');
+    setStatus('live');
+    expect(sign().textContent).toBe(FAILED_TEXT);
+});
+
+it('gives up on a stalled manifest read and retries it', async () => {
     answerManifest(
         (options) =>
             new Promise((resolve, reject) => {
@@ -706,11 +923,12 @@ it('gives up on a stalled manifest read and reloads', async () => {
             }),
     );
     reconnect();
-    await vi.advanceTimersByTimeAsync(9999);
-    expect(reloads).toBe(0);
+    await vi.advanceTimersByTimeAsync(10000 + 999);
+    expect(manifestReads()).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(1);
-    expect(reloads).toBe(1);
+    expect(manifestReads()).toHaveLength(2);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('aborts an older manifest read on a second reconnect and uses the newer one', async () => {
@@ -734,20 +952,20 @@ it('aborts an older manifest read on a second reconnect and uses the newer one',
     expect(signals).toHaveLength(2);
     expect(signals[0].aborted).toBe(true);
     expect(signals[1].aborted).toBe(false);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 
     finishes[1](
         json({
             cards: [
-                ['a', 'new', 'k'],
-                ['b', 'old', 'k'],
+                ['a', 'new', 'k', null],
+                ['b', 'old', 'k', null],
             ],
             structure: 'frame',
         }),
     );
     await vi.advanceTimersByTimeAsync(150);
     expect(placements()).toEqual(['a']);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
 });
 
 it('aborts a manifest read when it disconnects, and does not reload', async () => {
@@ -769,7 +987,7 @@ it('aborts a manifest read when it disconnects, and does not reload', async () =
     await vi.advanceTimersByTimeAsync(0);
 
     expect(signal.aborted).toBe(true);
-    expect(reloads).toBe(0);
+    expect(dispatch).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
 });
 
@@ -1451,4 +1669,469 @@ it('still marks a card another person changed when its placement missed once', a
     placed('a', 'new');
 
     expect(card().classList.contains('lp-board-card--flash')).toBe(true);
+});
+
+describe('a structure resync', () => {
+    const current = {
+        cards: [
+            ['a', 'new', 'k', null],
+            ['b', 'old', 'k', null],
+        ],
+        structure: 'frame',
+    };
+
+    function answerRoutes({
+        structure = () => stream('<s></s>'),
+        manifest = () => json(current),
+    } = {}) {
+        answer = (url, options) => {
+            if (url === STRUCTURE) {
+                return Promise.resolve().then(() => structure(options));
+            }
+            if (url === MANIFEST) {
+                return Promise.resolve().then(() => manifest(options));
+            }
+
+            return Promise.resolve(stream());
+        };
+    }
+
+    const structureChanged = () =>
+        document.dispatchEvent(new CustomEvent('board:structure-changed'));
+
+    beforeEach(() => {
+        // Turbo renders a stream element on a later frame, not in the call.
+        renderStreamMessage.mockImplementation(() => {
+            setTimeout(structureChanged, 16);
+        });
+    });
+
+    const signal = () => columnsChanged({ type: 'board.columns_changed' });
+    const board = () => document.getElementById('board');
+
+    it('retries the resync when the structure renders and the manifest read fails', async () => {
+        answerRoutes({ manifest: () => failure(500) });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(16);
+
+        expect(renderStreamMessage).toHaveBeenCalledWith('<s></s>');
+        expect(manifestReads()).toHaveLength(1);
+        await vi.advanceTimersByTimeAsync(999);
+        expect(structureReads()).toHaveLength(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(structureReads()).toHaveLength(2);
+        expect(placements()).toEqual([]);
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('stops the resync at once when the manifest read after the render answers 403', async () => {
+        answerRoutes({ manifest: () => failure(403) });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(16);
+        expect(sign().textContent).toBe(FAILED_TEXT);
+
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(structureReads()).toHaveLength(1);
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('resyncs once when the history total stays stale on a board with no card', async () => {
+        board().innerHTML =
+            '<a id="board-history-done" data-history-total="1"></a>';
+        answerRoutes({
+            manifest: () =>
+                json({
+                    cards: [],
+                    structure: 'frame',
+                    terminalTotals: { done: 0 },
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(16);
+        expect(manifestReads()).toHaveLength(1);
+
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(structureReads()).toHaveLength(1);
+        expect(manifestReads()).toHaveLength(1);
+        expect(sign().textContent).toBe('');
+    });
+
+    it('runs the card pass only after the structure has rendered', async () => {
+        answerRoutes();
+        renderStreamMessage.mockImplementation(() => {});
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(manifestReads()).toHaveLength(1);
+        expect(placements()).toEqual([]);
+
+        structureChanged();
+        await vi.advanceTimersByTimeAsync(150);
+        expect(placements()).toEqual(['a']);
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('retries the resync when the structure never renders', async () => {
+        answerRoutes();
+        renderStreamMessage.mockImplementation(() => {});
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(5000 + 999);
+        expect(structureReads()).toHaveLength(1);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(structureReads()).toHaveLength(2);
+        expect(placements()).toEqual([]);
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('listens for a column change', () => {
+        expect(on).toHaveBeenCalledWith(
+            'board.columns_changed',
+            expect.any(Function),
+            expect.any(Object),
+        );
+    });
+
+    it('fetches the structure once, 300 ms after a column change', async () => {
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(299);
+        expect(structureReads()).toHaveLength(0);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(structureReads()).toHaveLength(1);
+        const [, options] = structureReads()[0];
+        expect(options.headers.Accept).toBe('text/vnd.turbo-stream.html');
+        expect(options.credentials).toBe('same-origin');
+        expect(options.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it('fetches the structure once for a burst of column changes', async () => {
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(200);
+        signal();
+        await vi.advanceTimersByTimeAsync(200);
+        signal();
+        await vi.advanceTimersByTimeAsync(299);
+        expect(structureReads()).toHaveLength(0);
+
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(structureReads()).toHaveLength(1);
+    });
+
+    it('resyncs a steady stream of column changes at least once per max wait', async () => {
+        answerRoutes();
+        for (let elapsed = 0; elapsed < 2000; elapsed += 100) {
+            signal();
+            await vi.advanceTimersByTimeAsync(100);
+        }
+        expect(structureReads()).toHaveLength(1);
+    });
+
+    it('renders the structure, then reads the manifest and places each changed card', async () => {
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(16 + 150);
+
+        expect(renderStreamMessage).toHaveBeenCalledWith('<s></s>');
+        expect(manifestReads()).toHaveLength(1);
+        const manifestCall = fetch.mock.calls.findIndex(
+            ([url]) => url === MANIFEST,
+        );
+        expect(renderStreamMessage.mock.invocationCallOrder[0]).toBeLessThan(
+            fetch.mock.invocationCallOrder[manifestCall],
+        );
+        expect(placements()).toEqual(['a']);
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('places the cards even when the manifest structure differs from the page', async () => {
+        answerRoutes();
+        board().dataset.boardStructureDigest = 'older';
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(3000);
+
+        expect(placements()).toEqual(['a']);
+        expect(structureReads()).toHaveLength(1);
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('waits while a drag runs, and resyncs once it ends', async () => {
+        answerRoutes();
+        board().classList.add('lp-board--dragging');
+        signal();
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(structureReads()).toHaveLength(0);
+
+        board().classList.remove('lp-board--dragging');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(structureReads()).toHaveLength(1);
+    });
+
+    it('waits while a card move is pending or a dialog is open', async () => {
+        answerRoutes();
+        card().setAttribute('data-board-drag-target', 'card');
+        card().setAttribute('aria-busy', 'true');
+        const dialog = document.createElement('dialog');
+        dialog.setAttribute('open', '');
+        board().append(dialog);
+        signal();
+        await vi.advanceTimersByTimeAsync(3000);
+        card().removeAttribute('aria-busy');
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(structureReads()).toHaveLength(0);
+
+        dialog.removeAttribute('open');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(structureReads()).toHaveLength(1);
+    });
+
+    it('does not render a structure that returns during a drag, and resyncs after the drag', async () => {
+        let finish;
+        answerRoutes({
+            structure: () =>
+                new Promise((resolve) => {
+                    finish = resolve;
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        board().classList.add('lp-board--dragging');
+        finish(stream('<s></s>'));
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(renderStreamMessage).not.toHaveBeenCalled();
+        expect(manifestReads()).toHaveLength(0);
+
+        answerRoutes();
+        board().classList.remove('lp-board--dragging');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(structureReads()).toHaveLength(2);
+        expect(renderStreamMessage).toHaveBeenCalledOnce();
+    });
+
+    it('runs exactly one more resync for the changes that arrive while one runs', async () => {
+        const finishes = [];
+        answerRoutes({
+            structure: () =>
+                new Promise((resolve) => {
+                    finishes.push(resolve);
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        signal();
+        signal();
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(structureReads()).toHaveLength(1);
+
+        finishes[0](stream('<first></first>'));
+        await vi.advanceTimersByTimeAsync(16);
+        await vi.advanceTimersByTimeAsync(299);
+        expect(structureReads()).toHaveLength(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(structureReads()).toHaveLength(2);
+
+        finishes[1](stream('<second></second>'));
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(structureReads()).toHaveLength(2);
+        expect(renderStreamMessage.mock.calls.map(([html]) => html)).toEqual(
+            expect.arrayContaining(['<first></first>', '<second></second>']),
+        );
+    });
+
+    it.each([
+        ['a response that is not 2xx', () => failure(500)],
+        ['a response that is not a stream', () => failure(200)],
+        ['a network error', () => Promise.reject(new TypeError('offline'))],
+    ])(
+        'retries the resync after %s, and says live updates stopped after the last retry',
+        async (label, structure) => {
+            answerRoutes({ structure });
+            signal();
+            await vi.advanceTimersByTimeAsync(300);
+            expect(structureReads()).toHaveLength(1);
+            await vi.advanceTimersByTimeAsync(999);
+            expect(structureReads()).toHaveLength(1);
+            await vi.advanceTimersByTimeAsync(1);
+            expect(structureReads()).toHaveLength(2);
+            await vi.advanceTimersByTimeAsync(3000);
+            expect(structureReads()).toHaveLength(3);
+            expect(sign().textContent).toBe('');
+
+            await vi.advanceTimersByTimeAsync(9000);
+            expect(structureReads()).toHaveLength(4);
+            expect(sign().textContent).toBe(FAILED_TEXT);
+
+            await vi.advanceTimersByTimeAsync(60000);
+            expect(structureReads()).toHaveLength(4);
+            expect(renderStreamMessage).not.toHaveBeenCalled();
+            expect(manifestReads()).toHaveLength(0);
+            expect(dispatch).not.toHaveBeenCalled();
+        },
+    );
+
+    it.each([403, 404])(
+        'stops the resync at once on a %s structure read',
+        async (code) => {
+            answerRoutes({ structure: () => failure(code) });
+            signal();
+            await vi.advanceTimersByTimeAsync(300);
+            expect(sign().textContent).toBe(FAILED_TEXT);
+
+            await vi.advanceTimersByTimeAsync(60000);
+            expect(structureReads()).toHaveLength(1);
+        },
+    );
+
+    it('clears the message on the next successful resync', async () => {
+        answerRoutes({ structure: () => failure(404) });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        expect(sign().textContent).toBe(FAILED_TEXT);
+
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(300 + 16 + 150);
+        expect(sign().textContent).toBe('');
+        expect(placements()).toEqual(['a']);
+    });
+
+    it('counts the attempts afresh after a successful resync', async () => {
+        answerRoutes({ structure: () => failure(500) });
+        signal();
+        await vi.advanceTimersByTimeAsync(300 + 1000 + 3000);
+        expect(structureReads()).toHaveLength(3);
+
+        answerRoutes();
+        await vi.advanceTimersByTimeAsync(9000 + 16 + 150);
+        expect(structureReads()).toHaveLength(4);
+
+        answerRoutes({ structure: () => failure(500) });
+        signal();
+        await vi.advanceTimersByTimeAsync(300 + 1000 + 3000);
+        expect(structureReads()).toHaveLength(7);
+        expect(sign().textContent).toBe('');
+    });
+
+    it('lets a column change that arrives during a retry wait take over the retry', async () => {
+        answerRoutes({ structure: () => failure(500) });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        expect(structureReads()).toHaveLength(1);
+
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        expect(structureReads()).toHaveLength(2);
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(structureReads()).toHaveLength(2);
+    });
+
+    it('cancels a waiting catch-up retry when a resync starts', async () => {
+        answerRoutes({ manifest: () => failure(500) });
+        reconnect();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(manifestReads()).toHaveLength(1);
+
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(300 + 16 + 150);
+        expect(manifestReads()).toHaveLength(2);
+        await vi.advanceTimersByTimeAsync(60000);
+        expect(manifestReads()).toHaveLength(2);
+        expect(sign().textContent).toBe('');
+    });
+
+    it('leaves a change that arrives during a failed read to the retry', async () => {
+        let finish;
+        answerRoutes({
+            structure: () =>
+                new Promise((resolve) => {
+                    finish = resolve;
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        signal();
+        finish(failure(500));
+        await vi.advanceTimersByTimeAsync(999);
+        expect(structureReads()).toHaveLength(1);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(structureReads()).toHaveLength(2);
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('gives up on a stalled structure read and retries it', async () => {
+        answerRoutes({
+            structure: (options) =>
+                new Promise((resolve, reject) => {
+                    options.signal.addEventListener('abort', () =>
+                        reject(new DOMException('Aborted', 'AbortError')),
+                    );
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300 + 10000 + 999);
+        expect(structureReads()).toHaveLength(1);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(structureReads()).toHaveLength(2);
+        expect(dispatch).not.toHaveBeenCalled();
+    });
+
+    it('aborts a structure read when it disconnects, and neither renders nor retries', async () => {
+        let readSignal;
+        answerRoutes({
+            structure: (options) =>
+                new Promise((resolve, reject) => {
+                    readSignal = options.signal;
+                    options.signal.addEventListener('abort', () =>
+                        reject(new DOMException('Aborted', 'AbortError')),
+                    );
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        signal();
+
+        document.getElementById('wrapper').removeAttribute('data-controller');
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(readSignal.aborted).toBe(true);
+        expect(dispatch).not.toHaveBeenCalled();
+        expect(renderStreamMessage).not.toHaveBeenCalled();
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('drops a waiting resync when it disconnects', async () => {
+        answerRoutes();
+        signal();
+        document.getElementById('wrapper').removeAttribute('data-controller');
+        await vi.advanceTimersByTimeAsync(3000);
+
+        expect(structureReads()).toHaveLength(0);
+    });
+
+    it('marks the element while the column subscription is open', async () => {
+        const wrapper = document.getElementById('wrapper');
+        const marked = () => wrapper.hasAttribute('data-board-live-connected');
+        expect(marked()).toBe(false);
+        columnsOptions.onOpen();
+        expect(marked()).toBe(true);
+        columnsOptions.onError();
+        expect(marked()).toBe(false);
+        columnsOptions.onOpen();
+
+        wrapper.removeAttribute('data-controller');
+        await vi.advanceTimersByTimeAsync(0);
+        expect(marked()).toBe(false);
+    });
 });

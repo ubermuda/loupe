@@ -80,7 +80,7 @@ final class RepointForgePullRequestsOnDeliveryReceivedTest extends KernelTestCas
     {
         $dispatcher = self::getContainer()->get(EventDispatcherInterface::class);
         self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
-        $dispatcher->dispatch(new ForgeDeliveryReceived($project->id ?? throw new \LogicException('persisted'), [$delivery]));
+        $dispatcher->dispatch(new ForgeDeliveryReceived($project->id ?? throw new \LogicException('persisted'), [$delivery], false));
         $this->em->clear();
     }
 

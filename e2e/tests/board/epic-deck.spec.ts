@@ -190,10 +190,9 @@ test.afterAll(async ({ request }) => {
 async function openLive(page: Page, url: string): Promise<void> {
     await page.goto(url);
     await expect(page.locator(READY)).toBeAttached();
-    await expect(page.locator('[data-board-refresh-connected]')).toHaveCount(
-        1,
-        { timeout: 15000 },
-    );
+    await expect(page.locator('[data-board-live-connected]')).toHaveCount(1, {
+        timeout: 15000,
+    });
 }
 
 test('the deck counts the Backlog cards of its epic, fans them out, and gives one up to a cell', async ({

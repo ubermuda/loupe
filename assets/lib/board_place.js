@@ -177,7 +177,7 @@ function placeLaneHead(stream, cardId, counts, history, historyTotals) {
  * column head. A drop moves the card before the stream comes, so the stream
  * cannot know the cell the card left, and every cell is recounted.
  */
-function recountCells() {
+export function recountCells() {
     document.querySelectorAll('.lp-board-lane__cell').forEach((cell) => {
         const count = cell
             .closest('.lp-board-lane__column')

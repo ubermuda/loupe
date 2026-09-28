@@ -7,8 +7,14 @@ import { on, status } from '../lib/live.js';
  * one card costs one placement fetch, a card in a drag waits until the drag
  * settles, and a card another person changed is marked for a moment. A failed
  * placement retries with a growing wait, and after the last retry the card is
- * marked stale. A reconnect places each card the page missed, and reloads the
- * board only when its structure changed.
+ * marked stale. A reconnect places each card the page missed.
+ *
+ * A column change, or a reconnect that finds another board structure, updates
+ * the columns and lanes in place. A burst costs one structure fetch, and a
+ * drag, a pending move or an open dialog defers it.
+ *
+ * A failed catch-up or structure update retries with the same waits. After
+ * the last retry, the live region says that live updates stopped.
  *
  * `own` never skips the fetch. A member can send another tab's origin, so the
  * flag may only suppress the mark.
@@ -37,6 +43,15 @@ const STALE_MARKS = [
 ];
 const RETRY = 'retry';
 const STALE = 'stale';
+const STRUCTURE_SETTLE_MILLISECONDS = 300;
+const STRUCTURE_MAX_WAIT_MILLISECONDS = 2000;
+const RENDER_TIMEOUT_MILLISECONDS = 5000;
+const CONNECTED_ATTRIBUTE = 'data-board-live-connected';
+const BUSY_SELECTOR = [
+    '.lp-board--dragging',
+    '[data-board-drag-target="card"][aria-busy="true"]',
+    'dialog[open]',
+].join(', ');
 
 export default class extends Controller {
     static targets = ['paused'];
@@ -45,10 +60,12 @@ export default class extends Controller {
         placeholder: String,
         stale: String,
         manifest: String,
+        structure: String,
     };
 
     initialize() {
         this.liveState = 'off';
+        this.failed = false;
     }
 
     connect() {
@@ -65,6 +82,19 @@ export default class extends Controller {
             (change) => this.receive(change),
             { onReconnect: () => this.catchUp() },
         );
+        this.resyncRunning = false;
+        this.resyncAgain = false;
+        this.resyncAttempts = 0;
+        this.stopColumns = on(
+            'board.columns_changed',
+            () => this.resyncStructure(),
+            {
+                onOpen: () =>
+                    this.element.setAttribute(CONNECTED_ATTRIBUTE, ''),
+                onError: () =>
+                    this.element.removeAttribute(CONNECTED_ATTRIBUTE),
+            },
+        );
         this.stopStatus = status((state) => {
             this.liveState = state;
             this.pausedTargets.forEach((element) => this.showStatus(element));
@@ -73,9 +103,20 @@ export default class extends Controller {
 
     disconnect() {
         this.unsubscribe?.();
+        this.stopColumns?.();
         this.stopStatus?.();
         this.manifestAbort?.abort();
         this.manifestAbort = undefined;
+        this.structureAbort?.abort();
+        this.structureAbort = undefined;
+        clearTimeout(this.resyncTimer);
+        this.resyncTimer = undefined;
+        clearTimeout(this.catchUpTimer);
+        this.catchUpTimer = undefined;
+        this.resyncSince = undefined;
+        this.resyncRunning = false;
+        this.resyncAgain = false;
+        this.element.removeAttribute(CONNECTED_ATTRIBUTE);
         document.removeEventListener('board:placed', this.onPlaced);
         document.removeEventListener('board:place-missed', this.onMissed);
         this.pending.forEach((entry) => clearTimeout(entry.timer));
@@ -91,19 +132,64 @@ export default class extends Controller {
 
     /** The live region stays in place, so a screen reader hears the new text. */
     showStatus(element) {
-        const text =
-            this.liveState === 'paused' ? (element.dataset.message ?? '') : '';
+        let text = '';
+        if (this.liveState === 'paused') {
+            text = element.dataset.message ?? '';
+        } else if (this.failed) {
+            text = element.dataset.failedMessage ?? '';
+        }
         if (element.textContent !== text) {
             element.textContent = text;
         }
     }
 
+    setFailed(failed) {
+        this.failed = failed;
+        this.pausedTargets.forEach((element) => this.showStatus(element));
+    }
+
     /**
      * After a reconnect, compares the page with the board manifest and places
-     * each card that the page missed or shows out of order. A newer reconnect
-     * aborts an older read.
+     * each card that the page missed or shows out of order.
      */
-    async catchUp() {
+    async catchUp(attempt = 0) {
+        clearTimeout(this.catchUpTimer);
+        this.catchUpTimer = undefined;
+        const read = await this.readManifest();
+        if (read === undefined) {
+            return;
+        }
+        const { manifest, final } = read;
+        if (!isManifest(manifest)) {
+            if (final || attempt >= RETRY_MILLISECONDS.length) {
+                this.setFailed(true);
+
+                return;
+            }
+            this.catchUpTimer = setTimeout(
+                () => this.catchUp(attempt + 1),
+                retryWait(attempt),
+            );
+
+            return;
+        }
+        const structure =
+            this.element.querySelector('#board')?.dataset.boardStructureDigest;
+        if (manifest.structure !== structure) {
+            this.resyncStructure();
+
+            return;
+        }
+        this.cardPass(manifest, { afterResync: false });
+        this.setFailed(false);
+    }
+
+    /**
+     * Answers undefined when a newer read or a disconnect superseded this one.
+     * The manifest is null when the read failed, and `final` is true when the
+     * answer says that a retry cannot help.
+     */
+    async readManifest() {
         this.manifestAbort?.abort();
         const abort = new AbortController();
         this.manifestAbort = abort;
@@ -112,6 +198,7 @@ export default class extends Controller {
             FETCH_TIMEOUT_MILLISECONDS,
         );
         let manifest = null;
+        let final = false;
         try {
             // A read of the board's card digests, with no form to submit.
             // eslint-disable-next-line no-restricted-syntax
@@ -122,6 +209,8 @@ export default class extends Controller {
             });
             if (response.ok) {
                 manifest = await response.json();
+            } else {
+                final = !this.transient(response.status);
             }
         } catch {
             manifest = null;
@@ -129,54 +218,250 @@ export default class extends Controller {
             clearTimeout(timeout);
         }
         if (this.manifestAbort !== abort) {
-            return;
+            return undefined;
         }
         this.manifestAbort = undefined;
 
-        const structure =
-            this.element.querySelector('#board')?.dataset.boardStructureDigest;
-        if (!isManifest(manifest) || manifest.structure !== structure) {
-            this.reload();
+        return { manifest, final };
+    }
+
+    /** The first request of a burst bounds the wait, so a steady stream still resyncs. */
+    resyncStructure() {
+        if (this.resyncRunning) {
+            this.resyncAgain = true;
 
             return;
         }
+        this.resyncSince ??= Date.now();
+        const untilMaxWait =
+            this.resyncSince + STRUCTURE_MAX_WAIT_MILLISECONDS - Date.now();
+        this.scheduleResync(
+            Math.max(0, Math.min(STRUCTURE_SETTLE_MILLISECONDS, untilMaxWait)),
+        );
+    }
+
+    scheduleResync(delay) {
+        clearTimeout(this.resyncTimer);
+        this.resyncTimer = setTimeout(() => this.runResync(), delay);
+    }
+
+    /**
+     * A render during a drag swaps the elements the drag holds, and one under
+     * a dialog closes it. The manifest pass skips the structure check, so a
+     * digest that lags the render cannot start another resync.
+     */
+    async runResync() {
+        this.resyncTimer = undefined;
+        if (this.boardBusy()) {
+            this.scheduleResync(STRUCTURE_SETTLE_MILLISECONDS);
+
+            return;
+        }
+        this.resyncSince = undefined;
+        this.resyncRunning = true;
+        clearTimeout(this.catchUpTimer);
+        this.catchUpTimer = undefined;
+        const abort = new AbortController();
+        this.structureAbort = abort;
+        const { html, final } = await this.readStructure(abort);
+        if (this.structureAbort !== abort) {
+            return;
+        }
+        if (html === null) {
+            this.resyncFailed(final);
+
+            return;
+        }
+        if (this.boardBusy()) {
+            this.structureAbort = undefined;
+            this.resyncRunning = false;
+            this.resyncAgain = false;
+            this.scheduleResync(STRUCTURE_SETTLE_MILLISECONDS);
+
+            return;
+        }
+        // The stream renders on a later frame, and the card pass reads the new skeleton.
+        const rendered = this.structureRendered(abort.signal);
+        renderStreamMessage(html);
+        const [read, applied] = await Promise.all([
+            this.readManifest(),
+            rendered,
+        ]);
+        if (this.structureAbort !== abort) {
+            return;
+        }
+        // A superseded read leaves the card pass to the reconnect that took over.
+        if (read === undefined && applied) {
+            this.resyncAttempts = 0;
+            this.finishResync();
+
+            return;
+        }
+        if (!applied || !isManifest(read?.manifest)) {
+            this.resyncFailed(read?.final ?? false);
+
+            return;
+        }
+        this.cardPass(read.manifest, { afterResync: true });
+        this.resyncAttempts = 0;
+        this.setFailed(false);
+        this.finishResync();
+    }
+
+    /** A retry reads the structure again, so it covers the changes that arrived meanwhile. */
+    resyncFailed(final) {
+        this.structureAbort = undefined;
+        this.resyncRunning = false;
+        this.resyncAgain = false;
+        this.resyncAttempts += 1;
+        if (final || this.resyncAttempts > RETRY_MILLISECONDS.length) {
+            this.resyncAttempts = 0;
+            this.setFailed(true);
+
+            return;
+        }
+        this.scheduleResync(retryWait(this.resyncAttempts - 1));
+    }
+
+    /** Resolves true once the structure stream applied, or false on a timeout or an abort. */
+    structureRendered(signal) {
+        return new Promise((resolve) => {
+            const done = (applied) => {
+                clearTimeout(timeout);
+                document.removeEventListener(
+                    'board:structure-changed',
+                    onChanged,
+                );
+                signal.removeEventListener('abort', onAbort);
+                resolve(applied);
+            };
+            const onChanged = () => done(true);
+            const onAbort = () => done(false);
+            const timeout = setTimeout(
+                () => done(false),
+                RENDER_TIMEOUT_MILLISECONDS,
+            );
+            document.addEventListener('board:structure-changed', onChanged);
+            signal.addEventListener('abort', onAbort);
+        });
+    }
+
+    /** Answers the stream, or null; `final` is true when a retry cannot help. */
+    async readStructure(abort) {
+        const timeout = setTimeout(
+            () => abort.abort(),
+            FETCH_TIMEOUT_MILLISECONDS,
+        );
+        try {
+            // A read of the board's columns and lanes, with no form to submit.
+            // eslint-disable-next-line no-restricted-syntax
+            const response = await fetch(this.structureValue, {
+                headers: { Accept: STREAM_TYPE },
+                credentials: 'same-origin',
+                signal: abort.signal,
+            });
+            const type = response.headers.get('Content-Type') ?? '';
+            if (response.ok && type.startsWith(STREAM_TYPE)) {
+                return { html: await response.text(), final: false };
+            }
+
+            return {
+                html: null,
+                final: !response.ok && !this.transient(response.status),
+            };
+        } catch {
+            return { html: null, final: false };
+        } finally {
+            clearTimeout(timeout);
+        }
+    }
+
+    finishResync() {
+        this.structureAbort = undefined;
+        this.resyncRunning = false;
+        if (this.resyncAgain) {
+            this.resyncAgain = false;
+            this.resyncStructure();
+        }
+    }
+
+    boardBusy() {
+        return this.element.querySelector(BUSY_SELECTOR) !== null;
+    }
+
+    /**
+     * Places each card that the page misses, shows out of order, in another
+     * lane, or with another digest than the manifest has.
+     */
+    cardPass(manifest, { afterResync }) {
         const shown = new Map();
         this.element
             .querySelectorAll('.lp-board-card[data-card-digest]')
             .forEach((card) =>
                 shown.set(card.dataset.cardId, card.dataset.cardDigest),
             );
-        // A lane epic has no card face: its lane head digest comes fourth, and
+        // A lane epic has no card face: its lane head digest comes fifth, and
         // it counts for the list order alone.
         const listed = new Map(
-            manifest.cards.map(([cardId, , columnId, headDigest], index) => [
-                cardId,
-                { columnId, index, laneHead: headDigest !== undefined },
-            ]),
+            manifest.cards.map(
+                ([cardId, , columnId, laneKey, headDigest], index) => [
+                    cardId,
+                    {
+                        columnId,
+                        laneKey,
+                        index,
+                        laneHead: headDigest !== undefined,
+                    },
+                ],
+            ),
         );
         const faces = manifest.cards.filter(
-            ([, , , headDigest]) => headDigest === undefined,
+            ([, , , , headDigest]) => headDigest === undefined,
         );
-        const removed = [...shown.keys()].filter(
-            (cardId) => !listed.has(cardId) || listed.get(cardId).laneHead,
+        const backlogId = this.element.querySelector(
+            '.lp-board-backlog[data-column]',
+        )?.dataset.column;
+        const rowIds = new Set(
+            [
+                ...this.element.querySelectorAll(
+                    '.lp-board-list__row[data-card-id]',
+                ),
+            ].map((row) => row.dataset.cardId),
         );
+        // A lane epic has no face, so only its list row shows that it is gone.
+        const removed = [
+            ...new Set([
+                ...[...shown.keys()].filter(
+                    (cardId) =>
+                        !listed.has(cardId) || listed.get(cardId).laneHead,
+                ),
+                ...[...rowIds].filter((cardId) => !listed.has(cardId)),
+            ]),
+        ];
         const moved = new Set();
         this.element
             .querySelectorAll(
                 '.lp-board__group[data-column], .lp-board-lane__cell[data-column]',
             )
             .forEach((group) => {
+                const lane = group.matches('.lp-board-lane__cell')
+                    ? group.dataset.lane
+                    : null;
                 const cards = [...group.querySelectorAll('.lp-board-card')]
+                    .filter((card) => listed.has(card.dataset.cardId))
                     .map((card) => ({
                         cardId: card.dataset.cardId,
                         ...listed.get(card.dataset.cardId),
                     }))
-                    .filter(
-                        (card) =>
-                            !card.laneHead &&
-                            card.columnId === group.dataset.column,
-                    );
-                outOfOrder(cards).forEach((cardId) => moved.add(cardId));
+                    .filter((card) => !card.laneHead);
+                cards
+                    .filter((card) => card.laneKey !== lane)
+                    .forEach((card) => moved.add(card.cardId));
+                outOfOrder(
+                    cards.filter(
+                        (card) => card.columnId === group.dataset.column,
+                    ),
+                ).forEach((cardId) => moved.add(cardId));
             });
         // Two lane cells of one column can each keep their order while the
         // list, which runs through the whole column, does not.
@@ -200,7 +485,7 @@ export default class extends Controller {
                 rowDigests.set(row.dataset.cardId, row.dataset.cardDigest),
             );
         const changed = manifest.cards
-            .filter(([cardId, digest, , headDigest]) => {
+            .filter(([cardId, digest, columnId, , headDigest]) => {
                 if (moved.has(cardId)) {
                     return true;
                 }
@@ -208,6 +493,9 @@ export default class extends Controller {
                     return shown.get(cardId) !== digest;
                 }
                 // A lane epic in the Backlog has a head and no list row.
+                if (columnId !== backlogId && !rowIds.has(cardId)) {
+                    return true;
+                }
                 const head = laneHeadOf(cardId);
 
                 return (
@@ -220,13 +508,13 @@ export default class extends Controller {
             .map(([cardId]) => cardId);
         const queued = [...removed, ...changed];
         // Any placement rewrites every history link, so one card is enough.
+        // With no card face, the structure render rewrites them, once.
         if (queued.length === 0 && staleHistory(manifest.terminalTotals)) {
-            if (faces.length === 0) {
-                this.reload();
-
-                return;
+            if (faces.length > 0) {
+                queued.push(faces[0][0]);
+            } else if (!afterResync) {
+                this.resyncStructure();
             }
-            queued.push(faces[0][0]);
         }
         queued.forEach((cardId) =>
             this.receive({ cardId, local: false, own: false }),
@@ -377,8 +665,7 @@ export default class extends Controller {
 
             return;
         }
-        const wait = RETRY_MILLISECONDS[entry.attempts - 1];
-        this.schedule(cardId, entry, wait * (1 + RETRY_JITTER * Math.random()));
+        this.schedule(cardId, entry, retryWait(entry.attempts - 1));
     }
 
     markStale(cardId) {
@@ -491,10 +778,10 @@ export default class extends Controller {
         }
         this.fail(cardId, entry, RETRY);
     }
+}
 
-    reload() {
-        this.dispatch('reload');
-    }
+function retryWait(index) {
+    return RETRY_MILLISECONDS[index] * (1 + RETRY_JITTER * Math.random());
 }
 
 function isManifest(manifest) {
@@ -507,8 +794,9 @@ function isManifest(manifest) {
                 typeof entry[0] === 'string' &&
                 typeof entry[1] === 'string' &&
                 typeof entry[2] === 'string' &&
-                (entry.length === 3 ||
-                    (entry.length === 4 && typeof entry[3] === 'string')),
+                (typeof entry[3] === 'string' || entry[3] === null) &&
+                (entry.length === 4 ||
+                    (entry.length === 5 && typeof entry[4] === 'string')),
         )
     );
 }

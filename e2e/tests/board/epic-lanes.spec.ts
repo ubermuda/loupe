@@ -399,8 +399,12 @@ test('the lane button in the card drawer shows the lane on the board behind it',
         .getByRole('button', { name: 'Show as a lane on the board' })
         .click();
 
-    await boardReplaced(page);
     await expect(lane(page, epic.id)).toBeVisible();
+    await expect(
+        page.locator(`${CARD}[data-card-id="${epic.id}"]`),
+    ).toHaveCount(0);
+    // The lane shows in place, so the board keeps its mark.
+    await expect(page.locator(`${READY}[${MARK}]`)).toBeAttached();
     await expect(drawer).toHaveJSProperty('open', true);
     await expect(
         drawer.getByRole('button', { name: 'Hide the lane on the board' }),
@@ -432,46 +436,6 @@ test('a collapsed lane stays collapsed in this browser only', async ({
     );
 
     await expectBothLanesOpenElsewhere(browser, board, [first, second]);
-});
-
-test('a collapsed lane stays collapsed when a live update morphs the board', async ({
-    page,
-    board,
-}) => {
-    const epic = await board.create(`Morphed epic ${RUN}`, { type: 'epic' });
-    await board.create(`Morphed child ${RUN}`, { parent: epic });
-
-    await page.goto(board.boardUrl);
-    await expect(page.locator(READY)).toBeAttached();
-    const toggle = lane(page, epic.id).locator(
-        'button[data-action="board-lane#toggle"]',
-    );
-    await toggle.click();
-    await expect(lane(page, epic.id)).toHaveClass(/lp-board-lane--collapsed/);
-
-    // The frame reload is what a worker run or a column change triggers.
-    await lane(page, epic.id).evaluate(async (section) => {
-        (section as unknown as { kept: boolean }).kept = true;
-        const frame = document.getElementById('board-frame') as HTMLElement & {
-            reload(): void;
-        };
-        const rendered = new Promise((resolve) =>
-            document.addEventListener('turbo:frame-render', resolve, {
-                once: true,
-            }),
-        );
-        frame.reload();
-        await rendered;
-    });
-
-    await expect(lane(page, epic.id)).toHaveJSProperty('kept', true);
-    await expect(lane(page, epic.id)).toHaveClass(/lp-board-lane--collapsed/);
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-
-    await toggle.click();
-    await expect(lane(page, epic.id)).not.toHaveClass(
-        /lp-board-lane--collapsed/,
-    );
 });
 
 /** A second browser context has its own storage, so it shows every lane open. */
