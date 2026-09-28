@@ -359,6 +359,71 @@ it('never counts a lane head as an added or a removed card', async () => {
     expect(reloads).toBe(0);
 });
 
+it('fetches a lane head whose list row digest changed, and not one that kept it', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a class="lp-board-list__row" data-card-id="changed" data-card-digest="old"></a>' +
+                '<a class="lp-board-list__row" data-card-id="kept" data-card-digest="old"></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k'],
+                ['b', 'old', 'k'],
+                ['changed', 'new', 'k', true],
+                ['kept', 'old', 'k', true],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['changed']);
+    expect(reloads).toBe(0);
+});
+
+it('makes no reload on a reconnect after a live lane head placement', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<section id="board-lane-epic"><header class="lp-board-lane__head"></header></section>' +
+                '<a id="board-row-epic" class="lp-board-list__row" data-card-id="epic" data-card-digest="old"></a>',
+        );
+    receive('epic');
+    await vi.advanceTimersByTimeAsync(150);
+    expect(placements()).toEqual(['epic']);
+    // The lane head stream re-places the list row with its new digest.
+    const lane = document.getElementById('board-lane-epic');
+    document.getElementById('board-row-epic').dataset.cardDigest = 'new';
+    lane.dispatchEvent(
+        new CustomEvent('board:placed', {
+            bubbles: true,
+            detail: { cardId: 'epic' },
+        }),
+    );
+
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k'],
+                ['b', 'old', 'k'],
+                ['epic', 'new', 'k', true],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['epic']);
+    expect(manifestReads()).toHaveLength(1);
+    expect(reloads).toBe(0);
+});
+
 it('fetches nothing when the list rows keep the manifest order', async () => {
     document
         .getElementById('board')

@@ -96,9 +96,13 @@ final class BoardStructureDigestTest extends TestCase
         self::assertNotSame($this->digest(deadRules: [$rule]), $this->digest(deadRules: [$later]));
     }
 
-    public function test_the_digest_changes_with_the_card_digest_of_a_lane_epic(): void
+    public function test_the_digest_ignores_the_face_of_a_lane_epic(): void
     {
-        self::assertNotSame($this->digest(epicDigest: 'aaaaaaaaaaaa'), $this->digest(epicDigest: 'bbbbbbbbbbbb'));
+        $before = $this->digest();
+        $this->epic->title = 'Renamed epic';
+        $this->epic->body = 'A new body';
+
+        self::assertSame($before, $this->digest());
     }
 
     /**
@@ -106,7 +110,7 @@ final class BoardStructureDigestTest extends TestCase
      * @param list<BoardLaneView>|null $lanes
      * @param list<DeadBridgeRuleView> $deadRules
      */
-    private function digest(?array $columns = null, ?array $lanes = null, string $epicDigest = 'aaaaaaaaaaaa', array $deadRules = []): string
+    private function digest(?array $columns = null, ?array $lanes = null, array $deadRules = []): string
     {
         $views = array_map(
             static fn (BoardColumn $column): BoardColumnView => new BoardColumnView($column, [], 0),
@@ -116,7 +120,6 @@ final class BoardStructureDigestTest extends TestCase
         return new BoardStructureDigest()->forBoard(
             $views,
             $lanes ?? [new BoardLaneView($this->epic, [])],
-            [(string) $this->epic->id => $epicDigest],
             $deadRules,
         );
     }

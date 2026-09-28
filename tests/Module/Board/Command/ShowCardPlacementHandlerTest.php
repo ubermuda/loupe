@@ -152,16 +152,6 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         self::assertSame($pageCounts, $view->counts);
     }
 
-    public function test_a_board_with_no_lane_reports_no_lane(): void
-    {
-        $card = $this->card('Plain', 'next', 0);
-
-        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $card));
-
-        self::assertNull($view->lane);
-        self::assertFalse($view->laneHead);
-    }
-
     public function test_a_board_with_no_lane_gives_no_lane_key(): void
     {
         $card = $this->card('Alone', 'next', 0);
@@ -170,6 +160,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
 
         self::assertNull($view->lane);
         self::assertFalse($view->laneHead);
+        self::assertNull($view->laneAfter);
     }
 
     public function test_a_child_follows_the_card_before_it_in_its_lane(): void

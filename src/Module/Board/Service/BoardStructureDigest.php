@@ -11,17 +11,17 @@ use App\Module\Board\Command\DeadBridgeRuleView;
 /**
  * A short hash of the columns, the lanes and the dead bridge rules the board
  * page draws, so a page can tell that its frame changed and a card-by-card
- * refresh is not enough.
+ * refresh is not enough. A lane head is placed like a card, so its face is
+ * left out.
  */
 final readonly class BoardStructureDigest
 {
     /**
      * @param list<BoardColumnView>    $columns
      * @param list<BoardLaneView>      $lanes
-     * @param array<string, string>    $epicDigests lane epic id => its card digest, which the manifest leaves out
      * @param list<DeadBridgeRuleView> $deadRules
      */
-    public function forBoard(array $columns, array $lanes, array $epicDigests, array $deadRules = []): string
+    public function forBoard(array $columns, array $lanes, array $deadRules = []): string
     {
         $shape = ['columns' => [], 'lanes' => [], 'deadRules' => []];
         foreach ($columns as $view) {
@@ -33,7 +33,7 @@ final readonly class BoardStructureDigest
             if (null === $epic) {
                 continue;
             }
-            $shape['lanes'][] = [(string) $epic->id, $epic->laneEnabled, $epicDigests[(string) $epic->id] ?? null];
+            $shape['lanes'][] = [(string) $epic->id, $epic->laneEnabled];
         }
 
         foreach ($deadRules as $rule) {

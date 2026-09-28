@@ -195,12 +195,27 @@ export default class extends Controller {
                 ...listed.get(row.dataset.cardId),
             }));
         outOfOrder(rows).forEach((cardId) => moved.add(cardId));
+        // A lane head has no face, and the lane head stream keeps its list
+        // row's digest current.
+        const rowDigests = new Map();
+        this.element
+            .querySelectorAll('.lp-board-list__row[data-card-digest]')
+            .forEach((row) =>
+                rowDigests.set(row.dataset.cardId, row.dataset.cardDigest),
+            );
         const changed = manifest.cards
-            .filter(
-                ([cardId, digest, , laneHead]) =>
-                    moved.has(cardId) ||
-                    (!laneHead && shown.get(cardId) !== digest),
-            )
+            .filter(([cardId, digest, , laneHead]) => {
+                if (moved.has(cardId)) {
+                    return true;
+                }
+                if (!laneHead) {
+                    return shown.get(cardId) !== digest;
+                }
+
+                return (
+                    rowDigests.has(cardId) && rowDigests.get(cardId) !== digest
+                );
+            })
             .map(([cardId]) => cardId);
         const queued = [...removed, ...changed];
         // Any placement rewrites every history link, so one card is enough.

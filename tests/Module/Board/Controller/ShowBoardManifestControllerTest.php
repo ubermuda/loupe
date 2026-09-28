@@ -152,6 +152,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertSame([3, 3, 4], array_map(\count(...), $manifest['cards']));
         self::assertTrue($manifest['cards'][2][3] ?? false);
         self::assertSame($page['cards'], array_column($this->faces($manifest), 1, 0));
+        self::assertSame($page['rowDigests'][(string) $epic->id], $manifest['cards'][2][1]);
     }
 
     public function test_the_terminal_totals_are_the_ones_the_history_links_show(): void
@@ -320,7 +321,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertSame($after['structure'], $this->page($client, $project)['structure']);
     }
 
-    public function test_the_structure_digest_changes_with_the_body_of_a_lane_epic(): void
+    public function test_the_structure_digest_ignores_the_body_of_a_lane_epic(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -333,14 +334,17 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         });
 
         $client->loginUser($owner);
-        $before = $this->manifest($client, $project)['structure'];
+        $before = $this->manifest($client, $project);
         $this->updateCard($epic, static function (Card $card): void {
             $card->body = 'A new body.';
         });
-        $after = $this->manifest($client, $project)['structure'];
+        $after = $this->manifest($client, $project);
+        $page = $this->page($client, $project);
 
-        self::assertNotSame($before, $after);
-        self::assertSame($after, $this->page($client, $project)['structure']);
+        self::assertSame($before['structure'], $after['structure']);
+        self::assertSame($after['structure'], $page['structure']);
+        self::assertNotSame($this->digestOf($before, $epic), $this->digestOf($after, $epic));
+        self::assertSame($page['rowDigests'][(string) $epic->id], $this->digestOf($after, $epic));
     }
 
     public function test_the_manifest_reads_the_pull_requests_documents_and_runs_in_one_query_whatever_the_card_count(): void
@@ -418,9 +422,10 @@ final class ShowBoardManifestControllerTest extends WebTestCase
 
     /**
      * The digest of each card face on the board page, the ids of the list rows
-     * in order, the structure digest, and the total of each history link.
+     * in order with their digests, the structure digest, and the total of each
+     * history link.
      *
-     * @return array{cards: array<string, string>, rows: list<string>, structure: string, historyTotals: array<string, int>}
+     * @return array{cards: array<string, string>, rows: list<string>, rowDigests: array<string, string>, structure: string, historyTotals: array<string, int>}
      */
     private function page(KernelBrowser $client, Project $project): array
     {
@@ -439,9 +444,16 @@ final class ShowBoardManifestControllerTest extends WebTestCase
             $historyTotals[substr($link->getAttribute('id'), \strlen('board-history-'))] = (int) $link->getAttribute('data-history-total');
         }
 
+        $rowDigests = [];
+        foreach ($crawler->filter('[id^="board-row-"]') as $row) {
+            self::assertInstanceOf(\DOMElement::class, $row);
+            $rowDigests[$row->getAttribute('data-card-id')] = $row->getAttribute('data-card-digest');
+        }
+
         return [
             'cards' => $cards,
-            'rows' => $crawler->filter('[id^="board-row-"]')->each(static fn ($row): string => (string) $row->attr('data-card-id')),
+            'rows' => array_keys($rowDigests),
+            'rowDigests' => $rowDigests,
             'structure' => (string) $crawler->filter('#board')->attr('data-board-structure-digest'),
             'historyTotals' => $historyTotals,
         ];

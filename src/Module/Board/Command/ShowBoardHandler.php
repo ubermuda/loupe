@@ -14,7 +14,6 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\BoardStructureDigest;
-use App\Module\Board\Service\CardDigest;
 use App\Module\Bridge\Service\CardRunWarnings;
 
 final readonly class ShowBoardHandler
@@ -30,7 +29,6 @@ final readonly class ShowBoardHandler
         private CardDocumentRepository $cardDocuments,
         private BoardLanes $boardLanes,
         private BoardStructureDigest $structureDigest,
-        private CardDigest $cardDigest,
         private CardRunWarnings $runWarnings,
     ) {
     }
@@ -88,21 +86,6 @@ final readonly class ShowBoardHandler
         $documentCounts = $this->cardDocuments->countsForProject($project);
         $runWarnings = $this->runWarnings->forProject($project);
 
-        $epicDigests = [];
-        foreach ($lanes as $lane) {
-            if (null !== $lane->epic) {
-                $id = (string) $lane->epic->id;
-                $epicDigests[$id] = $this->cardDigest->forCard(
-                    $lane->epic,
-                    $pendingComments[$id] ?? 0,
-                    $documentCounts[$id] ?? 0,
-                    $lane->epic->pullRequests->count(),
-                    $progress[$id] ?? null,
-                    $runWarnings[$id] ?? null,
-                );
-            }
-        }
-
         return new BoardView(
             $project,
             $columns,
@@ -115,7 +98,7 @@ final readonly class ShowBoardHandler
             $otherCards,
             $progress,
             $shownCounts,
-            $this->structureDigest->forBoard($columns, $lanes, $epicDigests, $deadRules),
+            $this->structureDigest->forBoard($columns, $lanes, $deadRules),
             $runWarnings,
         );
     }
