@@ -6,6 +6,7 @@ namespace App\Tests\Module\Forge\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -109,6 +110,22 @@ final class PullRequestTrackerTest extends KernelTestCase
         $this->tracker->refresh($project, FakePullRequestStateReader::FORGE, 'ACME/widgets', 42);
 
         self::assertSame([(string) $open->id], $this->queuedIds());
+    }
+
+    public function test_refresh_carries_the_review_verdict_and_leaves_it_off_by_default(): void
+    {
+        $project = $this->project();
+        $this->row($project, 42);
+
+        $this->tracker->refresh($project, FakePullRequestStateReader::FORGE, 'acme/widgets', 42, PullRequestReview::ChangesRequested, '80');
+        $this->tracker->refresh($project, FakePullRequestStateReader::FORGE, 'acme/widgets', 42);
+
+        self::assertSame([[PullRequestReview::ChangesRequested, '80'], [null, null]], array_map(static function (Envelope $envelope): array {
+            $message = $envelope->getMessage();
+            self::assertInstanceOf(RefreshPullRequestState::class, $message);
+
+            return [$message->verdict, $message->reviewId];
+        }, $this->sent()));
     }
 
     public function test_refresh_queues_a_closed_row_so_a_reopen_is_read(): void

@@ -13,6 +13,7 @@ final readonly class RecordForgeDeliveryCommand
     public function __construct(
         public Uuid $projectId,
         public array $deliveries,
+        public bool $stateReadable,
     ) {
     }
 }

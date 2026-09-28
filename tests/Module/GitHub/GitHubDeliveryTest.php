@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\GitHub;
 
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
 use App\Module\GitHub\Entity\GitHubRepositorySelection;
@@ -250,21 +251,31 @@ final class GitHubDeliveryTest extends TestCase
         ])->refreshHints());
     }
 
-    /** @return iterable<string, array{string, bool}> */
+    /** @return iterable<string, array{string, mixed, list<PullRequestRefreshHint>}> */
     public static function reviewActions(): iterable
     {
-        yield 'submitted' => ['submitted', true];
-        yield 'dismissed' => ['dismissed', true];
-        yield 'edited' => ['edited', false];
+        yield 'approved' => ['submitted', ['state' => 'approved'], [PullRequestRefreshHint::number(7, PullRequestReview::Approved)]];
+        yield 'changes requested' => ['submitted', ['state' => 'changes_requested'], [PullRequestRefreshHint::number(7, PullRequestReview::ChangesRequested)]];
+        yield 'upper case' => ['submitted', ['state' => 'CHANGES_REQUESTED'], [PullRequestRefreshHint::number(7, PullRequestReview::ChangesRequested)]];
+        yield 'commented' => ['submitted', ['state' => 'commented'], [PullRequestRefreshHint::number(7)]];
+        yield 'no review' => ['submitted', null, [PullRequestRefreshHint::number(7)]];
+        yield 'dismissed' => ['dismissed', ['state' => 'approved'], [PullRequestRefreshHint::number(7)]];
+        yield 'edited' => ['edited', ['state' => 'approved'], []];
+        yield 'review id' => ['submitted', ['id' => 80, 'state' => 'changes_requested'], [PullRequestRefreshHint::number(7, PullRequestReview::ChangesRequested, '80')]];
+        yield 'review id of a comment' => ['submitted', ['id' => 80, 'state' => 'commented'], [PullRequestRefreshHint::number(7)]];
+        yield 'review id not a number' => ['submitted', ['id' => '80', 'state' => 'approved'], [PullRequestRefreshHint::number(7, PullRequestReview::Approved)]];
+        yield 'review id not positive' => ['submitted', ['id' => 0, 'state' => 'approved'], [PullRequestRefreshHint::number(7, PullRequestReview::Approved)]];
     }
 
+    /** @param list<PullRequestRefreshHint> $hints */
     #[DataProvider('reviewActions')]
-    public function test_a_submitted_or_dismissed_review_hints_its_pull_request(string $action, bool $hinted): void
+    public function test_a_review_hints_its_pull_request_with_the_verdict_it_submits(string $action, mixed $review, array $hints): void
     {
-        self::assertEquals($hinted ? [PullRequestRefreshHint::number(7)] : [], $this->delivery('pull_request_review', [
+        self::assertEquals($hints, $this->delivery('pull_request_review', [
             'action' => $action,
             'repository' => self::REPOSITORY,
             'pull_request' => ['number' => 7],
+            'review' => $review,
         ])->refreshHints());
     }
 
