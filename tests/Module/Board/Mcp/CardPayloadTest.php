@@ -38,8 +38,10 @@ final class CardPayloadTest extends TestCase
         $links->expects($this->never())->method('findForCards');
         $cards = $this->createMock(CardRepository::class);
         $cards->expects($this->never())->method('findChildrenOfCards');
+        $states = $this->createMock(CardPullRequestStates::class);
+        $states->expects($this->never())->method('forCards');
 
-        $rows = new CardPayload($comments, $links, $cards, $this->createStub(CardPullRequestStates::class))->forCardList([$this->card()]);
+        $rows = new CardPayload($comments, $links, $cards, $states)->forCardList([$this->card()]);
 
         self::assertCount(1, $rows);
         self::assertSame(
