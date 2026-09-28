@@ -17,7 +17,7 @@ Reopening reloads the recent events. **Open activity** goes to the full list.
 | Event | the event label in bold, then its subject in grey. A card move names the card and its two columns, such as `#292 Tech design → Implementation` |
 | Delivery | whether Loupe delivered the event to the bridges: **Delivered**, **Pending delivery** or **Delivery failed** |
 | Family | the family of the event, such as **Board** or **Pull requests** |
-| Sequence | the delivery order number of the event |
+| Sequence | the order number that Loupe gave the event when it recorded it. Loupe delivers events in this order |
 | Recorded | how long ago Loupe recorded the event. Hover over it to see the exact time |
 
 Delivery status describes delivery to bridges, not the outcome of an agent's work.
