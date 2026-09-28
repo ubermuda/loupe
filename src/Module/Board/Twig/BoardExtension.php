@@ -143,8 +143,9 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
     /**
      * A short hash of what the card face and its list row show, and of where the
      * card sits, so a page can tell a changed card from an unchanged one.
+     * `$warningRunId` names the run whose warning the card face shows, if any.
      */
-    public function cardDigest(Card $card, int $pendingComments, int $documentCount, ?CardProgress $progress): string
+    public function cardDigest(Card $card, int $pendingComments, int $documentCount, ?CardProgress $progress, ?string $warningRunId): string
     {
         return substr(sha1(json_encode([
             $card->number,
@@ -157,6 +158,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
             (string) $card->column->id,
             $card->position,
             null === $progress ? null : [$progress->done, $progress->total],
+            $warningRunId,
         ], \JSON_THROW_ON_ERROR)), 0, 12);
     }
 

@@ -88,8 +88,26 @@ afterEach(async () => {
     vi.unstubAllGlobals();
 });
 
-it('listens for card changes', () => {
-    expect(on).toHaveBeenCalledWith('board.card_changed', expect.any(Function));
+it('listens for card changes and for run warning changes', () => {
+    expect(on).toHaveBeenCalledWith(
+        ['board.card_changed', 'worker_run.card_warning_changed'],
+        expect.any(Function),
+    );
+});
+
+it('fetches the placement of the card a run warning names, and marks it when its face changed', async () => {
+    change({
+        type: 'worker_run.card_warning_changed',
+        cardId: 'a',
+        local: false,
+        own: false,
+    });
+    await vi.advanceTimersByTimeAsync(150);
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+        '/projects/p/board/cards/a/placement',
+    ]);
+    placed('a', 'new');
+    expect(card().classList.contains('lp-board-card--flash')).toBe(true);
 });
 
 it('fetches a card once for a burst of messages, 150 ms after the last one', async () => {

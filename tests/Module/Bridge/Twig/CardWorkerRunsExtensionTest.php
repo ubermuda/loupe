@@ -118,12 +118,43 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         self::assertNull($warnings[(string) $blocked]->cardColumn);
         // An open run is not an outcome, so the blocked outcome before it still stands.
         self::assertSame((string) $waiting->id, $warnings[(string) $stillRunning]->runId);
+    }
 
+    public function test_one_card_reads_its_own_warning_and_no_other(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'card-warning@example.com');
+        $project = $this->project($em, $owner, 'Warning');
+        $other = $this->project($em, $owner, 'Other warning');
+        $gaveUp = Uuid::v7();
+        $blocked = Uuid::v7();
+        $cleared = Uuid::v7();
+        $quiet = Uuid::v7();
+        $at = static fn (string $time): \DateTimeImmutable => new \DateTimeImmutable('2026-01-01 '.$time);
+
+        $gaveUpRun = $this->seedRun($em, $project, receivedAt: $at('10:00'), output: 'Tests still fail.', cardId: $gaveUp, state: WorkerRunState::GaveUp, hasResult: true);
+        $gaveUpRun->cardColumn = 'implementation';
+        $blockedRun = $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $blocked, state: WorkerRunState::Blocked, hasResult: true);
+        $this->seedRun($em, $project, receivedAt: $at('10:00'), cardId: $cleared, state: WorkerRunState::GaveUp, hasResult: true);
+        $this->seedRun($em, $project, receivedAt: $at('10:05'), cardId: $cleared, state: WorkerRunState::Succeeded, hasResult: true);
+        $this->seedRun($em, $other, receivedAt: $at('10:00'), cardId: $quiet, state: WorkerRunState::GaveUp, hasResult: true);
+        $em->flush();
         $extension = self::getContainer()->get(CardWorkerRunsExtension::class);
-        foreach ([$gaveUp, $blocked, $cleared, $stillRunning, $failed, $onForge, $forgeAfterGaveUp, $elsewhere] as $cardId) {
-            self::assertEquals($warnings[(string) $cardId] ?? null, $extension->cardRunWarning($project, (string) $cardId));
-        }
-        self::assertNull($extension->cardRunWarning($project, 'not-a-uuid'));
+
+        $warning = $extension->cardRunWarning($project, $gaveUp);
+        self::assertNotNull($warning);
+        self::assertSame((string) $gaveUpRun->id, $warning->runId);
+        self::assertSame(WorkerRunState::GaveUp, $warning->state);
+        self::assertSame('Tests still fail.', $warning->summary);
+        self::assertSame('implementation', $warning->cardColumn);
+
+        self::assertSame((string) $blockedRun->id, $extension->cardRunWarning($project, $blocked)?->runId);
+        self::assertSame(WorkerRunState::Blocked, $extension->cardRunWarning($project, $blocked)->state);
+        self::assertNull($extension->cardRunWarning($project, $cleared));
+        // The same card id warns in another project only.
+        self::assertNull($extension->cardRunWarning($project, $quiet));
+        self::assertNotNull($extension->cardRunWarning($other, $quiet));
     }
 
     public function test_a_project_with_no_runs_has_no_warnings(): void

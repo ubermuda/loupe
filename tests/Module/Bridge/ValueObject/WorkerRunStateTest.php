@@ -85,6 +85,17 @@ final class WorkerRunStateTest extends TestCase
         );
     }
 
+    public function test_only_blocked_and_gave_up_warn_on_the_card(): void
+    {
+        self::assertSame(
+            ['blocked', 'gave-up'],
+            array_values(array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                array_filter(WorkerRunState::cases(), static fn (WorkerRunState $state): bool => $state->isWarning()),
+            )),
+        );
+    }
+
     public function test_only_timed_out_and_lost_are_inferred(): void
     {
         self::assertSame(

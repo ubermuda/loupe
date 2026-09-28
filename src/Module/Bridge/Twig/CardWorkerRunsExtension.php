@@ -52,18 +52,18 @@ final class CardWorkerRunsExtension extends AbstractExtension
     {
         $warnings = [];
         foreach ($this->workerRuns->findWarningRowsOfProject($project) as $row) {
-            $warnings[$row['card_id']] = self::warning($row);
+            $warnings[$row['card_id']] = new CardRunWarning($row['id'], WorkerRunState::from($row['state']), $row['output'], $row['card_column']);
         }
 
         return $warnings;
     }
 
-    /** The warning of one card, for a page that shows that card alone. */
-    public function cardRunWarning(Project $project, string $cardId): ?CardRunWarning
+    /** One card placed alone reads its own warning, not the whole board's. */
+    public function cardRunWarning(Project $project, Uuid $cardId): ?CardRunWarning
     {
-        $row = Uuid::isValid($cardId) ? $this->workerRuns->findWarningRowOfCard($project, Uuid::fromString($cardId)) : null;
+        $row = $this->workerRuns->findWarningRowOfCard($project, $cardId);
 
-        return null === $row ? null : self::warning($row);
+        return null === $row ? null : new CardRunWarning($row['id'], WorkerRunState::from($row['state']), $row['output'], $row['card_column']);
     }
 
     /** @return list<WorkerRunListItem> */
@@ -103,11 +103,5 @@ final class CardWorkerRunsExtension extends AbstractExtension
             partialRuns: $runs['partial'],
             estimated: $sums['estimated'],
         );
-    }
-
-    /** @param array{id: string, state: string, output: string, card_column: ?string} $row */
-    private static function warning(array $row): CardRunWarning
-    {
-        return new CardRunWarning($row['id'], WorkerRunState::from($row['state']), $row['output'], $row['card_column']);
     }
 }

@@ -17,7 +17,9 @@ use App\Module\Bridge\Command\ReportWorkerRunHandler;
 use App\Module\Bridge\Command\ReportWorkerRunStateCommand;
 use App\Module\Bridge\Command\ReportWorkerRunStateHandler;
 use App\Module\Bridge\Command\ReportWorkerRunStateResult;
+use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Scheduler\TimeOutQuietWorkerRunsTask;
+use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\HeldRunKey;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -123,6 +125,115 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         // A retry of the same report writes nothing.
         self::assertFalse($handler($command)->created);
         $this->assertPublishedAtTerminate(1);
+    }
+
+    public function test_a_card_warning_change_signals_the_board_with_the_card(): void
+    {
+        $cardId = Uuid::v7();
+
+        $this->service(WorkerRunChangedPublisher::class)->cardWarningChanged($this->project, $cardId);
+
+        $this->assertPublishedAtTerminate(1);
+        self::assertSame([$this->boardTopic()], $this->published[0]->getTopics());
+        self::assertTrue($this->published[0]->isPrivate());
+        self::assertSame('{"type":"worker_run.card_warning_changed","cardId":"'.$cardId.'","origin":null}', $this->published[0]->getData());
+    }
+
+    public function test_a_state_report_that_gives_up_signals_the_card_once(): void
+    {
+        $cardId = Uuid::v7();
+        $runKey = Uuid::v4();
+        $this->reportState($runKey, WorkerRunState::Running, cardId: $cardId);
+        $this->assertPublishedAtTerminate(1);
+
+        $this->reportState($runKey, WorkerRunState::GaveUp, cardId: $cardId);
+        $this->assertPublishedAtTerminate(3);
+        self::assertSame([(string) $cardId], $this->warnedCards());
+
+        $result = $this->reportState($runKey, WorkerRunState::GaveUp, cardId: $cardId);
+        self::assertNotNull($result->run);
+        $this->assertPublishedAtTerminate(3);
+    }
+
+    public function test_a_blocked_state_report_signals_the_card(): void
+    {
+        $cardId = Uuid::v7();
+
+        $this->reportState(Uuid::v4(), WorkerRunState::Blocked, cardId: $cardId);
+
+        $this->assertPublishedAtTerminate(2);
+        self::assertSame([(string) $cardId], $this->warnedCards());
+    }
+
+    public function test_a_success_with_no_warning_before_signals_no_card(): void
+    {
+        $this->reportState(Uuid::v4(), WorkerRunState::Succeeded);
+
+        // Guard: the run pages heard of the report.
+        $this->assertPublishedAtTerminate(1);
+        self::assertSame([], $this->warnedCards());
+    }
+
+    public function test_a_success_after_a_warning_signals_the_card(): void
+    {
+        $cardId = Uuid::v7();
+        $this->seedWarning($cardId, WorkerRunState::GaveUp);
+
+        $this->reportState(Uuid::v4(), WorkerRunState::Succeeded, cardId: $cardId);
+
+        $this->assertPublishedAtTerminate(2);
+        self::assertSame([(string) $cardId], $this->warnedCards());
+    }
+
+    public function test_a_finished_run_report_after_a_warning_signals_the_card_once(): void
+    {
+        $cardId = Uuid::v7();
+        $this->seedWarning($cardId, WorkerRunState::GaveUp);
+        $command = $this->finishedRun($cardId);
+        $handler = $this->service(ReportWorkerRunHandler::class);
+
+        $handler($command);
+        $this->assertPublishedAtTerminate(2);
+        self::assertSame([(string) $cardId], $this->warnedCards());
+
+        self::assertFalse($handler($command)->created);
+        $this->assertPublishedAtTerminate(2);
+    }
+
+    public function test_a_finished_run_report_with_no_warning_before_signals_no_card(): void
+    {
+        $this->service(ReportWorkerRunHandler::class)($this->finishedRun(Uuid::v7()));
+
+        $this->assertPublishedAtTerminate(1);
+        self::assertSame([], $this->warnedCards());
+    }
+
+    public function test_a_launch_failure_after_a_warning_signals_the_card_once(): void
+    {
+        $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $this->seedWarning($cardId, WorkerRunState::Blocked);
+        $fail = fn (): array => $this->service(InteractiveRuns::class)->recordLaunchFailure(
+            $this->project, $cardId, 3, $sessionId, 'design', Uuid::v7(), 'launcher exited 1', new \DateTimeImmutable('2026-09-23 11:59:00'),
+        );
+
+        self::assertTrue($fail()[1]);
+        $this->assertPublishedAtTerminate(2);
+        self::assertSame([(string) $cardId], $this->warnedCards());
+
+        self::assertFalse($fail()[1]);
+        $this->assertPublishedAtTerminate(2);
+    }
+
+    public function test_a_launch_failure_with_no_warning_before_signals_no_card(): void
+    {
+        [, $created] = $this->service(InteractiveRuns::class)->recordLaunchFailure(
+            $this->project, Uuid::v7(), 3, Uuid::v4(), 'design', Uuid::v7(), 'launcher exited 1', new \DateTimeImmutable('2026-09-23 11:59:00'),
+        );
+
+        self::assertTrue($created);
+        $this->assertPublishedAtTerminate(1);
+        self::assertSame([], $this->warnedCards());
     }
 
     public function test_an_inventory_publishes_only_when_it_moves_a_run(): void
@@ -240,7 +351,7 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         ]));
     }
 
-    private function reportState(Uuid $runKey, WorkerRunState $state, ?User $owner = null): ReportWorkerRunStateResult
+    private function reportState(Uuid $runKey, WorkerRunState $state, ?User $owner = null, ?Uuid $cardId = null): ReportWorkerRunStateResult
     {
         return $this->service(ReportWorkerRunStateHandler::class)(new ReportWorkerRunStateCommand(
             owner: $owner ?? $this->owner,
@@ -249,10 +360,60 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
             bridgeId: Uuid::fromString('0199a0e2-b1f3-7a44-9c11-2d3e4f506180'),
             state: $state,
             at: new \DateTimeImmutable('2026-09-23 10:00:00'),
-            cardId: Uuid::v7(),
+            cardId: $cardId ?? Uuid::v7(),
             cardNumber: 1,
             ruleName: 'plan',
+            endedAt: $state->isOutcome() ? new \DateTimeImmutable('2026-09-23 10:05:00') : null,
         ));
+    }
+
+    private function finishedRun(Uuid $cardId): ReportWorkerRunCommand
+    {
+        return new ReportWorkerRunCommand(
+            owner: $this->owner,
+            handle: (string) $this->project->id,
+            bridgeId: Uuid::fromString('0199a0e2-b1f3-7a44-9c11-2d3e4f506180'),
+            sessionId: Uuid::v4(),
+            cardId: $cardId,
+            cardNumber: 3,
+            ruleName: 'plan',
+            startedAt: new \DateTimeImmutable('2026-09-23 11:30:00'),
+            endedAt: new \DateTimeImmutable('2026-09-23 11:31:00'),
+            exitCode: 0,
+            hasResult: true,
+            failureReason: null,
+            output: '',
+        );
+    }
+
+    /** Received before the clock of the test, so a later report is the latest outcome. */
+    private function seedWarning(Uuid $cardId, WorkerRunState $state): void
+    {
+        $this->seedRun($this->em(), $this->project, new \DateTimeImmutable('2026-09-23 11:00:00'), cardId: $cardId, state: $state, hasResult: true);
+        self::assertNotNull($this->service(WorkerRunRepository::class)->findWarningRowOfCard($this->project, $cardId));
+    }
+
+    /** @return list<string> the card of each board message so far */
+    private function warnedCards(): array
+    {
+        $cards = [];
+        foreach ($this->published as $update) {
+            if ([$this->boardTopic()] !== $update->getTopics()) {
+                continue;
+            }
+            $data = json_decode($update->getData(), true, flags: \JSON_THROW_ON_ERROR);
+            self::assertIsArray($data);
+            self::assertSame(WorkerRunChangedPublisher::CARD_WARNING_CHANGED, $data['type']);
+            self::assertIsString($data['cardId']);
+            $cards[] = $data['cardId'];
+        }
+
+        return $cards;
+    }
+
+    private function boardTopic(): string
+    {
+        return $this->service(ProjectTopicBuilder::class)->forBoard($this->project->id ?? throw new \LogicException('The project has no id.'));
     }
 
     /** Ends the request the way the kernel does, then counts every publish so far. */
