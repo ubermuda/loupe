@@ -179,4 +179,18 @@ class CardSiteReviewCommentRepository extends ServiceEntityRepository
 
         return $counts;
     }
+
+    /** The pending comments of one card, counted as pendingCountsForProject() counts them. */
+    public function pendingCountForCard(Card $card): int
+    {
+        return (int) $this->createQueryBuilder('l')
+            ->select('COUNT(l.id)')
+            ->join('l.comment', 'c')
+            ->where('l.card = :card')
+            ->andWhere('c.status = :pending')
+            ->setParameter('card', $card)
+            ->setParameter('pending', SiteReviewCommentStatus::Pending)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

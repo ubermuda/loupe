@@ -6,12 +6,16 @@ namespace App\Tests\Module\Board\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\BoardColumnView;
+use App\Module\Board\Command\BoardLaneView;
 use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Command\ShowCardPlacementCommand;
 use App\Module\Board\Command\ShowCardPlacementHandler;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\BoardLanes;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -150,6 +154,194 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
 
         self::assertSame([1, 1, 0, 1], array_values($pageCounts));
         self::assertSame($pageCounts, $view->counts);
+    }
+
+    /**
+     * Every card of a board is placed as the board page places it: the page
+     * reads each column in full, and the placement must agree card by card.
+     */
+    public function test_every_card_is_placed_where_the_board_page_shows_it(): void
+    {
+        $this->em->persist(new BoardColumn($this->project, 'Archive', 'archive', 4, terminal: true));
+        $this->em->persist(new BoardColumn($this->project, 'Icebox', 'icebox', 5));
+        $this->em->flush();
+
+        $second = static fn (int $secondsAgo): \DateTimeImmutable => new \DateTimeImmutable(date('Y-m-d H:i:s', time() - $secondsAgo));
+        $created = $second(86400 * 20);
+
+        // The first card of the board is one of two cards that tie on position and creation.
+        $this->boardCard('Backlog tie one', 'backlog', 0, $created);
+        $this->boardCard('Backlog tie two', 'backlog', 0, $created);
+        $moved = $this->boardCard('Backlog later', 'backlog', 1);
+        $openEpic = $this->boardCard('Open epic', 'backlog', 2, type: CardType::Epic);
+        $this->boardCard('Backlog child of the open epic', 'backlog', 3, parent: $openEpic);
+        $laneOff = $this->boardCard('Epic with its lane off', 'icebox', 1, type: CardType::Epic);
+        $laneOff->laneEnabled = false;
+        $this->boardCard('Child of the epic with its lane off', 'backlog', 4, parent: $laneOff);
+        // The next column stays empty, between two columns that hold cards.
+        $this->boardCard('In progress one', 'in-progress', 0);
+        $this->boardCard('In progress child of the open epic', 'in-progress', 1, parent: $openEpic);
+        $this->boardCard('In progress two', 'in-progress', 2);
+        $nestedEpic = $this->boardCard('Epic inside the open epic', 'in-progress', 3, parent: $openEpic, type: CardType::Epic);
+        $this->boardCard('Child of the nested epic', 'in-progress', 4, parent: $nestedEpic);
+        $this->boardCard('Second in progress child of the open epic', 'in-progress', 5, parent: $openEpic);
+
+        $restamped = $this->boardCard('Done recent', 'done', 0, completedAt: $second(3600));
+        $finished = $second(7200);
+        $this->boardCard('Done tie one', 'done', 0, $created, $finished);
+        $this->boardCard('Done tie two', 'done', 0, $created, $finished);
+        $doneEpic = $this->boardCard('Done epic', 'done', 0, completedAt: $second(10800), type: CardType::Epic);
+        $this->boardCard('Child of the done epic', 'done', 0, completedAt: $second(3600), parent: $doneEpic);
+        $this->boardCard('Done too long ago', 'done', 0, completedAt: $second(86400 * (ShowBoardHandler::TERMINAL_WINDOW_DAYS + 1)));
+        $this->boardCard('Child of the open epic', 'done', 0, completedAt: $second(14400), parent: $openEpic);
+        $this->boardCard('Later child of the open epic', 'done', 0, completedAt: $second(5400), parent: $openEpic);
+
+        $this->boardCard('Archived long ago', 'archive', 0, completedAt: $second(86400 * 10));
+        $this->boardCard('Archived child of the done epic', 'archive', 0, completedAt: $second(60), parent: $doneEpic);
+        $this->boardCard('Icebox', 'icebox', 0);
+        $this->boardCard('Last lane epic', 'icebox', 2, type: CardType::Epic);
+
+        // A bulk write the loaded cards do not see: the placement must read the rows.
+        $connection = $this->em->getConnection();
+        $connection->executeStatement('UPDATE board_cards SET position = -1 WHERE id = :id', ['id' => (string) $moved->id]);
+        $connection->executeStatement('UPDATE board_cards SET completed_at = :at WHERE id = :id', ['id' => (string) $restamped->id, 'at' => $second(18000)->format('Y-m-d H:i:s')]);
+
+        $cards = self::getContainer()->get(CardRepository::class)->findBy(['project' => $this->project]);
+        self::assertCount(25, $cards);
+
+        $lanes = $this->assertEveryPlacementMatchesTheBoardPage($cards, [6, 0, 6, 6, 0, 3]);
+        self::assertCount(3, $lanes);
+
+        foreach ($cards as $card) {
+            $card->laneEnabled = false;
+        }
+        $this->em->flush();
+
+        self::assertSame([], $this->assertEveryPlacementMatchesTheBoardPage($cards, [6, 0, 6, 6, 0, 3]));
+    }
+
+    /**
+     * @param list<Card> $cards
+     * @param list<int>  $columnCounts
+     *
+     * @return list<string> the lane epics of the board page, in their order
+     */
+    private function assertEveryPlacementMatchesTheBoardPage(array $cards, array $columnCounts): array
+    {
+        [$expected, $counts, $totals, $lanes] = $this->boardPagePlacements();
+        self::assertSame($columnCounts, array_values($counts));
+
+        foreach ($cards as $card) {
+            $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $card));
+            $place = $expected[(string) $card->id] ?? null;
+
+            self::assertSame($counts, $view->counts, $card->title);
+            self::assertSame($totals, $view->terminalTotals, $card->title);
+            if (null === $place) {
+                self::assertNull($view->card, $card->title);
+                self::assertNull($view->column, $card->title);
+                continue;
+            }
+
+            self::assertSame($card, $view->card, $card->title);
+            self::assertSame(
+                $place,
+                [(string) $view->column?->id, $view->after, $view->rowAfter, $view->lane, $view->laneHead, $view->laneAfter],
+                $card->title,
+            );
+        }
+
+        return $lanes;
+    }
+
+    /**
+     * The board page's reading: the list runs column by column, and a board
+     * with lanes places each card in the cell of its lane.
+     *
+     * @return array{array<string, array{string, ?string, ?string, ?string, bool, ?string}>, array<string, int>, array<string, int>, list<string>}
+     */
+    private function boardPagePlacements(): array
+    {
+        $showBoard = self::getContainer()->get(ShowBoardHandler::class);
+        self::assertInstanceOf(ShowBoardHandler::class, $showBoard);
+        $board = $showBoard(new ShowBoardCommand($this->project));
+
+        $laneEpics = array_map(static fn (BoardLaneView $lane): string => (string) $lane->epic?->id, $board->lanes);
+        $laneOf = static function (Card $card) use ($laneEpics): ?string {
+            if ([] === $laneEpics) {
+                return null;
+            }
+            $parentId = null === $card->parent ? null : (string) $card->parent->id;
+
+            return null !== $parentId && \in_array($parentId, $laneEpics, true) ? $parentId : BoardLanes::OTHER;
+        };
+
+        $afterInCell = [];
+        foreach ([...$board->lanes, ...(null === $board->otherCards ? [] : [$board->otherCards])] as $lane) {
+            foreach ($lane->cells as $cell) {
+                $previous = null;
+                foreach ($cell as $card) {
+                    $afterInCell[(string) $card->id] = $previous;
+                    $previous = (string) $card->id;
+                }
+            }
+        }
+
+        $expected = [];
+        $counts = [];
+        $totals = [];
+        $previousRow = null;
+        foreach ($board->columns as $columnView) {
+            self::assertInstanceOf(BoardColumnView::class, $columnView);
+            $columnId = (string) $columnView->column->id;
+            $counts[$columnId] = $columnView->count;
+            if (null !== $columnView->terminalTotal) {
+                $totals[$columnId] = $columnView->terminalTotal;
+            }
+            $previousInColumn = null;
+            foreach ($columnView->cards as $card) {
+                $id = (string) $card->id;
+                $laneIndex = array_search($id, $laneEpics, true);
+                $isLaneHead = \is_int($laneIndex);
+                $after = match (true) {
+                    $isLaneHead => null,
+                    [] === $laneEpics => $previousInColumn,
+                    default => $afterInCell[$id],
+                };
+                $laneAfter = $isLaneHead && $laneIndex > 0 ? $laneEpics[$laneIndex - 1] : null;
+                $expected[$id] = [$columnId, $after, $previousRow, $isLaneHead ? null : $laneOf($card), $isLaneHead, $laneAfter];
+                $previousInColumn = $previousRow = $id;
+            }
+        }
+
+        return [$expected, $counts, $totals, array_values($laneEpics)];
+    }
+
+    private function boardCard(
+        string $title,
+        string $slug,
+        int $position,
+        ?\DateTimeImmutable $createdAt = null,
+        ?\DateTimeImmutable $completedAt = null,
+        ?Card $parent = null,
+        CardType $type = CardType::Feature,
+    ): Card {
+        $card = new Card(
+            project: $this->project,
+            column: $this->column($this->project, $slug),
+            title: $title,
+            body: '',
+            number: $this->nextNumber++,
+            type: $type,
+            position: $position,
+            createdAt: $createdAt ?? new \DateTimeImmutable(),
+        );
+        $card->completedAt = $completedAt;
+        $card->parent = $parent;
+        $this->em->persist($card);
+        $this->em->flush();
+
+        return $card;
     }
 
     public function test_a_board_with_no_lane_gives_no_lane_key(): void
