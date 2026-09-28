@@ -6,9 +6,6 @@ const test = createTest({
     password: 'e2e_password_123',
 });
 
-// Twenty-one renames through the edit form fill a second page of events.
-test.setTimeout(150_000);
-
 // On a shared, loaded php-fpm one request in twenty stalled for up to 17s.
 const NAVIGATION = { timeout: 30_000 };
 
@@ -46,71 +43,84 @@ async function rename(page: Page, projectId: string, name: string) {
     ).toBeVisible(NAVIGATION);
 }
 
-test('the events list pages, searches and filters through the URL', async ({
+/** A card moved from Backlog to Next records one board.card_moved event that links to the card. */
+async function moveNewCard(page: Page, projectId: string, title: string) {
+    await page.goto(`/projects/${projectId}/board/cards/new`);
+    await page.getByLabel('Title', { exact: true }).fill(title);
+    await page.getByLabel('Column').selectOption({ label: 'Backlog' });
+    await page
+        .getByRole('button', { name: 'Create card', exact: true })
+        .click();
+    await expect(
+        page.getByRole('heading', { name: title, exact: true }),
+    ).toBeVisible(NAVIGATION);
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
+    await page.getByLabel('Column').selectOption({ label: 'Next' });
+    await expect(page).toHaveURL(/\/board$/, NAVIGATION);
+}
+
+// Paging, the clamp and the page links are proven in ActivityPageTest.
+test('the events list links, searches and filters through the URL', async ({
     page,
 }) => {
     await suppressWidget(page);
     const run = Date.now().toString(36);
     const projectId = await seedProject(page, `Events ${run}`);
-    for (let index = 1; index <= 21; index++) {
-        await rename(page, projectId, `Events ${run} ${index}`);
-    }
+    await rename(page, projectId, `Events ${run} renamed`);
+    const cardTitle = `Events card ${run}`;
+    await moveNewCard(page, projectId, cardTitle);
     const activityUrl = `/projects/${projectId}/activity`;
     const rows = page.locator('[data-activity-event-id]');
 
     await page.goto(activityUrl);
-    await expect(rows).toHaveCount(20);
+    await expect(rows).toHaveCount(2);
     await expect(page.locator('turbo-frame#activity-count')).toHaveText(
-        '21 events',
+        '2 events',
     );
-    await expect(rows.first().locator('.lp-data-table__title')).toHaveText(
-        'Project renamed',
-    );
-    await expect(rows.first().locator('.lp-tag')).toHaveText('Project');
-    await expect(rows.first().locator('.lp-status-chip')).toBeVisible();
-    // A rename links to no work, so its row opens nothing.
-    await expect(page.locator('.lp-data-table__target')).toHaveCount(0);
-
-    await page
-        .locator('.lp-pagination')
-        .getByRole('link', { name: '2', exact: true })
-        .click();
-    await expect(page).toHaveURL(/[?&]page=2(&|$)/, NAVIGATION);
-    await expect(rows).toHaveCount(1);
+    const moved = rows.filter({ hasText: 'Backlog → Next' });
+    await expect(moved.locator('.lp-tag')).toHaveText('Board');
+    await expect(moved.locator('.lp-status-chip')).toBeVisible();
 
     // The new slug is in the event data only, so this proves the search reads it.
     const search = page.getByRole('searchbox', { name: 'Search activity' });
-    await search.fill(`events-${run}-21`);
+    await search.fill(`events-${run}-renamed`);
     await expect(page).toHaveURL(
-        new RegExp(`search=events-${run}-21`),
+        new RegExp(`search=events-${run}-renamed`),
         NAVIGATION,
     );
-    await expect(page).not.toHaveURL(/[?&]page=2/);
     await expect(rows).toHaveCount(1);
-    await expect(page.locator('turbo-frame#activity-count')).toHaveText(
-        '1 event',
+    await expect(rows.first().locator('.lp-data-table__title')).toHaveText(
+        'Project renamed',
     );
+    // A rename links to no work, so its row opens nothing.
+    await expect(page.locator('.lp-data-table__target')).toHaveCount(0);
 
     await page.getByRole('link', { name: 'Clear', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${activityUrl}$`), NAVIGATION);
-    await expect(rows).toHaveCount(20);
+    await expect(rows).toHaveCount(2);
 
     const family = page.getByRole('combobox', {
         name: 'Filter by event family',
     });
-    await family.selectOption({ label: 'Board' });
-    await expect(page).toHaveURL(/[?&]family=board(&|$)/, NAVIGATION);
+    await family.selectOption({ label: 'Needs you' });
+    await expect(page).toHaveURL(/[?&]family=inbox(&|$)/, NAVIGATION);
     await expect(page.locator('[data-activity-filtered-empty]')).toHaveText(
         'No activity matches these filters.',
     );
-    await expect(rows).toHaveCount(0);
     await expect(search).toBeVisible();
 
     await page
         .getByRole('combobox', { name: 'Filter by event family' })
-        .selectOption({ label: 'Project' });
-    await expect(page).toHaveURL(/[?&]family=project(&|$)/, NAVIGATION);
-    await expect(rows).toHaveCount(20);
+        .selectOption({ label: 'Board' });
+    await expect(page).toHaveURL(/[?&]family=board(&|$)/, NAVIGATION);
+    await expect(rows).toHaveCount(1);
+
+    await rows.first().getByRole('link').click();
+    await expect(
+        page.getByRole('heading', { name: cardTitle, exact: true }),
+    ).toBeVisible(NAVIGATION);
+
+    await page.goto(activityUrl);
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.addStyleTag({ content: 'html { font-size: 200%; }' });
