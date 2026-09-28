@@ -34,8 +34,6 @@ export function placeCard(stream) {
         return;
     }
 
-    leaveDeck(cardId, stream.dataset.columnId);
-
     if (stream.hasAttribute('data-lane-head')) {
         placeLaneHead(stream, cardId, counts, history, historyTotals);
 
@@ -59,6 +57,7 @@ export function placeCard(stream) {
         return;
     }
 
+    leaveDeck(cardId, stream.dataset.columnId);
     const content = stream.querySelector('template').content.cloneNode(true);
     const rowAnchor = rowAfter ?? list.querySelector('.lp-board-list__header');
     place(
@@ -125,6 +124,7 @@ function placeLaneHead(stream, cardId, counts, history, historyTotals) {
         return;
     }
 
+    leaveDeck(cardId, stream.dataset.columnId);
     const content = stream.querySelector('template').content.cloneNode(true);
     const rowAnchor = rowAfter ?? list.querySelector('.lp-board-list__header');
     // The lane controller owns the collapse, and the fresh head always says expanded.

@@ -107,6 +107,29 @@ describe('board-place', () => {
         expect(document.getElementById('board-deck-card-d')).not.toBeNull();
     });
 
+    it('keeps a deck card when its placement misses', () => {
+        document
+            .getElementById('board')
+            .insertAdjacentHTML(
+                'afterbegin',
+                '<div class="lp-deck"><article id="board-deck-card-d" data-card-id="d"></article></div>',
+            );
+        const missed = vi.fn();
+        document.addEventListener('board:place-missed', missed, { once: true });
+
+        placeCard(
+            stream({
+                id: 'd',
+                column: NEXT,
+                after: 'not-on-the-page',
+                counts: { [BACKLOG]: 2, [NEXT]: 2 },
+            }),
+        );
+
+        expect(missed).toHaveBeenCalledOnce();
+        expect(document.getElementById('board-deck-card-d')).not.toBeNull();
+    });
+
     it('registers itself as a Turbo stream action', () => {
         expect(typeof StreamActions['board-place']).toBe('function');
     });
