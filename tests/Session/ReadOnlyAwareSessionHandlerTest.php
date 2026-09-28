@@ -164,22 +164,18 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
         self::assertSame('data', $handler->read('sid'));
     }
 
-    public function test_it_times_the_first_open_of_each_inner_handler_as_the_session_connect(): void
+    public function test_it_times_every_open_as_the_session_connect(): void
     {
         $locking = self::stubInner();
         $locking->method('open')->willReturn(true);
-        $nonLocking = self::stubInner();
-        $nonLocking->method('open')->willReturn(true);
+        $locking->method('close')->willReturn(true);
         $requests = new RequestStack();
+        $requests->push(Request::create('/login', Request::METHOD_POST));
         $timeline = new RequestTimeline($this->createStub(HubInterface::class));
-        $handler = new ReadOnlyAwareSessionHandler($locking, $nonLocking, $requests, $timeline);
+        $handler = new ReadOnlyAwareSessionHandler($locking, self::stubInner(), $requests, $timeline);
 
-        $requests->push(Request::create('/board', Request::METHOD_POST));
         $handler->open('', 'PHPSESSID');
-        $handler->open('', 'PHPSESSID');
-        $requests->pop();
-        $requests->push(Request::create('/board'));
-        $handler->open('', 'PHPSESSID');
+        $handler->close();
         $handler->open('', 'PHPSESSID');
 
         $connects = array_values(array_filter(
@@ -188,7 +184,7 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
         ));
         self::assertCount(2, $connects);
         self::assertSame(['session.mode' => 'locking'], $connects[0]->data);
-        self::assertSame(['session.mode' => 'non-locking'], $connects[1]->data);
+        self::assertSame(['session.mode' => 'locking'], $connects[1]->data);
     }
 
     public function test_with_no_hub_span_it_records_each_read_with_the_lock_it_took(): void

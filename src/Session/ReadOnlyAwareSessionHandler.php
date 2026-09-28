@@ -20,9 +20,6 @@ final class ReadOnlyAwareSessionHandler implements \SessionHandlerInterface, \Se
 
     private SessionLockMode $mode = SessionLockMode::Locking;
 
-    /** @var array<int, true> */
-    private array $opened = [];
-
     public function __construct(
         public readonly \SessionHandlerInterface&\SessionUpdateTimestampHandlerInterface $locking,
         public readonly \SessionHandlerInterface&\SessionUpdateTimestampHandlerInterface $nonLocking,
@@ -37,13 +34,7 @@ final class ReadOnlyAwareSessionHandler implements \SessionHandlerInterface, \Se
         $this->mode = $this->modeFor($this->requestStack->getMainRequest());
         $inner = $this->inner();
 
-        if (isset($this->opened[spl_object_id($inner)])) {
-            return $inner->open($path, $name);
-        }
-
-        $this->opened[spl_object_id($inner)] = true;
-
-        // A PdoSessionHandler builds its PDO on its first open(), so this times the connect.
+        // A DSN PdoSessionHandler drops its PDO in close() and connects again in open().
         return $this->timeline->span(
             'session.connect',
             static fn (): bool => $inner->open($path, $name),
