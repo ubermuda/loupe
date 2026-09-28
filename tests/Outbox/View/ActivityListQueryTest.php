@@ -65,6 +65,6 @@ final class ActivityListQueryTest extends TestCase
     /** @param array<string, string> $params */
     private static function read(array $params): ActivityListQuery
     {
-        return ActivityListQuery::fromQuery(Request::create('/', 'GET', $params)->query);
+        return ActivityListQuery::fromQuery(Request::create('/', Request::METHOD_GET, $params)->query);
     }
 }
