@@ -746,6 +746,54 @@ it('fetches no extra card for a history total when a changed card refreshes the 
     expect(placements()).toEqual(['b']);
 });
 
+it('sets the Backlog count from the manifest on a reconnect, with no placement', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a class="lp-board-backlog" data-column="bl"><span id="board-count-bl">3</span></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+            ],
+            structure: 'frame',
+            terminalTotals: {},
+            backlogCount: 5,
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(document.getElementById('board-count-bl').textContent).toBe('5');
+    expect(placements()).toEqual([]);
+});
+
+it('keeps the Backlog count of a manifest that has none', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a class="lp-board-backlog" data-column="bl"><span id="board-count-bl">3</span></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+            ],
+            structure: 'frame',
+            terminalTotals: {},
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(document.getElementById('board-count-bl').textContent).toBe('3');
+});
+
 it('resyncs the structure when a history total changed and the board has no card', async () => {
     document.getElementById('board').innerHTML =
         '<a id="board-history-done" data-history-total="1"></a>';

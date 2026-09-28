@@ -421,6 +421,13 @@ export default class extends Controller {
         const backlogId = this.element.querySelector(
             '.lp-board-backlog[data-column]',
         )?.dataset.column;
+        // A Backlog card with no epic has no placement to carry the count.
+        const backlogCount = document.getElementById(
+            `board-count-${backlogId}`,
+        );
+        if (backlogCount !== null && Number.isInteger(manifest.backlogCount)) {
+            backlogCount.textContent = String(manifest.backlogCount);
+        }
         const rowIds = new Set(
             [
                 ...this.element.querySelectorAll(

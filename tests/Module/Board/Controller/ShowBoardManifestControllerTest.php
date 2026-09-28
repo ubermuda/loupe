@@ -228,6 +228,27 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertSame($page['historyTotals'], $manifest['terminalTotals']);
     }
 
+    public function test_the_backlog_count_is_the_one_the_backlog_button_shows(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'manifest-backlog-count@example.com');
+        $project = $this->project($em, $owner);
+        $this->card($em, $project, 'Waiting');
+        $this->card($em, $project, 'Also waiting', 'backlog', 1);
+        $this->card($em, $project, 'Started', 'next');
+        $backlogId = (string) $this->column($project, 'backlog')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $manifest = $this->manifest($client, $project);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertSame(2, $manifest['backlogCount']);
+        self::assertSame('2', $crawler->filter('#board-count-'.$backlogId)->text());
+    }
+
     public function test_a_digest_changes_with_the_parent_title(): void
     {
         $client = static::createClient();
@@ -473,15 +494,15 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         return '/projects/'.$project->id.'/board/manifest';
     }
 
-    /** @return array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>} */
+    /** @return array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>, backlogCount: int} */
     private function manifest(KernelBrowser $client, Project $project): array
     {
         $client->request(Request::METHOD_GET, $this->manifestUrl($project));
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        /** @var array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>} $manifest */
+        /** @var array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>, backlogCount: int} $manifest */
         $manifest = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
-        self::assertSame(['cards', 'structure', 'terminalTotals'], array_keys($manifest));
+        self::assertSame(['cards', 'structure', 'terminalTotals', 'backlogCount'], array_keys($manifest));
 
         return $manifest;
     }
@@ -539,7 +560,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     }
 
     /**
-     * @param array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>} $manifest
+     * @param array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>, backlogCount: int} $manifest
      *
      * @return list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>
      */
@@ -548,7 +569,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         return array_values(array_filter($manifest['cards'], static fn (array $entry): bool => !isset($entry[4])));
     }
 
-    /** @param array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>} $manifest */
+    /** @param array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>, backlogCount: int} $manifest */
     private function digestOf(array $manifest, Card $card): string
     {
         $digests = array_column($manifest['cards'], 1, 0);

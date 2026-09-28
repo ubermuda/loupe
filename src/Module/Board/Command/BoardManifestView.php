@@ -6,7 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Module\Project\Entity\Project;
 
-/** The digest and column of every card and lane epic on the board page, the digest of the board's frame, and the total of each history link. */
+/** The digest and column of every card and lane epic on the board page, the digest of the board's frame, the total of each history link, and the Backlog count. */
 final readonly class BoardManifestView
 {
     public function __construct(
@@ -16,6 +16,8 @@ final readonly class BoardManifestView
         public string $structure,
         /** @var array<string, int> the card count of each terminal column, by column id */
         public array $terminalTotals,
+        /** The count the Backlog button shows, which a card with no placement on the page still changes. */
+        public int $backlogCount,
     ) {
     }
 }

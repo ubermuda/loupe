@@ -63,6 +63,6 @@ final readonly class ShowBoardManifestHandler
             $cards[] = [$id, $headDigest, (string) $board->backlog->id, $id, $headDigest];
         }
 
-        return new BoardManifestView($command->project, $cards, $board->structureDigest, $terminalTotals);
+        return new BoardManifestView($command->project, $cards, $board->structureDigest, $terminalTotals, $board->backlogCount);
     }
 }
