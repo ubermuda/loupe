@@ -144,17 +144,18 @@ final readonly class ProjectShowcaseSeeder
             '<h1>Worker run history</h1><h2>The problem</h2><p>When an agent finishes, its output disappears into a terminal session. A person needs to see what ran, what happened, and which card it belonged to.</p><h2>Proposed approach</h2><p>Give every reported run a place in the project. Show its outcome, duration, matched rule, and the card that started it.</p>',
         );
         $history->addVersion(
-            "# Worker run history\n\n## The problem\n\nWhen an agent finishes, its output disappears into a terminal session.\n\n## Failure and recovery\n\nA failed run shows the original output and the reason it stopped. A retry starts a new run and preserves the earlier attempt.\n",
-            '<h1>Worker run history</h1><h2>The problem</h2><p>When an agent finishes, its output disappears into a terminal session.</p><h2>Failure and recovery</h2><p>A failed run shows the original output and the reason it stopped. A retry starts a new run and preserves the earlier attempt.</p>',
+            "# Worker run history\n\n## The problem\n\nWhen an agent finishes, its output disappears into a terminal session.\n\n## Failure and recovery\n\nA failed run shows the original output and the reason it stopped. A retry starts a new run and preserves the earlier attempt. The matched rule keeps its label after a rename, as C1 requires.\n",
+            '<h1>Worker run history</h1><h2>The problem</h2><p>When an agent finishes, its output disappears into a terminal session.</p><h2>Failure and recovery</h2><p>A failed run shows the original output and the reason it stopped. A retry starts a new run and preserves the earlier attempt. The matched rule keeps its label after a rename, as C1 requires.</p>',
             'Answered the failure question.',
         );
 
         $rules = new Document($owner, $project, 'Column rules');
         $rules->addVersion(
-            "# Column rules\n\n## Renaming a column\n\nA rule points at a column by its stable id, so a rename keeps the rule attached. The board shows the new label everywhere the old one appeared.\n",
-            '<h1>Column rules</h1><h2>Renaming a column</h2><p>A rule points at a column by its stable id, so a rename keeps the rule attached. The board shows the new label everywhere the old one appeared.</p>',
+            "# Column rules\n\n## Renaming a column\n\nA rule points at a column by its stable id, so a rename keeps the rule attached. The board shows the new label everywhere the old one appeared.\n\n## Constraints\n\n1. **C1: A rename keeps every rule attached.** The rule stores the column id, not its label.\n2. **C2: A deleted column disables its rules.** The board lists them for review.\n\nC2 matters less than C1 while columns are rarely deleted.\n",
+            '<h1>Column rules</h1><h2>Renaming a column</h2><p>A rule points at a column by its stable id, so a rename keeps the rule attached. The board shows the new label everywhere the old one appeared.</p><h2>Constraints</h2><ol><li><strong>C1: A rename keeps every rule attached.</strong> The rule stores the column id, not its label.</li><li><strong>C2: A deleted column disables its rules.</strong> The board lists them for review.</li></ol><p>C2 matters less than C1 while columns are rarely deleted.</p>',
         );
         $rules->status = DocumentStatus::Approved;
+        $history->addReference($rules);
 
         foreach ([$history, $rules] as $document) {
             $this->em->persist($document);
