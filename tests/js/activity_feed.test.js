@@ -194,9 +194,21 @@ it('hides the filter bar until the project has an event', async () => {
     fetch.mockResolvedValue(response(''));
     await controller.refresh();
     expect(controller.filtersTarget.hidden).toBe(true);
+    expect(controller.feedTarget.hidden).toBe(true);
     fetch.mockResolvedValue(response(row('first')));
     await controller.refresh();
     expect(controller.filtersTarget.hidden).toBe(false);
+    expect(controller.feedTarget.hidden).toBe(false);
+});
+
+it('hides the feed box while the filter matches no row', () => {
+    controller.familyTarget.value = 'document';
+    controller.filter();
+    expect(controller.feedTarget.hidden).toBe(true);
+    expect(controller.emptyTarget.hidden).toBe(false);
+    controller.familyTarget.value = 'all';
+    controller.filter();
+    expect(controller.feedTarget.hidden).toBe(false);
 });
 
 it('names the refresh interval only while the feed is live', async () => {

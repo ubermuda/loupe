@@ -165,7 +165,7 @@ to it. The columns read side by side, in board order. Each card shows its
 number, its title, its type, how many pull requests it links to, and how many
 review comments still wait on it.
 A card whose latest worker run gave up or is blocked also shows a warning. See
-[Worker runs](worker-runs.md#a-warning-on-the-card).
+[A warning on the card](worker-runs.md#a-warning-on-the-card).
 
 Each card type and each column has a colour, and every page that names one uses
 the same colour. The owner picks a column's colour from twelve in its
@@ -222,8 +222,10 @@ Every open board of the project shows a change as it happens, with no reload.
   The next change to that card, or a reload of the page, removes the mark.
 
 When the connection to the server stops for about 5 seconds, the toolbar
-shows **Live updates paused**. When the connection comes back, the board loads
-again in place and catches up. The sign then goes away.
+shows **Live updates paused**. When the connection comes back, the board asks
+the server which cards changed, and only those cards update. A change to the
+columns or to an epic lane still loads the board again in place. The sign then
+goes away.
 
 Live changes need a Mercure hub and the `live_updates.enabled` flag, see
 [Environment variables](../reference/environment.md). If either is missing,
@@ -288,7 +290,7 @@ with no drag. That is the way to move a card from a keyboard.
 
 The page also lists the card's five latest agent runs, with the rule that
 started each run, when it ran, how long it took and how it ended. A run opens
-its details on the run history page.
+its details on the **Runs** tab of the Activity page.
 
 A card with links to other cards shows a **Linked cards** table. Each row gives
 the kind of link, the other card's number, its title and its column. A row opens

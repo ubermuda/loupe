@@ -109,15 +109,10 @@
                         <span class="lp-sidebar__link-label">{{ 'nav.link.rules'|trans }}</span>
                     </a>
                     {% endif %}
+                    {% set activityActive = route in ['app_project_worker_runs', 'app_project_activity', 'app_project_worker_run_cost'] %}
                     <a href="{{ path('app_project_worker_runs', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if route in ['app_project_worker_runs', 'app_project_worker_run_cost'] %} lp-sidebar__link--active{% endif %}"
-                       {% if route in ['app_project_worker_runs', 'app_project_worker_run_cost'] %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:history" />
-                        <span class="lp-sidebar__link-label">{{ 'nav.link.worker_runs'|trans }}</span>
-                    </a>
-                    <a href="{{ path('app_project_activity', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if route == 'app_project_activity' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_project_activity' %}aria-current="page"{% endif %}>
+                       class="lp-sidebar__link{% if activityActive %} lp-sidebar__link--active{% endif %}"
+                       {% if activityActive %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:activity" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.activity'|trans }}</span>
                     </a>

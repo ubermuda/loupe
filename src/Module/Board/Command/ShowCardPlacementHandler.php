@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
+use App\Module\Board\Service\BoardLanes;
 
+/** Reads one card and its neighbours, so the cost does not grow with the board. */
 final readonly class ShowCardPlacementHandler
 {
     public function __construct(
@@ -25,85 +27,68 @@ final readonly class ShowCardPlacementHandler
 
     public function __invoke(ShowCardPlacementCommand $command): CardPlacementView
     {
-        $cardId = null === $command->card ? null : (string) $command->card->id;
+        $windowStart = BoardColumnCards::windowStart();
+        $columns = $this->boardColumns->findForProject($command->project);
+
+        $stored = $this->columnCards->counts($command->project, $windowStart);
         $counts = [];
         $terminalTotals = [];
-        $found = null;
-        $column = null;
-        $after = null;
-        $rowAfter = null;
-        $previousRow = null;
-        $lane = null;
-        $laneHead = false;
-
-        // Every column is read as the board page reads it, so the list order
-        // across columns and the counts come from the same query as the page.
-        $shownByColumn = [];
-        $laneEpics = [];
-        foreach ($this->boardColumns->findForProject($command->project) as $boardColumn) {
-            $shown = $this->columnCards->shown($boardColumn);
-            $shownByColumn[] = [$boardColumn, $shown];
-            $counts[(string) $boardColumn->id] = \count($shown);
+        foreach ($columns as $boardColumn) {
+            $id = (string) $boardColumn->id;
+            $counts[$id] = $stored[$id]['shown'] ?? 0;
             if ($boardColumn->terminal) {
-                $terminalTotals[(string) $boardColumn->id] = $this->cards->countInColumn($boardColumn);
-            }
-            foreach ($shown as $card) {
-                if ($card->drawsLane()) {
-                    $laneEpics[(string) $card->id] = true;
-                }
+                $terminalTotals[$id] = $stored[$id]['total'] ?? 0;
             }
         }
 
-        foreach ($shownByColumn as [$boardColumn, $shown]) {
-            $previousInLane = [];
-            foreach ($shown as $card) {
-                $id = (string) $card->id;
-                $cardLane = self::laneOf($card, $laneEpics);
-                $isLaneHead = isset($laneEpics[$id]);
-                if ($id === $cardId) {
-                    [$found, $column, $rowAfter, $lane, $laneHead] = [$card, $boardColumn, $previousRow, $cardLane, $isLaneHead];
-                    $after = $isLaneHead ? null : ($previousInLane[$cardLane ?? ''] ?? null);
-                }
-                if (!$isLaneHead) {
-                    $previousInLane[$cardLane ?? ''] = $id;
-                }
-                $previousRow = $id;
-            }
+        $card = $command->card;
+        $columnId = null === $card ? null : $this->columnCards->shownColumnId($card, $windowStart);
+        $index = null === $columnId ? null : array_find_key($columns, static fn (BoardColumn $column): bool => (string) $column->id === $columnId);
+        if (null === $card || null === $index) {
+            return new CardPlacementView(null, null, null, null, 0, 0, $counts, $terminalTotals, null, null, false, null);
         }
 
-        // The board page draws the lanes in the order sortIntoLanes() finds their epics.
-        $laneAfter = null;
+        $column = $columns[$index];
+        $previous = $this->columnCards->previousShown($card, $column, $windowStart);
+        $rowAfter = $previous;
+        for ($earlier = $index - 1; null === $rowAfter && $earlier >= 0; --$earlier) {
+            $rowAfter = $this->columnCards->lastShown($columns[$earlier], $windowStart);
+        }
+
+        $laneEpicIds = $this->columnCards->laneEpicIds($command->project, $columns);
+        $lane = null;
+        $laneIndex = array_search((string) $card->id, $laneEpicIds, true);
+        $laneHead = \is_int($laneIndex);
+        $laneAfter = $laneHead && $laneIndex > 0 ? $laneEpicIds[$laneIndex - 1] : null;
         if ($laneHead) {
-            $epicIds = array_map(strval(...), array_keys($laneEpics));
-            $index = array_search($cardId, $epicIds, true);
-            $laneAfter = \is_int($index) && $index > 0 ? $epicIds[$index - 1] : null;
+            $after = null;
+        } elseif ([] === $laneEpicIds) {
+            $after = $previous;
+        } else {
+            $parentId = null === $card->parent ? null : (string) $card->parent->id;
+            $lane = null !== $parentId && \in_array($parentId, $laneEpicIds, true) ? $parentId : BoardLanes::OTHER;
+            $after = $this->columnCards->previousShown($card, $column, $windowStart, $lane, $laneEpicIds);
         }
-
-        $pending = null === $found ? 0 : ($this->cardSiteReviewComments->pendingCountsForProject($command->project)[(string) $found->id] ?? 0);
-        $documentCount = null === $found ? 0 : ($this->cardDocuments->countsForProject($command->project)[(string) $found->id] ?? 0);
 
         $progress = null;
-        if (CardType::Epic === $found?->type) {
-            $children = $this->cards->childProgressForProject($command->project)[(string) $found->id] ?? ['done' => 0, 'total' => 0];
+        if (CardType::Epic === $card->type) {
+            $children = $this->cards->childProgressOf($card);
             $progress = new CardProgress($children['done'], $children['total']);
         }
 
-        return new CardPlacementView($found, $column, $after, $rowAfter, $pending, $documentCount, $counts, $terminalTotals, $progress, $lane, $laneHead, $laneAfter);
-    }
-
-    /**
-     * The lane key the board page gives a card, as ShowBoardHandler sorts it:
-     * the id of its lane epic, "other", or null on a board with no lane.
-     *
-     * @param array<string, true> $laneEpics
-     */
-    private static function laneOf(Card $card, array $laneEpics): ?string
-    {
-        if ([] === $laneEpics) {
-            return null;
-        }
-        $parentId = null === $card->parent ? null : (string) $card->parent->id;
-
-        return null !== $parentId && isset($laneEpics[$parentId]) ? $parentId : 'other';
+        return new CardPlacementView(
+            $card,
+            $column,
+            $after,
+            $rowAfter,
+            $this->cardSiteReviewComments->pendingCountForCard($card),
+            $this->cardDocuments->countForCard($card),
+            $counts,
+            $terminalTotals,
+            $progress,
+            $lane,
+            $laneHead,
+            $laneAfter,
+        );
     }
 }

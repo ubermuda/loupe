@@ -1,0 +1,16 @@
+{#
+  Props:  @comment-budget-ignore
+    columns    list<{label: string, align?: 'start'|'end'}>   Translated header labels, in column order.
+    modifier   string   Adds lp-data-table--{modifier}, whose rule sets --lp-data-table-columns. Optional.
+
+  The frame and header of a list table. The caller renders each .lp-data-table__row in the content block.
+#}
+{% props columns, modifier = null %}
+<div class="lp-data-table{{ modifier ? ' lp-data-table--' ~ modifier }}">
+    <div class="lp-data-table__header" aria-hidden="true">
+        {% for column in columns %}
+            <span class="lp-data-table__cell{{ (column.align ?? 'start') == 'end' ? ' lp-data-table__cell--end' }}">{{ column.label }}</span>
+        {% endfor %}
+    </div>
+    {% block content %}{% endblock %}
+</div>

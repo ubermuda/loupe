@@ -1,7 +1,7 @@
         {% for entry in entries %}
         {% set event = entry.event %}
-        {% set family = event.type|split('.')|first %}
-        {% set family = family == 'review' ? 'document' : family %}
+        {% set activity_family = entry.family() %}
+        {% set family = activity_family ? activity_family.prefix() : event.type|split('.')|first %}
         <article class="lp-activity-row" data-activity-event-id="{{ event.id }}" data-event-family="{{ family }}" data-activity-filter-target="row">
             <div class="lp-activity-row__icon">
                 {% include 'outbox/_event_family_icon.html.twig' with {family: family} only %}

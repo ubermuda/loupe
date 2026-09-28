@@ -540,8 +540,9 @@ call. Each event names its project in `projectId`.
 `board.card_moved` and `document.review_submitted` carry a `card` key,
 `{"interactiveRun": true}` or `{"interactiveRun": false}`. The value is `true`
 when an interactive session has an open run on the card as Loupe writes the
-event. `card_run_open` opens such a run, and the [Worker runs](../using/worker-runs.md#interactive-sessions)
-page says what closes it. A move to another column closes every open run of the
+event. `card_run_open` opens such a run, and the
+[Runs tab](../using/worker-runs.md#interactive-sessions) of the Activity page
+says what closes it. A move to another column closes every open run of the
 card first. So a `board.card_moved` event carries `true` only for the move that
 `card_run_open` makes, or for a move inside one column.
 `document.review_submitted` omits the key when it names no stage card.
@@ -741,7 +742,8 @@ The bridge reports each launch to
 an interactive run in the state `running`, with the rule name and the bridge id.
 The session's `/loupe:product-design` skill calls `card_run_open` with the same
 session id, and takes over that run. So the
-[Worker runs](../using/worker-runs.md#interactive-sessions) page shows one row.
+[Runs tab](../using/worker-runs.md#interactive-sessions) of the Activity page
+shows one row.
 The run ends as `closed` when the skill calls `card_run_close`, when the card
 moves, or when a person closes it on that page. A failed launch records a
 `not-started` run, with the exit code and the launcher output as its reason.

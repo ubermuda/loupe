@@ -152,9 +152,31 @@ final class ShowWorkerRunCostControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/cost?range=thirty-days');
 
         self::assertResponseIsSuccessful();
-        self::assertSame('No finished card with usage in this range.', trim($crawler->filter('[data-cost-empty]')->text()));
+        self::assertSame('No finished card with usage in this range.', trim($crawler->filter('[data-cost-empty] .lp-empty-state__title')->text()));
         self::assertCount(0, $crawler->filter('[data-cost-bar]'));
-        self::assertSame('0', $crawler->filter('[data-cost-cards]')->text());
+        self::assertCount(0, $crawler->filter('[data-cost-summary]'));
+        self::assertCount(0, $crawler->filter('[data-cost-basis]'));
+        // The user's own range emptied the view, so the range toggle stays to lead back.
+        self::assertCount(1, $crawler->filter('.lp-cost-controls'));
+    }
+
+    public function test_a_project_with_no_usage_shows_the_empty_state_without_the_controls(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'cost-none@example.com');
+        $project = $this->boardProject($em, $owner);
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/cost');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('No recorded usage', trim($crawler->filter('[data-cost-empty] .lp-empty-state__title')->text()));
+        self::assertCount(0, $crawler->filter('.lp-cost-controls'));
+        self::assertCount(0, $crawler->filter('[data-cost-summary]'));
+        self::assertCount(0, $crawler->filter('[data-cost-basis]'));
     }
 
     public function test_another_users_project_is_refused(): void
@@ -171,23 +193,6 @@ final class ShowWorkerRunCostControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/cost');
 
         self::assertResponseStatusCodeSame(403);
-    }
-
-    public function test_the_runs_tab_links_to_the_cost_tab(): void
-    {
-        $client = static::createClient();
-        $em = $this->em();
-        $owner = $this->user($em, 'cost-tabs@example.com');
-        $project = $this->boardProject($em, $owner);
-        $projectId = (string) $project->id;
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
-
-        self::assertResponseIsSuccessful();
-        self::assertSame('Runs', trim($crawler->filter('.lp-tabs__tab[aria-current="page"]')->text()));
-        self::assertSame('/projects/'.$projectId.'/worker-runs/cost', $crawler->filter('.lp-tabs__tab')->eq(1)->attr('href'));
     }
 
     private function boardProject(EntityManagerInterface $em, User $owner): Project

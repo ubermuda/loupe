@@ -7,11 +7,12 @@ namespace App\Module\Board\Service;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Project\Entity\Project;
 
 /**
  * The cards the board shows in one column, in the order it shows them. The
- * board page and the one-card placement both read a column here, so the
- * order and the column counts cannot drift apart.
+ * board page reads whole columns here, and the one-card placement reads one
+ * card and its neighbours, so the order and the column counts cannot drift apart.
  */
 final readonly class BoardColumnCards
 {
@@ -28,16 +29,76 @@ final readonly class BoardColumnCards
     ) {
     }
 
+    /** The oldest completion a terminal column shows now. Read it once per request. */
+    public static function windowStart(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable(\sprintf('-%d days', self::TERMINAL_WINDOW_DAYS));
+    }
+
     /** @return list<Card> */
     public function shown(BoardColumn $column): array
     {
         if ($column->terminal) {
-            return $this->cards->findCompletedSince(
-                $column,
-                new \DateTimeImmutable(\sprintf('-%d days', self::TERMINAL_WINDOW_DAYS)),
-            );
+            return $this->cards->findCompletedSince($column, self::windowStart());
         }
 
         return $this->cards->findForBoard([$column]);
+    }
+
+    /** The id of the column that shows the card, or null when the board does not show it. */
+    public function shownColumnId(Card $card, \DateTimeImmutable $windowStart): ?string
+    {
+        return $this->cards->shownColumnIdOf($card, $windowStart);
+    }
+
+    /**
+     * The id of the card shown just before this shown card in its column, or
+     * null when it comes first. With a lane, only the cards of that lane count.
+     *
+     * @param list<string> $laneEpicIds
+     */
+    public function previousShown(Card $card, BoardColumn $column, \DateTimeImmutable $windowStart, ?string $lane = null, array $laneEpicIds = []): ?string
+    {
+        return $this->cards->previousShownIdOf($card, $column, $windowStart, $lane, $laneEpicIds);
+    }
+
+    /**
+     * The ids of the epics the board draws as lanes, in the order the board
+     * page draws the lanes: column by column, then down each column.
+     *
+     * @param list<BoardColumn> $columns the columns of the project, in board order
+     *
+     * @return list<string>
+     */
+    public function laneEpicIds(Project $project, array $columns): array
+    {
+        $byColumn = [];
+        foreach ($this->cards->laneEpicRowsOf($project) as $row) {
+            $byColumn[$row['column_id']][] = $row['id'];
+        }
+
+        $ids = [];
+        foreach ($columns as $column) {
+            array_push($ids, ...($byColumn[(string) $column->id] ?? []));
+        }
+
+        return $ids;
+    }
+
+    /** The id of the last card the column shows, or null when it shows none. */
+    public function lastShown(BoardColumn $column, \DateTimeImmutable $windowStart): ?string
+    {
+        return $this->cards->lastShownIdIn($column, $windowStart);
+    }
+
+    /**
+     * For each column of the project that holds a card, every card it holds
+     * and the cards it shows.
+     *
+     * @return array<string, array{total: int, shown: int}> column id => its counts
+     */
+    public function counts(Project $project, \DateTimeImmutable $windowStart): array
+    {
+        return $this->cards->shownCountsOf($project, $windowStart);
     }
 }
