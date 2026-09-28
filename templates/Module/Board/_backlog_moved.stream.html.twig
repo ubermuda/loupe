@@ -1,0 +1,16 @@
+{#- Cards left the Backlog page. Props: project (Project), movedIds (list<string>), column (BoardColumn), view (ListBacklogCardsView), listQuery (BacklogListQuery), refill (bool). -#}
+{% if refill %}
+<turbo-stream action="update" target="backlog-results">
+    <template>{% include '@Board/_backlog_results.html.twig' with {project: project, view: view, listQuery: listQuery} only %}</template>
+</turbo-stream>
+{% else %}
+{% for movedId in movedIds %}
+<turbo-stream action="remove" target="backlog-row-{{ movedId }}"></turbo-stream>
+{% endfor %}
+{% endif %}
+<turbo-stream action="update" target="backlog-filter-count">
+    <template>{% include '@Board/_backlog_count.html.twig' with {view: view, listQuery: listQuery} only %}</template>
+</turbo-stream>
+<turbo-stream action="update" target="backlog-confirmation">
+    <template><p class="lp-backlog-notice" role="status"><span class="lp-flash__dot"></span>{{ 'board.backlog.moved'|trans({'%count%': movedIds|length, '%column%': column.label|trans}) }}</p></template>
+</turbo-stream>

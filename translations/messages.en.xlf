@@ -5124,6 +5124,66 @@
                 <source>board.backlog.empty_filtered.body</source>
                 <target>Nothing in the Backlog matches these filters. Clear them to see every card.</target>
             </trans-unit>
+            <trans-unit id="board.backlog.table.actions">
+                <source>board.backlog.table.actions</source>
+                <target>Actions</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.select_all">
+                <source>board.backlog.select_all</source>
+                <target>Select every card on this page</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.select_card">
+                <source>board.backlog.select_card</source>
+                <target>Select card #%number%</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.drag">
+                <source>board.backlog.drag</source>
+                <target>Drag to change the rank</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.move_to">
+                <source>board.backlog.move_to</source>
+                <target>Move to</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.move_card">
+                <source>board.backlog.move_card</source>
+                <target>Move card #%number% to a column</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.moved">
+                <source>board.backlog.moved</source>
+                <target>{0}No card moved.|{1}1 card moved to %column%.|]1,Inf[ %count% cards moved to %column%.</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.bulk.selected">
+                <source>board.backlog.bulk.selected</source>
+                <target>selected</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.bulk.move_to_next">
+                <source>board.backlog.bulk.move_to_next</source>
+                <target>Move to %column%</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.bulk.move_to">
+                <source>board.backlog.bulk.move_to</source>
+                <target>Move to…</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.bulk.clear">
+                <source>board.backlog.bulk.clear</source>
+                <target>Clear</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.error.not_in_backlog">
+                <source>board.backlog.error.not_in_backlog</source>
+                <target>A card you chose is no longer in the Backlog. Reload the page and try again.</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.error.target_is_backlog">
+                <source>board.backlog.error.target_is_backlog</source>
+                <target>Choose a column of the board.</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.error.none_chosen">
+                <source>board.backlog.error.none_chosen</source>
+                <target>Tick at least one card.</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.error.too_many">
+                <source>board.backlog.error.too_many</source>
+                <target>You can move one page of cards at most at once.</target>
+            </trans-unit>
             <trans-unit id="board.backlog.empty.title">
                 <source>board.backlog.empty.title</source>
                 <target>The Backlog is empty</target>

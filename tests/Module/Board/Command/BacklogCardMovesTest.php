@@ -1,0 +1,243 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Module\Board\Command;
+
+use App\Exception\DomainErrors;
+use App\Module\Account\Entity\User;
+use App\Module\Board\Command\BulkMoveBacklogCardsCommand;
+use App\Module\Board\Command\BulkMoveBacklogCardsHandler;
+use App\Module\Board\Command\CreateCardCommand;
+use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Command\EpicChildrenOpen;
+use App\Module\Board\Command\MoveBacklogCardCommand;
+use App\Module\Board\Command\MoveBacklogCardHandler;
+use App\Module\Board\Command\RankBacklogCardCommand;
+use App\Module\Board\Command\RankBacklogCardHandler;
+use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardType;
+use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
+use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+/** The three writes of the Backlog page, each a shell over UpdateCardHandler. */
+final class BacklogCardMovesTest extends KernelTestCase
+{
+    use BoardColumnFixtures;
+
+    private EntityManagerInterface $em;
+    private Project $project;
+
+    protected function setUp(): void
+    {
+        self::bootKernel();
+
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $this->em = $em;
+
+        $owner = new User(fullName: 'Riley', email: 'backlog-moves-'.uniqid().'@example.com', password: 'hashed');
+        $this->em->persist($owner);
+        $this->project = new Project($owner, 'board-'.uniqid());
+        $this->em->persist($this->project);
+        $this->seedColumns($this->project);
+        $this->em->flush();
+    }
+
+    public function test_a_rank_puts_the_card_above_the_card_below_the_drop(): void
+    {
+        $this->card('First');
+        $second = $this->card('Second');
+        $third = $this->card('Third');
+
+        $this->rank($third, before: $second);
+
+        self::assertSame(['First', 'Third', 'Second'], $this->backlogTitles());
+    }
+
+    public function test_a_rank_to_the_end_puts_the_card_below_the_card_above_the_drop(): void
+    {
+        $first = $this->card('First');
+        $this->card('Second');
+        $third = $this->card('Third');
+
+        $this->rank($first, after: $third);
+
+        self::assertSame(['Second', 'Third', 'First'], $this->backlogTitles());
+    }
+
+    public function test_a_rank_refuses_a_card_outside_the_backlog(): void
+    {
+        $onBoard = $this->card('On the board', 'next');
+        $waiting = $this->card('Waiting');
+
+        $this->expectDomainError(['card' => RankBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->rank($onBoard, before: $waiting));
+    }
+
+    public function test_a_move_puts_the_card_at_the_end_of_the_target_and_keeps_its_epic(): void
+    {
+        $epic = $this->card('Epic', 'next', CardType::Epic);
+        $this->card('Already next', 'next');
+        $mover = $this->card('Mover', parent: $epic);
+
+        $this->move($mover, 'next');
+
+        $this->em->clear();
+        $moved = $this->em->find(Card::class, $mover->id);
+        self::assertInstanceOf(Card::class, $moved);
+        self::assertSame('next', $moved->column->slug);
+        self::assertSame(2, $moved->position);
+        self::assertSame($epic->id?->toRfc4122(), $moved->parent?->id?->toRfc4122());
+    }
+
+    public function test_a_move_refuses_a_card_outside_the_backlog_and_a_move_into_it(): void
+    {
+        $onBoard = $this->card('On the board', 'next');
+        $waiting = $this->card('Waiting');
+
+        $this->expectDomainError(['card' => RankBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->move($onBoard, 'in-progress'));
+        $this->expectDomainError(['column' => MoveBacklogCardHandler::TARGET_IS_BACKLOG], fn () => $this->move($waiting, 'backlog'));
+    }
+
+    public function test_a_bulk_move_moves_every_card_in_backlog_order(): void
+    {
+        $first = $this->card('First');
+        $this->card('Stays');
+        $third = $this->card('Third');
+
+        $moved = $this->bulkMove([(string) $third->id, (string) $first->id], 'next');
+
+        self::assertSame(['First', 'Third'], array_map(static fn (Card $card): string => $card->title, $moved));
+        self::assertSame(['Stays'], $this->backlogTitles());
+        self::assertSame(['First', 'Third'], $this->titlesIn('next'));
+    }
+
+    public function test_a_bulk_move_refuses_a_card_of_another_project_or_outside_the_backlog(): void
+    {
+        $waiting = $this->card('Waiting');
+        $onBoard = $this->card('On the board', 'next');
+
+        $this->expectDomainError(['ids' => RankBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->bulkMove([(string) $waiting->id, (string) $onBoard->id], 'in-progress'));
+        $this->expectDomainError(['ids' => RankBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->bulkMove([(string) $waiting->id, '01890a5d-ac96-774b-bcce-b302099a8057'], 'next'));
+        $this->expectDomainError(['ids' => RankBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->bulkMove(['not-a-card'], 'next'));
+        $this->expectDomainError(['ids' => BulkMoveBacklogCardsHandler::NONE_CHOSEN], fn () => $this->bulkMove([], 'next'));
+        $this->expectDomainError(['column' => MoveBacklogCardHandler::TARGET_IS_BACKLOG], fn () => $this->bulkMove([(string) $waiting->id], 'backlog'));
+        self::assertSame(['Waiting'], $this->backlogTitles());
+    }
+
+    public function test_a_bulk_move_refuses_more_than_one_page_of_cards(): void
+    {
+        $ids = [];
+        for ($index = 0; $index <= BulkMoveBacklogCardsHandler::MAX_CARDS; ++$index) {
+            $ids[] = (string) $this->card('Waiting '.$index)->id;
+        }
+
+        $this->expectDomainError(['ids' => BulkMoveBacklogCardsHandler::TOO_MANY], fn () => $this->bulkMove($ids, 'next'));
+    }
+
+    public function test_one_refused_card_rolls_the_whole_bulk_move_back(): void
+    {
+        $plain = $this->card('Plain');
+        $epic = $this->card('Epic', type: CardType::Epic);
+        $this->card('Open child', 'next', parent: $epic);
+
+        try {
+            $this->bulkMove([(string) $plain->id, (string) $epic->id], 'done');
+            self::fail('Expected EpicChildrenOpen.');
+        } catch (EpicChildrenOpen) {
+        }
+
+        // The refusal closes the entity manager, so the rows are read straight from the connection.
+        $connection = self::getContainer()->get(Connection::class);
+        self::assertInstanceOf(Connection::class, $connection);
+        self::assertSame(['Epic', 'Plain'], $connection->fetchFirstColumn(
+            'SELECT c.title FROM board_cards c JOIN board_columns k ON k.id = c.column_id WHERE c.project_id = ? AND k.slug = ? ORDER BY c.title',
+            [(string) $this->project->id, 'backlog'],
+        ));
+    }
+
+    private function rank(Card $card, ?Card $before = null, ?Card $after = null): void
+    {
+        $handler = self::getContainer()->get(RankBacklogCardHandler::class);
+        self::assertInstanceOf(RankBacklogCardHandler::class, $handler);
+        $handler(new RankBacklogCardCommand($card, CardReporter::Human, $before?->id?->toRfc4122(), $after?->id?->toRfc4122()));
+    }
+
+    private function move(Card $card, string $slug): void
+    {
+        $handler = self::getContainer()->get(MoveBacklogCardHandler::class);
+        self::assertInstanceOf(MoveBacklogCardHandler::class, $handler);
+        $handler(new MoveBacklogCardCommand($card, CardReporter::Human, $this->column($this->project, $slug)));
+    }
+
+    /**
+     * @param list<string> $ids
+     *
+     * @return list<Card>
+     */
+    private function bulkMove(array $ids, string $slug): array
+    {
+        $handler = self::getContainer()->get(BulkMoveBacklogCardsHandler::class);
+        self::assertInstanceOf(BulkMoveBacklogCardsHandler::class, $handler);
+
+        return $handler(new BulkMoveBacklogCardsCommand(
+            $this->column($this->project, 'backlog'),
+            $ids,
+            CardReporter::Human,
+            $this->column($this->project, $slug),
+        ));
+    }
+
+    /**
+     * @param array<string, string> $errors
+     * @param callable(): mixed     $action
+     */
+    private function expectDomainError(array $errors, callable $action): void
+    {
+        try {
+            $action();
+            self::fail('Expected DomainErrors.');
+        } catch (DomainErrors $e) {
+            self::assertSame($errors, $e->errors);
+        }
+    }
+
+    private function card(string $title, string $slug = 'backlog', CardType $type = CardType::Feature, ?Card $parent = null): Card
+    {
+        $handler = self::getContainer()->get(CreateCardHandler::class);
+        self::assertInstanceOf(CreateCardHandler::class, $handler);
+
+        return $handler(new CreateCardCommand(
+            project: $this->project,
+            title: $title,
+            body: '',
+            type: $type,
+            column: $this->column($this->project, $slug),
+            parentCardId: null === $parent ? null : (string) $parent->id,
+        ));
+    }
+
+    /** @return list<string> */
+    private function backlogTitles(): array
+    {
+        return $this->titlesIn('backlog');
+    }
+
+    /** @return list<string> */
+    private function titlesIn(string $slug): array
+    {
+        $column = $this->column($this->project, $slug);
+        self::assertInstanceOf(BoardColumn::class, $column);
+
+        /* @var list<string> */
+        return $this->em->getConnection()->fetchFirstColumn(
+            'SELECT title FROM board_cards WHERE column_id = ? ORDER BY position, created_at, id',
+            [(string) $column->id],
+        );
+    }
+}

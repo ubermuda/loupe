@@ -757,17 +757,35 @@
         @apply col-span-full;
     }
 
-    /* The Backlog page reuses the document table with its own columns. */
+    /* The Backlog page reuses the document table with its own columns. It
+       lets the row menus overflow, so a menu is never clipped by the table. */
+    .lp-document-table--backlog {
+        @apply overflow-visible;
+    }
     .lp-document-table--backlog .lp-document-table__head,
     .lp-document-table--backlog .lp-document-row {
         @apply gap-3;
         grid-template-columns:
+            calc(var(--spacing) * 4) calc(var(--spacing) * 4)
             minmax(0, 2.6fr) minmax(calc(var(--spacing) * 24), 0.55fr)
             minmax(calc(var(--spacing) * 36), 1.2fr)
-            calc(var(--spacing) * 19) calc(var(--spacing) * 25);
+            calc(var(--spacing) * 19) calc(var(--spacing) * 25)
+            calc(var(--spacing) * 28);
     }
     .lp-document-table--backlog .lp-document-row {
         @apply min-h-15 py-2.5;
+    }
+    /* A ticked row. */
+    .lp-document-table--backlog
+        .lp-document-row:has(.lp-backlog-check:checked) {
+        @apply bg-accent-faint-2;
+    }
+    /* The row the rank drag holds, and a row whose rank the server has not taken yet. */
+    .lp-backlog-row--dragging {
+        @apply relative z-20 shadow-lg;
+    }
+    .lp-backlog-row[aria-busy='true'] {
+        @apply opacity-60;
     }
     .lp-backlog-row__title {
         @apply min-w-0 truncate font-display font-semibold text-ink no-underline hover:text-accent-ink;
@@ -775,8 +793,56 @@
     .lp-backlog-row__epic {
         @apply truncate;
     }
+    .lp-backlog-check {
+        @apply size-4 m-0 cursor-pointer accent-accent-ink;
+    }
+    /* The drag handle. Only the handle stops a touch scroll, so the list still scrolls. */
+    .lp-backlog-grip {
+        @apply flex cursor-grab touch-none text-fg-faint;
+    }
     .lp-backlog-sort {
         @apply ml-auto;
+    }
+    /* The Move to menu of a row and of the bulk bar. */
+    .lp-backlog-move {
+        @apply relative;
+    }
+    .lp-backlog-menu {
+        @apply absolute right-0 top-full z-40 mt-1 flex min-w-46 flex-col rounded-xl border border-line bg-surface-1 p-1.5 shadow-xl;
+        animation: lp-appear 120ms ease-out both;
+    }
+    .lp-backlog-menu--up {
+        @apply top-auto bottom-full mt-0 mb-1;
+    }
+    .lp-backlog-menu[hidden] {
+        @apply hidden;
+    }
+    .lp-backlog-menu__item {
+        @apply flex min-h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg border-0 bg-transparent px-2.5 text-left text-sm text-ink transition-colors hover:bg-tint-strong;
+    }
+    /* The bar that appears when a row is ticked. It sticks to the bottom of the view. */
+    .lp-backlog-bulk {
+        @apply sticky bottom-5 z-30 mx-auto mt-4 flex w-fit items-center gap-2 rounded-xl border border-chrome-line bg-chrome-raised py-1.5 pr-1.5 pl-4 text-sm text-chrome-fg shadow-xl;
+    }
+    .lp-backlog-bulk[hidden] {
+        @apply hidden;
+    }
+    .lp-backlog-bulk__count {
+        @apply mr-1.5 font-bold;
+    }
+    .lp-backlog-bulk .lp-btn--ghost {
+        @apply text-chrome-mute hover:bg-chrome-control hover:text-chrome-fg;
+    }
+    /* A one-line status above the list: a confirmation, or the live notice. */
+    .lp-backlog-notice {
+        @apply mt-4 flex items-center gap-2.5 rounded-lg bg-sunken px-3.5 py-2.5 text-sm font-medium text-ink;
+        animation: lp-appear 120ms ease-out both;
+    }
+    .lp-backlog-notice[hidden] {
+        @apply hidden;
+    }
+    .lp-backlog-notice__link {
+        @apply font-bold text-accent-ink underline;
     }
 
     /* Board controls and column framing for the supported kanban view. The
