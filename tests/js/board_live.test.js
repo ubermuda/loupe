@@ -554,6 +554,63 @@ it('holds a deck card that is being dragged', async () => {
     expect(placements()).toEqual([]);
 });
 
+describe('a lane head that holds a deck card in a drag', () => {
+    const laneWith = (deckCard) =>
+        document
+            .getElementById('board')
+            .insertAdjacentHTML(
+                'beforeend',
+                `<section id="board-lane-epic"><header class="lp-board-lane__head"><div class="lp-deck" data-lane="epic">${deckCard}</div></header></section>`,
+            );
+
+    it('holds the placement of the epic while the drag runs, and places it after', async () => {
+        laneWith(
+            '<article id="board-deck-card-x" data-card-id="x" class="lp-deck__card lp-board-card--dragging"></article>',
+        );
+        receive('epic');
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(placements()).toEqual([]);
+
+        document
+            .getElementById('board-deck-card-x')
+            .classList.remove('lp-board-card--dragging');
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(placements()).toEqual(['epic']);
+    });
+
+    it('holds the placement of the epic while the move of a deck card is pending', async () => {
+        laneWith(
+            '<article id="board-deck-card-x" data-card-id="x" class="lp-deck__card" aria-busy="true"></article>',
+        );
+        receive('epic');
+        await vi.advanceTimersByTimeAsync(1000);
+
+        expect(placements()).toEqual([]);
+    });
+
+    it('does not render a placement of the epic that returns during a drag', async () => {
+        laneWith(
+            '<article id="board-deck-card-x" data-card-id="x" class="lp-deck__card"></article>',
+        );
+        let reply;
+        answer = () =>
+            new Promise((resolve) => {
+                reply = resolve;
+            });
+        receive('epic');
+        await vi.advanceTimersByTimeAsync(150);
+        expect(placements()).toEqual(['epic']);
+
+        document
+            .getElementById('board-deck-card-x')
+            .classList.add('lp-board-card--dragging');
+        reply(stream());
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(renderStreamMessage).not.toHaveBeenCalled();
+    });
+});
+
 it('makes no reload on a reconnect after a live lane head placement', async () => {
     document
         .getElementById('board')

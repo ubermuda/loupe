@@ -576,8 +576,7 @@ export default class extends Controller {
             return;
         }
         const card = document.getElementById(`board-card-${cardId}`);
-        const dragged = card ?? deckCardOf(cardId);
-        if (dragged !== null && this.busy(dragged)) {
+        if (this.busyFor(cardId)) {
             entry.inFlight = false;
             entry.again = false;
             this.schedule(cardId, entry, BUSY_RETRY_MILLISECONDS);
@@ -625,10 +624,7 @@ export default class extends Controller {
         if (this.pending.get(cardId) !== entry) {
             return;
         }
-        const current =
-            document.getElementById(`board-card-${cardId}`) ??
-            deckCardOf(cardId);
-        if (current !== null && this.busy(current)) {
+        if (this.busyFor(cardId)) {
             entry.remote ||= this.expected.get(cardId)?.remote ?? false;
             entry.again = false;
             this.expected.delete(cardId);
@@ -699,11 +695,21 @@ export default class extends Controller {
         });
     }
 
-    /** A card in a drag, or with a move the server has not placed yet. */
-    busy(card) {
+    /**
+     * Whether the card is in a drag or has a move the server has not placed
+     * yet. The head of a lane epic morphs its whole deck, so a deck card in a
+     * drag holds the epic too.
+     */
+    busyFor(cardId) {
+        const element =
+            document.getElementById(`board-card-${cardId}`) ??
+            deckCardOf(cardId) ??
+            laneHeadOf(cardId);
+
         return (
-            card.getAttribute('aria-busy') === 'true' ||
-            card.classList.contains('lp-board-card--dragging')
+            element !== null &&
+            (busy(element) ||
+                [...element.querySelectorAll('.lp-deck__card')].some(busy))
         );
     }
 
@@ -815,6 +821,14 @@ function laneHeadOf(cardId) {
         document
             .getElementById(`board-lane-${cardId}`)
             ?.querySelector('.lp-board-lane__head') ?? null
+    );
+}
+
+/** A card in a drag, or with a move the server has not placed yet. */
+function busy(card) {
+    return (
+        card.getAttribute('aria-busy') === 'true' ||
+        card.classList.contains('lp-board-card--dragging')
     );
 }
 
