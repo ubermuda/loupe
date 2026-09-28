@@ -209,6 +209,7 @@ export default class extends Controller {
             this.schedule(cardId, entry, SETTLE_MILLISECONDS);
         }
         if (html === null) {
+            entry.remote ||= this.expected.get(cardId)?.remote ?? false;
             this.expected.delete(cardId);
             if (entry.timer === undefined) {
                 this.fail(cardId, entry, failure);
@@ -328,8 +329,10 @@ export default class extends Controller {
         if (typeof cardId !== 'string' || cardId === '') {
             return;
         }
+        const remote = this.expected.get(cardId)?.remote ?? false;
         this.expected.delete(cardId);
         const entry = this.entryFor(cardId);
+        entry.remote ||= remote;
         if (entry.inFlight || entry.timer !== undefined) {
             return;
         }

@@ -728,3 +728,26 @@ it('clears a waiting retry when it disconnects', async () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(vi.getTimerCount()).toBe(0);
 });
+
+it('still marks a card another person changed when its placement failed once', async () => {
+    answer = () => Promise.resolve(failure(500));
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    answer = () => Promise.resolve(stream());
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    placed('a', 'new');
+
+    expect(card().classList.contains('lp-board-card--flash')).toBe(true);
+});
+
+it('still marks a card another person changed when its placement missed once', async () => {
+    receive('a');
+    await vi.advanceTimersByTimeAsync(150);
+    missed('a');
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    placed('a', 'new');
+
+    expect(card().classList.contains('lp-board-card--flash')).toBe(true);
+});
