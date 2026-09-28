@@ -235,6 +235,13 @@ func TestTheBridgeFiresStartThenStop(t *testing.T) {
 
 		return string(data) == "start\n"
 	})
+	// The start hook fires before the events read, and a cancel during that read is an error.
+	eventually(t, "the hub connection", func() bool {
+		fake.mu.Lock()
+		defer fake.mu.Unlock()
+
+		return len(fake.hubTopics) > 0
+	})
 	cancel()
 	if err := <-done; err != nil {
 		t.Fatal(err)
