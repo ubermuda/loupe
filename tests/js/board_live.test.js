@@ -1475,21 +1475,74 @@ describe('a structure resync', () => {
         structure: 'frame',
     };
 
-    function answerRoutes({ structure = () => stream('<s></s>') } = {}) {
+    function answerRoutes({
+        structure = () => stream('<s></s>'),
+        manifest = () => json(current),
+    } = {}) {
         answer = (url, options) => {
             if (url === STRUCTURE) {
                 return Promise.resolve().then(() => structure(options));
             }
             if (url === MANIFEST) {
-                return Promise.resolve(json(current));
+                return Promise.resolve().then(() => manifest(options));
             }
 
             return Promise.resolve(stream());
         };
     }
 
+    const structureChanged = () =>
+        document.dispatchEvent(new CustomEvent('board:structure-changed'));
+
+    beforeEach(() => {
+        // Turbo renders a stream element on a later frame, not in the call.
+        renderStreamMessage.mockImplementation(() => {
+            setTimeout(structureChanged, 16);
+        });
+    });
+
     const signal = () => columnsChanged({ type: 'board.columns_changed' });
     const board = () => document.getElementById('board');
+
+    it('reloads when the structure renders and the manifest read fails', async () => {
+        answerRoutes({ manifest: () => failure(500) });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(1000);
+
+        expect(renderStreamMessage).toHaveBeenCalledWith('<s></s>');
+        expect(manifestReads()).toHaveLength(1);
+        expect(reloads).toBe(1);
+        expect(placements()).toEqual([]);
+    });
+
+    it('runs the card pass only after the structure has rendered', async () => {
+        answerRoutes();
+        renderStreamMessage.mockImplementation(() => {});
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(manifestReads()).toHaveLength(1);
+        expect(placements()).toEqual([]);
+
+        structureChanged();
+        await vi.advanceTimersByTimeAsync(150);
+        expect(placements()).toEqual(['a']);
+        expect(reloads).toBe(0);
+    });
+
+    it('reloads when the structure never renders', async () => {
+        answerRoutes();
+        renderStreamMessage.mockImplementation(() => {});
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(4999);
+        expect(reloads).toBe(0);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(reloads).toBe(1);
+        expect(placements()).toEqual([]);
+    });
 
     it('listens for a column change', () => {
         expect(on).toHaveBeenCalledWith(
@@ -1540,7 +1593,7 @@ describe('a structure resync', () => {
         answerRoutes();
         signal();
         await vi.advanceTimersByTimeAsync(300);
-        await vi.advanceTimersByTimeAsync(150);
+        await vi.advanceTimersByTimeAsync(16 + 150);
 
         expect(renderStreamMessage).toHaveBeenCalledWith('<s></s>');
         expect(manifestReads()).toHaveLength(1);
@@ -1635,6 +1688,7 @@ describe('a structure resync', () => {
         expect(structureReads()).toHaveLength(1);
 
         finishes[0](stream('<first></first>'));
+        await vi.advanceTimersByTimeAsync(16);
         await vi.advanceTimersByTimeAsync(299);
         expect(structureReads()).toHaveLength(1);
         await vi.advanceTimersByTimeAsync(1);

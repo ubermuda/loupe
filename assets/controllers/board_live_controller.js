@@ -48,6 +48,7 @@ const RETRY = 'retry';
 const STALE = 'stale';
 const STRUCTURE_SETTLE_MILLISECONDS = 300;
 const STRUCTURE_MAX_WAIT_MILLISECONDS = 2000;
+const RENDER_TIMEOUT_MILLISECONDS = 5000;
 const CONNECTED_ATTRIBUTE = 'data-board-refresh-connected';
 const BUSY_SELECTOR = [
     '.lp-board--dragging',
@@ -253,15 +254,54 @@ export default class extends Controller {
 
             return;
         }
+        // The stream renders on a later frame, and the card pass reads the new skeleton.
+        const rendered = this.structureRendered(abort.signal);
         renderStreamMessage(html);
-        const manifest = await this.readManifest();
+        const [manifest, applied] = await Promise.all([
+            this.readManifest(),
+            rendered,
+        ]);
         if (this.structureAbort !== abort) {
             return;
         }
-        if (isManifest(manifest)) {
-            this.cardPass(manifest);
+        // A superseded read leaves the card pass to the reconnect that took over.
+        if (manifest === undefined && applied) {
+            this.finishResync();
+
+            return;
         }
+        if (!applied || !isManifest(manifest)) {
+            this.resyncAgain = false;
+            this.finishResync();
+            this.reload();
+
+            return;
+        }
+        this.cardPass(manifest);
         this.finishResync();
+    }
+
+    /** Resolves true once the structure stream applied, or false on a timeout or an abort. */
+    structureRendered(signal) {
+        return new Promise((resolve) => {
+            const done = (applied) => {
+                clearTimeout(timeout);
+                document.removeEventListener(
+                    'board:structure-changed',
+                    onChanged,
+                );
+                signal.removeEventListener('abort', onAbort);
+                resolve(applied);
+            };
+            const onChanged = () => done(true);
+            const onAbort = () => done(false);
+            const timeout = setTimeout(
+                () => done(false),
+                RENDER_TIMEOUT_MILLISECONDS,
+            );
+            document.addEventListener('board:structure-changed', onChanged);
+            signal.addEventListener('abort', onAbort);
+        });
     }
 
     async readStructure(abort) {
