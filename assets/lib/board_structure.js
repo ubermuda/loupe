@@ -27,6 +27,14 @@ export function applyStructure(stream) {
         board.querySelector(':scope > [data-board-view-target="board"]'),
         fresh.querySelector('[data-board-view-target="board"]'),
     );
+    // A lane epic is its lane head, so a new lane takes its card face away. Its list row stays.
+    board
+        .querySelectorAll('.lp-board-lane--epic')
+        .forEach((lane) =>
+            document
+                .getElementById(`board-card-${lane.dataset.lane}`)
+                ?.remove(),
+        );
     syncRows(board.querySelector(':scope > .lp-board-list'), tags);
     recountCells();
 

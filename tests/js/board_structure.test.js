@@ -295,6 +295,20 @@ describe('board-structure with no lanes', () => {
         expectSame(cards);
     });
 
+    it('removes the card face of the epic whose lane is the first', () => {
+        renderPage({
+            ...page,
+            cards: { ...page.cards, 'plain:col-next': ['c', EPIC] },
+        });
+        const cards = snapshot(['a', 'b', 'c']);
+
+        applyStructure(stream({ columns: page.columns, lanes: [EPIC] }));
+
+        expect(byId(`board-card-${EPIC}`)).toBeNull();
+        expect(cardIds(`#board-cell-other-${NEXT.id}`)).toEqual(['c']);
+        expectSame(cards);
+    });
+
     it('switches to lanes when the first lane appears', () => {
         renderPage(page);
         const cards = snapshot(['a', 'b', 'c']);
@@ -457,6 +471,24 @@ describe('board-structure with lanes', () => {
         expect(byId('board-card-a')).toBeNull();
         expect(byId('board-card-c')).toBeNull();
         expect(rowOrder()).toEqual(['b', 'd']);
+        expectSame(cards);
+    });
+
+    it('removes the card face of the epic whose lane appears', () => {
+        renderPage({
+            ...page,
+            cards: { ...page.cards, 'other:col-next': ['epic-2'] },
+            rows: [...page.rows, ['epic-2', NEXT]],
+        });
+        const cards = snapshot(['a', 'b', 'c', 'd']);
+
+        applyStructure(
+            stream({ columns: page.columns, lanes: [EPIC, 'epic-2'] }),
+        );
+
+        expect(byId('board-lane-epic-2')).not.toBeNull();
+        expect(byId('board-card-epic-2')).toBeNull();
+        expect(byId('board-row-epic-2')).not.toBeNull();
         expectSame(cards);
     });
 
