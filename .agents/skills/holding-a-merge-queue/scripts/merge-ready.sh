@@ -2,15 +2,19 @@
 # Prints one verdict line for a pull request: READY, or HOLD with every reason.
 # Usage: merge-ready.sh <number>. OWNER=<login> overrides the approving reviewer.
 # Exits 0 on READY, 1 on HOLD, 2 when GitHub cannot be read.
+set -o pipefail
 pr=${1:?usage: merge-ready.sh <number>}
 owner=${OWNER:-$(gh repo view --json owner -q .owner.login 2>/dev/null)}
 id=$(gh api repos/{owner}/{repo}/rulesets -q '.[]|select(.name=="main")|.id' 2>/dev/null)
 n=$(gh api "repos/{owner}/{repo}/rulesets/$id" -q '[.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[]]|length' 2>/dev/null)
-fields=headRefOid,baseRefName,isDraft,mergeStateStatus,reviewDecision,reviews,commits,changedFiles
+fields=headRefOid,baseRefName,isDraft,mergeStateStatus,reviewDecision,changedFiles
 view=$(gh pr view "$pr" --json "$fields" 2>/dev/null)
+commits=$(gh api --paginate "repos/{owner}/{repo}/pulls/$pr/commits?per_page=100" 2>/dev/null | jq -sc '[.[][]|{oid:.sha,committedDate:.commit.committer.date,messageHeadline:(.commit.message|split("\n")[0])}]') || commits=
+reviews=$(gh api --paginate "repos/{owner}/{repo}/pulls/$pr/reviews?per_page=100" 2>/dev/null | jq -sc '[.[][]|{author:{login:.user.login},state,submittedAt:.submitted_at}]') || reviews=
+[ -n "$view" ] && [ -n "$commits" ] && [ -n "$reviews" ] && view=$(jq -c --argjson c "$commits" --argjson r "$reviews" '. + {commits:$c,reviews:$r}' <<<"$view")
 checks=$(gh pr checks "$pr" --required --json bucket 2>&1)
 head2=$(gh pr view "$pr" --json headRefOid -q .headRefOid 2>/dev/null)
-if [ -z "$owner" ] || [ -z "$n" ] || [ -z "$view" ] || [ -z "$head2" ]; then echo "#$pr UNREAD: GitHub read failed"; exit 2; fi
+if [ -z "$owner" ] || [ -z "$n" ] || [ -z "$commits" ] || [ -z "$reviews" ] || [ -z "$view" ] || [ -z "$head2" ]; then echo "#$pr UNREAD: GitHub read failed"; exit 2; fi
 
 case "$checks" in
   [Nn]"o checks reported"*|[Nn]"o required checks reported"*) buckets='{}' ;;
@@ -35,6 +39,7 @@ line=$(jq -r --arg owner "$owner" --argjson n "$n" --argjson b "$buckets" --arg 
   | ($b|to_entries|map("\(.key)=\(.value)")|join(" ")) as $counts
   | [
       (if .headRefOid != $head2 then "head moved during the read, run again" else empty end),
+      (if (.commits|length) >= 250 then "250 commits or more, GitHub truncates the list, read it by hand" else empty end),
       (if .baseRefName != "main" then "targets \(.baseRefName), not main" else empty end),
       (if .isDraft then "draft" else empty end),
       (if ($b.pass // 0) != $n or ($b|length) != 1 then "checks \(if $counts == "" then "none" else $counts end), need pass=\($n)" else empty end),
