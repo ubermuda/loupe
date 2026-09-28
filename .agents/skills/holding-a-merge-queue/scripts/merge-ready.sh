@@ -21,7 +21,7 @@ esac
 line=$(jq -r --arg owner "$owner" --argjson n "$n" --argjson b "$buckets" --arg head2 "$head2" '
   ([.latestReviews[]|select(.author.login==$owner and .state=="APPROVED")|.submittedAt][0]) as $at
   | [.commits[]|select($at != null and .committedDate > $at)] as $unseen
-  | [$unseen[]|select((.messageHeadline|test("^Merge (remote-tracking )?branch .*main")) and ((.messageBody // "")|test("Conflicts:")|not))] as $sync
+  | [$unseen[]|select((.messageHeadline|test("^Merge (remote-tracking )?branch \u0027(origin/)?main\u0027 into ")) and ((.messageBody // "")|test("Conflicts:")|not))] as $sync
   | [$unseen[]|select((.messageBody // "")|test("Conflicts:"))] as $conflict
   | [$unseen[]|select(.oid as $o|[$sync[],$conflict[]]|map(.oid)|index($o)|not)] as $new
   | ($b|to_entries|map("\(.key)=\(.value)")|join(" ")) as $counts
@@ -33,9 +33,10 @@ line=$(jq -r --arg owner "$owner" --argjson n "$n" --argjson b "$buckets" --arg 
       (if .mergeStateStatus == "BEHIND" then "BEHIND main, run gh pr update-branch"
        elif .mergeStateStatus == "DIRTY" then "DIRTY, conflicts with main"
        elif .mergeStateStatus == "UNKNOWN" then "merge state UNKNOWN, run again"
-       elif (.mergeStateStatus|IN("CLEAN","HAS_HOOKS")|not) and .reviewDecision == "APPROVED" then "merge state \(.mergeStateStatus)"
+       elif (.mergeStateStatus|IN("CLEAN","HAS_HOOKS")|not) then "merge state \(.mergeStateStatus)"
        else empty end),
       (if $at == null then "no approval from \($owner)" else empty end),
+      (if .reviewDecision != "APPROVED" then "review decision \(.reviewDecision // "none")" else empty end),
       (if ($new|length) > 0 then "commits after approval: \([$new[]|"\(.oid[0:8]) \(.messageHeadline)"]|join("; ")). A rebase is covered, new content needs the owner" else empty end),
       (if ($conflict|length) > 0 then "conflict resolution \([$conflict[]|.oid[0:8]]|join(",")), prove it with references/git-traps.md" else empty end)
     ] as $hold
@@ -43,5 +44,6 @@ line=$(jq -r --arg owner "$owner" --argjson n "$n" --argjson b "$buckets" --arg 
     then "READY head=\(.headRefOid[0:8]) pass=\($n)/\($n) files=\(.changedFiles) sync-merges-after-approval=\($sync|length)"
     else "HOLD \($hold|join(" | "))"
     end' <<<"$view")
+[ -n "$line" ] || { echo "#$pr UNREAD: jq failed"; exit 2; }
 echo "#$pr $line"
 [ "${line%% *}" = READY ]
