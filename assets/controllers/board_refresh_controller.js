@@ -1,7 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
-import { on } from '../lib/live.js';
 
-// A burst of column changes costs one reload. A card drag, a pending card move
+// A burst of reload requests costs one reload. A card drag, a pending card move
 // or an open dialog defers it. A steady stream still reloads once per max wait.
 const RELOAD_DELAY_MS = 300;
 const RELOAD_MAX_WAIT_MS = 2000;
@@ -12,8 +11,7 @@ const BUSY_SELECTOR = [
 ].join(', ');
 
 /**
- * Reloads the board frame when the Mercure hub reports a column change, or
- * when another controller asks for a reload.
+ * Reloads the board frame when another controller asks for a reload.
  */
 export default class extends Controller {
     static targets = ['frame'];
@@ -21,20 +19,11 @@ export default class extends Controller {
 
     connect() {
         this.adoptSource();
-        this.unsubscribe = on('board.columns_changed', () => this.reload(), {
-            onOpen: () =>
-                this.element.setAttribute('data-board-refresh-connected', ''),
-            onError: () =>
-                this.element.removeAttribute('data-board-refresh-connected'),
-        });
     }
 
     disconnect() {
         clearTimeout(this.reloadTimer);
         this.pendingSince = undefined;
-        this.unsubscribe?.();
-        this.unsubscribe = undefined;
-        this.element.removeAttribute('data-board-refresh-connected');
     }
 
     reload() {

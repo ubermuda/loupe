@@ -14,12 +14,15 @@ vi.mock('../../assets/lib/live.js', () => ({
 const PLACEHOLDER = '00000000-0000-7000-8000-000000000000';
 const STREAM = 'text/vnd.turbo-stream.html; charset=UTF-8';
 const MANIFEST = '/projects/p/board/manifest';
+const STRUCTURE = '/projects/p/board/structure';
 
 const STALE_TEXT = 'This card may be out of date';
 
 let application;
 let change;
 let reconnect;
+let columnsChanged;
+let columnsOptions;
 let setStatus;
 let answer;
 let reloads;
@@ -43,11 +46,14 @@ const json = (body) => ({
 const placements = () =>
     fetch.mock.calls
         .map(([url]) => url)
-        .filter((url) => url !== MANIFEST)
+        .filter((url) => url !== MANIFEST && url !== STRUCTURE)
         .map((url) => url.split('/')[5]);
 
 const manifestReads = () =>
     fetch.mock.calls.filter(([url]) => url === MANIFEST);
+
+const structureReads = () =>
+    fetch.mock.calls.filter(([url]) => url === STRUCTURE);
 
 function receive(cardId, flags = {}) {
     change({
@@ -98,6 +104,7 @@ beforeEach(async () => {
             data-board-live-placement-value="/projects/p/board/cards/${PLACEHOLDER}/placement"
             data-board-live-placeholder-value="${PLACEHOLDER}"
             data-board-live-manifest-value="${MANIFEST}"
+            data-board-live-structure-value="${STRUCTURE}"
             data-board-live-stale-value="${STALE_TEXT}">
         <p data-board-live-target="paused" role="status" data-message="Live updates paused"></p>
         <div id="board" data-board-structure-digest="frame">
@@ -119,8 +126,13 @@ beforeEach(async () => {
         vi.fn((url, options) => answer(url, options)),
     );
     on.mockImplementation((types, handler, options = {}) => {
-        change = handler;
-        reconnect = options.onReconnect;
+        if ([types].flat().includes('board.columns_changed')) {
+            columnsChanged = handler;
+            columnsOptions = options;
+        } else {
+            change = handler;
+            reconnect = options.onReconnect;
+        }
         return () => {};
     });
     status.mockImplementation((listener) => {
@@ -597,7 +609,7 @@ it('ignores the list rows, which carry a digest too', async () => {
     expect(reloads).toBe(0);
 });
 
-it('reloads the board and fetches no card when the structure changed', async () => {
+it('resyncs the structure, and does not reload, when the structure changed', async () => {
     answerManifest(
         json({
             cards: [
@@ -608,10 +620,12 @@ it('reloads the board and fetches no card when the structure changed', async () 
         }),
     );
     reconnect();
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(structureReads()).toHaveLength(0);
 
-    expect(reloads).toBe(1);
-    expect(placements()).toEqual([]);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(structureReads()).toHaveLength(1);
+    expect(reloads).toBe(0);
 });
 
 it('reads the structure digest at compare time, after the frame re-rendered', async () => {
@@ -1450,4 +1464,268 @@ it('still marks a card another person changed when its placement missed once', a
     placed('a', 'new');
 
     expect(card().classList.contains('lp-board-card--flash')).toBe(true);
+});
+
+describe('a structure resync', () => {
+    const current = {
+        cards: [
+            ['a', 'new', 'k', null],
+            ['b', 'old', 'k', null],
+        ],
+        structure: 'frame',
+    };
+
+    function answerRoutes({ structure = () => stream('<s></s>') } = {}) {
+        answer = (url, options) => {
+            if (url === STRUCTURE) {
+                return Promise.resolve().then(() => structure(options));
+            }
+            if (url === MANIFEST) {
+                return Promise.resolve(json(current));
+            }
+
+            return Promise.resolve(stream());
+        };
+    }
+
+    const signal = () => columnsChanged({ type: 'board.columns_changed' });
+    const board = () => document.getElementById('board');
+
+    it('listens for a column change', () => {
+        expect(on).toHaveBeenCalledWith(
+            'board.columns_changed',
+            expect.any(Function),
+            expect.any(Object),
+        );
+    });
+
+    it('fetches the structure once, 300 ms after a column change', async () => {
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(299);
+        expect(structureReads()).toHaveLength(0);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(structureReads()).toHaveLength(1);
+        const [, options] = structureReads()[0];
+        expect(options.headers.Accept).toBe('text/vnd.turbo-stream.html');
+        expect(options.credentials).toBe('same-origin');
+        expect(options.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it('fetches the structure once for a burst of column changes', async () => {
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(200);
+        signal();
+        await vi.advanceTimersByTimeAsync(200);
+        signal();
+        await vi.advanceTimersByTimeAsync(299);
+        expect(structureReads()).toHaveLength(0);
+
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(structureReads()).toHaveLength(1);
+    });
+
+    it('resyncs a steady stream of column changes at least once per max wait', async () => {
+        answerRoutes();
+        for (let elapsed = 0; elapsed < 2000; elapsed += 100) {
+            signal();
+            await vi.advanceTimersByTimeAsync(100);
+        }
+        expect(structureReads()).toHaveLength(1);
+    });
+
+    it('renders the structure, then reads the manifest and places each changed card', async () => {
+        answerRoutes();
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(150);
+
+        expect(renderStreamMessage).toHaveBeenCalledWith('<s></s>');
+        expect(manifestReads()).toHaveLength(1);
+        const manifestCall = fetch.mock.calls.findIndex(
+            ([url]) => url === MANIFEST,
+        );
+        expect(renderStreamMessage.mock.invocationCallOrder[0]).toBeLessThan(
+            fetch.mock.invocationCallOrder[manifestCall],
+        );
+        expect(placements()).toEqual(['a']);
+        expect(reloads).toBe(0);
+    });
+
+    it('places the cards even when the manifest structure differs from the page', async () => {
+        answerRoutes();
+        board().dataset.boardStructureDigest = 'older';
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(3000);
+
+        expect(placements()).toEqual(['a']);
+        expect(structureReads()).toHaveLength(1);
+        expect(reloads).toBe(0);
+    });
+
+    it('waits while a drag runs, and resyncs once it ends', async () => {
+        answerRoutes();
+        board().classList.add('lp-board--dragging');
+        signal();
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(structureReads()).toHaveLength(0);
+
+        board().classList.remove('lp-board--dragging');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(structureReads()).toHaveLength(1);
+    });
+
+    it('waits while a card move is pending or a dialog is open', async () => {
+        answerRoutes();
+        card().setAttribute('data-board-drag-target', 'card');
+        card().setAttribute('aria-busy', 'true');
+        const dialog = document.createElement('dialog');
+        dialog.setAttribute('open', '');
+        board().append(dialog);
+        signal();
+        await vi.advanceTimersByTimeAsync(3000);
+        card().removeAttribute('aria-busy');
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(structureReads()).toHaveLength(0);
+
+        dialog.removeAttribute('open');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(structureReads()).toHaveLength(1);
+    });
+
+    it('does not render a structure that returns during a drag, and resyncs after the drag', async () => {
+        let finish;
+        answerRoutes({
+            structure: () =>
+                new Promise((resolve) => {
+                    finish = resolve;
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        board().classList.add('lp-board--dragging');
+        finish(stream('<s></s>'));
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(renderStreamMessage).not.toHaveBeenCalled();
+        expect(manifestReads()).toHaveLength(0);
+
+        answerRoutes();
+        board().classList.remove('lp-board--dragging');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(structureReads()).toHaveLength(2);
+        expect(renderStreamMessage).toHaveBeenCalledOnce();
+    });
+
+    it('runs exactly one more resync for the changes that arrive while one runs', async () => {
+        const finishes = [];
+        answerRoutes({
+            structure: () =>
+                new Promise((resolve) => {
+                    finishes.push(resolve);
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        signal();
+        signal();
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(structureReads()).toHaveLength(1);
+
+        finishes[0](stream('<first></first>'));
+        await vi.advanceTimersByTimeAsync(299);
+        expect(structureReads()).toHaveLength(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(structureReads()).toHaveLength(2);
+
+        finishes[1](stream('<second></second>'));
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(structureReads()).toHaveLength(2);
+        expect(renderStreamMessage.mock.calls.map(([html]) => html)).toEqual(
+            expect.arrayContaining(['<first></first>', '<second></second>']),
+        );
+    });
+
+    it.each([
+        ['a response that is not 2xx', () => failure(500)],
+        ['a response that is not a stream', () => failure(200)],
+        ['a network error', () => Promise.reject(new TypeError('offline'))],
+    ])('reloads the board after %s', async (label, structure) => {
+        answerRoutes({ structure });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(reloads).toBe(1);
+        expect(renderStreamMessage).not.toHaveBeenCalled();
+        expect(manifestReads()).toHaveLength(0);
+    });
+
+    it('gives up on a stalled structure read and reloads', async () => {
+        answerRoutes({
+            structure: (options) =>
+                new Promise((resolve, reject) => {
+                    options.signal.addEventListener('abort', () =>
+                        reject(new DOMException('Aborted', 'AbortError')),
+                    );
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300 + 9999);
+        expect(reloads).toBe(0);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(reloads).toBe(1);
+    });
+
+    it('aborts a structure read when it disconnects, and neither renders nor reloads', async () => {
+        let readSignal;
+        answerRoutes({
+            structure: (options) =>
+                new Promise((resolve, reject) => {
+                    readSignal = options.signal;
+                    options.signal.addEventListener('abort', () =>
+                        reject(new DOMException('Aborted', 'AbortError')),
+                    );
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        signal();
+
+        document.getElementById('wrapper').removeAttribute('data-controller');
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(readSignal.aborted).toBe(true);
+        expect(reloads).toBe(0);
+        expect(renderStreamMessage).not.toHaveBeenCalled();
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('drops a waiting resync when it disconnects', async () => {
+        answerRoutes();
+        signal();
+        document.getElementById('wrapper').removeAttribute('data-controller');
+        await vi.advanceTimersByTimeAsync(3000);
+
+        expect(structureReads()).toHaveLength(0);
+    });
+
+    it('marks the element while the column subscription is open', async () => {
+        const wrapper = document.getElementById('wrapper');
+        const marked = () =>
+            wrapper.hasAttribute('data-board-refresh-connected');
+        expect(marked()).toBe(false);
+        columnsOptions.onOpen();
+        expect(marked()).toBe(true);
+        columnsOptions.onError();
+        expect(marked()).toBe(false);
+        columnsOptions.onOpen();
+
+        wrapper.removeAttribute('data-controller');
+        await vi.advanceTimersByTimeAsync(0);
+        expect(marked()).toBe(false);
+    });
 });

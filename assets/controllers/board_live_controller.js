@@ -7,8 +7,11 @@ import { on, status } from '../lib/live.js';
  * one card costs one placement fetch, a card in a drag waits until the drag
  * settles, and a card another person changed is marked for a moment. A failed
  * placement retries with a growing wait, and after the last retry the card is
- * marked stale. A reconnect places each card the page missed, and reloads the
- * board only when its structure changed.
+ * marked stale. A reconnect places each card the page missed.
+ *
+ * A column change, or a reconnect that finds another board structure, updates
+ * the columns and lanes in place. A burst costs one structure fetch, and a
+ * drag, a pending move or an open dialog defers it.
  *
  * `own` never skips the fetch. A member can send another tab's origin, so the
  * flag may only suppress the mark.
@@ -43,6 +46,14 @@ const STALE_MARKS = [
 ];
 const RETRY = 'retry';
 const STALE = 'stale';
+const STRUCTURE_SETTLE_MILLISECONDS = 300;
+const STRUCTURE_MAX_WAIT_MILLISECONDS = 2000;
+const CONNECTED_ATTRIBUTE = 'data-board-refresh-connected';
+const BUSY_SELECTOR = [
+    '.lp-board--dragging',
+    '[data-board-drag-target="card"][aria-busy="true"]',
+    'dialog[open]',
+].join(', ');
 
 export default class extends Controller {
     static targets = ['paused'];
@@ -51,6 +62,7 @@ export default class extends Controller {
         placeholder: String,
         stale: String,
         manifest: String,
+        structure: String,
     };
 
     initialize() {
@@ -71,6 +83,18 @@ export default class extends Controller {
             (change) => this.receive(change),
             { onReconnect: () => this.catchUp() },
         );
+        this.resyncRunning = false;
+        this.resyncAgain = false;
+        this.stopColumns = on(
+            'board.columns_changed',
+            () => this.resyncStructure(),
+            {
+                onOpen: () =>
+                    this.element.setAttribute(CONNECTED_ATTRIBUTE, ''),
+                onError: () =>
+                    this.element.removeAttribute(CONNECTED_ATTRIBUTE),
+            },
+        );
         this.stopStatus = status((state) => {
             this.liveState = state;
             this.pausedTargets.forEach((element) => this.showStatus(element));
@@ -79,9 +103,18 @@ export default class extends Controller {
 
     disconnect() {
         this.unsubscribe?.();
+        this.stopColumns?.();
         this.stopStatus?.();
         this.manifestAbort?.abort();
         this.manifestAbort = undefined;
+        this.structureAbort?.abort();
+        this.structureAbort = undefined;
+        clearTimeout(this.resyncTimer);
+        this.resyncTimer = undefined;
+        this.resyncSince = undefined;
+        this.resyncRunning = false;
+        this.resyncAgain = false;
+        this.element.removeAttribute(CONNECTED_ATTRIBUTE);
         document.removeEventListener('board:placed', this.onPlaced);
         document.removeEventListener('board:place-missed', this.onMissed);
         this.pending.forEach((entry) => clearTimeout(entry.timer));
@@ -106,10 +139,33 @@ export default class extends Controller {
 
     /**
      * After a reconnect, compares the page with the board manifest and places
-     * each card that the page missed or shows out of order. A newer reconnect
-     * aborts an older read.
+     * each card that the page missed or shows out of order.
      */
     async catchUp() {
+        const manifest = await this.readManifest();
+        if (manifest === undefined) {
+            return;
+        }
+        if (!isManifest(manifest)) {
+            this.reload();
+
+            return;
+        }
+        const structure =
+            this.element.querySelector('#board')?.dataset.boardStructureDigest;
+        if (manifest.structure !== structure) {
+            this.resyncStructure();
+
+            return;
+        }
+        this.cardPass(manifest);
+    }
+
+    /**
+     * Answers the manifest, null when the read failed, or undefined when a
+     * newer read or a disconnect superseded this one.
+     */
+    async readManifest() {
         this.manifestAbort?.abort();
         const abort = new AbortController();
         this.manifestAbort = abort;
@@ -135,18 +191,115 @@ export default class extends Controller {
             clearTimeout(timeout);
         }
         if (this.manifestAbort !== abort) {
-            return;
+            return undefined;
         }
         this.manifestAbort = undefined;
 
-        const structure =
-            this.element.querySelector('#board')?.dataset.boardStructureDigest;
-        if (!isManifest(manifest) || manifest.structure !== structure) {
+        return manifest;
+    }
+
+    /** The first request of a burst bounds the wait, so a steady stream still resyncs. */
+    resyncStructure() {
+        if (this.resyncRunning) {
+            this.resyncAgain = true;
+
+            return;
+        }
+        this.resyncSince ??= Date.now();
+        const untilMaxWait =
+            this.resyncSince + STRUCTURE_MAX_WAIT_MILLISECONDS - Date.now();
+        this.scheduleResync(
+            Math.max(0, Math.min(STRUCTURE_SETTLE_MILLISECONDS, untilMaxWait)),
+        );
+    }
+
+    scheduleResync(delay) {
+        clearTimeout(this.resyncTimer);
+        this.resyncTimer = setTimeout(() => this.runResync(), delay);
+    }
+
+    /**
+     * A render during a drag swaps the elements the drag holds, and one under
+     * a dialog closes it. The manifest pass skips the structure check, so a
+     * digest that lags the render cannot start another resync.
+     */
+    async runResync() {
+        this.resyncTimer = undefined;
+        if (this.boardBusy()) {
+            this.scheduleResync(STRUCTURE_SETTLE_MILLISECONDS);
+
+            return;
+        }
+        this.resyncSince = undefined;
+        this.resyncRunning = true;
+        const abort = new AbortController();
+        this.structureAbort = abort;
+        const html = await this.readStructure(abort);
+        if (this.structureAbort !== abort) {
+            return;
+        }
+        if (html === null) {
+            this.finishResync();
             this.reload();
 
             return;
         }
-        this.cardPass(manifest);
+        if (this.boardBusy()) {
+            this.structureAbort = undefined;
+            this.resyncRunning = false;
+            this.resyncAgain = false;
+            this.scheduleResync(STRUCTURE_SETTLE_MILLISECONDS);
+
+            return;
+        }
+        renderStreamMessage(html);
+        const manifest = await this.readManifest();
+        if (this.structureAbort !== abort) {
+            return;
+        }
+        if (isManifest(manifest)) {
+            this.cardPass(manifest);
+        }
+        this.finishResync();
+    }
+
+    async readStructure(abort) {
+        const timeout = setTimeout(
+            () => abort.abort(),
+            FETCH_TIMEOUT_MILLISECONDS,
+        );
+        try {
+            // A read of the board's columns and lanes, with no form to submit.
+            // eslint-disable-next-line no-restricted-syntax
+            const response = await fetch(this.structureValue, {
+                headers: { Accept: STREAM_TYPE },
+                credentials: 'same-origin',
+                signal: abort.signal,
+            });
+            const type = response.headers.get('Content-Type') ?? '';
+            if (response.ok && type.startsWith(STREAM_TYPE)) {
+                return await response.text();
+            }
+        } catch {
+            return null;
+        } finally {
+            clearTimeout(timeout);
+        }
+
+        return null;
+    }
+
+    finishResync() {
+        this.structureAbort = undefined;
+        this.resyncRunning = false;
+        if (this.resyncAgain) {
+            this.resyncAgain = false;
+            this.resyncStructure();
+        }
+    }
+
+    boardBusy() {
+        return this.element.querySelector(BUSY_SELECTOR) !== null;
     }
 
     /**
