@@ -2,6 +2,7 @@
 import { Application } from '@hotwired/stimulus';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BoardDragController from '../../assets/controllers/board_drag_controller.js';
+import { on, reset as resetLive } from '../../assets/lib/live.js';
 
 const STREAM = 'text/vnd.turbo-stream.html; charset=UTF-8';
 
@@ -38,6 +39,7 @@ afterEach(async () => {
     document.body.replaceChildren();
     await settle();
     application.stop();
+    resetLive();
 });
 
 /** Moves card a into Next as a drop would, and returns its form. */
@@ -158,6 +160,50 @@ it('releases the drag when the page cannot place the card', () => {
     );
 
     expect(controller.pendingForm).toBeNull();
+});
+
+describe('the lane heads a drop changes', () => {
+    /** The epics this page asks to redraw, in the order it asks. */
+    function watchLanes() {
+        const epics = [];
+        on('board.card_changed', (change) => epics.push(change.cardId));
+
+        return epics;
+    }
+
+    it('asks the lane the card left and the lane it joined to redraw', () => {
+        document.getElementById('board-group-backlog').dataset.lane = 'epic-a';
+        document.getElementById('board-group-next').dataset.lane = 'epic-b';
+        const epics = watchLanes();
+
+        const form = drop();
+        respond(form, { succeeded: true, contentType: STREAM });
+        finish(form, true);
+
+        expect(epics).toEqual(['epic-b', 'epic-a']);
+    });
+
+    it('asks nothing of "Other cards" or of a board with no lanes', () => {
+        document.getElementById('board-group-backlog').dataset.lane = 'other';
+        const epics = watchLanes();
+
+        const form = drop();
+        respond(form, { succeeded: true, contentType: STREAM });
+        finish(form, true);
+
+        expect(epics).toEqual([]);
+    });
+
+    it('asks nothing when the move is refused', () => {
+        document.getElementById('board-group-next').dataset.lane = 'epic-b';
+        const epics = watchLanes();
+
+        const form = drop();
+        respond(form, { succeeded: false, contentType: 'text/html' });
+        finish(form, false);
+
+        expect(epics).toEqual([]);
+    });
 });
 
 describe('a drop on the bucket', () => {
@@ -311,6 +357,22 @@ describe('a card of an Up next deck', () => {
 
     it('moves nothing when it is dropped back on its own deck', () => {
         const moved = dragDeckCard(650, 40);
+
+        expect(
+            moved.querySelector('form').requestSubmit,
+        ).not.toHaveBeenCalled();
+        expect(moved.classList.contains('lp-board-card--sent')).toBe(false);
+        expect(document.getElementById('deck').contains(moved)).toBe(true);
+    });
+
+    it('moves nothing when it is dropped on the button of the Backlog it already waits in', () => {
+        document.getElementById('bucket').getBoundingClientRect = () => ({
+            left: 0,
+            top: 0,
+            right: 100,
+            bottom: 40,
+        });
+        const moved = dragDeckCard(50, 20);
 
         expect(
             moved.querySelector('form').requestSubmit,

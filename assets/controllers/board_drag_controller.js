@@ -1,5 +1,6 @@
 /* stimulusFetch: 'eager' */
 import { Controller } from '@hotwired/stimulus';
+import { emit } from '../lib/live.js';
 
 /**
  * Drag and drop for the board.
@@ -315,12 +316,18 @@ export default class extends Controller {
         }
 
         const origin = { group: this.originGroup, before: this.originNextCard };
-        // A bucket keeps no order, so a card dropped back on the bucket it came from stays put.
+        // A bucket keeps no order, so a card dropped back on the bucket it came
+        // from stays put. A deck card dropped on the Backlog button stays too.
         const moves =
             group !== null &&
             !(
                 group === this.originGroup &&
                 (position === this.originIndex || isBucket(group))
+            ) &&
+            !(
+                isBucket(group) &&
+                group.dataset.lane === undefined &&
+                group.dataset.column === this.originGroup?.dataset.column
             );
 
         // A bucket shows no card, so the card stays in the DOM, hidden, and its form can submit.
@@ -423,6 +430,7 @@ export default class extends Controller {
             form.removeEventListener('turbo:submit-end', finished);
             if (event.detail.success && !refused) {
                 this.awaitPlacement(card);
+                this.redrawLaneHeads(group, origin.group);
 
                 return;
             }
@@ -435,6 +443,22 @@ export default class extends Controller {
         form.addEventListener('turbo:before-fetch-response', answered);
         form.addEventListener('turbo:submit-end', finished);
         form.requestSubmit();
+    }
+
+    /**
+     * The answer places the card alone, so the heads of the lanes it left and
+     * joined, with their deck and progress, redraw as for a change of the
+     * epic. A page with no hub hears of no such change otherwise.
+     */
+    redrawLaneHeads(...groups) {
+        const epics = new Set(
+            groups
+                .map((group) => group?.dataset.lane)
+                .filter((lane) => lane !== undefined && lane !== 'other'),
+        );
+        epics.forEach((cardId) =>
+            emit('board.card_changed', { cardId, change: 'updated' }),
+        );
     }
 
     /**
