@@ -823,6 +823,22 @@ Loupe writes a `pull_request.*` event for each card that links the pull request.
 The subject is the card. The bridge parses such a type only when a rule names
 it.
 
+| Type | Kind | Extra fields |
+|---|---|---|
+| `pull_request.checks_concluded` | fact | `conclusion`, `failedChecks` |
+| `pull_request.conflicted` | fact | none |
+| `pull_request.behind` | fact | none |
+| `pull_request.review_submitted` | fact | `verdict` |
+| `pull_request.merged` | fact | none |
+| `pull_request.closed` | fact | none |
+| `pull_request.fix_requested` | decision | `reason`, `sessionId`, `bridgeId` |
+| `pull_request.ready_to_merge` | decision | none |
+
+Every card that links the pull request gets a fact. Only a card in a column that
+is not terminal gets a decision, and only while the automation of the project is
+on. [Forge webhooks](forge-webhooks.md#events-from-an-app-repository) says when
+Loupe sends each type, and which types a repository fed by a webhook gets.
+
 ```json
 {
   "type": "pull_request.fix_requested",
@@ -858,10 +874,11 @@ reads it. An event with a field of the wrong shape, or a field that its type
 does not carry, is logged as `event_malformed`. A server older than this bridge
 sends only `cardNumber` and `forge`, and the other placeholders render empty.
 
-A rule on a `pull_request.*` type takes a `when` map. `checks_concluded` takes
-`conclusion`, `review_submitted` takes `verdict`, and `fix_requested` takes
-`reason`. The rule matches only an event that holds every value. The prompt
-takes these placeholders:
+A rule on three `pull_request.*` types takes a `when` map. `checks_concluded`
+takes `conclusion`, `review_submitted` takes `verdict`, and `fix_requested`
+takes `reason`. The rule matches only an event that holds every value. A `when`
+on any other type stops the bridge at start. The prompt takes these
+placeholders:
 
 | Placeholder | Value |
 |---|---|
@@ -871,6 +888,28 @@ takes these placeholders:
 | `{verdict}` | on `pull_request.review_submitted` |
 | `{reason}`, `{sessionId}` | on `pull_request.fix_requested` |
 | `{projectId}`, `{project}` | the project's id and slug |
+
+The other five types fill the card, pull request and project placeholders only.
+These rules act on a conflict and on a pull request that is ready to merge:
+
+```yaml
+rules:
+  - name: fix-conflict
+    on: pull_request.fix_requested
+    project: my-app
+    when:
+      reason: conflict
+    resume: true
+    prompt: |
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Pull request {pullRequestUrl} conflicts with its base. Rebase it and push.
+  - name: merge-ready
+    on: pull_request.ready_to_merge
+    project: my-app
+    prompt: |
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Pull request {pullRequestUrl} is ready to merge at {headSha}. Merge it.
+```
 
 A rule on `pull_request.fix_requested` can set `resume: true`. When the event
 names a session, the bridge resumes it with the rule's prompt and the card

@@ -44,27 +44,83 @@ segment.
 ## One vocabulary for every forge
 
 No event name carries a forge, because a rule file and a bridge must not learn
-a new event type for each forge an instance connects. A delivery maps onto
-these four `ForgeEventType` values.
-
-| Event | Meaning |
-|---|---|
-| `pull_request.review_submitted` | a person submitted a review verdict |
-| `pull_request.checks_concluded` | the checks reached an aggregate conclusion |
-| `pull_request.merged` | the pull request merged |
-| `pull_request.repository_moved` | the repository path changed |
+a new event type for each forge an instance connects.
 
 The payload carries identifiers and the forge, and no field in the shape of one
 forge. A review note and a commit message are text a person wrote, and the
 outbox never gives that text to an agent.
 
-Only a repository that a hook feeds gets the first three events. A repository
-that an App installation feeds gets its events from state reads instead, so
-each fact reaches the outbox once. A move repoints the links for both sources.
-
 Every event names `system` as its actor, because the fact arrived from outside
 Loupe and nobody here judged the card. A bridge older than that actor reads the
 event as malformed and drops it, so upgrade the CLI before you connect a forge.
+
+Loupe writes no event while the board is off.
+
+### Events from an App repository
+
+A repository that an App installation feeds gets its events from
+[state reads](#pull-request-state). Loupe compares each read with the stored
+state, and writes an event for each change. A fact describes the pull request.
+A decision asks an agent to act.
+
+| Event | Kind | When | Extra fields |
+|---|---|---|---|
+| `pull_request.checks_concluded` | fact | the required checks passed or failed, and the conclusion or the checked commit changed | `conclusion`, `passed` or `failed`. `failedChecks`, the names of the failed required checks, empty on `passed` |
+| `pull_request.conflicted` | fact | the pull request now conflicts with its base | none |
+| `pull_request.behind` | fact | the branch is now behind its base | none |
+| `pull_request.review_submitted` | fact | a person approved or requested changes. A comment review sends nothing | `verdict`, `approved` or `changes-requested` |
+| `pull_request.merged` | fact | the pull request merged | none |
+| `pull_request.closed` | fact | the pull request closed without a merge | none |
+| `pull_request.fix_requested` | decision | after a failed `checks_concluded`, a `conflicted`, or a `changes-requested` review | `reason`, `checks-failed`, `conflict` or `changes-requested`. `sessionId` and `bridgeId`, under the Resume fix strategy only |
+| `pull_request.ready_to_merge` | decision | the pull request became ready to merge: open, not a draft, required checks passed, and GitHub lets it merge | none |
+
+Every event carries `cardId`, `cardNumber`, `forge`, `repository`,
+`pullRequestNumber`, `pullRequestUrl` and `headSha`. Loupe leaves out a
+repository, a URL or a head commit that does not have the shape the bridge
+accepts, because the bridge refuses the whole event for one bad field.
+
+A fact goes to every card that links the pull request, in any column. A
+decision goes only to a card in a column that is not terminal, and only while
+the automation of the board is on. `ready_to_merge` also needs the Worker merge
+strategy. [Automation](../using/board.md#automation) describes the settings.
+
+Under the Resume fix strategy, `fix_requested` names the newest session of the
+card and the bridge that ran it. It names them only when that bridge sent a
+heartbeat in the last 5 minutes. Otherwise the event names neither, and each
+bridge with a matching rule starts a new session.
+
+### The loop limit
+
+Each card counts its automatic fix rounds. Each `fix_requested` adds one. When
+the count reaches the loop limit, Loupe sends no more `fix_requested` for the
+card. It records the block and the reason, and the facts still go out.
+
+These events set the count back to zero and clear the block:
+
+- a `checks_concluded` with `passed`
+- a `review_submitted`, either verdict
+- a move of the card by a person. A move by an agent or by the system does not
+  reset the count.
+
+The reset comes before the decision. So the fix request after a
+`changes-requested` review is round 1, whatever the count was before.
+
+### Events from a hook repository
+
+A repository that a per-project webhook feeds gets no state reads. Its
+deliveries give three bare events: `pull_request.review_submitted`,
+`pull_request.checks_concluded` and `pull_request.merged`. Each carries
+`cardNumber` and `forge`, and no other field. A bridge rule with `when` never
+matches one, because the field it reads is absent. A hook repository gets no
+decisions.
+
+### When an event reaches the bridge
+
+Loupe writes a hook event in the request that receives the delivery. It
+publishes the event when that request ends. A state read runs in the messenger
+worker, on the `async` transport. The worker does not publish the rows it
+writes. The outbox drain publishes them, and the drain runs every five minutes.
+So an App event can reach the bridge up to five minutes after the read.
 
 ## Ownership
 
@@ -87,9 +143,11 @@ delivery match. Another project can link the same pull request, and gets
 nothing.
 
 A rename or a transfer keeps the id, so the owner stays the same. The first
-delivery under the new path moves the row, and Loupe writes
-`pull_request.repository_moved` before the other facts in that delivery. That
-event repoints the pull request links of that project only.
+delivery under the new path moves the row. The forge module then maps it to a
+`pull_request.repository_moved` delivery, which comes before the other facts.
+The board repoints the pull request links of that project only, for both
+sources, and records the move in the audit log. It writes no outbox event for
+a move.
 
 ## The GitHub routes
 

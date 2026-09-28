@@ -500,9 +500,36 @@ project which links the pull request. Your agent receives it as an event.
 A card in another project gets nothing, even when it links the same pull
 request.
 
-Loupe does not ask GitHub about a pull request. It learns only what GitHub
-sends. A card does not move by itself when its pull request merges. Move it to
-a terminal column yourself, or have your agent move it with `card_update`.
+For a repository connected through the GitHub App, Loupe reads the pull request
+again after each delivery. It also tells the card about a conflict, a branch
+behind its base, and a pull request closed without a merge. For a repository
+connected through a webhook, Loupe learns only what GitHub sends.
+[Forge webhooks](../extending/forge-webhooks.md#one-vocabulary-for-every-forge)
+lists each event.
+
+A card does not move by itself when its pull request merges. Move it to a
+terminal column yourself, or have your agent move it with `card_update`.
+
+### Automation
+
+Loupe can also ask your agent to act on a pull request: to fix it, or to merge
+it. The owner sets this on the **Automation** tab of the project settings,
+beside **Board columns**. Only a repository connected through the GitHub App
+gets these requests. A card in a terminal column never gets one.
+
+| Setting | Default | Does |
+|---|---|---|
+| **Send fix and merge requests** | on | When off, Loupe sends no fix or merge request. It still sends the pull request facts |
+| **Merge strategy** | Worker | Worker sends a ready-to-merge event when a pull request can merge. Off sends none |
+| **Fix strategy** | Fresh | Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card, and falls back to a new worker |
+| **Loop limit** | 3 | The number of fix requests a card gets in a row, from 1 to 20 |
+
+Loupe asks for a fix when the required checks fail, when the pull request
+conflicts with its base, and when a reviewer requests changes. At the loop
+limit, Loupe stops asking for the card. Passed checks, an approval, a change
+request, or a move of the card by a person start the count again. A bridge rule decides what the
+agent does with each request. See
+[Forge webhooks](../extending/forge-webhooks.md#the-loop-limit).
 
 ## The MCP tools
 
