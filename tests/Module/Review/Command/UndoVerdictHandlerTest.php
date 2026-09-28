@@ -17,7 +17,9 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
+use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Repository\ReviewRepository;
+use App\Tests\Support\DispatchedEvents;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
@@ -159,6 +161,38 @@ final class UndoVerdictHandlerTest extends KernelTestCase
         $standing = $reviews->findStandingVerdictByVersion($doc->currentVersion());
         self::assertInstanceOf(Review::class, $standing);
         self::assertSame(Verdict::ChangesRequested, $standing->verdict);
+    }
+
+    public function test_an_undo_announces_the_status_after_the_commit(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+
+        /** @var User $reviewer */
+        /** @var Document $doc */
+        [$reviewer, $doc] = $this->createUserAndDocument($em, '-status-'.uniqid());
+
+        /** @var SubmitReviewHandler $submit */
+        $submit = self::getContainer()->get(SubmitReviewHandler::class);
+        $approval = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value, 1));
+        $changes = DispatchedEvents::of(self::getContainer(), DocumentStatusChanged::class);
+        $depth = $em->getConnection()->getTransactionNestingLevel();
+
+        /** @var UndoVerdictHandler $undo */
+        $undo = self::getContainer()->get(UndoVerdictHandler::class);
+        $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer, reviewId: (string) $approval->id));
+
+        self::assertCount(1, $changes->events());
+        self::assertEquals($doc->project->id, $changes->events()[0]->projectId);
+        self::assertEquals($doc->id, $changes->events()[0]->documentId);
+        self::assertSame([$depth], $changes->transactionDepths());
+
+        try {
+            $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer, reviewId: (string) $approval->id));
+            self::fail('There is nothing to withdraw once the verdict already is');
+        } catch (DomainErrors) {
+        }
+        self::assertCount(1, $changes->events(), 'A refused undo announces nothing');
     }
 
     public function test_an_already_withdrawn_verdict_cannot_be_withdrawn_again(): void
