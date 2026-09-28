@@ -60,7 +60,8 @@ Loupe writes no event while the board is off.
 
 A repository that an App installation feeds gets its events from
 [state reads](#pull-request-state). Loupe compares each read with the stored
-state, and writes an event for each change. A fact describes the pull request.
+state, and writes an event for each change. A review delivery writes
+`review_submitted` from the verdict it reads. A fact describes the pull request.
 A decision asks an agent to act.
 
 | Event | Kind | When | Extra fields |
@@ -77,7 +78,7 @@ A decision asks an agent to act.
 Every event carries `cardId`, `cardNumber`, `forge`, `repository`,
 `pullRequestNumber`, `pullRequestUrl` and `headSha`. Loupe leaves out a
 repository, a URL or a head commit that does not have the shape the bridge
-accepts, because the bridge refuses the whole event for one bad field.
+accepts. The bridge refuses the whole event for one bad field.
 
 A fact goes to every card that links the pull request, in any column. A
 decision goes only to a card in a column that is not terminal, and only while
@@ -110,7 +111,7 @@ The reset comes before the decision. So the fix request after a
 A repository that a per-project webhook feeds gets no state reads. Its
 deliveries give three bare events: `pull_request.review_submitted`,
 `pull_request.checks_concluded` and `pull_request.merged`. Each carries
-`cardNumber` and `forge`, and no other field. A bridge rule with `when` never
+`cardNumber` and `forge`, and none of the other pull request fields. A bridge rule with `when` never
 matches one, because the field it reads is absent. A hook repository gets no
 decisions.
 
