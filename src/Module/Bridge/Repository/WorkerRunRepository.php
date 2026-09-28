@@ -364,6 +364,22 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getResult());
     }
 
+    /** The newest run of the card that names a claude session, of any kind. */
+    public function findLatestSessionOfCard(Project $project, Uuid $cardId): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.sessionId IS NOT NULL')
+            ->setParameter('project', $project)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->orderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** @return list<WorkerRun> the card's open runs, then its latest runs, newest first */
     public function findRecentForCard(Project $project, Uuid $cardId, int $limit): array
     {

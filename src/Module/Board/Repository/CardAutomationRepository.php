@@ -43,4 +43,17 @@ class CardAutomationRepository extends ServiceEntityRepository
 
         return $automation instanceof CardAutomation ? $automation : throw new \LogicException('The row exists after the insert.');
     }
+
+    /** Clears the fix rounds and the block of the card. A card with no row keeps none. */
+    public function reset(Card $card): void
+    {
+        $this->createQueryBuilder('automation')
+            ->update()
+            ->set('automation.fixRounds', 0)
+            ->set('automation.blockedReason', 'NULL')
+            ->andWhere('automation.card = :card')
+            ->setParameter('card', $card)
+            ->getQuery()
+            ->execute();
+    }
 }
