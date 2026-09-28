@@ -6195,7 +6195,7 @@
     /* The agent's avatar with a dot for its bridge: green live, amber quiet,
        grey with no bridge. Hover or focus shows the tooltip. */
     .lp-presence {
-        @apply relative inline-flex shrink-0 rounded-full outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
+        @apply relative inline-flex shrink-0 rounded-full outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
     }
     .lp-presence__dot {
         @apply absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-surface-2 bg-fg-faint;
