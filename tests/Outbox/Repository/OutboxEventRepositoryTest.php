@@ -6,6 +6,7 @@ namespace App\Tests\Outbox\Repository;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Outbox\ActivityFamily;
 use App\Outbox\Entity\OutboxEvent;
 use App\Outbox\Repository\OutboxEventRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -152,6 +153,118 @@ final class OutboxEventRepositoryTest extends KernelTestCase
         self::assertSame(2, $this->outboxEvents->countUnsent($project));
         self::assertSame(1, $this->outboxEvents->countUnsent($project, 'test.event'));
         self::assertSame(1, $this->outboxEvents->countUnsent($project, 'board.card_moved'));
+    }
+
+    public function test_the_activity_page_holds_one_project_newest_first(): void
+    {
+        $project = $this->project('activity-page@example.com');
+        $other = $this->project('activity-page-other@example.com');
+        $oldest = $this->activity($project, 'board.card_moved', createdAt: '-3 minutes');
+        $newest = $this->activity($project, 'board.card_created', createdAt: '-1 minute');
+        $middle = $this->activity($project, 'inbox.ask_opened', createdAt: '-2 minutes');
+        $this->activity($other, 'board.card_moved');
+        $this->em->flush();
+
+        self::assertSame(
+            [(string) $newest->id, (string) $middle->id, (string) $oldest->id],
+            $this->activityIds($project),
+        );
+        self::assertSame(3, \count($this->outboxEvents->findPaginatedForProject($project, 1, 2, null, null)));
+        self::assertSame([(string) $newest->id, (string) $middle->id], $this->activityIds($project, perPage: 2));
+        self::assertSame([(string) $oldest->id], $this->activityIds($project, page: 2, perPage: 2));
+    }
+
+    public function test_events_written_in_the_same_instant_order_by_sequence(): void
+    {
+        $project = $this->project('activity-tie@example.com');
+        $first = $this->activity($project, 'board.card_moved', createdAt: '2026-09-28 10:00:00');
+        $this->em->flush();
+        $second = $this->activity($project, 'board.card_moved', createdAt: '2026-09-28 10:00:00');
+        $this->em->flush();
+
+        self::assertSame([(string) $second->id, (string) $first->id], $this->activityIds($project));
+    }
+
+    public function test_the_family_filter_folds_legacy_review_events_into_document(): void
+    {
+        $project = $this->project('activity-family@example.com');
+        $document = $this->activity($project, 'document.revised');
+        $legacy = $this->activity($project, 'review.document_revised');
+        $this->activity($project, 'board.card_moved');
+        $this->activity($project, 'reviewer.assigned');
+        $this->em->flush();
+
+        self::assertEqualsCanonicalizing(
+            [(string) $document->id, (string) $legacy->id],
+            $this->activityIds($project, family: ActivityFamily::Document),
+        );
+    }
+
+    public function test_the_family_prefix_underscore_matches_only_itself(): void
+    {
+        $project = $this->project('activity-family-underscore@example.com');
+        $pullRequest = $this->activity($project, 'pull_request.merged');
+        $this->activity($project, 'pullxrequest.merged');
+        $this->em->flush();
+
+        self::assertSame([(string) $pullRequest->id], $this->activityIds($project, family: ActivityFamily::PullRequest));
+    }
+
+    public function test_every_search_word_must_match_the_type_or_the_payload(): void
+    {
+        $project = $this->project('activity-search@example.com');
+        $both = $this->activity($project, 'board.card_moved', '{"toStatus":"Review"}');
+        $typeOnly = $this->activity($project, 'board.card_moved', '{"toStatus":"done"}');
+        $payloadOnly = $this->activity($project, 'inbox.ask_opened', '{"title":"Moved"}');
+        $this->activity($project, 'inbox.ask_closed', '{}');
+        $this->em->flush();
+
+        self::assertSame([(string) $both->id], $this->activityIds($project, search: 'CARD_moved review'));
+        self::assertEqualsCanonicalizing(
+            [(string) $both->id, (string) $typeOnly->id, (string) $payloadOnly->id],
+            $this->activityIds($project, search: '  MOVED '),
+        );
+    }
+
+    public function test_search_and_family_combine(): void
+    {
+        $project = $this->project('activity-search-family@example.com');
+        $board = $this->activity($project, 'board.card_moved', '{"toStatus":"review"}');
+        $this->activity($project, 'review.document_revised', '{}');
+        $this->em->flush();
+
+        self::assertSame([(string) $board->id], $this->activityIds($project, search: 'review', family: ActivityFamily::Board));
+    }
+
+    public function test_search_wildcards_and_the_escape_character_match_literally(): void
+    {
+        $project = $this->project('activity-escape@example.com');
+        $percent = $this->activity($project, 'test.a%b');
+        $underscore = $this->activity($project, 'test.a_b');
+        $backslash = $this->activity($project, 'test.a\b');
+        $this->activity($project, 'test.axb');
+        $this->em->flush();
+
+        self::assertSame([(string) $percent->id], $this->activityIds($project, search: 'a%b'));
+        self::assertSame([(string) $underscore->id], $this->activityIds($project, search: 'a_b'));
+        self::assertSame([(string) $backslash->id], $this->activityIds($project, search: 'a\b'));
+    }
+
+    /** @return list<string> */
+    private function activityIds(Project $project, int $page = 1, int $perPage = 20, ?string $search = null, ?ActivityFamily $family = null): array
+    {
+        return array_map(
+            static fn (OutboxEvent $event): string => (string) $event->id,
+            array_values(iterator_to_array($this->outboxEvents->findPaginatedForProject($project, $page, $perPage, $search, $family), false)),
+        );
+    }
+
+    private function activity(Project $project, string $type, string $payload = '{}', string $createdAt = 'now'): OutboxEvent
+    {
+        $event = new OutboxEvent($project, $type, 'https://app/topic', $payload, new \DateTimeImmutable($createdAt));
+        $this->em->persist($event);
+
+        return $event;
     }
 
     private function inFiveMinutes(?\DateTimeImmutable $from = null): \DateTimeImmutable

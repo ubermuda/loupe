@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Outbox\Repository;
 
 use App\Module\Project\Entity\Project;
+use App\Outbox\ActivityFamily;
 use App\Outbox\Entity\OutboxEvent;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ParameterType;
@@ -104,6 +105,39 @@ class OutboxEventRepository extends ServiceEntityRepository
         return $this->findBy(['project' => $project], ['createdAt' => 'DESC', 'sequence' => 'DESC'], $limit);
     }
 
+    /**
+     * Each search word must match the type or the payload text, case-insensitively.
+     *
+     * @return Paginator<OutboxEvent>
+     */
+    public function findPaginatedForProject(Project $project, int $page, int $perPage, ?string $search, ?ActivityFamily $family): Paginator
+    {
+        $qb = $this->createQueryBuilder('e')
+            ->andWhere('e.project = :project')
+            ->setParameter('project', $project)
+            ->orderBy('e.createdAt', 'DESC')
+            ->addOrderBy('e.sequence', 'DESC')
+            ->setFirstResult(($page - 1) * $perPage)
+            ->setMaxResults($perPage);
+
+        if (null !== $family) {
+            $prefixes = $qb->expr()->orX();
+            foreach ($family->typePrefixes() as $index => $prefix) {
+                $prefixes->add("e.type LIKE :prefix{$index} ESCAPE '\\'");
+                $qb->setParameter('prefix'.$index, self::escapeLike($prefix).'%');
+            }
+            $qb->andWhere($prefixes);
+        }
+
+        $words = preg_split('/\s+/u', trim($search ?? ''), flags: \PREG_SPLIT_NO_EMPTY);
+        foreach (false === $words ? [] : $words as $index => $word) {
+            $qb->andWhere("LOWER(e.type) LIKE :word{$index} ESCAPE '\\' OR LOWER(e.payload) LIKE :word{$index} ESCAPE '\\'")
+                ->setParameter('word'.$index, '%'.self::escapeLike(mb_strtolower($word)).'%');
+        }
+
+        return new Paginator($qb->getQuery());
+    }
+
     /** @return Paginator<OutboxEvent> */
     public function findUnsentPaginated(?Project $project, int $page, int $perPage, string $sort, string $dir): Paginator
     {
@@ -144,6 +178,11 @@ class OutboxEventRepository extends ServiceEntityRepository
             ->orderBy('candidate.name', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    private static function escapeLike(string $text): string
+    {
+        return addcslashes($text, '%_\\');
     }
 
     /**
