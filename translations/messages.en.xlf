@@ -5763,9 +5763,6 @@
             <trans-unit id="activity.event_type.board.card_moved"><source>activity.event_type.board.card_moved</source><target>Card moved</target></trans-unit>
             <trans-unit id="activity.event_type.board.column_renamed"><source>activity.event_type.board.column_renamed</source><target>Column renamed</target></trans-unit>
             <trans-unit id="activity.event_type.board.column_deleted"><source>activity.event_type.board.column_deleted</source><target>Column deleted</target></trans-unit>
-            <trans-unit id="activity.event_type.pull_request.review_submitted"><source>activity.event_type.pull_request.review_submitted</source><target>Review submitted</target></trans-unit>
-            <trans-unit id="activity.event_type.pull_request.checks_concluded"><source>activity.event_type.pull_request.checks_concluded</source><target>Checks concluded</target></trans-unit>
-            <trans-unit id="activity.event_type.pull_request.merged"><source>activity.event_type.pull_request.merged</source><target>Pull request merged</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.conflicted"><source>activity.event_type.pull_request.conflicted</source><target>Pull request has conflicts</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.behind"><source>activity.event_type.pull_request.behind</source><target>Pull request behind its base</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.closed"><source>activity.event_type.pull_request.closed</source><target>Pull request closed</target></trans-unit>
