@@ -44,14 +44,27 @@ final readonly class ShowCardPlacementHandler
         $columnId = null === $card ? null : $this->columnCards->shownColumnId($card, $windowStart);
         $index = null === $columnId ? null : array_find_key($columns, static fn (BoardColumn $column): bool => (string) $column->id === $columnId);
         if (null === $card || null === $index) {
-            return new CardPlacementView(null, null, null, null, 0, 0, $counts, $terminalTotals);
+            return new CardPlacementView(null, null, null, null, 0, 0, $counts, $terminalTotals, null, null, false, null);
         }
 
         $column = $columns[$index];
-        $after = $this->columnCards->previousShown($card, $column, $windowStart);
-        $rowAfter = $after;
+        $previous = $this->columnCards->previousShown($card, $column, $windowStart);
+        $rowAfter = $previous;
         for ($earlier = $index - 1; null === $rowAfter && $earlier >= 0; --$earlier) {
             $rowAfter = $this->columnCards->lastShown($columns[$earlier], $windowStart);
+        }
+
+        $laneEpicIds = $this->columnCards->laneEpicIds($command->project, $columns);
+        $lane = null;
+        $laneIndex = array_search((string) $card->id, $laneEpicIds, true);
+        $laneHead = \is_int($laneIndex);
+        $laneAfter = $laneHead && $laneIndex > 0 ? $laneEpicIds[$laneIndex - 1] : null;
+        if ([] === $laneEpicIds) {
+            $after = $previous;
+        } else {
+            $parentId = null === $card->parent ? null : (string) $card->parent->id;
+            $lane = null !== $parentId && \in_array($parentId, $laneEpicIds, true) ? $parentId : 'other';
+            $after = $laneHead ? null : $this->columnCards->previousShown($card, $column, $windowStart, $lane, $laneEpicIds);
         }
 
         $progress = null;
@@ -70,6 +83,9 @@ final readonly class ShowCardPlacementHandler
             $counts,
             $terminalTotals,
             $progress,
+            $lane,
+            $laneHead,
+            $laneAfter,
         );
     }
 }

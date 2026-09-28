@@ -1,0 +1,19 @@
+{# The head of an epic lane. The board page draws it, and a card placement morphs it.
+   Props: epic (Card), progress (CardProgress): the done and total children of the epic. #}
+<header class="lp-board-lane__head" data-board-filter-target="laneHead" data-card-title="{{ epic.title }}">
+    <button type="button"
+            class="lp-board-lane__collapse"
+            aria-expanded="true"
+            aria-label="{{ 'board.lane.collapse'|trans }}"
+            data-board-lane-target="toggle"
+            data-action="board-lane#toggle">
+        <twig:ux:icon name="lucide:chevron-right" class="lp-board-lane__chevron" />
+    </button>
+    <span class="lp-board-card__number">#{{ epic.number }}</span>
+    <a class="lp-board-lane__title"
+       href="{{ path('app_board_card', {projectId: epic.project.id, cardId: epic.id}) }}"
+       data-turbo-frame="card-drawer-frame"
+       data-action="click->card-drawer#prepare">{{ epic.title }}</a>
+    <span class="lp-board-lane__progress" data-lane-progress>{{ 'board.card.children.progress'|trans({'%done%': progress.done, '%total%': progress.total}) }}</span>
+    {% include '@Board/_card_lane_form.html.twig' with {card: epic, returnTo: 'board'} only %}
+</header>

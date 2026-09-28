@@ -12,6 +12,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\QueryBuilder;
@@ -627,28 +628,66 @@ class CardRepository extends ServiceEntityRepository
      * The id of the shown card just before this card in its column, in the
      * order findColumn() reads. The card's own rank comes from its row, which
      * a bulk renumber may have changed under the loaded entity.
+     *
+     * With a lane, only the cards of that lane count, and a lane epic never
+     * does: "other" is every card whose parent is no lane epic.
+     *
+     * @param list<string> $laneEpicIds
      */
-    public function previousShownIdOf(Card $card, BoardColumn $column, \DateTimeImmutable $since): ?string
+    public function previousShownIdOf(Card $card, BoardColumn $column, \DateTimeImmutable $since, ?string $lane, array $laneEpicIds): ?string
     {
+        $params = ['card' => (string) $card->id, 'column' => (string) $column->id];
+        $types = [];
+        $inLane = '';
+        if (null !== $lane) {
+            $inLane = 'other' === $lane
+                ? ' AND c.id NOT IN (:epics) AND (c.parent_card_id IS NULL OR c.parent_card_id NOT IN (:epics))'
+                : ' AND c.id NOT IN (:epics) AND c.parent_card_id = :lane';
+            $params['epics'] = $laneEpicIds;
+            $types['epics'] = ArrayParameterType::STRING;
+            if ('other' !== $lane) {
+                $params['lane'] = $lane;
+            }
+        }
+
         $sql = $column->terminal
             ? 'SELECT c.id FROM board_cards c '.self::SHOWN_JOINS.'
                JOIN board_cards s ON s.id = :card
-               WHERE c.column_id = :column AND '.self::SHOWN.'
+               WHERE c.column_id = :column AND '.self::SHOWN.$inLane.'
                  AND (c.completed_at, c.created_at, c.id) > (s.completed_at, s.created_at, s.id)
                ORDER BY c.completed_at ASC, c.created_at ASC, c.id ASC LIMIT 1'
             : 'SELECT c.id FROM board_cards c
                JOIN board_cards s ON s.id = :card
-               WHERE c.column_id = :column
+               WHERE c.column_id = :column'.$inLane.'
                  AND (c.position, c.created_at, c.id) < (s.position, s.created_at, s.id)
                ORDER BY c.position DESC, c.created_at DESC, c.id DESC LIMIT 1';
+        if ($column->terminal) {
+            $params['since'] = $since;
+            $types['since'] = Types::DATETIME_IMMUTABLE;
+        }
 
-        $id = $this->getEntityManager()->getConnection()->fetchOne(
-            $sql,
-            ['card' => (string) $card->id, 'column' => (string) $column->id, ...($column->terminal ? ['since' => $since] : [])],
-            $column->terminal ? ['since' => Types::DATETIME_IMMUTABLE] : [],
-        );
+        $id = $this->getEntityManager()->getConnection()->fetchOne($sql, $params, $types);
 
         return false === $id ? null : (string) $id;
+    }
+
+    /**
+     * The epics the board draws as lanes, with the id of their column, in
+     * the order findColumn() reads an open column. Card::drawsLane() says which.
+     *
+     * @return list<array{id: string, column_id: string}>
+     */
+    public function laneEpicRowsOf(Project $project): array
+    {
+        /** @var list<array{id: string, column_id: string}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT c.id, c.column_id FROM board_cards c JOIN board_columns k ON k.id = c.column_id
+             WHERE k.project_id = :project AND c.type = :epic AND c.lane_enabled AND NOT k.terminal
+             ORDER BY c.position ASC, c.created_at ASC, c.id ASC',
+            ['project' => (string) $project->id, 'epic' => CardType::Epic->value],
+        );
+
+        return $rows;
     }
 
     /** The id of the last card the board shows in the column, or null when it shows none. */
