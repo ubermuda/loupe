@@ -684,7 +684,15 @@ test('a completed review leaves another tabs unsent review recoverable', async (
         .getByRole('button', { name: 'Finish review', exact: true })
         .click();
     await other.getByRole('radio', { name: 'Approve', exact: true }).check();
+    // The bar renders from the redirect after the submit. A loaded CI runner
+    // answered that pair in 4.6 s, so wait for it before the render check.
+    const reviewPageReloaded = other.waitForResponse(
+        (r) =>
+            r.request().method() === 'GET' &&
+            new URL(r.url()).pathname === review.reviewUrl,
+    );
     await other.getByRole('button', { name: 'Submit review' }).click();
+    expect((await reviewPageReloaded).status()).toBe(200);
     await expect(other.locator('.lp-verdict-bar--approved')).toBeVisible();
     await page.getByRole('link', { name: 'History', exact: true }).click();
     await expect(page).toHaveURL(`${review.reviewUrl}/history`);
