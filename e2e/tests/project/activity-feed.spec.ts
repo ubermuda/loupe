@@ -160,7 +160,7 @@ test('pause keeps the feed fixed while real events arrive and resume reconciles 
         .click();
     await expect(page).toHaveURL(new RegExp(`${activityUrl}$`));
     await expect(
-        page.getByRole('heading', { name: 'Project activity', exact: true }),
+        page.getByRole('heading', { name: 'Activity', exact: true }),
     ).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     await trigger.click();

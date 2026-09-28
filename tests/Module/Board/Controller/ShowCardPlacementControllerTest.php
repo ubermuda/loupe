@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Command\ShowBoardHandler;
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Uid\Uuid;
@@ -188,24 +190,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $owner = $this->user($em, 'placement-warning@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Stuck', 'next');
-        $run = new WorkerRun(
-            project: $project,
-            bridgeId: Uuid::v7(),
-            cardId: $card->id ?? throw new \LogicException('Card has no id.'),
-            cardNumber: $card->number,
-            ruleName: 'implement',
-            state: WorkerRunState::GaveUp,
-            runKey: Uuid::v7(),
-            endedAt: new \DateTimeImmutable(),
-            exitCode: 0,
-            hasResult: true,
-            output: 'Tests still fail.',
-            receivedAt: new \DateTimeImmutable(),
-            cardColumn: 'next',
-        );
-        $em->persist($run);
-        $em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, new \DateTimeImmutable(), new \DateTimeImmutable()));
-        $em->flush();
+        $run = $this->gaveUp($em, $card, 'next');
         $url = $this->placementUrl((string) $project->id, (string) $card->id);
         $em->clear();
 
@@ -328,9 +313,13 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertSame(['See all 2 finished cards'], array_values($history));
         self::assertArrayHasKey((string) $done->id, $history);
         self::assertArrayNotHasKey((string) $next->id, $history);
+        self::assertSame(1, preg_match('/data-history-totals="([^"]*)"/', (string) $client->getResponse()->getContent(), $match));
+        self::assertSame([(string) $done->id => 2], json_decode(html_entity_decode($match[1] ?? ''), true, flags: \JSON_THROW_ON_ERROR));
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
-        self::assertSame('See all 2 finished cards', trim($crawler->filter('#board-history-'.$done->id)->text()));
+        $link = $crawler->filter('#board-history-'.$done->id);
+        self::assertSame('See all 2 finished cards', trim($link->text()));
+        self::assertSame('2', $link->attr('data-history-total'));
     }
 
     public function test_a_card_of_another_project_gets_a_removal_through_this_project(): void
@@ -409,6 +398,212 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertStringContainsString('data-card-digest="'.$digest.'"', (string) $client->getResponse()->getContent());
     }
 
+    public function test_the_stream_digest_of_a_card_with_a_parent_is_the_page_digest(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-digest-child@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next'), CardType::Epic);
+        $epic->laneEnabled = false;
+        $em->flush();
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'backlog'));
+        $em->clear();
+
+        $client->loginUser($owner);
+
+        self::assertSame($this->pageDigest($client, $child), $this->streamDigest($client, $child));
+    }
+
+    public function test_the_stream_digest_of_an_epic_with_progress_and_a_warning_is_the_page_digest(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-digest-epic@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next'), CardType::Epic);
+        $epic->laneEnabled = false;
+        $em->flush();
+        $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
+        $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
+        $run = $this->gaveUp($em, $epic, 'next');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $stream = $this->streamDigest($client, $epic);
+
+        $content = (string) $client->getResponse()->getContent();
+        self::assertMatchesRegularExpression('#data-card-progress>\s*1/2 done\s*<#', $content);
+        self::assertStringContainsString('data-card-run-warning="'.$run->id.'"', $content);
+        self::assertSame($this->pageDigest($client, $epic), $stream);
+    }
+
+    public function test_a_card_on_a_board_with_lanes_is_placed_in_its_lane_cell(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-lane@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $this->card($em, $project, 'Other first', 'backlog', 0);
+        $firstChild = $this->childOf($em, $epic, $this->card($em, $project, 'Child first', 'backlog', 1));
+        $otherSecond = $this->card($em, $project, 'Other second', 'backlog', 2);
+        $secondChild = $this->childOf($em, $epic, $this->card($em, $project, 'Child second', 'backlog', 3));
+        $url = $this->placementUrl((string) $project->id, (string) $secondChild->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('data-lane="'.$epic->id.'"', $content);
+        self::assertStringContainsString('data-after="'.$firstChild->id.'"', $content);
+        self::assertStringContainsString('data-row-after="'.$otherSecond->id.'"', $content);
+        self::assertStringNotContainsString('data-lane-head', $content);
+        self::assertStringNotContainsString('data-card-parent-tag', $this->face($content));
+    }
+
+    public function test_a_card_of_the_other_row_keeps_its_parent_tag(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-lane-other@example.com');
+        $project = $this->project($em, $owner);
+        $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
+        $closed = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next', 1), CardType::Epic);
+        $closed->laneEnabled = false;
+        $em->flush();
+        $child = $this->childOf($em, $closed, $this->card($em, $project, 'Child', 'backlog'));
+        $url = $this->placementUrl((string) $project->id, (string) $child->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('data-lane="other"', $content);
+        self::assertStringContainsString('data-card-parent-tag', $this->face($content));
+    }
+
+    public function test_a_lane_epic_is_marked_as_a_lane_head(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-lane-epic@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $url = $this->placementUrl((string) $project->id, (string) $epic->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertMatchesRegularExpression('#\sdata-lane-head[\s>]#', $content);
+        self::assertStringNotContainsString('data-lane="', $content);
+        self::assertStringNotContainsString('id="board-card-'.$epic->id.'"', $content);
+    }
+
+    public function test_a_removal_on_a_board_with_lanes_leaves_the_cell_counts_to_the_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-lane-removed@example.com');
+        $project = $this->project($em, $owner);
+        $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
+        $this->card($em, $project, 'Stays', 'backlog');
+        $backlog = $this->column($project, 'backlog');
+        $url = $this->placementUrl((string) $project->id, '01920000-0000-7000-8000-000000000000');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('data-removed="1"', $content);
+        self::assertStringNotContainsString('data-lane', $content);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        self::assertCount(1, $crawler->filter('#board-cell-other-'.$backlog->id.' .lp-board-card'));
+        self::assertCount(1, $crawler->filter('#board-history-'.$this->column($project, 'done')->id));
+    }
+
+    public function test_a_board_with_no_lane_carries_no_lane_data(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-no-lane@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Plain', 'next');
+        $url = $this->placementUrl((string) $project->id, (string) $card->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('data-lane', (string) $client->getResponse()->getContent());
+    }
+
+    private function gaveUp(EntityManagerInterface $em, Card $card, string $columnSlug): WorkerRun
+    {
+        $run = new WorkerRun(
+            project: $card->project,
+            bridgeId: Uuid::v7(),
+            cardId: $card->id ?? throw new \LogicException('Card has no id.'),
+            cardNumber: $card->number,
+            ruleName: 'implement',
+            state: WorkerRunState::GaveUp,
+            runKey: Uuid::v7(),
+            endedAt: new \DateTimeImmutable(),
+            exitCode: 0,
+            hasResult: true,
+            output: 'Tests still fail.',
+            receivedAt: new \DateTimeImmutable(),
+            cardColumn: $columnSlug,
+        );
+        $em->persist($run);
+        $em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, new \DateTimeImmutable(), new \DateTimeImmutable()));
+        $em->flush();
+
+        return $run;
+    }
+
+    private function pageDigest(KernelBrowser $client, Card $card): string
+    {
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$card->project->id.'/board');
+        self::assertResponseIsSuccessful();
+
+        return (string) $crawler->filter('#board-card-'.$card->id)->attr('data-card-digest');
+    }
+
+    private function streamDigest(KernelBrowser $client, Card $card): string
+    {
+        $client->request(Request::METHOD_GET, $this->placementUrl((string) $card->project->id, (string) $card->id));
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, preg_match('/data-card-digest="([0-9a-f]{12})"/', $this->face((string) $client->getResponse()->getContent()), $match));
+
+        return $match[1] ?? '';
+    }
+
     private function placementUrl(string $projectId, string $cardId): string
     {
         return '/projects/'.$projectId.'/board/cards/'.$cardId.'/placement';
@@ -434,5 +629,13 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         /* @var array<string, string> $history */
         return $history;
+    }
+
+    /** The card face of the stream, without its list row. */
+    private function face(string $content): string
+    {
+        self::assertSame(1, preg_match('#<article class="lp-board-card.*?</article>#s', $content, $match));
+
+        return $match[0] ?? '';
     }
 }

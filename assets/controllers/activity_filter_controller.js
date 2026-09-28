@@ -186,6 +186,7 @@ export default class extends Controller {
             visibleCount += Number(visible);
         }
 
+        this.feedTarget.hidden = visibleCount === 0;
         this.emptyTarget.hidden =
             visibleCount > 0 || this.rowTargets.length === 0;
         this.countTargets.forEach((count) => {

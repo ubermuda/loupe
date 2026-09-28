@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Prints a line whenever an open pull request changes. Run it from the repository,
-# as the command of a persistent Monitor. ONCE=1 runs a single pass.
+# Prints a line whenever an open pull request changes: the whole line the first time,
+# then only the fields that changed. Run it from the repository, as the command of
+# a persistent Monitor. ONCE=1 runs a single pass.
+# gh prints "no required checks reported" in lower case without a terminal and
+# capitalised with one, and "no checks reported" when no check ran. Keep all four.
 prev=$(mktemp); cur=$(mktemp)
 trap 'rm -f "$prev" "$cur"' EXIT
 while true; do
@@ -22,16 +25,22 @@ while true; do
     m=$(jq -r --argjson p "$pr" '.[]|select(.number==$p)|.mergeStateStatus' <<<"$prs")
     case "$m" in
       DIRTY|BEHIND) mg=$m ;;
-      UNKNOWN) mg=$(grep "^#$pr " "$prev" | sed -n 's/.* merge=\([^ ]*\).*/\1/p'); mg=${mg:--} ;;
+      UNKNOWN) # GitHub recomputes after main moves; keep the last value so a merge does not reprint every PR
+        mg=$(grep "^#$pr " "$prev" | sed -n 's/.* merge=\([^ ]*\).*/\1/p'); mg=${mg:--} ;;
       *) mg=- ;;
     esac
     jq -r --argjson p "$pr" --arg c "$c" --arg mg "$mg" '.[]|select(.number==$p)
       | "#\(.number) head=\(.headRefOid[0:8]) base=\(.baseRefName) draft=\(.isDraft) checks=\($c)"
         + " merge=\($mg)"
-        + " reviews=\([.latestReviews[]|.author.login+":"+.state+"@"+.submittedAt]|join(","))"' <<<"$prs" >> "$cur"
+        + " reviews=\([.latestReviews[]|.author.login+":"+.state+"@"+.submittedAt[5:16]]|join(","))"' <<<"$prs" >> "$cur"
   done
   sort -o "$cur" "$cur"
-  comm -13 "$prev" "$cur"
+  comm -13 "$prev" "$cur" | awk -v prev="$prev" '
+    BEGIN { while ((getline l < prev) > 0) { split(l, f, " "); old[f[1]] = l } }
+    { if (!($1 in old)) { out = $0; sub(/ base=main/, "", out); sub(/ draft=false/, "", out); print out; next }
+      split(old[$1], o, " "); out = $1
+      for (i = 2; i <= NF; i++) if ($i != o[i]) out = out " " $i
+      print out }'
   for gone in $(comm -23 <(cut -d' ' -f1 "$prev") <(cut -d' ' -f1 "$cur")); do echo "$gone left the open list: read its merged state"; done
   cp "$cur" "$prev"
   [ -n "$ONCE" ] && break

@@ -1,9 +1,10 @@
 ---
-title: "Project activity"
+title: "Activity: Events"
 description: "Read durable project events and pause their presentation without stopping work."
 ---
 
-Open **Activity** in a project's sidebar to read its durable event history.
+Open **Activity** in a project's sidebar, then the **Events** tab, to read its durable event history.
+The **Runs** tab lists the [worker runs](worker-runs.md), and the **Cost** tab charts [the cost of finished cards](worker-runs.md#the-cost-of-finished-cards).
 Delivery status describes delivery to bridges, not the outcome of an agent's work.
 
 The topbar bell opens the latest 12 events without leaving the current page.

@@ -7,6 +7,7 @@ namespace App\Outbox\Controller;
 use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Outbox\ActivityFamily;
 use App\Outbox\Command\ListActivityCommand;
 use App\Outbox\Command\ListActivityHandler;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,6 +35,7 @@ final class ListActivityController extends AppController
             'project' => $view->project,
             'entries' => $view->entries,
             'pageSize' => $view->pageSize,
+            'families' => ActivityFamily::cases(),
         ]);
     }
 }

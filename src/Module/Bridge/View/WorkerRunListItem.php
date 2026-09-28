@@ -23,13 +23,15 @@ final readonly class WorkerRunListItem
     public bool $closable;
 
     /**
-     * @param \DateTimeImmutable         $now     the end of a run that is still open
-     * @param list<WorkerRunStateChange> $history the states the run reached, oldest first
+     * @param \DateTimeImmutable         $now       the end of a run that is still open
+     * @param list<WorkerRunStateChange> $history   the states the run reached, oldest first
+     * @param ?string                    $cardTitle null when the card is gone or the board is off
      */
     public function __construct(
         public WorkerRun $run,
         \DateTimeImmutable $now,
         public array $history,
+        public ?string $cardTitle,
     ) {
         $this->state = $run->state;
         $this->interactive = WorkerRunKind::Interactive === $run->kind;

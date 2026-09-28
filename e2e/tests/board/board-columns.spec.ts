@@ -245,6 +245,18 @@ test('board controls remain usable at enlarged text sizes without page overflow'
         .toBeLessThanOrEqual(1);
 });
 
+test('the board fills a wide window', async ({ page, board }) => {
+    await page.setViewportSize({ width: 2560, height: 1000 });
+    await page.goto(board.boardUrl);
+    const strip = await page.locator('.lp-board__columns').boundingBox();
+    const main = await page.locator('#main-content').boundingBox();
+    expect(strip).not.toBeNull();
+    expect(main).not.toBeNull();
+    const gap = main!.x + main!.width - (strip!.x + strip!.width);
+    expect(gap).toBeGreaterThanOrEqual(0);
+    expect(gap).toBeLessThanOrEqual(48);
+});
+
 test('column settings fits long names and enlarged text', async ({
     page,
     board,
