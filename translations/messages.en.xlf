@@ -5566,14 +5566,6 @@
                 <source>bridge.worker_runs.card_number</source>
                 <target>#%number%</target>
             </trans-unit>
-            <trans-unit id="bridge.worker_runs.started">
-                <source>bridge.worker_runs.started</source>
-                <target>started %time%</target>
-            </trans-unit>
-            <trans-unit id="bridge.worker_runs.duration">
-                <source>bridge.worker_runs.duration</source>
-                <target>took %duration%</target>
-            </trans-unit>
             <trans-unit id="bridge.worker_runs.exit_code">
                 <source>bridge.worker_runs.exit_code</source>
                 <target>exit %code%</target>
