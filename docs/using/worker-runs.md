@@ -1,32 +1,36 @@
 ---
-title: "Worker runs"
-description: "The page that shows what a command-line bridge told a project about the Claude Code workers it ran."
+title: "Activity: Runs"
+description: "The Runs tab of the Activity page, which shows what a command-line bridge told a project about the Claude Code workers it ran."
 ---
 
 A [command-line bridge](../extending/cli-bridge.md) runs a Claude Code worker
 for each board event one of its rules matches. Every worker the bridge reports
-becomes one row on the project's **Worker runs** page. An interactive Claude
-Code session on a card gets a row too, as
+becomes one row on the **Runs** tab of the project's **Activity** page. An
+interactive Claude Code session on a card gets a row too, as
 [Interactive sessions](#interactive-sessions) says.
 
-Open the page from the project sidebar, or go to
+Open **Activity** in the project sidebar, or go to
 `/projects/{project}/worker-runs`. Anyone who can view the project can read it.
 The open runs also show on the [Workshop](workshop.md), under In motion.
 
-The page has two tabs. **Runs** lists the runs, and the rest of this page
-describes it. **Cost** charts what a finished card costs on average, as
+The Activity page has three tabs. **Runs** lists the runs, and the rest of this
+page describes it. **Events** shows the [project activity](activity.md) feed.
+**Cost** charts what a finished card costs on average, as
 [The cost of finished cards](#the-cost-of-finished-cards) says.
 
 ## What a row shows
 
 | Column | Meaning |
 |---|---|
-| Card number | the card the worker was started for. It links to the card while the board feature is on |
-| Rule name | the bridge rule that matched the event. A resume adds **Resume n of N**, its place in the series and the cap of its rule |
-| Started | when the worker started, on the bridge clock. A run that has not started shows when its first report arrived |
-| Took | how long the worker ran. A run that is still open shows how long it has run so far, and an open interactive run shows "running for" in front. A run with no start, or a run that closed with no reported end, shows nothing |
-| Outcome | the state of the run, from the list below |
-| Bridge | the last 12 characters of the bridge's own identifier. An interactive run shows the tag **Interactive session**, beside the bridge when a bridge launched the session |
+| Work | the number of the card the worker was started for, then its title. A card that is gone, or a board that is off, shows the number alone. An interactive run adds the tag **Interactive session** |
+| Outcome | the state of the run, from the list below. A run with a failure reason shows a help icon, and the reason shows when you hover over or focus the outcome |
+| Rule | the bridge rule that matched the event. A long rule name is cut short, and the drawer shows it in full |
+| Duration | how long the worker ran. A run that is still open shows how long it has run so far, and an open interactive run shows "running for" in front. A run with no start, or a run that closed with no reported end, shows nothing |
+| Started | how long ago the worker started, on the bridge clock. Hover over it to see the exact time. A run that has not started shows when its first report arrived |
+
+Select a row to open its drawer. The drawer holds the detail the row
+leaves out: the bridge, the exit code, the place of a resume in its series, the
+failure reason and the output.
 
 A run that never started carries the reason instead of an exit code, such as a
 missing `claude` binary, or a terminal launcher that failed.
@@ -72,9 +76,10 @@ check, and its outcome comes from the exit code alone.
 
 The bridge resumes a run that did not finish, on the same session. A run did
 not finish when it failed, gave no result, or said **Unfinished**. Each resume
-is a new row, labelled **Resume n of N** beside the rule name. The first run of
-a series shows no label. When the last resume allowed still does not finish,
-that run shows **Gave up**. The bridge does not resume a **Blocked** run.
+is a new row. Its drawer shows **Resume n of N**, its place in the series and
+the cap of its rule. The first run of a series shows no place. When the last
+resume allowed still does not finish, that run shows **Gave up**.
+The bridge does not resume a **Blocked** run.
 
 The bridge also skips a resume when the card left the column that started the
 series. The ended run then keeps its own outcome, and its drawer says why the
@@ -214,21 +219,21 @@ Heartbeat health does not show whether an individual worker is running or availa
 
 ## The output
 
-Select **View attempt** to open a read-only drawer without leaving the list.
+Select a row to open a read-only drawer without leaving the list.
 It shows the attempt ID, card, rule, bridge, session and duration. An interactive run shows a bridge only when a bridge launched it.
 A resume also shows its place in the series, and a link to the run it resumes.
 The drawer shows the result status, the reason the bridge skipped a resume, and each extra result field the worker gave.
 It lists each state the run reached, oldest first, with the time of each state, and then the time the first report arrived.
 Agent identity and the triggering event remain unreported rather than inferred.
-Press Escape or select **Close** to return focus to the opening button.
+Press Escape or select **Close** to return focus to the row.
 
 Select **Copy output** to copy the original output text.
 If the browser refuses clipboard access, the drawer keeps the text available for manual copying.
 The drawer has no Stop or Retry controls.
 
-Every row shows the worker's output in full, collapsed. Open **Output** to read
-it. A run that succeeded shows its output the same way a run that failed does,
-because a reader of a run record is usually debugging.
+The drawer shows the worker's output in full, under **Output**. A run that
+succeeded shows its output the same way a run that failed does, because a
+reader of a run record is usually debugging.
 
 The output is whatever the agent printed, up to 4000 characters. Nobody reviews
 it before it reaches this page. It may carry file contents, paths or anything

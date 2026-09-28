@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Command;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\View\CardTitleSourceInterface;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Utils\PageList;
 use Psr\Clock\ClockInterface;
@@ -20,6 +21,7 @@ final readonly class ListWorkerRunsHandler
     public function __construct(
         private WorkerRunRepository $workerRuns,
         private WorkerRunStateChangeRepository $workerRunStateChanges,
+        private CardTitleSourceInterface $cardTitles,
         private ClockInterface $clock,
     ) {
     }
@@ -51,10 +53,15 @@ final readonly class ListWorkerRunsHandler
 
         $now = $this->clock->now();
         $histories = $this->workerRunStateChanges->findForRuns($runs);
+        $cardIds = [];
+        foreach ($runs as $run) {
+            $cardIds[(string) $run->cardId] = $run->cardId;
+        }
+        $titles = $this->cardTitles->titlesFor($command->project, array_values($cardIds));
 
         return new ListWorkerRunsView(
             items: array_map(
-                static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, $histories[(string) $run->id] ?? []),
+                static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, $histories[(string) $run->id] ?? [], $titles[(string) $run->cardId] ?? null),
                 $runs,
             ),
             filteredTotal: $total,

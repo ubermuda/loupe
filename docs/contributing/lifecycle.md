@@ -263,8 +263,8 @@ read that line. It asks each worker for a structured result, with a `status` of
 `finished`, `blocked` or `unfinished` and a one-sentence `summary`. The worker
 sets `status` from its `STAGE RESULT:` form, as the table in
 `plugins/loupe/skills/loupe-stage-product-design/references/stage-contract.md`
-says. The worker runs page at `/projects/{id}/worker-runs` shows the status and
-the summary.
+says. The **Runs** tab of the Activity page, at `/projects/{id}/worker-runs`,
+shows the status and the summary.
 
 The bridge resumes an `unfinished` run, a run with no structured result, and a
 failed run, up to the rule's `maxResumes`, two by default. A run at that cap

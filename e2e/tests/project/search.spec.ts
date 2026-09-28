@@ -137,10 +137,19 @@ test('project search opens matching documents and pages', async ({ page }) => {
     await page.goto(searchUrl);
     await field.fill('Activity');
     await page.getByRole('button', { name: 'Search', exact: true }).click();
-    await expect(page.locator('[data-search-kind="page"]')).toHaveCount(1);
-    await page.locator('[data-search-kind="page"]').click();
+    await expect(page.locator('[data-search-kind="page"]')).toHaveCount(2);
+    await expect(page.locator('[data-search-kind="page"]')).toContainText([
+        'Activity · Runs',
+        'Activity · Events',
+    ]);
+    await page
+        .locator('[data-search-kind="page"]', { hasText: 'Activity · Events' })
+        .click();
+    await expect(page).toHaveURL(
+        new RegExp(`/projects/${projectId}/activity$`),
+    );
     await expect(
-        page.getByRole('heading', { name: 'Project activity', exact: true }),
+        page.getByRole('heading', { name: 'Activity', exact: true }),
     ).toBeVisible();
     await page.goto(searchUrl);
     await field.fill(`missing${query}`);

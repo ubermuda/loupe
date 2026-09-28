@@ -122,8 +122,9 @@ final class ActivityPageTest extends WebTestCase
         $delivered = new OutboxEvent($project, 'board.card_moved', 'topic', '{}');
         $delivered->markPublished();
         $pending = new OutboxEvent($project, 'review.document_revised', 'topic', '{}');
+        $merged = new OutboxEvent($project, 'pull_request.merged', 'topic', '{}');
         $foreign = new OutboxEvent($other, 'other.secret', 'topic', '{}');
-        foreach ([$owner, $project, $other, $delivered, $pending, $foreign] as $entity) {
+        foreach ([$owner, $project, $other, $delivered, $pending, $merged, $foreign] as $entity) {
             $em->persist($entity);
         }
         $em->flush();
@@ -133,10 +134,12 @@ final class ActivityPageTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/activity');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(2, $crawler->filter('[data-activity-event-id]'));
+        self::assertCount(3, $crawler->filter('[data-activity-event-id]'));
         self::assertStringContainsString('board.card_moved', $crawler->text());
         self::assertStringContainsString('review.document_revised', $crawler->text());
         self::assertCount(1, $crawler->filter('[data-event-family="document"]'));
+        self::assertCount(1, $crawler->filter('[data-event-family="pull_request"]'));
+        self::assertCount(1, $crawler->filter('#activity-family option[value="pull_request"]'));
         self::assertCount(1, $crawler->filter('[data-activity-filter-target="toggle"]'));
         self::assertSame((string) $project->id, $crawler->filter('[data-activity-filter-project-value]')->attr('data-activity-filter-project-value'));
         self::assertSame('100', $crawler->filter('[data-activity-filter-page-size-value]')->attr('data-activity-filter-page-size-value'));

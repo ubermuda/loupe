@@ -21,7 +21,7 @@ function renderBoard() {
         </section>
         <section id="board-column-${NEXT}"><span id="board-count-${NEXT}">1</span>
             <div class="lp-board__group" id="board-group-${NEXT}">${card('c', NEXT)}</div>
-            <a id="board-history-${NEXT}">See the one finished card</a>
+            <a id="board-history-${NEXT}" data-history-total="1">See the one finished card</a>
         </section>
         <div class="lp-board-list">
             <div class="lp-board-list__header"></div>
@@ -37,6 +37,7 @@ function stream({
     rowAfter = '',
     counts,
     history = {},
+    historyTotals = {},
     title = id,
     removed = false,
 }) {
@@ -47,7 +48,7 @@ function stream({
     const body = removed
         ? ''
         : card(id, column, title, 'bbb') + row(id, column, title);
-    holder.innerHTML = `<turbo-stream action="board-place" target="board-card-${id}" data-counts='${JSON.stringify(counts)}' data-history='${JSON.stringify(history)}' ${placement}><template>${body}</template></turbo-stream>`;
+    holder.innerHTML = `<turbo-stream action="board-place" target="board-card-${id}" data-counts='${JSON.stringify(counts)}' data-history='${JSON.stringify(history)}' data-history-totals='${JSON.stringify(historyTotals)}' ${placement}><template>${body}</template></turbo-stream>`;
 
     return holder.firstElementChild;
 }
@@ -173,12 +174,13 @@ describe('board-place', () => {
                 rowAfter: 'c',
                 counts: { [BACKLOG]: 1, [NEXT]: 2 },
                 history: { [NEXT]: 'See all 2 finished cards' },
+                historyTotals: { [NEXT]: 2 },
             }),
         );
 
-        expect(
-            document.getElementById(`board-history-${NEXT}`).textContent,
-        ).toBe('See all 2 finished cards');
+        const link = document.getElementById(`board-history-${NEXT}`);
+        expect(link.textContent).toBe('See all 2 finished cards');
+        expect(link.dataset.historyTotal).toBe('2');
     });
 
     it('updates the history link when a card leaves the board', () => {
@@ -188,12 +190,13 @@ describe('board-place', () => {
                 removed: true,
                 counts: { [BACKLOG]: 2, [NEXT]: 0 },
                 history: { [NEXT]: 'No card is finished yet' },
+                historyTotals: { [NEXT]: 0 },
             }),
         );
 
-        expect(
-            document.getElementById(`board-history-${NEXT}`).textContent,
-        ).toBe('No card is finished yet');
+        const link = document.getElementById(`board-history-${NEXT}`);
+        expect(link.textContent).toBe('No card is finished yet');
+        expect(link.dataset.historyTotal).toBe('0');
     });
 
     it('changes nothing and reports a miss when the column is not on the page', () => {

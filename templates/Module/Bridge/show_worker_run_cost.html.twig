@@ -1,31 +1,26 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ 'bridge.worker_run_cost.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+{% block title %}{{ 'activity.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block topbar_crumbs %}
-    <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
-    <span class="lp-topbar__sep">/</span>
-    <a class="lp-topbar__crumb" href="{{ path('app_project_worker_runs', {id: project.id}) }}">{{ 'bridge.worker_runs.page.title'|trans }}</a>
-    <span class="lp-topbar__sep">/</span>
-    <span class="lp-topbar__here">{{ 'bridge.worker_run_cost.page.title'|trans }}</span>
+    {% include 'activity/_crumbs.html.twig' with {project: project} only %}
 {% endblock %}
 
 {% block body %}
 {% set boardEnabled = is_feature_enabled('board.enabled') %}
 {% set query = cost.query %}
 {% set costRoute = 'app_project_worker_run_cost' %}
+{% set noUsage = cost.chart is null and cost.rules is empty %}
 <div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
-    <header class="lp-page-header">
-        <div>
-            <h1 class="lp-workspace-title">{{ 'bridge.worker_runs.page.title'|trans }}</h1>
-            <p class="lp-workspace-desc">{{ 'bridge.worker_runs.page.description'|trans }}</p>
-        </div>
-    </header>
+    {% include 'activity/_header.html.twig' with {} only %}
 
-    {% include '@Bridge/_worker_runs_tabs.html.twig' with {project: project, active: 'cost'} only %}
+    {% include 'activity/_tabs.html.twig' with {project: project, active: 'cost'} only %}
 
+    {% if cost.chart is not null %}
     <p class="lp-cost-basis" data-cost-basis>{{ 'bridge.worker_run_cost.price_basis'|trans }}</p>
+    {% endif %}
 
+    {% if not noUsage %}
     <div class="lp-list-filters lp-cost-controls">
         <nav class="lp-cost-toggle" aria-label="{{ 'bridge.worker_run_cost.range.label'|trans }}">
             {% for range in ranges %}
@@ -75,7 +70,10 @@
             {% endif %}
         </form>
     </div>
+    {% endif %}
 
+    {% set chart = cost.chart %}
+    {% if chart is not null %}
     <dl class="lp-cost-summary" data-cost-summary>
         <div class="lp-cost-summary__figure">
             <dt class="lp-cost-summary__label">{{ 'bridge.worker_run_cost.summary.median'|trans }}</dt>
@@ -91,8 +89,6 @@
         </div>
     </dl>
 
-    {% set chart = cost.chart %}
-    {% if chart is not null %}
     {% set split = query.split.value != 'none' %}
     {% set dayFormat = chart.longSpan ? 'M j, Y' : 'M j' %}
     {% set plotLeft = constant('App\\Module\\Bridge\\View\\CostChart::PLOT_LEFT') %}
@@ -225,8 +221,14 @@
     </figure>
     {% else %}
     <div class="lp-empty-state" data-cost-empty>
-        <twig:ux:icon name="lucide:chart-column" class="lp-empty-state__icon text-accent w-12 h-12" />
+        <twig:ux:icon name="lucide:chart-column" class="lp-empty-state__icon w-12 h-12" />
+        {% if noUsage %}
+        <h2 class="lp-empty-state__title">{{ 'bridge.worker_run_cost.no_usage.title'|trans }}</h2>
+        <p>{{ 'bridge.worker_run_cost.no_usage.description'|trans }}</p>
+        {% else %}
         <h2 class="lp-empty-state__title">{{ 'bridge.worker_run_cost.empty'|trans }}</h2>
+        <p>{{ 'bridge.worker_run_cost.empty_description'|trans }}</p>
+        {% endif %}
     </div>
     {% endif %}
 </div>
