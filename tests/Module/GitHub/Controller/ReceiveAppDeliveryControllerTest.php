@@ -124,6 +124,48 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
         self::assertSame([(string) $card->id], $this->outboxSubjects($project));
     }
 
+    public function test_a_completed_check_suite_queues_a_refresh_of_each_tracked_pull_request_it_touches(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $project = $this->project('refresh');
+        $this->installation($project, 9_000_620);
+        $this->owned($project, 620, 'Acme/R', ForgeRepositorySource::Installation, 9_000_620);
+        $byNumber = $this->trackedPullRequest($project, 'acme/r', 3, 'aaa111');
+        $byHead = $this->trackedPullRequest($project, 'acme/r', 4, 'bbb222');
+        $this->trackedPullRequest($project, 'acme/r', 5, 'ccc333');
+
+        $this->deliver($client, self::PATH, 'check_suite', [
+            'action' => 'completed',
+            'installation' => ['id' => 9_000_620],
+            'repository' => ['id' => 620, 'full_name' => 'Acme/R'],
+            'check_suite' => ['head_sha' => 'bbb222', 'pull_requests' => [['number' => 3]]],
+        ], self::SECRET);
+
+        self::assertResponseIsSuccessful();
+        self::assertEqualsCanonicalizing([[$byNumber, false], [$byHead, false]], $this->queuedRefreshes());
+    }
+
+    public function test_a_push_to_a_base_queues_a_delayed_refresh_of_the_pull_requests_on_it(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $project = $this->project('push');
+        $this->installation($project, 9_000_621);
+        $this->owned($project, 621, 'acme/s', ForgeRepositorySource::Installation, 9_000_621);
+        $onMain = $this->trackedPullRequest($project, 'acme/s', 1, 'aaa111');
+        $this->trackedPullRequest($project, 'acme/s', 2, 'bbb222', 'release');
+
+        $this->deliver($client, self::PATH, 'push', [
+            'ref' => 'refs/heads/main',
+            'installation' => ['id' => 9_000_621],
+            'repository' => ['id' => 621, 'full_name' => 'acme/s'],
+        ], self::SECRET);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([[$onMain, true]], $this->queuedRefreshes());
+    }
+
     public function test_a_repository_another_installation_owns_is_dropped(): void
     {
         $client = static::createClient();

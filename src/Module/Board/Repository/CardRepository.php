@@ -253,13 +253,13 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * Reads onto the card its type and its parent, for the reason in
-     * refreshColumn(). A card the database no longer holds is left alone.
+     * Reads onto the card its type, its parent and its lane setting, for the
+     * reason in refreshColumn(). A card the database no longer holds is left alone.
      */
     public function refreshTypeAndParent(Card $card): void
     {
         $row = $this->getEntityManager()->getConnection()->fetchAssociative(
-            'SELECT type, parent_card_id FROM board_cards WHERE id = :id',
+            'SELECT type, parent_card_id, lane_enabled FROM board_cards WHERE id = :id',
             ['id' => (string) $card->id],
         );
 
@@ -268,6 +268,7 @@ class CardRepository extends ServiceEntityRepository
         }
 
         $card->type = CardType::from((string) $row['type']);
+        $card->laneEnabled = (bool) $row['lane_enabled'];
         $card->parent = null === $row['parent_card_id']
             ? null
             : $this->getEntityManager()->find(Card::class, Uuid::fromString((string) $row['parent_card_id']));

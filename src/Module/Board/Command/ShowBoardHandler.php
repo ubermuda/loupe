@@ -8,6 +8,7 @@ use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
+use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
@@ -22,6 +23,7 @@ final readonly class ShowBoardHandler
         private BoardColumnCards $columnCards,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private BridgeRuleReportRepository $bridgeRuleReports,
+        private CardDocumentRepository $cardDocuments,
     ) {
     }
 
@@ -76,9 +78,10 @@ final readonly class ShowBoardHandler
             $project,
             $columns,
             self::TERMINAL_WINDOW_DAYS,
-            // One aggregate for the whole board. A count per card would be a
-            // query per card, on the page that renders the most of them.
+            // One aggregate each for the whole board. A count per card would be
+            // a query per card, on the page that renders the most of them.
             $this->cardSiteReviewComments->pendingCountsForProject($project),
+            $this->cardDocuments->countsForProject($project),
             $deadRules,
             array_values(array_unique($watchedSlugs)),
             $lanes,
@@ -104,7 +107,7 @@ final readonly class ShowBoardHandler
                 continue;
             }
             foreach ($view->cards as $card) {
-                if (CardType::Epic === $card->type && $card->laneEnabled) {
+                if ($card->drawsLane()) {
                     $epics[(string) $card->id] = $card;
                 }
             }
