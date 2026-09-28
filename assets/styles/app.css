@@ -5941,8 +5941,34 @@
         @apply truncate;
     }
     /* Above the row target, like the chip, so a hover shows the absolute time. */
-    .lp-data-table--runs .lp-data-table__row time {
+    .lp-data-table--runs .lp-data-table__row time,
+    .lp-data-table--events .lp-data-table__row time {
         @apply relative z-10;
+    }
+    /* What an event did to its work, after the bold event label. */
+    .lp-data-table__subject {
+        @apply min-w-0 truncate text-fg-mute;
+    }
+    /* Event, Delivery, Family, Sequence, Recorded. */
+    .lp-data-table--events {
+        --lp-data-table-columns: minmax(0, 1fr) calc(var(--spacing) * 40)
+            calc(var(--spacing) * 32) calc(var(--spacing) * 20)
+            calc(var(--spacing) * 28);
+    }
+    .lp-redesign-events {
+        @apply @container;
+    }
+    @container (width < 56rem) {
+        .lp-data-table--events {
+            @apply overflow-x-auto;
+        }
+        .lp-data-table--events .lp-data-table__header,
+        .lp-data-table--events .lp-data-table__row {
+            @apply min-w-4xl;
+        }
+    }
+    .lp-data-table--events .lp-data-table__row > .lp-data-table__cell {
+        @apply truncate;
     }
 
     /* ── Worker run cost ───────────────────────────────────────────── */
@@ -6928,8 +6954,7 @@
         @apply min-w-0 flex-1;
     }
     .lp-agent-card__heading,
-    .lp-rule-row__heading,
-    .lp-activity-row__heading {
+    .lp-rule-row__heading {
         @apply flex items-start justify-between gap-4;
     }
     .lp-agent-card__eyebrow {
@@ -6953,8 +6978,7 @@
     .lp-agent-card__facts dd {
         @apply m-0 mt-1 text-sm font-medium text-ink;
     }
-    .lp-rule-list,
-    .lp-activity-feed {
+    .lp-rule-list {
         @apply flex flex-col gap-3 mt-6;
     }
     .lp-rule-row {
@@ -6963,8 +6987,7 @@
     .lp-rule-row__main {
         @apply min-w-0 flex-1;
     }
-    .lp-rule-row__heading h2,
-    .lp-activity-row__heading h2 {
+    .lp-rule-row__heading h2 {
         @apply m-0 font-sans text-xs font-semibold tracking-normal text-ink;
     }
     .lp-rule-row__main > p {
@@ -6982,44 +7005,10 @@
     .lp-rule-flow__arrow {
         @apply text-fg-mute;
     }
-    .lp-rule-row__reason,
-    .lp-activity-row__error {
+    .lp-rule-row__reason {
         @apply mt-3 rounded-lg bg-status-danger-bg px-3 py-2 text-sm text-danger;
     }
     .lp-rule-row > time {
         @apply shrink-0 text-xs text-fg-mute;
-    }
-    .lp-activity-row {
-        @apply flex flex-wrap gap-4 rounded-2xl border border-line bg-surface-2 p-5;
-    }
-    .lp-activity-row__icon {
-        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink text-accent;
-    }
-    .lp-activity-row__icon svg {
-        @apply h-5 w-5;
-    }
-    .lp-activity-row__body {
-        @apply min-w-0 flex-1 basis-48;
-    }
-    .lp-activity-row__heading time {
-        @apply shrink-0 text-xs text-fg-mute;
-    }
-    .lp-activity-row__body > p {
-        @apply mt-1 mb-0 text-sm text-fg-mute;
-    }
-    .lp-activity-row__meta {
-        @apply flex flex-wrap items-center gap-3 mt-3 text-xs text-fg-mute;
-    }
-    /* Related-work links within the compact event metadata row. */
-    .lp-activity-row__work {
-        @apply min-w-0 break-words text-accent-ink underline underline-offset-2 hover:text-ink;
-    }
-    @media (width < 40rem) {
-        .lp-activity-row {
-            @apply gap-3 p-4;
-        }
-        .lp-activity-row__heading {
-            @apply flex-col gap-1;
-        }
     }
 }
