@@ -67,6 +67,9 @@ final readonly class InboxAskCloser
 
     private function cardOfSession(InboxAsk $ask): ?Card
     {
+        if (null === $ask->sessionId) {
+            return null;
+        }
         $run = $this->workerRuns->findFirstOfSession($ask->project, $ask->sessionId);
 
         return null === $run ? null : $this->cards->findOneByIdAndProjectId((string) $run->cardId, (string) $ask->project->id);

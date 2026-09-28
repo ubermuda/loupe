@@ -25,7 +25,7 @@
             {% elseif state == 'none' %}
                 <span class="lp-tooltip__line">{{ 'inbox.presence.no_bridge'|trans }}</span>
             {% endif %}
-            <span class="lp-tooltip__line lp-tooltip__line--quiet">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>
+            {% if ask.sessionId %}<span class="lp-tooltip__line lp-tooltip__line--quiet">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>{% endif %}
         </span>
     </span>
 {% endif %}

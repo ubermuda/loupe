@@ -4501,6 +4501,10 @@
                 <source>inbox.item.kind.todo</source>
                 <target>To-do</target>
             </trans-unit>
+            <trans-unit id="inbox.item.kind.wait">
+                <source>inbox.item.kind.wait</source>
+                <target>Waiting</target>
+            </trans-unit>
             <trans-unit id="inbox.item.blocking">
                 <source>inbox.item.blocking</source>
                 <target>Blocking</target>
