@@ -685,7 +685,10 @@ test('a completed review leaves another tabs unsent review recoverable', async (
         .click();
     await other.getByRole('radio', { name: 'Approve', exact: true }).check();
     await other.getByRole('button', { name: 'Submit review' }).click();
-    await expect(other.locator('.lp-verdict-bar--approved')).toBeVisible();
+    // The submit and its redirect took 4.6 s on a loaded CI runner.
+    await expect(other.locator('.lp-verdict-bar--approved')).toBeVisible({
+        timeout: coverageScaled(15000),
+    });
     await page.getByRole('link', { name: 'History', exact: true }).click();
     await expect(page).toHaveURL(`${review.reviewUrl}/history`);
     await page.getByRole('link', { name: 'Document', exact: true }).click();
