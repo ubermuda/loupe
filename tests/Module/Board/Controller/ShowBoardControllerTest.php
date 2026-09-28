@@ -28,7 +28,7 @@ final class ShowBoardControllerTest extends WebTestCase
 {
     use BoardScenario;
 
-    public function test_the_board_shows_four_columns_with_one_drop_target_each(): void
+    public function test_the_board_shows_three_columns_with_one_drop_target_each_and_no_backlog(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -38,30 +38,32 @@ final class ShowBoardControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->card($em, $project, 'Backlog card', 'backlog');
         $this->card($em, $project, 'Next card', 'next');
+        $backlogId = (string) $this->column($project, 'backlog')->id;
         $em->clear();
 
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(4, $crawler->filter('.lp-board__column'));
-        self::assertCount(4, $crawler->filter('[data-board-drag-target="group"]'));
+        self::assertCount(3, $crawler->filter('.lp-board__column'));
+        self::assertCount(0, $crawler->filter('.lp-board__column[data-column-id="'.$backlogId.'"]'));
+        self::assertCount(3, $crawler->filter('[data-board-drag-target="group"]'));
         self::assertCount(0, $crawler->filter('[data-priority], [data-card-priority]'));
-        self::assertCount(2, $crawler->filter('[data-board-drag-target="card"]'));
+        self::assertCount(1, $crawler->filter('[data-board-drag-target="card"]'));
         self::assertCount(1, $crawler->filter('dialog[data-card-drawer-target="dialog"] turbo-frame#card-drawer-frame'));
-        self::assertCount(2, $crawler->filter('.lp-board-card a[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
-        self::assertCount(4, $crawler->filter('a.lp-board__add-card[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
+        self::assertCount(1, $crawler->filter('.lp-board-card a[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
+        self::assertCount(3, $crawler->filter('a.lp-board__add-card[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
         self::assertCount(1, $crawler->filter('.lp-board-toolbar a[href$="/board/cards/new"][data-turbo-frame="card-drawer-frame"]'));
         self::assertSelectorTextContains('.lp-board-toolbar h1', 'Project board');
         self::assertSelectorNotExists('.lp-workspace-desc');
-        self::assertSelectorTextContains('.lp-board-toolbar__count', '2 cards');
+        self::assertSelectorTextContains('.lp-board-toolbar__count', '1 card');
         self::assertSelectorTextContains('.lp-board-toolbar__mode-button[aria-pressed="true"]', 'Board');
         self::assertSelectorExists('a[href="/projects/'.$project->id.'/edit"]');
 
         $counts = $crawler->filter('.lp-board__column-count')->each(
             static fn (Crawler $node): string => trim($node->text()),
         );
-        self::assertSame(['1', '1', '0', '0'], $counts);
+        self::assertSame(['1', '0', '0'], $counts);
     }
 
     public function test_the_board_renders_the_columns_its_project_holds(): void
@@ -72,7 +74,7 @@ final class ShowBoardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'board-own-columns@example.com');
         $project = $this->project($em, $owner);
-        $this->column($project, 'backlog')->label = 'Ideas';
+        $this->column($project, 'next')->label = 'Ideas';
         $em->persist(new BoardColumn(project: $project, label: 'Won’t do', slug: 'wont-do', position: 4, terminal: true));
         $em->flush();
         $this->card($em, $project, 'Dropped', 'wont-do');
@@ -86,7 +88,7 @@ final class ShowBoardControllerTest extends WebTestCase
             static fn (Crawler $node): string => trim($node->text()),
         );
         // A literal label passes through the translator unchanged.
-        self::assertSame(['Ideas', 'Next', 'In progress', 'Done', 'Won’t do'], $titles);
+        self::assertSame(['Ideas', 'In progress', 'Done', 'Won’t do'], $titles);
         $wontDo = $crawler->filter('.lp-board__column')->last();
         self::assertStringContainsString('Dropped', $wontDo->text());
         self::assertCount(1, $wontDo->filter('.lp-board__column-link'));
@@ -100,7 +102,7 @@ final class ShowBoardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'board-face@example.com');
         $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Draggable');
+        $card = $this->card($em, $project, 'Draggable', 'next');
         $cardId = $card->id;
         $em->clear();
 
@@ -130,8 +132,8 @@ final class ShowBoardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'board-indicator@example.com');
         $project = $this->project($em, $owner);
-        $plain = $this->card($em, $project, 'No links');
-        $linked = $this->card($em, $project, 'Has links');
+        $plain = $this->card($em, $project, 'No links', 'next');
+        $linked = $this->card($em, $project, 'Has links', 'next');
         $linked->replacePullRequests(new CardPullRequest(
             card: $linked,
             url: 'https://github.com/loupe/loupe/pull/7',
@@ -356,7 +358,7 @@ final class ShowBoardControllerTest extends WebTestCase
         $owner = $this->user($em, 'board-document-badge@example.com');
         $project = $this->project($em, $owner);
         $documented = $this->documentedCard($em, $project, 'Documented', 2);
-        $plain = $this->card($em, $project, 'Plain');
+        $plain = $this->card($em, $project, 'Plain', 'next');
         $em->clear();
 
         $client->loginUser($owner);
@@ -432,12 +434,12 @@ final class ShowBoardControllerTest extends WebTestCase
         $project = $this->project($em, $owner, 'warned');
         $stays = $this->card($em, $project, 'Stays', 'in-progress');
         $moved = $this->card($em, $project, 'Moved', 'next');
-        $unnamed = $this->card($em, $project, 'Unnamed', 'backlog');
-        $quiet = $this->card($em, $project, 'Quiet', 'backlog');
+        $unnamed = $this->card($em, $project, 'Unnamed', 'next');
+        $quiet = $this->card($em, $project, 'Quiet', 'next');
         $gaveUp = $this->workerRun($em, $project, $stays, WorkerRunState::GaveUp, 'in-progress', 'Tests <em>still</em> fail.');
         $this->workerRun($em, $project, $moved, WorkerRunState::GaveUp, 'in-progress', 'Moved away.');
         $blocked = $this->workerRun($em, $project, $unnamed, WorkerRunState::Blocked, null, 'Needs a token.');
-        $this->workerRun($em, $project, $quiet, WorkerRunState::Succeeded, 'backlog', 'Done.');
+        $this->workerRun($em, $project, $quiet, WorkerRunState::Succeeded, 'next', 'Done.');
         $em->clear();
 
         $client->loginUser($owner);
@@ -474,10 +476,10 @@ final class ShowBoardControllerTest extends WebTestCase
         $owner = $this->user($em, 'board-lane-warning@example.com');
         $project = $this->project($em, $owner, 'laned');
         $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
-        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'backlog'));
-        $loose = $this->card($em, $project, 'Loose', 'backlog');
-        $childRun = $this->workerRun($em, $project, $child, WorkerRunState::GaveUp, 'backlog', 'Child gave up.');
-        $looseRun = $this->workerRun($em, $project, $loose, WorkerRunState::Blocked, 'backlog', 'Loose is blocked.');
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'in-progress'));
+        $loose = $this->card($em, $project, 'Loose', 'in-progress');
+        $childRun = $this->workerRun($em, $project, $child, WorkerRunState::GaveUp, 'in-progress', 'Child gave up.');
+        $looseRun = $this->workerRun($em, $project, $loose, WorkerRunState::Blocked, 'in-progress', 'Loose is blocked.');
         $em->clear();
 
         $client->loginUser($owner);
@@ -605,7 +607,7 @@ final class ShowBoardControllerTest extends WebTestCase
 
     private function documentedCard(EntityManagerInterface $em, Project $project, string $title, int $documents): Card
     {
-        $card = $this->card($em, $project, $title);
+        $card = $this->card($em, $project, $title, 'next');
         for ($index = 0; $index < $documents; ++$index) {
             $document = new Document($project->owner, $project, $title.' design '.$index);
             $document->addVersion('# Design', '<h1>Design</h1>');

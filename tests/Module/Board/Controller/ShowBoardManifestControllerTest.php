@@ -33,6 +33,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
         $project = $this->project($em, $this->user($em, 'manifest-anonymous@example.com'));
+        $this->addTriageColumn($project);
+        $em->flush();
         $em->clear();
 
         $client->request(Request::METHOD_GET, $this->manifestUrl($project));
@@ -46,6 +48,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
         $project = $this->project($em, $this->user($em, 'manifest-owner@example.com'));
+        $this->addTriageColumn($project);
+        $em->flush();
         $this->card($em, $project, 'Private');
         $outsider = $this->user($em, 'manifest-outsider@example.com');
         $em->clear();
@@ -63,6 +67,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'manifest-flag-off@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $this->disableBoard();
         $em->clear();
 
@@ -87,6 +93,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-empty@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $em->clear();
 
         $client->loginUser($owner);
@@ -103,14 +111,16 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-order@example.com');
         $project = $this->project($em, $owner);
-        $backlogSecond = $this->card($em, $project, 'Backlog second', 'backlog', 1);
-        $backlogFirst = $this->card($em, $project, 'Backlog first', 'backlog', 0);
+        $this->addTriageColumn($project);
+        $em->flush();
+        $triageSecond = $this->card($em, $project, 'Triage second', 'triage', 1);
+        $triageFirst = $this->card($em, $project, 'Triage first', 'triage', 0);
         $done = $this->card($em, $project, 'Finished', 'done');
         $epic = $this->closedEpic($em, $this->card($em, $project, 'Closed epic', 'next', 0));
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next', 1));
         $doneChild = $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
         $this->linkPullRequest($em, $child);
-        $this->warn($em, $project, $backlogFirst, 'backlog');
+        $this->warn($em, $project, $triageFirst, 'triage');
         $em->clear();
 
         $client->loginUser($owner);
@@ -118,13 +128,13 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $page = $this->page($client, $project);
 
         self::assertSame(
-            [(string) $backlogFirst->id, (string) $backlogSecond->id, (string) $epic->id, (string) $child->id, (string) $doneChild->id, (string) $done->id],
+            [(string) $triageFirst->id, (string) $triageSecond->id, (string) $epic->id, (string) $child->id, (string) $doneChild->id, (string) $done->id],
             array_column($manifest['cards'], 0),
         );
         self::assertSame($page['rows'], array_column($manifest['cards'], 0));
         self::assertSame($page['cards'], array_column($manifest['cards'], 1, 0));
         self::assertSame(
-            array_map(static fn (Card $card): string => (string) $card->column->id, [$backlogFirst, $backlogSecond, $epic, $child, $doneChild, $done]),
+            array_map(static fn (Card $card): string => (string) $card->column->id, [$triageFirst, $triageSecond, $epic, $child, $doneChild, $done]),
             array_column($manifest['cards'], 2),
         );
     }
@@ -136,9 +146,11 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
-        $child = $this->childOf($em, $epic, $this->card($em, $project, 'In the lane', 'backlog', 0));
-        $other = $this->card($em, $project, 'Outside', 'backlog', 1);
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'In the lane', 'triage', 0));
+        $other = $this->card($em, $project, 'Outside', 'triage', 1);
         $em->clear();
 
         $client->loginUser($owner);
@@ -162,6 +174,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-history@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $this->card($em, $project, 'Finished today', 'done');
         $old = $this->card($em, $project, 'Finished long ago', 'done');
         $old->completedAt = new \DateTimeImmutable('-1 year');
@@ -185,8 +199,10 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-parent@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $parent = $this->card($em, $project, 'Parent', 'next');
-        $child = $this->childOf($em, $parent, $this->card($em, $project, 'Child'));
+        $child = $this->childOf($em, $parent, $this->card($em, $project, 'Child', 'triage'));
         $em->clear();
 
         $client->loginUser($owner);
@@ -207,6 +223,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-progress@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->closedEpic($em, $this->card($em, $project, 'Epic', 'next'));
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child'));
         $em->clear();
@@ -231,6 +249,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-warning@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $card = $this->card($em, $project, 'Stuck', 'next');
         $em->clear();
 
@@ -252,6 +272,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-structure@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $this->card($em, $project, 'Card');
         $nextId = $this->column($project, 'next')->id;
         $em->clear();
@@ -279,6 +301,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane-on@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->closedEpic($em, $this->card($em, $project, 'Epic', 'next'));
         $em->clear();
 
@@ -303,6 +327,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane-swap@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $first = $this->typed($em, $this->card($em, $project, 'First epic', 'next', 0), CardType::Epic);
         $second = $this->typed($em, $this->card($em, $project, 'Second epic', 'next', 1), CardType::Epic);
         $em->clear();
@@ -328,6 +354,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane-body@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->closedEpic($em, $this->card($em, $project, 'Epic', 'next'));
         $this->updateCard($epic, static function (Card $card): void {
             $card->laneEnabled = true;
@@ -356,8 +384,10 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $projects = [];
         foreach (['three-cards' => 3, 'twelve-cards' => 12] as $name => $size) {
             $project = $this->project($em, $owner, $name);
+            $this->addTriageColumn($project);
+            $em->flush();
             for ($index = 0; $index < $size; ++$index) {
-                $this->linkPullRequest($em, $this->card($em, $project, 'Card '.$index, 'backlog', $index));
+                $this->linkPullRequest($em, $this->card($em, $project, 'Card '.$index, 'triage', $index));
             }
             $projects[$name] = $project;
         }

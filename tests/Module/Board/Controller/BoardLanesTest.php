@@ -27,7 +27,9 @@ final class BoardLanesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-none@example.com');
         $project = $this->project($em, $owner);
-        $this->card($em, $project, 'Plain', 'backlog');
+        $this->addTriageColumn($project);
+        $em->flush();
+        $this->card($em, $project, 'Plain', 'triage');
         $this->card($em, $project, 'Finished', 'done');
         $em->clear();
 
@@ -47,12 +49,14 @@ final class BoardLanesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-draw@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Board epic', 'next'), CardType::Epic);
-        $open = $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'backlog'));
+        $open = $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'triage'));
         $done = $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
-        $loose = $this->card($em, $project, 'Loose card', 'backlog');
+        $loose = $this->card($em, $project, 'Loose card', 'triage');
         [$epicId, $epicNumber, $openId, $doneId, $looseId] = [(string) $epic->id, $epic->number, (string) $open->id, (string) $done->id, (string) $loose->id];
-        $backlogId = (string) $this->column($project, 'backlog')->id;
+        $triageId = (string) $this->column($project, 'triage')->id;
         $doneColumnId = (string) $this->column($project, 'done')->id;
         $em->clear();
 
@@ -74,7 +78,7 @@ final class BoardLanesTest extends WebTestCase
 
         // The epic is its lane header, not a card.
         self::assertCount(0, $crawler->filter('[data-board-drag-target="card"][data-card-id="'.$epicId.'"]'));
-        self::assertCount(1, $lane->filter('[data-board-drag-target="group"][data-lane="'.$epicId.'"][data-column="'.$backlogId.'"] [data-card-id="'.$openId.'"]'));
+        self::assertCount(1, $lane->filter('[data-board-drag-target="group"][data-lane="'.$epicId.'"][data-column="'.$triageId.'"] [data-card-id="'.$openId.'"]'));
         self::assertCount(1, $lane->filter('[data-board-drag-target="group"][data-lane="'.$epicId.'"][data-column="'.$doneColumnId.'"] [data-card-id="'.$doneId.'"]'));
         self::assertCount(4, $lane->filter('[data-board-drag-target="group"]'));
         // A child inside its own lane needs no parent tag.
@@ -83,7 +87,7 @@ final class BoardLanesTest extends WebTestCase
         $other = $crawler->filter('.lp-board-lane[data-lane="other"]');
         self::assertCount(1, $other);
         self::assertStringContainsString('Other cards', $other->filter('.lp-board-lane__head')->text());
-        self::assertCount(1, $other->filter('[data-lane="other"][data-column="'.$backlogId.'"] [data-card-id="'.$looseId.'"]'));
+        self::assertCount(1, $other->filter('[data-lane="other"][data-column="'.$triageId.'"] [data-card-id="'.$looseId.'"]'));
         self::assertSame('other', $crawler->filter('.lp-board-lane')->last()->attr('data-lane'));
 
         // A lane cell of an open column is ranked, and a terminal one is not.
@@ -113,6 +117,8 @@ final class BoardLanesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-off@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Quiet epic', 'in-progress'), CardType::Epic);
         $done = [];
         for ($index = 0; $index < 3; ++$index) {
@@ -120,7 +126,7 @@ final class BoardLanesTest extends WebTestCase
         }
         $open = [];
         for ($index = 0; $index < 4; ++$index) {
-            $open[] = $this->childOf($em, $epic, $this->card($em, $project, 'Open '.$index, 'backlog', $index));
+            $open[] = $this->childOf($em, $epic, $this->card($em, $project, 'Open '.$index, 'triage', $index));
         }
         [$epicId, $epicNumber, $openId] = [(string) $epic->id, $epic->number, (string) $open[0]->id];
         $em->clear();
@@ -153,6 +159,8 @@ final class BoardLanesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-stream@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Streamed epic', 'next'), CardType::Epic);
         $this->childOf($em, $epic, $this->card($em, $project, 'Child'));
         $epicId = (string) $epic->id;
@@ -178,6 +186,8 @@ final class BoardLanesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-done@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Finished epic', 'done'), CardType::Epic);
         $children = [];
         for ($index = 0; $index < 3; ++$index) {
@@ -205,11 +215,15 @@ final class BoardLanesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-queries@example.com');
         $plain = $this->project($em, $owner, 'plain');
-        $this->card($em, $plain, 'Plain');
+        $this->addTriageColumn($plain);
+        $em->flush();
+        $this->card($em, $plain, 'Plain', 'triage');
         $epics = $this->project($em, $owner, 'epics');
+        $this->addTriageColumn($epics);
+        $em->flush();
         for ($index = 0; $index < 3; ++$index) {
             $epic = $this->typed($em, $this->card($em, $epics, 'Epic '.$index, 'next', $index), CardType::Epic);
-            $this->childOf($em, $epic, $this->card($em, $epics, 'Child '.$index, 'backlog'));
+            $this->childOf($em, $epic, $this->card($em, $epics, 'Child '.$index, 'triage'));
             $this->childOf($em, $epic, $this->card($em, $epics, 'Done child '.$index, 'done'));
         }
         $em->clear();

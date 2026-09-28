@@ -462,7 +462,7 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * The children the card blocks that wait in the default column and whose
+     * The children the card blocks that wait in the Backlog and whose
      * every blocker now sits in a terminal column.
      *
      * @return list<Card>

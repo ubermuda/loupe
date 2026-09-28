@@ -53,7 +53,7 @@ class BoardColumnRepository extends ServiceEntityRepository
             $column->slug = (string) $row['slug'];
             $column->position = (int) $row['position'];
             $column->terminal = (bool) $row['terminal'];
-            $column->isDefault = (bool) $row['is_default'];
+            $column->backlog = (bool) $row['is_default'];
             $column->tone = LabelTone::from((string) $row['tone']);
             $columns[] = $column;
         }
@@ -61,11 +61,17 @@ class BoardColumnRepository extends ServiceEntityRepository
         return $columns;
     }
 
-    /** The same lookup from a raw route parameter, for a MapEntity expression. */
-    public function findDefaultForProjectId(string $projectId): ?BoardColumn
+    /** @return list<BoardColumn> the columns the board draws, which leaves the Backlog out */
+    public function findBoardColumns(Project $project): array
+    {
+        return $this->findBy(['project' => $project, 'backlog' => false], ['position' => 'ASC']);
+    }
+
+    /** From a raw route parameter, for a MapEntity expression. */
+    public function findBacklogForProjectId(string $projectId): ?BoardColumn
     {
         return Uuid::isValid($projectId)
-            ? $this->findOneBy(['project' => Uuid::fromString($projectId), 'isDefault' => true])
+            ? $this->findOneBy(['project' => Uuid::fromString($projectId), 'backlog' => true])
             : null;
     }
 

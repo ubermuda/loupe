@@ -58,7 +58,7 @@ final class ListProjectColumnsController extends AppController
                     // A seeded label is a translation key, and a typed one matches no key.
                     'label' => $this->translator->trans($column->label),
                     'terminal' => $column->terminal,
-                    'default' => $column->isDefault,
+                    'default' => $column->backlog,
                 ],
                 $view->columns,
             ),

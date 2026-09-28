@@ -57,8 +57,8 @@ final class ShowCardPlacementQueryCountTest extends KernelTestCase
     }
 
     /**
-     * An epic first in the in-progress column, with an empty column and a
-     * backlog before it, and $perColumn cards in the backlog, in progress and done.
+     * An epic first in the in-progress column, with a triage column and an
+     * empty column before it, and $perColumn cards in triage, in progress and done.
      *
      * @param non-empty-string $slug
      *
@@ -71,12 +71,13 @@ final class ShowCardPlacementQueryCountTest extends KernelTestCase
         $project = new Project($owner, $slug.'-'.uniqid());
         $this->em->persist($project);
         $this->seedColumns($project);
+        $this->addTriageColumn($project);
         $this->em->flush();
 
         $number = 1;
         $epic = $this->card($project, 'in-progress', $number++, 0, CardType::Epic);
         for ($i = 0; $i < $perColumn; ++$i) {
-            foreach (['backlog', 'in-progress', 'done'] as $column) {
+            foreach (['triage', 'in-progress', 'done'] as $column) {
                 $card = $this->card($project, $column, $number++, $i + 1);
                 $card->parent = $epic;
                 $this->em->persist(new CardPullRequest($card, 'https://github.com/acme/app/pull/'.$number));

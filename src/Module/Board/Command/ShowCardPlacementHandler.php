@@ -28,7 +28,7 @@ final readonly class ShowCardPlacementHandler
     public function __invoke(ShowCardPlacementCommand $command): CardPlacementView
     {
         $windowStart = BoardColumnCards::windowStart();
-        $columns = $this->boardColumns->findForProject($command->project);
+        $columns = $this->boardColumns->findBoardColumns($command->project);
 
         $stored = $this->columnCards->counts($command->project, $windowStart);
         $counts = [];

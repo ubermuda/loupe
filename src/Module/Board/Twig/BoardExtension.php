@@ -179,7 +179,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
     public function boardColumnAddForm(Project $project, ?FormView $refused = null): FormView
     {
         return $refused ?? $this->formFactory->create(AddBoardColumnFormType::class, new AddBoardColumnRequest(
-            tone: $this->tonePicker->pick($this->boardColumns->findForProject($project)),
+            tone: $this->tonePicker->pick($this->boardColumns->findBoardColumns($project)),
         ))->createView();
     }
 
@@ -187,7 +187,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
      * The refused form a failed configure forwarded, when it belongs to this
      * column, or a fresh one that shows the column as it is now.
      */
-    public function boardColumnConfigureForm(BoardColumn $column, string $expectedDefaultId, ?FormView $refused = null): FormView
+    public function boardColumnConfigureForm(BoardColumn $column, ?FormView $refused = null): FormView
     {
         $name = ConfigureBoardColumnFormType::nameFor($column);
         if (null !== $refused && $refused->vars['name'] === $name) {
@@ -198,9 +198,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
             ->createNamed($name, ConfigureBoardColumnFormType::class, new ConfigureBoardColumnRequest(
                 label: $this->translator->trans($column->label),
                 expectedLabel: $column->label,
-                isDefault: $column->isDefault,
                 terminal: $column->terminal,
-                expectedDefaultId: $expectedDefaultId,
                 expectedTerminal: $column->terminal ? '1' : '0',
                 tone: $column->tone,
             ))

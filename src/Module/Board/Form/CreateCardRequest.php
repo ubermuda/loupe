@@ -22,7 +22,7 @@ class CreateCardRequest
         #[Assert\NotNull]
         public ?CardType $type = CardType::Feature,
 
-        /** The controller passes the board's default column. */
+        /** The controller passes the board's Backlog. */
         #[Assert\NotNull]
         public ?BoardColumn $column = null,
         /** One URL per line, as typed. The list is replaced whole on every save. */

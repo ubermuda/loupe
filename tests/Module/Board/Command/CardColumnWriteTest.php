@@ -41,16 +41,16 @@ final class CardColumnWriteTest extends KernelTestCase
         $this->project = $this->board($owner);
     }
 
-    public function test_a_card_created_with_no_column_lands_in_the_default_column(): void
+    public function test_a_card_created_with_no_column_lands_in_the_backlog(): void
     {
-        // The default is moved off the first column, so the test cannot pass on "first by position".
-        $this->column($this->project, 'backlog')->isDefault = false;
-        $this->column($this->project, 'next')->isDefault = true;
+        // The Backlog is moved off the first position, so the test cannot pass on "first by position".
+        $this->column($this->project, 'backlog')->position = 1;
+        $this->column($this->project, 'next')->position = 0;
         $this->em->flush();
 
         $card = $this->create(null);
 
-        self::assertSame('next', $this->stored($card));
+        self::assertSame('backlog', $this->stored($card));
     }
 
     public function test_a_card_moves_into_a_column_whose_slug_is_longer_than_twenty_characters(): void

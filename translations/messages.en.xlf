@@ -5154,10 +5154,6 @@
                 <source>board.form.configure_board_column_form.label.label</source>
                 <target>Column name</target>
             </trans-unit>
-            <trans-unit id="board.form.configure_board_column_form.is_default.label">
-                <source>board.form.configure_board_column_form.is_default.label</source>
-                <target>Default for new cards</target>
-            </trans-unit>
             <trans-unit id="board.form.configure_board_column_form.terminal.label">
                 <source>board.form.configure_board_column_form.terminal.label</source>
                 <target>A finishing point for completed work</target>
@@ -5229,10 +5225,6 @@
             <trans-unit id="board.column.add.submit">
                 <source>board.column.add.submit</source>
                 <target>Add column</target>
-            </trans-unit>
-            <trans-unit id="board.column.flag.default">
-                <source>board.column.flag.default</source>
-                <target>Default</target>
             </trans-unit>
             <trans-unit id="board.column.flag.terminal">
                 <source>board.column.flag.terminal</source>
@@ -5354,13 +5346,21 @@
                 <source>board.column.error.no_terminal</source>
                 <target>A board needs at least one terminal column. Mark another column as terminal first.</target>
             </trans-unit>
-            <trans-unit id="board.column.error.no_single_default">
-                <source>board.column.error.no_single_default</source>
-                <target>A board needs exactly one default column. Make another column the default first.</target>
+            <trans-unit id="board.column.error.no_single_backlog">
+                <source>board.column.error.no_single_backlog</source>
+                <target>A board needs exactly one Backlog.</target>
             </trans-unit>
-            <trans-unit id="board.column.error.default_terminal">
-                <source>board.column.error.default_terminal</source>
-                <target>The default column cannot be terminal.</target>
+            <trans-unit id="board.column.error.backlog_terminal">
+                <source>board.column.error.backlog_terminal</source>
+                <target>The Backlog cannot be terminal.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.backlog_slug">
+                <source>board.column.error.backlog_slug</source>
+                <target>The Backlog must keep the slug backlog.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.backlog_locked">
+                <source>board.column.error.backlog_locked</source>
+                <target>The Backlog is not a column. You cannot rename, change, move or delete it.</target>
             </trans-unit>
             <trans-unit id="board.column.error.label_reserved">
                 <source>board.column.error.label_reserved</source>
@@ -5922,10 +5922,6 @@
             <trans-unit id="board.column.error.rename_stale">
                 <source>board.column.error.rename_stale</source>
                 <target>This column name changed after you opened the form. Copy your draft and reload before you try again.</target>
-            </trans-unit>
-            <trans-unit id="board.column.error.default_stale">
-                <source>board.column.error.default_stale</source>
-                <target>The default column changed after this page opened. Check the current default before you try again.</target>
             </trans-unit>
             <trans-unit id="board.column.error.terminal_stale">
                 <source>board.column.error.terminal_stale</source>

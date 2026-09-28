@@ -38,7 +38,7 @@ final readonly class ShowBoardHandler
         $project = $command->project;
         $columns = [];
 
-        foreach ($this->boardColumns->findForProject($project) as $column) {
+        foreach ($this->boardColumns->findBoardColumns($project) as $column) {
             $shown = $this->columnCards->shown($column);
             $columns[] = new BoardColumnView(
                 $column,
