@@ -16,7 +16,7 @@ A locked request holds `SELECT ... FOR UPDATE` on the session row. Every other l
 
 ## Mark a background route read-only
 
-Mark a GET route when a Stimulus controller, a Turbo frame reload or a live update fetches it. Otherwise the route has a lock-free read and keeps its writes. A missing mark on such a route gives no error.
+Mark a route when a Stimulus controller, a Turbo frame reload or a live update fetches it. Otherwise the route has a lock-free read and keeps its writes. A missing mark on such a route gives no error.
 
 Use `true` when only background code calls the route:
 
@@ -36,6 +36,8 @@ defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => 'board-frame'],
 ```
 
 The request is then read-only only when its `Turbo-Frame` header equals that id. A normal page load keeps its writes, so it still consumes the flash messages that a redirect set. `app_project_board` and `app_project_worker_runs` use this form.
+
+A background POST can take the mark too. `app_mercure_authorize` is the example. Every Mercure reconnect calls it, and a hub that is down makes each tab call it again and again. With the row lock, each call blocks the next click of the same user. It also blocks the session write at the end of each GET. A POST qualifies only when it changes nothing in the session, as the list below says.
 
 Put the mark on the one route that the reload fetches. A controller with two `#[Route]` attributes needs the mark on each route that background code calls, and on no other.
 
