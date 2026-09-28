@@ -25,6 +25,16 @@ final class CardDigestTest extends TestCase
         self::assertSame($digest, new CardDigest()->forCard($card, 0, 0, 0, null, null));
     }
 
+    public function test_the_digest_ignores_the_position_because_a_renumber_moves_no_card_face(): void
+    {
+        $card = $this->makeCard();
+        $card->position = 2;
+        $before = $this->digest($card);
+
+        $card->position = 0;
+        self::assertSame($before, $this->digest($card));
+    }
+
     public function test_the_digest_changes_with_the_parent_title_and_number(): void
     {
         $card = $this->makeCard();

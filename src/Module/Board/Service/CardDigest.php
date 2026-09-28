@@ -9,8 +9,9 @@ use App\Module\Board\Entity\Card;
 use App\Module\Bridge\View\CardRunWarning;
 
 /**
- * A short hash of what the card face and its list row show, and of where the
- * card sits, so a page can tell a changed card from an unchanged one.
+ * A short hash of what the card face and its list row show, and of the card's
+ * column, so a page can tell a changed card from an unchanged one. The rank is
+ * left out, because a renumber changes it on cards that no event announces.
  */
 final readonly class CardDigest
 {
@@ -33,7 +34,6 @@ final readonly class CardDigest
             $pullRequestCount,
             $documentCount,
             (string) $card->column->id,
-            $card->position,
             $card->parent?->number,
             $card->parent?->title,
             $progress?->done,

@@ -39,7 +39,7 @@ final readonly class ShowBoardManifestHandler
                     $card->pullRequests->count(),
                     $board->progress[$id] ?? null,
                     $board->runWarnings[$id] ?? null,
-                )];
+                ), (string) $view->column->id];
             }
         }
 

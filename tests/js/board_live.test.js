@@ -81,8 +81,10 @@ beforeEach(async () => {
             data-board-live-manifest-value="${MANIFEST}">
         <p data-board-live-target="paused" role="status" data-message="Live updates paused"></p>
         <div id="board" data-board-structure-digest="frame">
-            <article id="board-card-a" class="lp-board-card" data-card-id="a" data-card-digest="old"></article>
-            <article id="board-card-b" class="lp-board-card" data-card-id="b" data-card-digest="old"></article>
+            <div class="lp-board__group" data-column="k">
+                <article id="board-card-a" class="lp-board-card" data-card-id="a" data-card-digest="old"></article>
+                <article id="board-card-b" class="lp-board-card" data-card-id="b" data-card-digest="old"></article>
+            </div>
             <a class="lp-board-list__row" data-card-id="a" data-card-digest="old"></a>
             <a class="lp-board-list__row" data-card-id="b" data-card-digest="old"></a>
         </div>
@@ -145,8 +147,8 @@ it('reads the manifest after a reconnect and fetches a card whose digest changed
     answerManifest(
         json({
             cards: [
-                ['a', 'old'],
-                ['b', 'new'],
+                ['a', 'old', 'k'],
+                ['b', 'new', 'k'],
             ],
             structure: 'frame',
         }),
@@ -167,9 +169,9 @@ it('fetches a card the manifest has and the page does not', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old'],
-                ['c', 'new'],
-                ['b', 'old'],
+                ['a', 'old', 'k'],
+                ['c', 'new', 'k'],
+                ['b', 'old', 'k'],
             ],
             structure: 'frame',
         }),
@@ -184,8 +186,8 @@ it('fetches a removed card first, then the rest in manifest order', async () => 
     answerManifest(
         json({
             cards: [
-                ['c', 'new'],
-                ['a', 'changed'],
+                ['c', 'new', 'k'],
+                ['a', 'changed', 'k'],
             ],
             structure: 'frame',
         }),
@@ -201,8 +203,8 @@ it('does nothing more when the page already shows every card', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old'],
-                ['b', 'old'],
+                ['a', 'old', 'k'],
+                ['b', 'old', 'k'],
             ],
             structure: 'frame',
         }),
@@ -213,6 +215,53 @@ it('does nothing more when the page already shows every card', async () => {
     expect(manifestReads()).toHaveLength(1);
     expect(placements()).toEqual([]);
     expect(reloads).toBe(0);
+});
+
+it('fetches a card that moved in its column, and not its unchanged neighbours', async () => {
+    document.querySelector('.lp-board__group').insertAdjacentHTML(
+        'beforeend',
+        `<article id="board-card-c" class="lp-board-card" data-card-id="c" data-card-digest="old"></article>
+            <article id="board-card-d" class="lp-board-card" data-card-id="d" data-card-digest="old"></article>`,
+    );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k'],
+                ['c', 'old', 'k'],
+                ['d', 'old', 'k'],
+                ['b', 'old', 'k'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['b']);
+    expect(reloads).toBe(0);
+});
+
+it('compares the order in each lane cell on its own', async () => {
+    document.getElementById('board').insertAdjacentHTML(
+        'beforeend',
+        `<div class="lp-board-lane__cell" data-column="k" data-lane="epic">
+            <article id="board-card-c" class="lp-board-card" data-card-id="c" data-card-digest="old"></article>
+        </div>`,
+    );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k'],
+                ['c', 'old', 'k'],
+                ['b', 'old', 'k'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual([]);
 });
 
 it('ignores the list rows, which carry a digest too', async () => {
@@ -226,8 +275,8 @@ it('ignores the list rows, which carry a digest too', async () => {
     answerManifest(
         json({
             cards: [
-                ['a', 'old'],
-                ['b', 'old'],
+                ['a', 'old', 'k'],
+                ['b', 'old', 'k'],
             ],
             structure: 'frame',
         }),
@@ -243,8 +292,8 @@ it('reloads the board and fetches no card when the structure changed', async () 
     answerManifest(
         json({
             cards: [
-                ['a', 'new'],
-                ['b', 'old'],
+                ['a', 'new', 'k'],
+                ['b', 'old', 'k'],
             ],
             structure: 'other',
         }),
@@ -270,8 +319,8 @@ it('reads the structure digest at compare time, after the frame re-rendered', as
     finish(
         json({
             cards: [
-                ['a', 'old'],
-                ['b', 'old'],
+                ['a', 'old', 'k'],
+                ['b', 'old', 'k'],
             ],
             structure: 'renamed',
         }),
@@ -306,6 +355,13 @@ it.each([
     [
         'a manifest with a bad card entry',
         () => Promise.resolve(json({ cards: [['a']], structure: 'frame' })),
+    ],
+    [
+        'a manifest card entry with no column',
+        () =>
+            Promise.resolve(
+                json({ cards: [['a', 'old']], structure: 'frame' }),
+            ),
     ],
 ])('reloads the board after %s', async (label, response) => {
     answerManifest(response);
@@ -359,8 +415,8 @@ it('aborts an older manifest read on a second reconnect and uses the newer one',
     finishes[1](
         json({
             cards: [
-                ['a', 'new'],
-                ['b', 'old'],
+                ['a', 'new', 'k'],
+                ['b', 'old', 'k'],
             ],
             structure: 'frame',
         }),
@@ -499,6 +555,19 @@ it('does not mark a card whose face did not change', async () => {
     placed('a', 'old');
 
     expect(card().classList.contains('lp-board-card--flash')).toBe(false);
+});
+
+it('marks a card another person moved in its column', async () => {
+    receive('b');
+    await vi.advanceTimersByTimeAsync(150);
+    card().before(document.getElementById('board-card-b'));
+    placed('b', 'old');
+
+    expect(
+        document
+            .getElementById('board-card-b')
+            .classList.contains('lp-board-card--flash'),
+    ).toBe(true);
 });
 
 it('does not mark a change this page made', async () => {

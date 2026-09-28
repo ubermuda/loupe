@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Command\ShowBoardHandler;
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Uid\Uuid;
@@ -87,24 +89,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $owner = $this->user($em, 'placement-warning@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Stuck', 'next');
-        $run = new WorkerRun(
-            project: $project,
-            bridgeId: Uuid::v7(),
-            cardId: $card->id ?? throw new \LogicException('Card has no id.'),
-            cardNumber: $card->number,
-            ruleName: 'implement',
-            state: WorkerRunState::GaveUp,
-            runKey: Uuid::v7(),
-            endedAt: new \DateTimeImmutable(),
-            exitCode: 0,
-            hasResult: true,
-            output: 'Tests still fail.',
-            receivedAt: new \DateTimeImmutable(),
-            cardColumn: 'next',
-        );
-        $em->persist($run);
-        $em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, new \DateTimeImmutable(), new \DateTimeImmutable()));
-        $em->flush();
+        $run = $this->gaveUp($em, $card, 'next');
         $url = $this->placementUrl((string) $project->id, (string) $card->id);
         $em->clear();
 
@@ -308,6 +293,50 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertStringContainsString('data-card-digest="'.$digest.'"', (string) $client->getResponse()->getContent());
     }
 
+    public function test_the_stream_digest_of_a_card_with_a_parent_is_the_page_digest(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-digest-child@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next'), CardType::Epic);
+        $epic->laneEnabled = false;
+        $em->flush();
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'backlog'));
+        $em->clear();
+
+        $client->loginUser($owner);
+
+        self::assertSame($this->pageDigest($client, $child), $this->streamDigest($client, $child));
+    }
+
+    public function test_the_stream_digest_of_an_epic_with_progress_and_a_warning_is_the_page_digest(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-digest-epic@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next'), CardType::Epic);
+        $epic->laneEnabled = false;
+        $em->flush();
+        $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
+        $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
+        $run = $this->gaveUp($em, $epic, 'next');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $stream = $this->streamDigest($client, $epic);
+
+        $content = (string) $client->getResponse()->getContent();
+        self::assertMatchesRegularExpression('#data-card-progress>\s*1/2 done\s*<#', $content);
+        self::assertStringContainsString('data-card-run-warning="'.$run->id.'"', $content);
+        self::assertSame($this->pageDigest($client, $epic), $stream);
+    }
+
     public function test_a_card_on_a_board_with_lanes_is_placed_in_its_lane_cell(): void
     {
         $client = static::createClient();
@@ -434,6 +463,47 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringNotContainsString('data-lane', (string) $client->getResponse()->getContent());
+    }
+
+    private function gaveUp(EntityManagerInterface $em, Card $card, string $columnSlug): WorkerRun
+    {
+        $run = new WorkerRun(
+            project: $card->project,
+            bridgeId: Uuid::v7(),
+            cardId: $card->id ?? throw new \LogicException('Card has no id.'),
+            cardNumber: $card->number,
+            ruleName: 'implement',
+            state: WorkerRunState::GaveUp,
+            runKey: Uuid::v7(),
+            endedAt: new \DateTimeImmutable(),
+            exitCode: 0,
+            hasResult: true,
+            output: 'Tests still fail.',
+            receivedAt: new \DateTimeImmutable(),
+            cardColumn: $columnSlug,
+        );
+        $em->persist($run);
+        $em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, new \DateTimeImmutable(), new \DateTimeImmutable()));
+        $em->flush();
+
+        return $run;
+    }
+
+    private function pageDigest(KernelBrowser $client, Card $card): string
+    {
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$card->project->id.'/board');
+        self::assertResponseIsSuccessful();
+
+        return (string) $crawler->filter('#board-card-'.$card->id)->attr('data-card-digest');
+    }
+
+    private function streamDigest(KernelBrowser $client, Card $card): string
+    {
+        $client->request(Request::METHOD_GET, $this->placementUrl((string) $card->project->id, (string) $card->id));
+        self::assertResponseIsSuccessful();
+        self::assertSame(1, preg_match('/data-card-digest="([0-9a-f]{12})"/', $this->face((string) $client->getResponse()->getContent()), $match));
+
+        return $match[1] ?? '';
     }
 
     private function placementUrl(string $projectId, string $cardId): string

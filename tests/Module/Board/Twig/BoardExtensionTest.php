@@ -14,7 +14,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class BoardExtensionTest extends KernelTestCase
 {
-    public function test_card_digest_changes_when_the_card_takes_another_rank_in_its_column(): void
+    public function test_card_digest_ignores_the_rank_of_the_card_in_its_column(): void
     {
         $extension = static::getContainer()->get(BoardExtension::class);
         self::assertInstanceOf(BoardExtension::class, $extension);
@@ -25,7 +25,7 @@ final class BoardExtensionTest extends KernelTestCase
         self::assertSame($before, $extension->cardDigest($card, 0, 0, null, null));
 
         $card->position = 0;
-        self::assertNotSame($before, $extension->cardDigest($card, 0, 0, null, null));
+        self::assertSame($before, $extension->cardDigest($card, 0, 0, null, null));
     }
 
     public function test_card_digest_changes_with_the_document_count(): void

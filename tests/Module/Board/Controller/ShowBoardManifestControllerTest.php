@@ -113,6 +113,10 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         );
         self::assertSame($page['rows'], array_column($manifest['cards'], 0));
         self::assertSame($page['cards'], array_column($manifest['cards'], 1, 0));
+        self::assertSame(
+            array_map(static fn (Card $card): string => (string) $card->column->id, [$backlogFirst, $backlogSecond, $epic, $child, $doneChild, $done]),
+            array_column($manifest['cards'], 2),
+        );
     }
 
     public function test_a_lane_epic_is_left_out_because_the_page_draws_it_as_a_lane_head(): void
@@ -277,7 +281,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertSame($after, $this->page($client, $project)['structure']);
     }
 
-    public function test_the_manifest_reads_each_card_input_in_one_query_whatever_the_card_count(): void
+    public function test_the_manifest_reads_the_pull_requests_documents_and_runs_in_one_query_whatever_the_card_count(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -337,13 +341,13 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         return '/projects/'.$project->id.'/board/manifest';
     }
 
-    /** @return array{cards: list<array{string, string}>, structure: string} */
+    /** @return array{cards: list<array{string, string, string}>, structure: string} */
     private function manifest(KernelBrowser $client, Project $project): array
     {
         $client->request(Request::METHOD_GET, $this->manifestUrl($project));
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        /** @var array{cards: list<array{string, string}>, structure: string} $manifest */
+        /** @var array{cards: list<array{string, string, string}>, structure: string} $manifest */
         $manifest = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
         self::assertSame(['cards', 'structure'], array_keys($manifest));
 
@@ -374,7 +378,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         ];
     }
 
-    /** @param array{cards: list<array{string, string}>, structure: string} $manifest */
+    /** @param array{cards: list<array{string, string, string}>, structure: string} $manifest */
     private function digestOf(array $manifest, Card $card): string
     {
         $digests = array_column($manifest['cards'], 1, 0);

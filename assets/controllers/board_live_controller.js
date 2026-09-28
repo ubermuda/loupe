@@ -80,7 +80,8 @@ export default class extends Controller {
 
     /**
      * After a reconnect, compares the page with the board manifest and places
-     * each card that the page missed. A newer reconnect aborts an older read.
+     * each card that the page missed or shows out of order. A newer reconnect
+     * aborts an older read.
      */
     async catchUp() {
         this.manifestAbort?.abort();
@@ -125,12 +126,34 @@ export default class extends Controller {
             .forEach((card) =>
                 shown.set(card.dataset.cardId, card.dataset.cardDigest),
             );
-        const listed = new Set(manifest.cards.map(([cardId]) => cardId));
+        const listed = new Map(
+            manifest.cards.map(([cardId, , columnId], index) => [
+                cardId,
+                { columnId, index },
+            ]),
+        );
         const removed = [...shown.keys()].filter(
             (cardId) => !listed.has(cardId),
         );
+        const moved = new Set();
+        this.element
+            .querySelectorAll(
+                '.lp-board__group[data-column], .lp-board-lane__cell[data-column]',
+            )
+            .forEach((group) => {
+                const cards = [...group.querySelectorAll('.lp-board-card')]
+                    .map((card) => ({
+                        cardId: card.dataset.cardId,
+                        ...listed.get(card.dataset.cardId),
+                    }))
+                    .filter((card) => card.columnId === group.dataset.column);
+                outOfOrder(cards).forEach((cardId) => moved.add(cardId));
+            });
         const changed = manifest.cards
-            .filter(([cardId, digest]) => shown.get(cardId) !== digest)
+            .filter(
+                ([cardId, digest]) =>
+                    shown.get(cardId) !== digest || moved.has(cardId),
+            )
             .map(([cardId]) => cardId);
         [...removed, ...changed].forEach((cardId) =>
             this.receive({ cardId, local: false, own: false }),
@@ -191,6 +214,8 @@ export default class extends Controller {
 
         this.expected.set(cardId, {
             digest: card?.dataset.cardDigest,
+            group: card?.parentElement,
+            previous: previousCardId(card),
             remote: entry.remote,
         });
         entry.remote = false;
@@ -273,7 +298,9 @@ export default class extends Controller {
             removed ||
             !expected.remote ||
             card === null ||
-            card.dataset.cardDigest === expected.digest
+            (card.dataset.cardDigest === expected.digest &&
+                card.parentElement === expected.group &&
+                previousCardId(card) === expected.previous)
         ) {
             return;
         }
@@ -313,7 +340,52 @@ function isManifest(manifest) {
             (entry) =>
                 Array.isArray(entry) &&
                 typeof entry[0] === 'string' &&
-                typeof entry[1] === 'string',
+                typeof entry[1] === 'string' &&
+                typeof entry[2] === 'string',
         )
     );
+}
+
+function previousCardId(card) {
+    let sibling = card?.previousElementSibling;
+    while (sibling && !sibling.matches('.lp-board-card')) {
+        sibling = sibling.previousElementSibling;
+    }
+
+    return sibling?.dataset.cardId ?? null;
+}
+
+/**
+ * The ids of the cards, in page order, that fall outside a longest run whose
+ * manifest indexes rise. Only those cards moved, so only those need a fetch.
+ */
+function outOfOrder(cards) {
+    const tails = [];
+    const before = [];
+    cards.forEach(({ index }, position) => {
+        let low = 0;
+        let high = tails.length;
+        while (low < high) {
+            const middle = Math.floor((low + high) / 2);
+            if (cards[tails[middle]].index < index) {
+                low = middle + 1;
+            } else {
+                high = middle;
+            }
+        }
+        before[position] = low > 0 ? tails[low - 1] : -1;
+        tails[low] = position;
+    });
+    const kept = new Set();
+    for (
+        let position = tails.at(-1) ?? -1;
+        position !== -1;
+        position = before[position]
+    ) {
+        kept.add(position);
+    }
+
+    return cards
+        .filter((card, position) => !kept.has(position))
+        .map(({ cardId }) => cardId);
 }
