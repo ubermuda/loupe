@@ -94,7 +94,7 @@ test('a column renamed in one browser shows in another without a reload', async 
     expect(topics.some((topic) => topic.endsWith('/board'))).toBe(true);
     expect(topics.some((topic) => topic.endsWith('/worker-runs'))).toBe(true);
 
-    // The reload keeps the toolbar, so the watcher's filter and view stay.
+    // The update keeps the toolbar, so the watcher's filter and view stay.
     const search = watcher.getByRole('searchbox', { name: 'Search cards' });
     await search.fill('no card has this title');
     await watcher.getByRole('button', { name: 'List', exact: true }).click();
@@ -102,7 +102,7 @@ test('a column renamed in one browser shows in another without a reload', async 
         watcher.locator('[data-board-view-target="list"]'),
     ).toBeVisible();
 
-    // A full navigation would drop this marker, and a frame reload keeps it.
+    // A full navigation would drop this marker, and an in-place update keeps it.
     await watcher.evaluate(() => {
         (window as unknown as { stayed: boolean }).stayed = true;
     });
@@ -150,7 +150,8 @@ test('a column renamed in one browser shows in another without a reload', async 
                 (column) => (column as unknown as { kept?: boolean }).kept,
             ),
     ).toBe(true);
-    expect(frameLoads.length).toBeGreaterThan(0);
+    // The column change updates the structure in place, with no frame reload.
+    expect(frameLoads).toEqual([]);
 
     await editor.context().close();
     await watcher.context().close();

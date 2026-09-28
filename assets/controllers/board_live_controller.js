@@ -239,6 +239,7 @@ export default class extends Controller {
             return;
         }
         if (html === null) {
+            this.resyncAgain = false;
             this.finishResync();
             this.reload();
 

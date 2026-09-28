@@ -1663,6 +1663,24 @@ describe('a structure resync', () => {
         expect(manifestReads()).toHaveLength(0);
     });
 
+    it('leaves a change that arrives during a failed read to the reload', async () => {
+        let finish;
+        answerRoutes({
+            structure: () =>
+                new Promise((resolve) => {
+                    finish = resolve;
+                }),
+        });
+        signal();
+        await vi.advanceTimersByTimeAsync(300);
+        signal();
+        finish(failure(500));
+        await vi.advanceTimersByTimeAsync(3000);
+
+        expect(reloads).toBe(1);
+        expect(structureReads()).toHaveLength(1);
+    });
+
     it('gives up on a stalled structure read and reloads', async () => {
         answerRoutes({
             structure: (options) =>
