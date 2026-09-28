@@ -520,11 +520,48 @@ rules:
       Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
       Pull request {pullRequestUrl} needs a fix: {reason}.
+  - name: fix-conflict
+    on: pull_request.fix_requested
+    project: my-app
+    when:
+      reason: conflict
+    resume: true
+    permissionMode: acceptEdits
+    prompt: |
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Pull request {pullRequestUrl} conflicts with its base. Rebase it and push.
+  - name: merge-ready
+    on: pull_request.ready_to_merge
+    project: my-app
+    permissionMode: acceptEdits
+    prompt: |
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Pull request {pullRequestUrl} is ready to merge at {headSha}. Merge it.
 ```
+
+Loupe writes these types:
+
+- `pull_request.checks_concluded`
+- `pull_request.conflicted`
+- `pull_request.behind`
+- `pull_request.review_submitted`
+- `pull_request.merged`
+- `pull_request.closed`
+- `pull_request.fix_requested`
+- `pull_request.ready_to_merge`
+
+`fix_requested` and `ready_to_merge` are decisions. Loupe sends them only for a
+card in a column that is not terminal, while the automation of the project is
+on. The other types are facts, and every card that links the pull request gets
+them.
+[Forge webhooks](../docs/extending/forge-webhooks.md#events-from-an-app-repository)
+says when Loupe sends each one. A repository that a webhook feeds gets only
+three bare facts, as that page also says.
 
 The bridge parses a `pull_request.*` type only when a rule names it. Each type
 fills the card and pull request placeholders in [Placeholders](#placeholders),
-and three types add fields of their own:
+and three types add fields of their own. `conflicted`, `behind`, `merged`,
+`closed` and `ready_to_merge` fill the card and pull request placeholders only.
 
 | Type | Fields | `when` takes |
 |---|---|---|

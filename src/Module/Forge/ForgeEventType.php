@@ -16,6 +16,9 @@ final class ForgeEventType
     public const string REVIEW_SUBMITTED = 'pull_request.review_submitted';
     public const string CHECKS_CONCLUDED = 'pull_request.checks_concluded';
     public const string MERGED = 'pull_request.merged';
+    public const string CONFLICTED = 'pull_request.conflicted';
+    public const string BEHIND = 'pull_request.behind';
+    public const string CLOSED = 'pull_request.closed';
 
     /** The repository path changed, so the key a delivery joins on is stale. */
     public const string REPOSITORY_MOVED = 'pull_request.repository_moved';

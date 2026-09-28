@@ -11,7 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /** The subscriber token an open board gets, and who gets none. */
-final class BoardRefreshSubscriptionTest extends WebTestCase
+final class BoardLiveSubscriptionTest extends WebTestCase
 {
     use BoardScenario;
     use MercureCookies;
@@ -22,7 +22,7 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
 
-        $owner = $this->user($em, 'board-refresh-viewer@example.com');
+        $owner = $this->user($em, 'board-live-viewer@example.com');
         $project = $this->project($em, $owner);
         self::assertNotNull($project->id);
         $em->clear();
@@ -46,15 +46,17 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         self::assertSame('/mercure/authorize', $page->attr('action'));
         self::assertSame([$boardTopic, $runTopic], $page->filter('input[data-mercure-topic]')->each(static fn ($input): ?string => $input->attr('value')));
 
-        self::assertCount(1, $crawler->filter('[data-controller~="board-refresh"][data-controller~="board-live"] turbo-frame#board-frame[target="_top"][refresh="morph"]:not([src]) #board'));
+        self::assertCount(1, $crawler->filter('[data-controller~="board-live"] #board'));
+        self::assertCount(0, $crawler->filter('turbo-frame#board-frame'));
         $live = $crawler->filter('[data-controller~="board-live"]');
         $placeholder = (string) $live->attr('data-board-live-placeholder-value');
         self::assertSame('/projects/'.$project->id.'/board/cards/'.$placeholder.'/placement', $live->attr('data-board-live-placement-value'));
         self::assertSame('This card may be out of date', $live->attr('data-board-live-stale-value'));
-        self::assertSame('board-live:reload->board-refresh#reload', $live->attr('data-action'));
+        self::assertNull($live->attr('data-action'));
         $paused = $crawler->filter('#board-toolbar-'.$project->id.'[data-turbo-permanent] [data-board-live-target="paused"][role="status"][data-message]');
         self::assertCount(1, $paused);
         self::assertSame('', $paused->text());
+        self::assertSame('Live updates stopped. Reload the page to catch up.', $paused->attr('data-failed-message'));
     }
 
     /** The workshop hosts the card drawer too, and the drawer's run list reloads on this topic. */
@@ -64,7 +66,7 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
 
-        $owner = $this->user($em, 'board-refresh-workshop@example.com');
+        $owner = $this->user($em, 'board-live-workshop@example.com');
         $project = $this->project($em, $owner);
         self::assertNotNull($project->id);
         $em->clear();
@@ -86,8 +88,8 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
 
-        $owner = $this->user($em, 'board-refresh-owner@example.com');
-        $stranger = $this->user($em, 'board-refresh-stranger@example.com');
+        $owner = $this->user($em, 'board-live-owner@example.com');
+        $stranger = $this->user($em, 'board-live-stranger@example.com');
         $project = $this->project($em, $owner);
         $em->clear();
 
@@ -104,7 +106,7 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
 
-        $owner = $this->user($em, 'board-refresh-old-route@example.com');
+        $owner = $this->user($em, 'board-live-old-route@example.com');
         $project = $this->project($em, $owner);
         $em->clear();
 
@@ -122,7 +124,7 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $this->enableBoard();
         $this->setHubFlags($em, liveUpdates: true, agentPush: false);
 
-        $owner = $this->user($em, 'board-refresh-push-off@example.com');
+        $owner = $this->user($em, 'board-live-push-off@example.com');
         $project = $this->project($em, $owner);
         self::assertNotNull($project->id);
         $em->clear();
@@ -144,7 +146,7 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $this->enableBoard();
         $this->setHubFlags($em, liveUpdates: false, agentPush: true);
 
-        $owner = $this->user($em, 'board-refresh-off@example.com');
+        $owner = $this->user($em, 'board-live-off@example.com');
         $project = $this->project($em, $owner);
         $em->clear();
 
@@ -154,6 +156,7 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertNull(self::findMercureCookie($client->getResponse()));
         self::assertCount(0, $crawler->filter('form#mercure-subscriptions'));
-        self::assertCount(1, $crawler->filter('turbo-frame#board-frame #board'));
+        self::assertCount(1, $crawler->filter('[data-controller~="board-live"] #board'));
+        self::assertCount(0, $crawler->filter('turbo-frame#board-frame'));
     }
 }

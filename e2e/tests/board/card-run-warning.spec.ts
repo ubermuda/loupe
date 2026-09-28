@@ -68,7 +68,7 @@ test('a card whose latest run gave up shows a warning until a later run succeeds
     const boardUrl = `/projects/${projectId}/board`;
     await page.goto(boardUrl);
     // The hub keeps no history, so a report sent before this connects is lost.
-    await expect(page.locator('[data-board-refresh-connected]')).toHaveCount(1);
+    await expect(page.locator('[data-board-live-connected]')).toHaveCount(1);
     const boardLoads: string[] = [];
     page.on('request', (request) => {
         if (new URL(request.url()).pathname === boardUrl) {
