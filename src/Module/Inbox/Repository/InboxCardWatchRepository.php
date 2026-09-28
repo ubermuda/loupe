@@ -73,6 +73,28 @@ class InboxCardWatchRepository extends ServiceEntityRepository
         return $watch instanceof InboxCardWatch ? $watch : null;
     }
 
+    /**
+     * The watches of the items, with their waits.
+     *
+     * @param list<InboxItem> $items
+     *
+     * @return list<InboxCardWatch>
+     */
+    public function findForItems(array $items): array
+    {
+        if ([] === $items) {
+            return [];
+        }
+
+        return array_values($this->createQueryBuilder('watch')
+            ->addSelect('wait')
+            ->leftJoin('watch.waits', 'wait')
+            ->andWhere('watch.item IN (:items)')
+            ->setParameter('items', $items)
+            ->getQuery()
+            ->getResult());
+    }
+
     /** @return list<string> */
     public function findOpenCardIds(Project $project): array
     {
