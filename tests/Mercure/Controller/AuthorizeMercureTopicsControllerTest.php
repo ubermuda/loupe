@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Mercure\Controller;
 
 use App\Mercure\ProjectTopicBuilder;
+use App\Session\ReadOnlyAwareSessionHandler;
 use App\Tests\Module\Board\Controller\BoardScenario;
 use App\Tests\Support\MercureCookies;
 use Doctrine\ORM\EntityManagerInterface;
@@ -139,6 +140,19 @@ final class AuthorizeMercureTopicsControllerTest extends WebTestCase
 
         $this->renew($client, []);
         self::assertResponseStatusCodeSame(429);
+    }
+
+    public function test_a_renewal_takes_no_session_lock(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'mercure-no-lock@example.com');
+
+        $client->loginUser($owner);
+        $this->renew($client, []);
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue($client->getRequest()->attributes->get(ReadOnlyAwareSessionHandler::READ_ONLY));
     }
 
     /** @param list<string> $topics */
