@@ -185,7 +185,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
     public function boardColumnAddForm(Project $project, ?FormView $refused = null): FormView
     {
         return $refused ?? $this->formFactory->create(AddBoardColumnFormType::class, new AddBoardColumnRequest(
-            tone: $this->tonePicker->pick($this->boardColumns->findBoardColumns($project)),
+            tone: $this->tonePicker->pick($this->boardColumns->findForProject($project)),
         ))->createView();
     }
 
