@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Controller;
 
 use App\Mercure\ProjectTopicBuilder;
+use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
@@ -17,6 +20,7 @@ use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ListWorkerRunsControllerTest extends WebTestCase
 {
@@ -105,11 +109,14 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('waiting rule', (string) $client->getResponse()->getContent());
-        self::assertCount(1, $crawler->filter('.lp-worker-run__table-row > time[datetime="2026-03-04T05:06:00+00:00"]'));
+        $time = $crawler->filter('[data-worker-run-id] > .lp-data-table__cell > time[datetime="2026-03-04T05:06:00+00:00"]');
+        self::assertCount(1, $time);
+        self::assertSame('2026-03-04 05:06:00 UTC', $time->attr('title'));
+        self::assertMatchesRegularExpression('/ ago$/', $time->text());
     }
 
-    /** The output shows on every run, collapsed, not on failures only. */
-    public function test_a_successful_run_shows_its_output_collapsed(): void
+    /** The output shows on every run, in its drawer, not on failures only. */
+    public function test_a_successful_run_shows_its_output_in_the_drawer(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -125,9 +132,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.lp-worker-run__output-disclosure'));
-        self::assertCount(0, $crawler->filter('.lp-worker-run__output-disclosure[open]'));
-        self::assertStringContainsString('a successful worker still printed this', (string) $client->getResponse()->getContent());
+        self::assertCount(0, $crawler->filter('[data-worker-run-id] details'));
+        self::assertSame('a successful worker still printed this', $crawler->filter('[data-worker-run-id] dialog .lp-worker-run__output')->text());
     }
 
     /** A list with no caveat reads as a complete history, and it is not one. */
@@ -275,7 +281,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
             $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?outcome='.$outcome);
             self::assertResponseIsSuccessful();
             self::assertCount(\count($expected), $crawler->filter('[data-worker-run-id]'), 'outcome '.$outcome);
-            $cards = $crawler->filter('.lp-worker-run__card')->each(static fn ($node): string => trim($node->text()));
+            $cards = $crawler->filter('[data-worker-run-id] .lp-data-table__number')->each(static fn ($node): string => trim($node->text()));
             sort($cards);
             self::assertSame($expected, $cards, 'outcome '.$outcome);
         }
@@ -329,11 +335,11 @@ final class ListWorkerRunsControllerTest extends WebTestCase
             $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?outcome='.$state->value);
             self::assertResponseIsSuccessful();
             self::assertCount(1, $crawler->filter('[data-worker-run-id]'), 'state '.$state->value);
-            self::assertStringContainsString('#'.($index + 1), $crawler->filter('.lp-worker-run__card')->text());
+            self::assertSame('#'.($index + 1), $crawler->filter('[data-worker-run-id] .lp-data-table__number')->text());
 
             $label = $translator->trans($state->translationKey());
             self::assertNotSame($state->translationKey(), $label);
-            foreach (['.lp-worker-run__table-row .lp-status-chip', '.lp-run-drawer__header .lp-status-chip'] as $chip) {
+            foreach (['[data-worker-run-id] > .lp-status-chip', '.lp-run-drawer__header .lp-status-chip'] as $chip) {
                 self::assertSame($label, $crawler->filter($chip)->text(), $state->value.' '.$chip);
                 self::assertStringContainsString('lp-status-chip--'.$state->chipModifier(), (string) $crawler->filter($chip)->attr('class'));
             }
@@ -412,10 +418,12 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $row = $crawler->filter('[data-worker-run-id="'.$resumeId.'"]');
-        self::assertSame('Resume 2 of 3', $row->filter('.lp-worker-run__table-row [data-worker-run-resume]')->text());
-        self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$firstId.'"] [data-worker-run-resume]'));
-
+        // The row drops the place in the series, and the drawer keeps it.
+        self::assertStringNotContainsString('Resume', $crawler->filter('[data-worker-run-id="'.$resumeId.'"] > :not(dialog)')->text());
         $drawer = $row->filter('.lp-run-drawer__body');
+        self::assertStringContainsString('Resume 2 of 3', $drawer->filter('.lp-run-drawer__metadata')->text());
+        self::assertStringNotContainsString('Resume', $crawler->filter('[data-worker-run-id="'.$firstId.'"] .lp-run-drawer__metadata')->text());
+
         $continues = $drawer->filter('a[data-worker-run-continues]');
         self::assertSame($firstId, $continues->text());
         self::assertStringContainsString('search='.$firstId, (string) $continues->attr('href'));
@@ -529,8 +537,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
 
         self::assertResponseIsSuccessful();
-        self::assertMatchesRegularExpression('/^1m \d+s$/', trim($crawler->filter('[data-worker-run-id="'.$runningId.'"] .lp-worker-run__duration')->text()));
-        self::assertSame('', trim($crawler->filter('[data-worker-run-id="'.$queuedId.'"] .lp-worker-run__duration')->text()));
+        self::assertMatchesRegularExpression('/^1m \d+s$/', trim($crawler->filter('[data-worker-run-id="'.$runningId.'"] > .lp-data-table__cell--end')->text()));
+        self::assertSame('', trim($crawler->filter('[data-worker-run-id="'.$queuedId.'"] > .lp-data-table__cell--end')->text()));
         // A queued run has no session yet, so the drawer names none.
         self::assertStringNotContainsString('Session', $crawler->filter('[data-worker-run-id="'.$queuedId.'"] .lp-run-drawer__metadata')->text());
     }
@@ -589,7 +597,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringContainsString('#11', (string) $client->getResponse()->getContent());
     }
 
-    /** No bridge holds an interactive run, so the row names none and the bridge filter offers none. */
+    /** No bridge holds an interactive run, so the drawer names none and the bridge filter offers none. */
     public function test_an_interactive_run_shows_no_bridge(): void
     {
         $client = static::createClient();
@@ -611,17 +619,19 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(3, $crawler->filter('[data-worker-run-id]'));
-        self::assertCount(1, $crawler->filter('.lp-worker-run__bridge'));
         self::assertCount(0, $crawler->filter('#worker-run-bridge'));
 
         $closedRow = $crawler->filter('[data-worker-run-id="'.$closedId.'"]');
-        self::assertSame('Interactive session', $closedRow->filter('.lp-worker-run__kind')->text());
-        self::assertSame('loupe:product-design', $closedRow->filter('.lp-worker-run__rule')->text());
-        self::assertSame('5m 0s', trim($closedRow->filter('.lp-worker-run__duration')->text()));
+        self::assertSame('Interactive session', $closedRow->filter('.lp-data-table__primary .lp-tag')->text());
+        self::assertStringNotContainsString('Bridge', $closedRow->filter('.lp-run-drawer__metadata')->text());
+        self::assertSame(
+            ['#22 View attempt Interactive session', 'loupe:product-design', '5m 0s'],
+            array_slice($crawler->filter('[data-worker-run-id="'.$closedId.'"] > .lp-data-table__cell')->each(static fn (Crawler $cell): string => trim($cell->text())), 0, 3),
+        );
         self::assertStringNotContainsString('bridge does not report', $closedRow->filter('dialog')->text());
 
-        $openRow = $crawler->filter('[data-worker-run-id="'.$openId.'"]');
-        self::assertStringStartsWith('running for ', trim($openRow->filter('.lp-worker-run__duration')->text()));
+        $openRow = $crawler->filter('[data-worker-run-id="'.$openId.'"] > .lp-data-table__cell--end');
+        self::assertStringStartsWith('running for ', trim($openRow->text()));
     }
 
     public function test_an_interactive_run_a_bridge_launched_shows_the_bridge_and_the_kind(): void
@@ -643,8 +653,67 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $row = $crawler->filter('[data-worker-run-id="'.$launchedId.'"]');
-        self::assertSame((string) $bridgeId, $row->filter('.lp-worker-run__bridge')->attr('title'));
-        self::assertSame('Interactive session', $row->filter('.lp-worker-run__kind')->text());
+        self::assertStringContainsString((string) $bridgeId, $row->filter('.lp-run-drawer__metadata')->text());
+        self::assertSame('Interactive session', $row->filter('.lp-data-table__primary .lp-tag')->text());
+    }
+
+    /** The row reads as one line, and the drawer keeps the detail the row drops. */
+    public function test_a_row_shows_the_card_title_and_leaves_the_detail_to_the_drawer(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        static::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
+
+        $owner = $this->user($em, 'row-owner@example.com');
+        $project = $this->project($em, $owner, 'Rows');
+        $column = new BoardColumn($project, 'Work', 'work', 0);
+        $card = new Card($project, $column, 'Fix the login', '', 7);
+        $em->persist($column);
+        $em->persist($card);
+        $em->flush();
+        $bridgeId = Uuid::v7();
+        $failed = $this->seedRun($em, $project, cardNumber: 7, exitCode: 2, failureReason: 'The worker ran out of turns', output: 'the failed output', bridgeId: $bridgeId, cardId: $card->id);
+        $gone = $this->seedRun($em, $project, cardNumber: 8);
+
+        $projectId = (string) $project->id;
+        $cardId = (string) $card->id;
+        $failedId = (string) $failed->id;
+        $goneId = (string) $gone->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $crawler->filter('.lp-data-table--runs > .lp-data-table__row[data-worker-run-id]'));
+
+        $target = $crawler->filter('[data-worker-run-id="'.$failedId.'"] .lp-data-table__target');
+        self::assertSame('modal#open', $target->attr('data-action'));
+        self::assertSame('#7', $target->filter('.lp-data-table__number')->text());
+        self::assertSame('Fix the login', $target->filter('.lp-data-table__title')->text());
+        self::assertSame('View attempt', $target->filter('.sr-only')->text());
+        self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$goneId.'"] .lp-data-table__title'));
+        self::assertSame('#8', $crawler->filter('[data-worker-run-id="'.$goneId.'"] .lp-data-table__number')->text());
+
+        $chip = $crawler->filter('[data-worker-run-id="'.$failedId.'"] > .lp-status-chip');
+        self::assertSame('The worker ran out of turns', $chip->filter('.lp-tooltip')->text());
+        self::assertSame($chip->filter('.lp-tooltip')->attr('id'), $chip->attr('aria-describedby'));
+        self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$goneId.'"] > .lp-status-chip .lp-tooltip'));
+
+        $cells = $crawler->filter('[data-worker-run-id="'.$failedId.'"] > :not(dialog)');
+        $rowText = implode(' ', $cells->each(static fn (Crawler $cell): string => $cell->text()));
+        self::assertStringNotContainsString('exit 2', $rowText);
+        self::assertStringNotContainsString(substr((string) $bridgeId, -12), $rowText);
+        self::assertStringNotContainsString('the failed output', $rowText);
+        self::assertCount(0, $cells->filter('a, details'));
+        self::assertCount(1, $cells->filter('button'));
+
+        $drawer = $crawler->filter('[data-worker-run-id="'.$failedId.'"] dialog');
+        self::assertStringContainsString('exit 2', $drawer->filter('.lp-run-drawer__metadata')->text());
+        self::assertStringContainsString((string) $bridgeId, $drawer->filter('.lp-run-drawer__metadata')->text());
+        self::assertSame('The worker ran out of turns', $drawer->filter('.lp-worker-run__failure')->text());
+        self::assertSame('the failed output', $drawer->filter('.lp-worker-run__output')->text());
+        self::assertSame('/projects/'.$projectId.'/board/cards/'.$cardId, $drawer->filter('.lp-run-drawer__metadata a')->attr('href'));
     }
 
     /** An unknown filter value shows the unfiltered list rather than a 404. */

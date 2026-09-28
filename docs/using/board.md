@@ -165,7 +165,7 @@ to it. The columns read side by side, in board order. Each card shows its
 number, its title, its type, how many pull requests it links to, and how many
 review comments still wait on it.
 A card whose latest worker run gave up or is blocked also shows a warning. See
-[Worker runs](worker-runs.md#a-warning-on-the-card).
+[A warning on the card](worker-runs.md#a-warning-on-the-card).
 
 Each card type and each column has a colour, and every page that names one uses
 the same colour. The owner picks a column's colour from twelve in its
@@ -290,7 +290,7 @@ with no drag. That is the way to move a card from a keyboard.
 
 The page also lists the card's five latest agent runs, with the rule that
 started each run, when it ran, how long it took and how it ended. A run opens
-its details on the run history page.
+its details on the **Runs** tab of the Activity page.
 
 A card with links to other cards shows a **Linked cards** table. Each row gives
 the kind of link, the other card's number, its title and its column. A row opens

@@ -3,9 +3,7 @@
 {% block title %}{{ 'activity.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block topbar_crumbs %}
-    <a class="lp-topbar__crumb" href="{{ path('app_project_workshop', {id: project.id}) }}">{{ project.name }}</a>
-    <span class="lp-topbar__sep">/</span>
-    <span class="lp-topbar__here">{{ 'activity.page.title'|trans }}</span>
+    {% include 'activity/_crumbs.html.twig' with {project: project} only %}
 {% endblock %}
 
 {% block topbar_meta %}{% endblock %}
@@ -25,16 +23,16 @@
         pause: 'activity.feed.pause'|trans,
         resume: 'activity.feed.resume'|trans
     }|json_encode|e('html_attr') }}">
-    <header class="lp-orchestration-header">
-        <div>
-            <h1 class="lp-workspace-title">{{ 'activity.heading'|trans }}</h1>
-            <p class="lp-workspace-desc">{{ 'activity.description'|trans }}</p>
-        </div>
+    {% embed 'activity/_header.html.twig' with {} only %}
+        {% block actions %}
         <div class="lp-activity-header-actions">
             <span class="lp-status-chip lp-status-chip--pending" data-activity-filter-target="status" role="status">{{ 'activity.status.recorded'|trans }}</span>
             <button type="button" class="lp-btn" data-activity-filter-target="toggle" data-action="activity-filter#toggle" aria-pressed="false" disabled>{{ 'activity.feed.pause'|trans }}</button>
         </div>
-    </header>
+        {% endblock %}
+    {% endembed %}
+
+    {% include 'activity/_tabs.html.twig' with {project: project, active: 'events'} only %}
 
     <div class="lp-list-filters" data-activity-filter-target="filters" {% if entries is empty %}hidden{% endif %}>
         <div class="lp-filter-form">
@@ -46,15 +44,15 @@
             <label class="sr-only" for="activity-family">{{ 'activity.filter.family_label'|trans }}</label>
             <select id="activity-family" class="lp-input lp-select lp-filter-select" data-activity-filter-target="family" data-action="change->activity-filter#filter">
                 <option value="all">{{ 'activity.filter.all_families'|trans }}</option>
-                {% for family in ['board', 'worker', 'inbox', 'document', 'rule', 'site_review'] %}
-                <option value="{{ family }}">{{ ('activity.family.' ~ family)|trans }}</option>
+                {% for family in families %}
+                <option value="{{ family.prefix() }}">{{ family.translationKey()|trans }}</option>
                 {% endfor %}
             </select>
         </div>
         <span class="lp-filter-count" data-activity-filter-target="count">{{ 'activity.count'|trans({'%count%': entries|length}) }}</span>
     </div>
     <p class="lp-rule-explanation" data-activity-filter-target="gap" role="status" hidden>{{ 'activity.feed.gap'|trans({'%count%': pageSize}) }}</p>
-    <div class="lp-activity-feed" data-activity-filter-target="feed">
+    <div class="lp-activity-feed" data-activity-filter-target="feed" {% if entries is empty %}hidden{% endif %}>
         {% include 'outbox/_activity_entries.html.twig' with {entries: entries} only %}
     </div>
     <div class="lp-empty-state" data-activity-filter-target="empty" hidden>

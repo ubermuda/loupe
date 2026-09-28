@@ -72,16 +72,11 @@ test('a resume that gave up shows its place in the series and the run it resumes
     await page.goto(`/projects/${projectId}/worker-runs`);
     const row = page.locator(`[data-worker-run-id="${resumeId}"]`);
     await expect(
-        row.locator('.lp-worker-run__table-row .lp-status-chip'),
+        page.locator(`[data-worker-run-id="${resumeId}"] > .lp-status-chip`),
     ).toHaveText('Gave up');
-    await expect(row.locator('[data-worker-run-resume]')).toHaveText(
-        'Resume 2 of 2',
-    );
-    const firstRow = page.locator(`[data-worker-run-id="${firstId}"]`);
     await expect(
-        firstRow.locator('.lp-worker-run__table-row .lp-status-chip'),
+        page.locator(`[data-worker-run-id="${firstId}"] > .lp-status-chip`),
     ).toHaveText('Unfinished');
-    await expect(firstRow.locator('[data-worker-run-resume]')).toHaveCount(0);
 
     await row.getByRole('button', { name: 'View attempt' }).click();
     const drawer = page.getByRole('dialog', { name: 'Run attempt' });
@@ -164,15 +159,15 @@ test('completed reports retain outcomes and escaped output at enlarged text size
     await page.goto(`/projects/${projectId}/worker-runs`);
     for (const [index, report] of reports.entries()) {
         const row = page.locator(`[data-worker-run-id="${ids[index]}"]`);
-        await expect(
-            row.locator('.lp-worker-run__table-row .lp-status-chip'),
-        ).toHaveText(report.outcome);
-        const toggle = row.locator('summary');
-        await toggle.focus();
-        await toggle.press('Enter');
-        await expect(row.locator('details pre')).toHaveText(output);
+        const chip = page.locator(
+            `[data-worker-run-id="${ids[index]}"] > .lp-status-chip`,
+        );
+        await expect(chip).toContainText(report.outcome);
+        // The row shows a failure reason only in the chip's tooltip.
+        await expect(chip.locator('.lp-tooltip')).toHaveText(
+            report.failureReason === null ? [] : [report.failureReason],
+        );
         await expect(row.locator('img')).toHaveCount(0);
-        await toggle.press('Enter');
         const open = row.getByRole('button', { name: 'View attempt' });
         await open.focus();
         await open.press('Enter');
@@ -208,18 +203,42 @@ test('completed reports retain outcomes and escaped output at enlarged text size
         }, fontSize);
         for (const width of [1440, 1150, 950, 780, 390]) {
             await page.setViewportSize({ width, height: 1000 });
-            const list = page.locator('.lp-worker-run-list');
+            const list = page.locator('.lp-data-table--runs');
             const bounds = await list.boundingBox();
             expect(bounds).not.toBeNull();
             expect(bounds!.x).toBeGreaterThanOrEqual(0);
             expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-            for (const rule of await page
-                .locator('.lp-worker-run__table-row .lp-worker-run__rule')
+            // The long rule name is cut short, so every cell ends inside its row.
+            for (const tableRow of await list
+                .locator('.lp-data-table__row')
                 .all()) {
                 expect(
-                    await rule.evaluate(
-                        (element) => element.scrollWidth - element.clientWidth,
-                    ),
+                    await tableRow.evaluate((element) => {
+                        const right = element.getBoundingClientRect().right;
+                        return Math.max(
+                            ...[...element.children]
+                                .filter((child) => child.tagName !== 'DIALOG')
+                                .map(
+                                    (child) =>
+                                        child.getBoundingClientRect().right -
+                                        right,
+                                ),
+                        );
+                    }),
+                    `${fontSize} at ${width}px`,
+                ).toBeLessThanOrEqual(1);
+            }
+            // Each row is its own grid, so its columns line up with the header only on shared tracks.
+            const outcomeHeader = await list
+                .locator('.lp-data-table__header > .lp-data-table__cell')
+                .nth(1)
+                .boundingBox();
+            for (const chip of await list
+                .locator('[data-worker-run-id] > .lp-status-chip')
+                .all()) {
+                expect(
+                    Math.abs((await chip.boundingBox())!.x - outcomeHeader!.x),
+                    `${fontSize} at ${width}px`,
                 ).toBeLessThanOrEqual(1);
             }
             const bridgeFilter = page.locator('#worker-run-bridge');
@@ -231,7 +250,7 @@ test('completed reports retain outcomes and escaped output at enlarged text size
                 formBounds.x + formBounds.width,
             );
             const outcome = page
-                .locator('.lp-worker-run__table-row .lp-status-chip')
+                .locator('[data-worker-run-id] > .lp-status-chip')
                 .first();
             const badge = await outcome.evaluate((element) => {
                 const style = getComputedStyle(element);
@@ -255,9 +274,14 @@ test('completed reports retain outcomes and escaped output at enlarged text size
                     ),
                 };
             });
-            expect(badge.height).toBeCloseTo(badge.contentHeight, 1);
+            expect(badge.height, `${fontSize} at ${width}px`).toBeCloseTo(
+                badge.contentHeight,
+                1,
+            );
             await outcome.scrollIntoViewIfNeeded();
-            await expect(outcome).toBeInViewport({ ratio: 1 });
+            await expect(outcome, `${fontSize} at ${width}px`).toBeInViewport({
+                ratio: 1,
+            });
             const open = page
                 .getByRole('button', { name: 'View attempt' })
                 .first();
