@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { Application } from '@hotwired/stimulus';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BoardDragController from '../../assets/controllers/board_drag_controller.js';
 
 const STREAM = 'text/vnd.turbo-stream.html; charset=UTF-8';
@@ -12,7 +12,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 function card(id) {
     return `<article id="board-card-${id}" data-board-drag-target="card">
         <form hidden data-board-drag-target="moveForm">
-            <select name="move_${id}[column]"><option value="backlog">Backlog</option><option value="next">Next</option></select>
+            <select name="move_${id}[column]"><option value="backlog">Backlog</option><option value="next">Next</option><option value="waiting">Waiting</option></select>
             <input name="move_${id}[position]">
         </form>
     </article>`;
@@ -21,6 +21,7 @@ function card(id) {
 beforeEach(async () => {
     document.body.innerHTML = `<div id="board" data-controller="board-drag">
         <p data-board-drag-target="message" data-message="The move failed."></p>
+        <a id="bucket" data-board-drag-target="group" data-board-bucket data-column="waiting" data-rankable="0">Waiting</a>
         <div id="board-group-backlog" data-board-drag-target="group" data-column="backlog" data-rankable="1">${card('a')}${card('b')}</div>
         <div id="board-group-next" data-board-drag-target="group" data-column="next" data-rankable="1"></div>
     </div>`;
@@ -157,4 +158,108 @@ it('releases the drag when the page cannot place the card', () => {
     );
 
     expect(controller.pendingForm).toBeNull();
+});
+
+describe('a drop on the bucket', () => {
+    const rectangle = (left, top, right, bottom) => () => ({
+        left,
+        top,
+        right,
+        bottom,
+        width: right - left,
+        height: bottom - top,
+    });
+
+    /** Presses card a, then moves the pointer to (x, y). */
+    function dragTo(x, y) {
+        document.getElementById('bucket').getBoundingClientRect = rectangle(
+            0,
+            0,
+            100,
+            40,
+        );
+        document.getElementById('board-group-backlog').getBoundingClientRect =
+            rectangle(200, 60, 300, 400);
+        document.getElementById('board-group-next').getBoundingClientRect =
+            rectangle(400, 60, 500, 400);
+        const moved = document.getElementById('board-card-a');
+        controller.press({
+            pointerId: 1,
+            pointerType: 'mouse',
+            button: 0,
+            target: moved,
+            clientX: 250,
+            clientY: 100,
+        });
+        controller.pointerMove({
+            pointerId: 1,
+            clientX: x,
+            clientY: y,
+            preventDefault: () => {},
+        });
+
+        return moved;
+    }
+
+    it('marks the bucket and keeps the drop marker out of it', () => {
+        dragTo(50, 20);
+
+        const bucket = document.getElementById('bucket');
+        expect(bucket.classList.contains('lp-board-backlog--over')).toBe(true);
+        expect(bucket.querySelector('.lp-board__placeholder')).toBeNull();
+
+        controller.pointerMove({
+            pointerId: 1,
+            clientX: 450,
+            clientY: 100,
+            preventDefault: () => {},
+        });
+        expect(bucket.classList.contains('lp-board-backlog--over')).toBe(false);
+    });
+
+    it('takes no drop just below its edge, where a column still does', () => {
+        dragTo(50, 20);
+        document.getElementById('board-group-backlog').getBoundingClientRect =
+            rectangle(0, 60, 100, 400);
+
+        expect(controller.groupUnder(50, 40)?.id).toBe('bucket');
+        expect(controller.groupUnder(50, 50)?.id).toBe('board-group-backlog');
+    });
+
+    it('sends the card to the end of the column it names, and hides it until the answer', () => {
+        const moved = dragTo(50, 20);
+        const form = moved.querySelector('form');
+        form.requestSubmit = vi.fn();
+
+        controller.pointerUp({
+            pointerId: 1,
+            type: 'pointerup',
+            clientX: 50,
+            clientY: 20,
+            target: document.getElementById('bucket'),
+        });
+
+        expect(form.requestSubmit).toHaveBeenCalledOnce();
+        expect(form.querySelector('select').value).toBe('waiting');
+        expect(form.querySelector('input[name$="[position]"]').value).toBe('');
+        expect(moved.classList.contains('lp-board-card--sent')).toBe(true);
+        expect(titles('backlog')).toEqual(['a', 'b']);
+        expect(
+            document.getElementById('bucket').querySelector('article'),
+        ).toBeNull();
+        expect(
+            document
+                .getElementById('bucket')
+                .classList.contains('lp-board-backlog--over'),
+        ).toBe(false);
+
+        respond(form, {
+            succeeded: false,
+            contentType: 'text/html; charset=UTF-8',
+        });
+        finish(form, false);
+
+        expect(moved.classList.contains('lp-board-card--sent')).toBe(false);
+        expect(titles('backlog')).toEqual(['a', 'b']);
+    });
 });

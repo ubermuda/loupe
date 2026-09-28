@@ -47,7 +47,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(3, $crawler->filter('.lp-board__column'));
         self::assertCount(0, $crawler->filter('.lp-board__column[data-column-id="'.$backlogId.'"]'));
-        self::assertCount(3, $crawler->filter('[data-board-drag-target="group"]'));
+        self::assertCount(3, $crawler->filter('.lp-board__column [data-board-drag-target="group"]'));
         self::assertCount(0, $crawler->filter('[data-priority], [data-card-priority]'));
         self::assertCount(1, $crawler->filter('[data-board-drag-target="card"]'));
         self::assertCount(1, $crawler->filter('dialog[data-card-drawer-target="dialog"] turbo-frame#card-drawer-frame'));
@@ -64,6 +64,36 @@ final class ShowBoardControllerTest extends WebTestCase
             static fn (Crawler $node): string => trim($node->text()),
         );
         self::assertSame(['1', '0', '0'], $counts);
+    }
+
+    public function test_the_backlog_button_links_to_the_backlog_shows_its_count_and_takes_a_drop(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-backlog-button@example.com');
+        $project = $this->project($em, $owner);
+        $this->card($em, $project, 'Waiting', 'backlog');
+        $this->card($em, $project, 'Waiting too', 'backlog', 1);
+        $this->card($em, $project, 'Next card', 'next');
+        $backlogId = (string) $this->column($project, 'backlog')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        $button = $crawler->filter('#board a.lp-board-backlog');
+        self::assertCount(1, $button);
+        self::assertSame('/projects/'.$project->id.'/board/backlog', $button->attr('href'));
+        self::assertSame('2', trim($button->filter('#board-count-'.$backlogId)->text()));
+        // The toolbar survives a frame reload as it is, so the count must sit outside it.
+        self::assertCount(0, $crawler->filter('[data-turbo-permanent] .lp-board-backlog'));
+        self::assertSame('group', $button->attr('data-board-drag-target'));
+        self::assertSame($backlogId, $button->attr('data-column'));
+        self::assertSame('0', $button->attr('data-rankable'));
+        self::assertNull($button->attr('data-lane'));
     }
 
     public function test_the_board_renders_the_columns_its_project_holds(): void

@@ -30,6 +30,9 @@ const EDGE_STEP = 14;
 
 const STREAM_TYPE = 'text/vnd.turbo-stream.html';
 
+/** A group that takes a card and shows none, such as the Backlog button. */
+const isBucket = (group) => group?.dataset.boardBucket !== undefined;
+
 export default class extends Controller {
     static targets = ['card', 'group', 'moveForm', 'message'];
 
@@ -187,10 +190,11 @@ export default class extends Controller {
 
         this.pointerY = event.clientY;
         const group = this.groupUnder(event.clientX, event.clientY);
+        this.markBucket(group);
         if (group !== null) {
             this.markPlaceIn(group, event.clientY);
         }
-        this.followEdge(group);
+        this.followEdge(isBucket(group) ? null : group);
     }
 
     /**
@@ -252,6 +256,11 @@ export default class extends Controller {
      * column honours the marker, in its own column and across columns alike.
      */
     markPlaceIn(group, clientY) {
+        if (isBucket(group)) {
+            this.placeholder.remove();
+
+            return;
+        }
         if ('1' !== group.dataset.rankable) {
             group.append(this.placeholder);
 
@@ -310,7 +319,10 @@ export default class extends Controller {
             group !== null &&
             !(group === this.originGroup && position === this.originIndex);
 
-        if (moves) {
+        // A bucket shows no card, so the card stays in the DOM, hidden, and its form can submit.
+        if (moves && isBucket(group)) {
+            card.classList.add('lp-board-card--sent');
+        } else if (moves) {
             this.placeholder.replaceWith(card);
         }
 
@@ -450,6 +462,7 @@ export default class extends Controller {
 
     /** Puts a card back where the drag took it from, and says that it moved back. */
     restore(card, origin) {
+        card.classList.remove('lp-board-card--sent');
         if (!this.element.isConnected || !card.isConnected) {
             return;
         }
@@ -496,6 +509,7 @@ export default class extends Controller {
         if (this.ghost !== null) {
             this.ghost.remove();
         }
+        this.markBucket(null);
         this.element.classList.remove('lp-board--dragging');
         delete this.element.dataset.turboPrefetch;
         this.stopScrolling();
@@ -553,7 +567,23 @@ export default class extends Controller {
         );
     }
 
-    /** The drop target under the pointer. */
+    /** Shows which bucket a release would drop the card in, if any. */
+    markBucket(group) {
+        this.groupTargets
+            .filter(isBucket)
+            .forEach((bucket) =>
+                bucket.classList.toggle(
+                    'lp-board-backlog--over',
+                    bucket === group,
+                ),
+            );
+    }
+
+    /**
+     * The drop target under the pointer. A column takes a drop a little past
+     * its edge, and a bucket does not, so a drop at the top of a column never
+     * lands in a bucket just above it.
+     */
     groupUnder(x, y) {
         return (
             this.groupTargets.find((group) => {
@@ -563,12 +593,13 @@ export default class extends Controller {
                 const rectangle = (
                     group.closest('.lp-board__column') ?? group
                 ).getBoundingClientRect();
+                const slack = isBucket(group) ? 0 : 16;
 
                 return (
                     x >= rectangle.left &&
                     x <= rectangle.right &&
-                    y >= rectangle.top - 16 &&
-                    y <= rectangle.bottom + 16
+                    y >= rectangle.top - slack &&
+                    y <= rectangle.bottom + slack
                 );
             }) ?? null
         );

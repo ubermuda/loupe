@@ -759,8 +759,19 @@
 
     /* Board controls and column framing for the supported kanban view. The
        toolbar is the page's heading row: title, search, count and actions. */
+    /* The toolbar row: the permanent toolbar, then the Backlog button a frame reload redraws. */
+    .lp-board-header {
+        @apply flex flex-wrap items-center gap-x-3 gap-y-2 mb-2;
+    }
     .lp-board-toolbar {
-        @apply flex flex-wrap items-center gap-x-3 gap-y-2 min-h-9 mb-2;
+        @apply flex flex-1 min-w-0 flex-wrap items-center gap-x-3 gap-y-2 min-h-9;
+    }
+    .lp-board-backlog__count {
+        @apply inline-flex items-center justify-center min-w-6 rounded-full bg-surface-3 px-2 py-0.5 text-xs font-bold text-fg-mute;
+    }
+    /* The Backlog button, while a dragged card is over it. */
+    .lp-board-backlog.lp-board-backlog--over {
+        @apply border-dashed border-accent-border bg-accent-faint;
     }
     .lp-board-toolbar__title {
         @apply m-0 font-display font-extrabold text-2xl tracking-tight text-ink;
@@ -5548,6 +5559,10 @@
        crosses, so it is suppressed for the length of the gesture only. */
     .lp-board--dragging {
         @apply select-none;
+    }
+    /* A card dropped on the Backlog button, hidden until the move answers. */
+    .lp-board-card--sent {
+        @apply hidden;
     }
 
     /* A board with epic lanes reads in rows: one row per lane, then "Other

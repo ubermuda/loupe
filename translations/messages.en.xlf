@@ -5044,6 +5044,14 @@
                 <source>board.backlog.empty.action</source>
                 <target>Back to the board</target>
             </trans-unit>
+            <trans-unit id="board.backlog.button">
+                <source>board.backlog.button</source>
+                <target>Backlog</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.button.hint">
+                <source>board.backlog.button.hint</source>
+                <target>Open the Backlog. Drop a card here to put it at the end of the Backlog.</target>
+            </trans-unit>
 
             <!-- Card form -->
             <trans-unit id="board.form.create_card_form.title.label">
