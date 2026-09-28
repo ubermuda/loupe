@@ -1,10 +1,17 @@
 # Dispatch an agent for a branch whose session is gone
 
-Dispatch when an approved branch conflicts with `main` after a merge, or needs a
-fix such as a failing check that the diff explains. Do not resolve the conflict
-in your own context, because your context must last as long as the queue.
+Dispatch when an approved branch needs a fix that is not a conflict, such as a
+failing check that the diff explains. Dispatch only when no bridge worker picks
+the fix up and the branch's session is gone. Do not fix the branch in your own
+context, because your context must last as long as the queue.
 
-## List the conflicting files first
+**Obsolete for a conflict since 2026-09-28.** The owner said: "I want all 3
+reasons and the merge queue should stop fixing conflicts". The bridge's `fix-pr`
+worker now resolves a conflict with the `loupe-stage-fix-round` skill, which
+carries this procedure. Never dispatch an agent for a conflict. The two sections
+below stay as the record of the procedure that the skill took over.
+
+## List the conflicting files first (obsolete since 2026-09-28)
 
 Run a trial merge in a throwaway worktree:
 
@@ -18,6 +25,10 @@ git log --oneline $(git merge-base origin/main origin/<branch>)..origin/main -- 
 The last command names the commits on `main` that caused the conflict.
 
 ## Send the prompt
+
+The template below is a conflict prompt, obsolete since 2026-09-28 for the
+reason above. Use it for a fix that is not a conflict, changed as the paragraph
+after it says.
 
 Dispatch one agent per branch, in the background. Send every dispatch in one
 message, so the agents run in parallel. A subagent does not inherit your loaded
@@ -65,7 +76,9 @@ and its log.
 
 ## Verify the result before you merge
 
-Read the pushed merge commit, and run the `comm` proof yourself, as
+This step still applies, to a resolution that a bridge worker pushed. Read the
+pushed merge commit, and run the `comm` proof yourself, as
 `references/git-traps.md` says. Then run `scripts/merge-ready.sh <n>` on the new
 head. The owner's approval covers a resolution that passes the `comm` check, so
-merge without asking him again.
+merge without asking him again. A fix that is not a conflict is new content, and
+it needs a new approval.
