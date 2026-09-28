@@ -13,7 +13,6 @@ final readonly class ListActivityView
     public function __construct(
         public Project $project,
         public array $entries,
-        public int $pageSize,
     ) {
     }
 }

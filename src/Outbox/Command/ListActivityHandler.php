@@ -22,7 +22,6 @@ final readonly class ListActivityHandler
         return new ListActivityView(
             $command->project,
             $this->entries->entriesFor($command->project, $events),
-            $command->limit,
         );
     }
 }
