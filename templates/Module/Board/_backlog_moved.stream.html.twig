@@ -1,11 +1,11 @@
-{#- Cards left the Backlog page. Props: project (Project), movedIds (list<string>), column (BoardColumn), view (ListBacklogCardsView), listQuery (BacklogListQuery), refill (bool). -#}
+{#- Cards left the Backlog page. Props: project (Project), movedIds (list<string>), column (BoardColumn), view (ListBacklogCardsView), listQuery (BacklogListQuery), refill (bool), goneIds (list<string>): the rows that left the page, more than movedIds when a move closes an epic. -#}
 {% if refill %}
 <turbo-stream action="update" target="backlog-results">
     <template>{% include '@Board/_backlog_results.html.twig' with {project: project, view: view, listQuery: listQuery} only %}</template>
 </turbo-stream>
 {% else %}
-{% for movedId in movedIds %}
-<turbo-stream action="remove" target="backlog-row-{{ movedId }}"></turbo-stream>
+{% for goneId in goneIds %}
+<turbo-stream action="remove" target="backlog-row-{{ goneId }}"></turbo-stream>
 {% endfor %}
 {% endif %}
 <turbo-stream action="update" target="backlog-filter-count">

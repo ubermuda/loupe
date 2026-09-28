@@ -217,6 +217,62 @@ final class BacklogActionsControllerTest extends WebTestCase
         self::assertStringNotContainsString('target="backlog-results"', $body);
     }
 
+    public function test_a_move_that_closes_an_epic_also_removes_the_epic_row(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'backlog-move-cascade@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'backlog', 0), CardType::Epic);
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Last child', 'backlog', 1));
+        $this->card($em, $project, 'Stays', 'backlog', 2);
+        $done = (string) $this->column($project, 'done')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $this->cardUrl($child, 'move'), MoveBacklogCardFormType::nameFor($child), ['column' => $done], stream: true);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['Epic', 'Last child'], $this->titlesIn($project, 'done'));
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('action="remove" target="backlog-row-'.$child->id.'"', $body);
+        self::assertStringContainsString('action="remove" target="backlog-row-'.$epic->id.'"', $body);
+        self::assertStringNotContainsString('target="backlog-results"', $body);
+        self::assertStringContainsString('1 card moved to Done.', $body);
+    }
+
+    public function test_a_bulk_move_that_closes_an_epic_on_an_earlier_page_removes_the_row_that_moves_up(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'backlog-bulk-cascade@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'backlog', 0), CardType::Epic);
+        $cards = [];
+        for ($index = 1; $index < 26; ++$index) {
+            $cards[$index] = $this->card($em, $project, 'Card '.$index, 'backlog', $index);
+        }
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Last child', 'backlog', 26));
+        $this->card($em, $project, 'Card 27', 'backlog', 27);
+        $done = (string) $this->column($project, 'done')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $this->bulkUrl($project).'?page=2', BulkMoveBacklogCardsFormType::NAME, ['ids' => [(string) $child->id], 'column' => $done], stream: true);
+
+        // Page 2 showed Card 25, the child and Card 27. The epic left page 1, so Card 25 moved up to it.
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('action="remove" target="backlog-row-'.$child->id.'"', $body);
+        self::assertStringContainsString('action="remove" target="backlog-row-'.$cards[25]->id.'"', $body);
+        self::assertSame(2, substr_count($body, 'action="remove"'));
+        self::assertStringNotContainsString('target="backlog-results"', $body);
+    }
+
     public function test_a_move_on_a_page_before_the_last_redraws_it_with_the_row_that_moves_up(): void
     {
         $client = static::createClient();

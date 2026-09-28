@@ -881,9 +881,29 @@ class CardRepository extends ServiceEntityRepository
      */
     public function findBacklogPage(BoardColumn $backlog, BacklogListQuery $listQuery, int $offset, int $limit): array
     {
-        $qb = $this->backlogMatching($backlog, $listQuery)
+        return array_values($this->backlogPage($backlog, $listQuery, $offset, $limit)
             ->leftJoin('c.parent', 'parent')
             ->addSelect('parent')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
+     * The ids findBacklogPage() returns, as scalars, so a read before a move
+     * puts no card in the identity map ahead of the move's lock.
+     *
+     * @return list<string>
+     */
+    public function findBacklogPageIds(BoardColumn $backlog, BacklogListQuery $listQuery, int $offset, int $limit): array
+    {
+        $rows = $this->backlogPage($backlog, $listQuery, $offset, $limit)->select('c.id')->getQuery()->getArrayResult();
+
+        return array_values(array_map(static fn (array $row): string => (string) $row['id'], $rows));
+    }
+
+    private function backlogPage(BoardColumn $backlog, BacklogListQuery $listQuery, int $offset, int $limit): QueryBuilder
+    {
+        $qb = $this->backlogMatching($backlog, $listQuery)
             ->setFirstResult($offset)
             ->setMaxResults($limit);
 
@@ -895,7 +915,7 @@ class CardRepository extends ServiceEntityRepository
             BacklogSort::Updated => $qb->orderBy('c.updatedAt', 'DESC')->addOrderBy('c.id', 'DESC'),
         };
 
-        return array_values($qb->getQuery()->getResult());
+        return $qb;
     }
 
     public function countBacklogMatching(BoardColumn $backlog, BacklogListQuery $listQuery): int

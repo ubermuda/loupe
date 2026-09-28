@@ -11,6 +11,8 @@ use App\Module\Board\Command\BulkMoveBacklogCardsHandler;
 use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\ListBacklogCardsCommand;
 use App\Module\Board\Command\ListBacklogCardsHandler;
+use App\Module\Board\Command\ListBacklogPageIdsCommand;
+use App\Module\Board\Command\ListBacklogPageIdsHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
@@ -18,6 +20,7 @@ use App\Module\Board\Form\BulkMoveBacklogCardsFormType;
 use App\Module\Board\Form\BulkMoveBacklogCardsRequest;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\View\BacklogListQuery;
+use App\Module\Board\View\BacklogPageChange;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -47,6 +50,7 @@ final class BulkMoveBacklogCardsController extends AppController
     public function __construct(
         private readonly BulkMoveBacklogCardsHandler $bulkMove,
         private readonly ListBacklogCardsHandler $listBacklogCards,
+        private readonly ListBacklogPageIdsHandler $listBacklogPageIds,
         private readonly FormFactoryInterface $formFactory,
         private readonly BoardAvailability $board,
         private readonly TranslatorInterface $translator,
@@ -68,6 +72,10 @@ final class BulkMoveBacklogCardsController extends AppController
 
         $form = $this->formFactory->createNamed(BulkMoveBacklogCardsFormType::NAME, BulkMoveBacklogCardsFormType::class, $data, ['backlog' => $backlog]);
         $form->handleRequest($request);
+        // The rows the page shows, read before the move takes any of them.
+        $shownIds = $stream
+            ? ($this->listBacklogPageIds)(new ListBacklogPageIdsCommand($backlog, $listQuery))
+            : [];
 
         if (!$form->isSubmitted() || !$form->isValid()) {
             $error = $this->translator->trans('board.card.flash.move_rejected');
@@ -108,7 +116,7 @@ final class BulkMoveBacklogCardsController extends AppController
         }
 
         $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $listQuery));
-        $refill = $listQuery->redrawsAfterMoving(\count($moved), $view->filteredTotal);
+        $change = BacklogPageChange::between($shownIds, $view->items);
         if (null !== $view->clampedPage) {
             $listQuery = $listQuery->withPage($view->clampedPage);
             $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $listQuery));
@@ -121,7 +129,8 @@ final class BulkMoveBacklogCardsController extends AppController
                 'column' => $data->column,
                 'view' => $view,
                 'listQuery' => $listQuery,
-                'refill' => $refill,
+                'refill' => $change->redraws,
+                'goneIds' => $change->goneIds,
             ]),
             Response::HTTP_OK,
             ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
