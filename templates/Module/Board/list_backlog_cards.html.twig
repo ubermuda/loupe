@@ -105,7 +105,7 @@
             </button>
             <div id="backlog-bulk-menu" class="lp-backlog-menu lp-backlog-menu--up" data-popover-target="panel" hidden>
                 {% for column in view.boardColumns %}
-                <button type="submit" class="lp-backlog-menu__item" name="{{ bulkName }}[column]" value="{{ column.id }}">
+                <button type="submit" class="lp-backlog-menu__item" name="{{ bulkName }}[column]" value="{{ column.id }}" data-action="popover#close">
                     <span class="lp-tone-dot lp-tone-dot--{{ column.tone.value }}"></span>{{ column.label|trans }}
                 </button>
                 {% endfor %}

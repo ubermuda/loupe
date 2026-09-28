@@ -51,6 +51,9 @@ final class BacklogActionsControllerTest extends WebTestCase
         self::assertStringEndsWith('/move?page=1&type=feature', (string) $row->filter('form.lp-backlog-menu')->attr('action'));
         self::assertCount(1, $row->filter('input[name="'.BulkMoveBacklogCardsFormType::NAME.'[ids][]"][form="backlog-bulk-form"]'));
         self::assertSame('Move to Next', trim($crawler->filter('#backlog-bulk-form button.lp-btn--primary')->text()));
+        $bulkItems = $crawler->filter('#backlog-bulk-menu button[type="submit"]');
+        self::assertCount(3, $bulkItems);
+        self::assertSame(['popover#close', 'popover#close', 'popover#close'], $bulkItems->each(static fn ($button): string => (string) $button->attr('data-action')));
     }
 
     public function test_no_other_sort_draws_the_rank_handle(): void
