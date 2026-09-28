@@ -12,6 +12,7 @@ use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Inbox\Command\AnswerInboxItemCommand;
 use App\Module\Inbox\Command\AnswerInboxItemHandler;
@@ -31,8 +32,10 @@ use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Install\InboxInstallFlags;
+use App\Module\Inbox\Service\CardWaitReconciler;
 use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Entity\DocumentStatus;
 use App\Tests\Module\Inbox\InboxFixtures;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
@@ -108,6 +111,29 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
         $this->assertPublishedAtTerminate(2);
         $this->service(DeclineInboxItemHandler::class)(new DeclineInboxItemCommand($declined, ''));
         $this->assertPublishedAtTerminate(3);
+
+        foreach ($this->published as $update) {
+            $this->assertSignalsTheProject($update);
+        }
+    }
+
+    public function test_a_card_wait_signals_when_its_item_opens_and_closes_and_not_in_between(): void
+    {
+        $card = $this->card($this->em, $this->project);
+        $document = $this->document($this->em, $this->project);
+        $document->addVersion('# One', '<h1>One</h1>');
+        $card->documents->add(new CardDocument($card, $document));
+        $this->em->flush();
+        $reconciler = $this->service(CardWaitReconciler::class);
+
+        $reconciler->reconcile($this->project, [(string) $card->id]);
+        $this->assertPublishedAtTerminate(1);
+        $reconciler->reconcile($this->project, [(string) $card->id]);
+        $this->assertPublishedAtTerminate(1);
+        $document->status = DocumentStatus::Approved;
+        $this->em->flush();
+        $reconciler->reconcile($this->project, [(string) $card->id]);
+        $this->assertPublishedAtTerminate(2);
 
         foreach ($this->published as $update) {
             $this->assertSignalsTheProject($update);
