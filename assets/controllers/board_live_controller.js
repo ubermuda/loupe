@@ -126,14 +126,17 @@ export default class extends Controller {
             .forEach((card) =>
                 shown.set(card.dataset.cardId, card.dataset.cardDigest),
             );
+        // A lane epic has no card face, only a list row, so it counts for the
+        // list order alone.
         const listed = new Map(
-            manifest.cards.map(([cardId, , columnId], index) => [
+            manifest.cards.map(([cardId, , columnId, laneHead], index) => [
                 cardId,
-                { columnId, index },
+                { columnId, index, laneHead: laneHead === true },
             ]),
         );
+        const faces = manifest.cards.filter(([, , , laneHead]) => !laneHead);
         const removed = [...shown.keys()].filter(
-            (cardId) => !listed.has(cardId),
+            (cardId) => !listed.has(cardId) || listed.get(cardId).laneHead,
         );
         const moved = new Set();
         this.element
@@ -146,7 +149,11 @@ export default class extends Controller {
                         cardId: card.dataset.cardId,
                         ...listed.get(card.dataset.cardId),
                     }))
-                    .filter((card) => card.columnId === group.dataset.column);
+                    .filter(
+                        (card) =>
+                            !card.laneHead &&
+                            card.columnId === group.dataset.column,
+                    );
                 outOfOrder(cards).forEach((cardId) => moved.add(cardId));
             });
         // Two lane cells of one column can each keep their order while the
@@ -164,19 +171,20 @@ export default class extends Controller {
         outOfOrder(rows).forEach((cardId) => moved.add(cardId));
         const changed = manifest.cards
             .filter(
-                ([cardId, digest]) =>
-                    shown.get(cardId) !== digest || moved.has(cardId),
+                ([cardId, digest, , laneHead]) =>
+                    moved.has(cardId) ||
+                    (!laneHead && shown.get(cardId) !== digest),
             )
             .map(([cardId]) => cardId);
         const queued = [...removed, ...changed];
         // Any placement rewrites every history link, so one card is enough.
         if (queued.length === 0 && staleHistory(manifest.terminalTotals)) {
-            if (manifest.cards.length === 0) {
+            if (faces.length === 0) {
                 this.reload();
 
                 return;
             }
-            queued.push(manifest.cards[0][0]);
+            queued.push(faces[0][0]);
         }
         queued.forEach((cardId) =>
             this.receive({ cardId, local: false, own: false }),
@@ -364,7 +372,9 @@ function isManifest(manifest) {
                 Array.isArray(entry) &&
                 typeof entry[0] === 'string' &&
                 typeof entry[1] === 'string' &&
-                typeof entry[2] === 'string',
+                typeof entry[2] === 'string' &&
+                (entry.length === 3 ||
+                    (entry.length === 4 && entry[3] === true)),
         )
     );
 }

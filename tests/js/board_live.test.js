@@ -293,6 +293,55 @@ it('fetches a list row that moved across lane cells while each cell kept its ord
     expect(reloads).toBe(0);
 });
 
+it('fetches a lane epic whose list row moved past an ordinary row', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'afterbegin',
+            '<a class="lp-board-list__row" data-card-id="epic"></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k'],
+                ['b', 'old', 'k'],
+                ['epic', 'old', 'k', true],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['epic']);
+    expect(reloads).toBe(0);
+});
+
+it('never counts a lane head as an added or a removed card', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a class="lp-board-list__row" data-card-id="epic"></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k'],
+                ['b', 'old', 'k'],
+                ['epic', 'new', 'k', true],
+                ['gone', 'new', 'k', true],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual([]);
+    expect(reloads).toBe(0);
+});
+
 it('fetches nothing when the list rows keep the manifest order', async () => {
     document
         .getElementById('board')

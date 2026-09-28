@@ -33,10 +33,7 @@ final readonly class ShowBoardManifestHandler
             }
             foreach ($view->cards as $card) {
                 $id = (string) $card->id;
-                if (isset($laneEpics[$id])) {
-                    continue;
-                }
-                $cards[] = [$id, $this->digest->forCard(
+                $entry = [$id, $this->digest->forCard(
                     $card,
                     $board->pendingComments[$id] ?? 0,
                     $board->documentCounts[$id] ?? 0,
@@ -44,6 +41,11 @@ final readonly class ShowBoardManifestHandler
                     $board->progress[$id] ?? null,
                     $board->runWarnings[$id] ?? null,
                 ), (string) $view->column->id];
+                // A lane epic has a list row and no card face.
+                if (isset($laneEpics[$id])) {
+                    $entry[] = true;
+                }
+                $cards[] = $entry;
             }
         }
 

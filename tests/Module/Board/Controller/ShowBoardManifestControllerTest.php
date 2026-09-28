@@ -119,7 +119,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         );
     }
 
-    public function test_a_lane_epic_is_left_out_because_the_page_draws_it_as_a_lane_head(): void
+    public function test_a_lane_epic_is_flagged_as_a_lane_head_and_keeps_its_list_row_place(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -137,8 +137,11 @@ final class ShowBoardManifestControllerTest extends WebTestCase
 
         self::assertContains((string) $epic->id, $page['rows']);
         self::assertArrayNotHasKey((string) $epic->id, $page['cards']);
-        self::assertSame([(string) $child->id, (string) $other->id], array_column($manifest['cards'], 0));
-        self::assertSame($page['cards'], array_column($manifest['cards'], 1, 0));
+        self::assertSame([(string) $child->id, (string) $other->id, (string) $epic->id], array_column($manifest['cards'], 0));
+        self::assertSame($page['rows'], array_column($manifest['cards'], 0));
+        self::assertSame([3, 3, 4], array_map(\count(...), $manifest['cards']));
+        self::assertTrue($manifest['cards'][2][3] ?? false);
+        self::assertSame($page['cards'], array_column($this->faces($manifest), 1, 0));
     }
 
     public function test_the_terminal_totals_are_the_ones_the_history_links_show(): void
@@ -277,7 +280,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $after = $this->manifest($client, $project);
 
         self::assertNotSame($before['structure'], $after['structure']);
-        self::assertSame([], $after['cards']);
+        self::assertSame([], $this->faces($after));
+        self::assertSame([(string) $epic->id], array_column($after['cards'], 0));
         self::assertSame($after['structure'], $this->page($client, $project)['structure']);
     }
 
@@ -389,13 +393,13 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         return '/projects/'.$project->id.'/board/manifest';
     }
 
-    /** @return array{cards: list<array{string, string, string}>, structure: string, terminalTotals: array<string, int>} */
+    /** @return array{cards: list<array{0: string, 1: string, 2: string, 3?: true}>, structure: string, terminalTotals: array<string, int>} */
     private function manifest(KernelBrowser $client, Project $project): array
     {
         $client->request(Request::METHOD_GET, $this->manifestUrl($project));
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        /** @var array{cards: list<array{string, string, string}>, structure: string, terminalTotals: array<string, int>} $manifest */
+        /** @var array{cards: list<array{0: string, 1: string, 2: string, 3?: true}>, structure: string, terminalTotals: array<string, int>} $manifest */
         $manifest = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
         self::assertSame(['cards', 'structure', 'terminalTotals'], array_keys($manifest));
 
@@ -433,7 +437,17 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         ];
     }
 
-    /** @param array{cards: list<array{string, string, string}>, structure: string, terminalTotals: array<string, int>} $manifest */
+    /**
+     * @param array{cards: list<array{0: string, 1: string, 2: string, 3?: true}>, structure: string, terminalTotals: array<string, int>} $manifest
+     *
+     * @return list<array{0: string, 1: string, 2: string, 3?: true}>
+     */
+    private function faces(array $manifest): array
+    {
+        return array_values(array_filter($manifest['cards'], static fn (array $entry): bool => !isset($entry[3])));
+    }
+
+    /** @param array{cards: list<array{0: string, 1: string, 2: string, 3?: true}>, structure: string, terminalTotals: array<string, int>} $manifest */
     private function digestOf(array $manifest, Card $card): string
     {
         $digests = array_column($manifest['cards'], 1, 0);
