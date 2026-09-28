@@ -5,7 +5,7 @@
 <div id="board" class="lp-board"
      data-board-structure-digest="{{ board.structureDigest }}"
      data-controller="board-drag board-filter board-view"
-     data-action="turbo:frame-render@document->board-filter#filter board:placed@document->board-filter#filter turbo:frame-render@document->board-view#restore turbo:frame-render@document->board-drag#markReady">
+     data-action="turbo:frame-render@document->board-filter#filter board:placed@document->board-filter#filter board:structure-changed@document->board-filter#filter turbo:frame-render@document->board-view#restore turbo:frame-render@document->board-drag#markReady">
     {% set cardCount = 0 %}
     {% for view in board.columns %}{% set cardCount = cardCount + board.shownCounts[view.column.id ~ '']|default(view.count) %}{% endfor %}
     <div class="lp-board-toolbar" id="board-toolbar-{{ board.project.id }}" data-turbo-permanent>
