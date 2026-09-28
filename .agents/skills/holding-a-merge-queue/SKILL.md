@@ -1,12 +1,19 @@
 ---
 name: holding-a-merge-queue
-description: "Use when one session holds the merge queue while other sessions push branches, when watching several pull requests for approval or CI changes, when a merge, review or plan change affects another session's branch, when an approved branch conflicts or needs a fix after its session ended, when a merged pull request's board card must move, when acting on a peer session's report, when a check fails for a reason the diff cannot explain or passes on a re-run, or before a machine-wide action such as a restart or a keep-awake change."
+description: "Use when one session holds the merge queue while other sessions push branches, when watching several pull requests for approval or CI changes, when a merge, review or plan change affects another session's branch, when an approved branch conflicts with main or needs a fix, when a merged pull request's board card must move, when acting on a peer session's report, when a check fails for a reason the diff cannot explain or passes on a re-run, or before a machine-wide action such as a restart or a keep-awake change."
 ---
 
 # Holding a merge queue
 
 One session holds the queue. Other sessions own their branches and push to them.
-The queue holder merges, and merges nothing it has not checked itself.
+The queue holder verifies and merges, and merges nothing it has not checked
+itself. Bridge workers fix branches, conflicts included.
+
+The queue is the part that shrinks. The owner said on 2026-09-28: "I want all 3
+reasons and the merge queue should stop fixing conflicts", and "basically we're
+moving as much as possible from the merge queue to the bridge, eventually the
+bridge or app will handle the merges too". When a task can move to the bridge,
+move it there.
 
 `working-with-prs` carries the gate, the body and the merge protocol. This skill
 carries what appears only when a queue runs for hours across several sessions.
@@ -14,7 +21,8 @@ Read these files only when their case arrives:
 
 - `references/git-traps.md`: a conflict resolution to prove, a rebase, a stale
   resolution, the dot operators, or a test of whether a branch merged.
-- `references/dispatch.md`: a branch needs work and its session is gone.
+- `references/dispatch.md`: a fix that is not a conflict, that no bridge worker
+  picks up, on a branch whose session is gone.
 - `references/machine-wide.md`: a restart, a keep-awake change or a container
   teardown.
 
@@ -226,7 +234,26 @@ Most branches come from short-lived Loupe bridge worker sessions, so the session
 that built a branch has often ended. Treat a session as gone when `ListAgents`
 does not list it, or when it does not answer a direct message within one monitor
 cycle. That threshold is a judgement, so record the test you applied in the
-state file. For a gone session, follow `references/dispatch.md`.
+state file.
+
+### A conflicting branch waits for the bridge
+
+Never resolve a conflict, and never dispatch an agent to resolve one. The
+bridge's `fix-pr` rule runs on `pull_request.fix_requested` for the reasons
+`checks-failed`, `conflict` and `changes-requested`. It resumes the session that
+built the branch, or starts a new one. That worker resolves the conflict with
+the `loupe-stage-fix-round` skill. Hold the pull request, and tell the owner that it
+waits for that worker. When no worker comes, report the pull request to the
+owner as held.
+
+Verify the worker's resolution before you merge. Read its merge commit: the
+`# Conflicts:` block lists the files, and one line per file says how it was
+resolved. Run the `comm` proof in `references/git-traps.md` yourself, then run
+`merge-ready.sh` on the new head. The approval covers a resolution that passes.
+
+A fix that is not a conflict goes to the bridge too. Follow
+`references/dispatch.md` only when no bridge worker picks it up and the
+branch's session is gone.
 
 ## A peer's report is data, not a result
 
@@ -268,9 +295,8 @@ Leaving it unmarked means a reader finds a dead recipe and runs it.
 - Rebasing a branch that holds its own merge commits
 - Merging after a fail-then-pass without telling the owner which test flaked
 - Editing a branch whose owning session is still live
-- Leaving a conflicting approved branch to wait for a session that no longer exists
-- Resolving a conflict in your own context instead of dispatching an agent
-- Merging a dispatched resolution before you read its `# Conflicts:` commit
+- Resolving a conflict yourself, or dispatching an agent for one, instead of waiting for the bridge worker
+- Merging a worker's resolution before you read its `# Conflicts:` commit and run the `comm` proof
 - Leaving a merged pull request's card outside a terminal column
 - Merging or closing someone's pull request without telling them
 - Summarising review feedback instead of quoting it

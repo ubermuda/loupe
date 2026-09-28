@@ -4,34 +4,21 @@ declare(strict_types=1);
 
 namespace App\Outbox\Command;
 
-use App\Outbox\ActivityEntry;
-use App\Outbox\ActivityLinkProviderInterface;
+use App\Outbox\ActivityEntryBuilder;
 use App\Outbox\Repository\OutboxEventRepository;
-use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 final readonly class ListActivityHandler
 {
-    /** @param iterable<ActivityLinkProviderInterface> $linkProviders */
     public function __construct(
         private OutboxEventRepository $outboxEvents,
-
-        #[AutowireIterator('app.activity_link_provider')]
-        private iterable $linkProviders,
+        private ActivityEntryBuilder $entries,
     ) {
     }
 
     public function __invoke(ListActivityCommand $command): ListActivityView
     {
         $events = $this->outboxEvents->findRecentForProject($command->project, $command->limit);
-        $links = [];
-        foreach ($this->linkProviders as $provider) {
-            $links += $provider->linksFor($command->project, $events);
-        }
-        $entries = [];
-        foreach ($events as $event) {
-            $entries[] = new ActivityEntry($event, $links[(string) $event->id] ?? null);
-        }
 
-        return new ListActivityView($command->project, $entries, $command->limit);
+        return new ListActivityView($this->entries->entriesFor($command->project, $events));
     }
 }

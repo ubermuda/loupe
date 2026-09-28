@@ -33,4 +33,23 @@ final class ProjectTopicBuilderTest extends KernelTestCase
             $builder->forProject($projectId),
         );
     }
+
+    public function test_the_activity_topic_names_its_project_and_no_other_topic_does(): void
+    {
+        self::bootKernel();
+        $builder = self::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $builder);
+        $projectId = Uuid::v7();
+
+        $topic = $builder->forActivity($projectId);
+
+        self::assertStringEndsWith('/projects/'.$projectId.'/activity', $topic);
+        self::assertEquals($projectId, $builder->projectIdFromActivityTopic($topic));
+        self::assertNull($builder->projectIdFromActivityTopic($builder->forProject($projectId)));
+        self::assertNull($builder->projectIdFromActivityTopic($builder->forBoard($projectId)));
+        self::assertNull($builder->projectIdFromActivityTopic($builder->forWorkerRuns($projectId)));
+        self::assertNull($builder->projectIdFromActivityTopic($topic.'/extra'));
+        self::assertNull($builder->projectIdFromWorkerRunsTopic($topic));
+        self::assertNull($builder->projectIdFromBoardTopic($topic));
+    }
 }

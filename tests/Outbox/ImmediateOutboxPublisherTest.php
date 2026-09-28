@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Outbox;
 
+use App\Mercure\LiveUpdatePublisher;
+use App\Mercure\ProjectTopicBuilder;
 use App\Mercure\UserTopicBuilder;
+use App\Outbox\ActivityChangedPublisher;
 use App\Outbox\Command\DrainOutboxHandler;
 use App\Outbox\ImmediateOutboxPublisher;
 use App\Outbox\Repository\OutboxEventRepository;
@@ -13,6 +16,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Mercure\HubInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
@@ -121,6 +125,10 @@ final class ImmediateOutboxPublisherTest extends TestCase
             new NullLogger(),
             $flags,
             new UserTopicBuilder('https://loupe.test'),
+            new ActivityChangedPublisher(
+                new ProjectTopicBuilder('https://loupe.test'),
+                new LiveUpdatePublisher(new RequestStack(), $flags, new NullLogger(), fn (): HubInterface => $this->createStub(HubInterface::class)),
+            ),
         );
     }
 }
