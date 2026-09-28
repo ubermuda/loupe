@@ -8,6 +8,9 @@ use App\Mercure\LiveUpdatePublisher;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Event\ProjectRenamed;
+use App\Module\Project\EventListener\WriteOutboxEventOnProjectRenamed;
+use App\Module\Project\ProjectEventType;
 use App\Outbox\ImmediateOutboxPublisher;
 use App\Outbox\OutboxWriter;
 use Doctrine\ORM\EntityManagerInterface;
@@ -63,6 +66,24 @@ final class ActivitySignalTest extends KernelTestCase
         self::assertCount(1, $signals);
         self::assertTrue($signals[0]->isPrivate());
         self::assertSame('{"type":"activity.changed","origin":null}', $signals[0]->getData());
+    }
+
+    public function test_a_project_rename_signals_the_activity_of_its_project_at_terminate(): void
+    {
+        $em = $this->service(EntityManagerInterface::class);
+        $owner = new User(fullName: 'U', email: 'activity-rename-signal@example.com', password: 'x');
+        $project = new Project($owner, 'Activity rename signal');
+        $em->persist($owner);
+        $em->persist($project);
+        $em->flush();
+
+        $this->service(WriteOutboxEventOnProjectRenamed::class)(new ProjectRenamed($project, 'old-slug', 'new-slug', ProjectEventType::ACTOR_HUMAN));
+        $em->flush();
+
+        self::assertNotNull(self::$kernel);
+        $this->service(EventDispatcherInterface::class)->dispatch(new TerminateEvent(self::$kernel, Request::create('/'), new Response()), KernelEvents::TERMINATE);
+
+        self::assertCount(1, $this->activitySignals($project));
     }
 
     /**
