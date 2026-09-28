@@ -11,7 +11,8 @@
 {% block body %}
 {% set backlogPath = path('app_project_board_backlog', {projectId: project.id}) %}
 {% set bulkName = constant('App\\Module\\Board\\Form\\BulkMoveBacklogCardsFormType::NAME') %}
-<div class="lp-workspace lp-core-prototype-page lp-core-documents" data-controller="backlog-select">
+{% do mercure_subscribe(board_topic(project)) %}
+<div class="lp-workspace lp-core-prototype-page lp-core-documents" data-controller="backlog-select backlog-live">
     <header class="lp-page-header">
         <div class="lp-page-header__copy">
             <h1 class="lp-workspace-title lp-workspace-title--doc">{{ backlog.label|trans }}</h1>
@@ -19,6 +20,11 @@
         </div>
     </header>
 
+    {# Shown when another person or an agent changes the board. The page does not reload by itself. #}
+    <p class="lp-backlog-notice" role="status" data-backlog-live-target="notice" hidden>
+        <span class="lp-flash__dot"></span>{{ 'board.backlog.live.changed'|trans }}
+        <a class="lp-backlog-notice__link" href="{{ app.request.requestUri }}">{{ 'board.backlog.live.reload'|trans }}</a>
+    </p>
     <div id="backlog-confirmation" aria-live="polite"></div>
 
     {% if view.total > 0 or listQuery.isNarrowed %}

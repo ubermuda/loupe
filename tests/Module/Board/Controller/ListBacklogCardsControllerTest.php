@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
+use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\Command\ListBacklogCardsHandler;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
@@ -155,6 +156,34 @@ final class ListBacklogCardsControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, $url.'?page=4&type=feature&sort=oldest');
 
         self::assertResponseRedirects($url.'?page=1&type=feature&sort=oldest');
+    }
+
+    public function test_the_page_follows_the_board_topic_with_a_hidden_notice(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'backlog-live@example.com');
+        $project = $this->project($em, $owner);
+        $url = $this->backlogUrl($project);
+        $projectId = $project->id;
+        self::assertNotNull($projectId);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $url.'?type=bug');
+
+        self::assertResponseIsSuccessful();
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
+        self::assertSame(
+            [$topics->forBoard($projectId)],
+            $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value')),
+        );
+        $notice = $crawler->filter('[data-controller~="backlog-live"] [data-backlog-live-target="notice"][hidden]');
+        self::assertCount(1, $notice);
+        self::assertSame($url.'?type=bug', $notice->filter('a')->attr('href'));
     }
 
     public function test_the_backlog_is_not_found_while_the_flag_is_off(): void

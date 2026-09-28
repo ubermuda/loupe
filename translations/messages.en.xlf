@@ -5168,6 +5168,14 @@
                 <source>board.backlog.bulk.clear</source>
                 <target>Clear</target>
             </trans-unit>
+            <trans-unit id="board.backlog.live.changed">
+                <source>board.backlog.live.changed</source>
+                <target>The Backlog changed.</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.live.reload">
+                <source>board.backlog.live.reload</source>
+                <target>Reload</target>
+            </trans-unit>
             <trans-unit id="board.backlog.error.not_in_backlog">
                 <source>board.backlog.error.not_in_backlog</source>
                 <target>A card you chose is no longer in the Backlog. Reload the page and try again.</target>
