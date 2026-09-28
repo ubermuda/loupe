@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Controller;
 use App\Controller\AppController;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Session\ReadOnlyAwareSessionHandler;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
@@ -21,6 +22,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
     '/projects/{id:project}/worker-runs/card/{cardId}',
     name: 'app_project_card_worker_runs',
     requirements: ['cardId' => Requirement::UUID],
+    defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => true],
     methods: ['GET'],
 )]
 class ShowCardWorkerRunsController extends AppController
