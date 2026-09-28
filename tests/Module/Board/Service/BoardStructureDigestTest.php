@@ -104,8 +104,8 @@ final class BoardStructureDigestTest extends TestCase
     /**
      * @param list<BoardColumn>|null   $columns
      * @param list<BoardLaneView>|null $lanes
+     * @param list<DeadBridgeRuleView> $deadRules
      */
-    /** @param list<DeadBridgeRuleView> $deadRules */
     private function digest(?array $columns = null, ?array $lanes = null, string $epicDigest = 'aaaaaaaaaaaa', array $deadRules = []): string
     {
         $views = array_map(
