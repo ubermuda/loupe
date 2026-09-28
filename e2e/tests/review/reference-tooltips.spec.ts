@@ -255,3 +255,24 @@ test.describe('on a touch screen', () => {
         await expect(page).toHaveURL(/#ref-R1$/);
     });
 });
+
+test('a mention at the bottom of the screen opens its definition above it', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 1280, height: 400 });
+    await page.goto(reviewUrl(rollout));
+    const mark = page.locator(`${DOC} .lp-ref[data-ref="R1"]`);
+    const tooltip = page.locator(TOOLTIP);
+    await mark.evaluate((element) => {
+        const main = element.closest('.lp-main');
+        if (main instanceof HTMLElement) main.style.paddingBottom = '800px';
+        element.scrollIntoView({ block: 'end' });
+    });
+
+    await mark.hover();
+    await expect(tooltip).toBeVisible();
+    const box = await tooltip.boundingBox();
+    const anchor = await mark.boundingBox();
+    if (box === null || anchor === null) throw new Error('No box');
+    expect(box.y + box.height).toBeLessThanOrEqual(anchor.y);
+});

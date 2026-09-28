@@ -175,7 +175,14 @@ export default class extends Controller {
             Math.min(anchor.left, window.innerWidth - width - gutter),
         );
         this.popoverTarget.style.left = `${left - frame.left}px`;
-        this.popoverTarget.style.top = `${anchor.bottom - frame.top + 4}px`;
+        const height = this.popoverTarget.offsetHeight;
+        const below = anchor.bottom + 4;
+        const above = anchor.top - 4 - height;
+        const top =
+            below + height > window.innerHeight - gutter && above >= gutter
+                ? above
+                : below;
+        this.popoverTarget.style.top = `${top - frame.top}px`;
     }
 
     #scheduleHide() {
