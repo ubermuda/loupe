@@ -6751,6 +6751,10 @@
     .lp-workshop-work-card__run {
         @apply flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3 text-xs text-fg-dim;
     }
+    /* The base status chip pushes itself right, and here it leads the row. */
+    .lp-workshop-work-card__run .lp-status-chip {
+        @apply ml-0;
+    }
     .lp-workshop-work-card__kind {
         @apply min-w-0 break-words;
     }
@@ -6758,7 +6762,10 @@
         @apply ml-auto tabular-nums;
     }
     .lp-workshop-work-more {
-        @apply mt-3;
+        @apply flex w-fit ml-auto mt-3;
+    }
+    .lp-workshop-work-more svg {
+        @apply w-4 h-4;
     }
     .lp-workshop-crew__avatar {
         @apply inline-grid place-items-center w-7 h-7 shrink-0 rounded-full bg-accent-soft text-accent-ink;
