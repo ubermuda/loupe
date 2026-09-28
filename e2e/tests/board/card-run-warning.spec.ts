@@ -5,13 +5,13 @@
  * with no navigation, so the run needs a Mercure hub the browser can reach.
  */
 
+import { test, expect, type APIRequestContext } from '@playwright/test';
 import {
-    test,
-    expect,
-    type APIRequestContext,
-    type Page,
-} from '@playwright/test';
-import { agentAccessToken, suppressToolbar, suppressWidget } from '../fixtures';
+    agentAccessToken,
+    signedInPage,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eRunWarning1!';
@@ -27,37 +27,31 @@ async function setFlag(
     expect(response.ok()).toBeTruthy();
 }
 
-async function registerAndLogin(page: Page, email: string): Promise<void> {
-    const response = await page.request.post('/dev/register-and-verify', {
-        form: { fullName: 'E2E Run Warning User', email, password: PASSWORD },
-    });
-    expect(response.status()).toBe(200);
-
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/welcome', { timeout: 15000 });
-}
-
-test.use({
-    storageState: { cookies: [], origins: [] },
-    viewport: { width: 1440, height: 900 },
-});
-
 // The flag is global, so it goes back off for the specs that run after this one.
 test.afterAll(async ({ request }) => {
     await setFlag(request, 'board.enabled', false);
 });
 
 test('a card whose latest run gave up shows a warning until a later run succeeds', async ({
-    page,
+    browser,
+    request,
 }) => {
+    // A sign-in, a card, a token and two live reports outlast the default budget.
+    test.slow();
+    await setFlag(request, 'board.enabled', true);
+    await setFlag(request, 'live_updates.enabled', true);
+
+    const email = `e2e+run-warning+${RUN}@example.com`;
+    const registered = await request.post('/dev/register-and-verify', {
+        form: { fullName: 'E2E Run Warning User', email, password: PASSWORD },
+    });
+    expect(registered.status()).toBe(200);
+
+    // A page of its own context, because the hub refuses the project headers.
+    const page = await signedInPage(browser, email, PASSWORD);
+    await page.setViewportSize({ width: 1440, height: 900 });
     await suppressToolbar(page);
     await suppressWidget(page);
-    await setFlag(page.request, 'board.enabled', true);
-    await setFlag(page.request, 'live_updates.enabled', true);
-    await registerAndLogin(page, `e2e+run-warning+${RUN}@example.com`);
 
     const seed = await page.request.post('/dev/seed/document', {
         form: { title: 'E2E Run Warning Project', markdown: '# Runs' },
@@ -88,7 +82,8 @@ test('a card whose latest run gave up shows a warning until a later run succeeds
     const token = await agentAccessToken(page);
     const bridgeId = crypto.randomUUID();
     const report = async (data: Record<string, unknown>) => {
-        const response = await page.request.put(
+        // The bearer token alone signs the report, with no session to wait on.
+        const response = await request.put(
             `/api/projects/${projectId}/worker-runs/${crypto.randomUUID()}`,
             {
                 headers: { Authorization: `Bearer ${token}` },
