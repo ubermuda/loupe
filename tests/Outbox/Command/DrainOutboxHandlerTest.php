@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Outbox\Command;
 
+use App\Mercure\LiveUpdatePublisher;
+use App\Mercure\LiveUpdates;
+use App\Mercure\ProjectTopicBuilder;
 use App\Mercure\UserTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Outbox\ActivityChangedPublisher;
 use App\Outbox\AgentPush;
 use App\Outbox\Command\DrainOutboxCommand;
 use App\Outbox\Command\DrainOutboxHandler;
@@ -17,7 +21,10 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Mercure\HubInterface;
+use Symfony\Component\Mercure\Jwt\StaticTokenProvider;
+use Symfony\Component\Mercure\MockHub;
 use Symfony\Component\Mercure\Update;
 use Symfony\Component\Uid\Uuid;
 
@@ -28,6 +35,11 @@ final class DrainOutboxHandlerTest extends KernelTestCase
     private DrainOutboxHandler $handler;
     private OutboxEventRepository $outboxEvents;
     private UserTopicBuilder $userTopics;
+    private ProjectTopicBuilder $projectTopics;
+    private LiveUpdatePublisher $live;
+
+    /** @var list<Update> */
+    private array $signals = [];
 
     #[\Override]
     protected function setUp(): void
@@ -43,7 +55,65 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         $userTopics = self::getContainer()->get(UserTopicBuilder::class);
         self::assertInstanceOf(UserTopicBuilder::class, $userTopics);
         $this->userTopics = $userTopics;
-        $this->handler = new DrainOutboxHandler($this->outboxEvents, $this->em, $this->hub, new NullLogger(), FeatureFlags::service([AgentPush::FLAG => true]), $userTopics);
+        $projectTopics = self::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $projectTopics);
+        $this->projectTopics = $projectTopics;
+        $this->signals = [];
+        $this->live = new LiveUpdatePublisher(
+            new RequestStack(),
+            FeatureFlags::service([LiveUpdates::FLAG => true]),
+            new NullLogger(),
+            fn (): HubInterface => new MockHub('http://mercure/.well-known/mercure', new StaticTokenProvider('token'), function (Update $update): string {
+                $this->signals[] = $update;
+
+                return 'id';
+            }),
+        );
+        $this->handler = $this->drain(pushEnabled: true);
+    }
+
+    public function test_it_signals_the_activity_of_each_drained_project_once(): void
+    {
+        $first = $this->project('drain-signal-a@example.com');
+        $second = $this->project('drain-signal-b@example.com');
+        $this->event($first);
+        $this->event($first);
+        $this->event($second);
+        $this->em->flush();
+        $this->hub->expects($this->exactly(3))->method('publish')->willReturn('id');
+
+        ($this->handler)(new DrainOutboxCommand());
+        $this->live->publish();
+
+        self::assertEqualsCanonicalizing(
+            [[$this->activityTopic($first)], [$this->activityTopic($second)]],
+            array_map(static fn (Update $update): array => $update->getTopics(), $this->signals),
+        );
+        self::assertSame('{"type":"activity.changed","origin":null}', $this->signals[0]->getData());
+    }
+
+    public function test_a_failed_publish_still_signals_its_project(): void
+    {
+        $project = $this->project('drain-signal-failed@example.com');
+        $this->event($project);
+        $this->em->flush();
+        $this->hub->expects($this->once())->method('publish')->willThrowException(new \RuntimeException('hub unreachable'));
+
+        ($this->handler)(new DrainOutboxCommand());
+        $this->live->publish();
+
+        self::assertSame([[$this->activityTopic($project)]], array_map(static fn (Update $update): array => $update->getTopics(), $this->signals));
+    }
+
+    public function test_a_drain_that_claims_nothing_signals_nothing(): void
+    {
+        $this->hub->expects($this->never())->method('publish');
+
+        ($this->handler)(new DrainOutboxCommand());
+        ($this->drain(pushEnabled: false))(new DrainOutboxCommand());
+        $this->live->publish();
+
+        self::assertSame([], $this->signals);
     }
 
     public function test_push_disabled_claims_nothing_at_all(): void
@@ -54,16 +124,7 @@ final class DrainOutboxHandlerTest extends KernelTestCase
 
         $this->hub->expects($this->never())->method('publish');
 
-        $handler = new DrainOutboxHandler(
-            $this->outboxEvents,
-            $this->em,
-            $this->hub,
-            new NullLogger(),
-            FeatureFlags::service([AgentPush::FLAG => false]),
-            $this->userTopics,
-        );
-
-        $result = ($handler)(new DrainOutboxCommand());
+        $result = ($this->drain(pushEnabled: false))(new DrainOutboxCommand());
 
         self::assertSame(0, $result->published);
         self::assertSame(0, $result->failed);
@@ -187,6 +248,24 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         // Second pass in the same minute: the backoff has not elapsed, so the
         // hub mock's single-call expectation is what proves nothing retried.
         self::assertSame(0, ($this->handler)(new DrainOutboxCommand())->failed);
+    }
+
+    private function drain(bool $pushEnabled): DrainOutboxHandler
+    {
+        return new DrainOutboxHandler(
+            $this->outboxEvents,
+            $this->em,
+            $this->hub,
+            new NullLogger(),
+            FeatureFlags::service([AgentPush::FLAG => $pushEnabled]),
+            $this->userTopics,
+            new ActivityChangedPublisher($this->projectTopics, $this->live),
+        );
+    }
+
+    private function activityTopic(Project $project): string
+    {
+        return $this->projectTopics->forActivity($project->id ?? throw new \LogicException('The project has no id.'));
     }
 
     private function event(Project $project): OutboxEvent
