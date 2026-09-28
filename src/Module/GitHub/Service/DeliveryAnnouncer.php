@@ -47,7 +47,7 @@ final readonly class DeliveryAnnouncer
         }
 
         if (null !== $claim->movedFrom) {
-            $this->dispatch($project, [new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, GitHubDelivery::FORGE, $claim->movedFrom, movedTo: $repository->fullName)]);
+            $this->dispatch($project, [new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, GitHubDelivery::FORGE, $claim->movedFrom, movedTo: $repository->fullName)], $source);
         }
 
         return $claim;
@@ -64,12 +64,12 @@ final readonly class DeliveryAnnouncer
 
         $deliveries = $delivery->forgeDeliveries();
         if ([] !== $deliveries) {
-            $this->dispatch($project, $deliveries);
+            $this->dispatch($project, $deliveries, $source);
         }
 
         foreach ($delivery->refreshHints() as $hint) {
             match (true) {
-                null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number),
+                null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number, $hint->review),
                 null !== $hint->headSha => $this->tracker->refreshHead($project, GitHubDelivery::FORGE, $repository->fullName, $hint->headSha),
                 default => $this->tracker->refreshBase($project, GitHubDelivery::FORGE, $repository->fullName, $hint->baseBranch ?? throw new \LogicException('A hint sets one field.')),
             };
@@ -77,8 +77,8 @@ final readonly class DeliveryAnnouncer
     }
 
     /** @param non-empty-list<ForgeDelivery> $deliveries */
-    private function dispatch(Project $project, array $deliveries): void
+    private function dispatch(Project $project, array $deliveries, ForgeRepositorySource $source): void
     {
-        $this->events->dispatch(new ForgeDeliveryReceived($project->id ?? throw new \LogicException('A claimed project has an id.'), $deliveries));
+        $this->events->dispatch(new ForgeDeliveryReceived($project->id ?? throw new \LogicException('A claimed project has an id.'), $deliveries, $source));
     }
 }

@@ -11,6 +11,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
 use App\Module\Project\Entity\Project;
@@ -57,12 +58,35 @@ final class RecordForgeDeliveryHandlerTest extends KernelTestCase
         self::assertSame(['acme/old'], $this->pathsOf($strangerCard));
     }
 
-    private function handle(Project $project, ForgeDelivery $delivery): void
+    public function test_an_installation_delivery_writes_no_bare_fact_row(): void
+    {
+        $project = $this->project('installed');
+        $this->linkedCard($project, 'acme/widgets', 5);
+
+        foreach ([ForgeEventType::MERGED, ForgeEventType::REVIEW_SUBMITTED, ForgeEventType::CHECKS_CONCLUDED] as $type) {
+            $this->handle($project, new ForgeDelivery($type, 'github', 'acme/widgets', 5), ForgeRepositorySource::Installation);
+        }
+
+        self::assertSame([], $this->outboxSubjects($project));
+    }
+
+    public function test_an_installation_move_still_repoints_the_links(): void
+    {
+        $project = $this->project('installed');
+        $card = $this->linkedCard($project, 'acme/old', 1);
+
+        $this->handle($project, new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, 'github', 'acme/old', movedTo: 'acme/new'), ForgeRepositorySource::Installation);
+
+        $this->em->clear();
+        self::assertSame(['acme/new'], $this->pathsOf($card));
+    }
+
+    private function handle(Project $project, ForgeDelivery $delivery, ForgeRepositorySource $source = ForgeRepositorySource::Hook): void
     {
         $handler = self::getContainer()->get(RecordForgeDeliveryHandler::class);
         self::assertInstanceOf(RecordForgeDeliveryHandler::class, $handler);
 
-        $handler(new RecordForgeDeliveryCommand($project->id ?? throw new \LogicException('Flushed.'), [$delivery]));
+        $handler(new RecordForgeDeliveryCommand($project->id ?? throw new \LogicException('Flushed.'), [$delivery], $source));
     }
 
     /** @return list<string> */

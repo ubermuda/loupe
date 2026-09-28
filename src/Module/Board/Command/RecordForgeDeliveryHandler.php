@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
 use App\Outbox\OutboxWriter;
@@ -22,6 +23,9 @@ use Ubermuda\AuditBundle\AuditOutcome;
  * both, so a card resolves with no mapping table of its own. Only the cards of
  * the project that owns the repository match, because another project can link
  * the same pull request.
+ *
+ * Only a hook repository gets the bare fact rows. An installation repository
+ * gets richer events from state reads, and must not get each fact twice.
  */
 final readonly class RecordForgeDeliveryHandler
 {
@@ -42,7 +46,9 @@ final readonly class RecordForgeDeliveryHandler
                 continue;
             }
 
-            $this->publish($command->projectId, $delivery);
+            if (ForgeRepositorySource::Hook === $command->source) {
+                $this->publish($command->projectId, $delivery);
+            }
         }
 
         $this->em->flush();

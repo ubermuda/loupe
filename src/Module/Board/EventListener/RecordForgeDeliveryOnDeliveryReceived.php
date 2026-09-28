@@ -32,6 +32,6 @@ final readonly class RecordForgeDeliveryOnDeliveryReceived
             return;
         }
 
-        ($this->recordDelivery)(new RecordForgeDeliveryCommand($event->projectId, $event->deliveries));
+        ($this->recordDelivery)(new RecordForgeDeliveryCommand($event->projectId, $event->deliveries, $event->source));
     }
 }

@@ -11,6 +11,7 @@ use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestState;
+use App\Module\Forge\Event\PullRequestReviewed;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
 use App\Module\Forge\Messenger\RefreshPullRequestStateHandler;
@@ -42,6 +43,9 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
     /** @var list<PullRequestStateChanged> */
     private array $changes = [];
 
+    /** @var list<PullRequestStateChanged|PullRequestReviewed> */
+    private array $announced = [];
+
     private ReadPullRequestStateHandler $handler;
 
     protected function setUp(): void
@@ -61,6 +65,10 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         $events = new EventDispatcher();
         $events->addListener(PullRequestStateChanged::class, function (PullRequestStateChanged $event): void {
             $this->changes[] = $event;
+            $this->announced[] = $event;
+        });
+        $events->addListener(PullRequestReviewed::class, function (PullRequestReviewed $event): void {
+            $this->announced[] = $event;
         });
 
         $this->reader = new FakePullRequestStateReader();
@@ -93,6 +101,92 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         self::assertTrue($this->changes[0]->previous->equals(new PullRequestSnapshot()));
         self::assertTrue($this->changes[0]->current->equals($read));
         self::assertSame([], $this->sent());
+        self::assertSame([PullRequestStateChanged::class], $this->announcedClasses());
+    }
+
+    public function test_a_review_marker_announces_the_review_after_the_change(): void
+    {
+        $row = $this->row();
+        $read = new PullRequestSnapshot(headSha: 'abc');
+        $this->reader->answers = [$read];
+
+        $this->handle($row, self::NOW, reviewSubmitted: true);
+
+        self::assertSame([PullRequestStateChanged::class, PullRequestReviewed::class], $this->announcedClasses());
+        $reviewed = $this->announced[1];
+        self::assertInstanceOf(PullRequestReviewed::class, $reviewed);
+        self::assertSame((string) $row->id, (string) $reviewed->pullRequest->id);
+        self::assertTrue($reviewed->snapshot->equals($read));
+        $sent = $this->sent();
+        self::assertCount(1, $sent, 'The unknown mergeability is read again.');
+        $retry = $sent[0]->getMessage();
+        self::assertInstanceOf(RefreshPullRequestState::class, $retry);
+        self::assertFalse($retry->reviewSubmitted, 'A mergeability retry does not announce the review twice.');
+    }
+
+    public function test_a_review_marker_announces_the_review_when_nothing_changed(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestSnapshot()];
+
+        $this->handle($row, self::NOW, reviewSubmitted: true);
+
+        self::assertSame(1, $this->reader->reads);
+        self::assertSame([PullRequestReviewed::class], $this->announcedClasses());
+    }
+
+    public function test_a_skipped_read_still_announces_the_review_with_the_stored_state(): void
+    {
+        $row = $this->row(refreshedAt: '2026-09-27 11:59:00');
+        $row->headSha = 'stored';
+        $row->mergeability = PullRequestMergeability::Conflicting;
+        $this->em->flush();
+
+        $this->handle($row, '2026-09-27 11:58:00', reviewSubmitted: true);
+
+        self::assertSame(0, $this->reader->reads);
+        self::assertSame([PullRequestReviewed::class], $this->announcedClasses());
+        $reviewed = $this->announced[0];
+        self::assertInstanceOf(PullRequestReviewed::class, $reviewed);
+        self::assertTrue($reviewed->snapshot->equals(new PullRequestSnapshot(headSha: 'stored', mergeability: PullRequestMergeability::Conflicting)));
+    }
+
+    public function test_a_failed_read_announces_no_review(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestUnreadable('no_installation')];
+
+        $this->handle($row, self::NOW, reviewSubmitted: true);
+
+        self::assertSame(1, $this->reader->reads);
+        self::assertSame([], $this->announced);
+    }
+
+    public function test_a_transient_failure_announces_no_review(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestUnreadable('api_failed_transport', transient: true)];
+
+        try {
+            $this->handle($row, self::NOW, reviewSubmitted: true);
+            self::fail('A transient failure must reach the retry strategy.');
+        } catch (PullRequestUnreadable) {
+        }
+
+        self::assertSame(1, $this->reader->reads);
+        self::assertSame([], $this->announced);
+    }
+
+    public function test_a_missing_row_and_a_forge_with_no_reader_announce_no_review(): void
+    {
+        $gitlab = $this->row(forge: 'gitlab', refreshedAt: '2026-09-27 11:59:00');
+
+        ($this->handler)(new ReadPullRequestStateCommand('0199a0b8-0000-7000-8000-000000000000', new \DateTimeImmutable(self::NOW), reviewSubmitted: true));
+        $this->handle($gitlab, self::NOW, reviewSubmitted: true);
+        $this->handle($gitlab, '2026-09-27 11:58:00', reviewSubmitted: true);
+
+        self::assertSame(0, $this->reader->reads);
+        self::assertSame([], $this->announced);
     }
 
     public function test_a_read_that_changes_nothing_announces_nothing(): void
@@ -271,10 +365,16 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         self::assertInstanceOf(RefreshPullRequestStateHandler::class, $handler);
     }
 
-    private function handle(ForgePullRequest $row, string $requestedAt): void
+    private function handle(ForgePullRequest $row, string $requestedAt, bool $reviewSubmitted = false): void
     {
-        ($this->handler)(new ReadPullRequestStateCommand((string) $row->id, new \DateTimeImmutable($requestedAt)));
+        ($this->handler)(new ReadPullRequestStateCommand((string) $row->id, new \DateTimeImmutable($requestedAt), $reviewSubmitted));
         $this->em->clear();
+    }
+
+    /** @return list<class-string> */
+    private function announcedClasses(): array
+    {
+        return array_map(static fn (object $event): string => $event::class, $this->announced);
     }
 
     private function row(string $forge = FakePullRequestStateReader::FORGE, ?string $refreshedAt = null): ForgePullRequest

@@ -111,6 +111,22 @@ final class PullRequestTrackerTest extends KernelTestCase
         self::assertSame([(string) $open->id], $this->queuedIds());
     }
 
+    public function test_refresh_carries_the_review_marker_and_leaves_it_off_by_default(): void
+    {
+        $project = $this->project();
+        $this->row($project, 42);
+
+        $this->tracker->refresh($project, FakePullRequestStateReader::FORGE, 'acme/widgets', 42, reviewSubmitted: true);
+        $this->tracker->refresh($project, FakePullRequestStateReader::FORGE, 'acme/widgets', 42);
+
+        self::assertSame([true, false], array_map(static function (Envelope $envelope): bool {
+            $message = $envelope->getMessage();
+            self::assertInstanceOf(RefreshPullRequestState::class, $message);
+
+            return $message->reviewSubmitted;
+        }, $this->sent()));
+    }
+
     public function test_refresh_queues_a_closed_row_so_a_reopen_is_read(): void
     {
         $project = $this->project();

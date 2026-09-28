@@ -10,6 +10,7 @@ final readonly class ReadPullRequestStateCommand
     public function __construct(
         public string $pullRequestId,
         public \DateTimeImmutable $requestedAt,
+        public bool $reviewSubmitted = false,
     ) {
     }
 }

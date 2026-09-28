@@ -54,6 +54,34 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
         self::assertSame([[$tracked, false]], $this->queuedRefreshes());
     }
 
+    /** @return iterable<string, array{string, bool}> */
+    public static function reviewActions(): iterable
+    {
+        yield 'submitted' => ['submitted', true];
+        yield 'dismissed' => ['dismissed', false];
+    }
+
+    #[DataProvider('reviewActions')]
+    public function test_a_review_queues_a_refresh_that_carries_the_marker_of_a_submitted_review(string $action, bool $marked): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $project = $this->project('review');
+        $hook = $this->hook($project);
+        $tracked = $this->trackedPullRequest($project, 'acme/u', 11, 'fff666');
+
+        $this->deliver($client, '/webhooks/forge/github/'.$hook->hookKey, 'pull_request_review', [
+            'action' => $action,
+            'repository' => ['id' => 631, 'full_name' => 'acme/u'],
+            'pull_request' => ['number' => 11],
+            'review' => ['state' => 'approved'],
+        ], $hook->secret);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([[$tracked, false]], $this->queuedRefreshes());
+        self::assertSame([$marked], $this->queuedReviewMarkers());
+    }
+
     public function test_a_bad_signature_is_refused_and_marks_the_hook_failing(): void
     {
         $client = static::createClient();

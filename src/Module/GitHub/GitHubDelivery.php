@@ -132,7 +132,7 @@ final readonly class GitHubDelivery
         $action = $this->action();
         $hints = match ($this->event) {
             'pull_request' => \in_array($action, self::PULL_REQUEST_ACTIONS, true) ? $this->pullRequestHints() : [],
-            'pull_request_review' => \in_array($action, ['submitted', 'dismissed'], true) ? $this->numberHints([$this->payload['pull_request'] ?? null]) : [],
+            'pull_request_review' => \in_array($action, ['submitted', 'dismissed'], true) ? $this->numberHints([$this->payload['pull_request'] ?? null], review: 'submitted' === $action) : [],
             // A check that starts again turns a passed verdict back to pending, so its start is a hint too.
             'check_suite', 'check_run' => 'requested_action' !== $action ? $this->checkHints($this->payload[$this->event] ?? null) : [],
             'status' => $this->headHints($this->payload['sha'] ?? null),
@@ -140,12 +140,7 @@ final readonly class GitHubDelivery
             default => [],
         };
 
-        $unique = [];
-        foreach ($hints as $hint) {
-            $unique[$hint->key()] ??= $hint;
-        }
-
-        return array_values($unique);
+        return PullRequestRefreshHint::unique($hints);
     }
 
     /** @return list<PullRequestRefreshHint> */
@@ -195,13 +190,13 @@ final readonly class GitHubDelivery
      *
      * @return list<PullRequestRefreshHint>
      */
-    private function numberHints(array $pullRequests): array
+    private function numberHints(array $pullRequests, bool $review = false): array
     {
         $hints = [];
         foreach ($pullRequests as $pullRequest) {
             $number = \is_array($pullRequest) ? ($pullRequest['number'] ?? null) : null;
             if (\is_int($number) && $number > 0) {
-                $hints[] = PullRequestRefreshHint::number($number);
+                $hints[] = PullRequestRefreshHint::number($number, $review);
             }
         }
 

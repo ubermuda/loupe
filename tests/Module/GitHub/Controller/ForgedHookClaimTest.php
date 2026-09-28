@@ -46,13 +46,14 @@ final class ForgedHookClaimTest extends WebTestCase
         $forger = $this->project('forger');
         $this->installation($victim, 9_000_702, GitHubRepositorySelection::All);
         $forgerHook = $this->hook($forger);
-        $victimCard = $this->linkedCard($victim, 'acme/target', 7);
+        $victimTracked = $this->trackedPullRequest($victim, 'acme/target', 7, 'aaa111');
         $forgerCard = $this->linkedCard($forger, 'acme/target', 7);
 
         $this->deliver($client, '/webhooks/forge/github/'.$forgerHook->hookKey, 'pull_request', $this->merged(702, 'acme/target', 7), $forgerHook->secret);
         $this->deliver($client, '/webhooks/forge/github', 'pull_request', $this->merged(702, 'acme/target', 7, ['installation' => ['id' => 9_000_702]]), self::APP_SECRET);
 
-        self::assertSame([(string) $victimCard->id], $this->outboxSubjects($victim));
+        self::assertEquals($victim->id, $this->installationOwnerOf(702)?->project->id);
+        self::assertSame([[$victimTracked, false]], $this->queuedRefreshes());
         self::assertSame([(string) $forgerCard->id], $this->outboxSubjects($forger));
     }
 }

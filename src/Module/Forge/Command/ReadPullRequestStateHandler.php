@@ -7,6 +7,7 @@ namespace App\Module\Forge\Command;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestState;
+use App\Module\Forge\Event\PullRequestReviewed;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -51,12 +52,16 @@ final readonly class ReadPullRequestStateHandler
         // A transient failure leaves the transaction as a value, so the rollback does not close the EntityManager.
         $transient = $this->em->wrapInTransaction(function () use ($command): ?PullRequestUnreadable {
             $pullRequest = $this->forgePullRequests->findForUpdate(Uuid::fromString($command->pullRequestId));
-            if (null === $pullRequest || $pullRequest->refreshedAt >= $command->requestedAt) {
+            $reader = null === $pullRequest ? null : $this->readers->for($pullRequest->forge);
+            if (null === $pullRequest || null === $reader) {
                 return null;
             }
 
-            $reader = $this->readers->for($pullRequest->forge);
-            if (null === $reader) {
+            if ($pullRequest->refreshedAt >= $command->requestedAt) {
+                if ($command->reviewSubmitted) {
+                    $this->events->dispatch(new PullRequestReviewed($pullRequest, $pullRequest->snapshot()));
+                }
+
                 return null;
             }
 
@@ -85,6 +90,9 @@ final readonly class ReadPullRequestStateHandler
 
             if (!$current->equals($previous)) {
                 $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current));
+            }
+            if ($command->reviewSubmitted) {
+                $this->events->dispatch(new PullRequestReviewed($pullRequest, $current));
             }
 
             return null;

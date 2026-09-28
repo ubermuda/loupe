@@ -250,18 +250,19 @@ final class GitHubDeliveryTest extends TestCase
         ])->refreshHints());
     }
 
-    /** @return iterable<string, array{string, bool}> */
+    /** @return iterable<string, array{string, list<PullRequestRefreshHint>}> */
     public static function reviewActions(): iterable
     {
-        yield 'submitted' => ['submitted', true];
-        yield 'dismissed' => ['dismissed', true];
-        yield 'edited' => ['edited', false];
+        yield 'submitted' => ['submitted', [PullRequestRefreshHint::number(7, review: true)]];
+        yield 'dismissed' => ['dismissed', [PullRequestRefreshHint::number(7)]];
+        yield 'edited' => ['edited', []];
     }
 
+    /** @param list<PullRequestRefreshHint> $hints */
     #[DataProvider('reviewActions')]
-    public function test_a_submitted_or_dismissed_review_hints_its_pull_request(string $action, bool $hinted): void
+    public function test_a_submitted_or_dismissed_review_hints_its_pull_request(string $action, array $hints): void
     {
-        self::assertEquals($hinted ? [PullRequestRefreshHint::number(7)] : [], $this->delivery('pull_request_review', [
+        self::assertEquals($hints, $this->delivery('pull_request_review', [
             'action' => $action,
             'repository' => self::REPOSITORY,
             'pull_request' => ['number' => 7],

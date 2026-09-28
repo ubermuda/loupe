@@ -65,13 +65,15 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
         $this->enableBoard();
         $project = $this->project('all');
         $this->installation($project, 9_000_604, GitHubRepositorySelection::All);
-        $card = $this->linkedCard($project, 'acme/d', 3);
+        $this->linkedCard($project, 'acme/d', 3);
+        $tracked = $this->trackedPullRequest($project, 'acme/d', 3, 'aaa111');
 
         $this->deliver($client, self::PATH, 'pull_request', $this->merged(604, 'acme/d', 3, ['installation' => ['id' => 9_000_604]]), self::SECRET);
 
         self::assertResponseIsSuccessful();
         self::assertEquals($project->id, $this->installationOwnerOf(604)?->project->id);
-        self::assertSame([(string) $card->id], $this->outboxSubjects($project));
+        self::assertSame([[$tracked, false]], $this->queuedRefreshes());
+        self::assertSame([], $this->outboxSubjects($project), 'A state read announces an installation repository, not the bare fact.');
     }
 
     public function test_an_installation_with_selected_repositories_never_claims_on_a_delivery(): void
@@ -82,11 +84,13 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
         $project = $this->project('selected');
         $this->installation($project, 9_000_605);
         $this->linkedCard($project, 'acme/e', 3);
+        $this->trackedPullRequest($project, 'acme/e', 3, 'aaa111');
 
         $this->deliver($client, self::PATH, 'pull_request', $this->merged(605, 'acme/e', 3, ['installation' => ['id' => 9_000_605]]), self::SECRET);
 
         self::assertResponseIsSuccessful();
         self::assertNull($this->installationOwnerOf(605));
+        self::assertSame([], $this->queuedRefreshes());
         self::assertSame([], $this->outboxSubjects($project));
     }
 
@@ -99,13 +103,13 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
         $installation = $this->installation($project, 9_000_615);
         $installation->listIncomplete = true;
         $this->em()->flush();
-        $card = $this->linkedCard($project, 'acme/f', 3);
+        $tracked = $this->trackedPullRequest($project, 'acme/f', 3, 'aaa111');
 
         $this->deliver($client, self::PATH, 'pull_request', $this->merged(615, 'acme/f', 3, ['installation' => ['id' => 9_000_615]]), self::SECRET);
 
         self::assertResponseIsSuccessful();
         self::assertEquals($project->id, $this->installationOwnerOf(615)?->project->id);
-        self::assertSame([(string) $card->id], $this->outboxSubjects($project));
+        self::assertSame([[$tracked, false]], $this->queuedRefreshes());
     }
 
     public function test_a_repository_the_installation_project_owns_is_announced(): void
@@ -116,12 +120,12 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
         $project = $this->project('owned');
         $this->installation($project, 9_000_606);
         $this->owned($project, 606, 'acme/f', ForgeRepositorySource::Installation, 9_000_606);
-        $card = $this->linkedCard($project, 'acme/f', 3);
+        $tracked = $this->trackedPullRequest($project, 'acme/f', 3, 'aaa111');
 
         $this->deliver($client, self::PATH, 'pull_request', $this->merged(606, 'acme/f', 3, ['installation' => ['id' => 9_000_606]]), self::SECRET);
 
         self::assertResponseIsSuccessful();
-        self::assertSame([(string) $card->id], $this->outboxSubjects($project));
+        self::assertSame([[$tracked, false]], $this->queuedRefreshes());
     }
 
     public function test_a_completed_check_suite_queues_a_refresh_of_each_tracked_pull_request_it_touches(): void
@@ -216,18 +220,18 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
         $this->enableBoard();
         $project = $this->project('suspended');
         $this->installation($project, 9_000_609, GitHubRepositorySelection::All);
-        $card = $this->linkedCard($project, 'acme/h', 3);
+        $tracked = $this->trackedPullRequest($project, 'acme/h', 3, 'aaa111');
         $installation = ['installation' => ['id' => 9_000_609]];
 
         $this->deliver($client, self::PATH, 'installation', ['action' => 'suspend', ...$installation], self::SECRET);
         self::assertNotNull($this->storedInstallation(9_000_609)->suspendedAt);
         $this->deliver($client, self::PATH, 'pull_request', $this->merged(609, 'acme/h', 3, $installation), self::SECRET);
-        self::assertSame([], $this->outboxSubjects($project));
+        self::assertSame([], $this->queuedRefreshes());
 
         $this->deliver($client, self::PATH, 'installation', ['action' => 'unsuspend', ...$installation], self::SECRET);
         self::assertNull($this->storedInstallation(9_000_609)->suspendedAt);
         $this->deliver($client, self::PATH, 'pull_request', $this->merged(609, 'acme/h', 3, $installation), self::SECRET);
-        self::assertSame([(string) $card->id], $this->outboxSubjects($project));
+        self::assertSame([[$tracked, false]], $this->queuedRefreshes());
     }
 
     /** The payload may omit the list, so the release reads the stored installation reference. */

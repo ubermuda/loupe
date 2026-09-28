@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Forge\Event;
 
+use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\ForgeDelivery;
 use Symfony\Component\Uid\Uuid;
 
@@ -18,6 +19,7 @@ final readonly class ForgeDeliveryReceived
     public function __construct(
         public Uuid $projectId,
         public array $deliveries,
+        public ForgeRepositorySource $source,
     ) {
     }
 }

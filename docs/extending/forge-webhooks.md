@@ -32,8 +32,9 @@ Each write flushes. A `claim()` that throws closes the EntityManager, because
 it runs in a transaction.
 
 After a claim that is not `Refused`, the forge module dispatches
-`ForgeDeliveryReceived`. It carries the id of the claiming project and a
-non-empty list of `ForgeDelivery`. A listener acts inside that project only.
+`ForgeDeliveryReceived`. It carries the id of the claiming project, a
+non-empty list of `ForgeDelivery`, and the `ForgeRepositorySource` of the
+claim. A listener acts inside that project only.
 
 A route that receives deliveries sets two defaults, and the rate limiter reads
 them. `_forge_webhook: true` marks the route. `_forge_webhook_key` selects the
@@ -43,8 +44,8 @@ segment.
 ## One vocabulary for every forge
 
 No event name carries a forge, because a rule file and a bridge must not learn
-a new event type for each forge an instance connects. `ForgeEventType` holds
-four values.
+a new event type for each forge an instance connects. A delivery maps onto
+these four `ForgeEventType` values.
 
 | Event | Meaning |
 |---|---|
@@ -56,6 +57,10 @@ four values.
 The payload carries identifiers and the forge, and no field in the shape of one
 forge. A review note and a commit message are text a person wrote, and the
 outbox never gives that text to an agent.
+
+Only a repository that a hook feeds gets the first three events. A repository
+that an App installation feeds gets its events from state reads instead, so
+each fact reaches the outbox once. A move repoints the links for both sources.
 
 Every event names `system` as its actor, because the fact arrived from outside
 Loupe and nobody here judged the card. A bridge older than that actor reads the

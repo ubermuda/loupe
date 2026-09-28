@@ -121,6 +121,23 @@ trait GitHubDeliveryScenario
         return $refreshes;
     }
 
+    /** @return list<bool> the review marker of each queued refresh */
+    private function queuedReviewMarkers(): array
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        $markers = [];
+        foreach ($transport->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof RefreshPullRequestState) {
+                $markers[] = $message->reviewSubmitted;
+            }
+        }
+
+        return $markers;
+    }
+
     /** @param array<mixed> $payload */
     private function deliver(KernelBrowser $client, string $path, string $event, array $payload, string $secret): void
     {
