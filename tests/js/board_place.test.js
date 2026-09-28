@@ -88,6 +88,31 @@ describe('board-place', () => {
         expect(document.getElementById('board-deck-card-d')).toBeNull();
     });
 
+    it('names the epic of the deck a placed card left', () => {
+        document
+            .getElementById('board')
+            .insertAdjacentHTML(
+                'afterbegin',
+                '<div class="lp-deck" data-lane="epic"><article id="board-deck-card-d" data-card-id="d"></article></div>',
+            );
+        const details = [];
+        document.addEventListener('board:placed', (event) =>
+            details.push(event.detail),
+        );
+
+        placeCard(
+            stream({
+                id: 'd',
+                column: NEXT,
+                after: 'c',
+                rowAfter: 'c',
+                counts: { [BACKLOG]: 2, [NEXT]: 2 },
+            }),
+        );
+
+        expect(details).toEqual([{ cardId: 'd', leftDeck: 'epic' }]);
+    });
+
     it('keeps a deck card when its card is placed off the board', () => {
         document
             .getElementById('board')

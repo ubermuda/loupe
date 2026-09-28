@@ -57,7 +57,7 @@ export function placeCard(stream) {
         return;
     }
 
-    leaveDeck(cardId, stream.dataset.columnId);
+    const leftDeck = leaveDeck(cardId, stream.dataset.columnId);
     const content = stream.querySelector('template').content.cloneNode(true);
     const rowAnchor = rowAfter ?? list.querySelector('.lp-board-list__header');
     place(
@@ -78,7 +78,7 @@ export function placeCard(stream) {
     document.getElementById(`board-card-${cardId}`).dispatchEvent(
         new CustomEvent('board:placed', {
             bubbles: true,
-            detail: { cardId },
+            detail: { cardId, leftDeck },
         }),
     );
 }
@@ -192,12 +192,19 @@ export function recountCells() {
     });
 }
 
-/** A card placed outside the Backlog leaves its deck, where a drag may have left a copy. */
+/**
+ * A card placed outside the Backlog leaves its deck, where a drag may have
+ * left a copy. Returns the epic of that deck, so its count can refresh.
+ */
 function leaveDeck(cardId, columnId) {
     const deckCard = document.getElementById(`board-deck-card-${cardId}`);
-    if (deckCard && deckCard.closest('.lp-deck')?.dataset.column !== columnId) {
-        deckCard.remove();
+    const deck = deckCard?.closest('.lp-deck');
+    if (!deckCard || deck?.dataset.column === columnId) {
+        return undefined;
     }
+    deckCard.remove();
+
+    return deck?.dataset.lane;
 }
 
 function missed(cardId) {

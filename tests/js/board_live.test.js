@@ -541,6 +541,17 @@ it('fetches the epic of a deck card whose card the board does not show', async (
     expect(placements()).toEqual(['epic']);
 });
 
+it('fetches the epic of the deck a placed card left', async () => {
+    document.dispatchEvent(
+        new CustomEvent('board:placed', {
+            detail: { cardId: 'x', leftDeck: 'epic' },
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(placements()).toEqual(['epic']);
+});
+
 it('holds a deck card that is being dragged', async () => {
     document
         .getElementById('board')

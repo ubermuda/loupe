@@ -727,12 +727,12 @@ export default class extends Controller {
         );
     }
 
-    placed({ cardId, removed }) {
+    placed({ cardId, removed, leftDeck }) {
         this.clearStale(cardId);
         // A Backlog card has no placement of its own, so its epic redraws the deck that shows it.
         const deckEpic = removed
             ? deckCardOf(cardId)?.closest('.lp-deck')?.dataset.lane
-            : undefined;
+            : leftDeck;
         if (deckEpic !== undefined) {
             this.receive({ cardId: deckEpic, local: false, own: false });
         }
