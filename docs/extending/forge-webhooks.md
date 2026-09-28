@@ -82,9 +82,9 @@ repository, a URL or a head commit that does not have the shape the bridge
 accepts. The bridge refuses the whole event for one bad field.
 
 A fact goes to every card that links the pull request, in any column. A
-decision goes only to a card in a column that is not terminal, and only while
-the automation of the board is on. `ready_to_merge` also needs the Worker merge
-strategy. [Automation](../using/board.md#automation) describes the settings.
+decision goes only to a card in a column that is not terminal, only while the
+pull request is open, and only while the automation of the board is on.
+`ready_to_merge` also needs the Worker merge strategy. [Automation](../using/board.md#automation) describes the settings.
 
 Under the Resume fix strategy, `fix_requested` names the newest session of the
 card and the bridge that ran it. It names them only when that bridge sent a

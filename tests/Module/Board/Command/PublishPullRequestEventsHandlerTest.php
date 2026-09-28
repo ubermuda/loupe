@@ -253,6 +253,27 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         self::assertNull($this->findAutomation($card));
     }
 
+    public function test_failed_checks_on_a_closed_pull_request_publish_the_fact_and_no_fix(): void
+    {
+        $card = $this->linkedCard();
+        $closed = new PullRequestSnapshot(state: PullRequestState::Closed);
+
+        $this->handle($closed, new PullRequestSnapshot(state: PullRequestState::Closed, headSha: self::SHA, checks: PullRequestChecks::Failed, checksSha: self::SHA, failedChecks: ['phpunit']));
+
+        self::assertSame(['pull_request.checks_concluded'], array_column($this->outbox(), 'type'));
+        self::assertNull($this->findAutomation($card));
+    }
+
+    public function test_changes_requested_on_a_merged_pull_request_publishes_the_review_and_no_fix(): void
+    {
+        $card = $this->linkedCard();
+
+        $this->review(PullRequestReview::ChangesRequested, new PullRequestSnapshot(state: PullRequestState::Merged));
+
+        self::assertSame(['pull_request.review_submitted'], array_column($this->outbox(), 'type'));
+        self::assertNull($this->findAutomation($card));
+    }
+
     public function test_disabled_automation_publishes_facts_and_no_decisions(): void
     {
         $card = $this->linkedCard();

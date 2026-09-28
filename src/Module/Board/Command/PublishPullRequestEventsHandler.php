@@ -32,7 +32,8 @@ use Psr\Log\LoggerInterface;
 /**
  * Turns a change in the state of a pull request into outbox rows for each card
  * that links it. A fact goes to every card. A decision goes only to a card that
- * is not finished, and only while the automation of the board is on.
+ * is not finished, only while the pull request is open, and only while the
+ * automation of the board is on.
  *
  * Forge calls this inside the transaction that stores the new state, so a
  * throw here rolls that state back and the next read diffs again.
@@ -89,11 +90,12 @@ final readonly class PublishPullRequestEventsHandler
         }
 
         $settings = $this->boardAutomation->settingsOf($project);
+        $open = PullRequestState::Open === $command->current->state;
         // Each change to a row flushes at once, because the next locked read of the row refreshes it and drops unsaved counts.
-        $this->em->wrapInTransaction(function () use ($links, $facts, $fixReason, $readyToMerge, $settings, $command): void {
+        $this->em->wrapInTransaction(function () use ($links, $facts, $fixReason, $readyToMerge, $settings, $open, $command): void {
             foreach ($links as $link) {
                 $card = $link->card;
-                $decides = $settings->enabled && !$card->column->terminal;
+                $decides = $settings->enabled && $open && !$card->column->terminal;
                 foreach ($facts as $fact) {
                     $this->write($link, $command->current->headSha, $fact['type'], $fact['fields']);
                     if ($fact['resets']) {
