@@ -17,6 +17,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Query\ResultSetMappingBuilder;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
@@ -664,6 +665,59 @@ class CardRepository extends ServiceEntityRepository
         );
 
         return ['done' => (int) $row['done'], 'total' => (int) $row['total']];
+    }
+
+    /**
+     * The first cards of the column under each parent, in rank order, at most
+     * $size per parent: parent by parent, then down the rank.
+     *
+     * @param list<string> $parentIds
+     *
+     * @return list<Card>
+     */
+    public function findDeckCards(BoardColumn $column, array $parentIds, int $size): array
+    {
+        $rsm = new ResultSetMappingBuilder($this->getEntityManager());
+        $rsm->addRootEntityFromClassMetadata(Card::class, 'c');
+
+        /** @var list<Card> $cards */
+        $cards = $this->getEntityManager()->createNativeQuery(
+            'SELECT '.$rsm->generateSelectClause(['c' => 'c']).' FROM (
+                SELECT d.*, ROW_NUMBER() OVER (PARTITION BY d.parent_card_id ORDER BY d.position, d.created_at, d.id) AS deck_rank
+                FROM board_cards d
+                WHERE d.column_id = :column AND d.parent_card_id IN (:parents)
+             ) c
+             WHERE c.deck_rank <= :size
+             ORDER BY c.parent_card_id, c.deck_rank',
+            $rsm,
+        )
+            ->setParameter('column', (string) $column->id)
+            ->setParameter('parents', $parentIds, ArrayParameterType::STRING)
+            ->setParameter('size', $size)
+            ->getResult();
+
+        return $cards;
+    }
+
+    /**
+     * How many cards of the column each parent has. A parent with none has no key.
+     *
+     * @param list<string> $parentIds
+     *
+     * @return array<string, int> parent id => its count
+     */
+    public function countChildrenIn(BoardColumn $column, array $parentIds): array
+    {
+        /** @var array<string, int|string> $counts */
+        $counts = $this->getEntityManager()->getConnection()->fetchAllKeyValue(
+            'SELECT parent_card_id, COUNT(*) FROM board_cards
+             WHERE column_id = :column AND parent_card_id IN (:parents)
+             GROUP BY parent_card_id',
+            ['column' => (string) $column->id, 'parents' => $parentIds],
+            ['parents' => ArrayParameterType::STRING],
+        );
+
+        return array_map(intval(...), $counts);
     }
 
     /**

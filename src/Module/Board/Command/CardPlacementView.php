@@ -33,6 +33,8 @@ final readonly class CardPlacementView
         public bool $laneHead,
         /** For a lane head, the epic of the lane before it on the page, or null when its lane comes first. */
         public ?string $laneAfter,
+        /** For a lane head, its Up next deck, or null when the epic has no Backlog child. */
+        public ?LaneDeckView $deck = null,
     ) {
     }
 }

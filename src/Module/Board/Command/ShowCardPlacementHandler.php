@@ -13,6 +13,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
+use App\Module\Board\Service\LaneDecks;
 
 /** Reads one card and its neighbours, so the cost does not grow with the board. */
 final readonly class ShowCardPlacementHandler
@@ -23,6 +24,7 @@ final readonly class ShowCardPlacementHandler
         private CardRepository $cards,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardDocumentRepository $cardDocuments,
+        private LaneDecks $laneDecks,
     ) {
     }
 
@@ -108,6 +110,7 @@ final readonly class ShowCardPlacementHandler
             $lane,
             $laneHead,
             $laneAfter,
+            $laneHead ? ($this->laneDecks->forEpics($backlog, [(string) $card->id])[(string) $card->id] ?? null) : null,
         );
     }
 }

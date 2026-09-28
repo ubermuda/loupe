@@ -64,6 +64,8 @@ final readonly class BoardView
         public string $structureDigest = '',
         /** @var array<string, CardRunWarning> card id => the warning its last run left */
         public array $runWarnings = [],
+        /** @var array<string, LaneDeckView> lane epic id => its Up next deck; an epic with no Backlog child has no key */
+        public array $decks = [],
     ) {
     }
 }

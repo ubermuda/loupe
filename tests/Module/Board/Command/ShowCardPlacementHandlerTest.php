@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Command;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Command\BoardLaneView;
+use App\Module\Board\Command\LaneDeckView;
 use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Command\ShowCardPlacementCommand;
@@ -16,6 +17,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardLanes;
+use App\Module\Board\Service\LaneDecks;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -250,6 +252,12 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         $this->boardCard('Waiting child of the waiting epic', 'backlog', 2, parent: $waitingEpic);
         $waitingLaneOff = $this->boardCard('Waiting epic with its lane off', 'backlog', 3, type: CardType::Epic);
         $waitingLaneOff->laneEnabled = false;
+        // More than a deck holds, so the deck of the waiting epic is a window on its Backlog children.
+        for ($i = 0; $i < LaneDecks::DECK_SIZE; ++$i) {
+            $this->boardCard('Waiting child '.$i.' of the waiting epic', 'backlog', 10 - $i, parent: $waitingEpic);
+        }
+        $this->boardCard('Waiting child of the open epic', 'backlog', 4, parent: $openEpic);
+        $this->boardCard('Waiting child of the epic with its lane off', 'backlog', 5, parent: $waitingLaneOff);
         $this->em->flush();
 
         // A bulk write the loaded cards do not see: the placement must read the rows.
@@ -258,18 +266,23 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         $connection->executeStatement('UPDATE board_cards SET completed_at = :at WHERE id = :id', ['id' => (string) $restamped->id, 'at' => $second(18000)->format('Y-m-d H:i:s')]);
 
         $cards = self::getContainer()->get(CardRepository::class)->findBy(['project' => $this->project]);
-        self::assertCount(30, $cards);
+        self::assertCount(30 + LaneDecks::DECK_SIZE + 2, $cards);
 
-        $lanes = $this->assertEveryPlacementMatchesTheBoardPage($cards, [4, 6, 0, 7, 6, 0, 3]);
+        $lanes = $this->assertEveryPlacementMatchesTheBoardPage($cards, [14, 6, 0, 7, 6, 0, 3]);
         self::assertCount(4, $lanes);
         self::assertSame((string) $waitingEpic->id, $lanes[0]);
+        // Guard: the decks compared above hold cards, and one of them is cut at the deck size.
+        $decks = $this->boardPagePlacements()[4];
+        self::assertSame([(string) $waitingEpic->id, (string) $openEpic->id], array_keys($decks));
+        self::assertCount(LaneDecks::DECK_SIZE, $decks[(string) $waitingEpic->id]->cards);
+        self::assertSame(LaneDecks::DECK_SIZE + 1, $decks[(string) $waitingEpic->id]->count);
 
         foreach ($cards as $card) {
             $card->laneEnabled = false;
         }
         $this->em->flush();
 
-        self::assertSame([], $this->assertEveryPlacementMatchesTheBoardPage($cards, [4, 6, 0, 7, 6, 0, 3]));
+        self::assertSame([], $this->assertEveryPlacementMatchesTheBoardPage($cards, [14, 6, 0, 7, 6, 0, 3]));
     }
 
     /**
@@ -280,7 +293,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
      */
     private function assertEveryPlacementMatchesTheBoardPage(array $cards, array $columnCounts): array
     {
-        [$expected, $counts, $totals, $lanes] = $this->boardPagePlacements();
+        [$expected, $counts, $totals, $lanes, $decks] = $this->boardPagePlacements();
         self::assertSame($columnCounts, array_values($counts));
 
         foreach ($cards as $card) {
@@ -301,6 +314,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
                 [(string) $view->column?->id, $view->after, $view->rowAfter, $view->lane, $view->laneHead, $view->laneAfter],
                 $card->title,
             );
+            self::assertSame($this->deckFace($decks[(string) $card->id] ?? null), $this->deckFace($view->deck), $card->title);
         }
 
         return $lanes;
@@ -310,7 +324,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
      * The board page's reading: the list runs column by column, and a board
      * with lanes places each card in the cell of its lane.
      *
-     * @return array{array<string, array{string, ?string, ?string, ?string, bool, ?string}>, array<string, int>, array<string, int>, list<string>}
+     * @return array{array<string, array{string, ?string, ?string, ?string, bool, ?string}>, array<string, int>, array<string, int>, list<string>, array<string, LaneDeckView>}
      */
     private function boardPagePlacements(): array
     {
@@ -371,7 +385,13 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
             $expected[$epicId] ??= [(string) $board->backlog->id, null, null, null, true, $laneEpics[$laneIndex - 1] ?? null];
         }
 
-        return [$expected, $counts, $totals, array_values($laneEpics)];
+        return [$expected, $counts, $totals, array_values($laneEpics), $board->decks];
+    }
+
+    /** @return array{list<string>, int}|null the card ids and the count of a deck */
+    private function deckFace(?LaneDeckView $deck): ?array
+    {
+        return null === $deck ? null : [array_map(static fn (Card $card): string => (string) $card->id, $deck->cards), $deck->count];
     }
 
     private function boardCard(
