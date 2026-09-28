@@ -10,6 +10,7 @@ use App\Module\Inbox\Command\AskInboxHandler;
 use App\Module\Inbox\Command\AskInboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Repository\InboxItemRepository;
+use App\Module\Inbox\Service\CardWaitTrigger;
 use App\Module\Inbox\Service\InboxLinkResolver;
 use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use App\Module\Inbox\Service\InboxSearchIndexer;
@@ -124,7 +125,9 @@ final class AskInboxHandlerTest extends KernelTestCase
 
         $openCount = $container->get(InboxOpenCountPublisher::class);
         self::assertInstanceOf(InboxOpenCountPublisher::class, $openCount);
+        $cardWaits = $container->get(CardWaitTrigger::class);
+        self::assertInstanceOf(CardWaitTrigger::class, $cardWaits);
 
-        return new AskInboxHandler($items, $sessionAsks, $links, $indexer, $em, $this->audit->auditor, $openCount);
+        return new AskInboxHandler($items, $sessionAsks, $links, $indexer, $em, $this->audit->auditor, $openCount, $cardWaits);
     }
 }

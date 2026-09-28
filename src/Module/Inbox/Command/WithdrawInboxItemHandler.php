@@ -9,6 +9,7 @@ use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Repository\InboxItemRepository;
+use App\Module\Inbox\Service\CardWaitTrigger;
 use App\Module\Inbox\Service\InboxItemCloser;
 use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use Doctrine\DBAL\LockMode;
@@ -29,6 +30,7 @@ final readonly class WithdrawInboxItemHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private InboxOpenCountPublisher $openCount,
+        private CardWaitTrigger $cardWaits,
     ) {
     }
 
@@ -60,6 +62,7 @@ final readonly class WithdrawInboxItemHandler
             throw new DomainErrors(['itemId' => $refusal]);
         }
         $this->openCount->countChanged($item->project);
+        $this->cardWaits->forReviewItems([$item]);
 
         $this->auditor->record(
             'inbox.item_withdrawn',

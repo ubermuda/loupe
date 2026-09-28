@@ -13,6 +13,7 @@ use App\Module\Review\Entity\DocumentVersion;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /** @extends ServiceEntityRepository<CardDocument> */
@@ -88,6 +89,20 @@ final class CardDocumentRepository extends ServiceEntityRepository
             ->orderBy('link.linkedAt', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /** @return list<string> the ids of the cards linked to the document */
+    public function findCardIdsForDocument(Uuid $documentId): array
+    {
+        /** @var list<array{cardId: Uuid|string}> $rows */
+        $rows = $this->createQueryBuilder('link')
+            ->select('DISTINCT IDENTITY(link.card) AS cardId')
+            ->where('link.document = :document')
+            ->setParameter('document', $documentId, UuidType::NAME)
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $row): string => (string) $row['cardId'], $rows);
     }
 
     /**

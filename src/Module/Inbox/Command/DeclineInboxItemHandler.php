@@ -6,6 +6,7 @@ namespace App\Module\Inbox\Command;
 
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Service\CardWaitTrigger;
 use App\Module\Inbox\Service\InboxItemCloser;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -17,6 +18,7 @@ final readonly class DeclineInboxItemHandler
     public function __construct(
         private InboxItemCloser $closer,
         private Auditor $auditor,
+        private CardWaitTrigger $cardWaits,
     ) {
     }
 
@@ -32,6 +34,7 @@ final readonly class DeclineInboxItemHandler
 
             return null;
         });
+        $this->cardWaits->forReviewItems([$item]);
 
         $this->auditor->record(
             'inbox.item_declined',
