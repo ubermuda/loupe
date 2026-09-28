@@ -10,8 +10,9 @@ Each rule has a stable ID, so a comment can cite it.
 4. Q4: Ask for disagreement. A recommended answer makes it easy to agree with everything. The owner can agree with several answers in a row. Then name the answer you are least sure of, and ask again.
 5. Q5: Send look and feel to a mockup. A question about how something looks gets a sketch or a prototype, not more questions.
 6. Q6: Park technical choices. An entity, a table, an API or a module goes to the "For tech design" section. Do not settle it in the session.
+7. Q7: Ask for priorities as trade-off pairs. Take each pair from this feature, such as an early first release against a complete permission model. Ask one pair per question, and recommend a side (Q2). Never ask the owner to rank goals that face no trade-off.
 
-Write each answer in the "Decisions log" section, with the question. Write each guess that the owner did not check in the "Assumptions" section.
+Write each answer in the "Decisions log" section, with the question. Write each Q7 answer in the "Priorities" section too. Write each guess that the owner did not check in the "Assumptions" section.
 
 ## Coverage checklist
 

@@ -35,7 +35,7 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 ### Create, when neither step finds a design
 
 1. Read the code and those design inputs. Answer each entry that applies.
-2. Judge the size, as the next section says.
+2. Write the sections that "The design sections" lists. Judge the size, as the next section says.
 3. Call `document_create` with the title `Tech design: <card title>`. Set `references` to the product document id, or leave it empty when the requirement source is the card body. Use the tags `design` and `decisions`, or the spelling `tag_list` already has for them.
 4. Link the new id to the card (contract rule 5). Stop with `STAGE RESULT: tech design created <id>`.
 
@@ -47,3 +47,25 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 4. Never write a Breakdown section for a card that has a parent. A child is built from one entry of its epic's design.
 
 Write the final reply as the contract says.
+
+## The design sections
+
+Use these `##` sections, in this order. Follow `../loupe-documents/references/design-structure.md` for At a glance, the decisions and the tables. Put each section that the profile instructions add, such as the current state or the project checks, before Decided.
+
+1. At a glance.
+2. Priorities. Cite the `P` entries of the product document that the design serves. With no product document, take them from the card body.
+3. How others do it. Give two or three libraries or systems that solve the same problem. Link each one, and give one takeaway.
+4. One section for each open decision, with a stable ID such as `D1` in its heading. Each decision cites the `R` and `P` IDs it serves.
+5. Decided. Give each settled choice one line with its reason. For a reversal, name the answer that lost and the argument that changed it.
+6. The work order. List the steps with stable IDs. Say which open decision blocks which step. Write a Breakdown section instead when "Judge the size" asks for one.
+
+Write a Light design when the product document has no Priorities section, or when the card body asks for a small change. Its At a glance is two sentences, and it skips Priorities and How others do it.
+
+## Facts and recommendations
+
+1. Read the code before you state a fact about it. Run the search, and write the count it gives, never a count from memory.
+2. Mark each entry, and each cost, as checked or estimated. An estimate beside checked entries reads as checked. Say what you could not verify.
+3. Give each recommendation a confidence: high, moderate or low. Give the strongest argument against it.
+4. Never inflate the cost of the option you reject. An overstated argument hides how close the call was.
+5. Name the cost that each decision accepts, in the entry that causes it.
+6. The owner sets the quality bar. Inform the decision, and do not make it.

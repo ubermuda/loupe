@@ -2,9 +2,13 @@
 
 Read this before you write or revise a product document. The `loupe-documents` rules apply to every section. Start the body with the first `##` heading, because Loupe shows the title itself (rule 1).
 
-Use the sections below, in this order, as `##` headings. Write each section as a numbered list, so a reviewer can cite an entry (rule 2). Open each entry with a short lead sentence (rule 4).
+Use the sections below, in this order, as `##` headings. Write each section as a numbered list, so a reviewer can cite an entry (rule 2). Open each entry with a short lead sentence (rule 4). Follow `loupe-documents` `references/design-structure.md` for At a glance, the decisions and the tables (rule 15).
 
-A Light session keeps these sections: Problem, Current behaviour, Proposed behaviour, Out of scope, Decisions log, Scenarios, Open questions, and Docs and landing page impact. It also keeps Assumptions and For tech design when the session gave them entries. A Full session uses every section. Keep each other section that the level uses when it has no entries, and write one entry that says so.
+A Light session uses these sections: At a glance, Problem, Current behaviour, Proposed behaviour, Out of scope, Assumptions, Decisions log, For tech design, Scenarios, Open questions, and Docs and landing page impact. Its At a glance is two sentences, and it skips Priorities and How others do it. A Full session uses every section. Leave out a section with nothing real to say. Problem, Proposed behaviour, Decisions log, Scenarios, and Docs and landing page impact always stay.
+
+## At a glance
+
+State the change in two or three sentences. List the open decisions, each linked to its heading in "Open questions". Write the sentences as a paragraph, and number the list.
 
 ## Problem
 
@@ -13,6 +17,14 @@ State what goes wrong today, or what a user cannot do. Name the person who feels
 ## Who it is for
 
 Name each kind of user or operator the change serves. Use the roles the product already has, such as a project owner, a reviewer or an instance operator.
+
+## Priorities
+
+List each trade-off pair that the owner picked a side on. Give each entry a stable ID, `P1`, `P2` and so on, and lead the entry with it. Name the side that wins, as in "P1: An early first release over a complete permission model." The tech design cites these IDs in each decision. When no owner took part, mark each entry as a guess.
+
+## How others do it
+
+Give two or three products that solve the same problem. Link each one, and give one takeaway for this design. Look at the products and at how their users work. Leave libraries and systems to the tech design.
 
 ## Current behaviour
 
@@ -50,11 +62,12 @@ Write each scenario as Given, When and Then, so a person can check it on a runni
 
 ## Open questions
 
-Put each open choice in its own decision fence (rule 12). Read `loupe-documents` `references/decision-fences.md` before you write one.
+Put each open choice in its own decision fence (rule 12). Read `loupe-documents` `references/decision-fences.md` before you write one. Give each choice a `###` heading with a stable ID, such as `### D1: Export format`, so At a glance can link to it.
 
-1. Put the "**Decision needed:**" lead-in, the context and your recommendation above the fence (rule 5).
-2. Give the fence one short question paragraph, then flat one-line options.
-3. Choose a fence id from the subject, such as `export-format`. Never change an id after the document is published, because a changed id discards the answer.
+1. Put the "**Decision needed:**" lead-in, the context and your recommendation above the fence (rule 5). Give the recommendation a confidence: high, moderate or low.
+2. When the choice has two or more real options, put the pros and cons table of `design-structure.md` above the fence.
+3. Give the fence one short question paragraph, then flat one-line options.
+4. Choose a fence id from the subject, such as `export-format`. Never change an id after the document is published, because a changed id discards the answer.
 
 When a revision folds an answer in, keep the fence and add a `**Decided:**` line under it (rule 6).
 
