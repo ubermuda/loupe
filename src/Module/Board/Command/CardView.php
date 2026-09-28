@@ -6,6 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Service\PullRequestStates;
 
 /** Everything one card page renders. */
 final readonly class CardView
@@ -20,6 +21,7 @@ final readonly class CardView
         public Card $card,
         public array $siteReviewLinks,
         public array $relatedCards,
+        public PullRequestStates $pullRequestStates,
         public array $children = [],
         public ?CardProgress $progress = null,
     ) {

@@ -68,6 +68,45 @@ final class ForgePullRequestRepository extends ServiceEntityRepository
     }
 
     /**
+     * The rows of the keys in one project, read in one query with no lock. The
+     * query over-fetches across the three lists, so the rows are matched to the
+     * keys after the read.
+     *
+     * @param list<array{forge: string, repository: string, number: int}> $keys
+     *
+     * @return list<ForgePullRequest>
+     */
+    public function findByKeys(Uuid $projectId, array $keys): array
+    {
+        if ([] === $keys) {
+            return [];
+        }
+
+        $wanted = [];
+        foreach ($keys as $key) {
+            $wanted[self::key($key['forge'], mb_strtolower($key['repository']), $key['number'])] = true;
+        }
+
+        /** @var list<ForgePullRequest> $rows */
+        $rows = $this->createQueryBuilder('pr')
+            ->andWhere('pr.project = :project')
+            ->andWhere('pr.forge IN (:forges)')
+            ->andWhere('pr.repository IN (:repositories)')
+            ->andWhere('pr.number IN (:numbers)')
+            ->setParameter('project', $projectId, UuidType::NAME)
+            ->setParameter('forges', array_values(array_unique(array_column($keys, 'forge'))))
+            ->setParameter('repositories', array_values(array_unique(array_map(mb_strtolower(...), array_column($keys, 'repository')))))
+            ->setParameter('numbers', array_values(array_unique(array_column($keys, 'number'))))
+            ->getQuery()
+            ->getResult();
+
+        return array_values(array_filter(
+            $rows,
+            static fn (ForgePullRequest $row): bool => isset($wanted[self::key($row->forge, $row->repository, $row->number)]),
+        ));
+    }
+
+    /**
      * The rows of one repository in one project, narrowed by at most one of a
      * number, a head commit or a base branch, and by the open state on request.
      *
@@ -158,6 +197,11 @@ final class ForgePullRequestRepository extends ServiceEntityRepository
             'UPDATE forge_pull_requests SET repository = :to WHERE project_id = :project AND forge = :forge AND repository = :from',
             $parameters,
         );
+    }
+
+    private static function key(string $forge, string $repository, int $number): string
+    {
+        return $forge.' '.$repository.'#'.$number;
     }
 
     /**

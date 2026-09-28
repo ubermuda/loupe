@@ -15,6 +15,9 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Board\Service\PullRequestStates;
+use App\Module\Board\Service\PullRequestStateView;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
 
@@ -22,13 +25,15 @@ use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
  * The one shape every board tool returns a card in, so a card read by card_list
  * and a card read by card_get describe themselves the same way.
  *
- * @phpstan-type CardPullRequestSummary array{pullRequestId: string, url: string, forge: string, repository: ?string, number: ?int}
+ * @phpstan-type PullRequestStateSummary array{state: string, draft: bool, checks: string, failedChecks: list<string>, mergeability: string, review: string, readyToMerge: bool, refreshedAt: ?string}
+ * @phpstan-type CardPullRequestSummary array{pullRequestId: string, url: string, forge: string, repository: ?string, number: ?int, state: ?PullRequestStateSummary}
+ * @phpstan-type CardAutomationSummary array{fixRounds: int, blockedReason: ?string, lastAction: ?string, lastActionAt: ?string}
  * @phpstan-type FeedbackAnchorSummary array{selector: string, text: string, quote: ?string, quotePrefix: ?string, quoteSuffix: ?string}
  * @phpstan-type FeedbackSummary array{id: string, url: string, anchors: list<FeedbackAnchorSummary>, body: string, hasDrawing: bool, status: string, context: ?string, createdAt: string}
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
  * @phpstan-type CardRelatedCardSummary array{cardId: string, number: int, title: string, status: string, kind: string}
  * @phpstan-type CardRefSummary array{cardId: string, number: int, title: string, status: string}
- * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<FeedbackSummary>, relatedCards: list<CardRelatedCardSummary>, parent: ?CardRefSummary, laneEnabled: bool, children: list<CardRefSummary>, progress: ?array{done: int, total: int}}
+ * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, automation: ?CardAutomationSummary, documents: list<CardDocumentSummary>, siteReviewComments: list<FeedbackSummary>, relatedCards: list<CardRelatedCardSummary>, parent: ?CardRefSummary, laneEnabled: bool, children: list<CardRefSummary>, progress: ?array{done: int, total: int}}
  * @phpstan-type CardListSummary array{cardId: string, number: int, title: string, type: string, status: string, reporter: string, parentCardId: ?string, updatedAt: string}
  */
 final readonly class CardPayload
@@ -37,6 +42,7 @@ final readonly class CardPayload
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardLinkRepository $cardLinks,
         private CardRepository $cards,
+        private CardPullRequestStates $pullRequestStates,
     ) {
     }
 
@@ -48,13 +54,14 @@ final readonly class CardPayload
      */
     public function forCard(CardView $view): array
     {
-        return $this->render($view->card, $view->siteReviewLinks, $view->relatedCards, $view->children);
+        return $this->render($view->card, $view->siteReviewLinks, $view->relatedCards, $view->children, $view->pullRequestStates);
     }
 
     /**
      * Many cards in one read, so a board-sized list costs one comment query,
-     * one card link query, one children query and one parent query rather
-     * than one of each per card.
+     * one card link query, one children query, one parent query and one
+     * query for each map of the pull request states rather than one of each
+     * per card.
      *
      * @param list<Card> $cards
      *
@@ -67,6 +74,7 @@ final readonly class CardPayload
         $epics = array_values(array_filter($cards, static fn (Card $card): bool => CardType::Epic === $card->type));
         $childrenByCard = [] === $epics ? [] : $this->cards->findChildrenOfCards($epics);
         $this->cards->loadParentsOf($cards);
+        $states = $this->pullRequestStates->forCards($cards);
 
         return array_map(
             fn (Card $card): array => $this->render(
@@ -77,6 +85,7 @@ final readonly class CardPayload
                     $linksByCard[(string) $card->id] ?? [],
                 ),
                 $childrenByCard[(string) $card->id] ?? [],
+                $states,
             ),
             $cards,
         );
@@ -118,8 +127,9 @@ final readonly class CardPayload
      *
      * @return CardSummary
      */
-    private function render(Card $card, array $links, array $relatedCards, array $children): array
+    private function render(Card $card, array $links, array $relatedCards, array $children, PullRequestStates $states): array
     {
+        $automation = $states->automationOf($card);
         $progress = CardType::Epic === $card->type
             ? ['done' => \count(array_filter($children, static fn (Card $child): bool => $child->column->terminal)), 'total' => \count($children)]
             : null;
@@ -144,9 +154,16 @@ final readonly class CardPayload
                     'forge' => $link->forge->value,
                     'repository' => $link->repository,
                     'number' => $link->number,
+                    'state' => self::pullRequestState($states->of($link)),
                 ],
                 array_values($card->pullRequests->toArray()),
             ),
+            'automation' => null === $automation ? null : [
+                'fixRounds' => $automation->fixRounds,
+                'blockedReason' => $automation->blockedReason,
+                'lastAction' => $automation->lastAction?->value,
+                'lastActionAt' => $automation->lastActionAt?->format(\DATE_ATOM),
+            ],
             // The documents this card's work is written up in. Read only here:
             // a document is written and revised through its own tools.
             'documents' => array_map(
@@ -211,6 +228,25 @@ final readonly class CardPayload
             // deployment sets it, so null is the common answer.
             'context' => $comment->context,
             'createdAt' => $comment->createdAt->format(\DATE_ATOM),
+        ];
+    }
+
+    /** @return ?PullRequestStateSummary */
+    private static function pullRequestState(?PullRequestStateView $state): ?array
+    {
+        if (null === $state) {
+            return null;
+        }
+
+        return [
+            'state' => $state->state->value,
+            'draft' => $state->draft,
+            'checks' => $state->checks->value,
+            'failedChecks' => $state->failedChecks,
+            'mergeability' => $state->mergeability->value,
+            'review' => $state->review->value,
+            'readyToMerge' => $state->readyToMerge,
+            'refreshedAt' => $state->refreshedAt?->format(\DATE_ATOM),
         ];
     }
 

@@ -7,14 +7,26 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardAutomation;
+use App\Module\Board\Entity\CardAutomationAction;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Mcp\CardPayload;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Board\Service\PullRequestStates;
+use App\Module\Board\Service\PullRequestStateView;
+use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestReview;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class CardPayloadTest extends TestCase
 {
@@ -27,7 +39,7 @@ final class CardPayloadTest extends TestCase
         $cards = $this->createMock(CardRepository::class);
         $cards->expects($this->never())->method('findChildrenOfCards');
 
-        $rows = new CardPayload($comments, $links, $cards)->forCardList([$this->card()]);
+        $rows = new CardPayload($comments, $links, $cards, $this->createStub(CardPullRequestStates::class))->forCardList([$this->card()]);
 
         self::assertCount(1, $rows);
         self::assertSame(
@@ -52,7 +64,7 @@ final class CardPayloadTest extends TestCase
         // One call for the whole page, with the epics alone.
         $cards->expects($this->once())->method('findChildrenOfCards')->with([$epic, $otherEpic])->willReturn([]);
 
-        $rows = new CardPayload($comments, $links, $cards)->forCards([$feature, $epic, $otherEpic]);
+        $rows = new CardPayload($comments, $links, $cards, $this->states())->forCards([$feature, $epic, $otherEpic]);
 
         self::assertArrayHasKey('body', $rows[0]);
         self::assertSame([], $rows[0]['siteReviewComments']);
@@ -66,9 +78,82 @@ final class CardPayloadTest extends TestCase
         $cards = $this->createMock(CardRepository::class);
         $cards->expects($this->never())->method('findChildrenOfCards');
 
-        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $cards)->forCards([$this->card()]);
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $cards, $this->states())->forCards([$this->card()]);
 
         self::assertSame([], $rows[0]['children']);
+    }
+
+    public function test_the_full_shape_renders_the_stored_pull_request_state_and_the_automation(): void
+    {
+        $card = $this->card();
+        $this->setId($card, Uuid::v7());
+        $tracked = new CardPullRequest($card, 'https://github.com/ubermuda/loupe/pull/7', Forge::GitHub, 'ubermuda/loupe', 7);
+        $this->setId($tracked, Uuid::v7());
+        $untracked = new CardPullRequest($card, 'https://example.com/pr/1');
+        $this->setId($untracked, Uuid::v7());
+        $card->pullRequests->add($tracked);
+        $card->pullRequests->add($untracked);
+        $automation = new CardAutomation($card);
+        $automation->fixRounds = 2;
+        $automation->blockedReason = 'fix-rounds-exhausted';
+        $automation->lastAction = CardAutomationAction::FixRequested;
+        $automation->lastActionAt = new \DateTimeImmutable('2026-09-27T10:00:00+00:00');
+        $states = $this->createMock(CardPullRequestStates::class);
+        // One read for the whole page, never one per card.
+        $states->expects($this->once())->method('forCards')->with([$card])->willReturn(new PullRequestStates(
+            [(string) $tracked->id => new PullRequestStateView(
+                PullRequestState::Open,
+                true,
+                PullRequestChecks::Failed,
+                ['phpunit'],
+                PullRequestMergeability::Conflicting,
+                PullRequestReview::ChangesRequested,
+                false,
+                new \DateTimeImmutable('2026-09-27T11:00:00+00:00'),
+            )],
+            [(string) $card->id => $automation],
+        ));
+
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $states)->forCards([$card]);
+
+        self::assertSame([
+            'state' => 'open',
+            'draft' => true,
+            'checks' => 'failed',
+            'failedChecks' => ['phpunit'],
+            'mergeability' => 'conflicting',
+            'review' => 'changes-requested',
+            'readyToMerge' => false,
+            'refreshedAt' => '2026-09-27T11:00:00+00:00',
+        ], $rows[0]['pullRequests'][0]['state']);
+        self::assertNull($rows[0]['pullRequests'][1]['state']);
+        self::assertSame([
+            'fixRounds' => 2,
+            'blockedReason' => 'fix-rounds-exhausted',
+            'lastAction' => 'fix-requested',
+            'lastActionAt' => '2026-09-27T10:00:00+00:00',
+        ], $rows[0]['automation']);
+    }
+
+    public function test_a_card_with_no_automation_row_reads_a_null_automation(): void
+    {
+        $rows = new CardPayload($this->createStub(CardSiteReviewCommentRepository::class), $this->createStub(CardLinkRepository::class), $this->createStub(CardRepository::class), $this->states())->forCards([$this->card()]);
+
+        self::assertArrayHasKey('automation', $rows[0]);
+        self::assertNull($rows[0]['automation']);
+    }
+
+    private function states(): CardPullRequestStates
+    {
+        $states = $this->createStub(CardPullRequestStates::class);
+        $states->method('forCards')->willReturn(new PullRequestStates());
+
+        return $states;
+    }
+
+    private function setId(object $entity, Uuid $id): void
+    {
+        new \ReflectionProperty($entity, 'id')->setValue($entity, $id);
     }
 
     private function card(CardType $type = CardType::Feature): Card
