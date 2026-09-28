@@ -7,7 +7,10 @@ const test = createTest({
 });
 
 // Twenty-one renames through the edit form fill a second page of events.
-test.setTimeout(90_000);
+test.setTimeout(150_000);
+
+// On a shared, loaded php-fpm one request in twenty stalled for up to 17s.
+const NAVIGATION = { timeout: 30_000 };
 
 /** A fresh project per test, so no test sees the events of another. */
 async function seedProject(page: Page, name: string): Promise<string> {
@@ -38,10 +41,9 @@ async function rename(page: Page, projectId: string, name: string) {
     await page
         .getByRole('button', { name: 'Save changes', exact: true })
         .click();
-    // One save outlasted the 5s default on a local run, so the wait matches the house 15s.
     await expect(
         page.getByRole('link', { name: `Edit ${name}`, exact: true }),
-    ).toBeVisible({ timeout: 15000 });
+    ).toBeVisible(NAVIGATION);
 }
 
 test('the events list pages, searches and filters through the URL', async ({
@@ -73,13 +75,16 @@ test('the events list pages, searches and filters through the URL', async ({
         .locator('.lp-pagination')
         .getByRole('link', { name: '2', exact: true })
         .click();
-    await expect(page).toHaveURL(/[?&]page=2(&|$)/);
+    await expect(page).toHaveURL(/[?&]page=2(&|$)/, NAVIGATION);
     await expect(rows).toHaveCount(1);
 
     // The new slug is in the event data only, so this proves the search reads it.
     const search = page.getByRole('searchbox', { name: 'Search activity' });
     await search.fill(`events-${run}-21`);
-    await expect(page).toHaveURL(new RegExp(`search=events-${run}-21`));
+    await expect(page).toHaveURL(
+        new RegExp(`search=events-${run}-21`),
+        NAVIGATION,
+    );
     await expect(page).not.toHaveURL(/[?&]page=2/);
     await expect(rows).toHaveCount(1);
     await expect(page.locator('turbo-frame#activity-count')).toHaveText(
@@ -87,14 +92,14 @@ test('the events list pages, searches and filters through the URL', async ({
     );
 
     await page.getByRole('link', { name: 'Clear', exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`${activityUrl}$`));
+    await expect(page).toHaveURL(new RegExp(`${activityUrl}$`), NAVIGATION);
     await expect(rows).toHaveCount(20);
 
     const family = page.getByRole('combobox', {
         name: 'Filter by event family',
     });
     await family.selectOption({ label: 'Board' });
-    await expect(page).toHaveURL(/[?&]family=board(&|$)/);
+    await expect(page).toHaveURL(/[?&]family=board(&|$)/, NAVIGATION);
     await expect(page.locator('[data-activity-filtered-empty]')).toHaveText(
         'No activity matches these filters.',
     );
@@ -104,7 +109,7 @@ test('the events list pages, searches and filters through the URL', async ({
     await page
         .getByRole('combobox', { name: 'Filter by event family' })
         .selectOption({ label: 'Project' });
-    await expect(page).toHaveURL(/[?&]family=project(&|$)/);
+    await expect(page).toHaveURL(/[?&]family=project(&|$)/, NAVIGATION);
     await expect(rows).toHaveCount(20);
 
     await page.setViewportSize({ width: 390, height: 844 });
