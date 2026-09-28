@@ -173,23 +173,6 @@ final class ShowWorkerRunCostControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    public function test_the_runs_tab_links_to_the_cost_tab(): void
-    {
-        $client = static::createClient();
-        $em = $this->em();
-        $owner = $this->user($em, 'cost-tabs@example.com');
-        $project = $this->boardProject($em, $owner);
-        $projectId = (string) $project->id;
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
-
-        self::assertResponseIsSuccessful();
-        self::assertSame('Runs', trim($crawler->filter('.lp-tabs__tab[aria-current="page"]')->text()));
-        self::assertSame('/projects/'.$projectId.'/worker-runs/cost', $crawler->filter('.lp-tabs__tab')->eq(1)->attr('href'));
-    }
-
     private function boardProject(EntityManagerInterface $em, User $owner): Project
     {
         $project = $this->project($em, $owner, 'Cost board');

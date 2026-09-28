@@ -1,13 +1,9 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ 'bridge.worker_run_cost.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+{% block title %}{{ 'activity.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block topbar_crumbs %}
-    <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
-    <span class="lp-topbar__sep">/</span>
-    <a class="lp-topbar__crumb" href="{{ path('app_project_worker_runs', {id: project.id}) }}">{{ 'bridge.worker_runs.page.title'|trans }}</a>
-    <span class="lp-topbar__sep">/</span>
-    <span class="lp-topbar__here">{{ 'bridge.worker_run_cost.page.title'|trans }}</span>
+    {% include 'activity/_crumbs.html.twig' with {project: project} only %}
 {% endblock %}
 
 {% block body %}
@@ -15,14 +11,9 @@
 {% set query = cost.query %}
 {% set costRoute = 'app_project_worker_run_cost' %}
 <div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
-    <header class="lp-page-header">
-        <div>
-            <h1 class="lp-workspace-title">{{ 'bridge.worker_runs.page.title'|trans }}</h1>
-            <p class="lp-workspace-desc">{{ 'bridge.worker_runs.page.description'|trans }}</p>
-        </div>
-    </header>
+    {% include 'activity/_header.html.twig' with {} only %}
 
-    {% include '@Bridge/_worker_runs_tabs.html.twig' with {project: project, active: 'cost'} only %}
+    {% include 'activity/_tabs.html.twig' with {project: project, active: 'cost'} only %}
 
     <p class="lp-cost-basis" data-cost-basis>{{ 'bridge.worker_run_cost.price_basis'|trans }}</p>
 

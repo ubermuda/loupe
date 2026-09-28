@@ -1942,10 +1942,6 @@
                 <source>nav.link.connect</source>
                 <target>Connect</target>
             </trans-unit>
-            <trans-unit id="nav.link.worker_runs">
-                <source>nav.link.worker_runs</source>
-                <target>Run history</target>
-            </trans-unit>
             <trans-unit id="nav.link.outbox">
                 <source>nav.link.outbox</source>
                 <target>Outbox</target>
@@ -5394,10 +5390,6 @@
             <!-- Audit log (admin) -->
 
             <!-- Worker runs (CLI bridge) -->
-            <trans-unit id="bridge.worker_runs.tabs.label"><source>bridge.worker_runs.tabs.label</source><target>Run history views</target></trans-unit>
-            <trans-unit id="bridge.worker_runs.tabs.runs"><source>bridge.worker_runs.tabs.runs</source><target>Runs</target></trans-unit>
-            <trans-unit id="bridge.worker_runs.tabs.cost"><source>bridge.worker_runs.tabs.cost</source><target>Cost</target></trans-unit>
-            <trans-unit id="bridge.worker_run_cost.page.title"><source>bridge.worker_run_cost.page.title</source><target>Cost</target></trans-unit>
             <trans-unit id="bridge.worker_run_cost.price_basis"><source>bridge.worker_run_cost.price_basis</source><target>The dollars are the API list price that claude reports. On a subscription, you do not pay this amount.</target></trans-unit>
             <trans-unit id="bridge.worker_run_cost.range.label"><source>bridge.worker_run_cost.range.label</source><target>Range</target></trans-unit>
             <trans-unit id="bridge.worker_run_cost.range.thirty_days"><source>bridge.worker_run_cost.range.thirty_days</source><target>30 days</target></trans-unit>
@@ -5446,10 +5438,6 @@
             <trans-unit id="bridge.worker_run_cost.table.grouped_week"><source>bridge.worker_run_cost.table.grouped_week</source><target>Each bar is the average cost per card of the cards that finished in its week, from Monday. The table lists each card with its exact date.</target></trans-unit>
             <trans-unit id="bridge.worker_run_cost.table.grouped_month"><source>bridge.worker_run_cost.table.grouped_month</source><target>Each bar is the average cost per card of the cards that finished in its month. The table lists each card with its exact date.</target></trans-unit>
             <trans-unit id="bridge.worker_run_cost.empty"><source>bridge.worker_run_cost.empty</source><target>No finished card with usage in this range.</target></trans-unit>
-            <trans-unit id="bridge.worker_runs.page.title">
-                <source>bridge.worker_runs.page.title</source>
-                <target>Run history</target>
-            </trans-unit>
             <trans-unit id="bridge.worker_runs.details.open"><source>bridge.worker_runs.details.open</source><target>View attempt</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.title"><source>bridge.worker_runs.details.title</source><target>Run attempt</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.close"><source>bridge.worker_runs.details.close</source><target>Close</target></trans-unit>
@@ -5466,10 +5454,6 @@
             <trans-unit id="bridge.worker_runs.details.copy"><source>bridge.worker_runs.details.copy</source><target>Copy output</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.copied"><source>bridge.worker_runs.details.copied</source><target>Output copied.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.copy_failed"><source>bridge.worker_runs.details.copy_failed</source><target>The browser could not copy the output. Select and copy the text instead.</target></trans-unit>
-            <trans-unit id="bridge.worker_runs.page.description">
-                <source>bridge.worker_runs.page.description</source>
-                <target>Every reported attempt, with the context to understand it.</target>
-            </trans-unit>
             <trans-unit id="bridge.worker_runs.meta.shown">
                 <source>bridge.worker_runs.meta.shown</source>
                 <target>%count% shown</target>
@@ -6018,8 +6002,13 @@
             <trans-unit id="board.rules.hooks.outcome.timeout"><source>board.rules.hooks.outcome.timeout</source><target>Timed out</target></trans-unit>
             <trans-unit id="board.rules.hooks.outcome.never"><source>board.rules.hooks.outcome.never</source><target>Not run yet</target></trans-unit>
             <trans-unit id="activity.page.title"><source>activity.page.title</source><target>Activity</target></trans-unit>
-            <trans-unit id="activity.heading"><source>activity.heading</source><target>Project activity</target></trans-unit>
-            <trans-unit id="activity.description"><source>activity.description</source><target>Trace durable project events and their delivery to connected bridges.</target></trans-unit>
+            <trans-unit id="activity.description"><source>activity.description</source><target>Every worker run and project event, with the context to understand it.</target></trans-unit>
+            <trans-unit id="activity.tabs.label"><source>activity.tabs.label</source><target>Activity views</target></trans-unit>
+            <trans-unit id="activity.tabs.runs"><source>activity.tabs.runs</source><target>Runs</target></trans-unit>
+            <trans-unit id="activity.tabs.events"><source>activity.tabs.events</source><target>Events</target></trans-unit>
+            <trans-unit id="activity.tabs.cost"><source>activity.tabs.cost</source><target>Cost</target></trans-unit>
+            <trans-unit id="search.page.activity_runs"><source>search.page.activity_runs</source><target>Activity · Runs</target></trans-unit>
+            <trans-unit id="search.page.activity_events"><source>search.page.activity_events</source><target>Activity · Events</target></trans-unit>
             <trans-unit id="activity.count"><source>activity.count</source><target>{0} No events|{1} 1 event|]1,Inf[ %count% events</target></trans-unit>
             <trans-unit id="activity.status.recorded"><source>activity.status.recorded</source><target>Recorded history</target></trans-unit>
             <trans-unit id="search.title"><source>search.title</source><target>Search project</target></trans-unit>
