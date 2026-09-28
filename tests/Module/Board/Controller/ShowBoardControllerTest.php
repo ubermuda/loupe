@@ -426,6 +426,13 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame((string) $blocked->id, $crawler->filter('[data-card-id="'.$unnamed->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$moved->id.'"] [data-card-run-warning]'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$quiet->id.'"] [data-card-run-warning]'));
+
+        foreach ([$stays, $moved, $unnamed, $quiet] as $card) {
+            self::assertSame(
+                $crawler->filter('#board-card-'.$card->id)->attr('data-card-digest'),
+                $crawler->filter('#board-row-'.$card->id)->attr('data-card-digest'),
+            );
+        }
     }
 
     /** A card inside an epic lane shows its warning too, and lanes render through their own templates. */

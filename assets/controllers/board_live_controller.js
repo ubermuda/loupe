@@ -36,8 +36,9 @@ export default class extends Controller {
         this.onMissed = (event) => this.missed(event.detail ?? {});
         document.addEventListener('board:placed', this.onPlaced);
         document.addEventListener('board:place-missed', this.onMissed);
-        this.unsubscribe = on('board.card_changed', (change) =>
-            this.receive(change),
+        this.unsubscribe = on(
+            ['board.card_changed', 'worker_run.card_warning_changed'],
+            (change) => this.receive(change),
         );
         this.stopStatus = status((state) => {
             this.liveState = state;

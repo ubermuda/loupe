@@ -38,6 +38,7 @@ final class CardWorkerRunsExtension extends AbstractExtension
         return [
             new TwigFunction('card_worker_runs', $this->cardWorkerRuns(...)),
             new TwigFunction('card_run_warnings', $this->cardRunWarnings(...)),
+            new TwigFunction('card_run_warning', $this->cardRunWarning(...)),
             new TwigFunction('card_usage_total', $this->cardUsageTotal(...)),
         ];
     }
@@ -55,6 +56,14 @@ final class CardWorkerRunsExtension extends AbstractExtension
         }
 
         return $warnings;
+    }
+
+    /** One card placed alone reads its own warning, not the whole board's. */
+    public function cardRunWarning(Project $project, Uuid $cardId): ?CardRunWarning
+    {
+        $row = $this->workerRuns->findWarningRowOfCard($project, $cardId);
+
+        return null === $row ? null : new CardRunWarning($row['id'], WorkerRunState::from($row['state']), $row['output'], $row['card_column']);
     }
 
     /** @return list<WorkerRunListItem> */

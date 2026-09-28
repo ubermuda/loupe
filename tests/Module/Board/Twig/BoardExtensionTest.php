@@ -33,11 +33,11 @@ final class BoardExtensionTest extends KernelTestCase
         $card = $this->makeCard();
 
         $card->position = 2;
-        $before = $extension->cardDigest($card, 0, 0, null);
-        self::assertSame($before, $extension->cardDigest($card, 0, 0, null));
+        $before = $extension->cardDigest($card, 0, 0, null, null);
+        self::assertSame($before, $extension->cardDigest($card, 0, 0, null, null));
 
         $card->position = 0;
-        self::assertNotSame($before, $extension->cardDigest($card, 0, 0, null));
+        self::assertNotSame($before, $extension->cardDigest($card, 0, 0, null, null));
     }
 
     public function test_card_digest_changes_with_the_document_count(): void
@@ -46,7 +46,21 @@ final class BoardExtensionTest extends KernelTestCase
         self::assertInstanceOf(BoardExtension::class, $extension);
         $card = $this->makeCard();
 
-        self::assertNotSame($extension->cardDigest($card, 0, 1, null), $extension->cardDigest($card, 0, 2, null));
+        self::assertNotSame($extension->cardDigest($card, 0, 1, null, null), $extension->cardDigest($card, 0, 2, null, null));
+    }
+
+    public function test_card_digest_changes_with_the_run_warning_the_card_shows(): void
+    {
+        $extension = static::getContainer()->get(BoardExtension::class);
+        self::assertInstanceOf(BoardExtension::class, $extension);
+        $card = $this->makeCard();
+
+        $none = $extension->cardDigest($card, 0, 0, null, null);
+        $first = $extension->cardDigest($card, 0, 0, null, 'run-1');
+
+        self::assertNotSame($none, $first);
+        self::assertSame($first, $extension->cardDigest($card, 0, 0, null, 'run-1'));
+        self::assertNotSame($first, $extension->cardDigest($card, 0, 0, null, 'run-2'));
     }
 
     public function test_card_digest_changes_with_the_progress_of_an_epic(): void
@@ -55,10 +69,10 @@ final class BoardExtensionTest extends KernelTestCase
         self::assertInstanceOf(BoardExtension::class, $extension);
         $card = $this->makeCard();
 
-        $before = $extension->cardDigest($card, 0, 0, new CardProgress(1, 3));
-        self::assertSame($before, $extension->cardDigest($card, 0, 0, new CardProgress(1, 3)));
-        self::assertNotSame($before, $extension->cardDigest($card, 0, 0, new CardProgress(2, 3)));
-        self::assertNotSame($before, $extension->cardDigest($card, 0, 0, new CardProgress(1, 4)));
+        $before = $extension->cardDigest($card, 0, 0, new CardProgress(1, 3), null);
+        self::assertSame($before, $extension->cardDigest($card, 0, 0, new CardProgress(1, 3), null));
+        self::assertNotSame($before, $extension->cardDigest($card, 0, 0, new CardProgress(2, 3), null));
+        self::assertNotSame($before, $extension->cardDigest($card, 0, 0, new CardProgress(1, 4), null));
     }
 
     public function test_card_digest_tells_a_card_with_no_progress_from_an_epic_with_no_children(): void
@@ -67,7 +81,7 @@ final class BoardExtensionTest extends KernelTestCase
         self::assertInstanceOf(BoardExtension::class, $extension);
         $card = $this->makeCard();
 
-        self::assertNotSame($extension->cardDigest($card, 0, 0, null), $extension->cardDigest($card, 0, 0, new CardProgress(0, 0)));
+        self::assertNotSame($extension->cardDigest($card, 0, 0, null, null), $extension->cardDigest($card, 0, 0, new CardProgress(0, 0), null));
     }
 
     public function test_the_move_fields_of_two_cards_differ_only_by_the_card_name(): void
