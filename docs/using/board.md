@@ -167,6 +167,15 @@ review comments still wait on it.
 A card whose latest worker run gave up or is blocked also shows a warning. See
 [A warning on the card](worker-runs.md#a-warning-on-the-card).
 
+A card also shows a badge for each problem on its open pull requests.
+**Checks failed** means that the checks of a linked pull request fail.
+**Conflict** means that a linked pull request has a merge conflict.
+**Automation blocked** means that the automation stopped asking for fixes on
+the card. A card and its row in the **List** view show the same badges. The
+badges change when Loupe reads a new state, with no reload. They come only from
+a state that Loupe read, so a pull request that shows **Not reported** adds no
+badge.
+
 Each card type and each column has a colour, and every page that names one uses
 the same colour. The owner picks a column's colour from twelve in its
 **Colour** setting. The colour stays with the column when the columns move.
@@ -293,6 +302,26 @@ site-review notes on the card. See
 [Review feedback on a card](#review-feedback-on-a-card). Its Status field is a
 column control, which moves a card
 with no drag. That is the way to move a card from a keyboard.
+
+Each pull request link shows the last state that Loupe read, as chips. An open
+pull request shows **Open** or **Draft**, then its checks: **Checks passed**,
+**Checks pending** or **Checks failed**. A failed chip names the checks that
+failed. The row then shows **Conflict**, **Behind base** or **Merge blocked**
+when one applies, and the review: **Approved**, **Changes requested** or
+**Review required**. A merged or closed pull request shows **Merged** or
+**Closed** alone. A link that Loupe never read shows **Not reported**, and a link
+with no usable URL shows **Unavailable**. See
+[What GitHub tells a card](#what-github-tells-a-card).
+
+When the automation acted on the card, a line under the links says what it did
+last, and when. It asked for a fix round, it stopped, or it marked the pull
+request ready to merge. See [Automation](#automation). When the automation is
+blocked, a notice gives the reason: the checks fail, the pull request has a
+merge conflict, or a reviewer requested changes. When a person moves the card to
+another column, Loupe clears the block and resets the fix count.
+
+The card page and the drawer show the state from when they opened. Reload the
+page to see a newer state. The board tiles update by themselves.
 
 The page also lists the card's five latest agent runs, with the rule that
 started each run, when it ran, how long it took and how it ended. A run opens
@@ -429,7 +458,8 @@ on the epic page, on the history page of their column, and in the MCP tools.
 | Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`, `epic`, `site-review`. |
 | Status | The column the card sits in. The tools report the column's slug. |
 | Reporter | `human`, `agent` or `reviewer`. It records who raised the card. |
-| Pull requests | Any number of links. See below. |
+| Pull requests | Any number of links, each with the last state Loupe read. See below. |
+| Automation | What the board automation did last on the card, and why it is blocked, if it is. See [Automation](#automation). |
 | Linked cards | Other cards of the project, each with a kind. See [Cards linked to a card](#cards-linked-to-a-card). |
 
 A card also carries the moment it was created and the moment it last changed. A
@@ -512,6 +542,12 @@ For a repository connected through the GitHub App, Loupe reads the pull request
 again after each delivery. It also tells the card about a conflict, a branch
 behind its base, and a pull request closed without a merge. For a repository
 connected through a webhook, Loupe learns only what GitHub sends.
+
+Loupe stores the state it reads, and the card page, the board and `card_get`
+show that stored state. Only a repository connected through the GitHub App gets
+a state. Loupe also reads each open pull request again about every ten minutes,
+in case GitHub did not send a delivery. A pull request in a repository connected
+through a webhook, or in no connected repository, shows **Not reported**.
 [Forge webhooks](../extending/forge-webhooks.md#one-vocabulary-for-every-forge)
 lists each event.
 
@@ -605,6 +641,17 @@ row is the same summary `card_list` returns, so call `card_get` for a body.
 `card_get` returns one card with its full Markdown body, every pull request
 linked to it, and all of its feedback, under `siteReviewComments`. Use a card id that
 `card_list`, `card_search` or `card_create` gave you, or the card number.
+
+Each entry of `pullRequests` carries `state`, the last state Loupe read:
+`state`, `draft`, `checks`, `failedChecks`, `mergeability`, `review`,
+`readyToMerge` and `refreshedAt`. It is null when Loupe holds no reading, such
+as for a link it cannot parse. A null `refreshedAt` means that Loupe never read
+the pull request, which the card page shows as **Not reported**. The card also
+carries `automation`, with
+`fixRounds`, `blockedReason`, `lastAction` and `lastActionAt`. It is null when
+the automation never acted on the card. `card_update`, `card_create`,
+`card_run_open` and `card_list` with `full` return the same two keys. A
+`card_list` row without `full` carries neither.
 
 `card_get` also returns `relatedCards`, the cards linked to this one. Each entry
 carries `cardId`, `number`, `title`, `status` and `kind`, where `kind` is how
