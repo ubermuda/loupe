@@ -83,6 +83,7 @@ final readonly class BulkMoveBacklogCardsHandler
                     actor: $command->actor,
                     column: $command->column,
                     position: CardMover::END_OF_COLUMN,
+                    expectedColumn: $command->backlog,
                 ));
             }
         });

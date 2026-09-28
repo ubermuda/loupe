@@ -34,6 +34,7 @@ final readonly class RankBacklogCardHandler
             column: $card->column,
             beforeCardId: $command->beforeCardId,
             afterCardId: $command->afterCardId,
+            expectedColumn: $card->column,
         ))->card;
     }
 }

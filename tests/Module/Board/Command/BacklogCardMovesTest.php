@@ -15,6 +15,7 @@ use App\Module\Board\Command\MoveBacklogCardCommand;
 use App\Module\Board\Command\MoveBacklogCardHandler;
 use App\Module\Board\Command\RankBacklogCardCommand;
 use App\Module\Board\Command\RankBacklogCardHandler;
+use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
@@ -134,6 +135,41 @@ final class BacklogCardMovesTest extends KernelTestCase
         self::assertSame(['Waiting'], $this->backlogTitles());
     }
 
+    public function test_a_rank_refuses_a_card_another_request_moved_out_of_the_backlog(): void
+    {
+        $waiting = $this->card('Waiting');
+        $stale = $this->card('Stale');
+        $this->moveBehindTheEntityManager($stale, 'next');
+
+        $this->expectDomainError(['column' => UpdateCardHandler::COLUMN_CHANGED], fn () => $this->rank($stale, before: $waiting));
+
+        self::assertSame(['Stale'], $this->titlesIn('next'));
+    }
+
+    public function test_a_move_refuses_a_card_another_request_moved_out_of_the_backlog(): void
+    {
+        $stale = $this->card('Stale');
+        $this->moveBehindTheEntityManager($stale, 'next');
+
+        $this->expectDomainError(['column' => UpdateCardHandler::COLUMN_CHANGED], fn () => $this->move($stale, 'in-progress'));
+
+        self::assertSame(['Stale'], $this->titlesIn('next'));
+        self::assertSame([], $this->titlesIn('in-progress'));
+    }
+
+    public function test_a_bulk_move_rolls_back_when_another_request_moved_one_card_out_of_the_backlog(): void
+    {
+        $first = $this->card('First');
+        $stale = $this->card('Stale');
+        $this->moveBehindTheEntityManager($stale, 'next');
+
+        $this->expectDomainError(['column' => UpdateCardHandler::COLUMN_CHANGED], fn () => $this->bulkMove([(string) $first->id, (string) $stale->id], 'in-progress'));
+
+        self::assertSame(['First'], $this->backlogTitles());
+        self::assertSame(['Stale'], $this->titlesIn('next'));
+        self::assertSame([], $this->titlesIn('in-progress'));
+    }
+
     public function test_a_bulk_move_refuses_more_than_one_page_of_cards(): void
     {
         $ids = [];
@@ -193,6 +229,16 @@ final class BacklogCardMovesTest extends KernelTestCase
         }
 
         self::assertSame(['Waiting'], $this->backlogTitles());
+    }
+
+    /** Another request's move: the row changes, and the loaded card still reads the Backlog. */
+    private function moveBehindTheEntityManager(Card $card, string $slug): void
+    {
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_cards SET column_id = ? WHERE id = ?',
+            [(string) $this->column($this->project, $slug)->id, (string) $card->id],
+        );
+        self::assertTrue($card->column->backlog);
     }
 
     private function actAs(User $user): void

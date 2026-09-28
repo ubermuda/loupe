@@ -33,6 +33,7 @@ final readonly class MoveBacklogCardHandler
             actor: $command->actor,
             column: $command->column,
             position: CardMover::END_OF_COLUMN,
+            expectedColumn: $card->column,
         ))->card;
     }
 }

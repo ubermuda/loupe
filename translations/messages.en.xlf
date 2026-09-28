@@ -4872,6 +4872,10 @@
                 <source>board.card.error.column_gone</source>
                 <target>That column no longer exists. Choose another column.</target>
             </trans-unit>
+            <trans-unit id="board.card.error.column_changed">
+                <source>board.card.error.column_changed</source>
+                <target>Someone moved this card to another column. Reload the page and try again.</target>
+            </trans-unit>
             <trans-unit id="board.card.error.title_blank">
                 <source>board.card.error.title_blank</source>
                 <target>Give the card a title.</target>
