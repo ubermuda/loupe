@@ -22,6 +22,9 @@ use Ubermuda\AuditBundle\AuditOutcome;
  * both, so a card resolves with no mapping table of its own. Only the cards of
  * the project that owns the repository match, because another project can link
  * the same pull request.
+ *
+ * Only a repository with no state reads gets the bare fact rows. A repository
+ * with state reads gets richer events from them, and must not get each fact twice.
  */
 final readonly class RecordForgeDeliveryHandler
 {
@@ -42,7 +45,9 @@ final readonly class RecordForgeDeliveryHandler
                 continue;
             }
 
-            $this->publish($command->projectId, $delivery);
+            if (!$command->stateReadable) {
+                $this->publish($command->projectId, $delivery);
+            }
         }
 
         $this->em->flush();

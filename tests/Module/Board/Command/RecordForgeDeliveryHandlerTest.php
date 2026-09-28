@@ -57,12 +57,37 @@ final class RecordForgeDeliveryHandlerTest extends KernelTestCase
         self::assertSame(['acme/old'], $this->pathsOf($strangerCard));
     }
 
-    private function handle(Project $project, ForgeDelivery $delivery): void
+    public function test_a_delivery_without_state_reads_writes_a_bare_fact_row_and_one_with_state_reads_does_not(): void
+    {
+        $project = $this->project('installed');
+        $card = $this->linkedCard($project, 'acme/widgets', 5);
+        $this->handle($project, new ForgeDelivery(ForgeEventType::MERGED, 'github', 'acme/widgets', 5));
+        self::assertSame([(string) $card->id], $this->outboxSubjects($project));
+
+        foreach ([ForgeEventType::MERGED, ForgeEventType::REVIEW_SUBMITTED, ForgeEventType::CHECKS_CONCLUDED] as $type) {
+            $this->handle($project, new ForgeDelivery($type, 'github', 'acme/widgets', 5), stateReadable: true);
+        }
+
+        self::assertSame([(string) $card->id], $this->outboxSubjects($project));
+    }
+
+    public function test_a_move_with_state_reads_still_repoints_the_links(): void
+    {
+        $project = $this->project('installed');
+        $card = $this->linkedCard($project, 'acme/old', 1);
+
+        $this->handle($project, new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, 'github', 'acme/old', movedTo: 'acme/new'), stateReadable: true);
+
+        $this->em->clear();
+        self::assertSame(['acme/new'], $this->pathsOf($card));
+    }
+
+    private function handle(Project $project, ForgeDelivery $delivery, bool $stateReadable = false): void
     {
         $handler = self::getContainer()->get(RecordForgeDeliveryHandler::class);
         self::assertInstanceOf(RecordForgeDeliveryHandler::class, $handler);
 
-        $handler(new RecordForgeDeliveryCommand($project->id ?? throw new \LogicException('Flushed.'), [$delivery]));
+        $handler(new RecordForgeDeliveryCommand($project->id ?? throw new \LogicException('Flushed.'), [$delivery], $stateReadable));
     }
 
     /** @return list<string> */

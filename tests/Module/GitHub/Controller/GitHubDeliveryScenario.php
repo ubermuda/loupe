@@ -13,11 +13,14 @@ use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Entity\ForgeRepositorySource;
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
+use App\Module\Forge\Messenger\RefreshPullRequestStateHandler;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\GitHub\Entity\GitHubInstallation;
 use App\Module\GitHub\Entity\GitHubRepositorySelection;
+use App\Module\GitHub\Service\GitHubAppConfiguration;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -43,6 +46,12 @@ trait GitHubDeliveryScenario
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
         $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         $this->em()->flush();
+    }
+
+    /** Sets the App id and key, so an installation repository gets state reads. Call it before the first request. */
+    private function configureAppKey(): void
+    {
+        self::getContainer()->set(GitHubAppConfiguration::class, new GitHubAppConfiguration(null, null, null, 'github_app_webhook_test', '123456', 'key'));
     }
 
     private function project(string $label): Project
@@ -119,6 +128,49 @@ trait GitHubDeliveryScenario
         }
 
         return $refreshes;
+    }
+
+    /** @return list<array{?PullRequestReview, ?string}> the verdict and the review id of each queued refresh */
+    private function queuedVerdicts(): array
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        $verdicts = [];
+        foreach ($transport->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof RefreshPullRequestState) {
+                $verdicts[] = [$message->verdict, $message->reviewId];
+            }
+        }
+
+        return $verdicts;
+    }
+
+    /** Runs each queued refresh through its handler, as the worker would. */
+    private function drainRefreshes(): void
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+        $handler = self::getContainer()->get(RefreshPullRequestStateHandler::class);
+        self::assertInstanceOf(RefreshPullRequestStateHandler::class, $handler);
+
+        foreach ($transport->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof RefreshPullRequestState) {
+                $handler($message);
+            }
+        }
+    }
+
+    /** @return list<string> the type of each outbox row of the project, in order */
+    private function outboxTypes(Project $project): array
+    {
+        return array_values(array_map(strval(...), $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT type FROM outbox_events WHERE project_id = :project ORDER BY sequence',
+            ['project' => $project->id],
+            ['project' => 'uuid'],
+        )));
     }
 
     /** @param array<mixed> $payload */

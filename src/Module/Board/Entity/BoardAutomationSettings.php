@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Module\Board\Entity;
+
+use App\Module\Board\Repository\BoardAutomationSettingsRepository;
+use App\Module\Project\Entity\Project;
+use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Component\Uid\Uuid;
+
+/** How the board drives the pull requests of the cards of one project. */
+#[ORM\Entity(repositoryClass: BoardAutomationSettingsRepository::class)]
+#[ORM\Table(name: 'board_automation_settings')]
+class BoardAutomationSettings
+{
+    public const int MIN_LOOP_LIMIT = 1;
+
+    public const int MAX_LOOP_LIMIT = 20;
+
+    #[ORM\Column(type: UuidType::NAME, unique: true)]
+    #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
+    #[ORM\GeneratedValue(strategy: 'CUSTOM')]
+    #[ORM\Id]
+    public private(set) ?Uuid $id = null;
+
+    public function __construct(
+        #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+        #[ORM\OneToOne(targetEntity: Project::class)]
+        public readonly Project $project,
+
+        #[ORM\Column]
+        public bool $enabled = true,
+
+        #[ORM\Column(length: 20, enumType: BoardMergeStrategy::class)]
+        public BoardMergeStrategy $mergeStrategy = BoardMergeStrategy::Worker,
+
+        #[ORM\Column(length: 20, enumType: BoardFixStrategy::class)]
+        public BoardFixStrategy $fixStrategy = BoardFixStrategy::Fresh,
+
+        /** The automatic fix rounds a card gets before the board stops asking. */
+        #[ORM\Column]
+        public int $loopLimit = 3,
+    ) {
+    }
+}
