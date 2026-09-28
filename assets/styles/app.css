@@ -3427,7 +3427,7 @@
     /* A chip that explains itself in a tooltip. It sits above a stretched row
        target, or the target takes its hover. */
     .lp-status-chip--reason {
-        @apply relative z-10 cursor-help outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
+        @apply relative z-10 cursor-help outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
     }
     .lp-status-chip--reason:hover,
     .lp-status-chip--reason:focus-visible {
