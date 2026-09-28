@@ -64,6 +64,20 @@ it('listens for the worker run signal only', async () => {
     expect(subscription().types).toBe('worker_run.changed');
 });
 
+it('listens for the signal its event value names', async () => {
+    document.body.innerHTML = `<div data-controller="worker-run-refresh" data-worker-run-refresh-event-value="activity.changed">
+        <turbo-frame id="events" data-worker-run-refresh-target="frame" src="/projects/1/activity"></turbo-frame>
+    </div>`;
+    const frame = document.querySelector('turbo-frame');
+    frame.reload = vi.fn();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(subscription().types).toBe('activity.changed');
+    subscription().handler({ type: 'activity.changed' });
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
+    expect(frame.reload).toHaveBeenCalledOnce();
+});
+
 it('gives a frame with no src the current page on the first signal', async () => {
     const frame = await mount();
     await signal();
