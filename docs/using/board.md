@@ -209,6 +209,9 @@ Every open board of the project shows a change as it happens, with no reload.
 - A card that someone else changed gets a short highlight. With reduced motion
   on, the highlight is a still outline.
 - A card that you drag waits. The change shows when the drag ends.
+- When a child joins, leaves, finishes or reopens, the progress of its epic
+  changes. When an epic lane appears or disappears, the board adds or removes
+  the lane.
 - When the owner adds, renames, reorders, flags or deletes a column, the board
   changes in place. A drag in progress on another screen can then fail, and
   the card goes back.

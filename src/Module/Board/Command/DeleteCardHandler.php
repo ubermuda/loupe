@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
+use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -30,6 +32,7 @@ final readonly class DeleteCardHandler
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardGroupOrder $groupOrder,
         private CardParentPolicy $parentPolicy,
+        private PullRequestTracking $pullRequestTracking,
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private EventDispatcherInterface $events,
@@ -50,7 +53,7 @@ final readonly class DeleteCardHandler
         $cardNumber = $card->number;
         $projectId = (string) $projectUuid;
 
-        $refusal = $this->em->wrapInTransaction(function () use ($card, $actor): ?DomainErrors {
+        $drawsLane = $this->em->wrapInTransaction(function () use ($card, $actor): DomainErrors|bool {
             // The renumbering below reads the column first, so it takes the same
             // project lock a create or a move does.
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
@@ -69,6 +72,7 @@ final readonly class DeleteCardHandler
 
             $this->cards->refreshTypeAndParent($card);
             $parent = $card->parent;
+            $drawsLane = $card->drawsLane();
 
             // Before the remove, so the delete and the renumbering it causes
             // reach the database in one flush.
@@ -87,8 +91,10 @@ final readonly class DeleteCardHandler
                 $this->interactiveRuns->closeOnMove($card->project, [$card->id]);
             }
 
+            $trackedBefore = $this->pullRequestTracking->referencesOf($card);
             $this->em->remove($card);
             $this->em->flush();
+            $this->pullRequestTracking->apply($card->project, $trackedBefore, []);
 
             // After the flush, so the epic counts its children without this
             // one. A listener must not read the card, which is gone.
@@ -96,12 +102,12 @@ final readonly class DeleteCardHandler
                 $this->events->dispatch(new CardParentChanged($card, $parent, null, $actor));
             }
 
-            return null;
+            return $drawsLane;
         });
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
-        if (null !== $refusal) {
-            throw $refusal;
+        if ($drawsLane instanceof DomainErrors) {
+            throw $drawsLane;
         }
 
         // After the commit, never inside it: the sink drains at kernel.terminate,
@@ -122,5 +128,8 @@ final readonly class DeleteCardHandler
         );
 
         $this->events->dispatch(new CardChanged($projectUuid, $cardUuid, CardChanged::DELETED, false));
+        if ($drawsLane) {
+            $this->events->dispatch(new BoardColumnsChanged($card->project));
+        }
     }
 }

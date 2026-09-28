@@ -9,7 +9,9 @@ use App\Module\Forge\ForgeEventType;
 use App\Module\GitHub\Entity\GitHubRepositorySelection;
 use App\Module\GitHub\GitHubDelivery;
 use App\Module\GitHub\InvalidGitHubDelivery;
+use App\Module\GitHub\PullRequestRefreshHint;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -207,6 +209,133 @@ final class GitHubDeliveryTest extends TestCase
     public function test_it_refuses_a_verified_body_that_is_not_a_json_object(): void
     {
         $this->assertRefused(InvalidGitHubDelivery::BAD_PAYLOAD, $this->request('pull_request', 'not json', 'sha256='.hash_hmac('sha256', 'not json', self::SECRET)), self::SECRET);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function pullRequestActions(): iterable
+    {
+        foreach (['opened', 'reopened', 'synchronize', 'closed', 'edited', 'ready_for_review', 'converted_to_draft'] as $action) {
+            yield $action => [$action];
+        }
+    }
+
+    #[DataProvider('pullRequestActions')]
+    public function test_a_pull_request_action_that_changes_its_state_hints_its_number(string $action): void
+    {
+        self::assertEquals([PullRequestRefreshHint::number(541)], $this->delivery('pull_request', [
+            'action' => $action,
+            'repository' => self::REPOSITORY,
+            'pull_request' => ['number' => 541, 'merged' => false, 'base' => ['ref' => 'main']],
+        ])->refreshHints());
+    }
+
+    public function test_a_merge_also_hints_its_base_branch(): void
+    {
+        self::assertEquals(
+            [PullRequestRefreshHint::number(541), PullRequestRefreshHint::base('main')],
+            $this->delivery('pull_request', [
+                'action' => 'closed',
+                'repository' => self::REPOSITORY,
+                'pull_request' => ['number' => 541, 'merged' => true, 'base' => ['ref' => 'main']],
+            ])->refreshHints(),
+        );
+    }
+
+    public function test_a_pull_request_action_that_changes_no_state_hints_nothing(): void
+    {
+        self::assertSame([], $this->delivery('pull_request', [
+            'action' => 'labeled',
+            'repository' => self::REPOSITORY,
+            'pull_request' => ['number' => 541],
+        ])->refreshHints());
+    }
+
+    /** @return iterable<string, array{string, bool}> */
+    public static function reviewActions(): iterable
+    {
+        yield 'submitted' => ['submitted', true];
+        yield 'dismissed' => ['dismissed', true];
+        yield 'edited' => ['edited', false];
+    }
+
+    #[DataProvider('reviewActions')]
+    public function test_a_submitted_or_dismissed_review_hints_its_pull_request(string $action, bool $hinted): void
+    {
+        self::assertEquals($hinted ? [PullRequestRefreshHint::number(7)] : [], $this->delivery('pull_request_review', [
+            'action' => $action,
+            'repository' => self::REPOSITORY,
+            'pull_request' => ['number' => 7],
+        ])->refreshHints());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function checkEvents(): iterable
+    {
+        yield 'check suite' => ['check_suite'];
+        yield 'check run' => ['check_run'];
+    }
+
+    #[DataProvider('checkEvents')]
+    public function test_a_check_that_starts_or_completes_hints_its_pull_requests_and_its_head(string $event): void
+    {
+        $delivery = fn (string $action): GitHubDelivery => $this->delivery($event, [
+            'action' => $action,
+            'repository' => self::REPOSITORY,
+            $event => ['head_sha' => 'abc123', 'pull_requests' => [['number' => 3], ['number' => 'x'], 'junk', ['number' => 4]]],
+        ]);
+
+        foreach (['completed', 'created', 'requested', 'rerequested'] as $action) {
+            self::assertEquals(
+                [PullRequestRefreshHint::number(3), PullRequestRefreshHint::number(4), PullRequestRefreshHint::head('abc123')],
+                $delivery($action)->refreshHints(),
+                $action,
+            );
+        }
+        self::assertSame([], $delivery('requested_action')->refreshHints());
+    }
+
+    public function test_a_check_without_pull_requests_still_hints_its_head(): void
+    {
+        self::assertEquals([PullRequestRefreshHint::head('abc123')], $this->delivery('check_run', [
+            'action' => 'completed',
+            'repository' => self::REPOSITORY,
+            'check_run' => ['head_sha' => 'abc123', 'pull_requests' => 'junk'],
+        ])->refreshHints());
+    }
+
+    public function test_a_status_hints_its_commit(): void
+    {
+        self::assertEquals([PullRequestRefreshHint::head('def456')], $this->delivery('status', [
+            'repository' => self::REPOSITORY,
+            'sha' => 'def456',
+            'state' => 'success',
+        ])->refreshHints());
+        self::assertSame([], $this->delivery('status', ['repository' => self::REPOSITORY, 'sha' => ''])->refreshHints());
+    }
+
+    public function test_a_push_to_a_branch_hints_that_base(): void
+    {
+        self::assertEquals([PullRequestRefreshHint::base('release/1.x')], $this->delivery('push', [
+            'ref' => 'refs/heads/release/1.x',
+            'repository' => self::REPOSITORY,
+            'deleted' => false,
+        ])->refreshHints());
+    }
+
+    public function test_a_push_of_a_tag_or_a_deleted_branch_hints_nothing(): void
+    {
+        self::assertSame([], $this->delivery('push', ['ref' => 'refs/tags/v1.0', 'repository' => self::REPOSITORY])->refreshHints());
+        self::assertSame([], $this->delivery('push', ['ref' => 'refs/heads/main', 'deleted' => true, 'repository' => self::REPOSITORY])->refreshHints());
+        self::assertSame([], $this->delivery('push', ['ref' => 'refs/heads/', 'repository' => self::REPOSITORY])->refreshHints());
+    }
+
+    public function test_repeated_hints_are_given_once(): void
+    {
+        self::assertEquals([PullRequestRefreshHint::number(3), PullRequestRefreshHint::head('abc123')], $this->delivery('check_suite', [
+            'action' => 'completed',
+            'repository' => self::REPOSITORY,
+            'check_suite' => ['head_sha' => 'abc123', 'pull_requests' => [['number' => 3], ['number' => 3]]],
+        ])->refreshHints());
     }
 
     private function assertRefused(string $reason, Request $request, string $secret): void

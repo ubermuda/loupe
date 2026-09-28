@@ -330,4 +330,5 @@ Read the file before you work on the topic.
 - `references/scheduled-jobs.md` before you add a recurring job. Use `#[AsCronTask]` on a task class in `src/Module/*/Scheduler/`. Never add a schedule provider.
 - `references/email.md` before you send, build or test an email. Delivery is asynchronous, the sender address is a container parameter, and tests use `assertQueuedEmailCount()`.
 - `references/admin-listing.md` before you add or change an admin list, edit, delete or toggle action. The list must preserve filter and sort state through `returnTo`.
+- `references/session.md` before you add a GET route that a Stimulus controller or a Turbo frame reload fetches in the background, or code that writes the session. Mark such a route with `ReadOnlyAwareSessionHandler::READ_ONLY`. An unmarked GET keeps its session write, which can overwrite a concurrent POST. A marked route drops every session write.
 - `references/http-and-concurrency.md` before you call an external service through `HttpClientInterface`, or write a read-check-write handler that a concurrent request could race.

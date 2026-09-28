@@ -7,6 +7,7 @@ namespace App\Tests\Module\Project\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Mcp\ProjectCurrentTool;
+use App\Tests\Support\McpRefusalMessages;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -83,7 +84,7 @@ final class ProjectCurrentToolTest extends KernelTestCase
         $this->actAsUnboundMcpToken($this->user('owner@example.test'));
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('not bound to a project');
+        $this->expectExceptionMessage(McpRefusalMessages::NO_PROJECT_REACHED);
 
         ($this->tool)();
     }

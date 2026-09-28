@@ -1,0 +1,368 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Module\GitHub\Service;
+
+use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestReview;
+use App\Module\Forge\Entity\PullRequestState;
+use App\Module\Forge\Service\PullRequestUnreadable;
+use App\Module\GitHub\Service\GitHubBranchRules;
+use App\Module\GitHub\Service\GitHubPullRequestStateMapper;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+final class GitHubPullRequestStateMapperTest extends TestCase
+{
+    private const string HEAD = '0a80537839ea354257ded862e7e407fc85bf1487';
+
+    public function test_pull_request_604_is_pending_because_a_required_check_never_reported(): void
+    {
+        $snapshot = new GitHubPullRequestStateMapper()->map(self::pullRequest604(), self::rules604(), null);
+
+        self::assertSame(PullRequestState::Open, $snapshot->state);
+        self::assertFalse($snapshot->draft);
+        self::assertSame(self::HEAD, $snapshot->headSha);
+        self::assertSame('main', $snapshot->baseBranch);
+        self::assertSame(PullRequestChecks::Pending, $snapshot->checks);
+        self::assertNull($snapshot->checksSha);
+        self::assertSame([], $snapshot->failedChecks);
+        self::assertSame(PullRequestMergeability::Blocked, $snapshot->mergeability);
+        self::assertSame(PullRequestReview::Approved, $snapshot->review);
+        self::assertFalse($snapshot->readyToMerge);
+    }
+
+    public function test_every_required_check_passed_on_a_clean_pull_request_is_ready_to_merge(): void
+    {
+        $node = self::allPassed(self::pullRequest604());
+        $node['mergeStateStatus'] = 'CLEAN';
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, self::rules604(), 0);
+
+        self::assertSame(PullRequestChecks::Passed, $snapshot->checks);
+        self::assertSame(self::HEAD, $snapshot->checksSha);
+        self::assertSame(PullRequestMergeability::Mergeable, $snapshot->mergeability);
+        self::assertTrue($snapshot->readyToMerge);
+    }
+
+    public function test_failed_required_checks_are_named_in_order_and_a_failed_optional_check_is_ignored(): void
+    {
+        $node = self::allPassed(self::pullRequest604());
+        $node = self::withContext($node, self::checkRun('phpunit', 'COMPLETED', 'FAILURE'));
+        $node = self::withContext($node, self::checkRun('e2e-rest', 'COMPLETED', 'TIMED_OUT'));
+        $node = self::withContext($node, self::checkRun('coverage', 'COMPLETED', 'FAILURE', required: false));
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, self::rules604(), null);
+
+        self::assertSame(PullRequestChecks::Failed, $snapshot->checks);
+        self::assertSame(self::HEAD, $snapshot->checksSha);
+        self::assertSame(['e2e-rest', 'phpunit'], $snapshot->failedChecks);
+        self::assertFalse($snapshot->readyToMerge);
+    }
+
+    public function test_a_pending_required_check_outweighs_a_failed_one(): void
+    {
+        $node = self::withContext(self::pullRequest604(), self::checkRun('phpunit', 'COMPLETED', 'FAILURE'));
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, self::rules604(), null);
+
+        self::assertSame(PullRequestChecks::Pending, $snapshot->checks);
+        self::assertNull($snapshot->checksSha);
+        self::assertSame([], $snapshot->failedChecks);
+    }
+
+    public function test_neutral_and_skipped_conclusions_pass(): void
+    {
+        $node = self::allPassed(self::pullRequest604());
+        $node = self::withContext($node, self::checkRun('audit', 'COMPLETED', 'NEUTRAL'));
+        $node = self::withContext($node, self::checkRun('e2e', 'COMPLETED', 'SKIPPED'));
+
+        self::assertSame(PullRequestChecks::Passed, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->checks);
+    }
+
+    public function test_the_last_entry_of_a_repeated_name_wins(): void
+    {
+        $node = self::allPassed(self::pullRequest604());
+        $node = self::withContext($node, self::checkRun('phpunit', 'COMPLETED', 'FAILURE'));
+        $node = self::withContext($node, self::checkRun('phpunit', 'COMPLETED', 'SUCCESS'));
+
+        self::assertSame(PullRequestChecks::Passed, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->checks);
+    }
+
+    public function test_a_check_run_and_a_status_that_share_a_name_must_both_pass(): void
+    {
+        $node = self::withContexts(self::pullRequest604(), [self::checkRun('build', 'COMPLETED', 'FAILURE'), self::statusContext('build', 'SUCCESS')]);
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, new GitHubBranchRules(['build'], false), null);
+
+        self::assertSame(PullRequestChecks::Failed, $snapshot->checks);
+        self::assertSame(['build'], $snapshot->failedChecks);
+    }
+
+    public function test_without_a_ruleset_the_contexts_marked_required_decide(): void
+    {
+        $mapper = new GitHubPullRequestStateMapper();
+
+        self::assertSame(PullRequestChecks::Pending, $mapper->map(self::pullRequest604(), null, null)->checks);
+
+        $node = self::pullRequest604();
+        foreach (['e2e-chromium', 'e2e-chromium-2', 'e2e-rest'] as $name) {
+            $node = self::withContext($node, self::checkRun($name, 'COMPLETED', 'SUCCESS'));
+        }
+        $node = self::withContext($node, self::checkRun('optional', 'COMPLETED', 'FAILURE', required: false));
+
+        self::assertSame(PullRequestChecks::Passed, $mapper->map($node, null, null)->checks);
+    }
+
+    public function test_a_check_that_classic_branch_protection_requires_counts_beside_an_empty_ruleset(): void
+    {
+        $node = self::withContexts(self::pullRequest604(), [self::checkRun('build', 'COMPLETED', 'FAILURE')]);
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, new GitHubBranchRules([], false), null);
+
+        self::assertSame(PullRequestChecks::Failed, $snapshot->checks);
+        self::assertSame(['build'], $snapshot->failedChecks);
+    }
+
+    /** @return iterable<string, array{string, PullRequestChecks}> */
+    public static function emptyRequiredSets(): iterable
+    {
+        yield 'blocked' => ['BLOCKED', PullRequestChecks::Pending];
+        yield 'clean' => ['CLEAN', PullRequestChecks::Passed];
+    }
+
+    #[DataProvider('emptyRequiredSets')]
+    public function test_with_no_required_check_the_merge_state_decides(string $mergeStateStatus, PullRequestChecks $expected): void
+    {
+        $node = self::withContexts(self::pullRequest604(), []);
+        $node['mergeStateStatus'] = $mergeStateStatus;
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, new GitHubBranchRules([], false), null);
+
+        self::assertSame($expected, $snapshot->checks);
+        self::assertSame(PullRequestChecks::Passed === $expected ? self::HEAD : null, $snapshot->checksSha);
+    }
+
+    public function test_status_contexts_count_like_check_runs(): void
+    {
+        $mapper = new GitHubPullRequestStateMapper();
+        $rules = new GitHubBranchRules(['ci/legacy', 'ci/deploy'], false);
+        $node = self::withContexts(self::pullRequest604(), [self::statusContext('ci/legacy', 'SUCCESS'), self::statusContext('ci/deploy', 'EXPECTED')]);
+
+        self::assertSame(PullRequestChecks::Pending, $mapper->map($node, $rules, null)->checks);
+
+        $node = self::withContexts(self::pullRequest604(), [self::statusContext('ci/legacy', 'ERROR'), self::statusContext('ci/deploy', 'FAILURE')]);
+        $snapshot = $mapper->map($node, $rules, null);
+
+        self::assertSame(PullRequestChecks::Failed, $snapshot->checks);
+        self::assertSame(['ci/deploy', 'ci/legacy'], $snapshot->failedChecks);
+    }
+
+    public function test_a_head_without_a_rollup_waits_for_its_required_checks(): void
+    {
+        $node = self::pullRequest604();
+        $node['commits']['nodes'][0]['commit']['statusCheckRollup'] = null;
+
+        self::assertSame(PullRequestChecks::Pending, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->checks);
+    }
+
+    /** @return iterable<string, array{string, string, ?int, PullRequestMergeability}> */
+    public static function mergeabilities(): iterable
+    {
+        yield 'conflicting' => ['CONFLICTING', 'BLOCKED', null, PullRequestMergeability::Conflicting];
+        yield 'dirty' => ['UNKNOWN', 'DIRTY', null, PullRequestMergeability::Conflicting];
+        yield 'behind by status' => ['MERGEABLE', 'BEHIND', null, PullRequestMergeability::Behind];
+        yield 'behind by compare' => ['MERGEABLE', 'BLOCKED', 3, PullRequestMergeability::Behind];
+        yield 'blocked' => ['MERGEABLE', 'BLOCKED', 0, PullRequestMergeability::Blocked];
+        yield 'clean' => ['MERGEABLE', 'CLEAN', null, PullRequestMergeability::Mergeable];
+        yield 'has hooks' => ['MERGEABLE', 'HAS_HOOKS', null, PullRequestMergeability::Mergeable];
+        yield 'unstable' => ['MERGEABLE', 'UNSTABLE', null, PullRequestMergeability::Mergeable];
+        yield 'not computed yet' => ['UNKNOWN', 'CLEAN', null, PullRequestMergeability::Unknown];
+        yield 'unknown state' => ['MERGEABLE', 'UNKNOWN', null, PullRequestMergeability::Unknown];
+    }
+
+    #[DataProvider('mergeabilities')]
+    public function test_mergeability(string $mergeable, string $mergeStateStatus, ?int $behindBy, PullRequestMergeability $expected): void
+    {
+        $node = self::allPassed(self::pullRequest604());
+        $node['mergeable'] = $mergeable;
+        $node['mergeStateStatus'] = $mergeStateStatus;
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, self::rules604(), $behindBy);
+
+        self::assertSame($expected, $snapshot->mergeability);
+        self::assertSame(PullRequestMergeability::Mergeable === $expected, $snapshot->readyToMerge);
+    }
+
+    /** @return iterable<string, array{?string, PullRequestReview}> */
+    public static function reviews(): iterable
+    {
+        yield 'approved' => ['APPROVED', PullRequestReview::Approved];
+        yield 'changes requested' => ['CHANGES_REQUESTED', PullRequestReview::ChangesRequested];
+        yield 'required' => ['REVIEW_REQUIRED', PullRequestReview::Required];
+        yield 'none' => [null, PullRequestReview::None];
+    }
+
+    #[DataProvider('reviews')]
+    public function test_review(?string $decision, PullRequestReview $expected): void
+    {
+        $node = self::pullRequest604();
+        $node['reviewDecision'] = $decision;
+
+        self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->review);
+    }
+
+    public function test_a_draft_is_never_ready_to_merge(): void
+    {
+        $node = self::allPassed(self::pullRequest604());
+        $node['mergeStateStatus'] = 'CLEAN';
+        $node['isDraft'] = true;
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, self::rules604(), null);
+
+        self::assertTrue($snapshot->draft);
+        self::assertFalse($snapshot->readyToMerge);
+    }
+
+    /** @return iterable<string, array{string, PullRequestState}> */
+    public static function closedStates(): iterable
+    {
+        yield 'merged' => ['MERGED', PullRequestState::Merged];
+        yield 'closed' => ['CLOSED', PullRequestState::Closed];
+    }
+
+    #[DataProvider('closedStates')]
+    public function test_a_closed_pull_request_is_never_ready_to_merge(string $state, PullRequestState $expected): void
+    {
+        $node = self::allPassed(self::pullRequest604());
+        $node['mergeStateStatus'] = 'CLEAN';
+        $node['state'] = $state;
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, self::rules604(), null);
+
+        self::assertSame($expected, $snapshot->state);
+        self::assertFalse($snapshot->readyToMerge);
+    }
+
+    public function test_a_node_without_its_core_fields_is_unreadable(): void
+    {
+        $node = self::pullRequest604();
+        unset($node['headRefOid']);
+
+        try {
+            new GitHubPullRequestStateMapper()->map($node, null, null);
+            self::fail('Expected PullRequestUnreadable.');
+        } catch (PullRequestUnreadable $e) {
+            self::assertSame('malformed_body', $e->reason);
+        }
+    }
+
+    public function test_the_ruleset_of_the_repository_reads_every_required_context_and_strictness(): void
+    {
+        $rules = self::rules604();
+
+        self::assertCount(13, $rules->requiredChecks);
+        self::assertContains('e2e', $rules->requiredChecks);
+        self::assertTrue($rules->strict);
+    }
+
+    public function test_several_status_check_rules_merge_and_any_strict_rule_makes_the_branch_strict(): void
+    {
+        $rules = GitHubBranchRules::fromRules([
+            ['type' => 'required_status_checks', 'parameters' => ['strict_required_status_checks_policy' => false, 'required_status_checks' => [['context' => 'lint']]]],
+            ['type' => 'deletion'],
+            ['type' => 'required_status_checks', 'parameters' => ['strict_required_status_checks_policy' => true, 'required_status_checks' => [['context' => 'lint'], ['context' => 'test'], ['integration_id' => 1]]]],
+        ]);
+
+        self::assertSame(['lint', 'test'], $rules->requiredChecks);
+        self::assertTrue($rules->strict);
+        self::assertEquals(new GitHubBranchRules([], false), GitHubBranchRules::fromRules([]));
+    }
+
+    public function test_a_ruleset_answer_that_is_not_a_list_is_refused(): void
+    {
+        $this->expectException(\UnexpectedValueException::class);
+
+        GitHubBranchRules::fromRules(['message' => 'Not Found']);
+    }
+
+    /** @return array<string, mixed> */
+    private static function pullRequest604(): array
+    {
+        $answer = self::fixture('graphql');
+        $node = $answer['data']['repository']['pullRequest'] ?? null;
+        self::assertIsArray($node);
+
+        return $node;
+    }
+
+    private static function rules604(): GitHubBranchRules
+    {
+        return GitHubBranchRules::fromRules(self::fixture('rules'));
+    }
+
+    /** @return array<mixed> */
+    private static function fixture(string $name): array
+    {
+        $json = file_get_contents(__DIR__.'/fixtures/pull-request-604-'.$name.'.json');
+        self::assertIsString($json);
+        $decoded = json_decode($json, true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+
+        return $decoded;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
+     */
+    private static function allPassed(array $node): array
+    {
+        foreach (self::rules604()->requiredChecks as $name) {
+            $node = self::withContext($node, self::checkRun($name, 'COMPLETED', 'SUCCESS'));
+        }
+
+        return $node;
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     * @param array<string, mixed> $context
+     *
+     * @return array<string, mixed>
+     */
+    private static function withContext(array $node, array $context): array
+    {
+        $node['commits']['nodes'][0]['commit']['statusCheckRollup']['contexts']['nodes'][] = $context;
+
+        return $node;
+    }
+
+    /**
+     * @param array<string, mixed>       $node
+     * @param list<array<string, mixed>> $contexts
+     *
+     * @return array<string, mixed>
+     */
+    private static function withContexts(array $node, array $contexts): array
+    {
+        $node['commits']['nodes'][0]['commit']['statusCheckRollup']['contexts']['nodes'] = $contexts;
+
+        return $node;
+    }
+
+    /** @return array<string, mixed> */
+    private static function checkRun(string $name, string $status, ?string $conclusion, bool $required = true): array
+    {
+        return ['__typename' => 'CheckRun', 'name' => $name, 'status' => $status, 'conclusion' => $conclusion, 'isRequired' => $required];
+    }
+
+    /** @return array<string, mixed> */
+    private static function statusContext(string $context, string $state): array
+    {
+        return ['__typename' => 'StatusContext', 'context' => $context, 'state' => $state, 'isRequired' => true];
+    }
+}

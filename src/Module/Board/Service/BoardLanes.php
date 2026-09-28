@@ -6,7 +6,6 @@ namespace App\Module\Board\Service;
 
 use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Command\BoardLaneView;
-use App\Module\Board\Entity\CardType;
 
 /**
  * A lane is an epic in an open column with its lane on, in board order.
@@ -29,7 +28,7 @@ final readonly class BoardLanes
                 continue;
             }
             foreach ($view->cards as $card) {
-                if (CardType::Epic === $card->type && $card->laneEnabled) {
+                if ($card->drawsLane()) {
                     $epics[(string) $card->id] = $card;
                 }
             }

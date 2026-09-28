@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace App\Session;
 
 use Doctrine\DBAL\Connection;
+use Sentry\State\HubInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler;
 
 /**
- * Builds the session handler's own connection, which differs from DATABASE_URL
- * in three ways that each fail quietly if you undo them.
+ * Builds the session handler: a ReadOnlyAwareSessionHandler over one locking
+ * and one non-locking PdoSessionHandler. Both connect lazily, so a request
+ * opens one connection. That connection differs from DATABASE_URL in three
+ * ways that each fail quietly if you undo them.
  *
  * The database name comes from Doctrine, not the URL: `dbname_suffix` appends
  * WORKTREE_DB_SUFFIX and _test<TEST_TOKEN>, so the raw URL names the main `app`
@@ -47,16 +51,32 @@ final readonly class PdoSessionHandlerFactory
 
         #[Autowire(env: 'DATABASE_URL')]
         private string $databaseUrl,
+        private RequestStack $requestStack,
+        private HubInterface $hub,
     ) {
     }
 
-    public function __invoke(): PdoSessionHandler
+    public function __invoke(): ReadOnlyAwareSessionHandler
+    {
+        return new ReadOnlyAwareSessionHandler(
+            $this->create(PdoSessionHandler::LOCK_TRANSACTIONAL),
+            $this->create(PdoSessionHandler::LOCK_NONE),
+            $this->requestStack,
+            $this->hub,
+        );
+    }
+
+    /**
+     * @param PdoSessionHandler::LOCK_* $lockMode
+     */
+    public function create(int $lockMode): PdoSessionHandler
     {
         $parts = $this->urlParts();
 
         return new PdoSessionHandler($this->sessionDsn(), [
             'db_username' => rawurldecode($parts['user'] ?? ''),
             'db_password' => rawurldecode($parts['pass'] ?? ''),
+            'lock_mode' => $lockMode,
         ]);
     }
 

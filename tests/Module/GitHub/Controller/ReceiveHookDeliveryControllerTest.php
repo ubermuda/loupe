@@ -35,6 +35,25 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
     }
 
+    public function test_a_status_queues_a_refresh_of_the_tracked_pull_request_on_that_commit(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $project = $this->project('status');
+        $hook = $this->hook($project);
+        $tracked = $this->trackedPullRequest($project, 'acme/t', 9, 'ddd444');
+        $this->trackedPullRequest($project, 'acme/t', 10, 'eee555');
+
+        $this->deliver($client, '/webhooks/forge/github/'.$hook->hookKey, 'status', [
+            'sha' => 'ddd444',
+            'state' => 'success',
+            'repository' => ['id' => 630, 'full_name' => 'acme/t'],
+        ], $hook->secret);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([[$tracked, false]], $this->queuedRefreshes());
+    }
+
     public function test_a_bad_signature_is_refused_and_marks_the_hook_failing(): void
     {
         $client = static::createClient();
