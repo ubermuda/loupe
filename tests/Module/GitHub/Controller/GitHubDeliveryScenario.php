@@ -13,6 +13,7 @@ use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Entity\ForgeRepositorySource;
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\GitHub\Entity\GitHubHook;
@@ -121,21 +122,21 @@ trait GitHubDeliveryScenario
         return $refreshes;
     }
 
-    /** @return list<bool> the review marker of each queued refresh */
-    private function queuedReviewMarkers(): array
+    /** @return list<?PullRequestReview> the verdict of each queued refresh */
+    private function queuedVerdicts(): array
     {
         $transport = self::getContainer()->get('messenger.transport.async');
         self::assertInstanceOf(InMemoryTransport::class, $transport);
 
-        $markers = [];
+        $verdicts = [];
         foreach ($transport->getSent() as $envelope) {
             $message = $envelope->getMessage();
             if ($message instanceof RefreshPullRequestState) {
-                $markers[] = $message->reviewSubmitted;
+                $verdicts[] = $message->verdict;
             }
         }
 
-        return $markers;
+        return $verdicts;
     }
 
     /** @param array<mixed> $payload */

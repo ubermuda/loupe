@@ -45,10 +45,14 @@ final readonly class PublishPullRequestEventsHandler
     public const int RESUME_BRIDGE_SECONDS = 300;
 
     /** The shapes the bridge accepts. It refuses the whole event on one bad field, so a bad value is left out. */
-    private const string REPOSITORY_PATTERN = '#^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)+$#';
-    private const string URL_PATTERN = '#^https://[A-Za-z0-9._~:/?\#\[\]@!$&()*+,;=%-]+$#';
-    private const string SHA_PATTERN = '#^[0-9a-f]{7,64}$#';
+    private const string REPOSITORY_PATTERN = '#^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)+$#D';
+    private const string URL_PATTERN = '#^https://[A-Za-z0-9._~:/?\#\[\]@!$&()*+,;=%-]+$#D';
+    private const string SHA_PATTERN = '#^[0-9a-f]{7,64}$#D';
+    private const int MAX_REPOSITORY_LENGTH = 255;
     private const int MAX_URL_LENGTH = 2000;
+
+    /** One read asks one fix per card, for the first of these reasons it found. */
+    private const array FIX_PRIORITY = ['conflict', 'checks-failed', 'changes-requested'];
 
     public function __construct(
         private CardPullRequestRepository $cardPullRequests,
@@ -68,6 +72,7 @@ final readonly class PublishPullRequestEventsHandler
         $pullRequest = $command->pullRequest;
         $forge = Forge::tryFrom($pullRequest->forge);
         $facts = $this->facts($command);
+        $fixReason = $this->fixReason($facts);
         $readyToMerge = !$command->previous->readyToMerge && $command->current->readyToMerge;
         if (null === $forge || ([] === $facts && !$readyToMerge)) {
             return;
@@ -85,7 +90,7 @@ final readonly class PublishPullRequestEventsHandler
 
         $settings = $this->boardAutomation->settingsOf($project);
         // Each change to a row flushes at once, because the next locked read of the row refreshes it and drops unsaved counts.
-        $this->em->wrapInTransaction(function () use ($links, $facts, $readyToMerge, $settings, $command): void {
+        $this->em->wrapInTransaction(function () use ($links, $facts, $fixReason, $readyToMerge, $settings, $command): void {
             foreach ($links as $link) {
                 $card = $link->card;
                 $decides = $settings->enabled && !$card->column->terminal;
@@ -94,10 +99,10 @@ final readonly class PublishPullRequestEventsHandler
                     if ($fact['resets']) {
                         $this->cardAutomations->reset($card);
                     }
-                    if ($decides && null !== $fact['fixReason']) {
-                        $this->requestFix($link, $command->current->headSha, $settings, $fact['fixReason']);
-                        $this->em->flush();
-                    }
+                }
+                if ($decides && null !== $fixReason) {
+                    $this->requestFix($link, $command->current->headSha, $settings, $fixReason);
+                    $this->em->flush();
                 }
                 if ($decides && $readyToMerge && BoardMergeStrategy::Worker === $settings->mergeStrategy) {
                     $automation = $this->cardAutomations->findOrCreateForUpdate($card);
@@ -117,13 +122,10 @@ final readonly class PublishPullRequestEventsHandler
         $current = $command->current;
         $facts = [];
 
-        if ($command->reviewed) {
-            $verdict = match ($current->review) {
-                PullRequestReview::Approved, PullRequestReview::ChangesRequested => $current->review->value,
-                default => null,
-            };
-            if (null !== $verdict) {
-                $facts[] = $this->fact(ForgeEventType::REVIEW_SUBMITTED, ['verdict' => $verdict], true, PullRequestReview::ChangesRequested === $current->review ? 'changes-requested' : null);
+        $verdict = $command->reviewVerdict;
+        if (null !== $verdict) {
+            if (PullRequestReview::Approved === $verdict || PullRequestReview::ChangesRequested === $verdict) {
+                $facts[] = $this->fact(ForgeEventType::REVIEW_SUBMITTED, ['verdict' => $verdict->value], true, PullRequestReview::ChangesRequested === $verdict ? 'changes-requested' : null);
             }
 
             return $facts;
@@ -157,6 +159,19 @@ final readonly class PublishPullRequestEventsHandler
         }
 
         return $facts;
+    }
+
+    /** @param list<Fact> $facts */
+    private function fixReason(array $facts): ?string
+    {
+        $reasons = array_column($facts, 'fixReason');
+        foreach (self::FIX_PRIORITY as $reason) {
+            if (\in_array($reason, $reasons, true)) {
+                return $reason;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -237,11 +252,12 @@ final readonly class PublishPullRequestEventsHandler
             'cardNumber' => $card->number,
             'forge' => $link->forge->value,
         ];
-        if (null !== $link->repository && 1 === preg_match(self::REPOSITORY_PATTERN, $link->repository)) {
+        if (null !== $link->repository && \strlen($link->repository) <= self::MAX_REPOSITORY_LENGTH && 1 === preg_match(self::REPOSITORY_PATTERN, $link->repository)) {
             $payload['repository'] = $link->repository;
         }
         $payload['pullRequestNumber'] = $link->number;
-        if (\strlen($link->url) <= self::MAX_URL_LENGTH && 1 === preg_match(self::URL_PATTERN, $link->url)) {
+        $host = parse_url($link->url, \PHP_URL_HOST);
+        if (\strlen($link->url) <= self::MAX_URL_LENGTH && 1 === preg_match(self::URL_PATTERN, $link->url) && \is_string($host) && '' !== $host) {
             $payload['pullRequestUrl'] = $link->url;
         }
         if (null !== $headSha && 1 === preg_match(self::SHA_PATTERN, $headSha)) {

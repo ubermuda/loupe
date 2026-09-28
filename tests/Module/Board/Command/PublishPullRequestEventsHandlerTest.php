@@ -32,6 +32,7 @@ use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
@@ -140,17 +141,39 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         self::assertSame(['build linux', str_repeat('x', 200)], $this->outbox()[0]['failedChecks']);
     }
 
-    public function test_a_field_the_bridge_refuses_is_left_out(): void
+    /** @return iterable<string, array{string, string, string}> */
+    public static function refusedFields(): iterable
     {
-        $card = $this->linkedCard('http://github.com/Acme/Widgets/pull/5');
+        yield 'plain http, no owner and a bad sha' => ['http://github.com/Acme/Widgets/pull/5', 'Widgets', 'NOT-A-SHA'];
+        yield 'trailing newlines' => ["https://github.com/Acme/Widgets/pull/5\n", "Acme/Widgets\n", "abc1234\n"];
+        yield 'no host' => ['https:///Acme/Widgets/pull/5', 'Acme/Wid gets', 'NOT-A-SHA'];
+    }
 
-        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Merged, headSha: 'NOT-A-SHA'));
+    #[DataProvider('refusedFields')]
+    public function test_a_field_the_bridge_refuses_is_left_out(string $url, string $repository, string $headSha): void
+    {
+        $this->trackRepository($repository);
+        $card = $this->linkedCard($url, repository: $repository);
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Merged, headSha: $headSha));
 
         $event = $this->outbox()[0];
         self::assertSame('pull_request.merged', $event['type']);
         self::assertSame((string) $card->id, $event['cardId']);
+        self::assertArrayNotHasKey('repository', $event);
         self::assertArrayNotHasKey('pullRequestUrl', $event);
         self::assertArrayNotHasKey('headSha', $event);
+    }
+
+    public function test_a_repository_at_the_length_limit_is_kept(): void
+    {
+        $repository = 'Acme/'.str_repeat('w', 250);
+        $this->trackRepository($repository);
+        $this->linkedCard(repository: $repository);
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Merged));
+
+        self::assertSame($repository, $this->outbox()[0]['repository']);
     }
 
     public function test_conflict_asks_for_a_fix_and_behind_does_not(): void
@@ -182,9 +205,10 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         $this->handle(new PullRequestSnapshot(), $this->failed('aaaaaaa'));
         $this->block($card, 3, 'checks-failed');
 
-        $this->review(new PullRequestSnapshot(review: PullRequestReview::ChangesRequested));
-        $this->review(new PullRequestSnapshot(review: PullRequestReview::Approved));
-        $this->review(new PullRequestSnapshot(review: PullRequestReview::Required));
+        // The snapshot says None, as it does for a branch that requires no review.
+        $this->review(PullRequestReview::ChangesRequested);
+        $this->review(PullRequestReview::Approved, new PullRequestSnapshot(review: PullRequestReview::ChangesRequested));
+        $this->review(PullRequestReview::Required);
 
         $events = array_slice($this->outbox(), 2);
         self::assertSame(['pull_request.review_submitted', 'pull_request.fix_requested', 'pull_request.review_submitted'], array_column($events, 'type'));
@@ -202,6 +226,21 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(review: PullRequestReview::ChangesRequested));
 
         self::assertSame([], $this->outbox());
+    }
+
+    public function test_a_read_with_no_verdict_on_an_approved_pull_request_sends_nothing_and_keeps_the_rounds(): void
+    {
+        $card = $this->linkedCard();
+        $this->handle(new PullRequestSnapshot(), $this->failed('aaaaaaa'));
+        $this->block($card, 3, 'checks-failed');
+        $approved = new PullRequestSnapshot(headSha: 'aaaaaaa', checks: PullRequestChecks::Failed, checksSha: 'aaaaaaa', review: PullRequestReview::Approved);
+
+        $this->handle($approved, $approved);
+
+        self::assertCount(2, $this->outbox());
+        $automation = $this->automationOf($card);
+        self::assertSame(3, $automation->fixRounds);
+        self::assertSame('checks-failed', $automation->blockedReason);
     }
 
     public function test_a_card_in_a_terminal_column_gets_facts_and_no_decisions(): void
@@ -248,18 +287,20 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         self::assertEquals($this->clock->now(), $automation->lastActionAt);
     }
 
-    public function test_a_second_fix_reason_in_one_read_sees_the_first_round(): void
+    public function test_one_read_with_two_fix_reasons_asks_for_one_fix_and_names_the_conflict(): void
     {
         $card = $this->linkedCard();
         $this->configure(loopLimit: 1);
 
         $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(headSha: self::SHA, checks: PullRequestChecks::Failed, checksSha: self::SHA, mergeability: PullRequestMergeability::Conflicting));
 
-        self::assertSame(1, $this->eventsOfType('pull_request.fix_requested'));
+        $events = $this->outbox();
+        self::assertSame(['pull_request.checks_concluded', 'pull_request.conflicted', 'pull_request.fix_requested'], array_column($events, 'type'));
+        self::assertSame('conflict', $events[2]['reason']);
         $automation = $this->automationOf($card);
         self::assertSame(1, $automation->fixRounds);
-        self::assertSame('conflict', $automation->blockedReason);
-        self::assertSame(CardAutomationAction::Stopped, $automation->lastAction);
+        self::assertNull($automation->blockedReason);
+        self::assertSame(CardAutomationAction::FixRequested, $automation->lastAction);
     }
 
     public function test_ready_to_merge_fires_only_when_it_turns_true_under_the_worker_strategy(): void
@@ -341,7 +382,7 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         $this->linkedCard();
 
         $this->dispatch(new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(), $this->failed(self::SHA)));
-        $this->dispatch(new PullRequestReviewed($this->pullRequest, new PullRequestSnapshot(review: PullRequestReview::Approved)));
+        $this->dispatch(new PullRequestReviewed($this->pullRequest, PullRequestReview::Approved, new PullRequestSnapshot()));
 
         self::assertSame(
             ['pull_request.checks_concluded', 'pull_request.fix_requested', 'pull_request.review_submitted'],
@@ -355,7 +396,7 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         $card = $this->linkedCard();
 
         $this->dispatch(new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(), $this->failed(self::SHA)));
-        $this->dispatch(new PullRequestReviewed($this->pullRequest, new PullRequestSnapshot(review: PullRequestReview::Approved)));
+        $this->dispatch(new PullRequestReviewed($this->pullRequest, PullRequestReview::Approved, new PullRequestSnapshot()));
 
         self::assertSame([], $this->outbox());
         self::assertNull($this->findAutomation($card));
@@ -387,9 +428,16 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         $this->handler()(new PublishPullRequestEventsCommand($this->pullRequest, $previous, $current));
     }
 
-    private function review(PullRequestSnapshot $snapshot): void
+    private function review(PullRequestReview $verdict, PullRequestSnapshot $snapshot = new PullRequestSnapshot()): void
     {
-        $this->handler()(new PublishPullRequestEventsCommand($this->pullRequest, $snapshot, $snapshot, reviewed: true));
+        $this->handler()(new PublishPullRequestEventsCommand($this->pullRequest, $snapshot, $snapshot, $verdict));
+    }
+
+    private function trackRepository(string $repository): void
+    {
+        $this->pullRequest = new ForgePullRequest($this->project, 'github', $repository, 5);
+        $this->em->persist($this->pullRequest);
+        $this->em->flush();
     }
 
     private function handler(): PublishPullRequestEventsHandler
@@ -461,11 +509,11 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         return $automation;
     }
 
-    private function linkedCard(string $url = 'https://github.com/Acme/Widgets/pull/5', string $slug = 'backlog'): Card
+    private function linkedCard(string $url = 'https://github.com/Acme/Widgets/pull/5', string $slug = 'backlog', string $repository = 'Acme/Widgets'): Card
     {
         $card = new Card($this->project, $this->column($this->project, $slug), 'Ship it', '', ++$this->cardNumber);
         $this->em->persist($card);
-        $this->em->persist(new CardPullRequest($card, $url, Forge::GitHub, 'Acme/Widgets', 5));
+        $this->em->persist(new CardPullRequest($card, $url, Forge::GitHub, $repository, 5));
         $this->em->flush();
 
         return $card;

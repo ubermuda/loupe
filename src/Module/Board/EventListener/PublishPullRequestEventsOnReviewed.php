@@ -26,6 +26,6 @@ final readonly class PublishPullRequestEventsOnReviewed
             return;
         }
 
-        ($this->publish)(new PublishPullRequestEventsCommand($event->pullRequest, $event->snapshot, $event->snapshot, reviewed: true));
+        ($this->publish)(new PublishPullRequestEventsCommand($event->pullRequest, $event->snapshot, $event->snapshot, $event->verdict));
     }
 }

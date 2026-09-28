@@ -69,7 +69,7 @@ final readonly class DeliveryAnnouncer
 
         foreach ($delivery->refreshHints() as $hint) {
             match (true) {
-                null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number, $hint->review),
+                null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number, $hint->verdict),
                 null !== $hint->headSha => $this->tracker->refreshHead($project, GitHubDelivery::FORGE, $repository->fullName, $hint->headSha),
                 default => $this->tracker->refreshBase($project, GitHubDelivery::FORGE, $repository->fullName, $hint->baseBranch ?? throw new \LogicException('A hint sets one field.')),
             };

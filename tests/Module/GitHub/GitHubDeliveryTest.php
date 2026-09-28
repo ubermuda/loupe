@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\GitHub;
 
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
 use App\Module\GitHub\Entity\GitHubRepositorySelection;
@@ -250,22 +251,27 @@ final class GitHubDeliveryTest extends TestCase
         ])->refreshHints());
     }
 
-    /** @return iterable<string, array{string, list<PullRequestRefreshHint>}> */
+    /** @return iterable<string, array{string, mixed, list<PullRequestRefreshHint>}> */
     public static function reviewActions(): iterable
     {
-        yield 'submitted' => ['submitted', [PullRequestRefreshHint::number(7, review: true)]];
-        yield 'dismissed' => ['dismissed', [PullRequestRefreshHint::number(7)]];
-        yield 'edited' => ['edited', []];
+        yield 'approved' => ['submitted', ['state' => 'approved'], [PullRequestRefreshHint::number(7, PullRequestReview::Approved)]];
+        yield 'changes requested' => ['submitted', ['state' => 'changes_requested'], [PullRequestRefreshHint::number(7, PullRequestReview::ChangesRequested)]];
+        yield 'upper case' => ['submitted', ['state' => 'CHANGES_REQUESTED'], [PullRequestRefreshHint::number(7, PullRequestReview::ChangesRequested)]];
+        yield 'commented' => ['submitted', ['state' => 'commented'], [PullRequestRefreshHint::number(7)]];
+        yield 'no review' => ['submitted', null, [PullRequestRefreshHint::number(7)]];
+        yield 'dismissed' => ['dismissed', ['state' => 'approved'], [PullRequestRefreshHint::number(7)]];
+        yield 'edited' => ['edited', ['state' => 'approved'], []];
     }
 
     /** @param list<PullRequestRefreshHint> $hints */
     #[DataProvider('reviewActions')]
-    public function test_a_submitted_or_dismissed_review_hints_its_pull_request(string $action, array $hints): void
+    public function test_a_review_hints_its_pull_request_with_the_verdict_it_submits(string $action, mixed $review, array $hints): void
     {
         self::assertEquals($hints, $this->delivery('pull_request_review', [
             'action' => $action,
             'repository' => self::REPOSITORY,
             'pull_request' => ['number' => 7],
+            'review' => $review,
         ])->refreshHints());
     }
 

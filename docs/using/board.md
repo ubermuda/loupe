@@ -527,8 +527,8 @@ gets these requests. A card in a terminal column never gets one.
 Loupe asks for a fix when the required checks fail, when the pull request
 conflicts with its base, and when a reviewer requests changes. At the loop
 limit, Loupe stops asking for the card. Passed checks, an approval, a change
-request, or a move of the card by a person start the count again. A bridge rule decides what the
-agent does with each request. See
+request, or a move of the card by a person start the count again. A comment
+review does not. A bridge rule decides what the agent does with each request. See
 [Forge webhooks](../extending/forge-webhooks.md#the-loop-limit).
 
 ## The MCP tools

@@ -10,6 +10,7 @@ use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Event\PullRequestReviewed;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
+use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\PullRequestStateReaders;
 use App\Module\Forge\Service\PullRequestUnreadable;
@@ -58,9 +59,7 @@ final readonly class ReadPullRequestStateHandler
             }
 
             if ($pullRequest->refreshedAt >= $command->requestedAt) {
-                if ($command->reviewSubmitted) {
-                    $this->events->dispatch(new PullRequestReviewed($pullRequest, $pullRequest->snapshot()));
-                }
+                $this->announceReview($command, $pullRequest, $pullRequest->snapshot());
 
                 return null;
             }
@@ -76,10 +75,12 @@ final readonly class ReadPullRequestStateHandler
                     'forge' => $pullRequest->forge,
                     'reason' => $e->reason,
                 ]);
+                // The retry carries the verdict, so a transient failure leaves the review to it.
                 if ($e->transient) {
                     return $e;
                 }
                 $pullRequest->refreshedAt = $readStartedAt;
+                $this->announceReview($command, $pullRequest, $pullRequest->snapshot());
 
                 return null;
             }
@@ -91,9 +92,7 @@ final readonly class ReadPullRequestStateHandler
             if (!$current->equals($previous)) {
                 $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current));
             }
-            if ($command->reviewSubmitted) {
-                $this->events->dispatch(new PullRequestReviewed($pullRequest, $current));
-            }
+            $this->announceReview($command, $pullRequest, $current);
 
             return null;
         });
@@ -101,6 +100,13 @@ final readonly class ReadPullRequestStateHandler
         // The retry strategy of the transport reads it again. The sweep skips a closed row, so a reopen would otherwise stay unread.
         if (null !== $transient) {
             throw $transient;
+        }
+    }
+
+    private function announceReview(ReadPullRequestStateCommand $command, ForgePullRequest $pullRequest, PullRequestSnapshot $snapshot): void
+    {
+        if (null !== $command->verdict) {
+            $this->events->dispatch(new PullRequestReviewed($pullRequest, $command->verdict, $snapshot));
         }
     }
 

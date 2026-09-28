@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\GitHub;
 
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
 use App\Module\GitHub\Entity\GitHubRepositorySelection;
@@ -132,7 +133,7 @@ final readonly class GitHubDelivery
         $action = $this->action();
         $hints = match ($this->event) {
             'pull_request' => \in_array($action, self::PULL_REQUEST_ACTIONS, true) ? $this->pullRequestHints() : [],
-            'pull_request_review' => \in_array($action, ['submitted', 'dismissed'], true) ? $this->numberHints([$this->payload['pull_request'] ?? null], review: 'submitted' === $action) : [],
+            'pull_request_review' => \in_array($action, ['submitted', 'dismissed'], true) ? $this->numberHints([$this->payload['pull_request'] ?? null], 'submitted' === $action ? $this->verdict() : null) : [],
             // A check that starts again turns a passed verdict back to pending, so its start is a hint too.
             'check_suite', 'check_run' => 'requested_action' !== $action ? $this->checkHints($this->payload[$this->event] ?? null) : [],
             'status' => $this->headHints($this->payload['sha'] ?? null),
@@ -190,17 +191,30 @@ final readonly class GitHubDelivery
      *
      * @return list<PullRequestRefreshHint>
      */
-    private function numberHints(array $pullRequests, bool $review = false): array
+    private function numberHints(array $pullRequests, ?PullRequestReview $verdict = null): array
     {
         $hints = [];
         foreach ($pullRequests as $pullRequest) {
             $number = \is_array($pullRequest) ? ($pullRequest['number'] ?? null) : null;
             if (\is_int($number) && $number > 0) {
-                $hints[] = PullRequestRefreshHint::number($number, $review);
+                $hints[] = PullRequestRefreshHint::number($number, $verdict);
             }
         }
 
         return $hints;
+    }
+
+    /** A comment review has no verdict, and must not reset the fix rounds. */
+    private function verdict(): ?PullRequestReview
+    {
+        $review = $this->payload['review'] ?? null;
+        $state = \is_array($review) ? ($review['state'] ?? null) : null;
+
+        return match (\is_string($state) ? strtolower($state) : null) {
+            'approved' => PullRequestReview::Approved,
+            'changes_requested' => PullRequestReview::ChangesRequested,
+            default => null,
+        };
     }
 
     /** @return list<PullRequestRefreshHint> */

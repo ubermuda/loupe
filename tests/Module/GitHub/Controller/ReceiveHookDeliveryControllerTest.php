@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\GitHub\Controller;
 
 use App\Module\Forge\Entity\ForgeRepositorySource;
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\EventListener\RateLimitForgeDeliveries;
 use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\GitHub\Entity\GitHubHookHealth;
@@ -54,15 +55,16 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
         self::assertSame([[$tracked, false]], $this->queuedRefreshes());
     }
 
-    /** @return iterable<string, array{string, bool}> */
+    /** @return iterable<string, array{string, string, ?PullRequestReview}> */
     public static function reviewActions(): iterable
     {
-        yield 'submitted' => ['submitted', true];
-        yield 'dismissed' => ['dismissed', false];
+        yield 'approved' => ['submitted', 'approved', PullRequestReview::Approved];
+        yield 'commented' => ['submitted', 'commented', null];
+        yield 'dismissed' => ['dismissed', 'approved', null];
     }
 
     #[DataProvider('reviewActions')]
-    public function test_a_review_queues_a_refresh_that_carries_the_marker_of_a_submitted_review(string $action, bool $marked): void
+    public function test_a_review_queues_a_refresh_that_carries_the_verdict_it_submits(string $action, string $state, ?PullRequestReview $verdict): void
     {
         $client = static::createClient();
         $client->disableReboot();
@@ -74,12 +76,12 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
             'action' => $action,
             'repository' => ['id' => 631, 'full_name' => 'acme/u'],
             'pull_request' => ['number' => 11],
-            'review' => ['state' => 'approved'],
+            'review' => ['state' => $state],
         ], $hook->secret);
 
         self::assertResponseIsSuccessful();
         self::assertSame([[$tracked, false]], $this->queuedRefreshes());
-        self::assertSame([$marked], $this->queuedReviewMarkers());
+        self::assertSame([$verdict], $this->queuedVerdicts());
     }
 
     public function test_a_bad_signature_is_refused_and_marks_the_hook_failing(): void

@@ -10,6 +10,7 @@ use App\Module\Forge\Command\ReadPullRequestStateHandler;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Event\PullRequestReviewed;
 use App\Module\Forge\Event\PullRequestStateChanged;
@@ -104,32 +105,33 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         self::assertSame([PullRequestStateChanged::class], $this->announcedClasses());
     }
 
-    public function test_a_review_marker_announces_the_review_after_the_change(): void
+    public function test_a_verdict_announces_the_review_after_the_change(): void
     {
         $row = $this->row();
         $read = new PullRequestSnapshot(headSha: 'abc');
         $this->reader->answers = [$read];
 
-        $this->handle($row, self::NOW, reviewSubmitted: true);
+        $this->handle($row, self::NOW, verdict: PullRequestReview::Approved);
 
         self::assertSame([PullRequestStateChanged::class, PullRequestReviewed::class], $this->announcedClasses());
         $reviewed = $this->announced[1];
         self::assertInstanceOf(PullRequestReviewed::class, $reviewed);
         self::assertSame((string) $row->id, (string) $reviewed->pullRequest->id);
         self::assertTrue($reviewed->snapshot->equals($read));
+        self::assertSame(PullRequestReview::Approved, $reviewed->verdict);
         $sent = $this->sent();
         self::assertCount(1, $sent, 'The unknown mergeability is read again.');
         $retry = $sent[0]->getMessage();
         self::assertInstanceOf(RefreshPullRequestState::class, $retry);
-        self::assertFalse($retry->reviewSubmitted, 'A mergeability retry does not announce the review twice.');
+        self::assertNull($retry->verdict, 'A mergeability retry does not announce the review twice.');
     }
 
-    public function test_a_review_marker_announces_the_review_when_nothing_changed(): void
+    public function test_a_verdict_announces_the_review_when_nothing_changed(): void
     {
         $row = $this->row();
         $this->reader->answers = [new PullRequestSnapshot()];
 
-        $this->handle($row, self::NOW, reviewSubmitted: true);
+        $this->handle($row, self::NOW, verdict: PullRequestReview::Approved);
 
         self::assertSame(1, $this->reader->reads);
         self::assertSame([PullRequestReviewed::class], $this->announcedClasses());
@@ -142,48 +144,60 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         $row->mergeability = PullRequestMergeability::Conflicting;
         $this->em->flush();
 
-        $this->handle($row, '2026-09-27 11:58:00', reviewSubmitted: true);
+        $this->handle($row, '2026-09-27 11:58:00', verdict: PullRequestReview::Approved);
 
         self::assertSame(0, $this->reader->reads);
         self::assertSame([PullRequestReviewed::class], $this->announcedClasses());
         $reviewed = $this->announced[0];
         self::assertInstanceOf(PullRequestReviewed::class, $reviewed);
+        self::assertSame(PullRequestReview::Approved, $reviewed->verdict);
         self::assertTrue($reviewed->snapshot->equals(new PullRequestSnapshot(headSha: 'stored', mergeability: PullRequestMergeability::Conflicting)));
     }
 
-    public function test_a_failed_read_announces_no_review(): void
+    public function test_a_failed_read_still_announces_the_review_with_the_stored_state(): void
     {
         $row = $this->row();
+        $row->headSha = 'stored';
+        $this->em->flush();
         $this->reader->answers = [new PullRequestUnreadable('no_installation')];
 
-        $this->handle($row, self::NOW, reviewSubmitted: true);
+        $this->handle($row, self::NOW, verdict: PullRequestReview::ChangesRequested);
 
         self::assertSame(1, $this->reader->reads);
-        self::assertSame([], $this->announced);
+        self::assertSame([PullRequestReviewed::class], $this->announcedClasses());
+        $reviewed = $this->announced[0];
+        self::assertInstanceOf(PullRequestReviewed::class, $reviewed);
+        self::assertSame(PullRequestReview::ChangesRequested, $reviewed->verdict);
+        self::assertTrue($reviewed->snapshot->equals(new PullRequestSnapshot(headSha: 'stored')));
     }
 
-    public function test_a_transient_failure_announces_no_review(): void
+    public function test_a_transient_failure_leaves_the_review_to_the_retry(): void
     {
         $row = $this->row();
-        $this->reader->answers = [new PullRequestUnreadable('api_failed_transport', transient: true)];
+        $this->reader->answers = [new PullRequestUnreadable('api_failed_transport', transient: true), new PullRequestSnapshot()];
 
         try {
-            $this->handle($row, self::NOW, reviewSubmitted: true);
+            $this->handle($row, self::NOW, verdict: PullRequestReview::Approved);
             self::fail('A transient failure must reach the retry strategy.');
         } catch (PullRequestUnreadable) {
         }
 
         self::assertSame(1, $this->reader->reads);
         self::assertSame([], $this->announced);
+
+        $this->handle($row, self::NOW, verdict: PullRequestReview::Approved);
+
+        self::assertSame(2, $this->reader->reads);
+        self::assertSame([PullRequestReviewed::class], $this->announcedClasses());
     }
 
     public function test_a_missing_row_and_a_forge_with_no_reader_announce_no_review(): void
     {
         $gitlab = $this->row(forge: 'gitlab', refreshedAt: '2026-09-27 11:59:00');
 
-        ($this->handler)(new ReadPullRequestStateCommand('0199a0b8-0000-7000-8000-000000000000', new \DateTimeImmutable(self::NOW), reviewSubmitted: true));
-        $this->handle($gitlab, self::NOW, reviewSubmitted: true);
-        $this->handle($gitlab, '2026-09-27 11:58:00', reviewSubmitted: true);
+        ($this->handler)(new ReadPullRequestStateCommand('0199a0b8-0000-7000-8000-000000000000', new \DateTimeImmutable(self::NOW), verdict: PullRequestReview::Approved));
+        $this->handle($gitlab, self::NOW, verdict: PullRequestReview::Approved);
+        $this->handle($gitlab, '2026-09-27 11:58:00', verdict: PullRequestReview::Approved);
 
         self::assertSame(0, $this->reader->reads);
         self::assertSame([], $this->announced);
@@ -365,9 +379,9 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         self::assertInstanceOf(RefreshPullRequestStateHandler::class, $handler);
     }
 
-    private function handle(ForgePullRequest $row, string $requestedAt, bool $reviewSubmitted = false): void
+    private function handle(ForgePullRequest $row, string $requestedAt, ?PullRequestReview $verdict = null): void
     {
-        ($this->handler)(new ReadPullRequestStateCommand((string) $row->id, new \DateTimeImmutable($requestedAt), $reviewSubmitted));
+        ($this->handler)(new ReadPullRequestStateCommand((string) $row->id, new \DateTimeImmutable($requestedAt), $verdict));
         $this->em->clear();
     }
 

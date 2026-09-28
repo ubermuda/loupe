@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\GitHub;
 
+use App\Module\Forge\Entity\PullRequestReview;
+
 /**
  * One delivery fact that can change the state of tracked pull requests. Exactly
- * one of number, head and base is set. A review marks a submitted review.
+ * one of number, head and base is set. A verdict marks a submitted review.
  */
 final readonly class PullRequestRefreshHint
 {
@@ -14,13 +16,13 @@ final readonly class PullRequestRefreshHint
         public ?int $number = null,
         public ?string $headSha = null,
         public ?string $baseBranch = null,
-        public bool $review = false,
+        public ?PullRequestReview $verdict = null,
     ) {
     }
 
-    public static function number(int $number, bool $review = false): self
+    public static function number(int $number, ?PullRequestReview $verdict = null): self
     {
-        return new self(number: $number, review: $review);
+        return new self(number: $number, verdict: $verdict);
     }
 
     public static function head(string $sha): self
@@ -34,8 +36,8 @@ final readonly class PullRequestRefreshHint
     }
 
     /**
-     * One hint per key, in first-seen order. A review hint replaces a plain
-     * one for the same number, so the marker is never dropped.
+     * One hint per key, in first-seen order. A hint with a verdict replaces a
+     * plain one for the same number, so the verdict is never dropped.
      *
      * @param list<self> $hints
      *
@@ -46,7 +48,7 @@ final readonly class PullRequestRefreshHint
         $unique = [];
         foreach ($hints as $hint) {
             $key = $hint->key();
-            if (!isset($unique[$key]) || ($hint->review && !$unique[$key]->review)) {
+            if (!isset($unique[$key]) || (null !== $hint->verdict && null === $unique[$key]->verdict)) {
                 $unique[$key] = $hint;
             }
         }

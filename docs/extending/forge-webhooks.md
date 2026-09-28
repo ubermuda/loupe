@@ -61,8 +61,9 @@ Loupe writes no event while the board is off.
 A repository that an App installation feeds gets its events from
 [state reads](#pull-request-state). Loupe compares each read with the stored
 state, and writes an event for each change. A review delivery writes
-`review_submitted` from the verdict it reads. A fact describes the pull request.
-A decision asks an agent to act.
+`review_submitted` with the verdict of the review that GitHub sent. It does so
+also when the branch requires no review. A fact describes the pull request. A
+decision asks an agent to act.
 
 | Event | Kind | When | Extra fields |
 |---|---|---|---|
@@ -99,12 +100,17 @@ card. It records the block and the reason, and the facts still go out.
 These events set the count back to zero and clear the block:
 
 - a `checks_concluded` with `passed`
-- a `review_submitted`, either verdict
+- a `review_submitted`, either verdict. A comment review sends no event, so it
+  resets nothing
 - a move of the card by a person. A move by an agent or by the system does not
   reset the count.
 
 The reset comes before the decision. So the fix request after a
 `changes-requested` review is round 1, whatever the count was before.
+
+One read sends at most one `fix_requested` to a card. When a read finds more
+than one reason, the reason is `conflict` first, then `checks-failed`. The
+facts all go out.
 
 ### Events from a hook repository
 
