@@ -21,7 +21,7 @@ A new board starts with these columns:
 
 | Label | Slug | Flag |
 |---|---|---|
-| Backlog | `backlog` | Backlog |
+| Backlog | `backlog` | backlog |
 | Next | `next` | |
 | In progress | `in-progress` | |
 | Done | `done` | terminal |
@@ -46,8 +46,9 @@ The tools still list Backlog, so an agent or a bridge rule can name `backlog`.
 
 A board from an earlier release had a default column instead, which the owner
 could rename. The upgrade turns that column into Backlog, with the label
-Backlog and the slug `backlog`, so a custom name is lost. A bridge rule or a
-prompt that named its old slug stops matching. When another column held the
+Backlog and the slug `backlog`, so a custom name is lost. When its old slug was
+not `backlog`, a bridge rule or a prompt that named the old slug stops
+matching. When another column held the
 slug `backlog`, the upgrade moves its cards to the end of Backlog, in rank
 order, and deletes that column.
 
@@ -225,11 +226,11 @@ type, the epic, the count of pending feedback and the date the card was added.
 
 Above the list, search the title and the body, and filter by type and by epic.
 The epic filter offers **Any epic**, **No epic**, and each epic with a card in
-Backlog. **Sort** reads **Rank**, **Newest first**, **Oldest first** or
+Backlog. **Sort** offers **Rank**, **Newest first**, **Oldest first** or
 **Recently updated**. **Clear** removes every filter, and a count shows how
 many cards match.
 
-In rank order, drag a row by its handle to change its rank. With a filter on,
+With the **Rank** sort, drag a row by its handle to change its rank. With a filter on,
 the card lands just above the visible row below it. The other sorts show no
 handle.
 
@@ -419,7 +420,8 @@ with its lane on shows as the lane header only, not as a card in its column.
 An epic with children in Backlog shows an **Up next** deck at the right end of
 its lane header, with a count such as "3 in Backlog". The deck is a pile of
 those children in rank order. Hover over it or focus it, and it fans out to
-show the cards. When the cards do not fit, the fan ends with a "+N more" tile.
+show the cards. When the deck holds more cards than the fan shows, the fan ends
+with a "+N more" tile.
 The tile opens the Backlog page filtered to the epic.
 
 Drag a card out of the deck into a column to move it there. Drop a card on the
