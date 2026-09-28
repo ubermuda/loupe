@@ -12,7 +12,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 /**
  * Picks the lock for each request when the session opens. A route marked with
  * the READ_ONLY default reads with no lock and writes nothing. It takes `true`,
- * or a Turbo-Frame name that the request header must match. Other safe
+ * or one or a list of Turbo-Frame names that the request header must match. Other safe
  * requests read with no lock, and every other request keeps the row lock.
  */
 final class ReadOnlyAwareSessionHandler implements \SessionHandlerInterface, \SessionUpdateTimestampHandlerInterface
@@ -87,7 +87,8 @@ final class ReadOnlyAwareSessionHandler implements \SessionHandlerInterface, \Se
 
         $readOnly = $request->attributes->get(self::READ_ONLY);
 
-        if (true === $readOnly || (is_string($readOnly) && $readOnly === $request->headers->get('Turbo-Frame'))) {
+        $frame = $request->headers->get('Turbo-Frame');
+        if (true === $readOnly || (null !== $frame && \in_array($frame, (array) $readOnly, true))) {
             return SessionLockMode::ReadOnly;
         }
 

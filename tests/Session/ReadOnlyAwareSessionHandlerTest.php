@@ -29,6 +29,7 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
         yield 'DELETE' => [Request::create('/board', Request::METHOD_DELETE), 'locking'];
         yield 'GET on a route marked for another frame' => [self::marked('board-frame', Request::create('/board'), 'other-frame'), 'nonLocking'];
         yield 'GET on a frame route with no frame header' => [self::marked('board-frame', Request::create('/board')), 'nonLocking'];
+        yield 'GET on a route marked for other frames' => [self::marked(['board-frame', 'board-count'], Request::create('/board'), 'other-frame'), 'nonLocking'];
     }
 
     #[DataProvider('requests')]
@@ -61,6 +62,7 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
         yield 'route marked read-only' => [self::marked(true, Request::create('/count'))];
         yield 'POST on a route marked read-only' => [self::marked(true, Request::create('/count', Request::METHOD_POST))];
         yield 'frame route with its frame header' => [self::marked('board-frame', Request::create('/board'), 'board-frame')];
+        yield 'route marked for several frames, with one of them' => [self::marked(['board-frame', 'board-count'], Request::create('/board'), 'board-count')];
     }
 
     #[DataProvider('readOnlyRequests')]
@@ -160,7 +162,8 @@ final class ReadOnlyAwareSessionHandlerTest extends TestCase
         self::assertSame('data', $handler->read('sid'));
     }
 
-    private static function marked(string|bool $mark, Request $request, ?string $frame = null): Request
+    /** @param string|list<string>|bool $mark */
+    private static function marked(string|array|bool $mark, Request $request, ?string $frame = null): Request
     {
         $request->attributes->set(ReadOnlyAwareSessionHandler::READ_ONLY, $mark);
 

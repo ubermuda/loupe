@@ -58,8 +58,9 @@ final class ImmediateOutboxPublisher implements ResetInterface
         $this->pending = true;
     }
 
-    #[AsEventListener(KernelEvents::TERMINATE)]
-    #[AsEventListener(ConsoleEvents::TERMINATE)]
+    /** Ahead of LiveUpdatePublisher, so the signal the drain queues goes out in the same terminate. */
+    #[AsEventListener(KernelEvents::TERMINATE, priority: 16)]
+    #[AsEventListener(ConsoleEvents::TERMINATE, priority: 16)]
     public function publish(): void
     {
         if (!$this->pending) {
