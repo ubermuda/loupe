@@ -60,12 +60,27 @@
                                 </tr>
                                 {% endfor %}
                                 {% for link in card.pullRequests %}
-                                    {% include '@Board/_linked_pull_request.html.twig' with {link: link} only %}
+                                    {% include '@Board/_linked_pull_request.html.twig' with {link: link, state: pullRequestStates.of(link)} only %}
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                     {% else %}<h2 class="lp-card-panel__title">{{ 'board.card.linked_work.title'|trans }}</h2><p class="lp-card-detail__empty">{{ 'board.card.linked_work.empty'|trans }}</p>{% endif %}
+                    {% set automation = pullRequestStates.automationOf(card) %}
+                    {% if automation and automation.lastAction %}
+                    <p class="lp-card-automation" data-card-automation>
+                        <twig:ux:icon name="lucide:bot" class="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span>{{ {'fix-requested': 'board.card.automation.fix_requested', stopped: 'board.card.automation.stopped', 'ready-to-merge': 'board.card.automation.ready_to_merge'}[automation.lastAction.value]|trans({'%rounds%': automation.fixRounds}) }}</span>
+                        {% if automation.lastActionAt %}<time datetime="{{ automation.lastActionAt|date('c') }}">{{ automation.lastActionAt|relative_time }}</time>{% endif %}
+                    </p>
+                    {% if automation.blockedReason %}
+                    {% set reasonKey = {conflict: 'board.card.automation.reason.conflict', 'checks-failed': 'board.card.automation.reason.checks_failed', 'changes-requested': 'board.card.automation.reason.changes_requested'}[automation.blockedReason] ?? null %}
+                    <p class="lp-card-automation lp-card-automation--blocked" role="status" data-card-automation-blocked>
+                        <twig:ux:icon name="lucide:triangle-alert" class="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span>{{ 'board.card.automation.blocked'|trans({'%reason%': reasonKey ? reasonKey|trans : automation.blockedReason}) }}</span>
+                    </p>
+                    {% endif %}
+                    {% endif %}
                 </section>
                 {% if card.parent %}
                 <section class="lp-card-overview__section" data-card-parent>
