@@ -1,6 +1,6 @@
-{# A column's header: colour, label and card count. Props: board (BoardView), view (BoardColumnView), count (int, optional: the cards of one lane cell), placeable (bool, optional: gives the count the id a card placement writes to). #}
+{# A column's header: colour, label and card count. Props: board (BoardView), view (BoardColumnView), count (int, optional: the cards of one lane cell, which a card placement recounts), placeable (bool, optional: gives the count the id a card placement writes to). #}
 <header class="lp-board__column-head">
     <span class="lp-tone-dot lp-tone-dot--{{ view.column.tone.value }}" aria-hidden="true"></span>
     <h2 class="lp-board__column-title">{{ view.column.label|trans }}</h2>
-    <span class="lp-board__column-count"{% if placeable ?? false %} id="board-count-{{ view.column.id }}"{% endif %}>{{ count is defined ? count : board.shownCounts[view.column.id ~ '']|default(view.count) }}</span>
+    <span class="lp-board__column-count"{% if placeable ?? false %} id="board-count-{{ view.column.id }}"{% endif %}{% if count is defined %} data-cell-count{% endif %}>{{ count is defined ? count : board.shownCounts[view.column.id ~ '']|default(view.count) }}</span>
 </header>
