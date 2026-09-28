@@ -5606,10 +5606,6 @@
                 <source>bridge.worker_runs.close_session</source>
                 <target>Close session</target>
             </trans-unit>
-            <trans-unit id="bridge.worker_runs.bridge">
-                <source>bridge.worker_runs.bridge</source>
-                <target>bridge …%bridge%</target>
-            </trans-unit>
             <trans-unit id="bridge.worker_runs.output.toggle">
                 <source>bridge.worker_runs.output.toggle</source>
                 <target>Output</target>

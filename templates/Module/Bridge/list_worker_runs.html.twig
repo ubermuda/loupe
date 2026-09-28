@@ -89,71 +89,35 @@
          data-worker-run-refresh-whole-value="{{ items|length > 0 or listQuery.isNarrowed ? 'false' : 'true' }}">
     <turbo-frame id="worker-runs-frame" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
     {% if items|length > 0 %}
-    <div class="lp-worker-run-list">
-        <div class="lp-worker-run-list__header" aria-hidden="true">
-            <span>{{ 'bridge.worker_runs.column.work'|trans }}</span>
-            <span>{{ 'bridge.worker_runs.column.outcome'|trans }}</span>
-            <span>{{ 'bridge.worker_runs.column.rule'|trans }}</span>
-            <span>{{ 'bridge.worker_runs.column.duration'|trans }}</span>
-            <span>{{ 'bridge.worker_runs.column.started'|trans }}</span>
-        </div>
+    <twig:DataTable modifier="runs" :columns="[
+        {label: 'bridge.worker_runs.column.work'|trans},
+        {label: 'bridge.worker_runs.column.outcome'|trans},
+        {label: 'bridge.worker_runs.column.rule'|trans},
+        {label: 'bridge.worker_runs.column.duration'|trans, align: 'end'},
+        {label: 'bridge.worker_runs.column.started'|trans},
+    ]">
         {% for item in items %}
         {% set run = item.run %}
-        {# A search by this run's id is a link to it, so its drawer opens on arrival, and not on each live reload. #}
-        <article class="lp-worker-run" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true"{% if not frameRequest and listQuery.search|lower == (run.id ~ '')|lower %} data-modal-reopen-value="true"{% endif %}>
-            <div class="lp-worker-run__table-row">
-                <div class="lp-worker-run__work">
-                    {% if boardEnabled %}
-                    <a class="lp-worker-run__card"
-                       href="{{ path('app_board_card', {projectId: project.id, cardId: run.cardId}) }}">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</a>
-                    {% else %}
-                        <span class="lp-worker-run__card">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>
-                    {% endif %}
-                    {% if run.bridgeId is not null %}
-                        <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
-                    {% endif %}
-                    {% if item.interactive %}
-                        <span class="lp-tag lp-tag--neutral lp-worker-run__kind">{{ 'bridge.worker_runs.interactive'|trans }}</span>
-                    {% endif %}
-                    <button type="button" class="lp-btn lp-btn--ghost" data-action="modal#open">{{ 'bridge.worker_runs.details.open'|trans }}</button>
-                </div>
-                <span class="lp-status-chip lp-status-chip--{{ item.state.chipModifier() }}">
-                    <span class="lp-status-chip__dot"></span>
-                    {{ item.state.translationKey()|trans }}
-                </span>
-                <span class="lp-worker-run__rule">
-                    {{ run.ruleName }}
-                    {% if item.isResume %}<small data-worker-run-resume>{{ 'bridge.worker_runs.resume'|trans({'%index%': run.resumeIndex, '%cap%': run.resumeCap}) }}</small>{% endif %}
-                </span>
-                <span class="lp-worker-run__duration">
-                    {% if item.interactive and item.state.isOpen() and item.duration() is not null %}{{ 'bridge.worker_runs.running_for'|trans({'%duration%': item.duration()}) }}{% else %}{{ item.duration() }}{% endif %}
-                    {% if run.exitCode is not null %}<small>{{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}</small>{% endif %}
-                </span>
-                {% set shownAt = run.startedAt ?? run.receivedAt %}
-                <time datetime="{{ shownAt|date('c') }}">{{ shownAt|date('M j, H:i') }}</time>
+        {% set shownAt = run.startedAt ?? run.receivedAt %}
+        {# A search by this run's id is a link to it, so its drawer opens on arrival, and not on each live reload.
+           The drawer stays inside the row and the frame, so a live reload sees it open and waits. #}
+        <div class="lp-data-table__row" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true"{% if not frameRequest and listQuery.search|lower == (run.id ~ '')|lower %} data-modal-reopen-value="true"{% endif %}>
+            <div class="lp-data-table__cell lp-data-table__primary">
+                <button type="button" class="lp-data-table__target" data-action="modal#open">
+                    <span class="lp-data-table__number">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>
+                    {% if item.cardTitle is not null %}<span class="lp-data-table__title">{{ item.cardTitle }}</span>{% endif %}
+                    <span class="sr-only">{{ 'bridge.worker_runs.details.open'|trans }}</span>
+                </button>
+                {% if item.interactive %}<span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_runs.interactive'|trans }}</span>{% endif %}
             </div>
-
-            {% if run.failureReason %}
-            <p class="lp-worker-run__failure">{{ run.failureReason }}</p>
-            {% endif %}
-
-            {# Every run, collapsed. A reader of a run record is debugging, and
-               the output of a run that succeeded answers as many questions as
-               the output of one that failed. #}
-            <details class="lp-worker-run__output-disclosure">
-                <summary class="lp-worker-run__output-summary"><twig:ux:icon name="lucide:terminal" class="w-4 h-4" />{{ 'bridge.worker_runs.output.toggle'|trans }}</summary>
-                {% if run.output is empty %}
-                    <p class="lp-worker-run__output-empty">{{ 'bridge.worker_runs.output.empty'|trans }}</p>
-                {% else %}
-                    {# The bridge writes this and no person approves it, so it is
-                       rendered as text. Never add |raw here. #}
-                    <pre class="lp-worker-run__output">{{ run.output }}</pre>
-                {% endif %}
-            </details>
+            <twig:StatusChip :modifier="item.state.chipModifier()" :label="item.state.translationKey()|trans" :reason="run.failureReason" :id="'worker-run-reason-' ~ run.id" />
+            <span class="lp-data-table__cell">{{ run.ruleName }}</span>
+            <span class="lp-data-table__cell lp-data-table__cell--end">{% if item.interactive and item.state.isOpen() and item.duration() is not null %}{{ 'bridge.worker_runs.running_for'|trans({'%duration%': item.duration()}) }}{% else %}{{ item.duration() }}{% endif %}</span>
+            <span class="lp-data-table__cell"><time datetime="{{ shownAt|date('c') }}" title="{{ shownAt|date('Y-m-d H:i:s T') }}">{{ shownAt|relative_time }}</time></span>
             {% include '@Bridge/_worker_run_drawer.html.twig' with {item: item, project: project, boardEnabled: boardEnabled} only %}
-        </article>
+        </div>
         {% endfor %}
-    </div>
+    </twig:DataTable>
 
     <twig:Pagination route="app_project_worker_runs" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
     {% else %}
