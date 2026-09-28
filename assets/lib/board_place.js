@@ -59,6 +59,8 @@ export function placeCard(stream) {
 
     const content = stream.querySelector('template').content.cloneNode(true);
     const rowAnchor = rowAfter ?? list.querySelector('.lp-board-list__header');
+    // A card on the board has left the Backlog, so the deck copy a drag moved goes too.
+    document.getElementById(`board-deck-card-${cardId}`)?.remove();
     place(
         `board-card-${cardId}`,
         content.querySelector('.lp-board-card'),

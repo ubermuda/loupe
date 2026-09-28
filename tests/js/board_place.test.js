@@ -63,6 +63,50 @@ afterEach(() => {
 });
 
 describe('board-place', () => {
+    it('takes a card placed on the board out of the Up next deck it left', () => {
+        document
+            .getElementById('board')
+            .insertAdjacentHTML(
+                'afterbegin',
+                '<div class="lp-deck"><article id="board-deck-card-d" data-card-id="d"></article></div>',
+            );
+
+        placeCard(
+            stream({
+                id: 'd',
+                column: NEXT,
+                after: 'c',
+                rowAfter: 'c',
+                counts: { [BACKLOG]: 2, [NEXT]: 2 },
+            }),
+        );
+
+        expect(order(`#board-group-${NEXT} .lp-board-card`)).toEqual([
+            'c',
+            'd',
+        ]);
+        expect(document.getElementById('board-deck-card-d')).toBeNull();
+    });
+
+    it('keeps a deck card when its card is placed off the board', () => {
+        document
+            .getElementById('board')
+            .insertAdjacentHTML(
+                'afterbegin',
+                '<div class="lp-deck"><article id="board-deck-card-d" data-card-id="d"></article></div>',
+            );
+
+        placeCard(
+            stream({
+                id: 'd',
+                removed: true,
+                counts: { [BACKLOG]: 2, [NEXT]: 1 },
+            }),
+        );
+
+        expect(document.getElementById('board-deck-card-d')).not.toBeNull();
+    });
+
     it('registers itself as a Turbo stream action', () => {
         expect(typeof StreamActions['board-place']).toBe('function');
     });

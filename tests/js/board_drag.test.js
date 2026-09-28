@@ -9,8 +9,8 @@ let application;
 let controller;
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-function card(id) {
-    return `<article id="board-card-${id}" data-board-drag-target="card">
+function card(id, prefix = 'board-card-') {
+    return `<article id="${prefix}${id}" data-card-id="${id}" data-board-drag-target="card">
         <form hidden data-board-drag-target="moveForm">
             <select name="move_${id}[column]"><option value="backlog">Backlog</option><option value="next">Next</option><option value="waiting">Waiting</option></select>
             <input name="move_${id}[position]">
@@ -261,5 +261,79 @@ describe('a drop on the bucket', () => {
 
         expect(moved.classList.contains('lp-board-card--sent')).toBe(false);
         expect(titles('backlog')).toEqual(['a', 'b']);
+    });
+});
+
+describe('a card of an Up next deck', () => {
+    beforeEach(async () => {
+        document
+            .getElementById('board')
+            .insertAdjacentHTML(
+                'beforeend',
+                `<div id="deck" data-board-drag-target="group" data-board-bucket data-column="waiting" data-lane="epic" data-rankable="0">${card('c', 'board-deck-card-')}</div>`,
+            );
+        await settle();
+        document.getElementById('deck').getBoundingClientRect = () => ({
+            left: 600,
+            top: 0,
+            right: 800,
+            bottom: 80,
+        });
+    });
+
+    function dragDeckCard(x, y) {
+        const moved = document.getElementById('board-deck-card-c');
+        moved.querySelector('form').requestSubmit = vi.fn();
+        controller.press({
+            pointerId: 1,
+            pointerType: 'mouse',
+            button: 0,
+            target: moved,
+            clientX: 700,
+            clientY: 40,
+        });
+        controller.pointerMove({
+            pointerId: 1,
+            clientX: x,
+            clientY: y,
+            preventDefault: () => {},
+        });
+        controller.pointerUp({
+            pointerId: 1,
+            type: 'pointerup',
+            clientX: x,
+            clientY: y,
+            target: moved,
+        });
+
+        return moved;
+    }
+
+    it('moves nothing when it is dropped back on its own deck', () => {
+        const moved = dragDeckCard(650, 40);
+
+        expect(
+            moved.querySelector('form').requestSubmit,
+        ).not.toHaveBeenCalled();
+        expect(moved.classList.contains('lp-board-card--sent')).toBe(false);
+        expect(document.getElementById('deck').contains(moved)).toBe(true);
+    });
+
+    it('waits for the placement of the card it names, whatever its element id', () => {
+        document.getElementById('board-group-next').getBoundingClientRect =
+            () => ({ left: 400, top: 60, right: 500, bottom: 400 });
+        const moved = dragDeckCard(450, 100);
+        const form = moved.querySelector('form');
+
+        expect(form.requestSubmit).toHaveBeenCalledOnce();
+        expect(form.querySelector('select').value).toBe('next');
+        respond(form, { succeeded: true, contentType: STREAM });
+        finish(form, true);
+        expect(controller.pendingForm).not.toBeNull();
+
+        document.dispatchEvent(
+            new CustomEvent('board:placed', { detail: { cardId: 'c' } }),
+        );
+        expect(controller.pendingForm).toBeNull();
     });
 });

@@ -84,6 +84,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
             new TwigFunction('backlog_rank_form_name', RankBacklogCardFormType::nameFor(...)),
             new TwigFunction('backlog_move_form_name', MoveBacklogCardFormType::nameFor(...)),
             new TwigFunction('card_digest', $this->cardDigest(...)),
+            new TwigFunction('lane_head_digest', $this->digest->forLaneHead(...)),
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),
             new TwigFunction('board_column_configure_form', $this->boardColumnConfigureForm(...)),
             new TwigFunction('board_column_delete_form', $this->boardColumnDeleteForm(...)),

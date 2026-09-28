@@ -234,6 +234,12 @@
     --shadow-composer: 0 10px 34px rgba(15, 15, 13, 0.22);
     --shadow-card: 0 8px 26px rgba(15, 15, 13, 0.18);
     --shadow-focus: 0 0 0 3px var(--accent-faint);
+    /* A card of an epic lane's Up next deck, fanned out over the lane head. */
+    --shadow-deck: 0 6px 16px rgba(24, 29, 24, 0.1);
+
+    /* The deck fans out, and an epic lane opens and closes, on these curves. */
+    --ease-deck: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --ease-lane: cubic-bezier(0.3, 0.8, 0.2, 1);
 }
 
 /* ── Design tokens ──────────────────────────────────────────────────── */
@@ -5692,19 +5698,24 @@
     .lp-board-lane--other .lp-board-lane__cells {
         @apply flex-1 min-h-0;
     }
+    /* The head of an epic lane: the number and progress over the title, then
+       the Up next deck at the right end. The row keeps the height of the deck. */
     .lp-board-lane__head {
-        @apply flex flex-wrap items-center gap-2 px-1;
+        @apply relative flex items-center gap-2.5 h-22 px-1;
+    }
+    .lp-board-lane--other .lp-board-lane__head {
+        @apply h-auto pt-1.5;
     }
     /* A lane head whose live placement failed. The shape shows it, not the colour. */
     .lp-board-lane__head--stale {
         @apply rounded-lg outline-2 outline-offset-2 outline-dashed outline-line-strong opacity-75;
     }
-    /* The lane toggle closes the lane head, at its right end. */
+    /* The lane button sits at the right end, just before the deck. */
     .lp-board-lane__head > form {
-        @apply ml-auto;
+        @apply ml-auto shrink-0;
     }
     .lp-board-lane__collapse {
-        @apply inline-flex items-center justify-center w-7 h-7 rounded-lg text-fg-mute transition-colors hover:bg-surface-3 hover:text-ink;
+        @apply inline-flex shrink-0 items-center justify-center w-7 h-7 rounded-lg text-fg-mute transition-colors hover:bg-surface-3 hover:text-ink;
     }
     .lp-board-lane__chevron {
         @apply w-4 h-4 rotate-90 transition-transform;
@@ -5715,12 +5726,221 @@
     .lp-board-lane--collapsed.lp-board-lane--revealed .lp-board-lane__chevron {
         @apply rotate-90;
     }
+    /* Top-aligned with a padding rather than centred, so the lane controller
+       reads the final place of each part while the head height still moves. */
+    .lp-board-lane__heading {
+        @apply grid self-start min-w-0 items-center gap-x-2 gap-y-1 pt-5;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+            'number progress'
+            'title title';
+    }
+    .lp-board-lane__number {
+        grid-area: number;
+    }
     .lp-board-lane__title {
-        @apply m-0 font-display font-extrabold text-base tracking-tight text-ink no-underline hover:text-accent-ink;
+        grid-area: title;
+        @apply m-0 truncate font-display font-extrabold text-lg tracking-tight text-ink no-underline hover:text-accent-ink;
+    }
+    .lp-board-lane--other .lp-board-lane__title {
+        @apply text-base;
     }
     .lp-board-lane__progress {
-        @apply text-sm font-semibold text-fg-dim;
+        grid-area: progress;
+        @apply inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-xs font-medium text-fg-dim;
     }
+    .lp-board-lane__progress::before {
+        content: '';
+        @apply size-0.75 shrink-0 rounded-full bg-line-strong;
+    }
+    .lp-board-lane__bar {
+        @apply block w-11 h-1 shrink-0 overflow-hidden rounded-full border-0 bg-surface-3 appearance-none;
+    }
+    .lp-board-lane__bar::-webkit-progress-bar {
+        @apply rounded-full bg-surface-3;
+    }
+    .lp-board-lane__bar::-webkit-progress-value {
+        @apply rounded-full bg-accent-ink;
+    }
+    .lp-board-lane__bar::-moz-progress-bar {
+        @apply rounded-full bg-accent-ink;
+    }
+    .lp-board-lane__done {
+        @apply inline-block max-w-15 overflow-hidden;
+    }
+
+    /* The Up next deck and its label, at the right end of an epic lane head. */
+    .lp-board-lane__up-next {
+        @apply flex shrink-0 items-center gap-4;
+    }
+    .lp-board-lane__deck-label {
+        @apply m-0 flex flex-col items-end gap-0.5;
+    }
+    .lp-board-lane__deck-title {
+        @apply font-display text-xs font-extrabold tracking-tight text-ink;
+    }
+    .lp-board-lane__deck-count {
+        @apply text-xs text-fg-dim;
+    }
+    /* The title, the lane button and the label fade out while the deck fans
+       over them, and come back once the fan folds. */
+    .lp-board-lane__heading,
+    .lp-board-lane__head > form,
+    .lp-board-lane__deck-label {
+        transition: opacity 200ms ease 200ms;
+    }
+    .lp-board-lane__head:has(
+            .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *),
+            .lp-deck .lp-board-card--dragging
+        )
+        :is(.lp-board-lane__heading, form, .lp-board-lane__deck-label) {
+        @apply opacity-0;
+        transition-delay: 0s;
+    }
+
+    /* A loose pile of fixed height: the top card and at most two behind it.
+       The board-deck controller writes --deck-slot and --deck-reach. */
+    .lp-deck {
+        @apply relative w-53 h-21 shrink-0;
+        --deck-slot: calc(var(--spacing) * 55.5);
+    }
+    /* Holds the hover while the pointer crosses the gaps of the fan. */
+    .lp-deck::before {
+        content: '';
+        @apply absolute -inset-y-0.5 right-0 z-1 w-full;
+    }
+    .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *)::before {
+        width: var(--deck-reach, 100%);
+    }
+    .lp-deck__card {
+        @apply absolute top-1.25 right-0 flex w-53 h-18.5 flex-col gap-1.5 rounded-lg border border-line bg-surface-1 p-3 select-none cursor-grab;
+        z-index: calc(9 - var(--deck-order, 2));
+        translate: calc(var(--spacing) * 1) calc(var(--spacing) * 1.25);
+        rotate: -3.8deg;
+        opacity: 0;
+        transition:
+            translate 320ms var(--ease-deck) 200ms,
+            rotate 320ms var(--ease-deck) 200ms,
+            box-shadow 320ms ease 200ms,
+            opacity 200ms ease 200ms;
+    }
+    .lp-deck__card[data-deck-index='0'] {
+        --deck-order: 0;
+        --deck-tilt: 0.4deg;
+        translate: none;
+        rotate: -1.2deg;
+        opacity: 1;
+    }
+    .lp-deck__card[data-deck-index='1'] {
+        --deck-order: 1;
+        --deck-tilt: -0.5deg;
+        translate: calc(var(--spacing) * -1.25) calc(var(--spacing) * 0.75);
+        rotate: 2.6deg;
+        opacity: 1;
+    }
+    .lp-deck__card[data-deck-index='2'] {
+        --deck-order: 2;
+        --deck-tilt: 0.6deg;
+        opacity: 1;
+    }
+    .lp-deck__card[data-deck-index='3'] {
+        --deck-order: 3;
+        --deck-tilt: -0.4deg;
+    }
+    .lp-deck__card[data-deck-index='4'] {
+        --deck-order: 4;
+        --deck-tilt: 0.5deg;
+    }
+    .lp-deck__card[data-deck-index='5'] {
+        --deck-order: 5;
+        --deck-tilt: -0.6deg;
+    }
+    .lp-deck__card[data-deck-index='6'] {
+        --deck-order: 6;
+        --deck-tilt: 0.4deg;
+    }
+    .lp-deck__card[data-deck-index='7'] {
+        --deck-order: 7;
+        --deck-tilt: -0.5deg;
+    }
+    .lp-deck__card[data-deck-index='8'] {
+        --deck-order: 8;
+        --deck-tilt: 0.6deg;
+    }
+    .lp-deck__card:not([data-deck-index='0']) > * {
+        @apply invisible;
+    }
+    .lp-deck__card:hover {
+        @apply border-accent-border;
+    }
+    .lp-deck__title {
+        @apply truncate pr-5 font-display text-sm leading-snug font-bold text-ink no-underline hover:text-accent-ink;
+    }
+    /* The fan runs from the deck to the left, in rank order, with no delay on the way out. */
+    :is(
+            .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *),
+            .lp-deck:has(.lp-board-card--dragging)
+        )
+        .lp-deck__card {
+        translate: calc(var(--deck-slot) * var(--deck-order, 0) * -1) 0;
+        rotate: var(--deck-tilt, 0deg);
+        opacity: 1;
+        box-shadow: var(--shadow-deck);
+        transition-delay: 0s;
+    }
+    :is(
+            .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *),
+            .lp-deck:has(.lp-board-card--dragging)
+        )
+        .lp-deck__card
+        > * {
+        @apply visible;
+    }
+    /* A card the fan has no room for. The "+N more" tile counts it instead. */
+    :is(
+            .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *),
+            .lp-deck:has(.lp-board-card--dragging)
+        )
+        .lp-deck__card.lp-deck__card--spare {
+        @apply invisible opacity-0 pointer-events-none;
+    }
+    /* The last tile of the fan, which the resting pile never shows. */
+    .lp-deck__card.lp-deck__more {
+        @apply items-center justify-center border-dashed border-line-strong bg-surface-2 font-display text-sm font-bold text-accent-ink no-underline cursor-pointer opacity-0;
+    }
+    .lp-deck__more[hidden] {
+        @apply hidden;
+    }
+    /* A dragged card over the deck, which a release sends back to the Backlog. */
+    .lp-deck.lp-board-backlog--over .lp-deck__card[data-deck-index='0'] {
+        @apply border-dashed border-accent-border bg-accent-faint;
+    }
+    /* The card lifted out of the deck follows the pointer, flat and whole. */
+    .lp-deck__card.lp-board-card--dragging {
+        @apply fixed right-auto;
+        translate: none;
+        rotate: -2.5deg;
+        opacity: 0.95;
+        transition: none;
+    }
+    .lp-deck__card.lp-board-card--dragging > * {
+        @apply visible;
+    }
+    /* The fan keeps the lifted card's slot empty rather than a copy of it. */
+    .lp-deck > :is(.lp-board__ghost, .lp-board__placeholder),
+    .lp-deck__card.lp-board-card--sent {
+        @apply hidden;
+    }
+    /* A deck card dropped in a cell, until the placement replaces it with a board card. */
+    .lp-board-lane__cell > .lp-deck__card {
+        @apply static w-auto h-auto opacity-100;
+        translate: none;
+        rotate: none;
+    }
+    .lp-board-lane__cell > .lp-deck__card > * {
+        @apply visible;
+    }
+
     .lp-board-lane__cells {
         @apply flex gap-3.5;
     }
@@ -6678,6 +6898,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    /* The deck opens and folds in place, with a fade and no travel. */
+    .lp-deck__card,
+    .lp-board-lane__heading,
+    .lp-board-lane__head > form,
+    .lp-board-lane__deck-label {
+        transition: opacity 150ms ease;
+    }
+
     html:has(.lp-landing) {
         scroll-behavior: auto;
     }

@@ -111,7 +111,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertMatchesRegularExpression('#\sdata-lane-head[\s>]#', $content);
         self::assertStringContainsString('data-lane-after="'.$before->id.'"', $content);
         self::assertStringContainsString('class="lp-board-lane__head"', $content);
-        self::assertMatchesRegularExpression('#data-lane-progress>\s*1/2 done\s*<#', $content);
+        self::assertMatchesRegularExpression('#data-lane-progress[^>]*>\s*<progress[^>]*value="1" max="2"[^>]*></progress>\s*1/2\s*<span class="lp-board-lane__done">done</span>#', $content);
         self::assertStringNotContainsString('id="board-card-'.$epic->id.'"', $content);
         self::assertStringContainsString('id="board-row-'.$epic->id.'"', $content);
     }

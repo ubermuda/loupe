@@ -5861,6 +5861,11 @@
             <trans-unit id="board.card.lane.error.not_saved"><source>board.card.lane.error.not_saved</source><target>The lane setting was not saved. Reload the page and try again.</target></trans-unit>
             <trans-unit id="board.card.lane.error.not_epic"><source>board.card.lane.error.not_epic</source><target>Only an epic has a lane.</target></trans-unit>
             <trans-unit id="board.lane.other"><source>board.lane.other</source><target>Other cards</target></trans-unit>
+            <trans-unit id="board.lane.progress.fraction"><source>board.lane.progress.fraction</source><target>%done%/%total%</target></trans-unit>
+            <trans-unit id="board.lane.progress.done"><source>board.lane.progress.done</source><target>done</target></trans-unit>
+            <trans-unit id="board.lane.deck.title"><source>board.lane.deck.title</source><target>Up next</target></trans-unit>
+            <trans-unit id="board.lane.deck.count"><source>board.lane.deck.count</source><target>{0}Nothing in Backlog|{1}1 in Backlog|]1,Inf[%count% in Backlog</target></trans-unit>
+            <trans-unit id="board.lane.deck.more"><source>board.lane.deck.more</source><target>+%count% more</target></trans-unit>
             <trans-unit id="board.lane.collapse"><source>board.lane.collapse</source><target>Show or hide the cards of this lane</target></trans-unit>
             <trans-unit id="board.card.linked_cards.kind.relates_to"><source>board.card.linked_cards.kind.relates_to</source><target>Related to</target></trans-unit>
             <trans-unit id="board.card.linked_cards.kind.blocks"><source>board.card.linked_cards.kind.blocks</source><target>Blocks</target></trans-unit>

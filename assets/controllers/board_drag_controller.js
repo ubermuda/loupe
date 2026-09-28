@@ -315,9 +315,13 @@ export default class extends Controller {
         }
 
         const origin = { group: this.originGroup, before: this.originNextCard };
+        // A bucket keeps no order, so a card dropped back on the bucket it came from stays put.
         const moves =
             group !== null &&
-            !(group === this.originGroup && position === this.originIndex);
+            !(
+                group === this.originGroup &&
+                (position === this.originIndex || isBucket(group))
+            );
 
         // A bucket shows no card, so the card stays in the DOM, hidden, and its form can submit.
         if (moves && isBucket(group)) {
@@ -438,7 +442,8 @@ export default class extends Controller {
      * before that would mark a place the placement is about to shift.
      */
     awaitPlacement(card) {
-        const cardId = card.id.replace(/^board-card-/, '');
+        // A deck card has an id of its own, so the id of the card comes from its data.
+        const cardId = card.dataset.cardId;
         this.stopAwaitingPlacement = () => {
             document.removeEventListener('board:placed', placed);
             document.removeEventListener('board:place-missed', placed);
