@@ -60,4 +60,21 @@ final class ActivityPageShellTest extends WebTestCase
         self::assertSame($base.'/worker-runs', $active->attr('href'));
         self::assertSame('Activity', trim($active->text()));
     }
+
+    public function test_the_events_header_keeps_the_feed_controls_inside_the_filter_controller(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'activity-shell-controls@example.com');
+        $project = $this->project($em, $owner, 'Controls project');
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/activity');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-controller="activity-filter"] header [data-activity-filter-target="status"]'));
+        self::assertCount(1, $crawler->filter('[data-controller="activity-filter"] header [data-activity-filter-target="toggle"]'));
+    }
 }
