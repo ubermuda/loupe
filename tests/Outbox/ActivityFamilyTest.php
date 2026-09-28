@@ -20,6 +20,7 @@ final class ActivityFamilyTest extends TestCase
         yield 'project' => ['project.renamed', ActivityFamily::Project];
         yield 'site review' => ['site_review.batch_submitted', ActivityFamily::SiteReview];
         yield 'unknown prefix' => ['billing.paid', null];
+        yield 'enum value is no prefix' => ['site-review.batch_submitted', null];
         yield 'no dot' => ['board', null];
         yield 'empty' => ['', null];
     }
@@ -50,8 +51,18 @@ final class ActivityFamilyTest extends TestCase
         }
     }
 
+    public function test_prefix_is_the_event_type_prefix(): void
+    {
+        self::assertSame('site-review', ActivityFamily::SiteReview->value);
+        self::assertSame('site_review', ActivityFamily::SiteReview->prefix());
+        self::assertSame('pull-request', ActivityFamily::PullRequest->value);
+        self::assertSame('pull_request', ActivityFamily::PullRequest->prefix());
+        self::assertSame('board', ActivityFamily::Board->prefix());
+    }
+
     public function test_translation_key(): void
     {
         self::assertSame('activity.family.site_review', ActivityFamily::SiteReview->translationKey());
+        self::assertSame('activity.family.pull_request', ActivityFamily::PullRequest->translationKey());
     }
 }

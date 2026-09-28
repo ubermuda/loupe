@@ -7,7 +7,7 @@
         {% set event = entry.event %}
         {% set activity_family = entry.family() %}
         <article class="lp-feed__item" data-activity-event-id="{{ event.id }}">
-            <span class="lp-feed__icon">{% include 'outbox/_event_family_icon.html.twig' with {family: activity_family ? activity_family.value : null} only %}</span>
+            <span class="lp-feed__icon">{% include 'outbox/_event_family_icon.html.twig' with {family: activity_family ? activity_family.prefix() : null} only %}</span>
             <div class="lp-feed__body">
                 <strong class="lp-feed__title">{% include 'outbox/_event_type_label.html.twig' with {type: event.type} only %}</strong>
                 {% if entry.link %}<a class="lp-feed__link" href="{{ entry.link.url }}">{{ entry.link.label }}</a>{% endif %}

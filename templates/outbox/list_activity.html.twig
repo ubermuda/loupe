@@ -47,7 +47,7 @@
             <select id="activity-family" class="lp-input lp-select lp-filter-select" data-activity-filter-target="family" data-action="change->activity-filter#filter">
                 <option value="all">{{ 'activity.filter.all_families'|trans }}</option>
                 {% for family in families %}
-                <option value="{{ family.value }}">{{ family.translationKey()|trans }}</option>
+                <option value="{{ family.prefix() }}">{{ family.translationKey()|trans }}</option>
                 {% endfor %}
             </select>
         </div>

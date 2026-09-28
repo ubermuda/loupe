@@ -11,10 +11,10 @@ enum ActivityFamily: string
     case Document = 'document';
     case Inbox = 'inbox';
     case Project = 'project';
-    case PullRequest = 'pull_request'; // @phpstan-ignore enum.notKebabCase (the value is the event type prefix)
+    case PullRequest = 'pull-request';
     case Worker = 'worker';
     case Rule = 'rule';
-    case SiteReview = 'site_review'; // @phpstan-ignore enum.notKebabCase (the value is the event type prefix)
+    case SiteReview = 'site-review';
 
     /** Older document events carry a `review.*` type. */
     private const string LEGACY_DOCUMENT_PREFIX = 'review';
@@ -27,20 +27,44 @@ enum ActivityFamily: string
         }
 
         $prefix = substr($type, 0, $dot);
+        if (self::LEGACY_DOCUMENT_PREFIX === $prefix) {
+            return self::Document;
+        }
 
-        return self::LEGACY_DOCUMENT_PREFIX === $prefix ? self::Document : self::tryFrom($prefix);
+        foreach (self::cases() as $family) {
+            if ($family->prefix() === $prefix) {
+                return $family;
+            }
+        }
+
+        return null;
+    }
+
+    /** @return non-empty-string */
+    public function prefix(): string
+    {
+        return match ($this) {
+            self::Board => 'board',
+            self::Document => 'document',
+            self::Inbox => 'inbox',
+            self::Project => 'project',
+            self::PullRequest => 'pull_request',
+            self::Worker => 'worker',
+            self::Rule => 'rule',
+            self::SiteReview => 'site_review',
+        };
     }
 
     /** @return non-empty-list<non-empty-string> */
     public function typePrefixes(): array
     {
         return self::Document === $this
-            ? [$this->value.'.', self::LEGACY_DOCUMENT_PREFIX.'.']
-            : [$this->value.'.'];
+            ? [$this->prefix().'.', self::LEGACY_DOCUMENT_PREFIX.'.']
+            : [$this->prefix().'.'];
     }
 
     public function translationKey(): string
     {
-        return 'activity.family.'.$this->value;
+        return 'activity.family.'.$this->prefix();
     }
 }
