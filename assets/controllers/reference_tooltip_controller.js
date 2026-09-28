@@ -16,8 +16,11 @@ export default class extends Controller {
         this.mark = null;
         this.pointerType = 'mouse';
         this.hideTimer = null;
+        this.shownAtPointerDown = null;
         this.onPointerDown = (event) => {
             this.pointerType = event.pointerType;
+            // A tap focuses the mark before its click, which shows the popover.
+            this.shownAtPointerDown = this.mark;
         };
         this.onPointerOver = (event) => {
             if (event.pointerType === 'touch') {
@@ -79,7 +82,10 @@ export default class extends Controller {
             if (selection !== null && !selection.isCollapsed) {
                 return;
             }
-            if (this.pointerType === 'touch' && this.mark !== mark) {
+            if (
+                this.pointerType === 'touch' &&
+                this.shownAtPointerDown !== mark
+            ) {
                 event.preventDefault();
                 this.#show(mark);
                 return;

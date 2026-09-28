@@ -235,3 +235,23 @@ test('a comment on text after a mention anchors to the words selected', async ({
         orphaned: false,
     });
 });
+
+test.describe('on a touch screen', () => {
+    test.use({ hasTouch: true });
+
+    test('the first tap on a mention shows its definition, and the second jumps', async ({
+        page,
+    }) => {
+        await page.goto(reviewUrl(plan));
+        const mark = page.locator(`${DOC} .lp-ref[data-ref="R1"]`);
+        const tooltip = page.locator(TOOLTIP);
+
+        await mark.tap();
+        await expect(tooltip).toBeVisible();
+        await expect(tooltip).toContainText(DEFINITION);
+        await expect(page).not.toHaveURL(/#ref-R1$/);
+
+        await mark.tap();
+        await expect(page).toHaveURL(/#ref-R1$/);
+    });
+});
