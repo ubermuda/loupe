@@ -5421,6 +5421,10 @@
     .lp-board {
         @apply flex flex-col gap-2 min-h-0 h-full;
     }
+    /* The board is a viewport-sized surface, so it drops the frame cap. */
+    .lp-core-board.lp-workspace {
+        max-width: none;
+    }
     /* A board is a viewport-sized surface at every width: the columns keep the
        room the page leaves, rather than stacking as a split page does. */
     .lp-core-board.lp-split-page,
