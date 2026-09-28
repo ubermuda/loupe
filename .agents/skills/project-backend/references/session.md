@@ -37,6 +37,8 @@ defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => 'board-frame'],
 
 The request is then read-only only when its `Turbo-Frame` header equals that id. A normal page load keeps its writes, so it still consumes the flash messages that a redirect set. `app_project_board` and `app_project_worker_runs` use this form.
 
+Give a list of ids when the reload fetches more than one frame, such as `['activity-frame', 'activity-count']` on `app_project_activity`. Name every frame that the refresh reloads.
+
 Put the mark on the one route that the reload fetches. A controller with two `#[Route]` attributes needs the mark on each route that background code calls, and on no other.
 
 ## What a read-only route must not do

@@ -10,6 +10,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Outbox\Entity\OutboxEvent;
+use App\Session\ReadOnlyAwareSessionHandler;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -338,6 +339,30 @@ final class ActivityPageTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('turbo-frame#activity-frame[target="_top"] [data-activity-event-id]'));
         self::assertCount(0, $crawler->filter('turbo-frame#activity-frame form'));
+    }
+
+    public function test_every_frame_the_live_refresh_reloads_keeps_the_session_read_only(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'activity-read-only-frames@example.com');
+        $project = new Project($owner, 'Read-only frames');
+        $em->persist($project);
+        $em->persist(new OutboxEvent($project, 'board.card_moved', 'topic', '{}'));
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/activity');
+        $refresh = $crawler->filter('[data-controller="worker-run-refresh"]');
+        $frames = [
+            $refresh->filter('[data-worker-run-refresh-target="frame"]')->attr('id'),
+            ...json_decode((string) $refresh->attr('data-worker-run-refresh-frames-value'), true, flags: \JSON_THROW_ON_ERROR),
+        ];
+
+        $route = static::getContainer()->get('router')->getRouteCollection()->get('app_project_activity');
+        self::assertNotNull($route);
+        self::assertEqualsCanonicalizing($frames, (array) $route->getDefault(ReadOnlyAwareSessionHandler::READ_ONLY));
     }
 
     public function test_only_the_first_page_refreshes_live(): void

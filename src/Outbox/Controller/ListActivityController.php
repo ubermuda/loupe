@@ -22,7 +22,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route(
     '/projects/{id:project}/activity',
     name: 'app_project_activity',
-    defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => 'activity-frame'],
+    defaults: [ReadOnlyAwareSessionHandler::READ_ONLY => ['activity-frame', 'activity-count']],
     methods: ['GET'],
 )]
 final class ListActivityController extends AppController
