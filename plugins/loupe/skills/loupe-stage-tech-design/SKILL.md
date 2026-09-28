@@ -50,7 +50,7 @@ Write the final reply as the contract says.
 
 ## The design sections
 
-Use these `##` sections, in this order. Follow `../loupe-documents/references/design-structure.md` for At a glance, the decisions and the tables.
+Use these `##` sections, in this order. Follow `../loupe-documents/references/design-structure.md` for At a glance, the decisions and the tables. Put each section that the profile instructions add, such as the current state or the project checks, before Decided.
 
 1. At a glance.
 2. Priorities. Cite the `P` entries of the product document that the design serves. With no product document, take them from the card body.
