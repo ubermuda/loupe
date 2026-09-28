@@ -5708,6 +5708,8 @@
             <trans-unit id="activity.family.document"><source>activity.family.document</source><target>Documents</target></trans-unit>
             <trans-unit id="activity.family.rule"><source>activity.family.rule</source><target>Rules</target></trans-unit>
             <trans-unit id="activity.family.site_review"><source>activity.family.site_review</source><target>Site review</target></trans-unit>
+            <trans-unit id="activity.family.project"><source>activity.family.project</source><target>Project</target></trans-unit>
+            <trans-unit id="activity.family.pull_request"><source>activity.family.pull_request</source><target>Pull requests</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.work"><source>bridge.worker_runs.column.work</source><target>Work</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.outcome"><source>bridge.worker_runs.column.outcome</source><target>Outcome</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.rule"><source>bridge.worker_runs.column.rule</source><target>Rule</target></trans-unit>
@@ -5788,6 +5790,11 @@
             <trans-unit id="activity.event_type.board.column_deleted"><source>activity.event_type.board.column_deleted</source><target>Column deleted</target></trans-unit>
             <trans-unit id="activity.event_type.inbox.ask_closed"><source>activity.event_type.inbox.ask_closed</source><target>Question closed</target></trans-unit>
             <trans-unit id="activity.event_type.project.renamed"><source>activity.event_type.project.renamed</source><target>Project renamed</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.review_submitted"><source>activity.event_type.pull_request.review_submitted</source><target>Pull request reviewed</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.checks_concluded"><source>activity.event_type.pull_request.checks_concluded</source><target>Checks concluded</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.merged"><source>activity.event_type.pull_request.merged</source><target>Pull request merged</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.repository_moved"><source>activity.event_type.pull_request.repository_moved</source><target>Repository moved</target></trans-unit>
+            <trans-unit id="activity.event_type.document.review_submitted"><source>activity.event_type.document.review_submitted</source><target>Document review submitted</target></trans-unit>
             <trans-unit id="project.workshop.activity.empty"><source>project.workshop.activity.empty</source><target>No recorded activity yet.</target></trans-unit>
             <trans-unit id="project.workshop.cards.empty"><source>project.workshop.cards.empty</source><target>No open cards. Open the board to create work.</target></trans-unit>
             <trans-unit id="project.workshop.cards.disabled"><source>project.workshop.cards.disabled</source><target>The board is disabled on this instance.</target></trans-unit>
