@@ -369,7 +369,7 @@ An agent or a person moves the card to a terminal column.
 
 | Mistake | Reality |
 |---|---|
-| Assuming the board has `backlog`, `next`, `in-progress` and `done` | Each board has its own columns. Call `board_columns` and use its slugs. |
+| Assuming the board has `next`, `in-progress` and `done` | Each board has its own columns. Only `backlog` is always there. Call `board_columns` and use its slugs. |
 | Reusing a slug from an earlier session | A rename can change the slug. Read the columns again. |
 | Looking for a tool that adds or renames a column | No tool writes a column. Ask the project owner. |
 | Looking for a `card_delete` tool | There is none. Move the card to a terminal column. |
