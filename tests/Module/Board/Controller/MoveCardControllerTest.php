@@ -76,6 +76,47 @@ final class MoveCardControllerTest extends WebTestCase
         self::assertSame(0, $moved->position);
     }
 
+    public function test_the_move_form_on_the_board_face_moves_its_card(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'move-face@example.com');
+        $project = $this->project($em, $owner);
+        $this->card($em, $project, 'Stays', 'backlog', 0);
+        $mover = $this->card($em, $project, 'Mover', 'backlog', 1);
+        $moverId = $mover->id;
+        $name = MoveCardFormType::nameFor($mover);
+        $target = (string) $this->column($project, 'next')->id;
+        $boardUrl = '/projects/'.$project->id.'/board';
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $boardUrl);
+        self::assertResponseIsSuccessful();
+
+        $html = (string) $client->getResponse()->getContent();
+        $forms = $crawler->filter('form[data-board-drag-target="moveForm"]');
+        self::assertCount(2, $forms);
+        self::assertCount(2, $crawler->filter('form[data-board-drag-target="moveForm"] select[name^="move_card_"][name$="[column]"]'));
+        self::assertSame(1, substr_count($html, 'name="'.$name.'[column]"'));
+        preg_match_all('/move_card_[0-9a-f-]+/', $html, $names);
+        self::assertSame([], array_values(array_filter(
+            $names[0],
+            static fn (string $found): bool => !preg_match('/^move_card_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $found),
+        )));
+
+        $form = $crawler->filter('#board-card-'.$moverId.' form[data-board-drag-target="moveForm"]')->form();
+        $client->submit($form, [$name.'[column]' => $target], ['HTTP_REFERER' => 'http://localhost'.$boardUrl]);
+
+        self::assertResponseRedirects();
+        $em->clear();
+        $moved = $em->find(Card::class, $moverId);
+        self::assertInstanceOf(Card::class, $moved);
+        self::assertSame('next', $moved->column->slug);
+    }
+
     public function test_a_move_into_done_stamps_the_completion_and_answers_with_a_stream(): void
     {
         $client = static::createClient();

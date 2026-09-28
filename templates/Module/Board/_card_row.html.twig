@@ -1,4 +1,4 @@
-{# One card as a row of the list view. Props: card (Card), column (BoardColumn), feedbackCount (int),
+{# One card as a row of the list view. Props: card (Card), column (BoardColumn), feedbackCount (int), documentCount (int),
    progress (CardProgress, optional): an epic's progress, which the card digest covers,
    runWarning (CardRunWarning, optional) keeps the digest equal to the card face's. #}
 {% set progress = progress ?? null %}
@@ -11,7 +11,7 @@
    data-board-filter-target="row"
    data-card-id="{{ card.id }}"
    data-column-id="{{ column.id }}"
-   data-card-digest="{{ card_digest(card, feedbackCount, progress, runWarning.runId ?? null) }}"
+   data-card-digest="{{ card_digest(card, feedbackCount, documentCount, progress, runWarning.runId ?? null) }}"
    data-card-title="{{ card.title }}">
     <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong></span>
     <span>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</span>

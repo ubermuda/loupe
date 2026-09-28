@@ -22,6 +22,12 @@ final readonly class BoardView
          * @var array<string, int>
          */
         public array $pendingComments = [],
+        /**
+         * Linked documents per card id, keyed and defaulted like $pendingComments.
+         *
+         * @var array<string, int>
+         */
+        public array $documentCounts = [],
         /** @var list<DeadBridgeRuleView> */
         public array $deadBridgeRules = [],
         /**
