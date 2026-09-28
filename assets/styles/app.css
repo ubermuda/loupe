@@ -5881,7 +5881,7 @@
             .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *),
             .lp-deck:has(.lp-board-card--dragging)
         )
-        .lp-deck__card {
+        .lp-deck__card:not(.lp-board-card--dragging) {
         translate: calc(var(--deck-slot) * var(--deck-order, 0) * -1) 0;
         rotate: var(--deck-tilt, 0deg);
         opacity: 1;
