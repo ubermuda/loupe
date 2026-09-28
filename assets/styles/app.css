@@ -5900,7 +5900,9 @@
     .lp-data-table__row {
         @apply relative min-h-13 border-b border-line bg-white text-sm text-fg-mute last:rounded-b-xl last:border-b-0;
     }
-    .lp-data-table__row:has(.lp-data-table__target):hover {
+    .lp-data-table__row:has(.lp-data-table__target):not(
+            :has(dialog[open])
+        ):hover {
         @apply bg-surface-2;
     }
     .lp-data-table__row:has(dialog[open]) {
