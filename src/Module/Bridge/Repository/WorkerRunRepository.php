@@ -159,6 +159,7 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->andWhere('r.state IN (:states)')
             ->setParameter('project', $project)
             ->setParameter('states', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()))
+            ->orderBy('r.id', 'ASC')
             ->getQuery()
             ->getResult());
     }
