@@ -8,7 +8,10 @@ use App\Controller\AppController;
 use App\Module\Board\Command\ListBacklogCardsCommand;
 use App\Module\Board\Command\ListBacklogCardsHandler;
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\BoardAvailability;
+use App\Module\Board\View\BacklogListQuery;
+use App\Module\Board\View\BacklogSort;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -41,24 +44,24 @@ final class ListBacklogCardsController extends AppController
     ): Response {
         $this->board->requireEnabled();
 
-        $page = max(1, $request->query->getInt('page', 1));
-        $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $page));
+        $listQuery = BacklogListQuery::fromQuery($request->query);
+        $view = ($this->listBacklogCards)(new ListBacklogCardsCommand($backlog, $listQuery));
 
-        $routeParams = ['projectId' => (string) $project->id];
         if (null !== $view->clampedPage) {
-            return $this->redirectToRoute('app_project_board_backlog', [...$routeParams, 'page' => $view->clampedPage]);
+            return $this->redirectToRoute('app_project_board_backlog', [
+                'projectId' => (string) $project->id,
+                ...$listQuery->withPage($view->clampedPage)->routeParams(),
+            ]);
         }
 
         // `project` is deliberately absent: base.html.twig sets its own from
         // current_project(), and a variable of that name here would be clobbered.
         return $this->render('@Board/list_backlog_cards.html.twig', [
             'backlog' => $backlog,
-            'routeParams' => $routeParams,
-            'items' => $view->items,
-            'total' => $view->total,
-            'page' => $page,
-            'totalPages' => $view->totalPages,
-            'pageList' => $view->pageList,
+            'view' => $view,
+            'listQuery' => $listQuery,
+            'types' => CardType::cases(),
+            'sorts' => BacklogSort::cases(),
         ]);
     }
 }

@@ -757,6 +757,28 @@
         @apply col-span-full;
     }
 
+    /* The Backlog page reuses the document table with its own columns. */
+    .lp-document-table--backlog .lp-document-table__head,
+    .lp-document-table--backlog .lp-document-row {
+        @apply gap-3;
+        grid-template-columns:
+            minmax(0, 2.6fr) minmax(calc(var(--spacing) * 24), 0.55fr)
+            minmax(calc(var(--spacing) * 36), 1.2fr)
+            calc(var(--spacing) * 19) calc(var(--spacing) * 25);
+    }
+    .lp-document-table--backlog .lp-document-row {
+        @apply min-h-15 py-2.5;
+    }
+    .lp-backlog-row__title {
+        @apply min-w-0 truncate font-display font-semibold text-ink no-underline hover:text-accent-ink;
+    }
+    .lp-backlog-row__epic {
+        @apply truncate;
+    }
+    .lp-backlog-sort {
+        @apply ml-auto;
+    }
+
     /* Board controls and column framing for the supported kanban view. The
        toolbar is the page's heading row: title, search, count and actions. */
     /* The toolbar row: the permanent toolbar, then the Backlog button a frame reload redraws. */

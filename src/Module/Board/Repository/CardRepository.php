@@ -10,6 +10,8 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\View\BacklogListQuery;
+use App\Module\Board\View\BacklogSort;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
@@ -211,10 +213,29 @@ class CardRepository extends ServiceEntityRepository
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage);
 
-        // One branch per language the project's cards hold, each with a constant
-        // configuration, because Postgres uses the GIN index only when the
-        // tsquery is the same for every row. Deriving the configuration from the
-        // row instead turns the match into a filter over every card.
+        $this->andMatchesSearch($qb, $project, $query);
+
+        // The rank runs on the matches only, so the per-row cast costs nothing
+        // here. CAST because websearch_to_tsquery has no (varchar, text)
+        // overload, only (regconfig, text).
+        $qb->orderBy('TS_RANK(c.searchVector, WEBSEARCH_TO_TSQUERY(CAST(c.searchLanguage AS regconfig), :search))', 'DESC')
+            // Ranks tie often, and without a unique tiebreak an offset page can
+            // repeat or skip a card.
+            ->addOrderBy('c.number', 'DESC');
+
+        // No collection is fetch-joined, so the page LIMIT counts cards and the
+        // extra distinct-id query a fetch-join needs would buy nothing.
+        return new Paginator($qb->getQuery(), fetchJoinCollection: false);
+    }
+
+    /**
+     * Narrows card alias c to the cards whose title or body matches the query.
+     * One branch per language the project's cards hold, each with a constant
+     * configuration, because Postgres uses the GIN index only when the tsquery
+     * is the same for every row.
+     */
+    private function andMatchesSearch(QueryBuilder $qb, Project $project, string $query): void
+    {
         $branches = [];
         foreach ($this->searchLanguagesOf($project) as $index => $language) {
             // The configuration is concatenated rather than bound: Postgres
@@ -231,18 +252,6 @@ class CardRepository extends ServiceEntityRepository
 
         $qb->andWhere('('.implode(' OR ', $branches).')')
             ->setParameter('search', $query);
-
-        // The rank runs on the matches only, so the per-row cast costs nothing
-        // here. CAST because websearch_to_tsquery has no (varchar, text)
-        // overload, only (regconfig, text).
-        $qb->orderBy('TS_RANK(c.searchVector, WEBSEARCH_TO_TSQUERY(CAST(c.searchLanguage AS regconfig), :search))', 'DESC')
-            // Ranks tie often, and without a unique tiebreak an offset page can
-            // repeat or skip a card.
-            ->addOrderBy('c.number', 'DESC');
-
-        // No collection is fetch-joined, so the page LIMIT counts cards and the
-        // extra distinct-id query a fetch-join needs would buy nothing.
-        return new Paginator($qb->getQuery(), fetchJoinCollection: false);
     }
 
     /**
@@ -811,24 +820,75 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * One page of an open column in rank order, with the epic of each card.
+     * One page of the Backlog cards that match the filters, in the order the
+     * query asks for, with the epic of each card.
      *
      * @return list<Card>
      */
-    public function findRankedPage(BoardColumn $column, int $offset, int $limit): array
+    public function findBacklogPage(BoardColumn $backlog, BacklogListQuery $listQuery, int $offset, int $limit): array
     {
-        return array_values($this->createQueryBuilder('c')
+        $qb = $this->backlogMatching($backlog, $listQuery)
             ->leftJoin('c.parent', 'parent')
             ->addSelect('parent')
-            ->andWhere('c.column = :column')
-            ->setParameter('column', $column)
-            ->orderBy('c.position', 'ASC')
-            ->addOrderBy('c.createdAt', 'ASC')
-            ->addOrderBy('c.id', 'ASC')
             ->setFirstResult($offset)
-            ->setMaxResults($limit)
+            ->setMaxResults($limit);
+
+        // Each order ends on the id, so an offset page never repeats or skips a card.
+        match ($listQuery->sort) {
+            BacklogSort::Rank => $qb->orderBy('c.position', 'ASC')->addOrderBy('c.createdAt', 'ASC')->addOrderBy('c.id', 'ASC'),
+            BacklogSort::Newest => $qb->orderBy('c.createdAt', 'DESC')->addOrderBy('c.id', 'DESC'),
+            BacklogSort::Oldest => $qb->orderBy('c.createdAt', 'ASC')->addOrderBy('c.id', 'ASC'),
+            BacklogSort::Updated => $qb->orderBy('c.updatedAt', 'DESC')->addOrderBy('c.id', 'DESC'),
+        };
+
+        return array_values($qb->getQuery()->getResult());
+    }
+
+    public function countBacklogMatching(BoardColumn $backlog, BacklogListQuery $listQuery): int
+    {
+        return (int) $this->backlogMatching($backlog, $listQuery)
+            ->select('COUNT(c.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * The epics that hold at least one card of the column, by number, for the
+     * epic filter of the Backlog page.
+     *
+     * @return list<Card>
+     */
+    public function findEpicsOfColumn(BoardColumn $column): array
+    {
+        return array_values($this->createQueryBuilder('e')
+            ->andWhere('e.project = :project')
+            ->andWhere('EXISTS (SELECT 1 FROM '.Card::class.' child WHERE child.parent = e AND child.column = :column)')
+            ->setParameter('project', $column->project)
+            ->setParameter('column', $column)
+            ->orderBy('e.number', 'ASC')
             ->getQuery()
             ->getResult());
+    }
+
+    private function backlogMatching(BoardColumn $backlog, BacklogListQuery $listQuery): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->andWhere('c.column = :column')
+            ->setParameter('column', $backlog);
+
+        if (null !== $listQuery->search) {
+            $this->andMatchesSearch($qb, $backlog->project, $listQuery->search);
+        }
+        if (null !== $listQuery->type) {
+            $qb->andWhere('c.type = :type')->setParameter('type', $listQuery->type);
+        }
+        if (BacklogListQuery::NO_EPIC === $listQuery->epic) {
+            $qb->andWhere('c.parent IS NULL');
+        } elseif (null !== $listQuery->epic) {
+            $qb->andWhere('c.parent = :epic')->setParameter('epic', Uuid::fromString($listQuery->epic), UuidType::NAME);
+        }
+
+        return $qb;
     }
 
     public function countInColumn(BoardColumn $column): int

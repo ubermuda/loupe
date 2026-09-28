@@ -1,0 +1,47 @@
+{#- The Backlog rows and their paging, or the empty state. Props: project (Project), view (ListBacklogCardsView), listQuery (BacklogListQuery). -#}
+{% set backlogPath = path('app_project_board_backlog', {projectId: project.id}) %}
+{% if view.items|length > 0 %}
+<div class="lp-document-table lp-document-table--backlog" role="table" aria-label="{{ 'board.backlog.table.label'|trans }}">
+    <div class="lp-document-table__head" role="row">
+        <span role="columnheader">{{ 'board.backlog.table.card'|trans }}</span>
+        <span role="columnheader">{{ 'board.backlog.table.type'|trans }}</span>
+        <span role="columnheader">{{ 'board.backlog.table.epic'|trans }}</span>
+        <span role="columnheader">{{ 'board.backlog.table.feedback'|trans }}</span>
+        <span role="columnheader">{{ 'board.backlog.table.added'|trans }}</span>
+    </div>
+    <div class="lp-document-list" role="rowgroup">
+        {% for card in view.items %}
+        <div class="lp-document-row lp-backlog-row" id="backlog-row-{{ card.id }}" data-backlog-card-id="{{ card.id }}" role="row">
+            <div class="lp-document-row__main" role="cell">
+                <div class="lp-document-row__head">
+                    <span class="lp-board-card__number">#{{ card.number }}</span>
+                    <a class="lp-backlog-row__title" href="{{ path('app_board_card', {projectId: project.id, cardId: card.id}) }}" draggable="false">{{ card.title }}</a>
+                </div>
+            </div>
+            <div role="cell">{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</div>
+            <span class="lp-document-row__author lp-backlog-row__epic" role="cell">
+                {% if card.parent %}<span class="lp-board-card__number">#{{ card.parent.number }}</span> {{ card.parent.title }}{% else %}<span aria-label="{{ 'board.backlog.table.no_epic'|trans }}">—</span>{% endif %}
+            </span>
+            <span class="lp-document-row__linked-card" role="cell">{{ view.pendingComments[card.id ~ '']|default(0) ?: '—' }}</span>
+            <time class="lp-document-row__updated" datetime="{{ card.createdAt|date('c') }}" role="cell">{{ card.createdAt|relative_time }}</time>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<twig:Pagination route="app_project_board_backlog" :page="listQuery.page" :totalPages="view.totalPages" :pageList="view.pageList" :routeParams="{projectId: project.id}|merge(listQuery.routeParams)" />
+{% elseif listQuery.isNarrowed %}
+<div class="lp-empty-state">
+    <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-8 h-8" />
+    <h2 class="lp-empty-state__title">{{ 'board.backlog.empty_filtered.title'|trans }}</h2>
+    <p class="lp-empty-state__body">{{ 'board.backlog.empty_filtered.body'|trans }}</p>
+    <a class="lp-btn" href="{{ backlogPath }}">{{ 'board.backlog.filter.clear_filters'|trans }}</a>
+</div>
+{% else %}
+<div class="lp-empty-state">
+    <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon w-12 h-12" />
+    <h2 class="lp-empty-state__title">{{ 'board.backlog.empty.title'|trans }}</h2>
+    <p class="lp-empty-state__body">{{ 'board.backlog.empty.body'|trans }}</p>
+    <a class="lp-btn" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'board.backlog.empty.action'|trans }}</a>
+</div>
+{% endif %}

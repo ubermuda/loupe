@@ -5022,15 +5022,107 @@
             </trans-unit>
             <trans-unit id="board.backlog.page.description">
                 <source>board.backlog.page.description</source>
-                <target>Every card that waits for its turn, in rank order. The board does not show these cards.</target>
+                <target>Every card that waits for its turn. The board does not show these cards.</target>
             </trans-unit>
             <trans-unit id="board.backlog.meta.total">
                 <source>board.backlog.meta.total</source>
                 <target>{0}no card|{1}1 card|]1,Inf[ %count% cards</target>
             </trans-unit>
-            <trans-unit id="board.backlog.added">
-                <source>board.backlog.added</source>
-                <target>Added %when%</target>
+            <trans-unit id="board.backlog.filter.search_label">
+                <source>board.backlog.filter.search_label</source>
+                <target>Search the Backlog</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.filter.search_placeholder">
+                <source>board.backlog.filter.search_placeholder</source>
+                <target>Search cards</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.filter.type_label">
+                <source>board.backlog.filter.type_label</source>
+                <target>Type</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.filter.all_types">
+                <source>board.backlog.filter.all_types</source>
+                <target>All types</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.filter.epic_label">
+                <source>board.backlog.filter.epic_label</source>
+                <target>Epic</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.filter.any_epic">
+                <source>board.backlog.filter.any_epic</source>
+                <target>Any epic</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.filter.no_epic">
+                <source>board.backlog.filter.no_epic</source>
+                <target>No epic</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.filter.sort_label">
+                <source>board.backlog.filter.sort_label</source>
+                <target>Sort</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.filter.clear">
+                <source>board.backlog.filter.clear</source>
+                <target>Clear</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.filter.clear_filters">
+                <source>board.backlog.filter.clear_filters</source>
+                <target>Clear filters</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.filter.count_matching">
+                <source>board.backlog.filter.count_matching</source>
+                <target>{0}%matching% of no card|{1}%matching% of 1 card|]1,Inf[ %matching% of %count% cards</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.sort.rank">
+                <source>board.backlog.sort.rank</source>
+                <target>Rank</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.sort.newest">
+                <source>board.backlog.sort.newest</source>
+                <target>Newest first</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.sort.oldest">
+                <source>board.backlog.sort.oldest</source>
+                <target>Oldest first</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.sort.updated">
+                <source>board.backlog.sort.updated</source>
+                <target>Recently updated</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.table.label">
+                <source>board.backlog.table.label</source>
+                <target>Backlog cards</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.table.card">
+                <source>board.backlog.table.card</source>
+                <target>Card</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.table.type">
+                <source>board.backlog.table.type</source>
+                <target>Type</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.table.epic">
+                <source>board.backlog.table.epic</source>
+                <target>Epic</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.table.no_epic">
+                <source>board.backlog.table.no_epic</source>
+                <target>No epic</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.table.feedback">
+                <source>board.backlog.table.feedback</source>
+                <target>Feedback</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.table.added">
+                <source>board.backlog.table.added</source>
+                <target>Added</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.empty_filtered.title">
+                <source>board.backlog.empty_filtered.title</source>
+                <target>No card matches</target>
+            </trans-unit>
+            <trans-unit id="board.backlog.empty_filtered.body">
+                <source>board.backlog.empty_filtered.body</source>
+                <target>Nothing in the Backlog matches these filters. Clear them to see every card.</target>
             </trans-unit>
             <trans-unit id="board.backlog.empty.title">
                 <source>board.backlog.empty.title</source>
