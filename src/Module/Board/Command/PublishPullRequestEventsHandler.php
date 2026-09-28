@@ -84,7 +84,7 @@ final readonly class PublishPullRequestEventsHandler
         }
 
         $settings = $this->boardAutomation->settingsOf($project);
-        // It flushes on return, which a second call needs: its locked read refreshes the row and drops unsaved counts.
+        // Each change to a row flushes at once, because the next locked read of the row refreshes it and drops unsaved counts.
         $this->em->wrapInTransaction(function () use ($links, $facts, $readyToMerge, $settings, $command): void {
             foreach ($links as $link) {
                 $card = $link->card;
@@ -96,6 +96,7 @@ final readonly class PublishPullRequestEventsHandler
                     }
                     if ($decides && null !== $fact['fixReason']) {
                         $this->requestFix($link, $command->current->headSha, $settings, $fact['fixReason']);
+                        $this->em->flush();
                     }
                 }
                 if ($decides && $readyToMerge && BoardMergeStrategy::Worker === $settings->mergeStrategy) {
@@ -103,6 +104,7 @@ final readonly class PublishPullRequestEventsHandler
                     $automation->lastAction = CardAutomationAction::ReadyToMerge;
                     $automation->lastActionAt = $this->clock->now();
                     $this->write($link, $command->current->headSha, BoardEventType::PULL_REQUEST_READY_TO_MERGE);
+                    $this->em->flush();
                 }
             }
         });

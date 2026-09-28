@@ -248,6 +248,20 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         self::assertEquals($this->clock->now(), $automation->lastActionAt);
     }
 
+    public function test_a_second_fix_reason_in_one_read_sees_the_first_round(): void
+    {
+        $card = $this->linkedCard();
+        $this->configure(loopLimit: 1);
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(headSha: self::SHA, checks: PullRequestChecks::Failed, checksSha: self::SHA, mergeability: PullRequestMergeability::Conflicting));
+
+        self::assertSame(1, $this->eventsOfType('pull_request.fix_requested'));
+        $automation = $this->automationOf($card);
+        self::assertSame(1, $automation->fixRounds);
+        self::assertSame('conflict', $automation->blockedReason);
+        self::assertSame(CardAutomationAction::Stopped, $automation->lastAction);
+    }
+
     public function test_ready_to_merge_fires_only_when_it_turns_true_under_the_worker_strategy(): void
     {
         $card = $this->linkedCard();
