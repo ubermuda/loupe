@@ -5,7 +5,9 @@ import { on, status } from '../lib/live.js';
 /**
  * Shows each card change on the board as it happens. A burst of messages for
  * one card costs one placement fetch, a card in a drag waits until the drag
- * settles, and a card another person changed is marked for a moment.
+ * settles, and a card another person changed is marked for a moment. A failed
+ * placement retries with a growing wait, and after the last retry the card is
+ * marked stale. The board never reloads.
  *
  * `own` never skips the fetch. A member can send another tab's origin, so the
  * flag may only suppress the mark.
@@ -15,13 +17,35 @@ const SETTLE_MILLISECONDS = 150;
 const BUSY_RETRY_MILLISECONDS = 200;
 // A stalled request would hold the queue for every card.
 const FETCH_TIMEOUT_MILLISECONDS = 10000;
+const RETRY_MILLISECONDS = [1000, 3000, 9000];
+const RETRY_JITTER = 0.2;
 const FLASH_MILLISECONDS = 1500;
 const STREAM_TYPE = 'text/vnd.turbo-stream.html';
 const FLASH_CLASS = 'lp-board-card--flash';
+// A lane epic has no card face. The head of its lane stands for it.
+const STALE_MARKS = [
+    [
+        (cardId) => document.getElementById(`board-card-${cardId}`),
+        'lp-board-card--stale',
+    ],
+    [
+        (cardId) => document.getElementById(`board-row-${cardId}`),
+        'lp-board-list__row--stale',
+    ],
+    [
+        (cardId) =>
+            document
+                .getElementById(`board-lane-${cardId}`)
+                ?.querySelector('.lp-board-lane__head') ?? null,
+        'lp-board-lane__head--stale',
+    ],
+];
+const RETRY = 'retry';
+const STALE = 'stale';
 
 export default class extends Controller {
     static targets = ['paused'];
-    static values = { placement: String, placeholder: String };
+    static values = { placement: String, placeholder: String, stale: String };
 
     initialize() {
         this.liveState = 'off';
@@ -76,15 +100,8 @@ export default class extends Controller {
         if (typeof cardId !== 'string' || cardId === '') {
             return;
         }
-        if (!this.pending.has(cardId)) {
-            this.pending.set(cardId, {
-                timer: undefined,
-                inFlight: false,
-                again: false,
-                remote: false,
-            });
-        }
-        const entry = this.pending.get(cardId);
+        const entry = this.entryFor(cardId);
+        entry.attempts = 0;
         entry.remote ||= !change.local && !change.own;
         if (entry.inFlight) {
             entry.again = true;
@@ -92,6 +109,24 @@ export default class extends Controller {
             return;
         }
         this.schedule(cardId, entry, SETTLE_MILLISECONDS);
+    }
+
+    /**
+     * An entry lives until its card is placed or marked stale, so the count
+     * of failed attempts survives a render that reports a miss later.
+     */
+    entryFor(cardId) {
+        if (!this.pending.has(cardId)) {
+            this.pending.set(cardId, {
+                timer: undefined,
+                inFlight: false,
+                again: false,
+                remote: false,
+                attempts: 0,
+            });
+        }
+
+        return this.pending.get(cardId);
     }
 
     schedule(cardId, entry, delay) {
@@ -131,6 +166,7 @@ export default class extends Controller {
         entry.again = false;
 
         let html = null;
+        let failure = RETRY;
         const abort = new AbortController();
         const timeout = setTimeout(
             () => abort.abort(),
@@ -147,6 +183,8 @@ export default class extends Controller {
             const type = response.headers.get('Content-Type') ?? '';
             if (response.ok && type.startsWith(STREAM_TYPE)) {
                 html = await response.text();
+            } else if (!response.ok && !this.transient(response.status)) {
+                failure = STALE;
             }
         } catch {
             html = null;
@@ -167,18 +205,68 @@ export default class extends Controller {
 
             return;
         }
-        if (html === null) {
-            this.expected.delete(cardId);
-            this.reload();
-        } else {
-            renderStreamMessage(html);
-        }
         if (entry.again) {
             entry.again = false;
             this.schedule(cardId, entry, SETTLE_MILLISECONDS);
-        } else {
-            this.pending.delete(cardId);
         }
+        if (html === null) {
+            entry.remote ||= this.expected.get(cardId)?.remote ?? false;
+            this.expected.delete(cardId);
+            if (entry.timer === undefined) {
+                this.fail(cardId, entry, failure);
+            }
+        } else {
+            // A miss can report inside this call or on a later frame.
+            renderStreamMessage(html);
+        }
+    }
+
+    /** A 403 or a 404 means the board is off or access is gone, so a retry cannot help. */
+    transient(status) {
+        return status >= 500 || status === 429 || status === 408;
+    }
+
+    fail(cardId, entry, failure) {
+        entry.attempts += 1;
+        if (failure === STALE || entry.attempts > RETRY_MILLISECONDS.length) {
+            this.pending.delete(cardId);
+            this.markStale(cardId);
+
+            return;
+        }
+        const wait = RETRY_MILLISECONDS[entry.attempts - 1];
+        this.schedule(cardId, entry, wait * (1 + RETRY_JITTER * Math.random()));
+    }
+
+    markStale(cardId) {
+        STALE_MARKS.forEach(([find, className]) => {
+            const element = find(cardId);
+            if (element === null || element.hasAttribute('data-board-stale')) {
+                return;
+            }
+            element.classList.add(className);
+            element.setAttribute('data-board-stale', '');
+            element.title = this.staleValue;
+            const text = document.createElement('span');
+            text.className = 'sr-only';
+            text.dataset.boardStaleText = '';
+            text.textContent = this.staleValue;
+            element.append(text);
+        });
+    }
+
+    /** The morph of fresh markup drops the mark too; this covers any other render. */
+    clearStale(cardId) {
+        STALE_MARKS.forEach(([find, className]) => {
+            const element = find(cardId);
+            if (element === null || !element.hasAttribute('data-board-stale')) {
+                return;
+            }
+            element.classList.remove(className);
+            element.removeAttribute('data-board-stale');
+            element.removeAttribute('title');
+            element.querySelector('[data-board-stale-text]')?.remove();
+        });
     }
 
     /** A card in a drag, or with a move the server has not placed yet. */
@@ -197,6 +285,14 @@ export default class extends Controller {
     }
 
     placed({ cardId, removed }) {
+        this.clearStale(cardId);
+        const entry = this.pending.get(cardId);
+        if (entry !== undefined) {
+            entry.attempts = 0;
+            if (!entry.inFlight && entry.timer === undefined) {
+                this.pending.delete(cardId);
+            }
+        }
         const expected = this.expected.get(cardId);
         if (expected === undefined) {
             return;
@@ -229,12 +325,18 @@ export default class extends Controller {
         );
     }
 
+    /** A newer fetch or a waiting one supersedes the attempt that missed. */
     missed({ cardId }) {
+        if (typeof cardId !== 'string' || cardId === '') {
+            return;
+        }
+        const remote = this.expected.get(cardId)?.remote ?? false;
         this.expected.delete(cardId);
-        this.reload();
-    }
-
-    reload() {
-        this.dispatch('reload');
+        const entry = this.entryFor(cardId);
+        entry.remote ||= remote;
+        if (entry.inFlight || entry.timer !== undefined) {
+            return;
+        }
+        this.fail(cardId, entry, RETRY);
     }
 }
