@@ -230,5 +230,8 @@ test('a comment on text after a mention anchors to the words selected', async ({
     expect(response.status()).toBe(200);
     const state = await response.json();
     expect(state.comments).toHaveLength(1);
-    expect(state.comments[0]).toMatchObject({ quote: TRAILING_PHRASE });
+    expect(state.comments[0]).toMatchObject({
+        quote: TRAILING_PHRASE,
+        orphaned: false,
+    });
 });
