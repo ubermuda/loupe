@@ -52,7 +52,7 @@
         <span class="lp-filter-count" data-activity-filter-target="count">{{ 'activity.count'|trans({'%count%': entries|length}) }}</span>
     </div>
     <p class="lp-rule-explanation" data-activity-filter-target="gap" role="status" hidden>{{ 'activity.feed.gap'|trans({'%count%': pageSize}) }}</p>
-    <div class="lp-activity-feed" data-activity-filter-target="feed">
+    <div class="lp-activity-feed" data-activity-filter-target="feed" {% if entries is empty %}hidden{% endif %}>
         {% include 'outbox/_activity_entries.html.twig' with {entries: entries} only %}
     </div>
     <div class="lp-empty-state" data-activity-filter-target="empty" hidden>

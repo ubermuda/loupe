@@ -5438,6 +5438,9 @@
             <trans-unit id="bridge.worker_run_cost.table.grouped_week"><source>bridge.worker_run_cost.table.grouped_week</source><target>Each bar is the average cost per card of the cards that finished in its week, from Monday. The table lists each card with its exact date.</target></trans-unit>
             <trans-unit id="bridge.worker_run_cost.table.grouped_month"><source>bridge.worker_run_cost.table.grouped_month</source><target>Each bar is the average cost per card of the cards that finished in its month. The table lists each card with its exact date.</target></trans-unit>
             <trans-unit id="bridge.worker_run_cost.empty"><source>bridge.worker_run_cost.empty</source><target>No finished card with usage in this range.</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.empty_description"><source>bridge.worker_run_cost.empty_description</source><target>Pick a longer range or clear the filters.</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.no_usage.title"><source>bridge.worker_run_cost.no_usage.title</source><target>No recorded usage</target></trans-unit>
+            <trans-unit id="bridge.worker_run_cost.no_usage.description"><source>bridge.worker_run_cost.no_usage.description</source><target>Costs appear here after a worker run finishes a card.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.open"><source>bridge.worker_runs.details.open</source><target>View attempt</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.title"><source>bridge.worker_runs.details.title</source><target>Run attempt</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.close"><source>bridge.worker_runs.details.close</source><target>Close</target></trans-unit>

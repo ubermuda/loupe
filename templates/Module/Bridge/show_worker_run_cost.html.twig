@@ -10,13 +10,17 @@
 {% set boardEnabled = is_feature_enabled('board.enabled') %}
 {% set query = cost.query %}
 {% set costRoute = 'app_project_worker_run_cost' %}
+{% set noUsage = cost.chart is null and cost.rules is empty %}
 <div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
     {% include 'activity/_header.html.twig' with {} only %}
 
     {% include 'activity/_tabs.html.twig' with {project: project, active: 'cost'} only %}
 
+    {% if cost.chart is not null %}
     <p class="lp-cost-basis" data-cost-basis>{{ 'bridge.worker_run_cost.price_basis'|trans }}</p>
+    {% endif %}
 
+    {% if not noUsage %}
     <div class="lp-list-filters lp-cost-controls">
         <nav class="lp-cost-toggle" aria-label="{{ 'bridge.worker_run_cost.range.label'|trans }}">
             {% for range in ranges %}
@@ -66,7 +70,10 @@
             {% endif %}
         </form>
     </div>
+    {% endif %}
 
+    {% set chart = cost.chart %}
+    {% if chart is not null %}
     <dl class="lp-cost-summary" data-cost-summary>
         <div class="lp-cost-summary__figure">
             <dt class="lp-cost-summary__label">{{ 'bridge.worker_run_cost.summary.median'|trans }}</dt>
@@ -82,8 +89,6 @@
         </div>
     </dl>
 
-    {% set chart = cost.chart %}
-    {% if chart is not null %}
     {% set split = query.split.value != 'none' %}
     {% set dayFormat = chart.longSpan ? 'M j, Y' : 'M j' %}
     {% set plotLeft = constant('App\\Module\\Bridge\\View\\CostChart::PLOT_LEFT') %}
@@ -216,8 +221,14 @@
     </figure>
     {% else %}
     <div class="lp-empty-state" data-cost-empty>
-        <twig:ux:icon name="lucide:chart-column" class="lp-empty-state__icon text-accent w-12 h-12" />
+        <twig:ux:icon name="lucide:chart-column" class="lp-empty-state__icon w-12 h-12" />
+        {% if noUsage %}
+        <h2 class="lp-empty-state__title">{{ 'bridge.worker_run_cost.no_usage.title'|trans }}</h2>
+        <p>{{ 'bridge.worker_run_cost.no_usage.description'|trans }}</p>
+        {% else %}
         <h2 class="lp-empty-state__title">{{ 'bridge.worker_run_cost.empty'|trans }}</h2>
+        <p>{{ 'bridge.worker_run_cost.empty_description'|trans }}</p>
+        {% endif %}
     </div>
     {% endif %}
 </div>
