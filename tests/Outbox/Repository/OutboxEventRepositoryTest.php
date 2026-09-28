@@ -250,6 +250,18 @@ final class OutboxEventRepositoryTest extends KernelTestCase
         self::assertSame([(string) $backslash->id], $this->activityIds($project, search: 'a\b'));
     }
 
+    public function test_search_matches_payload_text_that_json_escapes(): void
+    {
+        $project = $this->project('activity-search-json@example.com');
+        $event = $this->activity($project, 'board.card_moved', json_encode(['title' => 'Café feat/x say "hi"'], \JSON_THROW_ON_ERROR));
+        $this->activity($project, 'board.card_moved', '{"title":"other"}');
+        $this->em->flush();
+
+        foreach (['café', 'CAFÉ feat/x', '"hi"'] as $search) {
+            self::assertSame([(string) $event->id], $this->activityIds($project, search: $search), $search);
+        }
+    }
+
     /** @return list<string> */
     private function activityIds(Project $project, int $page = 1, int $perPage = 20, ?string $search = null, ?ActivityFamily $family = null): array
     {

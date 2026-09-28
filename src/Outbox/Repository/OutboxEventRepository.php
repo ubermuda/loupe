@@ -131,8 +131,19 @@ class OutboxEventRepository extends ServiceEntityRepository
 
         $words = preg_split('/\s+/u', trim($search ?? ''), flags: \PREG_SPLIT_NO_EMPTY);
         foreach (false === $words ? [] : $words as $index => $word) {
-            $qb->andWhere("LOWER(e.type) LIKE :word{$index} ESCAPE '\\' OR LOWER(e.payload) LIKE :word{$index} ESCAPE '\\'")
-                ->setParameter('word'.$index, '%'.self::escapeLike(mb_strtolower($word)).'%');
+            $word = mb_strtolower($word);
+            $matches = $qb->expr()->orX(
+                "LOWER(e.type) LIKE :word{$index} ESCAPE '\\'",
+                "LOWER(e.payload) LIKE :word{$index} ESCAPE '\\'",
+            );
+            $qb->setParameter('word'.$index, '%'.self::escapeLike($word).'%');
+            // The payload is stored JSON, so `/`, `"` and non-ASCII text sit there escaped.
+            $jsonWord = substr(json_encode($word, \JSON_THROW_ON_ERROR), 1, -1);
+            if ($jsonWord !== $word) {
+                $matches->add("LOWER(e.payload) LIKE :jsonWord{$index} ESCAPE '\\'");
+                $qb->setParameter('jsonWord'.$index, '%'.self::escapeLike($jsonWord).'%');
+            }
+            $qb->andWhere($matches);
         }
 
         return new Paginator($qb->getQuery());
