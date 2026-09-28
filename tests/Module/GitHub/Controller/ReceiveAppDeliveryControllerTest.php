@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\GitHub\Controller;
 
 use App\Module\Forge\Entity\ForgeRepositorySource;
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\EventListener\RateLimitForgeDeliveries;
 use App\Module\GitHub\Entity\GitHubInstallation;
 use App\Module\GitHub\Entity\GitHubRepositorySelection;
@@ -126,6 +127,28 @@ final class ReceiveAppDeliveryControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame([[$tracked, false]], $this->queuedRefreshes());
+    }
+
+    public function test_a_review_queues_a_refresh_that_carries_its_verdict(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $project = $this->project('app-review');
+        $this->installation($project, 9_000_607);
+        $this->owned($project, 607, 'acme/v', ForgeRepositorySource::Installation, 9_000_607);
+        $tracked = $this->trackedPullRequest($project, 'acme/v', 12, 'aaa111');
+
+        $this->deliver($client, self::PATH, 'pull_request_review', [
+            'action' => 'submitted',
+            'installation' => ['id' => 9_000_607],
+            'repository' => ['id' => 607, 'full_name' => 'acme/v'],
+            'pull_request' => ['number' => 12],
+            'review' => ['state' => 'changes_requested'],
+        ], self::SECRET);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([[$tracked, false]], $this->queuedRefreshes());
+        self::assertSame([PullRequestReview::ChangesRequested], $this->queuedVerdicts());
     }
 
     public function test_a_completed_check_suite_queues_a_refresh_of_each_tracked_pull_request_it_touches(): void

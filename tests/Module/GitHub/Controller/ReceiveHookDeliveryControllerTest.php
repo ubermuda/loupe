@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\GitHub\Controller;
 
 use App\Module\Forge\Entity\ForgeRepositorySource;
-use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\EventListener\RateLimitForgeDeliveries;
 use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\GitHub\Entity\GitHubHookHealth;
@@ -55,16 +54,18 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
         self::assertSame([[$tracked, false]], $this->queuedRefreshes());
     }
 
-    /** @return iterable<string, array{string, string, ?PullRequestReview}> */
+    /** @return iterable<string, array{string, string}> */
     public static function reviewActions(): iterable
     {
-        yield 'approved' => ['submitted', 'approved', PullRequestReview::Approved];
-        yield 'commented' => ['submitted', 'commented', null];
-        yield 'dismissed' => ['dismissed', 'approved', null];
+        yield 'approved' => ['submitted', 'approved'];
+        yield 'changes requested' => ['submitted', 'changes_requested'];
+        yield 'commented' => ['submitted', 'commented'];
+        yield 'dismissed' => ['dismissed', 'approved'];
     }
 
+    /** A hook repository gets the bare events alone, so its review carries no verdict to automation. */
     #[DataProvider('reviewActions')]
-    public function test_a_review_queues_a_refresh_that_carries_the_verdict_it_submits(string $action, string $state, ?PullRequestReview $verdict): void
+    public function test_a_review_queues_a_refresh_with_no_verdict(string $action, string $state): void
     {
         $client = static::createClient();
         $client->disableReboot();
@@ -81,7 +82,30 @@ final class ReceiveHookDeliveryControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame([[$tracked, false]], $this->queuedRefreshes());
-        self::assertSame([$verdict], $this->queuedVerdicts());
+        self::assertSame([null], $this->queuedVerdicts());
+    }
+
+    public function test_a_changes_requested_review_on_a_hook_repository_sends_the_bare_event_and_asks_no_fix(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->enableBoard();
+        $project = $this->project('hook-review');
+        $hook = $this->hook($project);
+        $this->linkedCard($project, 'acme/w', 13);
+        $tracked = $this->trackedPullRequest($project, 'acme/w', 13, 'aaa111');
+
+        $this->deliver($client, '/webhooks/forge/github/'.$hook->hookKey, 'pull_request_review', [
+            'action' => 'submitted',
+            'repository' => ['id' => 632, 'full_name' => 'acme/w'],
+            'pull_request' => ['number' => 13],
+            'review' => ['state' => 'changes_requested'],
+        ], $hook->secret);
+        self::assertResponseIsSuccessful();
+        self::assertSame([[$tracked, false]], $this->queuedRefreshes());
+        $this->drainRefreshes();
+
+        self::assertSame(['pull_request.review_submitted'], $this->outboxTypes($project));
     }
 
     public function test_a_bad_signature_is_refused_and_marks_the_hook_failing(): void

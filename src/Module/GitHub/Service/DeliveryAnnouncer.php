@@ -67,9 +67,11 @@ final readonly class DeliveryAnnouncer
             $this->dispatch($project, $deliveries, $source);
         }
 
+        // A hook repository gets the bare events alone, so its review verdict never reaches the automation.
+        $verdicts = ForgeRepositorySource::Installation === $source;
         foreach ($delivery->refreshHints() as $hint) {
             match (true) {
-                null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number, $hint->verdict),
+                null !== $hint->number => $this->tracker->refresh($project, GitHubDelivery::FORGE, $repository->fullName, $hint->number, $verdicts ? $hint->verdict : null),
                 null !== $hint->headSha => $this->tracker->refreshHead($project, GitHubDelivery::FORGE, $repository->fullName, $hint->headSha),
                 default => $this->tracker->refreshBase($project, GitHubDelivery::FORGE, $repository->fullName, $hint->baseBranch ?? throw new \LogicException('A hint sets one field.')),
             };

@@ -15,6 +15,7 @@ use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
+use App\Module\Forge\Messenger\RefreshPullRequestStateHandler;
 use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\GitHub\Entity\GitHubHook;
 use App\Module\GitHub\Entity\GitHubInstallation;
@@ -137,6 +138,32 @@ trait GitHubDeliveryScenario
         }
 
         return $verdicts;
+    }
+
+    /** Runs each queued refresh through its handler, as the worker would. */
+    private function drainRefreshes(): void
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+        $handler = self::getContainer()->get(RefreshPullRequestStateHandler::class);
+        self::assertInstanceOf(RefreshPullRequestStateHandler::class, $handler);
+
+        foreach ($transport->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if ($message instanceof RefreshPullRequestState) {
+                $handler($message);
+            }
+        }
+    }
+
+    /** @return list<string> the type of each outbox row of the project, in order */
+    private function outboxTypes(Project $project): array
+    {
+        return array_values(array_map(strval(...), $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT type FROM outbox_events WHERE project_id = :project ORDER BY sequence',
+            ['project' => $project->id],
+            ['project' => 'uuid'],
+        )));
     }
 
     /** @param array<mixed> $payload */
