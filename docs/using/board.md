@@ -214,8 +214,10 @@ Every open board of the project shows a change as it happens, with no reload.
   the card goes back.
 
 When the connection to the server stops for about 5 seconds, the toolbar
-shows **Live updates paused**. When the connection comes back, the board loads
-again in place and catches up. The sign then goes away.
+shows **Live updates paused**. When the connection comes back, the board asks
+the server which cards changed, and only those cards update. A change to the
+columns or to an epic lane still loads the board again in place. The sign then
+goes away.
 
 Live changes need a Mercure hub and the `live_updates.enabled` flag, see
 [Environment variables](../reference/environment.md). If either is missing,
