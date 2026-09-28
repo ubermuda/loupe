@@ -200,15 +200,16 @@
 .lp-review .lp-decision {
     @apply mt-6 mb-0 rounded-lg border border-review-decision-line bg-review-decision p-5;
 }
-/* The question leads as a heading, and the kind of answer it takes sits at
-   its right as a quiet chip. Still generated content, so it never joins the
-   text every comment anchor is measured against. */
+/* The question leads as a heading, and the kind of answer it takes floats at
+   its right as a quiet chip. A flex prompt would split inline code into
+   columns. Still generated content, so it never joins the text every comment
+   anchor is measured against. */
 .lp-review .lp-decision__prompt {
-    @apply mb-3.5 flex items-start justify-between gap-3 font-display text-base leading-normal font-bold text-ink;
+    @apply mb-3.5 font-display text-base leading-normal font-bold text-ink;
 }
 .lp-review .lp-decision__prompt::before {
     content: 'Pick one';
-    @apply order-2 mb-0 shrink-0 rounded-md bg-surface-1 px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold tracking-normal text-fg-dim normal-case;
+    @apply float-right mb-0 ml-3 rounded-md bg-surface-1 px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold tracking-normal text-fg-dim normal-case;
 }
 .lp-review
     .lp-decision[data-decision-type='multiple']
