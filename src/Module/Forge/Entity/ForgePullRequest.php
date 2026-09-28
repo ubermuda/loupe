@@ -25,6 +25,8 @@ class ForgePullRequest
 {
     public const string KEY_CONSTRAINT = 'uniq_forge_pull_requests_project_forge_repository_number';
 
+    public const int ANNOUNCED_REVIEW_LIMIT = 50;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -73,9 +75,9 @@ class ForgePullRequest
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $nextRefreshAt = null;
 
-    /** The forge id of the last review whose verdict went out, so a redelivered review is announced once. */
-    #[ORM\Column(length: 64, nullable: true)]
-    public ?string $lastReviewId = null;
+    /** @var list<string> the newest forge ids of the reviews whose verdict went out, so a redelivered review is announced once */
+    #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
+    public array $announcedReviewIds = [];
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -93,6 +95,18 @@ class ForgePullRequest
         public readonly int $number,
     ) {
         $this->repository = mb_strtolower($repository);
+    }
+
+    public function hasAnnouncedReview(string $reviewId): bool
+    {
+        return \in_array($reviewId, $this->announcedReviewIds, true);
+    }
+
+    public function recordAnnouncedReview(string $reviewId): void
+    {
+        $ids = array_values(array_diff($this->announcedReviewIds, [$reviewId]));
+        $ids[] = $reviewId;
+        $this->announcedReviewIds = \array_slice($ids, -self::ANNOUNCED_REVIEW_LIMIT);
     }
 
     public function apply(PullRequestSnapshot $snapshot): void

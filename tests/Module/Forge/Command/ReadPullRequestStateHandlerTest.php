@@ -186,7 +186,7 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
 
         self::assertSame(2, $this->reader->reads, 'The redelivered message still reads the pull request.');
         $this->assertVerdictOnly(PullRequestReview::ChangesRequested, new PullRequestSnapshot());
-        self::assertSame('101', $this->reload($row)->lastReviewId);
+        self::assertSame(['101'], $this->reload($row)->announcedReviewIds);
     }
 
     public function test_two_reviews_announce_two_verdicts(): void
@@ -198,7 +198,7 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         $this->handle($row, self::NOW, PullRequestReview::ChangesRequested, '102');
 
         self::assertSame([PullRequestReview::ChangesRequested, PullRequestReview::ChangesRequested], array_map(static fn (PullRequestStateChanged $change): ?PullRequestReview => $change->reviewVerdict, $this->changes));
-        self::assertSame('102', $this->reload($row)->lastReviewId);
+        self::assertSame(['101', '102'], $this->reload($row)->announcedReviewIds);
     }
 
     public function test_a_redelivery_that_crosses_a_newer_review_announces_nothing(): void
@@ -211,7 +211,32 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         $this->handle($row, self::NOW, PullRequestReview::ChangesRequested, '101');
 
         self::assertSame([PullRequestReview::ChangesRequested, PullRequestReview::Approved], array_map(static fn (PullRequestStateChanged $change): ?PullRequestReview => $change->reviewVerdict, $this->changes));
-        self::assertSame('102', $this->reload($row)->lastReviewId);
+        self::assertSame(['101', '102'], $this->reload($row)->announcedReviewIds);
+    }
+
+    /** GitHub numbers a review when it starts as pending, so a lower id can be submitted after a higher one. */
+    public function test_a_review_submitted_after_a_newer_id_still_announces(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestSnapshot()];
+
+        $this->handle($row, self::NOW, PullRequestReview::Approved, '102');
+        $this->handle($row, self::NOW, PullRequestReview::ChangesRequested, '101');
+
+        self::assertSame([PullRequestReview::Approved, PullRequestReview::ChangesRequested], array_map(static fn (PullRequestStateChanged $change): ?PullRequestReview => $change->reviewVerdict, $this->changes));
+    }
+
+    public function test_it_keeps_the_newest_announced_review_ids(): void
+    {
+        $row = $this->row();
+        foreach (range(1, ForgePullRequest::ANNOUNCED_REVIEW_LIMIT + 1) as $id) {
+            $row->recordAnnouncedReview((string) $id);
+        }
+        $row->recordAnnouncedReview('2');
+
+        self::assertCount(ForgePullRequest::ANNOUNCED_REVIEW_LIMIT, $row->announcedReviewIds);
+        self::assertFalse($row->hasAnnouncedReview('1'));
+        self::assertSame('2', $row->announcedReviewIds[ForgePullRequest::ANNOUNCED_REVIEW_LIMIT - 1]);
     }
 
     public function test_a_verdict_with_no_review_id_announces_each_time(): void
@@ -223,7 +248,7 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         $this->handle($row, self::NOW, PullRequestReview::Approved);
 
         self::assertCount(2, $this->changes);
-        self::assertNull($this->reload($row)->lastReviewId);
+        self::assertSame([], $this->reload($row)->announcedReviewIds);
     }
 
     public function test_a_transient_failure_keeps_the_review_id_for_the_retry(): void
@@ -236,7 +261,7 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
             self::fail('A transient failure must reach the retry strategy.');
         } catch (PullRequestUnreadable) {
         }
-        self::assertNull($this->reload($row)->lastReviewId);
+        self::assertSame([], $this->reload($row)->announcedReviewIds);
 
         $this->handle($row, self::NOW, PullRequestReview::Approved, '101');
 

@@ -57,7 +57,8 @@ final readonly class ReadPullRequestStateHandler
                 return null;
             }
 
-            $verdict = self::consumed($command->reviewId, $pullRequest->lastReviewId) ? null : $command->verdict;
+            // A redelivered review keeps its id, so its verdict has already gone out.
+            $verdict = null !== $command->reviewId && $pullRequest->hasAnnouncedReview($command->reviewId) ? null : $command->verdict;
 
             if ($pullRequest->refreshedAt >= $command->requestedAt) {
                 $this->announceVerdict($verdict, $command->reviewId, $pullRequest);
@@ -91,8 +92,8 @@ final readonly class ReadPullRequestStateHandler
             $this->retryUnknownMergeability($pullRequest);
 
             // One event per read, so Board asks at most one fix for a verdict and a state change together.
-            if (null !== $verdict) {
-                $pullRequest->lastReviewId = $command->reviewId ?? $pullRequest->lastReviewId;
+            if (null !== $verdict && null !== $command->reviewId) {
+                $pullRequest->recordAnnouncedReview($command->reviewId);
             }
             if (!$current->equals($previous) || null !== $verdict) {
                 $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current, $verdict));
@@ -107,28 +108,13 @@ final readonly class ReadPullRequestStateHandler
         }
     }
 
-    /**
-     * A redelivered review keeps its id. A forge that numbers reviews in order
-     * also makes an older review stale, so a redelivery that crosses a newer one
-     * stays consumed.
-     */
-    private static function consumed(?string $reviewId, ?string $lastReviewId): bool
-    {
-        if (null === $reviewId || null === $lastReviewId) {
-            return false;
-        }
-        if (ctype_digit($reviewId) && ctype_digit($lastReviewId)) {
-            return (int) $reviewId <= (int) $lastReviewId;
-        }
-
-        return $reviewId === $lastReviewId;
-    }
-
     /** A read that stored no new state still delivers its verdict, against the stored state. */
     private function announceVerdict(?PullRequestReview $verdict, ?string $reviewId, ForgePullRequest $pullRequest): void
     {
         if (null !== $verdict) {
-            $pullRequest->lastReviewId = $reviewId ?? $pullRequest->lastReviewId;
+            if (null !== $reviewId) {
+                $pullRequest->recordAnnouncedReview($reviewId);
+            }
             $snapshot = $pullRequest->snapshot();
             $this->events->dispatch(new PullRequestStateChanged($pullRequest, $snapshot, $snapshot, $verdict));
         }
