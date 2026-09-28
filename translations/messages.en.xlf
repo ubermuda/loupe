@@ -5786,6 +5786,14 @@
             <trans-unit id="activity.event_type.board.card_moved"><source>activity.event_type.board.card_moved</source><target>Card moved</target></trans-unit>
             <trans-unit id="activity.event_type.board.column_renamed"><source>activity.event_type.board.column_renamed</source><target>Column renamed</target></trans-unit>
             <trans-unit id="activity.event_type.board.column_deleted"><source>activity.event_type.board.column_deleted</source><target>Column deleted</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.review_submitted"><source>activity.event_type.pull_request.review_submitted</source><target>Review submitted</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.checks_concluded"><source>activity.event_type.pull_request.checks_concluded</source><target>Checks concluded</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.merged"><source>activity.event_type.pull_request.merged</source><target>Pull request merged</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.conflicted"><source>activity.event_type.pull_request.conflicted</source><target>Pull request has conflicts</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.behind"><source>activity.event_type.pull_request.behind</source><target>Pull request behind its base</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.closed"><source>activity.event_type.pull_request.closed</source><target>Pull request closed</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.fix_requested"><source>activity.event_type.pull_request.fix_requested</source><target>Fix requested</target></trans-unit>
+            <trans-unit id="activity.event_type.pull_request.ready_to_merge"><source>activity.event_type.pull_request.ready_to_merge</source><target>Ready to merge</target></trans-unit>
             <trans-unit id="activity.event_type.inbox.ask_closed"><source>activity.event_type.inbox.ask_closed</source><target>Question closed</target></trans-unit>
             <trans-unit id="activity.event_type.project.renamed"><source>activity.event_type.project.renamed</source><target>Project renamed</target></trans-unit>
             <trans-unit id="project.workshop.activity.empty"><source>project.workshop.activity.empty</source><target>No recorded activity yet.</target></trans-unit>
@@ -5839,6 +5847,10 @@
             <trans-unit id="project.edit.nav.columns">
                 <source>project.edit.nav.columns</source>
                 <target>Board columns</target>
+            </trans-unit>
+            <trans-unit id="project.edit.nav.automation">
+                <source>project.edit.nav.automation</source>
+                <target>Automation</target>
             </trans-unit>
             <trans-unit id="project.edit.nav.connections">
                 <source>project.edit.nav.connections</source>
@@ -5922,6 +5934,70 @@
             <trans-unit id="board.settings.description">
                 <source>board.settings.description</source>
                 <target>Keep a default starting column and at least one terminal column. Column options include rename, move and configuration actions.</target>
+            </trans-unit>
+            <trans-unit id="board.automation.heading">
+                <source>board.automation.heading</source>
+                <target>Automation</target>
+            </trans-unit>
+            <trans-unit id="board.automation.description">
+                <source>board.automation.description</source>
+                <target>Loupe watches the pull requests of your cards. These settings control the fix and merge requests that Loupe sends to your bridge.</target>
+            </trans-unit>
+            <trans-unit id="board.automation.submit">
+                <source>board.automation.submit</source>
+                <target>Save automation</target>
+            </trans-unit>
+            <trans-unit id="board.automation.flash.saved">
+                <source>board.automation.flash.saved</source>
+                <target>Automation settings saved.</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.enabled.label">
+                <source>board.form.save_board_automation_settings_form.enabled.label</source>
+                <target>Send fix and merge requests</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.enabled.help">
+                <source>board.form.save_board_automation_settings_form.enabled.help</source>
+                <target>When this is on, Loupe sends fix and merge requests for the pull requests of your cards. Loupe sends the pull request facts in all cases.</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.label">
+                <source>board.form.save_board_automation_settings_form.merge_strategy.label</source>
+                <target>Merge strategy</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.help">
+                <source>board.form.save_board_automation_settings_form.merge_strategy.help</source>
+                <target>Worker sends a ready-to-merge event when a pull request can merge. A bridge rule can act on that event. Off sends no such event.</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.choice.worker">
+                <source>board.form.save_board_automation_settings_form.merge_strategy.choice.worker</source>
+                <target>Worker</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.merge_strategy.choice.off">
+                <source>board.form.save_board_automation_settings_form.merge_strategy.choice.off</source>
+                <target>Off</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.label">
+                <source>board.form.save_board_automation_settings_form.fix_strategy.label</source>
+                <target>Fix strategy</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.help">
+                <source>board.form.save_board_automation_settings_form.fix_strategy.help</source>
+                <target>Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card. When it cannot, the bridge starts a new worker.</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.choice.fresh">
+                <source>board.form.save_board_automation_settings_form.fix_strategy.choice.fresh</source>
+                <target>Fresh</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.fix_strategy.choice.resume">
+                <source>board.form.save_board_automation_settings_form.fix_strategy.choice.resume</source>
+                <target>Resume</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.loop_limit.label">
+                <source>board.form.save_board_automation_settings_form.loop_limit.label</source>
+                <target>Loop limit</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.loop_limit.help">
+                <source>board.form.save_board_automation_settings_form.loop_limit.help</source>
+                <target>The number of automatic fix rounds a card gets in a row. At this limit, Loupe stops and marks the card blocked.</target>
             </trans-unit>
             <trans-unit id="board.settings.action">
                 <source>board.settings.action</source>
