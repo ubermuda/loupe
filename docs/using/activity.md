@@ -1,30 +1,51 @@
 ---
 title: "Activity: Events"
-description: "Read durable project events and pause their presentation without stopping work."
+description: "The Events tab of the Activity page, which lists the durable events of a project."
 ---
 
 Open **Activity** in a project's sidebar, then the **Events** tab, to read its durable event history.
 The **Runs** tab lists the [worker runs](worker-runs.md), and the **Cost** tab charts [the cost of finished cards](worker-runs.md#the-cost-of-finished-cards).
-Delivery status describes delivery to bridges, not the outcome of an agent's work.
 
 The topbar bell opens the latest 12 events without leaving the current page.
 Closing the panel returns focus to the bell and keeps the page's unsaved fields.
-Reopening reloads the recent events. **Open activity** goes to the full feed.
+Reopening reloads the recent events. **Open activity** goes to the full list.
 
-The page refreshes every ten seconds while it remains open.
-**Pause feed** freezes the displayed rows. Recording and agent work continue.
-**Resume feed** immediately reads the latest events and reconciles them with the displayed history.
-Repeated reads do not duplicate events. Filters, keyboard focus, and the reading position remain in place.
+## What a row shows
 
-Search matches the text of each row. The event-family filter includes document review events under **Documents**.
-The count beside the filters shows visible rows against loaded rows.
+| Column | Meaning |
+|---|---|
+| Event | the event label in bold, then its subject in grey. A card move names the card and its two columns, such as `#292 Tech design → Implementation` |
+| Delivery | whether Loupe delivered the event to the bridges: **Delivered**, **Pending delivery** or **Delivery failed** |
+| Family | the family of the event, such as **Board** or **Pull requests** |
+| Sequence | the delivery order number of the event |
+| Recorded | how long ago Loupe recorded the event. Hover over it to see the exact time |
+
+Delivery status describes delivery to bridges, not the outcome of an agent's work.
+A **Delivery failed** chip shows a help icon.
+Hover over or focus the chip to see the number of failed attempts and the last error.
+
+Click a row to open its linked work, such as the card of a card event.
 Card events link to the current card when it still exists in this project.
 Deleted cards leave their event records without a link. Disabling the board also hides card links.
+A row with no linked work does not open anything.
 
-Each refresh reads the latest 100 events. Earlier rows remain visible during the current visit.
-If no event overlaps the previous view, the page warns that some intervening events may be missing.
-Reloading starts with the latest 100 events again.
+The list reads newest first, 20 events to a page.
 
-A failed refresh retains the displayed history and reports delayed or unavailable updates.
-The page retries automatically. An empty successful response remains distinct from failed loading.
-Without JavaScript, the page shows recorded history and does not offer active pause controls.
+## Search and filters
+
+The search box matches the event type and the recorded event data.
+So a card number, a column slug or a word of the type, such as `moved`, finds its rows.
+Each word must match.
+
+The family filter keeps one family of events. **Documents** also keeps the older document review events.
+
+Every control lands in the URL, so a filtered view is a link you can share.
+Select **Clear** to go back to the whole list.
+The count beside the filters shows how many events match.
+
+## Live updates
+
+The first page reloads when Loupe records an event in the project, or delivers one.
+It also reloads after the page reconnects to the hub, for any change the page missed.
+This needs a Mercure hub and the `live_updates.enabled` flag. Without them, the page shows a change on its next load.
+A later page does not reload, so its rows stay in place while you read.

@@ -13,7 +13,7 @@ Open **Activity** in the project sidebar, or go to
 `/projects/{project}/worker-runs`. Anyone who can view the project can read it.
 
 The Activity page has three tabs. **Runs** lists the runs, and the rest of this
-page describes it. **Events** shows the [project activity](activity.md) feed.
+page describes it. **Events** lists the [project events](activity.md).
 **Cost** charts what a finished card costs on average, as
 [The cost of finished cards](#the-cost-of-finished-cards) says.
 
