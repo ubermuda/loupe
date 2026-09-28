@@ -4,7 +4,8 @@ import { on } from '../lib/live.js';
 /**
  * Shows the reload notice of the Backlog page when another person or an agent
  * changes any card or column of the board, in the Backlog or not. A change
- * this page made is its own, so it shows nothing.
+ * this page made is its own, so it shows nothing. A reconnect shows it too,
+ * because the hub may have lost the changes made while the page was away.
  */
 export default class extends Controller {
     static targets = ['notice'];
@@ -13,6 +14,7 @@ export default class extends Controller {
         this.unsubscribe = on(
             ['board.card_changed', 'board.columns_changed'],
             (change) => this.receive(change),
+            { onReconnect: () => this.show() },
         );
     }
 
@@ -21,9 +23,15 @@ export default class extends Controller {
     }
 
     receive(change) {
-        if (change.own || !this.hasNoticeTarget) {
+        if (change.own) {
             return;
         }
-        this.noticeTarget.hidden = false;
+        this.show();
+    }
+
+    show() {
+        if (this.hasNoticeTarget) {
+            this.noticeTarget.hidden = false;
+        }
     }
 }

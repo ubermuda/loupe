@@ -8,11 +8,13 @@ vi.mock('../../assets/lib/live.js', () => ({ on: vi.fn(() => () => {}) }));
 
 let application;
 let change;
+let reconnect;
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 beforeEach(async () => {
-    on.mockImplementation((types, handler) => {
+    on.mockImplementation((types, handler, options) => {
         change = handler;
+        reconnect = options?.onReconnect;
 
         return () => {};
     });
@@ -37,7 +39,14 @@ it('listens to card and column changes of the board', () => {
     expect(on).toHaveBeenCalledWith(
         ['board.card_changed', 'board.columns_changed'],
         expect.any(Function),
+        expect.objectContaining({ onReconnect: expect.any(Function) }),
     );
+});
+
+it('shows the notice after a reconnect, which may have lost changes', () => {
+    reconnect();
+
+    expect(notice().hidden).toBe(false);
 });
 
 it('shows the notice when someone else changes the board', () => {
