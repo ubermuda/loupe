@@ -49,8 +49,8 @@ final class WorkerRunRepositoryTest extends KernelTestCase
         $tieCard = Uuid::v7();
         $at = new \DateTimeImmutable('2026-09-02 10:00:00');
 
-        $this->seedRun($em, $project, new \DateTimeImmutable('2026-09-01 10:00:00'), cardId: $closedCard, exitCode: 1);
-        $newest = $this->seedRun($em, $project, $at, cardId: $closedCard, output: 'done');
+        $this->seedRun($em, $project, new \DateTimeImmutable('2026-09-01 10:00:00'), exitCode: 1, cardId: $closedCard);
+        $newest = $this->seedRun($em, $project, $at, output: 'done', cardId: $closedCard);
         $this->seedRun($em, $project, new \DateTimeImmutable('2026-09-01 10:00:00'), cardId: $openCard);
         $open = $this->seedRun($em, $project, $at, cardId: $openCard, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
         $first = $this->seedRun($em, $project, $at, cardId: $tieCard);
