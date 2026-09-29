@@ -31,14 +31,17 @@ Answer one round of feedback on the current stage of a card.
 
 The prompt line `Pull request <url> needs a fix: <reason>.` names what started the round. The reason is `checks-failed`, `conflict` or `changes-requested`. A run by hand can have no reason. Whatever the reason, fix everything that is open: a conflict with the base, each failing check and each open feedback item.
 
+The round ends at the push. It never waits for CI, because the app reads the new head and sends the next fix request or the merge decision.
+
 1. Read `references/pull-request-feedback.md`, then read each linked pull request with the forge adapter. When none is open, stop with `STAGE RESULT: no open pull request`.
-2. Read the mergeability, then the checks and the open feedback items, per the reference. A conflicting pull request runs no checks, so skip the check wait for it.
+2. Read the mergeability, then the checks and the open feedback items, per the reference. Read the checks once, and never wait for a pending one.
 3. When the pull request is mergeable, no check fails and no item is open, stop with `STAGE RESULT: nothing to fix`.
 4. Read `../loupe-stage-implementation/references/commands.md`, and load the profile `Instruction files`.
 5. Set up or refresh the card worktree from the pull request branch, per the reference. Keep every existing commit.
 6. When the binding fails or the branch differs from the pull request branch, stop with `STAGE RESULT: blocked: worktree binding failed`.
 7. When the pull request conflicts, resolve it first, per "Resolve a conflict with the base" in the reference.
-8. Fix every open item and failing check. Read the log of each failed check, and fix the cause. Follow the implementation skill for sub-agents, the gate, the push, the CI wait and the code review.
-9. Post a marker reply for each handled item, per the reference. A conflict has no item, so it gets no reply.
-10. When CI is green and the code review is clean, stop with `STAGE RESULT: fixed <pr url>`.
-11. On a block, record it and stop per implementation step 16.
+8. Fix every open item and failing check. Read the log of each failed check, and fix the cause. Follow the implementation skill for sub-agents, the gate and the code review.
+9. Push without force.
+10. Post a marker reply for each handled item, per the reference. A conflict has no item, so it gets no reply.
+11. Stop with `STAGE RESULT: waiting <pr url>`. Never move the card.
+12. When a step cannot go on, record the block as "Record a block" in `../loupe-stage-implementation/references/commands.md` says. Stop with `STAGE RESULT: blocked: <reason>`.
