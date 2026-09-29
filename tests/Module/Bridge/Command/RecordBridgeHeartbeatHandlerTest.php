@@ -193,6 +193,20 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         self::assertSame([self::pool()], $this->reload($owner, $bridgeId)->workerPools);
     }
 
+    public function test_an_empty_worker_pool_report_clears_the_stored_rows(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-pools-clear@example.com');
+        $bridgeId = Uuid::v4();
+        $handler = $this->handler();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', workerPools: [self::pool()]));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', workerPools: []));
+
+        self::assertSame([], $this->reload($owner, $bridgeId)->workerPools);
+    }
+
     /** @return array{name: string, size: int, inUse: int, queued: int} */
     private static function pool(): array
     {
