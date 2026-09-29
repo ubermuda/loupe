@@ -55,6 +55,7 @@ export default class extends Controller {
         this.scrollGroup = null;
         this.pointerY = 0;
         this.openDeck = null;
+        this.landing = null;
 
         this.onScrollFrame = () => {
             this.scrollFrame = null;
@@ -177,6 +178,9 @@ export default class extends Controller {
     /** Turns the press into a drag once the pointer has travelled far enough. */
     begin() {
         const card = this.pressedCard;
+        // A card grabbed while it still lands would jump by its fan offset.
+        this.landing?.cancel();
+        this.landing = null;
         const rectangle = card.getBoundingClientRect();
 
         this.originNextCard = this.cardAfter(card);
@@ -446,7 +450,7 @@ export default class extends Controller {
         const opacity = style.opacity;
         card.style.removeProperty('transition');
 
-        card.animate(
+        this.landing = card.animate(
             [
                 {
                     translate: `calc(${x} + ${deltaX}px) calc(${y} + ${deltaY}px)`,

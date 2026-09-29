@@ -544,6 +544,18 @@ describe('a card of an Up next deck', () => {
         expect(moved.style.transition).toBe('');
     });
 
+    it('stops the landing when the card is grabbed again before it lands', () => {
+        document.getElementById('deck').classList.add('lp-deck');
+        const moved = document.getElementById('board-deck-card-c');
+        const landing = { cancel: vi.fn() };
+        moved.animate = vi.fn(() => landing);
+
+        dragDeckCard(650, 40);
+        dragDeckCard(650, 40);
+
+        expect(landing.cancel).toHaveBeenCalledTimes(1);
+    });
+
     it('leaves a card that moves out of its deck to the move', () => {
         const moved = document.getElementById('board-deck-card-c');
         moved.animate = vi.fn();
