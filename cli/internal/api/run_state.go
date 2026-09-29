@@ -101,6 +101,12 @@ type RunStateReport struct {
 	CardColumn  string `json:"cardColumn,omitempty"`
 	// Usage goes on an outcome alone. A nil usage is unknown.
 	Usage *Usage `json:"usage,omitempty"`
+	// The experiment fields go on running and on the outcome of a run whose
+	// rule joins an experiment.
+	Experiment     string `json:"experiment,omitempty"`
+	Variant        string `json:"variant,omitempty"`
+	RequestedModel string `json:"requestedModel,omitempty"`
+	SwitchedFrom   string `json:"switchedFrom,omitempty"`
 	// Trigger goes on a queued report alone.
 	Trigger *RunTrigger `json:"trigger,omitempty"`
 }
