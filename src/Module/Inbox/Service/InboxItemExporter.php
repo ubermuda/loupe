@@ -78,6 +78,8 @@ final readonly class InboxItemExporter implements UserDataExporterInterface
                         'documentId' => null === $wait->documentId ? null : (string) $wait->documentId,
                         'versionNumber' => $wait->versionNumber,
                         'runId' => null === $wait->runId ? null : (string) $wait->runId,
+                        'pullRequestId' => null === $wait->pullRequestId ? null : (string) $wait->pullRequestId,
+                        'headSha' => $wait->headSha,
                         'startedAt' => $wait->startedAt->format(\DateTimeInterface::ATOM),
                         'endedAt' => $wait->endedAt?->format(\DateTimeInterface::ATOM),
                         'endReason' => $wait->endReason?->value,

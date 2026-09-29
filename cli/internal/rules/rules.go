@@ -176,8 +176,10 @@ type File struct {
 	Defaults FileDefaults       `yaml:"defaults"`
 	Projects map[string]Project `yaml:"projects"`
 	Rules    []Rule             `yaml:"rules"`
-	Hooks    []HookEntry        `yaml:"hooks"`
-	Launch   LaunchConfig       `yaml:"launch"`
+	// Experiments are the model experiments a worker rule can join by name.
+	Experiments []Experiment `yaml:"experiments"`
+	Hooks       []HookEntry  `yaml:"hooks"`
+	Launch      LaunchConfig `yaml:"launch"`
 	// AutoUpdate is on when the key is absent.
 	AutoUpdate  *bool                 `yaml:"autoUpdate"`
 	MaxWorkers  *int                  `yaml:"maxWorkers"`
@@ -274,8 +276,12 @@ type Rule struct {
 	// WorkerPool names the pool the rule's workers take a slot from. Empty
 	// means DefaultPool.
 	WorkerPool string `yaml:"workerPool"`
+	// Experiment names the experiment whose variants pick the model. A rule
+	// that sets it sets no model.
+	Experiment string `yaml:"experiment"`
 
-	schema string
+	schema     string
+	experiment *Experiment
 }
 
 // CardCondition names the card state a rule needs. A nil field matches either
@@ -405,6 +411,8 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 	known := slices.AppendSeq([]string{DefaultPool}, maps.Keys(pools))
 	slices.Sort(known)
 	known = slices.Compact(known)
+	experiments, experimentErrs := checkExperiments(f.Experiments)
+	errs = append(errs, experimentErrs...)
 
 	names := map[string]bool{}
 	perProject := map[string]int{}
@@ -439,6 +447,16 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 				errs = append(errs, fmt.Errorf("rule %q: the default pool has no slot, because workerPools take all %d of maxWorkers; give the rule a workerPool or raise maxWorkers", r.Name, s.maxWorkers))
 			}
 		}
+		if r.Experiment != "" {
+			if r.Model != "" {
+				errs = append(errs, fmt.Errorf("rule %q: model and experiment are both set, and the experiment's variants name the model", r.Name))
+			}
+			if e, ok := experiments[r.Experiment]; ok {
+				r.experiment = e.clone()
+			} else {
+				errs = append(errs, fmt.Errorf("rule %q: experiment %q is not in experiments, which declares %s", r.Name, r.Experiment, strings.Join(slices.Sorted(maps.Keys(experiments)), ", ")))
+			}
+		}
 		if schema, err := resultSchema(r.ResultFields); err != nil {
 			errs = append(errs, fmt.Errorf("rule %q: %w", r.Name, err))
 		} else {
@@ -456,7 +474,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		if r.PermissionMode == "" && r.Action == "" {
 			r.PermissionMode = defaults.PermissionMode
 		}
-		if r.Model == "" && r.Action == "" {
+		if r.Model == "" && r.Action == "" && r.Experiment == "" {
 			r.Model = defaults.Model
 		}
 		s.rules = append(s.rules, r)
@@ -655,6 +673,7 @@ func checkAction(r Rule) []error {
 		name string
 		set  bool
 	}{
+		{"experiment", r.Experiment != ""},
 		{"maxChain", r.MaxChain != nil},
 		{"maxResumes", r.MaxResumes != nil},
 		{"resultFields", len(r.ResultFields) > 0},
@@ -1060,6 +1079,9 @@ type Match struct {
 	// Pool is the worker pool the run takes a slot from. It is empty for an
 	// interactive rule.
 	Pool string
+	// Experiment is the experiment the rule joins, with its variants in file
+	// order, or nil. Model is empty when it is set.
+	Experiment *Experiment
 }
 
 // Match picks the first rule, in file order, that the event triggers.
@@ -1152,6 +1174,10 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 	if r.Action == "" {
 		pool = cmp.Or(r.WorkerPool, DefaultPool)
 	}
+	var experiment *Experiment
+	if r.experiment != nil {
+		experiment = r.experiment.clone()
+	}
 
 	return Match{
 		Skip:           Run,
@@ -1167,6 +1193,7 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 		Resume:         resume,
 		Schema:         schema,
 		Pool:           pool,
+		Experiment:     experiment,
 	}
 }
 

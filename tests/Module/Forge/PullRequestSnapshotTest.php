@@ -30,6 +30,7 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertSame([], $pullRequest->failedChecks);
         self::assertNull($pullRequest->refreshedAt);
         self::assertSame(0, $pullRequest->refreshAttempts);
+        self::assertNull($pullRequest->changesRequestedSha);
         self::assertTrue($pullRequest->snapshot()->equals(new PullRequestSnapshot()));
     }
 
@@ -50,6 +51,7 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertSame(PullRequestMergeability::Conflicting, $pullRequest->mergeability);
         self::assertSame(PullRequestReview::ChangesRequested, $pullRequest->review);
         self::assertTrue($pullRequest->readyToMerge);
+        self::assertSame('1000', $pullRequest->changesRequestedSha);
         self::assertTrue($pullRequest->snapshot()->equals($snapshot));
     }
 
@@ -81,6 +83,8 @@ final class PullRequestSnapshotTest extends TestCase
         yield 'mergeability' => [['mergeability' => PullRequestMergeability::Mergeable]];
         yield 'review' => [['review' => PullRequestReview::Approved]];
         yield 'ready' => [['readyToMerge' => false]];
+        yield 'changes requested sha' => [['changesRequestedSha' => 'fed9876']];
+        yield 'numeric-looking changes requested sha' => [['changesRequestedSha' => '1e3']];
     }
 
     #[DataProvider('checkReads')]
@@ -122,6 +126,7 @@ final class PullRequestSnapshotTest extends TestCase
             'mergeability' => PullRequestMergeability::Conflicting,
             'review' => PullRequestReview::ChangesRequested,
             'readyToMerge' => true,
+            'changesRequestedSha' => '1000',
         ];
     }
 

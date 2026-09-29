@@ -37,6 +37,16 @@ final class UpdateInboxSettingsFormType extends AbstractType
             'label' => 'inbox.form.update_inbox_settings_form.run_waiting_for_person.label',
             'help' => 'inbox.form.update_inbox_settings_form.run_waiting_for_person.help',
         ]);
+        $builder->add('pullRequestReady', CheckboxType::class, [
+            'required' => false,
+            'label' => 'inbox.form.update_inbox_settings_form.pull_request_ready.label',
+            'help' => 'inbox.form.update_inbox_settings_form.pull_request_ready.help',
+        ]);
+        $builder->add('pullRequestFixStopped', CheckboxType::class, [
+            'required' => false,
+            'label' => 'inbox.form.update_inbox_settings_form.pull_request_fix_stopped.label',
+            'help' => 'inbox.form.update_inbox_settings_form.pull_request_fix_stopped.help',
+        ]);
     }
 
     #[\Override]

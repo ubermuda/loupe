@@ -7,6 +7,7 @@ namespace App\Module\Board\Repository;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
@@ -81,6 +82,68 @@ class CardPullRequestRepository extends ServiceEntityRepository
             ->getArrayResult();
 
         return $rows;
+    }
+
+    /**
+     * The GitHub pull requests the cards link, as the database holds them.
+     *
+     * @param list<Uuid> $cardIds
+     *
+     * @return list<array{cardId: string, repository: string, number: int}>
+     */
+    public function findGitHubReferencesForCards(array $cardIds): array
+    {
+        if ([] === $cardIds) {
+            return [];
+        }
+
+        /** @var list<array{cardId: mixed, repository: string, number: int}> $rows */
+        $rows = $this->createQueryBuilder('link')
+            ->select('IDENTITY(link.card) AS cardId', 'link.repository', 'link.number')
+            ->andWhere('link.card IN (:cards)')
+            ->andWhere('link.forge = :forge')
+            ->andWhere('link.repository IS NOT NULL')
+            ->andWhere('link.number IS NOT NULL')
+            ->setParameter('cards', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds))
+            ->setParameter('forge', Forge::GitHub)
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $row): array => [
+            'cardId' => self::cardId($row['cardId']),
+            'repository' => $row['repository'],
+            'number' => $row['number'],
+        ], $rows);
+    }
+
+    /**
+     * The cards of the project that link a GitHub pull request whose last read found it open.
+     *
+     * @return list<string>
+     */
+    public function findCardIdsWithOpenGitHubPullRequest(Project $project): array
+    {
+        /** @var list<mixed> $ids */
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT DISTINCT c.id
+            FROM board_card_pull_requests link
+            JOIN board_cards c ON c.id = link.card_id
+            JOIN forge_pull_requests pr ON pr.project_id = c.project_id AND pr.forge = :forge
+                AND pr.repository = LOWER(link.repository) AND pr.number = link.number
+            WHERE c.project_id = :project AND link.forge = :forge AND pr.state = :open',
+            [
+                'project' => ($project->id ?? throw new \LogicException('Project has no id.'))->toRfc4122(),
+                'forge' => Forge::GitHub->value,
+                'open' => PullRequestState::Open->value,
+            ],
+        );
+
+        return array_map(self::cardId(...), $ids);
+    }
+
+    private static function cardId(mixed $id): string
+    {
+        return $id instanceof Uuid ? $id->toRfc4122() : Uuid::fromString(\is_string($id) ? $id : throw new \LogicException('A card id is a string.'))->toRfc4122();
     }
 
     /**

@@ -20,7 +20,26 @@ final readonly class WantedCardWait
         public ?Document $document = null,
         public ?int $versionNumber = null,
         public ?Uuid $runId = null,
+        public ?Uuid $pullRequestId = null,
+        public ?string $headSha = null,
     ) {
+    }
+
+    public static function forPullRequestReady(Uuid $pullRequestId, int $number, string $headSha): self
+    {
+        $reason = \sprintf('Pull request #%d waits for review', $number);
+
+        return new self(InboxCardWaitTrigger::PullRequestReady, mb_substr($reason, 0, InboxCardWait::MAX_REASON_LENGTH), pullRequestId: $pullRequestId, headSha: $headSha);
+    }
+
+    public static function forPullRequestFixStopped(Uuid $pullRequestId, int $number, string $headSha, ?string $blockedReason): self
+    {
+        $reason = \sprintf('Pull request #%d: fix loop stopped', $number);
+        if (null !== $blockedReason && '' !== $blockedReason) {
+            $reason .= \sprintf(' (%s)', $blockedReason);
+        }
+
+        return new self(InboxCardWaitTrigger::PullRequestFixStopped, mb_substr($reason, 0, InboxCardWait::MAX_REASON_LENGTH), pullRequestId: $pullRequestId, headSha: $headSha);
     }
 
     public static function forDocument(Document $document, int $versionNumber): self
@@ -37,7 +56,9 @@ final readonly class WantedCardWait
             InboxCardWaitTrigger::RunBlocked => 'Run blocked',
             InboxCardWaitTrigger::RunGaveUp => 'Run gave up',
             InboxCardWaitTrigger::RunWaitingForPerson => 'Run waits for a person',
-            InboxCardWaitTrigger::DocumentInReview => throw new \InvalidArgumentException('A run wait has a run trigger.'),
+            InboxCardWaitTrigger::DocumentInReview,
+            InboxCardWaitTrigger::PullRequestReady,
+            InboxCardWaitTrigger::PullRequestFixStopped => throw new \InvalidArgumentException('A run wait has a run trigger.'),
         };
         $reason = $label;
         foreach (explode("\n", $output) as $line) {
@@ -53,6 +74,6 @@ final readonly class WantedCardWait
 
     public function key(): string
     {
-        return InboxCardWait::computeKey($this->trigger, $this->document?->id, $this->versionNumber, $this->runId);
+        return InboxCardWait::computeKey($this->trigger, $this->document?->id, $this->versionNumber, $this->runId, $this->pullRequestId, $this->headSha);
     }
 }

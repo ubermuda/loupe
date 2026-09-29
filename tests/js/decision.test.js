@@ -1,14 +1,52 @@
 /** @vitest-environment jsdom */
 import { Application } from '@hotwired/stimulus';
+import { renderStreamMessage } from '@hotwired/turbo';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import DecisionController from '../../assets/controllers/decision_controller.js';
+import { on } from '../../assets/lib/live.js';
+
+vi.mock('@hotwired/turbo', () => ({ renderStreamMessage: vi.fn() }));
+vi.mock('../../assets/lib/live.js', () => ({ on: vi.fn(() => () => {}) }));
+
+const SUMMARY = '/projects/p/documents/doc-1/decisions/summary?versionNumber=3';
+const STREAM = 'text/vnd.turbo-stream.html; charset=UTF-8';
 
 let application;
 let sent;
+let receive;
+let liveOptions;
+let unsubscribe;
+let stored;
+
+const summaryHtml = (answers) =>
+    `<turbo-stream data-decision-page="doc-1/3" action="update" target="decision-summary-count" data-decision-answers="${JSON.stringify(
+        answers,
+    ).replaceAll('"', '&quot;')}"><template>1/2</template></turbo-stream>`;
+
+const summary = (answers) => ({
+    ok: true,
+    headers: new Headers({ 'Content-Type': STREAM }),
+    text: () => Promise.resolve(summaryHtml(answers)),
+});
 
 beforeEach(() => {
     vi.useFakeTimers();
     sent = [];
+    receive = undefined;
+    liveOptions = undefined;
+    stored = {};
+    unsubscribe = vi.fn();
+    on.mockReset();
+    on.mockImplementation((types, handler, options) => {
+        receive = handler;
+        liveOptions = options;
+        return unsubscribe;
+    });
+    renderStreamMessage.mockReset();
+    vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve(summary(stored))),
+    );
     application = Application.start();
     application.register('decision', DecisionController);
 });
@@ -18,6 +56,7 @@ afterEach(async () => {
     await vi.advanceTimersByTimeAsync(0);
     application.stop();
     delete window.Turbo;
+    vi.unstubAllGlobals();
     vi.useRealTimers();
 });
 
@@ -58,6 +97,8 @@ async function mount({
     document.body.innerHTML = `<p id="decision-status"></p>
 <div data-controller="decision" data-action="change->decision#select"
         data-decision-page="${page}"
+        data-decision-summary-url-value="${SUMMARY}"
+        data-decision-changed-by-value="Changed by %name%."
         data-decision-note-label-value="Note"
         data-decision-note-placeholder-value="Add a note"
         data-decision-clear-label-value="Clear"
@@ -784,4 +825,241 @@ it('sends the Clear again when Turbo cached the page while it was in flight', as
         note: 'Kept',
         clear: false,
     });
+});
+
+const change = (fields = {}) => ({
+    type: 'review.decision_changed',
+    decisionId: 'a',
+    versionNumber: 3,
+    optionIndexes: [1],
+    note: 'Theirs',
+    answeredBy: 'Ann Other',
+    answeredAt: '2026-09-29T10:00:00+00:00',
+    local: false,
+    own: false,
+    ...fields,
+});
+
+const checked = (id) =>
+    [
+        ...document.querySelectorAll(
+            `[data-decision-id="${id}"] input[data-decision-option]:checked`,
+        ),
+    ].map((input) => input.value);
+
+it('ignores a change that this tab saved', async () => {
+    await mount();
+    receive(change({ own: true }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(checked('a')).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+});
+
+it('shows the stored picks and note after a change, and does not send them back', async () => {
+    await mount({ notes: { a: 'Mine' } });
+    stored = { a: { indexes: [1], note: 'Theirs' } };
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(checked('a')).toEqual(['1']);
+    expect(note('a').value).toBe('Theirs');
+    const fieldset = document.querySelector('[data-decision-id="a"]');
+    expect(fieldset.dataset.decisionSavedIndexes).toBe('[1]');
+    expect(fieldset.dataset.decisionNote).toBe('Theirs');
+    expect(document.getElementById('decision-status').textContent).toBe(
+        'Changed by Ann Other.',
+    );
+
+    note('a').dispatchEvent(new Event('blur'));
+    expect(sent).toHaveLength(0);
+});
+
+it('ends at the stored answer when two changes arrive in reverse order', async () => {
+    await mount();
+    stored = { a: { indexes: [1], note: 'Newer' } };
+    receive(change({ optionIndexes: [1], note: 'Newer' }));
+    receive(change({ optionIndexes: [0], note: 'Older' }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(checked('a')).toEqual(['1']);
+    expect(note('a').value).toBe('Newer');
+});
+
+it('leaves a block alone while its own save is in flight or waiting', async () => {
+    await mount();
+    check('a', 0);
+    type('b', 'Mine');
+    stored = {
+        a: { indexes: [1], note: null },
+        b: { indexes: [1], note: null },
+    };
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(checked('a')).toEqual(['0']);
+    expect(checked('b')).toEqual([]);
+    expect(note('b').value).toBe('Mine');
+});
+
+it('reads the stored answers again once its own saves land', async () => {
+    await mount();
+    check('a', 0);
+    stored = { a: { indexes: [1], note: null } };
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(checked('a')).toEqual(['0']);
+    expect(fetch).toHaveBeenCalledOnce();
+
+    finish();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(checked('a')).toEqual(['1']);
+});
+
+it('drops a read that a save of its own overtook, and reads again', async () => {
+    let answer;
+    fetch.mockImplementationOnce(
+        () => new Promise((resolve) => (answer = resolve)),
+    );
+    await mount();
+    receive(change());
+    check('a', 0);
+    finish();
+    answer(summary({ a: { indexes: [], note: null } }));
+    stored = { a: { indexes: [0], note: null } };
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(renderStreamMessage).toHaveBeenCalledOnce();
+    expect(checked('a')).toEqual(['0']);
+});
+
+it('reads the stored answers each time the hub connection opens', async () => {
+    await mount();
+    stored = { a: { indexes: [1], note: null } };
+    liveOptions.onOpen();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(checked('a')).toEqual(['1']);
+});
+
+it('keeps a note with an unsaved edit, and saves it with the new picks', async () => {
+    await mount({ notes: { a: 'Old' } });
+    note('a').focus();
+    note('a').value = 'Draft';
+    stored = { a: { indexes: [0], note: 'Theirs' } };
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(note('a').value).toBe('Draft');
+    expect(checked('a')).toEqual(['0']);
+    note('a').dispatchEvent(new Event('blur'));
+    expect(sent).toEqual([
+        { decisionId: 'a', indexes: ['0'], note: 'Draft', clear: false },
+    ]);
+});
+
+it('gives a focused note with no edit the stored note', async () => {
+    await mount({ notes: { a: 'Old' } });
+    note('a').focus();
+    stored = { a: { indexes: [], note: 'Theirs' } };
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(note('a').value).toBe('Theirs');
+    note('a').dispatchEvent(new Event('blur'));
+    expect(sent).toHaveLength(0);
+});
+
+it('shows the stored answer on a read-only page', async () => {
+    await mount({ editable: false });
+    stored = { b: { indexes: [0], note: 'Theirs' } };
+    receive(change({ decisionId: 'b' }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(checked('b')).toEqual(['0']);
+    expect(note('b').value).toBe('Theirs');
+    expect(note('b').readOnly).toBe(true);
+});
+
+it('renders the summary it reads as a stream', async () => {
+    await mount();
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fetch).toHaveBeenCalledWith(SUMMARY, {
+        headers: { Accept: 'text/vnd.turbo-stream.html' },
+        credentials: 'same-origin',
+    });
+    expect(renderStreamMessage).toHaveBeenCalledWith(summaryHtml({}));
+});
+
+it('reads the summary once more for a burst that arrives during a read', async () => {
+    let answer;
+    fetch.mockImplementationOnce(
+        () => new Promise((resolve) => (answer = resolve)),
+    );
+    await mount();
+    receive(change());
+    receive(change());
+    receive(change());
+    expect(fetch).toHaveBeenCalledOnce();
+
+    answer({ ok: false, headers: new Headers() });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).toHaveBeenCalledTimes(2);
+});
+
+it('ignores a summary read that fails', async () => {
+    fetch.mockRejectedValueOnce(new TypeError('offline'));
+    await mount();
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(renderStreamMessage).not.toHaveBeenCalled();
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(renderStreamMessage).toHaveBeenCalledOnce();
+});
+
+it('writes no name when the change has none', async () => {
+    await mount();
+    receive(change({ answeredBy: null }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(document.getElementById('decision-status').textContent).toBe('');
+});
+
+it('marks the page while the hub connection is open', async () => {
+    let options;
+    on.mockImplementation((types, handler, given) => {
+        options = given;
+        return unsubscribe;
+    });
+    await mount();
+    const page = document.querySelector('[data-controller="decision"]');
+    expect(page.hasAttribute('data-decision-connected')).toBe(false);
+
+    options.onOpen();
+    expect(page.hasAttribute('data-decision-connected')).toBe(true);
+    options.onError();
+    expect(page.hasAttribute('data-decision-connected')).toBe(false);
+});
+
+it('listens only on a page that is not a comparison, and stops on disconnect', async () => {
+    document.body.innerHTML = '<div data-controller="decision"></div>';
+    await vi.advanceTimersByTimeAsync(0);
+    expect(on).not.toHaveBeenCalled();
+
+    await mount();
+    expect(on).toHaveBeenCalledWith(
+        'review.decision_changed',
+        expect.any(Function),
+        expect.any(Object),
+    );
+    document.body.replaceChildren();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(unsubscribe).toHaveBeenCalled();
 });

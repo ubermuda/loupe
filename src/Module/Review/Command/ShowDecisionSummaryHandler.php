@@ -37,6 +37,6 @@ final readonly class ShowDecisionSummaryHandler
             $displayed ?? $this->documentVersions->findLatest($command->document),
         );
 
-        return new ShowDecisionSummaryView($summary->rows(), $summary->answeredCount());
+        return new ShowDecisionSummaryView($summary->rows(), $summary->answeredCount(), $summary->answers());
     }
 }
