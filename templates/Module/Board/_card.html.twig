@@ -50,9 +50,6 @@
     {% if static %}
     <span class="lp-status-chip lp-board-card__status">{{ card.column.label|trans }}</span>
     {% endif %}
-    {% if card.body|trim is not empty %}
-    <p class="lp-board-card__excerpt">{{ card.body|striptags|slice(0, 110) }}{% if card.body|length > 110 %}…{% endif %}</p>
-    {% endif %}
     {% if runWarning is not null %}
     <a class="lp-board-card__warning"
        draggable="false"
@@ -62,7 +59,7 @@
             <twig:ux:icon name="lucide:triangle-alert" class="w-3.5 h-3.5 shrink-0" />
             {{ runWarning.state.translationKey|trans }}
         </span>
-        <span class="lp-board-card__excerpt">{{ runWarning.summary|slice(0, 140) }}{% if runWarning.summary|length > 140 %}…{% endif %}</span>
+        <span class="lp-board-card__warning-summary">{{ runWarning.summary|slice(0, 140) }}{% if runWarning.summary|length > 140 %}…{% endif %}</span>
     </a>
     {% endif %}
     {% if badges is not empty %}

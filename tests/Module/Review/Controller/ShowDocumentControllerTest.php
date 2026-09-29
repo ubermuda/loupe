@@ -122,6 +122,36 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertStringContainsString('Implement the document', $card->filter('.lp-board-card__title')->text());
     }
 
+    public function test_the_linked_card_shows_its_title_and_not_its_body(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'linked-card-body-owner', 'linked-card-body-owner@example.com');
+        $project = $this->project($em, $owner);
+        $document = new Document(owner: $owner, project: $project, title: 'Linked document');
+        $document->addVersion('# Linked', '<h1>Linked</h1>');
+        $column = new BoardColumn($project, 'Ready', 'ready', 0, backlog: true);
+        $card = new Card($project, $column, 'Implement the document', 'Linked body marker text', 1);
+        $em->persist($document);
+        $em->persist($column);
+        $em->persist($card);
+        $em->flush();
+        $card->syncDocuments($document);
+        $em->flush();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$project->id.'/documents/'.$document->id.'/review',
+        );
+
+        self::assertResponseIsSuccessful();
+        $panel = $crawler->filter('[data-margin-panel="details"]');
+        self::assertStringContainsString('Implement the document', $panel->filter('.lp-board-card--static .lp-board-card__title')->text());
+        self::assertStringNotContainsString('Linked body marker text', $panel->text());
+    }
+
     public function test_review_page_renders_the_document_tags(): void
     {
         $client = static::createClient();
