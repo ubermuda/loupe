@@ -8,7 +8,10 @@ It shows open requests, open cards, and completed cards.
 Cards in terminal columns count as completed, regardless of the column's name.
 Disabled inbox or board features show an explanation instead of a zero count.
 
-Needs you shows the six newest open inbox items. The count includes all open items, including those outside this list.
+Needs you shows the six oldest open inbox items, oldest first.
+The list includes [automatic items](inbox.md#automatic-items), which Loupe opens for a waiting card.
+The count includes all open items, including those outside this list.
+Select **Open inbox** to see the full inbox.
 Select a request to open its question, to-do, or review in the inbox.
 The row shows the item kind and whether it blocks an agent.
 When the inbox is disabled, Workshop says so instead of claiming that no requests need attention.
