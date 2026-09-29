@@ -110,6 +110,19 @@ class InboxCardWatchRepository extends ServiceEntityRepository
         return array_map(static fn (array $row): string => (string) $row['cardId'], $rows);
     }
 
+    /** @return list<string> */
+    public function findProjectIdsWithOpenWatch(): array
+    {
+        /** @var list<Uuid|string> $ids */
+        $ids = $this->createQueryBuilder('watch')
+            ->select('DISTINCT IDENTITY(watch.project)')
+            ->andWhere('watch.closedAt IS NULL')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_map(static fn (Uuid|string $id): string => (string) $id, $ids);
+    }
+
     /** @param list<Uuid> $cardIds */
     private function forCards(Project $project, array $cardIds): QueryBuilder
     {

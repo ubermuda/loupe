@@ -84,6 +84,8 @@ parameters:
     app.bridge.run_timeout_schedule: '* * * * *'
     # The backstop for a forge delivery that never arrived.
     app.forge.sweep_schedule: '*/10 * * * *'
+    # The backstop for a card wait that no event reported.
+    app.inbox.card_wait_sweep_schedule: '*/15 * * * *'
     # How often a CLI bridge posts its heartbeat, in seconds, as the default the
     # `bridge.heartbeat_interval_seconds` feature flag starts from.
     app.bridge.default_heartbeat_interval_seconds: 60

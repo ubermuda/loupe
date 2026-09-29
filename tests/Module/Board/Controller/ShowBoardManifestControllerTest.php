@@ -459,7 +459,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
 
         self::assertSame($before['structure'], $after['structure']);
         self::assertSame($after['structure'], $page['structure']);
-        self::assertNotSame($this->digestOf($before, $epic), $this->digestOf($after, $epic));
+        self::assertSame($this->digestOf($before, $epic), $this->digestOf($after, $epic), 'the card face shows no body');
         self::assertSame($page['rowDigests'][(string) $epic->id], $this->digestOf($after, $epic));
     }
 

@@ -139,6 +139,18 @@ class ProjectRepository extends ServiceEntityRepository
         return $bySlug ?? $byName;
     }
 
+    /** @return list<string> */
+    public function findAllIds(): array
+    {
+        /** @var list<Uuid|string> $ids */
+        $ids = $this->createQueryBuilder('p')
+            ->select('p.id')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_map(static fn (Uuid|string $id): string => (string) $id, $ids);
+    }
+
     /**
      * The ids among $ids that name a project of the owner, in canonical form.
      * Another owner's project reads the same as one that does not exist.
