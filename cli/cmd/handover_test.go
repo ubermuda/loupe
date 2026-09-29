@@ -440,6 +440,39 @@ func TestAnAdoptedRunWithNoRecordFailsWithAReason(t *testing.T) {
 	}
 }
 
+// A live run in an experiment hands its variant over, so the outcome of the
+// adopted run still names it.
+func TestAnAdoptedRunKeepsItsVariant(t *testing.T) {
+	h := newHarnessWith(t, experimentRules, rules.Defaults{})
+	h.states()
+	h.worker.block = make(chan struct{})
+	defer close(h.worker.block)
+	h.pins(func(context.Context, string) (string, string, error) { return "sonnet", "opus", nil })
+	want := runPin{Experiment: "impl-model", Variant: "sonnet", RequestedModel: "claude-sonnet-5-5", SwitchedFrom: "opus"}
+
+	h.router.onEvent("id-1", []byte(cardMoved(1)))
+	h.router.pause()
+	if err := h.router.drain(context.Background(), 5*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	st := roundTrip(t, h.router.freeze())
+	if len(st.Live) != 1 || st.Live[0].runPin != want {
+		t.Fatalf("live = %+v, want %+v", st.Live, want)
+	}
+
+	h2 := newHarnessWith(t, experimentRules, rules.Defaults{})
+	rec2 := h2.states()
+	h2.router.worker.adopt = func(context.Context, string) workerResult { return finishedRun }
+	h2.router.adopt(st)
+	h2.router.wg.Wait()
+
+	final := finalOf(t, rec2.states(), st.Live[0].RunID)
+	got := runPin{Experiment: final.Experiment, Variant: final.Variant, RequestedModel: final.RequestedModel, SwitchedFrom: final.SwitchedFrom}
+	if final.State != api.RunSucceeded || got != want {
+		t.Fatalf("outcome = %+v, want %+v", final, want)
+	}
+}
+
 // A rule the new image no longer has drops its queued event with the usual
 // line.
 func TestAdoptDropsAQueuedEventWhoseRuleIsGone(t *testing.T) {

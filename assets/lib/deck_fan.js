@@ -1,4 +1,12 @@
 /**
+ * The width the fan can take left of the deck. It stops at the lane buttons,
+ * or at the left edge of the strip once the buttons scroll past it.
+ */
+export function fanRoom(deckRight, buttonsRight, stripLeft, gap) {
+    return deckRight - Math.max(buttonsRight, stripLeft) - gap;
+}
+
+/**
  * How many deck cards a fan with room for `slots` tiles shows, and the count
  * its "+N more" tile gives. `loaded` is what the page holds and `total` is
  * every Backlog card of the epic. The top card always shows.

@@ -831,3 +831,23 @@ func TestAGoneProjectDoesNotKillAProjectWithItsSlugAndANewID(t *testing.T) {
 		t.Fatal("the new project went, and its rule stayed live")
 	}
 }
+
+// A rule joins its experiment by name, so a new variant model changes it.
+func TestDiffRulesSeesAChangedVariant(t *testing.T) {
+	parse := func(model string) *rules.Set {
+		t.Helper()
+		body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\n" +
+			"experiments:\n  - name: impl\n    variants:\n      - {name: a, weight: 1, model: " + model + "}\n" +
+			"rules:\n  - {name: plan, on: board.card_moved, project: loupe, to: next, experiment: impl, prompt: go}\n"
+		set, err := rules.Parse([]byte(body), rules.Defaults{})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return set
+	}
+
+	if res := diffRules(parse("opus"), parse("sonnet")); !slices.Equal(res.Changed, []string{"plan"}) {
+		t.Fatalf("result = %+v", res)
+	}
+}
