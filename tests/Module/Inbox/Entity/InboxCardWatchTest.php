@@ -141,18 +141,71 @@ final class InboxCardWatchTest extends KernelTestCase
         self::assertNotSame($document->key(), InboxCardWait::computeKey(InboxCardWaitTrigger::DocumentInReview, documentId: $documentId, versionNumber: 4));
     }
 
-    /** @param array{?string, ?int, ?string} $ids a string stands for an id the wait carries */
-    #[TestWith([InboxCardWaitTrigger::DocumentInReview, [null, 1, null]])]
-    #[TestWith([InboxCardWaitTrigger::DocumentInReview, ['document', null, null]])]
-    #[TestWith([InboxCardWaitTrigger::DocumentInReview, ['document', 1, 'run']])]
-    #[TestWith([InboxCardWaitTrigger::RunBlocked, [null, null, null]])]
-    #[TestWith([InboxCardWaitTrigger::RunBlocked, ['document', 1, 'run']])]
+    public function test_the_key_of_a_pull_request_wait_names_the_pull_request_and_its_head_commit(): void
+    {
+        $project = $this->project($this->em, $this->owner($this->em, 'watch-pull-request-key'), 'inbox');
+        $watch = $this->watch($project, Uuid::v7());
+        $pullRequestId = Uuid::fromString('01a0f3c2-5d10-7b5e-9c1a-2f4e8d6b0a11');
+        $headSha = str_repeat('a1', 20);
+
+        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::PullRequestReady, 'Pull request #640 waits for review', pullRequestId: $pullRequestId, headSha: $headSha);
+
+        self::assertSame('pull-request-ready:01a0f3c2-5d10-7b5e-9c1a-2f4e8d6b0a11:'.$headSha, $wait->key());
+        self::assertSame($wait->key(), InboxCardWait::computeKey(InboxCardWaitTrigger::PullRequestReady, pullRequestId: $pullRequestId, headSha: $headSha));
+        self::assertNotSame($wait->key(), InboxCardWait::computeKey(InboxCardWaitTrigger::PullRequestReady, pullRequestId: $pullRequestId, headSha: str_repeat('b2', 20)));
+        self::assertNotSame($wait->key(), InboxCardWait::computeKey(InboxCardWaitTrigger::PullRequestFixStopped, pullRequestId: $pullRequestId, headSha: $headSha));
+    }
+
+    public function test_a_pull_request_wait_round_trips(): void
+    {
+        $project = $this->project($this->em, $this->owner($this->em, 'watch-pull-request-round-trip'), 'inbox');
+        $watch = $this->watch($project, Uuid::v7());
+        $pullRequestId = Uuid::v7();
+        $headSha = str_repeat('c3', 32);
+        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::PullRequestFixStopped, 'Pull request #640: fix loop stopped', pullRequestId: $pullRequestId, headSha: $headSha);
+        $watch->waits->add($wait);
+        $this->em->flush();
+        $waitId = $wait->id;
+        $this->em->clear();
+
+        $stored = $this->em->find(InboxCardWait::class, $waitId);
+        self::assertInstanceOf(InboxCardWait::class, $stored);
+        self::assertSame(InboxCardWaitTrigger::PullRequestFixStopped, $stored->trigger);
+        self::assertEquals($pullRequestId, $stored->pullRequestId);
+        self::assertSame($headSha, $stored->headSha);
+        self::assertNull($stored->documentId);
+        self::assertNull($stored->runId);
+    }
+
+    /** @param array{?string, ?int, ?string, ?string, ?string} $ids an id string stands for an id the wait carries, and the last entry is the head sha */
+    #[TestWith([InboxCardWaitTrigger::DocumentInReview, [null, 1, null, null, null]])]
+    #[TestWith([InboxCardWaitTrigger::DocumentInReview, ['document', null, null, null, null]])]
+    #[TestWith([InboxCardWaitTrigger::DocumentInReview, ['document', 1, 'run', null, null]])]
+    #[TestWith([InboxCardWaitTrigger::DocumentInReview, ['document', 1, null, 'pull-request', null]])]
+    #[TestWith([InboxCardWaitTrigger::DocumentInReview, ['document', 1, null, null, 'abc123']])]
+    #[TestWith([InboxCardWaitTrigger::RunBlocked, [null, null, null, null, null]])]
+    #[TestWith([InboxCardWaitTrigger::RunBlocked, ['document', 1, 'run', null, null]])]
+    #[TestWith([InboxCardWaitTrigger::RunBlocked, [null, null, 'run', 'pull-request', null]])]
+    #[TestWith([InboxCardWaitTrigger::RunBlocked, [null, null, 'run', null, 'abc123']])]
+    #[TestWith([InboxCardWaitTrigger::PullRequestReady, [null, null, null, null, 'abc123']])]
+    #[TestWith([InboxCardWaitTrigger::PullRequestReady, [null, null, null, 'pull-request', null]])]
+    #[TestWith([InboxCardWaitTrigger::PullRequestReady, [null, null, null, 'pull-request', '']])]
+    #[TestWith([InboxCardWaitTrigger::PullRequestReady, [null, null, 'run', 'pull-request', 'abc123']])]
+    #[TestWith([InboxCardWaitTrigger::PullRequestFixStopped, ['document', null, null, 'pull-request', 'abc123']])]
+    #[TestWith([InboxCardWaitTrigger::PullRequestFixStopped, [null, 1, null, 'pull-request', 'abc123']])]
     public function test_a_wait_carries_exactly_the_ids_of_its_trigger(InboxCardWaitTrigger $trigger, array $ids): void
     {
-        [$documentId, $versionNumber, $runId] = $ids;
+        [$documentId, $versionNumber, $runId, $pullRequestId, $headSha] = $ids;
 
         $this->expectException(\InvalidArgumentException::class);
-        InboxCardWait::computeKey($trigger, null === $documentId ? null : Uuid::v7(), $versionNumber, null === $runId ? null : Uuid::v7());
+        InboxCardWait::computeKey(
+            $trigger,
+            null === $documentId ? null : Uuid::v7(),
+            $versionNumber,
+            null === $runId ? null : Uuid::v7(),
+            null === $pullRequestId ? null : Uuid::v7(),
+            $headSha,
+        );
     }
 
     public function test_a_wait_reason_fits_its_column(): void

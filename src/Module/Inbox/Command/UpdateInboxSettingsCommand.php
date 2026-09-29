@@ -14,6 +14,8 @@ final readonly class UpdateInboxSettingsCommand
         public bool $runBlocked,
         public bool $runGaveUp,
         public bool $runWaitingForPerson,
+        public bool $pullRequestReady,
+        public bool $pullRequestFixStopped,
     ) {
     }
 }

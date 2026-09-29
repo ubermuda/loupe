@@ -6,11 +6,15 @@ namespace App\Tests\Module\Inbox\EventListener;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Bridge\Event\WorkerRunChanged;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Inbox\Command\AskInboxCommand;
 use App\Module\Inbox\Command\AskInboxHandler;
 use App\Module\Inbox\Command\AskInboxItem;
@@ -107,6 +111,31 @@ final class ReconcileCardWaitsTriggersTest extends KernelTestCase
         $this->dispatch(new WorkerRunChanged($this->projectId(), [(string) $this->card->id, (string) $this->other->id]));
 
         self::assertSame([[(string) $this->projectId(), $this->sortedIds($this->card, $this->other)]], $this->sent());
+    }
+
+    public function test_a_github_pull_request_state_change_asks_for_every_linked_card(): void
+    {
+        $this->em->persist(new CardPullRequest($this->card, 'https://github.com/Acme/Widgets/pull/5', Forge::GitHub, 'Acme/Widgets', 5));
+        $this->em->persist(new CardPullRequest($this->other, 'https://github.com/acme/widgets/pull/5', Forge::GitHub, 'acme/widgets', 5));
+        $pullRequest = new ForgePullRequest($this->project, 'github', 'acme/widgets', 5);
+        $this->em->persist($pullRequest);
+        $this->em->flush();
+
+        $this->dispatch(new PullRequestStateChanged($pullRequest, $pullRequest->snapshot(), $pullRequest->snapshot()));
+
+        self::assertSame([[(string) $this->projectId(), $this->sortedIds($this->card, $this->other)]], $this->sent());
+    }
+
+    public function test_a_pull_request_of_another_forge_asks_for_nothing(): void
+    {
+        $this->em->persist(new CardPullRequest($this->card, 'https://gitlab.com/acme/widgets/-/merge_requests/5', Forge::GitLab, 'acme/widgets', 5));
+        $pullRequest = new ForgePullRequest($this->project, 'gitlab', 'acme/widgets', 5);
+        $this->em->persist($pullRequest);
+        $this->em->flush();
+
+        $this->dispatch(new PullRequestStateChanged($pullRequest, $pullRequest->snapshot(), $pullRequest->snapshot()));
+
+        self::assertSame([], $this->sent());
     }
 
     public function test_a_document_status_change_asks_for_every_linked_card(): void

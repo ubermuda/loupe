@@ -58,14 +58,57 @@ final readonly class GitHubPullRequestStateMapper
             checksSha: PullRequestChecks::Pending === $checks ? null : $headSha,
             failedChecks: $failedChecks,
             mergeability: $mergeability,
-            review: match ($pullRequest['reviewDecision'] ?? null) {
+            review: $this->review($pullRequest),
+            readyToMerge: PullRequestState::Open === $state && !$draft && PullRequestChecks::Passed === $checks && PullRequestMergeability::Mergeable === $mergeability,
+            changesRequestedSha: $this->changesRequestedSha($pullRequest, $headSha),
+        );
+    }
+
+    /**
+     * GitHub gives no review decision on a repository without a required
+     * review, so the latest review of each writer decides there.
+     *
+     * @param array<mixed> $pullRequest
+     */
+    private function review(array $pullRequest): PullRequestReview
+    {
+        $decision = $pullRequest['reviewDecision'] ?? null;
+        if (null !== $decision) {
+            return match ($decision) {
                 'APPROVED' => PullRequestReview::Approved,
                 'CHANGES_REQUESTED' => PullRequestReview::ChangesRequested,
                 'REVIEW_REQUIRED' => PullRequestReview::Required,
                 default => PullRequestReview::None,
-            },
-            readyToMerge: PullRequestState::Open === $state && !$draft && PullRequestChecks::Passed === $checks && PullRequestMergeability::Mergeable === $mergeability,
-        );
+            };
+        }
+
+        $nodes = $pullRequest['latestOpinionatedReviews']['nodes'] ?? [];
+        $states = \is_array($nodes) ? array_map(static fn (mixed $node): mixed => \is_array($node) ? ($node['state'] ?? null) : null, $nodes) : [];
+
+        return match (true) {
+            \in_array('CHANGES_REQUESTED', $states, true) => PullRequestReview::ChangesRequested,
+            \in_array('APPROVED', $states, true) => PullRequestReview::Approved,
+            default => PullRequestReview::None,
+        };
+    }
+
+    /**
+     * The head sha when a change request sits on the head, else the commit of an active change request.
+     *
+     * @param array<mixed> $pullRequest
+     */
+    private function changesRequestedSha(array $pullRequest, string $headSha): ?string
+    {
+        $nodes = $pullRequest['latestOpinionatedReviews']['nodes'] ?? [];
+        $shas = [];
+        foreach (\is_array($nodes) ? $nodes : [] as $node) {
+            $oid = \is_array($node) && 'CHANGES_REQUESTED' === ($node['state'] ?? null) ? ($node['commit']['oid'] ?? null) : null;
+            if (\is_string($oid) && '' !== $oid) {
+                $shas[] = $oid;
+            }
+        }
+
+        return \in_array($headSha, $shas, true) ? $headSha : array_last($shas);
     }
 
     /**

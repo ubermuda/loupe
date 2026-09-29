@@ -13,11 +13,20 @@ class UpdateInboxSettingsRequest
         public bool $runBlocked = true,
         public bool $runGaveUp = true,
         public bool $runWaitingForPerson = true,
+        public bool $pullRequestReady = true,
+        public bool $pullRequestFixStopped = true,
     ) {
     }
 
     public static function fromSettings(InboxProjectSettings $settings): self
     {
-        return new self($settings->documentInReview, $settings->runBlocked, $settings->runGaveUp, $settings->runWaitingForPerson);
+        return new self(
+            documentInReview: $settings->documentInReview,
+            runBlocked: $settings->runBlocked,
+            runGaveUp: $settings->runGaveUp,
+            runWaitingForPerson: $settings->runWaitingForPerson,
+            pullRequestReady: $settings->pullRequestReady,
+            pullRequestFixStopped: $settings->pullRequestFixStopped,
+        );
     }
 }
