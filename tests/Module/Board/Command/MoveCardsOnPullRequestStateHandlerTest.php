@@ -67,6 +67,42 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
         self::assertSame('implementation', $card->column->slug);
     }
 
+    public function test_a_draft_with_green_checks_moves_the_card_when_it_is_marked_ready(): void
+    {
+        $card = $this->linkedCard('implementation');
+        $this->handle(new PullRequestSnapshot(), $this->passed(draft: true));
+        self::assertSame('implementation', $card->column->slug);
+
+        $this->handle($this->passed(draft: true), $this->passed());
+
+        self::assertSame('in-review', $card->column->slug);
+    }
+
+    public function test_a_card_a_person_moved_since_the_read_keeps_its_column_on_green_checks(): void
+    {
+        $card = $this->linkedCard('implementation');
+        $this->moveBehindTheEntity($card, 'done');
+
+        $this->handle(new PullRequestSnapshot(), $this->passed());
+
+        self::assertSame('done', $this->storedColumnOf($card));
+        self::assertSame([], $this->moves());
+    }
+
+    public function test_a_card_a_person_finished_since_the_read_keeps_its_column_on_a_merge(): void
+    {
+        $this->addColumns('shipped');
+        $this->column($this->project, 'shipped')->terminal = true;
+        $this->em->flush();
+        $card = $this->linkedCard('in-review');
+        $this->moveBehindTheEntity($card, 'shipped');
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Merged));
+
+        self::assertSame('shipped', $this->storedColumnOf($card));
+        self::assertSame([], $this->moves());
+    }
+
     public function test_green_checks_leave_a_card_in_another_column(): void
     {
         $card = $this->linkedCard('in-progress');
@@ -263,6 +299,23 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
     private function passed(PullRequestState $state = PullRequestState::Open, bool $draft = false): PullRequestSnapshot
     {
         return new PullRequestSnapshot(state: $state, draft: $draft, headSha: self::SHA, checks: PullRequestChecks::Passed, checksSha: self::SHA);
+    }
+
+    /** Another request commits a move that this entity manager has not seen. */
+    private function moveBehindTheEntity(Card $card, string $slug): void
+    {
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_cards SET column_id = :column WHERE id = :card',
+            ['column' => (string) $this->column($this->project, $slug)->id, 'card' => (string) $card->id],
+        );
+    }
+
+    private function storedColumnOf(Card $card): string
+    {
+        return (string) $this->em->getConnection()->fetchOne(
+            'SELECT c.slug FROM board_cards b JOIN board_columns c ON c.id = b.column_id WHERE b.id = :card',
+            ['card' => (string) $card->id],
+        );
     }
 
     private function addColumns(string ...$slugs): void

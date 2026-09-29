@@ -42,8 +42,9 @@ final readonly class MoveCardsOnPullRequestStateHandler
         $previous = $command->previous;
         $current = $command->current;
         $finished = $previous->state !== $current->state && PullRequestState::Open !== $current->state;
+        // A draft marked ready keeps the checks it passed as a draft, so the ready change counts too.
         $green = PullRequestChecks::Passed === $current->checks
-            && $current->checksConcludedSince($previous)
+            && ($current->checksConcludedSince($previous) || $previous->draft)
             && PullRequestState::Open === $current->state
             && !$current->draft;
         $pullRequest = $command->pullRequest;
@@ -76,14 +77,10 @@ final readonly class MoveCardsOnPullRequestStateHandler
         $states = $finished ? $this->cardPullRequestStates->forCards($cards) : null;
 
         foreach ($cards as $card) {
-            $target = null;
             if (null !== $states && null !== $terminal && $this->allFinishedOneMerged($card, $current, $ownLinks, $states)) {
-                $target = $terminal;
+                ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $terminal, expectOpenColumn: true));
             } elseif ($green && null !== $review && $card->column->slug === $stage['from']) {
-                $target = $review;
-            }
-            if (null !== $target) {
-                ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $target));
+                ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $review, expectedColumn: $card->column));
             }
         }
     }

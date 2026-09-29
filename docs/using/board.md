@@ -557,7 +557,8 @@ For a repository connected through the GitHub App, Loupe also moves the card,
 while the automation is on:
 
 - When the required checks pass on an open pull request that is not a draft, a
-  card in the `implementation` column moves to `in-review`. A board with no
+  card in the `implementation` column moves to `in-review`. A draft whose
+  checks passed moves the card when it is marked ready. A board with no
   `in-review` column skips this move.
 - When the pull request merges or closes, and each pull request of the card is
   merged or closed with at least one merged, the card moves to the first
