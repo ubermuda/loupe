@@ -15,7 +15,9 @@ use App\Module\Review\Command\SetDocumentTagsHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
+use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Service\DocumentSearchIndexer;
+use App\Tests\Support\DispatchedEvents;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -42,6 +44,48 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         self::assertSame(DocumentStatus::InReview, $doc->status);
         self::assertSame(1, $doc->versions->count());
         self::assertStringContainsString('<h1 id="heading-auth">Auth</h1>', $doc->currentVersion()->renderedHtml);
+    }
+
+    public function test_a_created_document_announces_its_status_after_the_commit(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $user = new User(fullName: 'Agent', email: 'status-'.uniqid().'@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+        $changes = DispatchedEvents::of(self::getContainer(), DocumentStatusChanged::class);
+        $depth = $em->getConnection()->getTransactionNestingLevel();
+
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        $doc = $handler(new CreateDocumentCommand(project: $project, title: 'Auth PRD', markdown: '# Auth'));
+
+        self::assertCount(1, $changes->events());
+        self::assertEquals($project->id, $changes->events()[0]->projectId);
+        self::assertEquals($doc->id, $changes->events()[0]->documentId);
+        self::assertSame([$depth], $changes->transactionDepths());
+    }
+
+    public function test_a_rejected_creation_announces_nothing(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $user = new User(fullName: 'Agent', email: 'status-rejected-'.uniqid().'@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+        $changes = DispatchedEvents::of(self::getContainer(), DocumentStatusChanged::class);
+
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        try {
+            $handler(new CreateDocumentCommand(project: $project, title: '   ', markdown: '# Auth'));
+            self::fail('a blank title must be rejected');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $changes->events());
     }
 
     public function test_a_document_inherits_the_project_search_language_when_the_caller_names_none(): void

@@ -13,6 +13,7 @@ use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Repository\InboxItemRepository;
+use App\Module\Inbox\Service\CardWaitTrigger;
 use App\Module\Inbox\Service\InboxLinkResolver;
 use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use App\Module\Inbox\Service\InboxRefusal;
@@ -58,6 +59,7 @@ final readonly class AskInboxHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private InboxOpenCountPublisher $openCount,
+        private CardWaitTrigger $cardWaits,
     ) {
     }
 
@@ -146,6 +148,18 @@ final readonly class AskInboxHandler
             throw new DomainErrors([$view->field => $view->key]);
         }
         $this->openCount->countChanged($command->project);
+        $reviewed = [];
+        foreach ($drafts as $draft) {
+            if ($draft->reviewTarget instanceof Document) {
+                $reviewed[(string) $draft->reviewTarget->id] = $draft->reviewTarget;
+            }
+        }
+        foreach ($reviewed as $document) {
+            $this->cardWaits->forDocument(
+                $command->project->id ?? throw new \LogicException('Project has no id.'),
+                $document->id ?? throw new \LogicException('Document has no id.'),
+            );
+        }
 
         // After the commit, for the reason in CreateCardHandler. No title and no
         // body, because they are sentences an agent wrote.

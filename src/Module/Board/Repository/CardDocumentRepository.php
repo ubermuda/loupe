@@ -8,8 +8,13 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\DocumentVersion;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Component\Uid\Uuid;
 
 /** @extends ServiceEntityRepository<CardDocument> */
 final class CardDocumentRepository extends ServiceEntityRepository
@@ -84,5 +89,71 @@ final class CardDocumentRepository extends ServiceEntityRepository
             ->orderBy('link.linkedAt', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /** @return list<string> the ids of the cards linked to the document */
+    public function findCardIdsForDocument(Uuid $documentId): array
+    {
+        /** @var list<array{cardId: Uuid|string}> $rows */
+        $rows = $this->createQueryBuilder('link')
+            ->select('DISTINCT IDENTITY(link.card) AS cardId')
+            ->where('link.document = :document')
+            ->setParameter('document', $documentId, UuidType::NAME)
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $row): string => (string) $row['cardId'], $rows);
+    }
+
+    /**
+     * The links of the cards to a document in review and not archived, with the
+     * number of its current version.
+     *
+     * @param list<Uuid> $cardIds
+     *
+     * @return list<array{link: CardDocument, versionNumber: int}>
+     */
+    public function findInReviewForCards(Project $project, array $cardIds): array
+    {
+        if ([] === $cardIds) {
+            return [];
+        }
+
+        /** @var list<array{0: CardDocument, versionNumber: int|string}> $rows */
+        $rows = $this->inReview($project)
+            ->addSelect('document')
+            ->addSelect(\sprintf('(SELECT MAX(version.versionNumber) FROM %s version WHERE version.document = document) AS versionNumber', DocumentVersion::class))
+            ->andWhere('card.id IN (:cards)')
+            ->setParameter('cards', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds))
+            ->orderBy('link.linkedAt', 'ASC')
+            ->addOrderBy('link.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return array_map(static fn (array $row): array => ['link' => $row[0], 'versionNumber' => (int) $row['versionNumber']], $rows);
+    }
+
+    /** @return list<string> the ids of the cards linked to a document in review and not archived */
+    public function findCardIdsWithDocumentInReview(Project $project): array
+    {
+        /** @var list<array{cardId: Uuid|string}> $rows */
+        $rows = $this->inReview($project)
+            ->select('DISTINCT card.id AS cardId')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $row): string => (string) $row['cardId'], $rows);
+    }
+
+    private function inReview(Project $project): QueryBuilder
+    {
+        return $this->createQueryBuilder('link')
+            ->join('link.card', 'card')
+            ->join('link.document', 'document')
+            ->andWhere('card.project = :project')
+            ->andWhere('document.status = :status')
+            ->andWhere('document.archivedAt IS NULL')
+            ->setParameter('project', $project)
+            ->setParameter('status', DocumentStatus::InReview);
     }
 }

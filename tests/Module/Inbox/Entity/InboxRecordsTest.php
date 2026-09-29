@@ -6,6 +6,7 @@ namespace App\Tests\Module\Inbox\Entity;
 
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
+use App\Module\Inbox\Entity\InboxAskOrigin;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Repository\InboxItemRepository;
@@ -128,6 +129,32 @@ final class InboxRecordsTest extends KernelTestCase
         $this->em->flush();
 
         self::assertSame(2, $this->rowCount('SELECT COUNT(*) FROM inbox_asks WHERE session_id = :id', (string) $sessionId));
+    }
+
+    public function test_several_open_loupe_asks_hold_no_session(): void
+    {
+        $project = $this->project($this->em, $this->owner($this->em, 'inbox-loupe-asks'), 'inbox');
+        $first = new InboxAsk(project: $project, sessionId: null, origin: InboxAskOrigin::Loupe);
+        $this->em->persist($first);
+        $this->em->persist(new InboxAsk(project: $project, sessionId: null, origin: InboxAskOrigin::Loupe));
+        $this->em->flush();
+        $this->em->clear();
+
+        self::assertSame(2, $this->rowCount("SELECT COUNT(*) FROM inbox_asks WHERE project_id = :id AND session_id IS NULL AND origin = 'loupe'", (string) $project->id));
+        $stored = $this->em->find(InboxAsk::class, $first->id);
+        self::assertInstanceOf(InboxAsk::class, $stored);
+        self::assertNull($stored->sessionId);
+        self::assertSame(InboxAskOrigin::Loupe, $stored->origin);
+    }
+
+    public function test_an_ask_comes_from_an_agent_by_default(): void
+    {
+        $project = $this->project($this->em, $this->owner($this->em, 'inbox-agent-ask'), 'inbox');
+        $ask = $this->ask($this->em, $project);
+        $this->em->flush();
+
+        self::assertSame(InboxAskOrigin::Agent, $ask->origin);
+        self::assertSame('agent', $this->connection->fetchOne('SELECT origin FROM inbox_asks WHERE id = :id', ['id' => (string) $ask->id]));
     }
 
     public function test_an_item_links_a_card_once(): void

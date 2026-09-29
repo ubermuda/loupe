@@ -9,6 +9,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardAutomationAction;
+use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
@@ -30,7 +31,10 @@ use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\Entity\InboxReviewVerdict;
+use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
+use App\Module\Inbox\Service\CardWaitReconciler;
+use App\Module\Inbox\Service\InboxAvailability;
 use App\Module\Inbox\Service\InboxSearchIndexer;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -68,23 +72,41 @@ final readonly class ProjectShowcaseSeeder
         private ForgePullRequestRepository $forgePullRequests,
         private InboxSearchIndexer $inboxSearch,
         private DocumentSearchIndexer $documentSearch,
+        private CardWaitReconciler $cardWaits,
+        private InboxCardWatchRepository $inboxCardWatches,
+        private InboxAvailability $inbox,
     ) {
     }
 
-    /** False when the project already holds the showcase, so a second run writes nothing. */
-    public function __invoke(Project $project, User $owner, User $reviewer): bool
+    /** The card whose document in review gives the showcase its wait item. */
+    public const string WAITING_CARD_TITLE = 'Board onboarding';
+
+    /**
+     * A second run writes nothing but asks Loupe for the wait item again, so
+     * a run after inbox.enabled goes on opens it.
+     */
+    public function __invoke(Project $project, User $owner, User $reviewer): ShowcaseSeeding
     {
-        if ($this->inboxItems->findOneBy(['project' => $project, 'title' => self::MARKER_TITLE]) instanceof InboxItem) {
-            return false;
+        $written = !$this->inboxItems->findOneBy(['project' => $project, 'title' => self::MARKER_TITLE]) instanceof InboxItem;
+        if ($written) {
+            $cards = $this->seedCards($project);
+            $documents = $this->seedDocuments($owner, $project, $cards['onboarding']);
+            $this->seedInbox($project, $owner, $reviewer, $cards, $documents);
+            $this->seedSiteFeedback($project, $cards['checkout']);
+            $this->em->flush();
+            $waitingCard = $cards['onboarding'];
+        } else {
+            $waitingCard = $this->cards->findOneBy(['project' => $project, 'title' => self::WAITING_CARD_TITLE]);
         }
 
-        $cards = $this->seedCards($project);
-        $documents = $this->seedDocuments($owner, $project);
-        $this->seedInbox($project, $owner, $reviewer, $cards, $documents);
-        $this->seedSiteFeedback($project, $cards['checkout']);
-        $this->em->flush();
+        $enabled = $this->inbox->isEnabled();
+        if (!$waitingCard instanceof Card) {
+            return new ShowcaseSeeding($written, false, $enabled);
+        }
+        $cardId = $waitingCard->id ?? throw new \LogicException('A stored card has an id.');
+        $this->cardWaits->reconcile($project, [(string) $cardId]);
 
-        return true;
+        return new ShowcaseSeeding($written, [] !== $this->inboxCardWatches->findOpenForCards($project, [$cardId]), $enabled);
     }
 
     /** @return array{checkout: Card, history: Card, columns: Card, onboarding: Card, pullRequest: CardPullRequest} */
@@ -124,7 +146,7 @@ final readonly class ProjectShowcaseSeeder
         $onboarding = new Card(
             project: $project,
             column: $backlog,
-            title: 'Board onboarding',
+            title: self::WAITING_CARD_TITLE,
             body: 'Make the first agent handoff obvious. Explain which rule runs when a card enters Ready and what the person should expect back.',
             number: $number + 3,
             type: CardType::Feature,
@@ -176,8 +198,8 @@ final readonly class ProjectShowcaseSeeder
         return $link;
     }
 
-    /** @return array{history: Document, rules: Document} */
-    private function seedDocuments(User $owner, Project $project): array
+    /** @return array{history: Document, rules: Document, onboarding: Document} */
+    private function seedDocuments(User $owner, Project $project, Card $onboardingCard): array
     {
         $history = new Document($owner, $project, 'Worker run history');
         $history->addVersion(
@@ -198,20 +220,27 @@ final readonly class ProjectShowcaseSeeder
         $rules->status = DocumentStatus::Approved;
         $history->addReference($rules);
 
-        foreach ([$history, $rules] as $document) {
+        $onboarding = new Document($owner, $project, 'First handoff guide');
+        $onboarding->addVersion(
+            "# First handoff guide\n\n## The first five minutes\n\nMove a card to Ready. The rule of that column starts an agent, and the card shows the run.\n",
+            '<h1>First handoff guide</h1><h2>The first five minutes</h2><p>Move a card to Ready. The rule of that column starts an agent, and the card shows the run.</p>',
+        );
+        $onboardingCard->documents->add(new CardDocument($onboardingCard, $onboarding));
+
+        foreach ([$history, $rules, $onboarding] as $document) {
             $this->em->persist($document);
         }
         $this->em->flush();
-        foreach ([$history, $rules] as $document) {
+        foreach ([$history, $rules, $onboarding] as $document) {
             $this->documentSearch->index($document);
         }
 
-        return ['history' => $history, 'rules' => $rules];
+        return ['history' => $history, 'rules' => $rules, 'onboarding' => $onboarding];
     }
 
     /**
      * @param array{checkout: Card, history: Card, columns: Card, onboarding: Card, pullRequest: CardPullRequest} $cards
-     * @param array{history: Document, rules: Document}                                                           $documents
+     * @param array{history: Document, rules: Document, onboarding: Document}                                     $documents
      */
     private function seedInbox(Project $project, User $owner, User $reviewer, array $cards, array $documents): void
     {
@@ -302,7 +331,7 @@ final readonly class ProjectShowcaseSeeder
      * a to-do left open inside a closed ask, which is where the loose row and
      * its jump link come from.
      *
-     * @param array{history: Document, rules: Document} $documents
+     * @param array{history: Document, rules: Document, onboarding: Document} $documents
      */
     private function seedCompleted(Project $project, User $owner, User $reviewer, array $documents, int $number, \DateTimeImmutable $now): void
     {

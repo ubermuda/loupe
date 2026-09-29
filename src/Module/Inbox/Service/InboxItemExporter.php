@@ -6,8 +6,12 @@ namespace App\Module\Inbox\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\UserDataExporterInterface;
+use App\Module\Inbox\Entity\InboxCardWait;
+use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
+use App\Module\Inbox\Entity\InboxItemKind;
+use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
 
 /**
@@ -18,6 +22,7 @@ final readonly class InboxItemExporter implements UserDataExporterInterface
 {
     public function __construct(
         private InboxItemRepository $inboxItems,
+        private InboxCardWatchRepository $inboxCardWatches,
     ) {
     }
 
@@ -30,7 +35,14 @@ final readonly class InboxItemExporter implements UserDataExporterInterface
     #[\Override]
     public function export(User $user): iterable
     {
-        foreach ($this->inboxItems->findByOwner($user) as $item) {
+        $items = $this->inboxItems->findByOwner($user);
+        $waits = [];
+        $waitItems = array_values(array_filter($items, static fn (InboxItem $item): bool => InboxItemKind::Wait === $item->kind));
+        foreach ($this->inboxCardWatches->findForItems($waitItems) as $watch) {
+            $waits[(string) $watch->item->id] = $watch->waits->toArray();
+        }
+
+        foreach ($items as $item) {
             yield [
                 'id' => (string) $item->id,
                 'project' => $item->project->name,
@@ -57,6 +69,20 @@ final readonly class InboxItemExporter implements UserDataExporterInterface
                 'documents' => array_values(array_map(
                     static fn (InboxItemDocument $link): string => (string) $link->document->id,
                     $item->documents->toArray(),
+                )),
+                // Ids and reasons: the documents and runs are their own exporters' to state.
+                'waits' => array_values(array_map(
+                    static fn (InboxCardWait $wait): array => [
+                        'trigger' => $wait->trigger->value,
+                        'reason' => $wait->reason,
+                        'documentId' => null === $wait->documentId ? null : (string) $wait->documentId,
+                        'versionNumber' => $wait->versionNumber,
+                        'runId' => null === $wait->runId ? null : (string) $wait->runId,
+                        'startedAt' => $wait->startedAt->format(\DateTimeInterface::ATOM),
+                        'endedAt' => $wait->endedAt?->format(\DateTimeInterface::ATOM),
+                        'endReason' => $wait->endReason?->value,
+                    ],
+                    $waits[(string) $item->id] ?? [],
                 )),
             ];
         }
