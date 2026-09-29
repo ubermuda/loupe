@@ -28,7 +28,7 @@ P0 opens an interactive run on the card with `card_run_open`. While it is open, 
 6. Run P0 to get the card into the Product design column and open the run, as `session-flow.md` says.
 7. Run the phases of the level that P2 sets. Ask each question as `question-rules.md` says. Use AskUserQuestion when the answer has clear options, and plain chat when the tool is missing.
 8. Read `../loupe-stage-product-design/references/product-document.md` before P10. It is the template, and it lists the sections a Light document keeps.
-9. Run P10 only after the owner confirms the P9 readback. Write no document before that.
+9. Run P8 to P10 when the questions end. Ask for no confirmation in the terminal, because the document is the readback (P9).
 
 ## Where session output goes
 
@@ -48,4 +48,4 @@ Put each item in its section of the product document.
 3. With a draft, call `document_revise` on it instead. When the draft lacks the tag `design` or `product`, or has the tag `decisions`, call `document_set_tags`. Send its current tags without `decisions`, plus `design` and `product`. A document with both stage tags moves no card on approval. Keep each section with a standing approval unchanged, as `../loupe-stage-product-design/references/review-round.md` "An approved section wins" says. When the draft has open review comments, answer them as "Answer every open comment" in that file says.
 4. Call `card_get` again. When the card does not link the document yet, call `card_update` with the existing `documentIds` plus the new id. The field replaces the whole set.
 5. Call `card_run_close` with the card and the `sessionId` of P0.
-6. Never move the card after P0. Give the owner the review URL, and stop.
+6. Never move the card after P0. Give the owner the review URL, and stop. The owner reviews the `R` entries and the scenarios there.
