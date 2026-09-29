@@ -41,7 +41,7 @@ final readonly class ListRulesHandler
             $command->project,
             array_values(array_filter($rules, static fn (ReportedRule $rule): bool => '' === $search || false !== mb_stripos($rule->name, $search))),
             count(array_filter($rules, static fn (ReportedRule $rule): bool => BridgeRuleReport::STATE_LIVE === $rule->state)),
-            array_column(array_map(static fn (BoardColumn $column): array => [$column->slug, $column->label], $this->boardColumns->findForProject($command->project)), 1, 0),
+            array_column(array_map(static fn (BoardColumn $column): array => [$column->slug, $column->label], $this->boardColumns->findBoardColumns($command->project)), 1, 0),
             $search,
         );
     }

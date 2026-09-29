@@ -8,6 +8,8 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CardProgress;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\LabelTone;
+use App\Module\Board\Form\AddBoardColumnRequest;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
@@ -21,6 +23,8 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Tests\Module\Board\Controller\BoardScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use Random\Engine;
+use Random\Randomizer;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -164,6 +168,33 @@ final class BoardExtensionTest extends KernelTestCase
         // The reset builds the prototype again, which is the second and last call.
         $extension->reset();
         $extension->cardMoveFields($this->twig(), $second);
+    }
+
+    public function test_the_add_form_preselects_no_colour_the_backlog_uses(): void
+    {
+        $container = static::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        $project = $this->project($em, $this->user($em, 'add-tone@example.com'));
+        $firstFree = new Randomizer(new class implements Engine {
+            public function generate(): string
+            {
+                return "\0\0\0\0\0\0\0\0";
+            }
+        });
+        $extension = new BoardExtension(
+            $container->get(FormFactoryInterface::class),
+            $container->get(MarkdownRenderer::class),
+            $container->get(TranslatorInterface::class),
+            $container->get(CardDocumentRepository::class),
+            $container->get(BoardColumnRepository::class),
+            new BoardColumnTonePicker($firstFree),
+            new CardDigest(),
+        );
+
+        // Neutral is the Backlog's tone and the first case, so it comes first when the Backlog is left out.
+        $request = $extension->boardColumnAddForm($project)->vars['value'];
+        self::assertInstanceOf(AddBoardColumnRequest::class, $request);
+        self::assertSame(LabelTone::Amber, $request->tone);
     }
 
     public function test_each_project_gets_its_own_columns(): void

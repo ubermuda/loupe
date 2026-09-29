@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Command\CardProgress;
+use App\Module\Board\Command\LaneDeckView;
 use App\Module\Board\Entity\Card;
 use App\Module\Bridge\View\CardRunWarning;
 
@@ -42,6 +43,19 @@ final readonly class CardDigest
             $warning?->runId,
             $warning?->state->value,
             array_map(static fn (CardBadge $badge): string => $badge->value, $badges),
+        ], \JSON_THROW_ON_ERROR)), 0, 12);
+    }
+
+    /** A short hash of what the head of an epic lane shows: the title, the progress and the Up next deck. */
+    public function forLaneHead(Card $epic, ?CardProgress $progress, ?LaneDeckView $deck): string
+    {
+        return substr(sha1(json_encode([
+            $epic->number,
+            $epic->title,
+            $progress?->done,
+            $progress?->total,
+            $deck?->count,
+            array_map(static fn (Card $card): array => [(string) $card->id, $card->number, $card->title, $card->type->value], $deck->cards ?? []),
         ], \JSON_THROW_ON_ERROR)), 0, 12);
     }
 }

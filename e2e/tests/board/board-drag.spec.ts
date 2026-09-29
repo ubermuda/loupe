@@ -23,8 +23,8 @@ import { suppressToolbar, suppressWidget } from '../fixtures';
 const RUN = Date.now();
 const PASSWORD = 'E2eBoardDrag1!';
 
-const BACKLOG = 0;
-const NEXT = 1;
+const NEXT = 0;
+const IN_PROGRESS = 1;
 
 const CARD = '[data-board-drag-target="card"]';
 const GROUP = '[data-board-drag-target="group"]';
@@ -97,7 +97,7 @@ async function createCard(
 ): Promise<void> {
     await page.goto(`/projects/${projectId}/board/cards/new`);
     await page.getByLabel('Title').fill(title);
-    await page.getByLabel('Column').selectOption({ label: 'Backlog' });
+    await page.getByLabel('Column').selectOption({ label: 'Next' });
     await page.getByRole('button', { name: 'Create card' }).click();
     await expect(page.getByRole('heading', { name: title })).toBeVisible();
 }
@@ -283,19 +283,17 @@ test('a drag inside a column reorders it, and the order survives a reload', asyn
     page,
     board,
 }) => {
-    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
 
     const written = movePosted(page);
     await dragCardTo(page, 'Bravo', await topEdgeOf(page, 'Alpha'));
     await written;
 
-    await expect
-        .poll(() => titlesIn(page, BACKLOG))
-        .toEqual(['Bravo', 'Alpha']);
+    await expect.poll(() => titlesIn(page, NEXT)).toEqual(['Bravo', 'Alpha']);
 
     await page.goto(board.boardUrl);
     await waitForDragReady(page);
-    expect(await titlesIn(page, BACKLOG)).toEqual(['Bravo', 'Alpha']);
+    expect(await titlesIn(page, NEXT)).toEqual(['Bravo', 'Alpha']);
 });
 
 test('a drag into another column moves the card there, and it survives a reload', async ({
@@ -303,39 +301,41 @@ test('a drag into another column moves the card there, and it survives a reload'
     board,
 }) => {
     const written = movePosted(page);
-    await dragCardTo(page, 'Alpha', await centreOfGroup(page, NEXT));
+    await dragCardTo(page, 'Alpha', await centreOfGroup(page, IN_PROGRESS));
     await written;
 
-    await expect.poll(() => titlesIn(page, NEXT)).toEqual(['Alpha']);
-    expect(await titlesIn(page, BACKLOG)).toEqual(['Bravo']);
+    await expect.poll(() => titlesIn(page, IN_PROGRESS)).toEqual(['Alpha']);
+    expect(await titlesIn(page, NEXT)).toEqual(['Bravo']);
 
     await page.goto(board.boardUrl);
-    expect(await titlesIn(page, NEXT)).toEqual(['Alpha']);
-    expect(await titlesIn(page, BACKLOG)).toEqual(['Bravo']);
+    expect(await titlesIn(page, IN_PROGRESS)).toEqual(['Alpha']);
+    expect(await titlesIn(page, NEXT)).toEqual(['Bravo']);
 });
 
 test('a drag into another column lands where the marker stood', async ({
     page,
     board,
 }) => {
-    // Bravo goes to Next first, so Alpha has somewhere to land above it. Each
+    // Bravo goes to In progress first, so Alpha has somewhere to land above it. Each
     // drag waits for the placement the move answered with, because the second
     // drag is refused until it lands.
     let written = movePosted(page);
-    await dragCardTo(page, 'Bravo', await centreOfGroup(page, NEXT));
+    await dragCardTo(page, 'Bravo', await centreOfGroup(page, IN_PROGRESS));
     await written;
     await cardPlaced(page);
-    await expect.poll(() => titlesIn(page, NEXT)).toEqual(['Bravo']);
+    await expect.poll(() => titlesIn(page, IN_PROGRESS)).toEqual(['Bravo']);
 
     written = movePosted(page);
     await dragCardTo(page, 'Alpha', await topEdgeOf(page, 'Bravo'));
     await written;
     await cardPlaced(page);
 
-    await expect.poll(() => titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
+    await expect
+        .poll(() => titlesIn(page, IN_PROGRESS))
+        .toEqual(['Alpha', 'Bravo']);
     await page.goto(board.boardUrl);
     await waitForDragReady(page);
-    expect(await titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, IN_PROGRESS)).toEqual(['Alpha', 'Bravo']);
 });
 
 test('the dragged card stays under the pointer on a scrolled board, and a ghost holds its slot', async ({
@@ -344,7 +344,7 @@ test('the dragged card stays under the pointer on a scrolled board, and a ghost 
     // Narrow and short, so a column scrolls its cards and the columns scroll
     // sideways. The dragged card is fixed to the viewport, so both offsets
     // must drop out of its position.
-    await page.setViewportSize({ width: 700, height: 400 });
+    await page.setViewportSize({ width: 560, height: 400 });
     // Below lg the sidebar turns into a drawer, which stays over the board
     // until its slide-out ends.
     await expect(page.locator('.lp-sidebar')).toBeHidden();
@@ -388,7 +388,7 @@ test('the dragged card stays under the pointer on a scrolled board, and a ghost 
         expect(Math.abs(dragged.x + grab.x - pointer.x)).toBeLessThan(2);
         expect(Math.abs(dragged.y + grab.y - pointer.y)).toBeLessThan(2);
 
-        const ghost = group(page, BACKLOG).locator('.lp-board__ghost');
+        const ghost = group(page, NEXT).locator('.lp-board__ghost');
         await expect(ghost).toHaveCount(1);
         const ghostBox = await ghost.boundingBox();
         expect(ghostBox).not.toBeNull();
@@ -411,27 +411,27 @@ test('the dragged card stays under the pointer on a scrolled board, and a ghost 
     await page.keyboard.press('Escape');
     await page.mouse.up();
     await expect(page.locator('.lp-board__ghost')).toHaveCount(0);
-    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
 });
 
 test('a move the server never receives puts the card back and says so', async ({
     page,
     board,
 }) => {
-    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
 
     await page.route('**/board/cards/*/move', (route) => route.abort());
-    await dragCardTo(page, 'Alpha', await centreOfGroup(page, NEXT));
+    await dragCardTo(page, 'Alpha', await centreOfGroup(page, IN_PROGRESS));
 
     const message = page.locator('.lp-board__message');
     await expect(message).toHaveText(/./);
-    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
-    expect(await titlesIn(page, NEXT)).toEqual([]);
+    expect(await titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, IN_PROGRESS)).toEqual([]);
 
     await page.unroute('**/board/cards/*/move');
     await page.goto(board.boardUrl);
     await waitForDragReady(page);
-    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
 });
 
 test('a move the server refuses puts the card back and keeps the board', async ({
@@ -445,12 +445,12 @@ test('a move the server refuses puts the card back and keeps the board', async (
         }),
     );
     const written = movePosted(page);
-    await dragCardTo(page, 'Alpha', await centreOfGroup(page, NEXT));
+    await dragCardTo(page, 'Alpha', await centreOfGroup(page, IN_PROGRESS));
     await written;
 
     await expect(page.locator('.lp-board__message')).toHaveText(/./);
-    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
-    expect(await titlesIn(page, NEXT)).toEqual([]);
+    expect(await titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, IN_PROGRESS)).toEqual([]);
     await expect(page.getByText('Refused page')).toHaveCount(0);
     await page.unroute('**/board/cards/*/move');
 });
@@ -467,13 +467,51 @@ test("the card's own page moves it without a pointer", async ({
     const moveForm = page.locator('.lp-card-move__form');
     await expect(moveForm).toBeVisible();
     await moveForm.locator('select[name$="[column]"]').selectOption({
-        label: 'Next',
+        label: 'In progress',
     });
 
     await expect(page).toHaveURL(board.boardUrl);
     await waitForDragReady(page);
-    expect(await titlesIn(page, NEXT)).toEqual(['Bravo']);
+    expect(await titlesIn(page, IN_PROGRESS)).toEqual(['Bravo']);
 
     await page.goto(board.boardUrl);
+    expect(await titlesIn(page, IN_PROGRESS)).toEqual(['Bravo']);
+});
+
+test('the Backlog button counts the Backlog, takes a dropped card and opens the Backlog', async ({
+    page,
+    board,
+}) => {
+    const button = page.locator('a.lp-board-backlog');
+    const count = button.locator('.lp-board-backlog__count');
+    await expect(count).toHaveText('0');
+
+    const written = movePosted(page);
+    const box = await button.boundingBox();
+    expect(box).not.toBeNull();
+    await dragCardTo(page, 'Alpha', {
+        x: (box?.x ?? 0) + (box?.width ?? 0) / 2,
+        y: (box?.y ?? 0) + (box?.height ?? 0) / 2,
+    });
+    await written;
+    await cardPlaced(page);
+
+    await expect(page.locator(`${CARD}[data-card-title="Alpha"]`)).toHaveCount(
+        0,
+    );
     expect(await titlesIn(page, NEXT)).toEqual(['Bravo']);
+    await expect(count).toHaveText('1');
+
+    await page.goto(board.boardUrl);
+    await waitForDragReady(page);
+    expect(await titlesIn(page, NEXT)).toEqual(['Bravo']);
+    await expect(count).toHaveText('1');
+
+    await button.click();
+    await expect(page).toHaveURL(`${board.boardUrl}/backlog`);
+    await expect(
+        page.getByRole('heading', { name: 'Backlog', level: 1 }),
+    ).toBeVisible();
+    await expect(page.locator('[data-backlog-card-id]')).toHaveCount(1);
+    await expect(page.locator('[data-backlog-card-id]')).toContainText('Alpha');
 });

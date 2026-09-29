@@ -8,7 +8,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\LabelTone;
 use Random\Randomizer;
 
-/** Chooses a new column's colour: a random one no column on the board uses, or any when all are taken. */
+/** Chooses a new column's colour: a random one no column uses, the Backlog included, or any when all are taken. */
 final readonly class BoardColumnTonePicker
 {
     public function __construct(
@@ -16,7 +16,7 @@ final readonly class BoardColumnTonePicker
     ) {
     }
 
-    /** @param list<BoardColumn> $columns the board's columns */
+    /** @param list<BoardColumn> $columns every column of the board, the Backlog included, because its tag shows on a card */
     public function pick(array $columns): LabelTone
     {
         $used = array_map(static fn (BoardColumn $column): LabelTone => $column->tone, $columns);

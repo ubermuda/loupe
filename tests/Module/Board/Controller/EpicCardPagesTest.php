@@ -245,7 +245,7 @@ final class EpicCardPagesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'epic-list-parent@example.com');
         $project = $this->project($em, $owner);
-        $epic = $this->typed($em, $this->card($em, $project, 'Listed epic'), CardType::Epic);
+        $epic = $this->typed($em, $this->card($em, $project, 'Listed epic', 'in-progress'), CardType::Epic);
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Listed child', 'next'));
         [$epicId, $childId, $epicNumber] = [$epic->id, $child->id, $epic->number];
         $em->clear();

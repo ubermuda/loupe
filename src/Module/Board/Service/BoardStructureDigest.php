@@ -26,7 +26,7 @@ final readonly class BoardStructureDigest
         $shape = ['columns' => [], 'lanes' => [], 'deadRules' => []];
         foreach ($columns as $view) {
             $column = $view->column;
-            $shape['columns'][] = [(string) $column->id, $column->label, $column->tone->value, $column->terminal, $column->isDefault];
+            $shape['columns'][] = [(string) $column->id, $column->label, $column->tone->value, $column->terminal];
         }
         foreach ($lanes as $lane) {
             $epic = $lane->epic;

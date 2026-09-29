@@ -21,7 +21,7 @@ person who approves.
 
 | Label | Slug | Flag | Worker |
 |---|---|---|---|
-| Backlog | `backlog` | default | none |
+| Backlog | `backlog` | backlog | none |
 | Product design | `product-design` | | none |
 | Tech design | `tech-design` | | `loupe-stage-tech-design` |
 | Implementation | `implementation` | | `loupe-stage-implementation` |

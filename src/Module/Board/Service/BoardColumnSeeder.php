@@ -17,12 +17,12 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final readonly class BoardColumnSeeder
 {
-    /** @var list<array{slug: non-empty-string, terminal: bool, isDefault: bool, tone: LabelTone}> */
+    /** @var list<array{slug: non-empty-string, terminal: bool, backlog: bool, tone: LabelTone}> */
     private const array COLUMNS = [
-        ['slug' => 'backlog', 'terminal' => false, 'isDefault' => true, 'tone' => LabelTone::Neutral],
-        ['slug' => 'next', 'terminal' => false, 'isDefault' => false, 'tone' => LabelTone::Lime],
-        ['slug' => 'in-progress', 'terminal' => false, 'isDefault' => false, 'tone' => LabelTone::Purple],
-        ['slug' => 'done', 'terminal' => true, 'isDefault' => false, 'tone' => LabelTone::Green],
+        ['slug' => 'backlog', 'terminal' => false, 'backlog' => true, 'tone' => LabelTone::Neutral],
+        ['slug' => 'next', 'terminal' => false, 'backlog' => false, 'tone' => LabelTone::Lime],
+        ['slug' => 'in-progress', 'terminal' => false, 'backlog' => false, 'tone' => LabelTone::Purple],
+        ['slug' => 'done', 'terminal' => true, 'backlog' => false, 'tone' => LabelTone::Green],
     ];
 
     public function __construct(
@@ -41,7 +41,7 @@ final readonly class BoardColumnSeeder
                 slug: $column['slug'],
                 position: $position,
                 terminal: $column['terminal'],
-                isDefault: $column['isDefault'],
+                backlog: $column['backlog'],
                 tone: $column['tone'],
             );
             $this->em->persist($seeded);

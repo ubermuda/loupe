@@ -12,12 +12,12 @@ final readonly class BoardColumnShape
     public function __construct(
         public string $slug,
         public bool $terminal,
-        public bool $isDefault,
+        public bool $backlog,
     ) {
     }
 
     public static function of(BoardColumn $column): self
     {
-        return new self($column->slug, $column->terminal, $column->isDefault);
+        return new self($column->slug, $column->terminal, $column->backlog);
     }
 }

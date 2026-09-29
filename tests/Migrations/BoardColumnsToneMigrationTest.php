@@ -29,8 +29,8 @@ final class BoardColumnsToneMigrationTest extends KernelTestCase
         $project = new Project($owner, 'Tones-'.uniqid());
         $em->persist($owner);
         $em->persist($project);
-        foreach ([['backlog', 0, false, true], ['ready', 1, false, false], ['doing', 2, false, false], ['review', 3, false, false], ['qa', 4, false, false], ['done', 5, true, false]] as [$slug, $position, $terminal, $isDefault]) {
-            $em->persist(new BoardColumn($project, $slug, $slug, $position, $terminal, $isDefault));
+        foreach ([['backlog', 0, false, true], ['ready', 1, false, false], ['doing', 2, false, false], ['review', 3, false, false], ['qa', 4, false, false], ['done', 5, true, false]] as [$slug, $position, $terminal, $backlog]) {
+            $em->persist(new BoardColumn($project, $slug, $slug, $position, $terminal, $backlog));
         }
         $em->flush();
         $projectId = (string) $project->id;

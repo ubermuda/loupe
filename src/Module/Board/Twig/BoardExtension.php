@@ -15,8 +15,10 @@ use App\Module\Board\Form\ConfigureBoardColumnFormType;
 use App\Module\Board\Form\ConfigureBoardColumnRequest;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
 use App\Module\Board\Form\DeleteBoardColumnRequest;
+use App\Module\Board\Form\MoveBacklogCardFormType;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Board\Form\MoveCardRequest;
+use App\Module\Board\Form\RankBacklogCardFormType;
 use App\Module\Board\Form\ReorderBoardColumnsFormType;
 use App\Module\Board\Form\ReorderBoardColumnsRequest;
 use App\Module\Board\Form\SetCardLaneFormType;
@@ -79,7 +81,11 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
             new TwigFunction('card_move_form', $this->cardMoveForm(...)),
             new TwigFunction('card_move_fields', $this->cardMoveFields(...), ['needs_environment' => true, 'is_safe' => ['html']]),
             new TwigFunction('card_lane_form', $this->cardLaneForm(...)),
+            // The Backlog page writes these forms by hand, so 25 rows build no column choices.
+            new TwigFunction('backlog_rank_form_name', RankBacklogCardFormType::nameFor(...)),
+            new TwigFunction('backlog_move_form_name', MoveBacklogCardFormType::nameFor(...)),
             new TwigFunction('card_digest', $this->cardDigest(...)),
+            new TwigFunction('lane_head_digest', $this->digest->forLaneHead(...)),
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),
             new TwigFunction('board_column_configure_form', $this->boardColumnConfigureForm(...)),
             new TwigFunction('board_column_delete_form', $this->boardColumnDeleteForm(...)),
@@ -189,7 +195,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
      * The refused form a failed configure forwarded, when it belongs to this
      * column, or a fresh one that shows the column as it is now.
      */
-    public function boardColumnConfigureForm(BoardColumn $column, string $expectedDefaultId, ?FormView $refused = null): FormView
+    public function boardColumnConfigureForm(BoardColumn $column, ?FormView $refused = null): FormView
     {
         $name = ConfigureBoardColumnFormType::nameFor($column);
         if (null !== $refused && $refused->vars['name'] === $name) {
@@ -200,9 +206,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
             ->createNamed($name, ConfigureBoardColumnFormType::class, new ConfigureBoardColumnRequest(
                 label: $this->translator->trans($column->label),
                 expectedLabel: $column->label,
-                isDefault: $column->isDefault,
                 terminal: $column->terminal,
-                expectedDefaultId: $expectedDefaultId,
                 expectedTerminal: $column->terminal ? '1' : '0',
                 tone: $column->tone,
             ))

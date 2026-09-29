@@ -91,21 +91,22 @@ final class BoardColumnControllersTest extends WebTestCase
         $crawler = $this->settings($project);
 
         $rows = $crawler->filter('[data-board-column-settings] [data-column-id]');
-        self::assertCount(4, $rows);
+        // The Backlog is not a column, so settings does not list it.
+        self::assertSame(['next', 'in-progress', 'done'], $rows->each(static fn (Crawler $row): string => $row->attr('data-column-slug') ?? ''));
         self::assertCount(0, $rows->first()->filter('button[aria-label="Move up"]'));
         self::assertCount(1, $rows->first()->filter('button[aria-label="Move down"]'));
         self::assertCount(1, $rows->last()->filter('button[aria-label="Move up"]'));
         self::assertCount(0, $rows->last()->filter('button[aria-label="Move down"]'));
-        self::assertCount(4, $rows->filter('button[aria-label^="Configure "]'));
-        // The default and the last terminal column cannot go.
+        self::assertCount(3, $rows->filter('button[aria-label^="Configure "]'));
+        // The last terminal column cannot go.
         self::assertCount(2, $rows->filter('button[aria-label^="Delete "]'));
 
-        $this->client->submit($rows->eq(1)->filter('button[aria-label="Move down"]')->form());
+        $this->client->submit($rows->eq(0)->filter('button[aria-label="Move down"]')->form());
         self::assertResponseRedirects('/projects/'.$project->id.'/settings/columns');
         self::assertSame(['backlog', 'in-progress', 'next', 'done'], $this->slugs($project));
     }
 
-    public function test_settings_configures_the_name_the_default_and_the_terminal_flag_in_one_save(): void
+    public function test_settings_configures_the_name_and_the_terminal_flag_in_one_save(): void
     {
         [, $project] = $this->ownedBoard('columns-configure@example.com');
         $url = '/projects/'.$project->id.'/settings/columns';
@@ -113,16 +114,12 @@ final class BoardColumnControllersTest extends WebTestCase
         $this->configure($project, 'in-progress', ['terminal' => true]);
         self::assertResponseRedirects($url);
 
-        // Done leaves the terminal flag and takes the default in one save, which
-        // neither change could do alone.
-        $this->configure($project, 'done', ['label' => 'Shipped', 'isDefault' => true, 'terminal' => false]);
+        $this->configure($project, 'done', ['label' => 'Shipped', 'terminal' => false]);
         self::assertResponseRedirects($url);
 
         self::assertSame(['backlog', 'next', 'in-progress', 'shipped'], $this->slugs($project));
-        self::assertTrue($this->column($project, 'shipped')->isDefault);
         self::assertFalse($this->column($project, 'shipped')->terminal);
         self::assertSame('Shipped', $this->column($project, 'shipped')->label);
-        self::assertFalse($this->column($project, 'backlog')->isDefault);
         self::assertTrue($this->column($project, 'in-progress')->terminal);
         self::assertSame('human', $this->outboxPayload($project, 'board.column_renamed')['actor'] ?? null);
     }
@@ -144,9 +141,8 @@ final class BoardColumnControllersTest extends WebTestCase
     public static function refusedConfigurations(): iterable
     {
         yield 'a taken slug' => ['next', ['label' => 'Done'], 'label', 'already has this slug'];
-        yield 'a reserved label' => ['next', ['label' => 'board.column.flag.default'], 'label', 'uses this text internally'];
-        yield 'no default left' => ['backlog', ['isDefault' => false], 'isDefault', 'exactly one default column'];
-        yield 'a terminal default' => ['next', ['isDefault' => true, 'terminal' => true], 'terminal', 'default column cannot be terminal'];
+        yield 'a reserved label' => ['next', ['label' => 'board.column.flag.terminal'], 'label', 'uses this text internally'];
+        yield 'the backlog slug' => ['next', ['label' => 'Backlog'], 'label', 'already has this slug'];
         yield 'no terminal left' => ['done', ['terminal' => false], 'terminal', 'at least one terminal column'];
     }
 
@@ -167,7 +163,7 @@ final class BoardColumnControllersTest extends WebTestCase
         self::assertSame($values['label'] ?? 'Draft name', $form->filter('input[name="'.$name.'[label]"]')->attr('value'));
         self::assertStringContainsString($message, $form->filter('[data-field-errors="'.$field.'"]')->text());
         self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs($project));
-        self::assertTrue($this->column($project, 'backlog')->isDefault);
+        self::assertTrue($this->column($project, 'backlog')->backlog);
         self::assertSame(['done'], array_values(array_map(
             static fn (BoardColumn $column): string => $column->slug,
             array_filter($this->columns($project), static fn (BoardColumn $column): bool => $column->terminal),
@@ -194,26 +190,31 @@ final class BoardColumnControllersTest extends WebTestCase
         self::assertSame(['backlog', 'newer-name', 'in-progress', 'done'], $this->slugs($project));
     }
 
-    public function test_a_stale_configure_keeps_the_newer_default(): void
+    public function test_a_configure_of_the_backlog_is_refused(): void
     {
-        [, $project] = $this->ownedBoard('columns-configure-stale-default@example.com');
-        $nextName = ConfigureBoardColumnFormType::nameFor($this->column($project, 'next'));
-        $progressName = ConfigureBoardColumnFormType::nameFor($this->column($project, 'in-progress'));
-        $crawler = $this->settings($project);
-        $stale = $crawler->filter('form[name="'.$progressName.'"]')->form();
-        $this->fill($stale, $progressName.'[isDefault]', true);
-        $fresh = $crawler->filter('form[name="'.$nextName.'"]')->form();
-        $this->fill($fresh, $nextName.'[isDefault]', true);
-        $this->client->submit($fresh);
+        [, $project] = $this->ownedBoard('columns-configure-backlog@example.com');
+
+        $backlog = $this->column($project, 'backlog');
+        $name = ConfigureBoardColumnFormType::nameFor($backlog);
+        $url = $this->columnUrl($project, $backlog, 'configure');
+
+        // Settings draws no dialog for the Backlog, so the post is built by hand.
+        $this->client->request(Request::METHOD_POST, $url, [$name => [
+            'label' => 'Ideas',
+            'terminal' => '1',
+            'tone' => 'neutral',
+            'expectedLabel' => $backlog->label,
+            'expectedTerminal' => '0',
+            '_token' => 'csrf-token',
+        ]], [], ['HTTP_REFERER' => 'http://localhost'.$url]);
+
         self::assertResponseRedirects('/projects/'.$project->id.'/settings/columns');
-
-        $crawler = $this->client->submit($stale);
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertStringContainsString('The default column changed', $crawler->filter('form[name="'.$progressName.'"] [data-field-errors="isDefault"]')->text());
         $this->em->clear();
-        self::assertTrue($this->column($project, 'next')->isDefault);
-        self::assertFalse($this->column($project, 'in-progress')->isDefault);
+        $backlog = $this->column($project, 'backlog');
+        self::assertSame('board.card.status.backlog', $backlog->label);
+        self::assertFalse($backlog->terminal);
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('body', 'The Backlog is not a column');
     }
 
     public function test_a_stale_configure_does_not_undo_a_newer_terminal_flag(): void
@@ -246,9 +247,9 @@ final class BoardColumnControllersTest extends WebTestCase
         $this->client->submit($form);
         self::assertResponseRedirects($url);
         $saved = $this->slugs($project);
-        self::assertSame(['next', 'backlog', 'in-progress', 'done'], $saved);
+        self::assertSame(['backlog', 'in-progress', 'next', 'done'], $saved);
 
-        $order = array_map(fn (string $slug): string => (string) $this->column($project, $slug)->id, ['backlog', 'next', 'done', 'in-progress']);
+        $order = array_map(fn (string $slug): string => (string) $this->column($project, $slug)->id, ['next', 'done', 'in-progress']);
         $form['reorder_board_columns_form[order]'] = implode(',', $order);
         $this->client->submit($form);
         self::assertResponseRedirects($url);
@@ -281,7 +282,7 @@ final class BoardColumnControllersTest extends WebTestCase
         self::assertSame('wan-le', $crawler->filter('turbo-frame#board-column-slug-'.$next->id.' code')->text());
     }
 
-    public function test_settings_offers_no_delete_for_the_default_or_the_last_terminal_column(): void
+    public function test_settings_offers_no_delete_for_the_backlog_or_the_last_terminal_column(): void
     {
         [, $project] = $this->ownedBoard('columns-no-delete@example.com');
 
@@ -308,7 +309,7 @@ final class BoardColumnControllersTest extends WebTestCase
         $choices = $crawler->filter('select[name="'.$name.'[target]"] option')->each(
             static fn (Crawler $option): string => $option->attr('value') ?? '',
         );
-        $expected = array_map(fn (string $slug): string => (string) $this->column($project, $slug)->id, ['backlog', 'in-progress', 'done']);
+        $expected = array_map(fn (string $slug): string => (string) $this->column($project, $slug)->id, ['in-progress', 'done']);
         self::assertSame($expected, array_values(array_filter($choices, static fn (string $value): bool => '' !== $value)));
     }
 
@@ -333,7 +334,7 @@ final class BoardColumnControllersTest extends WebTestCase
         $card = $this->card($this->em, $project, 'Travelling', 'next');
         $cardId = $card->id;
         $next = $this->column($project, 'next');
-        $target = (string) $this->column($project, 'backlog')->id;
+        $target = (string) $this->column($project, 'in-progress')->id;
         $this->em->clear();
         $crawler = $this->settings($project);
 
@@ -345,7 +346,7 @@ final class BoardColumnControllersTest extends WebTestCase
         $this->em->clear();
         $moved = $this->em->find(Card::class, $cardId);
         self::assertInstanceOf(Card::class, $moved);
-        self::assertSame('backlog', $moved->column->slug);
+        self::assertSame('in-progress', $moved->column->slug);
         self::assertSame('human', $this->outboxPayload($project, 'board.column_deleted')['actor'] ?? null);
 
         $this->client->followRedirect();
@@ -418,7 +419,7 @@ final class BoardColumnControllersTest extends WebTestCase
         $this->em->clear();
         self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs($project));
         self::assertFalse($this->column($project, 'next')->terminal);
-        self::assertTrue($this->column($project, 'backlog')->isDefault);
+        self::assertTrue($this->column($project, 'backlog')->backlog);
     }
 
     /** @return iterable<string, array{string, string}> */

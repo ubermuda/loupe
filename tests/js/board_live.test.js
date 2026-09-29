@@ -349,7 +349,7 @@ it('fetches a list row that moved across lane cells while each cell kept its ord
     answerManifest(
         json({
             cards: [
-                ['epic', 'old', 'k', 'epic', true],
+                ['epic', 'old', 'k', 'epic', 'head'],
                 ['b', 'old', 'k', 'other'],
                 ['a', 'old', 'k', 'epic'],
             ],
@@ -375,7 +375,7 @@ it('fetches a lane epic whose list row moved past an ordinary row', async () => 
             cards: [
                 ['a', 'old', 'k', null],
                 ['b', 'old', 'k', null],
-                ['epic', 'old', 'k', 'epic', true],
+                ['epic', 'old', 'k', 'epic', 'head'],
             ],
             structure: 'frame',
         }),
@@ -392,14 +392,16 @@ it('never counts a lane head with a list row as an added or a removed card', asy
         .getElementById('board')
         .insertAdjacentHTML(
             'beforeend',
-            '<a class="lp-board-list__row" data-card-id="epic"></a>',
+            '<a class="lp-board-list__row" data-card-id="epic"></a>' +
+                '<a class="lp-board-backlog" data-column="backlog"></a>',
         );
     answerManifest(
         json({
             cards: [
                 ['a', 'old', 'k', null],
                 ['b', 'old', 'k', null],
-                ['epic', 'new', 'k', 'epic', true],
+                ['epic', 'new', 'k', 'epic', 'head'],
+                ['gone', 'new', 'backlog', 'gone', 'head'],
             ],
             structure: 'frame',
         }),
@@ -417,7 +419,7 @@ it('fetches a lane head that has no list row on the page', async () => {
             cards: [
                 ['a', 'old', 'k', null],
                 ['b', 'old', 'k', null],
-                ['epic', 'new', 'k', 'epic', true],
+                ['epic', 'new', 'k', 'epic', 'head'],
             ],
             structure: 'frame',
         }),
@@ -482,8 +484,8 @@ it('fetches a lane head whose list row digest changed, and not one that kept it'
             cards: [
                 ['a', 'old', 'k', null],
                 ['b', 'old', 'k', null],
-                ['changed', 'new', 'k', 'changed', true],
-                ['kept', 'old', 'k', 'kept', true],
+                ['changed', 'new', 'k', 'changed', 'head'],
+                ['kept', 'old', 'k', 'kept', 'head'],
             ],
             structure: 'frame',
         }),
@@ -493,6 +495,159 @@ it('fetches a lane head whose list row digest changed, and not one that kept it'
 
     expect(placements()).toEqual(['changed']);
     expect(dispatch).not.toHaveBeenCalled();
+});
+
+it('fetches a lane head in the Backlog whose head digest changed, and not one that kept it', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<section id="board-lane-changed"><header class="lp-board-lane__head" data-lane-digest="old"></header></section>' +
+                '<section id="board-lane-kept"><header class="lp-board-lane__head" data-lane-digest="old"></header></section>' +
+                '<a class="lp-board-backlog" data-column="backlog"></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+                ['changed', 'new', 'backlog', 'changed', 'new'],
+                ['kept', 'old', 'backlog', 'kept', 'old'],
+            ],
+            structure: 'frame',
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual(['changed']);
+    expect(dispatch).not.toHaveBeenCalled();
+});
+
+it('fetches the epic of a deck card whose card the board does not show', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<div class="lp-deck" data-lane="epic"><article id="board-deck-card-x" data-card-id="x"></article></div>',
+        );
+    document.dispatchEvent(
+        new CustomEvent('board:placed', {
+            detail: { cardId: 'x', removed: true },
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(placements()).toEqual(['epic']);
+});
+
+it('fetches the epic whose deck a new Backlog card joins', async () => {
+    document.dispatchEvent(
+        new CustomEvent('board:placed', {
+            detail: { cardId: 'new', removed: true, deckEpic: 'epic' },
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(placements()).toEqual(['epic']);
+});
+
+it('fetches both epics when a Backlog card changes its epic', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<div class="lp-deck" data-lane="old"><article id="board-deck-card-x" data-card-id="x"></article></div>',
+        );
+    document.dispatchEvent(
+        new CustomEvent('board:placed', {
+            detail: { cardId: 'x', removed: true, deckEpic: 'new' },
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(placements().sort()).toEqual(['new', 'old']);
+});
+
+it('fetches the epic of the deck a placed card left', async () => {
+    document.dispatchEvent(
+        new CustomEvent('board:placed', {
+            detail: { cardId: 'x', leftDeck: 'epic' },
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(placements()).toEqual(['epic']);
+});
+
+it('holds a deck card that is being dragged', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<div class="lp-deck" data-lane="epic"><article id="board-deck-card-x" data-card-id="x" class="lp-deck__card lp-board-card--dragging"></article></div>',
+        );
+    receive('x');
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(placements()).toEqual([]);
+});
+
+describe('a lane head that holds a deck card in a drag', () => {
+    const laneWith = (deckCard) =>
+        document
+            .getElementById('board')
+            .insertAdjacentHTML(
+                'beforeend',
+                `<section id="board-lane-epic"><header class="lp-board-lane__head"><div class="lp-deck" data-lane="epic">${deckCard}</div></header></section>`,
+            );
+
+    it('holds the placement of the epic while the drag runs, and places it after', async () => {
+        laneWith(
+            '<article id="board-deck-card-x" data-card-id="x" class="lp-deck__card lp-board-card--dragging"></article>',
+        );
+        receive('epic');
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(placements()).toEqual([]);
+
+        document
+            .getElementById('board-deck-card-x')
+            .classList.remove('lp-board-card--dragging');
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(placements()).toEqual(['epic']);
+    });
+
+    it('holds the placement of the epic while the move of a deck card is pending', async () => {
+        laneWith(
+            '<article id="board-deck-card-x" data-card-id="x" class="lp-deck__card" aria-busy="true"></article>',
+        );
+        receive('epic');
+        await vi.advanceTimersByTimeAsync(1000);
+
+        expect(placements()).toEqual([]);
+    });
+
+    it('does not render a placement of the epic that returns during a drag', async () => {
+        laneWith(
+            '<article id="board-deck-card-x" data-card-id="x" class="lp-deck__card"></article>',
+        );
+        let reply;
+        answer = () =>
+            new Promise((resolve) => {
+                reply = resolve;
+            });
+        receive('epic');
+        await vi.advanceTimersByTimeAsync(150);
+        expect(placements()).toEqual(['epic']);
+
+        document
+            .getElementById('board-deck-card-x')
+            .classList.add('lp-board-card--dragging');
+        reply(stream());
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(renderStreamMessage).not.toHaveBeenCalled();
+    });
 });
 
 it('makes no reload on a reconnect after a live lane head placement', async () => {
@@ -521,7 +676,7 @@ it('makes no reload on a reconnect after a live lane head placement', async () =
             cards: [
                 ['a', 'old', 'k', null],
                 ['b', 'old', 'k', null],
-                ['epic', 'new', 'k', 'epic', true],
+                ['epic', 'new', 'k', 'epic', 'head'],
             ],
             structure: 'frame',
         }),
@@ -544,7 +699,7 @@ it('fetches nothing when the list rows keep the manifest order', async () => {
     answerManifest(
         json({
             cards: [
-                ['epic', 'old', 'k', 'epic', true],
+                ['epic', 'old', 'k', 'epic', 'head'],
                 ['a', 'old', 'k', null],
                 ['b', 'old', 'k', null],
             ],
@@ -628,6 +783,54 @@ it('fetches no extra card for a history total when a changed card refreshes the 
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(placements()).toEqual(['b']);
+});
+
+it('sets the Backlog count from the manifest on a reconnect, with no placement', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a class="lp-board-backlog" data-column="bl"><span id="board-count-bl">3</span></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+            ],
+            structure: 'frame',
+            terminalTotals: {},
+            backlogCount: 5,
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(document.getElementById('board-count-bl').textContent).toBe('5');
+    expect(placements()).toEqual([]);
+});
+
+it('keeps the Backlog count of a manifest that has none', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<a class="lp-board-backlog" data-column="bl"><span id="board-count-bl">3</span></a>',
+        );
+    answerManifest(
+        json({
+            cards: [
+                ['a', 'old', 'k', null],
+                ['b', 'old', 'k', null],
+            ],
+            structure: 'frame',
+            terminalTotals: {},
+        }),
+    );
+    reconnect();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(document.getElementById('board-count-bl').textContent).toBe('3');
 });
 
 it('resyncs the structure when a history total changed and the board has no card', async () => {

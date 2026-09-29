@@ -62,29 +62,6 @@ final readonly class BoardColumnCards
         return $this->cards->previousShownIdOf($card, $column, $windowStart, $lane, $laneEpicIds);
     }
 
-    /**
-     * The ids of the epics the board draws as lanes, in the order the board
-     * page draws the lanes: column by column, then down each column.
-     *
-     * @param list<BoardColumn> $columns the columns of the project, in board order
-     *
-     * @return list<string>
-     */
-    public function laneEpicIds(Project $project, array $columns): array
-    {
-        $byColumn = [];
-        foreach ($this->cards->laneEpicRowsOf($project) as $row) {
-            $byColumn[$row['column_id']][] = $row['id'];
-        }
-
-        $ids = [];
-        foreach ($columns as $column) {
-            array_push($ids, ...($byColumn[(string) $column->id] ?? []));
-        }
-
-        return $ids;
-    }
-
     /** The id of the last card the column shows, or null when it shows none. */
     public function lastShown(BoardColumn $column, \DateTimeImmutable $windowStart): ?string
     {

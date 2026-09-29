@@ -27,7 +27,11 @@ export function placeCard(stream) {
         recountCells();
         document.dispatchEvent(
             new CustomEvent('board:placed', {
-                detail: { cardId, removed: true },
+                detail: {
+                    cardId,
+                    removed: true,
+                    deckEpic: stream.dataset.deckEpic,
+                },
             }),
         );
 
@@ -57,6 +61,7 @@ export function placeCard(stream) {
         return;
     }
 
+    const leftDeck = leaveDeck(cardId, stream.dataset.columnId);
     const content = stream.querySelector('template').content.cloneNode(true);
     const rowAnchor = rowAfter ?? list.querySelector('.lp-board-list__header');
     place(
@@ -77,7 +82,7 @@ export function placeCard(stream) {
     document.getElementById(`board-card-${cardId}`).dispatchEvent(
         new CustomEvent('board:placed', {
             bubbles: true,
-            detail: { cardId },
+            detail: { cardId, leftDeck },
         }),
     );
 }
@@ -123,6 +128,7 @@ function placeLaneHead(stream, cardId, counts, history, historyTotals) {
         return;
     }
 
+    leaveDeck(cardId, stream.dataset.columnId);
     const content = stream.querySelector('template').content.cloneNode(true);
     const rowAnchor = rowAfter ?? list.querySelector('.lp-board-list__header');
     // The lane controller owns the collapse, and the fresh head always says expanded.
@@ -149,11 +155,15 @@ function placeLaneHead(stream, cardId, counts, history, historyTotals) {
             lanes.prepend(section);
         }
     }
-    place(
-        `board-row-${cardId}`,
-        content.querySelector('.lp-board-list__row'),
-        (node) => (rowAnchor ? rowAnchor.after(node) : list.prepend(node)),
-    );
+    // A lane epic in the Backlog has no list row.
+    const freshRow = content.querySelector('.lp-board-list__row');
+    if (freshRow) {
+        place(`board-row-${cardId}`, freshRow, (node) =>
+            rowAnchor ? rowAnchor.after(node) : list.prepend(node),
+        );
+    } else {
+        document.getElementById(`board-row-${cardId}`)?.remove();
+    }
     updateTexts('board-count-', counts);
     updateTexts('board-history-', history);
     updateHistoryTotals(historyTotals);
@@ -184,6 +194,21 @@ export function recountCells() {
             );
         }
     });
+}
+
+/**
+ * A card placed outside the Backlog leaves its deck, where a drag may have
+ * left a copy. Returns the epic of that deck, so its count can refresh.
+ */
+function leaveDeck(cardId, columnId) {
+    const deckCard = document.getElementById(`board-deck-card-${cardId}`);
+    const deck = deckCard?.closest('.lp-deck');
+    if (!deckCard || deck?.dataset.column === columnId) {
+        return undefined;
+    }
+    deckCard.remove();
+
+    return deck?.dataset.lane;
 }
 
 function missed(cardId) {

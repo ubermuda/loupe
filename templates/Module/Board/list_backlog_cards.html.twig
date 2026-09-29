@@ -1,0 +1,117 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ backlog.label|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'nav.link.board'|trans }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ backlog.label|trans }}</span>
+{% endblock %}
+
+{% block body %}
+{% set backlogPath = path('app_project_board_backlog', {projectId: project.id}) %}
+{% set bulkName = constant('App\\Module\\Board\\Form\\BulkMoveBacklogCardsFormType::NAME') %}
+{% do mercure_subscribe(board_topic(project)) %}
+<div class="lp-workspace lp-core-prototype-page lp-core-documents" data-controller="backlog-select backlog-live">
+    <header class="lp-page-header">
+        <div class="lp-page-header__copy">
+            <h1 class="lp-workspace-title lp-workspace-title--doc">{{ backlog.label|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'board.backlog.page.description'|trans }}</p>
+        </div>
+    </header>
+
+    {# Shown when another person or an agent changes the board. The page does not reload by itself. #}
+    <p class="lp-backlog-notice" role="status" data-backlog-live-target="notice" hidden>
+        <span class="lp-flash__dot"></span>{{ 'board.backlog.live.changed'|trans }}
+        <a class="lp-backlog-notice__link" href="{{ app.request.requestUri }}">{{ 'board.backlog.live.reload'|trans }}</a>
+    </p>
+    <div id="backlog-confirmation" aria-live="polite"></div>
+
+    {% if view.total > 0 or listQuery.isNarrowed %}
+    <div class="lp-list-filters">
+        {# A GET form, so the filters land in the URL. `page` is not a field, so a changed filter starts at page one. #}
+        <form method="get" action="{{ backlogPath }}" data-controller="autosearch" class="lp-filter-form">
+            <div class="lp-filter-primary" data-action="focusin->autosearch#revealField">
+                <div class="lp-filter-search">
+                    <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
+                    <label class="sr-only" for="backlog-search">{{ 'board.backlog.filter.search_label'|trans }}</label>
+                    <input type="search"
+                           id="backlog-search"
+                           name="search"
+                           class="lp-input lp-filter-input"
+                           value="{{ listQuery.search }}"
+                           placeholder="{{ 'board.backlog.filter.search_placeholder'|trans }}"
+                           data-autosearch-target="field"
+                           data-action="input->autosearch#search">
+                </div>
+
+                <label class="sr-only" for="backlog-type">{{ 'board.backlog.filter.type_label'|trans }}</label>
+                <select id="backlog-type" name="type" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+                    <option value="">{{ 'board.backlog.filter.all_types'|trans }}</option>
+                    {% for type in types %}
+                    <option value="{{ type.value }}"{{ listQuery.type == type ? ' selected' : '' }}>{{ ('board.card.type.' ~ type.value)|trans }}</option>
+                    {% endfor %}
+                </select>
+
+                <label class="sr-only" for="backlog-epic">{{ 'board.backlog.filter.epic_label'|trans }}</label>
+                <select id="backlog-epic" name="epic" class="lp-input lp-select lp-filter-select" data-action="change->autosearch#search">
+                    <option value="">{{ 'board.backlog.filter.any_epic'|trans }}</option>
+                    <option value="{{ constant('App\\Module\\Board\\View\\BacklogListQuery::NO_EPIC') }}"{{ listQuery.epic == constant('App\\Module\\Board\\View\\BacklogListQuery::NO_EPIC') ? ' selected' : '' }}>{{ 'board.backlog.filter.no_epic'|trans }}</option>
+                    {% for epic in view.epics %}
+                    <option value="{{ epic.id }}"{{ listQuery.epic == epic.id ~ '' ? ' selected' : '' }}>#{{ epic.number }} {{ epic.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <a href="{{ backlogPath }}" data-autosearch-target="clearButton" class="lp-filter-clear">{{ 'board.backlog.filter.clear'|trans }}</a>
+
+            <label class="sr-only" for="backlog-sort">{{ 'board.backlog.filter.sort_label'|trans }}</label>
+            <select id="backlog-sort" name="sort" class="lp-input lp-select lp-filter-select lp-backlog-sort" data-action="change->autosearch#search">
+                {% for sort in sorts %}
+                <option value="{{ sort.value }}"{{ listQuery.sort == sort ? ' selected' : '' }}>{{ sort.translationKey|trans }}</option>
+                {% endfor %}
+            </select>
+        </form>
+
+        <span id="backlog-filter-count" class="lp-filter-count">{% include '@Board/_backlog_count.html.twig' with {view: view, listQuery: listQuery} only %}</span>
+    </div>
+    {% endif %}
+
+    <div id="backlog-results">
+        {% include '@Board/_backlog_results.html.twig' with {project: project, view: view, listQuery: listQuery} only %}
+    </div>
+
+    {# The row checkboxes join this form through their form attribute. #}
+    <form id="backlog-bulk-form"
+          class="lp-backlog-bulk"
+          method="post"
+          action="{{ path('app_project_board_backlog_bulk_move', {projectId: project.id}|merge(listQuery.routeParams)) }}"
+          data-backlog-select-target="bar"
+          hidden>
+        <input type="hidden" name="{{ bulkName }}[_token]" value="{{ csrf_token('submit') }}" data-controller="csrf-protection">
+        <span><span class="lp-backlog-bulk__count" data-backlog-select-target="count">0</span> {{ 'board.backlog.bulk.selected'|trans }}</span>
+        {% if view.nextColumn %}
+        <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm" name="{{ bulkName }}[column]" value="{{ view.nextColumn.id }}">{{ 'board.backlog.bulk.move_to_next'|trans({'%column%': view.nextColumn.label|trans}) }}</button>
+        {% endif %}
+        <div class="lp-backlog-move" data-controller="popover">
+            <button type="button"
+                    class="lp-btn lp-btn--ghost lp-btn--sm"
+                    aria-expanded="false"
+                    aria-controls="backlog-bulk-menu"
+                    data-popover-target="trigger"
+                    data-action="click->popover#toggle">
+                {{ 'board.backlog.bulk.move_to'|trans }}
+                <twig:ux:icon name="lucide:chevron-up" class="w-4 h-4 shrink-0" />
+            </button>
+            <div id="backlog-bulk-menu" class="lp-backlog-menu lp-backlog-menu--up" data-popover-target="panel" hidden>
+                {% for column in view.boardColumns %}
+                <button type="submit" class="lp-backlog-menu__item" name="{{ bulkName }}[column]" value="{{ column.id }}" data-action="popover#close">
+                    <span class="lp-tone-dot lp-tone-dot--{{ column.tone.value }}"></span>{{ column.label|trans }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="backlog-select#clear">{{ 'board.backlog.bulk.clear'|trans }}</button>
+    </form>
+</div>
+{% endblock %}

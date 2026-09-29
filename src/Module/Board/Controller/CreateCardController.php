@@ -48,11 +48,11 @@ final class CreateCardController extends AppController
         Request $request,
         Project $project,
         // `project` holds the raw id here, because the route aliases `id` to it.
-        #[MapEntity(expr: 'repository.findDefaultForProjectId(project)')] BoardColumn $defaultColumn,
+        #[MapEntity(expr: 'repository.findBacklogForProjectId(project)')] BoardColumn $backlog,
     ): Response {
         $this->board->requireEnabled();
 
-        $column = $this->column($request->query->getString('column'), $project, $defaultColumn);
+        $column = $this->column($request->query->getString('column'), $project, $backlog);
 
         $data = new CreateCardRequest(column: $column);
         $form = $this->createForm(CreateCardFormType::class, $data, ['project' => $project]);
@@ -107,10 +107,10 @@ final class CreateCardController extends AppController
         return $this->renderFormResponse('@Board/create_card.html.twig', $form);
     }
 
-    private function column(string $id, Project $project, BoardColumn $defaultColumn): BoardColumn
+    private function column(string $id, Project $project, BoardColumn $backlog): BoardColumn
     {
         if ('' === $id) {
-            return $defaultColumn;
+            return $backlog;
         }
         if (!Uuid::isValid($id)) {
             throw $this->createNotFoundException();

@@ -17,7 +17,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type BoardColumnSummary from BoardColumnPayload
  */
-#[McpTool(name: self::NAME, description: 'List the columns of the project board, in board order. Each board has its own columns, so read them here before you pass a status to card_create, card_update or card_list. Each column has a slug, a label, a terminal flag and a default flag. The slug is the value you pass as status. The label is the name a person sees on the board. A terminal column is where finished work goes: a card that enters one gets a completion time. The default column is where a new card lands when you pass no status. Renaming a column changes its slug.')]
+#[McpTool(name: self::NAME, description: 'List the columns of the project board, in board order. Each board has its own columns, so read them here before you pass a status to card_create, card_update or card_list. Each column has a slug, a label, a terminal flag, a default flag and a backlog flag. The slug is the value you pass as status. The label is the name a person sees on the board. A terminal column is where finished work goes: a card that enters one gets a completion time. The row with backlog true is Backlog, slug backlog, where a new card lands when you pass no status. Its default flag is also true. The board does not draw Backlog as a column, and nobody can rename, reorder or delete it. Renaming a column changes its slug.')]
 final readonly class BoardColumnsTool implements FlagGatedToolInterface
 {
     public const string NAME = 'board_columns';
