@@ -17,6 +17,9 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -49,8 +52,9 @@ use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Writes a project's worth of work for a development instance: cards,
- * documents, open and completed requests, replies and site feedback.
+ * Writes a project's worth of work for a development instance: cards, a run
+ * that gave up, documents, open and completed requests, replies and site
+ * feedback.
  *
  * It lives in Inbox because the requests are the point, and because Inbox is
  * the one module allowed to name a card and a document, which is what a
@@ -92,6 +96,7 @@ final readonly class ProjectShowcaseSeeder
             $cards = $this->seedCards($project);
             $documents = $this->seedDocuments($owner, $project, $cards['onboarding']);
             $this->seedInbox($project, $owner, $reviewer, $cards, $documents);
+            $this->seedEpicLane($project);
             $this->seedSiteFeedback($project, $cards['checkout']);
             $this->em->flush();
             $waitingCard = $cards['onboarding'];
@@ -415,6 +420,57 @@ final readonly class ProjectShowcaseSeeder
         $this->em->persist($ask);
 
         return $ask;
+    }
+
+    /** An epic lane whose child card holds the warning of a run that gave up. */
+    private function seedEpicLane(Project $project): void
+    {
+        $columns = [];
+        foreach ($this->boardColumns->findForProject($project) as $column) {
+            $columns[$column->slug] = $column;
+        }
+        $backlog = $columns['backlog'] ?? throw new \LogicException('The project has no backlog column.');
+        $number = $this->cards->nextNumber($project);
+
+        $epic = new Card(
+            project: $project,
+            column: $columns['next'] ?? $backlog,
+            title: 'Project export',
+            body: 'Let an owner download every card, document and request of a project as one archive.',
+            number: $number,
+            type: CardType::Epic,
+        );
+        $child = new Card(
+            project: $project,
+            column: $backlog,
+            title: 'Export the documents',
+            body: 'Write each document version as Markdown, in a folder per document.',
+            number: $number + 1,
+            type: CardType::Feature,
+        );
+        $child->parent = $epic;
+        $this->em->persist($epic);
+        $this->em->persist($child);
+        $this->em->flush();
+
+        $endedAt = new \DateTimeImmutable('-15 minutes');
+        $run = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v4(),
+            cardId: $child->id ?? throw new \LogicException('A stored card has an id.'),
+            cardNumber: $child->number,
+            ruleName: 'implement',
+            state: WorkerRunState::GaveUp,
+            runKey: Uuid::v4(),
+            endedAt: $endedAt,
+            exitCode: 1,
+            hasResult: true,
+            output: 'The export tests still fail after three attempts. The archive writer cannot read a document that has no version.',
+            receivedAt: $endedAt,
+            cardColumn: $backlog->slug,
+        );
+        $this->em->persist($run);
+        $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, $endedAt, $endedAt));
     }
 
     private function seedSiteFeedback(Project $project, Card $checkout): void
