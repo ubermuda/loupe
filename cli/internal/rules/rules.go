@@ -402,7 +402,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 	pools, poolErrs := checkPools(s.maxWorkers, f.WorkerPools)
 	errs = append(errs, poolErrs...)
 	s.pools = pools
-	known := slices.AppendSeq([]string{DefaultPool}, maps.Keys(f.WorkerPools))
+	known := slices.AppendSeq([]string{DefaultPool}, maps.Keys(pools))
 	slices.Sort(known)
 	known = slices.Compact(known)
 
@@ -601,7 +601,8 @@ func checkPools(budget int, declared map[string]WorkerPool) (map[string]int, []e
 	if budget < 1 {
 		errs = append(errs, fmt.Errorf("maxWorkers must be at least 1, got %d", budget))
 	}
-	sum := 0
+	// sum never passes budget, so it cannot overflow.
+	sum, over := 0, false
 	for _, name := range slices.Sorted(maps.Keys(declared)) {
 		size := declared[name].Size
 		switch {
@@ -613,13 +614,19 @@ func checkPools(budget int, declared map[string]WorkerPool) (map[string]int, []e
 			errs = append(errs, fmt.Errorf("workerPools.%s: size is required", name))
 		case *size < 1:
 			errs = append(errs, fmt.Errorf("workerPools.%s: size must be at least 1, got %d", name, *size))
+		case budget >= 1 && *size > budget:
+			errs = append(errs, fmt.Errorf("workerPools.%s: size %d is more than maxWorkers, which is %d", name, *size, budget))
 		default:
 			pools[name] = *size
-			sum += *size
+			if *size > budget-sum {
+				over = true
+			} else {
+				sum += *size
+			}
 		}
 	}
-	if budget >= 1 && sum > budget {
-		errs = append(errs, fmt.Errorf("the worker pools take %d slots, and maxWorkers is %d", sum, budget))
+	if budget >= 1 && over {
+		errs = append(errs, fmt.Errorf("the worker pools take more than the %d slots of maxWorkers", budget))
 	}
 	if len(errs) == 0 {
 		pools[DefaultPool] = budget - sum
