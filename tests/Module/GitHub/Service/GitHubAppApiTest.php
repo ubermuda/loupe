@@ -229,6 +229,32 @@ final class GitHubAppApiTest extends TestCase
         self::assertSame(403, $failure->status);
     }
 
+    /** @return iterable<string, array{int, array<string, string>, bool}> */
+    public static function rateLimits(): iterable
+    {
+        yield 'a 403 with no rate limit headers' => [403, [], false];
+        yield 'a 403 with no requests left' => [403, ['x-ratelimit-remaining' => '0'], true];
+        yield 'a 403 with requests left' => [403, ['x-ratelimit-remaining' => '12'], false];
+        yield 'a 403 that asks to retry later' => [403, ['retry-after' => '60'], true];
+        yield 'a 429' => [429, [], true];
+        yield 'a 404 with no requests left' => [404, ['x-ratelimit-remaining' => '0'], false];
+    }
+
+    /** @param array<string, string> $headers */
+    #[DataProvider('rateLimits')]
+    public function test_a_refused_request_says_whether_github_limited_the_rate(int $status, array $headers, bool $rateLimited): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            new MockResponse('{"message":"API rate limit exceeded"}', ['http_code' => $status, 'response_headers' => $headers]),
+        ]);
+
+        $failure = $this->failure(static fn () => $api->post(42, '/repos/acme/widgets/issues/7/comments', ['body' => 'Hello']));
+
+        self::assertSame($status, $failure->status);
+        self::assertSame($rateLimited, $failure->rateLimited);
+    }
+
     public function test_graphql_posts_the_query_with_the_installation_token_and_answers_the_data(): void
     {
         $api = $this->api([

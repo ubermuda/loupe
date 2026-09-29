@@ -17,7 +17,7 @@ final class Version20260929222314 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('CREATE TABLE board_pull_request_comments (id UUID NOT NULL, state VARCHAR(20) NOT NULL, attempts INT DEFAULT 0 NOT NULL, cause VARCHAR(100) DEFAULT NULL, posted_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, failed_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, run_id UUID NOT NULL, card_id UUID NOT NULL, forge VARCHAR(50) NOT NULL, repository VARCHAR(255) NOT NULL, number INT NOT NULL, head_sha VARCHAR(64) DEFAULT NULL, reason VARCHAR(50) DEFAULT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE TABLE board_pull_request_comments (id UUID NOT NULL, state VARCHAR(20) NOT NULL, attempts INT DEFAULT 0 NOT NULL, cause VARCHAR(100) DEFAULT NULL, posted_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, failed_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, run_id UUID NOT NULL, card_id UUID NOT NULL, forge VARCHAR(50) NOT NULL, repository VARCHAR(255) NOT NULL, number INT NOT NULL, head_sha VARCHAR(64) DEFAULT NULL, reason VARCHAR(50) DEFAULT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, fix_round INT DEFAULT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE UNIQUE INDEX UNIQ_128174884E3FEC4 ON board_pull_request_comments (run_id)');
         $this->addSql('CREATE INDEX IDX_1281748166D1F9C ON board_pull_request_comments (project_id)');
         $this->addSql('ALTER TABLE board_pull_request_comments ADD CONSTRAINT FK_1281748166D1F9C FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE NOT DEFERRABLE');

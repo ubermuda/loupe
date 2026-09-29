@@ -93,9 +93,11 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
     public function test_the_newest_failed_comment_shows_its_pull_request_and_its_cause(): void
     {
         $project = $this->ownedProject('automation-comment-failed@example.com');
-        $this->failedComment($project, 'Acme/Old', 4, 'api_failed_http_status_502', new \DateTimeImmutable('-2 hours'));
-        $this->failedComment($project, 'Acme/Widgets', 5, 'permission', new \DateTimeImmutable('-5 minutes'));
-        $this->em->persist(new PullRequestComment($project, Uuid::v7(), Uuid::v7(), 'github', 'Acme/Posted', 6, null, 'conflict'));
+        $this->commentOnFixQueued($project, true);
+        $this->settledComment($project, PullRequestCommentState::Posted, 'Acme/Posted', 6, null, new \DateTimeImmutable('-3 hours'));
+        $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Old', 4, 'api_failed_http_status_502', new \DateTimeImmutable('-2 hours'));
+        $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'permission', new \DateTimeImmutable('-5 minutes'));
+        $this->em->persist(new PullRequestComment($project, Uuid::v7(), Uuid::v7(), 'github', 'Acme/Pending', 7, null, 'conflict'));
         $this->em->flush();
 
         $note = $this->page($project)->filter('[data-fix-run-comment-failure]');
@@ -106,23 +108,70 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertCount(1, $note->filter('time[datetime]'));
     }
 
-    public function test_an_unknown_cause_shows_the_raw_cause(): void
+    public function test_a_comment_that_posts_after_the_failure_hides_it(): void
     {
-        $project = $this->ownedProject('automation-comment-unknown@example.com');
-        $this->failedComment($project, 'Acme/Widgets', 5, 'api_failed_http_status_422', new \DateTimeImmutable('-5 minutes'));
+        $project = $this->ownedProject('automation-comment-recovered@example.com');
+        $this->commentOnFixQueued($project, true);
+        $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'permission', new \DateTimeImmutable('-2 hours'));
+        $this->settledComment($project, PullRequestCommentState::Posted, 'Acme/Widgets', 6, null, new \DateTimeImmutable('-5 minutes'));
+        $this->em->flush();
+
+        self::assertCount(1, $this->page($project)->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]:checked'));
+        self::assertSelectorNotExists('[data-fix-run-comment-failure]');
+    }
+
+    public function test_the_failure_hides_while_the_setting_is_off(): void
+    {
+        $project = $this->ownedProject('automation-comment-off@example.com');
+        $this->commentOnFixQueued($project, false);
+        $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'permission', new \DateTimeImmutable('-5 minutes'));
+        $this->em->flush();
+
+        self::assertCount(1, $this->page($project)->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]'));
+        self::assertSelectorNotExists('[data-fix-run-comment-failure]');
+    }
+
+    public function test_a_suspended_installation_names_the_suspension(): void
+    {
+        $project = $this->ownedProject('automation-comment-suspended@example.com');
+        $this->commentOnFixQueued($project, true);
+        $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'installation_suspended', new \DateTimeImmutable('-5 minutes'));
         $this->em->flush();
 
         $note = $this->page($project)->filter('[data-fix-run-comment-failure]');
 
-        self::assertStringContainsString('GitHub did not accept the comment (api_failed_http_status_422).', $note->text());
+        self::assertStringContainsString('The GitHub App installation is suspended on GitHub.', $note->text());
     }
 
-    private function failedComment(Project $project, string $repository, int $number, string $cause, \DateTimeImmutable $failedAt): void
+    public function test_an_unknown_cause_shows_the_raw_cause(): void
+    {
+        $project = $this->ownedProject('automation-comment-unknown@example.com');
+        $this->commentOnFixQueued($project, true);
+        $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'api_failed_http_status_422', new \DateTimeImmutable('-5 minutes'));
+        $this->em->flush();
+
+        $note = $this->page($project)->filter('[data-fix-run-comment-failure]');
+
+        self::assertStringContainsString('Loupe could not post the comment (api_failed_http_status_422).', $note->text());
+    }
+
+    private function commentOnFixQueued(Project $project, bool $on): void
+    {
+        $settings = new BoardAutomationSettings($project);
+        $settings->commentOnFixQueued = $on;
+        $this->em->persist($settings);
+    }
+
+    private function settledComment(Project $project, PullRequestCommentState $state, string $repository, int $number, ?string $cause, \DateTimeImmutable $at): void
     {
         $comment = new PullRequestComment($project, Uuid::v7(), Uuid::v7(), 'github', $repository, $number, null, 'checks-failed');
-        $comment->state = PullRequestCommentState::Failed;
+        $comment->state = $state;
         $comment->cause = $cause;
-        $comment->failedAt = $failedAt;
+        if (PullRequestCommentState::Failed === $state) {
+            $comment->failedAt = $at;
+        } else {
+            $comment->postedAt = $at;
+        }
         $this->em->persist($comment);
     }
 

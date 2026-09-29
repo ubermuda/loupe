@@ -6,6 +6,7 @@ namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\PullRequestComment;
+use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Project\Entity\Project;
@@ -21,9 +22,16 @@ final readonly class BoardAutomation
     ) {
     }
 
+    /** Answers null while the setting is off, or when a later comment posted. */
     public function newestFailedComment(Project $project): ?PullRequestComment
     {
-        return $this->pullRequestComments->findNewestFailed($project);
+        if (!$this->settingsOf($project)->commentOnFixQueued) {
+            return null;
+        }
+
+        $comment = $this->pullRequestComments->findNewestSettled($project);
+
+        return PullRequestCommentState::Failed === $comment?->state ? $comment : null;
     }
 
     /** Never persists, so a project that saved nothing keeps no row. */

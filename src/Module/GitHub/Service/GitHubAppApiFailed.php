@@ -10,6 +10,7 @@ final class GitHubAppApiFailed extends \RuntimeException
     public function __construct(
         public readonly string $reason,
         public readonly ?int $status = null,
+        public readonly bool $rateLimited = false,
     ) {
         parent::__construct($reason);
     }

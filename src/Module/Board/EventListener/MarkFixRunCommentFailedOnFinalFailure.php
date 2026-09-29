@@ -31,6 +31,26 @@ final readonly class MarkFixRunCommentFailedOnFinalFailure
             return;
         }
 
+        // A failed flush closes the entity manager, and the worker must keep running.
+        if (!$this->em->isOpen()) {
+            $this->logger->warning('board.fix_run_comment_mark_skipped', ['commentId' => (string) $message->commentId]);
+
+            return;
+        }
+
+        try {
+            $this->markFailed($message);
+        } catch (\Throwable $e) {
+            $this->logger->error('board.fix_run_comment_mark_failed', [
+                'commentId' => (string) $message->commentId,
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ]);
+        }
+    }
+
+    private function markFailed(PostFixRunComment $message): void
+    {
         $comment = $this->pullRequestComments->find($message->commentId);
         if (null === $comment || PullRequestCommentState::Pending !== $comment->state) {
             return;

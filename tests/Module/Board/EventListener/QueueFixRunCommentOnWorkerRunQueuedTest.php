@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\PullRequestComment;
 use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Board\EventListener\QueueFixRunCommentOnWorkerRunQueued;
 use App\Module\Board\Messenger\PostFixRunComment;
+use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardAvailability;
@@ -67,12 +70,30 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         self::assertSame('checks-failed', $comment->reason);
         self::assertSame(PullRequestCommentState::Pending, $comment->state);
         self::assertSame(0, $comment->attempts);
+        self::assertNull($comment->fixRound);
 
         $sent = $this->transport->getSent();
         self::assertCount(1, $sent);
         $message = $sent[0]->getMessage();
         self::assertInstanceOf(PostFixRunComment::class, $message);
         self::assertEquals($comment->id, $message->commentId);
+    }
+
+    public function test_the_comment_stores_the_fix_round_of_the_card(): void
+    {
+        $this->commentOnFixQueued(true);
+        $card = new Card($this->project, $this->column($this->project, 'backlog'), 'Fix it', '', 1);
+        $this->em->persist($card);
+        $automation = new CardAutomation($card);
+        $automation->fixRounds = 2;
+        $this->em->persist($automation);
+        $this->em->flush();
+
+        $this->listener()($this->event(cardId: $card->id));
+
+        $rows = $this->comments();
+        self::assertCount(1, $rows);
+        self::assertSame(2, $rows[0]->fixRound);
     }
 
     public function test_the_same_run_queued_twice_stores_and_queues_once(): void
@@ -153,6 +174,7 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
             $container->get(BoardAutomation::class),
             $container->get(PullRequestCommenters::class),
             $container->get(PullRequestCommentRepository::class),
+            $container->get(CardAutomationRepository::class),
             $this->em,
             $bus,
             $container->get(ClockInterface::class),
@@ -178,12 +200,12 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         $this->em->flush();
     }
 
-    private function event(?Uuid $projectId = null, ?string $forge = 'github', ?string $repository = 'Acme/Widgets', ?int $number = 5): WorkerRunQueued
+    private function event(?Uuid $projectId = null, ?Uuid $cardId = null, ?string $forge = 'github', ?string $repository = 'Acme/Widgets', ?int $number = 5): WorkerRunQueued
     {
         return new WorkerRunQueued(
             projectId: $projectId ?? $this->project->id ?? throw new \LogicException('A persisted project has an id.'),
             runId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            cardId: $cardId ?? Uuid::v7(),
             eventType: 'pull_request.fix_requested',
             forge: $forge,
             repository: $repository,

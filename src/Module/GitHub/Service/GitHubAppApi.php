@@ -170,6 +170,17 @@ final class GitHubAppApi
     }
 
     /**
+     * GitHub answers a rate limit with 403 or 429.
+     *
+     * @param array<string, list<string>> $headers
+     */
+    private static function rateLimited(int $status, array $headers): bool
+    {
+        return 429 === $status
+            || (403 === $status && ('0' === ($headers['x-ratelimit-remaining'][0] ?? null) || isset($headers['retry-after'])));
+    }
+
+    /**
      * @param array<string, mixed> $options
      *
      * @return array<mixed>
@@ -183,7 +194,7 @@ final class GitHubAppApi
             $response = $this->githubApiClient->request($method, $path, $options);
             $status = $response->getStatusCode();
             if ($status < 200 || $status >= 300) {
-                throw new GitHubAppApiFailed('http_status', $status);
+                throw new GitHubAppApiFailed('http_status', $status, self::rateLimited($status, $response->getHeaders(false)));
             }
 
             return $response->toArray();

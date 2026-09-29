@@ -71,15 +71,15 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertNull($comment->cause);
     }
 
-    public function test_the_body_names_the_reason_the_checks_the_round_and_links_the_card(): void
+    public function test_the_body_names_the_reason_the_checks_the_stored_round_and_links_the_card(): void
     {
         $automation = new CardAutomation($this->card);
-        $automation->fixRounds = 2;
+        $automation->fixRounds = 3;
         $this->em->persist($automation);
         $this->em->persist(new BoardAutomationSettings($this->project, loopLimit: 3));
         $this->em->flush();
 
-        $this->handle($this->pending());
+        $this->handle($this->pending(fixRound: 2));
 
         $urls = self::getContainer()->get(UrlGeneratorInterface::class);
         self::assertInstanceOf(UrlGeneratorInterface::class, $urls);
@@ -96,7 +96,7 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         );
     }
 
-    public function test_a_card_without_automation_omits_the_round_and_a_conflict_omits_the_checks(): void
+    public function test_a_comment_without_a_round_omits_it_and_a_conflict_omits_the_checks(): void
     {
         $this->handle($this->pending(reason: 'conflict'));
 
@@ -104,6 +104,20 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertStringContainsString('**Reason:** merge conflict', $body);
         self::assertStringNotContainsString('**Round:**', $body);
         self::assertStringNotContainsString('**Failed checks:**', $body);
+    }
+
+    public function test_a_check_name_stays_inside_its_code_span(): void
+    {
+        $this->pullRequest->failedChecks = ["lint`\n@octocat [x](https://example.com)", 'e2e'];
+        $this->em->flush();
+
+        $this->handle($this->pending());
+
+        $body = $this->commenter->comments[0][1];
+        self::assertStringContainsString("**Failed checks:** `lint@octocat [x](https://example.com)`, `e2e`\n", $body);
+        $line = explode("\n", $body)[3];
+        self::assertStringStartsWith('**Failed checks:**', $line);
+        self::assertSame(4, substr_count($line, '`'));
     }
 
     public function test_an_unknown_reason_reads_as_a_generic_fix(): void
@@ -147,6 +161,25 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertNull($comment->failedAt);
     }
 
+    public function test_an_unexpected_error_leaves_the_comment_pending_and_propagates(): void
+    {
+        $failure = new \RuntimeException('connection reset');
+        $this->commenter->failure = $failure;
+        $comment = $this->pending();
+
+        try {
+            $this->handle($comment);
+            self::fail('Expected the error to propagate.');
+        } catch (\RuntimeException $e) {
+            self::assertSame($failure, $e);
+        }
+
+        $comment = $this->reload($comment);
+        self::assertSame(PullRequestCommentState::Pending, $comment->state);
+        self::assertNull($comment->failedAt);
+        self::assertNull($comment->cause);
+    }
+
     public function test_an_untracked_pull_request_marks_the_comment_failed(): void
     {
         $comment = $this->pending(number: 99);
@@ -171,7 +204,7 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertSame([], $this->commenter->comments);
     }
 
-    private function pending(?string $reason = 'checks-failed', int $number = 5): PullRequestComment
+    private function pending(?string $reason = 'checks-failed', int $number = 5, ?int $fixRound = null): PullRequestComment
     {
         $comment = new PullRequestComment(
             project: $this->project,
@@ -183,6 +216,7 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
             headSha: 'abc1234',
             reason: $reason,
             createdAt: $this->clock->now(),
+            fixRound: $fixRound,
         );
         $this->em->persist($comment);
         $this->em->flush();

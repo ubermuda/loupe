@@ -47,20 +47,36 @@ final class PullRequestCommentRepositoryTest extends KernelTestCase
         self::assertSame(PullRequestCommentState::Pending, $comment->state);
     }
 
-    public function test_find_newest_failed_answers_the_latest_failure_of_the_project(): void
+    public function test_find_newest_settled_answers_the_row_that_posted_or_failed_last(): void
     {
-        $project = $this->makeProject('comment-failed');
-        $other = $this->makeProject('comment-failed-other');
+        $project = $this->makeProject('comment-settled');
+        $other = $this->makeProject('comment-settled-other');
         $this->comment($project, PullRequestCommentState::Failed, '2026-09-01 10:00:00');
-        $newest = $this->comment($project, PullRequestCommentState::Failed, '2026-09-02 10:00:00');
-        $this->comment($project, PullRequestCommentState::Posted, null);
-        $this->comment($other, PullRequestCommentState::Failed, '2026-09-03 10:00:00');
+        $failed = $this->comment($project, PullRequestCommentState::Failed, '2026-09-02 10:00:00');
+        $this->comment($project, PullRequestCommentState::Pending, null);
+        $this->comment($other, PullRequestCommentState::Posted, '2026-09-04 10:00:00');
 
-        self::assertSame($newest, $this->comments->findNewestFailed($project));
-        self::assertNull($this->comments->findNewestFailed($this->makeProject('comment-none')));
+        self::assertSame($failed, $this->comments->findNewestSettled($project));
+
+        $posted = $this->comment($project, PullRequestCommentState::Posted, '2026-09-03 10:00:00');
+
+        self::assertSame($posted, $this->comments->findNewestSettled($project));
+        self::assertNull($this->comments->findNewestSettled($this->makeProject('comment-none')));
     }
 
-    private function insert(Project $project, Uuid $runId): ?Uuid
+    public function test_insert_if_missing_stores_the_fix_round(): void
+    {
+        $project = $this->makeProject('comment-round');
+
+        $id = $this->insert($project, Uuid::v7(), fixRound: 2);
+
+        self::assertNotNull($id);
+        $comment = $this->comments->find($id);
+        self::assertInstanceOf(PullRequestComment::class, $comment);
+        self::assertSame(2, $comment->fixRound);
+    }
+
+    private function insert(Project $project, Uuid $runId, ?int $fixRound = null): ?Uuid
     {
         return $this->comments->insertIfMissing(
             $project->id ?? throw new \LogicException('A persisted project has an id.'),
@@ -71,15 +87,21 @@ final class PullRequestCommentRepositoryTest extends KernelTestCase
             5,
             null,
             'conflict',
+            $fixRound,
             new \DateTimeImmutable('2026-09-29 12:00:00'),
         );
     }
 
-    private function comment(Project $project, PullRequestCommentState $state, ?string $failedAt): PullRequestComment
+    private function comment(Project $project, PullRequestCommentState $state, ?string $settledAt): PullRequestComment
     {
         $comment = new PullRequestComment($project, Uuid::v7(), Uuid::v7(), 'github', 'acme/widgets', 5, null, null);
         $comment->state = $state;
-        $comment->failedAt = null === $failedAt ? null : new \DateTimeImmutable($failedAt);
+        $at = null === $settledAt ? null : new \DateTimeImmutable($settledAt);
+        if (PullRequestCommentState::Posted === $state) {
+            $comment->postedAt = $at;
+        } else {
+            $comment->failedAt = $at;
+        }
         $this->em->persist($comment);
         $this->em->flush();
 

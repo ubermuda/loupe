@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\PullRequestComment;
-use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Forge\Entity\ForgePullRequest;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -17,7 +16,6 @@ final readonly class FixRunCommentBody
     private const array REASONS = ['checks-failed', 'conflict', 'changes-requested'];
 
     public function __construct(
-        private CardAutomationRepository $cardAutomations,
         private BoardAutomation $boardAutomation,
         private UrlGeneratorInterface $urls,
         private TranslatorInterface $translator,
@@ -39,10 +37,9 @@ final readonly class FixRunCommentBody
             $facts[] = $this->trans('board.fix_run_comment.failed_checks', ['%checks%' => implode(', ', $names)]);
         }
 
-        $automation = $this->cardAutomations->findByCardIds([$comment->cardId])[(string) $comment->cardId] ?? null;
-        if (null !== $automation) {
+        if (null !== $comment->fixRound) {
             $facts[] = $this->trans('board.fix_run_comment.round', [
-                '%round%' => $automation->fixRounds,
+                '%round%' => $comment->fixRound,
                 '%limit%' => $this->boardAutomation->settingsOf($comment->project)->loopLimit,
             ]);
         }

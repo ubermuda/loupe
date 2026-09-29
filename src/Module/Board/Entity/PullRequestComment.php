@@ -66,6 +66,10 @@ class PullRequestComment
 
         #[ORM\Column]
         public \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+
+        /** The fix round of the card when the bridge queued the run. */
+        #[ORM\Column(nullable: true)]
+        public ?int $fixRound = null,
     ) {
     }
 }

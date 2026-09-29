@@ -6,14 +6,13 @@ namespace App\Tests\Module\Board;
 
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Service\PullRequestCommenter;
-use App\Module\Forge\Service\PullRequestCommentFailed;
 
 final class FakePullRequestCommenter implements PullRequestCommenter
 {
     /** @var list<array{ForgePullRequest, string}> */
     public array $comments = [];
 
-    public ?PullRequestCommentFailed $failure = null;
+    public ?\Throwable $failure = null;
 
     #[\Override]
     public function supports(string $forge): bool

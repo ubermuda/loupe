@@ -58,7 +58,7 @@
                             <p class="lp-connect-alert__text">
                                 {{ 'board.automation.comment_failure.summary'|trans({'%pull_request%': failedComment.repository ~ '#' ~ failedComment.number}) -}}
                                 {% if failedComment.failedAt %} (<time datetime="{{ failedComment.failedAt|date('c') }}" title="{{ failedComment.failedAt|date('Y-m-d H:i:s T') }}">{{ failedComment.failedAt|relative_time }}</time>){% endif %}.
-                                {% if cause in ['permission', 'no_installation', 'unknown_pull_request', 'no_commenter'] %}
+                                {% if cause in ['permission', 'no_installation', 'installation_suspended', 'unknown_pull_request', 'no_commenter'] %}
                                     {{ ('board.automation.comment_failure.cause.' ~ cause)|trans }}
                                 {% else %}
                                     {{ 'board.automation.comment_failure.cause.other'|trans({'%cause%': cause}) }}

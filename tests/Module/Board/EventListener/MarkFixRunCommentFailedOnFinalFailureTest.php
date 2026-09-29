@@ -8,9 +8,12 @@ use App\Module\Board\Entity\PullRequestComment;
 use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Board\EventListener\MarkFixRunCommentFailedOnFinalFailure;
 use App\Module\Board\Messenger\PostFixRunComment;
+use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LogLevel;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Messenger\Envelope;
@@ -92,6 +95,38 @@ final class MarkFixRunCommentFailedOnFinalFailureTest extends KernelTestCase
 
         $this->em->refresh($comment);
         self::assertSame(PullRequestCommentState::Pending, $comment->state);
+    }
+
+    public function test_a_closed_entity_manager_is_logged_and_never_reaches_the_worker(): void
+    {
+        $comment = $this->pending(null);
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('isOpen')->willReturn(false);
+        $comments = $this->createMock(PullRequestCommentRepository::class);
+        $comments->expects($this->never())->method('find');
+        $logger = new RecordingLogger();
+
+        (new MarkFixRunCommentFailedOnFinalFailure($comments, $em, $this->clock, $logger))($this->failed($comment));
+
+        self::assertCount(1, $logger->records);
+        self::assertSame(LogLevel::WARNING, $logger->records[0]['level']);
+        self::assertSame('board.fix_run_comment_mark_skipped', $logger->records[0]['message']);
+        self::assertSame((string) $comment->id, $logger->records[0]['context']['commentId']);
+    }
+
+    public function test_an_error_while_marking_is_logged_and_never_reaches_the_worker(): void
+    {
+        $comment = $this->pending(null);
+        $comments = $this->createStub(PullRequestCommentRepository::class);
+        $comments->method('find')->willThrowException(new \RuntimeException('database gone'));
+        $logger = new RecordingLogger();
+
+        (new MarkFixRunCommentFailedOnFinalFailure($comments, $this->em, $this->clock, $logger))($this->failed($comment));
+
+        self::assertCount(1, $logger->records);
+        self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
+        self::assertSame('board.fix_run_comment_mark_failed', $logger->records[0]['message']);
+        self::assertSame('database gone', $logger->records[0]['context']['error']);
     }
 
     private function pending(?string $cause): PullRequestComment

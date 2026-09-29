@@ -107,6 +107,30 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
         self::assertTrue($failure->permanent);
     }
 
+    /** @return iterable<string, array{int, array<string, string>}> */
+    public static function rateLimits(): iterable
+    {
+        yield 'a 403 with no requests left' => [403, ['x-ratelimit-remaining' => '0']];
+        yield 'a 403 that asks to retry later' => [403, ['retry-after' => '60']];
+        yield 'a 429' => [429, []];
+    }
+
+    /** @param array<string, string> $headers */
+    #[DataProvider('rateLimits')]
+    public function test_a_rate_limit_is_a_transient_failure(int $status, array $headers): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 71_020 + $status);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            new MockResponse('{"message":"API rate limit exceeded"}', ['http_code' => $status, 'response_headers' => $headers]),
+        ];
+
+        $failure = $this->failure($pullRequest);
+
+        self::assertSame('api_failed_rate_limited', $failure->cause);
+        self::assertFalse($failure->permanent);
+    }
+
     public function test_a_server_error_is_a_transient_failure_that_names_the_status(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 71_003);
@@ -169,7 +193,7 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
         self::assertSame([], $this->requests);
     }
 
-    public function test_a_suspended_installation_is_a_permanent_no_installation_failure(): void
+    public function test_a_suspended_installation_is_a_permanent_failure_of_its_own(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 71_005);
         $installations = self::getContainer()->get(GitHubInstallationRepository::class);
@@ -181,7 +205,7 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
 
         $failure = $this->failure($pullRequest);
 
-        self::assertSame('no_installation', $failure->cause);
+        self::assertSame('installation_suspended', $failure->cause);
         self::assertTrue($failure->permanent);
         self::assertSame([], $this->requests);
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\EventListener;
 
 use App\Module\Board\Messenger\PostFixRunComment;
+use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardAvailability;
@@ -26,6 +27,7 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
         private BoardAutomation $boardAutomation,
         private PullRequestCommenters $commenters,
         private PullRequestCommentRepository $pullRequestComments,
+        private CardAutomationRepository $cardAutomations,
         private EntityManagerInterface $em,
         private MessageBusInterface $bus,
         private ClockInterface $clock,
@@ -66,9 +68,11 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
             return;
         }
 
+        $fixRound = $this->cardAutomations->findByCardIds([$event->cardId])[(string) $event->cardId]->fixRounds ?? null;
+
         // One transaction, so a message that fails to queue leaves no pending row behind.
         // It is a DBAL one, because a failed ORM transaction closes the entity manager of the bridge request.
-        $commentId = $this->em->getConnection()->transactional(function () use ($event, $forge, $repository, $number) {
+        $commentId = $this->em->getConnection()->transactional(function () use ($event, $forge, $repository, $number, $fixRound) {
             $commentId = $this->pullRequestComments->insertIfMissing(
                 $event->projectId,
                 $event->runId,
@@ -78,6 +82,7 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
                 $number,
                 $event->headSha,
                 $event->reason,
+                $fixRound,
                 $this->clock->now(),
             );
             if (null !== $commentId) {

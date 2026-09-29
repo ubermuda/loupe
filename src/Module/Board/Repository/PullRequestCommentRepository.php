@@ -30,11 +30,12 @@ class PullRequestCommentRepository extends ServiceEntityRepository
         int $number,
         ?string $headSha,
         ?string $reason,
+        ?int $fixRound,
         \DateTimeImmutable $createdAt,
     ): ?Uuid {
         $id = $this->getEntityManager()->getConnection()->fetchOne(
-            'INSERT INTO board_pull_request_comments (id, project_id, run_id, card_id, forge, repository, number, head_sha, reason, state, attempts, created_at)
-             VALUES (:id, :project, :run, :card, :forge, :repository, :number, :headSha, :reason, :state, 0, :createdAt)
+            'INSERT INTO board_pull_request_comments (id, project_id, run_id, card_id, forge, repository, number, head_sha, reason, fix_round, state, attempts, created_at)
+             VALUES (:id, :project, :run, :card, :forge, :repository, :number, :headSha, :reason, :fixRound, :state, 0, :createdAt)
              ON CONFLICT (run_id) DO NOTHING RETURNING id',
             [
                 'id' => Uuid::v7()->toRfc4122(),
@@ -46,6 +47,7 @@ class PullRequestCommentRepository extends ServiceEntityRepository
                 'number' => $number,
                 'headSha' => $headSha,
                 'reason' => $reason,
+                'fixRound' => $fixRound,
                 'state' => PullRequestCommentState::Pending->value,
                 'createdAt' => $createdAt,
             ],
@@ -55,8 +57,21 @@ class PullRequestCommentRepository extends ServiceEntityRepository
         return \is_string($id) ? Uuid::fromString($id) : null;
     }
 
-    public function findNewestFailed(Project $project): ?PullRequestComment
+    /** Answers the posted or failed row that settled last. */
+    public function findNewestSettled(Project $project): ?PullRequestComment
     {
-        return $this->findOneBy(['project' => $project, 'state' => PullRequestCommentState::Failed], ['failedAt' => 'DESC']);
+        $comment = $this->createQueryBuilder('comment')
+            ->addSelect('COALESCE(comment.postedAt, comment.failedAt) AS HIDDEN settledAt')
+            ->andWhere('comment.project = :project')
+            ->andWhere('comment.state IN (:states)')
+            ->setParameter('project', $project)
+            ->setParameter('states', [PullRequestCommentState::Posted->value, PullRequestCommentState::Failed->value])
+            ->orderBy('settledAt', 'DESC')
+            ->addOrderBy('comment.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $comment instanceof PullRequestComment ? $comment : null;
     }
 }
