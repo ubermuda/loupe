@@ -66,9 +66,12 @@ export default class extends Controller {
                 'review.decision_changed',
                 (change) => this.receive(change),
                 {
-                    onReconnect: () => this.refreshSummary(),
-                    onOpen: () =>
-                        this.element.setAttribute(CONNECTED_ATTRIBUTE, ''),
+                    // The hub keeps no history, so each open reads what a
+                    // closed connection missed, a first open included.
+                    onOpen: () => {
+                        this.element.setAttribute(CONNECTED_ATTRIBUTE, '');
+                        this.refreshSummary();
+                    },
                     onError: () =>
                         this.element.removeAttribute(CONNECTED_ATTRIBUTE),
                 },

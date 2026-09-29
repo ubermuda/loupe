@@ -935,10 +935,10 @@ it('drops a read that a save of its own overtook, and reads again', async () => 
     expect(checked('a')).toEqual(['0']);
 });
 
-it('reads the stored answers again after the hub reconnects', async () => {
+it('reads the stored answers each time the hub connection opens', async () => {
     await mount();
     stored = { a: { indexes: [1], note: null } };
-    liveOptions.onReconnect();
+    liveOptions.onOpen();
     await vi.advanceTimersByTimeAsync(0);
 
     expect(fetch).toHaveBeenCalledOnce();
