@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -31,11 +33,6 @@ import (
 // all, so a single unanswered request would stall reconnection for good — the
 // bridge would sit there looking healthy and never receive anything again.
 const refreshTimeout = 15 * time.Second
-
-// defaultMaxWorkers bounds the workers that run at once. One at a time is a
-// surprise for a queue a person fills by dragging several cards, and no bound
-// is a way to start twenty agents by accident.
-const defaultMaxWorkers = 3
 
 // lookPath resolves the worker binary. Tests replace it.
 var lookPath = exec.LookPath
@@ -61,7 +58,6 @@ func newBridgeCmd() *cobra.Command {
 // bridgeRunOptions are the flags of `loupe bridge run`.
 type bridgeRunOptions struct {
 	rulesPath, permissionMode, model, logFile string
-	maxWorkers                                int
 	// resumeFile and rolledBackFrom carry a handover from a former image.
 	resumeFile, rolledBackFrom string
 }
@@ -85,7 +81,7 @@ func newBridgeRunCmd() *cobra.Command {
 			"and --model. The flags fill a value that both leave empty. A worker has no " +
 			"terminal, so it cannot answer a permission prompt: with no mode, claude " +
 			"denies every tool call that needs approval.\n\n" +
-			"Use --max-workers to bound the workers that run at once. Events past the " +
+			"Set maxWorkers in the rule file to bound the workers that run at once. Events past the " +
 			"bound wait in a queue and start in arrival order, except that an event waits " +
 			"while its card has a worker. The bridge writes one JSON " +
 			"object per line to stdout and to --log-file.",
@@ -96,7 +92,8 @@ func newBridgeRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&o.rulesPath, "rules", "", "read rules from this `path`; empty uses rules.yaml in your config directory")
 	cmd.Flags().StringVar(&o.permissionMode, "permission-mode", "", "pass this `mode` to every `claude` when neither its rule nor the defaults block of the rule file sets one; empty passes no flag, and a worker cannot answer a prompt")
 	cmd.Flags().StringVar(&o.model, "model", "", "pass this `model` to every `claude` when neither its rule nor the defaults block of the rule file sets one; empty passes no flag")
-	cmd.Flags().IntVar(&o.maxWorkers, "max-workers", defaultMaxWorkers, "run at most this `number` of workers at once; later events queue")
+	cmd.Flags().Int(maxWorkersFlag, rules.DefaultMaxWorkers, "does nothing; set maxWorkers in rules.yaml")
+	cmd.Flags().MarkDeprecated(maxWorkersFlag, "it does nothing; set maxWorkers in rules.yaml instead")
 	cmd.Flags().StringVar(&o.logFile, "log-file", "", "append the JSON log to this `path`; empty uses bridge.log in your config directory")
 	cmd.Flags().StringVar(&o.resumeFile, resumeHandoverFlag, "", "take over the bridge that a former image handed over in this `file`")
 	cmd.Flags().StringVar(&o.rolledBackFrom, rolledBackFromFlag, "", "the `version` that handed the bridge back")
@@ -127,9 +124,6 @@ func openBridgeLog(cmd *cobra.Command, logFile string) (*bridgeLog, error) {
 }
 
 func startBridge(cmd *cobra.Command, o bridgeRunOptions) error {
-	if o.maxWorkers < 1 {
-		return fmt.Errorf("--max-workers must be at least 1, got %d", o.maxWorkers)
-	}
 	defaults := rules.Defaults{PermissionMode: o.permissionMode, Model: o.model}
 	if err := defaults.Check(); err != nil {
 		return err
@@ -247,10 +241,39 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 	}
 	r.set.Store(set)
 	cleanLaunchScripts(defaultScriptDir(), time.Now(), r.log)
-	r.log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()), "max_workers", o.maxWorkers, "log_file", bl.path, "bridge_id", bridgeID)
+	logBridgeStart(r.log, cmd, set, path, bl.path, bridgeID)
 	warnUnknownModes(r.log, set)
 
 	return subscribe(cmd, cfg, r)
+}
+
+// maxWorkersFlag stays declared, so a service that still passes it starts.
+const maxWorkersFlag = "max-workers"
+
+// logBridgeStart warns when --max-workers is set, then logs bridge_started.
+func logBridgeStart(log *slog.Logger, cmd *cobra.Command, set *rules.Set, path, logPath, bridgeID string) {
+	if cmd.Flags().Changed(maxWorkersFlag) {
+		flag, _ := cmd.Flags().GetInt(maxWorkersFlag)
+		message := fmt.Sprintf("--max-workers does nothing. The bridge runs at most %d workers, the maxWorkers of rules.yaml. Set maxWorkers in rules.yaml and remove the flag.", set.MaxWorkers())
+		if flag != set.MaxWorkers() {
+			message = fmt.Sprintf("--max-workers %d does nothing. The bridge runs at most %d workers, the maxWorkers of rules.yaml, not %d. Set maxWorkers in rules.yaml and remove the flag.", flag, set.MaxWorkers(), flag)
+		}
+		log.Warn("max_workers_flag_ignored", "flag_value", flag, "max_workers", set.MaxWorkers(), "message", message)
+	}
+	log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()),
+		"max_workers", set.MaxWorkers(), "worker_pools", poolSizes(set), "log_file", logPath, "bridge_id", bridgeID)
+}
+
+// poolSizes names each worker pool and its size, in name order, such as
+// default=3,quick=1.
+func poolSizes(set *rules.Set) string {
+	pools := set.Pools()
+	parts := make([]string, 0, len(pools))
+	for _, name := range slices.Sorted(maps.Keys(pools)) {
+		parts = append(parts, fmt.Sprintf("%s=%d", name, pools[name]))
+	}
+
+	return strings.Join(parts, ",")
 }
 
 // warnUnknownModes names each permission mode this build does not know. A newer

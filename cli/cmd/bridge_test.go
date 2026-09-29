@@ -557,25 +557,89 @@ func TestBridgeRunDefaultFlagsAreEmpty(t *testing.T) {
 	}
 }
 
-// One worker at a time surprises a person who drags several cards, and no bound
-// starts twenty agents by accident.
-func TestBridgeRunBoundsWorkersByDefault(t *testing.T) {
+// A service that still passes --max-workers must start, so the flag stays
+// declared and deprecated.
+func TestBridgeRunKeepsMaxWorkersAsADeprecatedFlag(t *testing.T) {
 	flag := newBridgeRunCmd().Flags().Lookup("max-workers")
 	if flag == nil {
 		t.Fatal("--max-workers is not registered")
 	}
-	if flag.DefValue != "3" {
-		t.Fatalf("--max-workers defaults to %q, want 3", flag.DefValue)
+	if !strings.Contains(flag.Deprecated, "maxWorkers in rules.yaml") {
+		t.Fatalf("--max-workers deprecation = %q", flag.Deprecated)
 	}
 }
 
-// A bound below 1 runs nothing and looks healthy, so it fails at startup.
-func TestBridgeRunRejectsABoundBelowOne(t *testing.T) {
-	for _, bound := range []string{"0", "-1"} {
-		err := runBridge(t, "--rules", writeRules(t, "loupe"), "--max-workers", bound)
-		if err == nil || !strings.Contains(err.Error(), "--max-workers must be at least 1") {
-			t.Fatalf("--max-workers %s: err = %v", bound, err)
-		}
+// --max-workers no longer bounds anything. A bridge started with it warns, and
+// runs as many workers as maxWorkers in rules.yaml allows.
+func TestTheMaxWorkersFlagIsIgnoredWithAWarning(t *testing.T) {
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 4), rules.Defaults{})
+	cmd := newBridgeRunCmd()
+	cmd.SetOut(io.Discard)
+	if err := cmd.ParseFlags([]string{"--max-workers", "3"}); err != nil {
+		t.Fatal(err)
+	}
+
+	logBridgeStart(h.router.log, cmd, h.router.rules(), "rules.yaml", "bridge.log", testBridgeID)
+
+	warned := h.events(t, "max_workers_flag_ignored")
+	if len(warned) != 1 || warned[0]["level"] != "WARN" || num(t, warned[0], "flag_value") != 3 || num(t, warned[0], "max_workers") != 4 {
+		t.Fatalf("max_workers_flag_ignored = %v", warned)
+	}
+	if msg, _ := warned[0]["message"].(string); !strings.Contains(msg, "maxWorkers") || !strings.Contains(msg, "not 3") {
+		t.Fatalf("message = %q", msg)
+	}
+	started := h.events(t, "bridge_started")
+	if len(started) != 1 || num(t, started[0], "max_workers") != 4 || started[0]["worker_pools"] != "default=4" {
+		t.Fatalf("bridge_started = %v", started)
+	}
+
+	h.worker.block = make(chan struct{})
+	for _, card := range []int{87, 88, 89, 90, 91} {
+		h.router.onData([]byte(cardMoved(card)))
+	}
+	if got := h.used(); got != 4 {
+		t.Fatalf("%d workers run, want the 4 of maxWorkers", got)
+	}
+	close(h.worker.block)
+	h.router.wg.Wait()
+}
+
+func TestAnUnsetMaxWorkersFlagLogsNoWarning(t *testing.T) {
+	h := newHarnessWith(t, poolRules, rules.Defaults{})
+	cmd := newBridgeRunCmd()
+	if err := cmd.ParseFlags(nil); err != nil {
+		t.Fatal(err)
+	}
+
+	logBridgeStart(h.router.log, cmd, h.router.rules(), "rules.yaml", "bridge.log", testBridgeID)
+
+	if warned := h.events(t, "max_workers_flag_ignored"); len(warned) != 0 {
+		t.Fatalf("max_workers_flag_ignored = %v", warned)
+	}
+	started := h.events(t, "bridge_started")
+	if len(started) != 1 || num(t, started[0], "max_workers") != 4 || started[0]["worker_pools"] != "default=3,quick=1" {
+		t.Fatalf("bridge_started = %v", started)
+	}
+}
+
+// The same value in the flag and in the file still warns, because the flag
+// does nothing.
+func TestAMatchingMaxWorkersFlagStillWarns(t *testing.T) {
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 3), rules.Defaults{})
+	cmd := newBridgeRunCmd()
+	cmd.SetOut(io.Discard)
+	if err := cmd.ParseFlags([]string{"--max-workers=3"}); err != nil {
+		t.Fatal(err)
+	}
+
+	logBridgeStart(h.router.log, cmd, h.router.rules(), "rules.yaml", "bridge.log", testBridgeID)
+
+	warned := h.events(t, "max_workers_flag_ignored")
+	if len(warned) != 1 {
+		t.Fatalf("max_workers_flag_ignored = %v", warned)
+	}
+	if msg, _ := warned[0]["message"].(string); !strings.Contains(msg, "maxWorkers") || strings.Contains(msg, "not 3") {
+		t.Fatalf("message = %q", msg)
 	}
 }
 
