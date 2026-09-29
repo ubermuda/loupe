@@ -51,13 +51,16 @@ final class BoardCardColumnLookupTest extends KernelTestCase
         self::assertSame('backlog', $this->lookup->columnOf($project, $card));
     }
 
-    public function test_it_reads_the_column_after_a_move(): void
+    /** The card stays managed with its old column, so only a fresh read sees the move. */
+    public function test_it_reads_the_column_after_a_move_behind_the_entity_manager(): void
     {
         $project = $this->makeProject('column-lookup-moved');
         $cardId = $this->card($project, 1, 'next');
-        $card = $this->em->find(Card::class, $cardId) ?? throw new \LogicException('The card is gone.');
-        $card->column = $this->column($project, 'done');
-        $this->em->flush();
+        self::assertNotNull($this->em->find(Card::class, $cardId));
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_cards SET column_id = ? WHERE id = ?',
+            [(string) $this->column($project, 'done')->id, (string) $cardId],
+        );
 
         self::assertSame('done', $this->lookup->columnOf($project, $cardId));
     }
