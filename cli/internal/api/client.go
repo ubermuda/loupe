@@ -535,6 +535,17 @@ type Heartbeat struct {
 	CLIVersion string           `json:"cliVersion"`
 	Update     *HeartbeatUpdate `json:"update,omitempty"`
 	Hooks      []HookReport     `json:"hooks,omitzero"`
+	// WorkerPools is nil until the router reports its pools.
+	WorkerPools []WorkerPoolReport `json:"workerPools,omitzero"`
+}
+
+// WorkerPoolReport is the size of one worker pool, the slots its runs take,
+// and the events that wait for it.
+type WorkerPoolReport struct {
+	Name   string `json:"name"`
+	Size   int    `json:"size"`
+	InUse  int    `json:"inUse"`
+	Queued int    `json:"queued"`
 }
 
 // HeartbeatUpdate is where the bridge's own update stands. Version names the

@@ -21,6 +21,11 @@ parameters:
     # to a valid token rather than an empty one. Repeating 'self' is a no-op.
     app.default_csp_origin: "'self'"
 
+    # Diagrams load from here once review.mermaid.enabled is on, and script-src
+    # lists it. A path prefix, not the host, so an injection cannot load any
+    # other npm package from the CDN. The module loads its chunks relative to it.
+    app.mermaid_cdn_base: 'https://cdn.jsdelivr.net/npm/mermaid@12.0.0/dist/'
+
     # Sender of every transactional email. Environment-driven because a
     # self-hosted instance can only pass SPF/DKIM/DMARC with a domain its
     # operator actually owns.

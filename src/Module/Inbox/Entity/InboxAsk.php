@@ -14,7 +14,10 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
-/** The items one agent session hands to the owner at once. It closes when its blocking items close. */
+/**
+ * The items one agent session hands to the owner at once. It closes when its
+ * blocking items close. A Loupe ask holds one wait item and has no session.
+ */
 #[ORM\Entity(repositoryClass: InboxAskRepository::class)]
 #[ORM\Index(name: 'idx_inbox_asks_session', columns: ['session_id'])]
 #[ORM\Table(name: 'inbox_asks')]
@@ -47,8 +50,8 @@ class InboxAsk
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public readonly Project $project,
 
-        #[ORM\Column(name: 'session_id', type: UuidType::NAME)]
-        public readonly Uuid $sessionId,
+        #[ORM\Column(name: 'session_id', type: UuidType::NAME, nullable: true)]
+        public readonly ?Uuid $sessionId,
 
         /** Null when an interactive session asked, which no bridge can resume. A later call of the session may fill it in. */
         #[ORM\Column(name: 'bridge_id', type: UuidType::NAME, nullable: true)]
@@ -59,6 +62,9 @@ class InboxAsk
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+
+        #[ORM\Column(length: 20, enumType: InboxAskOrigin::class, options: ['default' => 'agent'])]
+        public readonly InboxAskOrigin $origin = InboxAskOrigin::Agent,
     ) {
         $this->items = new ArrayCollection();
     }

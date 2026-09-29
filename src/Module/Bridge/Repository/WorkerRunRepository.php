@@ -177,7 +177,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         $ids = $this->createQueryBuilder('r')
             ->select('r.id')
             ->join('r.project', 'p')
-            ->leftJoin(Bridge::class, 'b', Join::WITH, 'IDENTITY(b.owner) = IDENTITY(p.owner) AND b.id = r.bridgeId')
+            ->leftJoin(Bridge::class, 'b', Join::ON, 'IDENTITY(b.owner) = IDENTITY(p.owner) AND b.id = r.bridgeId')
             // No bridge holds an interactive run, so it would always read as quiet.
             ->andWhere('r.kind = :worker')
             ->andWhere('r.state IN (:openStates)')

@@ -1631,6 +1631,22 @@
                 <source>review.document.references.incoming</source>
                 <target>Referenced by</target>
             </trans-unit>
+            <trans-unit id="review.document.mermaid.disabled">
+                <source>review.document.mermaid.disabled</source>
+                <target>Diagrams are off on this instance, so this block shows its Mermaid source. An administrator can turn on the review.mermaid.enabled flag.</target>
+            </trans-unit>
+            <trans-unit id="review.document.mermaid.error">
+                <source>review.document.mermaid.error</source>
+                <target>This diagram could not render, so its source shows instead.</target>
+            </trans-unit>
+            <trans-unit id="review.document.mermaid.show_source">
+                <source>review.document.mermaid.show_source</source>
+                <target>Show source</target>
+            </trans-unit>
+            <trans-unit id="review.document.mermaid.hide_source">
+                <source>review.document.mermaid.hide_source</source>
+                <target>Hide source</target>
+            </trans-unit>
             <trans-unit id="review.document.reference.from">
                 <source>review.document.reference.from</source>
                 <target>From %title%</target>
@@ -3988,6 +4004,14 @@
                 <source>landing.feature.decisions.text</source>
                 <target>An agent can mark a passage as a decision with options. The reviewer picks one or several, and the choice comes back structured.</target>
             </trans-unit>
+            <trans-unit id="landing.feature.diagrams.title">
+                <source>landing.feature.diagrams.title</source>
+                <target>Diagrams in the document</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.diagrams.text">
+                <source>landing.feature.diagrams.text</source>
+                <target>A Mermaid block renders as a diagram on the review page, once an operator turns diagrams on.</target>
+            </trans-unit>
             <trans-unit id="landing.feature.site_review.title">
                 <source>landing.feature.site_review.title</source>
                 <target>Site review</target>
@@ -4509,6 +4533,14 @@
                 <source>inbox.item.kind.todo</source>
                 <target>To-do</target>
             </trans-unit>
+            <trans-unit id="inbox.item.kind.wait">
+                <source>inbox.item.kind.wait</source>
+                <target>Waiting</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.dismiss">
+                <source>inbox.item.dismiss</source>
+                <target>Dismiss</target>
+            </trans-unit>
             <trans-unit id="inbox.item.blocking">
                 <source>inbox.item.blocking</source>
                 <target>Blocking</target>
@@ -4549,6 +4581,10 @@
                 <source>inbox.item.closed_by_agent</source>
                 <target>The agent closed this item, so it takes no response.</target>
             </trans-unit>
+            <trans-unit id="inbox.item.closed_by_loupe">
+                <source>inbox.item.closed_by_loupe</source>
+                <target>Loupe closed this item, so it takes no response.</target>
+            </trans-unit>
             <trans-unit id="inbox.item.respond_elsewhere">
                 <source>inbox.item.respond_elsewhere</source>
                 <target>Respond to item %number% at the request that holds it</target>
@@ -4564,6 +4600,10 @@
             <trans-unit id="inbox.item.error.closed_by_agent">
                 <source>inbox.item.error.closed_by_agent</source>
                 <target>The agent closed this item, so it takes no response.</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.error.closed_by_loupe">
+                <source>inbox.item.error.closed_by_loupe</source>
+                <target>Loupe closed this item, so it takes no response.</target>
             </trans-unit>
             <trans-unit id="inbox.answer.pick_one">
                 <source>inbox.answer.pick_one</source>
@@ -5739,6 +5779,7 @@
             <trans-unit id="inbox.tabs.open"><source>inbox.tabs.open</source><target>Open</target></trans-unit>
             <trans-unit id="inbox.tabs.completed"><source>inbox.tabs.completed</source><target>Completed</target></trans-unit>
             <trans-unit id="inbox.source.agent"><source>inbox.source.agent</source><target>Agent request</target></trans-unit>
+            <trans-unit id="inbox.source.loupe"><source>inbox.source.loupe</source><target>Loupe</target></trans-unit>
             <trans-unit id="inbox.linked_items.title"><source>inbox.linked_items.title</source><target>Linked items</target></trans-unit>
             <trans-unit id="inbox.linked_items.item"><source>inbox.linked_items.item</source><target>Item</target></trans-unit>
             <trans-unit id="inbox.linked_items.status"><source>inbox.linked_items.status</source><target>Status</target></trans-unit>

@@ -13,6 +13,7 @@ import (
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/event"
+	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
 // handoverFormat is the one layout of the handover file this build reads.
@@ -63,6 +64,7 @@ type handoverPending struct {
 	handoverSeries
 	SessionID string `json:"sessionId,omitempty"`
 	Prompt    string `json:"prompt,omitempty"`
+	Pool      string `json:"pool,omitempty"`
 }
 
 // handoverSeries is where a run stands in its series of resumes.
@@ -103,6 +105,8 @@ type handoverRun struct {
 	// it replaced such a resume. A missing session reads both.
 	Resume bool `json:"resume,omitempty"`
 	Fresh  bool `json:"fresh,omitempty"`
+	// Pool is the pool the run took its slot from. An older image writes none.
+	Pool string `json:"pool,omitempty"`
 	handoverSeries
 }
 
@@ -241,7 +245,7 @@ func (r *router) drain(ctx context.Context, timeout time.Duration) error {
 
 func (r *router) inFlight() (reports, checks, gates, starting, launches int) {
 	r.mu.Lock()
-	checks, gates, starting, launches = r.checking, r.gating, r.active-len(r.live), r.launching
+	checks, gates, starting, launches = r.checking, r.gating, r.usedLocked()-len(r.live), r.launching
 	r.mu.Unlock()
 	if r.reports != nil {
 		reports = r.reports.Pending()
@@ -287,7 +291,7 @@ func (r *router) freeze() handoverState {
 	for _, p := range r.queue {
 		q := handoverPending{
 			Event: p.event, Rule: p.rule, Key: p.key, RunID: p.runID, Seq: p.seq, Checked: p.checked, DropReason: p.dropReason, Fresh: p.fresh,
-			handoverSeries: seriesOf(p),
+			Pool: p.pool, handoverSeries: seriesOf(p),
 		}
 		if p.continues != "" {
 			q.SessionID, q.Prompt = p.spec.sessionID, p.spec.prompt
@@ -298,7 +302,7 @@ func (r *router) freeze() handoverState {
 		st.Live = append(st.Live, handoverRun{
 			RunID: run.p.runID, Key: run.p.key, Rule: run.p.rule, Event: run.p.event, SessionID: run.p.spec.sessionID,
 			Began: run.began, PID: run.proc.pid, Dir: run.proc.dir, Seq: run.p.seq, Resume: run.p.spec.resume, Fresh: run.p.fresh,
-			handoverSeries: seriesOf(run.p),
+			Pool: run.p.slot, handoverSeries: seriesOf(run.p),
 		})
 	}
 	slices.SortFunc(st.Live, func(a, b handoverRun) int {
@@ -330,6 +334,7 @@ func (r *router) adopt(st handoverState) {
 	for _, q := range st.Queue {
 		p := pending{
 			key: q.Key, rule: q.Rule, event: q.Event, runID: q.RunID, seq: q.Seq, checked: q.Checked, dropReason: q.DropReason, fresh: q.Fresh,
+			pool: q.Pool,
 		}
 		q.applyTo(&p)
 		if p.continues != "" {
@@ -354,10 +359,16 @@ func (r *router) adoptLocked(run handoverRun) {
 	p := pending{key: run.Key, rule: run.Rule, event: run.Event, runID: run.RunID, seq: run.Seq, fresh: run.Fresh}
 	run.applyTo(&p)
 	p.spec.sessionID, p.spec.resume = run.SessionID, run.Resume
-	r.active++
+	p.pool = run.Pool
+	if p.pool == "" {
+		m, _ := r.rules().MatchRule(run.Event, run.Rule)
+		p.pool = cmp.Or(m.Pool, rules.DefaultPool)
+	}
+	p.slot = p.pool
+	r.takeLocked(p.slot)
 	r.hold(p.key)
 	r.trackLocked(liveRun{p: p, began: run.Began, proc: workerProc{pid: run.PID, dir: run.Dir}})
-	r.log.Info("worker_adopted", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "pid", run.PID)...)
+	r.log.Info("worker_adopted", append(about(p.event, p.rule), "worker_pool", p.slot, "session_id", p.spec.sessionID, "pid", run.PID)...)
 
 	wait := r.worker.adopt
 	if wait == nil {

@@ -6,6 +6,10 @@ namespace App\Tests\Module\Inbox\Service;
 
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
+use App\Module\Inbox\Entity\InboxCardWait;
+use App\Module\Inbox\Entity\InboxCardWaitEndReason;
+use App\Module\Inbox\Entity\InboxCardWaitTrigger;
+use App\Module\Inbox\Entity\InboxCardWatch;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
@@ -86,7 +90,55 @@ final class InboxExporterTest extends KernelTestCase
             'closedAt' => new \DateTimeImmutable('2026-09-02 10:00:00')->format(\DateTimeInterface::ATOM),
             'cards' => [(string) $card->id],
             'documents' => [(string) $document->id],
+            'waits' => [],
         ]], $rows);
+    }
+
+    public function test_a_wait_item_carries_the_ids_and_reasons_of_its_waits(): void
+    {
+        $owner = $this->owner($this->em, 'inbox-export-wait');
+        $project = $this->project($this->em, $owner, 'export');
+        $card = $this->card($this->em, $project, 7);
+        $document = $this->document($this->em, $project);
+        $this->em->flush();
+        $item = new InboxItem(project: $project, number: 1, kind: InboxItemKind::Wait, title: '#7 Ship it', blocking: true);
+        $watch = new InboxCardWatch($item, $card->id ?? throw new \LogicException('A stored card has an id.'), 7);
+        $ended = new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, 'The design in review, version 1', $document->id, 1, startedAt: new \DateTimeImmutable('2026-09-01 09:00:00'));
+        $ended->endedAt = new \DateTimeImmutable('2026-09-02 09:00:00');
+        $ended->endReason = InboxCardWaitEndReason::Resolved;
+        $open = new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, 'The design in review, version 2', $document->id, 2, startedAt: new \DateTimeImmutable('2026-09-02 09:00:00'));
+        $watch->waits->add($ended);
+        $watch->waits->add($open);
+        $this->em->persist($item);
+        $this->em->persist($watch);
+        $this->em->flush();
+        $this->em->clear();
+
+        $rows = iterator_to_array($this->itemExporter()->export($owner), false);
+
+        self::assertCount(1, $rows);
+        self::assertSame([
+            [
+                'trigger' => 'document-in-review',
+                'reason' => 'The design in review, version 1',
+                'documentId' => (string) $document->id,
+                'versionNumber' => 1,
+                'runId' => null,
+                'startedAt' => new \DateTimeImmutable('2026-09-01 09:00:00')->format(\DateTimeInterface::ATOM),
+                'endedAt' => new \DateTimeImmutable('2026-09-02 09:00:00')->format(\DateTimeInterface::ATOM),
+                'endReason' => 'resolved',
+            ],
+            [
+                'trigger' => 'document-in-review',
+                'reason' => 'The design in review, version 2',
+                'documentId' => (string) $document->id,
+                'versionNumber' => 2,
+                'runId' => null,
+                'startedAt' => new \DateTimeImmutable('2026-09-02 09:00:00')->format(\DateTimeInterface::ATOM),
+                'endedAt' => null,
+                'endReason' => null,
+            ],
+        ], $rows[0]['waits']);
     }
 
     public function test_an_ask_carries_every_field_and_its_items(): void

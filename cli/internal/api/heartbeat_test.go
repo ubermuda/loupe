@@ -88,6 +88,34 @@ func TestHeartbeatSendsHooksOnlyWhenTheListIsSet(t *testing.T) {
 	}
 }
 
+func TestHeartbeatSendsWorkerPoolsOnlyWhenTheListIsSet(t *testing.T) {
+	var body string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		body = string(raw)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+	client := New(server.URL, "t", server.Client())
+
+	if _, err := client.Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v"}); err != nil {
+		t.Fatal(err)
+	}
+	if body != `{"projects":[],"cliVersion":"v"}` {
+		t.Fatalf("no pools: body = %s", body)
+	}
+
+	pools := []WorkerPoolReport{{Name: "default", Size: 3, InUse: 2, Queued: 1}, {Name: "quick", Size: 1}}
+	if _, err := client.Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v", WorkerPools: pools}); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"projects":[],"cliVersion":"v","workerPools":[` +
+		`{"name":"default","size":3,"inUse":2,"queued":1},{"name":"quick","size":1,"inUse":0,"queued":0}]}`
+	if body != want {
+		t.Fatalf("body = %s", body)
+	}
+}
+
 // The server refuses a row past its caps, so the client clips each field and
 // the list before it sends them.
 func TestHeartbeatClipsTheHooksToTheServerCaps(t *testing.T) {
