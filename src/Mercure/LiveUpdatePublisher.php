@@ -50,7 +50,7 @@ final class LiveUpdatePublisher implements ResetInterface
     /**
      * Call it after the change commits, so a rollback signals nothing.
      *
-     * @param array<string, scalar|null> $payload
+     * @param array<string, scalar|list<scalar>|null> $payload
      */
     public function queue(string $topic, array $payload): void
     {

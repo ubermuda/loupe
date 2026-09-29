@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
+use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\ShowDocumentCommand;
@@ -52,6 +53,7 @@ final class ShowDocumentController extends AppController
 {
     public function __construct(
         private readonly ShowDocumentHandler $showDocument,
+        private readonly ProjectTopicBuilder $topics,
     ) {
     }
 
@@ -115,6 +117,10 @@ final class ShowDocumentController extends AppController
 
         return $this->render('@Review/show_document.html.twig', [
             'document' => $view->document,
+            'documentTopic' => $this->topics->forDocument(
+                $project->id ?? throw new \LogicException('Project has no id.'),
+                $document->id ?? throw new \LogicException('Document has no id.'),
+            ),
             'review' => $view->review,
             'submitReviewForm' => $submitReviewForm,
             'undoVerdictForm' => $undoVerdictForm,

@@ -1,7 +1,10 @@
 import { Controller } from '@hotwired/stimulus';
+import { renderStreamMessage } from '@hotwired/turbo';
+import { on } from '../lib/live.js';
 
 const NOTE_DELAY = 800;
 const STREAM_TYPE = 'text/vnd.turbo-stream.html';
+const CONNECTED_ATTRIBUTE = 'data-decision-connected';
 
 // A save can answer after a visit, and its stream targets ids every review
 // page shares. Only the page that sent it may render it.
@@ -29,6 +32,8 @@ export default class extends Controller {
         notePlaceholder: String,
         clearLabel: String,
         errorMessage: String,
+        summaryUrl: String,
+        changedBy: String,
     };
 
     connect() {
@@ -52,9 +57,30 @@ export default class extends Controller {
         )) {
             this.decorate(block);
         }
+        this.summaryRunning = false;
+        this.summaryAgain = false;
+        this.savesLanded = 0;
+        this.deferred = false;
+        if (this.element.dataset.decisionPage !== undefined)
+            this.unsubscribe = on(
+                'review.decision_changed',
+                (change) => this.receive(change),
+                {
+                    // The hub keeps no history, so each open reads what a
+                    // closed connection missed, a first open included.
+                    onOpen: () => {
+                        this.element.setAttribute(CONNECTED_ATTRIBUTE, '');
+                        this.refreshSummary();
+                    },
+                    onError: () =>
+                        this.element.removeAttribute(CONNECTED_ATTRIBUTE),
+                },
+            );
     }
 
     disconnect() {
+        this.unsubscribe?.();
+        this.element.removeAttribute(CONNECTED_ATTRIBUTE);
         document.removeEventListener('turbo:before-visit', this.beforeVisit);
         document.removeEventListener('turbo:before-cache', this.beforeCache);
         window.removeEventListener('beforeunload', this.beforeUnload);
@@ -189,7 +215,10 @@ export default class extends Controller {
         const state = this.state(block);
         if (this.stateKey(state) !== this.sentStates.get(block))
             this.enqueue(block, false);
-        else this.resumeVisit();
+        else {
+            this.resumeVisit();
+            this.settle();
+        }
     }
 
     state(block) {
@@ -254,6 +283,7 @@ export default class extends Controller {
         if (!this.inFlight) return;
         const { block, state } = this.inFlight;
         this.inFlight = null;
+        this.savesLanded += 1;
         if (event.detail.success && this.isStream(event.detail.fetchResponse)) {
             // A Turbo snapshot restore compares the block with these attributes.
             block.dataset.decisionNote = state.note;
@@ -276,6 +306,7 @@ export default class extends Controller {
         }
         this.flush();
         this.resumeVisit();
+        this.settle();
     }
 
     resumeVisit() {
@@ -287,6 +318,118 @@ export default class extends Controller {
 
     isStream(response) {
         return Boolean(response?.contentType?.startsWith(STREAM_TYPE));
+    }
+
+    // The payload only signals a change. Two saves can publish in either
+    // order, so the page reads the stored answers instead.
+    receive(change) {
+        if (change.own) return;
+        this.refreshSummary();
+        if (change.answeredBy) this.showChangedBy(change.answeredBy);
+    }
+
+    busy(block) {
+        return (
+            this.queue.has(block) ||
+            this.timers.has(block) ||
+            this.inFlight?.block === block
+        );
+    }
+
+    // A busy block keeps its state until its own save lands, then the page
+    // reads the stored answers again.
+    reconcile(answers) {
+        for (const block of this.element.querySelectorAll(
+            'fieldset[data-decision-id]',
+        )) {
+            const answer = answers[block.dataset.decisionId];
+            if (!answer) continue;
+            if (this.busy(block)) this.deferred = true;
+            else this.apply(block, answer);
+        }
+    }
+
+    // A note with an unsaved edit stays. A focused note with no edit takes the
+    // stored note, or its blur would save the old note over it.
+    apply(block, { indexes, note }) {
+        const stored = note ?? '';
+        const field = block.querySelector('[data-decision-note-field]');
+        const edited =
+            field !== null &&
+            field.value !== (block.dataset.decisionNote ?? '');
+        block.dataset.decisionSavedIndexes = JSON.stringify(indexes);
+        block.dataset.decisionNote = stored;
+        for (const input of block.querySelectorAll(
+            'input[data-decision-option]',
+        ))
+            input.checked = indexes.includes(Number(input.value));
+        if (field && !edited && field.value !== stored) field.value = stored;
+        if (field === null && stored !== '') this.decorate(block);
+        this.sentStates.set(
+            block,
+            this.stateKey({ indexes: this.state(block).indexes, note: stored }),
+        );
+    }
+
+    settle() {
+        if (!this.deferred || this.pending()) return;
+        this.deferred = false;
+        this.refreshSummary();
+    }
+
+    // One read at a time. A change during a read asks for one more read, and
+    // so does a save that lands during it, because the read may predate it.
+    async refreshSummary() {
+        if (!this.hasSummaryUrlValue) return;
+        if (this.summaryRunning) {
+            this.summaryAgain = true;
+            return;
+        }
+        this.summaryRunning = true;
+        do {
+            this.summaryAgain = false;
+            const landed = this.savesLanded;
+            const html = await this.readSummary();
+            if (html === null || !this.element.isConnected) continue;
+            if (landed !== this.savesLanded) {
+                this.summaryAgain = true;
+                continue;
+            }
+            renderStreamMessage(html);
+            const template = document.createElement('template');
+            template.innerHTML = html;
+            const answers = template.content.querySelector(
+                'turbo-stream[data-decision-answers]',
+            )?.dataset.decisionAnswers;
+            if (answers) this.reconcile(JSON.parse(answers));
+        } while (this.summaryAgain);
+        this.summaryRunning = false;
+    }
+
+    async readSummary() {
+        try {
+            // A read of the summary, with no form to submit.
+            // eslint-disable-next-line no-restricted-syntax
+            const response = await fetch(this.summaryUrlValue, {
+                headers: { Accept: STREAM_TYPE },
+                credentials: 'same-origin',
+            });
+            const type = response.headers.get('Content-Type') ?? '';
+            if (response.ok && type.startsWith(STREAM_TYPE))
+                return await response.text();
+        } catch {
+            // The next change or reconnect reads the summary again.
+        }
+        return null;
+    }
+
+    showChangedBy(name) {
+        const status = document.getElementById('decision-status');
+        if (!status) return;
+        const message = document.createElement('span');
+        message.className = 'lp-decision-status__message';
+        message.textContent = this.changedByValue.replace('%name%', name);
+        status.replaceChildren(message);
     }
 
     showError() {
