@@ -4481,6 +4481,10 @@
             <trans-unit id="inbox.form.update_inbox_settings_form.run_gave_up.help"><source>inbox.form.update_inbox_settings_form.run_gave_up.help</source><target>The bridge used every resume that the rule allows, and the worker run on a card did not finish.</target></trans-unit>
             <trans-unit id="inbox.form.update_inbox_settings_form.run_waiting_for_person.label"><source>inbox.form.update_inbox_settings_form.run_waiting_for_person.label</source><target>Run waiting for a person</target></trans-unit>
             <trans-unit id="inbox.form.update_inbox_settings_form.run_waiting_for_person.help"><source>inbox.form.update_inbox_settings_form.run_waiting_for_person.help</source><target>The worker runs on a card reached their limit, and a person must move the card to start a new run.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_ready.label"><source>inbox.form.update_inbox_settings_form.pull_request_ready.label</source><target>Pull request ready for review</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_ready.help"><source>inbox.form.update_inbox_settings_form.pull_request_ready.help</source><target>A linked GitHub pull request passed its checks and waits for a review.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_fix_stopped.label"><source>inbox.form.update_inbox_settings_form.pull_request_fix_stopped.label</source><target>Pull request fix loop stopped</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.pull_request_fix_stopped.help"><source>inbox.form.update_inbox_settings_form.pull_request_fix_stopped.help</source><target>Loupe stopped asking for fixes on a linked GitHub pull request.</target></trans-unit>
             <trans-unit id="inbox.page.empty">
                 <source>inbox.page.empty</source>
                 <target>No agent has asked you anything yet.</target>

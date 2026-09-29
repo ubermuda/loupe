@@ -333,7 +333,17 @@ final readonly class CardWaitReconciler
             if (isset($open[$key])) {
                 continue;
             }
-            $open[$key] = new InboxCardWait($watch, $wanted->trigger, $wanted->reason, $wanted->document?->id, $wanted->versionNumber, $wanted->runId, $now);
+            $open[$key] = new InboxCardWait(
+                watch: $watch,
+                trigger: $wanted->trigger,
+                reason: $wanted->reason,
+                documentId: $wanted->document?->id,
+                versionNumber: $wanted->versionNumber,
+                runId: $wanted->runId,
+                pullRequestId: $wanted->pullRequestId,
+                headSha: $wanted->headSha,
+                startedAt: $now,
+            );
             $watch->waits->add($open[$key]);
             if (null !== $wanted->document) {
                 $this->link($watch->item, $wanted->document, $now);
