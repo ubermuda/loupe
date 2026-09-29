@@ -380,6 +380,10 @@ Every refusal the endpoint makes carries an error code. The 400 and the 415 come
 from the framework before the endpoint runs, and carry none. The bridge reads a
 404 with no error code as a server that has no pin endpoint.
 
+The bridge waits 10 seconds for the answer. On any failure, such as a timeout, a
+network error or a status other than 200, it runs the candidate. It then logs
+`experiment_pin_failed`, and the server stores no pin for that run.
+
 ## Timed out and lost
 
 A run stays open until its bridge reports how it ended. A bridge that dies
