@@ -172,6 +172,21 @@ final class BacklogCardMovesTest extends KernelTestCase
         self::assertSame([], $this->titlesIn('in-progress'));
     }
 
+    public function test_a_bulk_move_keeps_the_order_another_request_ranked_before_the_lock(): void
+    {
+        $first = $this->card('First');
+        $second = $this->card('Second');
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_cards SET position = ? WHERE id = ?',
+            [$first->position + $second->position + 1, (string) $first->id],
+        );
+
+        $moved = $this->bulkMove([(string) $first->id, (string) $second->id], 'next');
+
+        self::assertSame(['Second', 'First'], array_map(static fn (Card $card): string => $card->title, $moved));
+        self::assertSame(['Second', 'First'], $this->titlesIn('next'));
+    }
+
     public function test_a_bulk_move_refuses_more_than_one_page_of_cards(): void
     {
         $ids = [];

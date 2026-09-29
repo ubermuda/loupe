@@ -343,6 +343,19 @@ class CardRepository extends ServiceEntityRepository
             : $this->getEntityManager()->find(Card::class, Uuid::fromString((string) $row['parent_card_id']));
     }
 
+    /** Reads onto the card its rank, for the reason in refreshColumn(). A card the database no longer holds is left alone. */
+    public function refreshPosition(Card $card): void
+    {
+        $position = $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT position FROM board_cards WHERE id = :id',
+            ['id' => (string) $card->id],
+        );
+
+        if (false !== $position) {
+            $card->position = (int) $position;
+        }
+    }
+
     /** The type the database holds for the card now, or null when the row is gone. */
     public function freshType(Card $card): ?CardType
     {

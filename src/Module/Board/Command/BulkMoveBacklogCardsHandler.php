@@ -68,19 +68,19 @@ final readonly class BulkMoveBacklogCardsHandler
             throw new DomainErrors(['ids' => RankBacklogCardHandler::NOT_IN_BACKLOG]);
         }
 
-        // Backlog order, so the cards keep their rank among themselves at the end of the target.
-        usort($cards, static fn (Card $left, Card $right): int => [$left->position, $left->createdAt] <=> [$right->position, $right->createdAt]);
-
-        $this->em->wrapInTransaction(function () use ($cards, $command): void {
+        return $this->em->wrapInTransaction(function () use ($cards, $command): array {
             // One lock for the batch, so no other request changes a card between the checks and the moves.
             $this->em->lock($command->backlog->project, LockMode::PESSIMISTIC_WRITE);
-            $moveOrder = $command->column->terminal ? $this->childrenFirst($cards) : $cards;
-            foreach ($moveOrder as $card) {
+            foreach ($cards as $card) {
                 $this->cards->refreshColumn($card);
                 if ($card->column !== $command->backlog) {
                     throw new DomainErrors(['column' => UpdateCardHandler::COLUMN_CHANGED]);
                 }
+                $this->cards->refreshPosition($card);
             }
+            // Backlog order as the lock sees it, so the cards keep their rank among themselves at the end of the target.
+            usort($cards, static fn (Card $left, Card $right): int => [$left->position, $left->createdAt] <=> [$right->position, $right->createdAt]);
+            $moveOrder = $command->column->terminal ? $this->childrenFirst($cards) : $cards;
             foreach ($moveOrder as $card) {
                 // The last open child of an epic closes the epic as it moves.
                 if ($card->column === $command->column) {
@@ -95,9 +95,9 @@ final readonly class BulkMoveBacklogCardsHandler
                     expectedColumn: $card->column,
                 ));
             }
-        });
 
-        return $cards;
+            return $cards;
+        });
     }
 
     /**
