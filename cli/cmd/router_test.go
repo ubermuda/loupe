@@ -873,7 +873,7 @@ func TestTwoCardsRunConcurrently(t *testing.T) {
 	}
 }
 
-// TestTheBoundLimitsConcurrentWorkers is the whole point of --max-workers. peak
+// TestTheBoundLimitsConcurrentWorkers checks the maxWorkers budget. peak
 // is monotonic, so the check after wg.Wait reads the highest concurrency the
 // run ever reached.
 func TestTheBoundLimitsConcurrentWorkers(t *testing.T) {
