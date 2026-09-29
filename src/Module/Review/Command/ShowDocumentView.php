@@ -19,6 +19,7 @@ final readonly class ShowDocumentView
      * @param list<Comment>                                                                        $comments
      * @param list<array{versionNumber: int, createdAt: \DateTimeImmutable, description: ?string}> $versions
      * @param list<DocumentHeading>                                                                $headings
+     * @param array<string, array{text: string, source: string|null, href: string}>                $referenceDefinitions
      */
     public function __construct(
         public Document $document,
@@ -30,6 +31,7 @@ final readonly class ShowDocumentView
         public CommentSignals $signals,
         public DecisionSummary $decisions,
         public string $decisionMarkedHtml,
+        public array $referenceDefinitions,
         /** The version this reader last engaged with, or null when there is no signal. */
         public ?int $lastSeenVersionNumber,
         /** Which sections of this version the reader has approved. */

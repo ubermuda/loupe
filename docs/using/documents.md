@@ -363,6 +363,33 @@ Blockquotes and list items are Markdown rather than raw HTML, so a comment
 inside one renders as a note. The comments stay invisible in every other
 Markdown renderer.
 
+## Reference tooltips
+
+A document can give a short ID to an item, such as a requirement or a risk, and
+use that ID later in the text. Define the ID in a list item that starts with
+bold text, and put the ID first in the bold text:
+
+```markdown
+1. **R1: Keep the cache warm.** The board reads it first.
+2. **R2: Log each miss.** A miss costs one extra query.
+```
+
+An ID is one to three capital letters followed by one to three digits. After
+the ID, write a colon or a period, or a space and a hyphen or an em dash.
+
+The review page then underlines each later mention of R1 with a dotted line.
+Hover or focus the mention to see the first sentence of its definition. Click
+it, or use the link in the tooltip, to go to the list item. On a touch screen,
+the first tap shows the tooltip.
+
+The documents that a document references count too. When a mention has no
+definition in its own document, Loupe looks in each referenced document that
+you can read. The tooltip then names that document, and the link opens it at
+the entry. A definition in the document itself always wins.
+
+The marks show in the reading view of every version. A comparison of two
+versions does not show them. An ID that nothing defines stays plain text.
+
 ## Series
 
 Tags say that documents belong together. A **series** also says in what order

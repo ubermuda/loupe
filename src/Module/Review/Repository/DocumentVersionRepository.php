@@ -154,6 +154,35 @@ class DocumentVersionRepository extends ServiceEntityRepository
     }
 
     /**
+     * The latest version of each document, in one query.
+     *
+     * @param list<Document> $documents
+     *
+     * @return array<string, DocumentVersion> keyed by document id
+     */
+    public function findLatestByDocuments(array $documents): array
+    {
+        if ([] === $documents) {
+            return [];
+        }
+
+        /** @var list<DocumentVersion> $versions */
+        $versions = $this->createQueryBuilder('v')
+            ->where('v.document IN (:documents)')
+            ->andWhere('v.versionNumber = (SELECT MAX(v2.versionNumber) FROM App\Module\Review\Entity\DocumentVersion v2 WHERE v2.document = v.document)')
+            ->setParameter('documents', $documents)
+            ->getQuery()
+            ->getResult();
+
+        $latest = [];
+        foreach ($versions as $version) {
+            $latest[(string) $version->document->id] = $version;
+        }
+
+        return $latest;
+    }
+
+    /**
      * A non-initializing proxy reference — used to pass a version identity to
      * another repository's query (e.g. a comment count) without an extra
      * SELECT for fields that query doesn't need.

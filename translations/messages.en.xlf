@@ -1639,6 +1639,14 @@
                 <source>review.document.mermaid.hide_source</source>
                 <target>Hide source</target>
             </trans-unit>
+            <trans-unit id="review.document.reference.from">
+                <source>review.document.reference.from</source>
+                <target>From %title%</target>
+            </trans-unit>
+            <trans-unit id="review.document.reference.go_to_entry">
+                <source>review.document.reference.go_to_entry</source>
+                <target>Go to entry</target>
+            </trans-unit>
             <trans-unit id="review.document.references.archived">
                 <source>review.document.references.archived</source>
                 <target>Archived</target>

@@ -79,11 +79,13 @@
            is the TreeWalker root and must hold ONLY the rendered HTML, so its
            text === plainText(). #}
         {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'pointerup->comment-anchor#onDocPointerup', 'mousemove->comment-anchor#onDocMousemove', 'click->comment-anchor#onDocClick'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
-        {# The diff passes no `decisionMarkedHtml`, so diffMode must be tested first. #}
+        {# The diff passes no `decisionMarkedHtml` and no `referenceDefinitions`, so diffMode must be tested first. #}
         {% set hasMermaid = not diffMode and 'language-mermaid' in decisionMarkedHtml %}
-        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="decision{{ hasMermaid ? ' mermaid' : '' }}" data-decision-save-label-value="{{ 'review.decision.save'|trans }}"
-            {%- if hasMermaid %} data-mermaid-enabled-value="{{ is_feature_enabled('review.mermaid.enabled') ? 'true' : 'false' }}" data-mermaid-module-url-value="{{ mermaid_module_url }}"{% endif %}
-            {%- if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
+        {% set tooltipDefinitions = diffMode ? {} : referenceDefinitions %}
+        {% set docControllers = ['decision']|merge(tooltipDefinitions is not empty ? ['reference-tooltip'] : [])|merge(hasMermaid ? ['mermaid'] : []) %}
+        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="{{ docControllers|join(' ') }}" data-decision-save-label-value="{{ 'review.decision.save'|trans }}"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}
+            {%- if tooltipDefinitions is not empty %} data-reference-tooltip-definitions-value="{{ tooltipDefinitions|json_encode|e('html_attr') }}" data-reference-tooltip-from-value="{{ 'review.document.reference.from'|trans }}"{% endif %}
+            {%- if hasMermaid %} data-mermaid-enabled-value="{{ is_feature_enabled('review.mermaid.enabled') ? 'true' : 'false' }}" data-mermaid-module-url-value="{{ mermaid_module_url }}"{% endif %}>
 
             {# One that accepts no comments has no comment list, so its margin
                offers what remains. Decisions stays in every margin, disabled
@@ -377,6 +379,13 @@
                why the diff overrides this block instead of being a page of its own. #}
             {% block documentPane %}
             <div class="prose lp-prose lp-review-doc__prose" data-rail-align data-comment-anchor-target="doc"{% if hasMermaid %} data-mermaid-target="doc"{% endif %} tabindex="-1">{{ documentPaneHtml|raw }}</div>
+            {% if tooltipDefinitions is not empty %}
+            <div class="lp-reference-tooltip" id="reference-tooltip" role="tooltip" data-reference-tooltip-target="popover" hidden>
+                <p class="lp-reference-tooltip__text" data-reference-tooltip-target="text"></p>
+                <p class="lp-reference-tooltip__source" data-reference-tooltip-target="source" hidden></p>
+                <a class="lp-reference-tooltip__link" href="#" data-reference-tooltip-target="link">{{ 'review.document.reference.go_to_entry'|trans }}</a>
+            </div>
+            {% endif %}
             {% endblock %}
 
             {# Outside the prose for the same reason as below. The controller clones
