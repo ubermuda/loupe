@@ -24,7 +24,7 @@ at=$(jq -r --arg who "${APPROVER:-}" --arg asof "${AS_OF:-9999}" '[.[]|select(.a
 
 # The reviewer saw the branch as the last push before the approval left it. Commit dates can be older than the push.
 pushes=$(gh api --paginate "repos/$repo/activity?ref=refs/heads/$branch&per_page=100" 2>/dev/null | jq -sc 'add // []') || { echo "UNREAD: push list failed"; exit 2; }
-seen=$(jq -r --arg at "$at" '[.[]|select(.timestamp <= $at)]|max_by(.timestamp)|.after // ""' <<<"$pushes")
+seen=$(jq -r --arg at "$at" '[.[]|select(.timestamp < $at)]|max_by(.timestamp)|.after // ""' <<<"$pushes")
 [ -n "$seen" ] || { echo "HOLD no push of $branch before the approval"; exit 1; }
 
 git fetch -q origin "$base" "refs/pull/$pr/head" 2>/dev/null || { echo "UNREAD: git fetch failed"; exit 2; }
