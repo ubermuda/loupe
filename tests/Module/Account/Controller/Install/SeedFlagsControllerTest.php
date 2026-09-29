@@ -14,6 +14,7 @@ use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Bridge\Service\HeartbeatInterval;
 use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
 use App\Module\Inbox\Install\InboxInstallFlags;
+use App\Module\Review\Install\ReviewInstallFlags;
 use App\Module\Review\Mcp\DocumentHighlightTool;
 use App\Module\SiteReview\SiteReviewDrawing;
 use App\Search\Install\SearchInstallFlags;
@@ -65,7 +66,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         // prefilled default, and that default has to be "on" or a freshly
         // installed instance cannot register anybody.
         self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
-        self::assertCount(20, $flags);
+        self::assertCount(21, $flags);
         // Seeded on: the environment prerequisite holds it off until a hub is configured.
         self::assertTrue($flags[LiveUpdates::FLAG]->value);
         // Seeded on: drawing is additive, and a flag that installs off would
@@ -78,6 +79,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         // outbound request, so an install must not start making it unasked.
         self::assertFalse($flags[UpdateCheck::FLAG]->value);
         self::assertFalse($flags[DocumentHighlightTool::FLAG]->value);
+        self::assertFalse($flags[ReviewInstallFlags::FLAG_MERMAID]->value);
         // Seeded on: site review writes each note to a card on the board.
         self::assertTrue($flags[BoardInstallFlags::FLAG_BOARD_ENABLED]->value);
         self::assertFalse($flags[InboxInstallFlags::FLAG_INBOX_ENABLED]->value);
