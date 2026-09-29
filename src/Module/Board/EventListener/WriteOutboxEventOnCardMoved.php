@@ -7,6 +7,7 @@ namespace App\Module\Board\EventListener;
 use App\Module\Board\BoardEventType;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Event\CardMoved;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Outbox\OutboxWriter;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -26,6 +27,7 @@ final readonly class WriteOutboxEventOnCardMoved
     public function __construct(
         private OutboxWriter $outbox,
         private InteractiveRuns $interactiveRuns,
+        private CardHolds $cardHolds,
     ) {
     }
 
@@ -46,7 +48,7 @@ final readonly class WriteOutboxEventOnCardMoved
             'fromStatus' => $event->move->fromColumn->slug,
             'toStatus' => $card->column->slug,
             'actor' => $event->actor->value,
-            'card' => ['interactiveRun' => $this->hasOpenRun($card)],
+            'card' => ['interactiveRun' => $this->hasOpenRun($card), 'held' => $this->isHeld($card)],
         ]);
     }
 
@@ -54,6 +56,15 @@ final readonly class WriteOutboxEventOnCardMoved
     {
         try {
             return $this->interactiveRuns->hasOpenRun($card->project, $card->id ?? throw new \LogicException('A moved card has an id.'));
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function isHeld(Card $card): bool
+    {
+        try {
+            return $this->cardHolds->isHeld($card->project, $card->id ?? throw new \LogicException('A moved card has an id.'));
         } catch (\Throwable) {
             return false;
         }

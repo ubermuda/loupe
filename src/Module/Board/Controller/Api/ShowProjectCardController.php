@@ -13,9 +13,9 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * The column a card is in now. The bridge reads it before it resumes a run,
- * and skips the resume when the card left that column. The firewall admits
- * agent-scoped tokens alone.
+ * The column a card is in now, and whether a person stopped the work on it.
+ * The bridge reads it before it resumes a run, and skips the resume when the
+ * card left that column. The firewall admits agent-scoped tokens alone.
  */
 #[Route(
     '/api/projects/{handle}/board/cards/{cardId}',
@@ -55,6 +55,7 @@ final class ShowProjectCardController extends AppController
             'cardId' => (string) $view->card->id,
             'number' => $view->card->number,
             'column' => $view->card->column->slug,
+            'held' => $view->held,
         ]);
     }
 }

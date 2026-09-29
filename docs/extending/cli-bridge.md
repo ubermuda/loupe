@@ -550,8 +550,8 @@ The hub URL and the JWT have the same size however many projects a user owns.
 publishes on the same topic, so a subscriber receives its events with no new
 call. Each event names its project in `projectId`.
 
-`board.card_moved` and `document.review_submitted` carry a `card` key,
-`{"interactiveRun": true}` or `{"interactiveRun": false}`. The value is `true`
+`board.card_moved` and `document.review_submitted` carry a `card` key, such as
+`{"interactiveRun": false, "held": false}`. `interactiveRun` is `true`
 when an interactive session has an open run on the card as Loupe writes the
 event. `card_run_open` opens such a run, and the
 [Runs tab](../using/worker-runs.md#interactive-sessions) of the Activity page
@@ -559,6 +559,14 @@ says what closes it. A move to another column closes every open run of the
 card first. So a `board.card_moved` event carries `true` only for the move that
 `card_run_open` makes, or for a move inside one column.
 `document.review_submitted` omits the key when it names no stage card.
+
+`held` is `true` when a person stopped the work on the card. A bridge must then
+start no worker on the card. A move of the card to another column by a person
+releases the hold before Loupe writes the event, so that event carries `false`.
+A move inside one column, and a move by an agent or by Loupe, keeps the hold.
+A delete of the card releases the hold, and so does a person's delete of its
+column.
+An older bridge ignores the key.
 
 A rule on either event can set `card: { interactiveRun: false }`, and then it
 skips a card that a person works on. The bridge reads an absent key as `false`,
@@ -782,7 +790,7 @@ fix round on that card. The bridge parses this type only when a rule names it.
   "cardId": "0192f3a1-7777-7d3e-8f10-a2b3c4d5e6f7",
   "cardNumber": 33,
   "column": "tech-design",
-  "card": { "interactiveRun": false }
+  "card": { "interactiveRun": false, "held": false }
 }
 ```
 
@@ -795,6 +803,7 @@ fix round on that card. The bridge parses this type only when a rule names it.
 | `cardId`, `cardNumber` | the stage card, or `null` |
 | `column` | the column slug of the stage card when the person gave the verdict, or `null` |
 | `card.interactiveRun` | `true` when an interactive session has an open run on the stage card. The key is absent with no stage card |
+| `card.held` | `true` when a person stopped the work on the stage card. The key is absent with no stage card |
 
 The document's tags name its stage. The tag `product` names the stage that
 starts in `product-design`. The tags `design` and `decisions` name the stage
@@ -1008,13 +1017,13 @@ typed comes back as typed. `project.slug` is the project's slug.
 ## Card endpoint
 
 `GET /api/projects/{handle}/board/cards/{cardId}` returns the column a card is
-in now. The bridge calls it before it resumes a run that did not finish, and it
-skips the resume when the card left the column that started the run. The
-handle follows the same rules as the columns endpoint, and `cardId` is the
-card's uuid.
+in now, and whether a person stopped the work on it. The bridge calls it before
+it resumes a run that did not finish, and it skips the resume when the card left
+the column that started the run. The handle follows the same rules as the
+columns endpoint, and `cardId` is the card's uuid.
 
 ```json
-{ "cardId": "01a0a1b2-0000-7c3d-8e4f-5a6b7c8d9e0f", "number": 42, "column": "implementation" }
+{ "cardId": "01a0a1b2-0000-7c3d-8e4f-5a6b7c8d9e0f", "number": 42, "column": "implementation", "held": false }
 ```
 
 | Field | Meaning |
@@ -1022,6 +1031,7 @@ card's uuid.
 | `cardId` | the card the path names |
 | `number` | the short number the card shows |
 | `column` | the slug of the card's column |
+| `held` | `true` when a person stopped the work on the card. A move of the card to another column by a person releases the hold. An older bridge ignores the key |
 
 | Status | Body | When |
 |---|---|---|
