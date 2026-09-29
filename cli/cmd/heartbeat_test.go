@@ -46,6 +46,33 @@ func (f *fakeTimers) last() (time.Duration, chan time.Time) {
 	return f.delays[len(f.delays)-1], f.chans[len(f.chans)-1]
 }
 
+// at returns the channel of the timer armed i-th.
+func (f *fakeTimers) at(i int) chan time.Time {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.chans[i]
+}
+
+// fakeClock stands in for time.Now, and moves only when the test says so.
+type fakeClock struct {
+	mu sync.Mutex
+	t  time.Time
+}
+
+func (c *fakeClock) now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.t
+}
+
+func (c *fakeClock) advance(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.t = c.t.Add(d)
+}
+
 // fakeHeartbeats records each heartbeat and answers with the next error of its
 // list, then nil once the list runs out.
 type fakeHeartbeats struct {
@@ -85,6 +112,15 @@ type countingQueue struct {
 
 	mu sync.Mutex
 	n  int
+	// calls counts the heartbeats handed to the queue, sent or not.
+	calls int
+}
+
+func (c *countingQueue) handed() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.calls
 }
 
 func (c *countingQueue) Enqueue(report outbound.Report) {
@@ -100,6 +136,9 @@ func (c *countingQueue) Close() {
 }
 
 func (c *countingQueue) SendLatest(key string, send func(context.Context) error, done func(error)) {
+	c.mu.Lock()
+	c.calls++
+	c.mu.Unlock()
 	c.inner.SendLatest(key, send, func(err error) {
 		done(err)
 		c.mu.Lock()
@@ -315,6 +354,119 @@ func TestHookRowsGoOutAtOnceAndOutliveANewBody(t *testing.T) {
 func TestANilHeartbeaterTakesHookRows(t *testing.T) {
 	var h *heartbeater
 	h.setHooks([]api.HookReport{})
+}
+
+func TestANilHeartbeaterTakesPoolRows(t *testing.T) {
+	var h *heartbeater
+	h.setPools([]api.WorkerPoolReport{})
+}
+
+var (
+	poolsA = []api.WorkerPoolReport{{Name: "default", Size: 3, InUse: 1}}
+	poolsB = []api.WorkerPoolReport{{Name: "default", Size: 3, InUse: 2}}
+	poolsC = []api.WorkerPoolReport{{Name: "default", Size: 3, InUse: 3}}
+	poolsD = []api.WorkerPoolReport{{Name: "default", Size: 3, InUse: 3, Queued: 1}}
+)
+
+// startPoolHeartbeater starts a heartbeater that holds poolsA before its
+// first send, on a clock that moves only when the test moves it.
+func startPoolHeartbeater(t *testing.T) (*heartbeatHarness, *fakeClock) {
+	t.Helper()
+	clock := &fakeClock{t: time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)}
+	hh := startHeartbeater(t, &fakeHeartbeats{}, time.Minute, func(h *heartbeater) {
+		h.now = clock.now
+		h.setPools(poolsA)
+	})
+
+	return hh, clock
+}
+
+// sentPools returns the pool rows of each heartbeat the server got.
+func (hh *heartbeatHarness) sentPools() [][]api.WorkerPoolReport {
+	hh.client.mu.Lock()
+	defer hh.client.mu.Unlock()
+	out := make([][]api.WorkerPoolReport, len(hh.client.sent))
+	for i, hb := range hh.client.sent {
+		out[i] = hb.WorkerPools
+	}
+
+	return out
+}
+
+// drained waits until the loop has taken the pool change signal.
+func (hh *heartbeatHarness) drained(t *testing.T) {
+	t.Helper()
+	eventually(t, "the loop to take the pool change", func() bool { return len(hh.h.poolsChanged) == 0 })
+}
+
+func TestPoolRowsRideEachIntervalHeartbeat(t *testing.T) {
+	hh, _ := startPoolHeartbeater(t)
+
+	hh.tick(t, time.Minute)
+	hh.tick(t, time.Minute)
+
+	sent := hh.sentPools()
+	if len(sent) != 3 {
+		t.Fatalf("%d heartbeats, want 3", len(sent))
+	}
+	for i, rows := range sent {
+		if !slices.Equal(rows, poolsA) {
+			t.Fatalf("heartbeat %d pools = %+v", i, rows)
+		}
+	}
+}
+
+// A change after the window of the last send goes out at once, with no timer.
+func TestAPoolChangeGoesOutAtOnce(t *testing.T) {
+	hh, clock := startPoolHeartbeater(t)
+
+	clock.advance(11 * time.Second)
+	hh.h.setPools(poolsB)
+	eventually(t, "the heartbeat of the change", func() bool { return hh.queue.recorded() == 2 })
+
+	if hh.timers.count() != 1 {
+		t.Fatalf("%d timers, want only the interval one", hh.timers.count())
+	}
+	if sent := hh.sentPools(); !slices.Equal(sent[1], poolsB) {
+		t.Fatalf("pools = %+v", sent[1])
+	}
+}
+
+// A change inside the window of the last send waits for the window to end.
+// Later changes join it, and one heartbeat carries the latest rows. Rows equal
+// to the last sent ones send nothing, and the next interval carries them.
+func TestPoolChangesInsideTheWindowGoOutOnceAtItsEnd(t *testing.T) {
+	hh, clock := startPoolHeartbeater(t)
+
+	clock.advance(4 * time.Second)
+	hh.h.setPools(poolsB)
+	eventually(t, "a timer for the end of the window", func() bool { return hh.timers.count() == 2 })
+	delay, window := hh.timers.last()
+	if delay != 6*time.Second {
+		t.Fatalf("window delay = %s, want 6s", delay)
+	}
+	hh.h.setPools(poolsC)
+	hh.drained(t)
+	hh.h.setPools(poolsD)
+	hh.drained(t)
+	if hh.queue.handed() != 1 || hh.timers.count() != 2 {
+		t.Fatalf("%d heartbeats and %d timers inside the window, want 1 and 2", hh.queue.handed(), hh.timers.count())
+	}
+
+	clock.advance(6 * time.Second)
+	window <- time.Now()
+	eventually(t, "the heartbeat at the end of the window", func() bool { return hh.queue.recorded() == 2 })
+	hh.h.setPools(slices.Clone(poolsD))
+	if hh.queue.handed() != 2 {
+		t.Fatalf("%d heartbeats, want no send for equal rows", hh.queue.handed())
+	}
+
+	hh.timers.at(0) <- time.Now()
+	eventually(t, "the interval heartbeat", func() bool { return hh.queue.recorded() == 3 })
+	sent := hh.sentPools()
+	if len(sent) != 3 || !slices.Equal(sent[1], poolsD) || !slices.Equal(sent[2], poolsD) {
+		t.Fatalf("pools = %+v", sent)
+	}
 }
 
 // A refresh that carries a new interval reaches the running heartbeat, and a

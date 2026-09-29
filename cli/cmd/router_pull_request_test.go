@@ -216,7 +216,7 @@ func TestAnAdoptedFixRequestResumeFallsBackToAFreshRun(t *testing.T) {
 	h1 := newHarnessWith(t, fixRules, rules.Defaults{})
 	h1.router.mu.Lock()
 	h1.router.hold(p.key)
-	h1.router.active++
+	h1.router.takeLocked(rules.DefaultPool)
 	h1.router.trackLocked(liveRun{p: p, began: time.Now(), proc: workerProc{dir: dir}})
 	h1.router.mu.Unlock()
 	st := roundTrip(t, h1.router.freeze())

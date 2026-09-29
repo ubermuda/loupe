@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -22,6 +23,10 @@ const minHeartbeatSeconds = 10
 // heartbeatLane is the latest-wins lane of the outbound queue that carries the
 // heartbeat.
 const heartbeatLane = "heartbeat"
+
+// poolsWindow is the shortest time between a heartbeat and one that a pool
+// change sends.
+const poolsWindow = 10 * time.Second
 
 // heartbeatSender sends one heartbeat. *api.Client is one.
 type heartbeatSender interface {
@@ -53,11 +58,20 @@ type heartbeater struct {
 	body api.Heartbeat
 	// hooks lives apart from body, because a reload replaces body. Nil sends
 	// no hooks key, which keeps the rows the server holds.
-	hooks    []api.HookReport
-	interval time.Duration
+	hooks []api.HookReport
+	// pools lives apart from body too. poolsSent and sentAt are the rows and
+	// the time of the last send.
+	pools     []api.WorkerPoolReport
+	poolsSent []api.WorkerPoolReport
+	sentAt    time.Time
+	interval  time.Duration
 	// reset wakes the loop to arm its timer with a new interval.
 	reset chan struct{}
-	done  chan struct{}
+	// poolsChanged wakes the loop to send changed pool rows.
+	poolsChanged chan struct{}
+	done         chan struct{}
+	// now is time.Now, and a field so a test controls the pool window.
+	now func() time.Time
 
 	// The queue calls record from the one goroutine of the lane, and nothing
 	// else reads or writes these.
@@ -78,6 +92,9 @@ func newHeartbeater(ctx context.Context, queue outbound.Queue, client heartbeatS
 		interval: interval,
 		reset:    make(chan struct{}, 1),
 		done:     make(chan struct{}),
+
+		poolsChanged: make(chan struct{}, 1),
+		now:          time.Now,
 	}
 }
 
@@ -143,6 +160,45 @@ func (h *heartbeater) setHooks(rows []api.HookReport) {
 	h.send()
 }
 
+// setPools applies the rows of the worker pools. The loop sends a change, at
+// most once per poolsWindow. It never blocks, so the router calls it under its
+// lock. A nil heartbeater drops the rows.
+func (h *heartbeater) setPools(rows []api.WorkerPoolReport) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	same := slices.Equal(rows, h.pools)
+	h.pools = rows
+	h.mu.Unlock()
+	if same {
+		return
+	}
+
+	select {
+	case h.poolsChanged <- struct{}{}:
+	default:
+	}
+}
+
+// sendPools sends the pool rows when they differ from the last sent ones.
+// Inside the window of the last send, it returns a timer for the window end.
+func (h *heartbeater) sendPools() <-chan time.Time {
+	h.mu.Lock()
+	changed := !slices.Equal(h.pools, h.poolsSent)
+	wait := poolsWindow - h.now().Sub(h.sentAt)
+	h.mu.Unlock()
+	if !changed {
+		return nil
+	}
+	if wait > 0 {
+		return h.after(wait)
+	}
+	h.send()
+
+	return nil
+}
+
 func (h *heartbeater) currentInterval() time.Duration {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -154,14 +210,24 @@ func (h *heartbeater) loop() {
 	defer close(h.done)
 
 	h.send()
+	tick := h.after(h.currentInterval())
+	// window fires at the end of the window a pool change waits for.
+	var window <-chan time.Time
 	for {
 		select {
 		case <-h.ctx.Done():
 			return
 		case <-h.reset:
-			continue
-		case <-h.after(h.currentInterval()):
+			tick = h.after(h.currentInterval())
+		case <-tick:
 			h.send()
+			tick = h.after(h.currentInterval())
+		case <-h.poolsChanged:
+			if window == nil {
+				window = h.sendPools()
+			}
+		case <-window:
+			window = h.sendPools()
 		}
 	}
 }
@@ -171,6 +237,8 @@ func (h *heartbeater) send() {
 	h.mu.Lock()
 	body := h.body
 	body.Hooks = h.hooks
+	body.WorkerPools = h.pools
+	h.poolsSent, h.sentAt = h.pools, h.now()
 	h.mu.Unlock()
 	if h.update != nil {
 		if u := h.update(); u.State != "" {
