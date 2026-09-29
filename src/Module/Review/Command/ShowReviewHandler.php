@@ -8,6 +8,7 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
+use App\Module\Review\Repository\DecisionAnswerRepository;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
@@ -25,7 +26,7 @@ use App\Module\Review\ValueObject\DocumentHeading;
  *     note: string|null,
  *     version: int,
  *     comments: list<array{id: string, quote: string, body: string, replacement: string|null, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>,
- *     decisions: list<array{id: string, type: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null, selections: list<array{option: string, index: int|null, answered_at: string, answered_at_version: int}>}>,
+ *     decisions: list<array{id: string, type: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null, note: string|null, updated_at: string|null, selections: list<array{option: string, index: int|null, answered_at: string, answered_at_version: int}>}>,
  *     sections: list<array{heading_id: string, level: int, title: string, standing_approval_count: int}>
  * }
  */
@@ -36,6 +37,7 @@ final readonly class ShowReviewHandler
         private CommentRepository $comments,
         private ReviewRepository $reviews,
         private DecisionSelectionRepository $decisionSelections,
+        private DecisionAnswerRepository $decisionAnswers,
         private DecisionBlockService $decisionBlocks,
         private HeadingExtractor $headings,
         private SectionApprovalReader $sectionApprovals,
@@ -78,6 +80,9 @@ final readonly class ShowReviewHandler
      * both kinds, so one reader serves both. A multi-choice block reports null
      * in `selected`, `selected_index`, `answered_at` and `answered_at_version`,
      * because a block with several answers has no one answer to name there.
+     *
+     * `note` is the reviewer's note on the decision, and `updated_at` is when its
+     * answer was last saved. Both are null while the decision has no answer row.
      *
      * `sections` lists every section of the current version. `standing_approval_count`
      * counts EVERY reviewer whose approval still matches the section's text, not the
@@ -143,6 +148,7 @@ final readonly class ShowReviewHandler
         }
 
         $selections = $this->decisionSelections->findByDocumentGroupedByDecisionId($document);
+        $answers = $this->decisionAnswers->findByDocumentIndexedByDecisionId($document);
         $decisions = [];
         foreach ($this->decisionBlocks->extract($currentVersion->renderedHtml) as $decision) {
             $stored = $selections[$decision->id] ?? [];
@@ -179,6 +185,8 @@ final readonly class ShowReviewHandler
                 'selected_index' => null === $single ? null : $resolved[0],
                 'answered_at' => $single?->selectedAt->format(\DateTimeInterface::ATOM),
                 'answered_at_version' => $single?->versionNumber,
+                'note' => ($answers[$decision->id] ?? null)?->note,
+                'updated_at' => ($answers[$decision->id] ?? null)?->updatedAt->format(\DateTimeInterface::ATOM),
                 'selections' => $chosen,
             ];
         }

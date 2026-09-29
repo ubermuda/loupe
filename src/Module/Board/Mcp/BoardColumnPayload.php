@@ -10,7 +10,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /**
  * The one shape every board tool returns a board's columns in.
  *
- * @phpstan-type BoardColumnSummary array{slug: string, label: string, terminal: bool, default: bool}
+ * @phpstan-type BoardColumnSummary array{slug: string, label: string, terminal: bool, default: bool, backlog: bool}
  */
 final readonly class BoardColumnPayload
 {
@@ -32,7 +32,8 @@ final readonly class BoardColumnPayload
                 // A seeded label is a translation key, and a renamed one is text that no key matches.
                 'label' => $this->translator->trans($column->label),
                 'terminal' => $column->terminal,
-                'default' => $column->isDefault,
+                'default' => $column->backlog,
+                'backlog' => $column->backlog,
             ],
             $columns,
         );

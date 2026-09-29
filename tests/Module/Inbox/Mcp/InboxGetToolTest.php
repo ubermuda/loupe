@@ -149,7 +149,46 @@ final class InboxGetToolTest extends KernelTestCase
         self::assertNull($item['closeNote']);
         self::assertSame([['cardId' => (string) $card->id, 'number' => 7, 'title' => 'Ship it']], $item['cards']);
         self::assertSame([['documentId' => (string) $document->id, 'title' => 'The design']], $item['documents']);
-        self::assertSame([['askId' => $asked['askId'], 'sessionId' => $sessionId, 'closedAt' => null]], $item['asks']);
+        self::assertSame('agent', $item['origin']);
+        self::assertNull($item['cardId']);
+        self::assertSame([], $item['waits']);
+        self::assertSame([['askId' => $asked['askId'], 'origin' => 'agent', 'sessionId' => $sessionId, 'closedAt' => null]], $item['asks']);
+    }
+
+    public function test_a_wait_item_reads_back_with_its_card_its_waits_and_the_loupe_ask(): void
+    {
+        $this->enableInbox();
+        $project = $this->makeProject('inbox-get-wait');
+        $card = $this->card($this->em, $project, 9);
+        $this->em->flush();
+        $document = $this->documentInReview($project, $card);
+        $this->reconcileWaits($project, $card);
+        $document->addVersion('# Two', '<h1>Two</h1>');
+        $this->em->flush();
+        $watch = $this->reconcileWaits($project, $card);
+        $this->em->clear();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $item = ($this->tool)((string) $watch->item->id);
+
+        self::assertSame('wait', $item['kind']);
+        self::assertSame('loupe', $item['origin']);
+        self::assertSame((string) $card->id, $item['cardId']);
+        self::assertCount(2, $item['waits']);
+        [$ended, $current] = $item['waits'];
+        self::assertSame('document-in-review', $ended['trigger']);
+        self::assertSame((string) $document->id, $ended['documentId']);
+        self::assertSame(1, $ended['versionNumber']);
+        self::assertNull($ended['runId']);
+        self::assertNotNull($ended['endedAt']);
+        self::assertSame('resolved', $ended['endReason']);
+        self::assertSame(2, $current['versionNumber']);
+        self::assertNull($current['endedAt']);
+        self::assertNull($current['endReason']);
+        self::assertSame('The design in review, version 2', $current['reason']);
+        self::assertCount(1, $item['asks']);
+        self::assertSame('loupe', $item['asks'][0]['origin']);
+        self::assertNull($item['asks'][0]['sessionId']);
     }
 
     public function test_an_item_in_another_project_is_not_reachable_and_the_refusal_is_audited(): void

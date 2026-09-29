@@ -108,7 +108,7 @@ final class SeedBoardColumnsOnProjectCreatingTest extends KernelTestCase
         self::assertInstanceOf(Project::class, $fresh);
 
         return array_map(
-            static fn (BoardColumn $column): array => [$column->slug, $column->label, $column->position, $column->terminal, $column->isDefault],
+            static fn (BoardColumn $column): array => [$column->slug, $column->label, $column->position, $column->terminal, $column->backlog],
             $this->columns->findForProject($fresh),
         );
     }

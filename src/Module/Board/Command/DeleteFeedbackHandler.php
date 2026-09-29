@@ -22,7 +22,7 @@ use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Deletes a pending widget note, and the card the note created when nobody
- * has worked on that card since: it still sits in the default column, holds
+ * has worked on that card since: it still sits in the Backlog, holds
  * no other note, is not an epic, has an empty body, and has no pull request,
  * no document and no link to or from another card. Returns whether the card
  * went too.
@@ -77,7 +77,7 @@ final readonly class DeleteFeedbackHandler
             $card = $link->card;
             $this->cards->refreshColumn($card);
             $this->cards->refreshTypeAndParent($card);
-            if (!$card->column->isDefault
+            if (!$card->column->backlog
                 || CardType::Epic === $card->type
                 || [] !== $this->cardSiteReviewComments->findForCard($card)
                 || $this->cards->hasWork($card, $link->createdTitle ?? $card->title, CardType::SiteReview)) {

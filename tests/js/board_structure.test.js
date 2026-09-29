@@ -57,7 +57,7 @@ function lane(laneKey, columns, cards) {
         )
         .join('');
 
-    return `<section class="lp-board-lane lp-board-lane--${epic ? 'epic' : 'other'}" ${attributes}><header class="lp-board-lane__head"><h2>${laneKey}</h2></header><div class="lp-board-lane__cells">${cells}</div></section>`;
+    return `<section class="lp-board-lane lp-board-lane--${epic ? 'epic' : 'other'}" ${attributes}><header class="lp-board-lane__head"><h2>${laneKey}</h2></header><div class="lp-board-lane__body"><div class="lp-board-lane__cells">${cells}</div></div></section>`;
 }
 
 function laneColumns(columns, lanes, cards) {

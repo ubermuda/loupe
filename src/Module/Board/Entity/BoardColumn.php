@@ -21,6 +21,7 @@ use Symfony\Component\Uid\Uuid;
 class BoardColumn
 {
     public const int MAX_LABEL_LENGTH = 100;
+    public const string BACKLOG_SLUG = 'backlog';
 
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -48,9 +49,13 @@ class BoardColumn
         #[ORM\Column]
         public bool $terminal = false,
 
-        /** The column a card created with no column lands in. */
-        #[ORM\Column]
-        public bool $isDefault = false,
+        /**
+         * The Backlog, where a card created with no column lands. The board does
+         * not draw it. The column keeps its old name, because a rename would break
+         * the previous image during a deploy.
+         */
+        #[ORM\Column(name: 'is_default')]
+        public bool $backlog = false,
 
         /** The column's label colour. The database default lets older migrations insert rows without it. */
         #[ORM\Column(length: 20, enumType: LabelTone::class, options: ['default' => 'neutral'])]

@@ -69,7 +69,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
         self::assertSame('won-t-do', $column->slug);
         self::assertSame(4, $column->position);
         self::assertFalse($column->terminal);
-        self::assertFalse($column->isDefault);
+        self::assertFalse($column->backlog);
         self::assertSame(['backlog', 'next', 'in-progress', 'done', 'won-t-do'], $this->slugs());
 
         self::assertSame(
@@ -98,9 +98,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
     public function test_a_configure_save_sets_the_colour_and_records_it(): void
     {
         $parked = $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'Parked', LabelTone::Lime));
-        $defaultId = (string) $this->column($this->project, 'backlog')->id;
-
-        $this->handler(ConfigureBoardColumnHandler::class)(new ConfigureBoardColumnCommand($parked, CardReporter::Human, 'Parked', false, false, 'Parked', $defaultId, false, LabelTone::Indigo));
+        $this->handler(ConfigureBoardColumnHandler::class)(new ConfigureBoardColumnCommand($parked, CardReporter::Human, 'Parked', false, 'Parked', false, LabelTone::Indigo));
 
         $this->em->clear();
         $stored = $this->em->find(BoardColumn::class, $parked->id);
@@ -112,9 +110,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
     public function test_a_configure_save_with_no_colour_keeps_the_stored_one(): void
     {
         $parked = $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'Parked', LabelTone::Lime));
-        $defaultId = (string) $this->column($this->project, 'backlog')->id;
-
-        $this->handler(ConfigureBoardColumnHandler::class)(new ConfigureBoardColumnCommand($parked, CardReporter::Human, 'Parked', false, false, 'Parked', $defaultId, false));
+        $this->handler(ConfigureBoardColumnHandler::class)(new ConfigureBoardColumnCommand($parked, CardReporter::Human, 'Parked', false, 'Parked', false));
 
         $this->em->clear();
         $stored = $this->em->find(BoardColumn::class, $parked->id);
@@ -191,35 +187,38 @@ final class BoardColumnHandlersTest extends KernelTestCase
         $taken = $preview(new PreviewBoardColumnRenameCommand($next, 'Backlog'));
         self::assertSame('backlog', $taken->slug);
         self::assertSame(BoardColumns::SLUG_TAKEN, $taken->refusal);
+
+        $backlog = $preview(new PreviewBoardColumnRenameCommand($this->column($this->project, 'backlog'), 'Ideas'));
+        self::assertSame(BoardColumns::BACKLOG_LOCKED, $backlog->refusal);
     }
 
-    public function test_a_reorder_writes_the_order_given(): void
+    public function test_a_reorder_writes_the_order_given_and_keeps_the_backlog_first(): void
     {
-        $expected = implode(',', array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, $this->slugs()));
-        $order = array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, ['done', 'backlog', 'in-progress', 'next']);
+        $order = $this->ids(['done', 'in-progress', 'next']);
 
-        $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $order), $expected));
+        $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, $order, $this->ids(['next', 'in-progress', 'done'])));
 
         $this->em->clear();
-        self::assertSame(['done', 'backlog', 'in-progress', 'next'], $this->slugs());
-        self::assertSame('done,backlog,in-progress,next', $this->audit->record('board.columns_reordered')->context['order']);
+        self::assertSame(['backlog', 'done', 'in-progress', 'next'], $this->slugs());
+        self::assertSame([0, 1, 2, 3], array_map(static fn (BoardColumn $column): int => $column->position, $this->board()));
+        self::assertSame('done,in-progress,next', $this->audit->record('board.columns_reordered')->context['order']);
     }
 
     public function test_a_reorder_that_misses_a_column_is_refused(): void
     {
-        $expected = implode(',', array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, $this->slugs()));
-        $order = array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, ['done', 'backlog', 'next']);
-
-        $this->assertRefused(['order' => ReorderBoardColumnsHandler::ORDER_STALE], fn () => $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $order), $expected)));
+        $this->assertRefused(['order' => ReorderBoardColumnsHandler::ORDER_STALE], fn () => $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, $this->ids(['done', 'next']), $this->ids(['next', 'in-progress', 'done']))));
         self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs());
     }
 
     public function test_a_reorder_that_names_a_column_twice_is_refused(): void
     {
-        $expected = implode(',', array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, $this->slugs()));
-        $ids = array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, ['backlog', 'next', 'next', 'done']);
+        $this->assertRefused(['order' => ReorderBoardColumnsHandler::ORDER_STALE], fn () => $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, $this->ids(['next', 'next', 'done']), $this->ids(['next', 'in-progress', 'done']))));
+    }
 
-        $this->assertRefused(['order' => ReorderBoardColumnsHandler::ORDER_STALE], fn () => $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $ids), $expected)));
+    public function test_a_reorder_that_moves_the_backlog_is_refused(): void
+    {
+        $this->assertRefused(['order' => BoardColumns::BACKLOG_LOCKED], fn () => $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, $this->ids(['next', 'backlog', 'in-progress', 'done']), $this->ids(['next', 'in-progress', 'done']))));
+        self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs());
     }
 
     public function test_a_column_turned_terminal_stamps_the_cards_it_holds(): void
@@ -244,9 +243,15 @@ final class BoardColumnHandlersTest extends KernelTestCase
         $this->assertRefused(['terminal' => BoardColumns::NO_TERMINAL], fn () => $this->configureColumn($this->project, 'done', terminal: false));
     }
 
-    public function test_the_default_column_cannot_turn_terminal(): void
+    public function test_the_backlog_cannot_be_renamed_or_turn_terminal(): void
     {
-        $this->assertRefused(['terminal' => BoardColumns::DEFAULT_TERMINAL], fn () => $this->configureColumn($this->project, 'backlog', terminal: true));
+        $this->assertRefused(['column' => BoardColumns::BACKLOG_LOCKED], fn () => $this->configureColumn($this->project, 'backlog', terminal: true));
+        $this->assertRefused(['column' => BoardColumns::BACKLOG_LOCKED], fn () => $this->configureColumn($this->project, 'backlog', label: 'Ideas'));
+
+        $this->em->clear();
+        $backlog = $this->column($this->project, 'backlog');
+        self::assertFalse($backlog->terminal);
+        self::assertSame('board.card.status.backlog', $backlog->label);
     }
 
     public function test_a_column_that_stops_being_terminal_ranks_its_cards_and_clears_their_completion(): void
@@ -269,24 +274,6 @@ final class BoardColumnHandlersTest extends KernelTestCase
         self::assertSame([0, 1], $positions);
     }
 
-    public function test_a_new_default_takes_the_flag_from_the_old_one(): void
-    {
-        $backlog = $this->column($this->project, 'backlog');
-
-        $this->configureColumn($this->project, 'next', isDefault: true);
-
-        $this->em->clear();
-        $defaults = array_values(array_filter($this->board(), static fn (BoardColumn $column): bool => $column->isDefault));
-        self::assertCount(1, $defaults);
-        self::assertSame('next', $defaults[0]->slug);
-        self::assertSame((string) $backlog->id, $this->audit->record('board.column_default_set')->context['previousColumnId']);
-    }
-
-    public function test_a_terminal_column_cannot_become_the_default(): void
-    {
-        $this->assertRefused(['terminal' => BoardColumns::DEFAULT_TERMINAL], fn () => $this->configureColumn($this->project, 'done', isDefault: true));
-    }
-
     public function test_an_empty_column_deletes_at_once_and_the_rest_close_up(): void
     {
         $deleted = $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human));
@@ -301,9 +288,9 @@ final class BoardColumnHandlersTest extends KernelTestCase
         self::assertSame(0, $this->audit->record('board.column_deleted')->context['movedCards']);
     }
 
-    public function test_the_default_column_cannot_be_deleted(): void
+    public function test_the_backlog_cannot_be_deleted(): void
     {
-        $this->assertRefused(['column' => BoardColumns::NO_SINGLE_DEFAULT], fn () => $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'backlog'), CardReporter::Human)));
+        $this->assertRefused(['column' => BoardColumns::BACKLOG_LOCKED], fn () => $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'backlog'), CardReporter::Human)));
         self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs());
     }
 
@@ -486,5 +473,11 @@ final class BoardColumnHandlersTest extends KernelTestCase
     private function slugs(): array
     {
         return array_map(static fn (BoardColumn $column): string => $column->slug, $this->board());
+    }
+
+    /** @param list<string> $slugs */
+    private function ids(array $slugs): string
+    {
+        return implode(',', array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, $slugs));
     }
 }

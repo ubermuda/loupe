@@ -141,7 +141,7 @@ final class BridgeRuleHealthBoardTest extends WebTestCase
         self::assertCount(0, $rename->filter('.lp-board__rule-warning'));
         self::assertCount(0, $delete->filter('.lp-board__rule-warning'));
 
-        self::assertCount(0, $this->columnSection($crawler, 'backlog')->filter('.lp-board__rule-warning'));
+        self::assertCount(0, $this->columnSection($crawler, 'done')->filter('.lp-board__rule-warning'));
     }
 
     /** @return array{Crawler, Crawler} the configure dialog, then the delete dialog */

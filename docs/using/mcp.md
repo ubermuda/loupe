@@ -226,7 +226,7 @@ Roughly in the order an agent uses them:
 | `feedback_mark_addressed` | Mark feedback items acted on, so the next `feedback_list` skips them (off with the board, see below) |
 | `card_create` | Put a card on the project board (off with the board, see below) |
 | `card_list` | Read a page of the board, filtered by status, type, reporter or parent, with the board's columns |
-| `board_columns` | List the board's columns, each with its slug, label, terminal flag and default flag |
+| `board_columns` | List the board's columns, each with its slug, label, terminal flag, default flag and backlog flag |
 | `card_search` | Search every card's title and body by words, finished ones included |
 | `card_get` | Read one card, with the pull requests and their stored state, what the automation did, and the feedback linked to it |
 | `card_update` | Change a card, or move it to another column |
@@ -356,7 +356,10 @@ its id silently discards the reviewer's answer.
 
 A decision reports its `type`. A single-choice block answers in `selected` and
 `selected_index`. A multi-choice block answers in `selections`, and reports null
-in `selected`. See [Documents and review](documents.md) for the syntax.
+in `selected`. Each decision also reports the reviewer's `note`, and `updated_at`
+for the time of the last save. Both are null while the decision has no answer,
+and `note` is also null when the reviewer picked an option and wrote no note.
+See [Documents and review](documents.md) for the syntax.
 
 ## What `feedback_mark_addressed` skips
 
@@ -404,8 +407,10 @@ unknown slug is refused, and the error lists the slugs the board has. A terminal
 column is where finished work goes, and a card that enters one gets a
 `completedAt`.
 
-A card created with no `status` lands in the default column. Renaming a column
-changes its slug. No tool writes a column.
+A card created with no `status` lands in Backlog, whose slug is `backlog`.
+Backlog is not drawn as a board column, and it has its own page. `board_columns`
+lists it with `default` and `backlog` both true. Renaming a column changes its
+slug. No tool writes a column.
 
 The board has no delete tool. An agent moves a card to a terminal column; only a
 person removes one. `card_update` also refuses to change `reporter`, because
@@ -468,6 +473,27 @@ closed ask of that session holds. The first read is kept.
 Loupe trusts the `readerSessionId` it receives, so pass only your own session
 id there. The `sessionId` argument of `inbox_list` is a filter and never records
 a read, so filtering by another session's id leaves its answers unread.
+
+Every item row carries `origin`. The value is `agent` for an item that an agent
+asked, or `loupe` for an [automatic item](inbox.md#automatic-items). Loupe opens
+an automatic item with the kind `wait` while a card waits for a person, and
+closes it when the card stops waiting.
+
+`inbox_get` also returns `cardId` and `waits`. For a `wait` item, `cardId` names
+the card, and `waits` lists each reason the card waited, current and ended, in
+start order. Each entry holds `trigger`, `reason`, `documentId`,
+`versionNumber`, `runId`, `startedAt`, `endedAt` and `endReason`. An id or a
+date that does not apply is null. `endedAt` and `endReason` are null for a
+current wait. `endReason` is `resolved`, `card-finished`, `card-deleted`,
+`switched-off` or `dismissed`. For any other kind,
+`cardId` is null and `waits` is empty.
+
+Each entry of `asks` in `inbox_get` carries `origin` too. The `sessionId` of a
+Loupe ask is null.
+
+`inbox_join` accepts an open `wait` item. Your ask then closes when Loupe
+closes the item. A bridge that started you then resumes you.
+`inbox_withdraw` refuses a `wait` item, because only Loupe closes it.
 
 With `readerSessionId`, each `inbox_list` row also carries the response:
 `options`, `selectedOptions`, `answerText`, `closeNote`, and `review`. Without it, a row is

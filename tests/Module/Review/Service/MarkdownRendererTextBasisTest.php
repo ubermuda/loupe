@@ -153,6 +153,21 @@ final class MarkdownRendererTextBasisTest extends TestCase
         );
     }
 
+    /** The recommendation badge draws its words with CSS, so it adds no text to either reading. */
+    public function test_a_recommendation_badge_adds_no_text_to_either_reading(): void
+    {
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render(
+            "Before.\n\n<!-- decision: pick-one -->\n\n- ( ) First `option` (recommended: high)\n- ( ) Second **option**\n\n<!-- /decision -->\n\nAfter.\n",
+        );
+        $marked = new DecisionBlockService()->withSelections($html, ['pick-one' => [0]], readOnly: false, badgeLabels: ['high' => 'Recommended, high confidence']);
+
+        self::assertStringContainsString('aria-label="Recommended, high confidence"', $marked, 'the badge must actually have been rendered');
+        $php = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        self::assertSame($php, $this->textContent($html));
+        self::assertSame($php, $this->textContent($marked));
+        self::assertStringNotContainsStringIgnoringCase('recommended', $php);
+    }
+
     /**
      * The expected string is the basis this renderer produced before the
      * front-matter table and the block annotation carried an `aria-label`. An

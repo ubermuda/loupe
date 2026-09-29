@@ -287,6 +287,20 @@ class InboxItemRepository extends ServiceEntityRepository
         return ['items' => array_values($items), 'memberships' => array_values($memberships)];
     }
 
+    /** @return list<InboxItem> */
+    public function findOldestOpen(Project $project, int $limit): array
+    {
+        return array_values($this->createQueryBuilder('i')
+            ->andWhere('i.project = :project')
+            ->andWhere('i.state = :open')
+            ->setParameter('project', $project)
+            ->setParameter('open', InboxItemState::Open)
+            ->orderBy('i.number', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult());
+    }
+
     /**
      * Open items that no open ask holds, such as a to-do left open in an ask
      * that already closed.

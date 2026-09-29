@@ -49,10 +49,10 @@ final class BoardColumnsToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($this->makeProject('board-columns-seeded'));
 
         self::assertSame(['columns' => [
-            ['slug' => 'backlog', 'label' => 'Backlog', 'terminal' => false, 'default' => true],
-            ['slug' => 'next', 'label' => 'Next', 'terminal' => false, 'default' => false],
-            ['slug' => 'in-progress', 'label' => 'In progress', 'terminal' => false, 'default' => false],
-            ['slug' => 'done', 'label' => 'Done', 'terminal' => true, 'default' => false],
+            ['slug' => 'backlog', 'label' => 'Backlog', 'terminal' => false, 'default' => true, 'backlog' => true],
+            ['slug' => 'next', 'label' => 'Next', 'terminal' => false, 'default' => false, 'backlog' => false],
+            ['slug' => 'in-progress', 'label' => 'In progress', 'terminal' => false, 'default' => false, 'backlog' => false],
+            ['slug' => 'done', 'label' => 'Done', 'terminal' => true, 'default' => false, 'backlog' => false],
         ]], ($this->tool)());
     }
 
@@ -66,23 +66,21 @@ final class BoardColumnsToolTest extends KernelTestCase
 
         $columns = ($this->tool)()['columns'];
 
-        self::assertSame(['slug' => 'won-t-do', 'label' => 'Won’t do', 'terminal' => true, 'default' => false], $columns[0]);
+        self::assertSame(['slug' => 'won-t-do', 'label' => 'Won’t do', 'terminal' => true, 'default' => false, 'backlog' => false], $columns[0]);
         self::assertSame(['won-t-do', 'backlog', 'next', 'in-progress', 'done'], array_column($columns, 'slug'));
     }
 
-    public function test_default_marks_the_default_column_wherever_it_sits(): void
+    public function test_default_and_backlog_mark_the_backlog(): void
     {
         $this->enableBoard();
         $project = $this->makeProject('board-columns-default');
-        $this->column($project, 'backlog')->isDefault = false;
-        $this->em->persist(new BoardColumn(project: $project, label: 'Inbox', slug: 'inbox', position: 4, isDefault: true));
-        $this->em->flush();
         $this->actAsMcpTokenBoundTo($project);
 
         $columns = ($this->tool)()['columns'];
 
-        self::assertSame(['backlog', 'next', 'in-progress', 'done', 'inbox'], array_column($columns, 'slug'));
-        self::assertSame([false, false, false, false, true], array_column($columns, 'default'));
+        self::assertSame(['backlog', 'next', 'in-progress', 'done'], array_column($columns, 'slug'));
+        self::assertSame([true, false, false, false], array_column($columns, 'default'));
+        self::assertSame([true, false, false, false], array_column($columns, 'backlog'));
     }
 
     public function test_another_projects_columns_are_not_listed(): void

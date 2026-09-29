@@ -19,6 +19,7 @@ use App\Module\Review\Service\ReferenceReminderInjector;
 use App\Module\Review\Service\SectionApprovalReader;
 use App\Module\Review\ValueObject\CommentSignals;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final readonly class ShowDocumentHandler
 {
@@ -31,6 +32,7 @@ final readonly class ShowDocumentHandler
         private LastSeenVersionResolver $lastSeenVersion,
         private SectionApprovalReader $sectionApprovals,
         private ReviewRepository $reviews,
+        private TranslatorInterface $translator,
         private ReferenceDefinitionResolver $referenceDefinitions,
         private ReferenceReminderInjector $referenceReminders,
     ) {
@@ -68,6 +70,8 @@ final readonly class ShowDocumentHandler
                     $version->renderedHtml,
                     $decisions->selectedIndexesByDecisionId,
                     readOnly: !$isLatest,
+                    badgeLabels: DecisionBlockService::badgeLabels($this->translator),
+                    notesByDecisionId: $decisions->notesByDecisionId,
                 ),
                 $referenceDefinitions,
             ),

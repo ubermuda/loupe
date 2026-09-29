@@ -13,8 +13,9 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
- * An epic face counts its finished children, so a child that joins, leaves,
- * finishes or reopens changes the face of its epic.
+ * An epic face counts its finished children and shows its Backlog children,
+ * so a child that joins, leaves, finishes, reopens, or enters, leaves or
+ * moves inside the Backlog changes the face of its epic.
  */
 final readonly class DispatchEpicChangedOnChildChange
 {
@@ -38,7 +39,9 @@ final readonly class DispatchEpicChangedOnChildChange
     public function onCardMoved(CardMoved $event): void
     {
         $card = $event->card;
-        if ($event->move->fromColumn->terminal === $card->column->terminal) {
+        $from = $event->move->fromColumn;
+        // The epic face counts the finished children, and its deck shows the Backlog ones in rank order.
+        if ($from->terminal === $card->column->terminal && !$from->backlog && !$card->column->backlog) {
             return;
         }
 
