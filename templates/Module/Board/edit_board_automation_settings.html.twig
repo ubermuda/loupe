@@ -44,6 +44,29 @@
                     {{ form_help(form.loopLimit, {help_attr: {class: 'lp-form-hint'}}) }}
                     <div class="lp-field-errors" data-field-errors="loopLimit">{{ form_errors(form.loopLimit) }}</div>
                 </div>
+                <div class="lp-form-field">
+                    <label class="lp-choice">
+                        {{ form_widget(form.commentOnFixQueued) }}
+                        {{ form.commentOnFixQueued.vars.label|trans }}
+                    </label>
+                    {{ form_help(form.commentOnFixQueued, {help_attr: {class: 'lp-form-hint'}}) }}
+                    <div class="lp-field-errors" data-field-errors="commentOnFixQueued">{{ form_errors(form.commentOnFixQueued) }}</div>
+                    {% if failedComment %}
+                        {% set cause = failedComment.cause ?? '' %}
+                        <div class="lp-connect-alert" data-fix-run-comment-failure>
+                            <twig:ux:icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
+                            <p class="lp-connect-alert__text">
+                                {{ 'board.automation.comment_failure.summary'|trans({'%pull_request%': failedComment.repository ~ '#' ~ failedComment.number}) -}}
+                                {% if failedComment.failedAt %} (<time datetime="{{ failedComment.failedAt|date('c') }}" title="{{ failedComment.failedAt|date('Y-m-d H:i:s T') }}">{{ failedComment.failedAt|relative_time }}</time>){% endif %}.
+                                {% if cause in ['permission', 'no_installation', 'unknown_pull_request', 'no_commenter'] %}
+                                    {{ ('board.automation.comment_failure.cause.' ~ cause)|trans }}
+                                {% else %}
+                                    {{ 'board.automation.comment_failure.cause.other'|trans({'%cause%': cause}) }}
+                                {% endif %}
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
                 <div class="lp-settings-form-actions">
                     <button class="lp-btn lp-btn--primary" type="submit">{{ 'board.automation.submit'|trans }}</button>
                 </div>

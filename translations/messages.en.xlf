@@ -6345,6 +6345,38 @@
                 <source>board.form.save_board_automation_settings_form.loop_limit.help</source>
                 <target>The number of automatic fix rounds a card gets in a row. At this limit, Loupe stops and marks the card blocked.</target>
             </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_fix_queued.label">
+                <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.label</source>
+                <target>Comment on the pull request when a fix run is queued</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_fix_queued.help">
+                <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.help</source>
+                <target>Loupe posts a new comment on the GitHub pull request each time a bridge queues a fix run for it. The GitHub App needs "Pull requests: read and write". A bridge older than this release sends no queued event, so no comment posts.</target>
+            </trans-unit>
+            <trans-unit id="board.automation.comment_failure.summary">
+                <source>board.automation.comment_failure.summary</source>
+                <target>Loupe could not post the last fix run comment on %pull_request%</target>
+            </trans-unit>
+            <trans-unit id="board.automation.comment_failure.cause.permission">
+                <source>board.automation.comment_failure.cause.permission</source>
+                <target>The GitHub App cannot comment. Grant it Pull requests: read and write on GitHub.</target>
+            </trans-unit>
+            <trans-unit id="board.automation.comment_failure.cause.no_installation">
+                <source>board.automation.comment_failure.cause.no_installation</source>
+                <target>The GitHub App is not installed on this repository.</target>
+            </trans-unit>
+            <trans-unit id="board.automation.comment_failure.cause.unknown_pull_request">
+                <source>board.automation.comment_failure.cause.unknown_pull_request</source>
+                <target>Loupe has not read this pull request yet.</target>
+            </trans-unit>
+            <trans-unit id="board.automation.comment_failure.cause.no_commenter">
+                <source>board.automation.comment_failure.cause.no_commenter</source>
+                <target>Loupe cannot comment on this forge.</target>
+            </trans-unit>
+            <trans-unit id="board.automation.comment_failure.cause.other">
+                <source>board.automation.comment_failure.cause.other</source>
+                <target>GitHub did not accept the comment (%cause%).</target>
+            </trans-unit>
             <trans-unit id="board.settings.action">
                 <source>board.settings.action</source>
                 <target>Board settings</target>

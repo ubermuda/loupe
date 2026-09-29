@@ -7,6 +7,8 @@ namespace App\Tests\Module\Board\Controller;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BoardFixStrategy;
 use App\Module\Board\Entity\BoardMergeStrategy;
+use App\Module\Board\Entity\PullRequestComment;
+use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
@@ -16,6 +18,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Field\ChoiceFormField;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Uid\Uuid;
 
 final class EditBoardAutomationSettingsControllerTest extends WebTestCase
 {
@@ -48,12 +51,18 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertSame('fresh', $form->filter('select[name="'.self::FORM.'[fixStrategy]"] option[selected]')->attr('value'));
         self::assertSame('Fresh', $form->filter('select[name="'.self::FORM.'[fixStrategy]"] option[selected]')->text());
         self::assertSame('3', $form->filter('input[name="'.self::FORM.'[loopLimit]"]')->attr('value'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]'));
+        self::assertCount(0, $form->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]:checked'));
+        self::assertSelectorNotExists('[data-fix-run-comment-failure]');
         self::assertNull($this->stored($project));
 
         $submit = $form->form();
         $enabled = $submit[self::FORM.'[enabled]'];
         self::assertInstanceOf(ChoiceFormField::class, $enabled);
         $enabled->untick();
+        $commentOnFixQueued = $submit[self::FORM.'[commentOnFixQueued]'];
+        self::assertInstanceOf(ChoiceFormField::class, $commentOnFixQueued);
+        $commentOnFixQueued->tick();
         $this->client->submit($submit, [
             self::FORM.'[mergeStrategy]' => 'off',
             self::FORM.'[fixStrategy]' => 'resume',
@@ -68,15 +77,53 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         $settings = $this->stored($project);
         self::assertNotNull($settings);
         self::assertFalse($settings->enabled);
+        self::assertTrue($settings->commentOnFixQueued);
         self::assertSame(BoardMergeStrategy::Off, $settings->mergeStrategy);
         self::assertSame(BoardFixStrategy::Resume, $settings->fixStrategy);
         self::assertSame(7, $settings->loopLimit);
 
         $form = $this->page($project)->filter('form[name="'.self::FORM.'"]');
         self::assertCount(0, $form->filter('input[name="'.self::FORM.'[enabled]"]:checked'));
+        self::assertCount(1, $form->filter('input[name="'.self::FORM.'[commentOnFixQueued]"]:checked'));
         self::assertSame('off', $form->filter('select[name="'.self::FORM.'[mergeStrategy]"] option[selected]')->attr('value'));
         self::assertSame('resume', $form->filter('select[name="'.self::FORM.'[fixStrategy]"] option[selected]')->attr('value'));
         self::assertSame('7', $form->filter('input[name="'.self::FORM.'[loopLimit]"]')->attr('value'));
+    }
+
+    public function test_the_newest_failed_comment_shows_its_pull_request_and_its_cause(): void
+    {
+        $project = $this->ownedProject('automation-comment-failed@example.com');
+        $this->failedComment($project, 'Acme/Old', 4, 'api_failed_http_status_502', new \DateTimeImmutable('-2 hours'));
+        $this->failedComment($project, 'Acme/Widgets', 5, 'permission', new \DateTimeImmutable('-5 minutes'));
+        $this->em->persist(new PullRequestComment($project, Uuid::v7(), Uuid::v7(), 'github', 'Acme/Posted', 6, null, 'conflict'));
+        $this->em->flush();
+
+        $note = $this->page($project)->filter('[data-fix-run-comment-failure]');
+
+        self::assertCount(1, $note);
+        self::assertStringContainsString('Acme/Widgets#5', $note->text());
+        self::assertStringContainsString('The GitHub App cannot comment. Grant it Pull requests: read and write on GitHub.', $note->text());
+        self::assertCount(1, $note->filter('time[datetime]'));
+    }
+
+    public function test_an_unknown_cause_shows_the_raw_cause(): void
+    {
+        $project = $this->ownedProject('automation-comment-unknown@example.com');
+        $this->failedComment($project, 'Acme/Widgets', 5, 'api_failed_http_status_422', new \DateTimeImmutable('-5 minutes'));
+        $this->em->flush();
+
+        $note = $this->page($project)->filter('[data-fix-run-comment-failure]');
+
+        self::assertStringContainsString('GitHub did not accept the comment (api_failed_http_status_422).', $note->text());
+    }
+
+    private function failedComment(Project $project, string $repository, int $number, string $cause, \DateTimeImmutable $failedAt): void
+    {
+        $comment = new PullRequestComment($project, Uuid::v7(), Uuid::v7(), 'github', $repository, $number, null, 'checks-failed');
+        $comment->state = PullRequestCommentState::Failed;
+        $comment->cause = $cause;
+        $comment->failedAt = $failedAt;
+        $this->em->persist($comment);
     }
 
     /** @return iterable<string, array{string}> */

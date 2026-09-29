@@ -646,6 +646,17 @@ gets these requests. A card in a terminal column never gets one.
 | **Merge strategy** | Worker | Worker sends a ready-to-merge event when a pull request can merge. Off sends none |
 | **Fix strategy** | Fresh | Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card, and falls back to a new worker |
 | **Loop limit** | 3 | The number of fix requests a card gets in a row, from 1 to 20 |
+| **Comment on fix runs** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
+
+The comment gives the reason for the fix and the failed checks. It also gives
+the fix round against the loop limit, and a link to the card. The card page
+lists the runs. A comment that fails never holds the run.
+
+Loupe retries a failed comment 3 times. It does not retry a failure that a retry cannot fix,
+such as a missing permission. After the last failure, the tab shows the
+newest failure, its pull request and its cause. The GitHub App must have
+Pull requests: read and write. This needs a bridge that reports the queued
+event, which starts with the release that adds this setting.
 
 Loupe asks for a fix when the required checks fail, when the pull request
 conflicts with its base, and when a reviewer requests changes. At the loop

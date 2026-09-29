@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardAutomationSettings;
+use App\Module\Board\Entity\PullRequestComment;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
+use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -14,8 +16,14 @@ final readonly class BoardAutomation
 {
     public function __construct(
         private BoardAutomationSettingsRepository $boardAutomationSettings,
+        private PullRequestCommentRepository $pullRequestComments,
         private EntityManagerInterface $em,
     ) {
+    }
+
+    public function newestFailedComment(Project $project): ?PullRequestComment
+    {
+        return $this->pullRequestComments->findNewestFailed($project);
     }
 
     /** Never persists, so a project that saved nothing keeps no row. */
