@@ -4468,6 +4468,19 @@
                 <target>The decisions, reviews, and questions that keep your crew moving.</target>
             </trans-unit>
             <trans-unit id="inbox.activity"><source>inbox.activity</source><target>View activity</target></trans-unit>
+            <trans-unit id="inbox.settings_link"><source>inbox.settings_link</source><target>Settings</target></trans-unit>
+            <trans-unit id="inbox.settings.heading"><source>inbox.settings.heading</source><target>Inbox</target></trans-unit>
+            <trans-unit id="inbox.settings.description"><source>inbox.settings.description</source><target>Loupe opens an item in your inbox when a card waits for you. Choose which waits open an item. When you save, Loupe checks every card of the project again.</target></trans-unit>
+            <trans-unit id="inbox.settings.submit"><source>inbox.settings.submit</source><target>Save inbox settings</target></trans-unit>
+            <trans-unit id="inbox.settings.flash.saved"><source>inbox.settings.flash.saved</source><target>Inbox settings saved.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.document_in_review.label"><source>inbox.form.update_inbox_settings_form.document_in_review.label</source><target>Document in review</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.document_in_review.help"><source>inbox.form.update_inbox_settings_form.document_in_review.help</source><target>A card links a document that waits for your review.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_blocked.label"><source>inbox.form.update_inbox_settings_form.run_blocked.label</source><target>Run blocked</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_blocked.help"><source>inbox.form.update_inbox_settings_form.run_blocked.help</source><target>A worker run on a card says that it cannot continue without a person.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_gave_up.label"><source>inbox.form.update_inbox_settings_form.run_gave_up.label</source><target>Run gave up</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_gave_up.help"><source>inbox.form.update_inbox_settings_form.run_gave_up.help</source><target>The bridge used every resume that the rule allows, and the worker run on a card did not finish.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_waiting_for_person.label"><source>inbox.form.update_inbox_settings_form.run_waiting_for_person.label</source><target>Run waiting for a person</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_waiting_for_person.help"><source>inbox.form.update_inbox_settings_form.run_waiting_for_person.help</source><target>The worker runs on a card reached their limit, and a person must move the card to start a new run.</target></trans-unit>
             <trans-unit id="inbox.page.empty">
                 <source>inbox.page.empty</source>
                 <target>No agent has asked you anything yet.</target>
@@ -6138,6 +6151,10 @@
             <trans-unit id="project.edit.nav.automation">
                 <source>project.edit.nav.automation</source>
                 <target>Automation</target>
+            </trans-unit>
+            <trans-unit id="project.edit.nav.inbox">
+                <source>project.edit.nav.inbox</source>
+                <target>Inbox</target>
             </trans-unit>
             <trans-unit id="project.edit.nav.connections">
                 <source>project.edit.nav.connections</source>
