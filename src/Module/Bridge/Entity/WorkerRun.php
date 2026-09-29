@@ -49,6 +49,11 @@ class WorkerRun
 
     public const int MAX_RULE_NAME_LENGTH = 100;
 
+    public const int MAX_WORKER_POOL_LENGTH = 40;
+
+    /** The name of a bridge worker pool, such as default. */
+    public const string WORKER_POOL_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
+
     public const int MAX_FAILURE_REASON_LENGTH = 1000;
 
     /** The limit applies to the extra result fields once they are encoded as JSON. */
@@ -93,6 +98,10 @@ class WorkerRun
     /** Why the bridge did not resume this run, such as card_moved. */
     #[ORM\Column(name: 'resume_skipped', length: self::MAX_RESUME_SKIPPED_LENGTH, nullable: true)]
     public ?string $resumeSkipped = null;
+
+    /** The pool the bridge ran the worker in, as its last report named it. Null from an older bridge. */
+    #[ORM\Column(name: 'worker_pool', length: self::MAX_WORKER_POOL_LENGTH, nullable: true)]
+    public ?string $workerPool = null;
 
     /** Where the WorkerRunUsage rows of the run come from. Null when an older bridge sent no usage. */
     #[ORM\Column(name: 'usage_source', length: 20, nullable: true, enumType: WorkerRunUsageSource::class)]

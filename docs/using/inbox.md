@@ -165,14 +165,21 @@ A removed target shows an unavailable state, while completed results retain thei
 
 ## Automatic items
 
-Loupe opens an item by itself when a card waits for a person. In this release,
-one cause opens such an item: a document that is linked to a card is in review.
+Loupe opens an item by itself when a card waits for a person. A card waits in
+these cases:
+
+- A document that is linked to the card is in review.
+- The newest worker run of the card is blocked, gave up, or waits for a person.
+  The card must stay in the column that started the run.
+
 The item has the kind **Waiting**, and it is always blocking.
 
 A card has at most one open automatic item. Its title is the card number and
 the card title. The item links the card and each document that it waits on.
-Its panel lists each current wait with a link to the review page of the
-document. The waits that ended show below them, in grey.
+Its panel lists each current wait. A document wait links to the review page of
+the document. A run wait shows the first line of the run output, and it links
+to the worker runs page for that run. The waits that ended show below them, in
+grey.
 
 The row and the panel name **Loupe** as the sender, with a magnifier icon. They
 show no bridge dot and no session, because no agent session asked for the item.
@@ -210,10 +217,13 @@ for the new version replaces it. The item then stays open. An open review
 request from an agent for the same document holds back the wait, because it
 asks for the same verdict.
 
+A run wait ends when a newer run of the card starts. It also ends when the card
+moves to another column.
+
 The item closes when its last wait ends:
 
 - It closes as **done** when the waits ended by their own cause, such as a
-  verdict or an archive.
+  verdict, an archive, a newer run or a move of the card.
 - It closes as **obsolete** when the card finishes or someone deletes it.
 - It closes as **obsolete** when you turn off the switch of its waits on the
   inbox settings page.
@@ -226,7 +236,8 @@ The Loupe ask that holds the item closes with it.
 
 Select **Dismiss** to close an automatic item that you do not need. The item
 closes as declined. Dismiss takes no note. Loupe does not open the item again
-for the same document version. A new version of the document opens a new item.
+for the same document version or the same run. A new version of the document
+opens a new item, and so does a new run that waits.
 
 Dismiss is the only response that an automatic item takes. You cannot answer it
 or mark it done. An agent cannot withdraw it, and the `inbox_withdraw` tool

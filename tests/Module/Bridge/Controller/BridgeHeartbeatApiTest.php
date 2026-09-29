@@ -231,6 +231,53 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         self::assertCount(1, $this->bridge($owner, $bridgeId)->hooks);
     }
 
+    public function test_the_worker_pools_are_stored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-pools@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'workerPools' => [
+            self::pool(),
+            self::pool(['name' => 'quick-2', 'size' => 1, 'inUse' => 1, 'queued' => 1000]),
+        ]]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame([
+            ['name' => 'default', 'size' => 3, 'inUse' => 2, 'queued' => 5],
+            ['name' => 'quick-2', 'size' => 1, 'inUse' => 1, 'queued' => 1000],
+        ], $this->bridge($owner, $bridgeId)->workerPools);
+    }
+
+    /** A bridge from before worker pools sends none, so its heartbeat leaves the stored rows alone. */
+    public function test_a_heartbeat_without_worker_pools_keeps_the_stored_rows(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-pools-absent@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'workerPools' => [self::pool()]]);
+        self::assertResponseStatusCodeSame(200);
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'workerPools' => null]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertCount(1, $this->bridge($owner, $bridgeId)->workerPools ?? []);
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     *
+     * @return array<string, mixed>
+     */
+    private static function pool(array $overrides = []): array
+    {
+        return array_merge(['name' => 'default', 'size' => 3, 'inUse' => 2, 'queued' => 5], $overrides);
+    }
+
     /**
      * @param array<string, mixed> $overrides
      *
@@ -267,6 +314,17 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         yield 'a hook run time on a day the month lacks' => [['hooks' => [self::hook(['lastRunAt' => '2026-02-31T16:00:00Z'])]]];
         yield 'a hook run time with no offset' => [['hooks' => [self::hook(['lastRunAt' => '2026-09-14T16:00:00'])]]];
         yield 'a hook error that is too long' => [['hooks' => [self::hook(['error' => str_repeat('a', BridgeHookInput::MAX_ERROR_LENGTH + 1)])]]];
+        yield 'worker pools that are not a list' => [['workerPools' => 'default']];
+        yield 'worker pools keyed by name' => [['workerPools' => ['default' => self::pool()]]];
+        yield 'too many worker pools' => [['workerPools' => array_fill(0, RecordBridgeHeartbeatRequest::MAX_WORKER_POOLS + 1, self::pool())]];
+        yield 'a worker pool with a bad name' => [['workerPools' => [self::pool(['name' => 'Quick Pool'])]]];
+        yield 'a worker pool with no name' => [['workerPools' => [self::pool(['name' => null])]]];
+        yield 'a worker pool name with a trailing newline' => [['workerPools' => [self::pool(['name' => "default\n"])]]];
+        yield 'a worker pool with no size' => [['workerPools' => [self::pool(['size' => null])]]];
+        yield 'a worker pool with a negative use' => [['workerPools' => [self::pool(['inUse' => -1])]]];
+        yield 'a worker pool with a queue above the limit' => [['workerPools' => [self::pool(['queued' => 1001])]]];
+        yield 'a worker pool size above the limit' => [['workerPools' => [self::pool(['size' => 1001])]]];
+        yield 'a worker pool size as text' => [['workerPools' => [self::pool(['size' => 'three'])]]];
         yield 'no projects' => [['projects' => null]];
         yield 'projects that are not a list' => [['projects' => 'loupe']];
         yield 'a project that is not a uuid' => [['projects' => ['loupe']]];

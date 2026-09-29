@@ -71,6 +71,7 @@ trait BridgeScenario
         ?Uuid $runKey = null,
         ?bool $hasResult = null,
         WorkerRunKind $kind = WorkerRunKind::Worker,
+        ?string $workerPool = null,
     ): WorkerRun {
         $run = new WorkerRun(
             project: AgentCredential::managed($em, $project, $project->id),
@@ -90,6 +91,7 @@ trait BridgeScenario
             receivedAt: $receivedAt,
             kind: $kind,
         );
+        $run->workerPool = $workerPool;
         $em->persist($run);
         $em->flush();
         // What the report endpoint does after it writes the row. A run seeded
@@ -120,7 +122,10 @@ trait BridgeScenario
         return (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_worker_run_usage');
     }
 
-    /** @param list<string> $projects */
+    /**
+     * @param list<string>                                                       $projects
+     * @param list<array{name: string, size: int, inUse: int, queued: int}>|null $workerPools
+     */
     private function seedBridge(
         EntityManagerInterface $em,
         User $owner,
@@ -128,8 +133,12 @@ trait BridgeScenario
         array $projects = [],
         string $cliVersion = 'b4e39aa7',
         \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable(),
+        ?array $workerPools = null,
+        ?\DateTimeImmutable $workerPoolsReportedAt = null,
     ): Bridge {
         $bridge = new Bridge(AgentCredential::managed($em, $owner, $owner->id), $id ?? Uuid::v4(), $projects, $cliVersion, $lastSeenAt);
+        $bridge->workerPools = $workerPools;
+        $bridge->workerPoolsReportedAt = $workerPoolsReportedAt;
         $em->persist($bridge);
         $em->flush();
 

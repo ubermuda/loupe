@@ -6,11 +6,14 @@ namespace App\Tests\Module\Inbox\Service;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxAskOrigin;
 use App\Module\Inbox\Entity\InboxCardWait;
 use App\Module\Inbox\Entity\InboxCardWaitEndReason;
+use App\Module\Inbox\Entity\InboxCardWaitTrigger;
 use App\Module\Inbox\Entity\InboxCardWatch;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
@@ -28,6 +31,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Tests\Module\Inbox\InboxFixtures;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -388,6 +392,190 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertSame(InboxItemState::Done, $watch->item->state);
     }
 
+    /** @return iterable<string, array{WorkerRunState, InboxCardWaitTrigger, string}> */
+    public static function waitingRuns(): iterable
+    {
+        yield 'blocked' => [WorkerRunState::Blocked, InboxCardWaitTrigger::RunBlocked, 'Run blocked'];
+        yield 'gave up' => [WorkerRunState::GaveUp, InboxCardWaitTrigger::RunGaveUp, 'Run gave up'];
+        yield 'waiting for a person' => [WorkerRunState::WaitingForPerson, InboxCardWaitTrigger::RunWaitingForPerson, 'Run waits for a person'];
+    }
+
+    #[DataProvider('waitingRuns')]
+    public function test_a_newest_run_that_waits_opens_a_wait_item(WorkerRunState $state, InboxCardWaitTrigger $trigger, string $label): void
+    {
+        $run = $this->workerRun($state, "Needs the API key\nSecond line");
+
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertSame(InboxItemState::Open, $watch->item->state);
+        self::assertSame($label.': Needs the API key', $watch->item->body);
+        self::assertCount(0, $watch->item->documents);
+        $wait = $this->onlyWait($watch);
+        self::assertSame($trigger, $wait->trigger);
+        self::assertEquals($run->id, $wait->runId);
+        self::assertNull($wait->documentId);
+        self::assertNull($wait->versionNumber);
+    }
+
+    public function test_a_run_reason_takes_the_first_non_empty_line_cut_to_140_characters(): void
+    {
+        $this->workerRun(WorkerRunState::Blocked, "\n   \n  ".str_repeat('é', 150)."  \nSecond line");
+
+        $this->reconcile();
+
+        self::assertSame('Run blocked: '.str_repeat('é', 140), $this->onlyWatch()->item->body);
+    }
+
+    public function test_a_run_with_no_output_gives_the_bare_label(): void
+    {
+        $this->workerRun(WorkerRunState::GaveUp, " \n ");
+
+        $this->reconcile();
+
+        self::assertSame('Run gave up', $this->onlyWatch()->item->body);
+    }
+
+    public function test_a_newer_open_run_ends_the_wait_and_closes_the_item_done(): void
+    {
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck', receivedAt: new \DateTimeImmutable('-1 minute'));
+        $this->reconcile();
+        $this->workerRun(WorkerRunState::Queued, '');
+
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertSame(InboxItemState::Done, $watch->item->state);
+        self::assertNotNull($watch->closedAt);
+        self::assertSame(InboxCardWaitEndReason::Resolved, $this->onlyWait($watch)->endReason);
+    }
+
+    public function test_a_move_to_another_open_column_ends_the_run_wait_done(): void
+    {
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck');
+        $this->reconcile();
+        $this->card->column = $this->column($this->project, 'next');
+        $this->em->flush();
+
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertSame(InboxItemState::Done, $watch->item->state);
+        self::assertSame(InboxCardWaitEndReason::Resolved, $this->onlyWait($watch)->endReason);
+    }
+
+    public function test_a_run_of_another_column_or_of_no_column_gives_no_wait(): void
+    {
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck', column: 'next', receivedAt: new \DateTimeImmutable('-1 minute'));
+        $this->reconcile();
+        self::assertSame([], $this->watches());
+
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck', column: null);
+        $this->reconcile();
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_a_run_that_does_not_wait_gives_no_wait(): void
+    {
+        $this->workerRun(WorkerRunState::Failed, 'Crashed');
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_a_dismissed_run_wait_stays_dismissed_and_a_new_waiting_run_opens_a_new_item(): void
+    {
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck', receivedAt: new \DateTimeImmutable('-1 minute'));
+        $this->reconcile();
+        $dismissed = $this->onlyWatch();
+        $now = new \DateTimeImmutable();
+        $dismissed->item->state = InboxItemState::Declined;
+        $dismissed->item->closedAt = $now;
+        $dismissed->dismissedAt = $now;
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame([$dismissed], $this->watches());
+        self::assertSame(InboxCardWaitEndReason::Dismissed, $this->onlyWait($dismissed)->endReason);
+
+        $newer = $this->workerRun(WorkerRunState::Blocked, 'Stuck again');
+        $this->reconcile();
+
+        $watches = $this->watches();
+        self::assertCount(2, $watches);
+        self::assertSame(InboxItemState::Open, $watches[1]->item->state);
+        self::assertEquals($newer->id, $this->onlyWait($watches[1])->runId);
+        self::assertSame('Run blocked: Stuck again', $watches[1]->item->body);
+    }
+
+    public function test_a_document_wait_and_a_run_wait_share_one_item_and_the_end_of_one_keeps_it_open(): void
+    {
+        $document = $this->linkedDocument('Tech design');
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck', receivedAt: new \DateTimeImmutable('-1 minute'));
+        $this->reconcile();
+        $watch = $this->onlyWatch();
+        self::assertCount(2, $this->openWaits($watch));
+        self::assertCount(1, $watch->item->documents);
+
+        $this->workerRun(WorkerRunState::Running, '');
+        $this->reconcile();
+
+        self::assertSame(InboxItemState::Open, $watch->item->state);
+        $open = $this->openWaits($watch);
+        self::assertCount(1, $open);
+        self::assertEquals($document->id, $open[0]->documentId);
+        self::assertSame('Tech design in review, version 1', $watch->item->body);
+        $ended = array_values(array_filter($watch->waits->toArray(), static fn (InboxCardWait $wait): bool => null !== $wait->endedAt));
+        self::assertCount(1, $ended);
+        self::assertSame(InboxCardWaitTrigger::RunBlocked, $ended[0]->trigger);
+        self::assertSame(InboxCardWaitEndReason::Resolved, $ended[0]->endReason);
+    }
+
+    public function test_a_card_with_a_run_wait_in_a_terminal_column_closes_the_item_obsolete(): void
+    {
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck', column: 'backlog');
+        $this->reconcile();
+        $this->card->column = $this->column($this->project, 'done');
+        $this->em->flush();
+
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertSame(InboxItemState::Obsolete, $watch->item->state);
+        self::assertSame(InboxCardWaitEndReason::CardFinished, $this->onlyWait($watch)->endReason);
+    }
+
+    public function test_without_a_card_list_it_finds_a_card_with_only_a_run_wait(): void
+    {
+        $this->workerRun(WorkerRunState::WaitingForPerson, 'Cap reached');
+
+        $this->reconciler->reconcile($this->project, null);
+
+        self::assertSame(InboxItemState::Open, $this->onlyWatch()->item->state);
+    }
+
+    public function test_a_second_reconcile_of_a_run_wait_changes_nothing(): void
+    {
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck');
+        $this->reconcile();
+        $watch = $this->onlyWatch();
+        $updatedAt = $watch->item->updatedAt;
+        $this->em->clear();
+        $project = $this->em->find(Project::class, $this->project->id);
+        self::assertInstanceOf(Project::class, $project);
+
+        $this->reconciler->reconcile($project, null);
+
+        $this->em->clear();
+        $again = $this->onlyWatch();
+        self::assertSame($watch->id?->toRfc4122(), $again->id?->toRfc4122());
+        self::assertCount(1, $again->waits);
+        self::assertSame('Run blocked: Stuck', $again->item->body);
+        self::assertEquals($updatedAt, $again->item->updatedAt);
+    }
+
     private function reconcile(): void
     {
         $this->reconciler->reconcile($this->project, [(string) $this->card->id]);
@@ -412,6 +600,25 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $this->em->flush();
 
         return $document;
+    }
+
+    private function workerRun(WorkerRunState $state, string $output, ?string $column = 'backlog', \DateTimeImmutable $receivedAt = new \DateTimeImmutable()): WorkerRun
+    {
+        $run = new WorkerRun(
+            project: $this->project,
+            bridgeId: Uuid::v7(),
+            cardId: $this->card->id ?? throw new \LogicException('Card has no id.'),
+            cardNumber: $this->card->number,
+            ruleName: 'implement',
+            state: $state,
+            output: $output,
+            receivedAt: $receivedAt,
+            cardColumn: $column,
+        );
+        $this->em->persist($run);
+        $this->em->flush();
+
+        return $run;
     }
 
     private function agentReviewOf(Document $document): void

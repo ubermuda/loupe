@@ -24,13 +24,17 @@ page describes it. **Events** lists the [project events](activity.md).
 |---|---|
 | Work | the number of the card the worker was started for, then its title. A card that is gone, or a board that is off, shows the number alone. An interactive run adds the tag **Interactive session** |
 | Outcome | the state of the run, from the list below. A run with a failure reason shows a help icon, and the reason shows when you hover over or focus the outcome |
-| Rule | the bridge rule that matched the event. A long rule name is cut short, and the drawer shows it in full |
+| Rule | the bridge rule that matched the event. A long rule name is cut short, and the drawer shows it in full. A run that names a worker pool adds a tag with the pool, such as **quick pool** |
 | Duration | how long the worker ran. A run that is still open shows how long it has run so far, and an open interactive run shows "running for" in front. A run with no start, or a run that closed with no reported end, shows nothing |
 | Started | how long ago the worker started, on the bridge clock. Hover over it to see the exact time. A run that has not started shows when its first report arrived |
 
 Select a row to open its drawer. The drawer holds the detail the row
 leaves out: the bridge, the exit code, the place of a resume in its series, the
 failure reason and the output.
+
+A bridge runs its workers in named worker pools, and each report of a run names
+its pool. The row and the drawer show the pool that the last report named. A
+run from an older bridge, and an interactive run, name no pool and show none.
 
 A run that never started carries the reason instead of an exit code, such as a
 missing `claude` binary, or a terminal launcher that failed.
@@ -217,10 +221,19 @@ The page lists only bridges that follow the current project.
 Its summary distinguishes no connections, healthy connections, stale connections, and a mix of healthy and stale connections.
 Heartbeat health does not show whether an individual worker is running or available for work.
 
+A bridge that runs worker pools reports their use with each heartbeat. The
+card of the bridge then lists each pool on one line: the pool name, the
+workers in use of the pool size, and the runs in the queue. The heading gives
+the time of the heartbeat that carried the counts, because the counts are
+correct at that time only. A later heartbeat with no pool report keeps the
+counts and their time. The counts cover every project that the bridge follows, not only the
+current project. A bridge that sends no pool report, such as an older bridge,
+shows no pools.
+
 ## The output
 
 Select a row to open a read-only drawer without leaving the list.
-It shows the attempt ID, card, rule, bridge, session and duration. An interactive run shows a bridge only when a bridge launched it.
+It shows the attempt ID, card, rule, worker pool, bridge, session and duration. A run with no worker pool shows no pool row. An interactive run shows a bridge only when a bridge launched it.
 A resume also shows its place in the series, and a link to the run it resumes.
 The drawer shows the result status, the reason the bridge skipped a resume, and each extra result field the worker gave.
 It lists each state the run reached, oldest first, with the time of each state, and then the time the first report arrived.

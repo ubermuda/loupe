@@ -25,6 +25,9 @@ final class BridgeExporterTest extends TestCase
         $bridge->updateVersion = '1.3.0';
         $hook = ['package' => 'github:acme/loupe-hooks', 'ref' => 'v1.2.0', 'event' => 'start', 'lastRunAt' => null, 'outcome' => 'never', 'error' => null];
         $bridge->hooks = [$hook];
+        $pool = ['name' => 'default', 'size' => 3, 'inUse' => 1, 'queued' => 0];
+        $bridge->workerPools = [$pool];
+        $bridge->workerPoolsReportedAt = new \DateTimeImmutable('2026-09-14T15:59:00+00:00');
 
         $rows = iterator_to_array(new BridgeExporter($this->repositoryReturning($bridge))->export($owner));
 
@@ -36,6 +39,8 @@ final class BridgeExporterTest extends TestCase
             'updateState' => 'rolled-back',
             'updateVersion' => '1.3.0',
             'hooks' => [$hook],
+            'workerPools' => [$pool],
+            'workerPoolsReportedAt' => '2026-09-14T15:59:00+00:00',
         ]], $rows);
     }
 

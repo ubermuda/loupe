@@ -29,7 +29,11 @@ The path holds no project, because one bridge follows several projects.
 {
   "projects": ["0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90"],
   "cliVersion": "1.0.0",
-  "update": {"state": "rolled-back", "version": "1.1.0"}
+  "update": {"state": "rolled-back", "version": "1.1.0"},
+  "workerPools": [
+    {"name": "default", "size": 3, "inUse": 2, "queued": 0},
+    {"name": "quick", "size": 1, "inUse": 1, "queued": 4}
+  ]
 }
 ```
 
@@ -41,6 +45,7 @@ The path holds no project, because one bridge follows several projects.
 | `update.state` | required in `update`. One of the states below |
 | `update.version` | optional. The release the state is about, at most 100 characters |
 | `hooks` | optional. A list of at most 100 rows, one for each event of each [hook package](../extending/bridge-hooks.md) the bridge runs. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
+| `workerPools` | optional. A list of at most 50 rows, one for each worker pool of the bridge. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 
 Each row of `hooks` holds these fields:
 
@@ -52,6 +57,22 @@ Each row of `hooks` holds these fields:
 | `lastRunAt` | optional. The time of the last run, as an RFC 3339 date. It is missing for a hook that has not run since the bridge started |
 | `outcome` | required. `ok`, `failed`, `timeout` or `never` |
 | `error` | optional. The end of the output of a failed or timed out run, or the error of a hook that could not start, at most 500 characters after trimming |
+
+Each row of `workerPools` holds these fields:
+
+| Field | Rule |
+|---|---|
+| `name` | required. The pool name. It starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens. The pool that a bridge always has is `default` |
+| `size` | required. The number of workers that the pool can run at the same time, an integer from 0 to 1000 |
+| `inUse` | required. The number of workers that run in the pool now, an integer from 0 to 1000 |
+| `queued` | required. The number of runs that wait for a worker of the pool, an integer from 0 to 1000 |
+
+The counts cover every project that the bridge follows. The
+[agents page](../using/worker-runs.md#bridge-health) shows them on the card of
+the bridge, with the time of the heartbeat that carried them. The server
+stamps that time from its own clock when a heartbeat carries a `workerPools`
+list, an empty list included. A heartbeat with no list keeps the rows and their
+time. A bridge that never sent a `workerPools` list shows no pools.
 
 | `update.state` | Meaning |
 |---|---|
@@ -145,4 +166,5 @@ run of that bridge that the list does not name. See
 ## Deletion and export
 
 Deleting an account deletes the rows of its bridges. The data export holds them
-in `bridges.json`, with the stored update state and version.
+in `bridges.json`, with the stored update state and version, the hook rows, and
+the worker pool rows with their report time.
