@@ -46,7 +46,7 @@ when@prod:
                 # listed here so the fallback is the only thing adding it.
                 # Unset, an external origin falls back to 'self' — a no-op
                 # rather than an empty token.
-                script-src: ["'self'", "%env(default:app.default_csp_origin:ANALYTICS_ORIGIN)%", "%env(default:app.default_csp_origin:SITE_REVIEW_WIDGET_BACKEND)%"]
+                script-src: ["'self'", "%env(default:app.default_csp_origin:ANALYTICS_ORIGIN)%", "%env(default:app.default_csp_origin:SITE_REVIEW_WIDGET_BACKEND)%", "%app.mermaid_cdn_base%"]
                 # Fonts are self-hosted (assets/fonts, SIL OFL) — no external
                 # font or stylesheet origins are needed.
                 style-src: ["'self'", "'unsafe-inline'"]

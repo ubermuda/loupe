@@ -1623,6 +1623,22 @@
                 <source>review.document.references.incoming</source>
                 <target>Referenced by</target>
             </trans-unit>
+            <trans-unit id="review.document.mermaid.disabled">
+                <source>review.document.mermaid.disabled</source>
+                <target>Diagrams are off on this instance, so this block shows its Mermaid source. An administrator can turn on the review.mermaid.enabled flag.</target>
+            </trans-unit>
+            <trans-unit id="review.document.mermaid.error">
+                <source>review.document.mermaid.error</source>
+                <target>This diagram could not render, so its source shows instead.</target>
+            </trans-unit>
+            <trans-unit id="review.document.mermaid.show_source">
+                <source>review.document.mermaid.show_source</source>
+                <target>Show source</target>
+            </trans-unit>
+            <trans-unit id="review.document.mermaid.hide_source">
+                <source>review.document.mermaid.hide_source</source>
+                <target>Hide source</target>
+            </trans-unit>
             <trans-unit id="review.document.references.archived">
                 <source>review.document.references.archived</source>
                 <target>Archived</target>
