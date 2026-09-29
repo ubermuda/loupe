@@ -277,6 +277,16 @@ final class InboxAskToolTest extends KernelTestCase
         ($this->tool)(sessionId: (string) Uuid::v4(), items: [['kind' => 'task', 'title' => 'Do it']]);
     }
 
+    public function test_an_agent_cannot_ask_a_wait_item(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-wait'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('items[0].kind: unknown kind "wait". Use one of: question, todo, review.');
+        ($this->tool)(sessionId: (string) Uuid::v4(), items: [['kind' => 'wait', 'title' => 'Waiting', 'blocking' => true]]);
+    }
+
     public function test_a_malformed_session_id_is_reported_rather_than_fatal(): void
     {
         $this->enableInbox();

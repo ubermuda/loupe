@@ -20,8 +20,10 @@ use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\ValueObject\Anchor;
+use App\Tests\Support\DispatchedEvents;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\PersistentCollection;
@@ -635,6 +637,34 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::assertInstanceOf(ReviseDocumentHandler::class, $handler);
 
         return $handler;
+    }
+
+    public function test_a_revision_announces_the_status_after_the_commit(): void
+    {
+        [$em, $project, $document] = $this->seedForSeries('revise-status-'.uniqid());
+        $changes = DispatchedEvents::of(self::getContainer(), DocumentStatusChanged::class);
+        $depth = $em->getConnection()->getTransactionNestingLevel();
+
+        ($this->reviseHandler())(new ReviseDocumentCommand($document, '# Five, again', 'Rewrote it.'));
+
+        self::assertCount(1, $changes->events());
+        self::assertEquals($project->id, $changes->events()[0]->projectId);
+        self::assertEquals($document->id, $changes->events()[0]->documentId);
+        self::assertSame([$depth], $changes->transactionDepths());
+    }
+
+    public function test_a_rejected_revision_announces_nothing(): void
+    {
+        [, , $document] = $this->seedForSeries('revise-status-rejected-'.uniqid());
+        $changes = DispatchedEvents::of(self::getContainer(), DocumentStatusChanged::class);
+
+        try {
+            ($this->reviseHandler())(new ReviseDocumentCommand($document, '# Five, again', 'Rewrote it.', versionNumber: 7));
+            self::fail('a stale version must be rejected');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $changes->events());
     }
 
     public function test_a_revision_can_place_the_document_in_a_series(): void
