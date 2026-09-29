@@ -261,9 +261,17 @@ export default class extends Controller {
             block.dataset.decisionSavedIndexes = JSON.stringify(state.indexes);
         } else {
             this.sentStates.delete(block);
+            // A checked radio fires no `change` when clicked again, so the
+            // confirmed picks come back to let the reviewer retry the choice.
             const edited = this.queue.has(block) || this.timers.has(block);
-            if (state.previous && !edited)
-                this.fillBlock(block, state.previous);
+            if (!edited)
+                this.fillBlock(
+                    block,
+                    state.previous ?? {
+                        indexes: this.savedIndexes(block),
+                        note: this.state(block).note,
+                    },
+                );
             if (!this.isStream(event.detail.fetchResponse)) this.showError();
             this.heldVisit = null;
         }

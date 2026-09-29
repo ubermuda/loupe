@@ -21,17 +21,22 @@ afterEach(async () => {
     vi.useRealTimers();
 });
 
-const option = (id, index, checked) =>
-    `<input type="checkbox" value="${index}" data-decision-option="${id}:${index}"${
+const option = (id, index, checked, kind) =>
+    `<input type="${kind}" name="pick-${id}" value="${index}" data-decision-option="${id}:${index}"${
         checked.includes(`${id}:${index}`) ? ' checked' : ''
     }>`;
 
-const block = (id, note, checked = []) => `<fieldset data-decision-id="${id}"${
+const block = (
+    id,
+    note,
+    checked = [],
+    kind = 'checkbox',
+) => `<fieldset data-decision-id="${id}"${
     note === undefined ? '' : ` data-decision-note="${note}"`
 }>
     <legend>Question ${id}</legend>
-    <div>${option(id, 0, checked)}<label>A</label></div>
-    <div>${option(id, 1, checked)}<label>B</label></div>
+    <div>${option(id, 0, checked, kind)}<label>A</label></div>
+    <div>${option(id, 1, checked, kind)}<label>B</label></div>
 </fieldset>`;
 
 const form = `<form hidden data-decision-target="form"
@@ -48,6 +53,7 @@ async function mount({
     notes = {},
     page = 'doc-1/3',
     checked = [],
+    kind = 'checkbox',
 } = {}) {
     document.body.innerHTML = `<p id="decision-status"></p>
 <div data-controller="decision" data-action="change->decision#select"
@@ -56,7 +62,7 @@ async function mount({
         data-decision-note-placeholder-value="Add a note"
         data-decision-clear-label-value="Clear"
         data-decision-error-message-value="Could not save.">
-    <div class="prose">${block('a', notes.a, checked)}${block('b', notes.b, checked)}</div>
+    <div class="prose">${block('a', notes.a, checked, kind)}${block('b', notes.b, checked, kind)}</div>
     ${editable ? form : ''}
 </div>`;
     const formElement = document.querySelector('form');
@@ -578,6 +584,53 @@ it('restores the first answer when a second Clear click fails', async () => {
     expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
         true,
     );
+});
+
+const radio = (id, index) =>
+    document.querySelector(`[data-decision-option="${id}:${index}"]`);
+
+it('puts the confirmed pick back when an option save fails, and keeps the note', async () => {
+    await mount({ kind: 'radio', checked: ['a:0'], notes: { a: 'Kept' } });
+    type('a', 'Typed');
+    radio('a', 1).click();
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+
+    expect(radio('a', 0).checked).toBe(true);
+    expect(radio('a', 1).checked).toBe(false);
+    expect(note('a').value).toBe('Typed');
+    expect(document.getElementById('decision-status').textContent).toBe(
+        'Could not save.',
+    );
+});
+
+it('retries a failed option save when the same option is clicked again', async () => {
+    await mount({ kind: 'radio', checked: ['a:0'] });
+    radio('a', 1).click();
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+    radio('a', 1).click();
+
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toEqual({
+        decisionId: 'a',
+        indexes: ['1'],
+        note: '',
+        clear: false,
+    });
+});
+
+it('keeps an option picked while the failing save was in flight', async () => {
+    await mount({ kind: 'radio' });
+    radio('a', 1).click();
+    radio('a', 0).click();
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+
+    expect(radio('a', 0).checked).toBe(true);
+    expect(sent[1]).toEqual({
+        decisionId: 'a',
+        indexes: ['0'],
+        note: '',
+        clear: false,
+    });
 });
 
 function streamRender(page) {
