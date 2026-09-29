@@ -72,6 +72,7 @@ trait InboxToolScenario
         $document->addVersion('# One', '<h1>One</h1>');
         $this->em->persist($document);
         $card->documents->add(new CardDocument($card, $document));
+        $this->stageDocument($this->em, $document, $card);
         $this->em->flush();
 
         return $document;

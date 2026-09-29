@@ -107,7 +107,8 @@ final class CardDocumentRepository extends ServiceEntityRepository
 
     /**
      * The links of the cards to a document in review and not archived, with the
-     * number of its current version.
+     * number of its current version. The card column and the document tags come
+     * loaded, so a caller can apply the stage rule with no query per row.
      *
      * @param list<Uuid> $cardIds
      *
@@ -121,7 +122,9 @@ final class CardDocumentRepository extends ServiceEntityRepository
 
         /** @var list<array{0: CardDocument, versionNumber: int|string}> $rows */
         $rows = $this->inReview($project)
-            ->addSelect('document')
+            ->join('card.column', 'cardColumn')
+            ->leftJoin('document.tags', 'tag')
+            ->addSelect('card', 'cardColumn', 'document', 'tag')
             ->addSelect(\sprintf('(SELECT MAX(version.versionNumber) FROM %s version WHERE version.document = document) AS versionNumber', DocumentVersion::class))
             ->andWhere('card.id IN (:cards)')
             ->setParameter('cards', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds))
