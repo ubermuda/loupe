@@ -104,6 +104,23 @@ final class ReportWorkerRunStateRequest
         #[Assert\NotBlank(allowNull: true)]
         #[Assert\Regex(pattern: WorkerRun::WORKER_POOL_PATTERN)]
         public ?string $workerPool = null,
+
+        /** The four experiment fields are null from a bridge that predates experiments. */
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::EXPERIMENT_NAME_PATTERN)]
+        public ?string $experiment = null,
+
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::EXPERIMENT_NAME_PATTERN)]
+        public ?string $variant = null,
+
+        #[Assert\Length(max: WorkerRun::MAX_REQUESTED_MODEL_LENGTH)]
+        #[Assert\NotBlank(allowNull: true)]
+        public ?string $requestedModel = null,
+
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::EXPERIMENT_NAME_PATTERN)]
+        public ?string $switchedFrom = null,
     ) {
     }
 

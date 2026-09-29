@@ -90,6 +90,7 @@ final readonly class ReportWorkerRunStateHandler
             }
 
             $this->fillStart($run, $command);
+            $this->fillExperiment($run, $command);
             // A queued run can move to another pool, so any report, a repeat too, names the current one.
             $poolMoved = null !== $command->workerPool && $command->workerPool !== $run->workerPool;
             if ($poolMoved) {
@@ -176,6 +177,15 @@ final readonly class ReportWorkerRunStateHandler
         if (null === $run->startedAt && null !== $command->startedAt) {
             $run->startedAt = $command->startedAt;
         }
+    }
+
+    /** Reports can arrive out of order, so the first report that names a field wins. */
+    private function fillExperiment(WorkerRun $run, ReportWorkerRunStateCommand $command): void
+    {
+        $run->experiment ??= $command->experiment;
+        $run->variant ??= $command->variant;
+        $run->requestedModel ??= $command->requestedModel;
+        $run->switchedFrom ??= $command->switchedFrom;
     }
 
     private function apply(WorkerRun $run, ReportWorkerRunStateCommand $command): void

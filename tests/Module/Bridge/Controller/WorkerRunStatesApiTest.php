@@ -296,6 +296,29 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertSame('quick-2', $this->onlyRun()->workerPool);
     }
 
+    public function test_the_experiment_of_the_run_is_stored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-experiment@example.com');
+        $project = $this->project($em, $owner, 'Run States Experiment');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload([
+            'experiment' => 'plan-model',
+            'variant' => 'opus_4',
+            'requestedModel' => 'claude-opus-4',
+            'switchedFrom' => 'sonnet',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(
+            ['plan-model', 'opus_4', 'claude-opus-4', 'sonnet'],
+            [$run->experiment, $run->variant, $run->requestedModel, $run->switchedFrom],
+        );
+    }
+
     public function test_another_users_project_answers_project_not_found(): void
     {
         $client = static::createClient();
@@ -351,6 +374,14 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a worker pool above the limit' => [['workerPool' => 'a'.str_repeat('b', 40)]];
         yield 'a worker pool with a trailing newline' => [['workerPool' => "default\n"]];
         yield 'a blank worker pool' => [['workerPool' => '']];
+        yield 'an experiment with capitals and punctuation' => [['experiment' => 'Opus!']];
+        yield 'a blank experiment' => [['experiment' => '']];
+        yield 'an experiment above the limit' => [['experiment' => str_repeat('e', 65)]];
+        yield 'a variant with capitals and punctuation' => [['variant' => 'Opus!']];
+        yield 'a variant with a trailing newline' => [['variant' => "opus\n"]];
+        yield 'a switched-from variant with capitals and punctuation' => [['switchedFrom' => 'Opus!']];
+        yield 'a blank requested model' => [['requestedModel' => '']];
+        yield 'a requested model above the limit' => [['requestedModel' => str_repeat('m', 101)]];
         yield 'a timed-out state, which only the server infers' => [['state' => 'timed-out']];
         yield 'a lost state, which only the server infers' => [['state' => 'lost']];
         yield 'a closed state, which only an interactive run reaches' => [['state' => 'closed']];
