@@ -11,11 +11,10 @@ use App\Module\Review\Service\DecisionSummaryReader;
  * The decision blocks of the version the reviewer is looking at, together with
  * the answers on record, for the Turbo stream that follows an answer.
  *
- * The displayed version rather than the latest one. They are the same whenever
- * an answer succeeds, because a stale answer is refused — and it is exactly
- * that refusal that makes the difference matter: the browser still shows the
- * older prose, so a summary built from the newer version would count blocks
- * that are not on the page and link to element ids that do not exist on it.
+ * The displayed version rather than the latest one. A tab that shows an older
+ * version can still save an answer, and a summary built from the newer version
+ * would count blocks that are not on its page and link to element ids that do
+ * not exist there.
  */
 final readonly class ShowDecisionSummaryHandler
 {

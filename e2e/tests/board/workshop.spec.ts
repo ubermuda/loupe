@@ -30,7 +30,7 @@ test('workshop opens the matching request and keeps card details in its drawer',
     }
     const first = await page.request.post('/dev/seed/inbox');
     expect(first.ok()).toBeTruthy();
-    const { projectId, questionNumber } = await first.json();
+    const { projectId } = await first.json();
     const second = await page.request.post('/dev/seed/inbox');
     expect(second.ok()).toBeTruthy();
     const workshopUrl = `/projects/${projectId}`;
@@ -65,12 +65,12 @@ test('workshop opens the matching request and keeps card details in its drawer',
     );
     expect(queued.status()).toBe(201);
     await page.goto(workshopUrl);
-    await page
-        .locator(
-            `[data-workshop-attention][href$="#inbox-item-${questionNumber}"]`,
-        )
-        .click();
-    await expect(page.locator(`#inbox-item-${questionNumber}`)).toBeVisible();
+    // Needs you lists the oldest items, so an earlier run's items can fill it.
+    const attention = page.locator('[data-workshop-attention]').first();
+    const fragment = (await attention.getAttribute('href'))?.split('#')[1];
+    expect(fragment).toMatch(/^inbox-item-\d+$/);
+    await attention.click();
+    await expect(page.locator(`#${fragment}`)).toBeVisible();
 
     await page.goto(workshopUrl);
     const card = page

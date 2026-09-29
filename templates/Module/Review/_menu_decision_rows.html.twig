@@ -3,8 +3,8 @@
 {% for row in rows %}
 <a class="lp-review-menu__section" href="#{{ row.elementId }}"
    data-action="click->review-menu#jump" title="{{ row.label }}">
-    <span class="lp-review-menu__mark{{ row.selected is empty ? '' : ' lp-review-menu__mark--approved' }}">
-        {% if row.selected is not empty %}<twig:ux:icon name="lucide:check" />{% endif %}
+    <span class="lp-review-menu__mark{{ row.answered ? ' lp-review-menu__mark--approved' }}">
+        {% if row.answered %}<twig:ux:icon name="lucide:check" />{% endif %}
     </span>
     <span class="lp-review-menu__label">{{ row.label }}</span>
 </a>
