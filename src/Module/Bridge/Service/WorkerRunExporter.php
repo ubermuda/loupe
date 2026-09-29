@@ -65,6 +65,10 @@ final readonly class WorkerRunExporter implements UserDataExporterInterface
                 'resumeSkipped' => $run->resumeSkipped,
                 'usageSource' => $run->usageSource?->value,
                 'workerPool' => $run->workerPool,
+                'experiment' => $run->experiment,
+                'variant' => $run->variant,
+                'requestedModel' => $run->requestedModel,
+                'switchedFrom' => $run->switchedFrom,
                 'history' => $history[$run] ?? [],
             ];
         }

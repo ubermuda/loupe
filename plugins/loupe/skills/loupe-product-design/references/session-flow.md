@@ -32,9 +32,14 @@ A card that needs no product design does not use this skill. The owner moves it 
    - When `card_run_open` refuses the slug, call it again with no `status`. The card stays where it is. Tell the owner that an approval will not move the card, and go on with P1.
    - When the MCP has no `card_run_open`, call `card_update` wherever a rule above sends the slug. Where a rule sends no `status`, move nothing. Skip every `card_run_close` call.
    - When `card_update` refuses the slug, keep the card where it is. Tell the owner that an approval will not move the card, and go on with P1.
-2. P1: Intake. Read the card, the linked documents and the code for the current behaviour before you ask anything. Read the unapproved draft too, when one exists. Then ask for a brain dump with one open prompt. From the brain dump, draft the problem: who feels it, and the situation that triggers the need. Ask one question only when either is unclear. Keep solutions out of the problem.
+2. P1: Intake. Take the problem from the card before you ask anything.
+   - Read the card, the linked documents and the code for the current behaviour. Read the unapproved draft too, when one exists.
+   - When there is no card, or the card body is empty or one line, ask for a brain dump with one open prompt. Then draft the problem from it: who feels it, and the situation that triggers the need. Count the lines of the card body for this rule.
+   - Otherwise, draft who feels the problem and the situation that triggers it from the card body. Show no open prompt.
+   - When you cannot draft one of those two parts, ask one question about that part only. Ask nothing else at intake.
+   - Keep solutions out of the problem.
 3. P2: Calibrate. Propose the session level (L3), and let the owner confirm it.
-4. P4: Options. When the solution is not obvious, show two or three solution shapes, and recommend one. Skip this phase for a small card.
+4. P4: Options. When the solution is not obvious, show two or three solution shapes, and recommend one. Skip this phase for a small card. Follow `claude-design.md` for the offer when the options differ in what the user sees.
    - In a Full session, first find two or three products, also when the solution is obvious. Choose products that solve the same problem. Use a subagent or a web search, when the tools exist. The findings go in "How others do it".
 5. P5: Scope. Fix the first slice, which is the smallest end-to-end slice that works. Fix the no-gos, and what waits for later.
    - In a Full session, then name two or three trade-offs that this feature faces. Ask the owner to pick a side on each (Q7). The answers go in "Priorities".
