@@ -13,7 +13,7 @@ use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\LifecycleStages;
-use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Board\Service\PullRequestMoveTriggers;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
@@ -46,12 +46,8 @@ final readonly class MoveCardsOnPullRequestStateHandler
     {
         $previous = $command->previous;
         $current = $command->current;
-        $finished = $previous->state !== $current->state && PullRequestState::Open !== $current->state;
-        // A draft marked ready keeps the checks it passed as a draft, so the ready change counts too.
-        $green = PullRequestChecks::Passed === $current->checks
-            && ($current->checksConcludedSince($previous) || $previous->draft)
-            && PullRequestState::Open === $current->state
-            && !$current->draft;
+        $finished = PullRequestMoveTriggers::finished($previous, $current);
+        $green = PullRequestMoveTriggers::green($previous, $current);
         $pullRequest = $command->pullRequest;
         $forge = Forge::tryFrom($pullRequest->forge);
         if (null === $forge || (!$finished && !$green)) {
