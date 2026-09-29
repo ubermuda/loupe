@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Controller;
 
+use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
@@ -20,6 +21,7 @@ use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -394,6 +396,28 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, $this->reviewPath($document));
         self::assertSelectorExists('[data-decision-target="form"]');
         self::assertSelectorNotExists('fieldset.lp-decision[disabled]');
+    }
+
+    public function test_the_review_page_listens_on_its_document_topic_and_a_diff_does_not(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+        $this->revise($document, self::MARKDOWN."\n\nA closing note.\n");
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
+        $documentTopic = $topics->forDocument(
+            $document->project->id ?? throw new \LogicException('The project has no id.'),
+            $document->id ?? throw new \LogicException('The document has no id.'),
+        );
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $this->reviewPath($document));
+        self::assertResponseIsSuccessful();
+        self::assertContains($documentTopic, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value')));
+
+        $crawler = $client->request(Request::METHOD_GET, $this->reviewPath($document).'/diff/1/2');
+        self::assertResponseIsSuccessful();
+        self::assertNotContains($documentTopic, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value')));
     }
 
     /** Only a legitimate owner reaches the token check, so the non-owner test cannot cover it. */

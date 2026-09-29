@@ -52,6 +52,7 @@
        the review block, whose change and mouseup listeners would take the
        section's controls for the document's own. #}
     {% if not diffMode %}
+    {% do mercure_subscribe(documentTopic) %}
     {{ inbox_document_section(document, readOnly ? version.versionNumber : null) }}
     {% endif %}
 
