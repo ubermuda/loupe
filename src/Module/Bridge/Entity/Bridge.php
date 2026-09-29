@@ -56,6 +56,10 @@ class Bridge
     #[ORM\Column(name: 'worker_pools', type: Types::JSON, nullable: true)]
     public ?array $workerPools = null;
 
+    /** The server clock at the heartbeat that carried the worker pool rows. */
+    #[ORM\Column(name: 'worker_pools_reported_at', nullable: true)]
+    public ?\DateTimeImmutable $workerPoolsReportedAt = null;
+
     /**
      * @param list<string> $projects
      */

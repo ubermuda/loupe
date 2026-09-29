@@ -134,9 +134,11 @@ trait BridgeScenario
         string $cliVersion = 'b4e39aa7',
         \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable(),
         ?array $workerPools = null,
+        ?\DateTimeImmutable $workerPoolsReportedAt = null,
     ): Bridge {
         $bridge = new Bridge(AgentCredential::managed($em, $owner, $owner->id), $id ?? Uuid::v4(), $projects, $cliVersion, $lastSeenAt);
         $bridge->workerPools = $workerPools;
+        $bridge->workerPoolsReportedAt = $workerPoolsReportedAt;
         $em->persist($bridge);
         $em->flush();
 

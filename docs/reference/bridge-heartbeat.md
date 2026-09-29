@@ -69,8 +69,10 @@ Each row of `workerPools` holds these fields:
 
 The counts cover every project that the bridge follows. The
 [agents page](../using/worker-runs.md#bridge-health) shows them on the card of
-the bridge, with the time of the heartbeat that carried them. A bridge that
-never sent a `workerPools` list shows no pools.
+the bridge, with the time of the heartbeat that carried them. The server
+stamps that time from its own clock when a heartbeat carries a `workerPools`
+list, an empty list included. A heartbeat with no list keeps the rows and their
+time. A bridge that never sent a `workerPools` list shows no pools.
 
 | `update.state` | Meaning |
 |---|---|
@@ -164,5 +166,5 @@ run of that bridge that the list does not name. See
 ## Deletion and export
 
 Deleting an account deletes the rows of its bridges. The data export holds them
-in `bridges.json`, with the stored update state and version, the hook rows and
-the worker pool rows.
+in `bridges.json`, with the stored update state and version, the hook rows, and
+the worker pool rows with their report time.

@@ -14,6 +14,7 @@ use App\Module\Bridge\ValueObject\CliUpdateState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\AuditOutcome;
 
@@ -191,6 +192,43 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7'));
 
         self::assertSame([self::pool()], $this->reload($owner, $bridgeId)->workerPools);
+    }
+
+    /** The Agents page dates the counts, so a heartbeat that carried none must not make them look fresh. */
+    public function test_a_heartbeat_without_worker_pools_keeps_the_time_of_the_last_report(): void
+    {
+        self::bootKernel();
+        $clock = new MockClock('2026-09-14 16:00:00');
+        self::getContainer()->set('clock', $clock);
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-pools-time@example.com');
+        $bridgeId = Uuid::v4();
+        $handler = $this->handler();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', workerPools: [self::pool()]));
+        $clock->modify('+1 minute');
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7'));
+
+        $bridge = $this->reload($owner, $bridgeId);
+        self::assertSame('2026-09-14 16:01:00', $bridge->lastSeenAt->format('Y-m-d H:i:s'));
+        self::assertSame('2026-09-14 16:00:00', $bridge->workerPoolsReportedAt?->format('Y-m-d H:i:s'));
+
+        $clock->modify('+1 minute');
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', workerPools: []));
+
+        self::assertSame('2026-09-14 16:02:00', $this->reload($owner, $bridgeId)->workerPoolsReportedAt?->format('Y-m-d H:i:s'));
+    }
+
+    public function test_a_bridge_that_never_reported_pools_has_no_report_time(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-pools-no-time@example.com');
+        $bridgeId = Uuid::v4();
+
+        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7'));
+
+        self::assertNull($this->reload($owner, $bridgeId)->workerPoolsReportedAt);
     }
 
     public function test_an_empty_worker_pool_report_clears_the_stored_rows(): void

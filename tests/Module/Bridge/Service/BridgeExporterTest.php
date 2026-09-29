@@ -27,6 +27,7 @@ final class BridgeExporterTest extends TestCase
         $bridge->hooks = [$hook];
         $pool = ['name' => 'default', 'size' => 3, 'inUse' => 1, 'queued' => 0];
         $bridge->workerPools = [$pool];
+        $bridge->workerPoolsReportedAt = new \DateTimeImmutable('2026-09-14T15:59:00+00:00');
 
         $rows = iterator_to_array(new BridgeExporter($this->repositoryReturning($bridge))->export($owner));
 
@@ -39,6 +40,7 @@ final class BridgeExporterTest extends TestCase
             'updateVersion' => '1.3.0',
             'hooks' => [$hook],
             'workerPools' => [$pool],
+            'workerPoolsReportedAt' => '2026-09-14T15:59:00+00:00',
         ]], $rows);
     }
 

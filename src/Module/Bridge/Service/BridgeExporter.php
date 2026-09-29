@@ -34,6 +34,7 @@ final readonly class BridgeExporter implements UserDataExporterInterface
                 'updateVersion' => $bridge->updateVersion,
                 'hooks' => $bridge->hooks,
                 'workerPools' => $bridge->workerPools,
+                'workerPoolsReportedAt' => $bridge->workerPoolsReportedAt?->format(\DateTimeInterface::ATOM),
             ];
         }
     }

@@ -126,10 +126,11 @@ final class ListAgentsControllerTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'agents-pools@example.com');
         $project = $this->project($em, $owner, 'Pools');
-        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable('2026-09-14 16:05:00'), workerPools: [
+        // A later heartbeat carried no pools, so the counts date from the report, not from the last heartbeat.
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable('2026-09-14 16:09:00'), workerPools: [
             ['name' => 'default', 'size' => 3, 'inUse' => 2, 'queued' => 0],
             ['name' => 'quick', 'size' => 1, 'inUse' => 1, 'queued' => 4],
-        ]);
+        ], workerPoolsReportedAt: new \DateTimeImmutable('2026-09-14 16:05:00'));
         $older = $this->seedBridge($em, $owner, projects: [(string) $project->id]);
         $em->clear();
 
@@ -140,6 +141,7 @@ final class ListAgentsControllerTest extends WebTestCase
         $pools = $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"] [data-agent-worker-pools]');
         self::assertStringContainsString('Worker pools', $pools->text());
         self::assertStringContainsString('As of Sep 14, 16:05', $pools->text());
+        self::assertStringNotContainsString('16:09', $pools->text());
         self::assertSame(
             ['default 2 in use of 3 · 0 queued', 'quick 1 in use of 1 · 4 queued'],
             $pools->filter('[data-agent-worker-pool]')->each(static fn ($row): string => preg_replace('/\s+/', ' ', trim($row->text())) ?? ''),

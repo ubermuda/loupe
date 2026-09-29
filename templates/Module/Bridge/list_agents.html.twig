@@ -46,7 +46,7 @@
                 </div>
                 {% if connection.bridge.workerPools is not empty %}
                 <div class="lp-agent-card__current lp-agent-card__pools" data-agent-worker-pools>
-                    <span>{{ 'bridge.agents.worker_pools.heading'|trans }}{% if connection.status.lastSeenAt %} · {{ 'bridge.agents.worker_pools.as_of'|trans({'%time%': connection.status.lastSeenAt|date('M j, H:i')}) }}{% endif %}</span>
+                    <span>{{ 'bridge.agents.worker_pools.heading'|trans }}{% if connection.bridge.workerPoolsReportedAt %} · {{ 'bridge.agents.worker_pools.as_of'|trans({'%time%': connection.bridge.workerPoolsReportedAt|date('M j, H:i')}) }}{% endif %}</span>
                     {% for pool in connection.bridge.workerPools %}
                     <p class="lp-agent-card__pool" data-agent-worker-pool>
                         <strong>{{ pool.name }}</strong>

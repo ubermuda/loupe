@@ -224,8 +224,9 @@ Heartbeat health does not show whether an individual worker is running or availa
 A bridge that runs worker pools reports their use with each heartbeat. The
 card of the bridge then lists each pool on one line: the pool name, the
 workers in use of the pool size, and the runs in the queue. The heading gives
-the time of the last heartbeat, because the counts are correct at that time
-only. The counts cover every project that the bridge follows, not only the
+the time of the heartbeat that carried the counts, because the counts are
+correct at that time only. A later heartbeat with no pool report keeps the
+counts and their time. The counts cover every project that the bridge follows, not only the
 current project. A bridge that sends no pool report, such as an older bridge,
 shows no pools.
 
