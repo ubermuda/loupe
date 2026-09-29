@@ -88,7 +88,7 @@ final class SeedShowcaseDataCommand extends Command
         if (!$seeding->inboxEnabled) {
             $io->warning('Loupe opened no wait item, because inbox.enabled is off. Switch the flag on at /admin/feature-flags, then run this command again.');
         } elseif (!$seeding->waitItemOpen) {
-            $io->note(\sprintf('The "%s" card has no open wait item. Its document is no longer in review, or someone dismissed the item.', ProjectShowcaseSeeder::WAITING_CARD_TITLE));
+            $io->note(\sprintf('The "%s" card has no open wait item. Its tech design is no longer in review, the card left Tech design, or someone dismissed the item.', ProjectShowcaseSeeder::WAITING_CARD_TITLE));
         }
         if (!$seeding->written) {
             $io->note(\sprintf('"%s" already holds the showcase, so this run added no other data.', $name));

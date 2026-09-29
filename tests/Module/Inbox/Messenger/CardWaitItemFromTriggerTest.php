@@ -38,12 +38,14 @@ final class CardWaitItemFromTriggerTest extends KernelTestCase
         $project = $this->project($em, $this->owner($em, 'wait-trigger-flow'), 'wait-trigger-flow');
         $document = $this->document($em, $project);
         $document->addVersion('# One', '<h1>One</h1>');
+        $this->tagDocument($em, $document, ['design', 'decisions']);
+        $column = $this->stageColumn($em, $project, 'tech-design');
         $em->flush();
         $this->switchFlag($em, InboxInstallFlags::FLAG_INBOX_ENABLED, true);
 
         $createCard = $container->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $createCard);
-        $card = $createCard(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature, documentIds: [(string) $document->id]));
+        $card = $createCard(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature, column: $column, documentIds: [(string) $document->id]));
         $this->drainAsync();
 
         $watches = $container->get(InboxCardWatchRepository::class);
