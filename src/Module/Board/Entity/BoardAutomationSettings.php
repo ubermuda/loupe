@@ -42,6 +42,10 @@ class BoardAutomationSettings
         /** The automatic fix rounds a card gets before the board stops asking. */
         #[ORM\Column]
         public int $loopLimit = 3,
+
+        /** Posts a comment on the pull request when a fix run is queued for it. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $commentOnFixQueued = false,
     ) {
     }
 }

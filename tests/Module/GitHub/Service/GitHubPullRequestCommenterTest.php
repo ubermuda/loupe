@@ -121,6 +121,28 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
         self::assertFalse($failure->permanent);
     }
 
+    public function test_a_missing_app_configuration_is_a_permanent_failure(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 71_006);
+
+        $failure = $this->failure($pullRequest, appId: null);
+
+        self::assertSame('api_failed_not_configured', $failure->cause);
+        self::assertTrue($failure->permanent);
+        self::assertSame([], $this->requests);
+    }
+
+    public function test_an_unusable_private_key_is_a_permanent_failure(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 71_007);
+
+        $failure = $this->failure($pullRequest, privateKey: 'not a key');
+
+        self::assertSame('api_failed_bad_key', $failure->cause);
+        self::assertTrue($failure->permanent);
+        self::assertSame([], $this->requests);
+    }
+
     public function test_a_transport_error_is_a_transient_failure(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 71_004);
@@ -186,7 +208,7 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
         return $project;
     }
 
-    private function commenter(): GitHubPullRequestCommenter
+    private function commenter(?string $appId = '123456', ?string $privateKey = null): GitHubPullRequestCommenter
     {
         $client = new MockHttpClient(function (string $method, string $url, array $options): MockResponse {
             $this->requests[] = ['method' => $method, 'url' => $url, 'options' => $options];
@@ -202,15 +224,15 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
         self::assertInstanceOf(GitHubPullRequestInstallations::class, $installations);
 
         return new GitHubPullRequestCommenter(
-            new GitHubAppApi($client, new GitHubAppConfiguration(null, null, null, null, '123456', $pem), new MockClock()),
+            new GitHubAppApi($client, new GitHubAppConfiguration(null, null, null, null, $appId, $privateKey ?? $pem), new MockClock()),
             $installations,
         );
     }
 
-    private function failure(ForgePullRequest $pullRequest): PullRequestCommentFailed
+    private function failure(ForgePullRequest $pullRequest, ?string $appId = '123456', ?string $privateKey = null): PullRequestCommentFailed
     {
         try {
-            $this->commenter()->comment($pullRequest, 'Hello');
+            $this->commenter($appId, $privateKey)->comment($pullRequest, 'Hello');
         } catch (PullRequestCommentFailed $e) {
             return $e;
         }

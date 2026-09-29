@@ -14,6 +14,9 @@ final readonly class GitHubPullRequestCommenter implements PullRequestCommenter
 {
     private const array REFUSED_STATUSES = [401, 403, 404];
 
+    /** An operator must change the App settings, so a retry cannot succeed. */
+    private const array CONFIGURATION_REASONS = ['not_configured', 'bad_key'];
+
     public function __construct(
         private GitHubAppApi $api,
         private GitHubPullRequestInstallations $installations,
@@ -44,7 +47,7 @@ final readonly class GitHubPullRequestCommenter implements PullRequestCommenter
             }
 
             $cause = 'http_status' === $e->reason ? 'http_status_'.$e->status : $e->reason;
-            throw new PullRequestCommentFailed('api_failed_'.$cause, permanent: false, previous: $e);
+            throw new PullRequestCommentFailed('api_failed_'.$cause, permanent: \in_array($e->reason, self::CONFIGURATION_REASONS, true), previous: $e);
         }
     }
 }

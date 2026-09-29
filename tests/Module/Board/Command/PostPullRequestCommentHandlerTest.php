@@ -1,0 +1,222 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Module\Board\Command;
+
+use App\Module\Board\Command\PostPullRequestCommentCommand;
+use App\Module\Board\Command\PostPullRequestCommentHandler;
+use App\Module\Board\Entity\BoardAutomationSettings;
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardAutomation;
+use App\Module\Board\Entity\PullRequestComment;
+use App\Module\Board\Entity\PullRequestCommentState;
+use App\Module\Board\Repository\PullRequestCommentRepository;
+use App\Module\Board\Service\FixRunCommentBody;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Forge\Service\PullRequestCommenters;
+use App\Module\Forge\Service\PullRequestCommentFailed;
+use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\FakePullRequestCommenter;
+use App\Tests\Module\Board\Mcp\BoardToolScenario;
+use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\NullLogger;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Uid\Uuid;
+
+final class PostPullRequestCommentHandlerTest extends KernelTestCase
+{
+    use BoardToolScenario;
+
+    private EntityManagerInterface $em;
+    private MockClock $clock;
+    private FakePullRequestCommenter $commenter;
+    private Project $project;
+    private Card $card;
+    private ForgePullRequest $pullRequest;
+
+    protected function setUp(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $this->em = $em;
+        $this->clock = new MockClock('2026-09-29 12:00:00');
+        $this->commenter = new FakePullRequestCommenter();
+
+        $this->project = $this->makeProject('post-comment');
+        $this->card = new Card($this->project, $this->column($this->project, 'backlog'), 'Ship it', '', 1);
+        $this->em->persist($this->card);
+        $this->pullRequest = new ForgePullRequest($this->project, 'github', 'Acme/Widgets', 5);
+        $this->pullRequest->failedChecks = ['phpunit', 'e2e'];
+        $this->em->persist($this->pullRequest);
+        $this->em->flush();
+    }
+
+    public function test_it_posts_the_comment_and_marks_it_posted(): void
+    {
+        $comment = $this->pending();
+
+        $this->handle($comment);
+
+        self::assertCount(1, $this->commenter->comments);
+        self::assertSame($this->pullRequest, $this->commenter->comments[0][0]);
+        $comment = $this->reload($comment);
+        self::assertSame(PullRequestCommentState::Posted, $comment->state);
+        self::assertEquals($this->clock->now(), $comment->postedAt);
+        self::assertSame(1, $comment->attempts);
+        self::assertNull($comment->cause);
+    }
+
+    public function test_the_body_names_the_reason_the_checks_the_round_and_links_the_card_and_the_run(): void
+    {
+        $automation = new CardAutomation($this->card);
+        $automation->fixRounds = 2;
+        $this->em->persist($automation);
+        $this->em->persist(new BoardAutomationSettings($this->project, loopLimit: 3));
+        $this->em->flush();
+
+        $this->handle($this->pending());
+
+        $urls = self::getContainer()->get(UrlGeneratorInterface::class);
+        self::assertInstanceOf(UrlGeneratorInterface::class, $urls);
+        $cardUrl = $urls->generate('app_board_card', ['projectId' => (string) $this->project->id, 'cardId' => (string) $this->card->id], UrlGeneratorInterface::ABSOLUTE_URL);
+        $runUrl = $urls->generate('app_project_card_worker_runs', ['id' => (string) $this->project->id, 'cardId' => (string) $this->card->id], UrlGeneratorInterface::ABSOLUTE_URL);
+        self::assertStringStartsWith('http', $cardUrl);
+
+        self::assertSame(
+            "Loupe queued a fix run for this pull request.\n\n"
+            ."**Reason:** checks failed\n"
+            ."**Failed checks:** `phpunit`, `e2e`\n"
+            ."**Round:** 2 of 3\n\n"
+            .'[Card]('.$cardUrl.') · [Run]('.$runUrl.')',
+            $this->commenter->comments[0][1],
+        );
+    }
+
+    public function test_a_card_without_automation_omits_the_round_and_a_conflict_omits_the_checks(): void
+    {
+        $this->handle($this->pending(reason: 'conflict'));
+
+        $body = $this->commenter->comments[0][1];
+        self::assertStringContainsString('**Reason:** merge conflict', $body);
+        self::assertStringNotContainsString('**Round:**', $body);
+        self::assertStringNotContainsString('**Failed checks:**', $body);
+    }
+
+    public function test_an_unknown_reason_reads_as_a_generic_fix(): void
+    {
+        $this->handle($this->pending(reason: null));
+
+        self::assertStringContainsString('**Reason:** fix requested', $this->commenter->comments[0][1]);
+    }
+
+    public function test_a_permanent_failure_marks_the_comment_failed(): void
+    {
+        $this->commenter->failure = new PullRequestCommentFailed('permission', permanent: true);
+        $comment = $this->pending();
+
+        $this->handle($comment);
+
+        $comment = $this->reload($comment);
+        self::assertSame(PullRequestCommentState::Failed, $comment->state);
+        self::assertSame('permission', $comment->cause);
+        self::assertEquals($this->clock->now(), $comment->failedAt);
+        self::assertSame(1, $comment->attempts);
+    }
+
+    public function test_a_transient_failure_counts_the_attempt_and_rethrows(): void
+    {
+        $failure = new PullRequestCommentFailed('api_failed_http_status_502', permanent: false);
+        $this->commenter->failure = $failure;
+        $comment = $this->pending();
+
+        try {
+            $this->handle($comment);
+            self::fail('Expected the transient failure to propagate.');
+        } catch (PullRequestCommentFailed $e) {
+            self::assertSame($failure, $e);
+        }
+
+        $comment = $this->reload($comment);
+        self::assertSame(PullRequestCommentState::Pending, $comment->state);
+        self::assertSame(1, $comment->attempts);
+        self::assertSame('api_failed_http_status_502', $comment->cause);
+        self::assertNull($comment->failedAt);
+    }
+
+    public function test_an_untracked_pull_request_marks_the_comment_failed(): void
+    {
+        $comment = $this->pending(number: 99);
+
+        $this->handle($comment);
+
+        self::assertSame([], $this->commenter->comments);
+        $comment = $this->reload($comment);
+        self::assertSame(PullRequestCommentState::Failed, $comment->state);
+        self::assertSame('unknown_pull_request', $comment->cause);
+        self::assertEquals($this->clock->now(), $comment->failedAt);
+    }
+
+    public function test_a_comment_already_posted_is_not_posted_again(): void
+    {
+        $comment = $this->pending();
+        $comment->state = PullRequestCommentState::Posted;
+        $this->em->flush();
+
+        $this->handle($comment);
+
+        self::assertSame([], $this->commenter->comments);
+    }
+
+    private function pending(?string $reason = 'checks-failed', int $number = 5): PullRequestComment
+    {
+        $comment = new PullRequestComment(
+            project: $this->project,
+            runId: Uuid::v7(),
+            cardId: $this->card->id ?? throw new \LogicException('A persisted card has an id.'),
+            forge: 'github',
+            repository: 'Acme/Widgets',
+            number: $number,
+            headSha: 'abc1234',
+            reason: $reason,
+            createdAt: $this->clock->now(),
+        );
+        $this->em->persist($comment);
+        $this->em->flush();
+
+        return $comment;
+    }
+
+    private function handle(PullRequestComment $comment): void
+    {
+        $comments = self::getContainer()->get(PullRequestCommentRepository::class);
+        self::assertInstanceOf(PullRequestCommentRepository::class, $comments);
+        $pullRequests = self::getContainer()->get(ForgePullRequestRepository::class);
+        self::assertInstanceOf(ForgePullRequestRepository::class, $pullRequests);
+        $body = self::getContainer()->get(FixRunCommentBody::class);
+        self::assertInstanceOf(FixRunCommentBody::class, $body);
+
+        $handler = new PostPullRequestCommentHandler(
+            pullRequestComments: $comments,
+            forgePullRequests: $pullRequests,
+            commenters: new PullRequestCommenters([$this->commenter]),
+            body: $body,
+            em: $this->em,
+            clock: $this->clock,
+            logger: new NullLogger(),
+        );
+
+        $handler(new PostPullRequestCommentCommand($comment->id ?? throw new \LogicException('A flushed comment has an id.')));
+    }
+
+    private function reload(PullRequestComment $comment): PullRequestComment
+    {
+        $this->em->refresh($comment);
+
+        return $comment;
+    }
+}

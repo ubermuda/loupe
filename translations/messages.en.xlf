@@ -6261,6 +6261,42 @@
                 <source>board.automation.flash.saved</source>
                 <target>Automation settings saved.</target>
             </trans-unit>
+            <trans-unit id="board.fix_run_comment.intro">
+                <source>board.fix_run_comment.intro</source>
+                <target>Loupe queued a fix run for this pull request.</target>
+            </trans-unit>
+            <trans-unit id="board.fix_run_comment.reason">
+                <source>board.fix_run_comment.reason</source>
+                <target>**Reason:** %reason%</target>
+            </trans-unit>
+            <trans-unit id="board.fix_run_comment.reason.checks-failed">
+                <source>board.fix_run_comment.reason.checks-failed</source>
+                <target>checks failed</target>
+            </trans-unit>
+            <trans-unit id="board.fix_run_comment.reason.conflict">
+                <source>board.fix_run_comment.reason.conflict</source>
+                <target>merge conflict</target>
+            </trans-unit>
+            <trans-unit id="board.fix_run_comment.reason.changes-requested">
+                <source>board.fix_run_comment.reason.changes-requested</source>
+                <target>changes requested</target>
+            </trans-unit>
+            <trans-unit id="board.fix_run_comment.reason.other">
+                <source>board.fix_run_comment.reason.other</source>
+                <target>fix requested</target>
+            </trans-unit>
+            <trans-unit id="board.fix_run_comment.failed_checks">
+                <source>board.fix_run_comment.failed_checks</source>
+                <target>**Failed checks:** %checks%</target>
+            </trans-unit>
+            <trans-unit id="board.fix_run_comment.round">
+                <source>board.fix_run_comment.round</source>
+                <target>**Round:** %round% of %limit%</target>
+            </trans-unit>
+            <trans-unit id="board.fix_run_comment.links">
+                <source>board.fix_run_comment.links</source>
+                <target>[Card](%card_url%) · [Run](%run_url%)</target>
+            </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.enabled.label">
                 <source>board.form.save_board_automation_settings_form.enabled.label</source>
                 <target>Send fix and merge requests</target>
