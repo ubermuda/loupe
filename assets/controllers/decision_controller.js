@@ -1,7 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 
 export default class extends Controller {
-    static targets = ['form', 'decisionId', 'options', 'expectedOptions'];
+    static targets = ['form', 'decisionId', 'options'];
     static values = { saveLabel: String };
 
     connect() {
@@ -60,10 +60,6 @@ export default class extends Controller {
         this.pending = { block, indexes };
         this.decisionIdTarget.value = block.dataset.decisionId;
         this.fill(this.optionsTarget, indexes);
-        this.fill(
-            this.expectedOptionsTarget,
-            JSON.parse(block.dataset.savedDecisionIndexes),
-        );
         for (const candidate of this.blocks) {
             for (const input of candidate.querySelectorAll('input'))
                 input.disabled = true;

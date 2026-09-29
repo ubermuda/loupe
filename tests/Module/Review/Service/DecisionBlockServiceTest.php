@@ -708,9 +708,6 @@ final class DecisionBlockServiceTest extends TestCase
         self::assertSame(['huge'], array_map(static fn (object $d): string => $d->id, $decisions));
         self::assertCount(5_000, $decisions[0]->options);
         self::assertSame('option 0', $decisions[0]->options[0]);
-
-        // The same scan backs the markup a refused submission streams back.
-        self::assertStringContainsString('data-decision-id="huge"', (string) $this->decisions->blockHtml($html, 'huge'));
     }
 
     /**

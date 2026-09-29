@@ -328,7 +328,7 @@ final readonly class DecisionBlockService
      * fieldsets emitted here are flat: fieldset() writes one per block and never
      * nests them.
      *
-     * @return list<array{id: string, type: DecisionType, inner: string, html: string}>
+     * @return list<array{id: string, type: DecisionType, inner: string}>
      */
     private function fieldsets(string $html): array
     {
@@ -354,37 +354,13 @@ final readonly class DecisionBlockService
                 'id' => $openTag[1],
                 'type' => self::typeOfOpenTag($openTag[0]),
                 'inner' => substr($element, \strlen($openTag[0])),
-                'html' => $element.'</fieldset>',
             ];
         }
 
         return $found;
     }
 
-    /**
-     * One block's markup, verbatim from the version it was rendered into.
-     *
-     * A failed submission streams this back so the radios show what is stored
-     * rather than the click that was refused. Taken from the stored HTML rather
-     * than re-rendered, so what replaces the block is byte-identical to what the
-     * reviewer already has apart from the selection attributes.
-     */
-    public function blockHtml(string $html, string $decisionId): ?string
-    {
-        if (1 !== preg_match('~^'.self::ID_PATTERN.'$~', $decisionId)) {
-            return null;
-        }
-
-        foreach ($this->fieldsets($html) as $block) {
-            if ($block['id'] === $decisionId) {
-                return $block['html'];
-            }
-        }
-
-        return null;
-    }
-
-    /** The DOM id blockHtml()'s markup carries, for a Turbo stream to target. */
+    /** The DOM id a rendered block carries. */
     public static function blockElementId(string $decisionId): string
     {
         return self::BLOCK_ID_PREFIX.$decisionId;

@@ -11,8 +11,8 @@ use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
-use App\Module\Review\Command\SelectDecisionOptionCommand;
-use App\Module\Review\Command\SelectDecisionOptionHandler;
+use App\Module\Review\Command\SaveDecisionAnswerCommand;
+use App\Module\Review\Command\SaveDecisionAnswerHandler;
 use App\Module\Review\Command\SetSectionApprovalCommand;
 use App\Module\Review\Command\SetSectionApprovalHandler;
 use App\Module\Review\Command\ShowDocumentDataCommand;
@@ -424,9 +424,9 @@ final class ShowReviewHandlerTest extends KernelTestCase
         self::assertInstanceOf(CreateDocumentHandler::class, $create);
         $doc = $create(new CreateDocumentCommand($this->project, 'Deploy plan', $markdown));
 
-        $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
-        self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
-        $select(new SelectDecisionOptionCommand($doc, 'deploy-target', 1, displayedVersionNumber: 1));
+        $save = self::getContainer()->get(SaveDecisionAnswerHandler::class);
+        self::assertInstanceOf(SaveDecisionAnswerHandler::class, $save);
+        $save(new SaveDecisionAnswerCommand($doc, 'deploy-target', 1, [1], null, false, $this->owner));
 
         $decisions = ($this->getReview)(new ShowReviewCommand($doc))['decisions'];
 
@@ -471,10 +471,9 @@ final class ShowReviewHandlerTest extends KernelTestCase
         self::assertInstanceOf(CreateDocumentHandler::class, $create);
         $doc = $create(new CreateDocumentCommand($this->project, 'Ship plan', $markdown));
 
-        $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
-        self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
-        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 0, displayedVersionNumber: 1));
-        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 2, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
+        $save = self::getContainer()->get(SaveDecisionAnswerHandler::class);
+        self::assertInstanceOf(SaveDecisionAnswerHandler::class, $save);
+        $save(new SaveDecisionAnswerCommand($doc, 'ship-with', 1, [0, 2], null, false, $this->owner));
 
         $decision = ($this->getReview)(new ShowReviewCommand($doc))['decisions'][0];
 
@@ -504,10 +503,9 @@ final class ShowReviewHandlerTest extends KernelTestCase
             "<!-- decision: ship-with -->\n\n- [ ] Ship it\n- [ ] Ship it\n- [ ] Wait\n\n<!-- /decision -->\n",
         ));
 
-        $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
-        self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
-        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 0, displayedVersionNumber: 1));
-        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 1, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
+        $save = self::getContainer()->get(SaveDecisionAnswerHandler::class);
+        self::assertInstanceOf(SaveDecisionAnswerHandler::class, $save);
+        $save(new SaveDecisionAnswerCommand($doc, 'ship-with', 1, [0, 1], null, false, $this->owner));
 
         $revise = self::getContainer()->get(ReviseDocumentHandler::class);
         self::assertInstanceOf(ReviseDocumentHandler::class, $revise);

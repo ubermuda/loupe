@@ -20,6 +20,8 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\UniqueConstraint(name: 'uniq_decision_answer', columns: ['document_id', 'decision_id'])]
 class DecisionAnswer
 {
+    public const int MAX_NOTE_LENGTH = 2000;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]

@@ -1,12 +1,3 @@
-{# A refused submission leaves the clicked radio checked, so the page would go
-   on showing an unsaved choice. Restoring the block from what is stored keeps it
-   honest, including when nothing is stored — that must clear every radio. Only
-   the block is replaced, never the pane, so comment anchors stay undisturbed. #}
-{% if restoredBlockId %}
-<turbo-stream action="replace" target="{{ restoredBlockId }}">
-    <template>{{ restoredBlockHtml|raw }}</template>
-</turbo-stream>
-{% endif %}
 {# `update`, not `replace`: the status is an aria-live region and the running
    total sits in a tab whose open state the reviewer owns. Swapping either
    element out re-announces unpredictably and would close an open panel. #}
