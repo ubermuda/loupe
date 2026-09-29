@@ -28,6 +28,8 @@ use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Inbox\Messenger\ReconcileCardWaits;
 use App\Module\Inbox\Repository\InboxReviewRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\SetDocumentTagsCommand;
+use App\Module\Review\Command\SetDocumentTagsHandler;
 use App\Module\Review\Command\SubmitReviewCommand;
 use App\Module\Review\Command\SubmitReviewHandler;
 use App\Module\Review\Entity\Document;
@@ -123,6 +125,17 @@ final class ReconcileCardWaitsTriggersTest extends KernelTestCase
         $this->dispatch(new DocumentStatusChanged($this->projectId(), $this->documentId($document)));
 
         self::assertSame([], $this->sent());
+    }
+
+    public function test_a_tag_change_asks_for_every_linked_card(): void
+    {
+        $document = $this->linkedDocument($this->card, $this->other);
+
+        $handler = self::getContainer()->get(SetDocumentTagsHandler::class);
+        self::assertInstanceOf(SetDocumentTagsHandler::class, $handler);
+        $handler(new SetDocumentTagsCommand($document, ['design', 'decisions']));
+
+        self::assertSame([[(string) $this->projectId(), $this->sortedIds($this->card, $this->other)]], $this->sent());
     }
 
     public function test_a_verdict_asks_for_the_cards_of_the_document_even_with_an_open_agent_review(): void

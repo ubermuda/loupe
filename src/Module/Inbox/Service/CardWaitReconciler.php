@@ -7,6 +7,7 @@ namespace App\Module\Inbox\Service;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\StageCard;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Inbox\Entity\InboxAsk;
@@ -52,6 +53,7 @@ final readonly class CardWaitReconciler
         private InboxAvailability $inbox,
         private InboxWaitSwitches $switches,
         private WorkerRunRepository $workerRuns,
+        private StageCard $stageCard,
     ) {
     }
 
@@ -204,7 +206,9 @@ final readonly class CardWaitReconciler
     }
 
     /**
-     * An open review of an agent on the document holds its wait back.
+     * Only a stage document of the card waits, and only while the card sits in
+     * the column the stage starts from. An open review of an agent on the
+     * document holds its wait back.
      *
      * @param list<Uuid> $cardIds
      *
@@ -212,7 +216,10 @@ final readonly class CardWaitReconciler
      */
     private function documentWaits(Project $project, array $cardIds): array
     {
-        $rows = $this->cardDocuments->findInReviewForCards($project, $cardIds);
+        $rows = array_values(array_filter(
+            $this->cardDocuments->findInReviewForCards($project, $cardIds),
+            fn (array $row): bool => $this->stageCard->forDocument($row['link']->document, [$row['link']]) === $row['link']->card,
+        ));
         if ([] === $rows) {
             return [];
         }
