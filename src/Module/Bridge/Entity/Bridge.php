@@ -31,6 +31,11 @@ class Bridge
 
     public const int MAX_UPDATE_VERSION_LENGTH = 100;
 
+    /** The capability of a bridge that reads commands from the outbox and the heartbeat reply. */
+    public const string CAPABILITY_COMMANDS = 'commands';
+
+    public const string CAPABILITY_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
+
     /** Null when the last heartbeat carried no update report. */
     #[ORM\Column(name: 'update_state', length: 20, nullable: true, enumType: CliUpdateState::class)]
     public ?CliUpdateState $updateState = null;
@@ -60,6 +65,30 @@ class Bridge
     #[ORM\Column(name: 'worker_pools_reported_at', nullable: true)]
     public ?\DateTimeImmutable $workerPoolsReportedAt = null;
 
+    /** Whether a person asked the bridge to start no new work. It stays until a person clears it. */
+    #[ORM\Column(name: 'pause_requested', options: ['default' => false])]
+    public bool $pauseRequested = false;
+
+    /** When a person last changed the pause request, in either direction. */
+    #[ORM\Column(name: 'pause_requested_at', nullable: true)]
+    public ?\DateTimeImmutable $pauseRequestedAt = null;
+
+    #[ORM\JoinColumn(name: 'pause_requested_by_id', nullable: true, onDelete: 'SET NULL')]
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    public ?User $pauseRequestedBy = null;
+
+    /** Whether the bridge said it is paused, as its last heartbeat reported it. Null until a bridge reports it. */
+    #[ORM\Column(name: 'paused_reported', nullable: true)]
+    public ?bool $pausedReported = null;
+
+    /**
+     * The features the bridge said it supports. Null from a bridge that reports none.
+     *
+     * @var list<string>|null
+     */
+    #[ORM\Column(name: 'capabilities', type: Types::JSON, nullable: true)]
+    public ?array $capabilities = null;
+
     /**
      * @param list<string> $projects
      */
@@ -85,5 +114,10 @@ class Bridge
         #[ORM\Column(name: 'last_seen_at')]
         public \DateTimeImmutable $lastSeenAt,
     ) {
+    }
+
+    public function takesCommands(): bool
+    {
+        return \in_array(self::CAPABILITY_COMMANDS, $this->capabilities ?? [], true);
     }
 }

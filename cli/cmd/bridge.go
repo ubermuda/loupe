@@ -393,6 +393,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.readCard == nil {
 		r.readCard = apiClient(cfg).ReadCard
 	}
+	if r.resolvePin == nil {
+		r.resolvePin = apiClient(cfg).ResolveExperimentPin
+	}
 	r.applyFlags(events)
 	if r.update != nil {
 		r.update.adoptInto(r)

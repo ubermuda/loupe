@@ -16,9 +16,11 @@ use Symfony\Component\Uid\Uuid;
 final readonly class RecordBridgeHeartbeatCommand
 {
     /**
-     * @param list<string>             $projects    project ids as the bridge sent them, which may name projects the owner does not hold
-     * @param list<HookRow>|null       $hooks       null keeps the stored rows, because a bridge that predates hooks sends none
-     * @param list<WorkerPoolRow>|null $workerPools null keeps the stored rows, because a bridge that predates worker pools sends none
+     * @param list<string>             $projects     project ids as the bridge sent them, which may name projects the owner does not hold
+     * @param list<HookRow>|null       $hooks        null keeps the stored rows, because a bridge that predates hooks sends none
+     * @param list<WorkerPoolRow>|null $workerPools  null keeps the stored rows, because a bridge that predates worker pools sends none
+     * @param bool|null                $paused       null keeps the stored value, because a bridge that predates the pause sends none
+     * @param list<string>|null        $capabilities null keeps the stored names, because a bridge that predates capabilities sends none
      */
     public function __construct(
         public User $owner,
@@ -29,6 +31,8 @@ final readonly class RecordBridgeHeartbeatCommand
         public ?string $updateVersion = null,
         public ?array $hooks = null,
         public ?array $workerPools = null,
+        public ?bool $paused = null,
+        public ?array $capabilities = null,
     ) {
     }
 }

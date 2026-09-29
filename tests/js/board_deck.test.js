@@ -2,7 +2,21 @@
 import { Application } from '@hotwired/stimulus';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import BoardDeckController from '../../assets/controllers/board_deck_controller.js';
-import { fanLayout } from '../../assets/lib/deck_fan.js';
+import { fanLayout, fanRoom } from '../../assets/lib/deck_fan.js';
+
+describe('fanRoom', () => {
+    it('runs from the lane buttons to the deck', () => {
+        expect(fanRoom(1000, 100, 0, 8)).toBe(892);
+    });
+
+    it('stops at the edge of the strip once the lane buttons scroll past it', () => {
+        expect(fanRoom(1000, -300, 20, 8)).toBe(972);
+    });
+
+    it('ignores a strip edge that is left of the lane buttons', () => {
+        expect(fanRoom(1000, 100, -Infinity, 8)).toBe(892);
+    });
+});
 
 describe('fanLayout', () => {
     it('shows every card when the fan has room for them all', () => {
@@ -113,6 +127,45 @@ it('shows every card and no tile when they all fit', async () => {
             .querySelector('.lp-deck')
             .style.getPropertyValue('--deck-shift'),
     ).toBe('0');
+});
+
+it('fits the fan to the strip when the lane buttons scrolled out of view', async () => {
+    document.body.innerHTML = `<div class="lp-board__columns lp-board__columns--lanes">${deckMarkup(8, 12)}</div>`;
+    giveRoom(8);
+    document.querySelector('.lp-board__columns--lanes').getBoundingClientRect =
+        () => ({ left: 1000 - 5 * 222 - 8 + 10, right: 1000 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    application
+        .getControllerForElementAndIdentifier(
+            document.querySelector('.lp-deck'),
+            'board-deck',
+        )
+        .layout();
+
+    expect(
+        document
+            .querySelector('.lp-deck')
+            .style.getPropertyValue('--deck-reach'),
+    ).toBe(`${5 * 222 - 10}px`);
+});
+
+it('fits the fan again when the strip scrolls sideways', async () => {
+    document.body.innerHTML = `<div class="lp-board__columns lp-board__columns--lanes">${deckMarkup(8, 12)}</div>`;
+    giveRoom(2);
+    const strip = document.querySelector('.lp-board__columns--lanes');
+    strip.getBoundingClientRect = () => ({ left: -5000, right: 1000 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const deck = document.querySelector('.lp-deck');
+    deck.removeAttribute('style');
+
+    document.querySelector('.lp-board-lane__collapse').getBoundingClientRect =
+        () => ({ left: 0, right: 1000 - 5 * 222 - 8 + 10 });
+    strip.dispatchEvent(new Event('scroll'));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    expect(deck.style.getPropertyValue('--deck-reach')).toBe(
+        `${5 * 222 - 10}px`,
+    );
 });
 
 it('fits the fan again after a morph resets the deck to the server markup', async () => {

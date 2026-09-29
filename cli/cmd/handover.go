@@ -108,6 +108,8 @@ type handoverRun struct {
 	// Pool is the pool the run took its slot from. An older image writes none.
 	Pool string `json:"pool,omitempty"`
 	handoverSeries
+	// runPin is the variant of a run in an experiment, which its outcome names.
+	runPin
 }
 
 // heldEvent is a stream event that arrived after a freeze.
@@ -302,7 +304,7 @@ func (r *router) freeze() handoverState {
 		st.Live = append(st.Live, handoverRun{
 			RunID: run.p.runID, Key: run.p.key, Rule: run.p.rule, Event: run.p.event, SessionID: run.p.spec.sessionID,
 			Began: run.began, PID: run.proc.pid, Dir: run.proc.dir, Seq: run.p.seq, Resume: run.p.spec.resume, Fresh: run.p.fresh,
-			Pool: run.p.slot, handoverSeries: seriesOf(run.p),
+			Pool: run.p.slot, handoverSeries: seriesOf(run.p), runPin: run.p.pin,
 		})
 	}
 	slices.SortFunc(st.Live, func(a, b handoverRun) int {
@@ -356,7 +358,7 @@ func (r *router) adopt(st handoverState) {
 // adoptLocked waits for one worker a former image started, on its own
 // goroutine. The caller holds mu.
 func (r *router) adoptLocked(run handoverRun) {
-	p := pending{key: run.Key, rule: run.Rule, event: run.Event, runID: run.RunID, seq: run.Seq, fresh: run.Fresh}
+	p := pending{key: run.Key, rule: run.Rule, event: run.Event, runID: run.RunID, seq: run.Seq, fresh: run.Fresh, pin: run.runPin}
 	run.applyTo(&p)
 	p.spec.sessionID, p.spec.resume = run.SessionID, run.Resume
 	p.pool = run.Pool

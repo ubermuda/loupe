@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -210,6 +211,35 @@ func TestARunReportsEachStateUnderOneRunID(t *testing.T) {
 	}
 	if rec.posts != 0 {
 		t.Fatalf("posted %d old reports to a server with run states", rec.posts)
+	}
+}
+
+// The queued report names the event that queued the run, with the pull request
+// of a fix request. No other report names it.
+func TestTheQueuedReportNamesTheEventThatQueuedTheRun(t *testing.T) {
+	h := newHarnessWith(t, fixRules, rules.Defaults{})
+	rec := h.states()
+
+	h.send(fmt.Sprintf(`{"type":"pull_request.fix_requested","subject":{"type":"card","id":%q},"projectId":%q,"cardNumber":87,"forge":"github","repository":"ubermuda/loupe","pullRequestNumber":644,"headSha":"9b84e07b","reason":"checks-failed","actor":"system"}`,
+		cardUUID(87), testProject))
+
+	sent := rec.states()
+	wantStates(t, sent, api.RunQueued, api.RunRunning, api.RunSucceeded)
+	want := api.RunTrigger{
+		EventType:         "pull_request.fix_requested",
+		Forge:             "github",
+		Repository:        "ubermuda/loupe",
+		PullRequestNumber: 644,
+		HeadSHA:           "9b84e07b",
+		Reason:            "checks-failed",
+	}
+	if got := sent[0].report.Trigger; got == nil || *got != want {
+		t.Fatalf("trigger = %+v, want %+v", got, want)
+	}
+	for _, s := range sent[1:] {
+		if s.report.Trigger != nil {
+			t.Fatalf("%s names trigger %+v, want none", s.report.State, s.report.Trigger)
+		}
 	}
 }
 

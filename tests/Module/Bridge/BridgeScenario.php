@@ -6,9 +6,12 @@ namespace App\Tests\Module\Bridge;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunUsage;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
+use App\Module\Bridge\ValueObject\BridgeCommandKind;
+use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
@@ -143,6 +146,37 @@ trait BridgeScenario
         $em->flush();
 
         return $bridge;
+    }
+
+    private function seedCommand(
+        EntityManagerInterface $em,
+        WorkerRun $run,
+        BridgeCommandState $state = BridgeCommandState::Pending,
+        \DateTimeImmutable $requestedAt = new \DateTimeImmutable('2026-09-29 12:00:00'),
+        ?\DateTimeImmutable $expiresAt = null,
+        BridgeCommandKind $kind = BridgeCommandKind::StopRun,
+        ?User $requestedBy = null,
+    ): BridgeCommand {
+        $command = new BridgeCommand(
+            owner: $run->project->owner,
+            bridgeId: $run->bridgeId ?? throw new \LogicException('A command needs a run with a bridge.'),
+            project: $run->project,
+            workerRun: $run,
+            kind: $kind,
+            requestedBy: $requestedBy,
+            requestedAt: $requestedAt,
+            expiresAt: $expiresAt ?? $requestedAt->modify('+15 minutes'),
+        );
+        $command->state = $state;
+        $em->persist($command);
+        $em->flush();
+
+        return $command;
+    }
+
+    private function countCommands(EntityManagerInterface $em): int
+    {
+        return (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_commands');
     }
 
     private function searchIndexer(): WorkerRunSearchIndexer
