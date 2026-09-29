@@ -13,6 +13,7 @@ use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -24,9 +25,11 @@ use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\ForgeEventType;
+use App\Module\Forge\PullRequestSnapshot;
 use App\Outbox\OutboxWriter;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -65,6 +68,7 @@ final readonly class PublishPullRequestEventsHandler
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private LoggerInterface $logger,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -75,13 +79,15 @@ final readonly class PublishPullRequestEventsHandler
         $facts = $this->facts($command);
         $fixReason = $this->fixReason($facts);
         $readyToMerge = !$command->previous->readyToMerge && $command->current->readyToMerge;
-        if (null === $forge || ([] === $facts && !$readyToMerge)) {
+        $displayed = self::displayedChange($command->previous, $command->current);
+        if (null === $forge || ([] === $facts && !$readyToMerge && !$displayed)) {
             return;
         }
 
         $project = $pullRequest->project;
+        $projectId = $project->id ?? throw new \LogicException('A stored pull request has a project id.');
         $links = [];
-        foreach ($this->cardPullRequests->findForPullRequest($project->id ?? throw new \LogicException('A stored pull request has a project id.'), $forge, $pullRequest->repository, $pullRequest->number) as $link) {
+        foreach ($this->cardPullRequests->findForPullRequest($projectId, $forge, $pullRequest->repository, $pullRequest->number) as $link) {
             // Two spellings of one URL on one card are two links, and the card must hear once.
             $links[(string) $link->card->id] ??= $link;
         }
@@ -91,22 +97,26 @@ final readonly class PublishPullRequestEventsHandler
 
         $settings = $this->boardAutomation->settingsOf($project);
         $open = PullRequestState::Open === $command->current->state;
+        $automationTouched = [];
         // Each change to a row flushes at once, because the next locked read of the row refreshes it and drops unsaved counts.
-        $this->em->wrapInTransaction(function () use ($links, $facts, $fixReason, $readyToMerge, $settings, $open, $command): void {
-            foreach ($links as $link) {
+        $this->em->wrapInTransaction(function () use ($links, $facts, $fixReason, $readyToMerge, $settings, $open, $command, &$automationTouched): void {
+            foreach ($links as $cardId => $link) {
                 $card = $link->card;
                 $decides = $settings->enabled && $open && !$card->column->terminal;
                 foreach ($facts as $fact) {
                     $this->write($link, $command->current->headSha, $fact['type'], $fact['fields']);
                     if ($fact['resets']) {
                         $this->cardAutomations->reset($card);
+                        $automationTouched[$cardId] = true;
                     }
                 }
                 if ($decides && null !== $fixReason) {
                     $this->requestFix($link, $command->current->headSha, $settings, $fixReason);
                     $this->em->flush();
+                    $automationTouched[$cardId] = true;
                 }
                 if ($decides && $readyToMerge && BoardMergeStrategy::Worker === $settings->mergeStrategy) {
+                    $automationTouched[$cardId] = true;
                     $automation = $this->cardAutomations->findOrCreateForUpdate($card);
                     $automation->lastAction = CardAutomationAction::ReadyToMerge;
                     $automation->lastActionAt = $this->clock->now();
@@ -115,6 +125,29 @@ final readonly class PublishPullRequestEventsHandler
                 }
             }
         });
+
+        // Inside the transaction of Forge, so `updated` alone: a rollback costs a page one needless refetch.
+        foreach ($links as $cardId => $link) {
+            if ($displayed || isset($automationTouched[$cardId])) {
+                $this->events->dispatch(new CardChanged(
+                    $projectId,
+                    $link->card->id ?? throw new \LogicException('A linked card has an id.'),
+                    CardChanged::UPDATED,
+                    false,
+                ));
+            }
+        }
+    }
+
+    /** Whether the card page or the tile shows something new. A new head or base alone shows nothing. */
+    private static function displayedChange(PullRequestSnapshot $previous, PullRequestSnapshot $current): bool
+    {
+        return $previous->state !== $current->state
+            || $previous->draft !== $current->draft
+            || $previous->checks !== $current->checks
+            || $previous->failedChecks !== $current->failedChecks
+            || $previous->mergeability !== $current->mergeability
+            || $previous->review !== $current->review;
     }
 
     /** @return list<Fact> */

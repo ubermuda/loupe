@@ -50,10 +50,10 @@ final class ShowCardPlacementQueryCountTest extends KernelTestCase
 
         self::assertNotEmpty($forSmall);
         self::assertSame(\count($forSmall), \count($forBig), "The placement query count grew with the board:\n".implode("\n", $forBig));
-        self::assertSame([], array_values(array_filter(
-            $forBig,
-            static fn (string $sql): bool => str_contains($sql, 'board_card_pull_requests'),
-        )), 'The placement read the pull requests of the board.');
+        // The badges of the placed card read its own links, and never those of the board with its cards.
+        $linkReads = array_values(array_filter($forBig, static fn (string $sql): bool => str_contains($sql, 'board_card_pull_requests')));
+        self::assertCount(1, $linkReads, 'The placement read pull requests more than once.');
+        self::assertStringNotContainsString('board_cards', $linkReads[0], 'The placement read the pull requests of the board.');
     }
 
     /**

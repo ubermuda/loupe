@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Service\CardBadge;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
 
@@ -60,6 +61,8 @@ final readonly class BoardView
         public string $structureDigest = '',
         /** @var array<string, CardRunWarning> card id => the warning its last run left */
         public array $runWarnings = [],
+        /** @var array<string, non-empty-list<CardBadge>> card id => its badges; a card with none has no key */
+        public array $badges = [],
     ) {
     }
 }

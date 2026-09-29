@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\CardPullRequestStates;
 
 final readonly class ShowCardHandler
 {
@@ -17,6 +18,7 @@ final readonly class ShowCardHandler
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardLinkRepository $cardLinks,
         private CardRepository $cards,
+        private CardPullRequestStates $pullRequestStates,
     ) {
     }
 
@@ -39,6 +41,7 @@ final readonly class ShowCardHandler
                 static fn (CardLink $link): RelatedCard => new RelatedCard($link->otherThan($command->card), $link->kindFor($command->card)),
                 $this->cardLinks->findForCard($command->card),
             ),
+            $this->pullRequestStates->forCards([$command->card]),
             $children,
             $progress,
         );
