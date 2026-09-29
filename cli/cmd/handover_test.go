@@ -63,9 +63,8 @@ func finalOf(t *testing.T, sent []stateSent, runID string) api.RunStateReport {
 // A state frozen, written as JSON and adopted by a fresh router freezes again
 // to the same state, and the inventory of the new router names every run.
 func TestFreezeAndAdoptKeepTheRoutingState(t *testing.T) {
-	h := newHarness(t)
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 	h.states()
-	h.router.maxWorkers = 1
 	h.worker.block = make(chan struct{})
 	defer close(h.worker.block)
 
@@ -92,7 +91,7 @@ func TestFreezeAndAdoptKeepTheRoutingState(t *testing.T) {
 		t.Fatalf("state = %+v", st)
 	}
 
-	h2 := newHarness(t)
+	h2 := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 	rec2 := h2.states()
 	release := make(chan struct{})
 	h2.router.worker.adopt = func(context.Context, string) workerResult {
@@ -100,7 +99,6 @@ func TestFreezeAndAdoptKeepTheRoutingState(t *testing.T) {
 
 		return workerResult{hasResult: true}
 	}
-	h2.router.maxWorkers = 1
 	h2.router.pause()
 	h2.router.adopt(roundTrip(t, st))
 
@@ -260,9 +258,8 @@ sleep 1
 echo "{\"structured_output\":{\"status\":\"finished\",\"summary\":\"exit $code\"}}"
 exit $code
 `)
-	h := newHarness(t)
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 2), rules.Defaults{})
 	h.states()
-	h.router.maxWorkers = 2
 	// The first router abandons its workers, as an image that execs does.
 	abandon := make(chan struct{})
 	defer close(abandon)
@@ -299,9 +296,8 @@ exit $code
 		t.Fatal(err)
 	}
 
-	h2 := newHarness(t)
+	h2 := newHarnessWith(t, withMaxWorkers(defaultRules, 2), rules.Defaults{})
 	rec := h2.states()
-	h2.router.maxWorkers = 2
 	h2.router.worker = defaultWorkerOps()
 	h2.router.adopt(st)
 	h2.router.wg.Wait()
@@ -439,8 +435,8 @@ func TestAnAdoptedRunWithNoRecordFailsWithAReason(t *testing.T) {
 	}
 	h.router.mu.Lock()
 	defer h.router.mu.Unlock()
-	if h.router.active != 0 || len(h.router.running) != 0 || len(h.router.held) != 0 {
-		t.Fatalf("active = %d, running = %v, held = %v", h.router.active, h.router.running, h.router.held)
+	if h.router.usedLocked() != 0 || len(h.router.running) != 0 || len(h.router.held) != 0 {
+		t.Fatalf("active = %d, running = %v, held = %v", h.router.usedLocked(), h.router.running, h.router.held)
 	}
 }
 
@@ -461,6 +457,42 @@ func TestAdoptDropsAQueuedEventWhoseRuleIsGone(t *testing.T) {
 	}
 	if h2.runs() != 0 {
 		t.Fatalf("ran %d workers", h2.runs())
+	}
+}
+
+// An adopted run takes a slot of the pool the handover names. A file from an
+// older image names none, so the pool comes from the rule, else the default.
+func TestAnAdoptedRunTakesASlotOfItsPool(t *testing.T) {
+	for name, tc := range map[string]struct{ pool, rule, want string }{
+		"named":   {pool: "quick", rule: "plan", want: "quick"},
+		"derived": {rule: "plan", want: "quick"},
+		"unknown": {rule: "gone", want: rules.DefaultPool},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarnessWith(t, quickRules, rules.Defaults{})
+			release := make(chan struct{})
+			h.router.worker.adopt = func(context.Context, string) workerResult {
+				<-release
+
+				return workerResult{hasResult: true}
+			}
+			st := adoptedRun(t.TempDir())
+			st.Live[0].Pool, st.Live[0].Rule = tc.pool, tc.rule
+
+			h.router.adopt(roundTrip(t, st))
+
+			wantInUse(t, h, map[string]int{tc.want: 1})
+			if pool := str(t, h.only(t, "worker_adopted"), "worker_pool"); pool != tc.want {
+				t.Fatalf("worker_pool = %q", pool)
+			}
+			if live := h.router.freeze().Live; len(live) != 1 || live[0].Pool != tc.want {
+				t.Fatalf("live = %+v", live)
+			}
+			h.router.resume()
+			close(release)
+			h.router.wg.Wait()
+			wantInUse(t, h, map[string]int{})
+		})
 	}
 }
 
@@ -608,7 +640,7 @@ func TestAnAdoptedResumeKeepsItsSeries(t *testing.T) {
 	h1 := newHarness(t)
 	h1.router.mu.Lock()
 	h1.router.hold(p.key)
-	h1.router.active++
+	h1.router.takeLocked(rules.DefaultPool)
 	h1.router.trackLocked(liveRun{p: p, began: time.Now(), proc: workerProc{dir: dir}})
 	h1.router.mu.Unlock()
 	st := roundTrip(t, h1.router.freeze())
@@ -670,7 +702,7 @@ func TestAnAdoptedFailedRunWaitsAndResumes(t *testing.T) {
 	h1 := newHarness(t)
 	h1.router.mu.Lock()
 	h1.router.hold(p.key)
-	h1.router.active++
+	h1.router.takeLocked(rules.DefaultPool)
 	h1.router.trackLocked(liveRun{p: p, began: time.Now(), proc: workerProc{dir: dir}})
 	h1.router.mu.Unlock()
 	st := roundTrip(t, h1.router.freeze())

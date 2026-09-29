@@ -207,10 +207,8 @@ func TestTheBackoffDoublesToItsCap(t *testing.T) {
 	}
 }
 
-// deadHarness maps loupe and other, and reports through a real reporter.
-func deadHarness(t *testing.T) (*harness, *reportServer) {
-	t.Helper()
-	body := `
+// deadRules maps loupe and other, with plan and review on loupe.
+const deadRules = `
 projects:
   loupe:
     dir: {dir}
@@ -233,6 +231,17 @@ rules:
     to: next
     prompt: plan {cardNumber}
 `
+
+// deadHarness maps loupe and other, and reports through a real reporter.
+func deadHarness(t *testing.T) (*harness, *reportServer) {
+	t.Helper()
+
+	return deadHarnessWith(t, deadRules)
+}
+
+// deadHarnessWith is deadHarness on body.
+func deadHarnessWith(t *testing.T, body string) (*harness, *reportServer) {
+	t.Helper()
 	h := newHarnessWith(t, body, rules.Defaults{})
 	s := &reportServer{}
 	h.router.health, _ = newReporter(t, s, time.Millisecond)
@@ -284,8 +293,7 @@ func TestARenamedColumnKillsItsRulesAndReportsThem(t *testing.T) {
 
 // An event that waits for a slot when its rule dies must not start later.
 func TestARuleThatDiesDropsItsQueuedEvents(t *testing.T) {
-	h, _ := deadHarness(t)
-	h.router.maxWorkers = 1
+	h, _ := deadHarnessWith(t, withMaxWorkers(deadRules, 1))
 	h.worker.started = make(chan workerSpec, 3)
 	h.worker.block = make(chan struct{})
 

@@ -237,7 +237,6 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 
 	r := &router{
 		log:        bl.log,
-		maxWorkers: o.maxWorkers,
 		worker:     defaultWorkerOps(),
 		bridgeID:   bridgeID,
 		control:    control,

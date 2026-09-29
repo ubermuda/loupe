@@ -325,7 +325,7 @@ func TestOneTopicServesEveryProject(t *testing.T) {
 
 	worker := &fakeWorker{result: finishedRun}
 	h := &harness{worker: worker, log: &syncBuffer{}}
-	h.router = withRules(&router{log: newBridgeLogger(h.log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
+	h.router = withRules(&router{log: newBridgeLogger(h.log), worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -403,7 +403,7 @@ func TestTheBridgeReportsRuleHealthAtStartAndOnAChange(t *testing.T) {
 	}
 	log := &syncBuffer{}
 	worker := &fakeWorker{result: finishedRun}
-	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
+	r := withRules(&router{log: newBridgeLogger(log), worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -469,7 +469,7 @@ func TestTheBridgeSendsAHeartbeatAtStart(t *testing.T) {
 	}
 	log := &syncBuffer{}
 	worker := &fakeWorker{result: finishedRun}
-	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
+	r := withRules(&router{log: newBridgeLogger(log), worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

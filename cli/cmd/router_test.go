@@ -213,14 +213,26 @@ func newHarnessWith(t *testing.T, body string, defaults rules.Defaults) *harness
 	w := &fakeWorker{result: workerResult{hasResult: true}}
 	h := &harness{worker: w, log: &syncBuffer{}, dir: dir}
 	h.router = withRules(&router{
-		log:        newBridgeLogger(h.log),
-		maxWorkers: defaultMaxWorkers,
-		worker:     w.ops(),
-		bridgeID:   testBridgeID,
-		after:      now,
+		log:      newBridgeLogger(h.log),
+		worker:   w.ops(),
+		bridgeID: testBridgeID,
+		after:    now,
 	}, set)
 
 	return h
+}
+
+// withMaxWorkers sets the worker budget of a rule file body to n.
+func withMaxWorkers(body string, n int) string {
+	return fmt.Sprintf("maxWorkers: %d\n%s", n, body)
+}
+
+// used is the number of worker slots the router holds.
+func (h *harness) used() int {
+	h.router.mu.Lock()
+	defer h.router.mu.Unlock()
+
+	return h.router.usedLocked()
 }
 
 // now fires at once, so the wait before a resume costs a test nothing.
@@ -564,7 +576,7 @@ func TestAnEventForABusyCardRunsAfterItsWorker(t *testing.T) {
 
 	// onData dispatches on this goroutine, so these counts are settled.
 	h.router.mu.Lock()
-	active, waiting := h.router.active, len(h.router.queue)
+	active, waiting := h.router.usedLocked(), len(h.router.queue)
 	h.router.mu.Unlock()
 	if active != 1 || waiting != 1 {
 		t.Fatalf("active = %d, waiting = %d; want the second event to wait", active, waiting)
@@ -623,8 +635,7 @@ func TestEventsForABusyCardCoalescePerRule(t *testing.T) {
 // A card queued behind the bound waits once per rule too, so it cannot run
 // twice when a slot frees.
 func TestACardAlreadyQueuedCoalesces(t *testing.T) {
-	h := newHarness(t)
-	h.router.maxWorkers = 1
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 	h.worker.started = make(chan workerSpec, 3)
 	h.worker.block = make(chan struct{})
 
@@ -866,8 +877,7 @@ func TestTwoCardsRunConcurrently(t *testing.T) {
 // is monotonic, so the check after wg.Wait reads the highest concurrency the
 // run ever reached.
 func TestTheBoundLimitsConcurrentWorkers(t *testing.T) {
-	h := newHarness(t)
-	h.router.maxWorkers = 2
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 2), rules.Defaults{})
 	h.worker.started = make(chan workerSpec, 4)
 	h.worker.block = make(chan struct{})
 
@@ -878,7 +888,7 @@ func TestTheBoundLimitsConcurrentWorkers(t *testing.T) {
 	// onData dispatches on this goroutine and nothing finishes while block is
 	// held, so the counts here are settled rather than sampled.
 	h.router.mu.Lock()
-	active, queued := h.router.active, len(h.router.queue)
+	active, queued := h.router.usedLocked(), len(h.router.queue)
 	h.router.mu.Unlock()
 	if active != 2 || queued != 2 {
 		t.Fatalf("active = %d, queued = %d; want 2 running and 2 waiting", active, queued)
@@ -901,8 +911,7 @@ func TestTheBoundLimitsConcurrentWorkers(t *testing.T) {
 // A bound that never releases is a stall. The second card has to run once a
 // slot frees, and the queue depth has to say how much work waits.
 func TestAQueuedEventRunsWhenASlotFrees(t *testing.T) {
-	h := newHarness(t)
-	h.router.maxWorkers = 1
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 	h.worker.started = make(chan workerSpec, 2)
 	h.worker.block = make(chan struct{})
 
@@ -929,8 +938,7 @@ func TestAQueuedEventRunsWhenASlotFrees(t *testing.T) {
 
 // With no busy card in the way, the card that waited longest starts first.
 func TestTheQueueIsFirstInFirstOut(t *testing.T) {
-	h := newHarness(t)
-	h.router.maxWorkers = 1
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 	h.worker.started = make(chan workerSpec, 4)
 	h.worker.block = make(chan struct{})
 
@@ -958,8 +966,7 @@ func TestTheQueueIsFirstInFirstOut(t *testing.T) {
 // have to reach the operator, because a dropped trigger nobody is told about is
 // a silent failure.
 func TestShutdownDropsTheQueueAndSaysSo(t *testing.T) {
-	h := newHarness(t)
-	h.router.maxWorkers = 1
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 	h.worker.started = make(chan workerSpec, 3)
 	h.worker.block = make(chan struct{})
 
@@ -1040,8 +1047,7 @@ func TestAnEventAfterShutdownIsDropped(t *testing.T) {
 // before shutdown runs. The cancelled context has to stop the queue by itself,
 // or that worker admits a card no process can run.
 func TestACancelledContextStopsTheQueue(t *testing.T) {
-	h := newHarness(t)
-	h.router.maxWorkers = 1
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 	ctx, cancel := context.WithCancel(context.Background())
 	h.router.ctx = ctx
 	h.worker.started = make(chan workerSpec, 2)
@@ -1452,7 +1458,7 @@ func TestAVerdictWaitsBehindAWorkerOfItsCard(t *testing.T) {
 	h.router.onData([]byte(verdictPayload(87, "approved")))
 
 	h.router.mu.Lock()
-	active, waiting := h.router.active, len(h.router.queue)
+	active, waiting := h.router.usedLocked(), len(h.router.queue)
 	h.router.mu.Unlock()
 	if active != 1 || waiting != 1 {
 		t.Fatalf("active = %d, waiting = %d; want the verdict to wait", active, waiting)

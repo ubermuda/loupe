@@ -220,7 +220,7 @@ func TestTheBridgeFiresStartThenStop(t *testing.T) {
 	cfg := testLogin(server.URL)
 	set, _ := loadRules(t, defaultRules, rules.Defaults{})
 	h, journal := journalHook(t)
-	r := withRules(&router{log: newBridgeLogger(&syncBuffer{}), maxWorkers: defaultMaxWorkers, worker: (&fakeWorker{}).ops()}, set)
+	r := withRules(&router{log: newBridgeLogger(&syncBuffer{}), worker: (&fakeWorker{}).ops()}, set)
 	r.hookRunner = newHookRunner([]hooks.Hook{h}, testBridgeID, r.log)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -259,7 +259,7 @@ func TestAnEarlyReturnStillFiresStop(t *testing.T) {
 	t.Cleanup(broken.Close)
 	set, _ := loadRules(t, defaultRules, rules.Defaults{})
 	h, journal := journalHook(t)
-	r := withRules(&router{log: newBridgeLogger(&syncBuffer{}), maxWorkers: defaultMaxWorkers, worker: (&fakeWorker{}).ops()}, set)
+	r := withRules(&router{log: newBridgeLogger(&syncBuffer{}), worker: (&fakeWorker{}).ops()}, set)
 	r.hookRunner = newHookRunner([]hooks.Hook{h}, testBridgeID, r.log)
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())
