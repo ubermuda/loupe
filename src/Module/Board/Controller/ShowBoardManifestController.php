@@ -43,6 +43,7 @@ final class ShowBoardManifestController extends AppController
             'cards' => $manifest->cards,
             'structure' => $manifest->structure,
             'terminalTotals' => $manifest->terminalTotals,
+            'backlogCount' => $manifest->backlogCount,
         ]);
     }
 }

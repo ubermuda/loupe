@@ -38,6 +38,7 @@ final readonly class UpdateCardHandler
     public const string COLUMN_GONE = 'board.card.error.column_gone';
     public const string LINKED_CARD_GONE = 'board.card.error.linked_card_unknown';
     public const string CONTENT_CHANGED = 'board.card.error.changed_since_opened';
+    public const string COLUMN_CHANGED = 'board.card.error.column_changed';
 
     public function __construct(
         private CardRepository $cards,
@@ -100,6 +101,9 @@ final readonly class UpdateCardHandler
             // the queue committed. Both the decision below and the move it
             // makes read the column, so both need the column as it is now.
             $this->cards->refreshColumn($card);
+            if (null !== $command->expectedColumn && $command->expectedColumn !== $card->column) {
+                return self::COLUMN_CHANGED;
+            }
             // The text too, so the clash check and the change flags below
             // compare against what the last writer committed.
             $this->cards->refreshContent($card);

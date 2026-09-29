@@ -51,6 +51,7 @@ interface Card {
     number: number;
 }
 
+/** A card with no status lands in Backlog, which the board does not draw, so the helper puts it in Next. */
 type CreateCard = (
     title: string,
     options?: { type?: string; status?: string; parent?: Card },
@@ -100,7 +101,7 @@ async function mcpCards(page: Page, projectId: string): Promise<CreateCard> {
                         title,
                         body: '',
                         type: options.type ?? 'feature',
-                        ...(options.status ? { status: options.status } : {}),
+                        status: options.status ?? 'next',
                         ...(options.parent
                             ? { parentCardId: options.parent.id }
                             : {}),
@@ -275,9 +276,9 @@ test('each lane cell scrolls its own cards and the page stays still', async ({
 
     await page.goto(board.boardUrl);
     await expect(page.locator(READY)).toBeAttached();
-    const backlog = await columnId(page, 'backlog');
+    const next = await columnId(page, 'next');
     const scrolls = (laneKey: string) =>
-        cell(page, laneKey, backlog).evaluate((element) => ({
+        cell(page, laneKey, next).evaluate((element) => ({
             overflow: getComputedStyle(element).overflowY,
             hidden: element.scrollHeight - element.clientHeight,
         }));
@@ -301,10 +302,43 @@ test('each lane cell scrolls its own cards and the page stays still', async ({
         )
         .toBeLessThanOrEqual(1);
 
-    await cell(page, 'other', backlog).evaluate((element) =>
+    await cell(page, 'other', next).evaluate((element) =>
         element.scrollTo(0, element.scrollHeight),
     );
     await expect(page.getByRole('heading', { level: 1 })).toBeInViewport();
+});
+
+test('an epic in the Backlog keeps its lane on the board', async ({
+    page,
+    board,
+}) => {
+    const epic = await board.create(`Waiting epic ${RUN}`, {
+        type: 'epic',
+        status: 'backlog',
+    });
+    const child = await board.create(`Child of the waiting epic ${RUN}`, {
+        parent: epic,
+    });
+    await board.create(`Waiting child ${RUN}`, {
+        parent: epic,
+        status: 'backlog',
+    });
+
+    await page.goto(board.boardUrl);
+    await expect(page.locator(READY)).toBeAttached();
+    const next = await columnId(page, 'next');
+
+    await expect(lane(page, epic.id)).toBeVisible();
+    await expect(
+        cell(page, epic.id, next).locator(
+            `${CARD}[data-card-id="${child.id}"]`,
+        ),
+    ).toHaveCount(1);
+    await expect(
+        lane(page, epic.id).locator('[data-lane-progress]'),
+    ).toHaveText('0/2 done');
+    await expect(page.locator('.lp-board-backlog__count')).toHaveText('2');
+    await expect(page.locator(`#board-row-${epic.id}`)).toHaveCount(0);
 });
 
 test('a lane switched off shows the parent tag and the progress', async ({

@@ -189,7 +189,7 @@ final class CardPayloadTest extends TestCase
 
         return new Card(
             project: $project,
-            column: new BoardColumn(project: $project, label: 'board.card.status.backlog', slug: 'backlog', position: 0, isDefault: true),
+            column: new BoardColumn(project: $project, label: 'board.card.status.backlog', slug: 'backlog', position: 0, backlog: true),
             title: 'Drag ordering',
             body: 'Body',
             number: 7,

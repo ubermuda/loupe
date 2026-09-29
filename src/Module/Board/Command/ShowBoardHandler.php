@@ -15,6 +15,7 @@ use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\BoardStructureDigest;
 use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Board\Service\LaneDecks;
 use App\Module\Bridge\Service\CardRunWarnings;
 
 final readonly class ShowBoardHandler
@@ -31,6 +32,7 @@ final readonly class ShowBoardHandler
         private BoardLanes $boardLanes,
         private BoardStructureDigest $structureDigest,
         private CardRunWarnings $runWarnings,
+        private LaneDecks $laneDecks,
         private CardPullRequestStates $pullRequestStates,
     ) {
     }
@@ -39,8 +41,13 @@ final readonly class ShowBoardHandler
     {
         $project = $command->project;
         $columns = [];
+        $backlog = null;
 
         foreach ($this->boardColumns->findForProject($project) as $column) {
+            if ($column->backlog) {
+                $backlog = $column;
+                continue;
+            }
             $shown = $this->columnCards->shown($column);
             $columns[] = new BoardColumnView(
                 $column,
@@ -64,7 +71,8 @@ final readonly class ShowBoardHandler
             }
         }
 
-        [$lanes, $otherCards] = $this->boardLanes->sort($columns);
+        $backlog ??= throw new \LogicException('Every board has a Backlog.');
+        [$lanes, $otherCards] = $this->boardLanes->sort($columns, $this->cards->findLaneEpics($project));
 
         $counts = $this->cards->childProgressForProject($project);
         $progress = [];
@@ -80,6 +88,12 @@ final readonly class ShowBoardHandler
                     $progress[(string) $card->id] = new CardProgress($epicCounts['done'], $epicCounts['total']);
                 }
             }
+        }
+        // A lane epic in the Backlog has a lane head and no card in any column.
+        foreach ($lanes as $lane) {
+            $epicId = (string) $lane->epic?->id;
+            $epicCounts = $counts[$epicId] ?? ['done' => 0, 'total' => 0];
+            $progress[$epicId] ??= new CardProgress($epicCounts['done'], $epicCounts['total']);
         }
 
         // One aggregate each for the whole board. A count per card would be
@@ -101,6 +115,8 @@ final readonly class ShowBoardHandler
             $project,
             $columns,
             self::TERMINAL_WINDOW_DAYS,
+            $backlog,
+            $this->cards->countInColumn($backlog),
             $pendingComments,
             $documentCounts,
             $deadRules,
@@ -111,6 +127,7 @@ final readonly class ShowBoardHandler
             $shownCounts,
             $this->structureDigest->forBoard($columns, $lanes, $deadRules),
             $runWarnings,
+            $this->laneDecks->forEpics($backlog, array_map(static fn (BoardLaneView $lane): string => (string) $lane->epic?->id, $lanes)),
             $badges,
         );
     }

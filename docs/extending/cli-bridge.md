@@ -985,14 +985,16 @@ cannot hold a slash. The token's user must own the project.
 {
   "project": { "id": "01a0…", "slug": "my-app" },
   "columns": [
-    { "slug": "backlog", "label": "Backlog", "terminal": false, "default": true },
-    { "slug": "done", "label": "Done", "terminal": true, "default": false }
+    { "slug": "backlog", "label": "Backlog", "terminal": false, "default": true, "backlog": true },
+    { "slug": "done", "label": "Done", "terminal": true, "default": false, "backlog": false }
   ]
 }
 ```
 
-The columns come in board order. A seeded label is translated, and a label a
-person typed comes back as typed. `project.slug` is the project's slug.
+The columns come in board order. The board does not draw Backlog as a column,
+but the list keeps it, so a rule can name `backlog`. `default` and `backlog` are
+both true on that row alone. A seeded label is translated, and a label a person
+typed comes back as typed. `project.slug` is the project's slug.
 
 | Status | Body | When |
 |---|---|---|

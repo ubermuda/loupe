@@ -22,7 +22,6 @@
         <section class="lp-settings-content lp-settings-panel-card" data-board-column-settings>
             <h2 class="lp-section-title">{{ 'board.settings.heading'|trans }}</h2>
             <p class="lp-connect-hint">{{ 'board.settings.description'|trans }}</p>
-            {% set defaultId = (board.columns|filter(other => other.column.isDefault)|first).column.id ~ '' %}
             {% set terminalCount = board.columns|filter(other => other.column.terminal)|length %}
             <ol class="lp-settings-columns">
             {% for view in board.columns %}
@@ -35,7 +34,6 @@
                         <h3>{{ label }}</h3>
                         <code>{{ column.slug }}</code>
                     </div>
-                    {% if column.isDefault %}<span class="lp-board__column-flag">{{ 'board.column.flag.default'|trans }}</span>{% endif %}
                     {% if column.terminal %}<span class="lp-board__column-flag">{{ 'board.column.flag.terminal'|trans }}</span>{% endif %}
                     {% if canManage %}
                         {% for move in [{offset: -1, key: 'board.column.move.up'}, {offset: 1, key: 'board.column.move.down'}] %}
@@ -54,7 +52,7 @@
                                 <span class="lp-settings-column__slot" aria-hidden="true"></span>
                             {% endif %}
                         {% endfor %}
-                        {% set configureForm = board_column_configure_form(column, defaultId, configureColumnForm) %}
+                        {% set configureForm = board_column_configure_form(column, configureColumnForm) %}
                         <div data-controller="modal"{% if configureForm.vars.submitted %} data-modal-reopen-value="true"{% endif %}>
                             <button class="lp-btn lp-btn--ghost lp-btn--icon" type="button" aria-label="{{ 'board.column.configure.action'|trans({'%label%': label}) }}" data-action="click->modal#open">
                                 <twig:ux:icon name="lucide:settings" />
@@ -82,7 +80,7 @@
                                     </div>
                                     {% include '@Board/_board_column_slug.html.twig' with {column: column, slug: column.slug, refusal: null} only %}
                                     {% include '@Board/_board_column_tone_field.html.twig' with {field: configureForm.tone} only %}
-                                    {% for field in [configureForm.isDefault, configureForm.terminal] %}
+                                    {% for field in [configureForm.terminal] %}
                                     <div class="lp-form-field">
                                         <label class="lp-choice">
                                             {{ form_widget(field) }}
@@ -98,7 +96,7 @@
                                 {{ form_end(configureForm) }}
                             </dialog>
                         </div>
-                        {% if not column.isDefault and not (column.terminal and terminalCount == 1) %}
+                        {% if not (column.terminal and terminalCount == 1) %}
                         <div data-controller="modal">
                             <button class="lp-btn lp-btn--ghost lp-btn--icon" type="button" aria-label="{{ 'board.column.delete.named'|trans({'%label%': label}) }}" data-action="click->modal#open">
                                 <twig:ux:icon name="lucide:trash-2" />

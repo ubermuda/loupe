@@ -213,7 +213,7 @@ for (const target of ['document', 'pull-request']) {
         const { projectId, documentId } = await seededDocument.json();
         await page.goto(`/projects/${projectId}/board/cards/new`);
         await page.getByLabel('Title').fill('Shared review card');
-        await page.getByLabel('Column').selectOption({ label: 'Backlog' });
+        await page.getByLabel('Column').selectOption({ label: 'Next' });
         await page
             .locator('textarea[name="create_card_form[pullRequestUrls]"]')
             .fill('https://github.com/example/app/pull/72');
@@ -496,7 +496,7 @@ for (const surface of ['page', 'drawer']) {
 
         await page.goto(`/projects/${projectId}/board/cards/new`);
         await page.getByLabel('Title').fill('Ship the export');
-        await page.getByLabel('Column').selectOption({ label: 'Backlog' });
+        await page.getByLabel('Column').selectOption({ label: 'Next' });
         await page.getByRole('button', { name: 'Create card' }).click();
         await expect(
             page.getByRole('heading', { name: 'Ship the export' }),

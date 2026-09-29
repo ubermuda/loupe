@@ -182,7 +182,7 @@ final class CardCrudControllerTest extends WebTestCase
         $client->loginUser($owner);
         $board = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
         self::assertResponseIsSuccessful();
-        self::assertCount(4, $board->filter('.lp-board__add-card'));
+        self::assertCount(3, $board->filter('.lp-board__add-card'));
 
         $crawler = $client->request(
             Request::METHOD_GET,

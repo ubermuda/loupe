@@ -121,7 +121,7 @@ final class ListDocumentsControllerTest extends WebTestCase
         $owner = $this->createUser($em, 'linked', 'linked@example.com');
         $project = $this->project($em, $owner);
         $document = $this->document($em, $owner, $project, 'Linked plan');
-        $column = new BoardColumn($project, 'Ready', 'ready', 0, isDefault: true);
+        $column = new BoardColumn($project, 'Ready', 'ready', 0, backlog: true);
         $card = new Card($project, $column, 'Build it', 'Details', 42);
         $em->persist($column);
         $em->persist($card);

@@ -17,7 +17,7 @@ use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
-/** Appends a column after the last one. A new column is neither terminal nor the default. */
+/** Appends a column after the last one. A new column is neither terminal nor the Backlog. */
 final readonly class AddBoardColumnHandler
 {
     public function __construct(
