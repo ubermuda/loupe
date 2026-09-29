@@ -9,7 +9,9 @@ use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -46,9 +48,23 @@ class BridgeCommandRepository extends ServiceEntityRepository
             ->getResult());
     }
 
-    public function findOneForBridge(User $owner, Uuid $bridgeId, Uuid $id): ?BridgeCommand
+    /**
+     * Locked until the transaction ends, and read fresh even when the command
+     * is already managed, because the expiry sweep writes by bulk update.
+     */
+    public function findOneForBridgeLocked(User $owner, Uuid $bridgeId, Uuid $id): ?BridgeCommand
     {
-        return $this->findOneBy(['owner' => $owner, 'bridgeId' => $bridgeId, 'id' => $id]);
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.owner = :owner')
+            ->andWhere('c.bridgeId = :bridgeId')
+            ->andWhere('c.id = :id')
+            ->setParameter('owner', $owner)
+            ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
+            ->setParameter('id', $id, UuidType::NAME)
+            ->getQuery()
+            ->setHint(Query::HINT_REFRESH, true)
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getOneOrNullResult();
     }
 
     /** Reads the state alone, like the unique index, so a pending command past its expiry still counts until the sweep runs. */

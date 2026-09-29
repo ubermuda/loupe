@@ -42,7 +42,7 @@ final class BridgeCommandRepositoryTest extends KernelTestCase
         self::assertSame([$older, $newer], $pending);
     }
 
-    public function test_find_one_for_bridge_answers_the_command_of_that_owner_and_bridge_only(): void
+    public function test_the_locked_read_answers_the_command_of_that_owner_and_bridge_only(): void
     {
         self::bootKernel();
         $em = $this->em();
@@ -52,9 +52,27 @@ final class BridgeCommandRepositoryTest extends KernelTestCase
         $id = $command->id ?? throw new \LogicException('A flushed command has an id.');
         $bridgeId = $run->bridgeId ?? throw new \LogicException('The run has a bridge.');
 
-        self::assertSame($command, $this->repository()->findOneForBridge($owner, $bridgeId, $id));
-        self::assertNull($this->repository()->findOneForBridge($owner, Uuid::v4(), $id));
-        self::assertNull($this->repository()->findOneForBridge($this->user($em, 'command-repo-one-other@example.com'), $bridgeId, $id));
+        $other = $this->user($em, 'command-repo-one-other@example.com');
+        $em->wrapInTransaction(function () use ($command, $owner, $other, $bridgeId, $id): void {
+            self::assertSame($command, $this->repository()->findOneForBridgeLocked($owner, $bridgeId, $id));
+            self::assertNull($this->repository()->findOneForBridgeLocked($owner, Uuid::v4(), $id));
+            self::assertNull($this->repository()->findOneForBridgeLocked($other, $bridgeId, $id));
+        });
+    }
+
+    /** The expiry sweep writes by bulk update, so a managed copy would still read pending. */
+    public function test_the_locked_read_refreshes_a_managed_command(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'command-repo-refresh@example.com');
+        $command = $this->seedCommand($em, $this->seedRun($em, $this->project($em, $owner, 'Refresh Command'), bridgeId: Uuid::v4()));
+        $id = $command->id ?? throw new \LogicException('A flushed command has an id.');
+        $this->repository()->expireDue(new \DateTimeImmutable('2027-01-01'));
+
+        $state = $em->wrapInTransaction(fn (): ?BridgeCommandState => $this->repository()->findOneForBridgeLocked($owner, $command->bridgeId, $id)?->state);
+
+        self::assertSame(BridgeCommandState::Expired, $state);
     }
 
     public function test_has_pending_for_run_reads_the_state_alone(): void
