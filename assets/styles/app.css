@@ -5679,6 +5679,13 @@
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;
     }
+    /* The pull request and automation problems of a card, on its tile and its list row. */
+    .lp-board-card__badges {
+        @apply flex flex-wrap items-center gap-1;
+    }
+    .lp-board-card__badges .lp-status-chip {
+        @apply ml-0;
+    }
     /* The epic of a card that sits outside that epic's lane. */
     .lp-board-card__parent {
         @apply inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-fg-dim;
@@ -5759,6 +5766,23 @@
     }
     .lp-card-pulls__url {
         @apply font-mono text-xs break-all text-fg-mute;
+    }
+    /* The stored state of one pull request, as a row of status chips. */
+    .lp-pull-request-state {
+        @apply flex flex-wrap items-center gap-1.5;
+    }
+    .lp-pull-request-state .lp-status-chip {
+        @apply ml-0 whitespace-nowrap;
+    }
+    .lp-pull-request-state__failed {
+        @apply basis-full text-xs text-fg-mute;
+    }
+    /* What the board automation last did on the card. */
+    .lp-card-automation {
+        @apply flex items-center gap-1.5 text-xs text-fg-mute m-0 mt-3;
+    }
+    .lp-card-automation--blocked {
+        @apply mt-2 rounded-md border border-status-danger-border bg-status-danger-bg text-status-danger-deep py-1.5 px-2.5;
     }
     /* Site-review feedback left on a page that named this card. Read only
        here: the status is owned by the site-review screen and by the MCP tool

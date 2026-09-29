@@ -6,6 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Service\CardBadge;
 
 /** Where one card sits on the board page, and the count of every column. */
 final readonly class CardPlacementView
@@ -32,6 +33,8 @@ final readonly class CardPlacementView
         public bool $laneHead,
         /** For a lane head, the epic of the lane before it on the page, or null when its lane comes first. */
         public ?string $laneAfter,
+        /** @var list<CardBadge> */
+        public array $badges = [],
     ) {
     }
 }

@@ -45,13 +45,13 @@
                 {% endfor %}
                 {% set shownPullRequests = [] %}
                 {% if reviewPullRequest %}
-                    {% include '@Board/_linked_pull_request.html.twig' with {link: reviewPullRequest} only %}
+                    {% include '@Board/_linked_pull_request.html.twig' with {link: reviewPullRequest, state: null} only %}
                     {% set shownPullRequests = [reviewPullRequest.url] %}
                 {% endif %}
                 {% for cardLink in item.cards %}
                     {% for link in cardLink.card.pullRequests %}
                         {% if link.url not in shownPullRequests %}
-                            {% include '@Board/_linked_pull_request.html.twig' with {link: link} only %}
+                            {% include '@Board/_linked_pull_request.html.twig' with {link: link, state: null} only %}
                             {% set shownPullRequests = shownPullRequests|merge([link.url]) %}
                         {% endif %}
                     {% endfor %}

@@ -12,6 +12,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\BoardColumnCards;
 use App\Module\Board\Service\BoardLanes;
+use App\Module\Board\Service\CardPullRequestStates;
 
 /** Reads one card and its neighbours, so the cost does not grow with the board. */
 final readonly class ShowCardPlacementHandler
@@ -22,6 +23,7 @@ final readonly class ShowCardPlacementHandler
         private CardRepository $cards,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private CardDocumentRepository $cardDocuments,
+        private CardPullRequestStates $pullRequestStates,
     ) {
     }
 
@@ -89,6 +91,7 @@ final readonly class ShowCardPlacementHandler
             $lane,
             $laneHead,
             $laneAfter,
+            $this->pullRequestStates->forCards([$card])->badgesOf($card),
         );
     }
 }

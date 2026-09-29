@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CardProgress;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Service\CardBadge;
 use App\Module\Board\Service\CardDigest;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\View\CardRunWarning;
@@ -19,10 +20,10 @@ final class CardDigestTest extends TestCase
     public function test_the_digest_is_a_twelve_character_hash_that_repeats_for_the_same_face(): void
     {
         $card = $this->makeCard();
-        $digest = new CardDigest()->forCard($card, 0, 0, 0, null, null);
+        $digest = new CardDigest()->forCard($card, 0, 0, 0, null, null, []);
 
         self::assertMatchesRegularExpression('/^[0-9a-f]{12}$/', $digest);
-        self::assertSame($digest, new CardDigest()->forCard($card, 0, 0, 0, null, null));
+        self::assertSame($digest, new CardDigest()->forCard($card, 0, 0, 0, null, null, []));
     }
 
     public function test_the_digest_ignores_the_position_because_a_renumber_moves_no_card_face(): void
@@ -58,10 +59,10 @@ final class CardDigestTest extends TestCase
         $card = $this->makeCard();
         $digest = new CardDigest();
 
-        $none = $digest->forCard($card, 0, 0, 0, null, null);
-        $one = $digest->forCard($card, 0, 0, 0, new CardProgress(1, 3), null);
-        $two = $digest->forCard($card, 0, 0, 0, new CardProgress(2, 3), null);
-        $more = $digest->forCard($card, 0, 0, 0, new CardProgress(2, 4), null);
+        $none = $digest->forCard($card, 0, 0, 0, null, null, []);
+        $one = $digest->forCard($card, 0, 0, 0, new CardProgress(1, 3), null, []);
+        $two = $digest->forCard($card, 0, 0, 0, new CardProgress(2, 3), null, []);
+        $more = $digest->forCard($card, 0, 0, 0, new CardProgress(2, 4), null, []);
 
         self::assertCount(4, array_unique([$none, $one, $two, $more]));
     }
@@ -71,8 +72,8 @@ final class CardDigestTest extends TestCase
         $card = $this->makeCard();
 
         self::assertNotSame(
-            new CardDigest()->forCard($card, 0, 0, 0, null, null),
-            new CardDigest()->forCard($card, 0, 0, 1, null, null),
+            new CardDigest()->forCard($card, 0, 0, 0, null, null, []),
+            new CardDigest()->forCard($card, 0, 0, 1, null, null, []),
         );
     }
 
@@ -81,10 +82,10 @@ final class CardDigestTest extends TestCase
         $card = $this->makeCard();
         $digest = new CardDigest();
 
-        $none = $digest->forCard($card, 0, 0, 0, null, null);
-        $gaveUp = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-1', WorkerRunState::GaveUp, 'Tests fail.', 'backlog'));
-        $blocked = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-1', WorkerRunState::Blocked, 'Tests fail.', 'backlog'));
-        $otherRun = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-2', WorkerRunState::GaveUp, 'Tests fail.', null));
+        $none = $digest->forCard($card, 0, 0, 0, null, null, []);
+        $gaveUp = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-1', WorkerRunState::GaveUp, 'Tests fail.', 'backlog'), []);
+        $blocked = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-1', WorkerRunState::Blocked, 'Tests fail.', 'backlog'), []);
+        $otherRun = $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-2', WorkerRunState::GaveUp, 'Tests fail.', null), []);
 
         self::assertCount(4, array_unique([$none, $gaveUp, $blocked, $otherRun]));
     }
@@ -95,14 +96,28 @@ final class CardDigestTest extends TestCase
         $digest = new CardDigest();
 
         self::assertSame(
-            $digest->forCard($card, 0, 0, 0, null, null),
-            $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-1', WorkerRunState::GaveUp, 'Tests fail.', 'in-progress')),
+            $digest->forCard($card, 0, 0, 0, null, null, []),
+            $digest->forCard($card, 0, 0, 0, null, new CardRunWarning('run-1', WorkerRunState::GaveUp, 'Tests fail.', 'in-progress'), []),
         );
+    }
+
+    public function test_the_digest_changes_with_each_badge(): void
+    {
+        $card = $this->makeCard();
+        $digest = new CardDigest();
+
+        $none = $digest->forCard($card, 0, 0, 0, null, null, []);
+        $checks = $digest->forCard($card, 0, 0, 0, null, null, [CardBadge::ChecksFailed]);
+        $conflict = $digest->forCard($card, 0, 0, 0, null, null, [CardBadge::Conflict]);
+        $both = $digest->forCard($card, 0, 0, 0, null, null, [CardBadge::ChecksFailed, CardBadge::Conflict]);
+        $blocked = $digest->forCard($card, 0, 0, 0, null, null, [CardBadge::Blocked]);
+
+        self::assertCount(5, array_unique([$none, $checks, $conflict, $both, $blocked]));
     }
 
     private function digest(Card $card): string
     {
-        return new CardDigest()->forCard($card, 0, 0, 0, null, null);
+        return new CardDigest()->forCard($card, 0, 0, 0, null, null, []);
     }
 
     private function makeCard(): Card
