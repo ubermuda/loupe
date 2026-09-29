@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
@@ -15,6 +16,7 @@ use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -34,6 +36,7 @@ final readonly class ReportWorkerRunHandler
         private Auditor $auditor,
         private ClockInterface $clock,
         private WorkerRunChangedPublisher $publisher,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -98,6 +101,9 @@ final readonly class ReportWorkerRunHandler
         [$result, $warningChanged] = $reported;
         if ($result->created && null !== $result->run) {
             $this->publisher->runsChanged($result->run->project);
+            foreach (WorkerRunChanged::ofRuns([$result->run]) as $event) {
+                $this->events->dispatch($event);
+            }
             if ($warningChanged) {
                 $this->publisher->cardWarningChanged($result->run->project, $command->cardId);
             }

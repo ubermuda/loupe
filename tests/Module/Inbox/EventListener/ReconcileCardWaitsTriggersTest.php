@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\BoardColumnTerminalChanged;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Inbox\Command\AskInboxCommand;
 use App\Module\Inbox\Command\AskInboxHandler;
 use App\Module\Inbox\Command\AskInboxItem;
@@ -97,6 +98,13 @@ final class ReconcileCardWaitsTriggersTest extends KernelTestCase
         $this->dispatch(new BoardColumnDeleted($this->project, 'column', 'review', null, [], CardReporter::Human, false, false));
 
         self::assertSame([], $this->sent());
+    }
+
+    public function test_a_run_change_asks_for_its_cards(): void
+    {
+        $this->dispatch(new WorkerRunChanged($this->projectId(), [(string) $this->card->id, (string) $this->other->id]));
+
+        self::assertSame([[(string) $this->projectId(), $this->sortedIds($this->card, $this->other)]], $this->sent());
     }
 
     public function test_a_document_status_change_asks_for_every_linked_card(): void
