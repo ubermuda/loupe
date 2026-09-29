@@ -727,14 +727,16 @@ export default class extends Controller {
         );
     }
 
-    placed({ cardId, removed, leftDeck }) {
+    placed({ cardId, removed, leftDeck, deckEpic }) {
         this.clearStale(cardId);
-        // A Backlog card has no placement of its own, so its epic redraws the deck that shows it.
-        const deckEpic = removed
-            ? deckCardOf(cardId)?.closest('.lp-deck')?.dataset.lane
+        // A Backlog card has no placement of its own, so its epic redraws the
+        // deck that shows it. A card new to the Backlog has no deck card yet.
+        const redrawn = removed
+            ? (deckCardOf(cardId)?.closest('.lp-deck')?.dataset.lane ??
+              deckEpic)
             : leftDeck;
-        if (deckEpic !== undefined) {
-            this.receive({ cardId: deckEpic, local: false, own: false });
+        if (redrawn !== undefined) {
+            this.receive({ cardId: redrawn, local: false, own: false });
         }
         const entry = this.pending.get(cardId);
         if (entry !== undefined) {

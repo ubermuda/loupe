@@ -541,6 +541,17 @@ it('fetches the epic of a deck card whose card the board does not show', async (
     expect(placements()).toEqual(['epic']);
 });
 
+it('fetches the epic whose deck a new Backlog card joins', async () => {
+    document.dispatchEvent(
+        new CustomEvent('board:placed', {
+            detail: { cardId: 'new', removed: true, deckEpic: 'epic' },
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(placements()).toEqual(['epic']);
+});
+
 it('fetches the epic of the deck a placed card left', async () => {
     document.dispatchEvent(
         new CustomEvent('board:placed', {

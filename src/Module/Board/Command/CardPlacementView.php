@@ -38,6 +38,8 @@ final readonly class CardPlacementView
         public ?LaneDeckView $deck = null,
         /** @var list<CardBadge> */
         public array $badges = [],
+        /** For a Backlog card the board does not show, the lane epic whose Up next deck shows it. */
+        public ?string $deckEpic = null,
     ) {
     }
 }

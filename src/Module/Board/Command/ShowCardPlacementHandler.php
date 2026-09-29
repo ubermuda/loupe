@@ -69,7 +69,10 @@ final readonly class ShowCardPlacementHandler
         $index = null === $columnId ? null : array_find_key($columns, static fn (BoardColumn $column): bool => (string) $column->id === $columnId);
         $inBacklog = $laneHead && (string) $backlog->id === $columnId;
         if (null === $card || (null === $index && !$inBacklog)) {
-            return new CardPlacementView(null, null, null, null, 0, 0, $counts, $terminalTotals, null, null, false, null);
+            $parentId = null === $card?->parent ? null : (string) $card->parent->id;
+            $deckEpic = (string) $backlog->id === $columnId && \in_array($parentId, $laneEpicIds, true) ? $parentId : null;
+
+            return new CardPlacementView(null, null, null, null, 0, 0, $counts, $terminalTotals, null, null, false, null, deckEpic: $deckEpic);
         }
 
         $progress = null;

@@ -155,6 +155,26 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         }
     }
 
+    public function test_a_backlog_child_of_a_lane_epic_names_the_epic_whose_deck_shows_it(): void
+    {
+        $epic = $this->card('Epic', 'next', 0, CardType::Epic);
+        $laneOff = $this->card('Epic with its lane off', 'next', 1, CardType::Epic);
+        $laneOff->laneEnabled = false;
+        $this->em->flush();
+        $waiting = $this->card('Waiting child', 'backlog', 0, parent: $epic);
+        $waitingOff = $this->card('Waiting child of the epic with its lane off', 'backlog', 1, parent: $laneOff);
+        $orphan = $this->card('Waiting', 'backlog', 2);
+        $open = $this->card('Open child', 'triage', 0, parent: $epic);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $waiting));
+
+        self::assertNull($view->card);
+        self::assertSame((string) $epic->id, $view->deckEpic);
+        foreach ([$waitingOff, $orphan, $open] as $card) {
+            self::assertNull(($this->placement)(new ShowCardPlacementCommand($this->project, $card))->deckEpic, $card->title);
+        }
+    }
+
     public function test_a_lane_epic_in_the_backlog_is_a_lane_head_with_no_list_row(): void
     {
         $this->card('Plain', 'triage', 0);

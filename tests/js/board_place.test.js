@@ -40,10 +40,11 @@ function stream({
     historyTotals = {},
     title = id,
     removed = false,
+    deckEpic = null,
 }) {
     const holder = document.createElement('div');
     const placement = removed
-        ? 'data-removed="1"'
+        ? `data-removed="1"${deckEpic ? ` data-deck-epic="${deckEpic}"` : ''}`
         : `data-column-id="${column}" data-after="${after}" data-row-after="${rowAfter}"`;
     const body = removed
         ? ''
@@ -254,6 +255,26 @@ describe('board-place', () => {
         expect(placed.mock.calls[0][0].detail).toEqual({
             cardId: 'a',
             removed: true,
+        });
+    });
+
+    it('names the epic whose deck a removed Backlog card joins', () => {
+        const placed = vi.fn();
+        document.addEventListener('board:placed', placed, { once: true });
+
+        placeCard(
+            stream({
+                id: 'a',
+                removed: true,
+                deckEpic: 'epic',
+                counts: { [BACKLOG]: 1, [NEXT]: 1 },
+            }),
+        );
+
+        expect(placed.mock.calls[0][0].detail).toEqual({
+            cardId: 'a',
+            removed: true,
+            deckEpic: 'epic',
         });
     });
 

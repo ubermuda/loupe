@@ -27,7 +27,11 @@ export function placeCard(stream) {
         recountCells();
         document.dispatchEvent(
             new CustomEvent('board:placed', {
-                detail: { cardId, removed: true },
+                detail: {
+                    cardId,
+                    removed: true,
+                    deckEpic: stream.dataset.deckEpic,
+                },
             }),
         );
 
