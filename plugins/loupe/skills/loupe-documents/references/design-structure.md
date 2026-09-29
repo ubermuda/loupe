@@ -53,6 +53,15 @@ Who may delete a tag?
 <!-- /decision -->
 ```
 
+## Diagrams
+
+1. Draw moving parts, flows and entity relations as a Mermaid diagram, in a fenced `mermaid` block.
+2. Do not turn a list into a diagram.
+3. Let the diagram replace the prose it covers.
+4. Keep each diagram small enough to read on one screen.
+
+The Loupe review page draws the diagram only when the operator turns on the diagrams flag. Otherwise it shows the Mermaid source.
+
 ## Structure replaces prose
 
 1. A table or a diagram replaces the text it covers. Do not repeat its content in prose.
