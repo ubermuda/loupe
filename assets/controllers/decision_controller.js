@@ -3,6 +3,15 @@ import { Controller } from '@hotwired/stimulus';
 const NOTE_DELAY = 800;
 const STREAM_TYPE = 'text/vnd.turbo-stream.html';
 
+// A save can answer after a visit, and its stream targets ids every review
+// page shares. Only the page that sent it may render it.
+document.addEventListener('turbo:before-stream-render', (event) => {
+    const sender = event.target.dataset?.decisionPage;
+    if (sender === undefined) return;
+    const page = document.querySelector('[data-controller~="decision"]');
+    if (page?.dataset.decisionPage !== sender) event.preventDefault();
+});
+
 // Every control built here is an element with no text node: comment anchors
 // count each text node in the pane, so a note lives in `.value` and a label in
 // an attribute.
@@ -28,7 +37,9 @@ export default class extends Controller {
         this.timers = new Map();
         this.inFlight = null;
         this.beforeVisit = () => this.saveWaitingNotes();
+        this.beforeCache = () => this.keepDrafts();
         document.addEventListener('turbo:before-visit', this.beforeVisit);
+        document.addEventListener('turbo:before-cache', this.beforeCache);
         for (const block of this.element.querySelectorAll(
             'fieldset[data-decision-id]',
         )) {
@@ -38,6 +49,7 @@ export default class extends Controller {
 
     disconnect() {
         document.removeEventListener('turbo:before-visit', this.beforeVisit);
+        document.removeEventListener('turbo:before-cache', this.beforeCache);
         for (const timer of this.timers.values()) clearTimeout(timer);
     }
 
@@ -47,9 +59,24 @@ export default class extends Controller {
         for (const block of [...this.timers.keys()]) this.saveIfChanged(block);
     }
 
+    // The snapshot rebuilds each note from `data-decision-note`, the last
+    // confirmed save. A note typed since then rides along as a draft.
+    keepDrafts() {
+        for (const block of this.element.querySelectorAll(
+            'fieldset[data-decision-id]',
+        )) {
+            const field = block.querySelector('[data-decision-note-field]');
+            if (field && field.value !== (block.dataset.decisionNote ?? ''))
+                block.dataset.decisionNoteDraft = field.value;
+            else delete block.dataset.decisionNoteDraft;
+        }
+    }
+
     decorate(block) {
         block.querySelector('[data-decision-note-controls]')?.remove();
         const editable = this.hasFormTarget;
+        const draft = block.dataset.decisionNoteDraft;
+        delete block.dataset.decisionNoteDraft;
         const note = block.dataset.decisionNote ?? '';
         if (!editable && note === '') return;
 
@@ -81,6 +108,9 @@ export default class extends Controller {
         controls.append(clear);
         block.append(controls);
         this.sentStates.set(block, this.stateKey(this.state(block)));
+        if (draft === undefined || draft === note) return;
+        field.value = draft;
+        this.schedule(block);
     }
 
     // Clear empties the block at once, so a save queued behind it reads no

@@ -86,6 +86,7 @@ final class SaveDecisionAnswerController extends AppController
         $summary = ($this->showDecisionSummary)(new ShowDecisionSummaryCommand($document, $data->versionNumber));
 
         return new Response($this->renderView('@Review/_decision_status.stream.html.twig', [
+            'page' => $document->id.'/'.$data->versionNumber,
             'message' => $message,
             'failed' => $failed,
             'rows' => $summary->rows,

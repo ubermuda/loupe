@@ -37,9 +37,10 @@ const form = `<form hidden data-decision-target="form"
     <input type="checkbox" data-decision-target="clear" name="f[clear]" value="1">
 </form>`;
 
-async function mount({ editable = true, notes = {} } = {}) {
+async function mount({ editable = true, notes = {}, page = 'doc-1/3' } = {}) {
     document.body.innerHTML = `<p id="decision-status"></p>
 <div data-controller="decision" data-action="change->decision#select"
+        data-decision-page="${page}"
         data-decision-note-label-value="Note"
         data-decision-note-placeholder-value="Add a note"
         data-decision-clear-label-value="Clear"
@@ -494,4 +495,92 @@ it('restores the first answer when a second Clear click fails', async () => {
     expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
         true,
     );
+});
+
+function streamRender(page) {
+    const stream = document.createElement('turbo-stream');
+    if (page !== undefined) stream.dataset.decisionPage = page;
+    document.documentElement.append(stream);
+    const event = new CustomEvent('turbo:before-stream-render', {
+        bubbles: true,
+        cancelable: true,
+    });
+    stream.dispatchEvent(event);
+    stream.remove();
+    return event;
+}
+
+it('renders a decision stream on the page that sent the save', async () => {
+    await mount();
+
+    expect(streamRender('doc-1/3').defaultPrevented).toBe(false);
+});
+
+it('drops a decision stream that arrives on another document or version', async () => {
+    await mount();
+
+    expect(streamRender('doc-2/3').defaultPrevented).toBe(true);
+    expect(streamRender('doc-1/2').defaultPrevented).toBe(true);
+});
+
+it('drops a decision stream that arrives on a page with no decisions', async () => {
+    document.body.innerHTML = '<p id="decision-status"></p>';
+
+    expect(streamRender('doc-1/3').defaultPrevented).toBe(true);
+});
+
+it('lets every other stream render', async () => {
+    document.body.innerHTML = '<p>Another page</p>';
+
+    expect(streamRender().defaultPrevented).toBe(false);
+});
+
+it('restores and saves a note typed after the last confirmed save', async () => {
+    await mount({ notes: { a: 'Old' } });
+    type('a', 'New');
+    note('a').dispatchEvent(new Event('blur'));
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+
+    const restored = document.querySelector('[data-decision-id="a"]');
+    expect(restored.querySelectorAll('textarea')).toHaveLength(1);
+    expect(restored.querySelectorAll('input[type="button"]')).toHaveLength(1);
+    expect(note('a').value).toBe('New');
+    expect(restored.hasAttribute('data-decision-note-draft')).toBe(false);
+
+    check('a', 0);
+    expect(sent[1]).toEqual({
+        decisionId: 'a',
+        indexes: ['0'],
+        note: 'New',
+        clear: false,
+    });
+});
+
+it('saves a restored note that no save confirmed', async () => {
+    await mount({ notes: { a: 'Old' } });
+    type('a', 'New');
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(800);
+
+    expect(sent.at(-1)).toEqual({
+        decisionId: 'a',
+        indexes: [],
+        note: 'New',
+        clear: false,
+    });
+});
+
+it('does not save again after restoring a note that is already saved', async () => {
+    await mount({ notes: { a: 'Old' } });
+    type('a', 'New');
+    note('a').dispatchEvent(new Event('blur'));
+    finish();
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(sent).toHaveLength(1);
+    expect(note('a').value).toBe('New');
 });

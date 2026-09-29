@@ -286,12 +286,35 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('<turbo-stream action="update" target="decision-status">', $body);
-        self::assertStringContainsString('<turbo-stream action="update" target="decision-summary-count">', $body);
-        self::assertStringContainsString('<turbo-stream action="update" target="decision-summary-list">', $body);
+        self::assertStringContainsString(' action="update" target="decision-status">', $body);
+        self::assertStringContainsString(' action="update" target="decision-summary-count">', $body);
+        self::assertStringContainsString(' action="update" target="decision-summary-list">', $body);
         self::assertStringNotContainsString('lp-review-doc__prose', $body);
         self::assertStringNotContainsString('data-comment-anchor-target', $body);
         self::assertSame(6, substr_count($body, '<turbo-stream'), 'the status line, and the running total and list of each of the two copies');
+    }
+
+    /** A save can answer after a visit, so the client renders a stream only on the page that sent it. */
+    public function test_the_stream_and_the_page_name_the_same_document_version(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+        $this->revise($document, self::MARKDOWN."\n\nMore.\n");
+        $page = $document->id.'/2';
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $this->reviewPath($document));
+        self::assertSelectorExists('[data-controller~="decision"][data-decision-page="'.$page.'"]');
+        $client->request(Request::METHOD_GET, $this->reviewPath($document).'/versions/1');
+        self::assertSelectorExists('[data-controller~="decision"][data-decision-page="'.$document->id.'/1"]');
+        $client->request(Request::METHOD_GET, $this->reviewPath($document).'/diff/1/2');
+        self::assertSelectorExists('[data-controller~="decision"]');
+        self::assertSelectorNotExists('[data-decision-page]');
+
+        $this->answer($client, $document, ['versionNumber' => '2', 'optionIndexes' => [0]], self::TURBO);
+        $body = (string) $client->getResponse()->getContent();
+        self::assertSame(6, substr_count($body, '<turbo-stream '));
+        self::assertSame(6, preg_match_all('~<turbo-stream data-decision-page="'.preg_quote($page, '~').'" ~', $body));
     }
 
     public function test_a_note_with_no_option_counts_as_answered_in_the_stream_and_on_reload(): void
