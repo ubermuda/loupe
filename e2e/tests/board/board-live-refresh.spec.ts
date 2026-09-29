@@ -208,7 +208,8 @@ test('columns added, reordered and deleted in one browser update another in plac
     expect(seeded.status()).toBe(201);
     const projectId: string = (await seeded.json()).projectId;
     const boardUrl = `/projects/${projectId}/board`;
-    await createCard(editor, projectId, 'Kept', 'Backlog');
+    // The board draws no Backlog, so the card it watches sits in a drawn column.
+    await createCard(editor, projectId, 'Kept', 'In progress');
     await createCard(editor, projectId, 'Moved', 'Next');
 
     const watcher = await signedInPage(browser, email, PASSWORD);
@@ -236,7 +237,7 @@ test('columns added, reordered and deleted in one browser update another in plac
     ).toBeVisible();
     await expect
         .poll(() => slugs(watcher))
-        .toEqual(['backlog', 'next', 'in-progress', 'done', 'parked']);
+        .toEqual(['next', 'in-progress', 'done', 'parked']);
     await expect(kept).toHaveJSProperty('kept', true);
 
     await settings
@@ -247,11 +248,11 @@ test('columns added, reordered and deleted in one browser update another in plac
         .getByRole('button', { name: 'Move up', exact: true })
         .click();
     await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
-        ['backlog', 'next', 'in-progress', 'parked', 'done'],
+        ['next', 'in-progress', 'parked', 'done'],
     );
     await expect
         .poll(() => slugs(watcher))
-        .toEqual(['backlog', 'next', 'in-progress', 'parked', 'done']);
+        .toEqual(['next', 'in-progress', 'parked', 'done']);
     await expect(kept).toHaveJSProperty('kept', true);
 
     await settings
@@ -268,7 +269,7 @@ test('columns added, reordered and deleted in one browser update another in plac
     await expect(editor.getByText('moved its card')).toBeVisible();
     await expect
         .poll(() => slugs(watcher))
-        .toEqual(['backlog', 'in-progress', 'parked', 'done']);
+        .toEqual(['in-progress', 'parked', 'done']);
     await expect(
         watcher.locator(
             `${COLUMN}[data-column-slug="in-progress"] .lp-board-card[data-card-title="Moved"]`,
