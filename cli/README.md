@@ -416,6 +416,7 @@ Each entry in `rules` takes these fields:
 | `card` | no | A block that limits the rule by the state of its card. Only a rule on `board.card_moved` or `document.review_submitted` can set it. See [A card in an interactive session](#a-card-in-an-interactive-session) |
 | `action` | no | `interactive` opens an interactive session in a terminal instead of a worker. Omitted, the rule is a worker rule. See [Opening an interactive session](#opening-an-interactive-session) |
 | `workerPool` | no | The worker pool the rule's workers take a slot from. A pool name from `workerPools`, or `default`. Omitted, the rule uses `default`. An interactive rule cannot set it. See [The queue](#the-queue) |
+| `experiment` | no | An experiment name from `experiments`. The variant of the card picks the model, so the rule cannot set `model`, and `defaults.model` does not apply. An interactive rule cannot set it. See below |
 
 The optional `defaults:` block sets `permissionMode` and `model` for every rule
 of the file:
@@ -476,6 +477,38 @@ on a reload, when:
 A reload applies a change to both keys. A CLI older than these keys refuses the
 file, because they are unknown keys there. [The queue](#the-queue) says how the
 pools share the work.
+
+`experiments` at the top of the file splits the cards of a worker rule between
+models. Each variant has a `name`, a `weight` and a `model`, and a rule joins
+the experiment with `experiment`:
+
+```yaml
+experiments:
+  - name: impl-model
+    variants:
+      - name: opus
+        weight: 1
+        model: opus
+      - name: sonnet
+        weight: 1
+        model: claude-sonnet-5-5
+
+rules:
+  - name: implement
+    on: board.card_moved
+    project: my-app
+    to: implementation
+    experiment: impl-model
+    prompt: Implement card {cardNumber}.
+```
+
+The server pins the first variant of each card, so a card keeps its model on
+every later run of a rule that joins the experiment. A rule with its own
+`model` runs that model, so make every rule that acts on the card join the
+experiment. A CLI older than this key refuses the file, because `experiments`
+and `experiment` are unknown keys there.
+[Experiments](../docs/extending/cli-bridge.md#experiments) gives the checks, the
+pin and the fallback.
 
 A field the format does not define stops the bridge at start, and fails a
 reload, so a misspelt key never passes in silence. So does a `permissionMode`
@@ -1222,6 +1255,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `resume_session_missing` | `card`, `project`, `rule`, `session_id`, `message`: a fix request named a session that this machine does not hold, so the bridge queues a new session. Level `WARN` |
 | `resume_check_failed` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `error`, `message`: the ask check failed, and the session resumes. Level `WARN` |
 | `card_read_failed` | `card`, `project`, `rule`, `error`, `message`: the card read before the resume of an unfinished run failed, and the session resumes. Level `WARN` |
+| `experiment_pin_failed` | `card`, `project`, `rule`, `experiment`, `variant`, `error`, `message`: the pin request for the card failed, so the worker runs `variant`, the variant the bridge drew. Level `WARN` |
 | `worker_resuming` | `card`, `project`, `rule`, `session_id`, `resume`, `max_resumes`, `reason`: the bridge resumes a run that did not finish. Level `WARN` |
 | `worker_gave_up` | `card`, `project`, `rule`, `resume`, `max_resumes`, `reason`, `message`: a run did not finish at the cap of `maxResumes`. Level `ERROR` |
 | `result_fields_dropped` | `card`, `project`, `rule`, `bytes`, `message`: the result fields took more than 4000 bytes as JSON, so the report carries none. Level `WARN` |
