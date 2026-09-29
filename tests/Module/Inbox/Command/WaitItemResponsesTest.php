@@ -57,6 +57,7 @@ final class WaitItemResponsesTest extends KernelTestCase
         $this->document->addVersion('# One', '<h1>One</h1>');
         $em->persist($this->document);
         $this->card->documents->add(new CardDocument($this->card, $this->document));
+        $this->stageDocument($em, $this->document, $this->card);
         $em->flush();
         $this->switchFlag($em, InboxInstallFlags::FLAG_INBOX_ENABLED, true);
     }

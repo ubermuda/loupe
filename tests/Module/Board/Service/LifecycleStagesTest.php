@@ -44,6 +44,11 @@ final class LifecycleStagesTest extends TestCase
         yield 'both stages is ambiguous' => [['product', 'design', 'decisions'], null];
     }
 
+    public function test_passed_checks_move_a_card_from_implementation_to_in_review(): void
+    {
+        self::assertSame(['from' => 'implementation', 'to' => 'in-review'], new LifecycleStages()->forPassedChecks());
+    }
+
     /**
      * Tag::normalizeName lowercases a name, so a document cannot carry a tag
      * whose case differs. A test for that here would pass with the mapping's

@@ -51,20 +51,21 @@ final class ForgePullRequestRepository extends ServiceEntityRepository
         return Uuid::fromString(\is_string($id) ? $id : throw new \LogicException('The row exists after the insert.'));
     }
 
+    /**
+     * Skips a row that a read holds, so a card write under the project lock never waits on it.
+     * The row stays tracked, and the sweep reads it until the pull request closes.
+     */
     public function deleteByKey(Uuid $projectId, string $forge, string $repository, int $number): void
     {
-        $this->createQueryBuilder('pr')
-            ->delete()
-            ->andWhere('pr.project = :project')
-            ->andWhere('pr.forge = :forge')
-            ->andWhere('pr.repository = :repository')
-            ->andWhere('pr.number = :number')
-            ->setParameter('project', $projectId, UuidType::NAME)
-            ->setParameter('forge', $forge)
-            ->setParameter('repository', mb_strtolower($repository))
-            ->setParameter('number', $number)
-            ->getQuery()
-            ->execute();
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'DELETE FROM forge_pull_requests WHERE id IN (
+                SELECT id FROM forge_pull_requests
+                WHERE project_id = :project AND forge = :forge AND repository = :repository AND number = :number
+                FOR UPDATE SKIP LOCKED
+            )',
+            ['project' => $projectId, 'forge' => $forge, 'repository' => mb_strtolower($repository), 'number' => $number],
+            ['project' => UuidType::NAME],
+        );
     }
 
     /**
@@ -197,6 +198,47 @@ final class ForgePullRequestRepository extends ServiceEntityRepository
             'UPDATE forge_pull_requests SET repository = :to WHERE project_id = :project AND forge = :forge AND repository = :from',
             $parameters,
         );
+    }
+
+    /**
+     * The state of each row as the database holds it now. A scalar read, so
+     * the identity map cannot answer with a row loaded before a lock.
+     *
+     * @param list<array{forge: string, repository: string, number: int}> $keys
+     *
+     * @return array<string, PullRequestState> keyed by stateKey()
+     */
+    public function findCurrentStatesByKeys(Uuid $projectId, array $keys): array
+    {
+        if ([] === $keys) {
+            return [];
+        }
+
+        $rows = $this->createQueryBuilder('pr')
+            ->select('pr.forge', 'pr.repository', 'pr.number', 'pr.state')
+            ->andWhere('pr.project = :project')
+            ->andWhere('pr.forge IN (:forges)')
+            ->andWhere('pr.repository IN (:repositories)')
+            ->andWhere('pr.number IN (:numbers)')
+            ->setParameter('project', $projectId, UuidType::NAME)
+            ->setParameter('forges', array_values(array_unique(array_column($keys, 'forge'))))
+            ->setParameter('repositories', array_values(array_unique(array_map(mb_strtolower(...), array_column($keys, 'repository')))))
+            ->setParameter('numbers', array_values(array_unique(array_column($keys, 'number'))))
+            ->getQuery()
+            ->getArrayResult();
+
+        $states = [];
+        foreach ($rows as $row) {
+            $state = $row['state'];
+            $states[self::stateKey((string) $row['forge'], (string) $row['repository'], (int) $row['number'])] = $state instanceof PullRequestState ? $state : PullRequestState::from((string) $state);
+        }
+
+        return $states;
+    }
+
+    public static function stateKey(string $forge, string $repository, int $number): string
+    {
+        return $forge.' '.mb_strtolower($repository).'#'.$number;
     }
 
     private static function key(string $forge, string $repository, int $number): string

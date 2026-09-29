@@ -31,7 +31,6 @@ final readonly class CardDigest
         return substr(sha1(json_encode([
             $card->number,
             $card->title,
-            $card->body,
             $card->type->value,
             $pendingComments,
             $pullRequestCount,

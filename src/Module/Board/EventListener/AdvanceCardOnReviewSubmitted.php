@@ -73,6 +73,7 @@ final readonly class AdvanceCardOnReviewSubmitted
                 card: $link->card,
                 actor: CardReporter::System,
                 column: $target,
+                onlyFromColumn: $link->card->column,
             ));
         }
     }

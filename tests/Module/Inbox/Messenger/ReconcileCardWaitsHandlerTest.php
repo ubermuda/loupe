@@ -41,6 +41,7 @@ final class ReconcileCardWaitsHandlerTest extends KernelTestCase
         $document = $this->document($this->em, $project);
         $document->addVersion('# One', '<h1>One</h1>');
         $card->documents->add(new CardDocument($card, $document));
+        $this->stageDocument($this->em, $document, $card);
         $this->em->flush();
 
         ($this->handler)(new ReconcileCardWaits((string) $project->id, [(string) $card->id]));
@@ -55,6 +56,7 @@ final class ReconcileCardWaitsHandlerTest extends KernelTestCase
         $document = $this->document($this->em, $project);
         $document->addVersion('# One', '<h1>One</h1>');
         $card->documents->add(new CardDocument($card, $document));
+        $this->stageDocument($this->em, $document, $card);
         $this->em->flush();
         $pending = new Document($project->owner, $project, 'Not flushed yet');
         $this->em->persist($pending);

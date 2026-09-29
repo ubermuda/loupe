@@ -20,12 +20,15 @@ use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Entity\InboxProjectSettings;
 use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Service\CardWaitReconciler;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\SetDocumentTagsCommand;
+use App\Module\Review\Command\SetDocumentTagsHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Tests\Module\Inbox\InboxFixtures;
@@ -331,6 +334,43 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertSame(InboxCardWaitEndReason::SwitchedOff, $this->onlyWait($watch)->endReason);
     }
 
+    public function test_a_document_switched_off_opens_no_item(): void
+    {
+        $this->settings()->documentInReview = false;
+        $this->em->flush();
+        $this->linkedDocument('Tech design');
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_switching_documents_off_closes_the_item_obsolete_and_on_again_opens_a_new_one(): void
+    {
+        $this->linkedDocument('Tech design');
+        $this->reconcile();
+        $settings = $this->settings();
+        $settings->documentInReview = false;
+        $this->em->flush();
+
+        $this->reconcile();
+
+        $closed = $this->onlyWatch();
+        self::assertSame(InboxItemState::Obsolete, $closed->item->state);
+        self::assertNotNull($closed->closedAt);
+        self::assertSame(InboxCardWaitEndReason::SwitchedOff, $this->onlyWait($closed)->endReason);
+
+        $settings->documentInReview = true;
+        $this->em->flush();
+        $this->reconcile();
+
+        $watches = $this->watches();
+        self::assertCount(2, $watches);
+        self::assertSame($closed, $watches[0]);
+        self::assertSame(InboxItemState::Open, $watches[1]->item->state);
+        self::assertSame('Tech design in review, version 1', $watches[1]->item->body);
+    }
+
     public function test_without_a_card_list_it_finds_the_cards_with_a_document_in_review_or_an_open_watch(): void
     {
         $this->linkedDocument('Tech design');
@@ -355,6 +395,96 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $this->reconciler->reconcile($this->project, null);
 
         self::assertSame(InboxItemState::Done, $watch->item->state);
+    }
+
+    public function test_a_plan_in_review_opens_no_wait(): void
+    {
+        $plan = $this->untaggedLinkedDocument('Plan');
+        $this->tagDocument($this->em, $plan, ['plan']);
+        $this->card->column = $this->stageColumn($this->em, $this->project, 'tech-design');
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_an_untagged_document_in_review_opens_no_wait(): void
+    {
+        $this->untaggedLinkedDocument('Notes');
+        $this->card->column = $this->stageColumn($this->em, $this->project, 'tech-design');
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_a_tech_design_on_a_card_in_the_tech_design_column_opens_a_wait(): void
+    {
+        $document = $this->linkedDocument('Tech design');
+
+        $this->reconcile();
+
+        self::assertEquals($document->id, $this->onlyWait($this->onlyWatch())->documentId);
+    }
+
+    public function test_a_tech_design_on_a_card_in_another_open_column_opens_no_wait(): void
+    {
+        $this->linkedDocument('Tech design');
+        $this->card->column = $this->stageColumn($this->em, $this->project, 'implementation');
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_a_product_design_on_a_card_in_the_product_design_column_opens_a_wait(): void
+    {
+        $document = $this->untaggedLinkedDocument('Product design');
+        $this->stageDocument($this->em, $document, $this->card, 'product-design');
+        $this->em->flush();
+
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertEquals($document->id, $this->onlyWait($watch)->documentId);
+        self::assertSame('Product design in review, version 1', $watch->item->body);
+    }
+
+    public function test_a_move_out_of_the_stage_column_ends_the_document_wait_done(): void
+    {
+        $this->linkedDocument('Tech design');
+        $this->reconcile();
+        $this->card->column = $this->stageColumn($this->em, $this->project, 'implementation');
+        $this->em->flush();
+
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertSame(InboxItemState::Done, $watch->item->state);
+        self::assertSame(InboxCardWaitEndReason::Resolved, $this->onlyWait($watch)->endReason);
+    }
+
+    public function test_stage_tags_set_later_open_the_wait(): void
+    {
+        $document = $this->untaggedLinkedDocument('Tech design');
+        $this->card->column = $this->stageColumn($this->em, $this->project, 'tech-design');
+        $this->em->flush();
+        $this->reconcile();
+        self::assertSame([], $this->watches());
+
+        $setTags = self::getContainer()->get(SetDocumentTagsHandler::class);
+        self::assertInstanceOf(SetDocumentTagsHandler::class, $setTags);
+        $setTags(new SetDocumentTagsCommand($document, ['design', 'decisions']));
+        $this->em->clear();
+        $project = $this->em->find(Project::class, $this->project->id);
+        self::assertInstanceOf(Project::class, $project);
+
+        $this->reconciler->reconcile($project, [(string) $this->card->id]);
+
+        self::assertEquals($document->id, $this->onlyWait($this->onlyWatch())->documentId);
     }
 
     /** @return iterable<string, array{WorkerRunState, InboxCardWaitTrigger, string}> */
@@ -478,13 +608,13 @@ final class CardWaitReconcilerTest extends KernelTestCase
     public function test_a_document_wait_and_a_run_wait_share_one_item_and_the_end_of_one_keeps_it_open(): void
     {
         $document = $this->linkedDocument('Tech design');
-        $this->workerRun(WorkerRunState::Blocked, 'Stuck', receivedAt: new \DateTimeImmutable('-1 minute'));
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck', 'tech-design', new \DateTimeImmutable('-1 minute'));
         $this->reconcile();
         $watch = $this->onlyWatch();
         self::assertCount(2, $this->openWaits($watch));
         self::assertCount(1, $watch->item->documents);
 
-        $this->workerRun(WorkerRunState::Running, '');
+        $this->workerRun(WorkerRunState::Running, '', 'tech-design');
         $this->reconcile();
 
         self::assertSame(InboxItemState::Open, $watch->item->state);
@@ -496,6 +626,57 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertCount(1, $ended);
         self::assertSame(InboxCardWaitTrigger::RunBlocked, $ended[0]->trigger);
         self::assertSame(InboxCardWaitEndReason::Resolved, $ended[0]->endReason);
+    }
+
+    public function test_a_run_blocked_switch_off_opens_no_item_and_a_document_wait_of_another_card_still_opens(): void
+    {
+        $this->settings()->runBlocked = false;
+        $this->em->flush();
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck');
+        $other = $this->card($this->em, $this->project, 13);
+        $document = $this->document($this->em, $this->project);
+        $document->addVersion('# One', '<h1>One</h1>');
+        $other->documents->add(new CardDocument($other, $document));
+        $this->stageDocument($this->em, $document, $other);
+        $this->em->flush();
+
+        $this->reconciler->reconcile($this->project, [(string) $this->card->id, (string) $other->id]);
+
+        self::assertSame([], $this->watches());
+        $watch = $this->onlyWatch($other->id);
+        self::assertSame(InboxItemState::Open, $watch->item->state);
+        self::assertEquals($document->id, $this->onlyWait($watch)->documentId);
+    }
+
+    public function test_a_run_blocked_switch_off_ends_the_run_wait_and_keeps_the_document_wait_open(): void
+    {
+        $document = $this->linkedDocument('Tech design');
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck', 'tech-design');
+        $this->reconcile();
+        $watch = $this->onlyWatch();
+        self::assertCount(2, $this->openWaits($watch));
+        $this->settings()->runBlocked = false;
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame(InboxItemState::Open, $watch->item->state);
+        $open = $this->openWaits($watch);
+        self::assertCount(1, $open);
+        self::assertEquals($document->id, $open[0]->documentId);
+        self::assertSame('Tech design in review, version 1', $watch->item->body);
+        [$runWait] = array_values(array_filter($watch->waits->toArray(), static fn (InboxCardWait $wait): bool => null !== $wait->endedAt));
+        self::assertSame(InboxCardWaitTrigger::RunBlocked, $runWait->trigger);
+        self::assertSame(InboxCardWaitEndReason::SwitchedOff, $runWait->endReason);
+
+        $document->status = DocumentStatus::Approved;
+        $this->em->flush();
+        $this->reconcile();
+
+        // The last wait ended by its own cause in this pass, so the item closes done.
+        self::assertSame(InboxItemState::Done, $watch->item->state);
+        [$documentWait] = array_values(array_filter($watch->waits->toArray(), static fn (InboxCardWait $wait): bool => InboxCardWaitTrigger::DocumentInReview === $wait->trigger));
+        self::assertSame(InboxCardWaitEndReason::Resolved, $documentWait->endReason);
     }
 
     public function test_a_card_with_a_run_wait_in_a_terminal_column_closes_the_item_obsolete(): void
@@ -546,7 +727,26 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $this->reconciler->reconcile($this->project, [(string) $this->card->id]);
     }
 
+    private function settings(): InboxProjectSettings
+    {
+        $settings = new InboxProjectSettings($this->project);
+        $this->em->persist($settings);
+        $this->em->flush();
+
+        return $settings;
+    }
+
+    /** A tech design of the card, which sits in the Tech design column. */
     private function linkedDocument(string $title): Document
+    {
+        $document = $this->untaggedLinkedDocument($title);
+        $this->stageDocument($this->em, $document, $this->card);
+        $this->em->flush();
+
+        return $document;
+    }
+
+    private function untaggedLinkedDocument(string $title): Document
     {
         $document = new Document($this->project->owner, $this->project, $title);
         $document->addVersion('# One', '<h1>One</h1>');

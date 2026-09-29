@@ -1,0 +1,787 @@
+/** @vitest-environment jsdom */
+import { Application } from '@hotwired/stimulus';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import DecisionController from '../../assets/controllers/decision_controller.js';
+
+let application;
+let sent;
+
+beforeEach(() => {
+    vi.useFakeTimers();
+    sent = [];
+    application = Application.start();
+    application.register('decision', DecisionController);
+});
+
+afterEach(async () => {
+    document.body.replaceChildren();
+    await vi.advanceTimersByTimeAsync(0);
+    application.stop();
+    delete window.Turbo;
+    vi.useRealTimers();
+});
+
+const option = (id, index, checked, kind) =>
+    `<input type="${kind}" name="pick-${id}" value="${index}" data-decision-option="${id}:${index}"${
+        checked.includes(`${id}:${index}`) ? ' checked' : ''
+    }>`;
+
+const block = (
+    id,
+    note,
+    checked = [],
+    kind = 'checkbox',
+) => `<fieldset data-decision-id="${id}"${
+    note === undefined ? '' : ` data-decision-note="${note}"`
+}>
+    <legend>Question ${id}</legend>
+    <div>${option(id, 0, checked, kind)}<label>A</label></div>
+    <div>${option(id, 1, checked, kind)}<label>B</label></div>
+</fieldset>`;
+
+const form = `<form hidden data-decision-target="form"
+        data-action="turbo:before-fetch-response->decision#inspect turbo:submit-end->decision#saved">
+    <input data-decision-target="decisionId" name="f[decisionId]">
+    <input data-decision-target="versionNumber" name="f[versionNumber]" value="3">
+    <div data-decision-target="options" data-field-name="f[optionIndexes]"></div>
+    <input data-decision-target="note" name="f[note]">
+    <input type="checkbox" data-decision-target="clear" name="f[clear]" value="1">
+</form>`;
+
+async function mount({
+    editable = true,
+    notes = {},
+    page = 'doc-1/3',
+    checked = [],
+    kind = 'checkbox',
+} = {}) {
+    document.body.innerHTML = `<p id="decision-status"></p>
+<div data-controller="decision" data-action="change->decision#select"
+        data-decision-page="${page}"
+        data-decision-note-label-value="Note"
+        data-decision-note-placeholder-value="Add a note"
+        data-decision-clear-label-value="Clear"
+        data-decision-error-message-value="Could not save.">
+    <div class="prose">${block('a', notes.a, checked, kind)}${block('b', notes.b, checked, kind)}</div>
+    ${editable ? form : ''}
+</div>`;
+    const formElement = document.querySelector('form');
+    if (formElement) {
+        formElement.requestSubmit = () => sent.push(snapshot(formElement));
+    }
+    await vi.advanceTimersByTimeAsync(0);
+}
+
+function snapshot(formElement) {
+    return {
+        decisionId: formElement.querySelector(
+            '[data-decision-target="decisionId"]',
+        ).value,
+        indexes: [
+            ...formElement.querySelectorAll(
+                '[data-decision-target="options"] input',
+            ),
+        ].map((input) => input.value),
+        note: formElement.querySelector('[data-decision-target="note"]').value,
+        clear: formElement.querySelector('[data-decision-target="clear"]')
+            .checked,
+    };
+}
+
+const streamed = {
+    succeeded: true,
+    contentType: 'text/vnd.turbo-stream.html; charset=UTF-8',
+};
+
+function finish(detail = { success: true, fetchResponse: streamed }) {
+    document
+        .querySelector('form')
+        .dispatchEvent(
+            new CustomEvent('turbo:submit-end', { bubbles: true, detail }),
+        );
+}
+
+function check(id, index) {
+    const input = document.querySelector(
+        `[data-decision-option="${id}:${index}"]`,
+    );
+    input.checked = !input.checked;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+const note = (id) =>
+    document.querySelector(`[data-decision-id="${id}"] textarea`);
+
+function type(id, value) {
+    note(id).value = value;
+    note(id).dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+it('adds no text node to the blocks', async () => {
+    const before = document.createElement('div');
+    before.innerHTML = block('a', 'Kept');
+    await mount({ notes: { a: 'Kept' } });
+
+    expect(
+        document.querySelector('.prose [data-decision-id="a"]').textContent,
+    ).toBe(before.firstElementChild.textContent);
+    expect(note('a').value).toBe('Kept');
+    expect(note('a').getAttribute('aria-label')).toBe('Note');
+    expect(note('a').getAttribute('placeholder')).toBe('Add a note');
+    expect(
+        document.querySelector('[data-decision-id="a"] input[type="button"]')
+            .value,
+    ).toBe('Clear');
+});
+
+it('sends the whole block at once when an option changes', async () => {
+    await mount();
+    type('a', 'Why');
+    check('a', 1);
+
+    expect(sent).toEqual([
+        { decisionId: 'a', indexes: ['1'], note: 'Why', clear: false },
+    ]);
+});
+
+it('sends one save at a time and only the newest state of a block', async () => {
+    await mount();
+    check('a', 0);
+    check('a', 1);
+    check('b', 0);
+    check('a', 0);
+
+    expect(sent).toHaveLength(1);
+    finish();
+    expect(sent[1]).toEqual({
+        decisionId: 'a',
+        indexes: ['1'],
+        note: '',
+        clear: false,
+    });
+    finish();
+    expect(sent[2]).toEqual({
+        decisionId: 'b',
+        indexes: ['0'],
+        note: '',
+        clear: false,
+    });
+    finish();
+    expect(sent).toHaveLength(3);
+});
+
+it('does not disable the inputs while a save runs', async () => {
+    await mount();
+    check('a', 0);
+
+    expect(
+        document.querySelector('[data-decision-option="a:1"]').disabled,
+    ).toBe(false);
+    expect(note('a').disabled).toBe(false);
+});
+
+it('saves the note once typing stops', async () => {
+    await mount();
+    type('a', 'Fi');
+    await vi.advanceTimersByTimeAsync(500);
+    type('a', 'First');
+    await vi.advanceTimersByTimeAsync(799);
+    expect(sent).toHaveLength(0);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(sent).toEqual([
+        { decisionId: 'a', indexes: [], note: 'First', clear: false },
+    ]);
+});
+
+it('saves the note on blur only when it changed', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    note('a').dispatchEvent(new Event('blur'));
+    expect(sent).toHaveLength(0);
+
+    type('a', 'Changed');
+    note('a').dispatchEvent(new Event('blur'));
+    expect(sent).toEqual([
+        { decisionId: 'a', indexes: [], note: 'Changed', clear: false },
+    ]);
+    finish();
+
+    note('a').dispatchEvent(new Event('blur'));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(sent).toHaveLength(1);
+});
+
+it('does not save a note change through the change event', async () => {
+    await mount();
+    type('a', 'Typed');
+    note('a').dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(sent).toHaveLength(0);
+});
+
+it('clears the picks at once, keeps the note and saves the Clear', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    check('a', 0);
+    finish();
+    document
+        .querySelector('[data-decision-id="a"] input[type="button"]')
+        .click();
+
+    expect(sent[1]).toEqual({
+        decisionId: 'a',
+        indexes: [],
+        note: 'Kept',
+        clear: true,
+    });
+    expect(note('a').value).toBe('Kept');
+    expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
+        false,
+    );
+    finish();
+    expect(note('a').value).toBe('Kept');
+    expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
+        false,
+    );
+});
+
+it('keeps the note and reports a network failure', async () => {
+    await mount();
+    type('a', 'Unsaved words');
+    note('a').dispatchEvent(new Event('blur'));
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+
+    expect(note('a').value).toBe('Unsaved words');
+    const status = document.getElementById('decision-status');
+    expect(status.textContent).toBe('Could not save.');
+    expect(
+        status.querySelector('.lp-decision-status__message--failed'),
+    ).not.toBeNull();
+
+    note('a').dispatchEvent(new Event('blur'));
+    expect(sent).toHaveLength(2);
+});
+
+it('leaves a refusal the server streamed on the status line', async () => {
+    await mount();
+    check('a', 0);
+    document.getElementById('decision-status').textContent = 'Streamed reason.';
+    finish({
+        success: false,
+        fetchResponse: {
+            contentType: 'text/vnd.turbo-stream.html; charset=UTF-8',
+        },
+    });
+
+    expect(document.getElementById('decision-status').textContent).toBe(
+        'Streamed reason.',
+    );
+});
+
+it('stops Turbo from rendering a failed page response', async () => {
+    await mount();
+    const event = new CustomEvent('turbo:before-fetch-response', {
+        bubbles: true,
+        cancelable: true,
+        detail: {
+            fetchResponse: { succeeded: false, contentType: 'text/html' },
+        },
+    });
+    document.querySelector('form').dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+});
+
+it('stops Turbo from rendering a page response that succeeded', async () => {
+    await mount();
+    const event = new CustomEvent('turbo:before-fetch-response', {
+        bubbles: true,
+        cancelable: true,
+        detail: {
+            fetchResponse: { succeeded: true, contentType: 'text/html' },
+        },
+    });
+    document.querySelector('form').dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+});
+
+it('lets Turbo render a streamed response', async () => {
+    await mount();
+    const event = new CustomEvent('turbo:before-fetch-response', {
+        bubbles: true,
+        cancelable: true,
+        detail: { fetchResponse: streamed },
+    });
+    document.querySelector('form').dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+});
+
+it('reports a page response that succeeded as a failed save', async () => {
+    await mount({ notes: { a: 'Old' } });
+    type('a', 'Unsaved words');
+    note('a').dispatchEvent(new Event('blur'));
+    finish({
+        success: true,
+        fetchResponse: { succeeded: true, contentType: 'text/html' },
+    });
+
+    expect(document.getElementById('decision-status').textContent).toBe(
+        'Could not save.',
+    );
+    expect(
+        document.querySelector('[data-decision-id="a"]').dataset.decisionNote,
+    ).toBe('Old');
+    note('a').dispatchEvent(new Event('blur'));
+    expect(sent).toHaveLength(2);
+});
+
+it('sends a note still waiting for its timer before a Turbo visit', async () => {
+    await mount();
+    type('a', 'Typed before leaving');
+    visit();
+
+    expect(sent).toEqual([
+        {
+            decisionId: 'a',
+            indexes: [],
+            note: 'Typed before leaving',
+            clear: false,
+        },
+    ]);
+});
+
+it('stops listening for Turbo visits once disconnected', async () => {
+    await mount();
+    type('a', 'Typed');
+    document.body.replaceChildren();
+    await vi.advanceTimersByTimeAsync(0);
+    visit();
+
+    expect(sent).toEqual([]);
+    expect(unload().defaultPrevented).toBe(false);
+});
+
+function visit(url = '/next') {
+    const event = new CustomEvent('turbo:before-visit', {
+        cancelable: true,
+        detail: { url },
+    });
+    document.dispatchEvent(event);
+    return event;
+}
+
+function unload() {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event;
+}
+
+it('holds a visit until a save queued behind the one in flight is sent', async () => {
+    window.Turbo = { visit: vi.fn() };
+    await mount();
+    check('a', 0);
+    check('a', 1);
+
+    expect(visit('/next').defaultPrevented).toBe(true);
+    expect(sent).toHaveLength(1);
+    finish();
+    expect(sent[1]).toEqual({
+        decisionId: 'a',
+        indexes: ['0', '1'],
+        note: '',
+        clear: false,
+    });
+    expect(window.Turbo.visit).not.toHaveBeenCalled();
+    finish();
+    expect(window.Turbo.visit).toHaveBeenCalledOnce();
+    expect(window.Turbo.visit).toHaveBeenCalledWith('/next');
+    expect(visit('/next').defaultPrevented).toBe(false);
+});
+
+it('lets a visit go when no save is pending', async () => {
+    await mount();
+    check('a', 0);
+    finish();
+
+    expect(visit().defaultPrevented).toBe(false);
+});
+
+it('stays on the page and reports the error when the held save fails', async () => {
+    window.Turbo = { visit: vi.fn() };
+    await mount();
+    check('a', 0);
+    visit();
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+
+    expect(window.Turbo.visit).not.toHaveBeenCalled();
+    expect(document.getElementById('decision-status').textContent).toBe(
+        'Could not save.',
+    );
+});
+
+it('asks before an unload only while a save is pending', async () => {
+    await mount();
+    expect(unload().defaultPrevented).toBe(false);
+
+    check('a', 0);
+    expect(unload().defaultPrevented).toBe(true);
+    finish();
+    expect(unload().defaultPrevented).toBe(false);
+
+    type('a', 'Waiting');
+    expect(unload().defaultPrevented).toBe(true);
+});
+
+it('shows a read-only note with no Clear and saves nothing', async () => {
+    await mount({ editable: false, notes: { a: 'Old answer' } });
+
+    expect(note('a').value).toBe('Old answer');
+    expect(note('a').readOnly).toBe(true);
+    expect(note('b')).toBeNull();
+    expect(document.querySelector('input[type="button"]')).toBeNull();
+});
+
+it('builds its controls once when it reconnects', async () => {
+    await mount();
+    const element = document.querySelector('[data-controller="decision"]');
+    element.removeAttribute('data-controller');
+    await vi.advanceTimersByTimeAsync(0);
+    element.setAttribute('data-controller', 'decision');
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(
+        document.querySelectorAll('[data-decision-id="a"] textarea'),
+    ).toHaveLength(1);
+});
+
+async function restoreSnapshot() {
+    const element = document.querySelector('[data-controller="decision"]');
+    const copy = element.cloneNode(true);
+    element.replaceWith(copy);
+    const copiedForm = copy.querySelector('form');
+    copiedForm.requestSubmit = () => sent.push(snapshot(copiedForm));
+    await vi.advanceTimersByTimeAsync(0);
+}
+
+it('shows the saved note after Turbo restores a snapshot', async () => {
+    await mount({ notes: { a: 'Old' } });
+    type('a', 'New');
+    note('a').dispatchEvent(new Event('blur'));
+    finish();
+    await restoreSnapshot();
+
+    expect(
+        document.querySelectorAll('[data-decision-id="a"] textarea'),
+    ).toHaveLength(1);
+    expect(
+        document.querySelectorAll(
+            '[data-decision-id="a"] input[type="button"]',
+        ),
+    ).toHaveLength(1);
+    expect(note('a').value).toBe('New');
+});
+
+it('keeps the note after Turbo restores a snapshot taken after a Clear', async () => {
+    await mount({ notes: { a: 'Kept' }, checked: ['a:0'] });
+    document
+        .querySelector('[data-decision-id="a"] input[type="button"]')
+        .click();
+    finish();
+    await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(note('a').value).toBe('Kept');
+    expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
+        false,
+    );
+    expect(sent).toHaveLength(1);
+});
+
+it('keeps and saves a note typed while a Clear is in flight', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    check('a', 0);
+    finish();
+    document
+        .querySelector('[data-decision-id="a"] input[type="button"]')
+        .click();
+    type('a', 'Typed after');
+    finish();
+
+    expect(note('a').value).toBe('Typed after');
+    expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
+        false,
+    );
+    await vi.advanceTimersByTimeAsync(800);
+    expect(sent[2]).toEqual({
+        decisionId: 'a',
+        indexes: [],
+        note: 'Typed after',
+        clear: false,
+    });
+});
+
+const clear = (id) =>
+    document
+        .querySelector(`[data-decision-id="${id}"] input[type="button"]`)
+        .click();
+
+it('does not restore cleared options with a note saved while Clear is in flight', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    check('a', 0);
+    finish();
+    clear('a');
+    type('a', 'Typed after');
+    note('a').dispatchEvent(new Event('blur'));
+    finish();
+
+    expect(sent[2]).toEqual({
+        decisionId: 'a',
+        indexes: [],
+        note: 'Typed after',
+        clear: false,
+    });
+});
+
+it('saves an option checked while Clear is in flight', async () => {
+    await mount();
+    check('a', 0);
+    finish();
+    clear('a');
+    check('a', 1);
+    finish();
+
+    expect(sent[2]).toEqual({
+        decisionId: 'a',
+        indexes: ['1'],
+        note: '',
+        clear: false,
+    });
+});
+
+it('restores the block when a Clear fails', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    check('a', 0);
+    finish();
+    clear('a');
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+
+    expect(note('a').value).toBe('Kept');
+    expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
+        true,
+    );
+    expect(document.getElementById('decision-status').textContent).toBe(
+        'Could not save.',
+    );
+});
+
+it('restores the first answer when a second Clear click fails', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    check('a', 0);
+    finish();
+    clear('a');
+    clear('a');
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+
+    expect(sent).toHaveLength(2);
+    expect(note('a').value).toBe('Kept');
+    expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
+        true,
+    );
+});
+
+const radio = (id, index) =>
+    document.querySelector(`[data-decision-option="${id}:${index}"]`);
+
+it('puts the confirmed pick back when an option save fails, and keeps the note', async () => {
+    await mount({ kind: 'radio', checked: ['a:0'], notes: { a: 'Kept' } });
+    type('a', 'Typed');
+    radio('a', 1).click();
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+
+    expect(radio('a', 0).checked).toBe(true);
+    expect(radio('a', 1).checked).toBe(false);
+    expect(note('a').value).toBe('Typed');
+    expect(document.getElementById('decision-status').textContent).toBe(
+        'Could not save.',
+    );
+});
+
+it('retries a failed option save when the same option is clicked again', async () => {
+    await mount({ kind: 'radio', checked: ['a:0'] });
+    radio('a', 1).click();
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+    radio('a', 1).click();
+
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toEqual({
+        decisionId: 'a',
+        indexes: ['1'],
+        note: '',
+        clear: false,
+    });
+});
+
+it('keeps an option picked while the failing save was in flight', async () => {
+    await mount({ kind: 'radio' });
+    radio('a', 1).click();
+    radio('a', 0).click();
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+
+    expect(radio('a', 0).checked).toBe(true);
+    expect(sent[1]).toEqual({
+        decisionId: 'a',
+        indexes: ['0'],
+        note: '',
+        clear: false,
+    });
+});
+
+function streamRender(page) {
+    const stream = document.createElement('turbo-stream');
+    if (page !== undefined) stream.dataset.decisionPage = page;
+    document.documentElement.append(stream);
+    const event = new CustomEvent('turbo:before-stream-render', {
+        bubbles: true,
+        cancelable: true,
+    });
+    stream.dispatchEvent(event);
+    stream.remove();
+    return event;
+}
+
+it('renders a decision stream on the page that sent the save', async () => {
+    await mount();
+
+    expect(streamRender('doc-1/3').defaultPrevented).toBe(false);
+});
+
+it('drops a decision stream that arrives on another document or version', async () => {
+    await mount();
+
+    expect(streamRender('doc-2/3').defaultPrevented).toBe(true);
+    expect(streamRender('doc-1/2').defaultPrevented).toBe(true);
+});
+
+it('drops a decision stream that arrives on a page with no decisions', async () => {
+    document.body.innerHTML = '<p id="decision-status"></p>';
+
+    expect(streamRender('doc-1/3').defaultPrevented).toBe(true);
+});
+
+it('lets every other stream render', async () => {
+    document.body.innerHTML = '<p>Another page</p>';
+
+    expect(streamRender().defaultPrevented).toBe(false);
+});
+
+it('restores and saves a note typed after the last confirmed save', async () => {
+    await mount({ notes: { a: 'Old' } });
+    type('a', 'New');
+    note('a').dispatchEvent(new Event('blur'));
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+
+    const restored = document.querySelector('[data-decision-id="a"]');
+    expect(restored.querySelectorAll('textarea')).toHaveLength(1);
+    expect(restored.querySelectorAll('input[type="button"]')).toHaveLength(1);
+    expect(note('a').value).toBe('New');
+    expect(restored.hasAttribute('data-decision-note-draft')).toBe(false);
+
+    check('a', 0);
+    expect(sent[1]).toEqual({
+        decisionId: 'a',
+        indexes: ['0'],
+        note: 'New',
+        clear: false,
+    });
+});
+
+it('saves a restored note that no save confirmed', async () => {
+    await mount({ notes: { a: 'Old' } });
+    type('a', 'New');
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(800);
+
+    expect(sent.at(-1)).toEqual({
+        decisionId: 'a',
+        indexes: [],
+        note: 'New',
+        clear: false,
+    });
+});
+
+it('does not save again after restoring a note that is already saved', async () => {
+    await mount({ notes: { a: 'Old' } });
+    type('a', 'New');
+    note('a').dispatchEvent(new Event('blur'));
+    finish();
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(sent).toHaveLength(1);
+    expect(note('a').value).toBe('New');
+});
+
+it('resumes a held visit when a note edit ends where it started', async () => {
+    window.Turbo = { visit: vi.fn() };
+    await mount();
+    check('a', 0);
+    visit('/next');
+    type('b', 'Draft');
+    type('b', '');
+    finish();
+    await vi.advanceTimersByTimeAsync(800);
+
+    expect(sent).toHaveLength(1);
+    expect(window.Turbo.visit).toHaveBeenCalledWith('/next');
+});
+
+it('saves an option that no save confirmed after Turbo restores a snapshot', async () => {
+    await mount();
+    check('a', 0);
+    check('b', 1);
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(800);
+    finish();
+
+    expect(sent.at(-1)).toEqual({
+        decisionId: 'b',
+        indexes: ['1'],
+        note: '',
+        clear: false,
+    });
+});
+
+it('saves nothing when a page loads with its saved options checked', async () => {
+    await mount({ checked: ['a:1'], notes: { a: 'Kept' } });
+    check('b', 0);
+    finish();
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(sent).toHaveLength(1);
+});
+
+it('sends the Clear again when Turbo cached the page while it was in flight', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    check('a', 0);
+    finish();
+    clear('a');
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(800);
+
+    expect(note('a').value).toBe('Kept');
+    expect(sent.at(-1)).toEqual({
+        decisionId: 'a',
+        indexes: [],
+        note: 'Kept',
+        clear: false,
+    });
+});

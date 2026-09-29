@@ -17,6 +17,9 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
@@ -40,6 +43,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Service\DocumentSearchIndexer;
+use App\Module\Review\Service\DocumentTagApplier;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
@@ -49,8 +53,9 @@ use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Writes a project's worth of work for a development instance: cards,
- * documents, open and completed requests, replies and site feedback.
+ * Writes a project's worth of work for a development instance: cards, a run
+ * that gave up, documents, open and completed requests, replies and site
+ * feedback.
  *
  * It lives in Inbox because the requests are the point, and because Inbox is
  * the one module allowed to name a card and a document, which is what a
@@ -75,10 +80,11 @@ final readonly class ProjectShowcaseSeeder
         private CardWaitReconciler $cardWaits,
         private InboxCardWatchRepository $inboxCardWatches,
         private InboxAvailability $inbox,
+        private DocumentTagApplier $tagApplier,
     ) {
     }
 
-    /** The card whose document in review gives the showcase its wait item. */
+    /** The card in Tech design whose tech design in review gives the showcase its wait item. */
     public const string WAITING_CARD_TITLE = 'Board onboarding';
 
     /**
@@ -92,6 +98,7 @@ final readonly class ProjectShowcaseSeeder
             $cards = $this->seedCards($project);
             $documents = $this->seedDocuments($owner, $project, $cards['onboarding']);
             $this->seedInbox($project, $owner, $reviewer, $cards, $documents);
+            $this->seedEpicLane($project);
             $this->seedSiteFeedback($project, $cards['checkout']);
             $this->em->flush();
             $waitingCard = $cards['onboarding'];
@@ -117,6 +124,7 @@ final readonly class ProjectShowcaseSeeder
             $columns[$column->slug] = $column;
         }
         $backlog = $columns['backlog'] ?? throw new \LogicException('The project has no backlog column.');
+        $columns['tech-design'] ??= $this->techDesignColumn($project, $columns);
         $number = $this->cards->nextNumber($project);
 
         $checkout = new Card(
@@ -145,7 +153,7 @@ final readonly class ProjectShowcaseSeeder
         );
         $onboarding = new Card(
             project: $project,
-            column: $backlog,
+            column: $columns['tech-design'],
             title: self::WAITING_CARD_TITLE,
             body: 'Make the first agent handoff obvious. Explain which rule runs when a card enters Ready and what the person should expect back.',
             number: $number + 3,
@@ -169,6 +177,25 @@ final readonly class ProjectShowcaseSeeder
         $this->em->flush();
 
         return ['checkout' => $checkout, 'history' => $history, 'columns' => $columnRules, 'onboarding' => $onboarding, 'pullRequest' => $pullRequest];
+    }
+
+    /**
+     * An open column after Next, so a tech design in review on a card there waits.
+     *
+     * @param array<string, BoardColumn> $columns
+     */
+    private function techDesignColumn(Project $project, array $columns): BoardColumn
+    {
+        $position = isset($columns['next']) ? $columns['next']->position + 1 : \count($columns);
+        foreach ($columns as $column) {
+            if ($column->position >= $position) {
+                ++$column->position;
+            }
+        }
+        $column = new BoardColumn(project: $project, label: 'Tech design', slug: 'tech-design', position: $position);
+        $this->em->persist($column);
+
+        return $column;
     }
 
     /**
@@ -220,11 +247,12 @@ final readonly class ProjectShowcaseSeeder
         $rules->status = DocumentStatus::Approved;
         $history->addReference($rules);
 
-        $onboarding = new Document($owner, $project, 'First handoff guide');
+        $onboarding = new Document($owner, $project, 'Tech design: First handoff guide');
         $onboarding->addVersion(
-            "# First handoff guide\n\n## The first five minutes\n\nMove a card to Ready. The rule of that column starts an agent, and the card shows the run.\n",
-            '<h1>First handoff guide</h1><h2>The first five minutes</h2><p>Move a card to Ready. The rule of that column starts an agent, and the card shows the run.</p>',
+            "# Tech design: First handoff guide\n\n## The first five minutes\n\nMove a card to Ready. The rule of that column starts an agent, and the card shows the run.\n",
+            '<h1>Tech design: First handoff guide</h1><h2>The first five minutes</h2><p>Move a card to Ready. The rule of that column starts an agent, and the card shows the run.</p>',
         );
+        $this->tagApplier->apply($onboarding, ['design', 'decisions']);
         $onboardingCard->documents->add(new CardDocument($onboardingCard, $onboarding));
 
         foreach ([$history, $rules, $onboarding] as $document) {
@@ -415,6 +443,58 @@ final readonly class ProjectShowcaseSeeder
         $this->em->persist($ask);
 
         return $ask;
+    }
+
+    /** An epic lane whose child card holds the warning of a run that gave up. */
+    private function seedEpicLane(Project $project): void
+    {
+        $columns = [];
+        foreach ($this->boardColumns->findForProject($project) as $column) {
+            $columns[$column->slug] = $column;
+        }
+        $next = $columns['next'] ?? throw new \LogicException('The project has no next column.');
+        $inProgress = $columns['in-progress'] ?? $next;
+        $number = $this->cards->nextNumber($project);
+
+        $epic = new Card(
+            project: $project,
+            column: $next,
+            title: 'Project export',
+            body: 'Let an owner download every card, document and request of a project as one archive.',
+            number: $number,
+            type: CardType::Epic,
+        );
+        $child = new Card(
+            project: $project,
+            column: $inProgress,
+            title: 'Export the documents',
+            body: 'Write each document version as Markdown, in a folder per document.',
+            number: $number + 1,
+            type: CardType::Feature,
+        );
+        $child->parent = $epic;
+        $this->em->persist($epic);
+        $this->em->persist($child);
+        $this->em->flush();
+
+        $endedAt = new \DateTimeImmutable('-15 minutes');
+        $run = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v4(),
+            cardId: $child->id ?? throw new \LogicException('A stored card has an id.'),
+            cardNumber: $child->number,
+            ruleName: 'implement',
+            state: WorkerRunState::GaveUp,
+            runKey: Uuid::v4(),
+            endedAt: $endedAt,
+            exitCode: 1,
+            hasResult: true,
+            output: 'The export tests still fail after three attempts. The archive writer cannot read a document that has no version.',
+            receivedAt: $endedAt,
+            cardColumn: $inProgress->slug,
+        );
+        $this->em->persist($run);
+        $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, $endedAt, $endedAt));
     }
 
     private function seedSiteFeedback(Project $project, Card $checkout): void

@@ -16,7 +16,7 @@ use App\Module\Inbox\Service\CardWaitReconciler;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
-use App\Tests\Module\Board\BoardColumnFixtures;
+use App\Tests\Module\Inbox\InboxFixtures;
 use App\Tests\Module\Inbox\InboxScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -29,7 +29,7 @@ use Symfony\Component\Uid\Uuid;
 final class WaitItemPageTest extends WebTestCase
 {
     use InboxScenario;
-    use BoardColumnFixtures;
+    use InboxFixtures;
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -50,6 +50,7 @@ final class WaitItemPageTest extends WebTestCase
         $this->document = new Document($owner, $this->project, 'Tech design');
         $this->document->addVersion('# One', '<h1>One</h1>');
         $this->card->documents->add(new CardDocument($this->card, $this->document));
+        $this->stageDocument($em, $this->document, $this->card);
         $em->persist($this->card);
         $em->persist($this->document);
         $em->flush();
@@ -184,7 +185,7 @@ final class WaitItemPageTest extends WebTestCase
             ruleName: 'implement',
             state: WorkerRunState::Blocked,
             output: 'Needs the API key',
-            cardColumn: 'backlog',
+            cardColumn: 'tech-design',
         );
         $this->em->persist($run);
         $this->em->flush();
