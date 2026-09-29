@@ -879,7 +879,8 @@
         @apply inline-flex items-center justify-center min-w-6 rounded-full bg-surface-3 px-2 py-0.5 text-xs font-bold text-fg-mute;
     }
     /* The Backlog button, while a card that can go there is in a drag. */
-    .lp-board--dragging:not(:has(.lp-deck .lp-board-card--dragging)) .lp-board-backlog {
+    .lp-board--dragging:not(:has(.lp-deck .lp-board-card--dragging))
+        .lp-board-backlog {
         @apply border-dashed border-accent-border;
     }
     /* The Backlog button, while a dragged card is over it. */
@@ -5930,7 +5931,10 @@
     }
     /* While a board card is in a drag, each deck that takes it shows a drop outline. */
     .lp-board--dragging:not(
-            :has(.lp-deck .lp-board-card--dragging, .lp-board-card--dragging[data-card-type='epic'])
+            :has(
+                .lp-deck .lp-board-card--dragging,
+                .lp-board-card--dragging[data-card-type='epic']
+            )
         )
         .lp-board-lane:not(.lp-board-lane--collapsed)
         .lp-deck::after {
