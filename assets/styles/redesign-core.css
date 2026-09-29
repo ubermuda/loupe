@@ -89,10 +89,6 @@
     gap: calc(var(--spacing) * 2.5);
 }
 
-.lp-core-board .lp-board-card__excerpt {
-    min-height: calc(var(--spacing) * 10);
-}
-
 .lp-core-board .lp-board-card {
     gap: calc(var(--spacing) * 2.5);
     padding: calc(var(--spacing) * 3.5) calc(var(--spacing) * 3);
