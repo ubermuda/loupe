@@ -376,11 +376,29 @@ final readonly class DecisionBlockService
      * The stored HTML is the same for every reader, so a recommendation badge
      * gets its accessible name here, in the reader's language. CSS shows it too.
      *
+     * The note goes on the block as an attribute, never as text, for the same
+     * reason. The page builds its note field from it.
+     *
      * @param array<string, list<int>> $selectedIndexesByDecisionId
      * @param array<string, string>    $badgeLabels                 keyed by confidence
+     * @param array<string, string>    $notesByDecisionId
      */
-    public function withSelections(string $html, array $selectedIndexesByDecisionId, bool $readOnly, array $badgeLabels = []): string
+    public function withSelections(string $html, array $selectedIndexesByDecisionId, bool $readOnly, array $badgeLabels = [], array $notesByDecisionId = []): string
     {
+        if ([] !== $notesByDecisionId) {
+            $html = preg_replace_callback(
+                '~<fieldset[^>]*\s'.self::BLOCK_MARKER.'="('.self::ID_PATTERN.')"[^>]*>~',
+                static fn (array $matches): string => isset($notesByDecisionId[$matches[1]])
+                    ? substr($matches[0], 0, -1).' data-decision-note="'.str_replace(
+                        ["\r", "\n"],
+                        ['&#13;', '&#10;'],
+                        htmlspecialchars($notesByDecisionId[$matches[1]], \ENT_QUOTES | \ENT_HTML5),
+                    ).'">'
+                    : $matches[0],
+                $html,
+            ) ?? throw new \RuntimeException('Decision note marking failed: '.preg_last_error_msg().'.');
+        }
+
         if ([] !== $badgeLabels) {
             $html = preg_replace_callback(
                 '~<span class="lp-decision__badge" '.self::BADGE_MARKER.'="([a-z]+)">~',

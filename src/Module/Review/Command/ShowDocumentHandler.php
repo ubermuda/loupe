@@ -8,6 +8,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Repository\CommentRepository;
+use App\Module\Review\Repository\DecisionAnswerRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
 use App\Module\Review\Service\DecisionBlockService;
@@ -24,6 +25,7 @@ final readonly class ShowDocumentHandler
     public function __construct(
         private DocumentVersionRepository $documentVersions,
         private CommentRepository $comments,
+        private DecisionAnswerRepository $decisionAnswers,
         private HeadingExtractor $headings,
         private DecisionBlockService $decisionBlocks,
         private DecisionSummaryReader $decisionSummary,
@@ -65,12 +67,26 @@ final readonly class ShowDocumentHandler
                 $decisions->selectedIndexesByDecisionId,
                 readOnly: !$isLatest,
                 badgeLabels: DecisionBlockService::badgeLabels($this->translator),
+                notesByDecisionId: $this->notes($command->document),
             ),
             lastSeenVersionNumber: $this->lastSeenVersion->versionNumberFor($command->document, $command->reader),
             sections: ($this->sectionApprovals)($command->document, $version, $headings, $command->reader),
             review: Verdict::Withdrawn === $latestReview?->verdict ? null : $latestReview,
             latestReviewId: $latestReview?->id?->toRfc4122(),
         );
+    }
+
+    /** @return array<string, string> */
+    private function notes(Document $document): array
+    {
+        $notes = [];
+        foreach ($this->decisionAnswers->findByDocumentIndexedByDecisionId($document) as $decisionId => $answer) {
+            if (null !== $answer->note) {
+                $notes[$decisionId] = $answer->note;
+            }
+        }
+
+        return $notes;
     }
 
     private function version(Document $document, int $versionNumber): DocumentVersion

@@ -245,8 +245,14 @@
 .lp-review .lp-decision__badge[aria-label]::after {
     content: attr(aria-label);
 }
-.lp-review .lp-decision__save {
-    @apply mt-4;
+.lp-review .lp-decision__note {
+    @apply mt-3 flex items-start gap-2;
+}
+.lp-review .lp-decision__note-field {
+    @apply min-h-16 flex-1 resize-y text-sm;
+}
+.lp-review .lp-decision__note-field[readonly] {
+    @apply cursor-default bg-surface-1 text-fg-mute;
 }
 
 /* ── Comment cards ──────────────────────────────────────────────── */

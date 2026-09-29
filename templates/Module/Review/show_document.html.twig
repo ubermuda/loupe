@@ -79,7 +79,7 @@
            is the TreeWalker root and must hold ONLY the rendered HTML, so its
            text === plainText(). #}
         {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'pointerup->comment-anchor#onDocPointerup', 'mousemove->comment-anchor#onDocMousemove', 'click->comment-anchor#onDocClick'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
-        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="decision" data-decision-save-label-value="{{ 'review.decision.save'|trans }}"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
+        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="decision" data-decision-note-label-value="{{ 'review.decision.note.label'|trans }}" data-decision-note-placeholder-value="{{ 'review.decision.note.placeholder'|trans }}" data-decision-clear-label-value="{{ 'review.decision.clear'|trans }}" data-decision-error-message-value="{{ 'review.decision.error.save_failed'|trans }}"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
 
             {# One that accepts no comments has no comment list, so its margin
                offers what remains. Decisions stays in every margin, disabled
@@ -383,7 +383,7 @@
             {% if not diffMode and decisionRows|length > 0 and not readOnly %}
             {{ form_start(selectDecisionForm, {attr: {
                 'data-decision-target': 'form',
-                'data-action': 'turbo:submit-end->decision#saved',
+                'data-action': 'turbo:before-fetch-response->decision#inspect turbo:submit-end->decision#saved',
                 hidden: true,
             }}) }}
                 {{ form_widget(selectDecisionForm.decisionId, {attr: {'data-decision-target': 'decisionId'}}) }}

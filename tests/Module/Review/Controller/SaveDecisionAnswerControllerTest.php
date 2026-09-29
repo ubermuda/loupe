@@ -12,8 +12,10 @@ use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Entity\DecisionAnswer;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\DecisionAnswerRepository;
 use App\Module\Review\Repository\DecisionSelectionRepository;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -120,6 +122,44 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
         self::assertNotNull($answer);
         self::assertSame('Staging is quiet this week.', $answer->note);
         self::assertSame($owner->id?->toRfc4122(), $answer->answeredBy?->id?->toRfc4122());
+    }
+
+    /**
+     * The page reads the note from an attribute, so the pane text still equals
+     * the anchor basis. An earlier version shows the same note.
+     */
+    public function test_the_review_page_carries_the_note_outside_the_pane_text(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        $this->answer($client, $document, ['optionIndexes' => [0], 'note' => "Staging first.\nThen \"prod\"."], self::TURBO);
+        $this->revise($document, self::MARKDOWN."\n\nMore.\n");
+
+        foreach (['', '/versions/1'] as $suffix) {
+            $crawler = $client->request(Request::METHOD_GET, $this->reviewPath($document).$suffix);
+
+            self::assertResponseIsSuccessful();
+            $block = $crawler->filter('[data-decision-id="deploy-target"]');
+            self::assertSame("Staging first.\nThen \"prod\".", $block->attr('data-decision-note'));
+            $pane = $crawler->filter('[data-comment-anchor-target="doc"]');
+            self::assertStringNotContainsString('Staging first.', $pane->text(null, false));
+            $version = $this->versionNumbered($document, '' === $suffix ? 2 : 1);
+            self::assertSame($version->plainText(), $pane->text(null, false));
+        }
+    }
+
+    public function test_a_block_with_no_note_carries_no_note_attribute(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $this->reviewPath($document));
+
+        self::assertSelectorExists('[data-decision-id="deploy-target"]');
+        self::assertSelectorNotExists('[data-decision-note]');
     }
 
     public function test_a_note_longer_than_the_limit_is_refused_with_a_reason(): void
@@ -450,6 +490,16 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
         self::assertInstanceOf(DecisionAnswerRepository::class, $answers);
 
         return $answers->findOneBy(['document' => $document->id, 'decisionId' => 'deploy-target']);
+    }
+
+    private function versionNumbered(Document $document, int $versionNumber): DocumentVersion
+    {
+        $versions = static::getContainer()->get(DocumentVersionRepository::class);
+        self::assertInstanceOf(DocumentVersionRepository::class, $versions);
+        $managed = $this->em()->find(Document::class, $document->id);
+        self::assertInstanceOf(Document::class, $managed);
+
+        return $versions->findByNumber($managed, $versionNumber) ?? self::fail('no version '.$versionNumber);
     }
 
     private function em(): EntityManagerInterface

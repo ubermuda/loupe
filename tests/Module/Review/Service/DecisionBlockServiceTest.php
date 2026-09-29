@@ -856,4 +856,27 @@ final class DecisionBlockServiceTest extends TestCase
             $this->decisions->withSelections($html, [], readOnly: false),
         );
     }
+
+    /**
+     * The note rides on an attribute because the pane may gain no text node:
+     * every comment anchor counts the pane's text.
+     */
+    public function test_showing_a_block_carries_its_note_as_an_attribute(): void
+    {
+        $html = $this->renderer->render(
+            "<!-- decision: a -->\n\n- ( ) One\n- ( ) Two\n\n<!-- /decision -->\n\n"
+            ."<!-- decision: b -->\n\n- ( ) Three\n- ( ) Four\n\n<!-- /decision -->\n",
+        );
+
+        $marked = $this->decisions->withSelections($html, [], readOnly: false, notesByDecisionId: [
+            'a' => "Use \"both\" & <more>\nsecond line",
+        ]);
+
+        self::assertStringContainsString(
+            'data-decision-id="a" data-decision-type="single" data-decision-note="Use &quot;both&quot; &amp; &lt;more&gt;&#10;second line">',
+            $marked,
+        );
+        self::assertSame(1, substr_count($marked, 'data-decision-note='));
+        self::assertSame(strip_tags($html), strip_tags($marked));
+    }
 }

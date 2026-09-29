@@ -1331,8 +1331,10 @@
             <trans-unit id="review.document.margin.decisions_disabled_empty"><source>review.document.margin.decisions_disabled_empty</source><target>This document has no decisions to answer.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_disabled_diff"><source>review.document.margin.decisions_disabled_diff</source><target>A comparison cannot answer decisions. Open the Document view to answer them.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_empty"><source>review.document.margin.decisions_empty</source><target>This document has no decisions.</target></trans-unit>
-            <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Select your choices, then select Save decision in the document.</target></trans-unit>
-            <trans-unit id="review.decision.save"><source>review.decision.save</source><target>Save decision</target></trans-unit>
+            <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Select an option to save it. Add a note if you need one.</target></trans-unit>
+            <trans-unit id="review.decision.note.label"><source>review.decision.note.label</source><target>Note</target></trans-unit>
+            <trans-unit id="review.decision.note.placeholder"><source>review.decision.note.placeholder</source><target>Add a note, or write your own answer</target></trans-unit>
+            <trans-unit id="review.decision.clear"><source>review.decision.clear</source><target>Clear</target></trans-unit>
             <trans-unit id="review.decision.recommended.high"><source>review.decision.recommended.high</source><target>Recommended, high confidence</target></trans-unit>
             <trans-unit id="review.decision.recommended.moderate"><source>review.decision.recommended.moderate</source><target>Recommended, moderate confidence</target></trans-unit>
             <trans-unit id="review.decision.recommended.low"><source>review.decision.recommended.low</source><target>Recommended, low confidence</target></trans-unit>

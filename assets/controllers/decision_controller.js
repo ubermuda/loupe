@@ -1,45 +1,140 @@
 import { Controller } from '@hotwired/stimulus';
 
+const NOTE_DELAY = 800;
+const STREAM_TYPE = 'text/vnd.turbo-stream.html';
+
+// Every control built here is an element with no text node: comment anchors
+// count each text node in the pane, so a note lives in `.value` and a label in
+// an attribute.
 export default class extends Controller {
-    static targets = ['form', 'decisionId', 'options'];
-    static values = { saveLabel: String };
+    static targets = [
+        'form',
+        'decisionId',
+        'versionNumber',
+        'options',
+        'note',
+        'clear',
+    ];
+    static values = {
+        noteLabel: String,
+        notePlaceholder: String,
+        clearLabel: String,
+        errorMessage: String,
+    };
 
     connect() {
-        if (!this.hasFormTarget) return;
-        this.blocks = [...this.element.querySelectorAll('[data-decision-id]')];
-        for (const block of this.blocks) {
-            block.dataset.savedDecisionIndexes ??= JSON.stringify(
-                this.indexes(block),
-            );
-            block.querySelector('[data-decision-save]')?.remove();
-            // An input's value adds no text nodes to the document's annotation offsets.
-            const button = document.createElement('input');
-            button.type = 'button';
-            button.value = this.saveLabelValue;
-            button.className = 'lp-btn lp-btn--primary lp-decision__save';
-            button.dataset.decisionSave = '';
-            button.addEventListener('click', () => this.save(block));
-            block.append(button);
-            this.updateButton(block);
+        this.queue = new Map();
+        this.sentStates = new Map();
+        this.timers = new Map();
+        this.inFlight = null;
+        for (const block of this.element.querySelectorAll(
+            'fieldset[data-decision-id]',
+        )) {
+            this.decorate(block);
         }
     }
 
-    indexes(block) {
-        return [
-            ...block.querySelectorAll('input[data-decision-option]:checked'),
-        ].map((input) => Number(input.value));
+    disconnect() {
+        for (const timer of this.timers.values()) clearTimeout(timer);
+    }
+
+    decorate(block) {
+        block.querySelector('[data-decision-note-controls]')?.remove();
+        const editable = this.hasFormTarget;
+        const note = block.dataset.decisionNote ?? '';
+        if (!editable && note === '') return;
+
+        const controls = document.createElement('div');
+        controls.className = 'lp-decision__note';
+        controls.dataset.decisionNoteControls = '';
+        const field = document.createElement('textarea');
+        field.className = 'lp-input lp-decision__note-field';
+        field.rows = 2;
+        field.value = note;
+        field.setAttribute('aria-label', this.noteLabelValue);
+        field.dataset.decisionNoteField = '';
+        controls.append(field);
+
+        if (!editable) {
+            field.readOnly = true;
+            block.append(controls);
+            return;
+        }
+
+        field.setAttribute('placeholder', this.notePlaceholderValue);
+        field.addEventListener('input', () => this.schedule(block));
+        field.addEventListener('blur', () => this.saveIfChanged(block));
+        const clear = document.createElement('input');
+        clear.type = 'button';
+        clear.value = this.clearLabelValue;
+        clear.className = 'lp-btn lp-btn--ghost lp-btn--sm lp-decision__clear';
+        clear.addEventListener('click', () => this.enqueue(block, true));
+        controls.append(clear);
+        block.append(controls);
+        this.sentStates.set(block, this.stateKey(this.state(block, false)));
     }
 
     select(event) {
-        const block = event.target.closest('[data-decision-id]');
-        if (block && this.hasFormTarget) this.updateButton(block);
+        if (!this.hasFormTarget) return;
+        if (!event.target.matches('input[data-decision-option]')) return;
+        const block = event.target.closest('fieldset[data-decision-id]');
+        if (block) this.enqueue(block, false);
     }
 
-    updateButton(block) {
-        block.querySelector('[data-decision-save]').disabled =
-            Boolean(this.pending) ||
-            JSON.stringify(this.indexes(block)) ===
-                block.dataset.savedDecisionIndexes;
+    schedule(block) {
+        clearTimeout(this.timers.get(block));
+        this.timers.set(
+            block,
+            setTimeout(() => this.saveIfChanged(block), NOTE_DELAY),
+        );
+    }
+
+    saveIfChanged(block) {
+        const state = this.state(block, false);
+        if (this.stateKey(state) === this.sentStates.get(block)) {
+            clearTimeout(this.timers.get(block));
+            return;
+        }
+        this.enqueue(block, false);
+    }
+
+    state(block, clear) {
+        if (clear) return { indexes: [], note: '', clear };
+        return {
+            indexes: [
+                ...block.querySelectorAll(
+                    'input[data-decision-option]:checked',
+                ),
+            ].map((input) => Number(input.value)),
+            note:
+                block.querySelector('[data-decision-note-field]')?.value ?? '',
+            clear,
+        };
+    }
+
+    stateKey(state) {
+        return JSON.stringify(state);
+    }
+
+    // A Map keeps the first position of a block and the newest state for it.
+    enqueue(block, clear) {
+        clearTimeout(this.timers.get(block));
+        const state = this.state(block, clear);
+        this.sentStates.set(block, this.stateKey(state));
+        this.queue.set(block, state);
+        this.flush();
+    }
+
+    flush() {
+        if (this.inFlight || this.queue.size === 0) return;
+        const [block, state] = this.queue.entries().next().value;
+        this.queue.delete(block);
+        this.inFlight = { block, state };
+        this.decisionIdTarget.value = block.dataset.decisionId;
+        this.fill(this.optionsTarget, state.indexes);
+        this.noteTarget.value = state.note;
+        this.clearTarget.checked = state.clear;
+        this.formTarget.requestSubmit();
     }
 
     fill(target, indexes) {
@@ -54,31 +149,49 @@ export default class extends Controller {
         );
     }
 
-    save(block) {
-        if (this.pending) return;
-        const indexes = this.indexes(block);
-        this.pending = { block, indexes };
-        this.decisionIdTarget.value = block.dataset.decisionId;
-        this.fill(this.optionsTarget, indexes);
-        for (const candidate of this.blocks) {
-            for (const input of candidate.querySelectorAll('input'))
-                input.disabled = true;
+    // Turbo renders a failed HTML response as the whole page. A save that fails
+    // must leave the page, and the typed note, where they are.
+    inspect(event) {
+        const response = event.detail.fetchResponse;
+        if (!response.succeeded && !this.isStream(response)) {
+            event.preventDefault();
         }
-        this.formTarget.requestSubmit();
     }
 
     saved(event) {
-        if (!this.pending) return;
+        if (!this.inFlight) return;
+        const { block, state } = this.inFlight;
+        this.inFlight = null;
         if (event.detail.success) {
-            this.pending.block.dataset.savedDecisionIndexes = JSON.stringify(
-                this.pending.indexes,
-            );
+            if (state.clear && !this.queue.has(block)) this.reset(block);
+        } else {
+            this.sentStates.delete(block);
+            if (!this.isStream(event.detail.fetchResponse)) this.showError();
         }
-        this.pending = null;
-        for (const block of this.blocks) {
-            for (const input of block.querySelectorAll('input'))
-                input.disabled = false;
-            this.updateButton(block);
-        }
+        this.flush();
+    }
+
+    reset(block) {
+        for (const input of block.querySelectorAll(
+            'input[data-decision-option]',
+        ))
+            input.checked = false;
+        const field = block.querySelector('[data-decision-note-field]');
+        if (field) field.value = '';
+        this.sentStates.set(block, this.stateKey(this.state(block, false)));
+    }
+
+    isStream(response) {
+        return Boolean(response?.contentType?.startsWith(STREAM_TYPE));
+    }
+
+    showError() {
+        const status = document.getElementById('decision-status');
+        if (!status) return;
+        const message = document.createElement('span');
+        message.className =
+            'lp-decision-status__message lp-decision-status__message--failed';
+        message.textContent = this.errorMessageValue;
+        status.replaceChildren(message);
     }
 }
