@@ -83,7 +83,7 @@
         {% set hasMermaid = not diffMode and 'language-mermaid' in decisionMarkedHtml %}
         {% set tooltipDefinitions = diffMode ? {} : referenceDefinitions %}
         {% set docControllers = ['decision']|merge(tooltipDefinitions is not empty ? ['reference-tooltip'] : [])|merge(hasMermaid ? ['mermaid'] : []) %}
-        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="{{ docControllers|join(' ') }}" data-decision-save-label-value="{{ 'review.decision.save'|trans }}"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}
+        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="{{ docControllers|join(' ') }}"{% if not diffMode %} data-decision-page="{{ document.id }}/{{ version.versionNumber }}"{% endif %} data-decision-note-label-value="{{ 'review.decision.note.label'|trans }}" data-decision-note-placeholder-value="{{ 'review.decision.note.placeholder'|trans }}" data-decision-clear-label-value="{{ 'review.decision.clear'|trans }}" data-decision-error-message-value="{{ 'review.decision.error.save_failed'|trans }}"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}
             {%- if tooltipDefinitions is not empty %} data-reference-tooltip-definitions-value="{{ tooltipDefinitions|json_encode|e('html_attr') }}" data-reference-tooltip-from-value="{{ 'review.document.reference.from'|trans }}"{% endif %}
             {%- if hasMermaid %} data-mermaid-enabled-value="{{ is_feature_enabled('review.mermaid.enabled') ? 'true' : 'false' }}" data-mermaid-module-url-value="{{ mermaid_module_url }}"{% endif %}>
 
@@ -402,15 +402,19 @@
                `selectDecisionForm` are not passed there, so the guard is what
                prevents an undefined-variable 500. #}
             {% if not diffMode and decisionRows|length > 0 and not readOnly %}
+            <turbo-frame id="decision-answer">
             {{ form_start(selectDecisionForm, {attr: {
                 'data-decision-target': 'form',
-                'data-action': 'turbo:submit-end->decision#saved',
+                'data-action': 'turbo:before-fetch-response->decision#inspect turbo:submit-end->decision#saved',
                 hidden: true,
             }}) }}
                 {{ form_widget(selectDecisionForm.decisionId, {attr: {'data-decision-target': 'decisionId'}}) }}
+                {{ form_widget(selectDecisionForm.versionNumber, {attr: {'data-decision-target': 'versionNumber'}}) }}
                 {{ form_widget(selectDecisionForm.optionIndexes, {attr: {'data-decision-target': 'options', 'data-field-name': selectDecisionForm.optionIndexes.vars.full_name}}) }}
-                {{ form_widget(selectDecisionForm.expectedOptionIndexes, {attr: {'data-decision-target': 'expectedOptions', 'data-field-name': selectDecisionForm.expectedOptionIndexes.vars.full_name}}) }}
+                {{ form_widget(selectDecisionForm.note, {attr: {'data-decision-target': 'note'}}) }}
+                {{ form_widget(selectDecisionForm.clear, {attr: {'data-decision-target': 'clear'}}) }}
             {{ form_end(selectDecisionForm) }}
+            </turbo-frame>
             {% endif %}
 
             {# The agent's marks: empty anchor carriers, outside the doc element

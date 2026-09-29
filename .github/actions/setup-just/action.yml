@@ -1,0 +1,12 @@
+name: Set up just
+description: Install one pinned version of just, with no GitHub API release listing.
+
+runs:
+  using: composite
+  steps:
+    # install-action reads the URL and sha256 of an exact version from its own
+    # manifest. `fallback: none` fails a missing version instead of listing releases.
+    - uses: taiki-e/install-action@v2
+      with:
+        tool: just@1.48.1
+        fallback: none

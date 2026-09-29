@@ -61,6 +61,11 @@ final readonly class DocumentGetReviewTool
      * text, its `index` in `options`, and when and against which version it was chosen. Read it
      * for a multiple-choice block, and read it for a single-choice one too if you want one shape
      *
+     * `note` is the text the reviewer wrote beside their choice, or null when they wrote none.
+     * `updated_at` is when the answer was last saved, and is null for an unanswered decision.
+     * A decision can carry a note with no option chosen, so read the note even when `selections`
+     * is empty
+     *
      * Each decision's `id` is the one the document declared in its fence, and it is permanent:
      * changing it in a revision discards the answer keyed to the old one
      *

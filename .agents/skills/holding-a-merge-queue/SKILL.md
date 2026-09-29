@@ -172,8 +172,9 @@ peer report is a claim until you find the failing run.
 3. Leave the changelog alone. The documentation deploy folds the fragments on
    every push to `main`, and `just changelog` is a release step.
 
-The app never contacts the forge, so a merged pull request does not move its
-card by itself.
+A merged pull request moves its card by itself only when the repository is
+connected through the GitHub App and the board automation is on. Otherwise
+the card stays where it is.
 
 ## What you owe the sessions whose branches you hold
 

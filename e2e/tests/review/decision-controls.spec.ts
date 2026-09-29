@@ -52,12 +52,26 @@ Some prose before the decision.
 
 This is ${BELOW_BLOCK_PHRASE} in the document.`;
 
+// Armed before the action, because the status line already reads "Saved."
+// from any earlier save on the page and so cannot tell two saves apart.
+async function saving(page: Page, action: () => Promise<void>): Promise<void> {
+    const response = page.waitForResponse(
+        (each) =>
+            each.url().endsWith('/decisions/answer') &&
+            each.request().method() === 'POST',
+        { timeout: coverageScaled(15000) },
+    );
+    await action();
+    expect((await response).status()).toBe(200);
+}
+
 async function seedDocument(
     page: Page,
     title: string,
+    markdown: string = MARKDOWN,
 ): Promise<{ documentId: string; reviewUrl: string }> {
     const response = await page.request.post('/dev/seed/document', {
-        form: { title, markdown: MARKDOWN },
+        form: { title, markdown },
     });
     expect(response.status()).toBe(201);
     const body = (await response.json()) as {
@@ -75,37 +89,18 @@ test('choosing an option records the answer and survives a reload', async ({
     page,
 }) => {
     await signedInReviewer(page, 'persist');
-    const { documentId, reviewUrl } = await seedDocument(
-        page,
-        'Decision — persistence',
-    );
+    const { reviewUrl } = await seedDocument(page, 'Decision — persistence');
     await page.goto(reviewUrl);
 
     const block = page.locator(`[data-decision-id="${DECISION_ID}"]`);
     await expect(block).toBeVisible();
 
-    // The radios are grouping-only inputs inside the document's stored HTML;
-    // nothing posts without the controller copying their values across.
-    const secondOption = block.locator(
-        'input[type="radio"][data-decision-option]',
-    );
-    await expect(secondOption).toHaveCount(2);
-    await secondOption.nth(1).check();
-    const unsaved = await page.request.get(`/dev/review/${documentId}/state`);
-    expect((await unsaved.json()).decisions[0].selected).toBeNull();
-    await block.getByRole('button', { name: 'Save decision' }).click();
-
-    // The status region, not the radio's own checked state. The form posts back
-    // to the review URL it was submitted from, so toHaveURL resolves instantly,
-    // and the radio reads as checked the moment the browser paints it —
-    // whether or not the POST ever landed. Reloading on that signal cancels the
-    // request in flight and the answer is silently lost.
-    await expect(page.locator('#decision-status')).toHaveText(
-        /^Decision saved/,
-        {
-            timeout: coverageScaled(15000),
-        },
-    );
+    const options = block.locator('input[type="radio"][data-decision-option]');
+    await expect(options).toHaveCount(2);
+    // The radio reads as checked the moment the browser paints it, whether or
+    // not the POST landed. Reloading before the answer cancels the save.
+    await saving(page, () => options.nth(1).check());
+    await expect(page.locator('#decision-status')).toHaveText('Saved.');
 
     await page.reload();
     const afterReload = page
@@ -126,14 +121,7 @@ test('the answer reaches the review payload', async ({ page }) => {
     const radios = page
         .locator(`[data-decision-id="${DECISION_ID}"]`)
         .locator('input[type="radio"][data-decision-option]');
-    await radios.nth(0).check();
-    await page.getByRole('button', { name: 'Save decision' }).click();
-    await expect(page.locator('#decision-status')).toHaveText(
-        /^Decision saved/,
-        {
-            timeout: coverageScaled(15000),
-        },
-    );
+    await saving(page, () => radios.nth(0).check());
 
     const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
     expect(stateRes.status()).toBe(200);
@@ -148,20 +136,7 @@ test('the answer reaches the review payload', async ({ page }) => {
     expect(decision?.selected).toBe(OPTION_ONE);
 });
 
-test('selecting text below the block still anchors where the reviewer put it', async ({
-    page,
-}) => {
-    await signedInReviewer(page, 'anchor');
-    const { documentId, reviewUrl } = await seedDocument(
-        page,
-        'Decision — anchoring',
-    );
-    await page.goto(reviewUrl);
-
-    // The radios live inside [data-comment-anchor-target="doc"], whose
-    // textContent must stay identical to DocumentVersion::plainText(). If
-    // converting the list to radios changed the text, every offset below the
-    // block would shift and this comment would anchor to the wrong span.
+async function selectPhrase(page: Page, phrase: string): Promise<void> {
     await page.evaluate((phrase: string) => {
         const doc = document.querySelector(
             '[data-comment-anchor-target="doc"]',
@@ -187,7 +162,24 @@ test('selecting text below the block still anchors where the reviewer put it', a
             node = walker.nextNode();
         }
         throw new Error(`phrase not found: ${phrase}`);
-    }, BELOW_BLOCK_PHRASE);
+    }, phrase);
+}
+
+test('selecting text below the block still anchors where the reviewer put it', async ({
+    page,
+}) => {
+    await signedInReviewer(page, 'anchor');
+    const { documentId, reviewUrl } = await seedDocument(
+        page,
+        'Decision — anchoring',
+    );
+    await page.goto(reviewUrl);
+
+    // The radios live inside [data-comment-anchor-target="doc"], whose
+    // textContent must stay identical to DocumentVersion::plainText(). If
+    // converting the list to radios changed the text, every offset below the
+    // block would shift and this comment would anchor to the wrong span.
+    await selectPhrase(page, BELOW_BLOCK_PHRASE);
 
     // The selection raises a toolbar, not the composer; "Comment" opens the
     // composer. exact:true so it does not also match the sidebar's
@@ -257,17 +249,14 @@ test('the Decisions margin reports the saved answer', async ({ page }) => {
     await expect(row.locator('.lp-decision-summary__link')).toHaveText(PROMPT);
     await expect(row).toContainText('Not chosen yet');
 
-    await page
-        .locator(`[data-decision-id="${DECISION_ID}"]`)
-        .locator('input[type="radio"][data-decision-option]')
-        .nth(1)
-        .check();
-
-    await page.getByRole('button', { name: 'Save decision' }).click();
-    await expect(page.locator('#decision-status')).toHaveText(
-        'Decision saved on v1.',
-        { timeout: coverageScaled(15000) },
+    await saving(page, () =>
+        page
+            .locator(`[data-decision-id="${DECISION_ID}"]`)
+            .locator('input[type="radio"][data-decision-option]')
+            .nth(1)
+            .check(),
     );
+    await expect(page.locator('#decision-status')).toHaveText('Saved.');
     // Streamed with `update`, so the panel the reviewer opened is still open.
     await expect(page.locator('#decision-summary-count')).toHaveText('1/1');
     await expect(row).toContainText(OPTION_TWO);
@@ -301,10 +290,7 @@ test('the Decisions margin scrolls to its question without navigating', async ({
 
 const MULTIPLE_ID = 'ship-with';
 
-test('a concurrent answer refuses the save and keeps the local choice', async ({
-    page,
-    context,
-}) => {
+test('the last write wins', async ({ page, context }) => {
     await signedInReviewer(page, 'concurrent');
     const { documentId, reviewUrl } = await seedDocument(
         page,
@@ -313,28 +299,198 @@ test('a concurrent answer refuses the save and keeps the local choice', async ({
     await page.goto(reviewUrl);
     const other = await context.newPage();
     await other.goto(reviewUrl);
-    await page.getByRole('radio', { name: OPTION_ONE, exact: true }).check();
-    await other.getByRole('radio', { name: OPTION_TWO, exact: true }).check();
-    await other.getByRole('button', { name: 'Save decision' }).click();
-    await expect(other.locator('#decision-status')).toHaveText(
-        'Decision saved on v1.',
-        { timeout: coverageScaled(15000) },
+
+    await saving(page, () =>
+        page.getByRole('radio', { name: OPTION_ONE, exact: true }).check(),
     );
-    await page.getByRole('button', { name: 'Save decision' }).click();
-    await expect(page.locator('#decision-status')).toContainText(
-        'Another answer is saved.',
-        { timeout: coverageScaled(15000) },
+    // The second tab still shows the page from before the first answer, and
+    // its save is accepted rather than refused.
+    await saving(other, () =>
+        other.getByRole('radio', { name: OPTION_TWO, exact: true }).check(),
     );
-    await expect(
-        page.getByRole('radio', { name: OPTION_ONE, exact: true }),
-    ).toBeChecked();
+
     const response = await page.request.get(`/dev/review/${documentId}/state`);
     expect((await response.json()).decisions[0].selected).toBe(OPTION_TWO);
     await page.reload();
     await expect(
         page.getByRole('radio', { name: OPTION_TWO, exact: true }),
     ).toBeChecked();
+    await expect(
+        page.getByRole('radio', { name: OPTION_ONE, exact: true }),
+    ).not.toBeChecked();
     await other.close();
+});
+
+type NotedDecision = {
+    id: string;
+    selected: string | null;
+    note: string | null;
+    updated_at: string | null;
+};
+
+async function readNoted(
+    page: Page,
+    documentId: string,
+): Promise<NotedDecision | undefined> {
+    const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
+    expect(stateRes.status()).toBe(200);
+    const state = (await stateRes.json()) as { decisions: NotedDecision[] };
+
+    return state.decisions.find((d) => d.id === DECISION_ID);
+}
+
+const NOTE = 'Only if the backfill finishes first.';
+
+test('a decision save and a comment posted at once both land', async ({
+    page,
+}) => {
+    await signedInReviewer(page, 'with-comment');
+    const { documentId, reviewUrl } = await seedDocument(
+        page,
+        'Decision — with a comment',
+    );
+    await page.goto(reviewUrl);
+
+    await selectPhrase(page, BELOW_BLOCK_PHRASE);
+    await expect(
+        page.locator('[data-comment-anchor-target="toolbar"]'),
+    ).toBeVisible({ timeout: coverageScaled(5000) });
+    await page.getByRole('button', { name: 'Comment', exact: true }).click();
+    await page
+        .locator('[data-comment-anchor-target="composerBody"]')
+        .fill('Posted during a save.');
+
+    // Post goes out while the save is in flight. A form on the Drive
+    // navigator stops the submission before it, so one of the two was lost.
+    const block = page.locator(`[data-decision-id="${DECISION_ID}"]`);
+    await saving(page, async () => {
+        await block
+            .locator('input[type="radio"][data-decision-option]')
+            .nth(0)
+            .check();
+        await page.getByRole('button', { name: 'Post' }).click();
+    });
+    await expect(page.locator('#decision-status')).toHaveText('Saved.');
+    await expect(page.locator('.lp-comment-quote').first()).toContainText(
+        BELOW_BLOCK_PHRASE,
+        { timeout: coverageScaled(15000) },
+    );
+
+    const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
+    const state = (await stateRes.json()) as {
+        storedAnchors: Array<{ quote: string }>;
+        decisions: NotedDecision[];
+    };
+    expect(state.storedAnchors).toHaveLength(1);
+    expect(state.decisions.find((d) => d.id === DECISION_ID)?.selected).toBe(
+        OPTION_ONE,
+    );
+});
+
+test('a note saves after typing stops and reaches the review payload', async ({
+    page,
+}) => {
+    await signedInReviewer(page, 'note');
+    const { documentId, reviewUrl } = await seedDocument(
+        page,
+        'Decision — note',
+    );
+    await page.goto(reviewUrl);
+
+    const block = page.locator(`[data-decision-id="${DECISION_ID}"]`);
+    const note = block.getByRole('textbox', { name: 'Note', exact: true });
+    // The field keeps focus, so only the typing delay can send this save.
+    await saving(page, () => note.fill(NOTE));
+
+    const decision = await readNoted(page, documentId);
+    expect(decision?.selected).toBeNull();
+    expect(decision?.note).toBe(NOTE);
+    expect(decision?.updated_at).not.toBeNull();
+
+    await page.reload();
+    await expect(
+        page
+            .locator(`[data-decision-id="${DECISION_ID}"]`)
+            .getByRole('textbox', { name: 'Note', exact: true }),
+    ).toHaveValue(NOTE);
+});
+
+test('Clear removes the pick and keeps the note', async ({ page }) => {
+    await signedInReviewer(page, 'clear');
+    const { documentId, reviewUrl } = await seedDocument(
+        page,
+        'Decision — clear',
+    );
+    await page.goto(reviewUrl);
+
+    const block = page.locator(`[data-decision-id="${DECISION_ID}"]`);
+    const note = block.getByRole('textbox', { name: 'Note', exact: true });
+    await saving(page, () =>
+        block.getByRole('radio', { name: OPTION_ONE, exact: true }).check(),
+    );
+    await saving(page, () => note.fill(NOTE));
+    expect((await readNoted(page, documentId))?.note).toBe(NOTE);
+
+    await saving(page, () =>
+        block.getByRole('button', { name: 'Clear', exact: true }).click(),
+    );
+    await expect(page.locator('#decision-status')).toHaveText('Cleared.');
+    await expect(
+        block.locator('input[data-decision-option]:checked'),
+    ).toHaveCount(0);
+    await expect(note).toHaveValue(NOTE);
+
+    const decision = await readNoted(page, documentId);
+    expect(decision?.selected).toBeNull();
+    expect(decision?.note).toBe(NOTE);
+
+    await page.reload();
+    const reloaded = page.locator(`[data-decision-id="${DECISION_ID}"]`);
+    await expect(
+        reloaded.locator('input[data-decision-option]:checked'),
+    ).toHaveCount(0);
+    await expect(
+        reloaded.getByRole('textbox', { name: 'Note', exact: true }),
+    ).toHaveValue(NOTE);
+});
+
+const RECOMMENDED_MARKDOWN = `# Rollout
+
+<!-- decision: ${DECISION_ID} -->
+
+1. ${OPTION_ONE} (recommended: high)
+2. ${OPTION_TWO}
+
+<!-- /decision -->
+`;
+
+test('a recommended marker shows a badge on its option', async ({ page }) => {
+    await signedInReviewer(page, 'badge');
+    const { reviewUrl } = await seedDocument(
+        page,
+        'Decision — recommended',
+        RECOMMENDED_MARKDOWN,
+    );
+    await page.goto(reviewUrl);
+
+    const block = page.locator(`[data-decision-id="${DECISION_ID}"]`);
+    const badges = block.locator('.lp-decision__badge');
+    await expect(badges).toHaveCount(1);
+    await expect(badges).toHaveAttribute(
+        'aria-label',
+        'Recommended, high confidence',
+    );
+    await expect(
+        block
+            .locator('.lp-decision__option')
+            .nth(0)
+            .locator('.lp-decision__badge'),
+    ).toHaveCount(1);
+    // The badge sits beside the label, so the option keeps its plain name.
+    await expect(
+        block.getByRole('radio', { name: OPTION_ONE, exact: true }),
+    ).toBeVisible();
+    await expect(block).not.toContainText('recommended:');
 });
 
 const SHIP_ONE = 'The importer';
@@ -393,12 +549,10 @@ test('a multi-choice block records several answers and clears one', async ({
     await expect(boxes).toHaveCount(2);
 
     // Polled against what is stored, never against the box's own checked
-    // state: the browser paints a tick whether or not the POST landed, and the
-    // status region already reads "saved" from the answer before this one.
+    // state: the browser paints a tick whether or not the POST landed. Each
+    // tick sends its own save, queued behind the one in flight.
     await boxes.nth(0).check();
     await boxes.nth(1).check();
-    expect((await readDecision(page, body.documentId))?.selections).toEqual([]);
-    await page.getByRole('button', { name: 'Save decision' }).click();
     await expect
         .poll(
             async () =>
@@ -416,7 +570,6 @@ test('a multi-choice block records several answers and clears one', async ({
     ]);
 
     await boxes.nth(0).uncheck();
-    await page.getByRole('button', { name: 'Save decision' }).click();
     await expect
         .poll(
             async () =>

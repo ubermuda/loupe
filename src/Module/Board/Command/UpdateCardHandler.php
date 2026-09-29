@@ -39,6 +39,7 @@ final readonly class UpdateCardHandler
     public const string LINKED_CARD_GONE = 'board.card.error.linked_card_unknown';
     public const string CONTENT_CHANGED = 'board.card.error.changed_since_opened';
     public const string COLUMN_CHANGED = 'board.card.error.column_changed';
+    private const string NOT_WHERE_EXPECTED = 'not_where_expected';
 
     public function __construct(
         private CardRepository $cards,
@@ -116,6 +117,10 @@ final readonly class UpdateCardHandler
             // the request loaded it decides where the card may go and whether
             // the move stamps it.
             $columns = $this->boardColumns->findForProjectFresh($card->project);
+            if ((null !== $command->onlyFromColumn && $card->column !== $command->onlyFromColumn)
+                || ($command->onlyFromOpenColumn && $card->column->terminal)) {
+                return self::NOT_WHERE_EXPECTED;
+            }
 
             $column = $command->column ?? $card->column;
             if ($column->project !== $card->project) {
@@ -243,6 +248,9 @@ final readonly class UpdateCardHandler
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
         if ($outcome instanceof DomainErrors || $outcome instanceof EpicChildrenOpen) {
             throw $outcome;
+        }
+        if (self::NOT_WHERE_EXPECTED === $outcome) {
+            return new UpdateCardView($card, null);
         }
         if (\is_string($outcome)) {
             $field = match ($outcome) {

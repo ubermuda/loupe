@@ -132,16 +132,20 @@ Tracked as a known gap. This is the newest feature and the least exercised.
    ```
 
 2. Both **numbered and bulleted** lists should convert.
-3. Pick an option. It should persist across a reload.
+3. Pick an option. The status line shows "Saved." with no button to press, and
+   the pick persists across a reload.
 4. **Revise the document, reordering the options.** Your answer must still be
    the option you actually chose, not the one now sitting at that position.
 5. **Answer from a stale page.** Open the document, revise it in another tab,
-   then answer in the first. It must **refuse** and tell you to reload — not
-   silently record something.
-6. **A malformed fence degrades locally.** An unclosed fence should render as an
+   then answer in the first. The answer saves onto the current version, matched
+   by option label. An option the revision removed shows an error instead.
+6. **Note and Clear.** Type a note and wait a second. It persists across a
+   reload. **Clear** removes the pick, keeps the note, and the status line
+   shows "Cleared.".
+7. **A malformed fence degrades locally.** An unclosed fence should render as an
    ordinary list, and a *later, correct* fence on the same document must still
    produce controls.
-7. Changing a decision's id in the source discards the answer. This is by design
+8. Changing a decision's id in the source discards the answer. This is by design
    and documented; confirm it is not silently mis-attributed instead.
 
 ## 5. Agent-facing (MCP)

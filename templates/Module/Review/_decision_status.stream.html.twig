@@ -1,32 +1,25 @@
-{# A refused submission leaves the clicked radio checked, so the page would go
-   on showing an unsaved choice. Restoring the block from what is stored keeps it
-   honest, including when nothing is stored — that must clear every radio. Only
-   the block is replaced, never the pane, so comment anchors stay undisturbed. #}
-{% if restoredBlockId %}
-<turbo-stream action="replace" target="{{ restoredBlockId }}">
-    <template>{{ restoredBlockHtml|raw }}</template>
-</turbo-stream>
-{% endif %}
+{# `data-decision-page` names the page that sent the save; decision_controller.js
+   drops the stream on any other page. #}
 {# `update`, not `replace`: the status is an aria-live region and the running
    total sits in a tab whose open state the reviewer owns. Swapping either
    element out re-announces unpredictably and would close an open panel. #}
-<turbo-stream action="update" target="decision-status">
+<turbo-stream data-decision-page="{{ page }}" action="update" target="decision-status">
     <template><span class="lp-decision-status__message{{ failed ? ' lp-decision-status__message--failed' }}">{{ message }}</span></template>
 </turbo-stream>
-<turbo-stream action="update" target="decision-summary-count">
+<turbo-stream data-decision-page="{{ page }}" action="update" target="decision-summary-count">
     <template>{{ 'review.document.decisions.count'|trans({'%answered%': answeredCount, '%total%': rows|length}) }}</template>
 </turbo-stream>
-<turbo-stream action="update" target="decision-summary-list">
+<turbo-stream data-decision-page="{{ page }}" action="update" target="decision-summary-list">
     <template>{% include '@Review/_decision_summary_rows.html.twig' with {rows: rows} only %}</template>
 </turbo-stream>
 {# The review menu carries a second copy of the same three figures below lg.
    Left out, it reports the state the page was loaded with. #}
-<turbo-stream action="update" target="review-menu-decisions-count">
+<turbo-stream data-decision-page="{{ page }}" action="update" target="review-menu-decisions-count">
     <template>{{ 'review.document.decisions.count'|trans({'%answered%': answeredCount, '%total%': rows|length}) }}</template>
 </turbo-stream>
-<turbo-stream action="update" target="review-menu-decisions-head-count">
+<turbo-stream data-decision-page="{{ page }}" action="update" target="review-menu-decisions-head-count">
     <template>{{ 'review.document.decisions.count'|trans({'%answered%': answeredCount, '%total%': rows|length}) }}</template>
 </turbo-stream>
-<turbo-stream action="update" target="review-menu-decisions-list">
+<turbo-stream data-decision-page="{{ page }}" action="update" target="review-menu-decisions-list">
     <template>{% include '@Review/_menu_decision_rows.html.twig' with {rows: rows} only %}</template>
 </turbo-stream>
