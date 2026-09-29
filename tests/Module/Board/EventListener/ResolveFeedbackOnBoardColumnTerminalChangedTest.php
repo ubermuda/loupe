@@ -104,7 +104,6 @@ final class ResolveFeedbackOnBoardColumnTerminalChangedTest extends KernelTestCa
         self::assertInstanceOf(TranslatorInterface::class, $translator);
 
         $column = $this->column($project, $slug);
-        $defaultId = (string) $this->column($project, 'backlog')->id;
-        $handler(new ConfigureBoardColumnCommand($column, CardReporter::Human, $translator->trans($column->label), false, $terminal, $column->label, $defaultId, $column->terminal));
+        $handler(new ConfigureBoardColumnCommand($column, CardReporter::Human, $translator->trans($column->label), $terminal, $column->label, $column->terminal));
     }
 }

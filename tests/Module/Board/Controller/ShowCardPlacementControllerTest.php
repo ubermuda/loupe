@@ -29,9 +29,11 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-member@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $first = $this->card($em, $project, 'First', 'next', 0);
         $second = $this->card($em, $project, 'Second & more', 'next', 1);
-        $backlog = $this->column($project, 'backlog');
+        $triage = $this->column($project, 'triage');
         $next = $this->column($project, 'next');
         $url = $this->placementUrl((string) $project->id, (string) $second->id);
         $em->clear();
@@ -53,9 +55,10 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertStringNotContainsString('data-removed', $content);
 
         $counts = $this->counts($content);
-        self::assertSame(0, $counts[(string) $backlog->id]);
+        self::assertSame(0, $counts[(string) $triage->id]);
         self::assertSame(2, $counts[(string) $next->id]);
-        self::assertCount(4, $counts);
+        self::assertSame(0, $counts[(string) $this->column($project, 'backlog')->id]);
+        self::assertCount(5, $counts);
     }
 
     public function test_a_placed_epic_keeps_the_progress_of_its_children(): void
@@ -66,6 +69,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-epic@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
         $epic->laneEnabled = false;
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
@@ -89,7 +94,9 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-lane-head@example.com');
         $project = $this->project($em, $owner);
-        $before = $this->typed($em, $this->card($em, $project, 'Earlier epic', 'backlog'), CardType::Epic);
+        $this->addTriageColumn($project);
+        $em->flush();
+        $before = $this->typed($em, $this->card($em, $project, 'Earlier epic', 'triage'), CardType::Epic);
         $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
         $this->childOf($em, $epic, $this->card($em, $project, 'Open child'));
         $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
@@ -104,9 +111,59 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertMatchesRegularExpression('#\sdata-lane-head[\s>]#', $content);
         self::assertStringContainsString('data-lane-after="'.$before->id.'"', $content);
         self::assertStringContainsString('class="lp-board-lane__head"', $content);
-        self::assertMatchesRegularExpression('#data-lane-progress>\s*1/2 done\s*<#', $content);
+        self::assertMatchesRegularExpression('#data-lane-progress[^>]*>\s*<progress[^>]*value="1" max="2"[^>]*></progress>\s*1/2\s*<span class="lp-board-lane__done">done</span>#', $content);
         self::assertStringNotContainsString('id="board-card-'.$epic->id.'"', $content);
         self::assertStringContainsString('id="board-row-'.$epic->id.'"', $content);
+    }
+
+    public function test_a_lane_epic_in_the_backlog_gets_its_lane_head_and_no_row(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-backlog-lane-head@example.com');
+        $project = $this->project($em, $owner);
+        $epic = $this->typed($em, $this->card($em, $project, 'Waiting epic', 'backlog'), CardType::Epic);
+        $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'next'));
+        $backlog = $this->column($project, 'backlog');
+        $url = $this->placementUrl((string) $project->id, (string) $epic->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertMatchesRegularExpression('#\sdata-lane-head[\s>]#', $content);
+        self::assertStringContainsString('data-column-id="'.$backlog->id.'"', $content);
+        self::assertStringContainsString('class="lp-board-lane__head"', $content);
+        self::assertStringNotContainsString('data-removed', $content);
+        self::assertStringNotContainsString('id="board-row-'.$epic->id.'"', $content);
+        self::assertSame(1, $this->counts($content)[(string) $backlog->id]);
+    }
+
+    public function test_a_card_in_the_backlog_gets_a_removal_and_the_backlog_count(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'placement-backlog-card@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Waiting', 'backlog');
+        $this->card($em, $project, 'Waiting too', 'backlog');
+        $backlog = $this->column($project, 'backlog');
+        $url = $this->placementUrl((string) $project->id, (string) $card->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('data-removed="1"', $content);
+        self::assertSame(2, $this->counts($content)[(string) $backlog->id]);
     }
 
     public function test_a_child_in_a_lane_names_its_lane_and_skips_the_lane_epic(): void
@@ -117,6 +174,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-lane-child@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next', 0), CardType::Epic);
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next', 1));
         $url = $this->placementUrl((string) $project->id, (string) $child->id);
@@ -142,6 +201,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-no-lane@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $card = $this->card($em, $project, 'Plain', 'next');
         $url = $this->placementUrl((string) $project->id, (string) $card->id);
         $em->clear();
@@ -161,11 +222,13 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-lane-ids@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next', 0), CardType::Epic);
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next', 1));
-        $orphan = $this->card($em, $project, 'Orphan', 'backlog');
+        $orphan = $this->card($em, $project, 'Orphan', 'triage');
         $next = $this->column($project, 'next');
-        $backlog = $this->column($project, 'backlog');
+        $triage = $this->column($project, 'triage');
         $em->clear();
 
         $client->loginUser($owner);
@@ -174,7 +237,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('#board-lane-'.$epic->id.' > .lp-board-lane__head [data-lane-progress]'));
         self::assertCount(1, $crawler->filter('#board-lane-'.$epic->id.' #board-cell-'.$epic->id.'-'.$next->id.' > #board-card-'.$child->id));
-        self::assertCount(1, $crawler->filter('#board-cell-other-'.$backlog->id.' > #board-card-'.$orphan->id));
+        self::assertCount(1, $crawler->filter('#board-cell-other-'.$triage->id.' > #board-card-'.$orphan->id));
         $cellCounts = $crawler->filter('#board-lane-'.$epic->id.' [data-cell-count]')->each(static fn ($node): string => trim($node->text()));
         self::assertSame(['0', '1', '0', '0'], $cellCounts);
         self::assertCount(0, $crawler->filter('#board-group-'.$next->id));
@@ -189,6 +252,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-warning@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $card = $this->card($em, $project, 'Stuck', 'next');
         $run = $this->gaveUp($em, $card, 'next');
         $url = $this->placementUrl((string) $project->id, (string) $card->id);
@@ -210,6 +275,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $owner = $this->user($em, 'placement-owner@example.com');
         $outsider = $this->user($em, 'placement-outsider@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $card = $this->card($em, $project, 'Private');
         $url = $this->placementUrl((string) $project->id, (string) $card->id);
         $em->clear();
@@ -230,6 +297,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $owner = $this->user($em, 'placement-owner-gone@example.com');
         $outsider = $this->user($em, 'placement-outsider-gone@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $url = $this->placementUrl((string) $project->id, '01920000-0000-7000-8000-000000000000');
         $em->clear();
 
@@ -247,9 +316,11 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-deleted@example.com');
         $project = $this->project($em, $owner);
-        $this->card($em, $project, 'Stays', 'backlog', 0);
+        $this->addTriageColumn($project);
+        $em->flush();
+        $this->card($em, $project, 'Stays', 'triage', 0);
         $gone = '01920000-0000-7000-8000-000000000000';
-        $backlog = $this->column($project, 'backlog');
+        $triage = $this->column($project, 'triage');
         $url = $this->placementUrl((string) $project->id, $gone);
         $em->clear();
 
@@ -262,7 +333,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertStringContainsString('action="board-place" target="board-card-'.$gone.'"', $content);
         self::assertStringContainsString('data-removed="1"', $content);
         self::assertStringNotContainsString('lp-board-card"', $content);
-        self::assertSame(1, $this->counts($content)[(string) $backlog->id]);
+        self::assertSame(1, $this->counts($content)[(string) $triage->id]);
     }
 
     public function test_a_terminal_card_outside_the_window_gets_a_removal(): void
@@ -273,6 +344,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-old-done@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $old = $this->card($em, $project, 'Long finished', 'done');
         $old->completedAt = new \DateTimeImmutable(\sprintf('-%d days', ShowBoardHandler::TERMINAL_WINDOW_DAYS + 1));
         $em->flush();
@@ -298,6 +371,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-history@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $this->card($em, $project, 'Finished before', 'done');
         $moved = $this->card($em, $project, 'Just finished', 'done');
         $done = $this->column($project, 'done');
@@ -331,7 +406,11 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         $member = $this->user($em, 'placement-cross-member@example.com');
         $stranger = $this->user($em, 'placement-cross-stranger@example.com');
         $mine = $this->project($em, $member);
+        $this->addTriageColumn($mine);
+        $em->flush();
         $theirs = $this->project($em, $stranger, 'their-app');
+        $this->addTriageColumn($theirs);
+        $em->flush();
         $foreign = $this->card($em, $theirs, 'Their secret plan', 'next');
         $url = $this->placementUrl((string) $mine->id, (string) $foreign->id);
         $em->clear();
@@ -354,6 +433,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-flag-off@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $card = $this->card($em, $project, 'Hidden');
         $url = $this->placementUrl((string) $project->id, (string) $card->id);
         $this->disableBoard();
@@ -373,6 +454,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-ids@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $card = $this->card($em, $project, 'Identified', 'next', 0);
         $next = $this->column($project, 'next');
         $url = $this->placementUrl((string) $project->id, (string) $card->id);
@@ -406,10 +489,12 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-digest-child@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next'), CardType::Epic);
         $epic->laneEnabled = false;
         $em->flush();
-        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'backlog'));
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'triage'));
         $em->clear();
 
         $client->loginUser($owner);
@@ -425,6 +510,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-digest-epic@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next'), CardType::Epic);
         $epic->laneEnabled = false;
         $em->flush();
@@ -450,11 +537,13 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-lane@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
-        $this->card($em, $project, 'Other first', 'backlog', 0);
-        $firstChild = $this->childOf($em, $epic, $this->card($em, $project, 'Child first', 'backlog', 1));
-        $otherSecond = $this->card($em, $project, 'Other second', 'backlog', 2);
-        $secondChild = $this->childOf($em, $epic, $this->card($em, $project, 'Child second', 'backlog', 3));
+        $this->card($em, $project, 'Other first', 'triage', 0);
+        $firstChild = $this->childOf($em, $epic, $this->card($em, $project, 'Child first', 'triage', 1));
+        $otherSecond = $this->card($em, $project, 'Other second', 'triage', 2);
+        $secondChild = $this->childOf($em, $epic, $this->card($em, $project, 'Child second', 'triage', 3));
         $url = $this->placementUrl((string) $project->id, (string) $secondChild->id);
         $em->clear();
 
@@ -478,11 +567,13 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-lane-other@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
         $closed = $this->typed($em, $this->card($em, $project, 'Closed epic', 'next', 1), CardType::Epic);
         $closed->laneEnabled = false;
         $em->flush();
-        $child = $this->childOf($em, $closed, $this->card($em, $project, 'Child', 'backlog'));
+        $child = $this->childOf($em, $closed, $this->card($em, $project, 'Child', 'triage'));
         $url = $this->placementUrl((string) $project->id, (string) $child->id);
         $em->clear();
 
@@ -503,6 +594,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-lane-epic@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
         $url = $this->placementUrl((string) $project->id, (string) $epic->id);
         $em->clear();
@@ -525,9 +618,11 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-lane-removed@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $this->typed($em, $this->card($em, $project, 'Epic', 'next'), CardType::Epic);
-        $this->card($em, $project, 'Stays', 'backlog');
-        $backlog = $this->column($project, 'backlog');
+        $this->card($em, $project, 'Stays', 'triage');
+        $triage = $this->column($project, 'triage');
         $url = $this->placementUrl((string) $project->id, '01920000-0000-7000-8000-000000000000');
         $em->clear();
 
@@ -540,7 +635,7 @@ final class ShowCardPlacementControllerTest extends WebTestCase
         self::assertStringNotContainsString('data-lane', $content);
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
-        self::assertCount(1, $crawler->filter('#board-cell-other-'.$backlog->id.' .lp-board-card'));
+        self::assertCount(1, $crawler->filter('#board-cell-other-'.$triage->id.' .lp-board-card'));
         self::assertCount(1, $crawler->filter('#board-history-'.$this->column($project, 'done')->id));
     }
 
@@ -552,6 +647,8 @@ final class ShowCardPlacementControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'placement-no-lane@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $card = $this->card($em, $project, 'Plain', 'next');
         $url = $this->placementUrl((string) $project->id, (string) $card->id);
         $em->clear();

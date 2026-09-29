@@ -15,10 +15,8 @@ final readonly class ConfigureBoardColumnCommand
         public BoardColumn $column,
         public CardReporter $actor,
         public string $label,
-        public bool $isDefault,
         public bool $terminal,
         public string $expectedLabel,
-        public string $expectedDefaultId,
         public bool $expectedTerminal,
         /** Null keeps the column's colour. */
         public ?LabelTone $tone = null,

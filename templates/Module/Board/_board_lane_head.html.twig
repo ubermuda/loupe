@@ -1,6 +1,10 @@
-{# The head of an epic lane. The board page draws it, and a card placement morphs it.
-   Props: epic (Card), progress (CardProgress): the done and total children of the epic. #}
-<header class="lp-board-lane__head" data-board-filter-target="laneHead" data-card-title="{{ epic.title }}">
+{# The head of an epic lane: the lane buttons, the number and progress over the title, and the Up next deck at the right end.
+   The board page draws it, and a card placement morphs it.
+   Props: epic (Card), progress (CardProgress), deck (LaneDeckView, or null when no child waits in Backlog). #}
+<header class="lp-board-lane__head"
+        data-board-filter-target="laneHead"
+        data-card-title="{{ epic.title }}"
+        data-lane-digest="{{ lane_head_digest(epic, progress, deck) }}">
     <button type="button"
             class="lp-board-lane__collapse"
             aria-expanded="true"
@@ -9,11 +13,21 @@
             data-action="board-lane#toggle">
         <twig:ux:icon name="lucide:chevron-right" class="lp-board-lane__chevron" />
     </button>
-    <span class="lp-board-card__number">#{{ epic.number }}</span>
-    <a class="lp-board-lane__title"
-       href="{{ path('app_board_card', {projectId: epic.project.id, cardId: epic.id}) }}"
-       data-turbo-frame="card-drawer-frame"
-       data-action="click->card-drawer#prepare">{{ epic.title }}</a>
-    <span class="lp-board-lane__progress" data-lane-progress>{{ 'board.card.children.progress'|trans({'%done%': progress.done, '%total%': progress.total}) }}</span>
-    {% include '@Board/_card_lane_form.html.twig' with {card: epic, returnTo: 'board'} only %}
+    {% include '@Board/_card_lane_form.html.twig' with {card: epic, returnTo: 'board', compact: true} only %}
+    <div class="lp-board-lane__heading">
+        <span class="lp-board-card__number lp-board-lane__number" data-board-lane-target="glide">#{{ epic.number }}</span>
+        <span class="lp-board-lane__progress" data-lane-progress data-board-lane-target="glide">
+            <progress class="lp-board-lane__bar" value="{{ progress.done }}" max="{{ max(progress.total, 1) }}" aria-hidden="true"></progress>
+            {{ 'board.lane.progress.fraction'|trans({'%done%': progress.done, '%total%': progress.total}) }}
+            <span class="lp-board-lane__done">{{ 'board.lane.progress.done'|trans }}</span>
+        </span>
+        <a class="lp-board-lane__title"
+           href="{{ path('app_board_card', {projectId: epic.project.id, cardId: epic.id}) }}"
+           data-board-lane-target="glide"
+           data-turbo-frame="card-drawer-frame"
+           data-action="click->card-drawer#prepare">{{ epic.title }}</a>
+    </div>
+    {% if deck %}
+    {% include '@Board/_board_lane_deck.html.twig' with {epic: epic, deck: deck} only %}
+    {% endif %}
 </header>

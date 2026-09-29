@@ -1,0 +1,56 @@
+{# The Up next deck of an epic lane: its Backlog cards in rank order, as a pile that fans out on hover.
+   Each card drags like a board card, and a card dropped on the deck goes to the end of the Backlog.
+   Props: epic (Card), deck (LaneDeckView). #}
+{% set countLabel = 'board.lane.deck.count'|trans({'%count%': deck.count}) %}
+<div class="lp-board-lane__up-next">
+    <p class="lp-board-lane__deck-label">
+        <strong class="lp-board-lane__deck-title">{{ 'board.lane.deck.title'|trans }}</strong>
+        <span class="lp-board-lane__deck-count" data-lane-deck-count>{{ countLabel }}</span>
+    </p>
+    <div class="lp-deck"
+         role="group"
+         aria-label="{{ 'board.lane.deck.title'|trans }}: {{ countLabel }}"
+         data-controller="board-deck"
+         data-board-deck-count-value="{{ deck.count }}"
+         data-board-deck-more-value="{{ 'board.lane.deck.more'|trans({'%count%': '%count%'}) }}"
+         data-board-drag-target="group"
+         data-board-bucket
+         data-column="{{ deck.column.id }}"
+         data-lane="{{ epic.id }}"
+         data-rankable="0">
+        {% for card in deck.cards %}
+        <article class="lp-deck__card"
+                 id="board-deck-card-{{ card.id }}"
+                 data-deck-index="{{ loop.index0 }}"
+                 data-board-deck-target="card"
+                 data-board-drag-target="card"
+                 data-action="pointerdown->board-drag#press"
+                 data-card-id="{{ card.id }}"
+                 data-card-type="{{ card.type.value }}"
+                 data-card-title="{{ card.title }}">
+            <span class="lp-board-card__grip" aria-hidden="true">
+                <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
+            </span>
+            <div class="lp-board-card__identity">
+                <span class="lp-board-card__number">#{{ card.number }}</span>
+                {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
+            </div>
+            <a class="lp-deck__title"
+               draggable="false"
+               href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
+               data-turbo-frame="card-drawer-frame"
+               data-action="click->card-drawer#prepare">{{ card.title }}</a>
+            <form hidden
+                  method="post"
+                  action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}"
+                  data-board-drag-target="moveForm">
+                {{ card_move_fields(card) }}
+            </form>
+        </article>
+        {% endfor %}
+        <a class="lp-deck__card lp-deck__more"
+           href="{{ path('app_project_board_backlog', {projectId: epic.project.id, epic: epic.id}) }}"
+           data-board-deck-target="more"
+           {% if deck.count <= deck.cards|length %}hidden{% endif %}>{{ 'board.lane.deck.more'|trans({'%count%': deck.count - deck.cards|length}) }}</a>
+    </div>
+</div>

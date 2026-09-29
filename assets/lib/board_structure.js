@@ -99,8 +99,12 @@ function syncLanes(parent, freshParent) {
             return freshLane;
         }
         syncColumns(
-            lane.querySelector(':scope > .lp-board-lane__cells'),
-            freshLane.querySelector(':scope > .lp-board-lane__cells'),
+            lane.querySelector(
+                ':scope > .lp-board-lane__body > .lp-board-lane__cells',
+            ),
+            freshLane.querySelector(
+                ':scope > .lp-board-lane__body > .lp-board-lane__cells',
+            ),
         );
 
         return lane;

@@ -80,10 +80,11 @@ final class CardDrawerSaveControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'drawer-create@example.com');
         $project = $this->project($em, $owner);
+        $next = $this->column($project, 'next');
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/new', server: self::DRAWER);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/new?column='.$next->id, server: self::DRAWER);
         self::assertSame('Creating…', $crawler->filter('button[data-turbo-submits-with]')->attr('data-turbo-submits-with'));
         self::assertCount(1, $crawler->filter('form[name="create_card_form"][data-card-drawer-creates-card]'));
         $client->submitForm('Create card', ['create_card_form[title]' => 'Placed at once'], serverParameters: self::DRAWER + [

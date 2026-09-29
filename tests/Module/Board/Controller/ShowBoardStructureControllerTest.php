@@ -118,9 +118,10 @@ final class ShowBoardStructureControllerTest extends WebTestCase
         $owner = $this->user($em, 'structure-lanes@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
-        $this->childOf($em, $epic, $this->card($em, $project, 'Child in the lane', 'backlog'));
-        $this->card($em, $project, 'Outside the lane', 'backlog');
+        $this->childOf($em, $epic, $this->card($em, $project, 'Child in the lane', 'in-progress'));
+        $this->card($em, $project, 'Outside the lane', 'in-progress');
         $columns = $this->columnIds($project);
+        $inProgressId = (string) $this->column($project, 'in-progress')->id;
         $backlogId = (string) $this->column($project, 'backlog')->id;
         $em->clear();
 
@@ -143,8 +144,9 @@ final class ShowBoardStructureControllerTest extends WebTestCase
                 self::assertSame('', trim($cell->html()));
             }
         }
-        self::assertSame('1', $lane->filter('section[data-column-id="'.$backlogId.'"] [data-cell-count]')->text());
-        self::assertSame('1', $template->filter('.lp-board-lane--other section[data-column-id="'.$backlogId.'"] [data-cell-count]')->text());
+        self::assertSame('1', $lane->filter('section[data-column-id="'.$inProgressId.'"] [data-cell-count]')->text());
+        self::assertSame('1', $template->filter('.lp-board-lane--other section[data-column-id="'.$inProgressId.'"] [data-cell-count]')->text());
+        self::assertCount(0, $template->filter('[data-column-id="'.$backlogId.'"]'));
         self::assertCount(\count($columns), $template->filter('.lp-board-lane--other .lp-board__add-card'));
 
         $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
@@ -169,7 +171,7 @@ final class ShowBoardStructureControllerTest extends WebTestCase
 
         $tags = $template->filter('[data-board-structure-tags] > [data-column-tag]');
         self::assertSame($columns, $tags->each(static fn (Crawler $node): string => (string) $node->attr('data-column-tag')));
-        self::assertSame('Backlog', trim($tags->eq(0)->text()));
+        self::assertSame('Next', trim($tags->eq(0)->text()));
     }
 
     public function test_the_banner_shows_while_a_rule_is_dead_and_not_otherwise(): void
@@ -241,12 +243,12 @@ final class ShowBoardStructureControllerTest extends WebTestCase
         return [$stream, new Crawler('<div>'.$template->html().'</div>')];
     }
 
-    /** @return list<string> */
+    /** @return list<string> the columns the board draws, which leave the Backlog out */
     private function columnIds(Project $project): array
     {
         return array_map(
             fn (string $slug): string => (string) $this->column($project, $slug)->id,
-            ['backlog', 'next', 'in-progress', 'done'],
+            ['next', 'in-progress', 'done'],
         );
     }
 }

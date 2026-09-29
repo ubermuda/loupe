@@ -20,21 +20,19 @@ use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
- * Saves a column's name, default flag and terminal flag together, in one
+ * Saves a column's name, terminal flag and colour together, in one
  * transaction, and refuses the whole save when the result breaks a board rule.
  */
 final readonly class ConfigureBoardColumnHandler
 {
     public const string GONE = 'board.column.error.gone';
     public const string LABEL_STALE = 'board.column.error.rename_stale';
-    public const string DEFAULT_STALE = 'board.column.error.default_stale';
     public const string TERMINAL_STALE = 'board.column.error.terminal_stale';
 
     /** The form field each board rule reports on. */
     private const array FIELDS = [
         BoardColumns::NO_TERMINAL => 'terminal',
-        BoardColumns::DEFAULT_TERMINAL => 'terminal',
-        BoardColumns::NO_SINGLE_DEFAULT => 'isDefault',
+        BoardColumns::BACKLOG_LOCKED => 'column',
     ];
 
     public function __construct(
@@ -61,22 +59,17 @@ final readonly class ConfigureBoardColumnHandler
         }
 
         $renamed = null;
-        $previousDefaultId = null;
         $terminalChanged = false;
         $toneChanged = false;
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
-        $errors = $this->em->wrapInTransaction(function () use ($command, $column, $label, &$renamed, &$previousDefaultId, &$terminalChanged, &$toneChanged): array {
+        $errors = $this->em->wrapInTransaction(function () use ($command, $column, $label, &$renamed, &$terminalChanged, &$toneChanged): array {
             $this->em->lock($column->project, LockMode::PESSIMISTIC_WRITE);
             $columns = $this->boardColumns->findForProjectFresh($column->project);
             if (!\in_array($column, $columns, true)) {
                 return ['column' => self::GONE];
             }
-            $default = array_find($columns, static fn (BoardColumn $other): bool => $other->isDefault);
             if ($command->expectedLabel !== $column->label) {
                 return ['label' => self::LABEL_STALE];
-            }
-            if ($command->expectedDefaultId !== (string) $default?->id) {
-                return ['isDefault' => self::DEFAULT_STALE];
             }
             if ($command->expectedTerminal !== $column->terminal) {
                 return ['terminal' => self::TERMINAL_STALE];
@@ -85,7 +78,7 @@ final readonly class ConfigureBoardColumnHandler
             // The dialog shows a seeded label translated, so an unchanged name keeps the key.
             $keepLabel = $label === $this->translator->trans($column->label);
             $slug = $keepLabel ? $column->slug : $this->rules->slugFor($label);
-            $refusal = $this->rules->refuseConfigure($columns, $column, $slug, $command->terminal, $command->isDefault);
+            $refusal = $this->rules->refuseConfigure($columns, $column, $slug, $command->terminal);
             if (null !== $refusal) {
                 return [self::FIELDS[$refusal] ?? 'label' => $refusal];
             }
@@ -94,12 +87,6 @@ final readonly class ConfigureBoardColumnHandler
                 $renamed = new RenamedBoardColumn($column->slug, $slug);
                 $column->label = $label;
                 $column->slug = $slug;
-            }
-            if ($command->isDefault && !$column->isDefault) {
-                $previousDefaultId = (string) $default?->id;
-                foreach ($columns as $other) {
-                    $other->isDefault = $other === $column;
-                }
             }
             $terminalChanged = $command->terminal !== $column->terminal;
             $column->terminal = $command->terminal;
@@ -129,16 +116,13 @@ final readonly class ConfigureBoardColumnHandler
         if (null !== $renamed) {
             $this->auditor->record('board.column_renamed', AuditOutcome::Success, $context + ['fromSlug' => $renamed->fromSlug, 'toSlug' => $renamed->toSlug], $subject);
         }
-        if (null !== $previousDefaultId) {
-            $this->auditor->record('board.column_default_set', AuditOutcome::Success, $context + ['previousColumnId' => $previousDefaultId], $subject);
-        }
         if ($terminalChanged) {
             $this->auditor->record('board.column_terminal_set', AuditOutcome::Success, $context + ['terminal' => $column->terminal], $subject);
         }
         if ($toneChanged) {
             $this->auditor->record('board.column_tone_set', AuditOutcome::Success, $context + ['tone' => $column->tone->value], $subject);
         }
-        if (null !== $renamed || null !== $previousDefaultId || $terminalChanged || $toneChanged) {
+        if (null !== $renamed || $terminalChanged || $toneChanged) {
             $this->events->dispatch(new BoardColumnsChanged($column->project));
         }
     }

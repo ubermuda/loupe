@@ -11,12 +11,13 @@
          data-board-lane-epic-value="{{ epic.id }}"
          aria-label="#{{ epic.number }} {{ epic.title }}"{% else %}aria-label="{{ 'board.lane.other'|trans }}"{% endif %}>
     {% if epic %}
-    {% include '@Board/_board_lane_head.html.twig' with {epic: epic, progress: board.progress[epic.id ~ '']} only %}
+    {% include '@Board/_board_lane_head.html.twig' with {epic: epic, progress: board.progress[epic.id ~ ''], deck: board.decks[epic.id ~ '']|default(null)} only %}
     {% else %}
     <header class="lp-board-lane__head">
         <h2 class="lp-board-lane__title">{{ 'board.lane.other'|trans }}</h2>
     </header>
     {% endif %}
+    <div class="lp-board-lane__body">
     <div class="lp-board-lane__cells">
         {% for view in board.columns %}
         {% set cards = lane.cells[view.column.id ~ '']|default([]) %}
@@ -42,5 +43,6 @@
             {% endif %}
         </section>
         {% endfor %}
+    </div>
     </div>
 </section>

@@ -83,8 +83,8 @@ final readonly class CreateCardHandler
                 throw new \LogicException('A card is created only in a column of its own board.');
             }
             $column = $command->column
-                ?? array_find($columns, static fn (BoardColumn $candidate): bool => $candidate->isDefault)
-                ?? throw new \LogicException('Every board has a default column.');
+                ?? array_find($columns, static fn (BoardColumn $candidate): bool => $candidate->backlog)
+                ?? throw new \LogicException('Every board has a Backlog.');
             if (!\in_array($column, $columns, true)) {
                 return UpdateCardHandler::COLUMN_GONE;
             }

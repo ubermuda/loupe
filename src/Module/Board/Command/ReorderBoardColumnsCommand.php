@@ -9,7 +9,7 @@ use App\Module\Project\Entity\Project;
 final readonly class ReorderBoardColumnsCommand
 {
     /**
-     * @param string $order every column id of the board, comma-separated, in the new order
+     * @param string $order every column id the board draws, comma-separated, in the new order
      */
     public function __construct(
         public Project $project,
