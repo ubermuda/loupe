@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\EventListener;
 
+use App\Module\Bridge\Entity\CardHold;
 use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
@@ -122,6 +123,28 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         self::assertSame(
             [(string) $keptPin->id],
             $em->getConnection()->fetchFirstColumn('SELECT id FROM bridge_experiment_pins'),
+        );
+    }
+
+    public function test_deleting_a_project_takes_its_holds_and_leaves_another_projects_holds(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'holds-delete@example.com');
+        $doomed = $this->project($em, $owner, 'Doomed Holds');
+        $kept = $this->project($em, $owner, 'Kept Holds');
+        $em->persist(new CardHold($doomed, Uuid::v7(), $this->seedRun($em, $doomed), $owner, new \DateTimeImmutable()));
+        $keptHold = new CardHold($kept, Uuid::v7(), $this->seedRun($em, $kept), $owner, new \DateTimeImmutable());
+        $em->persist($keptHold);
+        $em->flush();
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        self::assertSame(
+            [(string) $keptHold->id],
+            $em->getConnection()->fetchFirstColumn('SELECT id FROM bridge_card_holds'),
         );
     }
 

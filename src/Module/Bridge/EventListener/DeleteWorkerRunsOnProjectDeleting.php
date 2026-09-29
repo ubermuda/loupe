@@ -10,9 +10,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
- * Deletes the run rows, the usage rows and the experiment pins of a project
- * that is going away. A usage row outlives its run, so it goes on its own.
- * Runs inside ProjectDeleter's transaction.
+ * Deletes the card holds, the run rows, the usage rows and the experiment pins
+ * of a project that is going away. A usage row outlives its run, so it goes on
+ * its own. Runs inside ProjectDeleter's transaction.
  */
 #[AsEventListener]
 final readonly class DeleteWorkerRunsOnProjectDeleting
@@ -28,6 +28,10 @@ final readonly class DeleteWorkerRunsOnProjectDeleting
         // commits between this delete and the project row's own delete leaves a
         // child the foreign key then refuses.
         $this->em->lock($event->project, LockMode::PESSIMISTIC_WRITE);
+
+        $this->em->createQuery(
+            'DELETE App\Module\Bridge\Entity\CardHold h WHERE h.project = :project',
+        )->setParameter('project', $event->project)->execute();
 
         $this->em->createQuery(
             'DELETE App\Module\Bridge\Entity\WorkerRun r WHERE r.project = :project',
