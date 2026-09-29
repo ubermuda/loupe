@@ -361,6 +361,25 @@ final class WorkerRunStatesApiTest extends WebTestCase
         ));
     }
 
+    public function test_a_stop_with_no_end_after_its_start_ends_at_its_moment(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-stopped-no-end@example.com');
+        $project = $this->project($em, $owner, 'Run States Stopped No End');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+
+        $this->put($client, $path, $raw, $this->payload([
+            'state' => 'stopped',
+            'at' => '2026-09-23T10:00:05+00:00',
+            'startedAt' => '2026-09-23T10:00:00+00:00',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('2026-09-23T10:00:05+00:00', $this->onlyRun()->endedAt?->format(\DateTimeInterface::ATOM));
+    }
+
     public function test_a_queued_run_stops_with_no_start(): void
     {
         $client = static::createClient();

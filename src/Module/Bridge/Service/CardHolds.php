@@ -28,7 +28,10 @@ final readonly class CardHolds
     ) {
     }
 
-    /** A card that already has a hold keeps it, with its run and holder unchanged. */
+    /**
+     * A card that already has a hold keeps it, with its run and holder unchanged.
+     * The flush writes the caller's pending changes too.
+     */
     public function hold(Project $project, Uuid $cardId, ?WorkerRun $stoppedRun, ?User $heldBy): CardHold
     {
         return $this->em->wrapInTransaction(function () use ($project, $cardId, $stoppedRun, $heldBy): CardHold {

@@ -90,9 +90,9 @@ final readonly class DeleteBoardColumnHandler
 
             if (null !== $target && [] !== $rows) {
                 $now = new \DateTimeImmutable();
-                $this->mover->moveAll($column, $target, $now);
+                $movedIds = $this->mover->moveAll($column, $target, $now);
                 if (CardReporter::Human === $command->actor) {
-                    $this->cardHolds->release($column->project, array_map(Uuid::fromString(...), $deleted->movedCardIds));
+                    $this->cardHolds->release($column->project, array_map(Uuid::fromString(...), $movedIds));
                 }
                 if (!$target->terminal) {
                     $this->cards->renumberColumn($target, $now);
