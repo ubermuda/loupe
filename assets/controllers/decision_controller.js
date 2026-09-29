@@ -75,11 +75,19 @@ export default class extends Controller {
     }
 
     // Clear empties the block at once, so a save queued behind it reads no
-    // stale picks. A failed Clear puts the old answer back.
+    // stale picks. A failed Clear puts the old answer back, so a repeat click
+    // must not queue a second Clear whose snapshot is the empty block.
     clear(block) {
         const previous = this.state(block);
+        const empty = previous.indexes.length === 0 && previous.note === '';
+        if (empty && this.clearPending(block)) return;
         this.fillBlock(block, { indexes: [], note: '' });
         this.enqueue(block, true, previous);
+    }
+
+    clearPending(block) {
+        if (this.queue.has(block)) return this.queue.get(block).clear;
+        return this.inFlight?.block === block && this.inFlight.state.clear;
     }
 
     fillBlock(block, { indexes, note }) {

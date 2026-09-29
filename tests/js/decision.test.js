@@ -403,3 +403,19 @@ it('restores the block when a Clear fails', async () => {
         'Could not save.',
     );
 });
+
+it('restores the first answer when a second Clear click fails', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    check('a', 0);
+    finish();
+    clear('a');
+    clear('a');
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+
+    expect(sent).toHaveLength(2);
+    expect(note('a').value).toBe('Kept');
+    expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
+        true,
+    );
+});
