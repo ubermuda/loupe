@@ -334,8 +334,8 @@ final class BacklogCardMovesTest extends KernelTestCase
             body: '',
             type: $type,
             column: $this->column($this->project, $slug),
-            parentCardId: null === $parent ? null : (string) $parent->id,
             relatedCards: $relatedCards,
+            parentCardId: null === $parent ? null : (string) $parent->id,
         ));
     }
 
