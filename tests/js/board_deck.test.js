@@ -53,7 +53,7 @@ function deckMarkup(loaded, total) {
              data-board-deck-count-value="${total}"
              data-board-deck-more-value="+%count% more">
             ${cards}
-            <a class="lp-deck__card lp-deck__more" data-deck-index="${loaded}" data-board-deck-target="more"${total > loaded ? '' : ' hidden'}>+${total - loaded} more</a>
+            <a class="lp-deck__card lp-deck__more" data-board-deck-target="more"${total > loaded ? '' : ' hidden'}>+${total - loaded} more</a>
         </div>
     </header>`;
 }
@@ -81,7 +81,7 @@ async function mount(loaded, total, slots) {
     controller.layout();
 }
 
-it('hides the cards that do not fit and moves the tile after the last one shown', async () => {
+it('hides the cards that do not fit and shifts the fan for the tile', async () => {
     await mount(8, 12, 5);
 
     const spare = [...document.querySelectorAll('.lp-deck__card--spare')].map(
@@ -90,7 +90,11 @@ it('hides the cards that do not fit and moves the tile after the last one shown'
     const more = document.querySelector('.lp-deck__more');
     expect(spare).toEqual(['4', '5', '6', '7']);
     expect(more.hidden).toBe(false);
-    expect(more.dataset.deckIndex).toBe('4');
+    expect(
+        document
+            .querySelector('.lp-deck')
+            .style.getPropertyValue('--deck-shift'),
+    ).toBe('1');
     expect(more.textContent).toBe('+8 more');
     expect(
         document
@@ -104,6 +108,11 @@ it('shows every card and no tile when they all fit', async () => {
 
     expect(document.querySelectorAll('.lp-deck__card--spare')).toHaveLength(0);
     expect(document.querySelector('.lp-deck__more').hidden).toBe(true);
+    expect(
+        document
+            .querySelector('.lp-deck')
+            .style.getPropertyValue('--deck-shift'),
+    ).toBe('0');
 });
 
 it('fits the fan again after a morph resets the deck to the server markup', async () => {

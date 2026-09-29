@@ -1,4 +1,4 @@
-{# The head of an epic lane: the number and progress over the title, and the Up next deck at the right end.
+{# The head of an epic lane: the lane buttons, the number and progress over the title, and the Up next deck at the right end.
    The board page draws it, and a card placement morphs it.
    Props: epic (Card), progress (CardProgress), deck (LaneDeckView, or null when no child waits in Backlog). #}
 <header class="lp-board-lane__head"
@@ -13,6 +13,7 @@
             data-action="board-lane#toggle">
         <twig:ux:icon name="lucide:chevron-right" class="lp-board-lane__chevron" />
     </button>
+    {% include '@Board/_card_lane_form.html.twig' with {card: epic, returnTo: 'board', compact: true} only %}
     <div class="lp-board-lane__heading">
         <span class="lp-board-card__number lp-board-lane__number" data-board-lane-target="glide">#{{ epic.number }}</span>
         <span class="lp-board-lane__progress" data-lane-progress data-board-lane-target="glide">
@@ -26,7 +27,6 @@
            data-turbo-frame="card-drawer-frame"
            data-action="click->card-drawer#prepare">{{ epic.title }}</a>
     </div>
-    {% include '@Board/_card_lane_form.html.twig' with {card: epic, returnTo: 'board'} only %}
     {% if deck %}
     {% include '@Board/_board_lane_deck.html.twig' with {epic: epic, deck: deck} only %}
     {% endif %}

@@ -413,6 +413,76 @@ describe('a card of an Up next deck', () => {
         expect(document.getElementById('deck').contains(moved)).toBe(true);
     });
 
+    it('takes the marker out of a column when the pointer comes back over the fanned deck', () => {
+        const deck = document.getElementById('deck');
+        deck.classList.add('lp-deck');
+        deck.insertAdjacentHTML(
+            'beforeend',
+            '<article class="lp-deck__card" data-deck-index="1"></article>',
+        );
+        deck.lastElementChild.getBoundingClientRect = () => ({
+            left: 300,
+            top: 0,
+            right: 500,
+            bottom: 80,
+            width: 200,
+        });
+        document.getElementById('board-group-next').getBoundingClientRect =
+            () => ({ left: 400, top: 100, right: 500, bottom: 400 });
+        const moved = document.getElementById('board-deck-card-c');
+        controller.press({
+            pointerId: 1,
+            pointerType: 'mouse',
+            button: 0,
+            target: moved,
+            clientX: 700,
+            clientY: 40,
+        });
+        const move = (clientX, clientY) =>
+            controller.pointerMove({
+                pointerId: 1,
+                clientX,
+                clientY,
+                preventDefault: () => {},
+            });
+        const marker = () =>
+            document.querySelector('#board-group-next .lp-board__placeholder');
+
+        move(450, 200);
+        expect(marker()).not.toBeNull();
+
+        move(350, 40);
+        expect(controller.groupUnder(350, 40)).toBe(deck);
+        expect(marker()).toBeNull();
+        expect(deck.classList.contains('lp-board-backlog--over')).toBe(true);
+    });
+
+    it('takes the marker out of a column when the pointer leaves every group', () => {
+        document.getElementById('board-group-next').getBoundingClientRect =
+            () => ({ left: 400, top: 100, right: 500, bottom: 400 });
+        const moved = document.getElementById('board-deck-card-c');
+        controller.press({
+            pointerId: 1,
+            pointerType: 'mouse',
+            button: 0,
+            target: moved,
+            clientX: 700,
+            clientY: 40,
+        });
+        const move = (clientX, clientY) =>
+            controller.pointerMove({
+                pointerId: 1,
+                clientX,
+                clientY,
+                preventDefault: () => {},
+            });
+
+        move(450, 200);
+        move(1200, 900);
+
+        expect(document.querySelector('.lp-board__placeholder')).toBeNull();
+    });
+
     it('waits for the placement of the card it names, whatever its element id', () => {
         document.getElementById('board-group-next').getBoundingClientRect =
             () => ({ left: 400, top: 60, right: 500, bottom: 400 });

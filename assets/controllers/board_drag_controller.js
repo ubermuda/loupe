@@ -192,7 +192,10 @@ export default class extends Controller {
         this.pointerY = event.clientY;
         const group = this.groupUnder(event.clientX, event.clientY);
         this.markBucket(group);
-        if (group !== null) {
+        // A release over no group drops nothing, so no marker says otherwise.
+        if (group === null) {
+            this.placeholder.remove();
+        } else {
             this.markPlaceIn(group, event.clientY);
         }
         this.followEdge(isBucket(group) ? null : group);
@@ -629,9 +632,7 @@ export default class extends Controller {
                 if (!this.accepts(group)) {
                     return false;
                 }
-                const rectangle = (
-                    group.closest('.lp-board__column') ?? group
-                ).getBoundingClientRect();
+                const rectangle = this.dropArea(group);
                 const slack = isBucket(group) ? 0 : 16;
 
                 return (
@@ -642,6 +643,37 @@ export default class extends Controller {
                 );
             }) ?? null
         );
+    }
+
+    /** A fanned deck takes a drop over every card it shows, not only over its pile. */
+    dropArea(group) {
+        const area = (
+            group.closest('.lp-board__column') ?? group
+        ).getBoundingClientRect();
+        if (!group.classList.contains('lp-deck')) {
+            return area;
+        }
+        let { left, top, right, bottom } = area;
+        group.querySelectorAll('.lp-deck__card').forEach((card) => {
+            if (
+                card === this.draggedCard ||
+                card.hidden ||
+                card.classList.contains('lp-deck__card--spare')
+            ) {
+                return;
+            }
+            const box = card.getBoundingClientRect();
+            // The ghost and any card CSS hides take no room.
+            if (box.width === 0) {
+                return;
+            }
+            left = Math.min(left, box.left);
+            top = Math.min(top, box.top);
+            right = Math.max(right, box.right);
+            bottom = Math.max(bottom, box.bottom);
+        });
+
+        return { left, top, right, bottom };
     }
 
     rankOfPlaceholder(group) {

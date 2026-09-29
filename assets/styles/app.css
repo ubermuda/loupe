@@ -878,6 +878,10 @@
     .lp-board-backlog__count {
         @apply inline-flex items-center justify-center min-w-6 rounded-full bg-surface-3 px-2 py-0.5 text-xs font-bold text-fg-mute;
     }
+    /* The Backlog button, while a card that can go there is in a drag. */
+    .lp-board--dragging:not(:has(.lp-deck .lp-board-card--dragging)) .lp-board-backlog {
+        @apply border-dashed border-accent-border;
+    }
     /* The Backlog button, while a dragged card is over it. */
     .lp-board-backlog.lp-board-backlog--over {
         @apply border-dashed border-accent-border bg-accent-faint;
@@ -5710,12 +5714,16 @@
     .lp-board-lane__head--stale {
         @apply rounded-lg outline-2 outline-offset-2 outline-dashed outline-line-strong opacity-75;
     }
-    /* The lane button sits at the right end, just before the deck. */
+    /* The lane button sits beside the chevron, and the deck takes the right end. */
     .lp-board-lane__head > form {
-        @apply ml-auto shrink-0;
+        @apply -ml-1.5 shrink-0;
     }
-    .lp-board-lane__collapse {
+    .lp-board-lane__collapse,
+    .lp-board-lane__tool {
         @apply inline-flex shrink-0 items-center justify-center w-7 h-7 rounded-lg text-fg-mute transition-colors hover:bg-surface-3 hover:text-ink;
+    }
+    .lp-board-lane__tool {
+        @apply text-fg-dim cursor-pointer;
     }
     .lp-board-lane__chevron {
         @apply w-4 h-4 rotate-90 transition-transform;
@@ -5771,7 +5779,7 @@
 
     /* The Up next deck and its label, at the right end of an epic lane head. */
     .lp-board-lane__up-next {
-        @apply flex shrink-0 items-center gap-4;
+        @apply ml-auto flex shrink-0 items-center gap-4;
     }
     .lp-board-lane__deck-label {
         @apply m-0 flex flex-col items-end gap-0.5;
@@ -5782,10 +5790,9 @@
     .lp-board-lane__deck-count {
         @apply text-xs text-fg-dim;
     }
-    /* The title, the lane button and the label fade out while the deck fans
-       over them, and come back once the fan folds. */
+    /* The title and the label fade out while the deck fans over them, and
+       come back once the fan folds. The fan stops short of the lane buttons. */
     .lp-board-lane__heading,
-    .lp-board-lane__head > form,
     .lp-board-lane__deck-label {
         transition: opacity 200ms ease 200ms;
     }
@@ -5793,7 +5800,7 @@
             .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *),
             .lp-deck .lp-board-card--dragging
         )
-        :is(.lp-board-lane__heading, form, .lp-board-lane__deck-label) {
+        :is(.lp-board-lane__heading, .lp-board-lane__deck-label) {
         @apply opacity-0;
         transition-delay: 0s;
     }
@@ -5867,8 +5874,10 @@
         --deck-order: 8;
         --deck-tilt: 0.6deg;
     }
+    /* The content of a card behind the top one hides only once the fold is back in the pile. */
     .lp-deck__card:not([data-deck-index='0']) > * {
         @apply invisible;
+        transition: visibility 0s linear 520ms;
     }
     .lp-deck__card:hover {
         @apply border-accent-border;
@@ -5876,13 +5885,18 @@
     .lp-deck__title {
         @apply truncate pr-5 font-display text-sm leading-snug font-bold text-ink no-underline hover:text-accent-ink;
     }
-    /* The fan runs from the deck to the left, in rank order, with no delay on the way out. */
+    /* The fan runs from the deck to the left, in rank order, with no delay on the
+       way out. The "+N more" tile takes the first slot, so --deck-shift moves the cards past it. */
     :is(
             .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *),
             .lp-deck:has(.lp-board-card--dragging)
         )
         .lp-deck__card:not(.lp-board-card--dragging) {
-        translate: calc(var(--deck-slot) * var(--deck-order, 0) * -1) 0;
+        translate: calc(
+                var(--deck-slot) *
+                    (var(--deck-order, 0) + var(--deck-shift, 0)) * -1
+            )
+            0;
         rotate: var(--deck-tilt, 0deg);
         opacity: 1;
         box-shadow: var(--shadow-deck);
@@ -5895,6 +5909,7 @@
         .lp-deck__card
         > * {
         @apply visible;
+        transition-delay: 0s;
     }
     /* A card the fan has no room for. The "+N more" tile counts it instead. */
     :is(
@@ -5904,12 +5919,23 @@
         .lp-deck__card.lp-deck__card--spare {
         @apply invisible opacity-0 pointer-events-none;
     }
-    /* The last tile of the fan, which the resting pile never shows. */
+    /* The first tile of the fan, under the pointer, which the resting pile hides behind its cards. */
     .lp-deck__card.lp-deck__more {
+        --deck-order: -1;
+        z-index: 0;
         @apply items-center justify-center border-dashed border-line-strong bg-surface-2 font-display text-sm font-bold text-accent-ink no-underline cursor-pointer opacity-0;
     }
     .lp-deck__more[hidden] {
         @apply hidden;
+    }
+    /* While a board card is in a drag, each deck that takes it shows a drop outline. */
+    .lp-board--dragging:not(
+            :has(.lp-deck .lp-board-card--dragging, .lp-board-card--dragging[data-card-type='epic'])
+        )
+        .lp-board-lane:not(.lp-board-lane--collapsed)
+        .lp-deck::after {
+        content: '';
+        @apply pointer-events-none absolute -inset-1 z-10 rounded-xl border-2 border-dashed border-accent-border;
     }
     /* A dragged card over the deck, which a release sends back to the Backlog. */
     .lp-deck.lp-board-backlog--over .lp-deck__card[data-deck-index='0'] {
@@ -6994,9 +7020,11 @@
     /* The deck opens and folds in place, with a fade and no travel. */
     .lp-deck__card,
     .lp-board-lane__heading,
-    .lp-board-lane__head > form,
     .lp-board-lane__deck-label {
         transition: opacity 150ms ease;
+    }
+    .lp-deck__card > * {
+        transition: none;
     }
 
     html:has(.lp-landing) {

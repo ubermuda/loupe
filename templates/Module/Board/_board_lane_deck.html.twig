@@ -50,7 +50,6 @@
         {% endfor %}
         <a class="lp-deck__card lp-deck__more"
            href="{{ path('app_project_board_backlog', {projectId: epic.project.id, epic: epic.id}) }}"
-           data-deck-index="{{ deck.cards|length }}"
            data-board-deck-target="more"
            {% if deck.count <= deck.cards|length %}hidden{% endif %}>{{ 'board.lane.deck.more'|trans({'%count%': deck.count - deck.cards|length}) }}</a>
     </div>
