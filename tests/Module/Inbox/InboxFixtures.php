@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace App\Tests\Module\Inbox;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Tag;
+use App\Module\Review\Repository\TagRepository;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -22,6 +26,9 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 trait InboxFixtures
 {
     use BoardColumnFixtures;
+
+    /** @var array<string, Tag> project id and name => tag */
+    private array $stageTags = [];
 
     /** Stores the flag and drops the reader's copy, which lasts for the whole test otherwise. */
     private function switchFlag(EntityManagerInterface $em, string $name, bool $enabled): void
@@ -83,5 +90,50 @@ trait InboxFixtures
         $em->persist($ask);
 
         return $ask;
+    }
+
+    /**
+     * Tags the document for the stage and moves the card into the column the
+     * stage starts from, so the document in review makes the card wait.
+     *
+     * @param 'tech-design'|'product-design' $stage
+     */
+    private function stageDocument(EntityManagerInterface $em, Document $document, Card $card, string $stage = 'tech-design'): void
+    {
+        $this->tagDocument($em, $document, 'tech-design' === $stage ? ['design', 'decisions'] : ['product']);
+        $card->column = $this->stageColumn($em, $card->project, $stage);
+    }
+
+    /** @param list<string> $names */
+    private function tagDocument(EntityManagerInterface $em, Document $document, array $names): void
+    {
+        $tags = self::getContainer()->get(TagRepository::class);
+        self::assertInstanceOf(TagRepository::class, $tags);
+
+        foreach ($names as $name) {
+            $key = $document->project->id.'/'.$name;
+            $tag = $tags->findOneByProjectAndName($document->project, $name) ?? $this->stageTags[$key] ?? new Tag($document->project, $name);
+            $this->stageTags[$key] = $tag;
+            $em->persist($tag);
+            if (!$document->tags->contains($tag)) {
+                $document->tags->add($tag);
+            }
+        }
+    }
+
+    /** The project's column with that slug, created open when the seeded board lacks it. */
+    private function stageColumn(EntityManagerInterface $em, Project $project, string $slug): BoardColumn
+    {
+        $repository = self::getContainer()->get(BoardColumnRepository::class);
+        self::assertInstanceOf(BoardColumnRepository::class, $repository);
+
+        $key = $project->id.'/'.$slug;
+        $column = $repository->findOneBy(['project' => $project->id, 'slug' => $slug]) ?? $this->seededColumns[$key] ?? null;
+        if (null === $column) {
+            $column = new BoardColumn(project: $project, label: $slug, slug: $slug, position: 10);
+            $em->persist($column);
+        }
+
+        return $this->seededColumns[$key] = $column;
     }
 }
