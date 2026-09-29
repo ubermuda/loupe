@@ -971,6 +971,22 @@ it('writes no name when the change has none', async () => {
     expect(document.getElementById('decision-status').textContent).toBe('');
 });
 
+it('marks the page while the hub connection is open', async () => {
+    let options;
+    on.mockImplementation((types, handler, given) => {
+        options = given;
+        return unsubscribe;
+    });
+    await mount();
+    const page = document.querySelector('[data-controller="decision"]');
+    expect(page.hasAttribute('data-decision-connected')).toBe(false);
+
+    options.onOpen();
+    expect(page.hasAttribute('data-decision-connected')).toBe(true);
+    options.onError();
+    expect(page.hasAttribute('data-decision-connected')).toBe(false);
+});
+
 it('listens only on a page that is not a comparison, and stops on disconnect', async () => {
     document.body.innerHTML = '<div data-controller="decision"></div>';
     await vi.advanceTimersByTimeAsync(0);
@@ -980,6 +996,7 @@ it('listens only on a page that is not a comparison, and stops on disconnect', a
     expect(on).toHaveBeenCalledWith(
         'review.decision_changed',
         expect.any(Function),
+        expect.any(Object),
     );
     document.body.replaceChildren();
     await vi.advanceTimersByTimeAsync(0);

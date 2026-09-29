@@ -4,6 +4,7 @@ import { on } from '../lib/live.js';
 
 const NOTE_DELAY = 800;
 const STREAM_TYPE = 'text/vnd.turbo-stream.html';
+const CONNECTED_ATTRIBUTE = 'data-decision-connected';
 
 // A save can answer after a visit, and its stream targets ids every review
 // page shares. Only the page that sent it may render it.
@@ -59,13 +60,21 @@ export default class extends Controller {
         this.summaryRunning = false;
         this.summaryAgain = false;
         if (this.element.dataset.decisionPage !== undefined)
-            this.unsubscribe = on('review.decision_changed', (change) =>
-                this.receive(change),
+            this.unsubscribe = on(
+                'review.decision_changed',
+                (change) => this.receive(change),
+                {
+                    onOpen: () =>
+                        this.element.setAttribute(CONNECTED_ATTRIBUTE, ''),
+                    onError: () =>
+                        this.element.removeAttribute(CONNECTED_ATTRIBUTE),
+                },
             );
     }
 
     disconnect() {
         this.unsubscribe?.();
+        this.element.removeAttribute(CONNECTED_ATTRIBUTE);
         document.removeEventListener('turbo:before-visit', this.beforeVisit);
         document.removeEventListener('turbo:before-cache', this.beforeCache);
         window.removeEventListener('beforeunload', this.beforeUnload);
