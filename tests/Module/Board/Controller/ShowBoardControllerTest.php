@@ -14,6 +14,9 @@ use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
@@ -419,6 +422,39 @@ final class ShowBoardControllerTest extends WebTestCase
         $placement = new Crawler((string) $client->getResponse()->getContent());
         self::assertSame($boardDigest, $placement->filter('#board-card-'.$epic->id)->attr('data-card-digest'));
         self::assertSame($boardDigest, $placement->filter('#board-row-'.$epic->id)->attr('data-card-digest'));
+    }
+
+    public function test_a_card_shows_the_badges_of_its_read_pull_request_on_its_face_row_and_placement(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-badges@example.com');
+        $project = $this->project($em, $owner);
+        $failing = $this->card($em, $project, 'Failing', 'in-progress');
+        $this->linkReadPullRequest($em, $failing, new PullRequestSnapshot(checks: PullRequestChecks::Failed, mergeability: PullRequestMergeability::Conflicting));
+        $unread = $this->card($em, $project, 'Unread', 'in-progress');
+        $this->linkReadPullRequest($em, $unread, new PullRequestSnapshot(checks: PullRequestChecks::Failed), read: false);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        self::assertResponseIsSuccessful();
+        $face = $crawler->filter('#board-card-'.$failing->id.' [data-card-badges]');
+        self::assertSame('checks-failed conflict', $face->attr('data-card-badges'));
+        self::assertSame(['Checks failed', 'Conflict'], $face->filter('.lp-status-chip--failed')->each(static fn (Crawler $chip): string => trim($chip->text())));
+        self::assertSame('checks-failed conflict', $crawler->filter('#board-row-'.$failing->id.' [data-card-badges]')->attr('data-card-badges'));
+        self::assertCount(0, $crawler->filter('#board-card-'.$unread->id.' [data-card-badges]'));
+        $boardDigest = $crawler->filter('#board-card-'.$failing->id)->attr('data-card-digest');
+        self::assertSame($boardDigest, $crawler->filter('#board-row-'.$failing->id)->attr('data-card-digest'));
+
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$failing->id.'/placement');
+        self::assertResponseIsSuccessful();
+        $placement = new Crawler((string) $client->getResponse()->getContent());
+        self::assertSame('checks-failed conflict', $placement->filter('#board-card-'.$failing->id.' [data-card-badges]')->attr('data-card-badges'));
+        self::assertSame($boardDigest, $placement->filter('#board-card-'.$failing->id)->attr('data-card-digest'));
+        self::assertSame($boardDigest, $placement->filter('#board-row-'.$failing->id)->attr('data-card-digest'));
     }
 
     /** The warning holds while the card stays in the column that started the run, or when the run names none. */

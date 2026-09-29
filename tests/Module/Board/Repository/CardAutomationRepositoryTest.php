@@ -85,6 +85,21 @@ final class CardAutomationRepositoryTest extends KernelTestCase
         self::assertSame(0, $this->rowCount($card));
     }
 
+    public function test_find_by_card_ids_keys_the_rows_by_card_id(): void
+    {
+        $project = $this->makeProject('automation-find');
+        $withRow = $this->cardIn($project);
+        $withoutRow = $this->cardIn($project);
+        $this->lockedRow($withRow)->fixRounds = 3;
+        $this->em->flush();
+
+        $rows = $this->automations->findByCardIds([$withRow->id ?? throw new \LogicException(), $withoutRow->id ?? throw new \LogicException()]);
+
+        self::assertSame([(string) $withRow->id], array_keys($rows));
+        self::assertSame(3, $rows[(string) $withRow->id]->fixRounds);
+        self::assertSame([], $this->automations->findByCardIds([]));
+    }
+
     private function lockedRow(Card $card): CardAutomation
     {
         return $this->em->wrapInTransaction(fn (): CardAutomation => $this->automations->findOrCreateForUpdate($card));

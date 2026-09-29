@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardAutomation;
+use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetTool;
+use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Tests\Support\McpTokenScenario;
@@ -71,6 +76,50 @@ final class CardGetToolTest extends KernelTestCase
         self::assertCount(1, $card['pullRequests']);
         self::assertSame('ubermuda/loupe', $card['pullRequests'][0]['repository']);
         self::assertSame(7, $card['pullRequests'][0]['number']);
+    }
+
+    public function test_a_card_reads_the_stored_pull_request_state_and_its_automation(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('card-get-state');
+        $this->actAsMcpTokenBoundTo($project);
+        $created = ($this->createTool)('Ship it', 'Body', 'tooling', pullRequestUrls: [
+            'https://github.com/Ubermuda/Loupe/pull/7',
+            'https://example.com/merge-requests/3',
+        ]);
+        $projectId = $project->id ?? throw new \LogicException('The project is persisted.');
+        $row = $this->forgeRows()->findByKeys($projectId, [['forge' => 'github', 'repository' => 'ubermuda/loupe', 'number' => 7]])[0];
+        $row->checks = PullRequestChecks::Failed;
+        $row->failedChecks = ['phpunit'];
+        $row->mergeability = PullRequestMergeability::Conflicting;
+        $row->refreshedAt = new \DateTimeImmutable('2026-09-27T11:00:00+00:00');
+        $card = $this->em->find(Card::class, $created['cardId']) ?? throw new \LogicException('The card exists.');
+        $automation = new CardAutomation($card);
+        $automation->fixRounds = 1;
+        $automation->lastAction = CardAutomationAction::FixRequested;
+        $this->em->persist($automation);
+        $this->em->flush();
+
+        $read = ($this->tool)($created['cardId']);
+
+        $state = $read['pullRequests'][0]['state'];
+        self::assertNotNull($state);
+        self::assertSame('open', $state['state']);
+        self::assertSame('failed', $state['checks']);
+        self::assertSame(['phpunit'], $state['failedChecks']);
+        self::assertSame('conflicting', $state['mergeability']);
+        self::assertSame('2026-09-27T11:00:00+00:00', $state['refreshedAt']);
+        self::assertNull($read['pullRequests'][1]['state']);
+        self::assertSame(['fixRounds' => 1, 'blockedReason' => null, 'lastAction' => 'fix-requested', 'lastActionAt' => null], $read['automation']);
+    }
+
+    public function test_a_card_with_no_automation_row_reads_a_null_automation(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-get-no-automation'));
+        $created = ($this->createTool)('Ship it', 'Body', 'tooling');
+
+        self::assertNull(($this->tool)($created['cardId'])['automation']);
     }
 
     public function test_each_card_reads_its_links_from_its_own_side(): void
@@ -219,5 +268,13 @@ final class CardGetToolTest extends KernelTestCase
                 'createdAt' => $addressed->createdAt->format(\DATE_ATOM),
             ],
         ], ($this->tool)($created['cardId'])['siteReviewComments']);
+    }
+
+    private function forgeRows(): ForgePullRequestRepository
+    {
+        $rows = self::getContainer()->get(ForgePullRequestRepository::class);
+        self::assertInstanceOf(ForgePullRequestRepository::class, $rows);
+
+        return $rows;
     }
 }

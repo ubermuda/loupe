@@ -7,6 +7,8 @@ namespace App\Module\Inbox\Service\Dev;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardAutomation;
+use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
@@ -15,6 +17,11 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestReview;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItem;
@@ -62,6 +69,7 @@ final readonly class ProjectShowcaseSeeder
         private InboxItemRepository $inboxItems,
         private SiteReviewCommentRepository $siteReviewComments,
         private PullRequestUrlResolver $pullRequests,
+        private ForgePullRequestRepository $forgePullRequests,
         private InboxSearchIndexer $inboxSearch,
         private DocumentSearchIndexer $documentSearch,
         private CardWaitReconciler $cardWaits,
@@ -147,14 +155,47 @@ final readonly class ProjectShowcaseSeeder
         foreach ([$checkout, $history, $columnRules, $onboarding] as $card) {
             $this->em->persist($card);
         }
-        $links = $this->pullRequests->linksFor($checkout, ['https://github.com/example/atlas/pull/438']);
-        $pullRequest = $links[0] ?? throw new \LogicException('The pull request resolver returned no link.');
-        foreach ($links as $link) {
-            $this->em->persist($link);
-        }
+        $pullRequest = $this->linkPullRequest($checkout, 438, PullRequestChecks::Failed, PullRequestMergeability::Mergeable, PullRequestReview::Required, ['phpunit', 'e2e-chromium']);
+        $this->linkPullRequest($history, 441, PullRequestChecks::Passed, PullRequestMergeability::Conflicting, PullRequestReview::Required);
+        $this->linkPullRequest($columnRules, 445, PullRequestChecks::Failed, PullRequestMergeability::Mergeable, PullRequestReview::ChangesRequested, ['lint']);
+        $this->linkPullRequest($onboarding, 447, PullRequestChecks::Passed, PullRequestMergeability::Mergeable, PullRequestReview::Approved);
+
+        $automation = new CardAutomation($columnRules);
+        $automation->fixRounds = 3;
+        $automation->blockedReason = 'checks-failed';
+        $automation->lastAction = CardAutomationAction::Stopped;
+        $automation->lastActionAt = new \DateTimeImmutable('-20 minutes');
+        $this->em->persist($automation);
         $this->em->flush();
 
         return ['checkout' => $checkout, 'history' => $history, 'columns' => $columnRules, 'onboarding' => $onboarding, 'pullRequest' => $pullRequest];
+    }
+
+    /**
+     * No App installation reads example/atlas, so a refresh fails as not
+     * transient and keeps this state.
+     *
+     * @param list<string> $failedChecks
+     */
+    private function linkPullRequest(Card $card, int $number, PullRequestChecks $checks, PullRequestMergeability $mergeability, PullRequestReview $review, array $failedChecks = []): CardPullRequest
+    {
+        $links = $this->pullRequests->linksFor($card, ['https://github.com/example/atlas/pull/'.$number]);
+        $link = $links[0] ?? throw new \LogicException('The pull request resolver returned no link.');
+        $this->em->persist($link);
+
+        $state = $this->forgePullRequests->findOneBy(['project' => $card->project, 'forge' => 'github', 'repository' => 'example/atlas', 'number' => $number])
+            ?? new ForgePullRequest($card->project, 'github', 'example/atlas', $number);
+        $state->headSha = hash('sha1', 'atlas-'.$number);
+        $state->baseBranch = 'main';
+        $state->checks = $checks;
+        $state->checksSha = $state->headSha;
+        $state->failedChecks = $failedChecks;
+        $state->mergeability = $mergeability;
+        $state->review = $review;
+        $state->refreshedAt = new \DateTimeImmutable('-5 minutes');
+        $this->em->persist($state);
+
+        return $link;
     }
 
     /** @return array{history: Document, rules: Document, onboarding: Document} */
@@ -166,17 +207,18 @@ final readonly class ProjectShowcaseSeeder
             '<h1>Worker run history</h1><h2>The problem</h2><p>When an agent finishes, its output disappears into a terminal session. A person needs to see what ran, what happened, and which card it belonged to.</p><h2>Proposed approach</h2><p>Give every reported run a place in the project. Show its outcome, duration, matched rule, and the card that started it.</p>',
         );
         $history->addVersion(
-            "# Worker run history\n\n## The problem\n\nWhen an agent finishes, its output disappears into a terminal session.\n\n## Failure and recovery\n\nA failed run shows the original output and the reason it stopped. A retry starts a new run and preserves the earlier attempt.\n",
-            '<h1>Worker run history</h1><h2>The problem</h2><p>When an agent finishes, its output disappears into a terminal session.</p><h2>Failure and recovery</h2><p>A failed run shows the original output and the reason it stopped. A retry starts a new run and preserves the earlier attempt.</p>',
+            "# Worker run history\n\n## The problem\n\nWhen an agent finishes, its output disappears into a terminal session.\n\n## Failure and recovery\n\nA failed run shows the original output and the reason it stopped. A retry starts a new run and preserves the earlier attempt. The matched rule keeps its label after a rename, as C1 requires.\n",
+            '<h1>Worker run history</h1><h2>The problem</h2><p>When an agent finishes, its output disappears into a terminal session.</p><h2>Failure and recovery</h2><p>A failed run shows the original output and the reason it stopped. A retry starts a new run and preserves the earlier attempt. The matched rule keeps its label after a rename, as C1 requires.</p>',
             'Answered the failure question.',
         );
 
         $rules = new Document($owner, $project, 'Column rules');
         $rules->addVersion(
-            "# Column rules\n\n## Renaming a column\n\nA rule points at a column by its stable id, so a rename keeps the rule attached. The board shows the new label everywhere the old one appeared.\n",
-            '<h1>Column rules</h1><h2>Renaming a column</h2><p>A rule points at a column by its stable id, so a rename keeps the rule attached. The board shows the new label everywhere the old one appeared.</p>',
+            "# Column rules\n\n## Renaming a column\n\nA rule points at a column by its stable id, so a rename keeps the rule attached. The board shows the new label everywhere the old one appeared.\n\n## Constraints\n\n1. **C1: A rename keeps every rule attached.** The rule stores the column id, not its label.\n2. **C2: A deleted column disables its rules.** The board lists them for review.\n\nC2 matters less than C1 while columns are rarely deleted.\n",
+            '<h1>Column rules</h1><h2>Renaming a column</h2><p>A rule points at a column by its stable id, so a rename keeps the rule attached. The board shows the new label everywhere the old one appeared.</p><h2>Constraints</h2><ol><li><strong>C1: A rename keeps every rule attached.</strong> The rule stores the column id, not its label.</li><li><strong>C2: A deleted column disables its rules.</strong> The board lists them for review.</li></ol><p>C2 matters less than C1 while columns are rarely deleted.</p>',
         );
         $rules->status = DocumentStatus::Approved;
+        $history->addReference($rules);
 
         $onboarding = new Document($owner, $project, 'First handoff guide');
         $onboarding->addVersion(

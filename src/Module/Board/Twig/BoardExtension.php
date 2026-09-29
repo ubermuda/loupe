@@ -24,6 +24,7 @@ use App\Module\Board\Form\SetCardLaneRequest;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardColumnTonePicker;
+use App\Module\Board\Service\CardBadge;
 use App\Module\Board\Service\CardDigest;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
@@ -143,9 +144,10 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
             ->createView();
     }
 
-    public function cardDigest(Card $card, int $pendingComments, int $documentCount, ?CardProgress $progress, ?CardRunWarning $runWarning): string
+    /** @param list<CardBadge> $badges */
+    public function cardDigest(Card $card, int $pendingComments, int $documentCount, ?CardProgress $progress, ?CardRunWarning $runWarning, array $badges): string
     {
-        return $this->digest->forCard($card, $pendingComments, $documentCount, $card->pullRequests->count(), $progress, $runWarning);
+        return $this->digest->forCard($card, $pendingComments, $documentCount, $card->pullRequests->count(), $progress, $runWarning, $badges);
     }
 
     /** @return list<CardDocument> */

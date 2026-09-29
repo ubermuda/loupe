@@ -1,0 +1,80 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Module\Forge\Repository;
+
+use App\Module\Account\Entity\User;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Project\Entity\Project;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
+
+final class ForgePullRequestRepositoryTest extends KernelTestCase
+{
+    private EntityManagerInterface $em;
+    private ForgePullRequestRepository $pullRequests;
+
+    protected function setUp(): void
+    {
+        self::bootKernel();
+
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $this->em = $em;
+
+        $pullRequests = self::getContainer()->get(ForgePullRequestRepository::class);
+        self::assertInstanceOf(ForgePullRequestRepository::class, $pullRequests);
+        $this->pullRequests = $pullRequests;
+    }
+
+    public function test_find_by_keys_answers_the_rows_of_the_keys_in_any_case(): void
+    {
+        $project = $this->project();
+        $projectId = $project->id ?? throw new \LogicException('The project is persisted.');
+        $seven = $this->pullRequests->insertIfMissing($projectId, 'github', 'ubermuda/loupe', 7);
+        $eight = $this->pullRequests->insertIfMissing($projectId, 'github', 'ubermuda/loupe', 8);
+        $this->pullRequests->insertIfMissing($projectId, 'github', 'ubermuda/other', 7);
+        $this->pullRequests->insertIfMissing($projectId, 'github', 'ubermuda/loupe', 9);
+        $this->pullRequests->insertIfMissing($this->projectId(), 'github', 'ubermuda/loupe', 7);
+
+        $rows = $this->pullRequests->findByKeys($projectId, [
+            ['forge' => 'github', 'repository' => 'Ubermuda/Loupe', 'number' => 7],
+            ['forge' => 'github', 'repository' => 'ubermuda/loupe', 'number' => 8],
+            ['forge' => 'gitlab', 'repository' => 'ubermuda/loupe', 'number' => 9],
+            ['forge' => 'github', 'repository' => 'ubermuda/missing', 'number' => 7],
+        ]);
+
+        $ids = array_map(static fn (ForgePullRequest $row): string => (string) $row->id, $rows);
+        sort($ids);
+        $expected = [(string) $seven, (string) $eight];
+        sort($expected);
+        self::assertSame($expected, $ids);
+    }
+
+    public function test_find_by_keys_answers_nothing_for_no_keys(): void
+    {
+        $projectId = $this->projectId();
+        $this->pullRequests->insertIfMissing($projectId, 'github', 'ubermuda/loupe', 7);
+
+        self::assertSame([], $this->pullRequests->findByKeys($projectId, []));
+    }
+
+    private function projectId(): Uuid
+    {
+        return $this->project()->id ?? throw new \LogicException('The project is persisted.');
+    }
+
+    private function project(): Project
+    {
+        $owner = new User(fullName: 'Riley', email: 'forge-rows-'.uniqid().'@example.com', password: 'hashed');
+        $project = new Project($owner, 'forge-rows-'.uniqid());
+        $this->em->persist($owner);
+        $this->em->persist($project);
+        $this->em->flush();
+
+        return $project;
+    }
+}

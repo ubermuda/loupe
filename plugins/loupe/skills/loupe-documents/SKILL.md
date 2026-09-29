@@ -188,6 +188,11 @@ reading context, not for a terminal or a README.
     Archived documents stay out until you pass `includeArchived`. Keep paging
     while `hasMore` is true, under a search as much as without one.
 
+15. **A product design or a tech design follows
+    `references/design-structure.md`.** It opens with "At a glance", and each
+    open decision gets a pros and cons table. Read that file before you write
+    one.
+
 ## Example
 
 Entry shape, lead sentence first and detail after:
@@ -240,3 +245,5 @@ Not: "Drop `x-forwarded-host` or generate these links from a pinned
 - Answering a one-line comment with a structured essay: bold lead-ins,
   sub-points, the whole argument that produced the answer. Give the answer
   (rule 8); if it does not fit in a short paragraph, it belongs in the document.
+- Writing a table and then the same content again in prose. The table replaces
+  the text it covers (rule 15).

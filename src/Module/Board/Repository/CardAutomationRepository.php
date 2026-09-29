@@ -44,6 +44,32 @@ class CardAutomationRepository extends ServiceEntityRepository
         return $automation instanceof CardAutomation ? $automation : throw new \LogicException('The row exists after the insert.');
     }
 
+    /**
+     * @param list<Uuid> $cardIds
+     *
+     * @return array<string, CardAutomation> keyed by card id; a card with no row has no entry
+     */
+    public function findByCardIds(array $cardIds): array
+    {
+        if ([] === $cardIds) {
+            return [];
+        }
+
+        /** @var list<CardAutomation> $rows */
+        $rows = $this->createQueryBuilder('automation')
+            ->andWhere('automation.card IN (:cards)')
+            ->setParameter('cards', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds))
+            ->getQuery()
+            ->getResult();
+
+        $byCard = [];
+        foreach ($rows as $row) {
+            $byCard[(string) $row->card->id] = $row;
+        }
+
+        return $byCard;
+    }
+
     /** Clears the fix rounds and the block of the card. A card with no row keeps none. */
     public function reset(Card $card): void
     {
