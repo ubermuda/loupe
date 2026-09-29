@@ -60,6 +60,7 @@ const GROUPS = [
             'refresh="morph"',
             'board-refresh',
             'board-live:reload',
+            'action="replace" target="board"',
         ],
     },
 ];
