@@ -189,6 +189,10 @@ const test = base.extend<{ board: Board }>({
     },
 });
 
+// The fixture and the card_create calls fill most of the default budget on a
+// loaded machine, and two tests also wait for the hub to connect.
+test.slow();
+
 // The flags are global, so they go back to their shipped value, on, for later specs.
 test.afterAll(async ({ request }) => {
     await setFlag(request, 'board.enabled', true);
@@ -208,8 +212,6 @@ test('the deck counts the Backlog cards of its epic, fans them out, and gives on
     board,
 }) => {
     const page = board.page;
-    // It waits for the hub, which a cold worktree connects slowly.
-    test.slow();
     const epic = await board.create(`Deck epic ${RUN}`, {
         type: 'epic',
         status: 'next',
@@ -256,8 +258,6 @@ test('a card dropped on the deck of its epic goes back to the Backlog', async ({
     board,
 }) => {
     const page = board.page;
-    // It waits for the hub, which a cold worktree connects slowly.
-    test.slow();
     const epic = await board.create(`Return epic ${RUN}`, {
         type: 'epic',
         status: 'next',
@@ -406,4 +406,55 @@ test('a collapsed lane is a slim bar with its number, title and progress only', 
     await epicLane.locator('button[data-action="board-lane#toggle"]').click();
     await expect(deck(page, epic)).toBeVisible();
     await expect(epicLane.locator('.lp-board-lane__cells')).toBeVisible();
+});
+
+test('the deck stays in view while the lanes scroll sideways, and a long title wraps clear of it', async ({
+    board,
+}) => {
+    const page = board.page;
+    await page.setViewportSize({ width: 600, height: 800 });
+    const epic = await board.create(
+        `Pinned epic with a title long enough to need two lines in the lane head ${RUN}`,
+        { type: 'epic', status: 'next' },
+    );
+    await board.create(`Pinned waiting ${RUN}`, { parent: epic });
+
+    await page.goto(board.boardUrl);
+    await expect(page.locator(READY)).toBeAttached();
+    const scroller = page.locator('.lp-board__columns--lanes');
+    const upNext = lane(page, epic).locator('.lp-board-lane__up-next');
+    await expect(upNext).toBeVisible();
+
+    const strip = await scroller.evaluate((element) => ({
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+        right: element.getBoundingClientRect().right,
+    }));
+    expect(strip.scrollWidth).toBeGreaterThan(strip.clientWidth);
+    const pinned = await upNext.boundingBox();
+    expect(pinned).not.toBeNull();
+    if (pinned === null) {
+        return;
+    }
+    expect(pinned.x + pinned.width).toBeLessThanOrEqual(strip.right + 1);
+
+    const title = await lane(page, epic)
+        .locator('.lp-board-lane__title')
+        .boundingBox();
+    const head = await lane(page, epic)
+        .locator('.lp-board-lane__head')
+        .boundingBox();
+    expect(title).not.toBeNull();
+    expect(head).not.toBeNull();
+    if (title === null || head === null) {
+        return;
+    }
+    expect(title.x + title.width).toBeLessThanOrEqual(pinned.x);
+    expect(title.y + title.height).toBeLessThanOrEqual(head.y + head.height);
+
+    await scroller.evaluate((element) => {
+        element.scrollLeft = element.scrollWidth;
+    });
+    const scrolled = await upNext.boundingBox();
+    expect(Math.abs((scrolled?.x ?? 0) - pinned.x)).toBeLessThan(2);
 });
