@@ -34,6 +34,8 @@ class Bridge
     /** The capability of a bridge that reads commands from the outbox and the heartbeat reply. */
     public const string CAPABILITY_COMMANDS = 'commands';
 
+    public const string CAPABILITY_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
+
     /** Null when the last heartbeat carried no update report. */
     #[ORM\Column(name: 'update_state', length: 20, nullable: true, enumType: CliUpdateState::class)]
     public ?CliUpdateState $updateState = null;
