@@ -22,6 +22,7 @@ use App\Module\OAuth\Entity\GrantedCredential;
 use App\Module\OAuth\Security\OAuthAccessTokenAuthenticator;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\DecisionAnswer;
 use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Highlight;
@@ -332,6 +333,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // pass merely because the document row is already gone.
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_tags WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM decision_selections WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM decision_answers WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM section_approvals WHERE document_id = :id', ['id' => (string) $fixture['foreignDocumentId']]));
 
         // Nothing belonging to the other, untouched users was removed: their
@@ -347,6 +349,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // with them, while the document itself stays.
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM section_approvals WHERE document_id = :id', ['id' => (string) $fixture['otherDocumentId']]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE id = :id', ['id' => (string) $fixture['otherDocumentId']]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM decision_answers WHERE document_id = :id AND answered_by_id IS NULL', ['id' => (string) $fixture['otherDocumentId']]));
     }
 
     /**
@@ -506,6 +509,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // CASCADE, so an answered decision on this document aborts the whole
         // account deletion unless DocumentOwnershipAccountPurger clears it.
         $em->persist(new DecisionSelection($foreignDocument, 'deploy-target', 1, 'Ship straight to production', 1));
+        $em->persist(new DecisionAnswer($foreignDocument, 'deploy-target', 'Staging is down.', $other, 1));
         // Same chain and the same NOT DEFERRABLE constraint as the selection above.
         $em->persist(new SectionApproval($foreignDocument, 'heading-hi', str_repeat('a', 64), $owner, 1));
 
@@ -524,6 +528,8 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         // The deleted user as approver on a document they do NOT own: only
         // SectionApprovalAccountPurger clears this one.
         $em->persist(new SectionApproval($otherDocument, 'heading-hi', str_repeat('b', 64), $owner, 1));
+        // The shared answer stays on the surviving document, and forgets who saved it.
+        $em->persist(new DecisionAnswer($otherDocument, 'deploy-target', 'Staging first.', $owner, 1));
 
         // A surviving document pointing AT the doomed one: only the incoming
         // half of the join-table cleanup can clear this, and without it the
