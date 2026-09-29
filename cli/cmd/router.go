@@ -1562,6 +1562,16 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 		if p.continues != "" {
 			report.Continues, report.ResumeIndex, report.ResumeCap = p.continues, p.resumeIndex, p.maxResumes
 		}
+		if e := p.event; e.Type != "" {
+			report.Trigger = &api.RunTrigger{
+				EventType:         e.Type,
+				Forge:             e.Forge,
+				Repository:        e.Repository,
+				PullRequestNumber: e.PullRequestNumber,
+				HeadSHA:           e.HeadSHA,
+				Reason:            e.Reason,
+			}
+		}
 	}
 	report.BridgeID, report.At = r.bridgeID, time.Now()
 	report.CardID, report.CardNumber, report.RuleName = cardID, cardNumber, p.rule
