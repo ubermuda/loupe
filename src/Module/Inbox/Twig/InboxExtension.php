@@ -6,6 +6,7 @@ namespace App\Module\Inbox\Twig;
 
 use App\Mercure\UserTopicBuilder;
 use App\Module\Account\Entity\User;
+use App\Module\Inbox\Entity\InboxCardWatch;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\Form\AnswerInboxItemFormType;
@@ -16,6 +17,7 @@ use App\Module\Inbox\Form\MarkInboxItemDoneFormType;
 use App\Module\Inbox\Form\SubmitInboxDocumentReviewFormType;
 use App\Module\Inbox\Form\SubmitInboxPullRequestReviewFormType;
 use App\Module\Inbox\Form\SubmitInboxPullRequestReviewRequest;
+use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\InboxReviewLookup;
 use App\Module\Project\Entity\Project;
@@ -46,6 +48,7 @@ final class InboxExtension extends AbstractExtension
         private readonly InboxReviewLookup $inboxReviews,
         private readonly ReviewRepository $reviews,
         private readonly DocumentVersionRepository $documentVersions,
+        private readonly InboxCardWatchRepository $inboxCardWatches,
     ) {
     }
 
@@ -57,6 +60,7 @@ final class InboxExtension extends AbstractExtension
             new TwigFunction('inbox_done_form', $this->doneForm(...)),
             new TwigFunction('inbox_decline_form', $this->declineForm(...)),
             new TwigFunction('inbox_review', $this->review(...)),
+            new TwigFunction('inbox_card_watch', $this->cardWatch(...)),
             new TwigFunction('inbox_review_withdrawal', $this->reviewWithdrawal(...)),
             new TwigFunction('inbox_review_version', $this->reviewVersion(...)),
             new TwigFunction('inbox_pull_request_review_form', $this->pullRequestReviewForm(...)),
@@ -115,6 +119,12 @@ final class InboxExtension extends AbstractExtension
     public function review(InboxItem $item): ?InboxReview
     {
         return $this->inboxReviews->forItem($item);
+    }
+
+    /** The card and the waits behind a wait item. */
+    public function cardWatch(InboxItem $item): ?InboxCardWatch
+    {
+        return $this->inboxCardWatches->findOneForItem($item);
     }
 
     public function reviewWithdrawal(InboxReview $review): ?Review

@@ -196,7 +196,7 @@ class InboxItemRepository extends ServiceEntityRepository
         /** @var list<array{id: mixed}> $rows */
         $rows = $this->createQueryBuilder('i')
             ->select('i.id')
-            ->join(InboxAskItem::class, 'l', 'WITH', 'l.item = i')
+            ->join(InboxAskItem::class, 'l', Join::ON, 'l.item = i')
             ->andWhere('l.ask = :ask')
             ->andWhere('i.blocking = true')
             ->andWhere('i.state = :open')
@@ -261,7 +261,7 @@ class InboxItemRepository extends ServiceEntityRepository
         // No inverse collection leads from an item to its asks, so the memberships
         // come back as rows of their own beside the items.
         $rows = $this->createQueryBuilder('i')
-            ->leftJoin(InboxAskItem::class, 'm', Join::WITH, 'm.item = i')
+            ->leftJoin(InboxAskItem::class, 'm', Join::ON, 'm.item = i')
             ->leftJoin('m.ask', 'a')
             ->addSelect('m', 'a')
             ->andWhere('i.project = :project')

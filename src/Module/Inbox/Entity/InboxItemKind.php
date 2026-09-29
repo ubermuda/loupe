@@ -9,4 +9,6 @@ enum InboxItemKind: string
     case Question = 'question';
     case Todo = 'todo';
     case Review = 'review';
+    /** Loupe opens it for a card that waits for a person. It always blocks and takes no answer. */
+    case Wait = 'wait';
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Service;
 
 use App\Exception\DomainErrors;
+use App\Module\Inbox\Entity\InboxAskOrigin;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
@@ -24,6 +25,7 @@ final readonly class InboxItemCloser
 {
     public const string ERROR_FINAL = 'inbox.item.error.final';
     public const string ERROR_CLOSED_BY_AGENT = 'inbox.item.error.closed_by_agent';
+    public const string ERROR_CLOSED_BY_LOUPE = 'inbox.item.error.closed_by_loupe';
 
     /** The refusal a caller gives when the item it acts on is already closed. */
     public const string ITEM_NOT_OPEN = 'inbox.item.error.not_open';
@@ -133,6 +135,9 @@ final readonly class InboxItemCloser
     {
         if (InboxItemKind::Review === $item->kind && InboxItemState::Open !== $item->state) {
             return self::ERROR_FINAL;
+        }
+        if (InboxAskOrigin::Loupe === $item->origin && \in_array($item->state, [InboxItemState::Done, InboxItemState::Obsolete], true)) {
+            return self::ERROR_CLOSED_BY_LOUPE;
         }
 
         // The two calls that ignore the asks settle an open item and an agent's

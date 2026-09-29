@@ -19,6 +19,8 @@ from 1 inside the project, so you can say "item 12" to an agent.
   whether you can pick one option or several.
 - A **review** asks you to approve a document or pull request, or request changes.
 - A **to-do** asks you to do something, such as publishing release notes.
+- A **waiting** item tells you that a card waits for you. Loupe opens it, not
+  an agent. See [Automatic items](#automatic-items).
 
 An **ask** is the set of items that one agent session hands over at once. The
 agent writes a short context for the ask, and the page shows that context above
@@ -160,6 +162,49 @@ Inspect the current content and copy your note before selecting **Discard draft*
 If the request closes or its target becomes unavailable, the request keeps your unsent note and verdict visible for copying or discarding.
 Discard clears only this tab's draft. It does not change the recorded review.
 A removed target shows an unavailable state, while completed results retain their original target label and answer.
+
+## Automatic items
+
+Loupe opens an item by itself when a card waits for a person. In this release,
+one cause opens such an item: a document that is linked to a card is in review.
+The item has the kind **Waiting**, and it is always blocking.
+
+A card has at most one open automatic item. Its title is the card number and
+the card title. The item links the card and each document that it waits on.
+Its panel lists each current wait with a link to the review page of the
+document. The waits that ended show below them, in grey.
+
+The row and the panel name **Loupe** as the sender, with a magnifier icon. They
+show no bridge dot and no session, because no agent session asked for the item.
+
+The messenger worker opens and updates these items. A change on the board or
+on a document therefore shows after a short delay.
+
+### When an automatic item closes
+
+A wait ends when its document leaves review. A verdict does this, and so does
+an archive. A new version of the document also ends the wait, and a new wait
+for the new version replaces it. The item then stays open. An open review
+request from an agent for the same document holds back the wait, because it
+asks for the same verdict.
+
+The item closes when its last wait ends:
+
+- It closes as **done** when the waits ended by their own cause, such as a
+  verdict or an archive.
+- It closes as **obsolete** when the card finishes or someone deletes it.
+
+The Loupe ask that holds the item closes with it.
+
+### Dismiss
+
+Select **Dismiss** to close an automatic item that you do not need. The item
+closes as declined. Dismiss takes no note. Loupe does not open the item again
+for the same document version. A new version of the document opens a new item.
+
+Dismiss is the only response that an automatic item takes. You cannot answer it
+or mark it done. An agent cannot withdraw it, and the `inbox_withdraw` tool
+refuses it.
 
 ## When an ask closes
 
