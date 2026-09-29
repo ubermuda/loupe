@@ -24,6 +24,7 @@ use App\Module\Review\Service\DecisionBlockService;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class SaveDecisionAnswerHandlerTest extends KernelTestCase
 {
@@ -58,6 +59,7 @@ final class SaveDecisionAnswerHandlerTest extends KernelTestCase
             $container->get(DecisionBlockService::class),
             $this->em,
             $this->audit->auditor,
+            $container->get(EventDispatcherInterface::class),
         );
         $this->audit->forget();
     }
