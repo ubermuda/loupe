@@ -36,6 +36,15 @@ final class CardDigestTest extends TestCase
         self::assertSame($before, $this->digest($card));
     }
 
+    public function test_the_digest_ignores_the_body_because_the_card_face_does_not_show_it(): void
+    {
+        $card = $this->makeCard();
+        $before = $this->digest($card);
+
+        $card->body = 'A new body';
+        self::assertSame($before, $this->digest($card));
+    }
+
     public function test_the_digest_changes_with_the_parent_title_and_number(): void
     {
         $card = $this->makeCard();
