@@ -88,8 +88,8 @@ final readonly class ProjectShowcaseSeeder
     public const string WAITING_CARD_TITLE = 'Board onboarding';
 
     /**
-     * A second run writes nothing but asks Loupe for the wait item again, so
-     * a run after inbox.enabled goes on opens it.
+     * A second run writes nothing but asks Loupe for the wait items again, so
+     * a run after inbox.enabled goes on opens them.
      */
     public function __invoke(Project $project, User $owner, User $reviewer): ShowcaseSeeding
     {
@@ -108,12 +108,17 @@ final readonly class ProjectShowcaseSeeder
 
         $enabled = $this->inbox->isEnabled();
         if (!$waitingCard instanceof Card) {
-            return new ShowcaseSeeding($written, false, $enabled);
+            return new ShowcaseSeeding($written, false, $enabled, 0);
         }
         $cardId = $waitingCard->id ?? throw new \LogicException('A stored card has an id.');
-        $this->cardWaits->reconcile($project, [(string) $cardId]);
+        $this->cardWaits->reconcile($project, null);
 
-        return new ShowcaseSeeding($written, [] !== $this->inboxCardWatches->findOpenForCards($project, [$cardId]), $enabled);
+        return new ShowcaseSeeding(
+            $written,
+            [] !== $this->inboxCardWatches->findOpenForCards($project, [$cardId]),
+            $enabled,
+            \count($this->inboxCardWatches->findOpenCardIds($project)),
+        );
     }
 
     /** @return array{checkout: Card, history: Card, columns: Card, onboarding: Card, pullRequest: CardPullRequest} */
@@ -165,6 +170,7 @@ final readonly class ProjectShowcaseSeeder
         }
         $pullRequest = $this->linkPullRequest($checkout, 438, PullRequestChecks::Failed, PullRequestMergeability::Mergeable, PullRequestReview::Required, ['phpunit', 'e2e-chromium']);
         $this->linkPullRequest($history, 441, PullRequestChecks::Passed, PullRequestMergeability::Conflicting, PullRequestReview::Required);
+        $this->linkPullRequest($history, 449, PullRequestChecks::Passed, PullRequestMergeability::Blocked, PullRequestReview::Required);
         $this->linkPullRequest($columnRules, 445, PullRequestChecks::Failed, PullRequestMergeability::Mergeable, PullRequestReview::ChangesRequested, ['lint']);
         $this->linkPullRequest($onboarding, 447, PullRequestChecks::Passed, PullRequestMergeability::Mergeable, PullRequestReview::Approved);
 

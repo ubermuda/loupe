@@ -173,7 +173,7 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-It installs nine skills, each covering one part of working a Loupe project:
+It installs ten skills, each covering one part of working a Loupe project:
 
 | Skill | Covers |
 |---|---|
@@ -185,7 +185,8 @@ It installs nine skills, each covering one part of working a Loupe project:
 | `loupe:loupe-stage-product-design` | One review round on a product document |
 | `loupe:loupe-stage-tech-design` | A card entering the tech design column |
 | `loupe:loupe-stage-implementation` | Building an approved design into a pull request |
-| `loupe:loupe-stage-fix-round` | One round of review feedback, run by hand |
+| `loupe:loupe-stage-fix-round` | One round of review feedback, from a fix request or run by hand |
+| `loupe:loupe-stage-merge` | Merging a ready pull request, or updating one that is behind its base |
 
 The plugin carried an MCP server until version 0.2.0, as an HTTP endpoint plus a
 project API token you typed at install. Two things were wrong with it. A plugin
@@ -482,8 +483,8 @@ closes it when the card stops waiting.
 `inbox_get` also returns `cardId` and `waits`. For a `wait` item, `cardId` names
 the card, and `waits` lists each reason the card waited, current and ended, in
 start order. Each entry holds `trigger`, `reason`, `documentId`,
-`versionNumber`, `runId`, `startedAt`, `endedAt` and `endReason`. An id or a
-date that does not apply is null. `endedAt` and `endReason` are null for a
+`versionNumber`, `runId`, `pullRequestId`, `headSha`, `startedAt`, `endedAt`
+and `endReason`. An id, a commit or a date that does not apply is null. `endedAt` and `endReason` are null for a
 current wait. `endReason` is `resolved`, `card-finished`, `card-deleted`,
 `switched-off` or `dismissed`. For any other kind,
 `cardId` is null and `waits` is empty.

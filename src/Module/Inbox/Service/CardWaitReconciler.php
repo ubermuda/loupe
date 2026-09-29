@@ -5,11 +5,21 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Service;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\Forge;
+use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
+use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\StageCard;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestReview;
+use App\Module\Forge\Entity\PullRequestState;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxAskOrigin;
@@ -53,11 +63,15 @@ final readonly class CardWaitReconciler
         private InboxAvailability $inbox,
         private InboxWaitSwitches $switches,
         private WorkerRunRepository $workerRuns,
+        private CardPullRequestRepository $cardPullRequests,
+        private ForgePullRequestRepository $forgePullRequests,
+        private CardAutomationRepository $cardAutomations,
+        private BoardAutomation $boardAutomation,
         private StageCard $stageCard,
     ) {
     }
 
-    /** @param list<string>|null $cardIds null for every card that has an open watch, a document in review or a newest run that waits */
+    /** @param list<string>|null $cardIds null for every card that has an open watch, a document in review, a newest run that waits or an open GitHub pull request */
     public function reconcile(Project $project, ?array $cardIds): void
     {
         $countChanged = $this->em->wrapInTransaction(function () use ($project, $cardIds): bool {
@@ -146,6 +160,7 @@ final readonly class CardWaitReconciler
                 static fn (array $row): string => $row['card_id'],
                 array_filter($this->workerRuns->findLatestRunRows($project, null), static fn (array $row): bool => null !== self::runTrigger($row['state'])),
             ),
+            ...$this->cardPullRequests->findCardIdsWithOpenGitHubPullRequest($project),
         ];
 
         $ids = [];
@@ -166,7 +181,7 @@ final readonly class CardWaitReconciler
     {
         $open = array_filter($cards, static fn (Card $card): bool => !$card->column->terminal);
         $cardIds = array_values(array_map(static fn (Card $card): Uuid => $card->id ?? throw new \LogicException('A stored card has an id.'), $open));
-        $candidates = [...$this->documentWaits($project, $cardIds), ...$this->runWaits($project, $cardIds, $open)];
+        $candidates = [...$this->documentWaits($project, $cardIds), ...$this->runWaits($project, $cardIds, $open), ...$this->pullRequestWaits($project, $cardIds)];
         if ([] === $candidates) {
             return [];
         }
@@ -264,6 +279,72 @@ final readonly class CardWaitReconciler
         return $waits;
     }
 
+    /**
+     * An open run on the card holds back a ready wait, and a fix-stopped wait
+     * with no blocked reason, because the run can still push a fix.
+     *
+     * @param list<Uuid> $cardIds
+     *
+     * @return list<array{string, WantedCardWait}>
+     */
+    private function pullRequestWaits(Project $project, array $cardIds): array
+    {
+        $links = $this->cardPullRequests->findGitHubReferencesForCards($cardIds);
+        if ([] === $links) {
+            return [];
+        }
+
+        $projectId = $project->id ?? throw new \LogicException('Project has no id.');
+        $rows = [];
+        foreach ($this->forgePullRequests->findByKeys($projectId, array_map(static fn (array $link): array => ['forge' => Forge::GitHub->value, 'repository' => $link['repository'], 'number' => $link['number']], $links)) as $row) {
+            $rows[$row->repository.'#'.$row->number] = $row;
+        }
+        if ([] === $rows) {
+            return [];
+        }
+
+        $automations = $this->cardAutomations->findByCardIds($cardIds);
+        $loopLimit = $this->boardAutomation->settingsOf($project)->loopLimit;
+        $running = array_flip($this->workerRuns->findCardIdsWithOpenRun($project, $cardIds));
+
+        $waits = [];
+        foreach ($links as $link) {
+            $row = $rows[mb_strtolower($link['repository']).'#'.$link['number']] ?? null;
+            if (null === $row || null === $row->refreshedAt || PullRequestState::Open !== $row->state || null === $row->headSha) {
+                continue;
+            }
+            $cardId = $link['cardId'];
+            $rowId = $row->id ?? throw new \LogicException('A stored pull request has an id.');
+            $idle = !isset($running[$cardId]);
+            $automation = $automations[$cardId] ?? null;
+
+            if ($idle && self::waitsForReview($row, $row->headSha)) {
+                $waits[] = [$cardId, WantedCardWait::forPullRequestReady($rowId, $row->number, $row->headSha)];
+            }
+            if (null !== $automation && (null !== $automation->blockedReason || ($idle && $automation->fixRounds >= $loopLimit))) {
+                $waits[] = [$cardId, WantedCardWait::forPullRequestFixStopped($rowId, $row->number, $row->headSha, $automation->blockedReason)];
+            }
+        }
+
+        return $waits;
+    }
+
+    /** A changes-requested review on an older commit waits again, because GitHub keeps it until someone reviews anew. */
+    private static function waitsForReview(ForgePullRequest $row, string $headSha): bool
+    {
+        $review = match ($row->review) {
+            PullRequestReview::Required, PullRequestReview::None => true,
+            PullRequestReview::ChangesRequested => null !== $row->changesRequestedSha && $row->changesRequestedSha !== $headSha,
+            PullRequestReview::Approved => false,
+        };
+
+        return $review
+            && !$row->draft
+            && PullRequestChecks::Passed === $row->checks
+            && $row->checksSha === $headSha
+            && \in_array($row->mergeability, [PullRequestMergeability::Mergeable, PullRequestMergeability::Blocked], true);
+    }
+
     private static function runTrigger(string $state): ?InboxCardWaitTrigger
     {
         return match (WorkerRunState::tryFrom($state)) {
@@ -340,7 +421,17 @@ final readonly class CardWaitReconciler
             if (isset($open[$key])) {
                 continue;
             }
-            $open[$key] = new InboxCardWait($watch, $wanted->trigger, $wanted->reason, $wanted->document?->id, $wanted->versionNumber, $wanted->runId, $now);
+            $open[$key] = new InboxCardWait(
+                watch: $watch,
+                trigger: $wanted->trigger,
+                reason: $wanted->reason,
+                documentId: $wanted->document?->id,
+                versionNumber: $wanted->versionNumber,
+                runId: $wanted->runId,
+                pullRequestId: $wanted->pullRequestId,
+                headSha: $wanted->headSha,
+                startedAt: $now,
+            );
             $watch->waits->add($open[$key]);
             if (null !== $wanted->document) {
                 $this->link($watch->item, $wanted->document, $now);

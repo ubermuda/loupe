@@ -21,7 +21,7 @@ final class EditInboxSettingsControllerTest extends WebTestCase
     use InboxScenario;
 
     private const string FORM = 'update_inbox_settings_form';
-    private const array SWITCHES = ['documentInReview', 'runBlocked', 'runGaveUp', 'runWaitingForPerson'];
+    private const array SWITCHES = ['documentInReview', 'runBlocked', 'runGaveUp', 'runWaitingForPerson', 'pullRequestReady', 'pullRequestFixStopped'];
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -34,7 +34,7 @@ final class EditInboxSettingsControllerTest extends WebTestCase
         $this->em = $em;
     }
 
-    public function test_the_owner_sees_four_switches_on_by_default(): void
+    public function test_the_owner_sees_every_switch_on_by_default(): void
     {
         $owner = $this->signedUpUser($this->em, 'inbox-settings-show');
         $project = $this->inboxProject($this->em, $owner);
@@ -46,7 +46,7 @@ final class EditInboxSettingsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('.lp-settings-nav__item--active[href$="/inbox/settings"]');
         $form = $crawler->filter('form[name="'.self::FORM.'"]');
-        self::assertCount(4, $form->filter('input[type="checkbox"]'));
+        self::assertCount(\count(self::SWITCHES), $form->filter('input[type="checkbox"]'));
         foreach (self::SWITCHES as $switch) {
             self::assertCount(1, $form->filter('input[name="'.self::FORM.'['.$switch.']"]:checked'), $switch);
         }
@@ -65,6 +65,9 @@ final class EditInboxSettingsControllerTest extends WebTestCase
         $runGaveUp = $submit[self::FORM.'[runGaveUp]'];
         self::assertInstanceOf(ChoiceFormField::class, $runGaveUp);
         $runGaveUp->untick();
+        $pullRequestFixStopped = $submit[self::FORM.'[pullRequestFixStopped]'];
+        self::assertInstanceOf(ChoiceFormField::class, $pullRequestFixStopped);
+        $pullRequestFixStopped->untick();
         $this->client->submit($submit);
 
         self::assertResponseRedirects($this->url($project));
@@ -85,6 +88,8 @@ final class EditInboxSettingsControllerTest extends WebTestCase
         self::assertTrue($settings->runBlocked);
         self::assertFalse($settings->runGaveUp);
         self::assertTrue($settings->runWaitingForPerson);
+        self::assertTrue($settings->pullRequestReady);
+        self::assertFalse($settings->pullRequestFixStopped);
     }
 
     public function test_a_user_who_does_not_own_the_project_is_forbidden(): void

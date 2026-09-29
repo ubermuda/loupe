@@ -67,6 +67,32 @@ final readonly class ProjectTopicBuilder
         return $this->projectIdFrom($topic, '/activity');
     }
 
+    /** The topic the review page of one document listens on. */
+    public function forDocument(Uuid $projectId, Uuid $documentId): string
+    {
+        return rtrim($this->appUrl, '/').'/projects/'.$projectId.'/documents/'.$documentId;
+    }
+
+    /**
+     * The project and the document a forDocument() topic names, or null for any other string.
+     *
+     * @return array{projectId: Uuid, documentId: Uuid}|null
+     */
+    public function idsFromDocumentTopic(string $topic): ?array
+    {
+        $prefix = rtrim($this->appUrl, '/').'/projects/';
+        if (!str_starts_with($topic, $prefix)) {
+            return null;
+        }
+
+        $segments = explode('/', substr($topic, \strlen($prefix)));
+        if (3 !== \count($segments) || 'documents' !== $segments[1] || !Uuid::isValid($segments[0]) || !Uuid::isValid($segments[2])) {
+            return null;
+        }
+
+        return ['projectId' => Uuid::fromString($segments[0]), 'documentId' => Uuid::fromString($segments[2])];
+    }
+
     private function projectIdFrom(string $topic, string $suffix): ?Uuid
     {
         $prefix = rtrim($this->appUrl, '/').'/projects/';
