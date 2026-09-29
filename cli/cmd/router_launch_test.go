@@ -41,7 +41,14 @@ rules:
 // state endpoints wired.
 func launchHarness(t *testing.T, launcher string) (*harness, *stateRecorder) {
 	t.Helper()
-	h := newHarnessWith(t, strings.Replace(launchRules, "{launcher}", launcher, 1), rules.Defaults{})
+
+	return launchHarnessWith(t, launchRules, launcher)
+}
+
+// launchHarnessWith is launchHarness on body.
+func launchHarnessWith(t *testing.T, body, launcher string) (*harness, *stateRecorder) {
+	t.Helper()
+	h := newHarnessWith(t, strings.Replace(body, "{launcher}", launcher, 1), rules.Defaults{})
 	h.router.claude = "/usr/local/bin/claude"
 	h.router.scriptDir = t.TempDir()
 
@@ -71,8 +78,8 @@ func (h *harness) assertNoWorkerState(t *testing.T, rec *stateRecorder) {
 	if len(h.router.queue) != 0 || len(h.router.running) != 0 || len(h.router.held) != 0 || len(h.router.sessions) != 0 || len(h.router.live) != 0 || len(h.router.chains) != 0 {
 		t.Fatalf("queue = %v, running = %v, held = %v, sessions = %v, live = %v, chains = %v", h.router.queue, h.router.running, h.router.held, h.router.sessions, h.router.live, h.router.chains)
 	}
-	if h.router.active != 0 || h.router.launching != 0 {
-		t.Fatalf("active = %d, launching = %d", h.router.active, h.router.launching)
+	if h.router.usedLocked() != 0 || h.router.launching != 0 {
+		t.Fatalf("active = %d, launching = %d", h.router.usedLocked(), h.router.launching)
 	}
 	if got := len(rec.states()); got != 0 {
 		t.Fatalf("run states = %v", rec.names())
@@ -180,8 +187,7 @@ func TestALaunchPastItsTimeoutLaunched(t *testing.T) {
 // while the launch runs.
 func TestAWorkerOfTheCardStartsWhileItsLaunchRuns(t *testing.T) {
 	gate := filepath.Join(t.TempDir(), "gate")
-	h, rec := launchHarness(t, `[sh, -c, 'while [ ! -e "$1" ]; do sleep 0.01; done', sh, '`+gate+`', '{script}']`)
-	h.router.maxWorkers = 1
+	h, rec := launchHarnessWith(t, withMaxWorkers(launchRules, 1), `[sh, -c, 'while [ ! -e "$1" ]; do sleep 0.01; done', sh, '`+gate+`', '{script}']`)
 	h.worker.started = make(chan workerSpec, 1)
 
 	h.router.onData([]byte(movedPayload(87, "backlog", "next", "human")))

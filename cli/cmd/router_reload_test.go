@@ -217,8 +217,7 @@ func TestAShutRouterRefusesAReload(t *testing.T) {
 // busy holds card 87 in the one worker slot, so later events wait.
 func busy(t *testing.T, body string) *harness {
 	t.Helper()
-	h := newHarnessWith(t, body, rules.Defaults{})
-	h.router.maxWorkers = 1
+	h := newHarnessWith(t, withMaxWorkers(body, 1), rules.Defaults{})
 	h.worker.started = make(chan workerSpec, 4)
 	h.worker.block = make(chan struct{})
 	h.router.onData([]byte(cardMoved(87)))
@@ -232,7 +231,7 @@ func TestAQueuedEventWhoseRuleStillMatchesKeepsItsPlaceWithTheNewPrompt(t *testi
 	h.router.onData([]byte(cardMoved(88)))
 	h.router.onData([]byte(movedPayload(89, "backlog", "review", "human")))
 
-	res := h.reload(t, strings.Replace(twoRuleFile, "prompt: Card {cardNumber} ({cardId}) entered {to}.", "prompt: New {cardNumber}.", 1))
+	res := h.reload(t, withMaxWorkers(strings.Replace(twoRuleFile, "prompt: Card {cardNumber} ({cardId}) entered {to}.", "prompt: New {cardNumber}.", 1), 1))
 	if !res.OK {
 		t.Fatalf("result = %+v", res)
 	}
@@ -283,8 +282,7 @@ rules:
 }
 
 func TestAReloadThatDropsACheckedResumeFreesItsCard(t *testing.T) {
-	h := newHarnessWith(t, resumeRules, rules.Defaults{})
-	h.router.maxWorkers = 1
+	h := newHarnessWith(t, withMaxWorkers(resumeRules, 1), rules.Defaults{})
 	c := &checks{state: api.AskState{AskID: testAsk, Closed: true, AllRead: false}}
 	h.router.checkAsk = c.check
 	h.worker.started = make(chan workerSpec, 2)
@@ -580,7 +578,7 @@ func TestAnEventMatchedBeforeTheSwapMatchesTheNewSet(t *testing.T) {
 	h := busy(t, twoRuleFile)
 	old := h.router.rules()
 
-	if res := h.reload(t, strings.Replace(defaultRules, "prompt: Card {cardNumber} ({cardId}) entered {to}.", "prompt: New {cardNumber}.", 1)); !res.OK {
+	if res := h.reload(t, withMaxWorkers(strings.Replace(defaultRules, "prompt: Card {cardNumber} ({cardId}) entered {to}.", "prompt: New {cardNumber}.", 1), 1)); !res.OK {
 		t.Fatalf("result = %+v", res)
 	}
 	h.router.enqueue(stale(old, testProject, 88, "next", event.ActorHuman))

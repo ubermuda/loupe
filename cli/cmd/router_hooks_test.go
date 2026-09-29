@@ -44,9 +44,8 @@ func wantFired(t *testing.T, hr *hookRunner, want ...string) {
 // The bridge turns busy at its first queued or running card, and idle once
 // none is left. A second card that waits for a slot fires nothing.
 func TestTheBridgeIsBusyFromTheFirstCardToTheLast(t *testing.T) {
-	h := newHarness(t)
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 	hr := h.withHookRunner()
-	h.router.maxWorkers = 1
 	h.worker.started = make(chan workerSpec, 2)
 	h.worker.block = make(chan struct{})
 
@@ -102,9 +101,8 @@ func TestADroppedQueueTurnsIdleWithItsLastWorker(t *testing.T) {
 		"reload": func(h *harness) { h.reload(t, strings.Replace(defaultRules, "name: plan", "name: build", 1)) },
 	} {
 		t.Run(name, func(t *testing.T) {
-			h := newHarness(t)
+			h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 			hr := h.withHookRunner()
-			h.router.maxWorkers = 1
 			h.worker.started = make(chan workerSpec, 2)
 			h.worker.block = make(chan struct{})
 
@@ -124,9 +122,8 @@ func TestADroppedQueueTurnsIdleWithItsLastWorker(t *testing.T) {
 
 // After shutdown the runner gets no idle, so stop alone ends the bridge.
 func TestShutdownFiresNoIdle(t *testing.T) {
-	h := newHarness(t)
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 	hr := h.withHookRunner()
-	h.router.maxWorkers = 1
 	h.worker.started = make(chan workerSpec, 2)
 	h.worker.block = make(chan struct{})
 

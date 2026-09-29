@@ -5159,9 +5159,9 @@
     }
 
     /* ── Feature grid ───────────────────────────────────────────────────
-       Hairline-separated cells rather than cards: six cards in a block reads as
-       a wall, and none of these six is more important than another. The gap is
-       the rule — the grid's own background shows through it. Below sm it is a
+       Hairline-separated cells rather than cards: a block of cards reads as a
+       wall, and no feature is more important than another. The gap is the rule,
+       because the grid's own background shows through it. Below sm it is a
        swipe carousel; the cell's partial width is what makes that legible. */
     .lp-landing-features {
         @apply flex snap-x snap-mandatory overflow-x-auto gap-px bg-line sm:grid sm:overflow-x-visible sm:grid-cols-2 md:grid-cols-3;
@@ -5172,6 +5172,16 @@
     }
     .lp-landing-feature {
         @apply flex flex-col gap-2.5 bg-app px-7 py-8 w-10/12 shrink-0 snap-start last:snap-end sm:w-auto;
+    }
+    /* The last cell fills a short last row, or the empty cells show the rule colour. */
+    .lp-landing-feature:last-child:nth-child(odd) {
+        @apply sm:col-span-2 md:col-span-1;
+    }
+    .lp-landing-feature:last-child:nth-child(3n + 1) {
+        @apply md:col-span-3;
+    }
+    .lp-landing-feature:last-child:nth-child(3n + 2) {
+        @apply md:col-span-2;
     }
     .lp-landing-feature__title {
         @apply font-display font-extrabold text-ink m-0 text-xl tracking-tight;

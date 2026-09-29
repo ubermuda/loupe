@@ -351,7 +351,7 @@ func TestANewEventDoesNotReplaceAQueuedResume(t *testing.T) {
 	e := event.Event{Type: event.CardMovedType, Subject: event.Subject{Type: "card", ID: cardUUID(87)}, ProjectID: testProject, CardNumber: 87, FromStatus: "backlog", ToStatus: "next", Actor: event.ActorHuman}
 	h.router.mu.Lock()
 	h.router.hold(cardUUID(87))
-	h.router.active = h.router.maxWorkers
+	h.router.inUse = map[string]int{rules.DefaultPool: rules.DefaultMaxWorkers}
 	h.router.seq = 1
 	h.router.queue = []pending{{key: cardUUID(87), rule: "plan", event: e, continues: "0199a0e2-0000-4000-8000-000000000099", checked: true, seq: 1, runID: "r1"}}
 	h.router.mu.Unlock()
@@ -500,7 +500,7 @@ func TestTheBridgeReadsTheCardBeforeItResumes(t *testing.T) {
 	}
 	log := &syncBuffer{}
 	worker := &fakeWorker{result: unfinishedRun}
-	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
+	r := withRules(&router{log: newBridgeLogger(log), worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

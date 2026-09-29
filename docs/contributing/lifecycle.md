@@ -125,6 +125,8 @@ or `~/.config/loupe/` on Linux. After a change, run `loupe bridge reload` to
 apply the file to the running bridge.
 
 ```yaml
+maxWorkers: 1
+
 projects:
   loupe:
     dir: ~/Code/loupe
@@ -222,10 +224,17 @@ no dedicated adapter uses the generic adapter.
 
 ## Run the bridge
 
-Run one bridge for this project, with one worker at a time:
+Run one bridge for this project, with one worker at a time. The
+`maxWorkers: 1` line at the top of the rule file above sets that bound:
+
+```yaml
+maxWorkers: 1
+```
+
+Then start the bridge:
 
 ```sh
-loupe bridge run --max-workers 1
+loupe bridge run
 ```
 
 Every worktree shares one `php-fpm` container, so two workers that run the gate
@@ -281,7 +290,8 @@ until a later run of the card ends another way, or the card moves.
    columns with the slugs above: `product-design`, `tech-design`,
    `implementation` and `in-review`.
 4. Write `rules.yaml`.
-5. Start the bridge with `loupe bridge run --max-workers 1`.
+5. Check that `rules.yaml` starts with `maxWorkers: 1`, then start the bridge
+   with `loupe bridge run`.
 6. Do one acceptance run with a small card. Start it with
    `/loupe:product-design`, then take it through an approval, Tech design, an
    approval and Implementation. Request changes on

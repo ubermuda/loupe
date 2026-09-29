@@ -131,6 +131,25 @@ func TestReportRunStateSendsTheFieldsOfEachState(t *testing.T) {
 	}
 }
 
+// A worker run names its pool in every state, an outcome included.
+func TestReportRunStateSendsTheWorkerPool(t *testing.T) {
+	queued := stateReport(RunQueued)
+	queued.WorkerPool = "quick"
+	succeeded := stateReport(RunSucceeded)
+	succeeded.WorkerPool = "quick"
+	succeeded.ExitCode = exitCode(0)
+
+	for _, report := range []RunStateReport{queued, succeeded} {
+		_, body, _, err := putState(t, report, http.StatusCreated)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if body["workerPool"] != "quick" {
+			t.Fatalf("%s: body = %v", report.State, body)
+		}
+	}
+}
+
 // A closed outcome keeps the pairing of the old report: an exit code, or a
 // failure reason, with the other one sent as null.
 func TestReportRunStateSendsAnOutcomeWithTheOldPairing(t *testing.T) {

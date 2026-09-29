@@ -1109,3 +1109,142 @@ func TestParseRefusesAMisplacedCard(t *testing.T) {
 		})
 	}
 }
+
+func TestParseGivesTheDefaultPoolTheWholeBudget(t *testing.T) {
+	s := checked(t, oneRule)
+	if s.MaxWorkers() != DefaultMaxWorkers {
+		t.Fatalf("MaxWorkers = %d", s.MaxWorkers())
+	}
+	if got := s.Pools(); len(got) != 1 || got[DefaultPool] != DefaultMaxWorkers {
+		t.Fatalf("Pools = %v", got)
+	}
+	if m := s.Match(moved("backlog", "ready", event.ActorHuman)); m.Pool != DefaultPool {
+		t.Fatalf("Match = %+v", m)
+	}
+}
+
+const pooledRules = `
+maxWorkers: 4
+workerPools:
+  quick:
+    size: 1
+projects:
+  loupe:
+    dir: {dir}
+rules:
+  - name: plan
+    workerPool: quick
+    on: board.card_moved
+    project: loupe
+    to: ready
+    prompt: plan
+  - name: review
+    on: board.card_moved
+    project: loupe
+    to: review
+    prompt: review
+`
+
+func TestParseSplitsTheBudgetIntoPools(t *testing.T) {
+	s := checked(t, pooledRules)
+	if s.MaxWorkers() != 4 {
+		t.Fatalf("MaxWorkers = %d", s.MaxWorkers())
+	}
+	if got := s.Pools(); len(got) != 2 || got["quick"] != 1 || got[DefaultPool] != 3 {
+		t.Fatalf("Pools = %v", got)
+	}
+	if m := s.Match(moved("backlog", "ready", event.ActorHuman)); m.Pool != "quick" {
+		t.Fatalf("Match = %+v", m)
+	}
+	if m := s.Match(moved("backlog", "review", event.ActorHuman)); m.Pool != DefaultPool {
+		t.Fatalf("Match = %+v", m)
+	}
+
+	s.Pools()["quick"] = 9
+	if s.Pools()["quick"] != 1 {
+		t.Fatal("Pools returns the set's own map")
+	}
+}
+
+func TestParseRefusesAnInvalidPool(t *testing.T) {
+	twoPools := "maxWorkers: 2\nworkerPools:\n  a:\n    size: 1\n  b:\n    size: 1\n"
+
+	for name, tc := range map[string]struct {
+		body string
+		want string
+	}{
+		"maxWorkers zero":                    {"maxWorkers: 0\n" + oneRule, "maxWorkers must be at least 1, got 0"},
+		"maxWorkers negative":                {"maxWorkers: -2\n" + oneRule, "maxWorkers must be at least 1, got -2"},
+		"size missing":                       {"workerPools:\n  quick: {}\n" + oneRule, "workerPools.quick: size is required"},
+		"null pool":                          {"workerPools:\n  quick:\n" + oneRule, "workerPools.quick: size is required"},
+		"size zero":                          {"workerPools:\n  quick:\n    size: 0\n" + oneRule, "workerPools.quick: size must be at least 1, got 0"},
+		"name not a pattern":                 {"workerPools:\n  Quick:\n    size: 1\n" + oneRule, `workerPools.Quick: a pool name`},
+		"name too long":                      {"workerPools:\n  a" + strings.Repeat("b", 40) + ":\n    size: 1\n" + oneRule, "a pool name"},
+		"default reserved":                   {"workerPools:\n  default:\n    size: 1\n" + oneRule, "workerPools.default: the name default is reserved"},
+		"unknown pool field":                 {"workerPools:\n  quick:\n    size: 1\n    weight: 2\n" + oneRule, "field weight not found"},
+		"sizes over budget":                  {"maxWorkers: 2\nworkerPools:\n  a:\n    size: 2\n  b:\n    size: 1\n" + oneRule, "the worker pools take more than the 2 slots of maxWorkers"},
+		"one pool over budget":               {"maxWorkers: 2\nworkerPools:\n  a:\n    size: 3\n" + oneRule, "workerPools.a: size 3 is more than maxWorkers, which is 2"},
+		"sizes that overflow":                {"maxWorkers: 9223372036854775807\nworkerPools:\n  a:\n    size: 9223372036854775807\n  b:\n    size: 9223372036854775807\n" + oneRule, "the worker pools take more than the 9223372036854775807 slots of maxWorkers"},
+		"unknown rule pool":                  {strings.Replace(pooledRules, "workerPool: quick", "workerPool: slow", 1), `rule "plan": workerPool "slow" is not in workerPools, which declares default, quick`},
+		"unknown pool beside an invalid one": {strings.Replace(strings.Replace(pooledRules, "workerPool: quick", "workerPool: slow", 1), "  quick:\n", "  Bad:\n    size: 1\n  quick:\n", 1), `workerPool "slow" is not in workerPools, which declares default, quick`},
+		"no room for default":                {twoPools + oneRule, `rule "1": the default pool has no slot`},
+		"no room for an explicit default":    {twoPools + strings.Replace(oneRule, "  - on:", "  - workerPool: default\n    on:", 1), `rule "1": the default pool has no slot`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			text, _ := file(t, tc.body)
+			_, err := Parse([]byte(text), Defaults{})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestParseRefusesAnInvalidPoolSizeOnceForTheRuleThatNamesIt(t *testing.T) {
+	for name, body := range map[string]string{
+		"over budget": strings.Replace(pooledRules, "size: 1", "size: 9", 1),
+		"size zero":   strings.Replace(pooledRules, "size: 1", "size: 0", 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			text, _ := file(t, body)
+			_, err := Parse([]byte(text), Defaults{})
+			if err == nil || !strings.Contains(err.Error(), "workerPools.quick: size") {
+				t.Fatalf("err = %v, want the size error of quick", err)
+			}
+			if strings.Contains(err.Error(), "is not in workerPools") {
+				t.Fatalf("err = %v, want no unknown pool error for a declared pool", err)
+			}
+		})
+	}
+}
+
+func TestParseAcceptsAnEmptyDefaultPoolWhenEveryWorkerRuleNamesAPool(t *testing.T) {
+	body := "maxWorkers: 2\nworkerPools:\n  a:\n    size: 1\n  b:\n    size: 1\n" + strings.Replace(oneRule, "  - on:", "  - workerPool: a\n    on:", 1)
+	s := parse(t, body)
+	if got := s.Pools(); len(got) != 3 || got["a"] != 1 || got["b"] != 1 || got[DefaultPool] != 0 {
+		t.Fatalf("Pools = %v", got)
+	}
+}
+
+func TestParseAcceptsAnExplicitDefaultPoolWithRoom(t *testing.T) {
+	s := checked(t, "maxWorkers: 2\nworkerPools:\n  a:\n    size: 1\n"+strings.Replace(oneRule, "  - on:", "  - workerPool: default\n    on:", 1))
+	if got := s.Pools(); got[DefaultPool] != 1 {
+		t.Fatalf("Pools = %v", got)
+	}
+	if m := s.Match(moved("backlog", "ready", event.ActorHuman)); m.Pool != DefaultPool {
+		t.Fatalf("Match = %+v", m)
+	}
+}
+
+func TestMatchRuleCarriesThePool(t *testing.T) {
+	s := checked(t, pooledRules)
+	for _, tc := range []struct{ rule, to, want string }{
+		{"plan", "ready", "quick"},
+		{"review", "review", DefaultPool},
+	} {
+		m, ok := s.MatchRule(moved("backlog", tc.to, event.ActorHuman), tc.rule)
+		if !ok || m.Pool != tc.want {
+			t.Fatalf("MatchRule(%s) = %+v, %v; want pool %s", tc.rule, m, ok, tc.want)
+		}
+	}
+}

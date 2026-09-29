@@ -364,9 +364,8 @@ func TestACheckedResumeReportsResumed(t *testing.T) {
 // A run that replaces a checked resume inherits its check, so it reports
 // resumed as it queues.
 func TestARunThatReplacesACheckedResumeReportsResumed(t *testing.T) {
-	h := newHarnessWith(t, resumeRules, rules.Defaults{})
+	h := newHarnessWith(t, withMaxWorkers(resumeRules, 1), rules.Defaults{})
 	rec := h.states()
-	h.router.maxWorkers = 1
 	h.router.checkAsk = (&checks{state: api.AskState{AskID: testAsk, Closed: true, AllRead: false}}).check
 	h.worker.started = make(chan workerSpec, 2)
 	h.worker.block = make(chan struct{})
@@ -420,9 +419,8 @@ func TestASkippedResumeReportsSkipped(t *testing.T) {
 
 // Each run a shutdown drops closes as dropped, for the shutdown.
 func TestAShutdownDropsEachWaitingRun(t *testing.T) {
-	h := newHarness(t)
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 	rec := h.states()
-	h.router.maxWorkers = 1
 	h.worker.started = make(chan workerSpec, 1)
 	h.worker.block = make(chan struct{})
 
@@ -492,9 +490,8 @@ func TestAResumeDroppedAfterItsCheckNamesTheCause(t *testing.T) {
 // A reload that drops a waiting run closes it as dropped, for the reload, and
 // the next inventory no longer lists it. A run the reload keeps keeps its id.
 func TestAReloadDropsTheRunsItNoLongerRuns(t *testing.T) {
-	h := newHarnessWith(t, twoRuleFile, rules.Defaults{})
+	h := newHarnessWith(t, withMaxWorkers(twoRuleFile, 1), rules.Defaults{})
 	rec := h.states()
-	h.router.maxWorkers = 1
 	h.worker.started = make(chan workerSpec, 2)
 	h.worker.block = make(chan struct{})
 
@@ -557,9 +554,8 @@ func TestARouterWithNoQueueSendsNoState(t *testing.T) {
 // Each connect sends the runs the bridge holds, after every report before it.
 // A closed run is no longer held.
 func TestEachConnectSendsTheRunsTheBridgeHolds(t *testing.T) {
-	h := newHarness(t)
+	h := newHarnessWith(t, withMaxWorkers(defaultRules, 1), rules.Defaults{})
 	rec := h.states()
-	h.router.maxWorkers = 1
 	h.worker.started = make(chan workerSpec, 2)
 	h.worker.block = make(chan struct{})
 
