@@ -13,6 +13,8 @@ final readonly class ShowcaseSeeding
         public bool $waitItemOpen,
         /** Loupe opens the wait item only while inbox.enabled is on. */
         public bool $inboxEnabled,
+        /** The open wait items of the project after the run. */
+        public int $waitItems,
     ) {
     }
 }

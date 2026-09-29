@@ -6,20 +6,4 @@
 <turbo-stream data-decision-page="{{ page }}" action="update" target="decision-status">
     <template><span class="lp-decision-status__message{{ failed ? ' lp-decision-status__message--failed' }}">{{ message }}</span></template>
 </turbo-stream>
-<turbo-stream data-decision-page="{{ page }}" action="update" target="decision-summary-count">
-    <template>{{ 'review.document.decisions.count'|trans({'%answered%': answeredCount, '%total%': rows|length}) }}</template>
-</turbo-stream>
-<turbo-stream data-decision-page="{{ page }}" action="update" target="decision-summary-list">
-    <template>{% include '@Review/_decision_summary_rows.html.twig' with {rows: rows} only %}</template>
-</turbo-stream>
-{# The review menu carries a second copy of the same three figures below lg.
-   Left out, it reports the state the page was loaded with. #}
-<turbo-stream data-decision-page="{{ page }}" action="update" target="review-menu-decisions-count">
-    <template>{{ 'review.document.decisions.count'|trans({'%answered%': answeredCount, '%total%': rows|length}) }}</template>
-</turbo-stream>
-<turbo-stream data-decision-page="{{ page }}" action="update" target="review-menu-decisions-head-count">
-    <template>{{ 'review.document.decisions.count'|trans({'%answered%': answeredCount, '%total%': rows|length}) }}</template>
-</turbo-stream>
-<turbo-stream data-decision-page="{{ page }}" action="update" target="review-menu-decisions-list">
-    <template>{% include '@Review/_menu_decision_rows.html.twig' with {rows: rows} only %}</template>
-</turbo-stream>
+{% include '@Review/_decision_summary.stream.html.twig' with {page: page, rows: rows, answeredCount: answeredCount} only %}

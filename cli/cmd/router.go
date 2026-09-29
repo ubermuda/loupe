@@ -63,6 +63,9 @@ type router struct {
 	// nil one resumes with no check. after is time.After, which tests replace.
 	readCard func(ctx context.Context, handle, cardID string) (string, error)
 	after    func(time.Duration) <-chan time.Time
+	// resolvePin asks which variant of an experiment a card runs with, before
+	// its worker starts. A nil one runs the variant the bridge drew.
+	resolvePin func(ctx context.Context, handle, experiment, cardID, candidate string, variants []string) (string, string, error)
 	// control is the socket that `loupe bridge reload` reaches, and source is
 	// what a reload reads. A nil control, as in most tests, opens no socket.
 	control net.Listener
@@ -202,6 +205,19 @@ type pending struct {
 	// in, which a reload never changes.
 	pool string
 	slot string
+	// experiment is the experiment of the rule, or nil. pin is the variant
+	// the run resolved at start.
+	experiment *rules.Experiment
+	pin        runPin
+}
+
+// runPin is the variant a run in an experiment runs with, as its reports
+// and a handover carry it.
+type runPin struct {
+	Experiment     string `json:"experiment,omitempty"`
+	Variant        string `json:"variant,omitempty"`
+	RequestedModel string `json:"requestedModel,omitempty"`
+	SwitchedFrom   string `json:"switchedFrom,omitempty"`
 }
 
 // apply takes the rule, the settings and the prompt of a match. The session id
@@ -209,6 +225,7 @@ type pending struct {
 // its prompt and its cap.
 func (p *pending) apply(m rules.Match) {
 	p.rule, p.maxChain, p.action, p.project, p.pool = m.Rule, m.MaxChain, m.Action, m.Project, m.Pool
+	p.experiment, p.pin = m.Experiment, runPin{}
 	if p.continues != "" {
 		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Schema
 
@@ -971,6 +988,9 @@ func (r *router) start(p pending) {
 	go func() {
 		defer r.wg.Done()
 
+		if p.experiment != nil {
+			p.spec.model, p.pin = r.resolveVariant(p)
+		}
 		// The spawn time stands in for a process that never starts, because the
 		// old report needs a start. onStart runs on this goroutine, before run returns.
 		began := time.Now()
@@ -984,6 +1004,54 @@ func (r *router) start(p pending) {
 		res := r.worker.run(r.workerContext(), p.spec, onStart)
 		r.settle(p, endedRun{res: res, began: began, elapsed: time.Since(began)})
 	}()
+}
+
+// resolveVariant is the model and the variant of a run in an experiment. The
+// server keeps the variant a card first ran with. A run with no card, or with
+// no answer from the server, runs the variant the bridge drew.
+func (r *router) resolveVariant(p pending) (string, runPin) {
+	exp := p.experiment
+	cardID, number := cardOf(p.event)
+	if number < 1 {
+		cardID = ""
+	}
+	candidate := exp.Pick(cmp.Or(cardID, p.key))
+	drawn := runPin{Experiment: exp.Name, Variant: candidate.Name, RequestedModel: candidate.Model}
+	if cardID == "" || r.resolvePin == nil {
+		return candidate.Model, drawn
+	}
+
+	names := make([]string, len(exp.Variants))
+	for i, v := range exp.Variants {
+		names[i] = v.Name
+	}
+	timeout := r.checkTimeout
+	if timeout <= 0 {
+		timeout = askCheckTimeout
+	}
+	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
+	name, switchedFrom, err := r.resolvePin(ctx, p.event.ProjectID, exp.Name, cardID, candidate.Name, names)
+	cancel()
+	i := slices.IndexFunc(exp.Variants, func(v rules.Variant) bool { return v.Name == name })
+	if err == nil && i < 0 {
+		err = fmt.Errorf("the server answered variant %q, which the experiment does not offer", name)
+	}
+	if err != nil {
+		// A bridge that shuts down cancels the request, which is no pin failure.
+		if r.workerContext().Err() == nil {
+			r.log.Warn("experiment_pin_failed", append(about(p.event, p.rule),
+				"experiment", exp.Name,
+				"variant", candidate.Name,
+				"error", err.Error(),
+				"message", "the bridge could not read the pin of the card, so it runs the variant it drew",
+			)...)
+		}
+
+		return candidate.Model, drawn
+	}
+	v := exp.Variants[i]
+
+	return v.Model, runPin{Experiment: exp.Name, Variant: v.Name, RequestedModel: v.Model, SwitchedFrom: switchedFrom}
 }
 
 // liveRun is a worker that started, with what its report and a handover need.
@@ -1562,10 +1630,25 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 		if p.continues != "" {
 			report.Continues, report.ResumeIndex, report.ResumeCap = p.continues, p.resumeIndex, p.maxResumes
 		}
+		if e := p.event; e.Type != "" {
+			report.Trigger = &api.RunTrigger{
+				EventType:         e.Type,
+				Forge:             e.Forge,
+				Repository:        e.Repository,
+				PullRequestNumber: e.PullRequestNumber,
+				HeadSHA:           e.HeadSHA,
+				Reason:            e.Reason,
+			}
+		}
 	}
 	report.BridgeID, report.At = r.bridgeID, time.Now()
 	report.CardID, report.CardNumber, report.RuleName = cardID, cardNumber, p.rule
 	report.WorkerPool = cmp.Or(p.slot, p.pool)
+	// The pin is known once the run starts, so a queued run sends none.
+	if report.State == api.RunRunning || api.IsOutcome(report.State) {
+		report.Experiment, report.Variant = p.pin.Experiment, p.pin.Variant
+		report.RequestedModel, report.SwitchedFrom = p.pin.RequestedModel, p.pin.SwitchedFrom
+	}
 	// The handle is the project id the event carried, which a rename never
 	// changes.
 	r.reports.Enqueue(r.runs.state(p.event.ProjectID, p.runID, report))

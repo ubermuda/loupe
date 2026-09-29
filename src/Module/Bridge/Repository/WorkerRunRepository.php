@@ -326,6 +326,36 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getResult());
     }
 
+    /**
+     * The cards among $cardIds that have an open run, of either kind.
+     *
+     * @param list<Uuid> $cardIds
+     *
+     * @return list<string>
+     */
+    public function findCardIdsWithOpenRun(Project $project, array $cardIds): array
+    {
+        if ([] === $cardIds) {
+            return [];
+        }
+
+        $ids = $this->createQueryBuilder('r')
+            ->select('DISTINCT r.cardId')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.cardId IN (:cardIds)')
+            ->andWhere('r.state IN (:openStates)')
+            ->setParameter('project', $project)
+            ->setParameter('cardIds', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $cardIds))
+            ->setParameter('openStates', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()))
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_map(
+            static fn (mixed $id): string => $id instanceof Uuid ? $id->toRfc4122() : Uuid::fromString(\is_string($id) ? $id : throw new \LogicException('A card id is a string.'))->toRfc4122(),
+            $ids,
+        ));
+    }
+
     public function hasOpenInteractive(Project $project, Uuid $cardId): bool
     {
         return null !== $this->interactive($project)

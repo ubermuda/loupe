@@ -126,6 +126,39 @@ const test = base.extend<{ review: SeededReview }>({
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
 
+const DRAFT_MARKDOWN = '# Draft scope\n\nA new document from the browser.';
+
+test('New document keeps an unsent draft across in-app navigation', async ({
+    page,
+    review,
+}) => {
+    await page.goto(review.dashboardUrl);
+    await page
+        .getByRole('button', { name: 'New document', exact: true })
+        .click();
+    const dialog = page.getByRole('dialog', {
+        name: 'New document',
+        exact: true,
+    });
+    await dialog.getByLabel('Title', { exact: true }).fill('A human draft');
+    await dialog.getByLabel('Markdown', { exact: true }).fill(DRAFT_MARKDOWN);
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole('link', { name: 'Workshop', exact: true }).click();
+    await expect(page).not.toHaveURL(review.dashboardUrl);
+    await page.getByRole('link', { name: /^Documents \d+$/ }).click();
+    await expect(page).toHaveURL(review.dashboardUrl);
+    await page
+        .getByRole('button', { name: 'New document', exact: true })
+        .click();
+    await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue(
+        'A human draft',
+    );
+    await expect(dialog.getByLabel('Markdown', { exact: true })).toHaveValue(
+        DRAFT_MARKDOWN,
+    );
+});
+
 test('New document creates a draft that can be reviewed', async ({
     page,
     review,
@@ -139,21 +172,7 @@ test('New document creates a draft that can be reviewed', async ({
         exact: true,
     });
     await dialog.getByLabel('Title', { exact: true }).fill('A human draft');
-    await dialog
-        .getByLabel('Markdown', { exact: true })
-        .fill('# Draft scope\n\nA new document from the browser.');
-    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await expect(dialog).toBeHidden();
-    await page.getByRole('link', { name: 'Workshop', exact: true }).click();
-    await expect(page).not.toHaveURL(review.dashboardUrl);
-    await page.getByRole('link', { name: /^Documents \d+$/ }).click();
-    await expect(page).toHaveURL(review.dashboardUrl);
-    await page
-        .getByRole('button', { name: 'New document', exact: true })
-        .click();
-    await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue(
-        'A human draft',
-    );
+    await dialog.getByLabel('Markdown', { exact: true }).fill(DRAFT_MARKDOWN);
     await dialog
         .getByRole('button', { name: 'Create document', exact: true })
         .click();

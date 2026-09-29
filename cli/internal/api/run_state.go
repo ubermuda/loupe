@@ -101,6 +101,25 @@ type RunStateReport struct {
 	CardColumn  string `json:"cardColumn,omitempty"`
 	// Usage goes on an outcome alone. A nil usage is unknown.
 	Usage *Usage `json:"usage,omitempty"`
+	// The experiment fields go on running and on the outcome of a run whose
+	// rule joins an experiment.
+	Experiment     string `json:"experiment,omitempty"`
+	Variant        string `json:"variant,omitempty"`
+	RequestedModel string `json:"requestedModel,omitempty"`
+	SwitchedFrom   string `json:"switchedFrom,omitempty"`
+	// Trigger goes on a queued report alone.
+	Trigger *RunTrigger `json:"trigger,omitempty"`
+}
+
+// RunTrigger names the event that queued a run. A pull request event also
+// names its pull request.
+type RunTrigger struct {
+	EventType         string `json:"eventType"`
+	Forge             string `json:"forge,omitzero"`
+	Repository        string `json:"repository,omitzero"`
+	PullRequestNumber int    `json:"pullRequestNumber,omitzero"`
+	HeadSHA           string `json:"headSha,omitzero"`
+	Reason            string `json:"reason,omitzero"`
 }
 
 // MarshalJSON sends every field of an outcome, as the old report does, so an

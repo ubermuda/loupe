@@ -150,6 +150,29 @@ func TestReportRunStateSendsTheWorkerPool(t *testing.T) {
 	}
 }
 
+// A run in an experiment sends its variant on running and on the outcome.
+func TestReportRunStateSendsTheExperimentFields(t *testing.T) {
+	running := stateReport(RunRunning)
+	running.Experiment, running.Variant, running.RequestedModel, running.SwitchedFrom = "impl-model", "sonnet", "claude-sonnet-5-5", "opus"
+	failed := stateReport(RunNotStarted)
+	failed.Experiment, failed.Variant, failed.RequestedModel = "impl-model", "sonnet", "claude-sonnet-5-5"
+
+	_, body, _, err := putState(t, running, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body["experiment"] != "impl-model" || body["variant"] != "sonnet" || body["requestedModel"] != "claude-sonnet-5-5" || body["switchedFrom"] != "opus" {
+		t.Fatalf("running = %v", body)
+	}
+	_, body, _, err = putState(t, failed, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := body["switchedFrom"]; ok || body["variant"] != "sonnet" {
+		t.Fatalf("not started = %v, want a variant and no switchedFrom", body)
+	}
+}
+
 // A closed outcome keeps the pairing of the old report: an exit code, or a
 // failure reason, with the other one sent as null.
 func TestReportRunStateSendsAnOutcomeWithTheOldPairing(t *testing.T) {
@@ -323,6 +346,53 @@ func TestReportRunStateSendsTheResultAndTheResumeFields(t *testing.T) {
 	}
 	if keys(body) != withBase() {
 		t.Fatalf("keys = %s", keys(body))
+	}
+}
+
+// A queued report names the event that queued the run. A field that the event
+// does not carry is not sent, and a report with no trigger sends none.
+func TestReportRunStateSendsTheTrigger(t *testing.T) {
+	queued := stateReport(RunQueued)
+	queued.Trigger = &RunTrigger{
+		EventType:         "pull_request.fix_requested",
+		Forge:             "github",
+		Repository:        "ubermuda/loupe",
+		PullRequestNumber: 644,
+		HeadSHA:           "9b84e07b",
+		Reason:            "checks-failed",
+	}
+	_, body, _, err := putState(t, queued, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if keys(body) != withBase("trigger") {
+		t.Fatalf("keys = %s, want %s", keys(body), withBase("trigger"))
+	}
+	trigger := body["trigger"].(map[string]any)
+	if want := "eventType,forge,headSha,pullRequestNumber,reason,repository"; keys(trigger) != want {
+		t.Fatalf("trigger keys = %s, want %s", keys(trigger), want)
+	}
+	if trigger["eventType"] != "pull_request.fix_requested" || trigger["forge"] != "github" || trigger["repository"] != "ubermuda/loupe" ||
+		trigger["pullRequestNumber"] != 644.0 || trigger["headSha"] != "9b84e07b" || trigger["reason"] != "checks-failed" {
+		t.Fatalf("trigger = %v", trigger)
+	}
+
+	queued.Trigger = &RunTrigger{EventType: "board.card_moved"}
+	_, body, _, err = putState(t, queued, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if trigger := body["trigger"].(map[string]any); keys(trigger) != "eventType" || trigger["eventType"] != "board.card_moved" {
+		t.Fatalf("trigger = %v", trigger)
+	}
+
+	queued.Trigger = nil
+	_, body, _, err = putState(t, queued, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if keys(body) != withBase() {
+		t.Fatalf("keys = %s, want no trigger", keys(body))
 	}
 }
 
