@@ -19,6 +19,7 @@ use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Entity\InboxProjectSettings;
 use App\Module\Inbox\InboxEventType;
 use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
@@ -47,6 +48,7 @@ final readonly class CardWaitReconciler
         private InboxSearchIndexer $searchIndexer,
         private InboxOpenCountPublisher $openCount,
         private InboxAvailability $inbox,
+        private InboxWaitSwitches $switches,
     ) {
     }
 
@@ -87,7 +89,8 @@ final readonly class CardWaitReconciler
                 $this->em->flush();
             }
 
-            $wanted = $enabled ? $this->wantedWaits($project, $cards) : [];
+            $switches = $this->switches->for($project);
+            $wanted = $enabled ? self::switchedOn($this->wantedWaits($project, $cards), $switches) : [];
             $countChanged = false;
             $nextNumber = null;
             $rewritten = [];
@@ -104,7 +107,7 @@ final readonly class CardWaitReconciler
                     $countChanged = true;
                 }
 
-                if ($this->apply($watch, $want, $this->cause($card, $enabled), $now)) {
+                if ($this->apply($watch, $want, $this->cause($card, $enabled), $switches, $now)) {
                     $countChanged = true;
                 } elseif (null !== $card && $this->rewrite($watch, $card, $now)) {
                     $rewritten[] = $watch->item;
@@ -185,6 +188,26 @@ final readonly class CardWaitReconciler
         return $wanted;
     }
 
+    /**
+     * @template T
+     *
+     * @param array<string, array<string, T>> $wanted card id => wait key => wait
+     *
+     * @return array<string, array<string, T>>
+     */
+    private static function switchedOn(array $wanted, InboxProjectSettings $switches): array
+    {
+        foreach ($wanted as $cardId => $waits) {
+            $wanted[$cardId] = array_filter(
+                $waits,
+                static fn (string $key): bool => $switches->isOn(InboxCardWaitTrigger::from(explode(':', $key, 2)[0])),
+                \ARRAY_FILTER_USE_KEY,
+            );
+        }
+
+        return array_filter($wanted);
+    }
+
     /** Why a wait of this card that is no longer wanted ends. */
     private function cause(?Card $card, bool $enabled): InboxCardWaitEndReason
     {
@@ -228,7 +251,7 @@ final readonly class CardWaitReconciler
      *
      * @param array<string, array{document: Document, versionNumber: int}> $want
      */
-    private function apply(InboxCardWatch $watch, array $want, InboxCardWaitEndReason $cause, \DateTimeImmutable $now): bool
+    private function apply(InboxCardWatch $watch, array $want, InboxCardWaitEndReason $cause, InboxProjectSettings $switches, \DateTimeImmutable $now): bool
     {
         $open = [];
         foreach ($watch->waits as $wait) {
@@ -237,10 +260,12 @@ final readonly class CardWaitReconciler
             }
         }
 
+        $obsolete = InboxCardWaitEndReason::Resolved !== $cause;
         foreach ($open as $key => $wait) {
             if (!isset($want[$key])) {
                 $wait->endedAt = $now;
-                $wait->endReason = $cause;
+                $wait->endReason = InboxCardWaitEndReason::Resolved === $cause && !$switches->isOn($wait->trigger) ? InboxCardWaitEndReason::SwitchedOff : $cause;
+                $obsolete = $obsolete || InboxCardWaitEndReason::Resolved !== $wait->endReason;
                 unset($open[$key]);
             }
         }
@@ -260,7 +285,7 @@ final readonly class CardWaitReconciler
             return false;
         }
 
-        $state = InboxCardWaitEndReason::Resolved === $cause ? InboxItemState::Done : InboxItemState::Obsolete;
+        $state = $obsolete ? InboxItemState::Obsolete : InboxItemState::Done;
         $this->closer->close($watch->item, $state, null, $now, InboxEventType::ACTOR_AGENT);
         $watch->closedAt = $now;
 

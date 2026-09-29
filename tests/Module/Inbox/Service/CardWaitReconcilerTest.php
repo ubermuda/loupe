@@ -17,6 +17,7 @@ use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Entity\InboxProjectSettings;
 use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Inbox\Repository\InboxAskRepository;
@@ -327,6 +328,40 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertSame(InboxCardWaitEndReason::SwitchedOff, $this->onlyWait($watch)->endReason);
     }
 
+    public function test_a_document_switched_off_opens_no_item(): void
+    {
+        $this->switchDocuments(false);
+        $this->linkedDocument('Tech design');
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_switching_documents_off_closes_the_item_obsolete_and_on_again_opens_a_new_one(): void
+    {
+        $this->linkedDocument('Tech design');
+        $this->reconcile();
+        $settings = $this->switchDocuments(false);
+
+        $this->reconcile();
+
+        $closed = $this->onlyWatch();
+        self::assertSame(InboxItemState::Obsolete, $closed->item->state);
+        self::assertNotNull($closed->closedAt);
+        self::assertSame(InboxCardWaitEndReason::SwitchedOff, $this->onlyWait($closed)->endReason);
+
+        $settings->documentInReview = true;
+        $this->em->flush();
+        $this->reconcile();
+
+        $watches = $this->watches();
+        self::assertCount(2, $watches);
+        self::assertSame($closed, $watches[0]);
+        self::assertSame(InboxItemState::Open, $watches[1]->item->state);
+        self::assertSame('Tech design in review, version 1', $watches[1]->item->body);
+    }
+
     public function test_without_a_card_list_it_finds_the_cards_with_a_document_in_review_or_an_open_watch(): void
     {
         $this->linkedDocument('Tech design');
@@ -356,6 +391,16 @@ final class CardWaitReconcilerTest extends KernelTestCase
     private function reconcile(): void
     {
         $this->reconciler->reconcile($this->project, [(string) $this->card->id]);
+    }
+
+    private function switchDocuments(bool $on): InboxProjectSettings
+    {
+        $settings = new InboxProjectSettings($this->project);
+        $settings->documentInReview = $on;
+        $this->em->persist($settings);
+        $this->em->flush();
+
+        return $settings;
     }
 
     private function linkedDocument(string $title): Document
