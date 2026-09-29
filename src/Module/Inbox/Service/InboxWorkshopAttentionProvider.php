@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\Service;
 
-use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Entity\InboxAskOrigin;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Repository\InboxReviewRepository;
 use App\Module\Project\Entity\Project;
@@ -30,7 +30,7 @@ final readonly class InboxWorkshopAttentionProvider implements WorkshopAttention
         if (!$this->inbox->isEnabled()) {
             return [];
         }
-        $items = iterator_to_array($this->inboxItems->findPageForProject($project, InboxItemState::Open, null, null, null, null, 1, 6), false);
+        $items = $this->inboxItems->findOldestOpen($project, 6);
         $subjects = [];
         foreach ($this->inboxReviews->findForItems($items) as $review) {
             $subjects[(string) $review->item->id] = $review->targetKind->value;
@@ -42,7 +42,7 @@ final readonly class InboxWorkshopAttentionProvider implements WorkshopAttention
                 $this->urls->generate('app_project_inbox', ['id' => (string) $project->id, '_fragment' => 'inbox-item-'.$item->number]),
                 $item->kind->value,
                 $item->blocking,
-                $subjects[(string) $item->id] ?? 'agent',
+                InboxAskOrigin::Loupe === $item->origin ? InboxAskOrigin::Loupe->value : $subjects[(string) $item->id] ?? 'agent',
             );
         }
 
