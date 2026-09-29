@@ -477,8 +477,10 @@ closes it when the card stops waiting.
 `inbox_get` also returns `cardId` and `waits`. For a `wait` item, `cardId` names
 the card, and `waits` lists each reason the card waited, current and ended, in
 start order. Each entry holds `trigger`, `reason`, `documentId`,
-`versionNumber`, `runId`, `startedAt` and `endedAt`. An id or a date that does
-not apply is null, and `endedAt` is null for a current wait. For any other kind,
+`versionNumber`, `runId`, `startedAt`, `endedAt` and `endReason`. An id or a
+date that does not apply is null. `endedAt` and `endReason` are null for a
+current wait. `endReason` is `resolved`, `card-finished`, `card-deleted`,
+`switched-off` or `dismissed`. For any other kind,
 `cardId` is null and `waits` is empty.
 
 Each entry of `asks` in `inbox_get` carries `origin` too. The `sessionId` of a

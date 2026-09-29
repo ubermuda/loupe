@@ -181,8 +181,10 @@ final class InboxGetToolTest extends KernelTestCase
         self::assertSame(1, $ended['versionNumber']);
         self::assertNull($ended['runId']);
         self::assertNotNull($ended['endedAt']);
+        self::assertSame('resolved', $ended['endReason']);
         self::assertSame(2, $current['versionNumber']);
         self::assertNull($current['endedAt']);
+        self::assertNull($current['endReason']);
         self::assertSame('The design in review, version 2', $current['reason']);
         self::assertCount(1, $item['asks']);
         self::assertSame('loupe', $item['asks'][0]['origin']);
