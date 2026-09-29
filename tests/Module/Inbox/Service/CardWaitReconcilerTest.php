@@ -637,6 +637,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $document = $this->document($this->em, $this->project);
         $document->addVersion('# One', '<h1>One</h1>');
         $other->documents->add(new CardDocument($other, $document));
+        $this->stageDocument($this->em, $document, $other);
         $this->em->flush();
 
         $this->reconciler->reconcile($this->project, [(string) $this->card->id, (string) $other->id]);
@@ -650,7 +651,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
     public function test_a_run_blocked_switch_off_ends_the_run_wait_and_keeps_the_document_wait_open(): void
     {
         $document = $this->linkedDocument('Tech design');
-        $this->workerRun(WorkerRunState::Blocked, 'Stuck');
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck', 'tech-design');
         $this->reconcile();
         $watch = $this->onlyWatch();
         self::assertCount(2, $this->openWaits($watch));
