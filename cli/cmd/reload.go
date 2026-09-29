@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -239,7 +240,14 @@ func (r *router) swap(b built, seq uint64) reloadResult {
 	}
 
 	res := diffRules(old, set)
-	r.log.Info("reload_applied", "added", res.Added, "removed", res.Removed, "changed", res.Changed, "dirs", res.Dirs, "projects", res.Projects)
+	attrs := []any{"added", res.Added, "removed", res.Removed, "changed", res.Changed, "dirs", res.Dirs, "projects", res.Projects}
+	if pools := diffPools(old, set); len(pools) > 0 {
+		attrs = append(attrs, "pools", pools)
+	}
+	if set.MaxWorkers() != old.MaxWorkers() {
+		attrs = append(attrs, "max_workers", set.MaxWorkers())
+	}
+	r.log.Info("reload_applied", attrs...)
 	warnUnknownModes(r.log, set)
 
 	return res
@@ -359,4 +367,27 @@ func diffRules(old, set *rules.Set) reloadResult {
 	}
 
 	return res
+}
+
+// diffPools names each worker pool the new set adds, removes or resizes, in
+// name order.
+func diffPools(old, set *rules.Set) []string {
+	before, after := old.Pools(), set.Pools()
+	var out []string
+	names := slices.AppendSeq(slices.Collect(maps.Keys(before)), maps.Keys(after))
+	slices.Sort(names)
+	for _, name := range slices.Compact(names) {
+		prev, was := before[name]
+		size, is := after[name]
+		switch {
+		case !was:
+			out = append(out, fmt.Sprintf("%s: added %d", name, size))
+		case !is:
+			out = append(out, name+": removed")
+		case prev != size:
+			out = append(out, fmt.Sprintf("%s: %d -> %d", name, prev, size))
+		}
+	}
+
+	return out
 }
