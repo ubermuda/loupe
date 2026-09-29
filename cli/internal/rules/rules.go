@@ -432,7 +432,8 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		}
 		if r.Action == "" {
 			pool := cmp.Or(r.WorkerPool, DefaultPool)
-			if !slices.Contains(known, pool) {
+			// A declared pool with an invalid size has its own error already.
+			if _, declared := f.WorkerPools[pool]; !declared && pool != DefaultPool {
 				errs = append(errs, fmt.Errorf("rule %q: workerPool %q is not in workerPools, which declares %s", r.Name, pool, strings.Join(known, ", ")))
 			} else if size, ok := pools[DefaultPool]; ok && size == 0 && pool == DefaultPool {
 				errs = append(errs, fmt.Errorf("rule %q: the default pool has no slot, because workerPools take all %d of maxWorkers; give the rule a workerPool or raise maxWorkers", r.Name, s.maxWorkers))

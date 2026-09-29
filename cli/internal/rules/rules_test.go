@@ -1200,6 +1200,24 @@ func TestParseRefusesAnInvalidPool(t *testing.T) {
 	}
 }
 
+func TestParseRefusesAnInvalidPoolSizeOnceForTheRuleThatNamesIt(t *testing.T) {
+	for name, body := range map[string]string{
+		"over budget": strings.Replace(pooledRules, "size: 1", "size: 9", 1),
+		"size zero":   strings.Replace(pooledRules, "size: 1", "size: 0", 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			text, _ := file(t, body)
+			_, err := Parse([]byte(text), Defaults{})
+			if err == nil || !strings.Contains(err.Error(), "workerPools.quick: size") {
+				t.Fatalf("err = %v, want the size error of quick", err)
+			}
+			if strings.Contains(err.Error(), "is not in workerPools") {
+				t.Fatalf("err = %v, want no unknown pool error for a declared pool", err)
+			}
+		})
+	}
+}
+
 func TestParseAcceptsAnEmptyDefaultPoolWhenEveryWorkerRuleNamesAPool(t *testing.T) {
 	body := "maxWorkers: 2\nworkerPools:\n  a:\n    size: 1\n  b:\n    size: 1\n" + strings.Replace(oneRule, "  - on:", "  - workerPool: a\n    on:", 1)
 	s := parse(t, body)

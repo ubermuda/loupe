@@ -847,11 +847,11 @@ func (r *router) takeLocked(pool string) {
 	r.inUse[pool]++
 }
 
-// releaseLocked gives back one slot of the pool the run started in. The caller
-// holds mu.
+// releaseLocked gives back one slot of the pool the run started in. A second
+// release of one slot gives no slot back. The caller holds mu.
 func (r *router) releaseLocked(pool string) {
 	r.inUse[pool]--
-	if r.inUse[pool] == 0 {
+	if r.inUse[pool] <= 0 {
 		delete(r.inUse, pool)
 	}
 }

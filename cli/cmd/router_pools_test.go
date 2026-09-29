@@ -304,6 +304,71 @@ rules:
 	wantInUse(t, h, map[string]int{})
 }
 
+// A second release of one slot gives no slot back.
+func TestADoubleReleaseAddsNoSlot(t *testing.T) {
+	r := &router{}
+	r.takeLocked("quick")
+	r.releaseLocked("quick")
+	r.releaseLocked("quick")
+
+	if len(r.inUse) != 0 {
+		t.Fatalf("slots in use = %v, want none", r.inUse)
+	}
+}
+
+// The run that continues a run of the quick pool starts in the pool its rule
+// names after a reload, and each end frees the pool its run started in.
+func TestARunThatContinuesAMovedRuleStartsInItsNewPool(t *testing.T) {
+	quick := "maxWorkers: 2\nworkerPools:\n  quick:\n    size: 1\n"
+	fixRule := "\n  - name: fix\n    on: pull_request.fix_requested\n    project: loupe\n    resume: true\n    prompt: Fix card {cardNumber} for {reason}.\n"
+	for name, tc := range map[string]struct {
+		before, after, payload string
+		first                  workerResult
+	}{
+		"resume of an unfinished run": {
+			before:  quick + strings.Replace(defaultRules, "    to: next\n", "    to: next\n    workerPool: quick\n", 1),
+			after:   quick + defaultRules,
+			payload: cardMoved(87),
+			first:   unfinishedRun,
+		},
+		"new session for a missing one": {
+			before:  quick + defaultRules + strings.Replace(fixRule, "    resume: true\n", "    resume: true\n    workerPool: quick\n", 1),
+			after:   quick + defaultRules + fixRule,
+			payload: fix{card: 87, session: askSession, bridge: testBridgeID}.payload(),
+			first:   workerResult{exitCode: 1, output: missingSession},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarnessWith(t, tc.before, rules.Defaults{})
+			h.worker.results = []workerResult{tc.first}
+			h.worker.result = finishedRun
+			h.worker.started = make(chan workerSpec, 2)
+			h.worker.block = make(chan struct{})
+			h.router.onData([]byte(tc.payload))
+			<-h.worker.started
+			wantInUse(t, h, map[string]int{"quick": 1})
+
+			if res := h.reload(t, tc.after); !res.OK {
+				t.Fatalf("result = %+v", res)
+			}
+			h.worker.block <- struct{}{}
+			<-h.worker.started
+			wantInUse(t, h, map[string]int{rules.DefaultPool: 1})
+
+			close(h.worker.block)
+			h.router.wg.Wait()
+			wantInUse(t, h, map[string]int{})
+			var pools []string
+			for _, line := range h.events(t, "worker_started") {
+				pools = append(pools, str(t, line, "worker_pool"))
+			}
+			if !slices.Equal(pools, []string{"quick", rules.DefaultPool}) {
+				t.Fatalf("worker_started pools = %v", pools)
+			}
+		})
+	}
+}
+
 // A run in a pool that a reload removes counts against the budget until it
 // ends.
 func TestARunInARemovedPoolCountsUntilItEnds(t *testing.T) {
