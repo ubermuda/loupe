@@ -553,7 +553,7 @@ rules:
     when:
       reason: checks-failed
     resume: true
-    permissionMode: acceptEdits
+    permissionMode: bypassPermissions
     prompt: |
       Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
@@ -564,17 +564,19 @@ rules:
     when:
       reason: conflict
     resume: true
-    permissionMode: acceptEdits
+    permissionMode: bypassPermissions
     prompt: |
+      Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
-      Pull request {pullRequestUrl} conflicts with its base. Rebase it and push.
+      Pull request {pullRequestUrl} needs a fix: {reason}.
   - name: merge-ready
     on: pull_request.ready_to_merge
     project: my-app
-    permissionMode: acceptEdits
+    permissionMode: bypassPermissions
     prompt: |
+      Use the loupe-stage-merge skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
-      Pull request {pullRequestUrl} is ready to merge at {headSha}. Merge it.
+      Pull request {pullRequestUrl} is ready to merge at {headSha}.
 ```
 
 Loupe writes these types:
