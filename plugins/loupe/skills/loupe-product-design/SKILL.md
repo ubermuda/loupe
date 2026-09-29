@@ -13,14 +13,14 @@ Move the card only in P0. Never move it when you stop, and never move it after P
 
 P0 opens an interactive run on the card with `card_run_open`. While it is open, a bridge rule can skip the card. Close the run with `card_run_close` in P10. When you stop at any other point after P0, call `card_run_close` before you stop.
 
-`references/session-flow.md` holds the levels L1 to L4 and the phases P0 to P10. `references/question-rules.md` holds the question rules Q1 to Q6 and the coverage checklist of P6.
+`references/session-flow.md` holds the levels L1 to L4 and the phases P0 to P10. `references/question-rules.md` holds the question rules Q1 to Q7 and the coverage checklist of P6. `references/claude-design.md` holds the Claude Design rules C1 to C6.
 
 ## Procedure
 
 1. Load the `loupe-board` and `loupe-documents` instructions.
 2. Read the `Instruction files` section of `.loupe/lifecycle.md` for the writing style and the docs and landing page checks. When the file is missing, write plainly, and ask the owner about docs in P6.
 3. Find the Product design slug in the `Board` section of that file. A line names the column that holds a card in product design. With no such line, use `product-design`.
-4. Read `references/session-flow.md` and `references/question-rules.md`. Follow them for the whole session.
+4. Read `references/session-flow.md`, `references/question-rules.md` and `references/claude-design.md`. Follow them for the whole session.
 5. With a card, call `card_get`. Read the tags of each linked document with `document_get`, before any move. The product document has the tag `product`, or a title that starts `Product design`.
    - An approved product document: stop, and tell the owner.
    - An unapproved product document: it is the draft that P1 reads.
@@ -39,6 +39,7 @@ Put each item in its section of the product document.
 - Each question and its answer go in "Decisions log" (A5).
 - The answers of the P7 pre-mortem go in "Risks".
 - The P8 scenarios go in "Scenarios".
+- The Claude Design page links and the pick go in "Decisions log", and the `R` entry they shaped cites the link (C6).
 
 ## P10: write and link
 
