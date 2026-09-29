@@ -10,8 +10,9 @@ use App\Module\Account\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Removes the bridge rows of the departing account. A bridge row belongs to the
- * account rather than to a project, so deleting the projects leaves it behind.
+ * Removes the bridge rows and the bridge commands of the departing account. A
+ * bridge row belongs to the account rather than to a project, so deleting the
+ * projects leaves it behind.
  */
 final readonly class BridgeAccountPurger implements AccountDataPurgerInterface
 {
@@ -34,6 +35,9 @@ final readonly class BridgeAccountPurger implements AccountDataPurgerInterface
         // $user may be detached: read the key as a scalar.
         $id = (string) ($user->id ?? throw new \LogicException('a persisted user always has an id'));
 
-        $this->em->getConnection()->executeStatement('DELETE FROM bridges WHERE owner_id = :id', ['id' => $id]);
+        $connection = $this->em->getConnection();
+        // Deleting the projects normally takes the commands. This catches one whose project went by another path.
+        $connection->executeStatement('DELETE FROM bridge_commands WHERE owner_id = :id', ['id' => $id]);
+        $connection->executeStatement('DELETE FROM bridges WHERE owner_id = :id', ['id' => $id]);
     }
 }
