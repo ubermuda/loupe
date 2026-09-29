@@ -48,13 +48,13 @@ final readonly class ReportWorkerRunStateHandler
 
     public function __invoke(ReportWorkerRunStateCommand $command): ReportWorkerRunStateResult
     {
-        /** @var array{ReportWorkerRunStateResult, bool, bool} $outcome */
+        /** @var array{ReportWorkerRunStateResult, bool, bool, bool} $outcome */
         $outcome = $this->em->wrapInTransaction(function () use ($command): array {
             // The project lock serialises two first reports of one run, which
             // would otherwise both miss the read and trip the unique index.
             $project = $this->lockedProject($command);
             if (null === $project) {
-                return [new ReportWorkerRunStateResult(null, newState: false), false, false];
+                return [new ReportWorkerRunStateResult(null, newState: false), false, false, false];
             }
 
             $run = $this->workerRuns->findOneByRunKey($project, $command->bridgeId, $command->runKey);
@@ -90,6 +90,11 @@ final readonly class ReportWorkerRunStateHandler
             }
 
             $this->fillStart($run, $command);
+            // A queued run can move to another pool, so any report, a repeat too, names the current one.
+            $poolMoved = null !== $command->workerPool && $command->workerPool !== $run->workerPool;
+            if ($poolMoved) {
+                $run->workerPool = $command->workerPool;
+            }
             // A retry of the state a timed-out run last held is the bridge
             // speaking again, so it reopens the run and says so in the history.
             $repeat = \in_array($command->state, $history, true);
@@ -111,12 +116,12 @@ final readonly class ReportWorkerRunStateHandler
             $this->em->flush();
             $this->searchIndexer->index($run);
 
-            return [new ReportWorkerRunStateResult($run, $newState), $closes, $warningChanged];
+            return [new ReportWorkerRunStateResult($run, $newState), $closes, $warningChanged, $poolMoved];
         });
 
-        [$result, $closes, $warningChanged] = $outcome;
-        // A repeat of a state the run already held changes nothing a page shows.
-        if ($result->newState && null !== $result->run) {
+        [$result, $closes, $warningChanged, $poolMoved] = $outcome;
+        // A repeat of a state the run already held changes nothing a page shows, unless it moves the pool.
+        if (($result->newState || $poolMoved) && null !== $result->run) {
             $this->publisher->runsChanged($result->run->project);
             foreach (WorkerRunChanged::ofRuns([$result->run]) as $event) {
                 $this->events->dispatch($event);

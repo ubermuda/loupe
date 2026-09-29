@@ -58,6 +58,7 @@ final class RecordBridgeHeartbeatController extends AppController
             updateState: $payload->update?->state(),
             updateVersion: $payload->update?->version,
             hooks: $payload->hooks(),
+            workerPools: $payload->workerPools(),
         ));
 
         return new JsonResponse(['cliRange' => $result->cliRange]);
