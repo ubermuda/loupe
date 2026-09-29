@@ -4,8 +4,11 @@ description: "How Loupe receives what a forge says about a pull request, and tur
 ---
 
 A forge webhook tells Loupe about a merge, a review and a check result. Loupe
-then writes an event for each card that links the pull request. Without it, a
-person reads the forge and moves the card.
+then writes an event for each card that links the pull request. For a
+repository connected through the GitHub App, Loupe also moves the card on green
+checks and on a merge. [What GitHub tells a card](../using/board.md#what-github-tells-a-card)
+describes the moves. Without a webhook, a person reads the forge and moves the
+card.
 
 A project owner connects repositories on the Connections tab of the project.
 [Projects](../using/projects.md#repositories) describes that page. This page

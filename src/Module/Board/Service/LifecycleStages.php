@@ -8,7 +8,8 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
 
 /**
- * Which column an approved document moves its card out of, and into.
+ * Which column an approved document, or a pull request with green checks,
+ * moves its card out of, and into.
  *
  * The mapping is hard-coded until a second consumer asks for it to be
  * configurable. It reads the document's tags rather than its title, because a
@@ -21,6 +22,12 @@ final readonly class LifecycleStages
         ['tags' => ['product'], 'from' => 'product-design', 'to' => 'tech-design'],
         ['tags' => ['design', 'decisions'], 'from' => 'tech-design', 'to' => 'implementation'],
     ];
+
+    /** @return array{from: string, to: string} */
+    public function forPassedChecks(): array
+    {
+        return ['from' => 'implementation', 'to' => 'in-review'];
+    }
 
     /**
      * The move an approval of this document means, or null when its tags name
