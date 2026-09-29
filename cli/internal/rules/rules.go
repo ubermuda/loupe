@@ -4,6 +4,7 @@ package rules
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -34,6 +35,17 @@ const FileName = "rules.yaml"
 // DefaultMaxChain bounds the agent-triggered runs in a row one rule starts for
 // one card.
 const DefaultMaxChain = 3
+
+// DefaultMaxWorkers bounds the workers the bridge runs at once when the file
+// sets no maxWorkers.
+const DefaultMaxWorkers = 3
+
+// DefaultPool is the pool of a worker rule that names none. It holds the slots
+// the named pools leave.
+const DefaultPool = "default"
+
+// poolNamePattern is the shape of a worker pool name.
+var poolNamePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
 
 // DefaultMaxResumes bounds the resumes the bridge runs after one run that did
 // not finish.
@@ -167,7 +179,14 @@ type File struct {
 	Hooks    []HookEntry        `yaml:"hooks"`
 	Launch   LaunchConfig       `yaml:"launch"`
 	// AutoUpdate is on when the key is absent.
-	AutoUpdate *bool `yaml:"autoUpdate"`
+	AutoUpdate  *bool                 `yaml:"autoUpdate"`
+	MaxWorkers  *int                  `yaml:"maxWorkers"`
+	WorkerPools map[string]WorkerPool `yaml:"workerPools"`
+}
+
+// WorkerPool is one named share of maxWorkers.
+type WorkerPool struct {
+	Size *int `yaml:"size"`
 }
 
 // FileDefaults fill a rule's empty fields before the bridge flags do. A reload
@@ -252,6 +271,9 @@ type Rule struct {
 	// Card limits a board.card_moved or document.review_submitted rule by the
 	// state of its card. Nil matches any card.
 	Card *CardCondition `yaml:"card"`
+	// WorkerPool names the pool the rule's workers take a slot from. Empty
+	// means DefaultPool.
+	WorkerPool string `yaml:"workerPool"`
 
 	schema string
 }
@@ -299,6 +321,9 @@ type Set struct {
 	slugs map[string]string
 
 	autoUpdate bool
+	maxWorkers int
+	// pools maps each pool name to its size, DefaultPool included.
+	pools map[string]int
 
 	// dead maps a rule name to the reason it died. The bridge reads and writes
 	// it on the stream goroutine alone. mu guards it for any other caller.
@@ -370,6 +395,16 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 	if len(f.Rules) == 0 {
 		errs = append(errs, errors.New("the rule file has no rules"))
 	}
+	s.maxWorkers = DefaultMaxWorkers
+	if f.MaxWorkers != nil {
+		s.maxWorkers = *f.MaxWorkers
+	}
+	pools, poolErrs := checkPools(s.maxWorkers, f.WorkerPools)
+	errs = append(errs, poolErrs...)
+	s.pools = pools
+	known := slices.AppendSeq([]string{DefaultPool}, maps.Keys(f.WorkerPools))
+	slices.Sort(known)
+	known = slices.Compact(known)
 
 	names := map[string]bool{}
 	perProject := map[string]int{}
@@ -394,6 +429,14 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 
 		if err := checkRule(r, f.Projects); err != nil {
 			errs = append(errs, fmt.Errorf("rule %q: %w", r.Name, err))
+		}
+		if r.Action == "" {
+			pool := cmp.Or(r.WorkerPool, DefaultPool)
+			if !slices.Contains(known, pool) {
+				errs = append(errs, fmt.Errorf("rule %q: workerPool %q is not in workerPools, which declares %s", r.Name, pool, strings.Join(known, ", ")))
+			} else if size, ok := pools[DefaultPool]; ok && size == 0 && pool == DefaultPool {
+				errs = append(errs, fmt.Errorf("rule %q: the default pool has no slot, because workerPools take all %d of maxWorkers; give the rule a workerPool or raise maxWorkers", r.Name, s.maxWorkers))
+			}
 		}
 		if schema, err := resultSchema(r.ResultFields); err != nil {
 			errs = append(errs, fmt.Errorf("rule %q: %w", r.Name, err))
@@ -550,6 +593,41 @@ func checkLaunch(c LaunchConfig, interactive bool) (Launch, error) {
 	return l, errors.Join(errs...)
 }
 
+// checkPools sizes each declared pool and gives DefaultPool the rest of the
+// budget. It leaves DefaultPool out when the budget or the sizes are invalid.
+func checkPools(budget int, declared map[string]WorkerPool) (map[string]int, []error) {
+	pools := map[string]int{}
+	var errs []error
+	if budget < 1 {
+		errs = append(errs, fmt.Errorf("maxWorkers must be at least 1, got %d", budget))
+	}
+	sum := 0
+	for _, name := range slices.Sorted(maps.Keys(declared)) {
+		size := declared[name].Size
+		switch {
+		case name == DefaultPool:
+			errs = append(errs, fmt.Errorf("workerPools.%s: the name %s is reserved for the rules that name no pool", name, DefaultPool))
+		case !poolNamePattern.MatchString(name):
+			errs = append(errs, fmt.Errorf("workerPools.%s: a pool name is 1 to 40 lowercase letters, digits and hyphens, and starts with a letter, such as quick", name))
+		case size == nil:
+			errs = append(errs, fmt.Errorf("workerPools.%s: size is required", name))
+		case *size < 1:
+			errs = append(errs, fmt.Errorf("workerPools.%s: size must be at least 1, got %d", name, *size))
+		default:
+			pools[name] = *size
+			sum += *size
+		}
+	}
+	if budget >= 1 && sum > budget {
+		errs = append(errs, fmt.Errorf("the worker pools take %d slots, and maxWorkers is %d", sum, budget))
+	}
+	if len(errs) == 0 {
+		pools[DefaultPool] = budget - sum
+	}
+
+	return pools, errs
+}
+
 // checkAction refuses an unknown action, and the fields a launch has no use for.
 func checkAction(r Rule) []error {
 	if r.Action == "" {
@@ -575,6 +653,7 @@ func checkAction(r Rule) []error {
 		{"resume", r.Resume},
 		{"verdict", r.Verdict != ""},
 		{"when", len(r.When) > 0},
+		{"workerPool", r.WorkerPool != ""},
 	} {
 		if f.set {
 			errs = append(errs, fmt.Errorf("%s names worker behaviour, and action %s launches no worker", f.name, ActionInteractive))
@@ -726,6 +805,17 @@ func braces(names []string) string {
 // AutoUpdate reports whether the bridge may update the CLI on its own.
 func (s *Set) AutoUpdate() bool {
 	return s.autoUpdate
+}
+
+// MaxWorkers is the number of workers the bridge runs at once.
+func (s *Set) MaxWorkers() int {
+	return s.maxWorkers
+}
+
+// Pools maps each worker pool to its size. DefaultPool is always present, and
+// its size can be 0.
+func (s *Set) Pools() map[string]int {
+	return maps.Clone(s.pools)
 }
 
 // ResultStatuses are the values of a worker result's status.
@@ -959,6 +1049,9 @@ type Match struct {
 	Resume         bool
 	// Schema is the compact JSON Schema claude's final reply must match.
 	Schema string
+	// Pool is the worker pool the run takes a slot from. It is empty for an
+	// interactive rule.
+	Pool string
 }
 
 // Match picks the first rule, in file order, that the event triggers.
@@ -1047,6 +1140,10 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 	}
 	// A fix request with no session has none to resume.
 	resume := r.Resume && (e.Type == event.AskClosedType || e.SessionID != "")
+	pool := ""
+	if r.Action == "" {
+		pool = cmp.Or(r.WorkerPool, DefaultPool)
+	}
 
 	return Match{
 		Skip:           Run,
@@ -1061,6 +1158,7 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 		Prompt:         render(r.Prompt, values(e, slug)),
 		Resume:         resume,
 		Schema:         schema,
+		Pool:           pool,
 	}
 }
 
