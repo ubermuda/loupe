@@ -161,6 +161,22 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
         self::assertSame('implementation', $card->column->slug);
     }
 
+    public function test_a_terminal_in_review_column_takes_no_card_on_green_checks(): void
+    {
+        $this->project = $this->makeProject('terminal-in-review');
+        $this->em->persist(new BoardColumn(project: $this->project, label: 'implementation', slug: 'implementation', position: 10));
+        $this->em->persist(new BoardColumn(project: $this->project, label: 'in-review', slug: 'in-review', position: 11, terminal: true));
+        $this->pullRequest = new ForgePullRequest($this->project, 'github', 'Acme/Widgets', 5);
+        $this->em->persist($this->pullRequest);
+        $this->em->flush();
+        $card = $this->linkedCard('implementation');
+
+        $this->handle(new PullRequestSnapshot(), $this->passed());
+
+        self::assertSame('implementation', $card->column->slug);
+        self::assertSame([], $this->moves());
+    }
+
     public function test_a_merge_of_the_only_link_moves_the_card_to_the_first_terminal_column(): void
     {
         $card = $this->linkedCard('in-review');

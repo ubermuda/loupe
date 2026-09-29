@@ -74,7 +74,8 @@ final readonly class MoveCardsOnPullRequestStateHandler
         $columns = $this->boardColumns->findForProject($project);
         $terminal = array_find($columns, static fn (BoardColumn $column): bool => $column->terminal);
         $stage = $this->stages->forPassedChecks();
-        $review = array_find($columns, static fn (BoardColumn $column): bool => $column->slug === $stage['to']);
+        // A terminal review column would finish the card before any merge.
+        $review = array_find($columns, static fn (BoardColumn $column): bool => $column->slug === $stage['to'] && !$column->terminal);
 
         $this->em->wrapInTransaction(function () use ($cards, $finished, $green, $terminal, $review, $stage, $current, $ownLinks, $project, $projectId): void {
             $done = [];
