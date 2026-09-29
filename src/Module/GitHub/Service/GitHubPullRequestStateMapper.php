@@ -60,15 +60,38 @@ final readonly class GitHubPullRequestStateMapper
             checksSha: PullRequestChecks::Pending === $checks ? null : $headSha,
             failedChecks: $failedChecks,
             mergeability: $mergeability,
-            review: match ($pullRequest['reviewDecision'] ?? null) {
+            review: $this->review($pullRequest),
+            readyToMerge: PullRequestState::Open === $state && !$draft && PullRequestChecks::Passed === $checks && PullRequestMergeability::Mergeable === $mergeability,
+            changesRequestedSha: \is_string($changesRequestedSha) && '' !== $changesRequestedSha ? $changesRequestedSha : null,
+        );
+    }
+
+    /**
+     * GitHub gives no review decision on a repository without a required
+     * review, so the latest review of each writer decides there.
+     *
+     * @param array<mixed> $pullRequest
+     */
+    private function review(array $pullRequest): PullRequestReview
+    {
+        $decision = $pullRequest['reviewDecision'] ?? null;
+        if (null !== $decision) {
+            return match ($decision) {
                 'APPROVED' => PullRequestReview::Approved,
                 'CHANGES_REQUESTED' => PullRequestReview::ChangesRequested,
                 'REVIEW_REQUIRED' => PullRequestReview::Required,
                 default => PullRequestReview::None,
-            },
-            readyToMerge: PullRequestState::Open === $state && !$draft && PullRequestChecks::Passed === $checks && PullRequestMergeability::Mergeable === $mergeability,
-            changesRequestedSha: \is_string($changesRequestedSha) && '' !== $changesRequestedSha ? $changesRequestedSha : null,
-        );
+            };
+        }
+
+        $nodes = $pullRequest['latestOpinionatedReviews']['nodes'] ?? [];
+        $states = \is_array($nodes) ? array_map(static fn (mixed $node): mixed => \is_array($node) ? ($node['state'] ?? null) : null, $nodes) : [];
+
+        return match (true) {
+            \in_array('CHANGES_REQUESTED', $states, true) => PullRequestReview::ChangesRequested,
+            \in_array('APPROVED', $states, true) => PullRequestReview::Approved,
+            default => PullRequestReview::None,
+        };
     }
 
     /**

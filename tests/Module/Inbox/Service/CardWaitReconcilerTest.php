@@ -17,6 +17,7 @@ use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
+use App\Module\GitHub\Service\GitHubPullRequestStateMapper;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxAskOrigin;
@@ -806,6 +807,42 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $this->reconcile();
 
         self::assertSame([], $this->watches());
+    }
+
+    /** @return iterable<string, array{list<string>, bool}> */
+    public static function reviewsWithoutADecision(): iterable
+    {
+        yield 'an approval' => [['APPROVED'], false];
+        yield 'no reviews' => [[], true];
+    }
+
+    /** @param list<string> $states */
+    #[DataProvider('reviewsWithoutADecision')]
+    public function test_an_approval_without_a_review_decision_gives_no_ready_wait(array $states, bool $waits): void
+    {
+        $snapshot = new GitHubPullRequestStateMapper()->map([
+            'state' => 'OPEN',
+            'isDraft' => false,
+            'headRefOid' => self::HEAD_A,
+            'baseRefName' => 'main',
+            'mergeable' => 'MERGEABLE',
+            'mergeStateStatus' => 'CLEAN',
+            'reviewDecision' => null,
+            'latestOpinionatedReviews' => ['nodes' => array_map(static fn (string $state): array => ['state' => $state], $states)],
+            'commits' => ['nodes' => [['commit' => ['oid' => self::HEAD_A, 'statusCheckRollup' => null]]]],
+        ], null, null);
+        $this->pullRequest(5)->apply($snapshot);
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame(PullRequestChecks::Passed, $snapshot->checks);
+        self::assertSame(PullRequestMergeability::Mergeable, $snapshot->mergeability);
+        if ($waits) {
+            self::assertSame(InboxCardWaitTrigger::PullRequestReady, $this->onlyWait($this->onlyWatch())->trigger);
+        } else {
+            self::assertSame([], $this->watches());
+        }
     }
 
     public function test_an_approval_ends_the_ready_wait_and_closes_the_item_done(): void
