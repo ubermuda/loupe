@@ -1,0 +1,23 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Module\Bridge\Command;
+
+use App\Module\Account\Entity\User;
+use Symfony\Component\Uid\Uuid;
+
+/** The variant a card runs with in one experiment. The candidate is one of the variants. */
+final readonly class ResolveExperimentPinCommand
+{
+    public function __construct(
+        public User $owner,
+        public string $handle,
+        public Uuid $cardId,
+        public string $experiment,
+        public string $candidate,
+        /** @var non-empty-list<string> */
+        public array $variants,
+    ) {
+    }
+}

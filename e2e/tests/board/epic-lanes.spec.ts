@@ -14,23 +14,29 @@ import {
     type Browser,
     type Page,
 } from '@playwright/test';
-import { accessToken, suppressToolbar, suppressWidget } from '../fixtures';
+import {
+    accessToken,
+    signedInPage,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eEpicLanes1!';
 
 const CARD = '[data-board-drag-target="card"]';
 const READY = '#board[data-board-drag-ready="true"]';
-// Stamped on the board on screen, so a wait can tell it from the replacement
-// the server sends back.
+// Stamped on the board on screen, so a test can prove the board changed in
+// place and was not replaced.
 const MARK = 'data-e2e-board-generation';
 
-async function setBoardFlag(
+async function setFlag(
     request: APIRequestContext,
+    name: string,
     enabled: boolean,
 ): Promise<void> {
     const response = await request.post('/dev/e2e/feature-flag', {
-        form: { name: 'board.enabled', enabled: enabled ? 1 : 0 },
+        form: { name, enabled: enabled ? 1 : 0 },
     });
     expect(response.ok()).toBeTruthy();
 }
@@ -123,9 +129,21 @@ async function markBoard(page: Page): Promise<void> {
         .evaluate((board, mark) => board.setAttribute(mark, '1'), MARK);
 }
 
-/** Resolves when the answer to a write has replaced the board and its drag controller connected. */
-async function boardReplaced(page: Page): Promise<void> {
-    await expect(page.locator(`${READY}:not([${MARK}])`)).toBeAttached();
+/** The lane toggle changes the board through the hub, which keeps no history, so the page waits for it. */
+async function openLive(page: Page, url: string): Promise<void> {
+    await page.goto(url);
+    await expect(page.locator(READY)).toBeAttached();
+    await expect(page.locator('[data-board-live-connected]')).toHaveCount(1, {
+        timeout: 15000,
+    });
+}
+
+/** Resolves when the live update has taken every lane off the board, which it changes in place. */
+async function lanesGone(page: Page): Promise<void> {
+    await expect(page.locator('.lp-board-lane')).toHaveCount(0, {
+        timeout: 15000,
+    });
+    await expect(page.locator(`${READY}[${MARK}]`)).toBeAttached();
 }
 
 /** Counts the board:placed and board:place-missed events of one card until the next page load. */
@@ -225,11 +243,11 @@ interface Board {
     create: CreateCard;
 }
 
-const test = base.extend<{ board: Board }>({
+const test = base.extend<{ board: Board; livePage: Page }>({
     board: async ({ page }, use, testInfo) => {
         await suppressToolbar(page);
         await suppressWidget(page);
-        await setBoardFlag(page.request, true);
+        await setFlag(page.request, 'board.enabled', true);
 
         const tag = testInfo.testId.replace(/[^a-z0-9]/gi, '');
         const email = `e2e+epic-lanes+${tag}+${RUN}@example.com`;
@@ -252,6 +270,13 @@ const test = base.extend<{ board: Board }>({
             create: await mcpCards(page, projectId),
         });
     },
+    // The default page sends the test headers to the hub too, and the hub refuses the preflight they cause.
+    livePage: async ({ browser, board, request }, use) => {
+        await setFlag(request, 'live_updates.enabled', true);
+        const page = await signedInPage(browser, board.email, PASSWORD);
+        await use(page);
+        await page.context().close();
+    },
 });
 
 test.use({
@@ -261,7 +286,7 @@ test.use({
 
 // The flag is global, so it goes back to its shipped value, on, for later specs.
 test.afterAll(async ({ request }) => {
-    await setBoardFlag(request, true);
+    await setFlag(request, 'board.enabled', true);
 });
 
 test('each lane cell scrolls its own cards and the page stays still', async ({
@@ -342,15 +367,14 @@ test('an epic in the Backlog keeps its lane on the board', async ({
 });
 
 test('a lane switched off shows the parent tag and the progress', async ({
-    page,
+    livePage: page,
     board,
 }) => {
     const epic = await board.create(`Epic ${RUN}`, { type: 'epic' });
     const open = await board.create(`Open child ${RUN}`, { parent: epic });
     await board.create(`Done child ${RUN}`, { parent: epic, status: 'done' });
 
-    await page.goto(board.boardUrl);
-    await expect(page.locator(READY)).toBeAttached();
+    await openLive(page, board.boardUrl);
     const epicLane = lane(page, epic.id);
     await expect(epicLane.locator('[data-lane-progress]')).toHaveText(
         '1/2 done',
@@ -360,9 +384,8 @@ test('a lane switched off shows the parent tag and the progress', async ({
     await epicLane
         .getByRole('button', { name: 'Hide the lane on the board' })
         .click();
-    await boardReplaced(page);
+    await lanesGone(page);
 
-    await expect(page.locator('.lp-board-lane')).toHaveCount(0);
     await expect(
         page.locator(
             `${CARD}[data-card-id="${open.id}"] [data-card-parent-tag]`,
@@ -374,20 +397,18 @@ test('a lane switched off shows the parent tag and the progress', async ({
 });
 
 test('the lane button in the card drawer shows the lane on the board behind it', async ({
-    page,
+    livePage: page,
     board,
 }) => {
     const epic = await board.create(`Drawer epic ${RUN}`, { type: 'epic' });
     await board.create(`Drawer child ${RUN}`, { parent: epic });
 
-    await page.goto(board.boardUrl);
-    await expect(page.locator(READY)).toBeAttached();
+    await openLive(page, board.boardUrl);
     await markBoard(page);
     await lane(page, epic.id)
         .getByRole('button', { name: 'Hide the lane on the board' })
         .click();
-    await boardReplaced(page);
-    await expect(page.locator('.lp-board-lane')).toHaveCount(0);
+    await lanesGone(page);
 
     await page
         .locator(`${CARD}[data-card-id="${epic.id}"] .lp-board-card__title`)
