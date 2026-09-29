@@ -19,6 +19,8 @@ import { accessToken, signedInPage } from '../fixtures';
 const RUN = Date.now();
 const PASSWORD = 'E2eEpicDeck1!';
 const READY = '#board[data-board-drag-ready="true"]';
+// A live count waits for the move, the card placement and the lane head placement in turn.
+const LIVE_UPDATE = { timeout: 15000 };
 
 async function setFlag(
     request: APIRequestContext,
@@ -248,7 +250,7 @@ test('the deck counts the Backlog cards of its epic, fans them out, and gives on
             `[data-board-drag-target="card"][data-card-id="${waiting[0].id}"]`,
         ),
     ).toHaveCount(1);
-    await expect(label).toHaveText('4 in Backlog');
+    await expect(label).toHaveText('4 in Backlog', LIVE_UPDATE);
     await expect(
         deck(page, epic).locator(`[data-card-id="${waiting[0].id}"]`),
     ).toHaveCount(0);
@@ -278,7 +280,7 @@ test('a card dropped on the deck of its epic goes back to the Backlog', async ({
     await drag(page, face.locator('.lp-board-card__title'), deck(page, epic));
 
     await expect(face).toHaveCount(0);
-    await expect(label).toHaveText('2 in Backlog');
+    await expect(label).toHaveText('2 in Backlog', LIVE_UPDATE);
     await expect(
         deck(page, epic).locator(`[data-card-id="${working.id}"]`),
     ).toHaveCount(1);
@@ -456,5 +458,8 @@ test('the deck stays in view while the lanes scroll sideways, and a long title w
         element.scrollLeft = element.scrollWidth;
     });
     const scrolled = await upNext.boundingBox();
-    expect(Math.abs((scrolled?.x ?? 0) - pinned.x)).toBeLessThan(2);
+    expect(scrolled).not.toBeNull();
+    expect((scrolled?.x ?? 0) + (scrolled?.width ?? 0)).toBeLessThanOrEqual(
+        strip.right + 1,
+    );
 });

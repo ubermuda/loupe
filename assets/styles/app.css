@@ -5762,9 +5762,13 @@
         @apply text-base;
     }
     /* An epic title wraps to two lines and stops short of the pinned deck.
-       The width left out covers the lane buttons, the deck and its label. */
+       The width left out covers the lane buttons, the deck and its label.
+       A phone-wide strip keeps a floor, so the title still shows. */
     .lp-board-lane--epic .lp-board-lane__heading {
-        max-width: calc(100cqi - var(--spacing) * 106);
+        max-width: max(
+            calc(100cqi - var(--spacing) * 106),
+            calc(var(--spacing) * 40)
+        );
     }
     .lp-board-lane--epic .lp-board-lane__title {
         @apply whitespace-normal leading-tight line-clamp-2;
