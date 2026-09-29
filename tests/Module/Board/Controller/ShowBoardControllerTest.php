@@ -370,6 +370,31 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('#board-card-'.$plain->id.' .lp-board-card__documents'));
     }
 
+    public function test_a_card_face_shows_the_title_and_not_the_body(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-title-only@example.com');
+        $project = $this->project($em, $owner);
+        $plain = $this->card($em, $project, 'Plain column card', 'backlog', body: 'Plain body marker text');
+        $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Lane child card', 'backlog', body: 'Lane body marker text'));
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.lp-board-lane[data-lane="'.$epic->id.'"] #board-card-'.$child->id));
+        self::assertStringContainsString('Plain column card', $crawler->filter('#board-card-'.$plain->id)->text());
+        self::assertStringContainsString('Lane child card', $crawler->filter('#board-card-'.$child->id)->text());
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('Plain body marker text', $content);
+        self::assertStringNotContainsString('Lane body marker text', $content);
+    }
+
     public function test_the_board_and_the_placement_agree_on_the_digest_of_a_card_with_documents(): void
     {
         $client = static::createClient();
@@ -485,7 +510,9 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame((string) $gaveUp->id, $warning->attr('data-card-run-warning'));
         self::assertStringContainsString('search='.$gaveUp->id, (string) $warning->attr('href'));
         self::assertStringContainsString('Gave up', $warning->text());
-        self::assertStringContainsString('Tests <em>still</em> fail.', $warning->text());
+        $summary = $warning->filter('.lp-board-card__warning-summary');
+        self::assertCount(1, $summary);
+        self::assertStringContainsString('Tests <em>still</em> fail.', $summary->text());
         self::assertStringContainsString('Tests &lt;em&gt;still&lt;/em&gt; fail.', (string) $client->getResponse()->getContent());
 
         self::assertSame((string) $blocked->id, $crawler->filter('[data-card-id="'.$unnamed->id.'"] [data-card-run-warning]')->attr('data-card-run-warning'));
