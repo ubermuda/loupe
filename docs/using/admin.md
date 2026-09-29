@@ -44,6 +44,10 @@ whether the Stripe client is ever instantiated, and `auth.google.enabled` /
 `auth.github.enabled` decide whether a social provider is reachable at all — its
 credentials alone are not enough.
 
+`review.mermaid.enabled` is seeded off. When it is on, the review page draws
+Mermaid diagrams, and each reader's browser loads Mermaid from jsDelivr. See
+[Diagrams](documents.md#diagrams).
+
 ## Audit log
 
 **`/admin/audit-log`** lists every recorded audit event on the instance, newest

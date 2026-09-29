@@ -3996,6 +3996,14 @@
                 <source>landing.feature.decisions.text</source>
                 <target>An agent can mark a passage as a decision with options. The reviewer picks one or several, and the choice comes back structured.</target>
             </trans-unit>
+            <trans-unit id="landing.feature.diagrams.title">
+                <source>landing.feature.diagrams.title</source>
+                <target>Diagrams in the document</target>
+            </trans-unit>
+            <trans-unit id="landing.feature.diagrams.text">
+                <source>landing.feature.diagrams.text</source>
+                <target>A Mermaid block renders as a diagram on the review page, once an operator turns diagrams on.</target>
+            </trans-unit>
             <trans-unit id="landing.feature.site_review.title">
                 <source>landing.feature.site_review.title</source>
                 <target>Site review</target>
