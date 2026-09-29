@@ -33,6 +33,7 @@ final readonly class BridgeExporter implements UserDataExporterInterface
                 'updateState' => $bridge->updateState?->value,
                 'updateVersion' => $bridge->updateVersion,
                 'hooks' => $bridge->hooks,
+                'workerPools' => $bridge->workerPools,
             ];
         }
     }

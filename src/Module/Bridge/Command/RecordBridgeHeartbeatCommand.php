@@ -9,12 +9,16 @@ use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use Symfony\Component\Uid\Uuid;
 
-/** @phpstan-import-type HookRow from Bridge */
+/**
+ * @phpstan-import-type HookRow from Bridge
+ * @phpstan-import-type WorkerPoolRow from Bridge
+ */
 final readonly class RecordBridgeHeartbeatCommand
 {
     /**
      * @param list<string>       $projects project ids as the bridge sent them, which may name projects the owner does not hold
-     * @param list<HookRow>|null $hooks    null keeps the stored rows, because a bridge that predates hooks sends none
+     * @param list<HookRow>|null       $hooks       null keeps the stored rows, because a bridge that predates hooks sends none
+     * @param list<WorkerPoolRow>|null $workerPools null keeps the stored rows, because a bridge that predates worker pools sends none
      */
     public function __construct(
         public User $owner,
@@ -24,6 +28,7 @@ final readonly class RecordBridgeHeartbeatCommand
         public ?CliUpdateState $updateState = null,
         public ?string $updateVersion = null,
         public ?array $hooks = null,
+        public ?array $workerPools = null,
     ) {
     }
 }

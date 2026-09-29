@@ -139,6 +139,66 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         self::assertSame([], $this->reload($owner, $bridgeId)->hooks);
     }
 
+    public function test_the_first_heartbeat_stores_the_worker_pools(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-pools-first@example.com');
+        $bridgeId = Uuid::v4();
+
+        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', workerPools: [self::pool()]));
+
+        self::assertSame([self::pool()], $this->reload($owner, $bridgeId)->workerPools);
+    }
+
+    public function test_a_first_heartbeat_without_worker_pools_stores_none(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-pools-none@example.com');
+        $bridgeId = Uuid::v4();
+
+        $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7'));
+
+        self::assertNull($this->reload($owner, $bridgeId)->workerPools);
+    }
+
+    public function test_a_later_heartbeat_replaces_the_worker_pools(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-pools-replace@example.com');
+        $bridgeId = Uuid::v4();
+        $handler = $this->handler();
+        $busy = ['inUse' => 3, 'queued' => 4] + self::pool();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', workerPools: [self::pool()]));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', workerPools: [$busy]));
+
+        self::assertSame([$busy], $this->reload($owner, $bridgeId)->workerPools);
+    }
+
+    /** An older bridge sends no pools, and its heartbeat must not clear the rows a newer one sent. */
+    public function test_a_heartbeat_without_worker_pools_keeps_the_stored_rows(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-pools-keep@example.com');
+        $bridgeId = Uuid::v4();
+        $handler = $this->handler();
+
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', workerPools: [self::pool()]));
+        $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7'));
+
+        self::assertSame([self::pool()], $this->reload($owner, $bridgeId)->workerPools);
+    }
+
+    /** @return array{name: string, size: int, inUse: int, queued: int} */
+    private static function pool(): array
+    {
+        return ['name' => 'default', 'size' => 3, 'inUse' => 1, 'queued' => 0];
+    }
+
     /** @return array{package: string, ref: string, event: string, lastRunAt: ?string, outcome: string, error: ?string} */
     private static function hook(): array
     {

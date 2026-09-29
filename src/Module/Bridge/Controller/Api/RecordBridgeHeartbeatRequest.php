@@ -12,6 +12,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  * One heartbeat, as the bridge sends it.
  *
  * @phpstan-import-type HookRow from Bridge
+ * @phpstan-import-type WorkerPoolRow from Bridge
  */
 final class RecordBridgeHeartbeatRequest
 {
@@ -21,9 +22,13 @@ final class RecordBridgeHeartbeatRequest
     /** Far above the hooks one bridge runs, and small enough to bound the JSON column. */
     public const int MAX_HOOKS = 100;
 
+    /** Far above the pools one bridge runs, and small enough to bound the JSON column. */
+    public const int MAX_WORKER_POOLS = 50;
+
     /**
      * @param list<string>|null          $projects
-     * @param list<BridgeHookInput>|null $hooks    null from a bridge that predates hooks
+     * @param list<BridgeHookInput>|null       $hooks       null from a bridge that predates hooks
+     * @param list<BridgeWorkerPoolInput>|null $workerPools null from a bridge that predates worker pools
      */
     public function __construct(
         #[Assert\All([new Assert\NotBlank(), new Assert\Uuid()])]
@@ -44,6 +49,12 @@ final class RecordBridgeHeartbeatRequest
         #[Assert\Type('list')]
         #[Assert\Valid]
         public ?array $hooks = null,
+
+        #[Assert\All([new Assert\Type(BridgeWorkerPoolInput::class)])]
+        #[Assert\Count(max: self::MAX_WORKER_POOLS)]
+        #[Assert\Type('list')]
+        #[Assert\Valid]
+        public ?array $workerPools = null,
     ) {
     }
 
@@ -67,6 +78,26 @@ final class RecordBridgeHeartbeatRequest
             'outcome' => $hook->outcome ?? '',
             'error' => '' === trim($hook->error ?? '') ? null : trim($hook->error ?? ''),
         ], array_values($this->hooks));
+    }
+
+    /**
+     * The worker pool rows as the bridge row stores them. Null when the bridge
+     * sent no report.
+     *
+     * @return list<WorkerPoolRow>|null
+     */
+    public function workerPools(): ?array
+    {
+        if (null === $this->workerPools) {
+            return null;
+        }
+
+        return array_map(static fn (BridgeWorkerPoolInput $pool): array => [
+            'name' => $pool->name ?? '',
+            'size' => $pool->size ?? 0,
+            'inUse' => $pool->inUse ?? 0,
+            'queued' => $pool->queued ?? 0,
+        ], array_values($this->workerPools));
     }
 
     /**
