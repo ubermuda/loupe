@@ -6068,6 +6068,7 @@
             <trans-unit id="activity.event_type.pull_request.fix_requested"><source>activity.event_type.pull_request.fix_requested</source><target>Fix requested</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.ready_to_merge"><source>activity.event_type.pull_request.ready_to_merge</source><target>Ready to merge</target></trans-unit>
             <trans-unit id="activity.event_type.inbox.ask_closed"><source>activity.event_type.inbox.ask_closed</source><target>Question closed</target></trans-unit>
+            <trans-unit id="activity.event_type.bridge.command"><source>activity.event_type.bridge.command</source><target>Command sent to a bridge</target></trans-unit>
             <trans-unit id="activity.event_type.project.renamed"><source>activity.event_type.project.renamed</source><target>Project renamed</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.review_submitted"><source>activity.event_type.pull_request.review_submitted</source><target>Pull request reviewed</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.checks_concluded"><source>activity.event_type.pull_request.checks_concluded</source><target>Checks concluded</target></trans-unit>
@@ -6361,6 +6362,11 @@
             <trans-unit id="bridge.agents.update.blocked"><source>bridge.agents.update.blocked</source><target>Update blocked</target></trans-unit>
             <trans-unit id="bridge.agents.update.incompatible"><source>bridge.agents.update.incompatible</source><target>Needs %range%</target></trans-unit>
             <trans-unit id="bridge.agents.empty.action"><source>bridge.agents.empty.action</source><target>Connect a bridge</target></trans-unit>
+            <trans-unit id="bridge.command.error.no_bridge"><source>bridge.command.error.no_bridge</source><target>No bridge runs this session, so no bridge can take the command.</target></trans-unit>
+            <trans-unit id="bridge.command.error.unknown_bridge"><source>bridge.command.error.unknown_bridge</source><target>The bridge of this run is no longer connected to your account.</target></trans-unit>
+            <trans-unit id="bridge.command.error.pending"><source>bridge.command.error.pending</source><target>This run already has a command that waits for its bridge.</target></trans-unit>
+            <trans-unit id="bridge.command.error.reason_too_long"><source>bridge.command.error.reason_too_long</source><target>The reason is too long.</target></trans-unit>
+            <trans-unit id="bridge.pause.error.unknown_bridge"><source>bridge.pause.error.unknown_bridge</source><target>This bridge is not connected to your account.</target></trans-unit>
             <trans-unit id="board.rules.page.title"><source>board.rules.page.title</source><target>Rules</target></trans-unit>
             <trans-unit id="board.rules.nav"><source>board.rules.nav</source><target>Rules</target></trans-unit>
             <trans-unit id="board.rules.heading"><source>board.rules.heading</source><target>The handoffs</target></trans-unit>
