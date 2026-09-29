@@ -1765,6 +1765,10 @@
                 <source>review.decision.status.answer_cleared</source>
                 <target>Cleared.</target>
             </trans-unit>
+            <trans-unit id="review.decision.status.changed_by">
+                <source>review.decision.status.changed_by</source>
+                <target>Changed by %name%.</target>
+            </trans-unit>
             <trans-unit id="review.decision.error.unknown_version">
                 <source>review.decision.error.unknown_version</source>
                 <target>That version of the document does not exist. Reload the page.</target>

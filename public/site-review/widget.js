@@ -2622,9 +2622,9 @@
             'data-loupe-review-open',
             state.open || Boolean(state.target),
         );
-        // Clip the quick actions while they collapse; once expanded and idle, allow overflow
-        // so their hover tooltips can escape upward (see the transitionend handler).
-        if (state.open) launchQuick.style.overflow = 'hidden';
+        // Clip the quick actions while they collapse, or they slide over Review and take
+        // its click. Once expanded and idle, the transitionend handler lets tooltips out.
+        if (state.open || fatal) launchQuick.style.overflow = 'hidden';
         panelNode.style.display = state.open && !picking ? 'flex' : 'none';
         if (!state.open || picking) return;
 
@@ -4465,7 +4465,10 @@
     // re-clipped on collapse and re-opened here once the expand transition finishes.
     launchQuick.style.overflow = 'visible';
     launchQuick.addEventListener('transitionend', (event) => {
-        if (event.propertyName === 'max-width' && !state.open) {
+        if (
+            event.propertyName === 'max-width' &&
+            !launcherNode.classList.contains('open')
+        ) {
             launchQuick.style.overflow = 'visible';
         }
     });

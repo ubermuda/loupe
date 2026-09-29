@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Review\Entity\DecisionAnswer;
 use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Event\DecisionAnswerChanged;
 use App\Module\Review\Repository\DecisionAnswerRepository;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
@@ -16,6 +17,7 @@ use App\Module\Review\ValueObject\Decision;
 use App\Module\Review\ValueObject\DecisionType;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -34,13 +36,15 @@ final readonly class SaveDecisionAnswerHandler
         private DecisionBlockService $decisionBlocks,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
     public function __invoke(SaveDecisionAnswerCommand $command): SaveDecisionAnswerResult
     {
         $context = [];
-        $result = $this->em->wrapInTransaction(function () use ($command, &$context): SaveDecisionAnswerResult|DomainErrors {
+        $changed = null;
+        $result = $this->em->wrapInTransaction(function () use ($command, &$context, &$changed): SaveDecisionAnswerResult|DomainErrors {
             // The document row serialises two saves, which would otherwise both
             // insert onto the unique keys. The latest version is read under it too.
             $this->em->lock($command->document, LockMode::PESSIMISTIC_WRITE);
@@ -122,8 +126,10 @@ final readonly class SaveDecisionAnswerHandler
                 if (null !== $answer) {
                     $this->em->remove($answer);
                 }
+                $answer = null;
             } elseif (null === $answer) {
-                $this->em->persist(new DecisionAnswer($command->document, $command->decisionId, $note, $command->answeredBy, $latest->versionNumber));
+                $answer = new DecisionAnswer($command->document, $command->decisionId, $note, $command->answeredBy, $latest->versionNumber);
+                $this->em->persist($answer);
             } else {
                 $answer->note = $note;
                 $answer->answeredBy = $command->answeredBy;
@@ -139,12 +145,25 @@ final readonly class SaveDecisionAnswerHandler
                 'optionCount' => \count($wanted),
                 'hasNote' => null !== $note,
             ];
+            $changed = new DecisionAnswerChanged(
+                $command->document->project->id ?? throw new \LogicException('The project has no id.'),
+                $command->document->id ?? throw new \LogicException('The document has no id.'),
+                $command->decisionId,
+                $latest->versionNumber,
+                $wanted,
+                $answer?->note,
+                $answer?->answeredBy?->fullName,
+                $answer->updatedAt ?? new \DateTimeImmutable(),
+            );
 
             return new SaveDecisionAnswerResult(changed: true, cleared: $command->clear || $unanswered);
         });
 
         if ($result instanceof DomainErrors) {
             throw $result;
+        }
+        if (null !== $changed) {
+            $this->events->dispatch($changed);
         }
         if ($result->changed) {
             $this->auditor->record(
