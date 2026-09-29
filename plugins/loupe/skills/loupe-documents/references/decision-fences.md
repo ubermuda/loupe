@@ -26,10 +26,26 @@ options still converts, with no question on the card. Two paragraphs are one too
 many: the block keeps all of its prose, degrades to the plain list it already
 was, and mints no controls.
 
-Do not repeat your recommendation inside the fence. The card is what the
-reviewer answers, and the reasoning belongs above it, where rule 5 puts it. Keep
-the "**Decision needed**" lead-in and your recommendation (rule 5) above the
-fence, because the fence carries no question of its own, only the options.
+Keep the "**Decision needed**" lead-in and your reasoning above the fence, where
+rule 5 puts them. The fence holds only the question and the options.
+
+**Mark the option you recommend at the end of its line.** Write
+`(recommended: high)`, `(recommended: moderate)` or `(recommended: low)` after
+the option text. Loupe removes the marker from the label and shows a badge with
+the confidence next to that option. Mark one option only. A second marker
+cancels both, so the block shows no badge and keeps the marker text. Other
+Markdown renderers show the marker as ordinary text.
+
+```markdown
+1. Drop `x-forwarded-host` from `trusted_headers` (recommended: moderate)
+2. Generate emailed links from a pinned `default_uri`
+```
+
+**A click saves at once.** The reviewer can also write a note, with a pick or
+alone. The note saves shortly after the reviewer stops typing, and comes back as
+`note` on the decision in `document_get_review`. A **Clear** button removes the
+pick and the note. The last write wins: a save from an older version of the
+document carries onto the current version by option label.
 
 Numbered and bulleted lists both convert, and rule 2 applies here as everywhere:
 prefer numbers, so a reviewer can still write "option 2" in a comment alongside
