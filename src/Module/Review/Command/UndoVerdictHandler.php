@@ -7,10 +7,12 @@ namespace App\Module\Review\Command;
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
+use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class UndoVerdictHandler
 {
@@ -18,6 +20,7 @@ final readonly class UndoVerdictHandler
         private EntityManagerInterface $em,
         private DocumentVersionRepository $documentVersions,
         private ReviewRepository $reviews,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -67,6 +70,11 @@ final readonly class UndoVerdictHandler
         if ($result instanceof DomainErrors) {
             throw $result;
         }
+
+        $this->events->dispatch(new DocumentStatusChanged(
+            $document->project->id ?? throw new \LogicException('A persisted project has an id.'),
+            $document->id ?? throw new \LogicException('A persisted document has an id.'),
+        ));
 
         return $result;
     }

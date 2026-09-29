@@ -27,6 +27,7 @@ use App\Module\Inbox\Command\WithdrawInboxItemCommand;
 use App\Module\Inbox\Command\WithdrawInboxItemHandler;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
+use App\Module\Inbox\Entity\InboxAskOrigin;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemKind;
@@ -171,6 +172,22 @@ final class InboxAskCloserTest extends KernelTestCase
         $event = $this->askClosedEvents()[0];
         self::assertSame((string) $card->id, $event['cardId']);
         self::assertSame(7, $event['cardNumber']);
+    }
+
+    public function test_a_loupe_ask_closes_with_no_card_and_no_event(): void
+    {
+        $item = $this->question(1);
+        $ask = new InboxAsk(project: $this->managedProject(), sessionId: null, origin: InboxAskOrigin::Loupe);
+        $ask->items->add(new InboxAskItem($ask, $item));
+        $this->em->persist($ask);
+        $this->em->flush();
+
+        $this->answer($item);
+
+        $closed = $this->reloadAsk($ask);
+        self::assertNotNull($closed->closedAt);
+        self::assertNull($closed->card);
+        self::assertSame([], $this->askClosedEvents());
     }
 
     public function test_an_interactive_run_of_the_session_never_names_the_card(): void
@@ -517,7 +534,7 @@ final class InboxAskCloserTest extends KernelTestCase
         return $ask;
     }
 
-    private function workerRun(Uuid $sessionId, Card $card, \DateTimeImmutable $startedAt, ?Project $project = null, WorkerRunKind $kind = WorkerRunKind::Worker): void
+    private function workerRun(?Uuid $sessionId, Card $card, \DateTimeImmutable $startedAt, ?Project $project = null, WorkerRunKind $kind = WorkerRunKind::Worker): void
     {
         $interactive = WorkerRunKind::Interactive === $kind;
         $this->em->persist(new WorkerRun(
@@ -527,7 +544,7 @@ final class InboxAskCloserTest extends KernelTestCase
             cardNumber: $card->number,
             ruleName: 'plan',
             state: $interactive ? WorkerRunState::Running : WorkerRunState::Succeeded,
-            sessionId: $sessionId,
+            sessionId: $sessionId ?? throw new \LogicException('An agent ask has a session.'),
             startedAt: $startedAt,
             endedAt: $interactive ? null : $startedAt->modify('+5 minutes'),
             exitCode: $interactive ? null : 0,

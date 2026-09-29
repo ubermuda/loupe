@@ -13,12 +13,15 @@ use App\Module\Review\Command\UnarchiveDocumentCommand;
 use App\Module\Review\Command\UnarchiveDocumentHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Tests\Support\DirectLogging;
+use App\Tests\Support\DispatchedEvents;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 
@@ -270,6 +273,27 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
         self::assertSame(['review.document_archived'], $this->audit->operations());
     }
 
+    public function test_each_real_archive_or_restore_announces_the_document_after_the_commit(): void
+    {
+        $document = $this->document('archive-status-'.uniqid().'@example.com');
+        $changes = DispatchedEvents::of(self::getContainer(), DocumentStatusChanged::class);
+        $depth = $this->em->getConnection()->getTransactionNestingLevel();
+
+        ($this->unarchive)(new UnarchiveDocumentCommand($document));
+        self::assertCount(0, $changes->events(), 'Restoring a live document changes nothing');
+
+        ($this->archive)(new ArchiveDocumentCommand($document));
+        ($this->archive)(new ArchiveDocumentCommand($document));
+        ($this->unarchive)(new UnarchiveDocumentCommand($document));
+
+        self::assertCount(2, $changes->events());
+        foreach ($changes->events() as $event) {
+            self::assertEquals($document->project->id, $event->projectId);
+            self::assertEquals($document->id, $event->documentId);
+        }
+        self::assertSame([$depth, $depth], $changes->transactionDepths());
+    }
+
     public function test_a_rejected_archive_records_nothing(): void
     {
         $document = $this->document('archive-audit-refused@example.com');
@@ -304,7 +328,9 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
             },
         );
 
-        $handler = new ArchiveDocumentHandler($documents, $failing, $this->audit->auditor);
+        $events = $this->createMock(EventDispatcherInterface::class);
+        $events->expects($this->never())->method('dispatch');
+        $handler = new ArchiveDocumentHandler($documents, $failing, $this->audit->auditor, $events);
 
         try {
             $handler(new ArchiveDocumentCommand($document, null));

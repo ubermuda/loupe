@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Inbox\Mcp;
 
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Mcp\InboxWithdrawTool;
 use App\Security\McpBoundProjectVoter;
@@ -77,6 +78,26 @@ final class InboxWithdrawToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('itemId: The item is already closed.');
         ($this->tool)($asked['items'][0]['itemId'], 'Second');
+    }
+
+    public function test_a_wait_item_is_refused(): void
+    {
+        $this->enableInbox();
+        $project = $this->makeProject('inbox-withdraw-wait');
+        $this->actAsMcpTokenBoundTo($project);
+        $item = new InboxItem(project: $project, number: 1, kind: InboxItemKind::Wait, title: '#1 Ship it', blocking: true);
+        $this->em->persist($item);
+        $this->em->flush();
+
+        try {
+            ($this->tool)((string) $item->id, 'Not needed');
+            self::fail('Expected a refusal for a wait item.');
+        } catch (ToolCallException $e) {
+            self::assertSame('itemId: Loupe opened this item for a card that waits for a person, so no agent can withdraw it. It closes when the card no longer waits.', $e->getMessage());
+        }
+
+        $this->em->clear();
+        self::assertSame(InboxItemState::Open, $this->em->find(InboxItem::class, $item->id)?->state);
     }
 
     public function test_a_blank_reason_is_refused(): void

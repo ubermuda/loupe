@@ -22,7 +22,7 @@ use App\Module\Review\Repository\ReviewRepository;
  * @phpstan-type InboxItemListRow array{itemId: string, number: int, kind: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string, options: list<string>, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, review: ?InboxReviewSummary}
  * @phpstan-type InboxItemCardSummary array{cardId: string, number: int, title: string}
  * @phpstan-type InboxItemDocumentSummary array{documentId: string, title: string}
- * @phpstan-type InboxItemAskSummary array{askId: string, sessionId: string, closedAt: ?string}
+ * @phpstan-type InboxItemAskSummary array{askId: string, sessionId: ?string, closedAt: ?string}
  * @phpstan-type InboxItemSummary array{itemId: string, number: int, kind: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string, body: ?string, options: list<string>, multiple: bool, freeText: bool, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, review: ?InboxReviewSummary, cards: list<InboxItemCardSummary>, documents: list<InboxItemDocumentSummary>, asks: list<InboxItemAskSummary>}
  * @phpstan-type InboxAskSummary array{askId: string, extended: bool, closed: bool, items: list<InboxItemListSummary>}
  */
@@ -124,7 +124,7 @@ final readonly class InboxItemPayload
             'asks' => array_map(
                 static fn (InboxAsk $ask): array => [
                     'askId' => (string) $ask->id,
-                    'sessionId' => (string) $ask->sessionId,
+                    'sessionId' => $ask->sessionId?->toRfc4122(),
                     'closedAt' => $ask->closedAt?->format(\DATE_ATOM),
                 ],
                 $asks,
