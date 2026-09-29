@@ -397,6 +397,8 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertNull($run->startedAt);
         self::assertNull($run->triggerEventType);
         self::assertSame('2026-09-23T10:01:00+00:00', $run->endedAt?->format(\DateTimeInterface::ATOM));
+    }
+
     public function test_the_trigger_of_the_first_report_is_stored(): void
     {
         $client = static::createClient();
