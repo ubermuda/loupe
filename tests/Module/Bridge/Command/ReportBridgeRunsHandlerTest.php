@@ -9,11 +9,13 @@ use App\Module\Bridge\Command\ReportBridgeRunsCommand;
 use App\Module\Bridge\Command\ReportBridgeRunsHandler;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\ValueObject\HeldRunKey;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\DispatchedEvents;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
@@ -108,6 +110,41 @@ final class ReportBridgeRunsHandlerTest extends KernelTestCase
     private function key(Project $project, WorkerRun $run): string
     {
         return HeldRunKey::of($project->id ?? Uuid::v4(), $run->runKey ?? Uuid::v4());
+    }
+
+    public function test_an_inventory_announces_the_cards_of_each_project_once_after_the_commit(): void
+    {
+        [$owner, $project, $bridgeId] = $this->scenario('inventory-announce');
+        $second = $this->project($this->em(), $owner, 'Second');
+        $shared = Uuid::v7();
+        $elsewhere = Uuid::v7();
+        foreach ([[$project, $shared], [$project, $shared], [$second, $elsewhere]] as [$owning, $cardId]) {
+            $this->seedRun($this->em(), $owning, bridgeId: $bridgeId, cardId: $cardId, state: WorkerRunState::Running, runKey: Uuid::v4());
+        }
+        $held = $this->keyedRun($project, $bridgeId, WorkerRunState::Running);
+        $changes = DispatchedEvents::of(self::getContainer(), WorkerRunChanged::class);
+        $depth = $this->em()->getConnection()->getTransactionNestingLevel();
+
+        self::assertCount(3, $this->handle($owner, $bridgeId, [$this->key($project, $held) => WorkerRunState::Running]));
+
+        $cards = [];
+        foreach ($changes->events() as $event) {
+            $cards[$event->projectId->toRfc4122()] = $event->cardIds;
+        }
+        self::assertCount(2, $changes->events());
+        self::assertSame([$shared->toRfc4122()], $cards[(string) $project->id]);
+        self::assertSame([$elsewhere->toRfc4122()], $cards[(string) $second->id]);
+        self::assertSame([$depth, $depth], $changes->transactionDepths());
+    }
+
+    public function test_an_inventory_that_changes_nothing_announces_nothing(): void
+    {
+        [$owner, $project, $bridgeId] = $this->scenario('inventory-announce-none');
+        $held = $this->keyedRun($project, $bridgeId, WorkerRunState::Running);
+        $changes = DispatchedEvents::of(self::getContainer(), WorkerRunChanged::class);
+
+        self::assertSame([], $this->handle($owner, $bridgeId, [$this->key($project, $held) => WorkerRunState::Running]));
+        self::assertSame([], $changes->events());
     }
 
     /** @return array{User, Project, Uuid} */

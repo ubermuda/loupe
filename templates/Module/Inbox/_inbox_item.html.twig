@@ -29,6 +29,8 @@
                 <li{% if wait.endedAt %} class="lp-inbox-waits__wait--ended"{% endif %} data-inbox-wait="{{ wait.endedAt ? 'ended' : 'current' }}">
                     {%- if wait.documentId and wait.documentId.toRfc4122 in linkedDocumentIds -%}
                         <a class="lp-inbox-waits__link" href="{{ path('app_document_review', {projectId: item.project.id, documentId: wait.documentId}) }}" data-turbo-frame="_top">{{ wait.reason }}</a>
+                    {%- elseif wait.runId -%}
+                        <a class="lp-inbox-waits__link" href="{{ path('app_project_worker_runs', {id: item.project.id, search: wait.runId}) }}" data-turbo-frame="_top">{{ wait.reason }}</a>
                     {%- else -%}
                         {{ wait.reason }}
                     {%- endif -%}
