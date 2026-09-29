@@ -525,6 +525,36 @@ describe('a card of an Up next deck', () => {
         controller.abandon();
     });
 
+    it('lands a card dropped back on its deck from where it was let go, not from the pile', () => {
+        const deck = document.getElementById('deck');
+        deck.classList.add('lp-deck');
+        const moved = document.getElementById('board-deck-card-c');
+        moved.getBoundingClientRect = () =>
+            moved.classList.contains('lp-board-card--dragging')
+                ? { left: 500, top: 30, width: 200, height: 70 }
+                : { left: 600, top: 5, width: 200, height: 70 };
+        moved.animate = vi.fn();
+
+        dragDeckCard(650, 40);
+
+        expect(moved.animate).toHaveBeenCalledTimes(1);
+        const [[from, to]] = moved.animate.mock.calls[0];
+        expect(from.translate).toBe('calc(0px + -100px) calc(0px + 25px)');
+        expect(to.translate).toBe('0px 0px');
+        expect(moved.style.transition).toBe('');
+    });
+
+    it('leaves a card that moves out of its deck to the move', () => {
+        const moved = document.getElementById('board-deck-card-c');
+        moved.animate = vi.fn();
+        document.getElementById('board-group-next').getBoundingClientRect =
+            () => ({ left: 200, top: 0, right: 400, bottom: 400 });
+
+        dragDeckCard(300, 100);
+
+        expect(moved.animate).not.toHaveBeenCalled();
+    });
+
     it('holds the fan open after a drop on the deck until the pointer leaves it', () => {
         const deck = document.getElementById('deck');
         deck.classList.add('lp-deck');

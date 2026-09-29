@@ -34,6 +34,8 @@ const STREAM_TYPE = 'text/vnd.turbo-stream.html';
 /** A group that takes a card and shows none, such as the Backlog button. */
 const isBucket = (group) => group?.dataset.boardBucket !== undefined;
 
+const angleOf = (rotate) => (['', 'none'].includes(rotate) ? '0deg' : rotate);
+
 export default class extends Controller {
     static targets = ['card', 'group', 'moveForm', 'message'];
 
@@ -75,7 +77,10 @@ export default class extends Controller {
         this.onPointerUp = (event) => this.pointerUp(event);
         this.onKeydown = (event) => {
             if (event.key === 'Escape') {
+                const card = this.draggedCard;
+                const lifted = this.liftOf(card);
                 this.abandon();
+                this.landInDeck(card, lifted);
             }
         };
         // A drag that ends on the title would otherwise open the card it just
@@ -372,10 +377,12 @@ export default class extends Controller {
         // release outside it sends the click to a shared ancestor instead, and
         // an armed flag would then swallow the next click on the board.
         this.swallowClick = this.element.contains(event.target);
+        const lifted = this.liftOf(card);
         this.abandon();
         if (group?.classList.contains('lp-deck')) {
             this.holdDeckOpen(group);
         }
+        this.landInDeck(card, lifted);
 
         if (moves) {
             this.submitMove(card, group, position, origin, lanePayload);
@@ -393,6 +400,63 @@ export default class extends Controller {
         deck.classList.add('lp-deck--open');
         window.addEventListener('pointermove', this.onDeckPointerMove);
         document.addEventListener('turbo:morph-element', this.onDeckMorph);
+    }
+
+    /** Where the lifted card sits and how it leans, read before the drag lets it go. */
+    liftOf(card) {
+        if (card === null) {
+            return null;
+        }
+
+        return {
+            box: card.getBoundingClientRect(),
+            rotate: getComputedStyle(card).rotate,
+        };
+    }
+
+    /**
+     * A deck card that stays in a deck travels from where it was let go to its
+     * slot. Without this it reappears at the pile and slides out from there.
+     */
+    landInDeck(card, lifted) {
+        if (
+            lifted === null ||
+            !card.isConnected ||
+            card.closest('.lp-deck') === null ||
+            card.classList.contains('lp-board-card--sent') ||
+            typeof card.animate !== 'function' ||
+            window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+        ) {
+            return;
+        }
+
+        card.style.transition = 'none';
+        const box = card.getBoundingClientRect();
+        const style = getComputedStyle(card);
+        const [x = '0px', y = '0px'] = ['', 'none'].includes(style.translate)
+            ? []
+            : style.translate.split(' ');
+        const rotate = angleOf(style.rotate);
+        const deltaX =
+            lifted.box.left + lifted.box.width / 2 - (box.left + box.width / 2);
+        const deltaY =
+            lifted.box.top + lifted.box.height / 2 - (box.top + box.height / 2);
+        const easing =
+            style.getPropertyValue('--ease-deck').trim() || 'ease-out';
+        const opacity = style.opacity;
+        card.style.removeProperty('transition');
+
+        card.animate(
+            [
+                {
+                    translate: `calc(${x} + ${deltaX}px) calc(${y} + ${deltaY}px)`,
+                    rotate: angleOf(lifted.rotate),
+                    opacity: 1,
+                },
+                { translate: `${x} ${y}`, rotate, opacity },
+            ],
+            { duration: 320, easing },
+        );
     }
 
     closeDeck() {

@@ -342,6 +342,19 @@ test('a deck card dragged to a cell and back marks its own slot, and the fan sta
     ).not.toHaveCSS('border-top-style', 'dashed');
 
     await page.mouse.up();
+    // The card travels from the release point, not from the pile at the right.
+    const landing = await lifted.evaluate((element) => ({
+        x: element.getBoundingClientRect().x,
+        slides: element
+            .getAnimations()
+            .some(
+                (animation) =>
+                    animation instanceof CSSTransition &&
+                    animation.transitionProperty === 'translate',
+            ),
+    }));
+    expect(landing.slides).toBe(false);
+    expect(Math.abs(landing.x - slot.x)).toBeLessThan(40);
     await expect(pile).toHaveClass(/lp-deck--open/);
     await settled(pile);
     for (const card of waiting) {
