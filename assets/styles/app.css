@@ -5763,7 +5763,7 @@
     }
     /* An epic title wraps to two lines and stops short of the pinned deck.
        The width left out covers the lane buttons, the deck and its label.
-       A phone-wide strip keeps a floor, so the title still shows. */
+       A narrow strip keeps a floor, so the title still shows. */
     .lp-board-lane--epic .lp-board-lane__heading {
         max-width: max(
             calc(100cqi - var(--spacing) * 106),
@@ -5798,9 +5798,10 @@
     }
 
     /* The Up next deck and its label, at the right end of an epic lane head.
-       It stays at the right edge of the strip while the lanes scroll sideways. */
+       It stays at the right edge of the strip while the lanes scroll sideways.
+       A phone-wide strip leaves it at the lane end, where it covers no title. */
     .lp-board-lane__up-next {
-        @apply sticky right-1 z-10 ml-auto flex shrink-0 items-center gap-4;
+        @apply sticky right-1 z-10 ml-auto flex shrink-0 items-center gap-4 @max-lg:static;
     }
     /* A lifted deck card paints over the decks of the later lanes. */
     .lp-board-lane__up-next:has(.lp-board-card--dragging) {
