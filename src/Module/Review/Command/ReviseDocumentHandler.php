@@ -9,6 +9,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Entity\Series;
+use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\SectionApprovalRepository;
@@ -24,6 +25,7 @@ use App\Module\Review\Service\SeriesConflictErrors;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -48,6 +50,7 @@ final readonly class ReviseDocumentHandler
         private SeriesConflictErrors $conflicts,
         private Auditor $auditor,
         private DocumentWorkLinksInterface $workLinks,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -213,6 +216,10 @@ final readonly class ReviseDocumentHandler
             ],
             new AuditSubject('document', (string) $document->id),
         );
+        $this->events->dispatch(new DocumentStatusChanged(
+            $document->project->id ?? throw new \LogicException('A persisted project has an id.'),
+            $document->id ?? throw new \LogicException('A persisted document has an id.'),
+        ));
 
         return $summary;
     }

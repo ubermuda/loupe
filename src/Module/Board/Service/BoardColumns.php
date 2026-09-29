@@ -10,7 +10,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * The rules every board keeps: at least one terminal column, exactly one
- * default column, a default that is not terminal, and unique well-formed slugs.
+ * Backlog row with the slug backlog that is not terminal, and unique
+ * well-formed slugs. No person renames, configures or deletes the Backlog.
  *
  * Each method takes the board as it is now, applies one change to a copy, and
  * answers with the translation key of the first rule the result breaks, or null.
@@ -22,8 +23,10 @@ final readonly class BoardColumns
     public const string SLUG_INVALID = 'board.column.error.slug_invalid';
     public const string SLUG_TAKEN = 'board.column.error.slug_taken';
     public const string NO_TERMINAL = 'board.column.error.no_terminal';
-    public const string NO_SINGLE_DEFAULT = 'board.column.error.no_single_default';
-    public const string DEFAULT_TERMINAL = 'board.column.error.default_terminal';
+    public const string NO_SINGLE_BACKLOG = 'board.column.error.no_single_backlog';
+    public const string BACKLOG_TERMINAL = 'board.column.error.backlog_terminal';
+    public const string BACKLOG_SLUG = 'board.column.error.backlog_slug';
+    public const string BACKLOG_LOCKED = 'board.column.error.backlog_locked';
     public const string LABEL_RESERVED = 'board.column.error.label_reserved';
 
     public function __construct(
@@ -52,7 +55,7 @@ final readonly class BoardColumns
     public function refuseAdd(array $columns, string $slug): ?string
     {
         $shapes = array_map(BoardColumnShape::of(...), $columns);
-        $shapes[] = new BoardColumnShape($slug, terminal: false, isDefault: false);
+        $shapes[] = new BoardColumnShape($slug, terminal: false, backlog: false);
 
         return $this->violation($shapes);
     }
@@ -60,26 +63,34 @@ final readonly class BoardColumns
     /** @param list<BoardColumn> $columns */
     public function refuseRename(array $columns, BoardColumn $renamed, string $slug): ?string
     {
+        if ($renamed->backlog) {
+            return self::BACKLOG_LOCKED;
+        }
+
         return $this->violation(array_map(
             static fn (BoardColumn $column): BoardColumnShape => $column === $renamed
-                ? new BoardColumnShape($slug, $column->terminal, $column->isDefault)
+                ? new BoardColumnShape($slug, $column->terminal, $column->backlog)
                 : BoardColumnShape::of($column),
             $columns,
         ));
     }
 
     /**
-     * All three settings at once, so the answer does not depend on the order
-     * the changes would apply in.
+     * Both settings at once, so the answer does not depend on the order the
+     * changes would apply in.
      *
      * @param list<BoardColumn> $columns
      */
-    public function refuseConfigure(array $columns, BoardColumn $configured, string $slug, bool $terminal, bool $isDefault): ?string
+    public function refuseConfigure(array $columns, BoardColumn $configured, string $slug, bool $terminal): ?string
     {
+        if ($configured->backlog) {
+            return self::BACKLOG_LOCKED;
+        }
+
         return $this->violation(array_map(
             static fn (BoardColumn $column): BoardColumnShape => $column === $configured
-                ? new BoardColumnShape($slug, $terminal, $isDefault)
-                : new BoardColumnShape($column->slug, $column->terminal, $column->isDefault && !$isDefault),
+                ? new BoardColumnShape($slug, $terminal, $column->backlog)
+                : BoardColumnShape::of($column),
             $columns,
         ));
     }
@@ -87,6 +98,10 @@ final readonly class BoardColumns
     /** @param list<BoardColumn> $columns */
     public function refuseDelete(array $columns, BoardColumn $deleted): ?string
     {
+        if ($deleted->backlog) {
+            return self::BACKLOG_LOCKED;
+        }
+
         return $this->violation(array_values(array_map(
             BoardColumnShape::of(...),
             array_filter($columns, static fn (BoardColumn $column): bool => $column !== $deleted),
@@ -115,11 +130,14 @@ final readonly class BoardColumns
             return self::NO_TERMINAL;
         }
 
-        $defaults = array_values(array_filter($shapes, static fn (BoardColumnShape $shape): bool => $shape->isDefault));
-        if (1 !== \count($defaults)) {
-            return self::NO_SINGLE_DEFAULT;
+        $backlogs = array_values(array_filter($shapes, static fn (BoardColumnShape $shape): bool => $shape->backlog));
+        if (1 !== \count($backlogs)) {
+            return self::NO_SINGLE_BACKLOG;
+        }
+        if (BoardColumn::BACKLOG_SLUG !== $backlogs[0]->slug) {
+            return self::BACKLOG_SLUG;
         }
 
-        return $defaults[0]->terminal ? self::DEFAULT_TERMINAL : null;
+        return $backlogs[0]->terminal ? self::BACKLOG_TERMINAL : null;
     }
 }

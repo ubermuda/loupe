@@ -149,10 +149,10 @@ final class CardListToolTest extends KernelTestCase
     {
         $this->boardWith('card-list-column-list');
         $expected = [
-            ['slug' => 'backlog', 'label' => 'Backlog', 'terminal' => false, 'default' => true],
-            ['slug' => 'next', 'label' => 'Next', 'terminal' => false, 'default' => false],
-            ['slug' => 'in-progress', 'label' => 'In progress', 'terminal' => false, 'default' => false],
-            ['slug' => 'done', 'label' => 'Done', 'terminal' => true, 'default' => false],
+            ['slug' => 'backlog', 'label' => 'Backlog', 'terminal' => false, 'default' => true, 'backlog' => true],
+            ['slug' => 'next', 'label' => 'Next', 'terminal' => false, 'default' => false, 'backlog' => false],
+            ['slug' => 'in-progress', 'label' => 'In progress', 'terminal' => false, 'default' => false, 'backlog' => false],
+            ['slug' => 'done', 'label' => 'Done', 'terminal' => true, 'default' => false, 'backlog' => false],
         ];
 
         $summary = ($this->tool)();

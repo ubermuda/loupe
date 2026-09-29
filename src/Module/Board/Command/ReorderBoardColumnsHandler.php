@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Service\BoardColumns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -16,8 +17,8 @@ use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Puts the board's columns in the order given. The order must name every column
- * exactly once, so a page that missed a column added elsewhere is refused
- * rather than guessed at.
+ * the board draws exactly once, so a page that missed a column added elsewhere
+ * is refused rather than guessed at. The Backlog stays first and never moves.
  */
 final readonly class ReorderBoardColumnsHandler
 {
@@ -36,25 +37,37 @@ final readonly class ReorderBoardColumnsHandler
         $ids = array_values(array_filter(array_map(trim(...), explode(',', $command->order)), static fn (string $id): bool => '' !== $id));
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
-        $order = $this->em->wrapInTransaction(function () use ($command, $ids): ?array {
+        $order = $this->em->wrapInTransaction(function () use ($command, $ids): array|string {
             $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
 
             $byId = [];
+            $backlog = null;
             foreach ($this->boardColumns->findForProjectFresh($command->project) as $column) {
-                $byId[(string) $column->id] = $column;
+                if ($column->backlog) {
+                    $backlog = $column;
+                } else {
+                    $byId[(string) $column->id] = $column;
+                }
             }
 
+            if (null !== $backlog && \in_array((string) $backlog->id, $ids, true)) {
+                return BoardColumns::BACKLOG_LOCKED;
+            }
             $wanted = array_unique($ids);
             if ($command->expectedOrder !== implode(',', array_keys($byId))) {
-                return null;
+                return self::ORDER_STALE;
             }
             if (\count($wanted) !== \count($ids) || \count($ids) !== \count($byId) || [] !== array_diff($ids, array_keys($byId))) {
-                return null;
+                return self::ORDER_STALE;
             }
 
             $slugs = [];
-            foreach ($ids as $position => $id) {
-                $byId[$id]->position = $position;
+            $position = 0;
+            if (null !== $backlog) {
+                $backlog->position = $position++;
+            }
+            foreach ($ids as $id) {
+                $byId[$id]->position = $position++;
                 $slugs[] = $byId[$id]->slug;
             }
             $this->em->flush();
@@ -62,8 +75,8 @@ final readonly class ReorderBoardColumnsHandler
             return $slugs;
         });
 
-        if (null === $order) {
-            throw new DomainErrors(['order' => self::ORDER_STALE]);
+        if (\is_string($order)) {
+            throw new DomainErrors(['order' => $order]);
         }
 
         $this->auditor->record(

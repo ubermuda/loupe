@@ -6,8 +6,13 @@ namespace App\Tests\Module\Inbox\EventListener;
 
 use App\Module\Account\Entity\User;
 use App\Module\Inbox\Entity\InboxAskItem;
+use App\Module\Inbox\Entity\InboxCardWait;
+use App\Module\Inbox\Entity\InboxCardWaitTrigger;
+use App\Module\Inbox\Entity\InboxCardWatch;
+use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
+use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\EventListener\DeleteInboxDataOnProjectDeleting;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Event\ProjectDeleting;
@@ -21,7 +26,7 @@ final class DeleteInboxDataOnProjectDeletingTest extends KernelTestCase
 {
     use InboxFixtures;
 
-    private const array TABLES = ['inbox_items', 'inbox_asks', 'inbox_ask_items', 'inbox_item_cards', 'inbox_item_documents'];
+    private const array TABLES = ['inbox_items', 'inbox_asks', 'inbox_ask_items', 'inbox_item_cards', 'inbox_item_documents', 'inbox_card_watches', 'inbox_card_waits'];
 
     private EntityManagerInterface $em;
     private Connection $connection;
@@ -103,6 +108,14 @@ final class DeleteInboxDataOnProjectDeletingTest extends KernelTestCase
         $ask->card = $card;
         $askItem = new InboxAskItem($ask, $item);
         $ask->items->add($askItem);
+        $this->em->flush();
+        // The watch names its project too, so its foreign key must not block the project delete.
+        $waitItem = new InboxItem(project: $project, number: 2, kind: InboxItemKind::Wait, title: '#1 Ship it', blocking: true);
+        $watch = new InboxCardWatch($waitItem, $card->id ?? throw new \LogicException('A stored card has an id.'), $card->number);
+        $wait = new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, 'The design in review, version 1', $document->id, 1);
+        $watch->waits->add($wait);
+        $this->em->persist($waitItem);
+        $this->em->persist($watch);
 
         return [$project, [
             'inbox_items' => $item,
@@ -110,6 +123,8 @@ final class DeleteInboxDataOnProjectDeletingTest extends KernelTestCase
             'inbox_ask_items' => $askItem,
             'inbox_item_cards' => $itemCard,
             'inbox_item_documents' => $itemDocument,
+            'inbox_card_watches' => $watch,
+            'inbox_card_waits' => $wait,
         ]];
     }
 

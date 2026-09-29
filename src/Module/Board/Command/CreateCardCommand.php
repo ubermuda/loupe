@@ -21,7 +21,7 @@ final readonly class CreateCardCommand
         public string $title,
         public string $body,
         public CardType $type,
-        /** Null lands the card in the board's default column. */
+        /** Null lands the card in the board's Backlog. */
         public ?BoardColumn $column = null,
         public CardReporter $reporter = CardReporter::Agent,
         public array $pullRequestUrls = [],

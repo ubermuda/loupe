@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"os"
 	"slices"
@@ -38,10 +39,9 @@ type router struct {
 	set atomic.Pointer[rules.Set]
 	// projects names the mapped slugs in the connected line. A reload writes
 	// it under mu.
-	projects   []string
-	topic      string
-	maxWorkers int
-	worker     workerOps
+	projects []string
+	topic    string
+	worker   workerOps
 	// bridgeID names the bridge in every report it sends, of a run and of rule
 	// health alike. With none, as in most tests, the bridge sends no report.
 	bridgeID string
@@ -101,8 +101,10 @@ type router struct {
 	// so it stays until a person acts: one small map per card agents ran on.
 	chains map[string]map[string]int
 	// busy is the last busy or idle the hook runner got. The bridge starts idle.
-	busy   bool
-	active int
+	busy bool
+	// inUse counts the worker slots taken in each pool, by the pool the run
+	// started in.
+	inUse  map[string]int
 	closed bool
 	// claude is the absolute path a launch script runs, which a reload swaps
 	// with the set. launching counts the launches whose report is not queued.
@@ -196,13 +198,17 @@ type pending struct {
 	// fresh marks the new session that replaces a resume whose session is
 	// missing. It never resumes the event's session, so it never falls back.
 	fresh bool
+	// pool is the pool the rule names now. slot is the pool the run started
+	// in, which a reload never changes.
+	pool string
+	slot string
 }
 
 // apply takes the rule, the settings and the prompt of a match. The session id
 // stays empty until start. A resume of an unfinished run keeps its session,
 // its prompt and its cap.
 func (p *pending) apply(m rules.Match) {
-	p.rule, p.maxChain, p.action, p.project = m.Rule, m.MaxChain, m.Action, m.Project
+	p.rule, p.maxChain, p.action, p.project, p.pool = m.Rule, m.MaxChain, m.Action, m.Project, m.Pool
 	if p.continues != "" {
 		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Schema
 
@@ -538,6 +544,7 @@ func (r *router) dropDeadLocked(dead []rules.Dead) ([]rules.Dead, []pending) {
 		dropped = append(dropped, r.dispatchLocked()...)
 	}
 	r.noteBusyLocked()
+	r.notePoolsLocked()
 
 	return dead, dropped
 }
@@ -693,6 +700,7 @@ func (r *router) enqueue(p pending) {
 	p.column = r.columnLocked(p.event)
 	if p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
 		r.log.Warn("chain_capped", append(about(p.event, p.rule),
+			"worker_pool", p.pool,
 			"max_chain", p.maxChain,
 			"message", fmt.Sprintf("%s hit the chain cap of rule %s, waiting for a person", aggregate(p.event), p.rule),
 		)...)
@@ -709,7 +717,7 @@ func (r *router) enqueue(p pending) {
 		p.checked, p.seq = r.queue[i].checked, r.queue[i].seq
 		r.emitLocked(r.queue[i], api.RunStateReport{State: api.RunReplaced, ReplacedBy: p.runID})
 		r.queue[i] = p
-		r.log.Info("worker_coalesced", about(p.event, p.rule)...)
+		r.log.Info("worker_coalesced", append(about(p.event, p.rule), "worker_pool", p.pool)...)
 		r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
 		// The new run takes the place of a resume its check let through.
 		if p.checked {
@@ -722,7 +730,13 @@ func (r *router) enqueue(p pending) {
 	r.seq++
 	p.seq = r.seq
 	r.queue = append(r.queue, p)
-	r.log.Info("worker_queued", append(about(p.event, p.rule), "queue_depth", len(r.queue))...)
+	depth := 0
+	for _, q := range r.queue {
+		if q.pool == p.pool {
+			depth++
+		}
+	}
+	r.log.Info("worker_queued", append(about(p.event, p.rule), "worker_pool", p.pool, "queue_depth", len(r.queue), "pool_depth", depth)...)
 	r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
 	r.mu.Unlock()
 
@@ -739,12 +753,13 @@ func (r *router) dispatch() {
 	r.logDropped(dropped)
 }
 
-// dispatchLocked starts the oldest queued events whose card is free, while a
-// slot is free, and starts the ask check of a queued resume whether or not a
-// slot is. The caller holds mu, and logs the queue a shut router returns. One
-// card runs one worker, because two agents in one checkout undo each other.
-// Pop and start share the lock, or two finishing workers could reorder starts.
+// dispatchLocked starts the oldest queued events whose card and pool slot are
+// free, and starts the ask check of a queued resume whether or not a slot is.
+// The caller holds mu, and logs the queue a shut router returns. One card runs
+// one worker, because two agents in one checkout undo each other. Pop and
+// start share the lock, or two finishing workers could reorder starts.
 func (r *router) dispatchLocked() []pending {
+	defer r.notePoolsLocked()
 	defer r.noteBusyLocked()
 	if r.shut() {
 		dropped := r.queue
@@ -759,6 +774,9 @@ func (r *router) dispatchLocked() []pending {
 		return nil
 	}
 
+	// A pool the current set lacks has no slot.
+	set := r.rules()
+	budget, pools := set.MaxWorkers(), set.Pools()
 	// waiting holds the keys of events this pass leaves queued, so a later
 	// event of the same card never goes first.
 	waiting := map[string]bool{}
@@ -777,7 +795,7 @@ func (r *router) dispatchLocked() []pending {
 
 			continue
 		}
-		if r.active >= r.maxWorkers {
+		if r.usedLocked() >= budget || r.inUse[next.pool] >= pools[next.pool] {
 			waiting[next.key] = true
 			i++
 
@@ -789,6 +807,7 @@ func (r *router) dispatchLocked() []pending {
 		// of an unfinished run continues a run the chain counted already.
 		if next.continues == "" && next.spec.resume && next.event.Actor == event.ActorAgent && r.chains[next.key][next.rule] >= next.maxChain {
 			r.log.Warn("chain_capped", append(about(next.event, next.rule),
+				"worker_pool", next.pool,
 				"max_chain", next.maxChain,
 				"message", fmt.Sprintf("%s hit the chain cap of rule %s, waiting for a person", aggregate(next.event), next.rule),
 			)...)
@@ -797,7 +816,8 @@ func (r *router) dispatchLocked() []pending {
 
 			continue
 		}
-		r.active++
+		next.slot = next.pool
+		r.takeLocked(next.slot)
 		r.hold(next.key)
 		if next.continues == "" && !next.fresh && next.event.Actor == event.ActorAgent {
 			r.countChain(next.key, next.rule)
@@ -806,6 +826,64 @@ func (r *router) dispatchLocked() []pending {
 	}
 
 	return nil
+}
+
+// usedLocked is the number of worker slots taken in every pool. The caller
+// holds mu.
+func (r *router) usedLocked() int {
+	n := 0
+	for _, used := range r.inUse {
+		n += used
+	}
+
+	return n
+}
+
+// takeLocked takes one slot of the pool. The caller holds mu.
+func (r *router) takeLocked(pool string) {
+	if r.inUse == nil {
+		r.inUse = map[string]int{}
+	}
+	r.inUse[pool]++
+}
+
+// releaseLocked gives back one slot of the pool the run started in. A second
+// release of one slot gives no slot back. The caller holds mu.
+func (r *router) releaseLocked(pool string) {
+	r.inUse[pool]--
+	if r.inUse[pool] <= 0 {
+		delete(r.inUse, pool)
+	}
+}
+
+// notePoolsLocked hands the rows of the worker pools to the heartbeat. The
+// caller holds mu.
+func (r *router) notePoolsLocked() {
+	if r.heartbeat == nil {
+		return
+	}
+	r.heartbeat.setPools(r.poolRowsLocked())
+}
+
+// poolRowsLocked lists, in name order, each pool of the set, and each pool
+// that the set lacks and a run or a queued event still names, with size 0.
+// The caller holds mu.
+func (r *router) poolRowsLocked() []api.WorkerPoolReport {
+	sizes := r.rules().Pools()
+	queued := map[string]int{}
+	for _, p := range r.queue {
+		if p.pool != "" {
+			queued[p.pool]++
+		}
+	}
+	names := slices.Concat(slices.Collect(maps.Keys(sizes)), slices.Collect(maps.Keys(r.inUse)), slices.Collect(maps.Keys(queued)))
+	slices.Sort(names)
+	rows := []api.WorkerPoolReport{}
+	for _, name := range slices.Compact(names) {
+		rows = append(rows, api.WorkerPoolReport{Name: name, Size: sizes[name], InUse: r.inUse[name], Queued: queued[name]})
+	}
+
+	return rows
 }
 
 // noteBusyLocked hands busy or idle to the hook runner when the bridge turns
@@ -857,13 +935,13 @@ func (r *router) countChain(key, rule string) {
 // admits the next worker runs before wg.Done, so a waiter never sees the count
 // reach zero between two queued workers.
 func (r *router) start(p pending) {
+	args := append(about(p.event, p.rule), "worker_pool", p.slot)
 	switch {
 	case p.continues != "":
 		// The resume gate set the session of the run this one continues.
-		r.log.Info("worker_started", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "resume", p.resumeIndex)...)
+		r.log.Info("worker_started", append(args, "session_id", p.spec.sessionID, "resume", p.resumeIndex)...)
 	case p.spec.resume:
 		p.spec.sessionID = p.event.SessionID
-		args := about(p.event, p.rule)
 		// about names the session of an ask already.
 		if p.event.Type != event.AskClosedType {
 			args = append(args, "session_id", p.spec.sessionID)
@@ -871,7 +949,7 @@ func (r *router) start(p pending) {
 		r.log.Info("worker_started", args...)
 	default:
 		p.spec.sessionID = r.worker.sessionID()
-		r.log.Info("worker_started", append(about(p.event, p.rule), "session_id", p.spec.sessionID)...)
+		r.log.Info("worker_started", append(args, "session_id", p.spec.sessionID)...)
 	}
 	p.spec.runID, p.spec.rule, p.spec.key = p.runID, p.rule, p.key
 	if r.inbox {
@@ -1013,7 +1091,7 @@ func (r *router) end(p pending, e endedRun) {
 		return
 	}
 	r.emit(p, r.outcome(p, e))
-	r.finish(p.key)
+	r.finish(p)
 }
 
 // missingSessionOutput starts what claude prints when it has no session to
@@ -1051,7 +1129,7 @@ func (r *router) startFresh(p pending, e endedRun) bool {
 	r.emitLocked(next, api.RunStateReport{State: api.RunQueued})
 	i, _ := slices.BinarySearchFunc(r.queue, next.seq, func(q pending, seq uint64) int { return cmp.Compare(q.seq, seq) })
 	r.queue = slices.Insert(r.queue, i, next)
-	r.active--
+	r.releaseLocked(p.slot)
 	dropped := r.dispatchLocked()
 	r.mu.Unlock()
 
@@ -1064,7 +1142,7 @@ func (r *router) startFresh(p pending, e endedRun) bool {
 // in one critical section, so no new event of the card starts first.
 func (r *router) finishInto(p pending, e endedRun, reason string) {
 	r.mu.Lock()
-	r.active--
+	r.releaseLocked(p.slot)
 	r.gating++
 	r.wg.Add(1)
 	go r.resumeGate(p, e, reason, r.stoppedLocked())
@@ -1181,6 +1259,7 @@ func (r *router) decideResume(p pending, e endedRun, reason string, read bool, c
 	}
 
 	next := p
+	next.slot = ""
 	next.continues, next.runID, next.resumeIndex = p.runID, config.NewUUID(), p.resumeIndex+1
 	next.set, next.checked = current, true
 	next.spec.resume, next.spec.prompt = true, directive.RenderResumeUnfinished(reason)
@@ -1289,10 +1368,10 @@ func (r *router) check(p pending) {
 // finish frees the slot and the card, and starts what waits, in one critical
 // section. A new event for the card cannot slip between the release and the
 // start of the card's waiting event.
-func (r *router) finish(key string) {
+func (r *router) finish(p pending) {
 	r.mu.Lock()
-	delete(r.running, key)
-	r.active--
+	delete(r.running, p.key)
+	r.releaseLocked(p.slot)
 	dropped := r.dispatchLocked()
 	r.mu.Unlock()
 
@@ -1334,6 +1413,9 @@ func (r *router) logDropped(dropped []pending, attrs ...any) {
 	for i, p := range dropped {
 		k, v := label(p.event)
 		lost[i] = map[string]any{k: v, "rule": p.rule}
+		if p.pool != "" {
+			lost[i]["worker_pool"] = p.pool
+		}
 		if ask := askOf(p.event); ask != "" {
 			lost[i]["ask"] = ask
 		}
@@ -1483,6 +1565,7 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 	}
 	report.BridgeID, report.At = r.bridgeID, time.Now()
 	report.CardID, report.CardNumber, report.RuleName = cardID, cardNumber, p.rule
+	report.WorkerPool = cmp.Or(p.slot, p.pool)
 	// The handle is the project id the event carried, which a rename never
 	// changes.
 	r.reports.Enqueue(r.runs.state(p.event.ProjectID, p.runID, report))

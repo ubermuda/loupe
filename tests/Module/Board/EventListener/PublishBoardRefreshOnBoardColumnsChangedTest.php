@@ -85,14 +85,15 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $this->configureColumn($this->project, $added->slug, label: 'On hold');
         $this->assertPublishedAtTerminate(2);
 
-        $order = array_map(static fn (BoardColumn $column): string => (string) $column->id, array_reverse($this->columns()));
+        $boardColumns = array_values(array_filter($this->columns(), static fn (BoardColumn $column): bool => !$column->backlog));
+        $order = array_map(static fn (BoardColumn $column): string => (string) $column->id, array_reverse($boardColumns));
         $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $order), implode(',', array_reverse($order))));
         $this->assertPublishedAtTerminate(3);
 
         $this->configureColumn($this->project, 'on-hold', terminal: true);
         $this->assertPublishedAtTerminate(4);
 
-        $this->configureColumn($this->project, 'next', isDefault: true);
+        $this->configureColumn($this->project, 'on-hold', terminal: false);
         $this->assertPublishedAtTerminate(5);
 
         $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($added, CardReporter::Human));
@@ -153,17 +154,17 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
 
     public function test_a_change_that_changes_nothing_or_is_refused_publishes_nothing(): void
     {
-        $backlog = $this->column($this->project, 'backlog');
-        $this->configureColumn($this->project, 'backlog', isDefault: true);
+        $next = $this->column($this->project, 'next');
+        $this->configureColumn($this->project, 'next');
 
         try {
-            $this->configureColumn($this->project, 'backlog', label: 'Next');
+            $this->configureColumn($this->project, 'next', label: 'Done');
             self::fail('a rename onto a slug the board already holds must be refused');
         } catch (DomainErrors) {
         }
 
-        // Guard: the default is where the no-op left it, so nothing moved.
-        self::assertTrue($backlog->isDefault);
+        // Guard: the column keeps what the no-op left it, so nothing moved.
+        self::assertSame('next', $next->slug);
         $this->assertPublishedAtTerminate(0);
     }
 

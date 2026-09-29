@@ -1,0 +1,2 @@
+{#- How many Backlog cards the filters match. Props: view (ListBacklogCardsView), listQuery (BacklogListQuery). -#}
+{% if listQuery.isNarrowed %}{{ 'board.backlog.filter.count_matching'|trans({'%matching%': view.filteredTotal, '%count%': view.total}) }}{% else %}{{ 'board.backlog.meta.total'|trans({'%count%': view.total}) }}{% endif %}

@@ -89,9 +89,9 @@ final readonly class MoveCardsOnPullRequestStateHandler
 
             foreach ($cards as $card) {
                 if (isset($done[(string) $card->id])) {
-                    ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $terminal, expectOpenColumn: true));
+                    ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $terminal, onlyFromOpenColumn: true));
                 } elseif ($green && null !== $review && $card->column->slug === $stage['from']) {
-                    ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $review, expectedColumn: $card->column));
+                    ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $review, onlyFromColumn: $card->column));
                 }
             }
         });

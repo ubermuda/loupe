@@ -177,7 +177,7 @@ class WorkerRunRepository extends ServiceEntityRepository
         $ids = $this->createQueryBuilder('r')
             ->select('r.id')
             ->join('r.project', 'p')
-            ->leftJoin(Bridge::class, 'b', Join::WITH, 'IDENTITY(b.owner) = IDENTITY(p.owner) AND b.id = r.bridgeId')
+            ->leftJoin(Bridge::class, 'b', Join::ON, 'IDENTITY(b.owner) = IDENTITY(p.owner) AND b.id = r.bridgeId')
             // No bridge holds an interactive run, so it would always read as quiet.
             ->andWhere('r.kind = :worker')
             ->andWhere('r.state IN (:openStates)')
@@ -527,6 +527,44 @@ class WorkerRunRepository extends ServiceEntityRepository
     public function findWarningRowOfCard(Project $project, Uuid $cardId): ?array
     {
         return $this->findWarningRows($project, $cardId)[0] ?? null;
+    }
+
+    /**
+     * The newest run of each card, open or closed, of any kind. Null reads
+     * every card of the project.
+     *
+     * @param list<Uuid>|null $cardIds
+     *
+     * @return list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}>
+     */
+    public function findLatestRunRows(Project $project, ?array $cardIds): array
+    {
+        if ([] === $cardIds) {
+            return [];
+        }
+
+        $params = ['project' => (string) ($project->id ?? throw new \LogicException('Project has no id.'))];
+        $types = [];
+        $cardFilter = '';
+        if (null !== $cardIds) {
+            $cardFilter = 'AND r.card_id IN (:cards)';
+            $params['cards'] = array_map(static fn (Uuid $id): string => (string) $id, $cardIds);
+            $types['cards'] = ArrayParameterType::STRING;
+        }
+
+        /** @var list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->executeQuery(
+            <<<SQL
+                SELECT DISTINCT ON (r.card_id) r.id, r.card_id, r.state, r.output, r.card_column
+                FROM bridge_worker_runs r
+                WHERE r.project_id = :project {$cardFilter}
+                ORDER BY r.card_id, r.received_at DESC, r.id DESC
+                SQL,
+            $params,
+            $types,
+        )->fetchAllAssociative();
+
+        return $rows;
     }
 
     /** @return list<array{id: string, card_id: string, state: string, output: string, card_column: ?string}> */

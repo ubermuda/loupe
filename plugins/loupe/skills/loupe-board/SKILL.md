@@ -26,12 +26,18 @@ Each column carries these fields:
 | `slug` | The value you pass as `status`. |
 | `label` | The name a person sees on the board. |
 | `terminal` | `true` for a column that holds finished work. A board has at least one. |
-| `default` | `true` for the one column where a card created with no `status` lands. |
+| `default` | `true` on Backlog alone. It says the same as `backlog`, for older clients. |
+| `backlog` | `true` on Backlog alone. |
 
-A new board starts with `backlog` (default), `next`, `in-progress` and `done`
-(terminal). The project owner can add, rename, reorder, flag and delete columns,
-so never assume those four. A rename that changes the slug breaks every outside
-reference to the old slug. A slug you read in an earlier session can be gone.
+Every board has exactly one Backlog. Its slug is always `backlog`, and a card
+created with no `status` lands there. The board does not draw Backlog as a
+column. Backlog has its own page. Nobody can rename, reorder or delete it, and
+`board_columns` still lists it, so `backlog` is a status you can always pass.
+
+A new board also starts with `next`, `in-progress` and `done` (terminal). The
+project owner can add, rename, reorder, flag and delete those columns, so never
+assume them. A rename that changes the slug breaks every outside reference to
+the old slug. A slug you read in an earlier session can be gone.
 
 An unknown slug is refused, and the error lists the slugs the board has. No tool
 writes a column. Ask the owner when the board needs a column it does not have.
@@ -39,8 +45,7 @@ writes a column. Ask the owner when the board needs a column it does not have.
 This skill names a column by its role. Match each role to a column of the board
 by its flags and its label:
 
-- The default column holds work nobody has chosen yet. It is `backlog` on a new
-  board.
+- Backlog holds work nobody has chosen yet. It is `backlog` on every board.
 - The chosen column holds work picked and not started. It is `next` on a new
   board.
 - The working column holds work under way. It is `in-progress` on a new board.
@@ -53,7 +58,7 @@ When no column fits a role, leave the card where it is and tell the owner.
 | Tool | Use it to |
 |---|---|
 | `board_columns` | Read the columns of the board, in board order. |
-| `card_create` | Put a new card on the board. It lands in the default column unless you pass `status`. |
+| `card_create` | Put a new card on the board. It lands in Backlog unless you pass `status`. |
 | `card_list` | Read one page of the board, with its columns. Filter by `status`, `type`, `reporter` or `parentCardId`. A terminal column reads newest completion first, and every other column reads in rank order. |
 | `card_search` | Ask whether a card about something already exists. It reads the title and the body of every card, done ones included. |
 | `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents, its linked cards, the feedback items that belong to it, and its parent or its children. |
@@ -190,8 +195,8 @@ done when it sits in a terminal column.
 ## A card that opens with `**Parked.**` is paused
 
 The board has no parked state. A card whose body opens with `**Parked.**` waits
-for the owner. Leave it in the column it sits in, which is normally the default
-column. Never move it to the chosen column or the working column yourself.
+for the owner. Leave it in the column it sits in, which is normally
+Backlog. Never move it to the chosen column or the working column yourself.
 
 Write that line yourself only when the owner parks the work. Board card 'Give
 the board a parked state' asks for a real field.
@@ -237,7 +242,7 @@ anyone.
 
 A lesson is the common mistake, because it feels valuable and it has no owner.
 Write it into the skill a future session already reads. A card holding a lesson
-sits in the default column forever, because nobody can finish it.
+sits in Backlog forever, because nobody can finish it.
 
 The test survives the rewrite: a card whose body is mostly evidence, with one
 line at the end asking for the evidence to be written up, is a card. The write-up
@@ -282,7 +287,7 @@ sees the truth only when every step updates the card.
 | A design document exists | Add its id to `documentIds`, before the code exists. |
 | You open the pull request | Add its URL to `pullRequestUrls`. A draft already has a URL. |
 | You hand the work over | Put the branch name and the remaining steps in the body. |
-| You stop and leave the work | Move the card back to the default column. Say why in the body. |
+| You stop and leave the work | Move the card back to Backlog. Say why in the body. |
 | The pull request merges | Move the card to a terminal column, unless Loupe already moved it. |
 
 The chosen column holds work that is chosen and not started. `card_create` takes
@@ -293,7 +298,7 @@ Attach a link as soon as it exists. A session that reads the card while the
 branch runs then finds the URL and the document.
 
 Only the owner parks a card. Read the `**Parked.**` section above before you move
-a card out of the default column.
+a card out of Backlog.
 
 `body` replaces the whole body, in the same way `pullRequestUrls` replaces the
 whole set. Read the card with `card_get` first. Add your lines to the Markdown
@@ -367,7 +372,7 @@ moves the card.
 
 | Mistake | Reality |
 |---|---|
-| Assuming the board has `backlog`, `next`, `in-progress` and `done` | Each board has its own columns. Call `board_columns` and use its slugs. |
+| Assuming the board has `next`, `in-progress` and `done` | Each board has its own columns. Only `backlog` is always there. Call `board_columns` and use its slugs. |
 | Reusing a slug from an earlier session | A rename can change the slug. Read the columns again. |
 | Looking for a tool that adds or renames a column | No tool writes a column. Ask the project owner. |
 | Looking for a `card_delete` tool | There is none. Move the card to a terminal column. |
@@ -387,6 +392,6 @@ moves the card.
 | Expecting a merged pull request to move its card | Only a GitHub App repository with the automation on moves it. Otherwise move the card yourself. |
 | Linking a pull request only when it is ready for review | A draft has a URL. Link it when you open it. |
 | Moving a card into a column only to hold it | A running `loupe bridge` starts a worker when a rule names that column. |
-| Leaving the card in the default column while you work on it | The board then shows no work in progress. Move it when you start. |
+| Leaving the card in Backlog while you work on it | The board then shows no work in progress. Move it when you start. |
 | Sending a short `body` to add a handover note | `body` replaces the whole body. Read the card with `card_get` first. |
 | Writing "Task 3" or "phase 2" in a body | Those names die with the session. Name the class, the route or the file. |

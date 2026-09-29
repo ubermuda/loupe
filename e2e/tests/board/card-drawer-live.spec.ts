@@ -51,6 +51,8 @@ test('the drawer warns about a change made elsewhere, and shows a card deleted e
 
     await editor.goto(`${boardUrl}/cards/new`);
     await editor.getByLabel('Title', { exact: true }).fill('Shared card');
+    // The board draws no Backlog, where a new card lands by default.
+    await editor.getByLabel('Column').selectOption({ label: 'Next' });
     await editor
         .getByRole('button', { name: 'Create card', exact: true })
         .click();

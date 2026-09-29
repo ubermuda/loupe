@@ -8,6 +8,7 @@
      data-action="turbo:frame-render@document->board-filter#filter board:placed@document->board-filter#filter board:structure-changed@document->board-filter#filter turbo:frame-render@document->board-view#restore turbo:frame-render@document->board-drag#markReady">
     {% set cardCount = 0 %}
     {% for view in board.columns %}{% set cardCount = cardCount + board.shownCounts[view.column.id ~ '']|default(view.count) %}{% endfor %}
+    <div class="lp-board-header">
     <div class="lp-board-toolbar" id="board-toolbar-{{ board.project.id }}" data-turbo-permanent>
         <h1 class="lp-board-toolbar__title">{{ 'board.page.title'|trans }}</h1>
         <div class="lp-board-toolbar__filters" data-action="focusin->board-filter#revealField">
@@ -56,6 +57,19 @@
                 {{ 'board.card.create.action'|trans }}
             </a>
         </div>
+    </div>
+    {# A drop here sends the card to the end of the Backlog. #}
+    <a class="lp-btn lp-board-backlog"
+       href="{{ path('app_project_board_backlog', {projectId: board.project.id}) }}"
+       title="{{ 'board.backlog.button.hint'|trans }}"
+       data-board-drag-target="group"
+       data-board-bucket
+       data-column="{{ board.backlog.id }}"
+       data-rankable="0">
+        <twig:ux:icon name="lucide:inbox" class="w-4 h-4 shrink-0" />
+        {{ 'board.backlog.button'|trans }}
+        <span class="lp-board-backlog__count" id="board-count-{{ board.backlog.id }}">{{ board.backlogCount }}</span>
+    </a>
     </div>
     {% include '@Board/_board_rules_banner.html.twig' with {board: board} only %}
     <p class="lp-board-filter-empty" data-board-filter-target="empty" hidden>{{ 'board.filter.empty'|trans }}</p>

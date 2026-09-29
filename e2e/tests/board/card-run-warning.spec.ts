@@ -61,7 +61,7 @@ test('a card whose latest run gave up shows a warning until a later run succeeds
 
     await page.goto(`/projects/${projectId}/board/cards/new`);
     await page.getByLabel('Title').fill('Alpha');
-    await page.getByLabel('Column').selectOption({ label: 'Backlog' });
+    await page.getByLabel('Column').selectOption({ label: 'Next' });
     await page.getByRole('button', { name: 'Create card' }).click();
     await expect(page.getByRole('heading', { name: 'Alpha' })).toBeVisible();
 
@@ -93,7 +93,7 @@ test('a card whose latest run gave up shows a warning until a later run succeeds
                     cardId,
                     cardNumber: 1,
                     ruleName: 'implement',
-                    cardColumn: 'backlog',
+                    cardColumn: 'next',
                     sessionId: crypto.randomUUID(),
                     startedAt: '2026-09-23T10:00:00+00:00',
                     endedAt: '2026-09-23T10:05:00+00:00',

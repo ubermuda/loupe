@@ -6,9 +6,11 @@ namespace App\Module\Inbox\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Repository\InboxItemRepository;
+use App\Module\Inbox\Service\CardWaitTrigger;
 use App\Module\Inbox\Service\InboxItemCloser;
 use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use Doctrine\DBAL\LockMode;
@@ -22,6 +24,7 @@ final readonly class WithdrawInboxItemHandler
 {
     public const string REASON_BLANK = 'inbox.item.error.withdraw_reason_blank';
     public const string REASON_TOO_LONG = 'inbox.item.error.withdraw_reason_too_long';
+    public const string WAIT_NOT_WITHDRAWABLE = 'inbox.item.error.wait_not_withdrawable';
 
     public function __construct(
         private InboxItemRepository $inboxItems,
@@ -29,11 +32,16 @@ final readonly class WithdrawInboxItemHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private InboxOpenCountPublisher $openCount,
+        private CardWaitTrigger $cardWaits,
     ) {
     }
 
     public function __invoke(WithdrawInboxItemCommand $command): InboxItem
     {
+        // Loupe opened the item and closes it when the card stops waiting.
+        if (InboxItemKind::Wait === $command->item->kind) {
+            throw new DomainErrors(['itemId' => self::WAIT_NOT_WITHDRAWABLE]);
+        }
         if (mb_strlen($command->reason) > InboxLimits::MAX_WITHDRAW_REASON_LENGTH) {
             throw new DomainErrors(['reason' => self::REASON_TOO_LONG]);
         }
@@ -60,6 +68,7 @@ final readonly class WithdrawInboxItemHandler
             throw new DomainErrors(['itemId' => $refusal]);
         }
         $this->openCount->countChanged($item->project);
+        $this->cardWaits->forReviewItems([$item]);
 
         $this->auditor->record(
             'inbox.item_withdrawn',

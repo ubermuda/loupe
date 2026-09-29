@@ -62,6 +62,7 @@ final readonly class InboxToolErrorMessages
             InboxItemCloser::ITEM_NOT_OPEN => 'The item is already closed. Read its answer with inbox_get.',
             WithdrawInboxItemHandler::REASON_BLANK => 'Pass the reason you no longer need the item.',
             WithdrawInboxItemHandler::REASON_TOO_LONG => \sprintf('A withdraw reason must be at most %d characters.', InboxLimits::MAX_WITHDRAW_REASON_LENGTH),
+            WithdrawInboxItemHandler::WAIT_NOT_WITHDRAWABLE => 'Loupe opened this item for a card that waits for a person, so no agent can withdraw it. It closes when the card no longer waits.',
             SearchInboxHandler::QUERY_BLANK => 'Pass a query to search for. To read the inbox page by page instead, call inbox_list.',
             default => self::UNMAPPED,
         };

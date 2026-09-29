@@ -19,7 +19,7 @@ the project's open cards, and `POST /api/board/cards` files a new one. Card
 titles are planning content. `POST /api/board/feedback` saves a comment on an
 open card of the project, or on a new card it creates.
 `DELETE /api/board/feedback/{id}` deletes a pending comment, and deletes its
-card too when the comment created it, the card is still in the default column,
+card too when the comment created it, the card is still in Backlog,
 holds no other feedback and is not an epic.
 
 This was decided rather than inherited. The Loupe document 'Picking and creating

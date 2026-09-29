@@ -6,9 +6,10 @@ namespace App\Module\Board\Service;
 
 use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Command\BoardLaneView;
+use App\Module\Board\Entity\Card;
 
 /**
- * A lane is an epic in an open column with its lane on, in board order.
+ * A lane is an epic in an open column with its lane on, Backlog included.
  * Its children fill its row, and every other card goes to the last row.
  */
 final readonly class BoardLanes
@@ -17,25 +18,19 @@ final readonly class BoardLanes
 
     /**
      * @param list<BoardColumnView> $columns
+     * @param list<Card>            $laneEpics in board order, as CardRepository::findLaneEpics() reads them
      *
      * @return array{list<BoardLaneView>, ?BoardLaneView}
      */
-    public function sort(array $columns): array
+    public function sort(array $columns, array $laneEpics): array
     {
-        $epics = [];
-        foreach ($columns as $view) {
-            if ($view->column->terminal) {
-                continue;
-            }
-            foreach ($view->cards as $card) {
-                if ($card->drawsLane()) {
-                    $epics[(string) $card->id] = $card;
-                }
-            }
+        if ([] === $laneEpics) {
+            return [[], null];
         }
 
-        if ([] === $epics) {
-            return [[], null];
+        $epics = [];
+        foreach ($laneEpics as $epic) {
+            $epics[(string) $epic->id] = $epic;
         }
 
         $cells = array_fill_keys(array_keys($epics), []);

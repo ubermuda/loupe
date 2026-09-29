@@ -6,6 +6,7 @@ namespace App\Tests\Module\Bridge\Service;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\InteractiveRuns;
@@ -14,10 +15,12 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\DispatchedEvents;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class InteractiveRunsTest extends KernelTestCase
 {
@@ -388,6 +391,51 @@ final class InteractiveRunsTest extends KernelTestCase
         self::assertFalse($this->runs()->hasOpenRun($project, $cardId));
     }
 
+    public function test_each_write_announces_its_card_after_its_commit(): void
+    {
+        $project = $this->scenario('interactive-announce');
+        $cardId = Uuid::v7();
+        $failedCard = Uuid::v7();
+        $sessionId = Uuid::v4();
+        $changes = DispatchedEvents::of(self::getContainer(), WorkerRunChanged::class);
+        $depth = $this->em()->getConnection()->getTransactionNestingLevel();
+
+        $run = $this->runs()->open($project, $cardId, 3, $sessionId, 'design');
+        $this->runs()->open($project, $cardId, 3, $sessionId, 'design');
+        $this->runs()->recordLaunchFailure($project, $failedCard, 4, Uuid::v4(), 'design', Uuid::v4(), 'exited 127', new \DateTimeImmutable(self::NOW));
+        $this->runs()->close($project, $cardId, $sessionId);
+        $this->runs()->close($project, $cardId, $sessionId);
+        self::assertNotNull($run->id);
+        $this->runs()->closeById($project, $run->id);
+
+        self::assertSame(
+            [[$cardId->toRfc4122()], [$failedCard->toRfc4122()], [$cardId->toRfc4122()]],
+            array_map(static fn (WorkerRunChanged $event): array => $event->cardIds, $changes->events()),
+        );
+        foreach ($changes->events() as $event) {
+            self::assertEquals($project->id, $event->projectId);
+        }
+        self::assertSame([$depth, $depth, $depth], $changes->transactionDepths());
+    }
+
+    public function test_a_move_announces_only_the_cards_whose_runs_it_closed(): void
+    {
+        $project = $this->scenario('interactive-announce-move');
+        $cardId = Uuid::v7();
+        $this->runs()->open($project, $cardId, 3, Uuid::v4(), 'design');
+        $this->runs()->open($project, $cardId, 3, Uuid::v4(), 'review');
+        $changes = DispatchedEvents::of(self::getContainer(), WorkerRunChanged::class);
+        $depth = $this->em()->getConnection()->getTransactionNestingLevel();
+
+        $this->runs()->closeOnMove($project, [$cardId, Uuid::v7()]);
+        $this->runs()->closeOnMove($project, [$cardId]);
+
+        self::assertCount(1, $changes->events());
+        self::assertEquals($project->id, $changes->events()[0]->projectId);
+        self::assertSame([$cardId->toRfc4122()], $changes->events()[0]->cardIds);
+        self::assertSame([$depth], $changes->transactionDepths());
+    }
+
     private function scenario(string $name): Project
     {
         self::bootKernel();
@@ -403,11 +451,13 @@ final class InteractiveRunsTest extends KernelTestCase
         $workerRuns = $container->get(WorkerRunRepository::class);
         $clock = $container->get('clock');
         $publisher = $container->get(WorkerRunChangedPublisher::class);
+        $events = $container->get('event_dispatcher');
         self::assertInstanceOf(WorkerRunRepository::class, $workerRuns);
         self::assertInstanceOf(ClockInterface::class, $clock);
         self::assertInstanceOf(WorkerRunChangedPublisher::class, $publisher);
+        self::assertInstanceOf(EventDispatcherInterface::class, $events);
 
-        return new InteractiveRuns($workerRuns, $this->searchIndexer(), $this->em(), $clock, $publisher);
+        return new InteractiveRuns($workerRuns, $this->searchIndexer(), $this->em(), $clock, $publisher, $events);
     }
 
     private function closeBehindTheEntityManager(WorkerRun $run): void

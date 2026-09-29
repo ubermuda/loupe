@@ -21,7 +21,7 @@ A new board starts with these columns:
 
 | Label | Slug | Flag |
 |---|---|---|
-| Backlog | `backlog` | default |
+| Backlog | `backlog` | backlog |
 | Next | `next` | |
 | In progress | `in-progress` | |
 | Done | `done` | terminal |
@@ -29,14 +29,28 @@ A new board starts with these columns:
 A board keeps these columns until its owner changes them. A project that
 existed before columns were configurable got the same columns.
 
-### The default column
+### Backlog
 
-A card created with no column lands in the default column. That covers the
-create form, which preselects it, a card raised from the review widget, and
+Every board has exactly one Backlog, and its slug is always `backlog`. Backlog
+holds the cards that wait for their turn. The board does not draw it as a
+column. The **Backlog** button in the board header opens the Backlog page,
+which lists these cards. See [The Backlog page](#the-backlog-page).
+
+A card created with no column lands in Backlog. That covers the create form,
+which preselects Backlog, a card raised from the review widget, and
 `card_create` with no `status`.
 
-A board has exactly one default column, and the default column is never
-terminal.
+Nobody can rename, reorder or delete Backlog, and it is never terminal. Board
+settings does not list it, and no other column can take the slug `backlog`.
+The tools still list Backlog, so an agent or a bridge rule can name `backlog`.
+
+A board from an earlier release had a default column instead, which the owner
+could rename. The upgrade turns that column into Backlog, with the label
+Backlog and the slug `backlog`, so a custom name is lost. When its old slug was
+not `backlog`, a bridge rule or a prompt that named the old slug stops
+matching. When another column held the
+slug `backlog`, the upgrade moves its cards to the end of Backlog, in rank
+order, and deletes that column.
 
 ### Terminal columns
 
@@ -54,10 +68,9 @@ Another reader of the board sees no column controls.
 Open **Board settings** to manage columns beside the other project settings.
 The **Board columns** section lists the columns in order. Each row has
 **Move up** and **Move down** arrows, a gear button, and a delete button. The
-gear opens a dialog with the column name, **Default for new cards**,
-**A finishing point for completed work**, and **Colour**. **Save column** saves
-them together, so one save can move the default flag to a terminal column and clear
-its terminal flag. Each action returns to this section.
+gear opens a dialog with the column name, **A finishing point for completed
+work**, and **Colour**. **Save column** saves them together. Each action
+returns to this section.
 
 Reorder and configure changes check the state shown when the form opens.
 If another editor changes that state first, Loupe refuses the stale change.
@@ -65,13 +78,13 @@ A refused configure keeps your draft in its dialog. Copy it before you reload.
 A refused reorder shows the current order with an error message.
 
 The owner adds a column with **Add a column** in board settings. A new column
-is neither terminal nor the default. The dialog preselects a colour that no
+is not terminal. The dialog preselects a colour that no
 other column on the board uses, and the owner can pick another before saving.
 When every colour is in use, Loupe picks one at random. Board settings shows a
-**Default** or **Terminal** badge on a flagged column.
+**Terminal** badge on a terminal column.
 
-The default column and the last terminal column have no delete button. Give
-another column that flag first.
+The last terminal column has no delete button. Make another column terminal
+first.
 
 A column that becomes terminal gives a completion time to each card in it that
 has none, and resolves the open feedback of those cards. A column that stops
@@ -185,6 +198,9 @@ The page header is one row: the title, the search, the card count, the
 and **Add card**. It wraps on a narrow screen, and it stays in place when the
 cards scroll.
 
+A second header row holds a **Backlog** button. The button shows how many cards
+Backlog holds, and it opens the Backlog page. It also takes a dropped card.
+
 Each column head shows the column colour, its label and its card count. Each
 column scrolls its own cards, and the board scrolls sideways as one block.
 
@@ -194,6 +210,8 @@ says so. Where you drop the card decides what the move does.
 - Drop it inside its own column to change its rank in that column.
 - Drop it in another column to change its column. The card takes the end of
   that column.
+- Drop it on the **Backlog** button to send it to the end of Backlog. The card
+  leaves the board and keeps its epic.
 
 A terminal column takes a drop like any other column. It keeps no rank.
 
@@ -208,6 +226,37 @@ history page at **`/projects/<project>/board/terminal/<column id>`**. That page
 lists every card in the column, newest completion first, 25 to a page. The
 older address **`/projects/<project>/board/done`** still works. It opens the
 history page of the board's first terminal column.
+
+### The Backlog page
+
+The Backlog page is at **`/projects/<project>/board/backlog`**. It lists the
+cards in Backlog, 25 to a page. Each row shows the card number and title, the
+type, the epic, the count of pending feedback and the date the card was added.
+
+Above the list, search the title and the body, and filter by type and by epic.
+The epic filter offers **Any epic**, **No epic**, and each epic with a card in
+Backlog. **Sort** offers **Rank**, **Newest first**, **Oldest first** or
+**Recently updated**. **Clear** removes every filter, and a count shows how
+many cards match.
+
+With the **Rank** sort, drag a row by its handle to change its rank. With a filter on,
+the card lands just above the visible row below it. The other sorts show no
+handle.
+
+The **Move to** menu of a row sends the card to the end of a board column. Tick
+rows to show the bulk bar. It has a button for the first column that is not
+terminal, such as **Move to Next**, a **Move to** menu for any board column, and
+**Clear**. A bulk move takes the ticked cards of one page, in Backlog order.
+When one move is refused, no card moves.
+
+An empty Backlog shows **The Backlog is empty**. Filters that match no card
+show **No card matches** and a **Clear filters** button.
+
+When someone else changes a card or the columns of the board, the page shows
+**The board changed.** and a **Reload** link. The change can be outside the
+Backlog. The page does not reload by itself, so a
+selection or an open menu stays. A change made on this page shows no notice.
+The notice needs live changes, as the board does.
 
 ### Live changes
 
@@ -387,7 +436,8 @@ page names its parent.
 
 ### Lanes
 
-Each epic in an open column gets a lane on the board. A lane is a row across all
+Each epic in an open column gets a lane on the board, and an epic in Backlog
+gets one too. A lane is a row across all
 the columns, and the epic's children sit in their columns inside that row. The
 lanes follow the order of their epics: by column, then by rank. The last row,
 **Other cards**, holds every card that is in no lane.
@@ -401,13 +451,25 @@ An epic lane has a maximum height, and each of its cells scrolls its own cards.
 columns scrolls on its own. When the epic lanes need more height than the page
 has, the board scrolls down.
 
-The lane header shows the epic number, its title, the "3/7 done" count, a
-collapse button and a lane toggle. An epic with its lane on shows as the lane
-header only, not as a card in its column.
+The lane header shows the epic number, a progress bar and the "3/7 done" count
+above the epic title. A collapse button and a lane toggle sit to its left. An epic
+with its lane on shows as the lane header only, not as a card in its column.
 
-The collapse button hides the cards of the lane and keeps the header. Your
-browser remembers the lanes you collapse, for each project. Another browser
-shows every lane open.
+An epic with children in Backlog shows an **Up next** deck at the right end of
+its lane header, with a count such as "3 in Backlog". The deck is a pile of
+those children in rank order. Hover over it or focus it, and it fans out to
+show the cards. When the deck holds more cards than the fan shows, a "+N more"
+tile takes the first place of the fan, under the pointer.
+The tile opens the Backlog page filtered to the epic.
+
+Drag a card out of the deck into a column to move it there. Drop a card on the
+deck to send it to the end of Backlog as a child of that epic. While you drag a
+card, a dashed outline marks each deck and the **Backlog** button that takes it.
+
+The collapse button folds the lane into a slim bar with the epic number, its
+title and its progress. The bar shows no deck, no lane toggle and no cards.
+Your browser remembers the lanes you collapse, for each project. Another
+browser shows every lane open.
 
 The lane toggle turns the lane of that epic off or on. The epic page has the same
 toggle, and an agent sets `laneEnabled` through MCP. The setting belongs to the
@@ -434,7 +496,7 @@ Loupe moves an epic on its own:
   first terminal column of the board.
 - When a child of a done epic leaves the terminal column, or an open card joins a
   done epic, the epic moves back to the `implementation` column.
-- When a child with a parent waits in the default column and its last blocker
+- When a child with a parent waits in Backlog and its last blocker
   moves to a terminal column, the child moves to the `implementation` column.
 
 A board with no `implementation` column skips the moves back. An epic with no
@@ -559,7 +621,7 @@ while the automation is on:
 - When the required checks pass on an open pull request that is not a draft, a
   card in the `implementation` column moves to `in-review`. A draft whose
   checks passed moves the card when it is marked ready. A board with no
-  `in-review` column skips this move.
+  `in-review` column, or a terminal one, skips this move.
 - When the pull request merges or closes, and each pull request of the card is
   merged or closed with at least one merged, the card moves to the first
   terminal column. A link that Loupe never read, such as one on another forge,
@@ -574,8 +636,8 @@ any other pull request, move the card yourself, or have your agent move it with
 
 Loupe can also ask your agent to act on a pull request: to fix it, or to merge
 it. It also moves the card on green checks and on a merge, as
-[What GitHub tells a card](#what-github-tells-a-card) describes. The owner sets this on the **Automation** tab of the project settings,
-beside **Board columns**. Only a repository connected through the GitHub App
+[What GitHub tells a card](#what-github-tells-a-card) describes. The owner sets
+this on the **Automation** tab of the project settings, beside **Board columns**. Only a repository connected through the GitHub App
 gets these requests. A card in a terminal column never gets one.
 
 | Setting | Default | Does |
@@ -609,7 +671,8 @@ An agent drives the board through the MCP endpoint. See
 | `card_run_close` | `sessionId` and exactly one of `cardId` and `number` are required. |
 
 `board_columns` lists the columns of the board in board order. Each entry
-carries `slug`, `label`, `terminal` and `default`. `card_list` returns the same
+carries `slug`, `label`, `terminal`, `default` and `backlog`. The Backlog row
+has `default` and `backlog` both true. `card_list` returns the same
 list in `columns`, beside its cards. The tools read columns and never write one.
 
 `card_run_open` and `card_run_close` record an interactive session on a card.
@@ -622,7 +685,7 @@ unknown slug is refused. The error lists the slugs the board has, such as
 A write to a column that was deleted after your read is also refused. That error
 says "That column no longer exists on this board. Name another column."
 
-`card_create` with no `status` puts the card in the default column. An agent
+`card_create` with no `status` puts the card in Backlog. An agent
 finishes a card by moving it to a terminal column.
 
 `card_list` reads the whole board when you give it no filter. A column that is
@@ -686,7 +749,7 @@ could not name who raised it, because the widget authenticates a project and
 never a person. A note card and a review card have the type `site-review`. An
 epic has the type `epic`.
 
-Such a card always lands in the default column, and carries no pull request
+Such a card always lands in Backlog, and carries no pull request
 link. The widget offers neither, so a page visitor cannot file work straight
 into a column. The widget refuses a card or an epic in a terminal column.
 
@@ -794,7 +857,7 @@ The widget deletes a card in one case. A reviewer deletes a pending note, and
 the widget deletes the note's card too when all of these are true:
 
 - The note created the card.
-- The card is still in the default column.
+- The card is still in Backlog.
 - The card holds no other feedback.
 - The card keeps the site review type and the title that the note gave it.
 - The card body is empty.

@@ -53,8 +53,10 @@ refuses to start. Its error names the socket of the first bridge.
 The optional `defaults:` block of `rules.yaml` sets `permissionMode` and `model`
 for every rule. A value on the rule wins, then the block, then the
 `--permission-mode` and `--model` flags. A reload reads the block again. The
-flags, `--max-workers` and the instance URL in `config.json` stay fixed until
-the bridge restarts.
+flags and the instance URL in `config.json` stay fixed until the bridge
+restarts. The `--max-workers` flag is deprecated and does nothing. Set
+`maxWorkers` in `rules.yaml` instead. The bridge logs `max_workers_flag_ignored`
+when it starts with the flag.
 
 The bridge authenticates with a token that carries the agent scope. `loupe
 login` gets one through the OAuth device flow: it prints a link and a code, and
@@ -85,13 +87,24 @@ A prompt holds validated identifiers and slugs only, and the bridge adds a fixed
 line that tells the agent to treat the card as data. An event caused by the
 site-review widget starts no worker unless its rule sets `allowUntrusted: true`.
 
-The bridge is a supervisor. `--max-workers` bounds the workers that run at once,
-three by default, and events past the bound wait in a queue. A card runs one
-worker at a time. An event for a busy card waits and runs after that worker
-exits, so a later event for another card can start first. The card waits at
-most once for each rule, so a burst of moves becomes one follow-up run. Stopping
-the bridge drops whatever is still queued and logs the count, and each card with
-its rule.
+The bridge is a supervisor. `maxWorkers` in `rules.yaml` bounds the workers
+that run at once, three by default, and events past the bound wait in a queue.
+A card runs one worker at a time. An event for a busy card waits and runs after
+that worker exits, so a later event for another card can start first. The card
+waits at most once for each rule, so a burst of moves becomes one follow-up run.
+Stopping the bridge drops whatever is still queued and logs the count, and each
+card with its rule.
+
+`workerPools` in `rules.yaml` splits `maxWorkers` into named pools, and a rule
+takes its slots from one pool with `workerPool`. The reserved `default` pool
+holds the slots the named pools leave, and serves each rule that names no pool.
+An event waits only when its own pool is full, so a long run in one pool never
+holds back the events of another. A pool never borrows a free slot of another
+pool. A reload that shrinks a pool stops no worker, and only holds back new
+starts. Each run report names its pool in `workerPool`, and the heartbeat
+reports the size and use of each pool in `workerPools`. The
+[`cli/README.md`](../../cli/README.md) rule file reference gives the format and
+the checks.
 
 Each rule's `maxChain`, three by default, caps the runs in a row that agents'
 events start for one card. That stops two rules from moving a card back and
@@ -972,14 +985,16 @@ cannot hold a slash. The token's user must own the project.
 {
   "project": { "id": "01a0…", "slug": "my-app" },
   "columns": [
-    { "slug": "backlog", "label": "Backlog", "terminal": false, "default": true },
-    { "slug": "done", "label": "Done", "terminal": true, "default": false }
+    { "slug": "backlog", "label": "Backlog", "terminal": false, "default": true, "backlog": true },
+    { "slug": "done", "label": "Done", "terminal": true, "default": false, "backlog": false }
   ]
 }
 ```
 
-The columns come in board order. A seeded label is translated, and a label a
-person typed comes back as typed. `project.slug` is the project's slug.
+The columns come in board order. The board does not draw Backlog as a column,
+but the list keeps it, so a rule can name `backlog`. `default` and `backlog` are
+both true on that row alone. A seeded label is translated, and a label a person
+typed comes back as typed. `project.slug` is the project's slug.
 
 | Status | Body | When |
 |---|---|---|

@@ -217,7 +217,7 @@ func TestAResumeWaitsBehindAWorkerOfItsCard(t *testing.T) {
 	h.router.onData([]byte(h.mine(ask{card: 87})))
 
 	h.router.mu.Lock()
-	active, waiting := h.router.active, len(h.router.queue)
+	active, waiting := h.router.usedLocked(), len(h.router.queue)
 	h.router.mu.Unlock()
 	if active != 1 || waiting != 1 {
 		t.Fatalf("active = %d, waiting = %d; want the resume to wait", active, waiting)
@@ -546,8 +546,7 @@ func TestARuleThatDiesDuringTheCheckStartsNoResume(t *testing.T) {
 // A checked resume that waits for a slot holds its card. A kill that drops it
 // releases the card too.
 func TestAKilledCheckedResumeReleasesItsCard(t *testing.T) {
-	h := newHarnessWith(t, resumeRules, rules.Defaults{})
-	h.router.maxWorkers = 1
+	h := newHarnessWith(t, withMaxWorkers(resumeRules, 1), rules.Defaults{})
 	c := &checks{state: api.AskState{AskID: testAsk, Closed: true, AllRead: false}}
 	h.router.checkAsk = c.check
 	h.worker.started = make(chan workerSpec, 2)
@@ -580,8 +579,7 @@ func TestAKilledCheckedResumeReleasesItsCard(t *testing.T) {
 // A checked resume keeps its place in arrival order, so an event that waited
 // before it still starts first.
 func TestACheckedResumeKeepsItsPlaceInTheQueue(t *testing.T) {
-	h := newHarnessWith(t, resumeRules, rules.Defaults{})
-	h.router.maxWorkers = 1
+	h := newHarnessWith(t, withMaxWorkers(resumeRules, 1), rules.Defaults{})
 	c := &checks{state: api.AskState{AskID: testAsk, Closed: true, AllRead: false}}
 	h.router.checkAsk = c.check
 	h.worker.started = make(chan workerSpec, 3)
@@ -608,8 +606,7 @@ func TestACheckedResumeKeepsItsPlaceInTheQueue(t *testing.T) {
 // The check holds its card, and no worker slot. With one slot, another card
 // starts while the check still waits.
 func TestTheAskCheckHoldsNoWorkerSlot(t *testing.T) {
-	h := newHarnessWith(t, resumeRules, rules.Defaults{})
-	h.router.maxWorkers = 1
+	h := newHarnessWith(t, withMaxWorkers(resumeRules, 1), rules.Defaults{})
 	g := newGate()
 	h.router.checkAsk = g.check
 	h.worker.block = make(chan struct{})
@@ -621,7 +618,7 @@ func TestTheAskCheckHoldsNoWorkerSlot(t *testing.T) {
 
 	// onData dispatches on this goroutine, so the starts are settled.
 	h.router.mu.Lock()
-	active, waiting := h.router.active, len(h.router.queue)
+	active, waiting := h.router.usedLocked(), len(h.router.queue)
 	h.router.mu.Unlock()
 	started := startedCards(t, h)
 	close(g.release)
@@ -793,7 +790,7 @@ func TestTheBridgeChecksTheAskBeforeItResumes(t *testing.T) {
 	}
 	log := &syncBuffer{}
 	worker := &fakeWorker{result: finishedRun}
-	r := withRules(&router{log: newBridgeLogger(log), maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}, set)
+	r := withRules(&router{log: newBridgeLogger(log), worker: worker.ops(), bridgeID: testBridgeID}, set)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

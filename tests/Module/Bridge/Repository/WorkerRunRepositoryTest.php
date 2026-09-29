@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Repository;
 
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
@@ -34,5 +36,47 @@ final class WorkerRunRepositoryTest extends KernelTestCase
 
         self::assertSame($newest, $runs->findLatestSessionOfCard($project, $cardId));
         self::assertNull($runs->findLatestSessionOfCard($project, Uuid::v7()));
+    }
+
+    public function test_find_latest_run_rows_answers_the_newest_run_of_each_card(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'latest-rows-'.uniqid().'@example.com'), 'Latest rows');
+        $other = $this->project($em, $this->user($em, 'latest-rows-other-'.uniqid().'@example.com'), 'Other');
+        $closedCard = Uuid::v7();
+        $openCard = Uuid::v7();
+        $tieCard = Uuid::v7();
+        $at = new \DateTimeImmutable('2026-09-02 10:00:00');
+
+        $this->seedRun($em, $project, new \DateTimeImmutable('2026-09-01 10:00:00'), exitCode: 1, cardId: $closedCard);
+        $newest = $this->seedRun($em, $project, $at, output: 'done', cardId: $closedCard);
+        $this->seedRun($em, $project, new \DateTimeImmutable('2026-09-01 10:00:00'), cardId: $openCard);
+        $open = $this->seedRun($em, $project, $at, cardId: $openCard, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+        $first = $this->seedRun($em, $project, $at, cardId: $tieCard);
+        $second = $this->seedRun($em, $project, $at, cardId: $tieCard);
+        $this->seedRun($em, $other, new \DateTimeImmutable('2026-09-09 10:00:00'), cardId: $closedCard);
+
+        $runs = self::getContainer()->get(WorkerRunRepository::class);
+        self::assertInstanceOf(WorkerRunRepository::class, $runs);
+        $tieWinner = strcmp((string) $first->id, (string) $second->id) > 0 ? $first : $second;
+
+        $all = $runs->findLatestRunRows($project, null);
+        self::assertEqualsCanonicalizing(
+            [(string) $newest->id, (string) $open->id, (string) $tieWinner->id],
+            array_column($all, 'id'),
+        );
+        $byId = array_column($all, null, 'id');
+        self::assertSame(
+            ['id' => (string) $newest->id, 'card_id' => (string) $closedCard, 'state' => WorkerRunState::Succeeded->value, 'output' => 'done', 'card_column' => null],
+            $byId[(string) $newest->id],
+        );
+        self::assertSame(WorkerRunState::Running->value, $byId[(string) $open->id]['state']);
+
+        self::assertSame(
+            [(string) $open->id],
+            array_column($runs->findLatestRunRows($project, [$openCard, Uuid::v7()]), 'id'),
+        );
+        self::assertSame([], $runs->findLatestRunRows($project, []));
     }
 }

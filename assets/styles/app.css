@@ -234,6 +234,12 @@
     --shadow-composer: 0 10px 34px rgba(15, 15, 13, 0.22);
     --shadow-card: 0 8px 26px rgba(15, 15, 13, 0.18);
     --shadow-focus: 0 0 0 3px var(--accent-faint);
+    /* A card of an epic lane's Up next deck, fanned out over the lane head. */
+    --shadow-deck: 0 6px 16px rgba(24, 29, 24, 0.1);
+
+    /* The deck fans out, and an epic lane opens and closes, on these curves. */
+    --ease-deck: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --ease-lane: cubic-bezier(0.3, 0.8, 0.2, 1);
 }
 
 /* ── Design tokens ──────────────────────────────────────────────────── */
@@ -757,10 +763,129 @@
         @apply col-span-full;
     }
 
+    /* The Backlog page reuses the document table with its own columns. From
+       lg up the table fits the page and lets the row menus overflow it, so a
+       menu is never clipped. Below lg it scrolls sideways as the documents do. */
+    .lp-document-table--backlog {
+        @apply lg:overflow-visible;
+    }
+    /* Three classes on the row, to win over the documents row of redesign-core.css. */
+    .lp-document-table--backlog .lp-document-table__head,
+    .lp-document-table--backlog .lp-document-list,
+    .lp-document-table--backlog .lp-document-row.lp-backlog-row {
+        @apply lg:min-w-0;
+    }
+    .lp-document-table--backlog .lp-document-table__head,
+    .lp-document-table--backlog .lp-document-row.lp-backlog-row {
+        @apply gap-3;
+        grid-template-columns:
+            calc(var(--spacing) * 4) calc(var(--spacing) * 4)
+            minmax(0, 2.6fr) minmax(calc(var(--spacing) * 24), 0.55fr)
+            minmax(calc(var(--spacing) * 24), 1.2fr)
+            calc(var(--spacing) * 19) calc(var(--spacing) * 25)
+            calc(var(--spacing) * 28);
+    }
+    .lp-document-table--backlog .lp-document-row.lp-backlog-row {
+        @apply min-h-15 py-2.5;
+    }
+    /* Each actions cell stacks at z-10, so the one with an open menu goes above the rows below it. */
+    .lp-document-table--backlog
+        .lp-document-row__actions:has(.lp-backlog-menu:not([hidden])) {
+        @apply z-30;
+    }
+    /* A ticked row. */
+    .lp-document-table--backlog
+        .lp-document-row:has(.lp-backlog-check:checked) {
+        @apply bg-accent-faint-2;
+    }
+    /* The row the rank drag holds, and a row whose rank the server has not taken yet. */
+    .lp-backlog-row--dragging {
+        @apply relative z-20 shadow-lg;
+    }
+    .lp-backlog-row[aria-busy='true'] {
+        @apply opacity-60;
+    }
+    .lp-backlog-row__title {
+        @apply min-w-0 truncate font-display font-semibold text-ink no-underline hover:text-accent-ink;
+    }
+    .lp-backlog-row__epic {
+        @apply truncate;
+    }
+    .lp-backlog-check {
+        @apply size-4 m-0 cursor-pointer accent-accent-ink;
+    }
+    /* The drag handle. Only the handle stops a touch scroll, so the list still scrolls. */
+    .lp-backlog-grip {
+        @apply flex cursor-grab touch-none text-fg-faint;
+    }
+    .lp-backlog-sort {
+        @apply ml-auto;
+    }
+    /* The Move to menu of a row and of the bulk bar. */
+    .lp-backlog-move {
+        @apply relative;
+    }
+    .lp-backlog-menu {
+        @apply absolute right-0 top-full z-40 mt-1 flex min-w-46 flex-col rounded-xl border border-line bg-surface-1 p-1.5 shadow-xl;
+        animation: lp-appear 120ms ease-out both;
+    }
+    .lp-backlog-menu--up {
+        @apply top-auto bottom-full mt-0 mb-1;
+    }
+    .lp-backlog-menu[hidden] {
+        @apply hidden;
+    }
+    .lp-backlog-menu__item {
+        @apply flex min-h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg border-0 bg-transparent px-2.5 text-left text-sm text-ink transition-colors hover:bg-tint-strong;
+    }
+    /* The bar that appears when a row is ticked. It sticks to the bottom of the view. */
+    .lp-backlog-bulk {
+        @apply sticky bottom-5 z-30 mx-auto mt-4 flex w-fit items-center gap-2 rounded-xl border border-chrome-line bg-chrome-raised py-1.5 pr-1.5 pl-4 text-sm text-chrome-fg shadow-xl;
+    }
+    .lp-backlog-bulk[hidden] {
+        @apply hidden;
+    }
+    .lp-backlog-bulk__count {
+        @apply mr-1.5 font-bold;
+    }
+    .lp-backlog-bulk .lp-btn--ghost {
+        @apply text-chrome-mute hover:bg-chrome-control hover:text-chrome-fg;
+    }
+    /* A one-line status above the list: a confirmation, or the live notice. */
+    .lp-backlog-notice {
+        @apply mt-4 flex items-center gap-2.5 rounded-lg bg-sunken px-3.5 py-2.5 text-sm font-medium text-ink;
+        animation: lp-appear 120ms ease-out both;
+    }
+    .lp-backlog-notice[hidden] {
+        @apply hidden;
+    }
+    .lp-backlog-notice--error .lp-flash__dot {
+        @apply bg-status-danger;
+    }
+    .lp-backlog-notice__link {
+        @apply font-bold text-accent-ink underline;
+    }
+
     /* Board controls and column framing for the supported kanban view. The
        toolbar is the page's heading row: title, search, count and actions. */
+    /* The toolbar row: the permanent toolbar, then the Backlog button a frame reload redraws. */
+    .lp-board-header {
+        @apply flex flex-wrap items-center gap-x-3 gap-y-2 mb-2;
+    }
     .lp-board-toolbar {
-        @apply flex flex-wrap items-center gap-x-3 gap-y-2 min-h-9 mb-2;
+        @apply flex flex-auto min-w-0 flex-wrap items-center gap-x-3 gap-y-2 min-h-9;
+    }
+    .lp-board-backlog__count {
+        @apply inline-flex items-center justify-center min-w-6 rounded-full bg-surface-3 px-2 py-0.5 text-xs font-bold text-fg-mute;
+    }
+    /* The Backlog button, while a card that can go there is in a drag. */
+    .lp-board--dragging:not(:has(.lp-deck .lp-board-card--dragging))
+        .lp-board-backlog {
+        @apply border-dashed border-accent-border;
+    }
+    /* The Backlog button, while a dragged card is over it. */
+    .lp-board-backlog.lp-board-backlog--over {
+        @apply border-dashed border-accent-border bg-accent-faint;
     }
     .lp-board-toolbar__title {
         @apply m-0 font-display font-extrabold text-2xl tracking-tight text-ink;
@@ -5034,9 +5159,9 @@
     }
 
     /* ── Feature grid ───────────────────────────────────────────────────
-       Hairline-separated cells rather than cards: six cards in a block reads as
-       a wall, and none of these six is more important than another. The gap is
-       the rule — the grid's own background shows through it. Below sm it is a
+       Hairline-separated cells rather than cards: a block of cards reads as a
+       wall, and no feature is more important than another. The gap is the rule,
+       because the grid's own background shows through it. Below sm it is a
        swipe carousel; the cell's partial width is what makes that legible. */
     .lp-landing-features {
         @apply flex snap-x snap-mandatory overflow-x-auto gap-px bg-line sm:grid sm:overflow-x-visible sm:grid-cols-2 md:grid-cols-3;
@@ -5047,6 +5172,16 @@
     }
     .lp-landing-feature {
         @apply flex flex-col gap-2.5 bg-app px-7 py-8 w-10/12 shrink-0 snap-start last:snap-end sm:w-auto;
+    }
+    /* The last cell fills a short last row, or the empty cells show the rule colour. */
+    .lp-landing-feature:last-child:nth-child(odd) {
+        @apply sm:col-span-2 md:col-span-1;
+    }
+    .lp-landing-feature:last-child:nth-child(3n + 1) {
+        @apply md:col-span-3;
+    }
+    .lp-landing-feature:last-child:nth-child(3n + 2) {
+        @apply md:col-span-2;
     }
     .lp-landing-feature__title {
         @apply font-display font-extrabold text-ink m-0 text-xl tracking-tight;
@@ -5549,6 +5684,10 @@
     .lp-board--dragging {
         @apply select-none;
     }
+    /* A card dropped on the Backlog button, hidden until the move answers. */
+    .lp-board-card.lp-board-card--sent {
+        @apply hidden;
+    }
 
     /* A board with epic lanes reads in rows: one row per lane, then "Other
        cards". Every row repeats the column heads and splits its width the same
@@ -5574,19 +5713,28 @@
     .lp-board-lane--other .lp-board-lane__cells {
         @apply flex-1 min-h-0;
     }
+    /* The head of an epic lane: the number and progress over the title, then
+       the Up next deck at the right end. The row keeps the height of the deck. */
     .lp-board-lane__head {
-        @apply flex flex-wrap items-center gap-2 px-1;
+        @apply relative flex items-center gap-2.5 h-22 px-1;
+    }
+    .lp-board-lane--other .lp-board-lane__head {
+        @apply h-auto pt-1.5;
     }
     /* A lane head whose live placement failed. The shape shows it, not the colour. */
     .lp-board-lane__head--stale {
         @apply rounded-lg outline-2 outline-offset-2 outline-dashed outline-line-strong opacity-75;
     }
-    /* The lane toggle closes the lane head, at its right end. */
+    /* The lane button sits beside the chevron, and the deck takes the right end. */
     .lp-board-lane__head > form {
-        @apply ml-auto;
+        @apply -ml-1.5 shrink-0;
     }
-    .lp-board-lane__collapse {
-        @apply inline-flex items-center justify-center w-7 h-7 rounded-lg text-fg-mute transition-colors hover:bg-surface-3 hover:text-ink;
+    .lp-board-lane__collapse,
+    .lp-board-lane__tool {
+        @apply inline-flex shrink-0 items-center justify-center w-7 h-7 rounded-lg text-fg-mute transition-colors hover:bg-surface-3 hover:text-ink;
+    }
+    .lp-board-lane__tool {
+        @apply text-fg-dim cursor-pointer;
     }
     .lp-board-lane__chevron {
         @apply w-4 h-4 rotate-90 transition-transform;
@@ -5597,21 +5745,339 @@
     .lp-board-lane--collapsed.lp-board-lane--revealed .lp-board-lane__chevron {
         @apply rotate-90;
     }
+    /* Top-aligned with a padding rather than centred, so the lane controller
+       reads the final place of each part while the head height still moves. */
+    .lp-board-lane__heading {
+        @apply grid self-start min-w-0 items-center gap-x-2 gap-y-1 pt-5;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+            'number progress'
+            'title title';
+    }
+    .lp-board-lane__number {
+        grid-area: number;
+    }
     .lp-board-lane__title {
-        @apply m-0 font-display font-extrabold text-base tracking-tight text-ink no-underline hover:text-accent-ink;
+        grid-area: title;
+        @apply m-0 truncate font-display font-extrabold text-lg tracking-tight text-ink no-underline hover:text-accent-ink;
+    }
+    .lp-board-lane--other .lp-board-lane__title {
+        @apply text-base;
     }
     .lp-board-lane__progress {
-        @apply text-sm font-semibold text-fg-dim;
+        grid-area: progress;
+        @apply inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-xs font-medium text-fg-dim;
     }
-    .lp-board-lane__cells {
-        @apply flex gap-3.5;
+    .lp-board-lane__progress::before {
+        content: '';
+        @apply size-0.75 shrink-0 rounded-full bg-line-strong;
     }
-    .lp-board-lane--collapsed .lp-board-lane__cells {
+    .lp-board-lane__bar {
+        @apply block w-11 h-1 shrink-0 overflow-hidden rounded-full border-0 bg-surface-3 appearance-none;
+    }
+    .lp-board-lane__bar::-webkit-progress-bar {
+        @apply rounded-full bg-surface-3;
+    }
+    .lp-board-lane__bar::-webkit-progress-value {
+        @apply rounded-full bg-accent-ink;
+    }
+    .lp-board-lane__bar::-moz-progress-bar {
+        @apply rounded-full bg-accent-ink;
+    }
+    .lp-board-lane__done {
+        @apply inline-block max-w-15 overflow-hidden;
+    }
+
+    /* The Up next deck and its label, at the right end of an epic lane head. */
+    .lp-board-lane__up-next {
+        @apply ml-auto flex shrink-0 items-center gap-4;
+    }
+    .lp-board-lane__deck-label {
+        @apply m-0 flex flex-col items-end gap-0.5;
+    }
+    .lp-board-lane__deck-title {
+        @apply font-display text-xs font-extrabold tracking-tight text-ink;
+    }
+    .lp-board-lane__deck-count {
+        @apply text-xs text-fg-dim;
+    }
+    /* The title and the label fade out while the deck fans over them, and
+       come back once the fan folds. The fan stops short of the lane buttons. */
+    .lp-board-lane__heading,
+    .lp-board-lane__deck-label {
+        transition: opacity 200ms ease 200ms;
+    }
+    .lp-board-lane__head:has(
+            .lp-deck:is(:hover, :focus-within, .lp-deck--open):not(
+                    .lp-board--dragging *
+                ),
+            .lp-deck .lp-board-card--dragging
+        )
+        :is(.lp-board-lane__heading, .lp-board-lane__deck-label) {
+        @apply opacity-0;
+        transition-delay: 0s;
+    }
+
+    /* A loose pile of fixed height: the top card and at most two behind it.
+       The board-deck controller writes --deck-slot and --deck-reach. */
+    .lp-deck {
+        @apply relative w-53 h-21 shrink-0;
+        --deck-slot: calc(var(--spacing) * 55.5);
+    }
+    /* Holds the hover while the pointer crosses the gaps of the fan. */
+    .lp-deck::before {
+        content: '';
+        @apply absolute -inset-y-0.5 right-0 z-1 w-full;
+    }
+    .lp-deck:is(:hover, :focus-within, .lp-deck--open):not(
+            .lp-board--dragging *
+        )::before {
+        width: var(--deck-reach, 100%);
+    }
+    .lp-deck__card {
+        @apply absolute top-1.25 right-0 flex w-53 h-18.5 flex-col gap-1.5 rounded-lg border border-line bg-surface-1 p-3 select-none cursor-grab;
+        z-index: calc(9 - var(--deck-order, 2));
+        translate: calc(var(--spacing) * 1) calc(var(--spacing) * 1.25);
+        rotate: -3.8deg;
+        opacity: 0;
+        transition:
+            translate 320ms var(--ease-deck) 200ms,
+            rotate 320ms var(--ease-deck) 200ms,
+            box-shadow 320ms ease 200ms,
+            opacity 200ms ease 200ms;
+    }
+    .lp-deck__card[data-deck-index='0'] {
+        --deck-order: 0;
+        --deck-tilt: 0.4deg;
+        translate: none;
+        rotate: -1.2deg;
+        opacity: 1;
+    }
+    .lp-deck__card[data-deck-index='1'] {
+        --deck-order: 1;
+        --deck-tilt: -0.5deg;
+        translate: calc(var(--spacing) * -1.25) calc(var(--spacing) * 0.75);
+        rotate: 2.6deg;
+        opacity: 1;
+    }
+    .lp-deck__card[data-deck-index='2'] {
+        --deck-order: 2;
+        --deck-tilt: 0.6deg;
+        opacity: 1;
+    }
+    .lp-deck__card[data-deck-index='3'] {
+        --deck-order: 3;
+        --deck-tilt: -0.4deg;
+    }
+    .lp-deck__card[data-deck-index='4'] {
+        --deck-order: 4;
+        --deck-tilt: 0.5deg;
+    }
+    .lp-deck__card[data-deck-index='5'] {
+        --deck-order: 5;
+        --deck-tilt: -0.6deg;
+    }
+    .lp-deck__card[data-deck-index='6'] {
+        --deck-order: 6;
+        --deck-tilt: 0.4deg;
+    }
+    .lp-deck__card[data-deck-index='7'] {
+        --deck-order: 7;
+        --deck-tilt: -0.5deg;
+    }
+    .lp-deck__card[data-deck-index='8'] {
+        --deck-order: 8;
+        --deck-tilt: 0.6deg;
+    }
+    /* The content of a card behind the top one hides only once the fold is back in the pile. */
+    .lp-deck__card:not([data-deck-index='0']) > * {
+        @apply invisible;
+        transition: visibility 0s linear 520ms;
+    }
+    .lp-deck__card:hover {
+        @apply border-accent-border;
+    }
+    .lp-deck__title {
+        @apply truncate pr-5 font-display text-sm leading-snug font-bold text-ink no-underline hover:text-accent-ink;
+    }
+    /* The fan runs from the deck to the left, in rank order, with no delay on the
+       way out. The "+N more" tile takes the first slot, so --deck-shift moves the cards past it. */
+    :is(
+            .lp-deck:is(:hover, :focus-within, .lp-deck--open):not(
+                    .lp-board--dragging *
+                ),
+            .lp-deck:has(.lp-board-card--dragging)
+        )
+        .lp-deck__card:not(.lp-board-card--dragging) {
+        translate: calc(
+                var(--deck-slot) *
+                    (var(--deck-order, 0) + var(--deck-shift, 0)) * -1
+            )
+            0;
+        rotate: var(--deck-tilt, 0deg);
+        opacity: 1;
+        box-shadow: var(--shadow-deck);
+        transition-delay: 0s;
+    }
+    :is(
+            .lp-deck:is(:hover, :focus-within, .lp-deck--open):not(
+                    .lp-board--dragging *
+                ),
+            .lp-deck:has(.lp-board-card--dragging)
+        )
+        .lp-deck__card
+        > * {
+        @apply visible;
+        transition-delay: 0s;
+    }
+    /* A card the fan has no room for. The "+N more" tile counts it instead. */
+    :is(
+            .lp-deck:is(:hover, :focus-within, .lp-deck--open):not(
+                    .lp-board--dragging *
+                ),
+            .lp-deck:has(.lp-board-card--dragging)
+        )
+        .lp-deck__card.lp-deck__card--spare {
+        @apply invisible opacity-0 pointer-events-none;
+    }
+    /* The first tile of the fan, under the pointer, which the resting pile hides behind its cards.
+       It sits level with the hover bridge and after it, so a click reaches the link. */
+    .lp-deck__card.lp-deck__more {
+        --deck-order: -1;
+        z-index: 1;
+        @apply items-center justify-center border-dashed border-line-strong bg-surface-2 font-display text-sm font-bold text-accent-ink no-underline cursor-pointer opacity-0;
+    }
+    .lp-deck__more[hidden] {
         @apply hidden;
     }
+    /* While a board card is in a drag, each deck that takes it shows a drop outline. */
+    .lp-board--dragging:not(
+            :has(
+                .lp-deck .lp-board-card--dragging,
+                .lp-board-card--dragging[data-card-type='epic']
+            )
+        )
+        .lp-board-lane:not(.lp-board-lane--collapsed)
+        .lp-deck::after {
+        content: '';
+        @apply pointer-events-none absolute -inset-1 z-10 rounded-xl border-2 border-dashed border-accent-border;
+    }
+    /* A dragged card over another deck, which a release sends to the end of its Backlog. */
+    .lp-deck.lp-board-backlog--over:not(:has(.lp-board-card--dragging))
+        .lp-deck__card[data-deck-index='0'] {
+        @apply border-dashed border-accent-border bg-accent-faint;
+    }
+    /* The card lifted out of the deck follows the pointer, flat and whole. */
+    .lp-deck__card.lp-board-card--dragging {
+        @apply fixed right-auto;
+        translate: none;
+        rotate: -2.5deg;
+        opacity: 0.95;
+        transition: none;
+    }
+    .lp-deck__card.lp-board-card--dragging > * {
+        @apply visible;
+    }
+    /* The fan keeps the lifted card's slot empty rather than a copy of it. */
+    .lp-deck > :is(.lp-board__ghost, .lp-board__placeholder),
+    .lp-deck__card.lp-board-card--sent {
+        @apply hidden;
+    }
+    /* A dragged card back over its own deck, which a release leaves in the slot it came from. */
+    .lp-deck.lp-board-backlog--over > .lp-deck__card.lp-board__ghost {
+        @apply flex border-2 border-dashed border-accent-border bg-accent-faint;
+    }
+    .lp-deck.lp-board-backlog--over > .lp-deck__card.lp-board__ghost > * {
+        @apply invisible;
+    }
+    /* A deck card dropped in a cell, until the placement replaces it with a board card. */
+    .lp-board-lane__cell > .lp-deck__card {
+        @apply static w-auto h-auto opacity-100;
+        translate: none;
+        rotate: none;
+    }
+    .lp-board-lane__cell > .lp-deck__card > * {
+        @apply visible;
+    }
+
+    /* The cells sit in a one-row grid, so a collapse can take their height to zero. */
+    .lp-board-lane__body {
+        @apply grid min-h-0;
+        grid-template-rows: 1fr;
+    }
+    .lp-board-lane__cells {
+        @apply flex gap-3.5 min-h-0;
+    }
+
+    /* A collapsed lane is a slim bar: the number, the title and the progress.
+       It shows no deck, no lane button and no cells. */
+    .lp-board-lane--collapsed .lp-board-lane__head {
+        @apply h-13 rounded-xl bg-surface-3 px-1.5;
+    }
+    .lp-board-lane--collapsed .lp-board-lane__heading {
+        @apply pt-3.5;
+        grid-template-columns: auto minmax(0, max-content) auto;
+        grid-template-areas: 'number title progress';
+    }
+    .lp-board-lane--collapsed .lp-board-lane__title {
+        @apply text-base;
+    }
+    .lp-board-lane--collapsed .lp-board-lane__progress::before {
+        @apply hidden;
+    }
+    .lp-board-lane--collapsed .lp-board-lane__done {
+        @apply max-w-0 opacity-0;
+    }
+    .lp-board-lane--collapsed .lp-board-lane__head > form {
+        @apply hidden;
+    }
+    .lp-board-lane--collapsed .lp-board-lane__up-next {
+        @apply absolute right-1 inset-y-0 invisible opacity-0 translate-x-4 pointer-events-none;
+    }
+    .lp-board-lane--collapsed .lp-board-lane__body {
+        grid-template-rows: 0fr;
+    }
+    .lp-board-lane--collapsed .lp-board-lane__cells {
+        @apply invisible overflow-hidden opacity-0 -translate-y-2;
+    }
     /* A search that matches a card of a collapsed lane shows its cells. */
+    .lp-board-lane--collapsed.lp-board-lane--revealed .lp-board-lane__body {
+        grid-template-rows: 1fr;
+    }
     .lp-board-lane--collapsed.lp-board-lane--revealed .lp-board-lane__cells {
-        @apply flex;
+        @apply visible overflow-visible opacity-100 translate-y-0;
+    }
+    /* Only a click animates, so a lane restored from storage on load does not.
+       The lane controller glides the number, title and progress itself. */
+    .lp-board-lane--animating .lp-board-lane__head {
+        transition:
+            height 340ms var(--ease-lane),
+            background-color 300ms ease;
+    }
+    .lp-board-lane--animating .lp-board-lane__title {
+        transition: font-size 340ms var(--ease-lane);
+    }
+    .lp-board-lane--animating .lp-board-lane__done {
+        transition:
+            max-width 300ms var(--ease-lane),
+            opacity 200ms ease;
+    }
+    .lp-board-lane--animating .lp-board-lane__body {
+        transition: grid-template-rows 360ms var(--ease-lane);
+    }
+    .lp-board-lane--animating .lp-board-lane__cells,
+    .lp-board-lane--animating .lp-board-lane__up-next {
+        transition:
+            opacity 200ms ease 100ms,
+            translate 300ms var(--ease-lane) 100ms,
+            visibility 0s linear 0s;
+    }
+    .lp-board-lane--animating.lp-board-lane--collapsed .lp-board-lane__cells,
+    .lp-board-lane--animating.lp-board-lane--collapsed .lp-board-lane__up-next {
+        transition:
+            opacity 200ms ease,
+            translate 300ms var(--ease-lane),
+            visibility 0s linear 360ms;
     }
     /* One column of one lane: the column head over the lane's cards. */
     .lp-board-lane__column {
@@ -6331,6 +6797,17 @@
     .lp-inbox-item__note {
         @apply m-0 whitespace-pre-line;
     }
+    /* The waits of a wait item: the current ones, then the ended ones greyed. */
+    .lp-inbox-waits {
+        @apply m-0 p-0 list-none flex flex-col gap-1 text-sm text-ink;
+    }
+    .lp-inbox-waits__link {
+        @apply font-semibold text-accent-ink no-underline hover:underline;
+    }
+    .lp-inbox-waits__wait--ended,
+    .lp-inbox-waits__wait--ended .lp-inbox-waits__link {
+        @apply font-normal text-fg-mute;
+    }
     .lp-inbox-item__editable {
         @apply m-0 text-xs text-fg-mute;
     }
@@ -6605,6 +7082,16 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    /* The deck opens and folds in place, with a fade and no travel. */
+    .lp-deck__card,
+    .lp-board-lane__heading,
+    .lp-board-lane__deck-label {
+        transition: opacity 150ms ease;
+    }
+    .lp-deck__card > * {
+        transition: none;
+    }
+
     html:has(.lp-landing) {
         scroll-behavior: auto;
     }

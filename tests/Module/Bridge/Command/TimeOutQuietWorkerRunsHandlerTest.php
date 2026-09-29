@@ -9,12 +9,14 @@ use App\Module\Bridge\Command\TimeOutQuietWorkerRunsCommand;
 use App\Module\Bridge\Command\TimeOutQuietWorkerRunsHandler;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\DispatchedEvents;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
@@ -166,6 +168,43 @@ final class TimeOutQuietWorkerRunsHandlerTest extends KernelTestCase
         self::assertCount(1, $bridges);
         self::assertSame((string) $owner->id, $bridges[0][0]);
         self::assertSame($bridgeId->toRfc4122(), $bridges[0][1]->toRfc4122());
+    }
+
+    public function test_a_sweep_announces_the_cards_of_each_project_once_after_the_commit(): void
+    {
+        [$owner, $project] = $this->scenario('sweep-announce');
+        $second = $this->project($this->em(), $owner, 'Second');
+        $bridgeId = $this->seedBridge($this->em(), $owner, lastSeenAt: new \DateTimeImmutable('2026-09-23 11:56:59'))->id;
+        $shared = Uuid::v7();
+        $alone = Uuid::v7();
+        $elsewhere = Uuid::v7();
+        foreach ([[$project, $shared], [$project, $shared], [$project, $alone], [$second, $elsewhere]] as [$owning, $cardId]) {
+            $this->seedRun($this->em(), $owning, new \DateTimeImmutable('2026-09-23 11:00:00'), bridgeId: $bridgeId, cardId: $cardId, state: WorkerRunState::Running, runKey: Uuid::v4());
+        }
+        $changes = DispatchedEvents::of(self::getContainer(), WorkerRunChanged::class);
+        $depth = $this->em()->getConnection()->getTransactionNestingLevel();
+
+        self::assertCount(4, $this->sweep());
+
+        $cards = [];
+        foreach ($changes->events() as $event) {
+            $cards[$event->projectId->toRfc4122()] = $event->cardIds;
+        }
+        self::assertCount(2, $changes->events());
+        self::assertEqualsCanonicalizing([$shared->toRfc4122(), $alone->toRfc4122()], $cards[(string) $project->id]);
+        self::assertSame([$elsewhere->toRfc4122()], $cards[(string) $second->id]);
+        self::assertSame([$depth, $depth], $changes->transactionDepths());
+    }
+
+    public function test_a_sweep_that_times_nothing_out_announces_nothing(): void
+    {
+        [$owner, $project] = $this->scenario('sweep-announce-none');
+        $bridgeId = $this->seedBridge($this->em(), $owner)->id;
+        $this->openRun($project, $bridgeId, WorkerRunState::Running);
+        $changes = DispatchedEvents::of(self::getContainer(), WorkerRunChanged::class);
+
+        self::assertSame([], $this->sweep());
+        self::assertSame([], $changes->events());
     }
 
     /** @return array{User, Project} */

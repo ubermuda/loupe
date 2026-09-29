@@ -41,6 +41,7 @@ func TestParseRefusesAnInvalidInteractiveRule(t *testing.T) {
 		"resultFields":         {rule(moved + "resultFields:\n  pr: {type: string}"), "resultFields names worker behaviour"},
 		"resume":               {rule(moved + "resume: true"), "resume names worker behaviour"},
 		"verdict":              {rule(moved + "verdict: approved"), "verdict names worker behaviour"},
+		"workerPool":           {rule(moved + "workerPool: quick"), "workerPool names worker behaviour"},
 		"no launch command":    {strings.Replace(interactiveRule, "launch:\n  command: [osascript, -e, 'run {script}']\n", "", 1), "launch.command is required"},
 		"empty launch command": {strings.Replace(interactiveRule, "[osascript, -e, 'run {script}']", "[]", 1), "launch.command is required"},
 		"no script":            {strings.Replace(interactiveRule, "'run {script}'", "'run {dir}'", 1), "no element of launch.command holds {script}"},
@@ -108,6 +109,15 @@ func TestParseFillsNoDefaultsIntoAnInteractiveRule(t *testing.T) {
 	}
 	if rs[2].PermissionMode != "acceptEdits" || rs[2].Model != "sonnet" {
 		t.Fatalf("interactive rule with its own settings = %+v", rs[2])
+	}
+}
+
+// An interactive rule takes no worker slot, so it needs no room in the default
+// pool.
+func TestParseAcceptsAnInteractiveRuleWhenTheDefaultPoolIsEmpty(t *testing.T) {
+	s := parse(t, "maxWorkers: 1\nworkerPools:\n  quick:\n    size: 1\n"+interactiveRule)
+	if got := s.Pools(); got[DefaultPool] != 0 || got["quick"] != 1 {
+		t.Fatalf("Pools = %v", got)
 	}
 }
 

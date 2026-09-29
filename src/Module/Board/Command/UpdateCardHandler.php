@@ -38,6 +38,7 @@ final readonly class UpdateCardHandler
     public const string COLUMN_GONE = 'board.card.error.column_gone';
     public const string LINKED_CARD_GONE = 'board.card.error.linked_card_unknown';
     public const string CONTENT_CHANGED = 'board.card.error.changed_since_opened';
+    public const string COLUMN_CHANGED = 'board.card.error.column_changed';
     private const string NOT_WHERE_EXPECTED = 'not_where_expected';
 
     public function __construct(
@@ -101,6 +102,9 @@ final readonly class UpdateCardHandler
             // the queue committed. Both the decision below and the move it
             // makes read the column, so both need the column as it is now.
             $this->cards->refreshColumn($card);
+            if (null !== $command->expectedColumn && $command->expectedColumn !== $card->column) {
+                return self::COLUMN_CHANGED;
+            }
             // The text too, so the clash check and the change flags below
             // compare against what the last writer committed.
             $this->cards->refreshContent($card);
@@ -113,8 +117,8 @@ final readonly class UpdateCardHandler
             // the request loaded it decides where the card may go and whether
             // the move stamps it.
             $columns = $this->boardColumns->findForProjectFresh($card->project);
-            if ((null !== $command->expectedColumn && $card->column !== $command->expectedColumn)
-                || ($command->expectOpenColumn && $card->column->terminal)) {
+            if ((null !== $command->onlyFromColumn && $card->column !== $command->onlyFromColumn)
+                || ($command->onlyFromOpenColumn && $card->column->terminal)) {
                 return self::NOT_WHERE_EXPECTED;
             }
 

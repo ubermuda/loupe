@@ -97,9 +97,11 @@ final readonly class InboxSubjectResolver
             }
 
             $kind = $this->string($item, 'kind', $index);
+            // Only Loupe opens a wait item, so an agent never names that kind.
+            $agentKinds = array_values(array_filter(InboxItemKind::cases(), static fn (InboxItemKind $case): bool => InboxItemKind::Wait !== $case));
             $parsed[] = new AskInboxItem(
-                kind: InboxItemKind::tryFrom($kind)
-                    ?? throw new ToolCallException(\sprintf('items[%d].kind: unknown kind "%s". Use one of: %s.', $index, $kind, implode(', ', array_map(static fn (InboxItemKind $case): string => $case->value, InboxItemKind::cases())))),
+                kind: array_find($agentKinds, static fn (InboxItemKind $case): bool => $case->value === $kind)
+                    ?? throw new ToolCallException(\sprintf('items[%d].kind: unknown kind "%s". Use one of: %s.', $index, $kind, implode(', ', array_map(static fn (InboxItemKind $case): string => $case->value, $agentKinds)))),
                 title: $this->string($item, 'title', $index),
                 body: null === ($item['body'] ?? null) ? null : $this->string($item, 'body', $index),
                 options: $this->strings($item, 'options', $index),

@@ -57,10 +57,8 @@ final class ConfigureBoardColumnController extends AppController
                     column: $column,
                     actor: CardReporter::Human,
                     label: $data->label ?? '',
-                    isDefault: $data->isDefault,
                     terminal: $data->terminal,
                     expectedLabel: $data->expectedLabel ?? '',
-                    expectedDefaultId: $data->expectedDefaultId ?? '',
                     expectedTerminal: '1' === $data->expectedTerminal,
                     tone: $data->tone,
                 ));

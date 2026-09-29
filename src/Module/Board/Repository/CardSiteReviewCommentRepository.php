@@ -180,6 +180,40 @@ class CardSiteReviewCommentRepository extends ServiceEntityRepository
         return $counts;
     }
 
+    /**
+     * How many unaddressed comments each of those cards carries, keyed and
+     * defaulted as pendingCountsForProject() does, in one aggregate.
+     *
+     * @param list<Card> $cards
+     *
+     * @return array<string, int>
+     */
+    public function pendingCountsForCards(array $cards): array
+    {
+        if ([] === $cards) {
+            return [];
+        }
+
+        /** @var list<array{cardId: string, total: int}> $rows */
+        $rows = $this->createQueryBuilder('l')
+            ->select('IDENTITY(l.card) AS cardId', 'COUNT(l.id) AS total')
+            ->join('l.comment', 'c')
+            ->where('l.card IN (:cards)')
+            ->andWhere('c.status = :pending')
+            ->setParameter('cards', $cards)
+            ->setParameter('pending', SiteReviewCommentStatus::Pending)
+            ->groupBy('l.card')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(string) $row['cardId']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
+
     /** The pending comments of one card, counted as pendingCountsForProject() counts them. */
     public function pendingCountForCard(Card $card): int
     {

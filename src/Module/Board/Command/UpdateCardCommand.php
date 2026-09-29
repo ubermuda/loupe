@@ -31,11 +31,14 @@ use App\Module\Board\Entity\CardType;
  * $expectedFingerprint is the Card::contentFingerprint() the editor opened.
  * A card whose text differs from it is refused unless $confirmOverwrite.
  *
+ * $expectedColumn is the column the caller checked the card was in. A card
+ * that another request moved out of it since is refused.
+ *
  * A move to another column closes every open interactive run of the card. A
  * run that $openInteractiveRun opens in the same update stays open.
  *
- * $expectedColumn and $expectOpenColumn are checked under the lock. When the
- * card no longer sits there, the update changes nothing and throws nothing.
+ * $onlyFromColumn and $onlyFromOpenColumn are checked under the lock too. A
+ * card that no longer sits there is left alone, with no change and no error.
  */
 final readonly class UpdateCardCommand
 {
@@ -66,7 +69,8 @@ final readonly class UpdateCardCommand
         public bool $confirmOverwrite = false,
         public ?OpenInteractiveRun $openInteractiveRun = null,
         public ?BoardColumn $expectedColumn = null,
-        public bool $expectOpenColumn = false,
+        public ?BoardColumn $onlyFromColumn = null,
+        public bool $onlyFromOpenColumn = false,
     ) {
     }
 }

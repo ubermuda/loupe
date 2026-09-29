@@ -84,6 +84,9 @@ type RunStateReport struct {
 	ReplacedBy string `json:"replacedBy,omitzero"`
 	MaxChain   int    `json:"maxChain,omitzero"`
 	Reason     string `json:"reason,omitzero"`
+	// WorkerPool is the pool of a worker run: the pool it started in, or the
+	// pool its rule names while it waits. An interactive run has none.
+	WorkerPool string `json:"workerPool,omitzero"`
 
 	// ResultStatus and ResultFields come from the worker's structured result.
 	// ResumeSkipped says why the bridge did not resume a run that did not finish.
