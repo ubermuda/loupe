@@ -131,7 +131,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $document = new Document(owner: $owner, project: $project, title: 'Linked document');
         $document->addVersion('# Linked', '<h1>Linked</h1>');
-        $column = new BoardColumn($project, 'Ready', 'ready', 0, isDefault: true);
+        $column = new BoardColumn($project, 'Ready', 'ready', 0, backlog: true);
         $card = new Card($project, $column, 'Implement the document', 'Linked body marker text', 1);
         $em->persist($document);
         $em->persist($column);

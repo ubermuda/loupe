@@ -410,9 +410,9 @@ final class ShowBoardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'board-title-only@example.com');
         $project = $this->project($em, $owner);
-        $plain = $this->card($em, $project, 'Plain column card', 'backlog', body: 'Plain body marker text');
+        $plain = $this->card($em, $project, 'Plain column card', 'next', body: 'Plain body marker text');
         $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
-        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Lane child card', 'backlog', body: 'Lane body marker text'));
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'Lane child card', 'in-progress', body: 'Lane body marker text'));
         $em->clear();
 
         $client->loginUser($owner);

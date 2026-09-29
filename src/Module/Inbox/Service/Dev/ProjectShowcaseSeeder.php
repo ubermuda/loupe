@@ -429,12 +429,13 @@ final readonly class ProjectShowcaseSeeder
         foreach ($this->boardColumns->findForProject($project) as $column) {
             $columns[$column->slug] = $column;
         }
-        $backlog = $columns['backlog'] ?? throw new \LogicException('The project has no backlog column.');
+        $next = $columns['next'] ?? throw new \LogicException('The project has no next column.');
+        $inProgress = $columns['in-progress'] ?? $next;
         $number = $this->cards->nextNumber($project);
 
         $epic = new Card(
             project: $project,
-            column: $columns['next'] ?? $backlog,
+            column: $next,
             title: 'Project export',
             body: 'Let an owner download every card, document and request of a project as one archive.',
             number: $number,
@@ -442,7 +443,7 @@ final readonly class ProjectShowcaseSeeder
         );
         $child = new Card(
             project: $project,
-            column: $backlog,
+            column: $inProgress,
             title: 'Export the documents',
             body: 'Write each document version as Markdown, in a folder per document.',
             number: $number + 1,
@@ -467,7 +468,7 @@ final readonly class ProjectShowcaseSeeder
             hasResult: true,
             output: 'The export tests still fail after three attempts. The archive writer cannot read a document that has no version.',
             receivedAt: $endedAt,
-            cardColumn: $backlog->slug,
+            cardColumn: $inProgress->slug,
         );
         $this->em->persist($run);
         $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::GaveUp, $endedAt, $endedAt));
