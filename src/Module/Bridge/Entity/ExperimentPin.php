@@ -30,20 +30,20 @@ class ExperimentPin
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: Project::class)]
-        public readonly Project $project,
+        public Project $project,
 
         /** A scalar, never a foreign key, like the card of a run. */
         #[ORM\Column(name: 'card_id', type: UuidType::NAME)]
-        public readonly Uuid $cardId,
+        public Uuid $cardId,
 
         #[ORM\Column(name: 'experiment', length: WorkerRun::MAX_EXPERIMENT_NAME_LENGTH)]
-        public readonly string $experiment,
+        public string $experiment,
 
         #[ORM\Column(name: 'variant', length: WorkerRun::MAX_EXPERIMENT_NAME_LENGTH)]
         public string $variant,
 
         #[ORM\Column(name: 'created_at')]
-        public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+        public \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
 
         #[ORM\Column(name: 'updated_at')]
         public \DateTimeImmutable $updatedAt = new \DateTimeImmutable(),

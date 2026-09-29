@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\EventListener;
 
+use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Service\ProjectDeleter;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Without the listener the run rows outlive the project, and the foreign key
@@ -99,6 +101,28 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
 
         self::assertSame(1, $this->countUsage($em));
         self::assertSame((string) $keptUsageId, $em->getConnection()->fetchOne('SELECT id FROM bridge_worker_run_usage'));
+    }
+
+    public function test_deleting_a_project_takes_its_experiment_pins_and_leaves_another_projects_pins(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'pins-delete@example.com');
+        $doomed = $this->project($em, $owner, 'Doomed Pins');
+        $kept = $this->project($em, $owner, 'Kept Pins');
+        $em->persist(new ExperimentPin($doomed, Uuid::v7(), 'impl-model', 'opus'));
+        $keptPin = new ExperimentPin($kept, Uuid::v7(), 'impl-model', 'opus');
+        $em->persist($keptPin);
+        $em->flush();
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        self::assertSame(
+            [(string) $keptPin->id],
+            $em->getConnection()->fetchFirstColumn('SELECT id FROM bridge_experiment_pins'),
+        );
     }
 
     /**

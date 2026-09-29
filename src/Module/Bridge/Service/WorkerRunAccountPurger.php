@@ -10,8 +10,8 @@ use App\Module\Account\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Removes the run rows and the usage rows of every project the departing
- * account owned.
+ * Removes the run rows, the usage rows and the experiment pins of every project
+ * the departing account owned.
  *
  * ProjectAccountPurger runs first and deletes those projects, which fires
  * DeleteWorkerRunsOnProjectDeleting, so this normally finds nothing. It stays
@@ -47,6 +47,10 @@ final readonly class WorkerRunAccountPurger implements AccountDataPurgerInterfac
         );
         $connection->executeStatement(
             'DELETE FROM bridge_worker_run_usage WHERE project_id IN (SELECT id FROM projects WHERE owner_id = :id)',
+            ['id' => $id],
+        );
+        $connection->executeStatement(
+            'DELETE FROM bridge_experiment_pins WHERE project_id IN (SELECT id FROM projects WHERE owner_id = :id)',
             ['id' => $id],
         );
     }

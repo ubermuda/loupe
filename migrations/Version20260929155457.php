@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260929155457 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create bridge_experiment_pins and add the experiment columns to bridge_worker_runs';
@@ -27,6 +28,7 @@ final class Version20260929155457 extends AbstractMigration
         $this->addSql('ALTER TABLE bridge_worker_runs ADD switched_from VARCHAR(64) DEFAULT NULL');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE bridge_experiment_pins DROP CONSTRAINT FK_69C3C5C9166D1F9C');

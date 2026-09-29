@@ -7,11 +7,13 @@ namespace App\Tests\Module\Bridge\Service;
 use App\Module\Account\Deletion\AccountDeletionCleanup;
 use App\Module\Account\Deletion\AccountPurger;
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunAccountPurger;
 use App\Module\Project\Service\ProjectAccountPurger;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class WorkerRunAccountPurgerTest extends KernelTestCase
 {
@@ -70,6 +72,25 @@ final class WorkerRunAccountPurgerTest extends KernelTestCase
 
         self::assertSame(1, $this->countUsage($em));
         self::assertSame((string) $keptUsageId, $em->getConnection()->fetchOne('SELECT id FROM bridge_worker_run_usage'));
+    }
+
+    public function test_it_takes_the_experiment_pins_of_the_departing_account_alone(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $leaving = $this->user($em, 'pins-purge-leaving@example.com');
+        $staying = $this->user($em, 'pins-purge-staying@example.com');
+        $em->persist(new ExperimentPin($this->project($em, $leaving, 'Leaving Pins'), Uuid::v7(), 'impl-model', 'opus'));
+        $keptPin = new ExperimentPin($this->project($em, $staying, 'Staying Pins'), Uuid::v7(), 'impl-model', 'opus');
+        $em->persist($keptPin);
+        $em->flush();
+
+        $this->purge($leaving);
+
+        self::assertSame(
+            [(string) $keptPin->id],
+            $em->getConnection()->fetchFirstColumn('SELECT id FROM bridge_experiment_pins'),
+        );
     }
 
     /** ProjectAccountPurger clears the EntityManager, so this slot always gets a detached user. */

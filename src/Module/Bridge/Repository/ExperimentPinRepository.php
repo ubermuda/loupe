@@ -26,7 +26,6 @@ class ExperimentPinRepository extends ServiceEntityRepository
     /** Locked until the transaction ends, and read fresh even when the pin is already managed. */
     public function findOneLocked(Project $project, Uuid $cardId, string $experiment): ?ExperimentPin
     {
-        /** @var ExperimentPin|null */
         return $this->createQueryBuilder('p')
             ->andWhere('p.project = :project')
             ->andWhere('p.cardId = :cardId')
