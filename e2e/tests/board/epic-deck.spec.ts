@@ -144,6 +144,15 @@ async function drag(page: Page, from: Locator, to: Locator): Promise<void> {
     await page.mouse.up();
 }
 
+/** Waits for every transition inside the element to end. */
+async function settled(element: Locator): Promise<void> {
+    await element.evaluate((node) =>
+        Promise.all(
+            node.getAnimations({ subtree: true }).map((each) => each.finished),
+        ),
+    );
+}
+
 interface Board {
     page: Page;
     boardUrl: string;
@@ -280,6 +289,66 @@ test('a card dropped on the deck of its epic goes back to the Backlog', async ({
         deck(page, epic).locator(`[data-card-id="${working.id}"]`),
     ).toHaveCount(1);
     await expect(cell.locator(`[data-card-id="${working.id}"]`)).toHaveCount(0);
+});
+
+test('a deck card dragged to a cell and back marks its own slot, and the fan stays open on release', async ({
+    board,
+}) => {
+    const page = board.page;
+    const epic = await board.create(`Back epic ${RUN}`, {
+        type: 'epic',
+        status: 'next',
+    });
+    const waiting: Card[] = [];
+    for (let index = 1; index <= 3; index++) {
+        waiting.push(
+            await board.create(`Back waiting ${index} ${RUN}`, {
+                parent: epic,
+            }),
+        );
+    }
+
+    await page.goto(board.boardUrl);
+    await expect(page.locator(READY)).toBeAttached();
+    const pile = deck(page, epic);
+    await pile.hover();
+    const lifted = pile.locator(`[data-card-id="${waiting[1].id}"]`);
+    await expect(lifted.locator('.lp-deck__title')).toBeVisible();
+    // The fan slides in, so its slot is read once it rests.
+    await settled(pile);
+    const slot = await lifted.boundingBox();
+    const cell = await (await nextCell(page, epic)).boundingBox();
+    expect(slot).not.toBeNull();
+    expect(cell).not.toBeNull();
+    if (slot === null || cell === null) {
+        return;
+    }
+    const home = { x: slot.x + slot.width / 2, y: slot.y + slot.height / 2 };
+
+    await page.mouse.move(home.x, home.y);
+    await page.mouse.down();
+    await page.mouse.move(cell.x + cell.width / 2, cell.y + cell.height / 2, {
+        steps: 20,
+    });
+    await page.mouse.move(home.x, home.y, { steps: 20 });
+
+    const ghost = pile.locator('.lp-board__ghost');
+    await expect(ghost).toBeVisible();
+    await settled(pile);
+    const marker = await ghost.boundingBox();
+    expect(Math.abs((marker?.x ?? 0) - slot.x)).toBeLessThan(8);
+    await expect(
+        pile.locator(`[data-card-id="${waiting[0].id}"]`),
+    ).not.toHaveCSS('border-top-style', 'dashed');
+
+    await page.mouse.up();
+    await expect(pile).toHaveClass(/lp-deck--open/);
+    await settled(pile);
+    for (const card of waiting) {
+        await expect(
+            pile.locator(`[data-card-id="${card.id}"] .lp-deck__title`),
+        ).toBeVisible();
+    }
 });
 
 test('a collapsed lane is a slim bar with its number, title and progress only', async ({

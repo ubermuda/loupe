@@ -500,4 +500,52 @@ describe('a card of an Up next deck', () => {
         );
         expect(controller.pendingForm).toBeNull();
     });
+
+    it('marks the slot the card left in its fan with its ghost', () => {
+        const moved = document.getElementById('board-deck-card-c');
+        moved.dataset.deckIndex = '2';
+        controller.press({
+            pointerId: 1,
+            pointerType: 'mouse',
+            button: 0,
+            target: moved,
+            clientX: 700,
+            clientY: 40,
+        });
+        controller.pointerMove({
+            pointerId: 1,
+            clientX: 650,
+            clientY: 40,
+            preventDefault: () => {},
+        });
+
+        expect(controller.ghost.style.getPropertyValue('--deck-order')).toBe(
+            '2',
+        );
+        controller.abandon();
+    });
+
+    it('holds the fan open after a drop on the deck until the pointer leaves it', () => {
+        const deck = document.getElementById('deck');
+        deck.classList.add('lp-deck');
+        const pointerAt = (clientX, clientY) =>
+            window.dispatchEvent(
+                Object.assign(new Event('pointermove'), { clientX, clientY }),
+            );
+
+        dragDeckCard(650, 40);
+        expect(deck.classList.contains('lp-deck--open')).toBe(true);
+
+        deck.classList.remove('lp-deck--open');
+        deck.dispatchEvent(
+            new CustomEvent('turbo:morph-element', { bubbles: true }),
+        );
+        expect(deck.classList.contains('lp-deck--open')).toBe(true);
+
+        pointerAt(700, 60);
+        expect(deck.classList.contains('lp-deck--open')).toBe(true);
+
+        pointerAt(700, 200);
+        expect(deck.classList.contains('lp-deck--open')).toBe(false);
+    });
 });

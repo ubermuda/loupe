@@ -52,6 +52,7 @@ export default class extends Controller {
         this.scrollFrame = null;
         this.scrollGroup = null;
         this.pointerY = 0;
+        this.openDeck = null;
 
         this.onScrollFrame = () => {
             this.scrollFrame = null;
@@ -88,6 +89,31 @@ export default class extends Controller {
             event.stopPropagation();
         };
 
+        // A drop on a deck keeps its fan open until the pointer leaves it.
+        this.onDeckPointerMove = (event) => {
+            const deck = this.openDeck;
+            const area = deck === null ? null : this.dropArea(deck);
+            if (
+                area !== null &&
+                deck.isConnected &&
+                event.clientX >= area.left &&
+                event.clientX <= area.right &&
+                event.clientY >= area.top &&
+                event.clientY <= area.bottom
+            ) {
+                deck.classList.add('lp-deck--open');
+
+                return;
+            }
+            this.closeDeck();
+        };
+        // A lane head morph drops the class the drop wrote.
+        this.onDeckMorph = (event) => {
+            if (event.target === this.openDeck) {
+                this.openDeck.classList.add('lp-deck--open');
+            }
+        };
+
         this.element.addEventListener('click', this.onClick, true);
         this.markReady();
     }
@@ -99,6 +125,7 @@ export default class extends Controller {
 
     disconnect() {
         this.abandon();
+        this.closeDeck();
         this.stopAwaitingPlacement?.();
         this.element.removeEventListener('click', this.onClick, true);
         delete this.element.dataset.boardDragReady;
@@ -128,6 +155,7 @@ export default class extends Controller {
 
         this.swallowClick = false;
         this.clearMessage();
+        this.closeDeck();
 
         this.pointerId = event.pointerId;
         this.pressedCard = card;
@@ -345,10 +373,33 @@ export default class extends Controller {
         // an armed flag would then swallow the next click on the board.
         this.swallowClick = this.element.contains(event.target);
         this.abandon();
+        if (group?.classList.contains('lp-deck')) {
+            this.holdDeckOpen(group);
+        }
 
         if (moves) {
             this.submitMove(card, group, position, origin, lanePayload);
         }
+    }
+
+    /**
+     * The fan of a deck stays open on hover only, and the card that returns to
+     * its slot leaves the pointer over no card for a moment. So a drop on a
+     * deck holds the fan open until the pointer leaves it.
+     */
+    holdDeckOpen(deck) {
+        this.closeDeck();
+        this.openDeck = deck;
+        deck.classList.add('lp-deck--open');
+        window.addEventListener('pointermove', this.onDeckPointerMove);
+        document.addEventListener('turbo:morph-element', this.onDeckMorph);
+    }
+
+    closeDeck() {
+        window.removeEventListener('pointermove', this.onDeckPointerMove);
+        document.removeEventListener('turbo:morph-element', this.onDeckMorph);
+        this.openDeck?.classList.remove('lp-deck--open');
+        this.openDeck = null;
     }
 
     /**
@@ -577,6 +628,10 @@ export default class extends Controller {
         ghost.inert = true;
         ghost.setAttribute('aria-hidden', 'true');
         ghost.querySelectorAll('form').forEach((form) => form.remove());
+        // A deck card's ghost marks the slot of the fan the card left.
+        if (card.dataset.deckIndex !== undefined) {
+            ghost.style.setProperty('--deck-order', card.dataset.deckIndex);
+        }
         for (const element of [ghost, ...ghost.querySelectorAll('*')]) {
             for (const { name } of Array.from(element.attributes)) {
                 if (name === 'id' || name.startsWith('data-')) {

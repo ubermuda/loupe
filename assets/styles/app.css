@@ -5798,7 +5798,9 @@
         transition: opacity 200ms ease 200ms;
     }
     .lp-board-lane__head:has(
-            .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *),
+            .lp-deck:is(:hover, :focus-within, .lp-deck--open):not(
+                    .lp-board--dragging *
+                ),
             .lp-deck .lp-board-card--dragging
         )
         :is(.lp-board-lane__heading, .lp-board-lane__deck-label) {
@@ -5817,7 +5819,9 @@
         content: '';
         @apply absolute -inset-y-0.5 right-0 z-1 w-full;
     }
-    .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *)::before {
+    .lp-deck:is(:hover, :focus-within, .lp-deck--open):not(
+            .lp-board--dragging *
+        )::before {
         width: var(--deck-reach, 100%);
     }
     .lp-deck__card {
@@ -5889,7 +5893,9 @@
     /* The fan runs from the deck to the left, in rank order, with no delay on the
        way out. The "+N more" tile takes the first slot, so --deck-shift moves the cards past it. */
     :is(
-            .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *),
+            .lp-deck:is(:hover, :focus-within, .lp-deck--open):not(
+                    .lp-board--dragging *
+                ),
             .lp-deck:has(.lp-board-card--dragging)
         )
         .lp-deck__card:not(.lp-board-card--dragging) {
@@ -5904,7 +5910,9 @@
         transition-delay: 0s;
     }
     :is(
-            .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *),
+            .lp-deck:is(:hover, :focus-within, .lp-deck--open):not(
+                    .lp-board--dragging *
+                ),
             .lp-deck:has(.lp-board-card--dragging)
         )
         .lp-deck__card
@@ -5914,7 +5922,9 @@
     }
     /* A card the fan has no room for. The "+N more" tile counts it instead. */
     :is(
-            .lp-deck:is(:hover, :focus-within):not(.lp-board--dragging *),
+            .lp-deck:is(:hover, :focus-within, .lp-deck--open):not(
+                    .lp-board--dragging *
+                ),
             .lp-deck:has(.lp-board-card--dragging)
         )
         .lp-deck__card.lp-deck__card--spare {
@@ -5942,8 +5952,9 @@
         content: '';
         @apply pointer-events-none absolute -inset-1 z-10 rounded-xl border-2 border-dashed border-accent-border;
     }
-    /* A dragged card over the deck, which a release sends back to the Backlog. */
-    .lp-deck.lp-board-backlog--over .lp-deck__card[data-deck-index='0'] {
+    /* A dragged card over another deck, which a release sends to the end of its Backlog. */
+    .lp-deck.lp-board-backlog--over:not(:has(.lp-board-card--dragging))
+        .lp-deck__card[data-deck-index='0'] {
         @apply border-dashed border-accent-border bg-accent-faint;
     }
     /* The card lifted out of the deck follows the pointer, flat and whole. */
@@ -5961,6 +5972,13 @@
     .lp-deck > :is(.lp-board__ghost, .lp-board__placeholder),
     .lp-deck__card.lp-board-card--sent {
         @apply hidden;
+    }
+    /* A dragged card back over its own deck, which a release leaves in the slot it came from. */
+    .lp-deck.lp-board-backlog--over > .lp-deck__card.lp-board__ghost {
+        @apply flex border-2 border-dashed border-accent-border bg-accent-faint;
+    }
+    .lp-deck.lp-board-backlog--over > .lp-deck__card.lp-board__ghost > * {
+        @apply invisible;
     }
     /* A deck card dropped in a cell, until the placement replaces it with a board card. */
     .lp-board-lane__cell > .lp-deck__card {
