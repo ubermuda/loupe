@@ -14,8 +14,8 @@ use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
 use App\Module\Review\Form\ReviseDocumentFormType;
 use App\Module\Review\Form\ReviseDocumentRequest;
-use App\Module\Review\Form\SaveDecisionFormType;
-use App\Module\Review\Form\SaveDecisionRequest;
+use App\Module\Review\Form\SaveDecisionAnswerFormType;
+use App\Module\Review\Form\SaveDecisionAnswerRequest;
 use App\Module\Review\Form\StrikePassageFormType;
 use App\Module\Review\Form\StrikePassageRequest;
 use App\Module\Review\Form\SubmitReviewFormType;
@@ -106,11 +106,10 @@ final class ShowDocumentController extends AppController
             'method' => 'POST',
         ]);
 
-        // Stamped with the version whose options are being rendered, so a
-        // submission that arrives after a revision can be told apart from one
-        // that describes the current list.
-        $selectDecisionForm = $this->createForm(SaveDecisionFormType::class, new SaveDecisionRequest(versionNumber: $view->version->versionNumber), [
-            'action' => $this->generateUrl('app_document_decision_save', $routeParameters),
+        // Stamped with the version whose options are being rendered, because
+        // the option indexes of a submission only mean something against it.
+        $selectDecisionForm = $this->createForm(SaveDecisionAnswerFormType::class, new SaveDecisionAnswerRequest(versionNumber: $view->version->versionNumber), [
+            'action' => $this->generateUrl('app_document_decision_answer', $routeParameters),
             'method' => 'POST',
         ]);
 

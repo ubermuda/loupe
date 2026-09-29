@@ -194,6 +194,28 @@ show no bridge dot and no session, because no agent session asked for the item.
 The messenger worker opens and updates these items. A change on the board or
 on a document therefore shows after a short delay.
 
+Loupe also checks the automatic items of every project every 15 minutes. A
+wait that Loupe did not see when it started or ended opens or closes its item
+on the next check.
+
+### Choosing which waits open an item
+
+Each project has four switches, one for each cause of a wait:
+
+- **Document in review**
+- **Run blocked**
+- **Run gave up**
+- **Run waiting for a person**
+
+The switches are on the inbox settings page, at **Project settings > Inbox**.
+The **Settings** button at the top of the inbox page also opens it. Only the
+project owner can open the page. Every switch is on until you change it.
+
+When you save, Loupe checks every card of the project again. A wait that
+already exists opens an item when you turn its switch on. A wait ends when you
+turn its switch off. Its item closes as **obsolete** when no other wait holds
+it open.
+
 ### When an automatic item closes
 
 A wait ends when its document leaves review. A verdict does this, and so does
@@ -208,9 +230,13 @@ moves to another column.
 
 The item closes when its last wait ends:
 
-- It closes as **done** when the waits ended by their own cause, such as a
+- It closes as **done** when its last wait ended by its own cause, such as a
   verdict, an archive, a newer run or a move of the card.
 - It closes as **obsolete** when the card finishes or someone deletes it.
+- It closes as **obsolete** when you turn off the switch of its waits on the
+  inbox settings page.
+- It closes as **obsolete** when an administrator turns the inbox off. The
+  15-minute check closes it.
 
 The Loupe ask that holds the item closes with it.
 
@@ -232,7 +258,7 @@ close all count. An agent's withdraw counts too, and so does an item that
 closes because every card it links to finished. An item that does not block
 stays open after its ask closes, and the page then lists it among the open
 items outside an open ask. A card that finishes while the inbox is off closes
-no item and no ask.
+no item that an agent asked, and no ask of an agent.
 
 One item can sit in several asks. Your response then counts toward each of
 them, and each ask closes when nothing in it blocks any more.

@@ -72,12 +72,14 @@ The pull request gate says so. `working-with-prs` tells you to fix every failure
 the gate reports, including the failures that pre-date your change. The only
 acceptable response to a flaky test is a fix.
 
-`SelectDecisionOptionHandler` shows the same rule in the product. It refuses a
-stale decision submission, so a reviewer who submits against an old version gets
-an error and re-reads the block. Resolving the submission is faster for that
-reviewer, and it records a label they never clicked. The owner settled that call.
-[AGENTS.md](../../AGENTS.md) still lists it as an example of a judgement about
-rigour, to make the point that the owner makes such calls.
+Decision answers show that the owner sets where the rule applies. The first
+decision form refused a stale submission, so a reviewer on an old version got an
+error and re-read the block. `SaveDecisionAnswerHandler` uses last-write-wins
+instead. It moves the picks onto the latest version by option label, and it
+refuses only a label that the latest version removed. A decision has one shared
+answer, and today the document owner is the only person who answers it, so the
+refusal protected nobody. The owner made that call. [AGENTS.md](../../AGENTS.md)
+still lists the old refusal as an example of a judgement about rigour.
 
 ### Simplicity against performance
 
@@ -147,5 +149,5 @@ They are candidates for an early ADR. Nobody has to write them.
   Doctrine classes. The library bounds PHP at `^8.2 <8.6`, and the project
   accepted that bound.
 - Keeping search indexing synchronous.
-- Refusing a stale decision submission instead of resolving it.
+- Saving a decision answer with last-write-wins instead of refusing a stale one.
 - Moving the HTML sanitizer to an explicit per-element allowlist.
