@@ -873,7 +873,7 @@
         @apply flex flex-wrap items-center gap-x-3 gap-y-2 mb-2;
     }
     .lp-board-toolbar {
-        @apply flex flex-1 min-w-0 flex-wrap items-center gap-x-3 gap-y-2 min-h-9;
+        @apply flex flex-auto min-w-0 flex-wrap items-center gap-x-3 gap-y-2 min-h-9;
     }
     .lp-board-backlog__count {
         @apply inline-flex items-center justify-center min-w-6 rounded-full bg-surface-3 px-2 py-0.5 text-xs font-bold text-fg-mute;
