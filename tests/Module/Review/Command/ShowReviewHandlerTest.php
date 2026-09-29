@@ -426,7 +426,7 @@ final class ShowReviewHandlerTest extends KernelTestCase
 
         $save = self::getContainer()->get(SaveDecisionAnswerHandler::class);
         self::assertInstanceOf(SaveDecisionAnswerHandler::class, $save);
-        $save(new SaveDecisionAnswerCommand($doc, 'deploy-target', 1, [1], null, false, $this->owner));
+        $save(new SaveDecisionAnswerCommand($doc, 'deploy-target', 1, [1], 'Staging is down this week.', false, $this->owner));
 
         $decisions = ($this->getReview)(new ShowReviewCommand($doc))['decisions'];
 
@@ -438,6 +438,8 @@ final class ShowReviewHandlerTest extends KernelTestCase
         self::assertSame(1, $decisions[0]['selected_index']);
         self::assertNotNull($decisions[0]['answered_at']);
         self::assertSame('single', $decisions[0]['type']);
+        self::assertSame('Staging is down this week.', $decisions[0]['note']);
+        self::assertNotFalse(\DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, (string) $decisions[0]['updated_at']));
         // The same answer under one shape both kinds of block share.
         self::assertSame([['Ship straight to production', 1]], array_map(
             static fn (array $row): array => [$row['option'], $row['index']],
@@ -449,6 +451,8 @@ final class ShowReviewHandlerTest extends KernelTestCase
         self::assertNull($decisions[1]['selected_index']);
         self::assertNull($decisions[1]['answered_at']);
         self::assertSame([], $decisions[1]['selections']);
+        self::assertNull($decisions[1]['note']);
+        self::assertNull($decisions[1]['updated_at']);
 
         // The reported labels are the ones rendered into the version the
         // reviewer answered against, not a second reading of the Markdown.
