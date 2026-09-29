@@ -96,6 +96,43 @@ final class DocumentVersionRepositoryTest extends KernelTestCase
         self::assertSame([], $this->documentVersions->findLatestMetaByDocuments([]));
     }
 
+    public function test_find_latest_by_documents_returns_each_latest_version_keyed_by_document(): void
+    {
+        $owner = new User(fullName: 'DV Owner 5', email: 'dv-owner5@example.com', password: 'x');
+        $this->em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+
+        $docA = new Document(owner: $owner, project: $project, title: 'Doc A');
+        $docA->addVersion('# a1', '<h1>a1</h1>');
+        $docA->addVersion('# a2', '<h1>a2</h1>');
+        $docB = new Document(owner: $owner, project: $project, title: 'Doc B');
+        $docB->addVersion('# b1', '<h1>b1</h1>');
+        $docC = new Document(owner: $owner, project: $project, title: 'Doc C');
+        $docC->addVersion('# c1', '<h1>c1</h1>');
+        $this->em->persist($docA);
+        $this->em->persist($docB);
+        $this->em->persist($docC);
+        $this->em->flush();
+        $this->em->clear();
+
+        $refetchedA = $this->em->find(Document::class, $docA->id);
+        $refetchedB = $this->em->find(Document::class, $docB->id);
+        self::assertInstanceOf(Document::class, $refetchedA);
+        self::assertInstanceOf(Document::class, $refetchedB);
+
+        $latest = $this->documentVersions->findLatestByDocuments([$refetchedA, $refetchedB]);
+
+        self::assertEqualsCanonicalizing([(string) $docA->id, (string) $docB->id], array_keys($latest));
+        self::assertSame('<h1>a2</h1>', $latest[(string) $docA->id]->renderedHtml);
+        self::assertSame('<h1>b1</h1>', $latest[(string) $docB->id]->renderedHtml);
+    }
+
+    public function test_find_latest_by_documents_returns_empty_array_for_empty_input(): void
+    {
+        self::assertSame([], $this->documentVersions->findLatestByDocuments([]));
+    }
+
     public function test_find_all_meta_by_document_carries_each_versions_description(): void
     {
         $owner = new User(fullName: 'DV Owner 3', email: 'dv-owner3@example.com', password: 'x');

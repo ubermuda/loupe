@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Session;
 
+use App\Observability\RequestTimeline;
 use Doctrine\DBAL\Connection;
-use Sentry\State\HubInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler;
@@ -52,7 +52,7 @@ final readonly class PdoSessionHandlerFactory
         #[Autowire(env: 'DATABASE_URL')]
         private string $databaseUrl,
         private RequestStack $requestStack,
-        private HubInterface $hub,
+        private RequestTimeline $timeline,
     ) {
     }
 
@@ -62,7 +62,7 @@ final readonly class PdoSessionHandlerFactory
             $this->create(PdoSessionHandler::LOCK_TRANSACTIONAL),
             $this->create(PdoSessionHandler::LOCK_NONE),
             $this->requestStack,
-            $this->hub,
+            $this->timeline,
         );
     }
 

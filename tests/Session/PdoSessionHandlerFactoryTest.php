@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Session;
 
+use App\Observability\RequestTimeline;
 use App\Session\PdoSessionHandlerFactory;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
@@ -63,6 +64,6 @@ final class PdoSessionHandlerFactoryTest extends TestCase
         $connection = $this->createStub(Connection::class);
         $connection->method('getDatabase')->willReturn($database);
 
-        return new PdoSessionHandlerFactory($connection, $databaseUrl, new RequestStack(), $this->createStub(HubInterface::class));
+        return new PdoSessionHandlerFactory($connection, $databaseUrl, new RequestStack(), new RequestTimeline($this->createStub(HubInterface::class)));
     }
 }
