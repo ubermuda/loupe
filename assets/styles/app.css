@@ -5920,10 +5920,11 @@
         .lp-deck__card.lp-deck__card--spare {
         @apply invisible opacity-0 pointer-events-none;
     }
-    /* The first tile of the fan, under the pointer, which the resting pile hides behind its cards. */
+    /* The first tile of the fan, under the pointer, which the resting pile hides behind its cards.
+       It sits level with the hover bridge and after it, so a click reaches the link. */
     .lp-deck__card.lp-deck__more {
         --deck-order: -1;
-        z-index: 0;
+        z-index: 1;
         @apply items-center justify-center border-dashed border-line-strong bg-surface-2 font-display text-sm font-bold text-accent-ink no-underline cursor-pointer opacity-0;
     }
     .lp-deck__more[hidden] {
