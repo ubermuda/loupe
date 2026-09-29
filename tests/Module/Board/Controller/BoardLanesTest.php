@@ -153,7 +153,7 @@ final class BoardLanesTest extends WebTestCase
         self::assertSame('3/7 done', trim($epicCard->filter('[data-card-progress]')->text()));
     }
 
-    public function test_the_lane_toggle_on_the_board_answers_with_the_board_stream(): void
+    public function test_the_lane_toggle_on_the_board_answers_with_an_empty_stream_and_saves_the_lane(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -164,20 +164,54 @@ final class BoardLanesTest extends WebTestCase
         $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Streamed epic', 'next'), CardType::Epic);
         $this->childOf($em, $epic, $this->card($em, $project, 'Child'));
-        $epicId = (string) $epic->id;
+        [$projectId, $epicId] = [(string) $project->id, (string) $epic->id];
         $em->clear();
 
         $client->loginUser($owner);
-        $this->postLaneAsStream($client, (string) $project->id, $epicId, '0');
+        $this->postLaneAsStream($client, $projectId, $epicId, '0');
 
-        self::assertResponseIsSuccessful();
+        self::assertResponseStatusCodeSame(200);
         self::assertStringStartsWith(TurboBundle::STREAM_MEDIA_TYPE, (string) $client->getResponse()->headers->get('Content-Type'));
         $body = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('<turbo-stream action="replace" target="board">', $body);
-        self::assertStringNotContainsString('data-lane="'.$epicId.'"', $body);
+        self::assertSame('', trim($body));
+        self::assertStringNotContainsString('target="board"', $body);
+        self::assertStringNotContainsString('data-card-id', $body);
 
-        $this->postLaneAsStream($client, (string) $project->id, $epicId, '1');
-        self::assertStringContainsString('data-lane="'.$epicId.'"', (string) $client->getResponse()->getContent());
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/board');
+        self::assertCount(0, $crawler->filter('.lp-board-lane[data-lane="'.$epicId.'"]'));
+
+        $this->postLaneAsStream($client, $projectId, $epicId, '1');
+        self::assertResponseStatusCodeSame(200);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/board');
+        self::assertCount(1, $crawler->filter('.lp-board-lane[data-lane="'.$epicId.'"]'));
+    }
+
+    public function test_a_refused_lane_toggle_on_the_board_prepends_its_message_and_leaves_no_flash(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'lanes-refused@example.com');
+        $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
+        [$projectId, $cardId] = [(string) $project->id, (string) $this->card($em, $project, 'Plain task', 'next')->id];
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->postLaneAsStream($client, $projectId, $cardId, '1');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringStartsWith(TurboBundle::STREAM_MEDIA_TYPE, (string) $client->getResponse()->headers->get('Content-Type'));
+        $stream = new Crawler((string) $client->getResponse()->getContent());
+        $prepend = $stream->filter('turbo-stream[action="prepend"][target="main-content"]');
+        self::assertCount(1, $prepend);
+        self::assertStringContainsString('Only an epic has a lane.', $prepend->html());
+        self::assertStringContainsString('lp-flash--error', $prepend->html());
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/board');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.lp-flash'));
     }
 
     public function test_a_done_epic_shows_as_one_card_and_its_children_leave_the_board(): void

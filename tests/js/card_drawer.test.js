@@ -227,7 +227,7 @@ it('reloads the board behind it after a lane turns on or off', () => {
         cardChanges.push(change),
     );
     const laneForm = document.createElement('form');
-    laneForm.dataset.cardDrawerReloadsBoard = '';
+    laneForm.dataset.boardLaneForm = '';
     controller.submitted({ target: laneForm, detail: { success: true } });
     controller.submitted({ target: laneForm, detail: { success: false } });
     stop();
