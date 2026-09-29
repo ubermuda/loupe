@@ -99,6 +99,11 @@ final class ReportWorkerRunStateRequest
         /** Checked on every state, and stored from an outcome alone. */
         #[Assert\Valid]
         public ?WorkerRunUsageInput $usage = null,
+
+        /** Null from a bridge that predates worker pools. */
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::WORKER_POOL_PATTERN)]
+        public ?string $workerPool = null,
     ) {
     }
 

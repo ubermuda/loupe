@@ -47,6 +47,10 @@ final readonly class RecordBridgeHeartbeatHandler
                 $bridge->updateState = $command->updateState;
                 $bridge->updateVersion = $command->updateVersion;
                 $bridge->hooks = $command->hooks ?? [];
+                if (null !== $command->workerPools) {
+                    $bridge->workerPools = $command->workerPools;
+                    $bridge->workerPoolsReportedAt = $now;
+                }
                 $this->em->persist($bridge);
 
                 return [$bridge, true];
@@ -59,6 +63,10 @@ final readonly class RecordBridgeHeartbeatHandler
             $bridge->updateVersion = $command->updateVersion;
             if (null !== $command->hooks) {
                 $bridge->hooks = $command->hooks;
+            }
+            if (null !== $command->workerPools) {
+                $bridge->workerPools = $command->workerPools;
+                $bridge->workerPoolsReportedAt = $now;
             }
 
             return [$bridge, false];

@@ -7,6 +7,8 @@ namespace App\Module\Inbox\Service;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxAskOrigin;
@@ -47,10 +49,11 @@ final readonly class CardWaitReconciler
         private InboxSearchIndexer $searchIndexer,
         private InboxOpenCountPublisher $openCount,
         private InboxAvailability $inbox,
+        private WorkerRunRepository $workerRuns,
     ) {
     }
 
-    /** @param list<string>|null $cardIds null for every card that has an open watch or a document in review */
+    /** @param list<string>|null $cardIds null for every card that has an open watch, a document in review or a newest run that waits */
     public function reconcile(Project $project, ?array $cardIds): void
     {
         $countChanged = $this->em->wrapInTransaction(function () use ($project, $cardIds): bool {
@@ -131,7 +134,14 @@ final readonly class CardWaitReconciler
      */
     private function cardIds(Project $project, ?array $cardIds): array
     {
-        $cardIds ??= [...$this->inboxCardWatches->findOpenCardIds($project), ...$this->cardDocuments->findCardIdsWithDocumentInReview($project)];
+        $cardIds ??= [
+            ...$this->inboxCardWatches->findOpenCardIds($project),
+            ...$this->cardDocuments->findCardIdsWithDocumentInReview($project),
+            ...array_map(
+                static fn (array $row): string => $row['card_id'],
+                array_filter($this->workerRuns->findLatestRunRows($project, null), static fn (array $row): bool => null !== self::runTrigger($row['state'])),
+            ),
+        ];
 
         $ids = [];
         foreach ($cardIds as $cardId) {
@@ -145,22 +155,17 @@ final readonly class CardWaitReconciler
     /**
      * @param array<string, Card> $cards
      *
-     * @return array<string, array<string, array{document: Document, versionNumber: int}>> card id => wait key => wait
+     * @return array<string, array<string, WantedCardWait>> card id => wait key => wait
      */
     private function wantedWaits(Project $project, array $cards): array
     {
         $open = array_filter($cards, static fn (Card $card): bool => !$card->column->terminal);
         $cardIds = array_values(array_map(static fn (Card $card): Uuid => $card->id ?? throw new \LogicException('A stored card has an id.'), $open));
-        $rows = $this->cardDocuments->findInReviewForCards($project, $cardIds);
-        if ([] === $rows) {
+        $candidates = [...$this->documentWaits($project, $cardIds), ...$this->runWaits($project, $cardIds, $open)];
+        if ([] === $candidates) {
             return [];
         }
 
-        $documents = [];
-        foreach ($rows as $row) {
-            $documents[(string) $row['link']->document->id] = $row['link']->document;
-        }
-        $underAgentReview = array_flip($this->inboxReviews->findDocumentIdsUnderAgentReview(array_values($documents)));
         $dismissed = [];
         foreach ($this->inboxCardWatches->findDismissedForCards($project, $cardIds) as $watch) {
             foreach ($watch->waits as $wait) {
@@ -171,18 +176,78 @@ final readonly class CardWaitReconciler
         }
 
         $wanted = [];
-        foreach ($rows as $row) {
-            $cardId = (string) $row['link']->card->id;
-            $document = $row['link']->document;
-            $documentId = $document->id ?? throw new \LogicException('A stored document has an id.');
-            $key = InboxCardWait::computeKey(InboxCardWaitTrigger::DocumentInReview, $documentId, $row['versionNumber']);
-            if (isset($underAgentReview[(string) $documentId]) || isset($dismissed[$cardId][$key])) {
-                continue;
+        foreach ($candidates as [$cardId, $wait]) {
+            $key = $wait->key();
+            if (!isset($dismissed[$cardId][$key])) {
+                $wanted[$cardId][$key] = $wait;
             }
-            $wanted[$cardId][$key] = ['document' => $document, 'versionNumber' => $row['versionNumber']];
         }
 
         return $wanted;
+    }
+
+    /**
+     * An open review of an agent on the document holds its wait back.
+     *
+     * @param list<Uuid> $cardIds
+     *
+     * @return list<array{string, WantedCardWait}>
+     */
+    private function documentWaits(Project $project, array $cardIds): array
+    {
+        $rows = $this->cardDocuments->findInReviewForCards($project, $cardIds);
+        if ([] === $rows) {
+            return [];
+        }
+
+        $documents = [];
+        foreach ($rows as $row) {
+            $documents[(string) $row['link']->document->id] = $row['link']->document;
+        }
+        $underAgentReview = array_flip($this->inboxReviews->findDocumentIdsUnderAgentReview(array_values($documents)));
+
+        $waits = [];
+        foreach ($rows as $row) {
+            $document = $row['link']->document;
+            if (!isset($underAgentReview[(string) $document->id])) {
+                $waits[] = [(string) $row['link']->card->id, WantedCardWait::forDocument($document, $row['versionNumber'])];
+            }
+        }
+
+        return $waits;
+    }
+
+    /**
+     * The newest run of a card waits only while the card stays in the column that started it.
+     *
+     * @param list<Uuid>          $cardIds
+     * @param array<string, Card> $cards
+     *
+     * @return list<array{string, WantedCardWait}>
+     */
+    private function runWaits(Project $project, array $cardIds, array $cards): array
+    {
+        $waits = [];
+        foreach ($this->workerRuns->findLatestRunRows($project, $cardIds) as $row) {
+            $cardId = Uuid::fromString($row['card_id'])->toRfc4122();
+            $trigger = self::runTrigger($row['state']);
+            if (null === $trigger || null === $row['card_column'] || $row['card_column'] !== ($cards[$cardId] ?? null)?->column->slug) {
+                continue;
+            }
+            $waits[] = [$cardId, WantedCardWait::forRun($trigger, Uuid::fromString($row['id']), $row['output'])];
+        }
+
+        return $waits;
+    }
+
+    private static function runTrigger(string $state): ?InboxCardWaitTrigger
+    {
+        return match (WorkerRunState::tryFrom($state)) {
+            WorkerRunState::Blocked => InboxCardWaitTrigger::RunBlocked,
+            WorkerRunState::GaveUp => InboxCardWaitTrigger::RunGaveUp,
+            WorkerRunState::WaitingForPerson => InboxCardWaitTrigger::RunWaitingForPerson,
+            default => null,
+        };
     }
 
     /** Why a wait of this card that is no longer wanted ends. */
@@ -226,7 +291,7 @@ final readonly class CardWaitReconciler
      * Ends the waits no longer wanted and starts the new ones. It closes the
      * item when no wait is left, and returns whether it did.
      *
-     * @param array<string, array{document: Document, versionNumber: int}> $want
+     * @param array<string, WantedCardWait> $want
      */
     private function apply(InboxCardWatch $watch, array $want, InboxCardWaitEndReason $cause, \DateTimeImmutable $now): bool
     {
@@ -249,11 +314,11 @@ final readonly class CardWaitReconciler
             if (isset($open[$key])) {
                 continue;
             }
-            $document = $wanted['document'];
-            $reason = mb_substr(\sprintf('%s in review, version %d', $document->title, $wanted['versionNumber']), 0, InboxCardWait::MAX_REASON_LENGTH);
-            $open[$key] = new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, $reason, $document->id, $wanted['versionNumber'], startedAt: $now);
+            $open[$key] = new InboxCardWait($watch, $wanted->trigger, $wanted->reason, $wanted->document?->id, $wanted->versionNumber, $wanted->runId, $now);
             $watch->waits->add($open[$key]);
-            $this->link($watch->item, $document, $now);
+            if (null !== $wanted->document) {
+                $this->link($watch->item, $wanted->document, $now);
+            }
         }
 
         if ([] !== $open) {

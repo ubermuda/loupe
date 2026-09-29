@@ -21,6 +21,7 @@ use Symfony\Component\Uid\Uuid;
  * one config directory, and so one bridge id, each keep a row of their own.
  *
  * @phpstan-type HookRow array{package: string, ref: string, event: string, lastRunAt: ?string, outcome: string, error: ?string}
+ * @phpstan-type WorkerPoolRow array{name: string, size: int, inUse: int, queued: int}
  */
 #[ORM\Entity(repositoryClass: BridgeRepository::class)]
 #[ORM\Table(name: 'bridges')]
@@ -45,6 +46,19 @@ class Bridge
      */
     #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
     public array $hooks = [];
+
+    /**
+     * The worker pools of the bridge and their use, as its last heartbeat
+     * reported them. Null until a bridge sends a report.
+     *
+     * @var list<WorkerPoolRow>|null
+     */
+    #[ORM\Column(name: 'worker_pools', type: Types::JSON, nullable: true)]
+    public ?array $workerPools = null;
+
+    /** The server clock at the heartbeat that carried the worker pool rows. */
+    #[ORM\Column(name: 'worker_pools_reported_at', nullable: true)]
+    public ?\DateTimeImmutable $workerPoolsReportedAt = null;
 
     /**
      * @param list<string> $projects

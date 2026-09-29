@@ -282,6 +282,20 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertNull($this->onlyRun()->usageSource);
     }
 
+    public function test_the_worker_pool_is_stored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-pool@example.com');
+        $project = $this->project($em, $owner, 'Run States Pool');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(['workerPool' => 'quick-2']));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('quick-2', $this->onlyRun()->workerPool);
+    }
+
     public function test_another_users_project_answers_project_not_found(): void
     {
         $client = static::createClient();
@@ -332,6 +346,11 @@ final class WorkerRunStatesApiTest extends WebTestCase
         ];
 
         yield 'an unknown state' => [['state' => 'paused']];
+        yield 'a worker pool with a space and capitals' => [['workerPool' => 'Quick Pool']];
+        yield 'a worker pool that starts with a digit' => [['workerPool' => '1st']];
+        yield 'a worker pool above the limit' => [['workerPool' => 'a'.str_repeat('b', 40)]];
+        yield 'a worker pool with a trailing newline' => [['workerPool' => "default\n"]];
+        yield 'a blank worker pool' => [['workerPool' => '']];
         yield 'a timed-out state, which only the server infers' => [['state' => 'timed-out']];
         yield 'a lost state, which only the server infers' => [['state' => 'lost']];
         yield 'a closed state, which only an interactive run reaches' => [['state' => 'closed']];

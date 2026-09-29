@@ -6,6 +6,8 @@ namespace App\Tests\Module\Inbox\Controller;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Inbox\Entity\InboxCardWaitEndReason;
 use App\Module\Inbox\Entity\InboxCardWatch;
 use App\Module\Inbox\Entity\InboxItemState;
@@ -21,6 +23,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Uid\Uuid;
 
 /** A wait item on the inbox page: Loupe as its sender, its waits, and Dismiss as its one response. */
 final class WaitItemPageTest extends WebTestCase
@@ -168,6 +171,33 @@ final class WaitItemPageTest extends WebTestCase
         self::assertCount(1, $wait);
         self::assertStringContainsString('Tech design in review, version 1', $wait->text());
         self::assertCount(0, $wait->filter('a'));
+    }
+
+    public function test_a_run_wait_links_its_reason_to_the_worker_runs_page(): void
+    {
+        $this->document->status = DocumentStatus::Approved;
+        $run = new WorkerRun(
+            project: $this->project,
+            bridgeId: Uuid::v7(),
+            cardId: $this->card->id ?? throw new \LogicException('Card has no id.'),
+            cardNumber: 4,
+            ruleName: 'implement',
+            state: WorkerRunState::Blocked,
+            output: 'Needs the API key',
+            cardColumn: 'backlog',
+        );
+        $this->em->persist($run);
+        $this->em->flush();
+        $this->reconcile();
+
+        $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl());
+
+        self::assertResponseIsSuccessful();
+        $link = $crawler->filter('#inbox-item-1 [data-inbox-wait="current"] a');
+        self::assertCount(1, $link);
+        self::assertSame('Run blocked: Needs the API key', trim($link->text()));
+        self::assertSame('/projects/'.$this->project->id.'/worker-runs?search='.$run->id, $link->attr('href'));
+        self::assertSame('_top', $link->attr('data-turbo-frame'));
     }
 
     public function test_dismiss_closes_the_item_declined_and_moves_it_to_completed(): void
