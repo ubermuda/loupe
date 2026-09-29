@@ -285,3 +285,64 @@ it('builds its controls once when it reconnects', async () => {
         document.querySelectorAll('[data-decision-id="a"] textarea'),
     ).toHaveLength(1);
 });
+
+async function restoreSnapshot() {
+    const element = document.querySelector('[data-controller="decision"]');
+    const copy = element.cloneNode(true);
+    element.replaceWith(copy);
+    const copiedForm = copy.querySelector('form');
+    copiedForm.requestSubmit = () => sent.push(snapshot(copiedForm));
+    await vi.advanceTimersByTimeAsync(0);
+}
+
+it('shows the saved note after Turbo restores a snapshot', async () => {
+    await mount({ notes: { a: 'Old' } });
+    type('a', 'New');
+    note('a').dispatchEvent(new Event('blur'));
+    finish();
+    await restoreSnapshot();
+
+    expect(
+        document.querySelectorAll('[data-decision-id="a"] textarea'),
+    ).toHaveLength(1);
+    expect(
+        document.querySelectorAll(
+            '[data-decision-id="a"] input[type="button"]',
+        ),
+    ).toHaveLength(1);
+    expect(note('a').value).toBe('New');
+});
+
+it('shows no note after Turbo restores a snapshot taken after a Clear', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    document
+        .querySelector('[data-decision-id="a"] input[type="button"]')
+        .click();
+    finish();
+    await restoreSnapshot();
+
+    expect(note('a').value).toBe('');
+});
+
+it('keeps and saves a note typed while a Clear is in flight', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    check('a', 0);
+    finish();
+    document
+        .querySelector('[data-decision-id="a"] input[type="button"]')
+        .click();
+    type('a', 'Typed after');
+    finish();
+
+    expect(note('a').value).toBe('Typed after');
+    expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
+        false,
+    );
+    await vi.advanceTimersByTimeAsync(800);
+    expect(sent[2]).toEqual({
+        decisionId: 'a',
+        indexes: [],
+        note: 'Typed after',
+        clear: false,
+    });
+});

@@ -89,12 +89,12 @@ export default class extends Controller {
         );
     }
 
+    // A block has an edit waiting for its timer while `timers` holds it.
     saveIfChanged(block) {
+        clearTimeout(this.timers.get(block));
+        this.timers.delete(block);
         const state = this.state(block, false);
-        if (this.stateKey(state) === this.sentStates.get(block)) {
-            clearTimeout(this.timers.get(block));
-            return;
-        }
+        if (this.stateKey(state) === this.sentStates.get(block)) return;
         this.enqueue(block, false);
     }
 
@@ -119,6 +119,7 @@ export default class extends Controller {
     // A Map keeps the first position of a block and the newest state for it.
     enqueue(block, clear) {
         clearTimeout(this.timers.get(block));
+        this.timers.delete(block);
         const state = this.state(block, clear);
         this.sentStates.set(block, this.stateKey(state));
         this.queue.set(block, state);
@@ -163,6 +164,8 @@ export default class extends Controller {
         const { block, state } = this.inFlight;
         this.inFlight = null;
         if (event.detail.success) {
+            // A Turbo snapshot restore rebuilds the note from this attribute.
+            block.dataset.decisionNote = state.note;
             if (state.clear && !this.queue.has(block)) this.reset(block);
         } else {
             this.sentStates.delete(block);
@@ -177,8 +180,11 @@ export default class extends Controller {
         ))
             input.checked = false;
         const field = block.querySelector('[data-decision-note-field]');
-        if (field) field.value = '';
-        this.sentStates.set(block, this.stateKey(this.state(block, false)));
+        if (field && !this.timers.has(block)) field.value = '';
+        this.sentStates.set(
+            block,
+            this.stateKey({ indexes: [], note: '', clear: false }),
+        );
     }
 
     isStream(response) {
