@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tells whether the latest approval of a GitHub pull request covers every commit up to <sha>.
+# Tells whether the current approvals of a GitHub pull request cover every commit up to <sha>.
 # Usage: github-approval-covers.sh <pull request url> <sha>. Run it from a checkout of the repository.
 # Prints COVERED, or HOLD with the reason. Exits 0 on COVERED, 1 on HOLD, 2 when a read fails.
 # AS_OF=<ISO time> ignores the reviews submitted after that time, to replay a past decision.
@@ -17,9 +17,10 @@ commits=$(gh api --paginate "repos/$repo/pulls/$pr/commits?per_page=100" 2>/dev/
 reviews=$(gh api --paginate "repos/$repo/pulls/$pr/reviews?per_page=100" 2>/dev/null | jq -sc '[.[][]|{login:.user.login,state,at:.submitted_at}]') || { echo "UNREAD: review list failed"; exit 2; }
 [ "$(jq length <<<"$commits")" -lt 250 ] || { echo "HOLD 250 commits or more, GitHub truncates the list"; exit 1; }
 
-# Each author's last approving or blocking review counts. The latest current approval sets the time.
+# Each author's last approving or blocking review counts. The earliest current approval sets the time,
+# so every current approver has seen every commit before it.
 at=$(jq -r --arg asof "$as_of" '[.[]|select(.at <= $asof and (.state|IN("APPROVED","CHANGES_REQUESTED","DISMISSED")))]
-  | group_by(.login) | map(last) | map(select(.state == "APPROVED") | .at) | max // ""' <<<"$reviews")
+  | group_by(.login) | map(max_by(.at)) | map(select(.state == "APPROVED") | .at) | min // ""' <<<"$reviews")
 [ -n "$at" ] || { echo "HOLD no approval"; exit 1; }
 
 git fetch -q origin "$base" "refs/pull/$pr/head" 2>/dev/null || { echo "UNREAD: git fetch failed"; exit 2; }

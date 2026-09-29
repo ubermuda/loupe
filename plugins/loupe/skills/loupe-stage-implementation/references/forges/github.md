@@ -98,7 +98,7 @@ GitHub keeps `reviewDecision` at `APPROVED` after a push when the branch rules d
 <merge skill dir>/scripts/github-approval-covers.sh <url> <sha>
 ```
 
-The script takes each reviewer's last approving or blocking review, and the latest current approval sets the time. It fetches the base and the head, and sorts each commit that is later than that time. It prints one line:
+The script takes each reviewer's last approving or blocking review, and the earliest approval that is still current sets the time, so every current approver must have seen each commit. It fetches the base and the head, and sorts each commit that is later than that time. It prints one line:
 
 | Line | Exit | Meaning |
 |---|---|---|
