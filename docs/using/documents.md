@@ -280,11 +280,30 @@ Which host should an emailed reset link be built from?
 <!-- /decision -->
 ```
 
-Select your choices, then select **Save decision**.
-Choices remain unsaved until you select that button.
-The status line confirms the saved version.
-If another answer changes before you save, reload and compare your choices.
-Older per-option forms also reject changes based on an outdated answer.
+A click on an option saves it at once. Each block also has a note field. Use it
+to explain your choice, or to write your own answer with no option picked. The
+note saves 800 ms after you stop typing, and again when you leave the field.
+**Clear** removes the pick and the note. The status line shows "Saved." or
+"Cleared." after each save.
+
+The last write wins. Loupe does not refuse a save because another answer came
+first. A save from a page that shows an older version goes onto the current
+version, matched by option label. The status line shows an error when the
+request fails, or when the current version no longer has that decision or that
+option. The note you typed stays in the field.
+
+The author can mark the option they recommend. They end its line with
+`(recommended: high)`, `(recommended: moderate)` or `(recommended: low)`:
+
+```markdown
+1. Drop `x-forwarded-host` from `trusted_headers` (recommended: moderate)
+2. Generate emailed links from a pinned `default_uri`
+```
+
+Loupe removes the marker from the label and shows a "Recommended" badge with
+the confidence next to that option. Only one option can carry the marker. When
+more than one option carries it, Loupe shows no badge and keeps the marker text. Other
+Markdown renderers show the marker as ordinary text.
 
 The identifier is permanent. The answer is stored against the id rather than
 against the words, so options can be reworded freely in a later version —

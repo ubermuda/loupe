@@ -357,7 +357,8 @@ its id silently discards the reviewer's answer.
 A decision reports its `type`. A single-choice block answers in `selected` and
 `selected_index`. A multi-choice block answers in `selections`, and reports null
 in `selected`. Each decision also reports the reviewer's `note`, and `updated_at`
-for the time of the last save. Both are null while the decision has no answer.
+for the time of the last save. Both are null while the decision has no answer,
+and `note` is also null when the reviewer picked an option and wrote no note.
 See [Documents and review](documents.md) for the syntax.
 
 ## What `feedback_mark_addressed` skips
