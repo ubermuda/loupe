@@ -18,6 +18,7 @@ use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunModelUsage;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
@@ -100,6 +101,12 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         yield 'an outcome replaces lost' => [['running', 'server:lost', 'succeeded'], WorkerRunState::Succeeded];
         yield 'an open state leaves lost alone' => [['queued', 'server:lost', 'running'], WorkerRunState::Lost];
         yield 'the first state may be closed' => [['waiting-for-person'], WorkerRunState::WaitingForPerson];
+        yield 'a person stops a running run' => [['running', 'stopping', 'stopped'], WorkerRunState::Stopped];
+        yield 'a person stops a queued run' => [['queued', 'stopped'], WorkerRunState::Stopped];
+        yield 'a late running does not move a stopping run back' => [['running', 'stopping', 'running'], WorkerRunState::Stopping];
+        yield 'an outcome replaces stopping' => [['running', 'stopping', 'failed'], WorkerRunState::Failed];
+        yield 'an outcome never replaces stopped' => [['running', 'stopped', 'failed'], WorkerRunState::Stopped];
+        yield 'a stopping run reopens from timed-out' => [['running', 'server:timed-out', 'stopping'], WorkerRunState::Stopping];
     }
 
     /**
@@ -338,6 +345,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             'resumeCap' => null,
             'cardColumn' => null,
             'resumeSkipped' => null,
+            'trigger' => null,
         ], $record->context);
         self::assertCount(1, $audit->records('bridge.worker_run_recorded'));
     }
@@ -532,6 +540,105 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertInstanceOf(WorkerRun::class, $run);
         self::assertNull($run->usageSource);
         self::assertSame([], $this->usageOf($run));
+    }
+
+    public function test_a_stop_records_its_end_its_output_and_its_usage(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [$owner, $project] = $this->scenario('handler-stopped');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Running);
+        $this->report($owner, $project, $runKey, WorkerRunState::Stopping);
+        self::assertSame([], $audit->records('bridge.worker_run_recorded'));
+        $run = $this->report(
+            $owner,
+            $project,
+            $runKey,
+            WorkerRunState::Stopped,
+            usage: self::usage(WorkerRunUsageSource::Reported, 'claude-opus', 10),
+            endedAt: new \DateTimeImmutable('2026-09-23 10:06:00'),
+            output: 'stopped halfway',
+        )->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunState::Stopped, $run->state);
+        self::assertSame('2026-09-23 10:06:00', $run->endedAt?->format('Y-m-d H:i:s'));
+        self::assertSame('stopped halfway', $run->output);
+        self::assertNull($run->exitCode);
+        self::assertNull($run->hasResult);
+        self::assertSame('2026-09-23 10:00:00', $run->startedAt?->format('Y-m-d H:i:s'));
+        self::assertSame([['claude-opus', 10]], $this->usageOf($run));
+        self::assertSame('stopped', $audit->record('bridge.worker_run_recorded')->context['state']);
+    }
+
+    /** A queued run never started, so its stop carries no start, and the report time stands in for the end. */
+    public function test_a_stop_with_no_end_ends_at_the_report_time(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-stopped-queued');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Stopped)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunState::Stopped, $run->state);
+        self::assertNull($run->startedAt);
+        self::assertNull($run->sessionId);
+        self::assertSame('2026-09-23 10:0'.WorkerRunState::Stopped->rank().':00', $run->endedAt?->format('Y-m-d H:i:s'));
+        self::assertSame('', $run->output);
+        self::assertNull($run->usageSource);
+    }
+
+    public function test_stopping_moves_the_run_and_nothing_else(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-stopping');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Running);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Stopping, usage: self::usage(WorkerRunUsageSource::Reported, 'claude-opus', 10), output: 'partial')->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunState::Stopping, $run->state);
+        self::assertNull($run->endedAt);
+        self::assertSame('', $run->output);
+        self::assertSame([], $this->usageOf($run));
+    }
+
+    public function test_the_first_report_that_names_a_trigger_stores_it(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [$owner, $project] = $this->scenario('handler-trigger');
+        $runKey = Uuid::v4();
+
+        $queued = $this->report($owner, $project, $runKey, WorkerRunState::Queued)->run;
+        self::assertInstanceOf(WorkerRun::class, $queued);
+        self::assertNull($queued->trigger);
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Running, trigger: WorkerRunTrigger::Person);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Succeeded)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunTrigger::Person, $run->trigger);
+        self::assertSame('person', $this->em()->getConnection()->fetchOne('SELECT trigger FROM bridge_worker_runs WHERE id = ?', [(string) $run->id]));
+        self::assertSame('person', $audit->record('bridge.worker_run_recorded')->context['trigger']);
+    }
+
+    public function test_a_run_the_bridge_started_on_its_own_has_no_trigger(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        [$owner, $project] = $this->scenario('handler-trigger-none');
+
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::NotStarted)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertNull($run->trigger);
+        self::assertNull($audit->record('bridge.worker_run_recorded')->context['trigger']);
     }
 
     public function test_the_first_report_stores_the_worker_pool(): void
@@ -740,6 +847,9 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         ?WorkerRunUsageReport $usage = null,
         ?string $workerPool = null,
         ?array $experiment = null,
+        ?\DateTimeImmutable $endedAt = null,
+        ?string $output = null,
+        ?WorkerRunTrigger $trigger = null,
     ): ReportWorkerRunStateResult {
         $outcome = $state->isOutcome();
         $started = $withStart && ($outcome || WorkerRunState::Running === $state);
@@ -759,7 +869,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             ruleName: $ruleName,
             sessionId: $started ? Uuid::fromString(self::SESSION) : null,
             startedAt: $started ? new \DateTimeImmutable('2026-09-23 10:00:00') : null,
-            endedAt: $outcome ? new \DateTimeImmutable('2026-09-23 10:05:00') : null,
+            endedAt: $endedAt ?? ($outcome ? new \DateTimeImmutable('2026-09-23 10:05:00') : null),
             exitCode: match ($state) {
                 WorkerRunState::Succeeded, WorkerRunState::NoResult, WorkerRunState::GaveUp => 0,
                 WorkerRunState::Failed => 1,
@@ -771,7 +881,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
                 default => null,
             },
             failureReason: WorkerRunState::NotStarted === $state ? ($failureReason ?? 'no claude') : null,
-            output: $outcome ? 'output' : null,
+            output: $output ?? ($outcome ? 'output' : null),
             resultStatus: $resultStatus,
             resultFields: $resultFields,
             continues: $continues,
@@ -785,6 +895,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             variant: $experiment['variant'] ?? null,
             requestedModel: $experiment['requestedModel'] ?? null,
             switchedFrom: $experiment['switchedFrom'] ?? null,
+            trigger: $trigger,
         ));
     }
 

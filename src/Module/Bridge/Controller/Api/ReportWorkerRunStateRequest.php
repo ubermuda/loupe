@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -96,7 +97,7 @@ final class ReportWorkerRunStateRequest
         #[Assert\Length(max: WorkerRun::MAX_RESUME_SKIPPED_LENGTH)]
         public ?string $resumeSkipped = null,
 
-        /** Checked on every state, and stored from an outcome alone. */
+        /** Checked on every state, and stored from an outcome or a stop alone. */
         #[Assert\Valid]
         public ?WorkerRunUsageInput $usage = null,
 
@@ -122,6 +123,10 @@ final class ReportWorkerRunStateRequest
         #[Assert\NotBlank(allowNull: true)]
         #[Assert\Regex(pattern: WorkerRun::EXPERIMENT_NAME_PATTERN)]
         public ?string $switchedFrom = null,
+
+        /** Null when the bridge started the run on its own. */
+        #[Assert\Choice(callback: 'triggers')]
+        public ?string $trigger = null,
     ) {
     }
 
@@ -135,6 +140,12 @@ final class ReportWorkerRunStateRequest
                 static fn (WorkerRunState $state): bool => !$state->isInferred() && WorkerRunState::Closed !== $state,
             ),
         ));
+    }
+
+    /** @return list<string> */
+    public static function triggers(): array
+    {
+        return array_map(static fn (WorkerRunTrigger $trigger): string => $trigger->value, WorkerRunTrigger::cases());
     }
 
     #[Assert\Callback]
@@ -239,6 +250,18 @@ final class ReportWorkerRunStateRequest
         }
     }
 
+    #[Assert\Callback]
+    public function validateStop(ExecutionContextInterface $context): void
+    {
+        if (WorkerRunState::Stopped->value !== $this->state) {
+            return;
+        }
+
+        if (null !== $this->startedAt && null !== $this->endedAt && $this->endedAt < $this->startedAt) {
+            $context->buildViolation('A run cannot end before it starts.')->atPath('endedAt')->addViolation();
+        }
+    }
+
     public function state(): WorkerRunState
     {
         return WorkerRunState::from($this->state ?? throw new \LogicException('state is required after validation.'));
@@ -258,6 +281,11 @@ final class ReportWorkerRunStateRequest
     public function endedAt(): ?\DateTimeImmutable
     {
         return null === $this->endedAt ? null : self::utc($this->endedAt);
+    }
+
+    public function trigger(): ?WorkerRunTrigger
+    {
+        return null === $this->trigger ? null : WorkerRunTrigger::from($this->trigger);
     }
 
     public function bridgeId(): Uuid

@@ -12,6 +12,7 @@ use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\WorkerRunExporter;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -49,6 +50,7 @@ final class WorkerRunExporterTest extends TestCase
         $run->variant = 'opus';
         $run->requestedModel = 'claude-opus-4';
         $run->switchedFrom = 'sonnet';
+        $run->trigger = WorkerRunTrigger::Person;
         $history = [
             new WorkerRunStateChange($run, WorkerRunState::Running, new \DateTimeImmutable('2026-09-13T10:00:00+00:00'), new \DateTimeImmutable('2026-09-13T10:00:01+00:00')),
             new WorkerRunStateChange($run, WorkerRunState::Succeeded, new \DateTimeImmutable('2026-09-13T10:00:21+00:00'), new \DateTimeImmutable('2026-09-13T10:00:22+00:00')),
@@ -87,6 +89,7 @@ final class WorkerRunExporterTest extends TestCase
             'variant' => 'opus',
             'requestedModel' => 'claude-opus-4',
             'switchedFrom' => 'sonnet',
+            'trigger' => 'person',
             'history' => [
                 ['state' => 'running', 'at' => '2026-09-13T10:00:00+00:00', 'receivedAt' => '2026-09-13T10:00:01+00:00'],
                 ['state' => 'succeeded', 'at' => '2026-09-13T10:00:21+00:00', 'receivedAt' => '2026-09-13T10:00:22+00:00'],
@@ -119,6 +122,7 @@ final class WorkerRunExporterTest extends TestCase
         self::assertNull($rows[0]['sessionId']);
         self::assertNull($rows[0]['startedAt']);
         self::assertNull($rows[0]['endedAt']);
+        self::assertNull($rows[0]['trigger']);
     }
 
     /** A spawn failure is the row a reader most wants, so the reason has to survive the export. */

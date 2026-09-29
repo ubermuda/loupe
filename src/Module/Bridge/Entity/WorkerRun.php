@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Entity;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Types\Types;
@@ -129,6 +130,10 @@ class WorkerRun
     #[ORM\Column(name: 'switched_from', length: self::MAX_EXPERIMENT_NAME_LENGTH, nullable: true)]
     public ?string $switchedFrom = null;
 
+    /** Null when the bridge started the run on its own. */
+    #[ORM\Column(name: 'trigger', length: 20, nullable: true, enumType: WorkerRunTrigger::class)]
+    public ?WorkerRunTrigger $trigger = null;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: Project::class)]
@@ -220,6 +225,16 @@ class WorkerRun
         $this->state = WorkerRunState::Running;
         $this->sessionId = $sessionId;
         $this->startedAt = $startedAt;
+    }
+
+    /** A stop carries no exit code. A null output keeps the output the run holds. */
+    public function recordStop(\DateTimeImmutable $endedAt, ?string $output): void
+    {
+        $this->state = WorkerRunState::Stopped;
+        $this->endedAt = $endedAt;
+        if (null !== $output) {
+            $this->output = $output;
+        }
     }
 
     /** @param array<string, mixed>|null $resultFields */

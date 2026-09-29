@@ -24,6 +24,12 @@ enum WorkerRunState: string
 
     case Running = 'running';
 
+    /** A person asked the bridge to stop the run, and the process is still ending. */
+    case Stopping = 'stopping';
+
+    /** A person stopped the run. It never enters the resume gate. */
+    case Stopped = 'stopped';
+
     /** The chain hit its cap. The bridge holds nothing more, and a person's move starts a new run. */
     case WaitingForPerson = 'waiting-for-person';
 
@@ -77,7 +83,7 @@ enum WorkerRunState: string
     /** @return list<self> */
     public static function openStates(): array
     {
-        return [self::Queued, self::Resumed, self::Running];
+        return [self::Queued, self::Resumed, self::Running, self::Stopping];
     }
 
     public function isOpen(): bool
@@ -110,7 +116,8 @@ enum WorkerRunState: string
             self::Queued => 0,
             self::Resumed => 1,
             self::Running => 2,
-            default => 3,
+            self::Stopping => 3,
+            default => 4,
         };
     }
 
@@ -123,6 +130,8 @@ enum WorkerRunState: string
             self::Resumed => 'bridge.worker_runs.state.resumed',
             self::Skipped => 'bridge.worker_runs.state.skipped',
             self::Running => 'bridge.worker_runs.state.running',
+            self::Stopping => 'bridge.worker_runs.state.stopping',
+            self::Stopped => 'bridge.worker_runs.state.stopped',
             self::WaitingForPerson => 'bridge.worker_runs.state.waiting_for_person',
             self::Dropped => 'bridge.worker_runs.state.dropped',
             self::Succeeded => 'bridge.worker_runs.state.succeeded',
@@ -145,9 +154,9 @@ enum WorkerRunState: string
         return match ($this) {
             self::Succeeded, self::Closed => 'ok',
             self::Failed, self::NoResult, self::GaveUp, self::Dropped, self::TimedOut, self::Lost => 'failed',
-            // The bridge set these runs aside by design, so nothing waits and nothing failed.
-            self::Replaced, self::Skipped => 'resolved',
-            self::Queued, self::Resumed, self::Running, self::WaitingForPerson, self::NotStarted, self::Unfinished, self::Blocked, self::WaitingOnForge => 'pending',
+            // The bridge or a person set these runs aside by design, so nothing waits and nothing failed.
+            self::Replaced, self::Skipped, self::Stopped => 'resolved',
+            self::Queued, self::Resumed, self::Running, self::Stopping, self::WaitingForPerson, self::NotStarted, self::Unfinished, self::Blocked, self::WaitingOnForge => 'pending',
         };
     }
 }
