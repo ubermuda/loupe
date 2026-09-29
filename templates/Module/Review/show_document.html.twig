@@ -392,6 +392,7 @@
                `selectDecisionForm` are not passed there, so the guard is what
                prevents an undefined-variable 500. #}
             {% if not diffMode and decisionRows|length > 0 and not readOnly %}
+            <turbo-frame id="decision-answer">
             {{ form_start(selectDecisionForm, {attr: {
                 'data-decision-target': 'form',
                 'data-action': 'turbo:before-fetch-response->decision#inspect turbo:submit-end->decision#saved',
@@ -403,6 +404,7 @@
                 {{ form_widget(selectDecisionForm.note, {attr: {'data-decision-target': 'note'}}) }}
                 {{ form_widget(selectDecisionForm.clear, {attr: {'data-decision-target': 'clear'}}) }}
             {{ form_end(selectDecisionForm) }}
+            </turbo-frame>
             {% endif %}
 
             {# The agent's marks: empty anchor carriers, outside the doc element

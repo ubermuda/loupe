@@ -27,6 +27,8 @@ export default class extends Controller {
         this.sentStates = new Map();
         this.timers = new Map();
         this.inFlight = null;
+        this.beforeVisit = () => this.saveWaitingNotes();
+        document.addEventListener('turbo:before-visit', this.beforeVisit);
         for (const block of this.element.querySelectorAll(
             'fieldset[data-decision-id]',
         )) {
@@ -35,7 +37,14 @@ export default class extends Controller {
     }
 
     disconnect() {
+        document.removeEventListener('turbo:before-visit', this.beforeVisit);
         for (const timer of this.timers.values()) clearTimeout(timer);
+    }
+
+    // The frame lets the save in flight finish after a visit. A save still
+    // queued behind it is lost, because nothing submits it once this page goes.
+    saveWaitingNotes() {
+        for (const block of [...this.timers.keys()]) this.saveIfChanged(block);
     }
 
     decorate(block) {
@@ -173,20 +182,19 @@ export default class extends Controller {
         );
     }
 
-    // Turbo renders a failed HTML response as the whole page. A save that fails
-    // must leave the page, and the typed note, where they are.
+    // The form sits in its own frame, so a save never cancels a Drive visit or
+    // another form. Turbo loads any HTML response into that frame, and one
+    // without the frame, such as the login page, replaces the form. Every
+    // response that is not a stream is a failed save.
     inspect(event) {
-        const response = event.detail.fetchResponse;
-        if (!response.succeeded && !this.isStream(response)) {
-            event.preventDefault();
-        }
+        if (!this.isStream(event.detail.fetchResponse)) event.preventDefault();
     }
 
     saved(event) {
         if (!this.inFlight) return;
         const { block, state } = this.inFlight;
         this.inFlight = null;
-        if (event.detail.success) {
+        if (event.detail.success && this.isStream(event.detail.fetchResponse)) {
             // A Turbo snapshot restore rebuilds the note from this attribute.
             block.dataset.decisionNote = state.note;
         } else {

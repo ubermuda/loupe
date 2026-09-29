@@ -136,20 +136,7 @@ test('the answer reaches the review payload', async ({ page }) => {
     expect(decision?.selected).toBe(OPTION_ONE);
 });
 
-test('selecting text below the block still anchors where the reviewer put it', async ({
-    page,
-}) => {
-    await signedInReviewer(page, 'anchor');
-    const { documentId, reviewUrl } = await seedDocument(
-        page,
-        'Decision — anchoring',
-    );
-    await page.goto(reviewUrl);
-
-    // The radios live inside [data-comment-anchor-target="doc"], whose
-    // textContent must stay identical to DocumentVersion::plainText(). If
-    // converting the list to radios changed the text, every offset below the
-    // block would shift and this comment would anchor to the wrong span.
+async function selectPhrase(page: Page, phrase: string): Promise<void> {
     await page.evaluate((phrase: string) => {
         const doc = document.querySelector(
             '[data-comment-anchor-target="doc"]',
@@ -175,7 +162,24 @@ test('selecting text below the block still anchors where the reviewer put it', a
             node = walker.nextNode();
         }
         throw new Error(`phrase not found: ${phrase}`);
-    }, BELOW_BLOCK_PHRASE);
+    }, phrase);
+}
+
+test('selecting text below the block still anchors where the reviewer put it', async ({
+    page,
+}) => {
+    await signedInReviewer(page, 'anchor');
+    const { documentId, reviewUrl } = await seedDocument(
+        page,
+        'Decision — anchoring',
+    );
+    await page.goto(reviewUrl);
+
+    // The radios live inside [data-comment-anchor-target="doc"], whose
+    // textContent must stay identical to DocumentVersion::plainText(). If
+    // converting the list to radios changed the text, every offset below the
+    // block would shift and this comment would anchor to the wrong span.
+    await selectPhrase(page, BELOW_BLOCK_PHRASE);
 
     // The selection raises a toolbar, not the composer; "Comment" opens the
     // composer. exact:true so it does not also match the sidebar's
@@ -336,6 +340,52 @@ async function readNoted(
 }
 
 const NOTE = 'Only if the backfill finishes first.';
+
+test('a decision save and a comment posted at once both land', async ({
+    page,
+}) => {
+    await signedInReviewer(page, 'with-comment');
+    const { documentId, reviewUrl } = await seedDocument(
+        page,
+        'Decision — with a comment',
+    );
+    await page.goto(reviewUrl);
+
+    await selectPhrase(page, BELOW_BLOCK_PHRASE);
+    await expect(
+        page.locator('[data-comment-anchor-target="toolbar"]'),
+    ).toBeVisible({ timeout: coverageScaled(5000) });
+    await page.getByRole('button', { name: 'Comment', exact: true }).click();
+    await page
+        .locator('[data-comment-anchor-target="composerBody"]')
+        .fill('Posted during a save.');
+
+    // Post goes out while the save is in flight. A form on the Drive
+    // navigator stops the submission before it, so one of the two was lost.
+    const block = page.locator(`[data-decision-id="${DECISION_ID}"]`);
+    await saving(page, async () => {
+        await block
+            .locator('input[type="radio"][data-decision-option]')
+            .nth(0)
+            .check();
+        await page.getByRole('button', { name: 'Post' }).click();
+    });
+    await expect(page.locator('#decision-status')).toHaveText('Saved.');
+    await expect(page.locator('.lp-comment-quote').first()).toContainText(
+        BELOW_BLOCK_PHRASE,
+        { timeout: coverageScaled(15000) },
+    );
+
+    const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
+    const state = (await stateRes.json()) as {
+        storedAnchors: Array<{ quote: string }>;
+        decisions: NotedDecision[];
+    };
+    expect(state.storedAnchors).toHaveLength(1);
+    expect(state.decisions.find((d) => d.id === DECISION_ID)?.selected).toBe(
+        OPTION_ONE,
+    );
+});
 
 test('a note saves after typing stops and reaches the review payload', async ({
     page,

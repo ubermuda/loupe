@@ -13,8 +13,9 @@ beforeEach(() => {
     application.register('decision', DecisionController);
 });
 
-afterEach(() => {
+afterEach(async () => {
     document.body.replaceChildren();
+    await vi.advanceTimersByTimeAsync(0);
     application.stop();
     vi.useRealTimers();
 });
@@ -69,7 +70,12 @@ function snapshot(formElement) {
     };
 }
 
-function finish(detail = { success: true }) {
+const streamed = {
+    succeeded: true,
+    contentType: 'text/vnd.turbo-stream.html; charset=UTF-8',
+};
+
+function finish(detail = { success: true, fetchResponse: streamed }) {
     document
         .querySelector('form')
         .dispatchEvent(
@@ -265,6 +271,76 @@ it('stops Turbo from rendering a failed page response', async () => {
     document.querySelector('form').dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
+});
+
+it('stops Turbo from rendering a page response that succeeded', async () => {
+    await mount();
+    const event = new CustomEvent('turbo:before-fetch-response', {
+        bubbles: true,
+        cancelable: true,
+        detail: {
+            fetchResponse: { succeeded: true, contentType: 'text/html' },
+        },
+    });
+    document.querySelector('form').dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+});
+
+it('lets Turbo render a streamed response', async () => {
+    await mount();
+    const event = new CustomEvent('turbo:before-fetch-response', {
+        bubbles: true,
+        cancelable: true,
+        detail: { fetchResponse: streamed },
+    });
+    document.querySelector('form').dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+});
+
+it('reports a page response that succeeded as a failed save', async () => {
+    await mount({ notes: { a: 'Old' } });
+    type('a', 'Unsaved words');
+    note('a').dispatchEvent(new Event('blur'));
+    finish({
+        success: true,
+        fetchResponse: { succeeded: true, contentType: 'text/html' },
+    });
+
+    expect(document.getElementById('decision-status').textContent).toBe(
+        'Could not save.',
+    );
+    expect(
+        document.querySelector('[data-decision-id="a"]').dataset.decisionNote,
+    ).toBe('Old');
+    note('a').dispatchEvent(new Event('blur'));
+    expect(sent).toHaveLength(2);
+});
+
+it('sends a note still waiting for its timer before a Turbo visit', async () => {
+    await mount();
+    type('a', 'Typed before leaving');
+    document.dispatchEvent(new Event('turbo:before-visit'));
+
+    expect(sent).toEqual([
+        {
+            decisionId: 'a',
+            indexes: [],
+            note: 'Typed before leaving',
+            clear: false,
+        },
+    ]);
+});
+
+it('stops listening for Turbo visits once disconnected', async () => {
+    await mount();
+    type('a', 'Typed');
+    document.body.replaceChildren();
+    await vi.advanceTimersByTimeAsync(0);
+    document.dispatchEvent(new Event('turbo:before-visit'));
+
+    expect(sent).toEqual([]);
 });
 
 it('shows a read-only note with no Clear and saves nothing', async () => {
