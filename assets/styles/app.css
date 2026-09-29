@@ -3076,7 +3076,7 @@
     }
     /* The paper scrolls, not this pane, so a jump from the contents or decisions
        panel would otherwise land its target under the sticky metadata bar. */
-    .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) {
+    .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6, li[id^='ref-']) {
         @apply scroll-mt-16;
     }
     .lp-review-doc__prose h1 {
@@ -6273,6 +6273,27 @@
     .lp-tooltip__line--quiet {
         @apply break-all text-chrome-mute;
     }
+    /* A mention of a defined ID, such as R3, in the review prose. */
+    .lp-ref {
+        @apply cursor-pointer underline decoration-dotted decoration-fg-mute underline-offset-2 outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
+    }
+    /* The definition of a hovered or focused mention, placed under it by its controller. */
+    .lp-reference-tooltip {
+        @apply absolute z-30 flex w-72 flex-col gap-1 rounded-lg bg-ink px-3 py-2 text-xs font-medium leading-snug text-chrome-fg shadow-lg;
+    }
+    .lp-reference-tooltip[hidden] {
+        @apply hidden;
+    }
+    .lp-reference-tooltip__text,
+    .lp-reference-tooltip__source {
+        @apply m-0;
+    }
+    .lp-reference-tooltip__source {
+        @apply text-chrome-mute;
+    }
+    .lp-reference-tooltip__link {
+        @apply self-start text-chrome-fg underline underline-offset-2;
+    }
     .lp-inbox-ask__context {
         @apply max-w-none text-sm;
     }
@@ -6309,6 +6330,17 @@
     .lp-inbox-item__answer-text,
     .lp-inbox-item__note {
         @apply m-0 whitespace-pre-line;
+    }
+    /* The waits of a wait item: the current ones, then the ended ones greyed. */
+    .lp-inbox-waits {
+        @apply m-0 p-0 list-none flex flex-col gap-1 text-sm text-ink;
+    }
+    .lp-inbox-waits__link {
+        @apply font-semibold text-accent-ink no-underline hover:underline;
+    }
+    .lp-inbox-waits__wait--ended,
+    .lp-inbox-waits__wait--ended .lp-inbox-waits__link {
+        @apply font-normal text-fg-mute;
     }
     .lp-inbox-item__editable {
         @apply m-0 text-xs text-fg-mute;

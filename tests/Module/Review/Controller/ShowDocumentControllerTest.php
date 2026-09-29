@@ -1189,4 +1189,106 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseRedirects('/login');
     }
+
+    public function test_mentions_of_a_defined_id_are_marked_and_the_definitions_reach_the_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'refowner', 'refowner@example.com');
+        $project = $this->project($em, $owner);
+
+        $glossary = new Document(owner: $owner, project: $project, title: 'Glossary');
+        $glossary->addVersion('- **H2: Hold the lock.** Detail.', '<ul><li><strong>H2: Hold the lock.</strong> Detail.</li></ul>');
+        $doc = new Document(owner: $owner, project: $project, title: 'Plan');
+        $version = $doc->addVersion(
+            '1. **R1: Keep the cache.** Detail.',
+            '<ol><li><strong>R1: Keep the cache.</strong> Detail.</li></ol><p>See R1 and H2.</p>',
+        );
+        $doc->addReference($glossary);
+        $em->persist($glossary);
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $glossaryId = (string) $glossary->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        $pane = $crawler->filter('[data-comment-anchor-target="doc"]');
+        self::assertCount(1, $pane->filter('li#ref-R1'));
+        self::assertCount(1, $pane->filter('.lp-ref[data-ref="R1"]'));
+        self::assertCount(1, $pane->filter('.lp-ref[data-ref="H2"]'));
+        self::assertSame($version->plainText(), $pane->text(null, false));
+        self::assertCount(0, $pane->filter('[data-reference-tooltip-target]'));
+
+        $definitions = json_decode(
+            (string) $crawler->filter('[data-reference-tooltip-definitions-value]')->attr('data-reference-tooltip-definitions-value'),
+            true,
+            flags: \JSON_THROW_ON_ERROR,
+        );
+        self::assertSame(['text' => 'Keep the cache.', 'source' => null, 'href' => '#ref-R1'], $definitions['R1']);
+        self::assertSame('Glossary', $definitions['H2']['source']);
+        self::assertSame('/projects/'.$projectId.'/documents/'.$glossaryId.'/review#ref-H2', $definitions['H2']['href']);
+    }
+
+    public function test_an_undefined_id_stays_plain_text(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'plainowner', 'plainowner@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Plan');
+        $doc->addVersion(
+            '1. **R1: Keep the cache.** Detail.',
+            '<ol><li><strong>R1: Keep the cache.</strong> Detail.</li></ol><p>See R1 and Q9.</p>',
+        );
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        $pane = $crawler->filter('[data-comment-anchor-target="doc"]');
+        self::assertCount(1, $pane->filter('.lp-ref[data-ref="R1"]'));
+        self::assertCount(0, $pane->filter('[data-ref="Q9"]'));
+        self::assertStringContainsString('See R1 and Q9.', $pane->text());
+    }
+
+    public function test_a_document_without_definitions_carries_no_tooltip(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'notipowner', 'notipowner@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Plain');
+        $doc->addVersion('See R1.', '<p>See R1.</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('[data-comment-anchor-target="doc"]', 'See R1.');
+        self::assertCount(0, $crawler->filter('.lp-ref'));
+        self::assertCount(0, $crawler->filter('[data-reference-tooltip-definitions-value]'));
+    }
 }

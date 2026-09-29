@@ -33,7 +33,7 @@ final readonly class InboxAskExporter implements UserDataExporterInterface
             yield [
                 'id' => (string) $ask->id,
                 'project' => $ask->project->name,
-                'sessionId' => (string) $ask->sessionId,
+                'sessionId' => $ask->sessionId?->toRfc4122(),
                 'bridgeId' => null === $ask->bridgeId ? null : (string) $ask->bridgeId,
                 'context' => $ask->context,
                 'card' => null === $ask->card ? null : (string) $ask->card->id,
