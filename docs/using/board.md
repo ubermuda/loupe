@@ -452,18 +452,19 @@ columns scrolls on its own. When the epic lanes need more height than the page
 has, the board scrolls down.
 
 The lane header shows the epic number, a progress bar and the "3/7 done" count
-above the epic title. It also has a collapse button and a lane toggle. An epic
+above the epic title. A collapse button and a lane toggle sit to its left. An epic
 with its lane on shows as the lane header only, not as a card in its column.
 
 An epic with children in Backlog shows an **Up next** deck at the right end of
 its lane header, with a count such as "3 in Backlog". The deck is a pile of
 those children in rank order. Hover over it or focus it, and it fans out to
-show the cards. When the deck holds more cards than the fan shows, the fan ends
-with a "+N more" tile.
+show the cards. When the deck holds more cards than the fan shows, a "+N more"
+tile takes the first place of the fan, under the pointer.
 The tile opens the Backlog page filtered to the epic.
 
 Drag a card out of the deck into a column to move it there. Drop a card on the
-deck to send it to the end of Backlog as a child of that epic.
+deck to send it to the end of Backlog as a child of that epic. While you drag a
+card, a dashed outline marks each deck and the **Backlog** button that takes it.
 
 The collapse button folds the lane into a slim bar with the epic number, its
 title and its progress. The bar shows no deck, no lane toggle and no cards.
