@@ -51,20 +51,21 @@ final class ForgePullRequestRepository extends ServiceEntityRepository
         return Uuid::fromString(\is_string($id) ? $id : throw new \LogicException('The row exists after the insert.'));
     }
 
+    /**
+     * Skips a row that a read holds, so a card write under the project lock never waits on it.
+     * The row stays tracked, and the sweep reads it until the pull request closes.
+     */
     public function deleteByKey(Uuid $projectId, string $forge, string $repository, int $number): void
     {
-        $this->createQueryBuilder('pr')
-            ->delete()
-            ->andWhere('pr.project = :project')
-            ->andWhere('pr.forge = :forge')
-            ->andWhere('pr.repository = :repository')
-            ->andWhere('pr.number = :number')
-            ->setParameter('project', $projectId, UuidType::NAME)
-            ->setParameter('forge', $forge)
-            ->setParameter('repository', mb_strtolower($repository))
-            ->setParameter('number', $number)
-            ->getQuery()
-            ->execute();
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'DELETE FROM forge_pull_requests WHERE id IN (
+                SELECT id FROM forge_pull_requests
+                WHERE project_id = :project AND forge = :forge AND repository = :repository AND number = :number
+                FOR UPDATE SKIP LOCKED
+            )',
+            ['project' => $projectId, 'forge' => $forge, 'repository' => mb_strtolower($repository), 'number' => $number],
+            ['project' => UuidType::NAME],
+        );
     }
 
     /**
