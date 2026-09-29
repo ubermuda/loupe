@@ -5,31 +5,35 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Mcp;
 
 use App\Module\Inbox\Entity\InboxAsk;
+use App\Module\Inbox\Entity\InboxCardWait;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxReview;
+use App\Module\Inbox\Repository\InboxCardWatchRepository;
 use App\Module\Inbox\Repository\InboxReviewRepository;
 use App\Module\Review\Repository\ReviewRepository;
 
 /**
  * The shapes every inbox tool returns an item in.
  *
- * @phpstan-type InboxItemListSummary array{itemId: string, number: int, kind: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string}
+ * @phpstan-type InboxItemListSummary array{itemId: string, number: int, kind: string, origin: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string}
  * @phpstan-type InboxReviewWithdrawalSummary array{reviewId: string, reviewerId: string, reviewerName: string, submittedAt: string}
  * @phpstan-type InboxReviewSummary array{targetKind: string, targetLabel: string, documentId: ?string, pullRequestId: ?string, verdict: ?string, note: ?string, reviewerId: ?string, reviewerName: ?string, submittedAt: ?string, reviewedVersionNumber: ?int, documentReviewId: ?string, withdrawal: ?InboxReviewWithdrawalSummary}
- * @phpstan-type InboxItemListRow array{itemId: string, number: int, kind: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string, options: list<string>, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, review: ?InboxReviewSummary}
+ * @phpstan-type InboxItemListRow array{itemId: string, number: int, kind: string, origin: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string, options: list<string>, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, review: ?InboxReviewSummary}
  * @phpstan-type InboxItemCardSummary array{cardId: string, number: int, title: string}
  * @phpstan-type InboxItemDocumentSummary array{documentId: string, title: string}
- * @phpstan-type InboxItemAskSummary array{askId: string, sessionId: ?string, closedAt: ?string}
- * @phpstan-type InboxItemSummary array{itemId: string, number: int, kind: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string, body: ?string, options: list<string>, multiple: bool, freeText: bool, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, review: ?InboxReviewSummary, cards: list<InboxItemCardSummary>, documents: list<InboxItemDocumentSummary>, asks: list<InboxItemAskSummary>}
+ * @phpstan-type InboxItemAskSummary array{askId: string, origin: string, sessionId: ?string, closedAt: ?string}
+ * @phpstan-type InboxCardWaitSummary array{trigger: string, reason: string, documentId: ?string, versionNumber: ?int, runId: ?string, startedAt: string, endedAt: ?string, endReason: ?string}
+ * @phpstan-type InboxItemSummary array{itemId: string, number: int, kind: string, origin: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string, body: ?string, options: list<string>, multiple: bool, freeText: bool, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, review: ?InboxReviewSummary, cards: list<InboxItemCardSummary>, documents: list<InboxItemDocumentSummary>, asks: list<InboxItemAskSummary>, cardId: ?string, waits: list<InboxCardWaitSummary>}
  * @phpstan-type InboxAskSummary array{askId: string, extended: bool, closed: bool, items: list<InboxItemListSummary>}
  */
 final readonly class InboxItemPayload
 {
     public function __construct(
         private InboxReviewRepository $inboxReviews,
+        private InboxCardWatchRepository $inboxCardWatches,
         private ReviewRepository $reviews,
     ) {
     }
@@ -42,6 +46,7 @@ final readonly class InboxItemPayload
             // The short per-project label a person says out loud. Not the id.
             'number' => $item->number,
             'kind' => $item->kind->value,
+            'origin' => $item->origin->value,
             'title' => $item->title,
             'state' => $item->state->value,
             'blocking' => $item->blocking,
@@ -95,6 +100,9 @@ final readonly class InboxItemPayload
     public function forItem(InboxItem $item, array $asks): array
     {
         $review = InboxItemKind::Review === $item->kind ? $this->inboxReviews->findOneBy(['item' => $item]) : null;
+        $watch = InboxItemKind::Wait === $item->kind ? $this->inboxCardWatches->findOneForItem($item) : null;
+        $waits = null === $watch ? [] : array_values($watch->waits->toArray());
+        usort($waits, static fn (InboxCardWait $a, InboxCardWait $b): int => $a->startedAt <=> $b->startedAt);
 
         return [
             ...$this->forListItem($item),
@@ -124,10 +132,25 @@ final readonly class InboxItemPayload
             'asks' => array_map(
                 static fn (InboxAsk $ask): array => [
                     'askId' => (string) $ask->id,
+                    'origin' => $ask->origin->value,
                     'sessionId' => $ask->sessionId?->toRfc4122(),
                     'closedAt' => $ask->closedAt?->format(\DATE_ATOM),
                 ],
                 $asks,
+            ),
+            'cardId' => $watch?->cardId->toRfc4122(),
+            'waits' => array_map(
+                static fn (InboxCardWait $wait): array => [
+                    'trigger' => $wait->trigger->value,
+                    'reason' => $wait->reason,
+                    'documentId' => $wait->documentId?->toRfc4122(),
+                    'versionNumber' => $wait->versionNumber,
+                    'runId' => $wait->runId?->toRfc4122(),
+                    'startedAt' => $wait->startedAt->format(\DATE_ATOM),
+                    'endedAt' => $wait->endedAt?->format(\DATE_ATOM),
+                    'endReason' => $wait->endReason?->value,
+                ],
+                $waits,
             ),
         ];
     }

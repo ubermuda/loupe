@@ -1,13 +1,17 @@
-{#- The button that turns an epic's board lane on or off. Props: card (Card, an epic), returnTo ('card' or 'board': the page the post comes back to). -#}
+{#- The button that turns an epic's board lane on or off. Props: card (Card, an epic), returnTo ('card' or 'board': the page the post comes back to), compact (optional: an icon button that the lane head draws beside its chevron). -#}
 {% set laneForm = card_lane_form(card, returnTo) %}
+{% set label = (card.laneEnabled ? 'board.card.lane.hide' : 'board.card.lane.show')|trans %}
+{% set icon = card.laneEnabled ? 'lucide:eye-off' : 'lucide:eye' %}
 {{ form_start(laneForm, {action: path('app_board_card_lane', {projectId: card.project.id, cardId: card.id}), attr: {'data-card-drawer-reloads-board': ''}}) }}
     {{ form_widget(laneForm.laneEnabled) }}
     {{ form_widget(laneForm.returnTo) }}
-    <button type="submit" class="lp-btn lp-btn--ghost">
-        {% if card.laneEnabled %}
-            <twig:ux:icon name="lucide:eye-off" class="w-4 h-4" />{{ 'board.card.lane.hide'|trans }}
-        {% else %}
-            <twig:ux:icon name="lucide:eye" class="w-4 h-4" />{{ 'board.card.lane.show'|trans }}
-        {% endif %}
-    </button>
+    {% if compact|default(false) %}
+        <button type="submit" class="lp-board-lane__tool" aria-label="{{ label }}" title="{{ label }}">
+            <twig:ux:icon name="{{ icon }}" class="w-4 h-4" />
+        </button>
+    {% else %}
+        <button type="submit" class="lp-btn lp-btn--ghost">
+            <twig:ux:icon name="{{ icon }}" class="w-4 h-4" />{{ label }}
+        </button>
+    {% endif %}
 {{ form_end(laneForm) }}

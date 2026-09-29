@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Service\CardBadge;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Project\Entity\Project;
@@ -16,6 +17,9 @@ final readonly class BoardView
         public Project $project,
         public array $columns,
         public int $terminalWindowDays,
+        /** The board draws no Backlog column, and its header button shows this count. */
+        public BoardColumn $backlog,
+        public int $backlogCount,
         /**
          * Unaddressed site-review comments per card id. A card with none is
          * absent rather than zero, so the template asks with a default. The
@@ -61,6 +65,8 @@ final readonly class BoardView
         public string $structureDigest = '',
         /** @var array<string, CardRunWarning> card id => the warning its last run left */
         public array $runWarnings = [],
+        /** @var array<string, LaneDeckView> lane epic id => its Up next deck; an epic with no Backlog child has no key */
+        public array $decks = [],
         /** @var array<string, non-empty-list<CardBadge>> card id => its badges; a card with none has no key */
         public array $badges = [],
     ) {

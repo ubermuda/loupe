@@ -40,10 +40,11 @@ function stream({
     historyTotals = {},
     title = id,
     removed = false,
+    deckEpic = null,
 }) {
     const holder = document.createElement('div');
     const placement = removed
-        ? 'data-removed="1"'
+        ? `data-removed="1"${deckEpic ? ` data-deck-epic="${deckEpic}"` : ''}`
         : `data-column-id="${column}" data-after="${after}" data-row-after="${rowAfter}"`;
     const body = removed
         ? ''
@@ -63,6 +64,98 @@ afterEach(() => {
 });
 
 describe('board-place', () => {
+    it('takes a card placed on the board out of the Up next deck it left', () => {
+        document
+            .getElementById('board')
+            .insertAdjacentHTML(
+                'afterbegin',
+                '<div class="lp-deck"><article id="board-deck-card-d" data-card-id="d"></article></div>',
+            );
+
+        placeCard(
+            stream({
+                id: 'd',
+                column: NEXT,
+                after: 'c',
+                rowAfter: 'c',
+                counts: { [BACKLOG]: 2, [NEXT]: 2 },
+            }),
+        );
+
+        expect(order(`#board-group-${NEXT} .lp-board-card`)).toEqual([
+            'c',
+            'd',
+        ]);
+        expect(document.getElementById('board-deck-card-d')).toBeNull();
+    });
+
+    it('names the epic of the deck a placed card left', () => {
+        document
+            .getElementById('board')
+            .insertAdjacentHTML(
+                'afterbegin',
+                '<div class="lp-deck" data-lane="epic"><article id="board-deck-card-d" data-card-id="d"></article></div>',
+            );
+        const details = [];
+        document.addEventListener('board:placed', (event) =>
+            details.push(event.detail),
+        );
+
+        placeCard(
+            stream({
+                id: 'd',
+                column: NEXT,
+                after: 'c',
+                rowAfter: 'c',
+                counts: { [BACKLOG]: 2, [NEXT]: 2 },
+            }),
+        );
+
+        expect(details).toEqual([{ cardId: 'd', leftDeck: 'epic' }]);
+    });
+
+    it('keeps a deck card when its card is placed off the board', () => {
+        document
+            .getElementById('board')
+            .insertAdjacentHTML(
+                'afterbegin',
+                '<div class="lp-deck"><article id="board-deck-card-d" data-card-id="d"></article></div>',
+            );
+
+        placeCard(
+            stream({
+                id: 'd',
+                removed: true,
+                counts: { [BACKLOG]: 2, [NEXT]: 1 },
+            }),
+        );
+
+        expect(document.getElementById('board-deck-card-d')).not.toBeNull();
+    });
+
+    it('keeps a deck card when its placement misses', () => {
+        document
+            .getElementById('board')
+            .insertAdjacentHTML(
+                'afterbegin',
+                '<div class="lp-deck"><article id="board-deck-card-d" data-card-id="d"></article></div>',
+            );
+        const missed = vi.fn();
+        document.addEventListener('board:place-missed', missed, { once: true });
+
+        placeCard(
+            stream({
+                id: 'd',
+                column: NEXT,
+                after: 'not-on-the-page',
+                counts: { [BACKLOG]: 2, [NEXT]: 2 },
+            }),
+        );
+
+        expect(missed).toHaveBeenCalledOnce();
+        expect(document.getElementById('board-deck-card-d')).not.toBeNull();
+    });
+
     it('registers itself as a Turbo stream action', () => {
         expect(typeof StreamActions['board-place']).toBe('function');
     });
@@ -162,6 +255,26 @@ describe('board-place', () => {
         expect(placed.mock.calls[0][0].detail).toEqual({
             cardId: 'a',
             removed: true,
+        });
+    });
+
+    it('names the epic whose deck a removed Backlog card joins', () => {
+        const placed = vi.fn();
+        document.addEventListener('board:placed', placed, { once: true });
+
+        placeCard(
+            stream({
+                id: 'a',
+                removed: true,
+                deckEpic: 'epic',
+                counts: { [BACKLOG]: 1, [NEXT]: 1 },
+            }),
+        );
+
+        expect(placed.mock.calls[0][0].detail).toEqual({
+            cardId: 'a',
+            removed: true,
+            deckEpic: 'epic',
         });
     });
 
@@ -491,6 +604,83 @@ describe('board-place on a board with lanes', () => {
         expect(placed).toHaveBeenCalledOnce();
         expect(placed.mock.calls[0][0].target).toBe(section);
         expect(placed.mock.calls[0][0].detail).toEqual({ cardId: EPIC });
+    });
+
+    it('morphs a lane head that comes with no row, and removes the row the list had', () => {
+        const placed = vi.fn();
+        document.addEventListener('board:placed', placed, { once: true });
+
+        placeCard(
+            laneStream({
+                id: EPIC,
+                column: 'col-waiting',
+                head: true,
+                body: laneHead('Waiting', '1/2 done'),
+            }),
+        );
+
+        expect(
+            document.querySelector(`#board-lane-${EPIC} .lp-board-lane__title`)
+                .textContent,
+        ).toBe('Waiting');
+        expect(order('.lp-board-list__row')).toEqual(['a', 'c', 'b']);
+        expect(placed).toHaveBeenCalledOnce();
+
+        placeCard(
+            laneStream({
+                id: EPIC,
+                column: 'col-waiting',
+                head: true,
+                body: laneHead('Still waiting', '1/2 done'),
+            }),
+        );
+
+        expect(order('.lp-board-list__row')).toEqual(['a', 'c', 'b']);
+        expect(
+            document.querySelector('.lp-board-list').textContent,
+        ).not.toContain('null');
+    });
+
+    it('takes a lane epic placed as a lane head out of the deck it left', () => {
+        document
+            .querySelector('.lp-board-lane')
+            .insertAdjacentHTML(
+                'beforeend',
+                `<article id="board-deck-card-${EPIC}" data-card-id="${EPIC}"></article>`,
+            );
+
+        placeCard(
+            laneStream({
+                id: EPIC,
+                column: NEXT,
+                head: true,
+                body: laneHead('Epic', '0/2 done') + row(EPIC, NEXT),
+            }),
+        );
+
+        expect(document.getElementById(`board-deck-card-${EPIC}`)).toBeNull();
+    });
+
+    it('keeps the deck copy of a lane epic that still waits in the Backlog', () => {
+        document
+            .querySelector('.lp-board-lane')
+            .insertAdjacentHTML(
+                'beforeend',
+                `<div class="lp-deck" data-column="col-waiting"><article id="board-deck-card-${EPIC}" data-card-id="${EPIC}"></article></div>`,
+            );
+
+        placeCard(
+            laneStream({
+                id: EPIC,
+                column: 'col-waiting',
+                head: true,
+                body: laneHead('Renamed', '0/2 done'),
+            }),
+        );
+
+        expect(
+            document.getElementById(`board-deck-card-${EPIC}`),
+        ).not.toBeNull();
     });
 
     it('drops the stale mark of a lane head it morphs', () => {

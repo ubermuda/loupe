@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { Application } from '@hotwired/stimulus';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import BoardLaneController from '../../assets/controllers/board_lane_controller.js';
 
 const KEY = 'loupe.board.collapsed-lanes.project-1';
@@ -14,6 +14,8 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+    vi.useRealTimers();
+    delete window.matchMedia;
     document.body.replaceChildren();
     await new Promise((resolve) => setTimeout(resolve, 0));
     application.stop();
@@ -28,6 +30,7 @@ function laneMarkup(epic, project = 'project-1') {
         <button type="button" aria-expanded="true"
                 data-board-lane-target="toggle"
                 data-action="board-lane#toggle">Toggle</button>
+        <span class="title" data-board-lane-target="glide">Title</span>
         <div class="cells"></div>
     </section>`;
 }
@@ -177,4 +180,63 @@ it('stops listening for morphs when the lane disconnects', async () => {
     morph(element);
 
     expect(element.classList.contains('lp-board-lane--collapsed')).toBe(false);
+});
+
+/** The title sits at (0, 0) before a toggle and at (40, 20) after it. */
+function glideFrom(element) {
+    const title = element.querySelector('.title');
+    const places = [
+        { left: 0, top: 0 },
+        { left: 40, top: 20 },
+    ];
+    title.getBoundingClientRect = () => places.shift() ?? { left: 40, top: 20 };
+    title.animate = vi.fn();
+
+    return title;
+}
+
+it('glides the head parts from their old place on a click, and marks the lane while it animates', async () => {
+    await mount('epic-a');
+    const title = glideFrom(lane('epic-a'));
+    vi.useFakeTimers();
+
+    lane('epic-a').querySelector('button').click();
+
+    expect(lane('epic-a').classList.contains('lp-board-lane--animating')).toBe(
+        true,
+    );
+    expect(title.animate).toHaveBeenCalledWith(
+        [{ transform: 'translate(-40px, -20px)' }, { transform: 'none' }],
+        expect.objectContaining({ duration: 340 }),
+    );
+    vi.advanceTimersByTime(400);
+    expect(lane('epic-a').classList.contains('lp-board-lane--animating')).toBe(
+        false,
+    );
+});
+
+it('does not animate a lane it restores from storage', async () => {
+    window.localStorage.setItem(KEY, JSON.stringify(['epic-a']));
+
+    await mount('epic-a');
+
+    expect(lane('epic-a').classList.contains('lp-board-lane--animating')).toBe(
+        false,
+    );
+});
+
+it('switches at once when the reader asks for reduced motion', async () => {
+    window.matchMedia = vi.fn(() => ({ matches: true }));
+    await mount('epic-a');
+    const title = glideFrom(lane('epic-a'));
+
+    lane('epic-a').querySelector('button').click();
+
+    expect(lane('epic-a').classList.contains('lp-board-lane--collapsed')).toBe(
+        true,
+    );
+    expect(lane('epic-a').classList.contains('lp-board-lane--animating')).toBe(
+        false,
+    );
+    expect(title.animate).not.toHaveBeenCalled();
 });

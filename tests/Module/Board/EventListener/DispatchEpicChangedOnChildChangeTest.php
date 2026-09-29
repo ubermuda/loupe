@@ -135,15 +135,53 @@ final class DispatchEpicChangedOnChildChangeTest extends KernelTestCase
         self::assertTrue($this->epicChanged($epic));
     }
 
+    public function test_a_child_that_leaves_the_backlog_changes_its_epic(): void
+    {
+        $project = $this->makeProject('epic-face-leave-backlog');
+        $epic = $this->card($project, column: 'next', type: CardType::Epic);
+        $child = $this->card($project, parent: $epic);
+        $this->changes = [];
+
+        $this->update($child, column: 'next');
+
+        self::assertTrue($this->epicChanged($epic));
+    }
+
+    public function test_a_child_that_enters_the_backlog_changes_its_epic(): void
+    {
+        $project = $this->makeProject('epic-face-enter-backlog');
+        $epic = $this->card($project, column: 'next', type: CardType::Epic);
+        $child = $this->card($project, column: 'in-progress', parent: $epic);
+        $this->changes = [];
+
+        $this->update($child, column: 'backlog');
+
+        self::assertTrue($this->epicChanged($epic));
+    }
+
+    /** The deck shows the Backlog children in rank order, so a new rank there changes the epic face. */
+    public function test_a_child_ranked_inside_the_backlog_changes_its_epic(): void
+    {
+        $project = $this->makeProject('epic-face-backlog-rank');
+        $epic = $this->card($project, column: 'next', type: CardType::Epic);
+        $this->card($project, parent: $epic);
+        $child = $this->card($project, parent: $epic);
+        $this->changes = [];
+
+        $this->update($child, position: 0);
+
+        self::assertTrue($this->epicChanged($epic));
+    }
+
     public function test_a_child_that_moves_between_open_columns_leaves_its_epic_alone(): void
     {
         $project = $this->makeProject('epic-face-open-move');
         $epic = $this->card($project, type: CardType::Epic);
-        $child = $this->card($project, parent: $epic);
-        $this->card($project, parent: $epic);
+        $child = $this->card($project, column: 'next', parent: $epic);
+        $this->card($project, column: 'next', parent: $epic);
         $this->changes = [];
 
-        $this->update($child, column: 'next');
+        $this->update($child, column: 'in-progress');
         $this->update($child, position: 0);
 
         // Guard: the moves ran and reported the child, so the absence below means something.

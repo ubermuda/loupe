@@ -42,6 +42,24 @@ final class InboxListToolTest extends KernelTestCase
         ($this->tool)();
     }
 
+    public function test_each_row_says_whether_loupe_or_an_agent_opened_the_item(): void
+    {
+        $this->enableInbox();
+        $project = $this->makeProject('inbox-list-origin');
+        $card = $this->card($this->em, $project, 4);
+        $this->em->flush();
+        $this->documentInReview($project, $card);
+        $this->reconcileWaits($project, $card);
+        $this->actAsMcpTokenBoundTo($project);
+        $this->askQuestion('From an agent');
+
+        $result = ($this->tool)();
+
+        self::assertSame(['From an agent', '#4 Ship it'], array_column($result['items'], 'title'));
+        self::assertSame(['question', 'wait'], array_column($result['items'], 'kind'));
+        self::assertSame(['agent', 'loupe'], array_column($result['items'], 'origin'));
+    }
+
     public function test_the_items_of_the_project_read_newest_first_and_another_project_s_are_absent(): void
     {
         $this->enableInbox();

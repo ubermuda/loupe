@@ -36,6 +36,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
         $project = $this->project($em, $this->user($em, 'manifest-anonymous@example.com'));
+        $this->addTriageColumn($project);
+        $em->flush();
         $em->clear();
 
         $client->request(Request::METHOD_GET, $this->manifestUrl($project));
@@ -49,6 +51,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
         $project = $this->project($em, $this->user($em, 'manifest-owner@example.com'));
+        $this->addTriageColumn($project);
+        $em->flush();
         $this->card($em, $project, 'Private');
         $outsider = $this->user($em, 'manifest-outsider@example.com');
         $em->clear();
@@ -66,6 +70,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $owner = $this->user($em, 'manifest-flag-off@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $this->disableBoard();
         $em->clear();
 
@@ -90,6 +96,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-empty@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $em->clear();
 
         $client->loginUser($owner);
@@ -106,14 +114,16 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-order@example.com');
         $project = $this->project($em, $owner);
-        $backlogSecond = $this->card($em, $project, 'Backlog second', 'backlog', 1);
-        $backlogFirst = $this->card($em, $project, 'Backlog first', 'backlog', 0);
+        $this->addTriageColumn($project);
+        $em->flush();
+        $triageSecond = $this->card($em, $project, 'Triage second', 'triage', 1);
+        $triageFirst = $this->card($em, $project, 'Triage first', 'triage', 0);
         $done = $this->card($em, $project, 'Finished', 'done');
         $epic = $this->closedEpic($em, $this->card($em, $project, 'Closed epic', 'next', 0));
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child', 'next', 1));
         $doneChild = $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
         $this->linkPullRequest($em, $child);
-        $this->warn($em, $project, $backlogFirst, 'backlog');
+        $this->warn($em, $project, $triageFirst, 'triage');
         $em->clear();
 
         $client->loginUser($owner);
@@ -121,13 +131,13 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $page = $this->page($client, $project);
 
         self::assertSame(
-            [(string) $backlogFirst->id, (string) $backlogSecond->id, (string) $epic->id, (string) $child->id, (string) $doneChild->id, (string) $done->id],
+            [(string) $triageFirst->id, (string) $triageSecond->id, (string) $epic->id, (string) $child->id, (string) $doneChild->id, (string) $done->id],
             array_column($manifest['cards'], 0),
         );
         self::assertSame($page['rows'], array_column($manifest['cards'], 0));
         self::assertSame($page['cards'], array_column($manifest['cards'], 1, 0));
         self::assertSame(
-            array_map(static fn (Card $card): string => (string) $card->column->id, [$backlogFirst, $backlogSecond, $epic, $child, $doneChild, $done]),
+            array_map(static fn (Card $card): string => (string) $card->column->id, [$triageFirst, $triageSecond, $epic, $child, $doneChild, $done]),
             array_column($manifest['cards'], 2),
         );
         self::assertSame(array_fill(0, 6, null), array_column($manifest['cards'], 3));
@@ -141,9 +151,11 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Lane epic', 'next'), CardType::Epic);
-        $child = $this->childOf($em, $epic, $this->card($em, $project, 'In the lane', 'backlog', 0));
-        $other = $this->card($em, $project, 'Outside', 'backlog', 1);
+        $child = $this->childOf($em, $epic, $this->card($em, $project, 'In the lane', 'triage', 0));
+        $other = $this->card($em, $project, 'Outside', 'triage', 1);
         $em->clear();
 
         $client->loginUser($owner);
@@ -155,11 +167,43 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertSame([(string) $child->id, (string) $other->id, (string) $epic->id], array_column($manifest['cards'], 0));
         self::assertSame($page['rows'], array_column($manifest['cards'], 0));
         self::assertSame([4, 4, 5], array_map(\count(...), $manifest['cards']));
-        self::assertTrue($manifest['cards'][2][4] ?? false);
+        self::assertSame($page['laneDigests'][(string) $epic->id], $manifest['cards'][2][4] ?? null);
         self::assertSame([(string) $epic->id, 'other', (string) $epic->id], array_column($manifest['cards'], 3));
         self::assertSame($page['lanes'], array_column($this->faces($manifest), 3, 0));
         self::assertSame($page['cards'], array_column($this->faces($manifest), 1, 0));
         self::assertSame($page['rowDigests'][(string) $epic->id], $manifest['cards'][2][1]);
+    }
+
+    public function test_a_lane_epic_in_the_backlog_is_a_lane_head_with_the_digest_its_deck_shows(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'manifest-backlog-lane@example.com');
+        $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
+        $epic = $this->typed($em, $this->card($em, $project, 'Waiting epic', 'backlog'), CardType::Epic);
+        $this->childOf($em, $epic, $this->card($em, $project, 'Waiting child', 'backlog', 1));
+        $other = $this->card($em, $project, 'Outside', 'triage');
+        $joining = $this->card($em, $project, 'Waiting with no epic yet', 'backlog', 2);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $manifest = $this->manifest($client, $project);
+        $page = $this->page($client, $project);
+
+        self::assertSame([(string) $other->id, (string) $epic->id], array_column($manifest['cards'], 0));
+        self::assertSame((string) $this->column($project, 'backlog')->id, $manifest['cards'][1][2]);
+        self::assertSame((string) $epic->id, $manifest['cards'][1][3]);
+        self::assertSame($page['laneDigests'], [(string) $epic->id => $manifest['cards'][1][4] ?? null]);
+
+        static::getContainer()->get(EntityManagerInterface::class)->getConnection()->executeStatement(
+            'UPDATE board_cards SET parent_card_id = :epic WHERE id = :card',
+            ['epic' => (string) $epic->id, 'card' => (string) $joining->id],
+        );
+
+        self::assertNotSame($page['laneDigests'][(string) $epic->id], $this->manifest($client, $project)['cards'][1][4] ?? null);
     }
 
     public function test_the_terminal_totals_are_the_ones_the_history_links_show(): void
@@ -169,6 +213,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-history@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $this->card($em, $project, 'Finished today', 'done');
         $old = $this->card($em, $project, 'Finished long ago', 'done');
         $old->completedAt = new \DateTimeImmutable('-1 year');
@@ -185,6 +231,27 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         self::assertSame($page['historyTotals'], $manifest['terminalTotals']);
     }
 
+    public function test_the_backlog_count_is_the_one_the_backlog_button_shows(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'manifest-backlog-count@example.com');
+        $project = $this->project($em, $owner);
+        $this->card($em, $project, 'Waiting');
+        $this->card($em, $project, 'Also waiting', 'backlog', 1);
+        $this->card($em, $project, 'Started', 'next');
+        $backlogId = (string) $this->column($project, 'backlog')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $manifest = $this->manifest($client, $project);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertSame(2, $manifest['backlogCount']);
+        self::assertSame('2', $crawler->filter('#board-count-'.$backlogId)->text());
+    }
+
     public function test_a_digest_changes_with_the_parent_title(): void
     {
         $client = static::createClient();
@@ -192,8 +259,10 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-parent@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $parent = $this->card($em, $project, 'Parent', 'next');
-        $child = $this->childOf($em, $parent, $this->card($em, $project, 'Child'));
+        $child = $this->childOf($em, $parent, $this->card($em, $project, 'Child', 'triage'));
         $em->clear();
 
         $client->loginUser($owner);
@@ -214,6 +283,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-progress@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->closedEpic($em, $this->card($em, $project, 'Epic', 'next'));
         $child = $this->childOf($em, $epic, $this->card($em, $project, 'Child'));
         $em->clear();
@@ -238,6 +309,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-warning@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $card = $this->card($em, $project, 'Stuck', 'next');
         $em->clear();
 
@@ -287,6 +360,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-structure@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $this->card($em, $project, 'Card');
         $nextId = $this->column($project, 'next')->id;
         $em->clear();
@@ -314,6 +389,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane-on@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->closedEpic($em, $this->card($em, $project, 'Epic', 'next'));
         $em->clear();
 
@@ -338,6 +415,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane-swap@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $first = $this->typed($em, $this->card($em, $project, 'First epic', 'next', 0), CardType::Epic);
         $second = $this->typed($em, $this->card($em, $project, 'Second epic', 'next', 1), CardType::Epic);
         $em->clear();
@@ -363,6 +442,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'manifest-lane-body@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->closedEpic($em, $this->card($em, $project, 'Epic', 'next'));
         $this->updateCard($epic, static function (Card $card): void {
             $card->laneEnabled = true;
@@ -391,8 +472,10 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         $projects = [];
         foreach (['three-cards' => 3, 'twelve-cards' => 12] as $name => $size) {
             $project = $this->project($em, $owner, $name);
+            $this->addTriageColumn($project);
+            $em->flush();
             for ($index = 0; $index < $size; ++$index) {
-                $this->linkPullRequest($em, $this->card($em, $project, 'Card '.$index, 'backlog', $index));
+                $this->linkPullRequest($em, $this->card($em, $project, 'Card '.$index, 'triage', $index));
             }
             $projects[$name] = $project;
         }
@@ -442,15 +525,15 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         return '/projects/'.$project->id.'/board/manifest';
     }
 
-    /** @return array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: true}>, structure: string, terminalTotals: array<string, int>} */
+    /** @return array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>, backlogCount: int} */
     private function manifest(KernelBrowser $client, Project $project): array
     {
         $client->request(Request::METHOD_GET, $this->manifestUrl($project));
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'application/json');
-        /** @var array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: true}>, structure: string, terminalTotals: array<string, int>} $manifest */
+        /** @var array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>, backlogCount: int} $manifest */
         $manifest = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
-        self::assertSame(['cards', 'structure', 'terminalTotals'], array_keys($manifest));
+        self::assertSame(['cards', 'structure', 'terminalTotals', 'backlogCount'], array_keys($manifest));
 
         return $manifest;
     }
@@ -460,7 +543,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
      * ids of the list rows in order with their digests, the structure digest,
      * and the total of each history link.
      *
-     * @return array{cards: array<string, string>, lanes: array<string, ?string>, rows: list<string>, rowDigests: array<string, string>, structure: string, historyTotals: array<string, int>}
+     * @return array{cards: array<string, string>, lanes: array<string, ?string>, laneDigests: array<string, string>, rows: list<string>, rowDigests: array<string, string>, structure: string, historyTotals: array<string, int>}
      */
     private function page(KernelBrowser $client, Project $project): array
     {
@@ -489,8 +572,16 @@ final class ShowBoardManifestControllerTest extends WebTestCase
             $rowDigests[$row->getAttribute('data-card-id')] = $row->getAttribute('data-card-digest');
         }
 
+        $laneDigests = [];
+        foreach ($crawler->filter('section[id^="board-lane-"] .lp-board-lane__head') as $head) {
+            self::assertInstanceOf(\DOMElement::class, $head);
+            self::assertInstanceOf(\DOMElement::class, $head->parentNode);
+            $laneDigests[substr($head->parentNode->getAttribute('id'), \strlen('board-lane-'))] = $head->getAttribute('data-lane-digest');
+        }
+
         return [
             'cards' => $cards,
+            'laneDigests' => $laneDigests,
             'lanes' => $lanes,
             'rows' => array_keys($rowDigests),
             'rowDigests' => $rowDigests,
@@ -500,16 +591,16 @@ final class ShowBoardManifestControllerTest extends WebTestCase
     }
 
     /**
-     * @param array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: true}>, structure: string, terminalTotals: array<string, int>} $manifest
+     * @param array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>, backlogCount: int} $manifest
      *
-     * @return list<array{0: string, 1: string, 2: string, 3: ?string, 4?: true}>
+     * @return list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>
      */
     private function faces(array $manifest): array
     {
         return array_values(array_filter($manifest['cards'], static fn (array $entry): bool => !isset($entry[4])));
     }
 
-    /** @param array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: true}>, structure: string, terminalTotals: array<string, int>} $manifest */
+    /** @param array{cards: list<array{0: string, 1: string, 2: string, 3: ?string, 4?: string}>, structure: string, terminalTotals: array<string, int>, backlogCount: int} $manifest */
     private function digestOf(array $manifest, Card $card): string
     {
         $digests = array_column($manifest['cards'], 1, 0);

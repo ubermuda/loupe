@@ -140,7 +140,7 @@ const test = base.extend<{ board: Board }>({
 
             const boardUrl = `/projects/${projectId}/board`;
             await page.goto(boardUrl);
-            await expect(page.locator(COLUMN)).toHaveCount(4);
+            await expect(page.locator(COLUMN)).toHaveCount(3);
 
             await use({ projectId, boardUrl });
         },
@@ -207,6 +207,9 @@ test('board controls remain usable at enlarged text sizes without page overflow'
                     }),
                 ).toBeLessThanOrEqual(1);
             }
+            await expect(page.locator('a.lp-board-backlog')).toBeInViewport({
+                ratio: 1,
+            });
             const query = page.getByRole('searchbox', {
                 name: 'Search cards',
                 exact: true,
@@ -344,13 +347,13 @@ test('column settings preserves edits and navigation', async ({
     });
     await parked.getByRole('button', { name: 'Move up', exact: true }).click();
     await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
-        ['backlog', 'next', 'in-progress', 'parked', 'done'],
+        ['next', 'in-progress', 'parked', 'done'],
         ROUND_TRIP,
     );
     await expect(page).toHaveURL(settingsUrl);
     await page.reload();
     await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
-        ['backlog', 'next', 'in-progress', 'parked', 'done'],
+        ['next', 'in-progress', 'parked', 'done'],
     );
     await expect(
         settings
@@ -400,7 +403,7 @@ test('column settings preserves edits and navigation', async ({
     await expect(page).toHaveURL(settingsUrl);
     await page.reload();
     await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
-        ['backlog', 'next', 'in-progress', 'on-hold', 'done'],
+        ['next', 'in-progress', 'on-hold', 'done'],
     );
 
     const renamed = settings.locator('[data-column-id]').filter({
@@ -428,10 +431,16 @@ test('column settings preserves edits and navigation', async ({
     );
     await expect(page).toHaveURL(settingsUrl);
 
-    // Leaving the terminal flag and taking the default is one save.
+    // A column that leaves the terminal flag shows no flag. No column can take the Backlog role.
     await renamed
         .getByRole('button', { name: 'Configure On hold', exact: true })
         .click();
+    await expect(
+        configureRenamed.getByRole('checkbox', {
+            name: 'Default for new cards',
+            exact: true,
+        }),
+    ).toHaveCount(0);
     await configureRenamed
         .getByRole('checkbox', {
             name: 'A finishing point for completed work',
@@ -439,19 +448,17 @@ test('column settings preserves edits and navigation', async ({
         })
         .uncheck();
     await configureRenamed
-        .getByRole('checkbox', { name: 'Default for new cards', exact: true })
-        .check();
-    await configureRenamed
         .getByRole('button', { name: 'Save column', exact: true })
         .click();
-    await expect(renamed.locator('.lp-board__column-flag')).toHaveText(
-        'Default',
+    await expect(renamed.locator('.lp-board__column-flag')).toHaveCount(
+        0,
         ROUND_TRIP,
     );
     await expect(page).toHaveURL(settingsUrl);
     await page.reload();
-    await expect(renamed.locator('.lp-board__column-flag')).toHaveText(
-        'Default',
+    await expect(renamed.locator('.lp-board__column-flag')).toHaveCount(0);
+    await expect(settings.locator('[data-column-slug="backlog"]')).toHaveCount(
+        0,
     );
 });
 
@@ -572,7 +579,6 @@ test('an owner adds a column after the last one', async ({ page, board }) => {
 
     await page.goto(board.boardUrl);
     expect(await slugs(page)).toEqual([
-        'backlog',
         'next',
         'in-progress',
         'done',
@@ -595,12 +601,7 @@ test('a rename shows the new slug before it saves', async ({ page, board }) => {
     ).toBeVisible(ROUND_TRIP);
 
     await page.goto(board.boardUrl);
-    expect(await slugs(page)).toEqual([
-        'backlog',
-        'up-next',
-        'in-progress',
-        'done',
-    ]);
+    expect(await slugs(page)).toEqual(['up-next', 'in-progress', 'done']);
     await expect(
         page.locator(`${COLUMN}[data-column-slug="up-next"] h2`),
     ).toHaveText('Up next!');
@@ -633,7 +634,7 @@ test('the board header holds the title and actions on one row, and columns offer
     ).toHaveAttribute('title', 'Board settings');
 
     const heads = page.locator(`${COLUMN} .lp-board__column-head`);
-    await expect(heads).toHaveCount(4);
+    await expect(heads).toHaveCount(3);
     await expect(heads.locator('button, [draggable]')).toHaveCount(0);
 });
 
@@ -656,12 +657,7 @@ test('an empty column asks for confirmation before it is deleted', async ({
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).toHaveCount(0);
     await page.goto(board.boardUrl);
-    expect(await slugs(page)).toEqual([
-        'backlog',
-        'next',
-        'in-progress',
-        'done',
-    ]);
+    expect(await slugs(page)).toEqual(['next', 'in-progress', 'done']);
 
     await openSettingsDialog(
         page,
@@ -676,7 +672,7 @@ test('an empty column asks for confirmation before it is deleted', async ({
 
     await expect(page.getByText('Deleted the column')).toBeVisible(ROUND_TRIP);
     await page.goto(board.boardUrl);
-    expect(await slugs(page)).toEqual(['backlog', 'next', 'done']);
+    expect(await slugs(page)).toEqual(['next', 'done']);
 });
 
 test('a column with cards is deleted into the target the dialog picks', async ({
@@ -697,7 +693,7 @@ test('a column with cards is deleted into the target the dialog picks', async ({
 
     await expect(page.getByText('moved its card')).toBeVisible(ROUND_TRIP);
     await page.goto(board.boardUrl);
-    expect(await slugs(page)).toEqual(['backlog', 'in-progress', 'done']);
+    expect(await slugs(page)).toEqual(['in-progress', 'done']);
     await expect(
         page.locator(
             `${COLUMN}[data-column-slug="in-progress"] [data-card-title="Waiting"]`,

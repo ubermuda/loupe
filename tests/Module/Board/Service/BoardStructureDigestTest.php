@@ -72,14 +72,6 @@ final class BoardStructureDigestTest extends TestCase
         self::assertNotSame($before, $this->digest());
     }
 
-    public function test_the_digest_changes_with_the_default_flag(): void
-    {
-        $before = $this->digest();
-        $this->backlog->isDefault = true;
-
-        self::assertNotSame($before, $this->digest());
-    }
-
     public function test_the_digest_changes_when_a_lane_turns_on_or_off(): void
     {
         $withLane = $this->digest();

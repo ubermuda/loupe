@@ -39,13 +39,7 @@ const STALE_MARKS = [
         (cardId) => document.getElementById(`board-row-${cardId}`),
         'lp-board-list__row--stale',
     ],
-    [
-        (cardId) =>
-            document
-                .getElementById(`board-lane-${cardId}`)
-                ?.querySelector('.lp-board-lane__head') ?? null,
-        'lp-board-lane__head--stale',
-    ],
+    [laneHeadOf, 'lp-board-lane__head--stale'],
 ];
 const RETRY = 'retry';
 const STALE = 'stale';
@@ -406,17 +400,34 @@ export default class extends Controller {
             .forEach((card) =>
                 shown.set(card.dataset.cardId, card.dataset.cardDigest),
             );
-        // A lane epic has no card face, only a list row, so it counts for the
-        // list order alone.
+        // A lane epic has no card face: its lane head digest comes fifth, and
+        // it counts for the list order alone.
         const listed = new Map(
             manifest.cards.map(
-                ([cardId, , columnId, laneKey, laneHead], index) => [
+                ([cardId, , columnId, laneKey, headDigest], index) => [
                     cardId,
-                    { columnId, laneKey, index, laneHead: laneHead === true },
+                    {
+                        columnId,
+                        laneKey,
+                        index,
+                        laneHead: headDigest !== undefined,
+                    },
                 ],
             ),
         );
-        const faces = manifest.cards.filter(([, , , , laneHead]) => !laneHead);
+        const faces = manifest.cards.filter(
+            ([, , , , headDigest]) => headDigest === undefined,
+        );
+        const backlogId = this.element.querySelector(
+            '.lp-board-backlog[data-column]',
+        )?.dataset.column;
+        // A Backlog card with no epic has no placement to carry the count.
+        const backlogCount = document.getElementById(
+            `board-count-${backlogId}`,
+        );
+        if (backlogCount !== null && Number.isInteger(manifest.backlogCount)) {
+            backlogCount.textContent = String(manifest.backlogCount);
+        }
         const rowIds = new Set(
             [
                 ...this.element.querySelectorAll(
@@ -481,19 +492,24 @@ export default class extends Controller {
                 rowDigests.set(row.dataset.cardId, row.dataset.cardDigest),
             );
         const changed = manifest.cards
-            .filter(([cardId, digest, , , laneHead]) => {
+            .filter(([cardId, digest, columnId, , headDigest]) => {
                 if (moved.has(cardId)) {
                     return true;
                 }
-                if (!laneHead) {
+                if (headDigest === undefined) {
                     return shown.get(cardId) !== digest;
                 }
-                if (!rowIds.has(cardId)) {
+                // A lane epic in the Backlog has a head and no list row.
+                if (columnId !== backlogId && !rowIds.has(cardId)) {
                     return true;
                 }
+                const head = laneHeadOf(cardId);
 
                 return (
-                    rowDigests.has(cardId) && rowDigests.get(cardId) !== digest
+                    (rowDigests.has(cardId) &&
+                        rowDigests.get(cardId) !== digest) ||
+                    (head?.dataset.laneDigest !== undefined &&
+                        head.dataset.laneDigest !== headDigest)
                 );
             })
             .map(([cardId]) => cardId);
@@ -567,7 +583,7 @@ export default class extends Controller {
             return;
         }
         const card = document.getElementById(`board-card-${cardId}`);
-        if (card !== null && this.busy(card)) {
+        if (this.busyFor(cardId)) {
             entry.inFlight = false;
             entry.again = false;
             this.schedule(cardId, entry, BUSY_RETRY_MILLISECONDS);
@@ -615,8 +631,7 @@ export default class extends Controller {
         if (this.pending.get(cardId) !== entry) {
             return;
         }
-        const current = document.getElementById(`board-card-${cardId}`);
-        if (current !== null && this.busy(current)) {
+        if (this.busyFor(cardId)) {
             entry.remote ||= this.expected.get(cardId)?.remote ?? false;
             entry.again = false;
             this.expected.delete(cardId);
@@ -687,11 +702,21 @@ export default class extends Controller {
         });
     }
 
-    /** A card in a drag, or with a move the server has not placed yet. */
-    busy(card) {
+    /**
+     * Whether the card is in a drag or has a move the server has not placed
+     * yet. The head of a lane epic morphs its whole deck, so a deck card in a
+     * drag holds the epic too.
+     */
+    busyFor(cardId) {
+        const element =
+            document.getElementById(`board-card-${cardId}`) ??
+            deckCardOf(cardId) ??
+            laneHeadOf(cardId);
+
         return (
-            card.getAttribute('aria-busy') === 'true' ||
-            card.classList.contains('lp-board-card--dragging')
+            element !== null &&
+            (busy(element) ||
+                [...element.querySelectorAll('.lp-deck__card')].some(busy))
         );
     }
 
@@ -702,8 +727,17 @@ export default class extends Controller {
         );
     }
 
-    placed({ cardId, removed }) {
+    placed({ cardId, removed, leftDeck, deckEpic }) {
         this.clearStale(cardId);
+        // A Backlog card has no placement of its own, so its epic redraws the
+        // deck that shows it. A card that changes its epic leaves one deck
+        // and joins another, and a card new to the Backlog joins one only.
+        const redrawn = removed
+            ? [deckCardOf(cardId)?.closest('.lp-deck')?.dataset.lane, deckEpic]
+            : [leftDeck];
+        new Set(redrawn.filter((epic) => epic != null && epic !== '')).forEach(
+            (epic) => this.receive({ cardId: epic, local: false, own: false }),
+        );
         const entry = this.pending.get(cardId);
         if (entry !== undefined) {
             entry.attempts = 0;
@@ -777,7 +811,7 @@ function isManifest(manifest) {
                 typeof entry[2] === 'string' &&
                 (typeof entry[3] === 'string' || entry[3] === null) &&
                 (entry.length === 4 ||
-                    (entry.length === 5 && entry[4] === true)),
+                    (entry.length === 5 && typeof entry[4] === 'string')),
         )
     );
 }
@@ -789,6 +823,26 @@ function staleHistory(totals) {
 
         return link !== null && link.dataset.historyTotal !== String(total);
     });
+}
+
+function laneHeadOf(cardId) {
+    return (
+        document
+            .getElementById(`board-lane-${cardId}`)
+            ?.querySelector('.lp-board-lane__head') ?? null
+    );
+}
+
+/** A card in a drag, or with a move the server has not placed yet. */
+function busy(card) {
+    return (
+        card.getAttribute('aria-busy') === 'true' ||
+        card.classList.contains('lp-board-card--dragging')
+    );
+}
+
+function deckCardOf(cardId) {
+    return document.getElementById(`board-deck-card-${cardId}`);
 }
 
 function previousCardId(card) {

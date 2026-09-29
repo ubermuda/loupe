@@ -84,8 +84,8 @@ final class MoveCardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'move-face@example.com');
         $project = $this->project($em, $owner);
-        $this->card($em, $project, 'Stays', 'backlog', 0);
-        $mover = $this->card($em, $project, 'Mover', 'backlog', 1);
+        $this->card($em, $project, 'Stays', 'in-progress', 0);
+        $mover = $this->card($em, $project, 'Mover', 'in-progress', 1);
         $moverId = $mover->id;
         $name = MoveCardFormType::nameFor($mover);
         $target = (string) $this->column($project, 'next')->id;

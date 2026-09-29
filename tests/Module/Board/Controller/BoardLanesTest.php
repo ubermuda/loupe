@@ -6,6 +6,7 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\SetCardLaneFormType;
+use App\Module\Board\Service\LaneDecks;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -27,7 +28,9 @@ final class BoardLanesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-none@example.com');
         $project = $this->project($em, $owner);
-        $this->card($em, $project, 'Plain', 'backlog');
+        $this->addTriageColumn($project);
+        $em->flush();
+        $this->card($em, $project, 'Plain', 'triage');
         $this->card($em, $project, 'Finished', 'done');
         $em->clear();
 
@@ -47,12 +50,14 @@ final class BoardLanesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-draw@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Board epic', 'next'), CardType::Epic);
-        $open = $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'backlog'));
+        $open = $this->childOf($em, $epic, $this->card($em, $project, 'Open child', 'triage'));
         $done = $this->childOf($em, $epic, $this->card($em, $project, 'Done child', 'done'));
-        $loose = $this->card($em, $project, 'Loose card', 'backlog');
+        $loose = $this->card($em, $project, 'Loose card', 'triage');
         [$epicId, $epicNumber, $openId, $doneId, $looseId] = [(string) $epic->id, $epic->number, (string) $open->id, (string) $done->id, (string) $loose->id];
-        $backlogId = (string) $this->column($project, 'backlog')->id;
+        $triageId = (string) $this->column($project, 'triage')->id;
         $doneColumnId = (string) $this->column($project, 'done')->id;
         $em->clear();
 
@@ -74,7 +79,7 @@ final class BoardLanesTest extends WebTestCase
 
         // The epic is its lane header, not a card.
         self::assertCount(0, $crawler->filter('[data-board-drag-target="card"][data-card-id="'.$epicId.'"]'));
-        self::assertCount(1, $lane->filter('[data-board-drag-target="group"][data-lane="'.$epicId.'"][data-column="'.$backlogId.'"] [data-card-id="'.$openId.'"]'));
+        self::assertCount(1, $lane->filter('[data-board-drag-target="group"][data-lane="'.$epicId.'"][data-column="'.$triageId.'"] [data-card-id="'.$openId.'"]'));
         self::assertCount(1, $lane->filter('[data-board-drag-target="group"][data-lane="'.$epicId.'"][data-column="'.$doneColumnId.'"] [data-card-id="'.$doneId.'"]'));
         self::assertCount(4, $lane->filter('[data-board-drag-target="group"]'));
         // A child inside its own lane needs no parent tag.
@@ -83,7 +88,7 @@ final class BoardLanesTest extends WebTestCase
         $other = $crawler->filter('.lp-board-lane[data-lane="other"]');
         self::assertCount(1, $other);
         self::assertStringContainsString('Other cards', $other->filter('.lp-board-lane__head')->text());
-        self::assertCount(1, $other->filter('[data-lane="other"][data-column="'.$backlogId.'"] [data-card-id="'.$looseId.'"]'));
+        self::assertCount(1, $other->filter('[data-lane="other"][data-column="'.$triageId.'"] [data-card-id="'.$looseId.'"]'));
         self::assertSame('other', $crawler->filter('.lp-board-lane')->last()->attr('data-lane'));
 
         // A lane cell of an open column is ranked, and a terminal one is not.
@@ -113,6 +118,8 @@ final class BoardLanesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-off@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Quiet epic', 'in-progress'), CardType::Epic);
         $done = [];
         for ($index = 0; $index < 3; ++$index) {
@@ -120,7 +127,7 @@ final class BoardLanesTest extends WebTestCase
         }
         $open = [];
         for ($index = 0; $index < 4; ++$index) {
-            $open[] = $this->childOf($em, $epic, $this->card($em, $project, 'Open '.$index, 'backlog', $index));
+            $open[] = $this->childOf($em, $epic, $this->card($em, $project, 'Open '.$index, 'triage', $index));
         }
         [$epicId, $epicNumber, $openId] = [(string) $epic->id, $epic->number, (string) $open[0]->id];
         $em->clear();
@@ -153,6 +160,8 @@ final class BoardLanesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-stream@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Streamed epic', 'next'), CardType::Epic);
         $this->childOf($em, $epic, $this->card($em, $project, 'Child'));
         $epicId = (string) $epic->id;
@@ -178,6 +187,8 @@ final class BoardLanesTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-done@example.com');
         $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
         $epic = $this->typed($em, $this->card($em, $project, 'Finished epic', 'done'), CardType::Epic);
         $children = [];
         for ($index = 0; $index < 3; ++$index) {
@@ -198,19 +209,72 @@ final class BoardLanesTest extends WebTestCase
         }
     }
 
-    public function test_lanes_cost_one_query_whatever_the_number_of_epics(): void
+    public function test_an_epic_lane_head_shows_its_backlog_children_as_an_up_next_deck(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'lanes-deck@example.com');
+        $project = $this->project($em, $owner);
+        $this->addTriageColumn($project);
+        $em->flush();
+        $epic = $this->typed($em, $this->card($em, $project, 'Deck epic', 'next'), CardType::Epic);
+        $waiting = [];
+        for ($index = LaneDecks::DECK_SIZE + 1; $index >= 0; --$index) {
+            $waiting[$index] = (string) $this->childOf($em, $epic, $this->card($em, $project, 'Waiting '.$index, 'backlog', $index))->id;
+        }
+        ksort($waiting);
+        $bare = $this->typed($em, $this->card($em, $project, 'Epic with nothing waiting', 'next', 1), CardType::Epic);
+        $this->card($em, $project, 'Waiting with no epic', 'backlog', 20);
+        [$epicId, $bareId] = [(string) $epic->id, (string) $bare->id];
+        $backlogId = (string) $this->column($project, 'backlog')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        $head = $crawler->filter('#board-lane-'.$epicId.' .lp-board-lane__head');
+        self::assertSame('Up next '.(LaneDecks::DECK_SIZE + 2).' in Backlog', $head->filter('.lp-board-lane__deck-label')->text());
+        $deck = $head->filter('.lp-deck');
+        self::assertSame('group', $deck->attr('data-board-drag-target'));
+        self::assertNotNull($deck->attr('data-board-bucket'));
+        self::assertSame($backlogId, $deck->attr('data-column'));
+        self::assertSame($epicId, $deck->attr('data-lane'));
+        self::assertSame('0', $deck->attr('data-rankable'));
+        self::assertSame(
+            \array_slice($waiting, 0, LaneDecks::DECK_SIZE),
+            $deck->filter('[data-board-drag-target="card"]')->each(static fn (Crawler $card): string => (string) $card->attr('data-card-id')),
+        );
+        self::assertCount(LaneDecks::DECK_SIZE, $deck->filter('[data-board-drag-target="card"] form[data-board-drag-target="moveForm"]'));
+        self::assertCount(0, $deck->filter('[id^="board-card-"], [data-card-digest]'));
+        $more = $deck->filter('.lp-deck__more');
+        self::assertNull($more->attr('hidden'));
+        self::assertSame('+2 more', trim($more->text()));
+        self::assertStringEndsWith('/board/backlog?epic='.$epicId, (string) $more->attr('href'));
+
+        self::assertCount(0, $crawler->filter('#board-lane-'.$bareId.' .lp-deck'));
+        self::assertCount(0, $crawler->filter('.lp-board-lane--other .lp-deck'));
+    }
+
+    public function test_lanes_cost_a_fixed_number_of_queries_whatever_the_number_of_epics(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
         $owner = $this->user($em, 'lanes-queries@example.com');
         $plain = $this->project($em, $owner, 'plain');
-        $this->card($em, $plain, 'Plain');
+        $this->addTriageColumn($plain);
+        $em->flush();
+        $this->card($em, $plain, 'Plain', 'triage');
         $epics = $this->project($em, $owner, 'epics');
+        $this->addTriageColumn($epics);
+        $em->flush();
         for ($index = 0; $index < 3; ++$index) {
             $epic = $this->typed($em, $this->card($em, $epics, 'Epic '.$index, 'next', $index), CardType::Epic);
-            $this->childOf($em, $epic, $this->card($em, $epics, 'Child '.$index, 'backlog'));
+            $this->childOf($em, $epic, $this->card($em, $epics, 'Child '.$index, 'triage'));
             $this->childOf($em, $epic, $this->card($em, $epics, 'Done child '.$index, 'done'));
+            $this->childOf($em, $epic, $this->card($em, $epics, 'Waiting child '.$index, 'backlog', $index));
         }
         $em->clear();
         $client->loginUser($owner);
@@ -219,7 +283,8 @@ final class BoardLanesTest extends WebTestCase
         $epicReads = $this->boardCardReads($client, (string) $epics->id);
 
         self::assertNotSame([], $plainReads);
-        self::assertCount(\count($plainReads), $epicReads);
+        // The Up next decks cost two reads, whatever the number of epics and of Backlog cards.
+        self::assertCount(\count($plainReads) + 2, $epicReads);
         $progressReads = array_filter($epicReads, static fn (string $sql): bool => str_contains($sql, 'GROUP BY c.parent_card_id'));
         self::assertCount(1, $progressReads);
     }

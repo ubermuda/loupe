@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Command;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Command\BoardLaneView;
+use App\Module\Board\Command\LaneDeckView;
 use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Command\ShowCardPlacementCommand;
@@ -16,6 +17,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardLanes;
+use App\Module\Board\Service\LaneDecks;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -47,6 +49,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         $this->project = new Project($owner, 'board-'.uniqid());
         $this->em->persist($this->project);
         $this->seedColumns($this->project);
+        $this->addTriageColumn($this->project);
         $this->em->flush();
     }
 
@@ -67,20 +70,20 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
 
     public function test_the_first_card_of_a_column_follows_the_last_card_of_an_earlier_column_in_the_list(): void
     {
-        $this->card('Backlog one', 'backlog', 0);
-        $lastBacklog = $this->card('Backlog two', 'backlog', 1);
+        $this->card('Triage one', 'triage', 0);
+        $lastTriage = $this->card('Triage two', 'triage', 1);
         $firstNext = $this->card('Next one', 'next', 0);
 
         $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $firstNext));
 
         self::assertNull($view->after);
-        self::assertSame((string) $lastBacklog->id, $view->rowAfter);
+        self::assertSame((string) $lastTriage->id, $view->rowAfter);
     }
 
     public function test_the_first_card_of_the_board_has_nothing_before_it(): void
     {
         $this->card('Later', 'in-progress', 0);
-        $first = $this->card('First', 'backlog', 0);
+        $first = $this->card('First', 'triage', 0);
 
         $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $first));
 
@@ -118,23 +121,84 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
 
     public function test_a_deleted_card_is_gone_and_still_carries_every_column_count(): void
     {
-        $this->card('Backlog one', 'backlog', 0);
-        $this->card('Backlog two', 'backlog', 1);
+        $this->card('Triage one', 'triage', 0);
+        $this->card('Triage two', 'triage', 1);
 
         $view = ($this->placement)(new ShowCardPlacementCommand($this->project, null));
 
         self::assertNull($view->card);
         self::assertSame([
-            (string) $this->column($this->project, 'backlog')->id => 2,
+            (string) $this->column($this->project, 'backlog')->id => 0,
+            (string) $this->column($this->project, 'triage')->id => 2,
             (string) $this->column($this->project, 'next')->id => 0,
             (string) $this->column($this->project, 'in-progress')->id => 0,
             (string) $this->column($this->project, 'done')->id => 0,
         ], $view->counts);
     }
 
+    public function test_a_card_in_the_backlog_is_not_shown_and_the_counts_carry_the_backlog(): void
+    {
+        $waiting = $this->card('Waiting', 'backlog', 0);
+        $this->card('Waiting too', 'backlog', 1);
+        $laneOff = $this->card('Waiting epic with its lane off', 'backlog', 2, CardType::Epic);
+        $laneOff->laneEnabled = false;
+        $this->em->flush();
+        $this->card('Triage one', 'triage', 0);
+
+        foreach ([$waiting, $laneOff] as $card) {
+            $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $card));
+
+            self::assertNull($view->card, $card->title);
+            self::assertNull($view->column, $card->title);
+            self::assertSame(3, $view->counts[(string) $this->column($this->project, 'backlog')->id]);
+            self::assertSame(1, $view->counts[(string) $this->column($this->project, 'triage')->id]);
+        }
+    }
+
+    public function test_a_backlog_child_of_a_lane_epic_names_the_epic_whose_deck_shows_it(): void
+    {
+        $epic = $this->card('Epic', 'next', 0, CardType::Epic);
+        $laneOff = $this->card('Epic with its lane off', 'next', 1, CardType::Epic);
+        $laneOff->laneEnabled = false;
+        $this->em->flush();
+        $waiting = $this->card('Waiting child', 'backlog', 0, parent: $epic);
+        $waitingOff = $this->card('Waiting child of the epic with its lane off', 'backlog', 1, parent: $laneOff);
+        $orphan = $this->card('Waiting', 'backlog', 2);
+        $open = $this->card('Open child', 'triage', 0, parent: $epic);
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $waiting));
+
+        self::assertNull($view->card);
+        self::assertSame((string) $epic->id, $view->deckEpic);
+        foreach ([$waitingOff, $orphan, $open] as $card) {
+            self::assertNull(($this->placement)(new ShowCardPlacementCommand($this->project, $card))->deckEpic, $card->title);
+        }
+    }
+
+    public function test_a_lane_epic_in_the_backlog_is_a_lane_head_with_no_list_row(): void
+    {
+        $this->card('Plain', 'triage', 0);
+        $first = $this->card('Waiting epic', 'backlog', 0, CardType::Epic);
+        $second = $this->card('Next epic', 'next', 0, CardType::Epic);
+        $this->card('Child', 'next', 1, parent: $first);
+
+        $firstView = ($this->placement)(new ShowCardPlacementCommand($this->project, $first));
+        $secondView = ($this->placement)(new ShowCardPlacementCommand($this->project, $second));
+
+        self::assertSame($first, $firstView->card);
+        self::assertSame($this->column($this->project, 'backlog'), $firstView->column);
+        self::assertTrue($firstView->laneHead);
+        self::assertNull($firstView->lane);
+        self::assertNull($firstView->after);
+        self::assertNull($firstView->rowAfter);
+        self::assertNull($firstView->laneAfter);
+        self::assertSame(1, $firstView->progress?->total);
+        self::assertSame((string) $first->id, $secondView->laneAfter);
+    }
+
     public function test_the_counts_match_the_board_page(): void
     {
-        $this->card('Backlog', 'backlog', 0);
+        $this->card('Triage', 'triage', 0);
         $moving = $this->card('Next', 'next', 0);
         $this->card('Recent', 'done', 0);
         $old = $this->card('Old', 'done', 0);
@@ -144,7 +208,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         $showBoard = self::getContainer()->get(ShowBoardHandler::class);
         self::assertInstanceOf(ShowBoardHandler::class, $showBoard);
         $board = $showBoard(new ShowBoardCommand($this->project));
-        $pageCounts = [];
+        $pageCounts = [(string) $board->backlog->id => $board->backlogCount];
         foreach ($board->columns as $columnView) {
             self::assertInstanceOf(BoardColumnView::class, $columnView);
             $pageCounts[(string) $columnView->column->id] = $columnView->count;
@@ -152,7 +216,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
 
         $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $moving));
 
-        self::assertSame([1, 1, 0, 1], array_values($pageCounts));
+        self::assertSame([0, 1, 1, 0, 1], array_values($pageCounts));
         self::assertSame($pageCounts, $view->counts);
     }
 
@@ -170,14 +234,14 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         $created = $second(86400 * 20);
 
         // The first card of the board is one of two cards that tie on position and creation.
-        $this->boardCard('Backlog tie one', 'backlog', 0, $created);
-        $this->boardCard('Backlog tie two', 'backlog', 0, $created);
-        $moved = $this->boardCard('Backlog later', 'backlog', 1);
-        $openEpic = $this->boardCard('Open epic', 'backlog', 2, type: CardType::Epic);
-        $this->boardCard('Backlog child of the open epic', 'backlog', 3, parent: $openEpic);
+        $this->boardCard('Triage tie one', 'triage', 0, $created);
+        $this->boardCard('Triage tie two', 'triage', 0, $created);
+        $moved = $this->boardCard('Triage later', 'triage', 1);
+        $openEpic = $this->boardCard('Open epic', 'triage', 2, type: CardType::Epic);
+        $this->boardCard('Triage child of the open epic', 'triage', 3, parent: $openEpic);
         $laneOff = $this->boardCard('Epic with its lane off', 'icebox', 1, type: CardType::Epic);
         $laneOff->laneEnabled = false;
-        $this->boardCard('Child of the epic with its lane off', 'backlog', 4, parent: $laneOff);
+        $this->boardCard('Child of the epic with its lane off', 'triage', 4, parent: $laneOff);
         // The next column stays empty, between two columns that hold cards.
         $this->boardCard('In progress one', 'in-progress', 0);
         $this->boardCard('In progress child of the open epic', 'in-progress', 1, parent: $openEpic);
@@ -201,23 +265,44 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         $this->boardCard('Icebox', 'icebox', 0);
         $this->boardCard('Last lane epic', 'icebox', 2, type: CardType::Epic);
 
+        // The board draws no Backlog, and an epic there still draws its lane.
+        $this->boardCard('Waiting', 'backlog', 0);
+        $waitingEpic = $this->boardCard('Waiting epic', 'backlog', 1, type: CardType::Epic);
+        $this->boardCard('In progress child of the waiting epic', 'in-progress', 6, parent: $waitingEpic);
+        $this->boardCard('Waiting child of the waiting epic', 'backlog', 2, parent: $waitingEpic);
+        $waitingLaneOff = $this->boardCard('Waiting epic with its lane off', 'backlog', 3, type: CardType::Epic);
+        $waitingLaneOff->laneEnabled = false;
+        // More than a deck holds, so the deck of the waiting epic is a window on its Backlog children.
+        for ($i = 0; $i < LaneDecks::DECK_SIZE; ++$i) {
+            $this->boardCard('Waiting child '.$i.' of the waiting epic', 'backlog', 10 - $i, parent: $waitingEpic);
+        }
+        $this->boardCard('Waiting child of the open epic', 'backlog', 4, parent: $openEpic);
+        $this->boardCard('Waiting child of the epic with its lane off', 'backlog', 5, parent: $waitingLaneOff);
+        $this->em->flush();
+
         // A bulk write the loaded cards do not see: the placement must read the rows.
         $connection = $this->em->getConnection();
         $connection->executeStatement('UPDATE board_cards SET position = -1 WHERE id = :id', ['id' => (string) $moved->id]);
         $connection->executeStatement('UPDATE board_cards SET completed_at = :at WHERE id = :id', ['id' => (string) $restamped->id, 'at' => $second(18000)->format('Y-m-d H:i:s')]);
 
         $cards = self::getContainer()->get(CardRepository::class)->findBy(['project' => $this->project]);
-        self::assertCount(25, $cards);
+        self::assertCount(30 + LaneDecks::DECK_SIZE + 2, $cards);
 
-        $lanes = $this->assertEveryPlacementMatchesTheBoardPage($cards, [6, 0, 6, 6, 0, 3]);
-        self::assertCount(3, $lanes);
+        $lanes = $this->assertEveryPlacementMatchesTheBoardPage($cards, [14, 6, 0, 7, 6, 0, 3]);
+        self::assertCount(4, $lanes);
+        self::assertSame((string) $waitingEpic->id, $lanes[0]);
+        // Guard: the decks compared above hold cards, and one of them is cut at the deck size.
+        $decks = $this->boardPagePlacements()[4];
+        self::assertSame([(string) $waitingEpic->id, (string) $openEpic->id], array_keys($decks));
+        self::assertCount(LaneDecks::DECK_SIZE, $decks[(string) $waitingEpic->id]->cards);
+        self::assertSame(LaneDecks::DECK_SIZE + 1, $decks[(string) $waitingEpic->id]->count);
 
         foreach ($cards as $card) {
             $card->laneEnabled = false;
         }
         $this->em->flush();
 
-        self::assertSame([], $this->assertEveryPlacementMatchesTheBoardPage($cards, [6, 0, 6, 6, 0, 3]));
+        self::assertSame([], $this->assertEveryPlacementMatchesTheBoardPage($cards, [14, 6, 0, 7, 6, 0, 3]));
     }
 
     /**
@@ -228,7 +313,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
      */
     private function assertEveryPlacementMatchesTheBoardPage(array $cards, array $columnCounts): array
     {
-        [$expected, $counts, $totals, $lanes] = $this->boardPagePlacements();
+        [$expected, $counts, $totals, $lanes, $decks] = $this->boardPagePlacements();
         self::assertSame($columnCounts, array_values($counts));
 
         foreach ($cards as $card) {
@@ -249,6 +334,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
                 [(string) $view->column?->id, $view->after, $view->rowAfter, $view->lane, $view->laneHead, $view->laneAfter],
                 $card->title,
             );
+            self::assertSame($this->deckFace($decks[(string) $card->id] ?? null), $this->deckFace($view->deck), $card->title);
         }
 
         return $lanes;
@@ -258,7 +344,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
      * The board page's reading: the list runs column by column, and a board
      * with lanes places each card in the cell of its lane.
      *
-     * @return array{array<string, array{string, ?string, ?string, ?string, bool, ?string}>, array<string, int>, array<string, int>, list<string>}
+     * @return array{array<string, array{string, ?string, ?string, ?string, bool, ?string}>, array<string, int>, array<string, int>, list<string>, array<string, LaneDeckView>}
      */
     private function boardPagePlacements(): array
     {
@@ -288,7 +374,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         }
 
         $expected = [];
-        $counts = [];
+        $counts = [(string) $board->backlog->id => $board->backlogCount];
         $totals = [];
         $previousRow = null;
         foreach ($board->columns as $columnView) {
@@ -314,7 +400,18 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
             }
         }
 
-        return [$expected, $counts, $totals, array_values($laneEpics)];
+        // A lane epic in the Backlog has a lane head and no list row.
+        foreach ($laneEpics as $laneIndex => $epicId) {
+            $expected[$epicId] ??= [(string) $board->backlog->id, null, null, null, true, $laneEpics[$laneIndex - 1] ?? null];
+        }
+
+        return [$expected, $counts, $totals, array_values($laneEpics), $board->decks];
+    }
+
+    /** @return array{list<string>, int}|null the card ids and the count of a deck */
+    private function deckFace(?LaneDeckView $deck): ?array
+    {
+        return null === $deck ? null : [array_map(static fn (Card $card): string => (string) $card->id, $deck->cards), $deck->count];
     }
 
     private function boardCard(
@@ -358,10 +455,10 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
     public function test_a_child_follows_the_card_before_it_in_its_lane(): void
     {
         $epic = $this->epic('Epic', 'next');
-        $this->card('Other first', 'backlog', 0);
-        $firstChild = $this->child($epic, $this->card('Child first', 'backlog', 1));
-        $otherSecond = $this->card('Other second', 'backlog', 2);
-        $secondChild = $this->child($epic, $this->card('Child second', 'backlog', 3));
+        $this->card('Other first', 'triage', 0);
+        $firstChild = $this->child($epic, $this->card('Child first', 'triage', 1));
+        $otherSecond = $this->card('Other second', 'triage', 2);
+        $secondChild = $this->child($epic, $this->card('Child second', 'triage', 3));
 
         $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $secondChild));
 
@@ -374,9 +471,9 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
     public function test_a_card_outside_every_lane_follows_the_card_before_it_in_the_other_row(): void
     {
         $epic = $this->epic('Epic', 'next');
-        $otherFirst = $this->card('Other first', 'backlog', 0);
-        $child = $this->child($epic, $this->card('Child', 'backlog', 1));
-        $otherSecond = $this->card('Other second', 'backlog', 2);
+        $otherFirst = $this->card('Other first', 'triage', 0);
+        $child = $this->child($epic, $this->card('Child', 'triage', 1));
+        $otherSecond = $this->card('Other second', 'triage', 2);
 
         $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $otherSecond));
 
@@ -423,7 +520,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
     public function test_a_card_with_no_parent_sits_in_the_other_lane(): void
     {
         $this->card('Epic', 'next', 0, CardType::Epic);
-        $orphan = $this->card('Orphan', 'backlog', 0);
+        $orphan = $this->card('Orphan', 'triage', 0);
 
         $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $orphan));
 
@@ -436,7 +533,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         $laneOff = $this->card('Epic with no lane', 'next', 1, CardType::Epic);
         $laneOff->laneEnabled = false;
         $this->em->flush();
-        $child = $this->card('Child', 'backlog', 0, parent: $laneOff);
+        $child = $this->card('Child', 'triage', 0, parent: $laneOff);
 
         $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $child));
 
@@ -482,8 +579,8 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
 
     public function test_a_lane_head_follows_the_lane_before_it_in_board_order(): void
     {
-        $this->card('Plain', 'backlog', 0);
-        $first = $this->card('First epic', 'backlog', 1, CardType::Epic);
+        $this->card('Plain', 'triage', 0);
+        $first = $this->card('First epic', 'triage', 1, CardType::Epic);
         $second = $this->card('Second epic', 'next', 0, CardType::Epic);
         $third = $this->card('Third epic', 'next', 1, CardType::Epic);
 
@@ -496,7 +593,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
 
     public function test_a_card_that_is_no_lane_head_follows_no_lane(): void
     {
-        $epic = $this->card('Epic', 'backlog', 0, CardType::Epic);
+        $epic = $this->card('Epic', 'triage', 0, CardType::Epic);
         $child = $this->card('Child', 'next', 0, parent: $epic);
 
         $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $child));
