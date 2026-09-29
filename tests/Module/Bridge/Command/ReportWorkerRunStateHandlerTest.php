@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Command;
 
+use App\Mercure\LiveUpdatePublisher;
+use App\Mercure\LiveUpdates;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\ReportWorkerRunStateCommand;
 use App\Module\Bridge\Command\ReportWorkerRunStateHandler;
@@ -11,6 +13,7 @@ use App\Module\Bridge\Command\ReportWorkerRunStateResult;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunModelUsage;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -21,8 +24,14 @@ use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Mercure\Jwt\StaticTokenProvider;
+use Symfony\Component\Mercure\MockHub;
+use Symfony\Component\Mercure\Update;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Service\ResetInterface;
 use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\FeatureFlagsBundle\Reader\FeatureFlagReaderInterface;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ReportWorkerRunStateHandlerTest extends KernelTestCase
 {
@@ -31,6 +40,9 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
     private const string BRIDGE = '0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90';
 
     private const string SESSION = '5f0c2b1e-8d4a-4c3b-9e2f-1a0b3c4d5e6f';
+
+    /** @var list<Update> */
+    private array $runsChanged = [];
 
     /**
      * Each step is a state the bridge reports, or a server inference written
@@ -528,6 +540,40 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertSame('quick', $this->storedPool($run));
     }
 
+    /** An open Runs page shows the pool, so a repeat that moves the run to another pool must reload it. */
+    public function test_a_repeat_that_moves_the_pool_tells_the_runs_page(): void
+    {
+        self::bootKernel();
+        $this->recordRunsChanged();
+        [$owner, $project] = $this->scenario('handler-pool-publish');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, workerPool: 'default');
+        self::assertCount(1, $this->publishedRunsChanged());
+
+        $repeat = $this->report($owner, $project, $runKey, WorkerRunState::Queued, workerPool: 'quick');
+
+        self::assertFalse($repeat->newState);
+        self::assertCount(1, $this->publishedRunsChanged());
+    }
+
+    public function test_a_repeat_that_keeps_the_pool_tells_nobody(): void
+    {
+        self::bootKernel();
+        $this->recordRunsChanged();
+        [$owner, $project] = $this->scenario('handler-pool-quiet');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, workerPool: 'default');
+        // The guard: the first report publishes, so the recording works.
+        self::assertCount(1, $this->publishedRunsChanged());
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, workerPool: 'default');
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued);
+
+        self::assertCount(0, $this->publishedRunsChanged());
+    }
+
     /** @return array{User, Project} */
     private function scenario(string $name): array
     {
@@ -617,6 +663,42 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         );
 
         return array_map(static fn (array $row): array => [$row['model'], $row['input_tokens']], $rows);
+    }
+
+    /** Before anything builds the hub: the container hands the replacement only to what it builds afterwards. */
+    private function recordRunsChanged(): void
+    {
+        self::getContainer()->set('mercure.hub.default', new MockHub(
+            'http://mercure/.well-known/mercure',
+            new StaticTokenProvider('token'),
+            function (Update $update): string {
+                if (str_contains($update->getData(), WorkerRunChangedPublisher::TYPE)) {
+                    $this->runsChanged[] = $update;
+                }
+
+                return 'id';
+            },
+        ));
+
+        $flags = self::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[LiveUpdates::FLAG]->value = true;
+        $this->em()->flush();
+        $reader = self::getContainer()->get(FeatureFlagReaderInterface::class);
+        self::assertInstanceOf(ResetInterface::class, $reader);
+        $reader->reset();
+    }
+
+    /** @return list<Update> the runs-changed updates sent since the last call */
+    private function publishedRunsChanged(): array
+    {
+        $live = self::getContainer()->get(LiveUpdatePublisher::class);
+        self::assertInstanceOf(LiveUpdatePublisher::class, $live);
+        $live->publish();
+        $published = $this->runsChanged;
+        $this->runsChanged = [];
+
+        return $published;
     }
 
     private function storedPool(WorkerRun $run): ?string
