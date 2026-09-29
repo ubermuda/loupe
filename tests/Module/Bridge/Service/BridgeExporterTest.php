@@ -28,6 +28,11 @@ final class BridgeExporterTest extends TestCase
         $pool = ['name' => 'default', 'size' => 3, 'inUse' => 1, 'queued' => 0];
         $bridge->workerPools = [$pool];
         $bridge->workerPoolsReportedAt = new \DateTimeImmutable('2026-09-14T15:59:00+00:00');
+        $bridge->pauseRequested = true;
+        $bridge->pauseRequestedAt = new \DateTimeImmutable('2026-09-14T15:30:00+00:00');
+        $bridge->pauseRequestedBy = $owner;
+        $bridge->pausedReported = false;
+        $bridge->capabilities = ['commands'];
 
         $rows = iterator_to_array(new BridgeExporter($this->repositoryReturning($bridge))->export($owner));
 
@@ -41,6 +46,10 @@ final class BridgeExporterTest extends TestCase
             'hooks' => [$hook],
             'workerPools' => [$pool],
             'workerPoolsReportedAt' => '2026-09-14T15:59:00+00:00',
+            'pauseRequested' => true,
+            'pauseRequestedAt' => '2026-09-14T15:30:00+00:00',
+            'pausedReported' => false,
+            'capabilities' => ['commands'],
         ]], $rows);
     }
 
