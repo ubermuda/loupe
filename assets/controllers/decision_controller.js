@@ -1,4 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
+import { renderStreamMessage } from '@hotwired/turbo';
+import { on } from '../lib/live.js';
 
 const NOTE_DELAY = 800;
 const STREAM_TYPE = 'text/vnd.turbo-stream.html';
@@ -29,6 +31,8 @@ export default class extends Controller {
         notePlaceholder: String,
         clearLabel: String,
         errorMessage: String,
+        summaryUrl: String,
+        changedBy: String,
     };
 
     connect() {
@@ -52,9 +56,16 @@ export default class extends Controller {
         )) {
             this.decorate(block);
         }
+        this.summaryRunning = false;
+        this.summaryAgain = false;
+        if (this.element.dataset.decisionPage !== undefined)
+            this.unsubscribe = on('review.decision_changed', (change) =>
+                this.receive(change),
+            );
     }
 
     disconnect() {
+        this.unsubscribe?.();
         document.removeEventListener('turbo:before-visit', this.beforeVisit);
         document.removeEventListener('turbo:before-cache', this.beforeCache);
         window.removeEventListener('beforeunload', this.beforeUnload);
@@ -287,6 +298,97 @@ export default class extends Controller {
 
     isStream(response) {
         return Boolean(response?.contentType?.startsWith(STREAM_TYPE));
+    }
+
+    // Another tab saved an answer. A block with a save of its own keeps its
+    // state, because that save reaches the server after this one.
+    receive(change) {
+        if (change.own) return;
+        const block = [
+            ...this.element.querySelectorAll('fieldset[data-decision-id]'),
+        ].find(
+            (candidate) => candidate.dataset.decisionId === change.decisionId,
+        );
+        if (
+            block &&
+            !this.busy(block) &&
+            change.versionNumber === this.versionNumber()
+        )
+            this.merge(block, change);
+        this.refreshSummary();
+        if (change.answeredBy) this.showChangedBy(change.answeredBy);
+    }
+
+    busy(block) {
+        return (
+            this.queue.has(block) ||
+            this.timers.has(block) ||
+            this.inFlight?.block === block
+        );
+    }
+
+    versionNumber() {
+        return Number(this.element.dataset.decisionPage.split('/').pop());
+    }
+
+    // A focused note with no edit takes the new note too, or its blur would
+    // save the old note over the one another tab just saved.
+    merge(block, { optionIndexes, note }) {
+        const incoming = note ?? '';
+        const field = block.querySelector('[data-decision-note-field]');
+        const edited =
+            field !== null &&
+            field.value !== (block.dataset.decisionNote ?? '');
+        block.dataset.decisionSavedIndexes = JSON.stringify(optionIndexes);
+        block.dataset.decisionNote = incoming;
+        this.fillBlock(block, {
+            indexes: optionIndexes,
+            note: edited ? field.value : incoming,
+        });
+        if (field === null && incoming !== '') this.decorate(block);
+        this.sentStates.set(
+            block,
+            this.stateKey({
+                indexes: this.state(block).indexes,
+                note: incoming,
+            }),
+        );
+    }
+
+    // One read at a time. A change that arrives during a read asks for one more.
+    async refreshSummary() {
+        if (!this.hasSummaryUrlValue) return;
+        if (this.summaryRunning) {
+            this.summaryAgain = true;
+            return;
+        }
+        this.summaryRunning = true;
+        do {
+            this.summaryAgain = false;
+            try {
+                // A read of the summary, with no form to submit.
+                // eslint-disable-next-line no-restricted-syntax
+                const response = await fetch(this.summaryUrlValue, {
+                    headers: { Accept: STREAM_TYPE },
+                    credentials: 'same-origin',
+                });
+                const type = response.headers.get('Content-Type') ?? '';
+                if (response.ok && type.startsWith(STREAM_TYPE))
+                    renderStreamMessage(await response.text());
+            } catch {
+                // The next change reads the summary again.
+            }
+        } while (this.summaryAgain);
+        this.summaryRunning = false;
+    }
+
+    showChangedBy(name) {
+        const status = document.getElementById('decision-status');
+        if (!status) return;
+        const message = document.createElement('span');
+        message.className = 'lp-decision-status__message';
+        message.textContent = this.changedByValue.replace('%name%', name);
+        status.replaceChildren(message);
     }
 
     showError() {

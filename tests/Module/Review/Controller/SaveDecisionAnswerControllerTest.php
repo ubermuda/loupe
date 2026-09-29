@@ -420,6 +420,21 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
         self::assertNotContains($documentTopic, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value')));
     }
 
+    public function test_the_review_page_names_the_summary_of_its_version_and_a_diff_does_not(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+        $this->revise($document, self::MARKDOWN."\n\nA closing note.\n");
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $this->reviewPath($document));
+        self::assertSelectorExists('[data-decision-summary-url-value="/projects/'.$document->project->id.'/documents/'.$document->id.'/decisions/summary?versionNumber=2"][data-decision-changed-by-value="Changed by %name%."]');
+
+        $client->request(Request::METHOD_GET, $this->reviewPath($document).'/diff/1/2');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('[data-decision-summary-url-value]');
+    }
+
     /** Only a legitimate owner reaches the token check, so the non-owner test cannot cover it. */
     public function test_an_answer_without_a_valid_csrf_token_is_refused(): void
     {

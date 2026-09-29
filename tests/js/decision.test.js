@@ -1,14 +1,42 @@
 /** @vitest-environment jsdom */
 import { Application } from '@hotwired/stimulus';
+import { renderStreamMessage } from '@hotwired/turbo';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import DecisionController from '../../assets/controllers/decision_controller.js';
+import { on } from '../../assets/lib/live.js';
+
+vi.mock('@hotwired/turbo', () => ({ renderStreamMessage: vi.fn() }));
+vi.mock('../../assets/lib/live.js', () => ({ on: vi.fn(() => () => {}) }));
+
+const SUMMARY = '/projects/p/documents/doc-1/decisions/summary?versionNumber=3';
+const STREAM = 'text/vnd.turbo-stream.html; charset=UTF-8';
 
 let application;
 let sent;
+let receive;
+let unsubscribe;
 
 beforeEach(() => {
     vi.useFakeTimers();
     sent = [];
+    receive = undefined;
+    unsubscribe = vi.fn();
+    on.mockReset();
+    on.mockImplementation((types, handler) => {
+        receive = handler;
+        return unsubscribe;
+    });
+    renderStreamMessage.mockReset();
+    vi.stubGlobal(
+        'fetch',
+        vi.fn(() =>
+            Promise.resolve({
+                ok: true,
+                headers: new Headers({ 'Content-Type': STREAM }),
+                text: () => Promise.resolve('<turbo-stream></turbo-stream>'),
+            }),
+        ),
+    );
     application = Application.start();
     application.register('decision', DecisionController);
 });
@@ -18,6 +46,7 @@ afterEach(async () => {
     await vi.advanceTimersByTimeAsync(0);
     application.stop();
     delete window.Turbo;
+    vi.unstubAllGlobals();
     vi.useRealTimers();
 });
 
@@ -58,6 +87,8 @@ async function mount({
     document.body.innerHTML = `<p id="decision-status"></p>
 <div data-controller="decision" data-action="change->decision#select"
         data-decision-page="${page}"
+        data-decision-summary-url-value="${SUMMARY}"
+        data-decision-changed-by-value="Changed by %name%."
         data-decision-note-label-value="Note"
         data-decision-note-placeholder-value="Add a note"
         data-decision-clear-label-value="Clear"
@@ -784,4 +815,173 @@ it('sends the Clear again when Turbo cached the page while it was in flight', as
         note: 'Kept',
         clear: false,
     });
+});
+
+const change = (fields = {}) => ({
+    type: 'review.decision_changed',
+    decisionId: 'a',
+    versionNumber: 3,
+    optionIndexes: [1],
+    note: 'Theirs',
+    answeredBy: 'Ann Other',
+    answeredAt: '2026-09-29T10:00:00+00:00',
+    local: false,
+    own: false,
+    ...fields,
+});
+
+const checked = (id) =>
+    [
+        ...document.querySelectorAll(
+            `[data-decision-id="${id}"] input[data-decision-option]:checked`,
+        ),
+    ].map((input) => input.value);
+
+it('ignores a change that this tab saved', async () => {
+    await mount();
+    receive(change({ own: true }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(checked('a')).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+});
+
+it('shows the picks and note another tab saved, and does not send them back', async () => {
+    await mount({ notes: { a: 'Mine' } });
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(checked('a')).toEqual(['1']);
+    expect(note('a').value).toBe('Theirs');
+    const fieldset = document.querySelector('[data-decision-id="a"]');
+    expect(fieldset.dataset.decisionSavedIndexes).toBe('[1]');
+    expect(fieldset.dataset.decisionNote).toBe('Theirs');
+    expect(document.getElementById('decision-status').textContent).toBe(
+        'Changed by Ann Other.',
+    );
+
+    note('a').dispatchEvent(new Event('blur'));
+    expect(sent).toHaveLength(0);
+});
+
+it('does not apply picks saved on another version, and still reads the summary', async () => {
+    await mount();
+    receive(change({ versionNumber: 4 }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(checked('a')).toEqual([]);
+    expect(fetch).toHaveBeenCalledOnce();
+});
+
+it('leaves a block alone while its own save is in flight or waiting', async () => {
+    await mount();
+    check('a', 0);
+    type('b', 'Mine');
+    receive(change({ optionIndexes: [1] }));
+    receive(change({ decisionId: 'b', optionIndexes: [1] }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(checked('a')).toEqual(['0']);
+    expect(checked('b')).toEqual([]);
+    expect(note('b').value).toBe('Mine');
+});
+
+it('keeps a note with an unsaved edit, and saves it with the new picks', async () => {
+    await mount({ notes: { a: 'Old' } });
+    note('a').focus();
+    note('a').value = 'Draft';
+    receive(change({ optionIndexes: [0] }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(note('a').value).toBe('Draft');
+    expect(checked('a')).toEqual(['0']);
+    note('a').dispatchEvent(new Event('blur'));
+    expect(sent).toEqual([
+        { decisionId: 'a', indexes: ['0'], note: 'Draft', clear: false },
+    ]);
+});
+
+it('gives a focused note with no edit the new note', async () => {
+    await mount({ notes: { a: 'Old' } });
+    note('a').focus();
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(note('a').value).toBe('Theirs');
+    note('a').dispatchEvent(new Event('blur'));
+    expect(sent).toHaveLength(0);
+});
+
+it('shows a note another tab saved on a read-only page', async () => {
+    await mount({ editable: false });
+    receive(change({ decisionId: 'b', note: 'Theirs' }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(note('b').value).toBe('Theirs');
+    expect(note('b').readOnly).toBe(true);
+});
+
+it('renders the summary it reads as a stream', async () => {
+    await mount();
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fetch).toHaveBeenCalledWith(SUMMARY, {
+        headers: { Accept: 'text/vnd.turbo-stream.html' },
+        credentials: 'same-origin',
+    });
+    expect(renderStreamMessage).toHaveBeenCalledWith(
+        '<turbo-stream></turbo-stream>',
+    );
+});
+
+it('reads the summary once more for a burst that arrives during a read', async () => {
+    let answer;
+    fetch.mockImplementationOnce(
+        () => new Promise((resolve) => (answer = resolve)),
+    );
+    await mount();
+    receive(change());
+    receive(change());
+    receive(change());
+    expect(fetch).toHaveBeenCalledOnce();
+
+    answer({ ok: false, headers: new Headers() });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).toHaveBeenCalledTimes(2);
+});
+
+it('ignores a summary read that fails', async () => {
+    fetch.mockRejectedValueOnce(new TypeError('offline'));
+    await mount();
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(renderStreamMessage).not.toHaveBeenCalled();
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(renderStreamMessage).toHaveBeenCalledOnce();
+});
+
+it('writes no name when the change has none', async () => {
+    await mount();
+    receive(change({ answeredBy: null }));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(document.getElementById('decision-status').textContent).toBe('');
+});
+
+it('listens only on a page that is not a comparison, and stops on disconnect', async () => {
+    document.body.innerHTML = '<div data-controller="decision"></div>';
+    await vi.advanceTimersByTimeAsync(0);
+    expect(on).not.toHaveBeenCalled();
+
+    await mount();
+    expect(on).toHaveBeenCalledWith(
+        'review.decision_changed',
+        expect.any(Function),
+    );
+    document.body.replaceChildren();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(unsubscribe).toHaveBeenCalled();
 });
