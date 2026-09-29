@@ -1,0 +1,31 @@
+name: Pull Docker Hub images through a mirror
+description: Pull each Docker Hub image from mirror.gcr.io and tag it with its Docker Hub name, with Docker Hub as the fallback.
+
+inputs:
+  images:
+    description: Docker Hub image references, separated by whitespace. An image that is already present is skipped.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # The runner sends its Docker Hub credentials to a daemon mirror too, and
+    # mirror.gcr.io refuses them, so each image is pulled by its mirror name.
+    - shell: bash
+      env:
+        IMAGES: ${{ inputs.images }}
+      run: |
+        for image in $IMAGES; do
+          if docker image inspect "$image" >/dev/null 2>&1; then
+            echo "$image is present"
+            continue
+          fi
+          ref=${image#docker.io/}
+          case "$ref" in */*) ;; *) ref="library/$ref" ;; esac
+          if docker pull -q "mirror.gcr.io/$ref"; then
+            docker tag "mirror.gcr.io/$ref" "$image"
+          else
+            echo "::warning::mirror.gcr.io has no $image, so it comes from Docker Hub"
+            docker pull -q "$image"
+          fi
+        done
