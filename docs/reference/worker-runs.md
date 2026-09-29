@@ -112,7 +112,7 @@ order.
 | `workerPool` | the worker pool the bridge runs the worker in. It starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens, such as `default` |
 | `experiment` | the experiment of the rule that ran the worker, such as `impl-model`. It matches `^[a-z0-9][a-z0-9_-]{0,63}$` |
 | `variant` | the variant of the experiment that the card runs with, such as `sonnet`. It matches the same pattern |
-| `requestedModel` | the model the variant asked for, such as `claude-sonnet-5-5`, at most 100 characters |
+| `requestedModel` | the model the variant asked for, such as `claude-sonnet-5-5`, at most 100 characters with no control characters |
 | `switchedFrom` | the variant the card was pinned to before this run, when the rule no longer offers it. It matches the same pattern |
 
 A `gave-up` report needs the exit code, the result flag and the status of the
@@ -134,11 +134,13 @@ can show the pool it had before the move.
 
 The bridge sends `experiment`, `variant`, `requestedModel` and `switchedFrom`
 on `running` and on the outcome, never on `queued`. A run with no experiment
-sends none of them. The server stores each field from the first report that
-carries it, and ignores the value on a later report. A `not-started` outcome
-also fills them, because the bridge resolves the
-[experiment pin](#resolving-an-experiment-pin) before it starts the worker. A
-blank value, or a value that breaks its rule, gets a 422.
+sends none of them. A report that carries `experiment` must also carry
+`variant`, and `requestedModel` and `switchedFrom` need `experiment`. The server
+stores the four fields together from the first report that carries them, and
+ignores them on a later report. A `not-started` outcome also fills them, because
+the bridge resolves the [experiment pin](#resolving-an-experiment-pin) before it
+starts the worker. A blank value, a value that breaks its rule, or a field
+without its partner gets a 422.
 
 The server checks the shape of `askId`, `replacedBy`, `maxChain` and `reason`,
 and it does not store them.
@@ -364,6 +366,7 @@ Two first calls for one card get the same answer, because the first pin stays.
 |---|---|---|
 | 200 | `{"variant":"sonnet","switchedFrom":null}` | the server resolved the variant of the card |
 | 400 | a problem object | the body is not valid JSON |
+| 415 | a problem object | the `Content-Type` is not `application/json` |
 | 401 | | the request carries no token |
 | 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
@@ -373,8 +376,9 @@ Two first calls for one card get the same answer, because the first pin stays.
 | 422 | `{"error":"invalid_variants"}` | the body is empty, `variants` breaks its rule, or `candidate` is not one of `variants` |
 | 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
 
-Every refusal the endpoint makes carries an error code. The bridge reads a 404
-with no error code as a server that has no pin endpoint.
+Every refusal the endpoint makes carries an error code. The 400 and the 415 come
+from the framework before the endpoint runs, and carry none. The bridge reads a
+404 with no error code as a server that has no pin endpoint.
 
 ## Timed out and lost
 
@@ -499,9 +503,9 @@ endpoint answers 404 there.
 ### Rate limit
 
 The endpoints on this page share one limit, `agent_worker_runs`, of 240
-requests in one minute for each token. A run sends about four state reports, and a run in an
-experiment adds one pin call. The limit lets a bridge drain a full queue of 256
-reports before its retries give up.
+requests in one minute for each token. A run sends about four state reports,
+and a run in an experiment adds one pin call. The limit lets a bridge drain a
+full queue of 256 reports before its retries give up.
 
 ## What a missing record means
 

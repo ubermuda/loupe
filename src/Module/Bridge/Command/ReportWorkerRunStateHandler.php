@@ -179,13 +179,17 @@ final readonly class ReportWorkerRunStateHandler
         }
     }
 
-    /** Reports can arrive out of order, so the first report that names a field wins. */
+    /** Reports can arrive out of order, so the first report that names an experiment sets all four fields. */
     private function fillExperiment(WorkerRun $run, ReportWorkerRunStateCommand $command): void
     {
-        $run->experiment ??= $command->experiment;
-        $run->variant ??= $command->variant;
-        $run->requestedModel ??= $command->requestedModel;
-        $run->switchedFrom ??= $command->switchedFrom;
+        if (null !== $run->experiment || null === $command->experiment) {
+            return;
+        }
+
+        $run->experiment = $command->experiment;
+        $run->variant = $command->variant;
+        $run->requestedModel = $command->requestedModel;
+        $run->switchedFrom = $command->switchedFrom;
     }
 
     private function apply(WorkerRun $run, ReportWorkerRunStateCommand $command): void

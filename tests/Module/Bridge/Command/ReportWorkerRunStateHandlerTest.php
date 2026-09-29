@@ -640,6 +640,21 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertSame(self::EXPERIMENT, $this->storedExperiment($run));
     }
 
+    /** A later report cannot fill one field of the experiment the run already holds. */
+    public function test_a_later_report_does_not_add_to_the_experiment(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-experiment-grouped');
+        $runKey = Uuid::v4();
+        $first = [...self::EXPERIMENT, 'switchedFrom' => null];
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Running, experiment: $first);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Succeeded, experiment: [...self::EXPERIMENT, 'variant' => 'haiku'])->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame($first, $this->storedExperiment($run));
+    }
+
     /** @return iterable<string, array{WorkerRunState}> */
     public static function outcomes(): iterable
     {

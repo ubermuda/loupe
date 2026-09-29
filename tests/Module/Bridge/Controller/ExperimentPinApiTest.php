@@ -157,6 +157,26 @@ final class ExperimentPinApiTest extends WebTestCase
         self::assertSame([], $this->allPins());
     }
 
+    public function test_a_body_that_is_not_marked_json_is_unsupported(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'pin-api-content-type@example.com');
+        $project = $this->project($em, $owner, 'Pin Api Content Type');
+        $raw = $this->agentToken($client, $owner);
+
+        $client->request(
+            Request::METHOD_PUT,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw, 'CONTENT_TYPE' => 'text/plain', 'HTTP_ACCEPT' => 'application/json'],
+            content: self::BODY,
+        );
+
+        self::assertResponseStatusCodeSame(415);
+        self::assertStringNotContainsString('"error"', $this->body($client));
+        self::assertSame([], $this->allPins());
+    }
+
     public function test_thirty_two_variants_are_accepted(): void
     {
         $client = static::createClient();
@@ -188,6 +208,7 @@ final class ExperimentPinApiTest extends WebTestCase
         $this->put($client, $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()), $raw, self::BODY);
 
         self::assertResponseStatusCodeSame(403);
+        self::assertJsonStringEqualsJsonString('{"error":"insufficient_scope"}', $this->body($client));
         self::assertSame([], $this->allPins());
     }
 

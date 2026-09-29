@@ -116,6 +116,7 @@ final class ReportWorkerRunStateRequest
 
         #[Assert\Length(max: WorkerRun::MAX_REQUESTED_MODEL_LENGTH)]
         #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: '/^[^\p{C}]+$/uD')]
         public ?string $requestedModel = null,
 
         #[Assert\NotBlank(allowNull: true)]
@@ -149,6 +150,23 @@ final class ReportWorkerRunStateRequest
 
         if (null === $this->startedAt) {
             $context->buildViolation('A running run says when it started.')->atPath('startedAt')->addViolation();
+        }
+    }
+
+    /** The server stores the four experiment fields of a run together. */
+    #[Assert\Callback]
+    public function validateExperiment(ExecutionContextInterface $context): void
+    {
+        if ((null === $this->experiment) !== (null === $this->variant)) {
+            $context->buildViolation('An experiment and its variant come together.')->atPath(null === $this->variant ? 'variant' : 'experiment')->addViolation();
+        }
+
+        if (null === $this->experiment && null !== $this->requestedModel) {
+            $context->buildViolation('A requested model needs an experiment.')->atPath('requestedModel')->addViolation();
+        }
+
+        if (null === $this->experiment && null !== $this->switchedFrom) {
+            $context->buildViolation('A switched-from variant needs an experiment.')->atPath('switchedFrom')->addViolation();
         }
     }
 
