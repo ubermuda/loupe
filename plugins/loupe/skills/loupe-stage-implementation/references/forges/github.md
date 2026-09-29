@@ -46,43 +46,20 @@ Addressed review <id>: <what changed, commits>'
 
 ## Read the checks
 
-Wait for the checks in the foreground, with a Bash timeout of 600000. Never start this wait as a background command. Put the gated SHA in place of `<sha>`, and the number of required checks in place of `<required>`:
-
-```bash
-f="${TMPDIR:-/tmp}/loupe-ci-wait-<sha>"; [ -s "$f" ] || echo $(( $(date +%s) + 3600 )) > "$f"
-for i in $(seq 1 9); do
-  if [ "$(date +%s)" -ge "$(cat "$f")" ]; then b=timeout; break; fi
-  o=$(gh pr checks <url> --required --json bucket -q '([.[].bucket]|unique|join(",")) + " " + (length|tostring)' 2>&1)
-  if printf '%s\n' "$o" | grep -Eqx '((pass|fail|pending|skipping|cancel),?)+ [0-9]+'; then b=${o% *} n=${o##* }
-  elif [ "$o" = " 0" ] || printf '%s\n' "$o" | grep -Eqi 'no (required )?checks reported'; then b=none n=0
-  else b="error: $o"; break; fi
-  case ",$b," in *,fail,*|*,cancel,*) break ;; *,pending,*|,none,) sleep 60 ;; *) [ "$n" -ge <required> ] && break; sleep 60 ;; esac
-done; echo "buckets: $b checks: ${n:-0}/<required>"
-```
-
-One call waits about nine minutes at most. The file holds a deadline 60 minutes after the first call for that SHA, so repeated calls share one limit.
-
-- `fail` or `cancel` in the list: a check failed. Read its log.
-- `timeout`: the wait timed out. Record a block. A `CONFLICTING` pull request runs no checks, so it ends here too.
-- `error:`: `gh` failed. Read the message, then fix the cause or record a block.
-- Every required check present, with no `pending`: the checks concluded. Count them as below.
-- Anything else: `pending`, `none`, or fewer checks than required. Run the loop again.
-
-A stacked pull request has no required checks, so `--required` reads `none` until the wait times out. For a stacked pull request, delete `--required` from the loop and from the count below. Keep the required count of the profile base branch in place of `<required>`, as the least number of checks to wait for. Green then means `pass` and no other bucket, with at least that many checks.
-
-Then read the head again, and count the checks:
+Read the checks once, and never wait for them. The app reads them again after each push.
 
 ```bash
 gh pr view <url> --json headRefOid -q .headRefOid
-gh pr checks <url> --required --json bucket -q 'group_by(.bucket)|map("\(.[0].bucket)=\(length)")|join(" ")'
+gh pr checks <url> --required --json name,bucket,link
 ```
 
-The count describes the gated head only when `headRefOid` still equals it. A rollup can still describe an earlier head, as `working-with-prs` "Merging" item 8 says. Green means `pass=<required count>` and no other bucket. The repository profile says where the list of required checks comes from.
+`bucket` is `pass`, `fail`, `pending`, `skipping` or `cancel`. The reading describes the head only when `headRefOid` equals the commit you care about. A rollup can still describe an earlier head, as `working-with-prs` "Merging" item 8 says. The repository profile says where the list of required checks comes from.
+
+A stacked pull request has no required checks, because the ruleset covers the profile base branch only. For it, drop `--required`, and count every check.
 
 A check's `link` holds `/actions/runs/<run id>/`. Read the failed steps of that run:
 
 ```bash
-gh pr checks <url> --json name,bucket,link
 gh run view <run id> --log-failed
 ```
 
@@ -103,3 +80,28 @@ gh pr view <url> --json mergeable,mergeStateStatus
 ```
 
 `mergeable` is `MERGEABLE`, `CONFLICTING` or `UNKNOWN`. `UNKNOWN` means GitHub still computes it, so read it again after a short wait.
+
+## Read the merge state
+
+```bash
+gh pr view <url> --json state,isDraft,headRefOid,baseRefName,reviewDecision,mergeable,mergeStateStatus
+gh pr checks <url> --required --json bucket -q 'group_by(.bucket)|map("\(.[0].bucket)=\(length)")|join(" ")'
+```
+
+`reviewDecision` is `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED` or empty. `mergeStateStatus` is `CLEAN`, `HAS_HOOKS`, `UNSTABLE`, `BEHIND`, `BLOCKED`, `DIRTY` or `UNKNOWN`. Green means `pass=<required count>` and no other bucket.
+
+## Update the branch
+
+```bash
+gh pr update-branch <url>
+```
+
+This merges the base into the head branch on the forge. Never pass `--rebase`. An update keeps an approval.
+
+## Merge
+
+```bash
+gh pr merge <url> --<method> --match-head-commit <sha>
+```
+
+`<method>` comes from the profile `Merge` section. `--match-head-commit` refuses the merge when the head moved. Never pass `--admin` or `--auto`. After the merge, read `state` again, and accept only `MERGED`.

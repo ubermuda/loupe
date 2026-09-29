@@ -53,13 +53,20 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 3. Keep the body and the `## Preview` section to the rules of `working-with-prs` "Keep the body brief" and "Make the branch testable, not just reviewable".
 4. A branch that changes a page seeds one state per preview link, before the pull request is ready. "The tests cover it", "the seed holds no X" and "it shows after a bridge reports data" are excuses, and no substitute for the seed.
 5. Prove each link with `working-with-prs` "Prove each preview link shows its state". Write the marker you found on the line of each link. When you cannot seed a state, or a marker is missing, stop with `STAGE RESULT: blocked: preview not seeded`. Do not move the card.
-6. Never merge it, and never use `--admin` or `--no-verify`.
+6. Only the merge stage merges it, as the `Merge` section says. Never use `--admin` or `--no-verify`.
 
 ## Board
 
-1. The column that holds a pull request waiting for review is `in-review`.
-2. Move a card there yourself only when your own procedure says to. A move that carries an approval is the app's, never an agent's.
+1. The column that holds a pull request waiting for review is `in-review`. The app moves a card there when the required checks pass, and to `done` after the merge.
+2. No stage moves a card to `in-review` or `done`. A move that carries an approval is the app's, never an agent's.
 3. Never read the column list to find this slug. `board_columns` can be missing, which is why the slug is written here.
 4. The column that holds a card in product design is `product-design`. The `/loupe:product-design` skill reads this slug.
 5. The column that holds a card in implementation is `implementation`. A breakdown moves each child that can start there.
 6. The default column is `backlog`, and the terminal column is `done`. A breakdown reads them to find the children that can start.
+
+## Merge
+
+1. The merge method is `squash`, because the `main` ruleset allows no other.
+2. Pass no body. GitHub builds the squash message from the commit messages, which carry the reasoning.
+3. Merge only a pull request whose base is `main`. A stacked pull request waits until its parent merges and a person retargets it.
+4. `working-with-prs` "Merging" and "What the ruleset actually requires" stay the authority for the checks and the approval.
