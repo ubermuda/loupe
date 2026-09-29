@@ -563,7 +563,8 @@ while the automation is on:
 - When the pull request merges or closes, and each pull request of the card is
   merged or closed with at least one merged, the card moves to the first
   terminal column. A link that Loupe never read, such as one on another forge,
-  counts as open and holds the card back.
+  counts as open and holds the card back. An epic with an open child stays
+  where it is.
 
 The system makes these moves, and a card in a terminal column never moves. For
 any other pull request, move the card yourself, or have your agent move it with

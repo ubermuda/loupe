@@ -9,6 +9,7 @@ use App\Module\Board\Command\MoveCardsOnPullRequestStateHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -188,6 +189,35 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
         $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
 
         self::assertSame('done', $card->column->slug);
+    }
+
+    public function test_a_merge_reads_the_other_links_as_the_database_holds_them_now(): void
+    {
+        $card = $this->linkedCard('in-review');
+        $this->alsoLink($card, 6, PullRequestState::Open);
+        $this->em->getConnection()->executeStatement(
+            "UPDATE forge_pull_requests SET state = 'merged' WHERE project_id = :project AND number = 6",
+            ['project' => (string) $this->project->id],
+        );
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Merged));
+
+        self::assertSame('done', $this->storedColumnOf($card));
+    }
+
+    public function test_a_merge_leaves_an_epic_with_an_open_child_in_its_column(): void
+    {
+        $epic = $this->linkedCard('in-review');
+        $epic->type = CardType::Epic;
+        $child = new Card($this->project, $this->column($this->project, 'backlog'), 'A child', '', ++$this->cardNumber);
+        $child->parent = $epic;
+        $this->em->persist($child);
+        $this->em->flush();
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Merged));
+
+        self::assertSame('in-review', $this->storedColumnOf($epic));
+        self::assertSame([], $this->moves());
     }
 
     public function test_a_merge_with_a_second_link_never_read_moves_nothing(): void

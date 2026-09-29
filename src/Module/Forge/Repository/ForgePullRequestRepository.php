@@ -199,6 +199,47 @@ final class ForgePullRequestRepository extends ServiceEntityRepository
         );
     }
 
+    /**
+     * The state of each row as the database holds it now. A scalar read, so
+     * the identity map cannot answer with a row loaded before a lock.
+     *
+     * @param list<array{forge: string, repository: string, number: int}> $keys
+     *
+     * @return array<string, PullRequestState> keyed by stateKey()
+     */
+    public function findCurrentStatesByKeys(Uuid $projectId, array $keys): array
+    {
+        if ([] === $keys) {
+            return [];
+        }
+
+        $rows = $this->createQueryBuilder('pr')
+            ->select('pr.forge', 'pr.repository', 'pr.number', 'pr.state')
+            ->andWhere('pr.project = :project')
+            ->andWhere('pr.forge IN (:forges)')
+            ->andWhere('pr.repository IN (:repositories)')
+            ->andWhere('pr.number IN (:numbers)')
+            ->setParameter('project', $projectId, UuidType::NAME)
+            ->setParameter('forges', array_values(array_unique(array_column($keys, 'forge'))))
+            ->setParameter('repositories', array_values(array_unique(array_map(mb_strtolower(...), array_column($keys, 'repository')))))
+            ->setParameter('numbers', array_values(array_unique(array_column($keys, 'number'))))
+            ->getQuery()
+            ->getArrayResult();
+
+        $states = [];
+        foreach ($rows as $row) {
+            $state = $row['state'];
+            $states[self::stateKey((string) $row['forge'], (string) $row['repository'], (int) $row['number'])] = $state instanceof PullRequestState ? $state : PullRequestState::from((string) $state);
+        }
+
+        return $states;
+    }
+
+    public static function stateKey(string $forge, string $repository, int $number): string
+    {
+        return $forge.' '.mb_strtolower($repository).'#'.$number;
+    }
+
     private static function key(string $forge, string $repository, int $number): string
     {
         return $forge.' '.$repository.'#'.$number;
