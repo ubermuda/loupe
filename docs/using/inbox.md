@@ -222,7 +222,7 @@ moves to another column.
 
 The item closes when its last wait ends:
 
-- It closes as **done** when the waits ended by their own cause, such as a
+- It closes as **done** when its last wait ended by its own cause, such as a
   verdict, an archive, a newer run or a move of the card.
 - It closes as **obsolete** when the card finishes or someone deletes it.
 - It closes as **obsolete** when you turn off the switch of its waits on the
