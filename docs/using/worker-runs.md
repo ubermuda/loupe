@@ -36,6 +36,14 @@ A bridge runs its workers in named worker pools, and each report of a run names
 its pool. The row and the drawer show the pool that the last report named. A
 run from an older bridge, and an interactive run, name no pool and show none.
 
+A bridge rule can split its runs between the variants of an experiment, and
+each card keeps the variant of its first run. The drawer of such a run shows an
+**Experiment** line after the rule, such as `impl-model / sonnet
+(claude-sonnet-5-5)`. The line gives the experiment, the variant and the model
+the variant asked for. When the rule no longer offers the variant of the card,
+the card moves to a new variant. The line then adds a note, such as `, switched
+from opus`. A run with no experiment shows no line.
+
 A run that never started carries the reason instead of an exit code, such as a
 missing `claude` binary, or a terminal launcher that failed.
 
@@ -233,7 +241,7 @@ shows no pools.
 ## The output
 
 Select a row to open a read-only drawer without leaving the list.
-It shows the attempt ID, card, rule, worker pool, bridge, session and duration. A run with no worker pool shows no pool row. An interactive run shows a bridge only when a bridge launched it.
+It shows the attempt ID, card, rule, experiment, worker pool, bridge, session and duration. A run with no worker pool shows no pool row. An interactive run shows a bridge only when a bridge launched it.
 A resume also shows its place in the series, and a link to the run it resumes.
 The drawer shows the result status, the reason the bridge skipped a resume, and each extra result field the worker gave.
 It lists each state the run reached, oldest first, with the time of each state, and then the time the first report arrived.

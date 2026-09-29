@@ -110,6 +110,10 @@ order.
 | `cardColumn` | the slug of the column that started the series, at most 2000 characters |
 | `usage` | the tokens the worker spent. See [Usage](#usage) |
 | `workerPool` | the worker pool the bridge runs the worker in. It starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens, such as `default` |
+| `experiment` | the experiment of the rule that ran the worker, such as `impl-model`. It matches `^[a-z0-9][a-z0-9_-]{0,63}$` |
+| `variant` | the variant of the experiment that the card runs with, such as `sonnet`. It matches the same pattern |
+| `requestedModel` | the model the variant asked for, such as `claude-sonnet-5-5`, at most 100 characters |
+| `switchedFrom` | the variant the card was pinned to before this run, when the rule no longer offers it. It matches the same pattern |
 
 A `gave-up` report needs the exit code, the result flag and the status of the
 outcome the bridge would have resumed: `failed`, `no-result` or `unfinished`.
@@ -127,6 +131,14 @@ with no `workerPool` keeps the stored pool. A bridge built before worker pools
 sends none, and its runs have no pool. The bridge can move a queued run to
 another pool before the run starts. Until the next report arrives, a queued run
 can show the pool it had before the move.
+
+The bridge sends `experiment`, `variant`, `requestedModel` and `switchedFrom`
+on `running` and on the outcome, never on `queued`. A run with no experiment
+sends none of them. The server stores each field from the first report that
+carries it, and ignores the value on a later report. A `not-started` outcome
+also fills them, because the bridge resolves the
+[experiment pin](#resolving-an-experiment-pin) before it starts the worker. A
+blank value, or a value that breaks its rule, gets a 422.
 
 The server checks the shape of `askId`, `replacedBy`, `maxChain` and `reason`,
 and it does not store them.
@@ -307,6 +319,63 @@ estimated counts with reported ones. It never replaces reported counts.
 | 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
 | 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
 
+## Resolving an experiment pin
+
+`PUT /api/projects/{handle}/experiments/{experiment}/pins/{cardId}`
+
+A rule can split its runs between the variants of an experiment. The bridge
+draws a candidate variant for the card, and calls this endpoint before it starts
+the worker. The server pins one variant to each card of each experiment, so the
+later runs of a card keep the variant of its first run.
+
+The handle follows the rules of the [run state report](#reporting-a-run-state).
+`cardId` is the uuid of the card, and `experiment` is the experiment name.
+The endpoint needs a token with the `agent` scope.
+
+```json
+{
+  "candidate": "sonnet",
+  "variants": ["opus", "sonnet"]
+}
+```
+
+| Field | Rule |
+|---|---|
+| `variants` | required. The variants the rule offers now, as a list of 1 to 32 unique names. Each name matches `^[a-z0-9][a-z0-9_-]{0,63}$` |
+| `candidate` | required. The variant the bridge drew for the card. It must be one of `variants` |
+
+The server answers the variant the card runs with:
+
+- A card with no pin takes the candidate, and the server stores it as the pin.
+- A card whose pinned variant is still in `variants` keeps its pin, and the
+  server ignores the candidate.
+- A card whose pinned variant is no longer in `variants` takes the candidate.
+  The answer names the old variant in `switchedFrom`.
+
+```json
+{"variant": "sonnet", "switchedFrom": "opus"}
+```
+
+`switchedFrom` is `null` when the pin did not move. Every call refreshes the
+pin, so the pins of active cards outlive the [retention](#retention) window.
+Two first calls for one card get the same answer, because the first pin stays.
+
+| Status | Body | When |
+|---|---|---|
+| 200 | `{"variant":"sonnet","switchedFrom":null}` | the server resolved the variant of the card |
+| 400 | a problem object | the body is not valid JSON |
+| 401 | | the request carries no token |
+| 403 | `{"error":"insufficient_scope"}` | the token carries another scope, such as `site-review` |
+| 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
+| 404 | | agent push is switched off on the instance, or the server has no such endpoint |
+| 422 | `{"error":"invalid_card_id"}` | `cardId` is not a uuid |
+| 422 | `{"error":"invalid_experiment"}` | `experiment` breaks the name pattern |
+| 422 | `{"error":"invalid_variants"}` | the body is empty, `variants` breaks its rule, or `candidate` is not one of `variants` |
+| 429 | | the token went over the rate limit. See [Rate limit](#rate-limit) |
+
+Every refusal the endpoint makes carries an error code. The bridge reads a 404
+with no error code as a server that has no pin endpoint.
+
 ## Timed out and lost
 
 A run stays open until its bridge reports how it ended. A bridge that dies
@@ -422,16 +491,17 @@ this page.
 
 ## Feature flag and rate limit
 
-The four endpoints need the `agent.push.enabled` feature flag, as
+The endpoints on this page need the `agent.push.enabled` feature flag, as
 `GET /api/events` does. A bridge reaches a worker only through the event
 stream, so an instance with push off can produce no run to report, and each
 endpoint answers 404 there.
 
 ### Rate limit
 
-The four endpoints share one limit, `agent_worker_runs`, of 240 requests in one
-minute for each token. A run sends about four state reports. The limit lets a
-bridge drain a full queue of 256 reports before its retries give up.
+The endpoints on this page share one limit, `agent_worker_runs`, of 240
+requests in one minute for each token. A run sends about four state reports, and a run in an
+experiment adds one pin call. The limit lets a bridge drain a full queue of 256
+reports before its retries give up.
 
 ## What a missing record means
 
@@ -471,7 +541,16 @@ The sweep cuts on the server's arrival time rather than on the bridge clock. A
 bridge with a wrong clock would otherwise stamp a run outside the window and
 lose it on the next sweep.
 
-Deleting a project deletes its run records and its usage with it. Deleting an
-account deletes the run records and the usage of every project it owned. The
-account's data export holds each run with its state, its history, its usage
-source and its worker pool in `worker_runs.json`, and every usage row in `worker_run_usage.json`.
+The same sweep deletes each [experiment pin](#resolving-an-experiment-pin)
+whose last resolve is older than the run retention window. The next run of that
+card then picks a variant again. Every resolve refreshes a pin, so the sweep
+takes only the pins of idle cards.
+
+Deleting a project deletes its run records, its usage and its experiment pins
+with it. Deleting an account deletes the same data of every project it owned.
+The account's data export holds each run in `worker_runs.json`, with its state,
+its history, its usage source, its worker pool, and its `experiment`, `variant`,
+`requestedModel` and `switchedFrom`. It holds every usage row in
+`worker_run_usage.json`. It holds every experiment pin in
+`experiment_pins.json`, with its project, its card, its experiment, its variant,
+and when the pin was created and last resolved.
