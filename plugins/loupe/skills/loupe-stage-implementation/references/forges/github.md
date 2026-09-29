@@ -96,7 +96,7 @@ gh pr checks <url> --required --json bucket -q 'group_by(.bucket)|map("\(.[0].bu
 gh pr update-branch <url>
 ```
 
-This merges the base into the head branch on the forge. Never pass `--rebase`. An update keeps an approval.
+This merges the base into the head branch on the forge. Never pass `--rebase`. Whether an update keeps an approval depends on the branch rules, and the repository profile says it.
 
 ## Merge
 
@@ -104,4 +104,4 @@ This merges the base into the head branch on the forge. Never pass `--rebase`. A
 gh pr merge <url> --<method> --match-head-commit <sha>
 ```
 
-`<method>` comes from the profile `Merge` section. `--match-head-commit` refuses the merge when the head moved. Never pass `--admin` or `--auto`. After the merge, read `state` again, and accept only `MERGED`.
+`<method>` comes from the profile `Merge` section. `--match-head-commit` refuses the merge when the head moved. Never pass `--admin` or `--auto`. On a branch with a merge queue, `gh pr merge` turns on auto-merge by itself, so the state stays `OPEN`. After the merge, read `state` again, and accept only `MERGED`.

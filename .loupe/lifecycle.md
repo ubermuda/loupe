@@ -70,3 +70,5 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 2. Pass no body. GitHub builds the squash message from the commit messages, which carry the reasoning.
 3. Merge only a pull request whose base is `main`. A stacked pull request waits until its parent merges and a person retargets it.
 4. `working-with-prs` "Merging" and "What the ruleset actually requires" stay the authority for the checks and the approval.
+5. The merge stage skips the `just cs` on `main` after the merge, and the worktree teardown. The person who holds the merge queue does them.
+6. An update of a branch keeps its approval, because the ruleset does not dismiss a stale review. The ruleset has no merge queue, so `gh pr merge` never turns on auto-merge here.

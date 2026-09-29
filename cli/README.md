@@ -553,7 +553,7 @@ rules:
     when:
       reason: checks-failed
     resume: true
-    permissionMode: acceptEdits
+    permissionMode: bypassPermissions
     prompt: |
       Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
@@ -564,7 +564,7 @@ rules:
     when:
       reason: conflict
     resume: true
-    permissionMode: acceptEdits
+    permissionMode: bypassPermissions
     prompt: |
       Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
@@ -572,7 +572,7 @@ rules:
   - name: merge-ready
     on: pull_request.ready_to_merge
     project: my-app
-    permissionMode: acceptEdits
+    permissionMode: bypassPermissions
     prompt: |
       Use the loupe-stage-merge skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).

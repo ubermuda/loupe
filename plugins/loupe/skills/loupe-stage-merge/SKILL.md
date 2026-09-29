@@ -26,7 +26,7 @@ Merge one card's pull request when it is ready, or bring a branch that is behind
 4. The URL must be one of the card `pullRequests`. Otherwise stop with `STAGE RESULT: blocked: pull request not linked to the card`.
 5. Find and validate the pull request with the forge adapter. When it is outside this repository, stop with `STAGE RESULT: blocked: pull request outside this repository`. When its state is `MERGED`, stop with `STAGE RESULT: merged <url>`. When it is `CLOSED`, stop with `STAGE RESULT: no open pull request`.
 6. Read the merge state with the forge adapter.
-7. When the base differs from the base branch of the profile `Gate` section, stop with `STAGE RESULT: not ready <url>: stacked on <base>`. A stacked pull request never merges into its parent.
+7. When the base differs from the base branch that the profile `Merge` section names, stop with `STAGE RESULT: not ready <url>: stacked on <base>`. A stacked pull request never merges into its parent.
 8. For an update, take "Update". For a merge, take "Merge".
 
 ### Update

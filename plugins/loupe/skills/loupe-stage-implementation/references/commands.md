@@ -12,7 +12,7 @@ The profile has these sections: `Instruction files`, `Worktree`, `Gate`, `Code r
 
 ## Pick the forge adapter
 
-The stage skills name forge operations: find and validate a pull request, list feedback items, reply to a thread, post a top-level comment, read checks and failed logs, create a pull request, check mergeability, read the merge state, update the branch, and merge. An adapter file maps them to commands for one forge.
+The stage skills name forge operations. An adapter file maps them to commands for one forge. The operations are these: find and validate a pull request, list feedback items, reply to a thread, and post a top-level comment. Also read checks and failed logs, create a pull request, and check mergeability. The merge stage adds three more: read the merge state, update the branch, and merge.
 
 1. Read the forge from `pullRequests[].forge` in `card_get`: `github`, `gitlab`, `bitbucket` or `other`.
 2. Before a pull request exists, read the host of `git remote get-url origin`. `github.com` is `github`, a `gitlab` host is `gitlab`, `bitbucket.org` is `bitbucket`, and any other host is `other`.

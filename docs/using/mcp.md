@@ -173,7 +173,7 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-It installs nine skills, each covering one part of working a Loupe project:
+It installs ten skills, each covering one part of working a Loupe project:
 
 | Skill | Covers |
 |---|---|
