@@ -123,6 +123,7 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
         $document = $this->document($this->em, $this->project);
         $document->addVersion('# One', '<h1>One</h1>');
         $card->documents->add(new CardDocument($card, $document));
+        $this->stageDocument($this->em, $document, $card);
         $this->em->flush();
         $reconciler = $this->service(CardWaitReconciler::class);
 

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Tag;
+use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Service\DocumentTagApplier;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -27,6 +29,7 @@ final readonly class SetDocumentTagsHandler
         private EntityManagerInterface $em,
         private DocumentTagApplier $tagApplier,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -49,6 +52,10 @@ final readonly class SetDocumentTagsHandler
             ],
             new AuditSubject('document', (string) $document->id),
         );
+        $this->events->dispatch(new DocumentStatusChanged(
+            $document->project->id ?? throw new \LogicException('A persisted project has an id.'),
+            $document->id ?? throw new \LogicException('A persisted document has an id.'),
+        ));
 
         return $applied;
     }

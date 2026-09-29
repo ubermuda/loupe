@@ -11,7 +11,9 @@ use App\Module\Review\Command\SetDocumentTagsCommand;
 use App\Module\Review\Command\SetDocumentTagsHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
+use App\Module\Review\Event\DocumentStatusChanged;
 use App\Module\Review\Repository\TagRepository;
+use App\Tests\Support\DispatchedEvents;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -253,5 +255,33 @@ final class SetDocumentTagsHandlerTest extends KernelTestCase
         }
 
         self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_a_tag_set_announces_the_document_after_the_commit(): void
+    {
+        [$project, $document] = $this->seed('tags-event');
+        $changes = DispatchedEvents::of(self::getContainer(), DocumentStatusChanged::class);
+        $depth = $this->em->getConnection()->getTransactionNestingLevel();
+
+        ($this->handler)(new SetDocumentTagsCommand($document, ['design', 'decisions']));
+
+        self::assertCount(1, $changes->events());
+        self::assertEquals($project->id, $changes->events()[0]->projectId);
+        self::assertEquals($document->id, $changes->events()[0]->documentId);
+        self::assertSame([$depth], $changes->transactionDepths());
+    }
+
+    public function test_a_rejected_tag_set_announces_nothing(): void
+    {
+        [, $document] = $this->seed('tags-event-refused');
+        $changes = DispatchedEvents::of(self::getContainer(), DocumentStatusChanged::class);
+
+        try {
+            ($this->handler)(new SetDocumentTagsCommand($document, [str_repeat('a', Tag::MAX_NAME_LENGTH + 1)]));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $changes->events());
     }
 }
