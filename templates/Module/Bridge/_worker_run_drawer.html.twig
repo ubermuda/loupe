@@ -31,6 +31,8 @@
                 <span class="lp-run-drawer__identifier">{{ run.cardId }}</span>
             </dd></div>
             <div><dt>{{ 'bridge.worker_runs.column.rule'|trans }}</dt><dd>{{ run.ruleName }}</dd></div>
+            {# The bridge writes these names, so they are rendered as text. Never add |raw here. #}
+            {% if run.experiment is not null %}<div data-worker-run-experiment><dt>{{ 'bridge.worker_runs.details.experiment'|trans }}</dt><dd>{{ run.experiment }} / {{ run.variant }}{% if run.requestedModel is not null %} ({{ run.requestedModel }}){% endif %}{% if run.switchedFrom is not null %}, {{ 'bridge.worker_runs.details.switched_from'|trans({'%variant%': run.switchedFrom}) }}{% endif %}</dd></div>{% endif %}
             {% if run.workerPool is not null %}<div data-worker-run-pool><dt>{{ 'bridge.worker_runs.details.worker_pool'|trans }}</dt><dd>{{ run.workerPool }}</dd></div>{% endif %}
             {% if run.bridgeId is not null %}<div><dt>{{ 'bridge.worker_runs.filter.bridge_label'|trans }}</dt><dd>{{ run.bridgeId }}</dd></div>{% endif %}
             {% if run.sessionId is not null %}<div><dt>{{ 'bridge.worker_runs.details.session'|trans }}</dt><dd>{{ run.sessionId }}</dd></div>{% endif %}

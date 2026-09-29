@@ -47,6 +47,10 @@ final readonly class ReportWorkerRunStateCommand
         public ?WorkerRunUsageReport $usage = null,
         /** Null keeps the pool the run holds, because a bridge that predates worker pools sends none. */
         public ?string $workerPool = null,
+        public ?string $experiment = null,
+        public ?string $variant = null,
+        public ?string $requestedModel = null,
+        public ?string $switchedFrom = null,
     ) {
     }
 }
