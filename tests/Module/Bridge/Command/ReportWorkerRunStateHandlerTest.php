@@ -107,6 +107,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         yield 'an outcome replaces stopping' => [['running', 'stopping', 'failed'], WorkerRunState::Failed];
         yield 'an outcome never replaces stopped' => [['running', 'stopped', 'failed'], WorkerRunState::Stopped];
         yield 'a stopping run reopens from timed-out' => [['running', 'server:timed-out', 'stopping'], WorkerRunState::Stopping];
+        yield 'a stop replaces timed-out' => [['running', 'server:timed-out', 'stopped'], WorkerRunState::Stopped];
     }
 
     /**
@@ -587,7 +588,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertSame(WorkerRunState::Stopped, $run->state);
         self::assertNull($run->startedAt);
         self::assertNull($run->sessionId);
-        self::assertSame('2026-09-23 10:0'.WorkerRunState::Stopped->rank().':00', $run->endedAt?->format('Y-m-d H:i:s'));
+        self::assertSame('2026-09-23 10:04:00', $run->endedAt?->format('Y-m-d H:i:s'));
         self::assertSame('', $run->output);
         self::assertNull($run->usageSource);
     }

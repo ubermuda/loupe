@@ -257,8 +257,9 @@ final class ReportWorkerRunStateRequest
             return;
         }
 
-        if (null !== $this->startedAt && null !== $this->endedAt && $this->endedAt < $this->startedAt) {
-            $context->buildViolation('A run cannot end before it starts.')->atPath('endedAt')->addViolation();
+        $end = $this->endedAt ?? $this->at;
+        if (null !== $this->startedAt && null !== $end && $end < $this->startedAt) {
+            $context->buildViolation('A run cannot end before it starts.')->atPath(null === $this->endedAt ? 'at' : 'endedAt')->addViolation();
         }
     }
 

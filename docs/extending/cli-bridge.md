@@ -272,7 +272,7 @@ the only sign of it.
 
 Each time the bridge connects to the hub, it sends the runs it holds to
 `PUT /api/bridges/{bridgeId}/runs`. A held run is one whose last state is
-`queued`, `resumed` or `running`. Loupe marks `lost` each open or timed-out run
+`queued`, `resumed`, `running` or `stopping`. Loupe marks `lost` each open or timed-out run
 of that bridge that the list does not name. The bridge keeps its id across restarts, so
 Loupe closes the open runs of a bridge that died when it next connects. The
 inventory goes out after every state the

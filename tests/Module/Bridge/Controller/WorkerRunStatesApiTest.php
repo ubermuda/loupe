@@ -456,6 +456,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'an unknown trigger' => [['trigger' => 'robot']];
         yield 'a blank trigger' => [['trigger' => '']];
         yield 'a stop that ends before it starts' => [['state' => 'stopped', 'startedAt' => '2026-09-23T10:00:00+00:00', 'endedAt' => '2026-09-23T09:00:00+00:00']];
+        yield 'a stop with no end whose moment is before its start' => [['state' => 'stopped', 'startedAt' => '2026-09-23T10:00:05+00:00']];
         yield 'a missing moment' => [['at' => null]];
         yield 'a bridge id that is not a uuid' => [['bridgeId' => 'nope']];
         yield 'a card number of zero' => [['cardNumber' => 0]];

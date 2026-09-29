@@ -98,7 +98,7 @@ order.
 | `ruleName` | required. The rule that matched, 1 to 100 characters after trimming |
 | `sessionId` | the uuid of the Claude Code session the worker runs as. Required for `running` |
 | `startedAt` | when the worker started, on the bridge clock. Required for `running` |
-| `endedAt` | when the worker ended, on the bridge clock. Required for an outcome. A `stopped` report may leave it out, and the server then uses `at`. It cannot be before `startedAt` |
+| `endedAt` | when the worker ended, on the bridge clock. Required for an outcome. A `stopped` report may leave it out, and the server then uses `at`. The end, or `at` in its place, cannot be before the `startedAt` of the same report |
 | `exitCode` | the process exit code, between -255 and 255. `succeeded`, `no-result`, `unfinished`, `blocked` and `waiting-on-forge` need 0, `failed` needs any other code, and `not-started` needs `null` |
 | `hasResult` | whether the worker gave a structured result. `no-result` needs `false`, and `succeeded`, `unfinished`, `blocked` and `waiting-on-forge` refuse `false`. Send `null` for `not-started`, because a value is refused when `exitCode` is `null` |
 | `resultStatus` | the `status` of the structured result: `finished`, `blocked`, `unfinished` or `waiting`. It needs `hasResult: true`. `blocked` and `unfinished` need the state of the same name, `waiting` needs `waiting-on-forge`, and `succeeded` takes `finished` or `null` |
