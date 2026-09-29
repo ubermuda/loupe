@@ -612,6 +612,13 @@ rules:
       Pull request {pullRequestUrl} is ready to merge at {headSha}.
 ```
 
+Loupe sends `pull_request.ready_to_merge` without a look at the review. The
+`loupe-stage-merge` skill reads the approval again before it merges. It merges
+only when the latest approval is later than every commit, or when each later
+commit is a merge from the base that git re-creates with no conflict. A
+conflict resolution or any other later commit stops the run as `not ready`, so
+a person approves or proves it.
+
 Loupe writes these types:
 
 - `pull_request.checks_concluded`

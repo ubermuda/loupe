@@ -90,6 +90,24 @@ gh pr checks <url> --required --json bucket -q 'group_by(.bucket)|map("\(.[0].bu
 
 `reviewDecision` is `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED` or empty. `mergeStateStatus` is `CLEAN`, `HAS_HOOKS`, `UNSTABLE`, `BEHIND`, `BLOCKED`, `DIRTY` or `UNKNOWN`. Green means `pass=<required count>` and no other bucket.
 
+## Check the approval covers the head
+
+GitHub keeps `reviewDecision` at `APPROVED` after a push when the branch rules do not dismiss a stale review. A review's `commit_id` does not show what the reviewer saw either, because GitHub moves it onto the head that a later merge creates. So read the approval by time with the script of the merge skill. `<merge skill dir>` is the directory of the `loupe-stage-merge` `SKILL.md`:
+
+```bash
+<merge skill dir>/scripts/github-approval-covers.sh <url> <sha>
+```
+
+The script takes each reviewer's last approving or blocking review, and the latest current approval sets the time. It fetches the base and the head, and sorts each commit that is later than that time. It prints one line:
+
+| Line | Exit | Meaning |
+|---|---|---|
+| `COVERED ...` | 0 | Every later commit is a sync merge from the base. |
+| `HOLD commits after approval: ...` | 1 | A later commit adds new content. |
+| `HOLD conflict resolution after approval: ...` | 1 | A later merge from the base does not match what `git merge-tree` makes. |
+| `HOLD head moved`, `HOLD no approval`, `HOLD 250 commits or more ...` | 1 | The item fails for that reason. |
+| `UNREAD: ...` | 2 | A read failed. |
+
 ## Update the branch
 
 ```bash
