@@ -7,6 +7,7 @@ namespace App\Tests\Module\Inbox\Mcp;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Mcp\InboxJoinTool;
 use App\Module\Inbox\Mcp\InboxWithdrawTool;
+use App\Module\Review\Entity\DocumentStatus;
 use App\Security\McpBoundProjectVoter;
 use App\Tests\Support\McpTokenScenario;
 use App\Tests\Support\RecordingAuditor;
@@ -69,6 +70,32 @@ final class InboxJoinToolTest extends KernelTestCase
         self::assertSame($sessionId, (string) $ask->sessionId);
         self::assertSame($bridgeId, (string) $ask->bridgeId);
         self::assertCount(1, $ask->items);
+    }
+
+    public function test_an_agent_waits_on_a_wait_item_until_loupe_closes_it(): void
+    {
+        $this->enableInbox();
+        $project = $this->makeProject('inbox-join-wait');
+        $card = $this->card($this->em, $project, 3);
+        $this->em->flush();
+        $document = $this->documentInReview($project, $card);
+        $watch = $this->reconcileWaits($project, $card);
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)((string) $watch->item->id, (string) Uuid::v4());
+
+        self::assertFalse($result['closed']);
+        self::assertSame('wait', $result['items'][0]['kind']);
+        self::assertSame('loupe', $result['items'][0]['origin']);
+
+        $document->status = DocumentStatus::Approved;
+        $this->em->flush();
+        $this->reconcileWaits($project, $card);
+        $this->em->clear();
+
+        $ask = $this->em->find(InboxAsk::class, Uuid::fromString($result['askId']));
+        self::assertInstanceOf(InboxAsk::class, $ask);
+        self::assertNotNull($ask->closedAt);
     }
 
     public function test_the_item_joins_the_session_s_open_ask_once(): void

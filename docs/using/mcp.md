@@ -356,7 +356,10 @@ its id silently discards the reviewer's answer.
 
 A decision reports its `type`. A single-choice block answers in `selected` and
 `selected_index`. A multi-choice block answers in `selections`, and reports null
-in `selected`. See [Documents and review](documents.md) for the syntax.
+in `selected`. Each decision also reports the reviewer's `note`, and `updated_at`
+for the time of the last save. Both are null while the decision has no answer,
+and `note` is also null when the reviewer picked an option and wrote no note.
+See [Documents and review](documents.md) for the syntax.
 
 ## What `feedback_mark_addressed` skips
 
@@ -470,6 +473,27 @@ closed ask of that session holds. The first read is kept.
 Loupe trusts the `readerSessionId` it receives, so pass only your own session
 id there. The `sessionId` argument of `inbox_list` is a filter and never records
 a read, so filtering by another session's id leaves its answers unread.
+
+Every item row carries `origin`. The value is `agent` for an item that an agent
+asked, or `loupe` for an [automatic item](inbox.md#automatic-items). Loupe opens
+an automatic item with the kind `wait` while a card waits for a person, and
+closes it when the card stops waiting.
+
+`inbox_get` also returns `cardId` and `waits`. For a `wait` item, `cardId` names
+the card, and `waits` lists each reason the card waited, current and ended, in
+start order. Each entry holds `trigger`, `reason`, `documentId`,
+`versionNumber`, `runId`, `startedAt`, `endedAt` and `endReason`. An id or a
+date that does not apply is null. `endedAt` and `endReason` are null for a
+current wait. `endReason` is `resolved`, `card-finished`, `card-deleted`,
+`switched-off` or `dismissed`. For any other kind,
+`cardId` is null and `waits` is empty.
+
+Each entry of `asks` in `inbox_get` carries `origin` too. The `sessionId` of a
+Loupe ask is null.
+
+`inbox_join` accepts an open `wait` item. Your ask then closes when Loupe
+closes the item. A bridge that started you then resumes you.
+`inbox_withdraw` refuses a `wait` item, because only Loupe closes it.
 
 With `readerSessionId`, each `inbox_list` row also carries the response:
 `options`, `selectedOptions`, `answerText`, `closeNote`, and `review`. Without it, a row is

@@ -22,6 +22,10 @@ Use a tile's Edit control or Project settings to change its description.
 Clear the description and save to remove it.
 An invalid submission keeps the entered text so you can correct it.
 
+While the inbox is on, Project settings also has an Inbox section.
+The project owner chooses there which card waits open an item in the inbox.
+See [Choosing which waits open an item](inbox.md#choosing-which-waits-open-an-item).
+
 The first-project setup form also accepts a description.
 Account data exports include descriptions in `projects.json`.
 

@@ -36,6 +36,9 @@ use App\Module\Board\Entity\CardType;
  *
  * A move to another column closes every open interactive run of the card. A
  * run that $openInteractiveRun opens in the same update stays open.
+ *
+ * $onlyFromColumn and $onlyFromOpenColumn are checked under the lock too. A
+ * card that no longer sits there is left alone, with no change and no error.
  */
 final readonly class UpdateCardCommand
 {
@@ -66,6 +69,8 @@ final readonly class UpdateCardCommand
         public bool $confirmOverwrite = false,
         public ?OpenInteractiveRun $openInteractiveRun = null,
         public ?BoardColumn $expectedColumn = null,
+        public ?BoardColumn $onlyFromColumn = null,
+        public bool $onlyFromOpenColumn = false,
     ) {
     }
 }

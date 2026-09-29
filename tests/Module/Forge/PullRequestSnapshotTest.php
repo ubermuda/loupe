@@ -83,6 +83,26 @@ final class PullRequestSnapshotTest extends TestCase
         yield 'ready' => [['readyToMerge' => false]];
     }
 
+    #[DataProvider('checkReads')]
+    public function test_checks_conclude_on_a_new_result_or_a_new_sha(PullRequestSnapshot $previous, PullRequestSnapshot $current, bool $expected): void
+    {
+        self::assertSame($expected, $current->checksConcludedSince($previous));
+    }
+
+    /** @return iterable<string, array{PullRequestSnapshot, PullRequestSnapshot, bool}> */
+    public static function checkReads(): iterable
+    {
+        $passed = new PullRequestSnapshot(checks: PullRequestChecks::Passed, checksSha: 'aaa1111');
+        $failed = new PullRequestSnapshot(checks: PullRequestChecks::Failed, checksSha: 'aaa1111');
+
+        yield 'pending to passed' => [new PullRequestSnapshot(), $passed, true];
+        yield 'pending to failed' => [new PullRequestSnapshot(), $failed, true];
+        yield 'failed to passed on one sha' => [$failed, $passed, true];
+        yield 'passed again on one sha' => [$passed, $passed, false];
+        yield 'passed again on a new sha' => [$passed, new PullRequestSnapshot(checks: PullRequestChecks::Passed, checksSha: 'bbb2222'), true];
+        yield 'still pending' => [new PullRequestSnapshot(), new PullRequestSnapshot(checksSha: 'bbb2222'), false];
+    }
+
     private function changed(): PullRequestSnapshot
     {
         return new PullRequestSnapshot(...self::changedArguments());

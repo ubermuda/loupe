@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Project\Entity\Project;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
@@ -60,6 +61,27 @@ final class ForgePullRequestRepositoryTest extends KernelTestCase
         $this->pullRequests->insertIfMissing($projectId, 'github', 'ubermuda/loupe', 7);
 
         self::assertSame([], $this->pullRequests->findByKeys($projectId, []));
+    }
+
+    public function test_delete_by_key_deletes_the_row_of_the_key_in_any_case_and_no_other(): void
+    {
+        $projectId = $this->projectId();
+        $otherProjectId = $this->projectId();
+        $this->pullRequests->insertIfMissing($projectId, 'github', 'ubermuda/loupe', 7);
+        $eight = $this->pullRequests->insertIfMissing($projectId, 'github', 'ubermuda/loupe', 8);
+        $elsewhere = $this->pullRequests->insertIfMissing($otherProjectId, 'github', 'ubermuda/loupe', 7);
+
+        $this->pullRequests->deleteByKey($projectId, 'github', 'Ubermuda/Loupe', 7);
+
+        $remaining = $this->em->getConnection()->fetchFirstColumn(
+            'SELECT id FROM forge_pull_requests WHERE project_id IN (:projects) ORDER BY number, project_id',
+            ['projects' => [$projectId->toRfc4122(), $otherProjectId->toRfc4122()]],
+            ['projects' => ArrayParameterType::STRING],
+        );
+        $expected = [(string) $elsewhere, (string) $eight];
+        sort($expected);
+        sort($remaining);
+        self::assertSame($expected, $remaining);
     }
 
     private function projectId(): Uuid

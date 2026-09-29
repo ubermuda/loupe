@@ -280,8 +280,8 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id);
 
         self::assertResponseIsSuccessful();
-        // Newest first.
-        self::assertSame(['pull-request', 'document', 'agent'], $crawler->filter('[data-workshop-attention] .lp-workshop-attention__icon')->extract(['data-subject']));
+        // Oldest first.
+        self::assertSame(['agent', 'document', 'pull-request'], $crawler->filter('[data-workshop-attention] .lp-workshop-attention__icon')->extract(['data-subject']));
 
         $inbox = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
         self::assertResponseIsSuccessful();
@@ -289,7 +289,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertSame(['agent', 'document', 'pull-request'], $inbox->filter('.lp-inbox-request [data-subject]')->extract(['data-subject']));
     }
 
-    public function test_attention_links_the_latest_open_items_in_this_project(): void
+    public function test_attention_links_the_oldest_open_items_in_this_project(): void
     {
         $client = self::createClient();
         $em = self::getContainer()->get(EntityManagerInterface::class);
@@ -301,7 +301,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em->persist($project);
         $em->persist($foreign);
         for ($number = 1; $number <= 8; ++$number) {
-            $em->persist(new InboxItem($project, $number, InboxItemKind::Question, 'Request '.$number, 8 === $number));
+            $em->persist(new InboxItem($project, $number, InboxItemKind::Question, 'Request '.$number, 1 === $number));
         }
         $closed = new InboxItem($project, 9, InboxItemKind::Todo, 'Closed request', false);
         $closed->state = InboxItemState::Done;
@@ -315,16 +315,16 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(6, $crawler->filter('[data-workshop-attention]'));
         self::assertSame('8', trim($crawler->filter('.lp-workshop-stat__value')->first()->text()));
-        self::assertSelectorTextContains('[data-workshop-attention]', 'Request 8');
+        self::assertSelectorTextContains('[data-workshop-attention]', 'Request 1');
         self::assertSelectorTextContains('[data-workshop-attention] .lp-workshop-attention__badge', 'Blocking');
         // A question or a to-do shows the agent that asked it.
         self::assertSame(array_fill(0, 6, 'agent'), $crawler->filter('[data-workshop-attention] .lp-workshop-attention__icon')->extract(['data-subject']));
         $links = $crawler->filter('[data-workshop-attention]')->extract(['href']);
-        self::assertSame(array_map(static fn (int $number): string => '/projects/'.$project->id.'/inbox#inbox-item-'.$number, [8, 7, 6, 5, 4, 3]), $links);
+        self::assertSame(array_map(static fn (int $number): string => '/projects/'.$project->id.'/inbox#inbox-item-'.$number, [1, 2, 3, 4, 5, 6]), $links);
         $client->click($crawler->filter('[data-workshop-attention]')->first()->link());
         self::assertResponseIsSuccessful();
         // A one-item ask shows its title once, as the ask's heading.
-        self::assertSelectorTextContains('.lp-inbox-ask:has(#inbox-item-8) .lp-inbox-ask__title', 'Request 8');
+        self::assertSelectorTextContains('.lp-inbox-ask:has(#inbox-item-1) .lp-inbox-ask__title', 'Request 1');
 
         $flags = self::getContainer()->get(FeatureFlagRepository::class);
         $flags->findAllIndexed()['inbox.enabled']->value = false;

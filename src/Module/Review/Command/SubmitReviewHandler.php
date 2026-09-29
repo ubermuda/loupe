@@ -46,10 +46,9 @@ final readonly class SubmitReviewHandler
 
         $result = $this->em->wrapInTransaction(function () use ($command, $document, $verdict, $note): Review|DomainErrors {
             $this->em->lock($document->project, LockMode::PESSIMISTIC_WRITE);
-            // The version is read under the document's own row lock, as
-            // SelectDecisionOptionHandler does: a revision landing between the
-            // read and the write would otherwise attach the verdict to a
-            // version the reviewer never saw.
+            // The version is read under the document's own row lock: a revision
+            // landing between the read and the write would otherwise attach the
+            // verdict to a version the reviewer never saw.
             $this->em->lock($document, LockMode::PESSIMISTIC_WRITE);
 
             $version = $this->documentVersions->findLatest($document);
