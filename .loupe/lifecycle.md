@@ -72,3 +72,4 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 4. `working-with-prs` "Merging" and "What the ruleset actually requires" stay the authority for the checks and the approval.
 5. The merge stage skips the `just cs` on `main` after the merge, and the worktree teardown. The person who holds the merge queue does them.
 6. An update of a branch keeps its approval, because the ruleset does not dismiss a stale review. The ruleset has no merge queue, so `gh pr merge` never turns on auto-merge here.
+7. The approver is `ubermuda`. The merge stage counts that reviewer's approval only, and reads it by time. A sync after the approval keeps it. A conflict resolution or any other commit after it needs the owner or the merge queue.

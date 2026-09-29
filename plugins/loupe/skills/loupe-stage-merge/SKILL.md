@@ -42,11 +42,11 @@ Merge only when every item holds. The first item that fails ends the run with `S
 1. The head commit equals the SHA of the prompt.
 2. The pull request is not a draft.
 3. The review decision is `APPROVED`.
-4. Every current approval covers every commit up to the SHA of the prompt. Check it with the forge adapter.
+4. Every current approval covers every commit up to the SHA of the prompt. Check it with the forge adapter. When the profile `Merge` section names an approver, only that reviewer's approval counts.
 5. Every required check passes, and none fails or is pending. Count the checks against the required count of the profile `Gate` section.
 6. `mergeStateStatus` is `CLEAN`, `HAS_HOOKS` or `UNSTABLE`.
 
-Item 4 reads the approval by time. A forge can keep a review decision `APPROVED` after new commits arrive, so item 3 alone is not enough. The forge adapter sorts each commit that is later than the earliest current approval:
+Item 4 reads the approval by time. A forge can keep a review decision `APPROVED` after new commits arrive, so item 3 alone is not enough. A commit counts as later when it reached the branch after the earliest current approval. The forge adapter sorts each later commit:
 
 - A merge from the base that git re-creates with no conflict is a sync. The approval covers it.
 - A merge from the base that git cannot re-create is a conflict resolution. Stop with `STAGE RESULT: not ready <url>: conflict resolution after approval`. A person proves the resolution. You do not, because a worker cannot judge a resolution as well as a person.

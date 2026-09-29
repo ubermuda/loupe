@@ -253,8 +253,8 @@ resolved. Run the `comm` proof in `references/git-traps.md` yourself, then run
 `merge-ready.sh` on the new head. The approval covers a resolution that passes.
 
 The bridge's `merge-ready` rule runs the `loupe-stage-merge` skill, and that
-worker reads the approval by time as `merge-ready.sh` does. It merges after a
-sync. It never merges after a conflict resolution, because it cannot run the
+worker reads the approval by time as `merge-ready.sh` does. It compares push
+times, where `merge-ready.sh` compares commit times. It merges after a sync. It never merges after a conflict resolution, because it cannot run the
 `comm` proof as well as a person. It reports `not ready <url>: conflict
 resolution after approval` and leaves that merge to you. Any other commit after
 the approval holds as `not ready <url>: commits after approval` until the owner
