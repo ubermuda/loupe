@@ -74,8 +74,8 @@ final readonly class DeleteCardHandler
             $parent = $card->parent;
             $drawsLane = $card->drawsLane();
 
-            // Before the remove, so the delete and the renumbering it causes
-            // reach the database in one flush.
+            // Inside the transaction, so the delete and the renumbering it
+            // causes commit together or not at all.
             $this->groupOrder->compact($card->column, $card);
 
             // The link rows cascade in the database, but the comments would
