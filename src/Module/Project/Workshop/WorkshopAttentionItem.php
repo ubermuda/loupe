@@ -11,7 +11,7 @@ final readonly class WorkshopAttentionItem
         public string $url,
         public string $kind,
         public bool $blocking,
-        /** What the item is about: "document", "pull-request", or "agent" for a question or to-do. The row shows it as an icon. */
+        /** What the item is about: "document", "pull-request", "loupe" for a waiting card, or "agent" for a question or to-do. The row shows it as an icon. */
         public string $subject,
     ) {
     }

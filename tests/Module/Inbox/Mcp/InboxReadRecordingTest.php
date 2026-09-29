@@ -75,7 +75,7 @@ final class InboxReadRecordingTest extends KernelTestCase
 
         self::assertSame([(string) $item->id], array_column($result['items'], 'itemId'));
         self::assertSame(
-            ['itemId', 'number', 'kind', 'title', 'state', 'blocking', 'createdAt', 'updatedAt', 'closedAt'],
+            ['itemId', 'number', 'kind', 'origin', 'title', 'state', 'blocking', 'createdAt', 'updatedAt', 'closedAt'],
             array_keys($result['items'][0]),
         );
         self::assertNull($this->readAt($ask, $item));
