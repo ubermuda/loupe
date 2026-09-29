@@ -150,6 +150,29 @@ func TestReportRunStateSendsTheWorkerPool(t *testing.T) {
 	}
 }
 
+// A run in an experiment sends its variant on running and on the outcome.
+func TestReportRunStateSendsTheExperimentFields(t *testing.T) {
+	running := stateReport(RunRunning)
+	running.Experiment, running.Variant, running.RequestedModel, running.SwitchedFrom = "impl-model", "sonnet", "claude-sonnet-5-5", "opus"
+	failed := stateReport(RunNotStarted)
+	failed.Experiment, failed.Variant, failed.RequestedModel = "impl-model", "sonnet", "claude-sonnet-5-5"
+
+	_, body, _, err := putState(t, running, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body["experiment"] != "impl-model" || body["variant"] != "sonnet" || body["requestedModel"] != "claude-sonnet-5-5" || body["switchedFrom"] != "opus" {
+		t.Fatalf("running = %v", body)
+	}
+	_, body, _, err = putState(t, failed, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := body["switchedFrom"]; ok || body["variant"] != "sonnet" {
+		t.Fatalf("not started = %v, want a variant and no switchedFrom", body)
+	}
+}
+
 // A closed outcome keeps the pairing of the old report: an exit code, or a
 // failure reason, with the other one sent as null.
 func TestReportRunStateSendsAnOutcomeWithTheOldPairing(t *testing.T) {
