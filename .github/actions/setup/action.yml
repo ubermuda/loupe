@@ -18,7 +18,7 @@ runs:
         extensions: ctype, iconv, intl, pdo_pgsql, zip, bcmath, xsl
         coverage: none
 
-    - uses: extractions/setup-just@v4
+    - uses: ./.github/actions/setup-just
 
     - uses: actions/cache@v6
       with:

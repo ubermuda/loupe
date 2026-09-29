@@ -9,8 +9,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
- * Bulk-deletes the asks and the items of a project, inside ProjectDeleter's
- * transaction. The foreign keys of the three link tables cascade from both
+ * Bulk-deletes the asks, the items and the wait switches of a project, inside
+ * ProjectDeleter's transaction. The foreign keys of the three link tables cascade from both
  * parents, so the database removes the links.
  */
 #[AsEventListener]
@@ -29,6 +29,10 @@ final readonly class DeleteInboxDataOnProjectDeleting
 
         $this->em->createQuery(
             'DELETE App\Module\Inbox\Entity\InboxItem i WHERE i.project = :project',
+        )->setParameter('project', $event->project)->execute();
+
+        $this->em->createQuery(
+            'DELETE App\Module\Inbox\Entity\InboxProjectSettings s WHERE s.project = :project',
         )->setParameter('project', $event->project)->execute();
     }
 }

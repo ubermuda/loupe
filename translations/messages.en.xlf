@@ -1331,9 +1331,13 @@
             <trans-unit id="review.document.margin.decisions_disabled_empty"><source>review.document.margin.decisions_disabled_empty</source><target>This document has no decisions to answer.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_disabled_diff"><source>review.document.margin.decisions_disabled_diff</source><target>A comparison cannot answer decisions. Open the Document view to answer them.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_empty"><source>review.document.margin.decisions_empty</source><target>This document has no decisions.</target></trans-unit>
-            <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Select your choices, then select Save decision in the document.</target></trans-unit>
-            <trans-unit id="review.decision.save"><source>review.decision.save</source><target>Save decision</target></trans-unit>
-            <trans-unit id="review.decision.status.selection_saved"><source>review.decision.status.selection_saved</source><target>Decision saved on v%version%.</target></trans-unit>
+            <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Select an option to save it. Add a note if you need one.</target></trans-unit>
+            <trans-unit id="review.decision.note.label"><source>review.decision.note.label</source><target>Note</target></trans-unit>
+            <trans-unit id="review.decision.note.placeholder"><source>review.decision.note.placeholder</source><target>Add a note, or write your own answer</target></trans-unit>
+            <trans-unit id="review.decision.clear"><source>review.decision.clear</source><target>Clear</target></trans-unit>
+            <trans-unit id="review.decision.recommended.high"><source>review.decision.recommended.high</source><target>Recommended, high confidence</target></trans-unit>
+            <trans-unit id="review.decision.recommended.moderate"><source>review.decision.recommended.moderate</source><target>Recommended, moderate confidence</target></trans-unit>
+            <trans-unit id="review.decision.recommended.low"><source>review.decision.recommended.low</source><target>Recommended, low confidence</target></trans-unit>
             <trans-unit id="review.document.margin.references_empty"><source>review.document.margin.references_empty</source><target>None</target></trans-unit>
             <trans-unit id="review.document.margin.series"><source>review.document.margin.series</source><target>Series</target></trans-unit>
             <trans-unit id="review.document.margin.version_note"><source>review.document.margin.version_note</source><target>Version note</target></trans-unit>
@@ -1470,6 +1474,10 @@
             <trans-unit id="review.document.decisions.pending">
                 <source>review.document.decisions.pending</source>
                 <target>Not chosen yet</target>
+            </trans-unit>
+            <trans-unit id="review.document.decisions.note_only">
+                <source>review.document.decisions.note_only</source>
+                <target>Answered with a note</target>
             </trans-unit>
             <trans-unit id="review.document.status.pending">
                 <source>review.document.status.pending</source>
@@ -1745,21 +1753,21 @@
                 <source>review.document.comment.add_failed</source>
                 <target>Couldn’t add the comment. Please try selecting the text again.</target>
             </trans-unit>
-            <trans-unit id="review.decision.status.saved">
-                <source>review.decision.status.saved</source>
-                <target>Saved “%option%” for version %version%.</target>
-            </trans-unit>
-            <trans-unit id="review.decision.status.cleared">
-                <source>review.decision.status.cleared</source>
-                <target>Cleared “%option%” for version %version%.</target>
-            </trans-unit>
-            <trans-unit id="review.decision.status.not_saved">
-                <source>review.decision.status.not_saved</source>
-                <target>Not saved for version %version%. %reason%</target>
-            </trans-unit>
             <trans-unit id="review.decision.error.save_failed">
                 <source>review.decision.error.save_failed</source>
                 <target>Couldn’t save that choice. Please try again.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.status.answer_saved">
+                <source>review.decision.status.answer_saved</source>
+                <target>Saved.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.status.answer_cleared">
+                <source>review.decision.status.answer_cleared</source>
+                <target>Cleared.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.error.unknown_version">
+                <source>review.decision.error.unknown_version</source>
+                <target>That version of the document does not exist. Reload the page.</target>
             </trans-unit>
             <trans-unit id="review.decision.error.unknown">
                 <source>review.decision.error.unknown</source>
@@ -1772,14 +1780,6 @@
             <trans-unit id="review.document.comment.error.stale_version">
                 <source>review.document.comment.error.stale_version</source>
                 <target>A newer version exists. Copy your draft, reload the document, and select the passage again before submitting.</target>
-            </trans-unit>
-            <trans-unit id="review.decision.error.stale_version">
-                <source>review.decision.error.stale_version</source>
-                <target>This document changed while you were reading it. Reload the page and choose again.</target>
-            </trans-unit>
-            <trans-unit id="review.decision.error.changed_answer">
-                <source>review.decision.error.changed_answer</source>
-                <target>Another answer is saved. Reload the document and compare your choices before saving.</target>
             </trans-unit>
             <trans-unit id="review.document.sections.count_compact">
                 <source>review.document.sections.count_compact</source>
@@ -4468,6 +4468,19 @@
                 <target>The decisions, reviews, and questions that keep your crew moving.</target>
             </trans-unit>
             <trans-unit id="inbox.activity"><source>inbox.activity</source><target>View activity</target></trans-unit>
+            <trans-unit id="inbox.settings_link"><source>inbox.settings_link</source><target>Settings</target></trans-unit>
+            <trans-unit id="inbox.settings.heading"><source>inbox.settings.heading</source><target>Inbox</target></trans-unit>
+            <trans-unit id="inbox.settings.description"><source>inbox.settings.description</source><target>Loupe opens an item in your inbox when a card waits for you. Choose which waits open an item. When you save, Loupe checks every card of the project again.</target></trans-unit>
+            <trans-unit id="inbox.settings.submit"><source>inbox.settings.submit</source><target>Save inbox settings</target></trans-unit>
+            <trans-unit id="inbox.settings.flash.saved"><source>inbox.settings.flash.saved</source><target>Inbox settings saved.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.document_in_review.label"><source>inbox.form.update_inbox_settings_form.document_in_review.label</source><target>Document in review</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.document_in_review.help"><source>inbox.form.update_inbox_settings_form.document_in_review.help</source><target>A card links a document that waits for your review.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_blocked.label"><source>inbox.form.update_inbox_settings_form.run_blocked.label</source><target>Run blocked</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_blocked.help"><source>inbox.form.update_inbox_settings_form.run_blocked.help</source><target>A worker run on a card says that it cannot continue without a person.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_gave_up.label"><source>inbox.form.update_inbox_settings_form.run_gave_up.label</source><target>Run gave up</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_gave_up.help"><source>inbox.form.update_inbox_settings_form.run_gave_up.help</source><target>The bridge used every resume that the rule allows, and the worker run on a card did not finish.</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_waiting_for_person.label"><source>inbox.form.update_inbox_settings_form.run_waiting_for_person.label</source><target>Run waiting for a person</target></trans-unit>
+            <trans-unit id="inbox.form.update_inbox_settings_form.run_waiting_for_person.help"><source>inbox.form.update_inbox_settings_form.run_waiting_for_person.help</source><target>The worker runs on a card reached their limit, and a person must move the card to start a new run.</target></trans-unit>
             <trans-unit id="inbox.page.empty">
                 <source>inbox.page.empty</source>
                 <target>No agent has asked you anything yet.</target>
@@ -6138,6 +6151,10 @@
             <trans-unit id="project.edit.nav.automation">
                 <source>project.edit.nav.automation</source>
                 <target>Automation</target>
+            </trans-unit>
+            <trans-unit id="project.edit.nav.inbox">
+                <source>project.edit.nav.inbox</source>
+                <target>Inbox</target>
             </trans-unit>
             <trans-unit id="project.edit.nav.connections">
                 <source>project.edit.nav.connections</source>

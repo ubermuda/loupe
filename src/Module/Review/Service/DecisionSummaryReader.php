@@ -7,6 +7,7 @@ namespace App\Module\Review\Service;
 use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Repository\DecisionAnswerRepository;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\ValueObject\Decision;
 use App\Module\Review\ValueObject\DecisionSummary;
@@ -26,6 +27,7 @@ final readonly class DecisionSummaryReader
 {
     public function __construct(
         private DecisionSelectionRepository $decisionSelections,
+        private DecisionAnswerRepository $decisionAnswers,
         private DecisionBlockService $decisionBlocks,
     ) {
     }
@@ -34,9 +36,16 @@ final readonly class DecisionSummaryReader
     {
         $decisions = $this->decisionBlocks->extract($version->renderedHtml);
         $selections = $this->decisionSelections->findByDocumentGroupedByDecisionId($document);
+        $answers = $this->decisionAnswers->findByDocumentIndexedByDecisionId($document);
 
         $selectedIndexesByDecisionId = [];
+        $notesByDecisionId = [];
         foreach ($decisions as $decision) {
+            $note = ($answers[$decision->id] ?? null)?->note;
+            if (null !== $note) {
+                $notesByDecisionId[$decision->id] = $note;
+            }
+
             $indexes = array_values(array_filter(
                 $decision->resolveIndexes(array_map(
                     static fn (DecisionSelection $selection): array => [$selection->optionLabel, $selection->optionIndex],
@@ -50,6 +59,6 @@ final readonly class DecisionSummaryReader
             }
         }
 
-        return new DecisionSummary($decisions, $selectedIndexesByDecisionId);
+        return new DecisionSummary($decisions, $selectedIndexesByDecisionId, $notesByDecisionId);
     }
 }

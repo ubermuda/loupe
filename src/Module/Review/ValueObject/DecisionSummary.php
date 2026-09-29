@@ -18,10 +18,12 @@ final readonly class DecisionSummary
     /**
      * @param list<Decision>           $decisions
      * @param array<string, list<int>> $selectedIndexesByDecisionId keyed by decision id, absent when unanswered
+     * @param array<string, string>    $notesByDecisionId           keyed by decision id, absent when no note is saved
      */
     public function __construct(
         public array $decisions,
         public array $selectedIndexesByDecisionId,
+        public array $notesByDecisionId,
     ) {
     }
 
@@ -34,8 +36,15 @@ final readonly class DecisionSummary
     {
         return \count(array_filter(
             $this->decisions,
-            fn (Decision $decision): bool => [] !== ($this->selectedIndexesByDecisionId[$decision->id] ?? []),
+            $this->isAnswered(...),
         ));
+    }
+
+    /** A saved note answers a decision even when no option is chosen. */
+    public function isAnswered(Decision $decision): bool
+    {
+        return [] !== ($this->selectedIndexesByDecisionId[$decision->id] ?? [])
+            || isset($this->notesByDecisionId[$decision->id]);
     }
 
     /**
@@ -45,19 +54,20 @@ final readonly class DecisionSummary
      * out in the template, because it is the same id the rendered fieldset
      * carries and a second spelling of the prefix is a link that breaks silently.
      *
-     * @return list<array{label: string, elementId: string, selected: list<string>}>
+     * @return list<array{label: string, elementId: string, answered: bool, selected: list<string>}>
      */
     public function rows(): array
     {
         return array_map(fn (Decision $decision): array => [
             'label' => $decision->label(),
             'elementId' => DecisionBlockService::blockElementId($decision->id),
+            'answered' => $this->isAnswered($decision),
             'selected' => $this->selectedOptions($decision),
         ], $this->decisions);
     }
 
     /**
-     * The options the reviewer chose, empty while the block is unanswered.
+     * The options the reviewer chose, empty while none is chosen.
      *
      * A single-choice block never holds more than one, so the panel reads both
      * kinds through this one list rather than branching on the block's type.
