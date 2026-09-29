@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"maps"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/rules"
@@ -354,6 +357,49 @@ func TestAShutdownNamesThePoolOfEachDroppedEvent(t *testing.T) {
 		if s.report.State == api.RunDropped && s.report.WorkerPool != "quick" {
 			t.Fatalf("dropped report = %+v", s.report)
 		}
+	}
+}
+
+// sentPools returns the pool rows the router last handed to the heartbeater.
+func sentPools(hb *heartbeater) []api.WorkerPoolReport {
+	hb.mu.Lock()
+	defer hb.mu.Unlock()
+
+	return hb.pools
+}
+
+// The heartbeat names every pool of the set, an empty default pool too, and a
+// pool a reload removed while one of its runs still runs.
+func TestTheRouterReportsEachPoolToTheHeartbeat(t *testing.T) {
+	onlyQuick := "maxWorkers: 1\nworkerPools:\n  quick:\n    size: 1\n" + strings.Replace(defaultRules, "    to: next\n", "    to: next\n    workerPool: quick\n", 1)
+	h := newHarnessWith(t, onlyQuick, rules.Defaults{})
+	hb := newHeartbeater(context.Background(), syncQueue{}, nil, testBridgeID, api.Heartbeat{}, time.Minute, h.router.log)
+	h.router.heartbeat = hb
+	h.worker.started = make(chan workerSpec, 2)
+	h.worker.block = make(chan struct{})
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	h.router.onData([]byte(cardMoved(88)))
+
+	want := []api.WorkerPoolReport{{Name: rules.DefaultPool}, {Name: "quick", Size: 1, InUse: 1, Queued: 1}}
+	if got := sentPools(hb); !slices.Equal(got, want) {
+		t.Fatalf("pools = %+v, want %+v", got, want)
+	}
+
+	if res := h.reload(t, withMaxWorkers(defaultRules, 2)); !res.OK {
+		t.Fatalf("result = %+v", res)
+	}
+	<-h.worker.started
+	want = []api.WorkerPoolReport{{Name: rules.DefaultPool, Size: 2, InUse: 1}, {Name: "quick", InUse: 1}}
+	if got := sentPools(hb); !slices.Equal(got, want) {
+		t.Fatalf("pools after the reload = %+v, want %+v", got, want)
+	}
+
+	close(h.worker.block)
+	h.router.wg.Wait()
+	want = []api.WorkerPoolReport{{Name: rules.DefaultPool, Size: 2}}
+	if got := sentPools(hb); !slices.Equal(got, want) {
+		t.Fatalf("pools at the end = %+v, want %+v", got, want)
 	}
 }
 

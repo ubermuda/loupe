@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"os"
 	"slices"
@@ -543,6 +544,7 @@ func (r *router) dropDeadLocked(dead []rules.Dead) ([]rules.Dead, []pending) {
 		dropped = append(dropped, r.dispatchLocked()...)
 	}
 	r.noteBusyLocked()
+	r.notePoolsLocked()
 
 	return dead, dropped
 }
@@ -757,6 +759,7 @@ func (r *router) dispatch() {
 // one worker, because two agents in one checkout undo each other. Pop and
 // start share the lock, or two finishing workers could reorder starts.
 func (r *router) dispatchLocked() []pending {
+	defer r.notePoolsLocked()
 	defer r.noteBusyLocked()
 	if r.shut() {
 		dropped := r.queue
@@ -851,6 +854,36 @@ func (r *router) releaseLocked(pool string) {
 	if r.inUse[pool] == 0 {
 		delete(r.inUse, pool)
 	}
+}
+
+// notePoolsLocked hands the rows of the worker pools to the heartbeat. The
+// caller holds mu.
+func (r *router) notePoolsLocked() {
+	if r.heartbeat == nil {
+		return
+	}
+	r.heartbeat.setPools(r.poolRowsLocked())
+}
+
+// poolRowsLocked lists, in name order, each pool of the set, and each pool
+// that the set lacks and a run or a queued event still names, with size 0.
+// The caller holds mu.
+func (r *router) poolRowsLocked() []api.WorkerPoolReport {
+	sizes := r.rules().Pools()
+	queued := map[string]int{}
+	for _, p := range r.queue {
+		if p.pool != "" {
+			queued[p.pool]++
+		}
+	}
+	names := slices.Concat(slices.Collect(maps.Keys(sizes)), slices.Collect(maps.Keys(r.inUse)), slices.Collect(maps.Keys(queued)))
+	slices.Sort(names)
+	rows := []api.WorkerPoolReport{}
+	for _, name := range slices.Compact(names) {
+		rows = append(rows, api.WorkerPoolReport{Name: name, Size: sizes[name], InUse: r.inUse[name], Queued: queued[name]})
+	}
+
+	return rows
 }
 
 // noteBusyLocked hands busy or idle to the hook runner when the bridge turns

@@ -404,7 +404,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		for _, slug := range r.projects {
 			r.reportHealth(set, slug)
 		}
-		r.heartbeat = newHeartbeater(ctx, queue, apiClient(cfg), r.bridgeID, heartbeatBody(set), heartbeatInterval(events), r.log)
+		hb := newHeartbeater(ctx, queue, apiClient(cfg), r.bridgeID, heartbeatBody(set), heartbeatInterval(events), r.log)
 		if dir, err := config.Dir(); err != nil {
 			r.log.Warn("update_skipped", "reason", err.Error())
 		} else {
@@ -419,11 +419,17 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 					updates.markRolledBack(r.update.crashedFrom)
 				}
 			}
-			r.heartbeat.onRange, r.heartbeat.update = updates.setRange, updates.state
+			hb.onRange, hb.update = updates.setRange, updates.state
 		}
 		if r.update != nil {
-			r.heartbeat.onSent = r.update.markBeat
+			hb.onSent = r.update.markBeat
 		}
+		// Adopted runs can end on their own goroutines, and read heartbeat
+		// under mu.
+		r.mu.Lock()
+		r.heartbeat = hb
+		r.notePoolsLocked()
+		r.mu.Unlock()
 		r.hookRunner.attach(r.heartbeat)
 		r.heartbeat.start()
 	}
