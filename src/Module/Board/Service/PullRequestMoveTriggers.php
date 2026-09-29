@@ -11,11 +11,6 @@ use App\Module\Forge\PullRequestSnapshot;
 /** Which reads of a pull request may move a card that links it. */
 final readonly class PullRequestMoveTriggers
 {
-    public static function mayMove(PullRequestSnapshot $previous, PullRequestSnapshot $current): bool
-    {
-        return self::finished($previous, $current) || self::green($previous, $current);
-    }
-
     public static function finished(PullRequestSnapshot $previous, PullRequestSnapshot $current): bool
     {
         return $previous->state !== $current->state && PullRequestState::Open !== $current->state;

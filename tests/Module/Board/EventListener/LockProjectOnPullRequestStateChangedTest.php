@@ -22,7 +22,7 @@ use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 final class LockProjectOnPullRequestStateChangedTest extends TestCase
 {
     #[DataProvider('reads')]
-    public function test_it_locks_the_project_only_when_a_move_may_follow(PullRequestSnapshot $previous, PullRequestSnapshot $current, bool $boardEnabled, bool $locks): void
+    public function test_it_locks_the_project_whenever_the_board_is_on(PullRequestSnapshot $previous, PullRequestSnapshot $current, bool $boardEnabled, bool $locks): void
     {
         $project = new Project(new User(fullName: 'Riley', email: 'riley@example.com', password: 'x'), 'lock-project');
         $em = $this->createMock(EntityManagerInterface::class);
@@ -44,9 +44,9 @@ final class LockProjectOnPullRequestStateChangedTest extends TestCase
         yield 'green checks' => [new PullRequestSnapshot(), $passed, true, true];
         yield 'a merge' => [new PullRequestSnapshot(), $merged, true, true];
         yield 'a draft marked ready with green checks' => [new PullRequestSnapshot(draft: true, checks: PullRequestChecks::Passed, checksSha: 'abc1234'), $passed, true, true];
-        yield 'failed checks' => [new PullRequestSnapshot(), new PullRequestSnapshot(checks: PullRequestChecks::Failed, checksSha: 'abc1234'), true, false];
-        yield 'green checks on a draft' => [new PullRequestSnapshot(), new PullRequestSnapshot(draft: true, checks: PullRequestChecks::Passed, checksSha: 'abc1234'), true, false];
-        yield 'the same green checks again' => [$passed, $passed, true, false];
+        yield 'failed checks' => [new PullRequestSnapshot(), new PullRequestSnapshot(checks: PullRequestChecks::Failed, checksSha: 'abc1234'), true, true];
+        yield 'green checks on a draft' => [new PullRequestSnapshot(), new PullRequestSnapshot(draft: true, checks: PullRequestChecks::Passed, checksSha: 'abc1234'), true, true];
+        yield 'a verdict alone' => [$passed, $passed, true, true];
         yield 'green checks while the board is off' => [new PullRequestSnapshot(), $passed, false, false];
         yield 'a merge while the board is off' => [new PullRequestSnapshot(), $merged, false, false];
     }
