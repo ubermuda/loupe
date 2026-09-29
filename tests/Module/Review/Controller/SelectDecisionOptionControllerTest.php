@@ -126,6 +126,26 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         self::assertSelectorExists('[data-decision-target="decisionId"]');
     }
 
+    /** The page and the block a refusal streams back both name the badge in words. */
+    public function test_a_recommended_option_shows_a_named_badge(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seedMarkdown($client, str_replace(
+            'Ship to staging first',
+            'Ship to staging first (recommended: moderate)',
+            self::MARKDOWN,
+        ));
+
+        $client->loginUser($owner);
+        [, $versionNumber] = $this->renderForm($client, $document);
+
+        self::assertSelectorExists('.lp-decision__badge[data-decision-recommended="moderate"][role="note"][aria-label="Recommended, moderate confidence"]');
+
+        $this->submitAnswer($client, $document, 'deploy-target', '1', 'not-a-real-token', $versionNumber, ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+
+        self::assertStringContainsString('aria-label="Recommended, moderate confidence"', (string) $client->getResponse()->getContent());
+    }
+
     /**
      * `form_end` renders whatever the template did not, as a row with its label.
      * That is how "Version number" reached this hidden form as visible,

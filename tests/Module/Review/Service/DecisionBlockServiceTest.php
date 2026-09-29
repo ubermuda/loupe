@@ -744,4 +744,119 @@ final class DecisionBlockServiceTest extends TestCase
         self::assertStringContainsString('Before.', $text);
         self::assertStringContainsString('After.', $text);
     }
+
+    public function test_a_recommended_marker_becomes_a_badge_and_leaves_the_label(): void
+    {
+        $html = $this->renderer->render(
+            "<!-- decision: deploy-target -->\n\n- ( ) Ship to staging first (recommended: high)\n- ( ) Ship straight to production\n\n<!-- /decision -->\n",
+        );
+
+        self::assertStringContainsString(
+            'Ship to staging first</label><span class="lp-decision__badge" data-decision-recommended="high"></span></div>',
+            $html,
+        );
+        self::assertSame(1, substr_count($html, 'lp-decision__badge'));
+        self::assertStringNotContainsString('recommended:', strip_tags($html));
+        self::assertSame(['Ship to staging first', 'Ship straight to production'], $this->decisions->extract($html)[0]->options);
+    }
+
+    /**
+     * @param non-empty-string $markdown
+     */
+    #[DataProvider('recommendedFences')]
+    public function test_a_recommended_marker_is_read_on_every_kind_of_item(string $markdown, string $confidence, string $label): void
+    {
+        $html = $this->renderer->render($markdown);
+
+        self::assertStringContainsString('data-decision-recommended="'.$confidence.'"', $html);
+        self::assertContains($label, $this->decisions->extract($html)[0]->options);
+        self::assertStringNotContainsStringIgnoringCase('recommended', strip_tags($html));
+    }
+
+    /**
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function recommendedFences(): iterable
+    {
+        yield 'single item' => ["<!-- decision: a -->\n\n- ( ) One\n- ( ) Two (recommended: moderate)\n\n<!-- /decision -->\n", 'moderate', 'Two'];
+        yield 'multiple item' => ["<!-- decision: a -->\n\n- [ ] One (recommended: low)\n- [ ] Two\n\n<!-- /decision -->\n", 'low', 'One'];
+        yield 'unmarked item' => ["<!-- decision: a -->\n\n- One\n- Two (recommended: high)\n\n<!-- /decision -->\n", 'high', 'Two'];
+        yield 'any case, no space before' => ["<!-- decision: a -->\n\n- ( ) One(Recommended: HIGH)\n- ( ) Two\n\n<!-- /decision -->\n", 'high', 'One'];
+        yield 'after inline code' => ["<!-- decision: a -->\n\n- ( ) Use `make` (recommended: low)\n- ( ) Two\n\n<!-- /decision -->\n", 'low', 'Use make'];
+    }
+
+    /**
+     * Two recommendations contradict each other, so neither is promoted and the
+     * author's words stay visible as written.
+     */
+    public function test_two_recommended_markers_stay_plain_text(): void
+    {
+        $html = $this->renderer->render(
+            "<!-- decision: a -->\n\n- ( ) One (recommended: high)\n- ( ) Two (recommended: low)\n\n<!-- /decision -->\n",
+        );
+
+        self::assertStringNotContainsString('lp-decision__badge', $html);
+        self::assertSame(['One (recommended: high)', 'Two (recommended: low)'], $this->decisions->extract($html)[0]->options);
+    }
+
+    /**
+     * @param non-empty-string $markdown
+     */
+    #[DataProvider('notRecommendedFences')]
+    public function test_a_marker_that_does_not_end_the_option_stays_plain_text(string $markdown, string $label): void
+    {
+        $html = $this->renderer->render($markdown);
+
+        self::assertStringNotContainsString('lp-decision__badge', $html);
+        self::assertContains($label, $this->decisions->extract($html)[0]->options);
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function notRecommendedFences(): iterable
+    {
+        yield 'mid line' => ["<!-- decision: a -->\n\n- ( ) One (recommended: high) for now\n- ( ) Two\n\n<!-- /decision -->\n", 'One (recommended: high) for now'];
+        yield 'unknown confidence' => ["<!-- decision: a -->\n\n- ( ) One (recommended: certain)\n- ( ) Two\n\n<!-- /decision -->\n", 'One (recommended: certain)'];
+        yield 'nothing but the marker' => ["<!-- decision: a -->\n\n- ( ) (recommended: high)\n- ( ) Two\n\n<!-- /decision -->\n", '(recommended: high)'];
+    }
+
+    /** A stored answer keeps resolving after a revision adds the marker. */
+    public function test_an_answer_still_resolves_after_the_marker_is_added(): void
+    {
+        $before = $this->decisions->extract($this->renderer->render(self::FENCE))[0];
+        $after = $this->decisions->extract($this->renderer->render(
+            str_replace('Ship to staging first', 'Ship to staging first (recommended: high)', self::FENCE),
+        ))[0];
+
+        self::assertSame($before->options, $after->options);
+        self::assertSame(0, $after->resolveIndex($before->options[0], 0));
+    }
+
+    /**
+     * The stored HTML is the same for every reader, so the badge's accessible
+     * name, which CSS also shows, is added in the reader's language on display.
+     */
+    public function test_showing_a_block_names_its_badge_in_the_readers_language(): void
+    {
+        $html = $this->renderer->render(
+            "<!-- decision: a -->\n\n- ( ) One (recommended: moderate)\n- ( ) Two\n\n<!-- /decision -->\n",
+        );
+
+        $marked = $this->decisions->withSelections($html, [], readOnly: false, badgeLabels: [
+            'high' => 'Strongly advised',
+            'moderate' => 'Advised & sure',
+            'low' => 'Mildly advised',
+        ]);
+
+        self::assertStringContainsString(
+            '<span class="lp-decision__badge" data-decision-recommended="moderate" role="note" aria-label="Advised &amp; sure"></span>',
+            $marked,
+        );
+        self::assertSame(strip_tags($html), strip_tags($marked));
+        self::assertStringContainsString(
+            '<span class="lp-decision__badge" data-decision-recommended="moderate"></span>',
+            $this->decisions->withSelections($html, [], readOnly: false),
+        );
+    }
 }

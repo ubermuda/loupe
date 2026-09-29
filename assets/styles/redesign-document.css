@@ -228,6 +228,23 @@
 .lp-review .lp-decision__option input:checked {
     @apply border-review-tab bg-review-tab;
 }
+/* Generated text, so the badge never joins the anchor basis. The page names it
+   in the reader's language; the English fallback covers a diff pane. */
+.lp-review .lp-decision__badge {
+    @apply ml-auto shrink-0 rounded-md bg-accent-faint px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold text-review-tab;
+}
+.lp-review .lp-decision__badge[data-decision-recommended='high']::after {
+    content: 'Recommended, high confidence';
+}
+.lp-review .lp-decision__badge[data-decision-recommended='moderate']::after {
+    content: 'Recommended, moderate confidence';
+}
+.lp-review .lp-decision__badge[data-decision-recommended='low']::after {
+    content: 'Recommended, low confidence';
+}
+.lp-review .lp-decision__badge[aria-label]::after {
+    content: attr(aria-label);
+}
 .lp-review .lp-decision__save {
     @apply mt-4;
 }

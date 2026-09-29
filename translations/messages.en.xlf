@@ -1334,6 +1334,9 @@
             <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Select your choices, then select Save decision in the document.</target></trans-unit>
             <trans-unit id="review.decision.save"><source>review.decision.save</source><target>Save decision</target></trans-unit>
             <trans-unit id="review.decision.status.selection_saved"><source>review.decision.status.selection_saved</source><target>Decision saved on v%version%.</target></trans-unit>
+            <trans-unit id="review.decision.recommended.high"><source>review.decision.recommended.high</source><target>Recommended, high confidence</target></trans-unit>
+            <trans-unit id="review.decision.recommended.moderate"><source>review.decision.recommended.moderate</source><target>Recommended, moderate confidence</target></trans-unit>
+            <trans-unit id="review.decision.recommended.low"><source>review.decision.recommended.low</source><target>Recommended, low confidence</target></trans-unit>
             <trans-unit id="review.document.margin.references_empty"><source>review.document.margin.references_empty</source><target>None</target></trans-unit>
             <trans-unit id="review.document.margin.series"><source>review.document.margin.series</source><target>Series</target></trans-unit>
             <trans-unit id="review.document.margin.version_note"><source>review.document.margin.version_note</source><target>Version note</target></trans-unit>

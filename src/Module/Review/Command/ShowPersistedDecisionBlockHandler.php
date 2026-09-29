@@ -8,6 +8,7 @@ use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\DecisionBlockService;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Re-renders one decision block as it is actually stored, for the Turbo stream
@@ -23,6 +24,7 @@ final readonly class ShowPersistedDecisionBlockHandler
         private DocumentVersionRepository $documentVersions,
         private DecisionSelectionRepository $decisionSelections,
         private DecisionBlockService $decisionBlocks,
+        private TranslatorInterface $translator,
     ) {
     }
 
@@ -61,7 +63,12 @@ final readonly class ShowPersistedDecisionBlockHandler
         }
 
         return new ShowPersistedDecisionBlockView(
-            $this->decisionBlocks->withSelections($blockHtml, $selected, readOnly: false),
+            $this->decisionBlocks->withSelections(
+                $blockHtml,
+                $selected,
+                readOnly: false,
+                badgeLabels: DecisionBlockService::badgeLabels($this->translator),
+            ),
         );
     }
 }

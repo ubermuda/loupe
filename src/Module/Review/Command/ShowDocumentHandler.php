@@ -17,6 +17,7 @@ use App\Module\Review\Service\LastSeenVersionResolver;
 use App\Module\Review\Service\SectionApprovalReader;
 use App\Module\Review\ValueObject\CommentSignals;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final readonly class ShowDocumentHandler
 {
@@ -29,6 +30,7 @@ final readonly class ShowDocumentHandler
         private LastSeenVersionResolver $lastSeenVersion,
         private SectionApprovalReader $sectionApprovals,
         private ReviewRepository $reviews,
+        private TranslatorInterface $translator,
     ) {
     }
 
@@ -62,6 +64,7 @@ final readonly class ShowDocumentHandler
                 $version->renderedHtml,
                 $decisions->selectedIndexesByDecisionId,
                 readOnly: !$isLatest,
+                badgeLabels: DecisionBlockService::badgeLabels($this->translator),
             ),
             lastSeenVersionNumber: $this->lastSeenVersion->versionNumberFor($command->document, $command->reader),
             sections: ($this->sectionApprovals)($command->document, $version, $headings, $command->reader),

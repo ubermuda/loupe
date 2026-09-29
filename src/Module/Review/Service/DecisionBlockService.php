@@ -8,6 +8,7 @@ use App\Module\Review\ValueObject\Decision;
 use App\Module\Review\ValueObject\DecisionType;
 use League\CommonMark\Event\DocumentParsedEvent;
 use League\CommonMark\Extension\CommonMark\Node\Block\HtmlBlock;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Turns a decision fence in a document into a group of radio or checkbox
@@ -65,6 +66,13 @@ final readonly class DecisionBlockService
     /** The list-item markers an author writes to pick the kind of block. */
     private const string SINGLE_ITEM_MARKER = '~^\( \)\s*~';
     private const string MULTIPLE_ITEM_MARKER = '~^\[[ xX]\]\s*~';
+
+    /** A trailing `(recommended: high)` an author writes after the option it favours. */
+    private const string RECOMMENDED_MARKER = '~^(.*\S)\s*\(recommended:\s*(high|moderate|low)\)$~is';
+
+    private const string BADGE_MARKER = 'data-decision-recommended';
+
+    private const array CONFIDENCES = ['high', 'moderate', 'low'];
 
     /**
      * An id is what a selection is keyed by, so it is deliberately narrow: safe
@@ -389,10 +397,24 @@ final readonly class DecisionBlockService
      * selection never rewrites a version. Only attributes are added, and
      * strip_tags() drops those — the anchor basis is untouched.
      *
+     * The stored HTML is the same for every reader, so a recommendation badge
+     * gets its accessible name here, in the reader's language. CSS shows it too.
+     *
      * @param array<string, list<int>> $selectedIndexesByDecisionId
+     * @param array<string, string>    $badgeLabels                 keyed by confidence
      */
-    public function withSelections(string $html, array $selectedIndexesByDecisionId, bool $readOnly): string
+    public function withSelections(string $html, array $selectedIndexesByDecisionId, bool $readOnly, array $badgeLabels = []): string
     {
+        if ([] !== $badgeLabels) {
+            $html = preg_replace_callback(
+                '~<span class="lp-decision__badge" '.self::BADGE_MARKER.'="([a-z]+)">~',
+                static fn (array $matches): string => isset($badgeLabels[$matches[1]])
+                    ? substr($matches[0], 0, -1).' role="note" aria-label="'.htmlspecialchars($badgeLabels[$matches[1]], \ENT_QUOTES | \ENT_HTML5).'">'
+                    : $matches[0],
+                $html,
+            ) ?? throw new \RuntimeException('Decision badge labelling failed: '.preg_last_error_msg().'.');
+        }
+
         $marked = preg_replace_callback(
             '~<input[^>]*\s'.self::OPTION_MARKER.'="('.self::ID_PATTERN.'):(\d+)"[^>]*>~',
             static function (array $matches) use ($selectedIndexesByDecisionId, $readOnly): string {
@@ -412,6 +434,21 @@ final readonly class DecisionBlockService
         // Falling back to '' would blank the document body on screen; the
         // neighbouring heading-id pass throws for the same reason.
         return $marked ?? throw new \RuntimeException('Decision selection marking failed: '.preg_last_error_msg().'.');
+    }
+
+    /**
+     * The badge names withSelections() takes, in the reader's language.
+     *
+     * @return array<string, string>
+     */
+    public static function badgeLabels(TranslatorInterface $translator): array
+    {
+        $labels = [];
+        foreach (self::CONFIDENCES as $confidence) {
+            $labels[$confidence] = $translator->trans('review.decision.recommended.'.$confidence);
+        }
+
+        return $labels;
     }
 
     /**
@@ -443,11 +480,20 @@ final readonly class DecisionBlockService
         $control = DecisionType::Multiple === $type ? 'checkbox' : 'radio';
         $marker = DecisionType::Multiple === $type ? self::MULTIPLE_ITEM_MARKER : self::SINGLE_ITEM_MARKER;
 
+        $labels = array_map(static fn (string $text): string => trim((string) preg_replace($marker, '', $text)), $texts);
+        $recommended = self::recommendedOption($labels);
+
         $options = '';
-        foreach ($texts as $index => $text) {
+        foreach ($labels as $index => $label) {
             $optionId = self::OPTION_ID_PREFIX.$id.self::ID_SEPARATOR.$index;
+            $badge = '';
+            if (null !== $recommended && $recommended['index'] === $index) {
+                $label = $recommended['label'];
+                $badge = sprintf('<span class="lp-decision__badge" %s="%s"></span>', self::BADGE_MARKER, $recommended['confidence']);
+            }
+
             $options .= sprintf(
-                '<div class="lp-decision__option"><input type="%s" name="%s%s" value="%d" id="%s" %s="%s:%d"><label for="%s">%s</label></div>',
+                '<div class="lp-decision__option"><input type="%s" name="%s%s" value="%d" id="%s" %s="%s:%d"><label for="%s">%s</label>%s</div>',
                 $control,
                 self::CONTROL_NAME_PREFIX,
                 $id,
@@ -457,7 +503,8 @@ final readonly class DecisionBlockService
                 $id,
                 $index,
                 $optionId,
-                trim((string) preg_replace($marker, '', $text)),
+                $label,
+                $badge,
             );
         }
 
@@ -498,6 +545,32 @@ final readonly class DecisionBlockService
         $text = trim($itemHtml);
 
         return trim((string) preg_replace('~^<p>(.*)</p>$~s', '$1', $text));
+    }
+
+    /**
+     * The one option the author recommends, its label without the marker, and
+     * the confidence. Null when no option or several carry a marker: two
+     * recommendations contradict each other, so their text stays as written.
+     *
+     * @param list<string> $labels
+     *
+     * @return array{index: int, label: string, confidence: string}|null
+     */
+    private static function recommendedOption(array $labels): ?array
+    {
+        $found = null;
+        foreach ($labels as $index => $label) {
+            if (1 !== preg_match(self::RECOMMENDED_MARKER, $label, $matches)) {
+                continue;
+            }
+            if (null !== $found) {
+                return null;
+            }
+
+            $found = ['index' => $index, 'label' => $matches[1], 'confidence' => strtolower($matches[2])];
+        }
+
+        return $found;
     }
 
     /**
