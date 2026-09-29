@@ -9,6 +9,7 @@ use Doctrine\Migrations\AbstractMigration;
 
 final class Version20260929003249 extends AbstractMigration
 {
+    #[\Override]
     public function getDescription(): string
     {
         return 'Create decision answers, with one row for each answered decision';
@@ -29,6 +30,7 @@ final class Version20260929003249 extends AbstractMigration
         $this->addSql('ALTER TABLE decision_answers ADD CONSTRAINT FK_84120D192FC55A77 FOREIGN KEY (answered_by_id) REFERENCES users (id) ON DELETE SET NULL NOT DEFERRABLE');
     }
 
+    #[\Override]
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE decision_answers DROP CONSTRAINT FK_84120D19C33F7837');
