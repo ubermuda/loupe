@@ -21,12 +21,17 @@ afterEach(async () => {
     vi.useRealTimers();
 });
 
-const block = (id, note) => `<fieldset data-decision-id="${id}"${
+const option = (id, index, checked) =>
+    `<input type="checkbox" value="${index}" data-decision-option="${id}:${index}"${
+        checked.includes(`${id}:${index}`) ? ' checked' : ''
+    }>`;
+
+const block = (id, note, checked = []) => `<fieldset data-decision-id="${id}"${
     note === undefined ? '' : ` data-decision-note="${note}"`
 }>
     <legend>Question ${id}</legend>
-    <div><input type="checkbox" value="0" data-decision-option="${id}:0"><label>A</label></div>
-    <div><input type="checkbox" value="1" data-decision-option="${id}:1"><label>B</label></div>
+    <div>${option(id, 0, checked)}<label>A</label></div>
+    <div>${option(id, 1, checked)}<label>B</label></div>
 </fieldset>`;
 
 const form = `<form hidden data-decision-target="form"
@@ -38,7 +43,12 @@ const form = `<form hidden data-decision-target="form"
     <input type="checkbox" data-decision-target="clear" name="f[clear]" value="1">
 </form>`;
 
-async function mount({ editable = true, notes = {}, page = 'doc-1/3' } = {}) {
+async function mount({
+    editable = true,
+    notes = {},
+    page = 'doc-1/3',
+    checked = [],
+} = {}) {
     document.body.innerHTML = `<p id="decision-status"></p>
 <div data-controller="decision" data-action="change->decision#select"
         data-decision-page="${page}"
@@ -46,7 +56,7 @@ async function mount({ editable = true, notes = {}, page = 'doc-1/3' } = {}) {
         data-decision-note-placeholder-value="Add a note"
         data-decision-clear-label-value="Clear"
         data-decision-error-message-value="Could not save.">
-    <div class="prose">${block('a', notes.a)}${block('b', notes.b)}</div>
+    <div class="prose">${block('a', notes.a, checked)}${block('b', notes.b, checked)}</div>
     ${editable ? form : ''}
 </div>`;
     const formElement = document.querySelector('form');
@@ -656,4 +666,64 @@ it('does not save again after restoring a note that is already saved', async () 
 
     expect(sent).toHaveLength(1);
     expect(note('a').value).toBe('New');
+});
+
+it('resumes a held visit when a note edit ends where it started', async () => {
+    window.Turbo = { visit: vi.fn() };
+    await mount();
+    check('a', 0);
+    visit('/next');
+    type('b', 'Draft');
+    type('b', '');
+    finish();
+    await vi.advanceTimersByTimeAsync(800);
+
+    expect(sent).toHaveLength(1);
+    expect(window.Turbo.visit).toHaveBeenCalledWith('/next');
+});
+
+it('saves an option that no save confirmed after Turbo restores a snapshot', async () => {
+    await mount();
+    check('a', 0);
+    check('b', 1);
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(800);
+    finish();
+
+    expect(sent.at(-1)).toEqual({
+        decisionId: 'b',
+        indexes: ['1'],
+        note: '',
+        clear: false,
+    });
+});
+
+it('saves nothing when a page loads with its saved options checked', async () => {
+    await mount({ checked: ['a:1'], notes: { a: 'Kept' } });
+    check('b', 0);
+    finish();
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(sent).toHaveLength(1);
+});
+
+it('sends the Clear again when Turbo cached the page while it was in flight', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    check('a', 0);
+    finish();
+    clear('a');
+    document.dispatchEvent(new Event('turbo:before-cache'));
+    await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(800);
+
+    expect(note('a').value).toBe('');
+    expect(sent.at(-1)).toEqual({
+        decisionId: 'a',
+        indexes: [],
+        note: '',
+        clear: false,
+    });
 });

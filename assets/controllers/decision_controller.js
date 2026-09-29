@@ -124,10 +124,23 @@ export default class extends Controller {
         clear.addEventListener('click', () => this.clear(block));
         controls.append(clear);
         block.append(controls);
-        this.sentStates.set(block, this.stateKey(this.state(block)));
-        if (draft === undefined || draft === note) return;
-        field.value = draft;
-        this.schedule(block);
+        const saved = this.stateKey({
+            indexes: this.savedIndexes(block),
+            note,
+        });
+        this.sentStates.set(block, saved);
+        if (draft !== undefined) field.value = draft;
+        if (this.stateKey(this.state(block)) !== saved) this.schedule(block);
+    }
+
+    // A snapshot keeps the options as the reviewer left them, which a save may
+    // not have confirmed. The server renders the confirmed ones as `checked`.
+    savedIndexes(block) {
+        const saved = block.dataset.decisionSavedIndexes;
+        if (saved !== undefined) return JSON.parse(saved);
+        return [...block.querySelectorAll('input[data-decision-option]')]
+            .filter((input) => input.defaultChecked)
+            .map((input) => Number(input.value));
     }
 
     // Clear empties the block at once, so a save queued behind it reads no
@@ -175,8 +188,9 @@ export default class extends Controller {
         clearTimeout(this.timers.get(block));
         this.timers.delete(block);
         const state = this.state(block);
-        if (this.stateKey(state) === this.sentStates.get(block)) return;
-        this.enqueue(block, false);
+        if (this.stateKey(state) !== this.sentStates.get(block))
+            this.enqueue(block, false);
+        else this.resumeVisit();
     }
 
     state(block) {
@@ -242,8 +256,9 @@ export default class extends Controller {
         const { block, state } = this.inFlight;
         this.inFlight = null;
         if (event.detail.success && this.isStream(event.detail.fetchResponse)) {
-            // A Turbo snapshot restore rebuilds the note from this attribute.
+            // A Turbo snapshot restore compares the block with these attributes.
             block.dataset.decisionNote = state.note;
+            block.dataset.decisionSavedIndexes = JSON.stringify(state.indexes);
         } else {
             this.sentStates.delete(block);
             const edited = this.queue.has(block) || this.timers.has(block);
@@ -253,11 +268,14 @@ export default class extends Controller {
             this.heldVisit = null;
         }
         this.flush();
-        if (this.heldVisit && !this.pending()) {
-            const url = this.heldVisit;
-            this.heldVisit = null;
-            window.Turbo.visit(url);
-        }
+        this.resumeVisit();
+    }
+
+    resumeVisit() {
+        if (!this.heldVisit || this.pending()) return;
+        const url = this.heldVisit;
+        this.heldVisit = null;
+        window.Turbo.visit(url);
     }
 
     isStream(response) {
