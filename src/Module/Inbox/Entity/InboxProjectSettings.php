@@ -33,6 +33,12 @@ class InboxProjectSettings
     #[ORM\Column(options: ['default' => true])]
     public bool $runWaitingForPerson = true;
 
+    #[ORM\Column(options: ['default' => true])]
+    public bool $pullRequestReady = true;
+
+    #[ORM\Column(options: ['default' => true])]
+    public bool $pullRequestFixStopped = true;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\OneToOne(targetEntity: Project::class)]
@@ -47,6 +53,8 @@ class InboxProjectSettings
             InboxCardWaitTrigger::RunBlocked => $this->runBlocked,
             InboxCardWaitTrigger::RunGaveUp => $this->runGaveUp,
             InboxCardWaitTrigger::RunWaitingForPerson => $this->runWaitingForPerson,
+            InboxCardWaitTrigger::PullRequestReady => $this->pullRequestReady,
+            InboxCardWaitTrigger::PullRequestFixStopped => $this->pullRequestFixStopped,
         };
     }
 }

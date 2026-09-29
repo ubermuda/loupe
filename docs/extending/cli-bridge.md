@@ -167,6 +167,12 @@ event carried. Each log line below goes with the state the bridge reports:
 | `worker_failed` | `not-started` |
 | `queue_dropped` | `dropped`, with the reason `shutdown`, `rule_dead` or `reload` |
 
+Each `queued` report carries a `trigger` object that names the event that
+queued the run. The object always holds `eventType`. A pull request event also
+gives `forge`, `repository`, `pullRequestNumber`, `headSha` and `reason`, when
+the event carries them. No other state sends a trigger. An older bridge sends
+none.
+
 The [Worker run API](../reference/worker-runs.md#the-states-of-a-run) page says
 what each state means. The server adds `timed-out` and `lost` on its own. It
 also sets `closed` on an interactive run, which no bridge holds.
@@ -998,14 +1004,16 @@ rules:
       reason: conflict
     resume: true
     prompt: |
+      Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
-      Pull request {pullRequestUrl} conflicts with its base. Rebase it and push.
+      Pull request {pullRequestUrl} needs a fix: {reason}.
   - name: merge-ready
     on: pull_request.ready_to_merge
     project: my-app
     prompt: |
+      Use the loupe-stage-merge skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
-      Pull request {pullRequestUrl} is ready to merge at {headSha}. Merge it.
+      Pull request {pullRequestUrl} is ready to merge at {headSha}.
 ```
 
 A rule on `pull_request.fix_requested` can set `resume: true`. When the event

@@ -107,6 +107,19 @@ type RunStateReport struct {
 	Variant        string `json:"variant,omitempty"`
 	RequestedModel string `json:"requestedModel,omitempty"`
 	SwitchedFrom   string `json:"switchedFrom,omitempty"`
+	// Trigger goes on a queued report alone.
+	Trigger *RunTrigger `json:"trigger,omitempty"`
+}
+
+// RunTrigger names the event that queued a run. A pull request event also
+// names its pull request.
+type RunTrigger struct {
+	EventType         string `json:"eventType"`
+	Forge             string `json:"forge,omitzero"`
+	Repository        string `json:"repository,omitzero"`
+	PullRequestNumber int    `json:"pullRequestNumber,omitzero"`
+	HeadSHA           string `json:"headSha,omitzero"`
+	Reason            string `json:"reason,omitzero"`
 }
 
 // MarshalJSON sends every field of an outcome, as the old report does, so an

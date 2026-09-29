@@ -50,6 +50,8 @@ final class EditInboxSettingsController extends AppController
                 runBlocked: $data->runBlocked,
                 runGaveUp: $data->runGaveUp,
                 runWaitingForPerson: $data->runWaitingForPerson,
+                pullRequestReady: $data->pullRequestReady,
+                pullRequestFixStopped: $data->pullRequestFixStopped,
             ));
             $this->addFlash('success', $this->translator->trans('inbox.settings.flash.saved'));
 

@@ -78,3 +78,59 @@ test('a reviewer signs in through the popup and saves a comment', async ({
     expect(response.request().headers()['authorization']).toMatch(/^Bearer ey/);
     await expect(page.locator('#lp-head-count')).toHaveText('1');
 });
+
+type CollapseFrame = { width: number; onReview: boolean };
+type Sampled = { frames: CollapseFrame[]; done: boolean };
+
+test('the collapsing quick actions never cover the Review button', async ({
+    page,
+}) => {
+    // A signed-out widget collapses its quick actions after the boot load.
+    // A style pass before that makes the collapse animate on every run.
+    await page.addInitScript(() => {
+        const sampled: Sampled = { frames: [], done: false };
+        (window as unknown as { __collapse: Sampled }).__collapse = sampled;
+        const observer = new MutationObserver(() => {
+            const root = [...document.documentElement.children].find(
+                (node) => node.shadowRoot,
+            )?.shadowRoot;
+            const quick = root?.getElementById('lp-launch-quick');
+            const review = root?.getElementById('lp-launch-main');
+            if (!root || !quick || !review) return;
+            observer.disconnect();
+            quick.getBoundingClientRect();
+            const start = performance.now();
+            const sample = (): void => {
+                const box = review.getBoundingClientRect();
+                const hit = root.elementFromPoint(
+                    box.x + box.width / 2,
+                    box.y + box.height / 2,
+                );
+                sampled.frames.push({
+                    width: quick.getBoundingClientRect().width,
+                    onReview: review.contains(hit),
+                });
+                if (performance.now() - start < 600) {
+                    requestAnimationFrame(sample);
+                } else {
+                    sampled.done = true;
+                }
+            };
+            requestAnimationFrame(sample);
+        });
+        observer.observe(document, { childList: true, subtree: true });
+    });
+    await page.goto(
+        `/dev/site-review-harness?email=${encodeURIComponent(EMAIL)}`,
+    );
+
+    const read = (): Promise<Sampled> =>
+        page.evaluate(
+            () => (window as unknown as { __collapse: Sampled }).__collapse,
+        );
+    await expect.poll(async () => (await read()).done).toBe(true);
+    const { frames } = await read();
+    expect(frames.some((frame) => frame.width > 0)).toBe(true);
+    expect(frames.at(-1)?.width).toBe(0);
+    expect(frames.filter((frame) => !frame.onReview)).toEqual([]);
+});

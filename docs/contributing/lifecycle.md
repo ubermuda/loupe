@@ -12,10 +12,9 @@ bridge rule with `action: interactive` can open that session in a terminal when
 the card enters Product design. A person approves each document.
 
 A card move either reports an agent's own state or carries a person's
-judgement. An agent makes the first kind and never the second. So the
-implementation worker moves its own card to In review, because only it knows
-the pull request is ready. Every move that carries an approval stays with the
-person who approves.
+judgement. An agent makes the first kind and never the second. Every move that
+carries an approval stays with the person who approves. The app makes the moves
+that follow a pull request, because it reads the pull request itself.
 
 ## Columns
 
@@ -28,13 +27,17 @@ person who approves.
 | In review | `in-review` | | none |
 | Done | `done` | terminal | none |
 
-A card moves from Implementation to In review when its pull request is ready.
-The implementation worker makes that move itself, and the `Board` section of
-`.loupe/lifecycle.md` names the column it moves to. After the pull request
-merges, the card moves from In review to Done, by hand until a forge webhook
-reports the merge.
-Pull request fix rounds, for review feedback and failing checks, run while the
-card is in In review. No rule starts a worker when a card enters In review.
+The implementation worker ends when it opens the pull request, and it reports
+`waiting`. It does not wait for CI. The app reads the pull request after each
+push. When the required checks pass, the app moves the card from Implementation
+to In review. When the pull request merges, the app moves the card to Done.
+Only a repository connected through the GitHub App gets these moves, as
+[the board page](../using/board.md#what-github-tells-a-card) says.
+
+Three pull request rules start a worker from the events of the app. A failed
+check, a conflict or a request for changes starts a fix round. An approved pull
+request with green checks starts the merge. A branch behind `main` starts an
+update. No rule starts a worker when a card enters In review.
 
 The owner runs `/loupe:product-design` by hand in Claude Code, from a card or
 from a one-line idea. The session creates the card in Product design, or moves
@@ -167,12 +170,51 @@ rules:
       A person requested changes on document {documentId}.
       Loupe instance https://loupe.ac.
       If the card is no longer in {column}, stop.
+
+  - name: fix-pr
+    on: pull_request.fix_requested
+    project: loupe
+    resume: true
+    permissionMode: bypassPermissions
+    prompt: |
+      Use the loupe-stage-fix-round skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Pull request {pullRequestUrl} needs a fix: {reason}.
+      Loupe instance https://loupe.ac.
+
+  - name: merge-ready
+    on: pull_request.ready_to_merge
+    project: loupe
+    permissionMode: bypassPermissions
+    prompt: |
+      Use the loupe-stage-merge skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Pull request {pullRequestUrl} is ready to merge at {headSha}.
+      Loupe instance https://loupe.ac.
+
+  - name: sync-behind
+    on: pull_request.behind
+    project: loupe
+    permissionMode: bypassPermissions
+    prompt: |
+      Use the loupe-stage-merge skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Pull request {pullRequestUrl} is behind its base.
+      Loupe instance https://loupe.ac.
 ```
 
 The `fix-round` rule starts a document fix round when a person requests changes
 on a product or tech design document. The event names the linked card in the
 column where the document's stage starts. A document with no such card starts
 no worker.
+
+The `fix-pr` rule resumes the session that built the branch, when the event
+names one, and starts a new session otherwise. The round fixes the conflict,
+each failing check and each open review item, pushes, and reports `waiting`.
+The `merge-ready` rule merges only after it reads the pull request again: the
+same head, an approval, and every required check green. The `sync-behind` rule
+updates the branch on GitHub with a merge commit, and reports `waiting`. Every
+pull request rule acts only on a card that links the pull request.
 
 Each prompt carries `{projectId}` and the Loupe instance. The implementation
 skill uses both to build the card link in the pull request body. Without the
@@ -192,7 +234,8 @@ probe showed that this mode reaches the Loupe write tools in `claude -p` with
 no allow rule. When a worker run reports a denied tool, add an
 `mcp__loupe__*` allow rule to `.claude/settings.local.json`.
 
-The implementation rule uses `bypassPermissions`. The gate runs arbitrary
+The implementation rule and the three pull request rules use
+`bypassPermissions`. The gate and the `gh` calls run arbitrary
 commands, and a worker in `acceptEdits` cannot approve them, because nobody
 answers a permission prompt. This choice has a cost. The worker can run any
 command as the owner from the moment it starts. The worktree binds file edits,
@@ -205,9 +248,9 @@ that change from one setup to the next.
 
 1. The repository profile, `.loupe/lifecycle.md`, belongs to the repository. Its
    sections are `Instruction files`, `Worktree`, `Gate`, `Code review`,
-   `Changelog`, `Pull request` and `Board`. The profile of this repository names
-   `just cs`, `just ci`, the Codex review, `changelog.d/` and the column slugs
-   that a stage moves a card to or reads. The slugs live there because a stage
+   `Changelog`, `Pull request`, `Board` and `Merge`. The profile of this repository names
+   `just cs`, `just ci`, the Codex review, `changelog.d/`, the merge method and
+   the column slugs that a stage moves a card to or reads. The slugs live there because a stage
    skill never reads the column list, which can be missing.
 2. A harness adapter maps the steps of a worker to the tools of one agent
    harness: connect to Loupe, load an instruction, bind writes to a worktree,
@@ -244,34 +287,22 @@ at the same time interfere with each other.
 
 ## Fix rounds by hand
 
-The `fix-round` rule starts a document fix round. No rule starts a pull request
-fix round yet, so run one by hand after review feedback arrives.
-
-1. Wait until no worker runs, on any card. The bridge log shows the end line
-   of each worker. Then stop the bridge.
-2. Check that no test run is left. Stopping the bridge during a gate kills the
-   host process, and PHPUnit keeps running inside the shared `php-fpm`
-   container. From the main checkout, this command must print `0`:
-
-```sh
-docker compose exec php-fpm ps aux | grep -c phpunit
-```
-
-3. Run this from the repository root:
+The `fix-pr` rule starts a pull request fix round. For a repository that the app
+does not read, run one by hand after review feedback arrives. Run it from the
+repository root, when no worker runs on the card:
 
 ```sh
 claude -p --permission-mode bypassPermissions -- "Use the loupe-stage-fix-round skill. Card <number> (cardId <id>) in project loupe (projectId <id>), column in-review. Loupe instance https://loupe.ac."
 ```
 
-The prompt names the column the card is in. The round answers the review and
-the failed checks in In review. A card in Implementation with an open pull
-request gets the same round, so use `implementation` for that card.
+The prompt names the column the card is in. A card in Implementation with an
+open pull request gets the same round, so use `implementation` for that card.
 
 ## Worker results
 
 The final reply of each worker starts with `STAGE RESULT:`. The bridge does not
 read that line. It asks each worker for a structured result, with a `status` of
-`finished`, `blocked` or `unfinished` and a one-sentence `summary`. The worker
+`finished`, `blocked`, `unfinished` or `waiting` and a one-sentence `summary`. The worker
 sets `status` from its `STAGE RESULT:` form, as the table in
 `plugins/loupe/skills/loupe-stage-product-design/references/stage-contract.md`
 says. The **Runs** tab of the Activity page, at `/projects/{id}/worker-runs`,
@@ -298,15 +329,17 @@ until a later run of the card ends another way, or the card moves.
    `/loupe:product-design`, then take it through an approval, Tech design, an
    approval and Implementation. Request changes on
    one design document, and check that the `fix-round` rule starts a worker.
-   Check that the implementation worker moves the card to In review itself once
-   its pull request is ready. Run one pull request fix round there. After the
-   merge, move the card to Done by hand. Record the `STAGE RESULT` of each
+   Check that the implementation worker reports `waiting` once its pull request
+   is open, and that the app moves the card to In review on green checks.
+   Approve the pull request, and check that the `merge-ready` rule merges it
+   and that the app moves the card to Done. Record the `STAGE RESULT` of each
    worker run on the card.
 
 ## What comes later
 
-These pieces are planned after this one. Entries 2 and 3 now have an approved
-design, "An automated card lifecycle", and cards on the board.
+These pieces are planned after this one. Entry 2 has an approved design, "An
+automated card lifecycle", and cards on the board. Entry 3 has shipped for
+GitHub.
 
 1. The bridge gets roles and bindings, with one worktree for each card.
 2. An approval moves the card, and reaches the agent as its own event.

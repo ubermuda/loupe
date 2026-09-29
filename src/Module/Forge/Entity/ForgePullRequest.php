@@ -64,6 +64,9 @@ class ForgePullRequest
     #[ORM\Column]
     public bool $readyToMerge = false;
 
+    #[ORM\Column(length: 64, nullable: true)]
+    public ?string $changesRequestedSha = null;
+
     /** Kept to the microsecond, because the refresh skip rule compares it with the request time of a message. */
     #[ORM\Column(type: MicrosecondDateTimeImmutableType::NAME, nullable: true, columnDefinition: 'TIMESTAMP(6) WITHOUT TIME ZONE DEFAULT NULL')]
     public ?\DateTimeImmutable $refreshedAt = null;
@@ -121,6 +124,7 @@ class ForgePullRequest
         $this->mergeability = $snapshot->mergeability;
         $this->review = $snapshot->review;
         $this->readyToMerge = $snapshot->readyToMerge;
+        $this->changesRequestedSha = $snapshot->changesRequestedSha;
     }
 
     public function snapshot(): PullRequestSnapshot
@@ -136,6 +140,7 @@ class ForgePullRequest
             $this->mergeability,
             $this->review,
             $this->readyToMerge,
+            $this->changesRequestedSha,
         );
     }
 }

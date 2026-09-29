@@ -349,6 +349,53 @@ func TestReportRunStateSendsTheResultAndTheResumeFields(t *testing.T) {
 	}
 }
 
+// A queued report names the event that queued the run. A field that the event
+// does not carry is not sent, and a report with no trigger sends none.
+func TestReportRunStateSendsTheTrigger(t *testing.T) {
+	queued := stateReport(RunQueued)
+	queued.Trigger = &RunTrigger{
+		EventType:         "pull_request.fix_requested",
+		Forge:             "github",
+		Repository:        "ubermuda/loupe",
+		PullRequestNumber: 644,
+		HeadSHA:           "9b84e07b",
+		Reason:            "checks-failed",
+	}
+	_, body, _, err := putState(t, queued, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if keys(body) != withBase("trigger") {
+		t.Fatalf("keys = %s, want %s", keys(body), withBase("trigger"))
+	}
+	trigger := body["trigger"].(map[string]any)
+	if want := "eventType,forge,headSha,pullRequestNumber,reason,repository"; keys(trigger) != want {
+		t.Fatalf("trigger keys = %s, want %s", keys(trigger), want)
+	}
+	if trigger["eventType"] != "pull_request.fix_requested" || trigger["forge"] != "github" || trigger["repository"] != "ubermuda/loupe" ||
+		trigger["pullRequestNumber"] != 644.0 || trigger["headSha"] != "9b84e07b" || trigger["reason"] != "checks-failed" {
+		t.Fatalf("trigger = %v", trigger)
+	}
+
+	queued.Trigger = &RunTrigger{EventType: "board.card_moved"}
+	_, body, _, err = putState(t, queued, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if trigger := body["trigger"].(map[string]any); keys(trigger) != "eventType" || trigger["eventType"] != "board.card_moved" {
+		t.Fatalf("trigger = %v", trigger)
+	}
+
+	queued.Trigger = nil
+	_, body, _, err = putState(t, queued, http.StatusCreated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if keys(body) != withBase() {
+		t.Fatalf("keys = %s, want no trigger", keys(body))
+	}
+}
+
 func TestIsOutcomeNamesTheEndsOfARun(t *testing.T) {
 	for _, state := range []string{RunSucceeded, RunNoResult, RunFailed, RunNotStarted, RunUnfinished, RunBlocked, RunGaveUp, RunWaitingOnForge} {
 		if !IsOutcome(state) {

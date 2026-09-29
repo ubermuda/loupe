@@ -52,4 +52,28 @@ final class ProjectTopicBuilderTest extends KernelTestCase
         self::assertNull($builder->projectIdFromWorkerRunsTopic($topic));
         self::assertNull($builder->projectIdFromBoardTopic($topic));
     }
+
+    public function test_the_document_topic_names_its_project_and_document_and_no_other_topic_does(): void
+    {
+        self::bootKernel();
+        $builder = self::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $builder);
+        $projectId = Uuid::v7();
+        $documentId = Uuid::v7();
+
+        $topic = $builder->forDocument($projectId, $documentId);
+
+        self::assertStringEndsWith('/projects/'.$projectId.'/documents/'.$documentId, $topic);
+        self::assertEquals(['projectId' => $projectId, 'documentId' => $documentId], $builder->idsFromDocumentTopic($topic));
+        self::assertNull($builder->idsFromDocumentTopic($topic.'/extra'));
+        self::assertNull($builder->idsFromDocumentTopic($topic.'/'));
+        self::assertNull($builder->idsFromDocumentTopic($builder->forBoard($projectId)));
+        self::assertNull($builder->idsFromDocumentTopic($builder->forProject($projectId)));
+        self::assertNull($builder->idsFromDocumentTopic($builder->forActivity($projectId)));
+        self::assertNull($builder->idsFromDocumentTopic(str_replace((string) $documentId, 'not-a-uuid', $topic)));
+        self::assertNull($builder->idsFromDocumentTopic(str_replace((string) $projectId, 'not-a-uuid', $topic)));
+        self::assertNull($builder->idsFromDocumentTopic('https://elsewhere.test/projects/'.$projectId.'/documents/'.$documentId));
+        self::assertNull($builder->projectIdFromBoardTopic($topic));
+        self::assertNull($builder->projectIdFromActivityTopic($topic));
+    }
 }

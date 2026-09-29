@@ -214,6 +214,67 @@ final class GitHubPullRequestStateMapperTest extends TestCase
         self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->review);
     }
 
+    /** @return iterable<string, array{?string, list<string>, PullRequestReview}> */
+    public static function latestOpinionatedReviews(): iterable
+    {
+        yield 'no decision and an approval' => [null, ['APPROVED'], PullRequestReview::Approved];
+        yield 'no decision, a change request and an approval' => [null, ['APPROVED', 'CHANGES_REQUESTED'], PullRequestReview::ChangesRequested];
+        yield 'no decision and only comments or dismissals' => [null, ['COMMENTED', 'DISMISSED'], PullRequestReview::None];
+        yield 'no decision and no reviews' => [null, [], PullRequestReview::None];
+        yield 'a decision ignores the reviews' => ['REVIEW_REQUIRED', ['APPROVED'], PullRequestReview::Required];
+        yield 'an approval decision ignores a change request' => ['APPROVED', ['CHANGES_REQUESTED'], PullRequestReview::Approved];
+    }
+
+    /** @param list<string> $states */
+    #[DataProvider('latestOpinionatedReviews')]
+    public function test_without_a_review_decision_the_latest_opinionated_reviews_decide(?string $decision, array $states, PullRequestReview $expected): void
+    {
+        $node = self::pullRequest604();
+        $node['reviewDecision'] = $decision;
+        $node['latestOpinionatedReviews'] = ['nodes' => array_map(static fn (string $state): array => ['state' => $state], $states)];
+
+        self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->review);
+    }
+
+    public function test_a_node_without_latest_opinionated_reviews_has_no_review(): void
+    {
+        $node = self::pullRequest604();
+        $node['reviewDecision'] = null;
+        unset($node['latestOpinionatedReviews']);
+
+        self::assertSame(PullRequestReview::None, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->review);
+    }
+
+    /** @return iterable<string, array{mixed, ?string}> */
+    public static function changesRequestedReviews(): iterable
+    {
+        $onHead = ['state' => 'CHANGES_REQUESTED', 'commit' => ['oid' => self::HEAD]];
+        $onOlder = ['state' => 'CHANGES_REQUESTED', 'commit' => ['oid' => 'abc1234']];
+
+        yield 'one on the head and one on an older commit' => [['nodes' => [$onHead, $onOlder]], self::HEAD];
+        yield 'one on an older commit and one on the head' => [['nodes' => [$onOlder, $onHead]], self::HEAD];
+        yield 'one on an older commit' => [['nodes' => [$onOlder]], 'abc1234'];
+        yield 'the last of two on older commits' => [['nodes' => [$onOlder, ['state' => 'CHANGES_REQUESTED', 'commit' => ['oid' => 'def5678']]]], 'def5678'];
+        yield 'an approval on an older commit' => [['nodes' => [['state' => 'APPROVED', 'commit' => ['oid' => 'abc1234']]]], null];
+        yield 'no reviews field' => [null, null];
+        yield 'empty nodes' => [['nodes' => []], null];
+        yield 'empty oid' => [['nodes' => [['state' => 'CHANGES_REQUESTED', 'commit' => ['oid' => '']]]], null];
+        yield 'no commit is skipped' => [['nodes' => [$onOlder, ['state' => 'CHANGES_REQUESTED', 'commit' => null]]], 'abc1234'];
+    }
+
+    #[DataProvider('changesRequestedReviews')]
+    public function test_the_commit_of_an_active_change_request(mixed $reviews, ?string $expected): void
+    {
+        $node = self::pullRequest604();
+        if (null === $reviews) {
+            unset($node['latestOpinionatedReviews']);
+        } else {
+            $node['latestOpinionatedReviews'] = $reviews;
+        }
+
+        self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->changesRequestedSha);
+    }
+
     public function test_a_draft_is_never_ready_to_merge(): void
     {
         $node = self::allPassed(self::pullRequest604());

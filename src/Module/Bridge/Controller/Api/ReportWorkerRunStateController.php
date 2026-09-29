@@ -77,6 +77,7 @@ final class ReportWorkerRunStateController extends AppController
             variant: $payload->variant,
             requestedModel: $payload->requestedModel,
             switchedFrom: $payload->switchedFrom,
+            trigger: $payload->trigger?->trigger(),
         ));
 
         if (null === $result->run) {

@@ -69,6 +69,12 @@ final readonly class WorkerRunExporter implements UserDataExporterInterface
                 'variant' => $run->variant,
                 'requestedModel' => $run->requestedModel,
                 'switchedFrom' => $run->switchedFrom,
+                'triggerEventType' => $run->triggerEventType,
+                'triggerForge' => $run->triggerForge,
+                'triggerRepository' => $run->triggerRepository,
+                'triggerPullRequestNumber' => $run->triggerPullRequestNumber,
+                'triggerHeadSha' => $run->triggerHeadSha,
+                'triggerReason' => $run->triggerReason,
                 'history' => $history[$run] ?? [],
             ];
         }

@@ -67,6 +67,24 @@ final readonly class DecisionSummary
     }
 
     /**
+     * The stored answer of every block, as the page's inputs hold it.
+     *
+     * @return array<string, array{indexes: list<int>, note: string|null}>
+     */
+    public function answers(): array
+    {
+        $answers = [];
+        foreach ($this->decisions as $decision) {
+            $answers[$decision->id] = [
+                'indexes' => $this->selectedIndexesByDecisionId[$decision->id] ?? [],
+                'note' => $this->notesByDecisionId[$decision->id] ?? null,
+            ];
+        }
+
+        return $answers;
+    }
+
+    /**
      * The options the reviewer chose, empty while none is chosen.
      *
      * A single-choice block never holds more than one, so the panel reads both
