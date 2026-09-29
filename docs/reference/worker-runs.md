@@ -109,6 +109,7 @@ order.
 | `resumeCap` | the `maxResumes` cap of the series, between 0 and 32767 |
 | `cardColumn` | the slug of the column that started the series, at most 2000 characters |
 | `usage` | the tokens the worker spent. See [Usage](#usage) |
+| `workerPool` | the worker pool the bridge runs the worker in. It starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens, such as `default` |
 
 A `gave-up` report needs the exit code, the result flag and the status of the
 outcome the bridge would have resumed: `failed`, `no-result` or `unfinished`.
@@ -119,6 +120,13 @@ the report that creates the run, and ignores them on a later report. It resolves
 `continues` to a run of the same project and bridge, and stores no link for an
 unknown `runId`. It stores `resultStatus`, `resultFields` and `resumeSkipped`
 from an outcome only.
+
+The server stores `workerPool` from every report that carries it, a repeat of a
+state included, so the run keeps the pool that the last report named. A report
+with no `workerPool` keeps the stored pool. A bridge built before worker pools
+sends none, and its runs have no pool. The bridge can move a queued run to
+another pool before the run starts. Until the next report arrives, a queued run
+can show the pool it had before the move.
 
 The server checks the shape of `askId`, `replacedBy`, `maxChain` and `reason`,
 and it does not store them.
@@ -465,5 +473,5 @@ lose it on the next sweep.
 
 Deleting a project deletes its run records and its usage with it. Deleting an
 account deletes the run records and the usage of every project it owned. The
-account's data export holds each run with its state, its history and its usage
-source in `worker_runs.json`, and every usage row in `worker_run_usage.json`.
+account's data export holds each run with its state, its history, its usage
+source and its worker pool in `worker_runs.json`, and every usage row in `worker_run_usage.json`.

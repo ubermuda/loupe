@@ -123,7 +123,7 @@ trait BridgeScenario
     }
 
     /**
-     * @param list<string>                                                          $projects
+     * @param list<string>                                                       $projects
      * @param list<array{name: string, size: int, inUse: int, queued: int}>|null $workerPools
      */
     private function seedBridge(

@@ -26,7 +26,7 @@ final class RecordBridgeHeartbeatRequest
     public const int MAX_WORKER_POOLS = 50;
 
     /**
-     * @param list<string>|null          $projects
+     * @param list<string>|null                $projects
      * @param list<BridgeHookInput>|null       $hooks       null from a bridge that predates hooks
      * @param list<BridgeWorkerPoolInput>|null $workerPools null from a bridge that predates worker pools
      */

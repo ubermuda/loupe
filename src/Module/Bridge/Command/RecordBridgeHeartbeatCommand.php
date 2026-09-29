@@ -16,7 +16,7 @@ use Symfony\Component\Uid\Uuid;
 final readonly class RecordBridgeHeartbeatCommand
 {
     /**
-     * @param list<string>       $projects project ids as the bridge sent them, which may name projects the owner does not hold
+     * @param list<string>             $projects    project ids as the bridge sent them, which may name projects the owner does not hold
      * @param list<HookRow>|null       $hooks       null keeps the stored rows, because a bridge that predates hooks sends none
      * @param list<WorkerPoolRow>|null $workerPools null keeps the stored rows, because a bridge that predates worker pools sends none
      */
