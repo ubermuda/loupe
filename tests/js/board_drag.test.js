@@ -544,6 +544,20 @@ describe('a card of an Up next deck', () => {
         expect(moved.style.transition).toBe('');
     });
 
+    it('takes no drop on the deck of a collapsed lane that a search reveals', () => {
+        const deck = document.getElementById('deck');
+        deck.classList.add('lp-deck');
+        const lane = document.createElement('section');
+        lane.className = 'lp-board-lane--collapsed lp-board-lane--revealed';
+        deck.before(lane);
+        lane.append(deck);
+
+        expect(controller.groupUnder(700, 40)).toBe(null);
+
+        lane.classList.remove('lp-board-lane--collapsed');
+        expect(controller.groupUnder(700, 40)).toBe(deck);
+    });
+
     it('stops the landing when the card is grabbed again before it lands', () => {
         document.getElementById('deck').classList.add('lp-deck');
         const moved = document.getElementById('board-deck-card-c');

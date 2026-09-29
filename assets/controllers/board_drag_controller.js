@@ -714,13 +714,15 @@ export default class extends Controller {
     /**
      * Whether a drop may land in this group. An epic has no parent, so an
      * epic card lands in "Other cards" only. A collapsed lane hides its
-     * cells, and takes no drop.
+     * cells, and takes no drop. A search can show its cells, never its deck.
      */
     accepts(group) {
         if (
             group.closest(
                 '.lp-board-lane--collapsed:not(.lp-board-lane--revealed)',
-            ) !== null
+            ) !== null ||
+            (group.classList.contains('lp-deck') &&
+                group.closest('.lp-board-lane--collapsed') !== null)
         ) {
             return false;
         }
