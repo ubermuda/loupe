@@ -6293,9 +6293,9 @@
                 <source>board.fix_run_comment.round</source>
                 <target>**Round:** %round% of %limit%</target>
             </trans-unit>
-            <trans-unit id="board.fix_run_comment.links">
-                <source>board.fix_run_comment.links</source>
-                <target>[Card](%card_url%) · [Run](%run_url%)</target>
+            <trans-unit id="board.fix_run_comment.card_link">
+                <source>board.fix_run_comment.card_link</source>
+                <target>[Open the card and its runs in Loupe](%card_url%)</target>
             </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.enabled.label">
                 <source>board.form.save_board_automation_settings_form.enabled.label</source>

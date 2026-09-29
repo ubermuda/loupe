@@ -71,7 +71,7 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertNull($comment->cause);
     }
 
-    public function test_the_body_names_the_reason_the_checks_the_round_and_links_the_card_and_the_run(): void
+    public function test_the_body_names_the_reason_the_checks_the_round_and_links_the_card(): void
     {
         $automation = new CardAutomation($this->card);
         $automation->fixRounds = 2;
@@ -84,7 +84,6 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         $urls = self::getContainer()->get(UrlGeneratorInterface::class);
         self::assertInstanceOf(UrlGeneratorInterface::class, $urls);
         $cardUrl = $urls->generate('app_board_card', ['projectId' => (string) $this->project->id, 'cardId' => (string) $this->card->id], UrlGeneratorInterface::ABSOLUTE_URL);
-        $runUrl = $urls->generate('app_project_card_worker_runs', ['id' => (string) $this->project->id, 'cardId' => (string) $this->card->id], UrlGeneratorInterface::ABSOLUTE_URL);
         self::assertStringStartsWith('http', $cardUrl);
 
         self::assertSame(
@@ -92,7 +91,7 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
             ."**Reason:** checks failed\n"
             ."**Failed checks:** `phpunit`, `e2e`\n"
             ."**Round:** 2 of 3\n\n"
-            .'[Card]('.$cardUrl.') · [Run]('.$runUrl.')',
+            .'[Open the card and its runs in Loupe]('.$cardUrl.')',
             $this->commenter->comments[0][1],
         );
     }

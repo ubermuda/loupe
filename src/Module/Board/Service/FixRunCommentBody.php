@@ -47,14 +47,11 @@ final readonly class FixRunCommentBody
             ]);
         }
 
-        $projectId = (string) $comment->project->id;
-        $cardId = (string) $comment->cardId;
-        $links = $this->trans('board.fix_run_comment.links', [
-            '%card_url%' => $this->urls->generate('app_board_card', ['projectId' => $projectId, 'cardId' => $cardId], UrlGeneratorInterface::ABSOLUTE_URL),
-            '%run_url%' => $this->urls->generate('app_project_card_worker_runs', ['id' => $projectId, 'cardId' => $cardId], UrlGeneratorInterface::ABSOLUTE_URL),
+        $link = $this->trans('board.fix_run_comment.card_link', [
+            '%card_url%' => $this->urls->generate('app_board_card', ['projectId' => (string) $comment->project->id, 'cardId' => (string) $comment->cardId], UrlGeneratorInterface::ABSOLUTE_URL),
         ]);
 
-        return $this->trans('board.fix_run_comment.intro')."\n\n".implode("\n", $facts)."\n\n".$links;
+        return $this->trans('board.fix_run_comment.intro')."\n\n".implode("\n", $facts)."\n\n".$link;
     }
 
     /** @param array<string, string|int> $parameters */

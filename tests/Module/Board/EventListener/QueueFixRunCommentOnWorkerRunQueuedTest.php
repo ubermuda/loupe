@@ -10,11 +10,19 @@ use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Board\EventListener\QueueFixRunCommentOnWorkerRunQueued;
 use App\Module\Board\Messenger\PostFixRunComment;
 use App\Module\Board\Repository\PullRequestCommentRepository;
+use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Event\WorkerRunQueued;
+use App\Module\Forge\Service\PullRequestCommenters;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\ProjectRepository;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Clock\ClockInterface;
+use Psr\Log\LogLevel;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Uid\Uuid;
 
@@ -128,6 +136,38 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
 
         self::assertSame([], $this->comments());
         self::assertSame([], $this->transport->getSent());
+    }
+
+    public function test_a_failure_is_logged_and_never_reaches_the_bridge_report(): void
+    {
+        $this->commentOnFixQueued(true);
+        $event = $this->event();
+        $bus = $this->createStub(MessageBusInterface::class);
+        $bus->method('dispatch')->willThrowException(new \RuntimeException('transport down'));
+        $logger = new RecordingLogger();
+        $container = self::getContainer();
+
+        $listener = new QueueFixRunCommentOnWorkerRunQueued(
+            $container->get(BoardAvailability::class),
+            $container->get(ProjectRepository::class),
+            $container->get(BoardAutomation::class),
+            $container->get(PullRequestCommenters::class),
+            $container->get(PullRequestCommentRepository::class),
+            $this->em,
+            $bus,
+            $container->get(ClockInterface::class),
+            $logger,
+        );
+        $listener($event);
+
+        self::assertTrue($this->em->isOpen());
+        $errors = array_values(array_filter($logger->records, static fn (array $record): bool => LogLevel::ERROR === $record['level']));
+        self::assertCount(1, $errors);
+        self::assertSame('board.fix_run_comment_queue_failed', $errors[0]['message']);
+        self::assertSame((string) $event->projectId, $errors[0]['context']['projectId']);
+        self::assertSame((string) $event->runId, $errors[0]['context']['runId']);
+        self::assertSame('transport down', $errors[0]['context']['error']);
+        self::assertSame([], $this->comments());
     }
 
     private function commentOnFixQueued(bool $on): void

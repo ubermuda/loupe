@@ -35,6 +35,21 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
 
     public function __invoke(WorkerRunQueued $event): void
     {
+        // The bridge report has committed, so a failure here must not fail its request.
+        try {
+            $this->queue($event);
+        } catch (\Throwable $e) {
+            $this->logger->error('board.fix_run_comment_queue_failed', [
+                'projectId' => (string) $event->projectId,
+                'runId' => (string) $event->runId,
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ]);
+        }
+    }
+
+    private function queue(WorkerRunQueued $event): void
+    {
         if (!$this->board->isEnabled()) {
             return;
         }
@@ -52,7 +67,8 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
         }
 
         // One transaction, so a message that fails to queue leaves no pending row behind.
-        $commentId = $this->em->wrapInTransaction(function () use ($event, $forge, $repository, $number) {
+        // It is a DBAL one, because a failed ORM transaction closes the entity manager of the bridge request.
+        $commentId = $this->em->getConnection()->transactional(function () use ($event, $forge, $repository, $number) {
             $commentId = $this->pullRequestComments->insertIfMissing(
                 $event->projectId,
                 $event->runId,
