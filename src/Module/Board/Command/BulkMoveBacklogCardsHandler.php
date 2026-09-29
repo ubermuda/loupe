@@ -6,6 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Board\Service\CardMover;
@@ -33,6 +34,7 @@ final readonly class BulkMoveBacklogCardsHandler
 
     public function __construct(
         private CardRepository $cards,
+        private BoardColumnRepository $boardColumns,
         private UpdateCardHandler $updateCard,
         private EntityManagerInterface $em,
         private AuthorizationCheckerInterface $authorization,
@@ -71,6 +73,8 @@ final readonly class BulkMoveBacklogCardsHandler
         return $this->em->wrapInTransaction(function () use ($cards, $command): array {
             // One lock for the batch, so no other request changes a card between the checks and the moves.
             $this->em->lock($command->backlog->project, LockMode::PESSIMISTIC_WRITE);
+            // The terminal flag as the lock sees it, since it decides the move order.
+            $this->boardColumns->findForProjectFresh($command->backlog->project);
             foreach ($cards as $card) {
                 $this->cards->refreshColumn($card);
                 if ($card->column !== $command->backlog) {

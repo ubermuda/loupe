@@ -243,6 +243,23 @@ final class BacklogCardMovesTest extends KernelTestCase
         self::assertSame('done', $child->column->slug);
     }
 
+    public function test_a_bulk_move_orders_the_cards_for_a_column_another_request_made_terminal_before_the_lock(): void
+    {
+        $epic = $this->card('Epic', type: CardType::Epic);
+        $child = $this->card('Child', parent: $epic);
+        $target = $this->column($this->project, 'in-progress');
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_columns SET terminal = true WHERE id = ?',
+            [(string) $target->id],
+        );
+        self::assertFalse($target->terminal);
+
+        $this->bulkMove([(string) $epic->id, (string) $child->id], 'in-progress');
+
+        self::assertSame('in-progress', $epic->column->slug);
+        self::assertSame('in-progress', $child->column->slug);
+    }
+
     public function test_a_bulk_move_takes_a_child_that_an_earlier_card_of_the_batch_released(): void
     {
         $this->em->persist(new BoardColumn(project: $this->project, label: 'Implementation', slug: 'implementation', position: 4));
