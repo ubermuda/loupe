@@ -4,10 +4,19 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Service;
 
+use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\Forge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestChecks;
+use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestReview;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxAskOrigin;
@@ -38,6 +47,9 @@ use Symfony\Component\Uid\Uuid;
 final class CardWaitReconcilerTest extends KernelTestCase
 {
     use InboxFixtures;
+
+    private const string HEAD_A = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    private const string HEAD_B = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 
     private EntityManagerInterface $em;
     private CardWaitReconciler $reconciler;
@@ -629,6 +641,250 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertEquals($updatedAt, $again->item->updatedAt);
     }
 
+    public function test_a_ready_pull_request_opens_a_wait(): void
+    {
+        $pullRequest = $this->pullRequest(5);
+
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertSame(InboxItemState::Open, $watch->item->state);
+        self::assertSame('Pull request #5 waits for review', $watch->item->body);
+        $wait = $this->onlyWait($watch);
+        self::assertSame(InboxCardWaitTrigger::PullRequestReady, $wait->trigger);
+        self::assertEquals($pullRequest->id, $wait->pullRequestId);
+        self::assertSame(self::HEAD_A, $wait->headSha);
+    }
+
+    /** @return iterable<string, array{\Closure(ForgePullRequest): void}> */
+    public static function readyPullRequests(): iterable
+    {
+        yield 'no review asked' => [static function (ForgePullRequest $row): void { $row->review = PullRequestReview::None; }];
+        yield 'blocked mergeability' => [static function (ForgePullRequest $row): void { $row->mergeability = PullRequestMergeability::Blocked; }];
+        yield 'changes requested on an older commit' => [static function (ForgePullRequest $row): void {
+            $row->review = PullRequestReview::ChangesRequested;
+            $row->changesRequestedSha = self::HEAD_B;
+        }];
+    }
+
+    /** @param \Closure(ForgePullRequest): void $change */
+    #[DataProvider('readyPullRequests')]
+    public function test_a_pull_request_that_waits_for_review_opens_a_ready_wait(\Closure $change): void
+    {
+        $change($this->pullRequest(5));
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame(InboxCardWaitTrigger::PullRequestReady, $this->onlyWait($this->onlyWatch())->trigger);
+    }
+
+    /** @return iterable<string, array{\Closure(ForgePullRequest): void}> */
+    public static function pullRequestsNotReady(): iterable
+    {
+        yield 'pending checks' => [static function (ForgePullRequest $row): void { $row->checks = PullRequestChecks::Pending; }];
+        yield 'failed checks' => [static function (ForgePullRequest $row): void { $row->checks = PullRequestChecks::Failed; }];
+        yield 'checks of an older commit' => [static function (ForgePullRequest $row): void { $row->checksSha = self::HEAD_B; }];
+        yield 'behind' => [static function (ForgePullRequest $row): void { $row->mergeability = PullRequestMergeability::Behind; }];
+        yield 'unknown mergeability' => [static function (ForgePullRequest $row): void { $row->mergeability = PullRequestMergeability::Unknown; }];
+        yield 'conflicting' => [static function (ForgePullRequest $row): void { $row->mergeability = PullRequestMergeability::Conflicting; }];
+        yield 'approved' => [static function (ForgePullRequest $row): void { $row->review = PullRequestReview::Approved; }];
+        yield 'changes requested on the head commit' => [static function (ForgePullRequest $row): void {
+            $row->review = PullRequestReview::ChangesRequested;
+            $row->changesRequestedSha = self::HEAD_A;
+        }];
+        yield 'changes requested on an unknown commit' => [static function (ForgePullRequest $row): void { $row->review = PullRequestReview::ChangesRequested; }];
+        yield 'draft' => [static function (ForgePullRequest $row): void { $row->draft = true; }];
+        yield 'never read' => [static function (ForgePullRequest $row): void { $row->refreshedAt = null; }];
+        yield 'merged' => [static function (ForgePullRequest $row): void { $row->state = PullRequestState::Merged; }];
+        yield 'no head commit' => [static function (ForgePullRequest $row): void {
+            $row->headSha = null;
+            $row->checksSha = null;
+        }];
+    }
+
+    /** @param \Closure(ForgePullRequest): void $change */
+    #[DataProvider('pullRequestsNotReady')]
+    public function test_a_pull_request_that_is_not_ready_gives_no_wait(\Closure $change): void
+    {
+        $change($this->pullRequest(5));
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_an_approval_ends_the_ready_wait_and_closes_the_item_done(): void
+    {
+        $pullRequest = $this->pullRequest(5);
+        $this->reconcile();
+        $pullRequest->review = PullRequestReview::Approved;
+        $this->em->flush();
+
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertSame(InboxItemState::Done, $watch->item->state);
+        self::assertSame(InboxCardWaitEndReason::Resolved, $this->onlyWait($watch)->endReason);
+    }
+
+    public function test_an_open_run_on_the_card_holds_the_ready_wait_back(): void
+    {
+        $this->pullRequest(5);
+        $this->workerRun(WorkerRunState::Running, '');
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_a_pull_request_linked_to_two_cards_gives_a_wait_on_each(): void
+    {
+        $pullRequest = $this->pullRequest(5);
+        $other = $this->card($this->em, $this->project, 13);
+        $this->em->persist(new CardPullRequest($other, 'https://github.com/acme/widgets/pull/5', Forge::GitHub, 'acme/widgets', 5));
+        $this->em->flush();
+
+        $this->reconciler->reconcile($this->project, [(string) $this->card->id, (string) $other->id]);
+
+        self::assertEquals($pullRequest->id, $this->onlyWait($this->onlyWatch())->pullRequestId);
+        self::assertEquals($pullRequest->id, $this->onlyWait($this->onlyWatch($other->id))->pullRequestId);
+    }
+
+    public function test_a_blocked_fix_loop_opens_a_fix_stopped_wait_even_with_an_open_run(): void
+    {
+        $this->pullRequest(5, PullRequestChecks::Failed);
+        $automation = new CardAutomation($this->card);
+        $automation->fixRounds = 1;
+        $automation->blockedReason = 'checks-failed';
+        $this->em->persist($automation);
+        $this->workerRun(WorkerRunState::Running, '');
+
+        $this->reconcile();
+
+        $wait = $this->onlyWait($this->onlyWatch());
+        self::assertSame(InboxCardWaitTrigger::PullRequestFixStopped, $wait->trigger);
+        self::assertSame('Pull request #5: fix loop stopped (checks-failed)', $wait->reason);
+        self::assertSame(self::HEAD_A, $wait->headSha);
+    }
+
+    public function test_a_used_up_loop_limit_opens_a_fix_stopped_wait_once_no_run_is_open(): void
+    {
+        $this->em->persist(new BoardAutomationSettings($this->project, loopLimit: 2));
+        $this->pullRequest(5, PullRequestChecks::Failed);
+        $automation = new CardAutomation($this->card);
+        $automation->fixRounds = 2;
+        $this->em->persist($automation);
+        $run = $this->workerRun(WorkerRunState::Running, '', receivedAt: new \DateTimeImmutable('-1 minute'));
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
+
+        $run->state = WorkerRunState::Failed;
+        $this->em->flush();
+        $this->reconcile();
+
+        $wait = $this->onlyWait($this->onlyWatch());
+        self::assertSame(InboxCardWaitTrigger::PullRequestFixStopped, $wait->trigger);
+        self::assertSame('Pull request #5: fix loop stopped', $wait->reason);
+    }
+
+    public function test_fix_rounds_under_the_loop_limit_give_no_wait(): void
+    {
+        $this->pullRequest(5, PullRequestChecks::Failed);
+        $automation = new CardAutomation($this->card);
+        $automation->fixRounds = 2;
+        $this->em->persist($automation);
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame([], $this->watches());
+    }
+
+    public function test_a_dismissed_pull_request_wait_holds_for_one_commit(): void
+    {
+        $pullRequest = $this->pullRequest(5);
+        $this->reconcile();
+        $dismissed = $this->onlyWatch();
+        $now = new \DateTimeImmutable();
+        $dismissed->item->state = InboxItemState::Declined;
+        $dismissed->item->closedAt = $now;
+        $dismissed->dismissedAt = $now;
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame([$dismissed], $this->watches());
+        self::assertSame(InboxCardWaitEndReason::Dismissed, $this->onlyWait($dismissed)->endReason);
+
+        $pullRequest->headSha = self::HEAD_B;
+        $pullRequest->checksSha = self::HEAD_B;
+        $this->em->flush();
+        $this->reconcile();
+
+        $watches = $this->watches();
+        self::assertCount(2, $watches);
+        self::assertSame(InboxItemState::Open, $watches[1]->item->state);
+        self::assertSame(self::HEAD_B, $this->onlyWait($watches[1])->headSha);
+    }
+
+    public function test_changes_requested_on_the_head_commit_end_the_wait_and_a_new_commit_with_passing_checks_opens_one_again(): void
+    {
+        $pullRequest = $this->pullRequest(5);
+        $this->reconcile();
+        $pullRequest->review = PullRequestReview::ChangesRequested;
+        $pullRequest->changesRequestedSha = self::HEAD_A;
+        $this->em->flush();
+
+        $this->reconcile();
+
+        $first = $this->onlyWatch();
+        self::assertSame(InboxItemState::Done, $first->item->state);
+
+        $pullRequest->headSha = self::HEAD_B;
+        $pullRequest->checks = PullRequestChecks::Pending;
+        $this->em->flush();
+        $this->reconcile();
+        self::assertSame([$first], $this->watches());
+
+        $pullRequest->checks = PullRequestChecks::Passed;
+        $pullRequest->checksSha = self::HEAD_B;
+        $this->em->flush();
+        $this->reconcile();
+
+        $watches = $this->watches();
+        self::assertCount(2, $watches);
+        $wait = $this->onlyWait($watches[1]);
+        self::assertSame(InboxCardWaitTrigger::PullRequestReady, $wait->trigger);
+        self::assertSame(self::HEAD_B, $wait->headSha);
+    }
+
+    public function test_without_a_card_list_it_finds_a_card_that_only_links_a_ready_pull_request(): void
+    {
+        $this->pullRequest(5);
+
+        $this->reconciler->reconcile($this->project, null);
+
+        self::assertSame(InboxItemState::Open, $this->onlyWatch()->item->state);
+    }
+
+    public function test_switching_pull_request_ready_off_ends_the_wait(): void
+    {
+        $this->pullRequest(5);
+        $this->reconcile();
+        $this->settings()->pullRequestReady = false;
+        $this->em->flush();
+
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertSame(InboxItemState::Obsolete, $watch->item->state);
+        self::assertSame(InboxCardWaitEndReason::SwitchedOff, $this->onlyWait($watch)->endReason);
+    }
+
     private function reconcile(): void
     {
         $this->reconciler->reconcile($this->project, [(string) $this->card->id]);
@@ -641,6 +897,23 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $this->em->flush();
 
         return $settings;
+    }
+
+    /** A pull request on $this->card with checks passed on the head commit, a review asked for, and mergeable. */
+    private function pullRequest(int $number, PullRequestChecks $checks = PullRequestChecks::Passed): ForgePullRequest
+    {
+        $this->em->persist(new CardPullRequest($this->card, 'https://github.com/Acme/Widgets/pull/'.$number, Forge::GitHub, 'Acme/Widgets', $number));
+        $row = new ForgePullRequest($this->project, 'github', 'acme/widgets', $number);
+        $row->headSha = self::HEAD_A;
+        $row->checks = $checks;
+        $row->checksSha = self::HEAD_A;
+        $row->mergeability = PullRequestMergeability::Mergeable;
+        $row->review = PullRequestReview::Required;
+        $row->refreshedAt = new \DateTimeImmutable('-1 minute');
+        $this->em->persist($row);
+        $this->em->flush();
+
+        return $row;
     }
 
     private function linkedDocument(string $title): Document

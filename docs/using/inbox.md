@@ -171,6 +171,9 @@ these cases:
 - A document that is linked to the card is in review.
 - The newest worker run of the card is blocked, gave up, or waits for a person.
   The card must stay in the column that started the run.
+- A GitHub pull request that is linked to the card is ready for review.
+- The board automation stopped the fix loop of a GitHub pull request that is
+  linked to the card.
 
 The item has the kind **Waiting**, and it is always blocking.
 
@@ -184,21 +187,50 @@ grey.
 The row and the panel name **Loupe** as the sender, with a magnifier icon. They
 show no bridge dot and no session, because no agent session asked for the item.
 
-The messenger worker opens and updates these items. A change on the board or
-on a document therefore shows after a short delay.
+The messenger worker opens and updates these items. A change on the board, on
+a document or on a pull request therefore shows after a short delay.
 
 Loupe also checks the automatic items of every project every 15 minutes. A
 wait that Loupe did not see when it started or ended opens or closes its item
 on the next check.
 
+### Pull request waits
+
+Only a GitHub pull request gives a wait. Loupe reads the state of the pull
+request, and a pull request that Loupe did not read yet gives no wait. A pull
+request that is linked to two cards gives a wait on each card.
+
+A pull request is ready for review when all of these are true:
+
+- It is open, and it is not a draft.
+- Its checks passed on its newest commit.
+- It is mergeable, or GitHub blocks the merge until a review.
+- It needs a review, or it has no review rule. A request for changes on an
+  older commit also counts, because the author pushed a fix after it.
+- No worker run of the card is open.
+
+An approval ends the wait. So does a request for changes on the newest commit,
+a new commit whose checks did not pass yet, a merge and a close. A pull request
+with changes requested waits again after a new commit with passing checks.
+
+The fix loop wait opens when the board automation stops asking for fixes,
+because the card used all of its fix rounds. The wait names the reason of the
+fix that the automation did not ask for, such as `checks-failed`. While a
+worker run of the card is open, used fix rounds alone give no wait, because the
+run can still push a fix. The wait ends when the pull request closes or merges.
+It also ends when the automation of the card starts again, for example after a
+move of the card.
+
 ### Choosing which waits open an item
 
-Each project has four switches, one for each cause of a wait:
+Each project has six switches, one for each cause of a wait:
 
 - **Document in review**
 - **Run blocked**
 - **Run gave up**
 - **Run waiting for a person**
+- **Pull request ready for review**
+- **Pull request fix loop stopped**
 
 The switches are on the inbox settings page, at **Project settings > Inbox**.
 The **Settings** button at the top of the inbox page also opens it. Only the
@@ -223,7 +255,8 @@ moves to another column.
 The item closes when its last wait ends:
 
 - It closes as **done** when its last wait ended by its own cause, such as a
-  verdict, an archive, a newer run or a move of the card.
+  verdict, an archive, a newer run, an approval of a pull request or a move of
+  the card.
 - It closes as **obsolete** when the card finishes or someone deletes it.
 - It closes as **obsolete** when you turn off the switch of its waits on the
   inbox settings page.
@@ -236,8 +269,10 @@ The Loupe ask that holds the item closes with it.
 
 Select **Dismiss** to close an automatic item that you do not need. The item
 closes as declined. Dismiss takes no note. Loupe does not open the item again
-for the same document version or the same run. A new version of the document
-opens a new item, and so does a new run that waits.
+for the same document version, the same run or the same pull request commit. A
+new version of the document opens a new item, and so does a new run that
+waits. A pull request wait holds the dismiss for one commit: a new commit that
+is ready opens a new item.
 
 Dismiss is the only response that an automatic item takes. You cannot answer it
 or mark it done. An agent cannot withdraw it, and the `inbox_withdraw` tool
