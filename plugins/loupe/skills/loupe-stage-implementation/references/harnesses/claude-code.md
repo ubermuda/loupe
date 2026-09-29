@@ -31,7 +31,7 @@ The first must print the worktree path. The second must print the card branch. W
 
 ## Run a long command
 
-Use this pattern for a local command only. Wait for CI with the loop in the forge adapter, which starts nothing in the background.
+Use this pattern for a local command only. No stage waits for CI.
 
 A Bash call ends after 600000 ms. Start the long command with the Bash tool's `run_in_background`. The tool then says that it will notify you when the command completes. In a headless run that notice never arrives, so always run the loop below. Write its output to a log file, and append an exit marker when it ends:
 
