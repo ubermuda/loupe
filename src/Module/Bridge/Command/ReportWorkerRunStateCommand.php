@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use Symfony\Component\Uid\Uuid;
 
@@ -47,6 +48,8 @@ final readonly class ReportWorkerRunStateCommand
         public ?WorkerRunUsageReport $usage = null,
         /** Null keeps the pool the run holds, because a bridge that predates worker pools sends none. */
         public ?string $workerPool = null,
+        /** Stored when the report creates the run. A later report never changes it. */
+        public ?WorkerRunTrigger $trigger = null,
     ) {
     }
 }

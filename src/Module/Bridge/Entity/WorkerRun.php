@@ -67,6 +67,20 @@ class WorkerRun
     /** The largest value of a smallint column. */
     public const int MAX_RESUME_COUNT = 32767;
 
+    public const int MAX_TRIGGER_EVENT_TYPE_LENGTH = 100;
+
+    /** An event type such as pull_request.fix_requested. */
+    public const string TRIGGER_EVENT_TYPE_PATTERN = '/^[a-z][a-z_]*(\.[a-z_]+)+$/D';
+
+    /** The forge, repository and head lengths match the forge pull request columns. */
+    public const int MAX_TRIGGER_FORGE_LENGTH = 50;
+
+    public const int MAX_TRIGGER_REPOSITORY_LENGTH = 255;
+
+    public const int MAX_TRIGGER_HEAD_SHA_LENGTH = 64;
+
+    public const int MAX_TRIGGER_REASON_LENGTH = 100;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -106,6 +120,25 @@ class WorkerRun
     /** Where the WorkerRunUsage rows of the run come from. Null when an older bridge sent no usage. */
     #[ORM\Column(name: 'usage_source', length: 20, nullable: true, enumType: WorkerRunUsageSource::class)]
     public ?WorkerRunUsageSource $usageSource = null;
+
+    /** The event that queued the run, from its first report. Null from an older bridge. */
+    #[ORM\Column(name: 'trigger_event_type', length: self::MAX_TRIGGER_EVENT_TYPE_LENGTH, nullable: true)]
+    public ?string $triggerEventType = null;
+
+    #[ORM\Column(name: 'trigger_forge', length: self::MAX_TRIGGER_FORGE_LENGTH, nullable: true)]
+    public ?string $triggerForge = null;
+
+    #[ORM\Column(name: 'trigger_repository', length: self::MAX_TRIGGER_REPOSITORY_LENGTH, nullable: true)]
+    public ?string $triggerRepository = null;
+
+    #[ORM\Column(name: 'trigger_pull_request_number', nullable: true)]
+    public ?int $triggerPullRequestNumber = null;
+
+    #[ORM\Column(name: 'trigger_head_sha', length: self::MAX_TRIGGER_HEAD_SHA_LENGTH, nullable: true)]
+    public ?string $triggerHeadSha = null;
+
+    #[ORM\Column(name: 'trigger_reason', length: self::MAX_TRIGGER_REASON_LENGTH, nullable: true)]
+    public ?string $triggerReason = null;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]

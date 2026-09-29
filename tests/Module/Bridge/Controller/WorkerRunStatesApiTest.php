@@ -296,6 +296,61 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertSame('quick-2', $this->onlyRun()->workerPool);
     }
 
+    public function test_the_trigger_of_the_first_report_is_stored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-trigger@example.com');
+        $project = $this->project($em, $owner, 'Run States Trigger');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(['trigger' => self::trigger()]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame('pull_request.fix_requested', $run->triggerEventType);
+        self::assertSame('github', $run->triggerForge);
+        self::assertSame('owner/repo', $run->triggerRepository);
+        self::assertSame(640, $run->triggerPullRequestNumber);
+        self::assertSame('abc123', $run->triggerHeadSha);
+        self::assertSame('checks-failed', $run->triggerReason);
+    }
+
+    public function test_a_trigger_with_the_event_type_alone_is_stored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-trigger-type@example.com');
+        $project = $this->project($em, $owner, 'Run States Trigger Type');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload(['trigger' => ['eventType' => 'card.moved']]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame('card.moved', $run->triggerEventType);
+        self::assertNull($run->triggerForge);
+        self::assertNull($run->triggerPullRequestNumber);
+    }
+
+    /** A newer bridge can send a field this server does not know. */
+    public function test_an_unknown_field_is_ignored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-unknown-field@example.com');
+        $project = $this->project($em, $owner, 'Run States Unknown Field');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload([
+            'futureField' => ['any' => 'shape'],
+            'trigger' => array_merge(self::trigger(), ['futureField' => 'x']),
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('pull_request.fix_requested', $this->onlyRun()->triggerEventType);
+    }
+
     public function test_another_users_project_answers_project_not_found(): void
     {
         $client = static::createClient();
@@ -395,9 +450,31 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a drop reason the bridge does not send' => [['state' => 'dropped', 'reason' => 'bored']];
         yield 'a replacement that is not a uuid' => [['state' => 'replaced', 'replacedBy' => 'nope']];
         yield 'a chain cap of zero' => [['state' => 'waiting-for-person', 'maxChain' => 0]];
+        foreach (self::invalidTriggers() as $name => $trigger) {
+            yield $name => [['trigger' => $trigger]];
+        }
         foreach (self::invalidUsage() as $name => $usage) {
             yield $name => [array_merge($result, ['state' => 'succeeded', 'usage' => $usage])];
         }
+    }
+
+    /** @return iterable<string, array<string, mixed>> */
+    public static function invalidTriggers(): iterable
+    {
+        $trigger = self::trigger();
+
+        yield 'a trigger with no event type' => array_diff_key($trigger, ['eventType' => true]);
+        yield 'a trigger with a blank event type' => array_merge($trigger, ['eventType' => '']);
+        yield 'a trigger event type with no dot' => array_merge($trigger, ['eventType' => 'fix']);
+        yield 'a trigger event type with capitals' => array_merge($trigger, ['eventType' => 'Pull_Request.Fix']);
+        yield 'a trigger event type with a trailing newline' => array_merge($trigger, ['eventType' => "pull_request.fix_requested\n"]);
+        yield 'a trigger event type above the limit' => array_merge($trigger, ['eventType' => 'a.'.str_repeat('b', 99)]);
+        yield 'a trigger forge above the limit' => array_merge($trigger, ['forge' => str_repeat('f', 51)]);
+        yield 'a trigger repository above the limit' => array_merge($trigger, ['repository' => str_repeat('r', 256)]);
+        yield 'a trigger pull request number of zero' => array_merge($trigger, ['pullRequestNumber' => 0]);
+        yield 'a trigger pull request number as text' => array_merge($trigger, ['pullRequestNumber' => 'many']);
+        yield 'a trigger head above the limit' => array_merge($trigger, ['headSha' => str_repeat('a', 65)]);
+        yield 'a trigger reason above the limit' => array_merge($trigger, ['reason' => str_repeat('x', 101)]);
     }
 
     /** @return iterable<string, array<string, mixed>> */
@@ -487,6 +564,19 @@ final class WorkerRunStatesApiTest extends WebTestCase
 
         $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload());
         self::assertResponseStatusCodeSame(429);
+    }
+
+    /** @return array<string, mixed> */
+    private static function trigger(): array
+    {
+        return [
+            'eventType' => 'pull_request.fix_requested',
+            'forge' => 'github',
+            'repository' => 'owner/repo',
+            'pullRequestNumber' => 640,
+            'headSha' => 'abc123',
+            'reason' => 'checks-failed',
+        ];
     }
 
     /** @return array<string, mixed> */

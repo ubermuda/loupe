@@ -73,6 +73,7 @@ final class ReportWorkerRunStateController extends AppController
             resumeSkipped: $payload->resumeSkipped,
             usage: $payload->usage?->report(),
             workerPool: $payload->workerPool,
+            trigger: $payload->trigger?->trigger(),
         ));
 
         if (null === $result->run) {

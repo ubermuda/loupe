@@ -45,6 +45,12 @@ final class WorkerRunExporterTest extends TestCase
             receivedAt: new \DateTimeImmutable('2026-09-13T10:00:22+00:00'),
         );
         $run->workerPool = 'quick';
+        $run->triggerEventType = 'pull_request.fix_requested';
+        $run->triggerForge = 'github';
+        $run->triggerRepository = 'owner/repo';
+        $run->triggerPullRequestNumber = 640;
+        $run->triggerHeadSha = 'abc123';
+        $run->triggerReason = 'checks-failed';
         $history = [
             new WorkerRunStateChange($run, WorkerRunState::Running, new \DateTimeImmutable('2026-09-13T10:00:00+00:00'), new \DateTimeImmutable('2026-09-13T10:00:01+00:00')),
             new WorkerRunStateChange($run, WorkerRunState::Succeeded, new \DateTimeImmutable('2026-09-13T10:00:21+00:00'), new \DateTimeImmutable('2026-09-13T10:00:22+00:00')),
@@ -79,6 +85,12 @@ final class WorkerRunExporterTest extends TestCase
             'resumeSkipped' => null,
             'usageSource' => null,
             'workerPool' => 'quick',
+            'triggerEventType' => 'pull_request.fix_requested',
+            'triggerForge' => 'github',
+            'triggerRepository' => 'owner/repo',
+            'triggerPullRequestNumber' => 640,
+            'triggerHeadSha' => 'abc123',
+            'triggerReason' => 'checks-failed',
             'history' => [
                 ['state' => 'running', 'at' => '2026-09-13T10:00:00+00:00', 'receivedAt' => '2026-09-13T10:00:01+00:00'],
                 ['state' => 'succeeded', 'at' => '2026-09-13T10:00:21+00:00', 'receivedAt' => '2026-09-13T10:00:22+00:00'],

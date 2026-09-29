@@ -104,6 +104,10 @@ final class ReportWorkerRunStateRequest
         #[Assert\NotBlank(allowNull: true)]
         #[Assert\Regex(pattern: WorkerRun::WORKER_POOL_PATTERN)]
         public ?string $workerPool = null,
+
+        /** Null from a bridge that predates triggers, and on any report but the first queued one. */
+        #[Assert\Valid]
+        public ?WorkerRunTriggerInput $trigger = null,
     ) {
     }
 
