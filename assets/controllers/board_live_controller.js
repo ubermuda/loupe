@@ -730,14 +730,14 @@ export default class extends Controller {
     placed({ cardId, removed, leftDeck, deckEpic }) {
         this.clearStale(cardId);
         // A Backlog card has no placement of its own, so its epic redraws the
-        // deck that shows it. A card new to the Backlog has no deck card yet.
+        // deck that shows it. A card that changes its epic leaves one deck
+        // and joins another, and a card new to the Backlog joins one only.
         const redrawn = removed
-            ? (deckCardOf(cardId)?.closest('.lp-deck')?.dataset.lane ??
-              deckEpic)
-            : leftDeck;
-        if (redrawn !== undefined) {
-            this.receive({ cardId: redrawn, local: false, own: false });
-        }
+            ? [deckCardOf(cardId)?.closest('.lp-deck')?.dataset.lane, deckEpic]
+            : [leftDeck];
+        new Set(redrawn.filter((epic) => epic != null && epic !== '')).forEach(
+            (epic) => this.receive({ cardId: epic, local: false, own: false }),
+        );
         const entry = this.pending.get(cardId);
         if (entry !== undefined) {
             entry.attempts = 0;

@@ -552,6 +552,23 @@ it('fetches the epic whose deck a new Backlog card joins', async () => {
     expect(placements()).toEqual(['epic']);
 });
 
+it('fetches both epics when a Backlog card changes its epic', async () => {
+    document
+        .getElementById('board')
+        .insertAdjacentHTML(
+            'beforeend',
+            '<div class="lp-deck" data-lane="old"><article id="board-deck-card-x" data-card-id="x"></article></div>',
+        );
+    document.dispatchEvent(
+        new CustomEvent('board:placed', {
+            detail: { cardId: 'x', removed: true, deckEpic: 'new' },
+        }),
+    );
+    await vi.advanceTimersByTimeAsync(150);
+
+    expect(placements().sort()).toEqual(['new', 'old']);
+});
+
 it('fetches the epic of the deck a placed card left', async () => {
     document.dispatchEvent(
         new CustomEvent('board:placed', {
