@@ -316,6 +316,29 @@ A multi-choice block reports its answers in `selections`, and reports null in
 The comments are invisible in every other Markdown renderer, so a document read
 outside Loupe still shows a plain list.
 
+## Diagrams
+
+Write a diagram as a fenced code block with the language `mermaid`:
+
+````markdown
+```mermaid
+flowchart LR
+  Draft --> Review --> Approved
+```
+````
+
+The review page draws the block as a diagram. The Mermaid source stays in the
+document, under the diagram. Select **Show source** to see it and to comment on
+it, and select **Hide source** to hide it again.
+
+A block that Mermaid cannot parse shows its source with a notice. The other
+diagrams on the page still render. The comparison view always shows the source.
+
+Diagrams are behind the `review.mermaid.enabled` feature flag, and the flag
+ships off. While it is off, each block shows its source and a notice that names
+the flag. When the flag is on, the reader's browser loads Mermaid from
+jsDelivr (`cdn.jsdelivr.net`). Loupe itself makes no call.
+
 ## Annotations
 
 An HTML comment that is not part of a decision block renders as a visible note.
