@@ -49,8 +49,6 @@ final readonly class GitHubPullRequestStateMapper
             default => PullRequestMergeability::Unknown,
         };
 
-        $changesRequestedSha = $pullRequest['reviews']['nodes'][0]['commit']['oid'] ?? null;
-
         return new PullRequestSnapshot(
             state: $state,
             draft: $draft,
@@ -62,7 +60,7 @@ final readonly class GitHubPullRequestStateMapper
             mergeability: $mergeability,
             review: $this->review($pullRequest),
             readyToMerge: PullRequestState::Open === $state && !$draft && PullRequestChecks::Passed === $checks && PullRequestMergeability::Mergeable === $mergeability,
-            changesRequestedSha: \is_string($changesRequestedSha) && '' !== $changesRequestedSha ? $changesRequestedSha : null,
+            changesRequestedSha: $this->changesRequestedSha($pullRequest, $headSha),
         );
     }
 
@@ -92,6 +90,25 @@ final readonly class GitHubPullRequestStateMapper
             \in_array('APPROVED', $states, true) => PullRequestReview::Approved,
             default => PullRequestReview::None,
         };
+    }
+
+    /**
+     * The head sha when a change request sits on the head, else the commit of an active change request.
+     *
+     * @param array<mixed> $pullRequest
+     */
+    private function changesRequestedSha(array $pullRequest, string $headSha): ?string
+    {
+        $nodes = $pullRequest['latestOpinionatedReviews']['nodes'] ?? [];
+        $shas = [];
+        foreach (\is_array($nodes) ? $nodes : [] as $node) {
+            $oid = \is_array($node) && 'CHANGES_REQUESTED' === ($node['state'] ?? null) ? ($node['commit']['oid'] ?? null) : null;
+            if (\is_string($oid) && '' !== $oid) {
+                $shas[] = $oid;
+            }
+        }
+
+        return \in_array($headSha, $shas, true) ? $headSha : array_last($shas);
     }
 
     /**

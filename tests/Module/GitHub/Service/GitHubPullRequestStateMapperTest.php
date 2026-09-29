@@ -248,21 +248,28 @@ final class GitHubPullRequestStateMapperTest extends TestCase
     /** @return iterable<string, array{mixed, ?string}> */
     public static function changesRequestedReviews(): iterable
     {
-        yield 'a review on a commit' => [['nodes' => [['commit' => ['oid' => 'abc1234']]]], 'abc1234'];
+        $onHead = ['state' => 'CHANGES_REQUESTED', 'commit' => ['oid' => self::HEAD]];
+        $onOlder = ['state' => 'CHANGES_REQUESTED', 'commit' => ['oid' => 'abc1234']];
+
+        yield 'one on the head and one on an older commit' => [['nodes' => [$onHead, $onOlder]], self::HEAD];
+        yield 'one on an older commit and one on the head' => [['nodes' => [$onOlder, $onHead]], self::HEAD];
+        yield 'one on an older commit' => [['nodes' => [$onOlder]], 'abc1234'];
+        yield 'the last of two on older commits' => [['nodes' => [$onOlder, ['state' => 'CHANGES_REQUESTED', 'commit' => ['oid' => 'def5678']]]], 'def5678'];
+        yield 'an approval on an older commit' => [['nodes' => [['state' => 'APPROVED', 'commit' => ['oid' => 'abc1234']]]], null];
         yield 'no reviews field' => [null, null];
         yield 'empty nodes' => [['nodes' => []], null];
-        yield 'empty oid' => [['nodes' => [['commit' => ['oid' => '']]]], null];
-        yield 'no commit' => [['nodes' => [['commit' => null]]], null];
+        yield 'empty oid' => [['nodes' => [['state' => 'CHANGES_REQUESTED', 'commit' => ['oid' => '']]]], null];
+        yield 'no commit is skipped' => [['nodes' => [$onOlder, ['state' => 'CHANGES_REQUESTED', 'commit' => null]]], 'abc1234'];
     }
 
     #[DataProvider('changesRequestedReviews')]
-    public function test_the_commit_of_the_newest_changes_requested_review(mixed $reviews, ?string $expected): void
+    public function test_the_commit_of_an_active_change_request(mixed $reviews, ?string $expected): void
     {
         $node = self::pullRequest604();
         if (null === $reviews) {
-            unset($node['reviews']);
+            unset($node['latestOpinionatedReviews']);
         } else {
-            $node['reviews'] = $reviews;
+            $node['latestOpinionatedReviews'] = $reviews;
         }
 
         self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->changesRequestedSha);

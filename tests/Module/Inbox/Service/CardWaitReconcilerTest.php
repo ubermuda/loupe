@@ -809,16 +809,22 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertSame([], $this->watches());
     }
 
-    /** @return iterable<string, array{list<string>, bool}> */
-    public static function reviewsWithoutADecision(): iterable
+    /** @return iterable<string, array{?string, list<array<string, mixed>>, bool}> */
+    public static function mappedReviews(): iterable
     {
-        yield 'an approval' => [['APPROVED'], false];
-        yield 'no reviews' => [[], true];
+        $onHead = ['state' => 'CHANGES_REQUESTED', 'commit' => ['oid' => self::HEAD_A]];
+        $onOlder = ['state' => 'CHANGES_REQUESTED', 'commit' => ['oid' => self::HEAD_B]];
+
+        yield 'an approval without a decision' => [null, [['state' => 'APPROVED', 'commit' => ['oid' => self::HEAD_A]]], false];
+        yield 'no reviews without a decision' => [null, [], true];
+        yield 'a change request on the head and one on an older commit' => ['CHANGES_REQUESTED', [$onHead, $onOlder], false];
+        yield 'a change request on an older commit and one on the head' => ['CHANGES_REQUESTED', [$onOlder, $onHead], false];
+        yield 'a change request on an older commit only' => ['CHANGES_REQUESTED', [$onOlder], true];
     }
 
-    /** @param list<string> $states */
-    #[DataProvider('reviewsWithoutADecision')]
-    public function test_an_approval_without_a_review_decision_gives_no_ready_wait(array $states, bool $waits): void
+    /** @param list<array<string, mixed>> $reviews */
+    #[DataProvider('mappedReviews')]
+    public function test_the_mapped_reviews_decide_the_ready_wait(?string $decision, array $reviews, bool $waits): void
     {
         $snapshot = new GitHubPullRequestStateMapper()->map([
             'state' => 'OPEN',
@@ -827,8 +833,8 @@ final class CardWaitReconcilerTest extends KernelTestCase
             'baseRefName' => 'main',
             'mergeable' => 'MERGEABLE',
             'mergeStateStatus' => 'CLEAN',
-            'reviewDecision' => null,
-            'latestOpinionatedReviews' => ['nodes' => array_map(static fn (string $state): array => ['state' => $state], $states)],
+            'reviewDecision' => $decision,
+            'latestOpinionatedReviews' => ['nodes' => $reviews],
             'commits' => ['nodes' => [['commit' => ['oid' => self::HEAD_A, 'statusCheckRollup' => null]]]],
         ], null, null);
         $this->pullRequest(5)->apply($snapshot);
