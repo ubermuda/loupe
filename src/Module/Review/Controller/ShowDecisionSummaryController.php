@@ -44,6 +44,7 @@ final class ShowDecisionSummaryController extends AppController
             'page' => $document->id.'/'.$versionNumber,
             'rows' => $summary->rows,
             'answeredCount' => $summary->answeredCount,
+            'answers' => $summary->answers,
         ]), Response::HTTP_OK, ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE]);
     }
 }

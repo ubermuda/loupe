@@ -59,11 +59,14 @@ export default class extends Controller {
         }
         this.summaryRunning = false;
         this.summaryAgain = false;
+        this.savesLanded = 0;
+        this.deferred = false;
         if (this.element.dataset.decisionPage !== undefined)
             this.unsubscribe = on(
                 'review.decision_changed',
                 (change) => this.receive(change),
                 {
+                    onReconnect: () => this.refreshSummary(),
                     onOpen: () =>
                         this.element.setAttribute(CONNECTED_ATTRIBUTE, ''),
                     onError: () =>
@@ -209,7 +212,10 @@ export default class extends Controller {
         const state = this.state(block);
         if (this.stateKey(state) !== this.sentStates.get(block))
             this.enqueue(block, false);
-        else this.resumeVisit();
+        else {
+            this.resumeVisit();
+            this.settle();
+        }
     }
 
     state(block) {
@@ -274,6 +280,7 @@ export default class extends Controller {
         if (!this.inFlight) return;
         const { block, state } = this.inFlight;
         this.inFlight = null;
+        this.savesLanded += 1;
         if (event.detail.success && this.isStream(event.detail.fetchResponse)) {
             // A Turbo snapshot restore compares the block with these attributes.
             block.dataset.decisionNote = state.note;
@@ -296,6 +303,7 @@ export default class extends Controller {
         }
         this.flush();
         this.resumeVisit();
+        this.settle();
     }
 
     resumeVisit() {
@@ -309,21 +317,10 @@ export default class extends Controller {
         return Boolean(response?.contentType?.startsWith(STREAM_TYPE));
     }
 
-    // Another tab saved an answer. A block with a save of its own keeps its
-    // state, because that save reaches the server after this one.
+    // The payload only signals a change. Two saves can publish in either
+    // order, so the page reads the stored answers instead.
     receive(change) {
         if (change.own) return;
-        const block = [
-            ...this.element.querySelectorAll('fieldset[data-decision-id]'),
-        ].find(
-            (candidate) => candidate.dataset.decisionId === change.decisionId,
-        );
-        if (
-            block &&
-            !this.busy(block) &&
-            change.versionNumber === this.versionNumber()
-        )
-            this.merge(block, change);
         this.refreshSummary();
         if (change.answeredBy) this.showChangedBy(change.answeredBy);
     }
@@ -336,35 +333,49 @@ export default class extends Controller {
         );
     }
 
-    versionNumber() {
-        return Number(this.element.dataset.decisionPage.split('/').pop());
+    // A busy block keeps its state until its own save lands, then the page
+    // reads the stored answers again.
+    reconcile(answers) {
+        for (const block of this.element.querySelectorAll(
+            'fieldset[data-decision-id]',
+        )) {
+            const answer = answers[block.dataset.decisionId];
+            if (!answer) continue;
+            if (this.busy(block)) this.deferred = true;
+            else this.apply(block, answer);
+        }
     }
 
-    // A focused note with no edit takes the new note too, or its blur would
-    // save the old note over the one another tab just saved.
-    merge(block, { optionIndexes, note }) {
-        const incoming = note ?? '';
+    // A note with an unsaved edit stays. A focused note with no edit takes the
+    // stored note, or its blur would save the old note over it.
+    apply(block, { indexes, note }) {
+        const stored = note ?? '';
         const field = block.querySelector('[data-decision-note-field]');
         const edited =
             field !== null &&
             field.value !== (block.dataset.decisionNote ?? '');
-        block.dataset.decisionSavedIndexes = JSON.stringify(optionIndexes);
-        block.dataset.decisionNote = incoming;
-        this.fillBlock(block, {
-            indexes: optionIndexes,
-            note: edited ? field.value : incoming,
-        });
-        if (field === null && incoming !== '') this.decorate(block);
+        block.dataset.decisionSavedIndexes = JSON.stringify(indexes);
+        block.dataset.decisionNote = stored;
+        for (const input of block.querySelectorAll(
+            'input[data-decision-option]',
+        ))
+            input.checked = indexes.includes(Number(input.value));
+        if (field && !edited && field.value !== stored) field.value = stored;
+        if (field === null && stored !== '') this.decorate(block);
         this.sentStates.set(
             block,
-            this.stateKey({
-                indexes: this.state(block).indexes,
-                note: incoming,
-            }),
+            this.stateKey({ indexes: this.state(block).indexes, note: stored }),
         );
     }
 
-    // One read at a time. A change that arrives during a read asks for one more.
+    settle() {
+        if (!this.deferred || this.pending()) return;
+        this.deferred = false;
+        this.refreshSummary();
+    }
+
+    // One read at a time. A change during a read asks for one more read, and
+    // so does a save that lands during it, because the read may predate it.
     async refreshSummary() {
         if (!this.hasSummaryUrlValue) return;
         if (this.summaryRunning) {
@@ -374,21 +385,39 @@ export default class extends Controller {
         this.summaryRunning = true;
         do {
             this.summaryAgain = false;
-            try {
-                // A read of the summary, with no form to submit.
-                // eslint-disable-next-line no-restricted-syntax
-                const response = await fetch(this.summaryUrlValue, {
-                    headers: { Accept: STREAM_TYPE },
-                    credentials: 'same-origin',
-                });
-                const type = response.headers.get('Content-Type') ?? '';
-                if (response.ok && type.startsWith(STREAM_TYPE))
-                    renderStreamMessage(await response.text());
-            } catch {
-                // The next change reads the summary again.
+            const landed = this.savesLanded;
+            const html = await this.readSummary();
+            if (html === null || !this.element.isConnected) continue;
+            if (landed !== this.savesLanded) {
+                this.summaryAgain = true;
+                continue;
             }
+            renderStreamMessage(html);
+            const template = document.createElement('template');
+            template.innerHTML = html;
+            const answers = template.content.querySelector(
+                'turbo-stream[data-decision-answers]',
+            )?.dataset.decisionAnswers;
+            if (answers) this.reconcile(JSON.parse(answers));
         } while (this.summaryAgain);
         this.summaryRunning = false;
+    }
+
+    async readSummary() {
+        try {
+            // A read of the summary, with no form to submit.
+            // eslint-disable-next-line no-restricted-syntax
+            const response = await fetch(this.summaryUrlValue, {
+                headers: { Accept: STREAM_TYPE },
+                credentials: 'same-origin',
+            });
+            const type = response.headers.get('Content-Type') ?? '';
+            if (response.ok && type.startsWith(STREAM_TYPE))
+                return await response.text();
+        } catch {
+            // The next change or reconnect reads the summary again.
+        }
+        return null;
     }
 
     showChangedBy(name) {

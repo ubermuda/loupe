@@ -74,6 +74,8 @@ test('an answer saved in one tab shows in another tab of the document', async ({
     browser,
     request,
 }) => {
+    // Takes about 16 s warm. A cold worktree ran out of the 30 s default once.
+    test.slow();
     await setFlag(request, 'live_updates.enabled', true);
 
     const email = `e2e+decisionlive+${RUN}@example.com`;

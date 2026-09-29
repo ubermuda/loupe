@@ -14,28 +14,38 @@ const STREAM = 'text/vnd.turbo-stream.html; charset=UTF-8';
 let application;
 let sent;
 let receive;
+let liveOptions;
 let unsubscribe;
+let stored;
+
+const summaryHtml = (answers) =>
+    `<turbo-stream data-decision-page="doc-1/3" action="update" target="decision-summary-count" data-decision-answers="${JSON.stringify(
+        answers,
+    ).replaceAll('"', '&quot;')}"><template>1/2</template></turbo-stream>`;
+
+const summary = (answers) => ({
+    ok: true,
+    headers: new Headers({ 'Content-Type': STREAM }),
+    text: () => Promise.resolve(summaryHtml(answers)),
+});
 
 beforeEach(() => {
     vi.useFakeTimers();
     sent = [];
     receive = undefined;
+    liveOptions = undefined;
+    stored = {};
     unsubscribe = vi.fn();
     on.mockReset();
-    on.mockImplementation((types, handler) => {
+    on.mockImplementation((types, handler, options) => {
         receive = handler;
+        liveOptions = options;
         return unsubscribe;
     });
     renderStreamMessage.mockReset();
     vi.stubGlobal(
         'fetch',
-        vi.fn(() =>
-            Promise.resolve({
-                ok: true,
-                headers: new Headers({ 'Content-Type': STREAM }),
-                text: () => Promise.resolve('<turbo-stream></turbo-stream>'),
-            }),
-        ),
+        vi.fn(() => Promise.resolve(summary(stored))),
     );
     application = Application.start();
     application.register('decision', DecisionController);
@@ -846,8 +856,9 @@ it('ignores a change that this tab saved', async () => {
     expect(fetch).not.toHaveBeenCalled();
 });
 
-it('shows the picks and note another tab saved, and does not send them back', async () => {
+it('shows the stored picks and note after a change, and does not send them back', async () => {
     await mount({ notes: { a: 'Mine' } });
+    stored = { a: { indexes: [1], note: 'Theirs' } };
     receive(change());
     await vi.advanceTimersByTimeAsync(0);
 
@@ -864,21 +875,26 @@ it('shows the picks and note another tab saved, and does not send them back', as
     expect(sent).toHaveLength(0);
 });
 
-it('does not apply picks saved on another version, and still reads the summary', async () => {
+it('ends at the stored answer when two changes arrive in reverse order', async () => {
     await mount();
-    receive(change({ versionNumber: 4 }));
+    stored = { a: { indexes: [1], note: 'Newer' } };
+    receive(change({ optionIndexes: [1], note: 'Newer' }));
+    receive(change({ optionIndexes: [0], note: 'Older' }));
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(checked('a')).toEqual([]);
-    expect(fetch).toHaveBeenCalledOnce();
+    expect(checked('a')).toEqual(['1']);
+    expect(note('a').value).toBe('Newer');
 });
 
 it('leaves a block alone while its own save is in flight or waiting', async () => {
     await mount();
     check('a', 0);
     type('b', 'Mine');
-    receive(change({ optionIndexes: [1] }));
-    receive(change({ decisionId: 'b', optionIndexes: [1] }));
+    stored = {
+        a: { indexes: [1], note: null },
+        b: { indexes: [1], note: null },
+    };
+    receive(change());
     await vi.advanceTimersByTimeAsync(0);
 
     expect(checked('a')).toEqual(['0']);
@@ -886,11 +902,55 @@ it('leaves a block alone while its own save is in flight or waiting', async () =
     expect(note('b').value).toBe('Mine');
 });
 
+it('reads the stored answers again once its own saves land', async () => {
+    await mount();
+    check('a', 0);
+    stored = { a: { indexes: [1], note: null } };
+    receive(change());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(checked('a')).toEqual(['0']);
+    expect(fetch).toHaveBeenCalledOnce();
+
+    finish();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(checked('a')).toEqual(['1']);
+});
+
+it('drops a read that a save of its own overtook, and reads again', async () => {
+    let answer;
+    fetch.mockImplementationOnce(
+        () => new Promise((resolve) => (answer = resolve)),
+    );
+    await mount();
+    receive(change());
+    check('a', 0);
+    finish();
+    answer(summary({ a: { indexes: [], note: null } }));
+    stored = { a: { indexes: [0], note: null } };
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(renderStreamMessage).toHaveBeenCalledOnce();
+    expect(checked('a')).toEqual(['0']);
+});
+
+it('reads the stored answers again after the hub reconnects', async () => {
+    await mount();
+    stored = { a: { indexes: [1], note: null } };
+    liveOptions.onReconnect();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(checked('a')).toEqual(['1']);
+});
+
 it('keeps a note with an unsaved edit, and saves it with the new picks', async () => {
     await mount({ notes: { a: 'Old' } });
     note('a').focus();
     note('a').value = 'Draft';
-    receive(change({ optionIndexes: [0] }));
+    stored = { a: { indexes: [0], note: 'Theirs' } };
+    receive(change());
     await vi.advanceTimersByTimeAsync(0);
 
     expect(note('a').value).toBe('Draft');
@@ -901,9 +961,10 @@ it('keeps a note with an unsaved edit, and saves it with the new picks', async (
     ]);
 });
 
-it('gives a focused note with no edit the new note', async () => {
+it('gives a focused note with no edit the stored note', async () => {
     await mount({ notes: { a: 'Old' } });
     note('a').focus();
+    stored = { a: { indexes: [], note: 'Theirs' } };
     receive(change());
     await vi.advanceTimersByTimeAsync(0);
 
@@ -912,11 +973,13 @@ it('gives a focused note with no edit the new note', async () => {
     expect(sent).toHaveLength(0);
 });
 
-it('shows a note another tab saved on a read-only page', async () => {
+it('shows the stored answer on a read-only page', async () => {
     await mount({ editable: false });
-    receive(change({ decisionId: 'b', note: 'Theirs' }));
+    stored = { b: { indexes: [0], note: 'Theirs' } };
+    receive(change({ decisionId: 'b' }));
     await vi.advanceTimersByTimeAsync(0);
 
+    expect(checked('b')).toEqual(['0']);
     expect(note('b').value).toBe('Theirs');
     expect(note('b').readOnly).toBe(true);
 });
@@ -930,9 +993,7 @@ it('renders the summary it reads as a stream', async () => {
         headers: { Accept: 'text/vnd.turbo-stream.html' },
         credentials: 'same-origin',
     });
-    expect(renderStreamMessage).toHaveBeenCalledWith(
-        '<turbo-stream></turbo-stream>',
-    );
+    expect(renderStreamMessage).toHaveBeenCalledWith(summaryHtml({}));
 });
 
 it('reads the summary once more for a burst that arrives during a read', async () => {

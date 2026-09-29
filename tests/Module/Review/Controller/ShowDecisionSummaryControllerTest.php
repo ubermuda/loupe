@@ -48,6 +48,27 @@ final class ShowDecisionSummaryControllerTest extends WebTestCase
         self::assertStringContainsString('1/2', $streams->eq(0)->html());
     }
 
+    public function test_the_summary_carries_the_stored_answer_of_every_block(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+        $save = static::getContainer()->get(SaveDecisionAnswerHandler::class);
+        self::assertInstanceOf(SaveDecisionAnswerHandler::class, $save);
+        $save(new SaveDecisionAnswerCommand($document, 'target', 1, [1], null, false, $owner));
+        $save(new SaveDecisionAnswerCommand($document, 'region', 1, [], 'Either works.', false, $owner));
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $this->summaryPath($document).'?versionNumber=1');
+
+        $answers = new Crawler((string) $client->getResponse()->getContent())
+            ->filter('turbo-stream[data-decision-answers]')
+            ->attr('data-decision-answers');
+        self::assertSame(
+            ['target' => ['indexes' => [1], 'note' => null], 'region' => ['indexes' => [], 'note' => 'Either works.']],
+            json_decode((string) $answers, true, flags: \JSON_THROW_ON_ERROR),
+        );
+    }
+
     public function test_an_unknown_version_falls_back_to_the_latest_and_keeps_the_page_it_names(): void
     {
         $client = static::createClient();
