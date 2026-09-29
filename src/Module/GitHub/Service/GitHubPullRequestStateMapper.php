@@ -49,6 +49,8 @@ final readonly class GitHubPullRequestStateMapper
             default => PullRequestMergeability::Unknown,
         };
 
+        $changesRequestedSha = $pullRequest['reviews']['nodes'][0]['commit']['oid'] ?? null;
+
         return new PullRequestSnapshot(
             state: $state,
             draft: $draft,
@@ -65,6 +67,7 @@ final readonly class GitHubPullRequestStateMapper
                 default => PullRequestReview::None,
             },
             readyToMerge: PullRequestState::Open === $state && !$draft && PullRequestChecks::Passed === $checks && PullRequestMergeability::Mergeable === $mergeability,
+            changesRequestedSha: \is_string($changesRequestedSha) && '' !== $changesRequestedSha ? $changesRequestedSha : null,
         );
     }
 

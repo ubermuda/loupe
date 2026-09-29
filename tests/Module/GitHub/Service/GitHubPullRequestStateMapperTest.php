@@ -214,6 +214,29 @@ final class GitHubPullRequestStateMapperTest extends TestCase
         self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->review);
     }
 
+    /** @return iterable<string, array{mixed, ?string}> */
+    public static function changesRequestedReviews(): iterable
+    {
+        yield 'a review on a commit' => [['nodes' => [['commit' => ['oid' => 'abc1234']]]], 'abc1234'];
+        yield 'no reviews field' => [null, null];
+        yield 'empty nodes' => [['nodes' => []], null];
+        yield 'empty oid' => [['nodes' => [['commit' => ['oid' => '']]]], null];
+        yield 'no commit' => [['nodes' => [['commit' => null]]], null];
+    }
+
+    #[DataProvider('changesRequestedReviews')]
+    public function test_the_commit_of_the_newest_changes_requested_review(mixed $reviews, ?string $expected): void
+    {
+        $node = self::pullRequest604();
+        if (null === $reviews) {
+            unset($node['reviews']);
+        } else {
+            $node['reviews'] = $reviews;
+        }
+
+        self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->changesRequestedSha);
+    }
+
     public function test_a_draft_is_never_ready_to_merge(): void
     {
         $node = self::allPassed(self::pullRequest604());

@@ -24,6 +24,7 @@ final readonly class PullRequestSnapshot
         public PullRequestMergeability $mergeability = PullRequestMergeability::Unknown,
         public PullRequestReview $review = PullRequestReview::None,
         public bool $readyToMerge = false,
+        public ?string $changesRequestedSha = null,
     ) {
     }
 
@@ -46,6 +47,7 @@ final readonly class PullRequestSnapshot
             && $this->failedChecks === $other->failedChecks
             && $this->mergeability === $other->mergeability
             && $this->review === $other->review
-            && $this->readyToMerge === $other->readyToMerge;
+            && $this->readyToMerge === $other->readyToMerge
+            && $this->changesRequestedSha === $other->changesRequestedSha;
     }
 }
