@@ -87,6 +87,10 @@ final readonly class ReportWorkerRunStateHandler
             }
 
             $this->fillStart($run, $command);
+            // A queued run can move to another pool, so any report, a repeat too, names the current one.
+            if (null !== $command->workerPool) {
+                $run->workerPool = $command->workerPool;
+            }
             // A retry of the state a timed-out run last held is the bridge
             // speaking again, so it reopens the run and says so in the history.
             $repeat = \in_array($command->state, $history, true);

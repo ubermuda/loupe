@@ -485,6 +485,49 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertSame([], $this->usageOf($run));
     }
 
+    public function test_the_first_report_stores_the_worker_pool(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-pool-first');
+
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, workerPool: 'default')->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame('default', $this->storedPool($run));
+    }
+
+    /** The bridge can move a queued run to another pool, and a repeat still carries the new one. */
+    public function test_a_later_report_replaces_the_worker_pool(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-pool-replace');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, workerPool: 'default');
+        $repeat = $this->report($owner, $project, $runKey, WorkerRunState::Queued, workerPool: 'quick');
+        self::assertFalse($repeat->newState);
+        self::assertInstanceOf(WorkerRun::class, $repeat->run);
+        self::assertSame('quick', $this->storedPool($repeat->run));
+
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Running, workerPool: 'review')->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame('review', $this->storedPool($run));
+    }
+
+    public function test_a_report_without_a_worker_pool_keeps_the_stored_one(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-pool-keep');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, workerPool: 'quick');
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Running)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame('quick', $this->storedPool($run));
+    }
+
     /** @return array{User, Project} */
     private function scenario(string $name): array
     {
@@ -514,6 +557,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         ?string $resumeSkipped = null,
         ?Uuid $bridgeId = null,
         ?WorkerRunUsageReport $usage = null,
+        ?string $workerPool = null,
     ): ReportWorkerRunStateResult {
         $outcome = $state->isOutcome();
         $started = $withStart && ($outcome || WorkerRunState::Running === $state);
@@ -554,6 +598,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             cardColumn: $cardColumn,
             resumeSkipped: $resumeSkipped,
             usage: $usage,
+            workerPool: $workerPool,
         ));
     }
 
@@ -572,6 +617,14 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         );
 
         return array_map(static fn (array $row): array => [$row['model'], $row['input_tokens']], $rows);
+    }
+
+    private function storedPool(WorkerRun $run): ?string
+    {
+        $pool = $this->em()->getConnection()->fetchOne('SELECT worker_pool FROM bridge_worker_runs WHERE id = ?', [(string) $run->id]);
+        self::assertTrue(null === $pool || \is_string($pool));
+
+        return $pool;
     }
 
     /** What the timeout sweep and the run inventory write. */
