@@ -5763,11 +5763,11 @@
     }
     /* An epic title wraps to two lines and stops short of the pinned deck.
        The width left out covers the lane buttons, the deck and its label.
-       A narrow strip keeps a floor, so the title still shows. */
+       The floor meets that width where the deck stops pinning, at 36rem. */
     .lp-board-lane--epic .lp-board-lane__heading {
         max-width: max(
             calc(100cqi - var(--spacing) * 106),
-            calc(var(--spacing) * 40)
+            calc(var(--spacing) * 38)
         );
     }
     .lp-board-lane--epic .lp-board-lane__title {
@@ -5801,7 +5801,7 @@
        It stays at the right edge of the strip while the lanes scroll sideways.
        A phone-wide strip leaves it at the lane end, where it covers no title. */
     .lp-board-lane__up-next {
-        @apply sticky right-1 z-10 ml-auto flex shrink-0 items-center gap-4 @max-lg:static;
+        @apply sticky right-1 z-10 ml-auto flex shrink-0 items-center gap-4 @max-xl:static;
     }
     /* A lifted deck card paints over the decks of the later lanes. */
     .lp-board-lane__up-next:has(.lp-board-card--dragging) {

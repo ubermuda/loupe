@@ -414,7 +414,7 @@ test('the deck stays in view while the lanes scroll sideways, and a long title w
     board,
 }) => {
     const page = board.page;
-    await page.setViewportSize({ width: 600, height: 800 });
+    await page.setViewportSize({ width: 640, height: 800 });
     const epic = await board.create(
         `Pinned epic with a title long enough to need two lines in the lane head ${RUN}`,
         { type: 'epic', status: 'next' },
