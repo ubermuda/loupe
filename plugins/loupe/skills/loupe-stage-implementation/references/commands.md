@@ -8,11 +8,11 @@
 2. Read the repository profile at `.loupe/lifecycle.md` in the repository root. When the file, or a section a step needs, is missing, stop with `STAGE RESULT: blocked: no <section> in .loupe/lifecycle.md`.
 3. Pick the forge adapter as the next section says.
 
-The profile has these sections: `Instruction files`, `Worktree`, `Gate`, `Code review`, `Changelog` and `Pull request`. The harness adapter covers these steps: connect to the Loupe tools, load an instruction, bind writes to the worktree, run a long command, dispatch a sub-agent, write a plan, and run the plan task by task.
+The profile has these sections: `Instruction files`, `Worktree`, `Gate`, `Code review`, `Changelog`, `Pull request`, `Board` and `Merge`. The harness adapter covers these steps: connect to the Loupe tools, load an instruction, bind writes to the worktree, run a long command, dispatch a sub-agent, write a plan, and run the plan task by task.
 
 ## Pick the forge adapter
 
-The stage skills name forge operations: find and validate a pull request, list feedback items, reply to a thread, post a top-level comment, read checks and failed logs, create a pull request, and check mergeability. An adapter file maps them to commands for one forge.
+The stage skills name forge operations. An adapter file maps them to commands for one forge. The operations are these: find and validate a pull request, list feedback items, reply to a thread, and post a top-level comment. Also read checks and failed logs, create a pull request, and check mergeability. The merge stage adds three more: read the merge state, update the branch, and merge.
 
 1. Read the forge from `pullRequests[].forge` in `card_get`: `github`, `gitlab`, `bitbucket` or `other`.
 2. Before a pull request exists, read the host of `git remote get-url origin`. `github.com` is `github`, a `gitlab` host is `gitlab`, `bitbucket.org` is `bitbucket`, and any other host is `other`.
@@ -71,24 +71,14 @@ Push the branch, and create the pull request with the forge adapter. Follow the 
 
 A branch that holds the commits of another open pull request stacks on it. The test is `git merge-base --is-ancestor origin/<parent branch> HEAD`, which exits 0, while that pull request is open. Then create the pull request with `<base>` set to the parent's head branch, never the profile base branch. Write `Stacks on #<parent>. Merge #<parent> first.` in the body.
 
-The profile `Board` section names the column a ready pull request's card moves to. Read the slug there, never from `board_columns`, which can be missing.
-
 Put the card URL in the body. The card page route is `/projects/{projectId}/board/cards/{cardId}`, so the URL is `<instance>/projects/<projectId>/board/cards/<cardId>`. Take the instance from the prompt line `Loupe instance <url>.`, and the project id from the prompt. When the prompt lacks either, write `Loupe card <number>` instead.
 
 Then write the changelog entry that the profile `Changelog` section names, run its check, commit, and push.
 
-## Wait for CI
+## After the push
 
-Keep the SHA that you gated, reviewed and pushed. First wait until checks exist for that head. The head commit of the pull request must equal that SHA. Then wait for the required checks with the loop in the forge adapter, for 60 minutes at most. The profile `Gate` section says which checks are required. A stacked pull request has no required checks, because the ruleset covers the profile base branch only. Run the check commands of the forge adapter without `--required`, and count every check.
-
-Run that loop in the foreground, one tool call after another. Never start the wait as a background command, a monitor or a sub-agent. A harness can promise to notify you when a background command ends. A headless run has no next turn, so that notice never arrives. The run ends with your turn, and the wait dies with it.
-
-Never end the turn to wait for a notice.
-
-When the wait ends, read the head commit of the pull request again with the forge adapter. Accept green only when the head still equals the gated SHA, and every required check passes with none pending. When the head moved, sync the branch, run the gate and the code review again, and push. Read each failed log with the forge adapter.
-
-After each fix, run the gate again before you push.
+The stage ends at the push. The app reads the pull request again after each push, so no stage waits for CI. A failed check or a conflict reaches a fix round as a fix request. Green checks move the card, and an approved pull request with green checks reaches the merge stage. Report `waiting`, and name the pull request URL.
 
 ## Record a block
 
-Read the card with `card_get`. Send its whole `body` back with `card_update`, plus one final paragraph that starts `Blocked:`. The paragraph names the failing check or the timeout, the branch, and the pull request URL.
+Read the card with `card_get`. Send its whole `body` back with `card_update`, plus one final paragraph that starts `Blocked:`. The paragraph names the reason, the branch, and the pull request URL when one exists.
