@@ -43,6 +43,8 @@ final readonly class UpdateInboxSettingsHandler
             $settings->runBlocked = $command->runBlocked;
             $settings->runGaveUp = $command->runGaveUp;
             $settings->runWaitingForPerson = $command->runWaitingForPerson;
+            $settings->pullRequestReady = $command->pullRequestReady;
+            $settings->pullRequestFixStopped = $command->pullRequestFixStopped;
             $this->em->flush();
 
             // The Doctrine transport commits the message with this transaction.
@@ -58,6 +60,8 @@ final readonly class UpdateInboxSettingsHandler
                 'runBlocked' => $command->runBlocked,
                 'runGaveUp' => $command->runGaveUp,
                 'runWaitingForPerson' => $command->runWaitingForPerson,
+                'pullRequestReady' => $command->pullRequestReady,
+                'pullRequestFixStopped' => $command->pullRequestFixStopped,
             ],
             new AuditSubject('project', $projectId),
         );

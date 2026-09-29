@@ -7,12 +7,14 @@ namespace App\Module\Bridge\Command;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Event\WorkerRunChanged;
+use App\Module\Bridge\Event\WorkerRunQueued;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\Service\WorkerRunUsageRecorder;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
@@ -26,8 +28,8 @@ use Ubermuda\AuditBundle\AuditSubject;
 /**
  * Records one state of a run, and moves the run forward only. A state the run
  * has not held leaves a history row even when it does not move the run. A late
- * report still fills a missing session, start, experiment and trigger, but
- * outcome data follows the state that owns it. The outcome or the stop that
+ * report still fills a missing session, start and experiment, but outcome
+ * data follows the state that owns it. The outcome or the stop that
  * closes the run also writes its usage, through WorkerRunUsageRecorder.
  */
 final readonly class ReportWorkerRunStateHandler
@@ -48,13 +50,13 @@ final readonly class ReportWorkerRunStateHandler
 
     public function __invoke(ReportWorkerRunStateCommand $command): ReportWorkerRunStateResult
     {
-        /** @var array{ReportWorkerRunStateResult, bool, bool, bool} $outcome */
+        /** @var array{ReportWorkerRunStateResult, bool, bool, bool, bool} $outcome */
         $outcome = $this->em->wrapInTransaction(function () use ($command): array {
             // The project lock serialises two first reports of one run, which
             // would otherwise both miss the read and trip the unique index.
             $project = $this->lockedProject($command);
             if (null === $project) {
-                return [new ReportWorkerRunStateResult(null, newState: false), false, false, false];
+                return [new ReportWorkerRunStateResult(null, newState: false), false, false, false, false];
             }
 
             $run = $this->workerRuns->findOneByRunKey($project, $command->bridgeId, $command->runKey);
@@ -81,19 +83,21 @@ final readonly class ReportWorkerRunStateHandler
                     resumeCap: $command->resumeCap,
                     cardColumn: $command->cardColumn,
                 );
+                if (null !== $command->trigger) {
+                    self::recordTrigger($run, $command->trigger);
+                }
                 $this->em->persist($run);
+                $created = true;
                 $moves = true;
                 $history = [];
             } else {
+                $created = false;
                 $history = $this->workerRunStateChanges->statesOf($run);
                 $moves = self::moves($run->state, $command->state, $history);
             }
 
             $this->fillStart($run, $command);
             $this->fillExperiment($run, $command);
-            if (null === $run->trigger) {
-                $run->trigger = $command->trigger;
-            }
             // A queued run can move to another pool, so any report, a repeat too, names the current one.
             $poolMoved = null !== $command->workerPool && $command->workerPool !== $run->workerPool;
             if ($poolMoved) {
@@ -120,10 +124,10 @@ final readonly class ReportWorkerRunStateHandler
             $this->em->flush();
             $this->searchIndexer->index($run);
 
-            return [new ReportWorkerRunStateResult($run, $newState), $closes, $warningChanged, $poolMoved];
+            return [new ReportWorkerRunStateResult($run, $newState), $closes, $warningChanged, $poolMoved, $created];
         });
 
-        [$result, $closes, $warningChanged, $poolMoved] = $outcome;
+        [$result, $closes, $warningChanged, $poolMoved, $created] = $outcome;
         // A repeat of a state the run already held changes nothing a page shows, unless it moves the pool.
         if (($result->newState || $poolMoved) && null !== $result->run) {
             $this->publisher->runsChanged($result->run->project);
@@ -136,6 +140,10 @@ final readonly class ReportWorkerRunStateHandler
         }
         if ($closes && null !== $result->run) {
             $this->audit($result->run);
+        }
+        if ($created && null !== $result->run && WorkerRunState::Queued === $command->state
+            && WorkerRunTrigger::FIX_REQUESTED === $command->trigger?->eventType) {
+            $this->events->dispatch(self::queued($result->run, $command->trigger));
         }
 
         return $result;
@@ -164,6 +172,31 @@ final readonly class ReportWorkerRunStateHandler
         }
 
         return $current->isOpen() && $reported->rank() > $current->rank();
+    }
+
+    private static function recordTrigger(WorkerRun $run, WorkerRunTrigger $trigger): void
+    {
+        $run->triggerEventType = $trigger->eventType;
+        $run->triggerForge = $trigger->forge;
+        $run->triggerRepository = $trigger->repository;
+        $run->triggerPullRequestNumber = $trigger->pullRequestNumber;
+        $run->triggerHeadSha = $trigger->headSha;
+        $run->triggerReason = $trigger->reason;
+    }
+
+    private static function queued(WorkerRun $run, WorkerRunTrigger $trigger): WorkerRunQueued
+    {
+        return new WorkerRunQueued(
+            projectId: $run->project->id ?? throw new \LogicException('A persisted project has an id.'),
+            runId: $run->id ?? throw new \LogicException('A flushed run has an id.'),
+            cardId: $run->cardId,
+            eventType: $trigger->eventType,
+            forge: $trigger->forge,
+            repository: $trigger->repository,
+            pullRequestNumber: $trigger->pullRequestNumber,
+            headSha: $trigger->headSha,
+            reason: $trigger->reason,
+        );
     }
 
     private function fillStart(WorkerRun $run, ReportWorkerRunStateCommand $command): void
@@ -253,7 +286,6 @@ final readonly class ReportWorkerRunStateHandler
                 'resumeCap' => $run->resumeCap,
                 'cardColumn' => $run->cardColumn,
                 'resumeSkipped' => $run->resumeSkipped,
-                'trigger' => $run->trigger?->value,
             ],
             new AuditSubject('worker_run', (string) $run->id),
         );

@@ -4,9 +4,18 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\ValueObject;
 
-/** Who started a run. A run with no trigger is one the bridge started on its own. */
-enum WorkerRunTrigger: string
+/** The event that made the bridge queue a run. Only the event type is always known. */
+final readonly class WorkerRunTrigger
 {
-    /** A person resumed the run from the web UI. */
-    case Person = 'person';
+    public const string FIX_REQUESTED = 'pull_request.fix_requested';
+
+    public function __construct(
+        public string $eventType,
+        public ?string $forge = null,
+        public ?string $repository = null,
+        public ?int $pullRequestNumber = null,
+        public ?string $headSha = null,
+        public ?string $reason = null,
+    ) {
+    }
 }

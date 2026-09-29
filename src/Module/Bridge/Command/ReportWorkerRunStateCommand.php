@@ -52,6 +52,7 @@ final readonly class ReportWorkerRunStateCommand
         public ?string $variant = null,
         public ?string $requestedModel = null,
         public ?string $switchedFrom = null,
+        /** Stored when the report creates the run. A later report never changes it. */
         public ?WorkerRunTrigger $trigger = null,
     ) {
     }

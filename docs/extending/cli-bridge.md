@@ -58,6 +58,10 @@ restarts. The `--max-workers` flag is deprecated and does nothing. Set
 `maxWorkers` in `rules.yaml` instead. The bridge logs `max_workers_flag_ignored`
 when it starts with the flag.
 
+A worker rule can also split its runs between models with an experiment, as
+[Experiments](#experiments) describes. Such a rule takes no model from the
+`defaults:` block.
+
 The bridge authenticates with a token that carries the agent scope. `loupe
 login` gets one through the OAuth device flow: it prints a link and a code, and
 you choose **Allow** on that page. The CLI then refreshes the access token by
@@ -162,6 +166,13 @@ event carried. Each log line below goes with the state the bridge reports:
 | `worker_gave_up` | `gave-up` |
 | `worker_failed` | `not-started` |
 | `queue_dropped` | `dropped`, with the reason `shutdown`, `rule_dead` or `reload` |
+
+Each `queued` report carries a `trigger` object that names the event that
+queued the run. The object always holds `eventType`. A pull request event also
+gives `forge`, `repository`, `pullRequestNumber`, `headSha` and `reason`, when
+the event carries them. A person's Resume from the web UI queues its run with
+the `eventType` `bridge.command`. No other state sends a trigger. An older
+bridge sends none.
 
 The [Worker run API](../reference/worker-runs.md#the-states-of-a-run) page says
 what each state means. The server adds `timed-out` and `lost` on its own. It
@@ -334,6 +345,84 @@ key, so `jq` selects what you want. The log file is appended, so it is a history
 across runs.
 
 The bridge needs a Mercure hub to have anything to subscribe to.
+
+## Experiments
+
+An experiment splits the cards of a worker rule between models. The top-level
+`experiments:` list of `rules.yaml` declares each experiment. An experiment has
+a `name` and a list of `variants`. Each variant has a `name`, a `weight` and a
+`model`. A worker rule joins an experiment with `experiment: <name>`, and sets
+no `model`:
+
+```yaml
+experiments:
+  - name: impl-model
+    variants:
+      - name: opus
+        weight: 1
+        model: opus
+      - name: sonnet
+        weight: 1
+        model: claude-sonnet-5-5
+
+rules:
+  - name: implement
+    on: board.card_moved
+    project: my-app
+    to: implementation
+    experiment: impl-model
+    prompt: Implement card {cardNumber}.
+```
+
+The `model` of the `defaults:` block does not fill a rule that joins an
+experiment. A variant's weight sets its share of the cards, so weights of 3 and
+1 give the first variant three cards in four. An experiment that no rule joins
+is valid, so you can keep a finished experiment in the file.
+
+The bridge refuses the file, at start and on a reload, when:
+
+- a rule sets both `model` and `experiment`
+- an interactive rule sets `experiment`
+- a rule names an experiment that `experiments` does not declare
+- an experiment has no variants, or more than 32
+- a variant has a weight below 1 or above 1,000,000
+- a variant has no model, or a model longer than 100 characters, with
+  whitespace or with a control character
+- two experiments, or two variants of one experiment, share a name
+- a name of an experiment or a variant does not match
+  `^[a-z0-9][a-z0-9_-]{0,63}$`
+
+Before a worker starts, the bridge draws a candidate variant. It hashes the
+experiment name and the card id onto the weights, so every bridge draws the same
+candidate for a card. The bridge then asks the server for the pin of the card,
+through the
+[experiment pin endpoint](../reference/worker-runs.md#resolving-an-experiment-pin).
+The server keeps the first pin of each card, so a card keeps its variant on
+every later run, resumes included.
+
+A change to the weights moves only the cards that have no pin yet. When you
+remove a variant, its cards take the candidate on their next run. That run
+records the old variant in `switchedFrom`.
+
+The pin request has a timeout of 10 seconds. When it fails for any reason, the
+bridge runs the candidate and logs `experiment_pin_failed` at level `WARN`. A
+network error, an answer other than 200 and a server with no pin endpoint are
+examples. A run with no card draws its candidate from the event key, and sends
+no pin request.
+
+The `running` report and the outcome of the run carry `experiment`, `variant`,
+`requestedModel` and `switchedFrom`. The
+[Worker run API](../reference/worker-runs.md#reporting-a-run-state) page gives
+their rules. A live run keeps its variant through an [update](#updates).
+
+A card keeps its variant only in the rules that join the experiment. A rule
+with its own `model:` runs that model on the card. For example, a `fix-round`
+rule with `model: opus` runs Opus on a card that the experiment gave to Sonnet.
+So make every rule that acts on the session of the card join the experiment.
+
+To end an experiment, give each rule that joins it a plain `model:` again, and
+remove its `experiment:` key. You can keep the `experiments:` block or delete
+it. Then run `loupe bridge reload`.
 
 ## Updates
 

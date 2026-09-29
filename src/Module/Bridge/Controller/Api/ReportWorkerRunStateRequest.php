@@ -6,7 +6,6 @@ namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunState;
-use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -124,9 +123,9 @@ final class ReportWorkerRunStateRequest
         #[Assert\Regex(pattern: WorkerRun::EXPERIMENT_NAME_PATTERN)]
         public ?string $switchedFrom = null,
 
-        /** Null when the bridge started the run on its own. */
-        #[Assert\Choice(callback: 'triggers')]
-        public ?string $trigger = null,
+        /** Null from a bridge that predates triggers, and on any report but the first queued one. */
+        #[Assert\Valid]
+        public ?WorkerRunTriggerInput $trigger = null,
     ) {
     }
 
@@ -140,12 +139,6 @@ final class ReportWorkerRunStateRequest
                 static fn (WorkerRunState $state): bool => !$state->isInferred() && WorkerRunState::Closed !== $state,
             ),
         ));
-    }
-
-    /** @return list<string> */
-    public static function triggers(): array
-    {
-        return array_map(static fn (WorkerRunTrigger $trigger): string => $trigger->value, WorkerRunTrigger::cases());
     }
 
     #[Assert\Callback]
@@ -282,11 +275,6 @@ final class ReportWorkerRunStateRequest
     public function endedAt(): ?\DateTimeImmutable
     {
         return null === $this->endedAt ? null : self::utc($this->endedAt);
-    }
-
-    public function trigger(): ?WorkerRunTrigger
-    {
-        return null === $this->trigger ? null : WorkerRunTrigger::from($this->trigger);
     }
 
     public function bridgeId(): Uuid

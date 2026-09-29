@@ -107,8 +107,11 @@ final class InboxExporterTest extends KernelTestCase
         $ended->endedAt = new \DateTimeImmutable('2026-09-02 09:00:00');
         $ended->endReason = InboxCardWaitEndReason::Resolved;
         $open = new InboxCardWait($watch, InboxCardWaitTrigger::DocumentInReview, 'The design in review, version 2', $document->id, 2, startedAt: new \DateTimeImmutable('2026-09-02 09:00:00'));
+        $pullRequestId = Uuid::v7();
+        $pullRequest = new InboxCardWait($watch, InboxCardWaitTrigger::PullRequestReady, 'Pull request #640 waits for review', pullRequestId: $pullRequestId, headSha: 'abc123', startedAt: new \DateTimeImmutable('2026-09-03 09:00:00'));
         $watch->waits->add($ended);
         $watch->waits->add($open);
+        $watch->waits->add($pullRequest);
         $this->em->persist($item);
         $this->em->persist($watch);
         $this->em->flush();
@@ -124,6 +127,8 @@ final class InboxExporterTest extends KernelTestCase
                 'documentId' => (string) $document->id,
                 'versionNumber' => 1,
                 'runId' => null,
+                'pullRequestId' => null,
+                'headSha' => null,
                 'startedAt' => new \DateTimeImmutable('2026-09-01 09:00:00')->format(\DateTimeInterface::ATOM),
                 'endedAt' => new \DateTimeImmutable('2026-09-02 09:00:00')->format(\DateTimeInterface::ATOM),
                 'endReason' => 'resolved',
@@ -134,7 +139,21 @@ final class InboxExporterTest extends KernelTestCase
                 'documentId' => (string) $document->id,
                 'versionNumber' => 2,
                 'runId' => null,
+                'pullRequestId' => null,
+                'headSha' => null,
                 'startedAt' => new \DateTimeImmutable('2026-09-02 09:00:00')->format(\DateTimeInterface::ATOM),
+                'endedAt' => null,
+                'endReason' => null,
+            ],
+            [
+                'trigger' => 'pull-request-ready',
+                'reason' => 'Pull request #640 waits for review',
+                'documentId' => null,
+                'versionNumber' => null,
+                'runId' => null,
+                'pullRequestId' => (string) $pullRequestId,
+                'headSha' => 'abc123',
+                'startedAt' => new \DateTimeImmutable('2026-09-03 09:00:00')->format(\DateTimeInterface::ATOM),
                 'endedAt' => null,
                 'endReason' => null,
             ],

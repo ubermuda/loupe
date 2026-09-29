@@ -120,7 +120,7 @@ order.
 | `variant` | the variant of the experiment that the card runs with, such as `sonnet`. It matches the same pattern |
 | `requestedModel` | the model the variant asked for, such as `claude-sonnet-5-5`, at most 100 characters with no control characters |
 | `switchedFrom` | the variant the card was pinned to before this run, when the rule no longer offers it. It matches the same pattern |
-| `trigger` | `person` when a person resumed the run from the web UI. Absent when the bridge started the run on its own |
+| `trigger` | the event that queued the run, as an object. It always holds `eventType`, and a pull request event adds `forge`, `repository`, `pullRequestNumber`, `headSha` and `reason`. A person's Resume from the web UI sends the `eventType` `bridge.command` |
 
 A `gave-up` report needs the exit code, the result flag and the status of the
 outcome the bridge would have resumed: `failed`, `no-result` or `unfinished`.
@@ -149,9 +149,9 @@ the bridge resolves the [experiment pin](#resolving-an-experiment-pin) before it
 starts the worker. A blank value, a value that breaks its rule, or a field
 without its partner gets a 422.
 
-The server stores `trigger` from the first report that carries it, and ignores
-it on a later report. A run with no `trigger` is one the bridge started on its
-own. Any value other than `person` gets a 422.
+The server stores `trigger` from the report that creates the run, and ignores
+it on a later report. A run with no `trigger` comes from a bridge that predates
+triggers. An `eventType` that is not a dotted lower-case name gets a 422.
 
 The server checks the shape of `askId`, `replacedBy`, `maxChain` and `reason`,
 and it does not store them.
@@ -392,6 +392,11 @@ Every refusal the endpoint makes carries an error code. The 400 and the 415 come
 from the framework before the endpoint runs, and carry none. The bridge reads a
 404 with no error code as a server that has no pin endpoint.
 
+The bridge waits 10 seconds for the answer. On any failure, such as a timeout, a
+network error or a status other than 200, it runs the candidate. It then logs
+`experiment_pin_failed`. After a timeout, the server can still hold a pin for the
+card, and the next run of the card then takes that pin.
+
 ## Timed out and lost
 
 A run stays open until its bridge reports how it ended. A bridge that dies
@@ -567,7 +572,7 @@ and its card holds with it. Deleting an account deletes the same data of every
 project it owned, and removes the account's name from a hold it placed in
 another project. The account's data export holds each run in
 `worker_runs.json`, with its state, its history, its usage source, its worker pool, its `experiment`, `variant`,
-`requestedModel` and `switchedFrom`, and its `trigger`. It holds every usage
+`requestedModel` and `switchedFrom`, and its trigger fields. It holds every usage
 row in `worker_run_usage.json`. It holds every experiment pin in
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
 and when the pin was created and last resolved. It holds every card hold in
