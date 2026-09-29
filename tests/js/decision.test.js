@@ -219,7 +219,7 @@ it('does not save a note change through the change event', async () => {
     expect(sent).toHaveLength(0);
 });
 
-it('clears the block at once and saves the Clear', async () => {
+it('clears the picks at once, keeps the note and saves the Clear', async () => {
     await mount({ notes: { a: 'Kept' } });
     check('a', 0);
     finish();
@@ -230,15 +230,15 @@ it('clears the block at once and saves the Clear', async () => {
     expect(sent[1]).toEqual({
         decisionId: 'a',
         indexes: [],
-        note: '',
+        note: 'Kept',
         clear: true,
     });
-    expect(note('a').value).toBe('');
+    expect(note('a').value).toBe('Kept');
     expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
         false,
     );
     finish();
-    expect(note('a').value).toBe('');
+    expect(note('a').value).toBe('Kept');
     expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
         false,
     );
@@ -482,15 +482,20 @@ it('shows the saved note after Turbo restores a snapshot', async () => {
     expect(note('a').value).toBe('New');
 });
 
-it('shows no note after Turbo restores a snapshot taken after a Clear', async () => {
-    await mount({ notes: { a: 'Kept' } });
+it('keeps the note after Turbo restores a snapshot taken after a Clear', async () => {
+    await mount({ notes: { a: 'Kept' }, checked: ['a:0'] });
     document
         .querySelector('[data-decision-id="a"] input[type="button"]')
         .click();
     finish();
     await restoreSnapshot();
+    await vi.advanceTimersByTimeAsync(1000);
 
-    expect(note('a').value).toBe('');
+    expect(note('a').value).toBe('Kept');
+    expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
+        false,
+    );
+    expect(sent).toHaveLength(1);
 });
 
 it('keeps and saves a note typed while a Clear is in flight', async () => {
@@ -772,11 +777,11 @@ it('sends the Clear again when Turbo cached the page while it was in flight', as
     await restoreSnapshot();
     await vi.advanceTimersByTimeAsync(800);
 
-    expect(note('a').value).toBe('');
+    expect(note('a').value).toBe('Kept');
     expect(sent.at(-1)).toEqual({
         decisionId: 'a',
         indexes: [],
-        note: '',
+        note: 'Kept',
         clear: false,
     });
 });

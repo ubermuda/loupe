@@ -44,7 +44,7 @@ Markdown renderers show the marker as ordinary text.
 **A click saves at once.** The reviewer can also write a note, with a pick or
 alone. The note saves shortly after the reviewer stops typing, and comes back as
 `note` on the decision in `document_get_review`. A **Clear** button removes the
-pick and the note. The last write wins: a save from an older version of the
+pick and keeps the note. The last write wins: a save from an older version of the
 document carries onto the current version by option label.
 
 Numbered and bulleted lists both convert, and rule 2 applies here as everywhere:

@@ -82,12 +82,13 @@ final readonly class SaveDecisionAnswerHandler
                 }
                 $wanted = array_values(array_filter($wanted, static fn (?int $index): bool => null !== $index));
                 sort($wanted);
-                $trimmed = trim($command->note ?? '');
-                if ('' !== $trimmed) {
-                    $note = $trimmed;
-                }
             }
-            $cleared = [] === $wanted && null === $note;
+            // Clear drops the picks only: the note is the reviewer's own writing.
+            $trimmed = trim($command->note ?? '');
+            if ('' !== $trimmed) {
+                $note = $trimmed;
+            }
+            $unanswered = [] === $wanted && null === $note;
 
             $current = array_values(array_filter($latestDecision->resolveIndexes(array_map(
                 static fn (DecisionSelection $selection): array => [$selection->optionLabel, $selection->optionIndex],
@@ -95,9 +96,9 @@ final readonly class SaveDecisionAnswerHandler
             )), static fn (?int $index): bool => null !== $index));
             sort($current);
             $selectionsChanged = $current !== $wanted || \count($stored) !== \count($wanted);
-            $answerChanged = $cleared ? null !== $answer : (null === $answer || $answer->note !== $note);
+            $answerChanged = $unanswered ? null !== $answer : (null === $answer || $answer->note !== $note);
             if (!$selectionsChanged && !$answerChanged) {
-                return new SaveDecisionAnswerResult(changed: false, cleared: $cleared);
+                return new SaveDecisionAnswerResult(changed: false, cleared: $command->clear || $unanswered);
             }
 
             if ($selectionsChanged) {
@@ -117,7 +118,7 @@ final readonly class SaveDecisionAnswerHandler
                 }
             }
 
-            if ($cleared) {
+            if ($unanswered) {
                 if (null !== $answer) {
                     $this->em->remove($answer);
                 }
@@ -139,7 +140,7 @@ final readonly class SaveDecisionAnswerHandler
                 'hasNote' => null !== $note,
             ];
 
-            return new SaveDecisionAnswerResult(changed: true, cleared: $cleared);
+            return new SaveDecisionAnswerResult(changed: true, cleared: $command->clear || $unanswered);
         });
 
         if ($result instanceof DomainErrors) {

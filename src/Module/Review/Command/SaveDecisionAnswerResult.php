@@ -9,7 +9,7 @@ final readonly class SaveDecisionAnswerResult
     public function __construct(
         /** False when the stored answer already matched the request. */
         public bool $changed,
-        /** True when the decision is left with no pick and no note. */
+        /** True after a Clear, or when the decision is left with no pick and no note. */
         public bool $cleared,
     ) {
     }

@@ -415,9 +415,7 @@ test('a note saves after typing stops and reaches the review payload', async ({
     ).toHaveValue(NOTE);
 });
 
-test('Clear returns the decision to unanswered and removes the note', async ({
-    page,
-}) => {
+test('Clear removes the pick and keeps the note', async ({ page }) => {
     await signedInReviewer(page, 'clear');
     const { documentId, reviewUrl } = await seedDocument(
         page,
@@ -440,12 +438,11 @@ test('Clear returns the decision to unanswered and removes the note', async ({
     await expect(
         block.locator('input[data-decision-option]:checked'),
     ).toHaveCount(0);
-    await expect(note).toHaveValue('');
+    await expect(note).toHaveValue(NOTE);
 
     const decision = await readNoted(page, documentId);
     expect(decision?.selected).toBeNull();
-    expect(decision?.note).toBeNull();
-    expect(decision?.updated_at).toBeNull();
+    expect(decision?.note).toBe(NOTE);
 
     await page.reload();
     const reloaded = page.locator(`[data-decision-id="${DECISION_ID}"]`);
@@ -454,7 +451,7 @@ test('Clear returns the decision to unanswered and removes the note', async ({
     ).toHaveCount(0);
     await expect(
         reloaded.getByRole('textbox', { name: 'Note', exact: true }),
-    ).toHaveValue('');
+    ).toHaveValue(NOTE);
 });
 
 const RECOMMENDED_MARKDOWN = `# Rollout

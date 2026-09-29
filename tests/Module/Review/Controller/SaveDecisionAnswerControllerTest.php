@@ -190,6 +190,21 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
         self::assertNull($this->answerRow($document));
     }
 
+    public function test_clearing_keeps_the_note(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        $this->answer($client, $document, ['optionIndexes' => [0], 'note' => 'A note.'], self::TURBO);
+        $this->answer($client, $document, ['clear' => '1', 'note' => 'A note.'], self::TURBO);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Cleared.', self::statusMessage((string) $client->getResponse()->getContent()));
+        self::assertSame([], $this->selections()->findByDocumentAndDecisionId($document, 'deploy-target'));
+        self::assertSame('A note.', $this->answerRow($document)?->note);
+    }
+
     /** The last write wins, so a tab that still shows an older version saves too. */
     public function test_an_answer_from_an_older_version_is_saved_on_the_latest(): void
     {

@@ -125,15 +125,25 @@ final class SaveDecisionAnswerHandlerTest extends KernelTestCase
         self::assertNull($this->answers->findOneByDocumentAndDecisionId($this->document, 'features'));
     }
 
-    public function test_clear_removes_the_picks_and_the_note(): void
+    public function test_clear_removes_the_picks_and_keeps_the_note(): void
     {
         $this->answer('features', [0, 1], 'Both.');
-        $result = $this->answer('features', [2], 'Ignored.', clear: true);
+        $result = $this->answer('features', [2], 'Both.', clear: true);
+
+        self::assertTrue($result->cleared);
+        self::assertSame([], $this->stored('features'));
+        self::assertSame('Both.', $this->answerRow('features')->note);
+        self::assertSame(['review.decision_saved', 'review.decision_cleared'], $this->audit->operations());
+    }
+
+    public function test_clear_with_no_note_leaves_the_decision_unanswered(): void
+    {
+        $this->answer('features', [0, 1]);
+        $result = $this->answer('features', [2], null, clear: true);
 
         self::assertTrue($result->cleared);
         self::assertSame([], $this->stored('features'));
         self::assertNull($this->answers->findOneByDocumentAndDecisionId($this->document, 'features'));
-        self::assertSame(['review.decision_saved', 'review.decision_cleared'], $this->audit->operations());
     }
 
     /** An answer given on an older tab lands on the options as the latest version orders them. */

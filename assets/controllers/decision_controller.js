@@ -143,14 +143,13 @@ export default class extends Controller {
             .map((input) => Number(input.value));
     }
 
-    // Clear empties the block at once, so a save queued behind it reads no
-    // stale picks. A failed Clear puts the old answer back, so a repeat click
-    // must not queue a second Clear whose snapshot is the empty block.
+    // Clear drops the picks at once and keeps the note, so a save queued
+    // behind it reads no stale picks. A failed Clear puts the old picks back,
+    // so a repeat click must not queue a second Clear whose snapshot has none.
     clear(block) {
         const previous = this.state(block);
-        const empty = previous.indexes.length === 0 && previous.note === '';
-        if (empty && this.clearPending(block)) return;
-        this.fillBlock(block, { indexes: [], note: '' });
+        if (previous.indexes.length === 0 && this.clearPending(block)) return;
+        this.fillBlock(block, { indexes: [], note: previous.note });
         this.enqueue(block, true, previous);
     }
 
