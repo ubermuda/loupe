@@ -553,19 +553,32 @@ through a webhook, or in no connected repository, shows **Not reported**.
 [Forge webhooks](../extending/forge-webhooks.md#one-vocabulary-for-every-forge)
 lists each event.
 
-A card does not move by itself when its pull request merges. Move it to a
-terminal column yourself, or have your agent move it with `card_update`.
+For a repository connected through the GitHub App, Loupe also moves the card,
+while the automation is on:
+
+- When the required checks pass on an open pull request that is not a draft, a
+  card in the `implementation` column moves to `in-review`. A board with no
+  `in-review` column skips this move.
+- When the pull request merges or closes, and each pull request of the card is
+  merged or closed with at least one merged, the card moves to the first
+  terminal column. A link that Loupe never read, such as one on another forge,
+  counts as open and holds the card back.
+
+The system makes these moves, and a card in a terminal column never moves. For
+any other pull request, move the card yourself, or have your agent move it with
+`card_update`.
 
 ### Automation
 
 Loupe can also ask your agent to act on a pull request: to fix it, or to merge
-it. The owner sets this on the **Automation** tab of the project settings,
+it. It also moves the card on green checks and on a merge, as
+[What GitHub tells a card](#what-github-tells-a-card) describes. The owner sets this on the **Automation** tab of the project settings,
 beside **Board columns**. Only a repository connected through the GitHub App
 gets these requests. A card in a terminal column never gets one.
 
 | Setting | Default | Does |
 |---|---|---|
-| **Send fix and merge requests** | on | When off, Loupe sends no fix or merge request. It still sends the pull request facts |
+| **Send fix and merge requests** | on | When off, Loupe sends no fix or merge request and moves no card. It still sends the pull request facts |
 | **Merge strategy** | Worker | Worker sends a ready-to-merge event when a pull request can merge. Off sends none |
 | **Fix strategy** | Fresh | Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card, and falls back to a new worker |
 | **Loop limit** | 3 | The number of fix requests a card gets in a row, from 1 to 20 |

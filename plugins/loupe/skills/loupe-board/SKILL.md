@@ -283,7 +283,7 @@ sees the truth only when every step updates the card.
 | You open the pull request | Add its URL to `pullRequestUrls`. A draft already has a URL. |
 | You hand the work over | Put the branch name and the remaining steps in the body. |
 | You stop and leave the work | Move the card back to the default column. Say why in the body. |
-| The pull request merges | Move the card to a terminal column. |
+| The pull request merges | Move the card to a terminal column, unless Loupe already moved it. |
 
 The chosen column holds work that is chosen and not started. `card_create` takes
 `status`, so a card you raise for work you start now goes straight to the
@@ -357,8 +357,11 @@ the three automatically.
 A URL from a host the app does not recognise is kept as you sent it. The app
 rejects no link, because a self-hosted forge is a legitimate answer.
 
-The app never contacts the forge. A merged pull request does not move its card.
-An agent or a person moves the card to a terminal column.
+For a repository connected through the GitHub App, with the board automation
+on, Loupe moves the card itself. Green checks move a card from `implementation`
+to `in-review`. A merge moves the card to a terminal column once each of its
+pull requests is merged or closed. For any other link, an agent or a person
+moves the card.
 
 ## Common mistakes
 
@@ -381,7 +384,7 @@ An agent or a person moves the card to a terminal column.
 | Fixing a wrong `reporter` with `card_update` | `reporter` is set once, when the card is created. |
 | Passing `origin` to `card_create` | It still works for one release. Write `reporter`. |
 | Passing `reporter: reviewer` to `card_create` | Only the site-review widget writes that value. Filtering on it is fine. |
-| Expecting a merged pull request to move its card | The app never contacts the forge. Move the card yourself. |
+| Expecting a merged pull request to move its card | Only a GitHub App repository with the automation on moves it. Otherwise move the card yourself. |
 | Linking a pull request only when it is ready for review | A draft has a URL. Link it when you open it. |
 | Moving a card into a column only to hold it | A running `loupe bridge` starts a worker when a rule names that column. |
 | Leaving the card in the default column while you work on it | The board then shows no work in progress. Move it when you start. |

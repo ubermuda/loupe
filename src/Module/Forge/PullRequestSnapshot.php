@@ -27,6 +27,13 @@ final readonly class PullRequestSnapshot
     ) {
     }
 
+    /** Whether this read concluded the checks with a new result, or on a new commit. */
+    public function checksConcludedSince(self $previous): bool
+    {
+        return (PullRequestChecks::Passed === $this->checks || PullRequestChecks::Failed === $this->checks)
+            && ($previous->checks !== $this->checks || $previous->checksSha !== $this->checksSha);
+    }
+
     /** Strict on every field, because a loose `==` holds two numeric-looking commit hashes equal. */
     public function equals(self $other): bool
     {

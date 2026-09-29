@@ -162,8 +162,7 @@ final readonly class PublishPullRequestEventsHandler
             $facts[] = $this->fact(ForgeEventType::REVIEW_SUBMITTED, ['verdict' => $verdict->value], true, PullRequestReview::ChangesRequested === $verdict ? 'changes-requested' : null);
         }
 
-        $concluded = PullRequestChecks::Passed === $current->checks || PullRequestChecks::Failed === $current->checks;
-        if ($concluded && ($previous->checks !== $current->checks || $previous->checksSha !== $current->checksSha)) {
+        if ($current->checksConcludedSince($previous)) {
             $failed = PullRequestChecks::Failed === $current->checks;
             $facts[] = $this->fact(
                 ForgeEventType::CHECKS_CONCLUDED,
