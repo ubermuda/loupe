@@ -40,12 +40,14 @@ final readonly class ResolveExperimentPinHandler
             }
 
             $now = $this->clock->now();
-            // Two first calls for one card can race. The loser inserts nothing
-            // and reads the winner's pin under the lock below.
-            $inserted = 1 === $this->em->getConnection()->executeStatement(
+            // The project lock serialises the calls of one project. The retention
+            // sweep takes no project lock, so the upsert locks and refreshes an
+            // existing pin before the sweep can delete it. A zero xmax marks a new row.
+            $inserted = true === $this->em->getConnection()->fetchOne(
                 'INSERT INTO bridge_experiment_pins (id, project_id, card_id, experiment, variant, created_at, updated_at)'
                 .' VALUES (:id, :project, :card, :experiment, :variant, :now, :now)'
-                .' ON CONFLICT (project_id, card_id, experiment) DO NOTHING',
+                .' ON CONFLICT (project_id, card_id, experiment) DO UPDATE SET updated_at = EXCLUDED.updated_at'
+                .' RETURNING (xmax = 0) AS inserted',
                 [
                     'id' => Uuid::v7(),
                     'project' => $project->id,
@@ -65,7 +67,7 @@ final readonly class ResolveExperimentPinHandler
             );
 
             $pin = $this->experimentPins->findOneLocked($project, $command->cardId, $command->experiment)
-                ?? throw new \LogicException('A pin exists once its insert ran.');
+                ?? throw new \LogicException('The upsert holds the pin until the transaction ends.');
 
             $switchedFrom = null;
             if (!$inserted && !\in_array($pin->variant, $command->variants, true)) {
