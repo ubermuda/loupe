@@ -134,6 +134,18 @@ final class GitHubAppApi
         return $this->send('GET', $path, [] === $query ? [] : ['query' => $query], $this->installationToken($installationId));
     }
 
+    /**
+     * @param array<string, mixed> $body
+     *
+     * @return array<mixed>
+     *
+     * @throws GitHubAppApiFailed
+     */
+    public function post(int $installationId, string $path, array $body): array
+    {
+        return $this->send('POST', $path, ['json' => $body], $this->installationToken($installationId));
+    }
+
     /** @throws GitHubAppApiFailed */
     private function jwt(): string
     {

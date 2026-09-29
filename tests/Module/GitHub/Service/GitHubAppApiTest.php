@@ -193,6 +193,42 @@ final class GitHubAppApiTest extends TestCase
         self::assertSame(['statuses', 'metadata'], $access->missingReadAccess(['checks', 'contents', 'statuses', 'metadata']));
     }
 
+    public function test_only_a_write_grant_counts_as_write_access(): void
+    {
+        $access = new GitHubAppInstallationAccess(1, 'ubermuda', ['pull_requests' => 'read', 'checks' => 'write', 'statuses' => 'none']);
+
+        self::assertSame(['pull_requests', 'statuses', 'metadata'], $access->missingWriteAccess(['pull_requests', 'checks', 'statuses', 'metadata']));
+    }
+
+    public function test_post_sends_a_json_body_with_the_installation_token_and_answers_the_created_resource(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            $this->created(['id' => 99, 'body' => 'Hello']),
+        ]);
+
+        self::assertSame(['id' => 99, 'body' => 'Hello'], $api->post(42, '/repos/acme/widgets/issues/7/comments', ['body' => 'Hello']));
+        self::assertSame('POST', $this->requests[1]['method']);
+        self::assertSame('https://api.github.com/repos/acme/widgets/issues/7/comments', $this->requests[1]['url']);
+        self::assertSame(self::TOKEN, $this->bearer(1));
+        $body = $this->requests[1]['options']['body'] ?? null;
+        self::assertIsString($body);
+        self::assertSame(['body' => 'Hello'], json_decode($body, true, flags: \JSON_THROW_ON_ERROR));
+    }
+
+    public function test_post_names_the_status_of_a_refused_request(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            new MockResponse('{"message":"Resource not accessible by integration"}', ['http_code' => 403]),
+        ]);
+
+        $failure = $this->failure(static fn () => $api->post(42, '/repos/acme/widgets/issues/7/comments', ['body' => 'Hello']));
+
+        self::assertSame('http_status', $failure->reason);
+        self::assertSame(403, $failure->status);
+    }
+
     public function test_graphql_posts_the_query_with_the_installation_token_and_answers_the_data(): void
     {
         $api = $this->api([
