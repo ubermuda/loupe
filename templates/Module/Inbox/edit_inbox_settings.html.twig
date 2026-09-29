@@ -1,0 +1,42 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'inbox.settings.heading'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <span class="lp-topbar__crumb">{{ project.name }}</span>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'nav.link.project_settings'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-redesign-secondary lp-redesign-settings">
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'project.edit.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'project.edit.page.description'|trans }}</p>
+        </div>
+    </header>
+    <div class="lp-settings-layout">
+        {% include '@Project/_settings_nav.html.twig' with {project: project, active: 'inbox'} only %}
+        <section class="lp-settings-content lp-settings-panel-card" data-inbox-settings>
+            <h2 class="lp-section-title">{{ 'inbox.settings.heading'|trans }}</h2>
+            <p class="lp-connect-hint">{{ 'inbox.settings.description'|trans }}</p>
+            {{ form_start(form, {attr: {class: 'lp-form'}}) }}
+                {% for field in [form.documentInReview, form.runBlocked, form.runGaveUp, form.runWaitingForPerson] %}
+                <div class="lp-form-field">
+                    <label class="lp-choice">
+                        {{ form_widget(field) }}
+                        {{ field.vars.label|trans }}
+                    </label>
+                    {{ form_help(field, {help_attr: {class: 'lp-form-hint'}}) }}
+                    <div class="lp-field-errors" data-field-errors="{{ field.vars.name }}">{{ form_errors(field) }}</div>
+                </div>
+                {% endfor %}
+                <div class="lp-settings-form-actions">
+                    <button class="lp-btn lp-btn--primary" type="submit">{{ 'inbox.settings.submit'|trans }}</button>
+                </div>
+            {{ form_end(form) }}
+        </section>
+    </div>
+</div>
+{% endblock %}
