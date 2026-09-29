@@ -44,6 +44,17 @@
                     <span>{{ 'bridge.agents.last_seen'|trans }}</span>
                     <strong>{{ connection.status.lastSeenAt ? connection.status.lastSeenAt|date('M j, H:i') : 'bridge.agents.never'|trans }}</strong>
                 </div>
+                {% if connection.bridge.workerPools is not empty %}
+                <div class="lp-agent-card__current lp-agent-card__pools" data-agent-worker-pools>
+                    <span>{{ 'bridge.agents.worker_pools.heading'|trans }}{% if connection.status.lastSeenAt %} · {{ 'bridge.agents.worker_pools.as_of'|trans({'%time%': connection.status.lastSeenAt|date('M j, H:i')}) }}{% endif %}</span>
+                    {% for pool in connection.bridge.workerPools %}
+                    <p class="lp-agent-card__pool" data-agent-worker-pool>
+                        <strong>{{ pool.name }}</strong>
+                        <span>{{ 'bridge.agents.worker_pools.in_use'|trans({'%inUse%': pool.inUse, '%size%': pool.size}) }} · {{ 'bridge.agents.worker_pools.queued'|trans({'%queued%': pool.queued}) }}</span>
+                    </p>
+                    {% endfor %}
+                </div>
+                {% endif %}
                 <footer>
                     <span>{{ connection.bridge.cliVersion|short_sha }}</span>
                     {% if connection.updateChip %}

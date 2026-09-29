@@ -120,6 +120,52 @@ final class ListAgentsControllerTest extends WebTestCase
         self::assertStringContainsString('1.10.3', $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"]')->text());
     }
 
+    public function test_a_connection_shows_the_use_of_each_worker_pool(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'agents-pools@example.com');
+        $project = $this->project($em, $owner, 'Pools');
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable('2026-09-14 16:05:00'), workerPools: [
+            ['name' => 'default', 'size' => 3, 'inUse' => 2, 'queued' => 0],
+            ['name' => 'quick', 'size' => 1, 'inUse' => 1, 'queued' => 4],
+        ]);
+        $older = $this->seedBridge($em, $owner, projects: [(string) $project->id]);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        $pools = $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"] [data-agent-worker-pools]');
+        self::assertStringContainsString('Worker pools', $pools->text());
+        self::assertStringContainsString('As of Sep 14, 16:05', $pools->text());
+        self::assertSame(
+            ['default 2 in use of 3 · 0 queued', 'quick 1 in use of 1 · 4 queued'],
+            $pools->filter('[data-agent-worker-pool]')->each(static fn ($row): string => preg_replace('/\s+/', ' ', trim($row->text())) ?? ''),
+        );
+        // The guard: the older bridge's card renders, so the absent block is not an absent card.
+        self::assertCount(1, $crawler->filter('[data-agent-connection-id="'.$older->id.'"] [data-agent-health]'));
+        self::assertCount(0, $crawler->filter('[data-agent-connection-id="'.$older->id.'"] [data-agent-worker-pools]'));
+    }
+
+    public function test_an_empty_pool_report_shows_no_block(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'agents-pools-empty@example.com');
+        $project = $this->project($em, $owner, 'No pools');
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], workerPools: []);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"] [data-agent-health]'));
+        self::assertCount(0, $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"] [data-agent-worker-pools]'));
+    }
+
     public function test_a_stranger_cannot_read_connections(): void
     {
         $client = static::createClient();

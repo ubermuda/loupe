@@ -136,6 +136,36 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertSame('a successful worker still printed this', $crawler->filter('[data-worker-run-id] dialog .lp-worker-run__output')->text());
     }
 
+    public function test_a_run_shows_its_worker_pool_in_the_row_and_the_drawer(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'pool-owner@example.com');
+        $project = $this->project($em, $owner, 'Pools');
+        $pooled = (string) $this->seedRun($em, $project, cardNumber: 1, ruleName: 'plan', workerPool: 'quick')->id;
+        $plain = (string) $this->seedRun($em, $project, cardNumber: 2, ruleName: 'review')->id;
+
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $pooledRow = $crawler->filter('[data-worker-run-id="'.$pooled.'"]');
+        self::assertSame('quick pool', trim($pooledRow->filter('[data-worker-pool]')->text()));
+        self::assertSame('Worker pool', $pooledRow->filter('[data-worker-run-pool] dt')->text());
+        self::assertSame('quick', $pooledRow->filter('[data-worker-run-pool] dd')->text());
+
+        $plainRow = $crawler->filter('[data-worker-run-id="'.$plain.'"]');
+        // The guard: the row and its drawer render, so the absent pool is not an absent row.
+        self::assertStringContainsString('review', $plainRow->text());
+        self::assertCount(1, $plainRow->filter('.lp-run-drawer__metadata'));
+        self::assertCount(0, $plainRow->filter('[data-worker-pool]'));
+        self::assertCount(0, $plainRow->filter('[data-worker-run-pool]'));
+    }
+
     /** A list with no caveat reads as a complete history, and it is not one. */
     public function test_the_list_is_paged(): void
     {

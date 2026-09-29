@@ -34,6 +34,13 @@
     .lp-agent-card__current strong {
         @apply text-sm font-semibold text-accent-ink;
     }
+    /* The pool use a bridge reported with its last heartbeat, one line per pool. */
+    .lp-agent-card__pools {
+        @apply mt-3;
+    }
+    .lp-agent-card__pool {
+        @apply m-0 flex flex-wrap items-baseline justify-between gap-x-3;
+    }
     .lp-redesign-agents .lp-agent-card footer {
         @apply mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-fg-dim break-all;
     }
