@@ -138,6 +138,7 @@ final class ShowDocumentController extends AppController
             'selectDecisionForm' => $selectDecisionForm,
             'decisions' => $view->decisions,
             'decisionMarkedHtml' => $view->decisionMarkedHtml,
+            'referenceDefinitions' => $view->referenceDefinitions,
             'lastSeenVersionNumber' => $view->lastSeenVersionNumber,
             'sections' => $view->sections,
         ]);

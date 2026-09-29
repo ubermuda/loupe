@@ -15,6 +15,8 @@ use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\DecisionSummaryReader;
 use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\LastSeenVersionResolver;
+use App\Module\Review\Service\ReferenceDefinitionResolver;
+use App\Module\Review\Service\ReferenceReminderInjector;
 use App\Module\Review\Service\SectionApprovalReader;
 use App\Module\Review\ValueObject\CommentSignals;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -33,6 +35,8 @@ final readonly class ShowDocumentHandler
         private SectionApprovalReader $sectionApprovals,
         private ReviewRepository $reviews,
         private TranslatorInterface $translator,
+        private ReferenceDefinitionResolver $referenceDefinitions,
+        private ReferenceReminderInjector $referenceReminders,
     ) {
     }
 
@@ -52,6 +56,7 @@ final readonly class ShowDocumentHandler
         $decisions = ($this->decisionSummary)($command->document, $version);
         $headings = $this->headings->extract($version->renderedHtml);
         $latestReview = $this->reviews->findNewestByVersion($version);
+        $referenceDefinitions = $this->referenceDefinitions->resolve($command->document, $version);
 
         return new ShowDocumentView(
             document: $command->document,
@@ -62,13 +67,17 @@ final readonly class ShowDocumentHandler
             headings: $headings,
             signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),
             decisions: $decisions,
-            decisionMarkedHtml: $this->decisionBlocks->withSelections(
-                $version->renderedHtml,
-                $decisions->selectedIndexesByDecisionId,
-                readOnly: !$isLatest,
-                badgeLabels: DecisionBlockService::badgeLabels($this->translator),
-                notesByDecisionId: $this->notes($command->document),
+            decisionMarkedHtml: $this->referenceReminders->inject(
+                $this->decisionBlocks->withSelections(
+                    $version->renderedHtml,
+                    $decisions->selectedIndexesByDecisionId,
+                    readOnly: !$isLatest,
+                    badgeLabels: DecisionBlockService::badgeLabels($this->translator),
+                    notesByDecisionId: $this->notes($command->document),
+                ),
+                $referenceDefinitions,
             ),
+            referenceDefinitions: $referenceDefinitions,
             lastSeenVersionNumber: $this->lastSeenVersion->versionNumberFor($command->document, $command->reader),
             sections: ($this->sectionApprovals)($command->document, $version, $headings, $command->reader),
             review: Verdict::Withdrawn === $latestReview?->verdict ? null : $latestReview,
