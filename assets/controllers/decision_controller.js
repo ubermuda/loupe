@@ -36,10 +36,17 @@ export default class extends Controller {
         this.sentStates = new Map();
         this.timers = new Map();
         this.inFlight = null;
-        this.beforeVisit = () => this.saveWaitingNotes();
+        this.heldVisit = null;
+        this.beforeVisit = (event) => this.holdVisit(event);
         this.beforeCache = () => this.keepDrafts();
+        this.beforeUnload = (event) => {
+            if (!this.pending()) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
         document.addEventListener('turbo:before-visit', this.beforeVisit);
         document.addEventListener('turbo:before-cache', this.beforeCache);
+        window.addEventListener('beforeunload', this.beforeUnload);
         for (const block of this.element.querySelectorAll(
             'fieldset[data-decision-id]',
         )) {
@@ -50,13 +57,23 @@ export default class extends Controller {
     disconnect() {
         document.removeEventListener('turbo:before-visit', this.beforeVisit);
         document.removeEventListener('turbo:before-cache', this.beforeCache);
+        window.removeEventListener('beforeunload', this.beforeUnload);
         for (const timer of this.timers.values()) clearTimeout(timer);
     }
 
-    // The frame lets the save in flight finish after a visit. A save still
-    // queued behind it is lost, because nothing submits it once this page goes.
-    saveWaitingNotes() {
+    // A queued save needs this page to submit it, so the visit waits for the
+    // queue to drain. A failed save cancels the visit and shows its error.
+    holdVisit(event) {
         for (const block of [...this.timers.keys()]) this.saveIfChanged(block);
+        if (!this.pending()) return;
+        event.preventDefault();
+        this.heldVisit = event.detail.url;
+    }
+
+    pending() {
+        return Boolean(
+            this.inFlight || this.queue.size > 0 || this.timers.size > 0,
+        );
     }
 
     // The snapshot rebuilds each note from `data-decision-note`, the last
@@ -233,8 +250,14 @@ export default class extends Controller {
             if (state.previous && !edited)
                 this.fillBlock(block, state.previous);
             if (!this.isStream(event.detail.fetchResponse)) this.showError();
+            this.heldVisit = null;
         }
         this.flush();
+        if (this.heldVisit && !this.pending()) {
+            const url = this.heldVisit;
+            this.heldVisit = null;
+            window.Turbo.visit(url);
+        }
     }
 
     isStream(response) {

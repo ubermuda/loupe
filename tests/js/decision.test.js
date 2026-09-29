@@ -17,6 +17,7 @@ afterEach(async () => {
     document.body.replaceChildren();
     await vi.advanceTimersByTimeAsync(0);
     application.stop();
+    delete window.Turbo;
     vi.useRealTimers();
 });
 
@@ -322,7 +323,7 @@ it('reports a page response that succeeded as a failed save', async () => {
 it('sends a note still waiting for its timer before a Turbo visit', async () => {
     await mount();
     type('a', 'Typed before leaving');
-    document.dispatchEvent(new Event('turbo:before-visit'));
+    visit();
 
     expect(sent).toEqual([
         {
@@ -339,9 +340,81 @@ it('stops listening for Turbo visits once disconnected', async () => {
     type('a', 'Typed');
     document.body.replaceChildren();
     await vi.advanceTimersByTimeAsync(0);
-    document.dispatchEvent(new Event('turbo:before-visit'));
+    visit();
 
     expect(sent).toEqual([]);
+    expect(unload().defaultPrevented).toBe(false);
+});
+
+function visit(url = '/next') {
+    const event = new CustomEvent('turbo:before-visit', {
+        cancelable: true,
+        detail: { url },
+    });
+    document.dispatchEvent(event);
+    return event;
+}
+
+function unload() {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event;
+}
+
+it('holds a visit until a save queued behind the one in flight is sent', async () => {
+    window.Turbo = { visit: vi.fn() };
+    await mount();
+    check('a', 0);
+    check('a', 1);
+
+    expect(visit('/next').defaultPrevented).toBe(true);
+    expect(sent).toHaveLength(1);
+    finish();
+    expect(sent[1]).toEqual({
+        decisionId: 'a',
+        indexes: ['0', '1'],
+        note: '',
+        clear: false,
+    });
+    expect(window.Turbo.visit).not.toHaveBeenCalled();
+    finish();
+    expect(window.Turbo.visit).toHaveBeenCalledOnce();
+    expect(window.Turbo.visit).toHaveBeenCalledWith('/next');
+    expect(visit('/next').defaultPrevented).toBe(false);
+});
+
+it('lets a visit go when no save is pending', async () => {
+    await mount();
+    check('a', 0);
+    finish();
+
+    expect(visit().defaultPrevented).toBe(false);
+});
+
+it('stays on the page and reports the error when the held save fails', async () => {
+    window.Turbo = { visit: vi.fn() };
+    await mount();
+    check('a', 0);
+    visit();
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+
+    expect(window.Turbo.visit).not.toHaveBeenCalled();
+    expect(document.getElementById('decision-status').textContent).toBe(
+        'Could not save.',
+    );
+});
+
+it('asks before an unload only while a save is pending', async () => {
+    await mount();
+    expect(unload().defaultPrevented).toBe(false);
+
+    check('a', 0);
+    expect(unload().defaultPrevented).toBe(true);
+    finish();
+    expect(unload().defaultPrevented).toBe(false);
+
+    type('a', 'Waiting');
+    expect(unload().defaultPrevented).toBe(true);
 });
 
 it('shows a read-only note with no Clear and saves nothing', async () => {
