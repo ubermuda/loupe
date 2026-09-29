@@ -1475,6 +1475,10 @@
                 <source>review.document.decisions.pending</source>
                 <target>Not chosen yet</target>
             </trans-unit>
+            <trans-unit id="review.document.decisions.note_only">
+                <source>review.document.decisions.note_only</source>
+                <target>Answered with a note</target>
+            </trans-unit>
             <trans-unit id="review.document.status.pending">
                 <source>review.document.status.pending</source>
                 <target>Open</target>

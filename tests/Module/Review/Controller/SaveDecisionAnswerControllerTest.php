@@ -294,6 +294,28 @@ final class SaveDecisionAnswerControllerTest extends WebTestCase
         self::assertSame(6, substr_count($body, '<turbo-stream'), 'the status line, and the running total and list of each of the two copies');
     }
 
+    public function test_a_note_with_no_option_counts_as_answered_in_the_stream_and_on_reload(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        $this->answer($client, $document, ['note' => 'Neither target yet.'], self::TURBO);
+
+        $body = (string) $client->getResponse()->getContent();
+        self::assertMatchesRegularExpression('~target="decision-summary-count">\s*<template>1/1</template>~', $body);
+        self::assertMatchesRegularExpression('~target="review-menu-decisions-count">\s*<template>1/1</template>~', $body);
+        self::assertStringContainsString('Answered with a note', $body);
+        self::assertStringNotContainsString('Not chosen yet', $body);
+
+        $client->request(Request::METHOD_GET, $this->reviewPath($document));
+        self::assertSelectorTextSame('#decision-summary-count', '1/1');
+        self::assertSelectorTextSame('#review-menu-decisions-count', '1/1');
+        self::assertSelectorTextContains('#decision-summary-list', 'Answered with a note');
+        self::assertSelectorNotExists('#decision-summary-list .lp-decision-summary__pending');
+        self::assertSelectorExists('#review-menu-decisions-list .lp-review-menu__mark--approved');
+    }
+
     /** The count is what tells the reviewer how much is left, so it must follow the write. */
     public function test_an_answer_streams_back_the_running_total(): void
     {

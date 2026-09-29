@@ -282,6 +282,7 @@ Which host should an emailed reset link be built from?
 
 A click on an option saves it at once. Each block also has a note field. Use it
 to explain your choice, or to write your own answer with no option picked. The
+**Decisions** tab counts a note with no pick as an answer. The
 note saves 800 ms after you stop typing, and again when you leave the field.
 **Clear** removes the pick and the note. The status line shows "Saved." or
 "Cleared." after each save.
