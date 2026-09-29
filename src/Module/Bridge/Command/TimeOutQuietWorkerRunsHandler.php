@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\BridgeLiveness;
@@ -13,6 +14,7 @@ use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Moves each open run of a quiet bridge to timed-out, with a history row. The
@@ -31,6 +33,7 @@ final readonly class TimeOutQuietWorkerRunsHandler
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private WorkerRunChangedPublisher $publisher,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -65,6 +68,9 @@ final readonly class TimeOutQuietWorkerRunsHandler
 
         foreach ($timedOut as $run) {
             $this->publisher->runsChanged($run->project);
+        }
+        foreach (WorkerRunChanged::ofRuns($timedOut) as $event) {
+            $this->events->dispatch($event);
         }
 
         return $timedOut;

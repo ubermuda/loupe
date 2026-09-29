@@ -6,12 +6,14 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\HeldRunKey;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Compares the runs a bridge holds with the runs the server thinks are open on
@@ -26,6 +28,7 @@ final readonly class ReportBridgeRunsHandler
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private WorkerRunChangedPublisher $publisher,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -62,6 +65,9 @@ final readonly class ReportBridgeRunsHandler
 
         foreach ($changed as $run) {
             $this->publisher->runsChanged($run->project);
+        }
+        foreach (WorkerRunChanged::ofRuns($changed) as $event) {
+            $this->events->dispatch($event);
         }
 
         return $changed;

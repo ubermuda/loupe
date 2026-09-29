@@ -12,6 +12,7 @@ use App\Module\Bridge\Command\ReportWorkerRunStateHandler;
 use App\Module\Bridge\Command\ReportWorkerRunStateResult;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
@@ -21,6 +22,7 @@ use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\DispatchedEvents;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -36,6 +38,39 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 final class ReportWorkerRunStateHandlerTest extends KernelTestCase
 {
     use BridgeScenario;
+
+    public function test_a_new_state_announces_the_card_after_the_commit(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-announce');
+        $cardId = Uuid::v7();
+        $changes = DispatchedEvents::of(self::getContainer(), WorkerRunChanged::class);
+        $depth = $this->em()->getConnection()->getTransactionNestingLevel();
+
+        $this->report($owner, $project, Uuid::v4(), WorkerRunState::Queued, cardId: $cardId);
+
+        self::assertCount(1, $changes->events());
+        self::assertEquals($project->id, $changes->events()[0]->projectId);
+        self::assertSame([$cardId->toRfc4122()], $changes->events()[0]->cardIds);
+        self::assertSame([$depth], $changes->transactionDepths());
+    }
+
+    public function test_a_repeat_or_a_foreign_project_announces_nothing(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-announce-none');
+        $stranger = $this->user($this->em(), 'handler-announce-stranger@example.com');
+        $runKey = Uuid::v4();
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued);
+        $changes = DispatchedEvents::of(self::getContainer(), WorkerRunChanged::class);
+
+        $repeat = $this->report($owner, $project, $runKey, WorkerRunState::Queued);
+        $foreign = $this->report($stranger, $project, Uuid::v4(), WorkerRunState::Queued);
+
+        self::assertFalse($repeat->newState);
+        self::assertNull($foreign->run);
+        self::assertSame([], $changes->events());
+    }
 
     private const string BRIDGE = '0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90';
 

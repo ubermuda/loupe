@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Service;
 
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
@@ -14,6 +15,7 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Opens and closes the runs of interactive Claude Code sessions on a card. A
@@ -31,6 +33,7 @@ final readonly class InteractiveRuns
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private WorkerRunChangedPublisher $publisher,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -104,6 +107,7 @@ final readonly class InteractiveRuns
 
         if ($outcome[1]) {
             $this->publisher->runsChanged($outcome[0]->project);
+            $this->announce([$outcome[0]]);
         }
 
         return $outcome;
@@ -162,6 +166,7 @@ final readonly class InteractiveRuns
 
         if ($outcome[1]) {
             $this->publisher->runsChanged($outcome[0]->project);
+            $this->announce([$outcome[0]]);
         }
         // A launch failure is no warning, so only one before it changes.
         if ($outcome[2]) {
@@ -216,6 +221,7 @@ final readonly class InteractiveRuns
 
         if ([] !== $closed) {
             $this->publisher->runsChanged($closed[0]->project);
+            $this->announce($closed);
         }
     }
 
@@ -256,9 +262,18 @@ final readonly class InteractiveRuns
         [$run, $closed] = $outcome;
         if ($closed && null !== $run) {
             $this->publisher->runsChanged($run->project);
+            $this->announce([$run]);
         }
 
         return $run;
+    }
+
+    /** @param list<WorkerRun> $runs */
+    private function announce(array $runs): void
+    {
+        foreach (WorkerRunChanged::ofRuns($runs) as $event) {
+            $this->events->dispatch($event);
+        }
     }
 
     private function closeRun(WorkerRun $run, \DateTimeImmutable $at): void
