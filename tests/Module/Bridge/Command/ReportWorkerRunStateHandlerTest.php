@@ -76,6 +76,8 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
 
     private const string SESSION = '5f0c2b1e-8d4a-4c3b-9e2f-1a0b3c4d5e6f';
 
+    private const array EXPERIMENT = ['experiment' => 'plan-model', 'variant' => 'opus', 'requestedModel' => 'claude-opus-4', 'switchedFrom' => 'sonnet'];
+
     /** @var list<Update> */
     private array $runsChanged = [];
 
@@ -609,6 +611,101 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         self::assertCount(0, $this->publishedRunsChanged());
     }
 
+    public function test_the_running_report_stores_the_experiment(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-experiment-running');
+
+        $run = $this->report($owner, $project, Uuid::v4(), WorkerRunState::Running, experiment: self::EXPERIMENT)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(self::EXPERIMENT, $this->storedExperiment($run));
+    }
+
+    /** Reports can arrive out of order, so the first one that names the experiment wins. */
+    public function test_a_later_report_does_not_replace_the_experiment(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-experiment-kept');
+        $runKey = Uuid::v4();
+        $other = ['experiment' => 'other', 'variant' => 'haiku', 'requestedModel' => 'claude-haiku', 'switchedFrom' => 'opus'];
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, experiment: self::EXPERIMENT);
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued, experiment: $other);
+        $this->report($owner, $project, $runKey, WorkerRunState::Running, experiment: $other);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Succeeded, experiment: $other)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunState::Succeeded, $run->state);
+        self::assertSame(self::EXPERIMENT, $this->storedExperiment($run));
+    }
+
+    /** A later report cannot fill one field of the experiment the run already holds. */
+    public function test_a_later_report_does_not_add_to_the_experiment(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-experiment-grouped');
+        $runKey = Uuid::v4();
+        $first = [...self::EXPERIMENT, 'switchedFrom' => null];
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Running, experiment: $first);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Succeeded, experiment: [...self::EXPERIMENT, 'variant' => 'haiku'])->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame($first, $this->storedExperiment($run));
+    }
+
+    /** @return iterable<string, array{WorkerRunState}> */
+    public static function outcomes(): iterable
+    {
+        yield 'succeeded' => [WorkerRunState::Succeeded];
+        yield 'not started' => [WorkerRunState::NotStarted];
+    }
+
+    /** The running report may be lost, and a spawn failure follows the pin the bridge already resolved. */
+    #[DataProvider('outcomes')]
+    public function test_an_outcome_fills_the_experiment_no_earlier_report_carried(WorkerRunState $outcome): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-experiment-outcome-'.$outcome->value);
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Queued);
+        $run = $this->report($owner, $project, $runKey, $outcome, experiment: self::EXPERIMENT)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame($outcome, $run->state);
+        self::assertSame(self::EXPERIMENT, $this->storedExperiment($run));
+    }
+
+    /** An outcome that does not move the run still names the experiment the run used. */
+    public function test_an_outcome_that_does_not_move_the_run_fills_the_experiment(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-experiment-late');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Dropped);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Failed, experiment: self::EXPERIMENT)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(WorkerRunState::Dropped, $run->state);
+        self::assertSame(self::EXPERIMENT, $this->storedExperiment($run));
+    }
+
+    public function test_a_run_with_no_experiment_keeps_four_nulls(): void
+    {
+        self::bootKernel();
+        [$owner, $project] = $this->scenario('handler-experiment-none');
+        $runKey = Uuid::v4();
+
+        $this->report($owner, $project, $runKey, WorkerRunState::Running);
+        $run = $this->report($owner, $project, $runKey, WorkerRunState::Succeeded)->run;
+
+        self::assertInstanceOf(WorkerRun::class, $run);
+        self::assertSame(['experiment' => null, 'variant' => null, 'requestedModel' => null, 'switchedFrom' => null], $this->storedExperiment($run));
+    }
+
     /** @return array{User, Project} */
     private function scenario(string $name): array
     {
@@ -618,7 +715,10 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         return [$owner, $this->project($em, $owner, 'Project '.substr(md5($name), 0, 8))];
     }
 
-    /** @param array<string, mixed>|null $resultFields */
+    /**
+     * @param array<string, mixed>|null                                                                      $resultFields
+     * @param array{experiment: string, variant: string, requestedModel: string, switchedFrom: ?string}|null $experiment
+     */
     private function report(
         User $owner,
         Project $project,
@@ -639,6 +739,7 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         ?Uuid $bridgeId = null,
         ?WorkerRunUsageReport $usage = null,
         ?string $workerPool = null,
+        ?array $experiment = null,
     ): ReportWorkerRunStateResult {
         $outcome = $state->isOutcome();
         $started = $withStart && ($outcome || WorkerRunState::Running === $state);
@@ -680,6 +781,10 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
             resumeSkipped: $resumeSkipped,
             usage: $usage,
             workerPool: $workerPool,
+            experiment: $experiment['experiment'] ?? null,
+            variant: $experiment['variant'] ?? null,
+            requestedModel: $experiment['requestedModel'] ?? null,
+            switchedFrom: $experiment['switchedFrom'] ?? null,
         ));
     }
 
@@ -734,6 +839,18 @@ final class ReportWorkerRunStateHandlerTest extends KernelTestCase
         $this->runsChanged = [];
 
         return $published;
+    }
+
+    /** @return array<string, mixed> */
+    private function storedExperiment(WorkerRun $run): array
+    {
+        $row = $this->em()->getConnection()->fetchAssociative(
+            'SELECT experiment, variant, requested_model AS "requestedModel", switched_from AS "switchedFrom" FROM bridge_worker_runs WHERE id = ?',
+            [(string) $run->id],
+        );
+        self::assertIsArray($row);
+
+        return $row;
     }
 
     private function storedPool(WorkerRun $run): ?string

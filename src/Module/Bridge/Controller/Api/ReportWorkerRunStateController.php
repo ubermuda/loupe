@@ -73,6 +73,10 @@ final class ReportWorkerRunStateController extends AppController
             resumeSkipped: $payload->resumeSkipped,
             usage: $payload->usage?->report(),
             workerPool: $payload->workerPool,
+            experiment: $payload->experiment,
+            variant: $payload->variant,
+            requestedModel: $payload->requestedModel,
+            switchedFrom: $payload->switchedFrom,
         ));
 
         if (null === $result->run) {
