@@ -1037,12 +1037,15 @@ func (r *router) resolveVariant(p pending) (string, runPin) {
 		err = fmt.Errorf("the server answered variant %q, which the experiment does not offer", name)
 	}
 	if err != nil {
-		r.log.Warn("experiment_pin_failed", append(about(p.event, p.rule),
-			"experiment", exp.Name,
-			"variant", candidate.Name,
-			"error", err.Error(),
-			"message", "the bridge could not read the pin of the card, so it runs the variant it drew",
-		)...)
+		// A bridge that shuts down cancels the request, which is no pin failure.
+		if r.workerContext().Err() == nil {
+			r.log.Warn("experiment_pin_failed", append(about(p.event, p.rule),
+				"experiment", exp.Name,
+				"variant", candidate.Name,
+				"error", err.Error(),
+				"message", "the bridge could not read the pin of the card, so it runs the variant it drew",
+			)...)
+		}
 
 		return candidate.Model, drawn
 	}
