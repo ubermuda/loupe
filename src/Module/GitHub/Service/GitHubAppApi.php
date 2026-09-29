@@ -181,6 +181,26 @@ final class GitHubAppApi
     }
 
     /**
+     * The seconds of `retry-after`, else the wait until the `x-ratelimit-reset` epoch.
+     *
+     * @param array<string, list<string>> $headers
+     */
+    private function retryAfter(array $headers): ?int
+    {
+        $retryAfter = $headers['retry-after'][0] ?? null;
+        if (null !== $retryAfter && ctype_digit($retryAfter)) {
+            return (int) $retryAfter;
+        }
+
+        $reset = $headers['x-ratelimit-reset'][0] ?? null;
+        if (null !== $reset && ctype_digit($reset)) {
+            return max(0, (int) $reset - $this->clock->now()->getTimestamp());
+        }
+
+        return null;
+    }
+
+    /**
      * @param array<string, mixed> $options
      *
      * @return array<mixed>
@@ -194,7 +214,9 @@ final class GitHubAppApi
             $response = $this->githubApiClient->request($method, $path, $options);
             $status = $response->getStatusCode();
             if ($status < 200 || $status >= 300) {
-                throw new GitHubAppApiFailed('http_status', $status, self::rateLimited($status, $response->getHeaders(false)));
+                $headers = $response->getHeaders(false);
+                $rateLimited = self::rateLimited($status, $headers);
+                throw new GitHubAppApiFailed('http_status', $status, $rateLimited, $rateLimited ? $this->retryAfter($headers) : null);
             }
 
             return $response->toArray();

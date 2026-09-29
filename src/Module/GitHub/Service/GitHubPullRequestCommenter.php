@@ -43,7 +43,7 @@ final readonly class GitHubPullRequestCommenter implements PullRequestCommenter
             $this->api->post($installationId, GitHubPullRequestInstallations::repositoryPath($path).'/issues/'.$pullRequest->number.'/comments', ['body' => $body]);
         } catch (GitHubAppApiFailed $e) {
             if ($e->rateLimited) {
-                throw new PullRequestCommentFailed('api_failed_rate_limited', permanent: false, previous: $e);
+                throw new PullRequestCommentFailed('api_failed_rate_limited', permanent: false, previous: $e, retryAfterSeconds: $e->retryAfterSeconds);
             }
             if ('http_status' === $e->reason && \in_array($e->status, self::REFUSED_STATUSES, true)) {
                 throw new PullRequestCommentFailed('permission', permanent: true, previous: $e);

@@ -14,6 +14,7 @@ use App\Module\Forge\Service\PullRequestCommentFailed;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 
 /**
  * Posts one pending fix run comment. A transient failure counts the attempt
@@ -22,6 +23,8 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class PostPullRequestCommentHandler
 {
+    private const int MAX_RETRY_DELAY_SECONDS = 3600;
+
     public function __construct(
         private PullRequestCommentRepository $pullRequestComments,
         private ForgePullRequestRepository $forgePullRequests,
@@ -36,8 +39,14 @@ final readonly class PostPullRequestCommentHandler
     public function __invoke(PostPullRequestCommentCommand $command): void
     {
         $comment = $this->pullRequestComments->find($command->commentId);
-        if (null === $comment || PullRequestCommentState::Pending !== $comment->state) {
+        if (null === $comment || PullRequestCommentState::Posted === $comment->state) {
             return;
+        }
+
+        // Only `messenger:failed:retry` brings a failed row back, so it tries again.
+        if (PullRequestCommentState::Failed === $comment->state) {
+            $comment->state = PullRequestCommentState::Pending;
+            $comment->failedAt = null;
         }
 
         $pullRequest = $this->forgePullRequests->findByKeys(
@@ -69,9 +78,14 @@ final readonly class PostPullRequestCommentHandler
 
             $comment->cause = $e->cause;
             $this->em->flush();
-            $this->logger->warning('board.fix_run_comment_retried', $this->context($comment));
+            $this->logger->warning('board.fix_run_comment_retried', $this->context($comment) + ['retryAfterSeconds' => $e->retryAfterSeconds]);
 
-            throw $e;
+            if (null === $e->retryAfterSeconds) {
+                throw $e;
+            }
+
+            // forceRetry false keeps the retry budget of the transport, and only the delay changes.
+            throw new RecoverableMessageHandlingException($e->getMessage(), 0, $e, retryDelay: min($e->retryAfterSeconds, self::MAX_RETRY_DELAY_SECONDS) * 1000, forceRetry: false);
         }
 
         $comment->state = PullRequestCommentState::Posted;

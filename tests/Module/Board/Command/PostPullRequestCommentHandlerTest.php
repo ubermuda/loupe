@@ -21,9 +21,11 @@ use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\FakePullRequestCommenter;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Uid\Uuid;
 
@@ -158,6 +160,74 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertSame(PullRequestCommentState::Pending, $comment->state);
         self::assertSame(1, $comment->attempts);
         self::assertSame('api_failed_http_status_502', $comment->cause);
+        self::assertNull($comment->failedAt);
+    }
+
+    /** @return iterable<string, array{int, int}> */
+    public static function retryDelays(): iterable
+    {
+        yield 'the delay GitHub asked for' => [90, 90_000];
+        yield 'no wait at all' => [0, 0];
+        yield 'a delay past the cap' => [86_400, 3_600_000];
+    }
+
+    #[DataProvider('retryDelays')]
+    public function test_a_transient_failure_with_a_delay_asks_messenger_to_wait_within_its_retry_budget(int $seconds, int $expectedMilliseconds): void
+    {
+        $failure = new PullRequestCommentFailed('api_failed_rate_limited', permanent: false, retryAfterSeconds: $seconds);
+        $this->commenter->failure = $failure;
+        $comment = $this->pending();
+
+        try {
+            $this->handle($comment);
+            self::fail('Expected the transient failure to propagate.');
+        } catch (RecoverableMessageHandlingException $e) {
+            self::assertSame($expectedMilliseconds, $e->getRetryDelay());
+            self::assertFalse($e->forceRetry());
+            self::assertSame($failure, $e->getPrevious());
+        }
+
+        $comment = $this->reload($comment);
+        self::assertSame(PullRequestCommentState::Pending, $comment->state);
+        self::assertSame(1, $comment->attempts);
+        self::assertSame('api_failed_rate_limited', $comment->cause);
+    }
+
+    public function test_a_failed_comment_retried_by_hand_is_posted(): void
+    {
+        $comment = $this->pending();
+        $comment->state = PullRequestCommentState::Failed;
+        $comment->cause = 'api_failed_http_status_502';
+        $comment->failedAt = $this->clock->now();
+        $comment->attempts = 4;
+        $this->em->flush();
+
+        $this->handle($comment);
+
+        self::assertCount(1, $this->commenter->comments);
+        $comment = $this->reload($comment);
+        self::assertSame(PullRequestCommentState::Posted, $comment->state);
+        self::assertNull($comment->cause);
+        self::assertNull($comment->failedAt);
+        self::assertSame(5, $comment->attempts);
+    }
+
+    public function test_a_failed_comment_retried_by_hand_that_fails_again_is_pending_until_messenger_gives_up(): void
+    {
+        $this->commenter->failure = new PullRequestCommentFailed('api_failed_http_status_502', permanent: false);
+        $comment = $this->pending();
+        $comment->state = PullRequestCommentState::Failed;
+        $comment->failedAt = $this->clock->now();
+        $this->em->flush();
+
+        try {
+            $this->handle($comment);
+            self::fail('Expected the transient failure to propagate.');
+        } catch (PullRequestCommentFailed) {
+        }
+
+        $comment = $this->reload($comment);
+        self::assertSame(PullRequestCommentState::Pending, $comment->state);
         self::assertNull($comment->failedAt);
     }
 

@@ -27,6 +27,8 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 
 final class GitHubPullRequestCommenterTest extends KernelTestCase
 {
+    private const int NOW = 1_790_000_000;
+
     private EntityManagerInterface $em;
 
     /** @var list<array{method: string, url: string, options: array<string, mixed>}> */
@@ -107,17 +109,21 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
         self::assertTrue($failure->permanent);
     }
 
-    /** @return iterable<string, array{int, array<string, string>}> */
+    /** @return iterable<string, array{int, array<string, string>, ?int}> */
     public static function rateLimits(): iterable
     {
-        yield 'a 403 with no requests left' => [403, ['x-ratelimit-remaining' => '0']];
-        yield 'a 403 that asks to retry later' => [403, ['retry-after' => '60']];
-        yield 'a 429' => [429, []];
+        yield 'a 403 with no requests left' => [403, ['x-ratelimit-remaining' => '0'], null];
+        yield 'a 403 that asks to retry later' => [403, ['retry-after' => '60'], 60];
+        yield 'a 429' => [429, [], null];
+        yield 'a 403 with the reset time of the limit' => [403, ['x-ratelimit-remaining' => '0', 'x-ratelimit-reset' => (string) (self::NOW + 120)], 120];
+        yield 'a 429 with a reset time already past' => [429, ['x-ratelimit-reset' => (string) (self::NOW - 5)], 0];
+        yield 'a 429 with both headers' => [429, ['retry-after' => '30', 'x-ratelimit-reset' => (string) (self::NOW + 120)], 30];
+        yield 'a 429 with a date as retry-after' => [429, ['retry-after' => 'Wed, 21 Oct 2026 07:28:00 GMT'], null];
     }
 
     /** @param array<string, string> $headers */
     #[DataProvider('rateLimits')]
-    public function test_a_rate_limit_is_a_transient_failure(int $status, array $headers): void
+    public function test_a_rate_limit_is_a_transient_failure_that_carries_the_delay_github_asks_for(int $status, array $headers, ?int $retryAfterSeconds): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 71_020 + $status);
         $this->responses = [
@@ -129,6 +135,7 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
 
         self::assertSame('api_failed_rate_limited', $failure->cause);
         self::assertFalse($failure->permanent);
+        self::assertSame($retryAfterSeconds, $failure->retryAfterSeconds);
     }
 
     public function test_a_server_error_is_a_transient_failure_that_names_the_status(): void
@@ -248,7 +255,7 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
         self::assertInstanceOf(GitHubPullRequestInstallations::class, $installations);
 
         return new GitHubPullRequestCommenter(
-            new GitHubAppApi($client, new GitHubAppConfiguration(null, null, null, null, $appId, $privateKey ?? $pem), new MockClock()),
+            new GitHubAppApi($client, new GitHubAppConfiguration(null, null, null, null, $appId, $privateKey ?? $pem), new MockClock('@'.self::NOW)),
             $installations,
         );
     }
