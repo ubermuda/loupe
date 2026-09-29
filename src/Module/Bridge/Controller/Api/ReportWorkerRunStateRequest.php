@@ -122,6 +122,10 @@ final class ReportWorkerRunStateRequest
         #[Assert\NotBlank(allowNull: true)]
         #[Assert\Regex(pattern: WorkerRun::EXPERIMENT_NAME_PATTERN)]
         public ?string $switchedFrom = null,
+
+        /** Null from a bridge that predates triggers, and on any report but the first queued one. */
+        #[Assert\Valid]
+        public ?WorkerRunTriggerInput $trigger = null,
     ) {
     }
 

@@ -79,4 +79,34 @@ final class WorkerRunRepositoryTest extends KernelTestCase
         );
         self::assertSame([], $runs->findLatestRunRows($project, []));
     }
+
+    public function test_find_card_ids_with_open_run_answers_the_cards_with_an_open_run_of_any_kind(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'open-runs-'.uniqid().'@example.com'), 'Open runs');
+        $other = $this->project($em, $this->user($em, 'open-runs-other-'.uniqid().'@example.com'), 'Other');
+        $interactive = Uuid::v7();
+        $queued = Uuid::v7();
+        $closed = Uuid::v7();
+        $elsewhere = Uuid::v7();
+        $unasked = Uuid::v7();
+
+        $this->seedRun($em, $project, cardId: $interactive, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+        $this->seedRun($em, $project, cardId: $interactive, state: WorkerRunState::Resumed);
+        $this->seedRun($em, $project, cardId: $queued, state: WorkerRunState::Queued);
+        $this->seedRun($em, $project, cardId: $closed, state: WorkerRunState::Succeeded);
+        $this->seedRun($em, $other, cardId: $elsewhere, state: WorkerRunState::Running);
+        $this->seedRun($em, $project, cardId: $unasked, state: WorkerRunState::Running);
+        $em->flush();
+
+        $runs = self::getContainer()->get(WorkerRunRepository::class);
+        self::assertInstanceOf(WorkerRunRepository::class, $runs);
+
+        self::assertEqualsCanonicalizing(
+            [$interactive->toRfc4122(), $queued->toRfc4122()],
+            $runs->findCardIdsWithOpenRun($project, [$interactive, $queued, $closed, $elsewhere, Uuid::v7()]),
+        );
+        self::assertSame([], $runs->findCardIdsWithOpenRun($project, []));
+    }
 }
