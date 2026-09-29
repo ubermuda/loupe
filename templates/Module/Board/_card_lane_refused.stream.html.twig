@@ -1,0 +1,4 @@
+{#- A lane change the board asked for was refused. Props: error (string). -#}
+<turbo-stream action="prepend" target="main-content">
+    <template>{% include '_flash_messages.html.twig' with {flashes: {error: [error]}} only %}</template>
+</turbo-stream>

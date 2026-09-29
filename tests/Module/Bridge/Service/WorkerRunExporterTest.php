@@ -45,6 +45,10 @@ final class WorkerRunExporterTest extends TestCase
             receivedAt: new \DateTimeImmutable('2026-09-13T10:00:22+00:00'),
         );
         $run->workerPool = 'quick';
+        $run->experiment = 'plan-model';
+        $run->variant = 'opus';
+        $run->requestedModel = 'claude-opus-4';
+        $run->switchedFrom = 'sonnet';
         $run->triggerEventType = 'pull_request.fix_requested';
         $run->triggerForge = 'github';
         $run->triggerRepository = 'owner/repo';
@@ -85,6 +89,10 @@ final class WorkerRunExporterTest extends TestCase
             'resumeSkipped' => null,
             'usageSource' => null,
             'workerPool' => 'quick',
+            'experiment' => 'plan-model',
+            'variant' => 'opus',
+            'requestedModel' => 'claude-opus-4',
+            'switchedFrom' => 'sonnet',
             'triggerEventType' => 'pull_request.fix_requested',
             'triggerForge' => 'github',
             'triggerRepository' => 'owner/repo',

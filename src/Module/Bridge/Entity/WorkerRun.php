@@ -64,6 +64,13 @@ class WorkerRun
 
     public const int MAX_RESUME_SKIPPED_LENGTH = 50;
 
+    public const int MAX_REQUESTED_MODEL_LENGTH = 100;
+
+    public const int MAX_EXPERIMENT_NAME_LENGTH = 64;
+
+    /** The name of an experiment or of one of its variants. */
+    public const string EXPERIMENT_NAME_PATTERN = '/^[a-z0-9][a-z0-9_-]{0,63}$/D';
+
     /** The largest value of a smallint column. */
     public const int MAX_RESUME_COUNT = 32767;
 
@@ -121,6 +128,20 @@ class WorkerRun
     #[ORM\Column(name: 'usage_source', length: 20, nullable: true, enumType: WorkerRunUsageSource::class)]
     public ?WorkerRunUsageSource $usageSource = null;
 
+    /** The experiment of the rule that ran the worker. Null when the rule runs no experiment. */
+    #[ORM\Column(name: 'experiment', length: self::MAX_EXPERIMENT_NAME_LENGTH, nullable: true)]
+    public ?string $experiment = null;
+
+    #[ORM\Column(name: 'variant', length: self::MAX_EXPERIMENT_NAME_LENGTH, nullable: true)]
+    public ?string $variant = null;
+
+    /** The model the variant asked for, which can differ from the models the usage reports. */
+    #[ORM\Column(name: 'requested_model', length: self::MAX_REQUESTED_MODEL_LENGTH, nullable: true)]
+    public ?string $requestedModel = null;
+
+    /** The variant the card was pinned to before this run, when the rule no longer offered it. */
+    #[ORM\Column(name: 'switched_from', length: self::MAX_EXPERIMENT_NAME_LENGTH, nullable: true)]
+    public ?string $switchedFrom = null;
     /** The event that queued the run, from its first report. Null from an older bridge. */
     #[ORM\Column(name: 'trigger_event_type', length: self::MAX_TRIGGER_EVENT_TYPE_LENGTH, nullable: true)]
     public ?string $triggerEventType = null;

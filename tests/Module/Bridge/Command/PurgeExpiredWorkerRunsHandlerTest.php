@@ -6,13 +6,16 @@ namespace App\Tests\Module\Bridge\Command;
 
 use App\Module\Bridge\Command\PurgeExpiredWorkerRunsCommand;
 use App\Module\Bridge\Command\PurgeExpiredWorkerRunsHandler;
+use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Repository\ExperimentPinRepository;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Service\ResetInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 use Ubermuda\FeatureFlagsBundle\Reader\FeatureFlagReaderInterface;
@@ -38,6 +41,25 @@ final class PurgeExpiredWorkerRunsHandlerTest extends KernelTestCase
         $em->clear();
         self::assertNull($em->find(WorkerRun::class, $expired->id));
         self::assertNotNull($em->find(WorkerRun::class, $fresh->id));
+    }
+
+    /** A pin that no run refreshed within the window goes, and the count still names the runs alone. */
+    public function test_it_deletes_a_pin_past_the_window_and_keeps_one_inside_it(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'pins-sweep@example.com'), 'Swept Pins');
+        $expired = new ExperimentPin($project, Uuid::v7(), 'plan-model', 'opus', updatedAt: new \DateTimeImmutable('2026-01-01 00:00:00'));
+        $fresh = new ExperimentPin($project, Uuid::v7(), 'plan-model', 'sonnet', updatedAt: new \DateTimeImmutable('2026-09-01 00:00:00'));
+        $em->persist($expired);
+        $em->persist($fresh);
+        $em->flush();
+
+        self::assertSame(0, ($this->handler())(new PurgeExpiredWorkerRunsCommand()));
+
+        $em->clear();
+        self::assertNull($em->find(ExperimentPin::class, $expired->id));
+        self::assertNotNull($em->find(ExperimentPin::class, $fresh->id));
     }
 
     /** The spend of a card outlives the retention window of its runs. */
@@ -117,6 +139,7 @@ final class PurgeExpiredWorkerRunsHandlerTest extends KernelTestCase
 
         return new PurgeExpiredWorkerRunsHandler(
             new WorkerRunRepository($registry),
+            new ExperimentPinRepository($registry),
             new WorkerRunRetentionPolicy($flags, 180),
             new MockClock(new \DateTimeImmutable(self::NOW)),
         );

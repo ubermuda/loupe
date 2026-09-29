@@ -105,6 +105,24 @@ final class ReportWorkerRunStateRequest
         #[Assert\Regex(pattern: WorkerRun::WORKER_POOL_PATTERN)]
         public ?string $workerPool = null,
 
+        /** The four experiment fields are null from a bridge that predates experiments. */
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::EXPERIMENT_NAME_PATTERN)]
+        public ?string $experiment = null,
+
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::EXPERIMENT_NAME_PATTERN)]
+        public ?string $variant = null,
+
+        #[Assert\Length(max: WorkerRun::MAX_REQUESTED_MODEL_LENGTH)]
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: '/^[^\p{C}]+$/uD')]
+        public ?string $requestedModel = null,
+
+        #[Assert\NotBlank(allowNull: true)]
+        #[Assert\Regex(pattern: WorkerRun::EXPERIMENT_NAME_PATTERN)]
+        public ?string $switchedFrom = null,
+
         /** Null from a bridge that predates triggers, and on any report but the first queued one. */
         #[Assert\Valid]
         public ?WorkerRunTriggerInput $trigger = null,
@@ -136,6 +154,23 @@ final class ReportWorkerRunStateRequest
 
         if (null === $this->startedAt) {
             $context->buildViolation('A running run says when it started.')->atPath('startedAt')->addViolation();
+        }
+    }
+
+    /** The server stores the four experiment fields of a run together. */
+    #[Assert\Callback]
+    public function validateExperiment(ExecutionContextInterface $context): void
+    {
+        if ((null === $this->experiment) !== (null === $this->variant)) {
+            $context->buildViolation('An experiment and its variant come together.')->atPath(null === $this->variant ? 'variant' : 'experiment')->addViolation();
+        }
+
+        if (null === $this->experiment && null !== $this->requestedModel) {
+            $context->buildViolation('A requested model needs an experiment.')->atPath('requestedModel')->addViolation();
+        }
+
+        if (null === $this->experiment && null !== $this->switchedFrom) {
+            $context->buildViolation('A switched-from variant needs an experiment.')->atPath('switchedFrom')->addViolation();
         }
     }
 

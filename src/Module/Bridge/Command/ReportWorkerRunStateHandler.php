@@ -28,8 +28,8 @@ use Ubermuda\AuditBundle\AuditSubject;
 /**
  * Records one state of a run, and moves the run forward only. A state the run
  * has not held leaves a history row even when it does not move the run. A late
- * report still fills a missing session and start, but outcome data follows the
- * state that owns it. The outcome that closes the run also writes its usage,
+ * report still fills a missing session, start and experiment, but outcome data
+ * follows the state that owns it. The outcome that closes the run also writes its usage,
  * through WorkerRunUsageRecorder.
  */
 final readonly class ReportWorkerRunStateHandler
@@ -97,6 +97,7 @@ final readonly class ReportWorkerRunStateHandler
             }
 
             $this->fillStart($run, $command);
+            $this->fillExperiment($run, $command);
             // A queued run can move to another pool, so any report, a repeat too, names the current one.
             $poolMoved = null !== $command->workerPool && $command->workerPool !== $run->workerPool;
             if ($poolMoved) {
@@ -212,6 +213,19 @@ final readonly class ReportWorkerRunStateHandler
         if (null === $run->startedAt && null !== $command->startedAt) {
             $run->startedAt = $command->startedAt;
         }
+    }
+
+    /** Reports can arrive out of order, so the first report that names an experiment sets all four fields. */
+    private function fillExperiment(WorkerRun $run, ReportWorkerRunStateCommand $command): void
+    {
+        if (null !== $run->experiment || null === $command->experiment) {
+            return;
+        }
+
+        $run->experiment = $command->experiment;
+        $run->variant = $command->variant;
+        $run->requestedModel = $command->requestedModel;
+        $run->switchedFrom = $command->switchedFrom;
     }
 
     private function apply(WorkerRun $run, ReportWorkerRunStateCommand $command): void

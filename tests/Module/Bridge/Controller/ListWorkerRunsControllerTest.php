@@ -166,6 +166,47 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertCount(0, $plainRow->filter('[data-worker-run-pool]'));
     }
 
+    public function test_the_drawer_shows_the_experiment_of_a_run(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'experiment-owner@example.com');
+        $project = $this->project($em, $owner, 'Experiments');
+        $pinned = $this->seedRun($em, $project, cardNumber: 1, ruleName: 'implement');
+        $pinned->experiment = 'impl-model';
+        $pinned->variant = 'sonnet';
+        $pinned->requestedModel = 'claude-sonnet-5-5';
+        $switched = $this->seedRun($em, $project, cardNumber: 2, ruleName: 'implement');
+        $switched->experiment = 'impl-model';
+        $switched->variant = 'sonnet';
+        $switched->switchedFrom = '<b>opus</b>';
+        $plain = (string) $this->seedRun($em, $project, cardNumber: 3, ruleName: 'review')->id;
+        $em->flush();
+        $pinnedId = (string) $pinned->id;
+        $switchedId = (string) $switched->id;
+
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $pinnedLine = $crawler->filter('[data-worker-run-id="'.$pinnedId.'"] [data-worker-run-experiment]');
+        self::assertSame('Experiment', $pinnedLine->filter('dt')->text());
+        self::assertSame('impl-model / sonnet (claude-sonnet-5-5)', $pinnedLine->filter('dd')->text());
+
+        $switchedLine = $crawler->filter('[data-worker-run-id="'.$switchedId.'"] [data-worker-run-experiment]');
+        self::assertSame('impl-model / sonnet, switched from <b>opus</b>', $switchedLine->filter('dd')->text());
+        self::assertCount(0, $switchedLine->filter('b'));
+
+        $plainRow = $crawler->filter('[data-worker-run-id="'.$plain.'"]');
+        // The guard: the drawer renders, so the absent line is not an absent drawer.
+        self::assertCount(1, $plainRow->filter('.lp-run-drawer__metadata'));
+        self::assertCount(0, $plainRow->filter('[data-worker-run-experiment]'));
+    }
+
     /** A list with no caveat reads as a complete history, and it is not one. */
     public function test_the_list_is_paged(): void
     {

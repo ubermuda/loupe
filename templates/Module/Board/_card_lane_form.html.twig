@@ -2,7 +2,7 @@
 {% set laneForm = card_lane_form(card, returnTo) %}
 {% set label = (card.laneEnabled ? 'board.card.lane.hide' : 'board.card.lane.show')|trans %}
 {% set icon = card.laneEnabled ? 'lucide:eye-off' : 'lucide:eye' %}
-{{ form_start(laneForm, {action: path('app_board_card_lane', {projectId: card.project.id, cardId: card.id}), attr: {'data-card-drawer-reloads-board': ''}}) }}
+{{ form_start(laneForm, {action: path('app_board_card_lane', {projectId: card.project.id, cardId: card.id}), attr: {'data-board-lane-form': ''}}) }}
     {{ form_widget(laneForm.laneEnabled) }}
     {{ form_widget(laneForm.returnTo) }}
     {% if compact|default(false) %}
