@@ -334,7 +334,8 @@ final class CardWaitReconcilerTest extends KernelTestCase
 
     public function test_a_document_switched_off_opens_no_item(): void
     {
-        $this->switchDocuments(false);
+        $this->settings()->documentInReview = false;
+        $this->em->flush();
         $this->linkedDocument('Tech design');
 
         $this->reconcile();
@@ -346,7 +347,9 @@ final class CardWaitReconcilerTest extends KernelTestCase
     {
         $this->linkedDocument('Tech design');
         $this->reconcile();
-        $settings = $this->switchDocuments(false);
+        $settings = $this->settings();
+        $settings->documentInReview = false;
+        $this->em->flush();
 
         $this->reconcile();
 
@@ -533,6 +536,56 @@ final class CardWaitReconcilerTest extends KernelTestCase
         self::assertSame(InboxCardWaitEndReason::Resolved, $ended[0]->endReason);
     }
 
+    public function test_a_run_blocked_switch_off_opens_no_item_and_a_document_wait_of_another_card_still_opens(): void
+    {
+        $this->settings()->runBlocked = false;
+        $this->em->flush();
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck');
+        $other = $this->card($this->em, $this->project, 13);
+        $document = $this->document($this->em, $this->project);
+        $document->addVersion('# One', '<h1>One</h1>');
+        $other->documents->add(new CardDocument($other, $document));
+        $this->em->flush();
+
+        $this->reconciler->reconcile($this->project, [(string) $this->card->id, (string) $other->id]);
+
+        self::assertSame([], $this->watches());
+        $watch = $this->onlyWatch($other->id);
+        self::assertSame(InboxItemState::Open, $watch->item->state);
+        self::assertEquals($document->id, $this->onlyWait($watch)->documentId);
+    }
+
+    public function test_a_run_blocked_switch_off_ends_the_run_wait_and_keeps_the_document_wait_open(): void
+    {
+        $document = $this->linkedDocument('Tech design');
+        $this->workerRun(WorkerRunState::Blocked, 'Stuck');
+        $this->reconcile();
+        $watch = $this->onlyWatch();
+        self::assertCount(2, $this->openWaits($watch));
+        $this->settings()->runBlocked = false;
+        $this->em->flush();
+
+        $this->reconcile();
+
+        self::assertSame(InboxItemState::Open, $watch->item->state);
+        $open = $this->openWaits($watch);
+        self::assertCount(1, $open);
+        self::assertEquals($document->id, $open[0]->documentId);
+        self::assertSame('Tech design in review, version 1', $watch->item->body);
+        [$runWait] = array_values(array_filter($watch->waits->toArray(), static fn (InboxCardWait $wait): bool => null !== $wait->endedAt));
+        self::assertSame(InboxCardWaitTrigger::RunBlocked, $runWait->trigger);
+        self::assertSame(InboxCardWaitEndReason::SwitchedOff, $runWait->endReason);
+
+        $document->status = DocumentStatus::Approved;
+        $this->em->flush();
+        $this->reconcile();
+
+        // The last wait ended by its own cause in this pass, so the item closes done.
+        self::assertSame(InboxItemState::Done, $watch->item->state);
+        [$documentWait] = array_values(array_filter($watch->waits->toArray(), static fn (InboxCardWait $wait): bool => InboxCardWaitTrigger::DocumentInReview === $wait->trigger));
+        self::assertSame(InboxCardWaitEndReason::Resolved, $documentWait->endReason);
+    }
+
     public function test_a_card_with_a_run_wait_in_a_terminal_column_closes_the_item_obsolete(): void
     {
         $this->workerRun(WorkerRunState::Blocked, 'Stuck', column: 'backlog');
@@ -581,10 +634,9 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $this->reconciler->reconcile($this->project, [(string) $this->card->id]);
     }
 
-    private function switchDocuments(bool $on): InboxProjectSettings
+    private function settings(): InboxProjectSettings
     {
         $settings = new InboxProjectSettings($this->project);
-        $settings->documentInReview = $on;
         $this->em->persist($settings);
         $this->em->flush();
 
