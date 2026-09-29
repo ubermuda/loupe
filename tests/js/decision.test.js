@@ -195,7 +195,7 @@ it('does not save a note change through the change event', async () => {
     expect(sent).toHaveLength(0);
 });
 
-it('clears the block after the server confirms', async () => {
+it('clears the block at once and saves the Clear', async () => {
     await mount({ notes: { a: 'Kept' } });
     check('a', 0);
     finish();
@@ -209,7 +209,10 @@ it('clears the block after the server confirms', async () => {
         note: '',
         clear: true,
     });
-    expect(note('a').value).toBe('Kept');
+    expect(note('a').value).toBe('');
+    expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
+        false,
+    );
     finish();
     expect(note('a').value).toBe('');
     expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
@@ -345,4 +348,58 @@ it('keeps and saves a note typed while a Clear is in flight', async () => {
         note: 'Typed after',
         clear: false,
     });
+});
+
+const clear = (id) =>
+    document
+        .querySelector(`[data-decision-id="${id}"] input[type="button"]`)
+        .click();
+
+it('does not restore cleared options with a note saved while Clear is in flight', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    check('a', 0);
+    finish();
+    clear('a');
+    type('a', 'Typed after');
+    note('a').dispatchEvent(new Event('blur'));
+    finish();
+
+    expect(sent[2]).toEqual({
+        decisionId: 'a',
+        indexes: [],
+        note: 'Typed after',
+        clear: false,
+    });
+});
+
+it('saves an option checked while Clear is in flight', async () => {
+    await mount();
+    check('a', 0);
+    finish();
+    clear('a');
+    check('a', 1);
+    finish();
+
+    expect(sent[2]).toEqual({
+        decisionId: 'a',
+        indexes: ['1'],
+        note: '',
+        clear: false,
+    });
+});
+
+it('restores the block when a Clear fails', async () => {
+    await mount({ notes: { a: 'Kept' } });
+    check('a', 0);
+    finish();
+    clear('a');
+    finish({ success: false, error: new TypeError('Failed to fetch') });
+
+    expect(note('a').value).toBe('Kept');
+    expect(document.querySelector('[data-decision-option="a:0"]').checked).toBe(
+        true,
+    );
+    expect(document.getElementById('decision-status').textContent).toBe(
+        'Could not save.',
+    );
 });

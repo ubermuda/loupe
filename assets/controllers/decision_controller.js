@@ -68,10 +68,27 @@ export default class extends Controller {
         clear.type = 'button';
         clear.value = this.clearLabelValue;
         clear.className = 'lp-btn lp-btn--ghost lp-btn--sm lp-decision__clear';
-        clear.addEventListener('click', () => this.enqueue(block, true));
+        clear.addEventListener('click', () => this.clear(block));
         controls.append(clear);
         block.append(controls);
-        this.sentStates.set(block, this.stateKey(this.state(block, false)));
+        this.sentStates.set(block, this.stateKey(this.state(block)));
+    }
+
+    // Clear empties the block at once, so a save queued behind it reads no
+    // stale picks. A failed Clear puts the old answer back.
+    clear(block) {
+        const previous = this.state(block);
+        this.fillBlock(block, { indexes: [], note: '' });
+        this.enqueue(block, true, previous);
+    }
+
+    fillBlock(block, { indexes, note }) {
+        for (const input of block.querySelectorAll(
+            'input[data-decision-option]',
+        ))
+            input.checked = indexes.includes(Number(input.value));
+        const field = block.querySelector('[data-decision-note-field]');
+        if (field) field.value = note;
     }
 
     select(event) {
@@ -93,13 +110,12 @@ export default class extends Controller {
     saveIfChanged(block) {
         clearTimeout(this.timers.get(block));
         this.timers.delete(block);
-        const state = this.state(block, false);
+        const state = this.state(block);
         if (this.stateKey(state) === this.sentStates.get(block)) return;
         this.enqueue(block, false);
     }
 
-    state(block, clear) {
-        if (clear) return { indexes: [], note: '', clear };
+    state(block) {
         return {
             indexes: [
                 ...block.querySelectorAll(
@@ -108,7 +124,6 @@ export default class extends Controller {
             ].map((input) => Number(input.value)),
             note:
                 block.querySelector('[data-decision-note-field]')?.value ?? '',
-            clear,
         };
     }
 
@@ -117,12 +132,12 @@ export default class extends Controller {
     }
 
     // A Map keeps the first position of a block and the newest state for it.
-    enqueue(block, clear) {
+    enqueue(block, clear, previous = null) {
         clearTimeout(this.timers.get(block));
         this.timers.delete(block);
-        const state = this.state(block, clear);
+        const state = this.state(block);
         this.sentStates.set(block, this.stateKey(state));
-        this.queue.set(block, state);
+        this.queue.set(block, { ...state, clear, previous });
         this.flush();
     }
 
@@ -166,25 +181,14 @@ export default class extends Controller {
         if (event.detail.success) {
             // A Turbo snapshot restore rebuilds the note from this attribute.
             block.dataset.decisionNote = state.note;
-            if (state.clear && !this.queue.has(block)) this.reset(block);
         } else {
             this.sentStates.delete(block);
+            const edited = this.queue.has(block) || this.timers.has(block);
+            if (state.previous && !edited)
+                this.fillBlock(block, state.previous);
             if (!this.isStream(event.detail.fetchResponse)) this.showError();
         }
         this.flush();
-    }
-
-    reset(block) {
-        for (const input of block.querySelectorAll(
-            'input[data-decision-option]',
-        ))
-            input.checked = false;
-        const field = block.querySelector('[data-decision-note-field]');
-        if (field && !this.timers.has(block)) field.value = '';
-        this.sentStates.set(
-            block,
-            this.stateKey({ indexes: [], note: '', clear: false }),
-        );
     }
 
     isStream(response) {
