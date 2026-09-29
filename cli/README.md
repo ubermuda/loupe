@@ -317,7 +317,7 @@ loupe bridge run --rules ~/loupe/other-project.yaml --permission-mode acceptEdit
 | `--rules` | `rules.yaml` in your config dir | Read the rule file from this path |
 | `--permission-mode` | — | Pass `--permission-mode` to every `claude` when neither its rule nor the `defaults:` block sets `permissionMode`. Omitted, no flag is passed and a worker can approve nothing |
 | `--model` | — | Pass `--model` to every `claude` when neither its rule nor the `defaults:` block sets `model`. Omitted, no flag is passed |
-| `--max-workers` | `3` | Run at most this many workers at once. Later events wait in a queue. Below 1 is a startup error |
+| `--max-workers` | — | Deprecated, and does nothing. Set `maxWorkers` in the [rule file](#the-rule-file) instead. The bridge still starts with the flag, and logs `max_workers_flag_ignored` |
 | `--log-file` | `bridge.log` in your config dir | Append the JSON log to this path |
 
 The command blocks in the foreground and writes JSON lines to stdout and to the
@@ -342,8 +342,10 @@ the next reload moves the lock to the new file. That reload fails when another
 bridge already holds the lock of the new file, or when the symlink moves again
 before the bridge applies the file.
 
-The flags stay fixed for the life of the process. To change `--max-workers`,
-`--permission-mode`, `--model` or `--log-file`, restart the bridge. The bridge
+The flags stay fixed for the life of the process. To change
+`--permission-mode`, `--model` or `--log-file`, restart the bridge. A change to
+`maxWorkers` or `workerPools` in the rule file needs only
+[`loupe bridge reload`](#loupe-bridge-reload). The bridge
 reads the instance URL in `config.json` at start only, so a new instance also
 needs a restart.
 
@@ -413,6 +415,7 @@ Each entry in `rules` takes these fields:
 | `when` | no | A map of event field to value. The rule matches only an event whose fields hold every value. Only a rule on `pull_request.checks_concluded`, `pull_request.review_submitted` or `pull_request.fix_requested` can set it. See [A pull request event](#a-pull-request-event) |
 | `card` | no | A block that limits the rule by the state of its card. Only a rule on `board.card_moved` or `document.review_submitted` can set it. See [A card in an interactive session](#a-card-in-an-interactive-session) |
 | `action` | no | `interactive` opens an interactive session in a terminal instead of a worker. Omitted, the rule is a worker rule. See [Opening an interactive session](#opening-an-interactive-session) |
+| `workerPool` | no | The worker pool the rule's workers take a slot from. A pool name from `workerPools`, or `default`. Omitted, the rule uses `default`. An interactive rule cannot set it. See [The queue](#the-queue) |
 
 The optional `defaults:` block sets `permissionMode` and `model` for every rule
 of the file:
@@ -438,6 +441,41 @@ an unknown key there.
 ```yaml
 autoUpdate: false
 ```
+
+`maxWorkers` at the top of the file is the number of workers the bridge runs at
+once. It defaults to `3`, and must be at least 1. `workerPools` splits that
+number into named pools, and a rule takes its slots from one pool with
+`workerPool`:
+
+```yaml
+maxWorkers: 4
+workerPools:
+  quick:
+    size: 1
+
+rules:
+  - name: review
+    on: board.card_moved
+    project: my-app
+    to: review
+    workerPool: quick
+    prompt: Review card {cardNumber}.
+```
+
+A pool name is 1 to 40 lowercase letters, digits and hyphens, and starts with a
+letter. Each pool needs a `size` of at least 1. The name `default` is reserved.
+The `default` pool holds the slots the named pools leave, so the file above
+gives `default` 3 slots and `quick` 1. The bridge refuses the file, at start and
+on a reload, when:
+
+- the sizes add up to more than `maxWorkers`
+- a rule names a pool that `workerPools` does not declare
+- a worker rule names no pool while the `default` pool has no slot left
+- an interactive rule sets `workerPool`
+
+A reload applies a change to both keys. A CLI older than these keys refuses the
+file, because they are unknown keys there. [The queue](#the-queue) says how the
+pools share the work.
 
 A field the format does not define stops the bridge at start, and fails a
 reload, so a misspelt key never passes in silence. So does a `permissionMode`
@@ -863,12 +901,33 @@ bridge process, so a restart resets them.
 
 ### The queue
 
-`--max-workers` bounds the processes, not the pending work. An event that
-arrives while every slot is busy waits in an in-memory queue. The queue holds at
-most one event for each card and rule, or for each ask of a resume, and no
-other limit applies. The bridge
+`maxWorkers` bounds the processes, not the pending work. An event that
+arrives while its pool has no free slot waits in an in-memory queue. The queue
+holds at most one event for each card and rule, or for each ask of a resume, and
+no other limit applies. The bridge
 takes queued events in arrival order as slots free, and skips an event whose
 card still has a worker running.
+
+Each worker takes a slot from the pool its rule names, `default` when the rule
+names none. All pools share one queue. An event waits only when its own pool is
+full, or when the workers of all pools use `maxWorkers`. The events of the other
+pools go on and start. Inside one pool, events start in arrival order. A pool
+never borrows a free slot of another pool, so a full `default` pool leaves a
+free `quick` slot unused.
+
+A run keeps the slot of the pool it started in until it ends. The resume of an
+unfinished run, and the new session that replaces a missing one, start in the
+pool their rule names at that time. An interactive rule takes no slot, so it
+opens its session while every pool is full.
+
+A reload never stops a worker. When a reload makes a pool smaller, or lowers
+`maxWorkers`, the running workers go on, and the pool starts no new run until
+its runs fit the new size. A pool that a reload removes starts no run, and its
+running workers count against `maxWorkers` until they end.
+
+Each worker run report names its pool in `workerPool`: the pool the run started
+in, or the pool its rule names while it waits. The
+[heartbeat](#heartbeat) reports the use of each pool.
 
 Stopping the bridge drops whatever is still queued, because those workers never
 started. The bridge logs one `queue_dropped` line naming the count and each card
@@ -1062,6 +1121,12 @@ a heartbeat at once, so the server reads the new projects before the next
 interval. The heartbeat also carries the last run of each
 [hook](#loupe-bridge-hooks), and a hook run sends a heartbeat at once.
 
+The heartbeat also carries `workerPools`, one row for each
+[worker pool](#the-queue) with its `name`, `size`, `inUse` and `queued` counts.
+A pool that a reload removed stays in the list with size 0 while a run or a
+queued event still names it. A change to a row sends a heartbeat before the
+next interval, but no sooner than 10 seconds after the last heartbeat.
+
 The interval comes from `bridge.heartbeat_interval_seconds` in the `flags` map,
 60 seconds by default. The bridge falls back to 60 seconds when the map has no
 such key, or when its value is not a whole number of at least 10. It reads the map
@@ -1138,7 +1203,8 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 
 | `event` | Fields |
 |---|---|
-| `bridge_started` | `rules`, `projects`, `rule_count`, `max_workers`, `log_file`, `bridge_id` |
+| `bridge_started` | `rules`, `projects`, `rule_count`, `max_workers`, `worker_pools`, `log_file`, `bridge_id`. `worker_pools` names each pool with its size, such as `default=3,quick=1` |
+| `max_workers_flag_ignored` | `flag_value`, `max_workers`, `message`: the bridge started with `--max-workers`, which does nothing. Level `WARN` |
 | `connected` | `topic`: your user topic, `projects`: the mapped slugs |
 | `stream_error` | `error` |
 | `event_malformed` | `error` |
@@ -1146,10 +1212,10 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `permission_mode_unknown` | `mode`, `known`: logged at start for a mode outside the list this build knows |
 | `project_unmapped` | `project`: logged once per project the file does not map |
 | `project_gone` | `project`, `rules`, `message`: a refresh no longer lists a mapped project, logged once per project |
-| `worker_queued` | `card`, `project`, `rule`, `queue_depth` |
-| `worker_coalesced` | `card`, `project`, `rule`: the event replaced one that waits for the same card and rule |
-| `chain_capped` | `card`, `project`, `rule`, `max_chain`, `message`: the rule reached its cap on that card |
-| `worker_started` | `card`, `project`, `rule`, `session_id`, `ask` for the resume of an ask, and `resume` for the resume of an unfinished run |
+| `worker_queued` | `card`, `project`, `rule`, `worker_pool`, `queue_depth`, `pool_depth` |
+| `worker_coalesced` | `card`, `project`, `rule`, `worker_pool`: the event replaced one that waits for the same card and rule |
+| `chain_capped` | `card`, `project`, `rule`, `worker_pool`, `max_chain`, `message`: the rule reached its cap on that card |
+| `worker_started` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `ask` for the resume of an ask, and `resume` for the resume of an unfinished run |
 | `resume_skipped` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `message`: the session read every item of its ask, so no worker ran. For an unfinished run, the line adds `reason`: `card_moved`, `shutdown`, `rule_dead` or `reload`, at level `WARN` |
 | `resume_session_missing` | `card`, `project`, `rule`, `session_id`, `message`: a fix request named a session that this machine does not hold, so the bridge queues a new session. Level `WARN` |
 | `resume_check_failed` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `error`, `message`: the ask check failed, and the session resumes. Level `WARN` |
@@ -1161,9 +1227,9 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `worker_finished` | `card`, `project`, `rule`, `exit`, `duration_ms`, `status`, `output`. Level `ERROR` for a non-zero `exit` |
 | `worker_no_result` | `card`, `project`, `rule`, `exit`, `duration_ms`, `status`, `output`: stdout held no valid structured result. Level `ERROR` |
 | `worker_failed` | `card`, `project`, `rule`, `error`: the process never ran |
-| `queue_dropped` | `count`, `dropped`: a list of `{card, rule}`, with `ask` for a resume, and `reason`: `reload` when a reload dropped the events |
+| `queue_dropped` | `count`, `dropped`: a list of `{card, rule, worker_pool}`, with `ask` for a resume, and `reason`: `reload` when a reload dropped the events |
 | `control_listening` | `socket`: the path that `loupe bridge reload` reaches |
-| `reload_applied` | `added`, `removed`, `changed`, `dirs`, `projects`: a reload applied the rule file |
+| `reload_applied` | `added`, `removed`, `changed`, `dirs`, `projects`: a reload applied the rule file. `pools` lists each pool the reload added, removed or resized, such as `quick: added 1` or `default: 3 -> 2`, and `max_workers` names a new budget. Each appears only when it changed |
 | `reload_failed` | `stage`, `problems`: a reload changed nothing. Level `ERROR` |
 | `rule_dead` | `rule`, `project`, `project_slug`, `reason`, `message`: a column or project change killed the rule. Level `ERROR` |
 | `report_sent` | `project`, `project_slug`, `rules`, `dead`: the server stored the rule health report of that project |
@@ -1173,7 +1239,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `heartbeat_unsupported` | `error`, `message`: the server answered 404, logged once. Level `WARN` |
 | `heartbeat_interval_changed` | `interval_seconds`: a reconnect brought a new interval |
 | `event_duplicate` | `id`: the hub sent an event again that the bridge already handled, as after a handover |
-| `worker_adopted` | `card`, `project`, `rule`, `session_id`, `pid`: the bridge took over a worker that an earlier version started |
+| `worker_adopted` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `pid`: the bridge took over a worker that an earlier version started |
 | `update_skipped` | `reason`: the bridge does not check for updates, for example a development build |
 | `update_check` | `from`, `range`: a check starts |
 | `update_check_failed` | `from`, `error`, and `to` for a failed download. Level `WARN` |
@@ -1203,8 +1269,10 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `hook_timeout` | `package`, `hook_event`, `timeout_seconds`, `output`: the bridge killed a hook past its time limit. Level `WARN` |
 
 `queue_depth` counts the accepted events waiting at that moment, the new one
-included. `worker_failed` and `worker_finished` name two different faults: a
-process that never ran, and a process that ran and returned a non-zero code.
+included, and `pool_depth` counts those of the new event's pool. `worker_pool`
+is the pool the run started in, or the pool its rule names while it waits.
+`worker_failed` and `worker_finished` name two different faults: a process
+that never ran, and a process that ran and returned a non-zero code.
 `worker_no_result` names a third: a process that ran and gave no valid
 structured result, so a clean exit does not prove the work finished. A worker
 writes one of `worker_finished` and `worker_no_result`, never both.
@@ -1289,7 +1357,9 @@ writes the same error when a bridge reads the file through another path.
 
 A reload does these things to the running bridge:
 
-- A worker in flight keeps running.
+- A worker in flight keeps running, and keeps the slot of its
+  [pool](#the-queue). A smaller pool or a lower `maxWorkers` only holds back
+  new starts.
 - A queued event stays in the queue when a rule of the same name still exists
   and still matches it. It then runs under the new rule, with its new prompt and
   settings.
