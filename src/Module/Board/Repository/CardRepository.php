@@ -577,12 +577,31 @@ class CardRepository extends ServiceEntityRepository
      */
     public function findBlockedBy(Card $blocker): array
     {
+        return $this->findBlockedByAny([(string) $blocker->id]);
+    }
+
+    /**
+     * The cards any of these cards block, each once, as the database holds them now, by number.
+     *
+     * @param list<string> $blockerIds
+     *
+     * @return list<Card>
+     */
+    public function findBlockedByAny(array $blockerIds): array
+    {
+        if ([] === $blockerIds) {
+            return [];
+        }
+
         return $this->cardsByIds($this->getEntityManager()->getConnection()->fetchFirstColumn(
-            "SELECT t.id FROM board_card_links l
-             JOIN board_cards t ON t.id = l.target_card_id
-             WHERE l.source_card_id = :id AND l.kind = 'blocks'
+            "SELECT t.id FROM board_cards t
+             WHERE EXISTS (
+                 SELECT 1 FROM board_card_links l
+                 WHERE l.target_card_id = t.id AND l.kind = 'blocks' AND l.source_card_id IN (:ids)
+             )
              ORDER BY t.number",
-            ['id' => (string) $blocker->id],
+            ['ids' => $blockerIds],
+            ['ids' => ArrayParameterType::STRING],
         ));
     }
 

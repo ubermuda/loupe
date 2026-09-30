@@ -21,7 +21,6 @@ use Doctrine\DBAL\Exception as DbalException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
-use Symfony\Component\Uid\Uuid;
 
 /**
  * Moves a card that an approval left in its stage column once its last open
@@ -93,15 +92,7 @@ final readonly class AdvanceHeldCardOnBlockerFinished
     /** @param list<string> $finishedIds */
     private function advanceBlockedBy(array $finishedIds, string $columnId): void
     {
-        $blocked = [];
-        foreach ($finishedIds as $id) {
-            $finished = $this->cards->find(Uuid::fromString($id));
-            foreach (null === $finished ? [] : $this->cards->findBlockedBy($finished) as $card) {
-                $blocked[spl_object_id($card)] = $card;
-            }
-        }
-
-        foreach ($blocked as $card) {
+        foreach ($this->cards->findBlockedByAny($finishedIds) as $card) {
             try {
                 $this->advance($card);
             } catch (\Throwable $e) {
