@@ -576,6 +576,34 @@ ignores the skip list and `autoUpdate`. See
 [Output](../../cli/README.md#output) in `cli/README.md` lists every event with
 its fields, the failure events included.
 
+## Pause, stop and resume
+
+The server can pause a bridge, and stop or resume one of its runs. Each
+heartbeat tells the server that the bridge takes these commands, with
+`capabilities: ["commands"]`.
+[Pause and commands](../reference/bridge-heartbeat.md#pause-and-commands)
+describes the protocol.
+
+A paused bridge starts no queued run, and its running workers go on. It keeps
+the pause in `pause.json` in the config directory, so a restart keeps it.
+
+A stop of a queued run closes the run as `stopped`. A stop of a live worker
+reports `stopping`, then sends SIGINT, SIGTERM and SIGKILL to the process group
+of the worker. The flags `bridge.stop_sigterm_after_ms` and
+`bridge.stop_sigkill_after_ms` set the waits between the signals. The run then
+reports `stopped`, and the bridge never resumes it. The bridge also holds the
+card, and starts no worker for it until the hold ends.
+
+A stop reaches the process group of the worker only. Work that the worker
+started in another process tree keeps running, such as a PHPUnit run inside a
+Docker container.
+
+A resume continues the session of a run that ended, with a fixed prompt. The
+bridge refuses it when the card left the column of the run, or when this
+machine holds no transcript of the session. The new run reports the trigger
+`bridge.command`. [Pause and commands](../../cli/README.md#pause-and-commands)
+in `cli/README.md` gives every rule and log event.
+
 ## Hooks
 
 A hook package runs a local program when the bridge starts, stops, gets busy or
