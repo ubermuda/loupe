@@ -33,7 +33,7 @@ use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
  * @phpstan-type CardRelatedCardSummary array{cardId: string, number: int, title: string, status: string, kind: string}
  * @phpstan-type CardRefSummary array{cardId: string, number: int, title: string, status: string}
- * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, automation: ?CardAutomationSummary, documents: list<CardDocumentSummary>, siteReviewComments: list<FeedbackSummary>, relatedCards: list<CardRelatedCardSummary>, parent: ?CardRefSummary, laneEnabled: bool, children: list<CardRefSummary>, progress: ?array{done: int, total: int}}
+ * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, automation: ?CardAutomationSummary, documents: list<CardDocumentSummary>, siteReviewComments: list<FeedbackSummary>, relatedCards: list<CardRelatedCardSummary>, parent: ?CardRefSummary, laneEnabled: bool, children: list<CardRefSummary>, progress: ?array{done: int, total: int}, heldBy?: list<CardRefSummary>}
  * @phpstan-type CardListSummary array{cardId: string, number: int, title: string, type: string, status: string, reporter: string, parentCardId: ?string, updatedAt: string}
  */
 final readonly class CardPayload
@@ -48,13 +48,17 @@ final readonly class CardPayload
 
     /**
      * One card whose links, related cards and children the caller already
-     * holds, from {@see \App\Module\Board\Command\ShowCardHandler}.
+     * holds, from {@see \App\Module\Board\Command\ShowCardHandler}. Only
+     * this shape carries heldBy, which costs queries a list would pay per card.
      *
      * @return CardSummary
      */
     public function forCard(CardView $view): array
     {
-        return $this->render($view->card, $view->siteReviewLinks, $view->relatedCards, $view->children, $view->pullRequestStates);
+        return [
+            ...$this->render($view->card, $view->siteReviewLinks, $view->relatedCards, $view->children, $view->pullRequestStates),
+            'heldBy' => array_map(self::reference(...), $view->heldBy),
+        ];
     }
 
     /**

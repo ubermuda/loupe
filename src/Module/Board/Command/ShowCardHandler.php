@@ -11,6 +11,7 @@ use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Board\Service\StageHold;
 
 final readonly class ShowCardHandler
 {
@@ -19,6 +20,7 @@ final readonly class ShowCardHandler
         private CardLinkRepository $cardLinks,
         private CardRepository $cards,
         private CardPullRequestStates $pullRequestStates,
+        private StageHold $hold,
     ) {
     }
 
@@ -44,6 +46,7 @@ final readonly class ShowCardHandler
             $this->pullRequestStates->forCards([$command->card]),
             $children,
             $progress,
+            $this->hold->heldBy($command->card),
         );
     }
 }
