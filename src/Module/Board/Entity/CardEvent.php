@@ -17,7 +17,7 @@ use Symfony\Component\Uid\Uuid;
  *
  * The index is ascending: Postgres reads it backwards for the newest-first list.
  */
-#[ORM\Entity(repositoryClass: CardEventRepository::class)]
+#[ORM\Entity(repositoryClass: CardEventRepository::class, readOnly: true)]
 #[ORM\Index(name: 'idx_board_card_events_card_occurred', columns: ['card_id', 'occurred_at', 'id'])]
 #[ORM\Table(name: 'board_card_events')]
 class CardEvent
