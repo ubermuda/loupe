@@ -14,6 +14,8 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\View\BacklogDirection;
 use App\Module\Board\View\BacklogListQuery;
 use App\Module\Board\View\BacklogSort;
 use App\Module\Project\Entity\Project;
@@ -56,7 +58,7 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
         $this->em->flush();
     }
 
-    public function test_an_unfiltered_list_holds_the_backlog_in_rank_order(): void
+    public function test_an_unfiltered_list_holds_the_backlog_newest_first(): void
     {
         $this->card('First');
         $this->card('Second');
@@ -64,7 +66,7 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
 
         $view = $this->list();
 
-        self::assertSame(['First', 'Second'], $this->titles($view));
+        self::assertSame(['Second', 'First'], $this->titles($view));
         self::assertSame(2, $view->total);
         self::assertSame(2, $view->filteredTotal);
     }
@@ -77,7 +79,7 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
 
         $view = $this->list(new BacklogListQuery(search: 'otter'));
 
-        self::assertSame(['Otter in the title', 'Plain card'], $this->titles($view));
+        self::assertSame(['Plain card', 'Otter in the title'], $this->titles($view));
         self::assertSame(3, $view->total);
         self::assertSame(2, $view->filteredTotal);
     }
@@ -100,7 +102,7 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
         $this->card('Other child', parent: $other);
         $this->card('Orphan');
 
-        self::assertSame(['Child', 'Other child', 'Orphan'], $this->titles($this->list()));
+        self::assertSame(['Orphan', 'Other child', 'Child'], $this->titles($this->list()));
         self::assertSame(['Orphan'], $this->titles($this->list(new BacklogListQuery(epic: BacklogListQuery::NO_EPIC))));
         self::assertSame(['Child'], $this->titles($this->list(new BacklogListQuery(epic: (string) $epic->id))));
 
@@ -108,7 +110,7 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
         self::assertSame(['Big epic', 'Other epic'], $epics);
     }
 
-    public function test_each_sort_orders_the_backlog(): void
+    public function test_the_default_order_is_newest_first_whatever_the_rank(): void
     {
         $old = $this->card('Old');
         $new = $this->card('New');
@@ -117,10 +119,77 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
         $this->stamp($middle, '2026-01-02', '2026-01-02');
         $this->stamp($new, '2026-01-03', '2026-01-03');
 
-        self::assertSame(['Old', 'New', 'Middle'], $this->titles($this->list(new BacklogListQuery(sort: BacklogSort::Rank))));
-        self::assertSame(['New', 'Middle', 'Old'], $this->titles($this->list(new BacklogListQuery(sort: BacklogSort::Newest))));
-        self::assertSame(['Old', 'Middle', 'New'], $this->titles($this->list(new BacklogListQuery(sort: BacklogSort::Oldest))));
-        self::assertSame(['Old', 'New', 'Middle'], $this->titles($this->list(new BacklogListQuery(sort: BacklogSort::Updated))));
+        self::assertSame(['New', 'Middle', 'Old'], $this->titles($this->list()));
+        self::assertSame(['Old', 'Middle', 'New'], $this->titles($this->list(new BacklogListQuery(dir: BacklogDirection::Asc))));
+    }
+
+    public function test_cards_added_in_the_same_second_keep_the_order_they_were_added_in(): void
+    {
+        $first = $this->card('First');
+        $second = $this->card('Second');
+        $third = $this->card('Third');
+        foreach ([$first, $second, $third] as $card) {
+            $this->stamp($card, '2026-01-01 10:00:00', '2026-01-01 10:00:00');
+        }
+
+        self::assertSame(['Third', 'Second', 'First'], $this->titles($this->list()));
+        self::assertSame(['First', 'Second', 'Third'], $this->titles($this->list(new BacklogListQuery(dir: BacklogDirection::Asc))));
+    }
+
+    public function test_the_type_sort_orders_by_type_then_by_age(): void
+    {
+        $this->card('Old feature');
+        $this->card('Bug', type: CardType::Bug);
+        $this->card('New feature');
+        $this->card('Docs', type: CardType::Docs);
+
+        self::assertSame(
+            ['Bug', 'Docs', 'Old feature', 'New feature'],
+            $this->titles($this->list(new BacklogListQuery(sort: BacklogSort::Type, dir: BacklogDirection::Asc))),
+        );
+        self::assertSame(
+            ['New feature', 'Old feature', 'Docs', 'Bug'],
+            $this->titles($this->list(new BacklogListQuery(sort: BacklogSort::Type, dir: BacklogDirection::Desc))),
+        );
+    }
+
+    public function test_the_epic_sort_orders_by_epic_number_and_puts_cards_with_no_epic_last(): void
+    {
+        $this->card('Orphan');
+        $low = $this->card('Low epic', type: CardType::Epic, column: $this->column($this->project, 'next'));
+        $high = $this->card('High epic', type: CardType::Epic, column: $this->column($this->project, 'next'));
+        $this->card('High child', parent: $high);
+        $this->card('Low child', parent: $low);
+        $this->card('Second orphan');
+
+        self::assertSame(
+            ['Low child', 'High child', 'Orphan', 'Second orphan'],
+            $this->titles($this->list(new BacklogListQuery(sort: BacklogSort::Epic, dir: BacklogDirection::Asc))),
+        );
+        self::assertSame(
+            ['High child', 'Low child', 'Second orphan', 'Orphan'],
+            $this->titles($this->list(new BacklogListQuery(sort: BacklogSort::Epic, dir: BacklogDirection::Desc))),
+        );
+    }
+
+    public function test_the_page_ids_follow_the_order_of_the_page_under_the_epic_sort(): void
+    {
+        $epic = $this->card('Epic', type: CardType::Epic, column: $this->column($this->project, 'next'));
+        $this->card('Orphan');
+        $this->card('Child', parent: $epic);
+        $this->card('Second orphan');
+        $this->card('Second child', parent: $epic);
+        $cards = self::getContainer()->get(CardRepository::class);
+        self::assertInstanceOf(CardRepository::class, $cards);
+        $backlog = $this->column($this->project, 'backlog');
+
+        foreach (BacklogDirection::cases() as $dir) {
+            $query = new BacklogListQuery(sort: BacklogSort::Epic, dir: $dir);
+            $page = array_map(static fn (Card $card): string => (string) $card->id, $cards->findBacklogPage($backlog, $query, 0, 10));
+
+            self::assertCount(4, $page);
+            self::assertSame($page, $cards->findBacklogPageIds($backlog, $query, 0, 10));
+        }
     }
 
     public function test_the_list_pages_the_matches_and_clamps_a_page_past_the_end(): void
@@ -131,7 +200,7 @@ final class ListBacklogCardsHandlerTest extends KernelTestCase
         $this->card('Feature');
 
         $second = $this->list(new BacklogListQuery(page: 2, type: CardType::Bug));
-        self::assertSame(['Bug 25', 'Bug 26'], $this->titles($second));
+        self::assertSame(['Bug 1', 'Bug 0'], $this->titles($second));
         self::assertSame(2, $second->totalPages);
         self::assertNull($second->clampedPage);
 

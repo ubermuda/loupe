@@ -235,18 +235,19 @@ type, the epic, the count of pending feedback and the date the card was added.
 
 Above the list, search the title and the body, and filter by type and by epic.
 The epic filter offers **Any epic**, **No epic**, and each epic with a card in
-Backlog. **Sort** offers **Rank**, **Newest first**, **Oldest first** or
-**Recently updated**. **Clear** removes every filter, and a count shows how
-many cards match.
+Backlog. **Clear** removes every filter, and a count shows how many cards
+match.
 
-With the **Rank** sort, drag a row by its handle to change its rank. With a filter on,
-the card lands just above the visible row below it. The other sorts show no
-handle.
+The list shows the newest cards first. Click the **Type**, **Epic** or
+**Added** column header to sort by that column, and click it again to reverse
+the order. An arrow shows the current order. The **Epic** sort puts the cards
+with no epic last in both directions. A filter change keeps the sort.
 
 The **Move to** menu of a row sends the card to the end of a board column. Tick
 rows to show the bulk bar. It has a button for the first column that is not
 terminal, such as **Move to Next**, a **Move to** menu for any board column, and
-**Clear**. A bulk move takes the ticked cards of one page, in Backlog order.
+**Clear**. A bulk move takes the ticked cards of one page. They keep
+the rank that the board holds for them, whatever the sort of the page.
 When one move is refused, no card moves.
 
 An empty Backlog shows **The Backlog is empty**. Filters that match no card

@@ -642,9 +642,14 @@ project the token's user owns:
     "bridge.stop_sigterm_after_ms": 7500,
     "bridge.stop_sigkill_after_ms": 2500
   },
-  "cliRange": "^1.0"
+  "cliRange": "^1.0",
+  "head": 4812
 }
 ```
+
+`head` is the highest outbox sequence of the projects that the user owns, as a
+JSON integer. It is `0` when those projects hold no event. A bridge with no
+saved cursor can start from it, and replay nothing older.
 
 `cliRange` is the range of CLI versions that the server supports. `loupe update`
 reads it when no bridge runs. A running bridge reads the same range from the
@@ -705,6 +710,44 @@ receives no event there.
 
 This endpoint replaced `GET /api/projects/{handle}/stream`. A CLI binary built
 before the change calls the old route, gets `404`, and must be rebuilt.
+
+### Replay
+
+`GET /api/events/replay?after=<sequence>` returns the events that a client
+missed while it was stopped or reconnecting. It reads the outbox, which holds
+every event, so it does not depend on the history of the hub.
+
+```json
+{
+  "events": [
+    {"id": "4811", "type": "board.card_moved", "data": "{\"projectId\":\"0192f3a1-...\"}"},
+    {"id": "4812", "type": "inbox.ask_closed", "data": "{\"projectId\":\"0192f3a1-...\"}"}
+  ],
+  "hasMore": false
+}
+```
+
+1. `after` is a required integer, `0` or higher. A missing, non-integer or negative value answers `400`.
+2. `id` is a string, the same text that the hub sends as the SSE id. It holds the outbox sequence, so parse it as a 64-bit integer.
+3. `data` is the stored payload string, byte for byte what the hub sends.
+4. The list holds the events of the projects that the user owns, in sequence order.
+5. The route also returns events that the hub has not published yet.
+
+A page holds at most 200 events with a sequence above `after`. `hasMore` is
+`true` when more such events exist. Read the next page with the highest `id` of
+the page as `after`.
+
+The server takes a sequence at insert, and the row becomes visible at commit.
+So a row can become visible after a higher row was already delivered. To cover
+it, each page also repeats some events at or below `after`. The anchor is the
+event with the highest sequence at or below `after`, in any project. The page
+repeats the user's events at or below `after` that were created at most two
+minutes before the anchor, at most 200 of them. When no anchor exists, the page
+repeats nothing. A client must therefore drop an event whose `id` it already
+handled.
+
+The route needs an agent-scoped token, and answers `404` when push is switched
+off. It allows 60 calls per minute per token.
 
 ## The inbox.ask_closed event
 
