@@ -208,3 +208,7 @@ when@test:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'
+            agent_event_replay:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
