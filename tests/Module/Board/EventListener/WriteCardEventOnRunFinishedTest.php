@@ -79,7 +79,7 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         self::assertSame($expected, $detail);
     }
 
-    public function test_a_second_dispatch_with_the_same_state_leaves_the_row_unchanged(): void
+    public function test_a_repeated_dispatch_leaves_the_row_unchanged(): void
     {
         $run = $this->workerRun($this->card->id, WorkerRunState::Succeeded);
         $run->endedAt = new \DateTimeImmutable('2026-09-30 10:00:00+00:00');
@@ -89,16 +89,34 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         $first = $this->rows();
         self::assertCount(1, $first);
 
-        $run = $this->em->find(WorkerRun::class, $run->id);
-        self::assertInstanceOf(WorkerRun::class, $run);
-        $run->endedAt = new \DateTimeImmutable('2026-09-30 11:00:00+00:00');
-        $this->em->flush();
         $this->listener()($this->event($run));
         $second = $this->rows();
         self::assertCount(1, $second);
         self::assertSame((string) $first[0]->id, (string) $second[0]->id);
         self::assertEquals($first[0]->occurredAt, $second[0]->occurredAt);
         self::assertSame($first[0]->detail, $second[0]->detail);
+    }
+
+    public function test_a_run_that_closes_again_in_the_same_state_takes_the_later_time(): void
+    {
+        $run = $this->workerRun($this->card->id, WorkerRunState::TimedOut);
+        $run->endedAt = new \DateTimeImmutable('2026-09-30 10:00:00+00:00');
+        $this->em->flush();
+        $this->listener()($this->event($run));
+        $first = $this->rows();
+        self::assertCount(1, $first);
+
+        $run = $this->em->find(WorkerRun::class, $run->id);
+        self::assertInstanceOf(WorkerRun::class, $run);
+        $run->endedAt = new \DateTimeImmutable('2026-09-30 11:00:00+00:00');
+        $this->em->flush();
+        $this->listener()($this->event($run));
+
+        $rows = $this->rows();
+        self::assertCount(1, $rows);
+        self::assertSame((string) $first[0]->id, (string) $rows[0]->id);
+        self::assertSame('timed-out', $rows[0]->detail['state']);
+        self::assertEquals(new \DateTimeImmutable('2026-09-30 11:00:00+00:00'), $rows[0]->occurredAt);
     }
 
     public function test_a_timed_out_run_that_later_succeeds_keeps_one_row_with_the_later_outcome(): void
