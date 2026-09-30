@@ -99,7 +99,8 @@ your shell profile.
 
 With no `--version`, the script reads the release list from the GitHub API. It
 takes the highest `cli/vX.Y.Z` release of the major version your instance
-supports, and skips a pre-release such as `cli/v1.2.0-rc1`. The GitHub API rate
+supports. It skips a pre-release tag such as `cli/v1.2.0-rc1`, and any release
+that GitHub marks as a draft or a prerelease. The GitHub API rate
 limit can stop this step. Then use `--version`.
 
 `--auto-update` runs `loupe update auto on`. It turns updates on also when the
