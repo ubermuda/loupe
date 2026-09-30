@@ -1246,7 +1246,9 @@ Docker container.
 
 A stop holds the card, and the bridge starts no worker for a held card. It also
 skips an event whose `card.held` is `true`, whatever the rule says. An event
-whose `card.held` is `false` ends the hold, and runs as usual. A queued run of
+whose `card.held` is `false` ends the hold, and runs as usual. A
+`board.column_deleted` event ends the hold of each card in its `movedCardIds`,
+as the server does. A queued run of
 a held card waits until the hold ends. The bridge keeps its holds in memory,
 and hands them to a new version at an update. A restart forgets them, and the
 next event with `card.held` set to `true` holds the card again.

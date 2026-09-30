@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -481,6 +482,20 @@ func TestAnAckThatFindsAnotherStateIsLogged(t *testing.T) {
 	line := h.only(t, "command_ack_state")
 	if str(t, line, "state") != api.CommandRefused || str(t, line, "stored") != "expired" {
 		t.Fatalf("command_ack_state = %v", line)
+	}
+}
+
+// A column delete ends the hold of each card it moved, as the server does.
+func TestAColumnDeleteEndsTheHoldOfTheCardsItMoved(t *testing.T) {
+	h := newHarness(t)
+
+	h.send(heldPayload(87, true))
+	h.send(fmt.Sprintf(`{"type":"board.column_deleted","subject":{"type":"board_column","id":"0199a0e2-0000-7c5e-9f2a-0000000000c1"},"projectId":%q,"actor":"human","slug":"archive","targetSlug":"backlog","movedCardIds":[%q]}`,
+		testProject, strings.ToUpper(cardUUID(87))))
+	h.send(cardMoved(87))
+
+	if got := startedCards(t, h); !slices.Equal(got, []int{87}) {
+		t.Fatalf("started = %v, want the card free after the delete", got)
 	}
 }
 

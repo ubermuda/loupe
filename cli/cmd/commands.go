@@ -340,9 +340,18 @@ func (r *router) dropHold(cardID string) bool {
 }
 
 // noteCardHold keeps the hold the server states for the card of the event. An
-// event with no held key changes nothing. It reports whether the event ended a
-// hold, and starts nothing, so the event can replace a stale queued run first.
+// event with no held key changes nothing. A column delete ends the hold of each
+// card it moved, as the server does. It reports whether the event ended a hold,
+// and starts nothing, so the event can replace a stale queued run first.
 func (r *router) noteCardHold(e event.Event) bool {
+	if e.Type == event.ColumnDeletedType {
+		released := false
+		for _, id := range e.MovedCardIDs {
+			released = r.dropHold(strings.ToLower(id)) || released
+		}
+
+		return released
+	}
 	id, _ := cardOf(e)
 	if id == "" || e.Card.Held == nil {
 		return false

@@ -28,10 +28,12 @@ type Event struct {
 	ToStatus   string  `json:"toStatus"`
 	Actor      string  `json:"actor"`
 	// FromSlug and ToSlug are the old and new slug of a renamed column or
-	// project. Slug is the slug of a deleted column.
-	FromSlug string `json:"fromSlug"`
-	ToSlug   string `json:"toSlug"`
-	Slug     string `json:"slug"`
+	// project. Slug is the slug of a deleted column, and MovedCardIDs the
+	// cards that its delete moved to another column.
+	FromSlug     string   `json:"fromSlug"`
+	ToSlug       string   `json:"toSlug"`
+	Slug         string   `json:"slug"`
+	MovedCardIDs []string `json:"movedCardIds"`
 	// SessionID and BridgeID belong to inbox.ask_closed and
 	// pull_request.fix_requested. CardID belongs to those, to
 	// document.review_submitted and to every pull_request type. Verdict belongs
