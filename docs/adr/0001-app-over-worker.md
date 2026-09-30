@@ -15,8 +15,8 @@ Some worker stages do work that needs no judgment. The Update step of `loupe-sta
 
 A worker costs more than the same step in the app:
 
-- **Cost.** Each run starts a Claude session, loads the skill and its references, and spends tokens to reach a result that a few lines of PHP compute for free. A run that ends as `not ready` costs as much as one that acts. On 2026-09-29, pull request #667 got three `merge-behind` runs before anyone reviewed it.
-- **Performance.** A worker waits for a slot in its pool, then needs about 30 s to start, read and act. The `sync-approved` run of #670 on 2026-09-30 took 31 s. The app acts in the request that delivers the webhook, or in the next message on the `async` transport.
+- Cost: each run starts a Claude session, loads the skill and its references, and spends tokens to reach a result that a few lines of PHP compute for free. A run that ends as `not ready` costs as much as one that acts. On 2026-09-29, pull request #667 got three `merge-behind` runs before anyone reviewed it.
+- Performance: a worker waits for a slot in its pool, then needs about 30 s to start, read and act. The `sync-approved` run of #670 on 2026-09-30 took 31 s. The app acts in the request that delivers the webhook, or in the next message on the `async` transport.
 
 A worker also needs a bridge that runs. An instance with no bridge, or a bridge that is paused, asleep or out of usage, does none of that work.
 
@@ -38,7 +38,13 @@ These examples do not need an agent:
 - Move a card when its pull request merges, or when its checks pass.
 - Post a fixed comment, or record a state change.
 
-Apply this rule when you design a new stage, a new bridge rule or a new automation. When you find an existing worker step that needs no judgment, raise a card to move it into the app. Card 369 moves the branch sync. This is a preference that the owner applies case by case, not a rule that forbids a worker for mechanical work. A step that the app cannot do yet, such as one that needs a git checkout, can stay in a worker until it can.
+Apply this rule when you design a new stage, a new bridge rule or a new automation. When you find an existing worker step that needs no judgment, raise a card to move it into the app. Card 369 moves the branch sync. The owner applies this preference case by case. A step that the app cannot do yet, such as one that needs a git checkout, can stay in a worker until it can.
+
+## Rejected options
+
+- A worker for every lifecycle step: one mechanism is simpler to learn, and a skill is faster to change than PHP. It spends tokens and half a minute on each event, including the events that end with no work.
+- The app for every lifecycle step: the app cannot write code, read a failing log or resolve a conflict. Those steps need an agent.
+- A cheaper model for the mechanical worker stages: it lowers the token cost, but the start time, the pool slot and the need for a running bridge stay.
 
 ## Consequences
 

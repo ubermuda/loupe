@@ -9,10 +9,11 @@ Each record is a file `NNNN-short-name.md` in `docs/adr/`. The number counts fro
 
 A record has these sections:
 
-- **Status**: Proposed, Accepted, or Superseded by a later record.
-- **Context**: the problem, and the facts that force a decision.
-- **Decision**: what we do, in one or two sentences, then the rule in detail.
-- **Consequences**: what gets better, what gets worse, and what to watch.
+- Status: Proposed, Accepted, or Superseded by a later record.
+- Context: the problem, and the facts that force a decision.
+- Decision: what we do, in one or two sentences, then the rule in detail.
+- Rejected options: the options we did not choose, and why.
+- Consequences: what gets better, what gets worse, and what to watch.
 
 [Architectural priorities](../contributing/architectural-priorities.md) ranks correctness, simplicity, performance and shipping speed. A record applies that ranking to one recurring question.
 
