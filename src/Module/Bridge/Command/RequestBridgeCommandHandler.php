@@ -19,6 +19,7 @@ use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Outbox\OutboxWriter;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -79,6 +80,10 @@ final readonly class RequestBridgeCommandHandler
                 // The same lock the heartbeat takes, so two requests for one run
                 // cannot both miss the pending read.
                 $this->bridges->lockForWrite($ownerId, $bridgeId);
+                if (BridgeCommandKind::StopRun === $command->kind) {
+                    // The hold takes this lock later. Taking it before the insert, whose foreign key shares the row, keeps the order of a resume ack.
+                    $this->em->lock($run->project, LockMode::PESSIMISTIC_WRITE);
+                }
 
                 $bridge = $this->bridges->findOneByOwnerAndId($owner, $bridgeId);
                 if (null === $bridge) {
