@@ -5785,6 +5785,14 @@
                 <source>bridge.worker_runs.state.running</source>
                 <target>Running</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.stopping">
+                <source>bridge.worker_runs.state.stopping</source>
+                <target>Stopping</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.stopped">
+                <source>bridge.worker_runs.state.stopped</source>
+                <target>Stopped</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.state.waiting_for_person">
                 <source>bridge.worker_runs.state.waiting_for_person</source>
                 <target>Waiting for a person</target>

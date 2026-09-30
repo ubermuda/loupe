@@ -54,6 +54,26 @@ final class ReportBridgeRunsHandlerTest extends KernelTestCase
         self::assertSame([(string) $run->id], array_map(static fn (WorkerRun $changed): string => (string) $changed->id, $changed));
     }
 
+    public function test_a_timed_out_run_the_inventory_holds_as_stopping_reopens_as_stopping(): void
+    {
+        [$owner, $project, $bridgeId] = $this->scenario('inventory-stopping');
+        $run = $this->keyedRun($project, $bridgeId, WorkerRunState::TimedOut);
+
+        $this->handle($owner, $bridgeId, [$this->key($project, $run) => WorkerRunState::Stopping]);
+
+        self::assertSame(WorkerRunState::Stopping, $this->reload($run)->state);
+    }
+
+    public function test_a_stopping_run_the_inventory_does_not_name_is_lost(): void
+    {
+        [$owner, $project, $bridgeId] = $this->scenario('inventory-stopping-lost');
+        $run = $this->keyedRun($project, $bridgeId, WorkerRunState::Stopping);
+
+        $this->handle($owner, $bridgeId, []);
+
+        self::assertSame(WorkerRunState::Lost, $this->reload($run)->state);
+    }
+
     /** The inventory reports what the bridge holds, and the state reports carry every move. */
     public function test_an_open_run_the_inventory_names_is_left_alone(): void
     {

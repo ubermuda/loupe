@@ -28,6 +28,8 @@ the `site-review` or the `mcp` scope.
 | `resumed` | the bridge | the ask the session waited on closed, and the bridge resumes the session |
 | `skipped` | the bridge | the session already read every answer of its ask, so the bridge does not resume it |
 | `running` | the bridge | the worker process started |
+| `stopping` | the bridge | a person asked the bridge to stop the run, and the worker process is still ending |
+| `stopped` | the bridge | a person stopped the run. The bridge never resumes it |
 | `waiting-for-person` | the bridge | the rule's `maxChain` cap stopped the run. A move by a person starts a new run |
 | `dropped` | the bridge | the bridge stopped, a rule died, or a reload removed the rule, while the run still waited |
 | `succeeded` | the bridge | the worker exited with code 0 with a structured result. A result from a new bridge has the status `finished` |
@@ -42,11 +44,15 @@ the `site-review` or the `mcp` scope.
 | `lost` | the server | the bridge reconnected, and it no longer holds the run |
 | `closed` | the server | an interactive run ended. See [Interactive sessions](../using/worker-runs.md#interactive-sessions) |
 
-`queued`, `resumed` and `running` are open states. Every other state closes the
-run. `succeeded`, `no-result`, `unfinished`, `blocked`, `waiting-on-forge`,
-`gave-up`, `failed` and `not-started` are the outcomes. Only an outcome carries
-an exit code, a result flag, a result status, result fields, a failure reason
-and an output.
+`queued`, `resumed`, `running` and `stopping` are open states. Every other state
+closes the run. `succeeded`, `no-result`, `unfinished`, `blocked`,
+`waiting-on-forge`, `gave-up`, `failed` and `not-started` are the outcomes. Only
+an outcome carries an exit code, a result flag, a result status, result fields
+and a failure reason.
+
+`stopped` is not an outcome. It closes the run with no exit code and no result,
+and the bridge does not resume it. It can carry an output and a usage. A queued
+run can go straight to `stopped`, so it has no start time.
 
 A structured result is the JSON object that `claude` returns for the schema the
 bridge passes. It holds a `status` of `finished`, `blocked`, `unfinished` or
@@ -85,19 +91,19 @@ order.
 | Field | Rule |
 |---|---|
 | `bridgeId` | required. A uuid the bridge generates once and keeps. It points at no table, so any uuid is accepted |
-| `state` | required. One of the fifteen states the bridge sets. The server refuses `timed-out`, `lost` and `closed` |
+| `state` | required. One of the seventeen states the bridge sets. The server refuses `timed-out`, `lost` and `closed` |
 | `at` | required. When the run reached the state, on the bridge clock, as an ISO 8601 timestamp |
 | `cardId` | required. The uuid of the card the run is for. It is a plain value, so a deleted card leaves its run history intact |
 | `cardNumber` | required. The short number the card shows, counting from 1 inside the project, at most 2147483647 |
 | `ruleName` | required. The rule that matched, 1 to 100 characters after trimming |
 | `sessionId` | the uuid of the Claude Code session the worker runs as. Required for `running` |
 | `startedAt` | when the worker started, on the bridge clock. Required for `running` |
-| `endedAt` | when the worker ended, on the bridge clock. Required for an outcome, and it cannot be before `startedAt` |
+| `endedAt` | when the worker ended, on the bridge clock. Required for an outcome. A `stopped` report may leave it out, and the server then uses `at`. The end, or `at` in its place, cannot be before the `startedAt` of the same report |
 | `exitCode` | the process exit code, between -255 and 255. `succeeded`, `no-result`, `unfinished`, `blocked` and `waiting-on-forge` need 0, `failed` needs any other code, and `not-started` needs `null` |
 | `hasResult` | whether the worker gave a structured result. `no-result` needs `false`, and `succeeded`, `unfinished`, `blocked` and `waiting-on-forge` refuse `false`. Send `null` for `not-started`, because a value is refused when `exitCode` is `null` |
 | `resultStatus` | the `status` of the structured result: `finished`, `blocked`, `unfinished` or `waiting`. It needs `hasResult: true`. `blocked` and `unfinished` need the state of the same name, `waiting` needs `waiting-on-forge`, and `succeeded` takes `finished` or `null` |
 | `failureReason` | why the process never started, at most 1000 characters. Required for `not-started`, and refused with an exit code |
-| `output` | what the worker printed, at most 4000 characters. Required for an outcome, and it may be empty |
+| `output` | what the worker printed, at most 4000 characters. Required for an outcome, and it may be empty. A `stopped` report may carry it, and a run keeps its output when the report has none |
 | `askId` | the ask a `resumed` run continues, at most 100 characters |
 | `replacedBy` | the `runId` of the run that replaced a `replaced` run, a uuid |
 | `maxChain` | the cap that stopped a `waiting-for-person` run, a positive integer |
@@ -114,6 +120,7 @@ order.
 | `variant` | the variant of the experiment that the card runs with, such as `sonnet`. It matches the same pattern |
 | `requestedModel` | the model the variant asked for, such as `claude-sonnet-5-5`, at most 100 characters with no control characters |
 | `switchedFrom` | the variant the card was pinned to before this run, when the rule no longer offers it. It matches the same pattern |
+| `trigger` | the event that queued the run, as an object. It always holds `eventType`, and a pull request event adds `forge`, `repository`, `pullRequestNumber`, `headSha` and `reason`. A person's Resume from the web UI sends the `eventType` `bridge.command` |
 
 A `gave-up` report needs the exit code, the result flag and the status of the
 outcome the bridge would have resumed: `failed`, `no-result` or `unfinished`.
@@ -141,6 +148,10 @@ ignores them on a later report. A `not-started` outcome also fills them, because
 the bridge resolves the [experiment pin](#resolving-an-experiment-pin) before it
 starts the worker. A blank value, a value that breaks its rule, or a field
 without its partner gets a 422.
+
+The server stores `trigger` from the report that creates the run, and ignores
+it on a later report. A run with no `trigger` comes from a bridge that predates
+triggers. An `eventType` that is not a dotted lower-case name gets a 422.
 
 The server checks the shape of `askId`, `replacedBy`, `maxChain` and `reason`,
 and it does not store them.
@@ -175,9 +186,9 @@ An outcome can carry the tokens the worker spent, per model. `claude -p
 | `costUsd` | the cost in US dollars, from 0 to 999999.999999. Send `null` for a model the bridge knows no price for. The server stores six decimal places |
 
 The server checks the shape of `usage` on every state, and stores it only from
-the outcome that closes the run. A repeat of that outcome writes nothing. A run
-with no `usage` has unknown usage, which is what a bridge built before the
-field leaves. A run whose `models` is empty spent nothing.
+the outcome or the `stopped` report that closes the run. A repeat of that
+report writes nothing. A run with no `usage` has unknown usage, which is what a
+bridge built before the field leaves. A run whose `models` is empty spent nothing.
 
 Reported counts replace estimated counts. Estimated counts never replace
 reported counts, and a second report from the same source changes nothing. The
@@ -189,8 +200,9 @@ stores it to the second.
 ### How a report moves the run
 
 A run moves forward only. The open states rank `queued`, then `resumed`, then
-`running`, and every closed state ranks above them. A report moves an open run
-when its state ranks higher than the state the run holds. A report never moves
+`running`, then `stopping`, and every closed state ranks above them. A report
+moves an open run when its state ranks higher than the state the run holds. A
+late `running` therefore does not move a `stopping` run back. A report never moves
 a closed run, with two exceptions:
 
 - A report replaces `timed-out` when its state ranks at least as high as every
@@ -249,7 +261,7 @@ open run the bridge holds, across all its projects.
 | `runs` | required. A list of at most 1000 runs, which may be empty |
 | `runs[].runId` | required. The uuid the bridge generated for the run |
 | `runs[].projectId` | required. The uuid of the run's project |
-| `runs[].state` | required. `queued`, `resumed` or `running` |
+| `runs[].state` | required. `queued`, `resumed`, `running` or `stopping` |
 
 The server compares the list with the runs of that bridge that are open or
 `timed-out`, in the projects the token's user owns:
@@ -555,11 +567,14 @@ whose last resolve is older than the run retention window. The next run of that
 card then picks a variant again. Every resolve refreshes a pin, so the sweep
 takes only the pins of idle cards.
 
-Deleting a project deletes its run records, its usage and its experiment pins
-with it. Deleting an account deletes the same data of every project it owned.
-The account's data export holds each run in `worker_runs.json`, with its state,
-its history, its usage source, its worker pool, and its `experiment`, `variant`,
-`requestedModel` and `switchedFrom`. It holds every usage row in
-`worker_run_usage.json`. It holds every experiment pin in
+Deleting a project deletes its run records, its usage, its experiment pins
+and its card holds with it. Deleting an account deletes the same data of every
+project it owned, and removes the account's name from a hold it placed in
+another project. The account's data export holds each run in
+`worker_runs.json`, with its state, its history, its usage source, its worker pool, its `experiment`, `variant`,
+`requestedModel` and `switchedFrom`, and its trigger fields. It holds every usage
+row in `worker_run_usage.json`. It holds every experiment pin in
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
-and when the pin was created and last resolved.
+and when the pin was created and last resolved. It holds every card hold in
+`bridge_card_holds.json`, with its project, its card, the run it stopped and
+when it began. The run is null after the retention sweep deletes it.

@@ -107,6 +107,23 @@ class CardRepository extends ServiceEntityRepository
         return $titles;
     }
 
+    /** A scalar read, so a card already in the identity map cannot give a stale column. */
+    public function findColumnSlug(Project $project, Uuid $cardId): ?string
+    {
+        /** @var array{slug: string}|null $row */
+        $row = $this->createQueryBuilder('c')
+            ->select('k.slug')
+            ->join('c.column', 'k')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.id = :id')
+            ->setParameter('project', $project)
+            ->setParameter('id', $cardId, UuidType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $row['slug'] ?? null;
+    }
+
     public function findOneByProjectAndNumber(Project $project, int $number): ?Card
     {
         return $this->findOneBy(['project' => $project, 'number' => $number]);
