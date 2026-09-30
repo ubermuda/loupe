@@ -838,6 +838,9 @@
     .lp-backlog-menu__item {
         @apply flex min-h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg border-0 bg-transparent px-2.5 text-left text-sm text-ink transition-colors hover:bg-tint-strong;
     }
+    .lp-backlog-menu__item:disabled {
+        @apply cursor-not-allowed text-fg-dim hover:bg-transparent;
+    }
     /* The bar that appears when a row is ticked. It sticks to the bottom of the view. */
     .lp-backlog-bulk {
         @apply sticky bottom-5 z-30 mx-auto mt-4 flex w-fit items-center gap-2 rounded-xl border border-chrome-line bg-chrome-raised py-1.5 pr-1.5 pl-4 text-sm text-chrome-fg shadow-xl;

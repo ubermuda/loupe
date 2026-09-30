@@ -6469,6 +6469,15 @@
             <trans-unit id="bridge.agents.update.blocked"><source>bridge.agents.update.blocked</source><target>Update blocked</target></trans-unit>
             <trans-unit id="bridge.agents.update.incompatible"><source>bridge.agents.update.incompatible</source><target>Needs %range%</target></trans-unit>
             <trans-unit id="bridge.agents.empty.action"><source>bridge.agents.empty.action</source><target>Connect a bridge</target></trans-unit>
+            <trans-unit id="bridge.agents.status.paused"><source>bridge.agents.status.paused</source><target>Paused</target></trans-unit>
+            <trans-unit id="bridge.agents.status.pausing"><source>bridge.agents.status.pausing</source><target>Pausing</target></trans-unit>
+            <trans-unit id="bridge.agents.status.unpausing"><source>bridge.agents.status.unpausing</source><target>Resuming new work</target></trans-unit>
+            <trans-unit id="bridge.agents.paused"><source>bridge.agents.paused</source><target>Paused</target></trans-unit>
+            <trans-unit id="bridge.agents.paused_by"><source>bridge.agents.paused_by</source><target>%time% by %person%</target></trans-unit>
+            <trans-unit id="bridge.agents.menu"><source>bridge.agents.menu</source><target>Bridge actions</target></trans-unit>
+            <trans-unit id="bridge.agents.pause"><source>bridge.agents.pause</source><target>Pause new work</target></trans-unit>
+            <trans-unit id="bridge.agents.unpause"><source>bridge.agents.unpause</source><target>Resume new work</target></trans-unit>
+            <trans-unit id="bridge.agents.pause_outdated"><source>bridge.agents.pause_outdated</source><target>Update the bridge to %version% or later to pause it.</target></trans-unit>
             <trans-unit id="bridge.command.error.no_bridge"><source>bridge.command.error.no_bridge</source><target>No bridge runs this session, so no bridge can take the command.</target></trans-unit>
             <trans-unit id="bridge.command.error.unknown_bridge"><source>bridge.command.error.unknown_bridge</source><target>The bridge of this run is no longer connected to your account.</target></trans-unit>
             <trans-unit id="bridge.command.error.pending"><source>bridge.command.error.pending</source><target>This run already has a command that waits for its bridge.</target></trans-unit>
