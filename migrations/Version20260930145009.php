@@ -15,6 +15,7 @@ final class Version20260930145009 extends AbstractMigration
         return 'Create bridge_experiment_definitions';
     }
 
+    #[\Override]
     public function up(Schema $schema): void
     {
         $this->addSql('CREATE TABLE bridge_experiment_definitions (id UUID NOT NULL, experiment VARCHAR(64) NOT NULL, weights JSON NOT NULL, reported_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
