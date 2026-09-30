@@ -107,6 +107,27 @@ class CardRepository extends ServiceEntityRepository
         return $titles;
     }
 
+    /**
+     * @param non-empty-list<Uuid> $ids
+     *
+     * @return list<array{id: Uuid, label: string, terminal: bool}>
+     */
+    public function findColumnsByIds(Project $project, array $ids): array
+    {
+        /** @var list<array{id: Uuid, label: string, terminal: bool}> $rows */
+        $rows = $this->createQueryBuilder('c')
+            ->select('c.id, k.label, k.terminal')
+            ->join('c.column', 'k')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.id IN (:ids)')
+            ->setParameter('project', $project)
+            ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
+            ->getQuery()
+            ->getArrayResult();
+
+        return $rows;
+    }
+
     /** A scalar read, so a card already in the identity map cannot give a stale column. */
     public function findColumnSlug(Project $project, Uuid $cardId): ?string
     {

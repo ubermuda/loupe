@@ -7,6 +7,7 @@ namespace App\Tests\Module\SiteReview\Command;
 use App\Mercure\UserTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Service\HeartbeatInterval;
+use App\Module\Bridge\Service\StopLadder;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\SiteReview\Command\ShowEventsCommand;
 use App\Module\SiteReview\Command\ShowEventsHandler;
@@ -35,6 +36,7 @@ final class ShowEventsHandlerLazinessTest extends TestCase
             new UserTopicBuilder('https://loupe.example.com'),
             FeatureFlags::service(),
             new HeartbeatInterval(FeatureFlags::service(), 30),
+            new StopLadder(FeatureFlags::service(), 7500, 2500),
             static function () use (&$built): never {
                 $built = true;
 

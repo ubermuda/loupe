@@ -6,6 +6,7 @@ namespace App\Module\SiteReview\Command;
 
 use App\Mercure\UserTopicBuilder;
 use App\Module\Bridge\Service\HeartbeatInterval;
+use App\Module\Bridge\Service\StopLadder;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Outbox\Repository\OutboxEventRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -29,6 +30,7 @@ final readonly class ShowEventsHandler
         private UserTopicBuilder $userTopics,
         private FeatureFlagService $featureFlags,
         private HeartbeatInterval $heartbeatInterval,
+        private StopLadder $stopLadder,
 
         /**
          * A closure, because the factory reads MERCURE_JWT_SECRET, which an
@@ -75,6 +77,8 @@ final readonly class ShowEventsHandler
         return [
             self::INBOX_FLAG => $this->featureFlags->isEnabled(self::INBOX_FLAG),
             HeartbeatInterval::FLAG => $this->heartbeatInterval->seconds(),
+            StopLadder::SIGTERM_FLAG => $this->stopLadder->sigtermAfterMs(),
+            StopLadder::SIGKILL_FLAG => $this->stopLadder->sigkillAfterMs(),
         ];
     }
 }

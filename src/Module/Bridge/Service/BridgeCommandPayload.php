@@ -37,6 +37,7 @@ final class BridgeCommandPayload
             'cardNumber' => $run->cardNumber,
             'ruleName' => $run->ruleName,
             'cardColumn' => $run->cardColumn,
+            'resumeIndex' => $run->resumeIndex,
             'expiresAt' => $command->expiresAt->format(\DateTimeInterface::ATOM),
         ];
     }

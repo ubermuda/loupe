@@ -11,11 +11,14 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Entity\PullRequestComment;
+use App\Module\Board\Entity\PullRequestCommentState;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 /** Two projects can link one pull request, and a delivery belongs to the project that owns the repository. */
 final class RecordForgeDeliveryHandlerTest extends KernelTestCase
@@ -55,6 +58,25 @@ final class RecordForgeDeliveryHandlerTest extends KernelTestCase
         $this->em->clear();
         self::assertSame(['acme/new'], $this->pathsOf($ownCard));
         self::assertSame(['acme/old'], $this->pathsOf($strangerCard));
+    }
+
+    public function test_a_move_repoints_the_unposted_fix_run_comments_of_the_owning_project(): void
+    {
+        $owner = $this->project('owner');
+        $stranger = $this->project('stranger');
+        $pending = $this->comment($owner, 'github', 'Acme/Old', PullRequestCommentState::Pending);
+        $failed = $this->comment($owner, 'github', 'acme/old', PullRequestCommentState::Failed);
+        $posted = $this->comment($owner, 'github', 'acme/old', PullRequestCommentState::Posted);
+        $otherForge = $this->comment($owner, 'gitlab', 'acme/old', PullRequestCommentState::Pending);
+        $strangers = $this->comment($stranger, 'github', 'acme/old', PullRequestCommentState::Pending);
+
+        $this->handle($owner, new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, 'github', 'acme/old', movedTo: 'acme/new'));
+
+        self::assertSame('acme/new', $this->pathOf($pending));
+        self::assertSame('acme/new', $this->pathOf($failed));
+        self::assertSame('acme/old', $this->pathOf($posted));
+        self::assertSame('acme/old', $this->pathOf($otherForge));
+        self::assertSame('acme/old', $this->pathOf($strangers));
     }
 
     public function test_a_delivery_without_state_reads_writes_a_bare_fact_row_and_one_with_state_reads_does_not(): void
@@ -113,6 +135,25 @@ final class RecordForgeDeliveryHandlerTest extends KernelTestCase
                 ['card' => 'uuid'],
             ),
         ));
+    }
+
+    private function comment(Project $project, string $forge, string $repository, PullRequestCommentState $state): PullRequestComment
+    {
+        $comment = new PullRequestComment($project, Uuid::v7(), Uuid::v7(), $forge, $repository, 1, null, 'conflict');
+        $comment->state = $state;
+        $this->em->persist($comment);
+        $this->em->flush();
+
+        return $comment;
+    }
+
+    private function pathOf(PullRequestComment $comment): string
+    {
+        return (string) $this->em->getConnection()->fetchOne(
+            'SELECT repository FROM board_pull_request_comments WHERE id = :id',
+            ['id' => $comment->id],
+            ['id' => 'uuid'],
+        );
     }
 
     private function linkedCard(Project $project, string $repository, int $number): Card

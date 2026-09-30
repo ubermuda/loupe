@@ -80,22 +80,24 @@ type fakeHeartbeats struct {
 	sent   []api.Heartbeat
 	ids    []string
 	errors []error
-	// cliRange is the range each successful answer carries.
+	// cliRange, paused and commands are what each successful answer carries.
 	cliRange string
+	paused   *bool
+	commands []api.Command
 }
 
-func (f *fakeHeartbeats) Heartbeat(_ context.Context, bridgeID string, hb api.Heartbeat) (string, error) {
+func (f *fakeHeartbeats) Heartbeat(_ context.Context, bridgeID string, hb api.Heartbeat) (api.HeartbeatReply, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sent = append(f.sent, hb)
 	f.ids = append(f.ids, bridgeID)
 	if len(f.errors) == 0 {
-		return f.cliRange, nil
+		return api.HeartbeatReply{CLIRange: f.cliRange, Paused: f.paused, Commands: f.commands}, nil
 	}
 	err := f.errors[0]
 	f.errors = f.errors[1:]
 
-	return "", err
+	return api.HeartbeatReply{}, err
 }
 
 func (f *fakeHeartbeats) count() int {
@@ -351,6 +353,54 @@ func TestHookRowsGoOutAtOnceAndOutliveANewBody(t *testing.T) {
 }
 
 // The runner reports to a heartbeater that a bridge with no id never makes.
+// Every heartbeat says whether the bridge holds back new work, and that it
+// takes commands. A pause change goes out at once, and a new body keeps both.
+func TestTheHeartbeatCarriesThePauseAndTheCapabilities(t *testing.T) {
+	client := &fakeHeartbeats{}
+	hh := startHeartbeater(t, client, time.Minute, func(h *heartbeater) { h.paused = true })
+
+	hh.h.setPaused(true)
+	hh.h.setPaused(false)
+	eventually(t, "the heartbeat of the pause change", func() bool { return hh.queue.recorded() == 2 })
+	hh.h.setBody(api.Heartbeat{Projects: []string{"p2"}, CLIVersion: "b4e39aa7"})
+	eventually(t, "the heartbeat of the new body", func() bool { return hh.queue.recorded() == 3 })
+
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	var got []bool
+	for i, hb := range client.sent {
+		if hb.Paused == nil || !slices.Equal(hb.Capabilities, []string{"commands"}) {
+			t.Fatalf("heartbeat %d = %+v", i, hb)
+		}
+		got = append(got, *hb.Paused)
+	}
+	if !slices.Equal(got, []bool{true, false, false}) {
+		t.Fatalf("paused = %v", got)
+	}
+}
+
+// Each answer the server accepted hands its pause and its commands on.
+func TestTheHeartbeatHandsItsReplyOn(t *testing.T) {
+	paused := true
+	cmd := api.Command{CommandID: "c1"}
+	client := &fakeHeartbeats{paused: &paused, commands: []api.Command{cmd}}
+	var mu sync.Mutex
+	var replies []api.HeartbeatReply
+	startHeartbeater(t, client, time.Minute, func(h *heartbeater) {
+		h.onReply = func(r api.HeartbeatReply) {
+			mu.Lock()
+			defer mu.Unlock()
+			replies = append(replies, r)
+		}
+	})
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(replies) != 1 || replies[0].Paused == nil || !*replies[0].Paused || len(replies[0].Commands) != 1 || replies[0].Commands[0].CommandID != "c1" {
+		t.Fatalf("replies = %+v", replies)
+	}
+}
+
 func TestANilHeartbeaterTakesHookRows(t *testing.T) {
 	var h *heartbeater
 	h.setHooks([]api.HookReport{})

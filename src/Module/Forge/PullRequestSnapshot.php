@@ -25,6 +25,8 @@ final readonly class PullRequestSnapshot
         public PullRequestReview $review = PullRequestReview::None,
         public bool $readyToMerge = false,
         public ?string $changesRequestedSha = null,
+        public ?\DateTimeImmutable $openedAt = null,
+        public ?\DateTimeImmutable $mergedAt = null,
     ) {
     }
 
@@ -35,7 +37,10 @@ final readonly class PullRequestSnapshot
             && ($previous->checks !== $this->checks || $previous->checksSha !== $this->checksSha);
     }
 
-    /** Strict on every field, because a loose `==` holds two numeric-looking commit hashes equal. */
+    /**
+     * Strict, because a loose `==` holds two numeric-looking commit hashes equal.
+     * The open and merge times are left out, so a time read first on a stored row announces no change.
+     */
     public function equals(self $other): bool
     {
         return $this->state === $other->state

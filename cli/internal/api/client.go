@@ -76,6 +76,24 @@ func (e Events) Seconds(name string) (int, bool) {
 	return int(n), true
 }
 
+// StopSigtermFlag and StopSigkillFlag hold the waits of the stop ladder, in
+// milliseconds.
+const (
+	StopSigtermFlag = "bridge.stop_sigterm_after_ms"
+	StopSigkillFlag = "bridge.stop_sigkill_after_ms"
+)
+
+// Milliseconds reads the flag name as a whole number of milliseconds above
+// zero. It reports false for a missing flag and for any other value.
+func (e Events) Milliseconds(name string) (time.Duration, bool) {
+	n, ok := e.Flags[name].(float64)
+	if !ok || n < 1 || n > float64(math.MaxInt64/int64(time.Millisecond)) || n != math.Trunc(n) {
+		return 0, false
+	}
+
+	return time.Duration(n) * time.Millisecond, true
+}
+
 // maxBody caps a success body the client decodes. A columns or sites list is
 // far smaller, and a misrouted proxy must not make the bridge read without end.
 const maxBody = 1 << 20
@@ -537,6 +555,20 @@ type Heartbeat struct {
 	Hooks      []HookReport     `json:"hooks,omitzero"`
 	// WorkerPools is nil until the router reports its pools.
 	WorkerPools []WorkerPoolReport `json:"workerPools,omitzero"`
+	// Paused and Capabilities send no key when nil, which keeps what the
+	// server holds.
+	Paused       *bool    `json:"paused,omitempty"`
+	Capabilities []string `json:"capabilities,omitzero"`
+}
+
+// HeartbeatReply is what the server answers to a heartbeat. Paused is nil when
+// the reply has no paused key, as from an older server.
+type HeartbeatReply struct {
+	CLIRange string
+	Paused   *bool
+	// Commands are decoded and not checked. Run each through
+	// event.CheckCommand before use.
+	Commands []Command
 }
 
 // WorkerPoolReport is the size of one worker pool, the slots its runs take,
@@ -583,9 +615,9 @@ const MaxHookRows = 100
 // error code, so the two read the same.
 var ErrHeartbeatMissing = errors.New("the server has no heartbeat endpoint, or agent push is switched off")
 
-// Heartbeat tells the server that this bridge runs, and returns the CLI version
-// range the server supports. A server that sends no range yields "".
-func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (string, error) {
+// Heartbeat tells the server that this bridge runs, and returns its reply. A
+// server that sends no range yields "".
+func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (HeartbeatReply, error) {
 	if hb.Projects == nil {
 		hb.Projects = []string{}
 	}
@@ -602,39 +634,41 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (
 	}
 	body, err := json.Marshal(hb)
 	if err != nil {
-		return "", err
+		return HeartbeatReply{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
 		c.baseURL+"/api/bridges/"+url.PathEscape(bridgeID)+"/heartbeat", bytes.NewReader(body))
 	if err != nil {
-		return "", err
+		return HeartbeatReply{}, err
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.do(req)
 	if err != nil {
-		return "", fmt.Errorf("send the heartbeat: %w", err)
+		return HeartbeatReply{}, fmt.Errorf("send the heartbeat: %w", err)
 	}
 	defer resp.Body.Close()
 
 	switch {
 	case resp.StatusCode == http.StatusOK:
-		// The heartbeat landed, so a reply with no readable range is not a failure.
+		// The heartbeat landed, so a reply it cannot read is not a failure.
 		var reply struct {
-			CLIRange string `json:"cliRange"`
+			CLIRange string            `json:"cliRange"`
+			Paused   *bool             `json:"paused"`
+			Commands []json.RawMessage `json:"commands"`
 		}
 		_ = decodeBody(resp.Body, &reply)
 
-		return strings.TrimSpace(reply.CLIRange), nil
+		return HeartbeatReply{CLIRange: strings.TrimSpace(reply.CLIRange), Paused: reply.Paused, Commands: decodeCommands(reply.Commands)}, nil
 	case resp.StatusCode == http.StatusNoContent:
-		return "", nil
+		return HeartbeatReply{}, nil
 	case resp.StatusCode == http.StatusNotFound:
-		return "", ErrHeartbeatMissing
+		return HeartbeatReply{}, ErrHeartbeatMissing
 	default:
 		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 
-		return "", fmt.Errorf("heartbeat failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
+		return HeartbeatReply{}, fmt.Errorf("heartbeat failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
 	}
 }
 
@@ -687,43 +721,52 @@ func (c *Client) CheckAsk(ctx context.Context, handle, askID string) (AskState, 
 	return AskState{AskID: raw.AskID, Closed: *raw.Closed, AllRead: *raw.AllRead}, nil
 }
 
-// ReadCard reads the column a card is in now. Any answer other than a 200 that
-// names a column for this card is an error. The caller resumes on every error
-// alike.
-func (c *Client) ReadCard(ctx context.Context, handle, cardID string) (string, error) {
+// CardRead is the answer of the card endpoint: the column a card is in now,
+// and whether a person stopped the work on it. An older server sends no held
+// key, which reads as false.
+type CardRead struct {
+	Column string
+	Held   bool
+}
+
+// ReadCard reads the column and the hold of a card. Any answer other than a 200
+// that names a column for this card is an error. The caller resumes on every
+// error alike.
+func (c *Client) ReadCard(ctx context.Context, handle, cardID string) (CardRead, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/board/cards/"+url.PathEscape(cardID), nil)
 	if err != nil {
-		return "", err
+		return CardRead{}, err
 	}
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.do(req)
 	if err != nil {
-		return "", fmt.Errorf("read card %s: %w", cardID, err)
+		return CardRead{}, fmt.Errorf("read card %s: %w", cardID, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return "", fmt.Errorf("card read failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return CardRead{}, fmt.Errorf("card read failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	var raw struct {
 		CardID string `json:"cardId"`
 		Column string `json:"column"`
+		Held   bool   `json:"held"`
 	}
 	if err := decodeBody(resp.Body, &raw); err != nil {
-		return "", fmt.Errorf("decode the read of card %s: %w", cardID, err)
+		return CardRead{}, fmt.Errorf("decode the read of card %s: %w", cardID, err)
 	}
 	if !strings.EqualFold(raw.CardID, cardID) {
-		return "", fmt.Errorf("the read of card %s answers for another card, %q", cardID, raw.CardID)
+		return CardRead{}, fmt.Errorf("the read of card %s answers for another card, %q", cardID, raw.CardID)
 	}
 	if raw.Column == "" {
-		return "", fmt.Errorf("the read of card %s names no column", cardID)
+		return CardRead{}, fmt.Errorf("the read of card %s names no column", cardID)
 	}
 
-	return raw.Column, nil
+	return CardRead{Column: raw.Column, Held: raw.Held}, nil
 }
 
 // clip cuts s to at most limit characters. The server counts characters, so a
