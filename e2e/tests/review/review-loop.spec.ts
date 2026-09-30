@@ -9,7 +9,11 @@
  */
 
 import { test as base, expect, type Page } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import {
+    skipUnreachableHub,
+    suppressToolbar,
+    suppressWidget,
+} from '../fixtures';
 import { coverageScaled } from '../timeouts';
 
 const RUN = Date.now();
@@ -97,6 +101,7 @@ interface SeededReview {
 const test = base.extend<{ review: SeededReview }>({
     review: [
         async ({ page }, use, testInfo) => {
+            await skipUnreachableHub(page.context());
             await suppressToolbar(page);
             await suppressWidget(page);
 
