@@ -30,7 +30,7 @@ const poolsWindow = 10 * time.Second
 
 // heartbeatSender sends one heartbeat. *api.Client is one.
 type heartbeatSender interface {
-	Heartbeat(ctx context.Context, bridgeID string, hb api.Heartbeat) (string, error)
+	Heartbeat(ctx context.Context, bridgeID string, hb api.Heartbeat) (api.HeartbeatReply, error)
 }
 
 // heartbeater tells Loupe that the bridge runs: once at start, then at each
@@ -247,9 +247,9 @@ func (h *heartbeater) send() {
 	}
 
 	h.queue.SendLatest(heartbeatLane, func(ctx context.Context) error {
-		cliRange, err := h.client.Heartbeat(ctx, h.bridgeID, body)
+		reply, err := h.client.Heartbeat(ctx, h.bridgeID, body)
 		if err == nil && h.onRange != nil {
-			h.onRange(cliRange)
+			h.onRange(reply.CLIRange)
 		}
 
 		return err

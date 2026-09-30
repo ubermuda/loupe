@@ -34,7 +34,7 @@ type cardReads struct {
 	release chan struct{}
 }
 
-func (c *cardReads) read(_ context.Context, handle, cardID string) (string, error) {
+func (c *cardReads) read(_ context.Context, handle, cardID string) (api.CardRead, error) {
 	c.mu.Lock()
 	c.calls = append(c.calls, handle+" "+cardID)
 	c.mu.Unlock()
@@ -45,7 +45,7 @@ func (c *cardReads) read(_ context.Context, handle, cardID string) (string, erro
 		<-c.release
 	}
 
-	return c.column, c.err
+	return api.CardRead{Column: c.column}, c.err
 }
 
 func (c *cardReads) recorded() []string {

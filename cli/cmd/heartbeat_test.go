@@ -84,18 +84,18 @@ type fakeHeartbeats struct {
 	cliRange string
 }
 
-func (f *fakeHeartbeats) Heartbeat(_ context.Context, bridgeID string, hb api.Heartbeat) (string, error) {
+func (f *fakeHeartbeats) Heartbeat(_ context.Context, bridgeID string, hb api.Heartbeat) (api.HeartbeatReply, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sent = append(f.sent, hb)
 	f.ids = append(f.ids, bridgeID)
 	if len(f.errors) == 0 {
-		return f.cliRange, nil
+		return api.HeartbeatReply{CLIRange: f.cliRange}, nil
 	}
 	err := f.errors[0]
 	f.errors = f.errors[1:]
 
-	return "", err
+	return api.HeartbeatReply{}, err
 }
 
 func (f *fakeHeartbeats) count() int {

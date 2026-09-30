@@ -198,8 +198,8 @@ func TestHeartbeatReturnsTheRangeOfTheReply(t *testing.T) {
 		got, err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v"})
 		server.Close()
 
-		if err != nil || got != tc.want {
-			t.Fatalf("HTTP %d %q: range = %q, err = %v", tc.status, tc.body, got, err)
+		if err != nil || got.CLIRange != tc.want {
+			t.Fatalf("HTTP %d %q: range = %q, err = %v", tc.status, tc.body, got.CLIRange, err)
 		}
 	}
 }

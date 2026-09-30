@@ -61,7 +61,7 @@ type router struct {
 	checkTimeout time.Duration
 	// readCard reads a card's column before a resume of an unfinished run. A
 	// nil one resumes with no check. after is time.After, which tests replace.
-	readCard func(ctx context.Context, handle, cardID string) (string, error)
+	readCard func(ctx context.Context, handle, cardID string) (api.CardRead, error)
 	after    func(time.Duration) <-chan time.Time
 	// resolvePin asks which variant of an experiment a card runs with, before
 	// its worker starts. A nil one runs the variant the bridge drew.
@@ -1265,7 +1265,9 @@ func (r *router) resumeGate(p pending, e endedRun, reason string, stopped <-chan
 			timeout = askCheckTimeout
 		}
 		ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
-		column, readErr = r.readCard(ctx, p.event.ProjectID, cardID)
+		var card api.CardRead
+		card, readErr = r.readCard(ctx, p.event.ProjectID, cardID)
+		column = card.Column
 		cancel()
 	}
 
