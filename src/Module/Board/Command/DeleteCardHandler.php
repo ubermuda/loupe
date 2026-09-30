@@ -6,6 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Event\BoardColumnsChanged;
+use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\CardRepository;
@@ -94,6 +95,8 @@ final readonly class DeleteCardHandler
                 $this->cardHolds->release($card->project, [$card->id]);
             }
 
+            // The link rows cascade in the database, so read the cards they block first.
+            $unblocked = $this->cards->findBlockedBy($card);
             $trackedBefore = $this->pullRequestTracking->referencesOf($card);
             $this->em->remove($card);
             $this->em->flush();
@@ -103,6 +106,9 @@ final readonly class DeleteCardHandler
             // one. A listener must not read the card, which is gone.
             if (null !== $parent) {
                 $this->events->dispatch(new CardParentChanged($card, $parent, null, $actor));
+            }
+            if ([] !== $unblocked) {
+                $this->events->dispatch(new CardBlockersRemoved($card->project, $unblocked, $actor));
             }
 
             return $drawsLane;

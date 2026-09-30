@@ -170,16 +170,67 @@ final class CardLinkSyncTest extends KernelTestCase
         self::assertSame(0, $this->links->count([]));
     }
 
-    /** @param list<array{Card, CardLinkKind}> $wanted */
-    private function write(Card $card, array $wanted): void
+    public function test_a_removed_blocks_row_names_the_card_it_blocked(): void
+    {
+        $project = $this->makeProject('sync-unblock-remove');
+        [$a, $b, $c] = [$this->cardIn($project), $this->cardIn($project), $this->cardIn($project)];
+        $this->write($a, [[$b, CardLinkKind::BlockedBy], [$c, CardLinkKind::Blocks]]);
+
+        self::assertSame([(string) $a->id, (string) $c->id], $this->write($a, []));
+    }
+
+    public function test_a_blocks_row_turned_to_relates_to_names_the_card_it_blocked(): void
+    {
+        $project = $this->makeProject('sync-unblock-kind');
+        [$a, $b] = [$this->cardIn($project), $this->cardIn($project)];
+        $this->write($a, [[$b, CardLinkKind::BlockedBy]]);
+
+        self::assertSame([(string) $a->id], $this->write($b, [[$a, CardLinkKind::RelatesTo]]));
+    }
+
+    public function test_a_blocks_row_turned_round_names_the_card_it_blocked(): void
+    {
+        $project = $this->makeProject('sync-unblock-direction');
+        [$a, $b] = [$this->cardIn($project), $this->cardIn($project)];
+        $this->write($a, [[$b, CardLinkKind::BlockedBy]]);
+
+        self::assertSame([(string) $a->id], $this->write($a, [[$b, CardLinkKind::Blocks]]));
+    }
+
+    public function test_a_card_that_loses_two_blockers_is_named_once(): void
+    {
+        $project = $this->makeProject('sync-unblock-once');
+        [$a, $b, $c] = [$this->cardIn($project), $this->cardIn($project), $this->cardIn($project)];
+        $this->write($a, [[$b, CardLinkKind::BlockedBy], [$c, CardLinkKind::BlockedBy]]);
+
+        self::assertSame([(string) $a->id], $this->write($a, []));
+    }
+
+    public function test_a_kept_or_added_blocks_row_and_a_removed_relates_to_row_name_nobody(): void
+    {
+        $project = $this->makeProject('sync-unblock-none');
+        [$a, $b, $c, $d] = [$this->cardIn($project), $this->cardIn($project), $this->cardIn($project), $this->cardIn($project)];
+        $this->write($a, [[$b, CardLinkKind::BlockedBy], [$c, CardLinkKind::RelatesTo]]);
+
+        self::assertSame([], $this->write($a, [[$b, CardLinkKind::BlockedBy], [$d, CardLinkKind::BlockedBy]]));
+    }
+
+    /**
+     * @param list<array{Card, CardLinkKind}> $wanted
+     *
+     * @return list<string> the ids of the cards the sync says lost a blocker
+     */
+    private function write(Card $card, array $wanted): array
     {
         // Every card managed again, as a handler holds it after its own lock.
-        $this->sync->sync(
+        $unblocked = $this->sync->sync(
             $this->reload($card),
             array_map(fn (array $pair): array => [$this->reload($pair[0]), $pair[1]], $wanted),
         );
         $this->em->flush();
         $this->em->clear();
+
+        return array_map(static fn (Card $lost): string => (string) $lost->id, $unblocked);
     }
 
     /** @return array<string, array{string, string, string}> other card id => [source id, target id, stored kind] */

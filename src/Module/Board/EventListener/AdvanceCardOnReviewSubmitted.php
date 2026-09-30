@@ -35,6 +35,7 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
  * decides durability and an inner failure propagates.
  *
  * A card with an open blocker stays where it is and keeps the approval.
+ * AdvanceHeldCardOnBlockerFinished moves it when the last blocker goes.
  */
 #[AsEventListener]
 final readonly class AdvanceCardOnReviewSubmitted
