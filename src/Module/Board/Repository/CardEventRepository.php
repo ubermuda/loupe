@@ -42,6 +42,7 @@ class CardEventRepository extends ServiceEntityRepository
      * Writes the `run-finished` row of a run, or gives the row the outcome of a later close.
      * It goes through DBAL in its own transaction, a savepoint inside a caller's,
      * so a failed write leaves the entity manager and the caller's transaction usable.
+     * A write that read an older state change than the row holds changes nothing.
      *
      * @param array<string, mixed> $detail with the `runId` and the `state`
      */
@@ -51,7 +52,8 @@ class CardEventRepository extends ServiceEntityRepository
             'INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at, run_id)
              VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?::uuid, ?::jsonb, ?::timestamp, ?::uuid)
              ON CONFLICT (card_id, run_id) DO UPDATE SET detail = EXCLUDED.detail, occurred_at = EXCLUDED.occurred_at
-             WHERE board_card_events.detail IS DISTINCT FROM EXCLUDED.detail',
+             WHERE board_card_events.detail IS DISTINCT FROM EXCLUDED.detail
+               AND COALESCE((EXCLUDED.detail->>\'stateSequence\')::bigint, 0) >= COALESCE((board_card_events.detail->>\'stateSequence\')::bigint, 0)',
             [
                 Uuid::v7()->toRfc4122(),
                 (string) $card->id,

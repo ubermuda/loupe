@@ -73,6 +73,7 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
             'resumeIndex' => 1,
             'resumeCap' => 3,
             'closedAt' => '2026-09-30T10:02:05+00:00',
+            'stateSequence' => null,
         ];
         $detail = $row->detail;
         // JSONB does not keep key order.
@@ -182,6 +183,20 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
              VALUES (?, ?, ?, 'run-finished', 'agent', '{}', NOW(), ?)",
             [Uuid::v7()->toRfc4122(), (string) $this->card->id, (string) $this->project->id, (string) $run->id],
         );
+    }
+
+    public function test_a_write_from_an_older_state_change_does_not_replace_a_newer_outcome(): void
+    {
+        $events = self::getContainer()->get(CardEventRepository::class);
+        self::assertInstanceOf(CardEventRepository::class, $events);
+        $runId = Uuid::v7();
+        $events->upsertRunFinished($this->card, $runId, null, ['runId' => (string) $runId, 'state' => 'succeeded', 'stateSequence' => 5], new \DateTimeImmutable('2026-09-30 10:05:00+00:00'));
+        $events->upsertRunFinished($this->card, $runId, null, ['runId' => (string) $runId, 'state' => 'timed-out', 'stateSequence' => 3], new \DateTimeImmutable('2026-09-30 10:10:00+00:00'));
+
+        $rows = $this->rows();
+        self::assertCount(1, $rows);
+        self::assertSame('succeeded', $rows[0]->detail['state']);
+        self::assertEquals(new \DateTimeImmutable('2026-09-30 10:05:00+00:00'), $rows[0]->occurredAt);
     }
 
     public function test_an_open_run_writes_nothing(): void

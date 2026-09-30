@@ -26,7 +26,7 @@ final readonly class WriteCardEventOnRunFinished
 {
     public function __construct(
         private WorkerRunRepository $workerRuns,
-        private WorkerRunStateChangeRepository $stateChanges,
+        private WorkerRunStateChangeRepository $workerRunStateChanges,
         private CardRepository $cards,
         private CardEventRepository $cardEvents,
         private ClockInterface $clock,
@@ -38,7 +38,7 @@ final readonly class WriteCardEventOnRunFinished
     {
         try {
             $runs = $this->workerRuns->findByIds($event->runIds);
-            $changes = $this->stateChanges->findForRuns($runs);
+            $changes = $this->workerRunStateChanges->findForRuns($runs);
         } catch (\Throwable $e) {
             $this->logger->warning('board.card_event_write_failed', ['projectId' => (string) $event->projectId, 'exception' => $e]);
 
@@ -57,9 +57,10 @@ final readonly class WriteCardEventOnRunFinished
                     $runId = $run->id ?? throw new \LogicException('A stored run has an id.');
                     // A timeout sets no end, so the last state change dates the close.
                     // A new close then moves the row, and a repeated dispatch does not.
-                    $last = $changes[$runId->toRfc4122()] ?? [];
-                    $closedAt = $run->endedAt ?? ([] === $last ? null : array_last($last)->at) ?? $this->clock->now();
-                    $this->cardEvents->upsertRunFinished($card, $runId, $run->project->owner, self::detail($run, $runId->toRfc4122(), $closedAt), $closedAt);
+                    $last = array_last($changes[$runId->toRfc4122()] ?? []);
+                    $closedAt = $run->endedAt ?? $last->at ?? $this->clock->now();
+                    $detail = self::detail($run, $runId->toRfc4122(), $closedAt) + ['stateSequence' => null === $last?->sequence ? null : (int) $last->sequence];
+                    $this->cardEvents->upsertRunFinished($card, $runId, $run->project->owner, $detail, $closedAt);
                 }
             } catch (\Throwable $e) {
                 $this->logger->warning('board.card_event_write_failed', [
