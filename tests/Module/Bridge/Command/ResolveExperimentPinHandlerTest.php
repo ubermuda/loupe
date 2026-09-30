@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\ResolveExperimentPinCommand;
 use App\Module\Bridge\Command\ResolveExperimentPinHandler;
 use App\Module\Bridge\Command\ResolveExperimentPinResult;
+use App\Module\Bridge\Entity\ExperimentDefinition;
 use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -117,6 +118,52 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_experiment_pins'));
     }
 
+    public function test_the_weights_are_stored_then_replaced_for_the_experiment(): void
+    {
+        $this->boot();
+        [$owner, $project] = $this->scenario('pin-weights');
+
+        $this->resolve($owner, $project, Uuid::v7(), 'sonnet', ['opus', 'sonnet'], weights: [['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 3]]);
+
+        $definition = $this->onlyDefinition();
+        self::assertSame((string) $project->id, (string) $definition->project->id);
+        self::assertSame('impl-model', $definition->experiment);
+        self::assertSame([['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 3]], $definition->weights);
+        self::assertSame(self::NOW, $definition->reportedAt->format(\DateTimeInterface::ATOM));
+
+        $later = '2026-09-30T09:00:00+00:00';
+        $clock = self::getContainer()->get('clock');
+        self::assertInstanceOf(MockClock::class, $clock);
+        $clock->modify($later);
+        $this->resolve($owner, $project, Uuid::v7(), 'haiku', ['haiku', 'opus'], weights: [['name' => 'haiku', 'weight' => 2], ['name' => 'opus', 'weight' => 5]]);
+
+        $definition = $this->onlyDefinition();
+        self::assertSame([['name' => 'haiku', 'weight' => 2], ['name' => 'opus', 'weight' => 5]], $definition->weights);
+        self::assertSame($later, $definition->reportedAt->format(\DateTimeInterface::ATOM));
+    }
+
+    public function test_no_weights_store_no_definition(): void
+    {
+        $this->boot();
+        [$owner, $project] = $this->scenario('pin-no-weights');
+
+        $result = $this->resolve($owner, $project, Uuid::v7(), 'sonnet', ['opus', 'sonnet']);
+
+        self::assertSame('sonnet', $result->variant);
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_experiment_definitions'));
+    }
+
+    public function test_another_owners_project_stores_no_weights(): void
+    {
+        $this->boot();
+        [, $project] = $this->scenario('pin-weights-foreign');
+        $stranger = $this->user($this->em(), 'pin-weights-foreign-stranger@example.com');
+
+        $this->resolve($stranger, $project, Uuid::v7(), 'sonnet', ['opus', 'sonnet'], weights: [['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 1]]);
+
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_experiment_definitions'));
+    }
+
     /** The clock goes in before any service reads it. */
     private function boot(): void
     {
@@ -141,7 +188,10 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
         $em->flush();
     }
 
-    /** @param non-empty-list<string> $variants */
+    /**
+     * @param non-empty-list<string>                      $variants
+     * @param list<array{name: string, weight: int}>|null $weights
+     */
     private function resolve(
         User $owner,
         Project $project,
@@ -149,6 +199,7 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
         string $candidate,
         array $variants,
         string $experiment = 'impl-model',
+        ?array $weights = null,
     ): ResolveExperimentPinResult {
         $handler = self::getContainer()->get(ResolveExperimentPinHandler::class);
         self::assertInstanceOf(ResolveExperimentPinHandler::class, $handler);
@@ -160,6 +211,7 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
             experiment: $experiment,
             candidate: $candidate,
             variants: $variants,
+            weights: $weights,
         ));
     }
 
@@ -171,5 +223,15 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
         self::assertCount(1, $pins);
 
         return $pins[0];
+    }
+
+    private function onlyDefinition(): ExperimentDefinition
+    {
+        $this->em()->clear();
+        /** @var list<ExperimentDefinition> $definitions */
+        $definitions = $this->em()->createQuery('SELECT d FROM '.ExperimentDefinition::class.' d')->getResult();
+        self::assertCount(1, $definitions);
+
+        return $definitions[0];
     }
 }

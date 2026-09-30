@@ -65,7 +65,7 @@ type router struct {
 	after    func(time.Duration) <-chan time.Time
 	// resolvePin asks which variant of an experiment a card runs with, before
 	// its worker starts. A nil one runs the variant the bridge drew.
-	resolvePin func(ctx context.Context, handle, experiment, cardID, candidate string, variants []string) (string, string, error)
+	resolvePin func(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int) (string, string, error)
 	// control is the socket that `loupe bridge reload` reaches, and source is
 	// what a reload reads. A nil control, as in most tests, opens no socket.
 	control net.Listener
@@ -1074,15 +1074,16 @@ func (r *router) resolveVariant(p pending) (string, runPin) {
 	}
 
 	names := make([]string, len(exp.Variants))
+	weights := make([]int, len(exp.Variants))
 	for i, v := range exp.Variants {
-		names[i] = v.Name
+		names[i], weights[i] = v.Name, v.Weight
 	}
 	timeout := r.checkTimeout
 	if timeout <= 0 {
 		timeout = askCheckTimeout
 	}
 	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
-	name, switchedFrom, err := r.resolvePin(ctx, p.event.ProjectID, exp.Name, cardID, candidate.Name, names)
+	name, switchedFrom, err := r.resolvePin(ctx, p.event.ProjectID, exp.Name, cardID, candidate.Name, names, weights)
 	cancel()
 	i := slices.IndexFunc(exp.Variants, func(v rules.Variant) bool { return v.Name == name })
 	if err == nil && i < 0 {

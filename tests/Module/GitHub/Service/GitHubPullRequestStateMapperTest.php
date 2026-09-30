@@ -307,6 +307,58 @@ final class GitHubPullRequestStateMapperTest extends TestCase
         self::assertFalse($snapshot->readyToMerge);
     }
 
+    public function test_an_open_pull_request_has_an_open_time_and_no_merge_time(): void
+    {
+        $node = self::pullRequest604();
+        $node['createdAt'] = '2026-09-20T08:00:00Z';
+        $node['mergedAt'] = null;
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, null, null);
+
+        self::assertEquals(new \DateTimeImmutable('2026-09-20 08:00:00', new \DateTimeZone('UTC')), $snapshot->openedAt);
+        self::assertSame('UTC', $snapshot->openedAt?->getTimezone()->getName());
+        self::assertNull($snapshot->mergedAt);
+    }
+
+    public function test_a_merged_pull_request_has_an_open_and_a_merge_time_in_utc(): void
+    {
+        $node = self::pullRequest604();
+        $node['state'] = 'MERGED';
+        $node['createdAt'] = '2026-09-20T08:00:00Z';
+        $node['mergedAt'] = '2026-09-21T11:30:00+02:00';
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, null, null);
+
+        self::assertEquals(new \DateTimeImmutable('2026-09-20 08:00:00', new \DateTimeZone('UTC')), $snapshot->openedAt);
+        self::assertSame('2026-09-21 09:30:00', $snapshot->mergedAt?->format('Y-m-d H:i:s'));
+        self::assertSame('UTC', $snapshot->mergedAt->getTimezone()->getName());
+    }
+
+    public function test_a_closed_unmerged_pull_request_has_no_merge_time(): void
+    {
+        $node = self::pullRequest604();
+        $node['state'] = 'CLOSED';
+        $node['createdAt'] = '2026-09-20T08:00:00Z';
+        $node['mergedAt'] = null;
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, null, null);
+
+        self::assertNotNull($snapshot->openedAt);
+        self::assertNull($snapshot->mergedAt);
+    }
+
+    public function test_an_absent_or_malformed_time_is_null(): void
+    {
+        $node = self::pullRequest604();
+        unset($node['createdAt']);
+        $node['mergedAt'] = 'yesterday';
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, null, null);
+
+        self::assertNull($snapshot->openedAt);
+        self::assertNull($snapshot->mergedAt);
+    }
+
     public function test_a_node_without_its_core_fields_is_unreadable(): void
     {
         $node = self::pullRequest604();

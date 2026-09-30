@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Controller;
 
+use App\Module\Bridge\Entity\ExperimentDefinition;
 use App\Module\Bridge\Entity\ExperimentPin;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -45,6 +46,93 @@ final class ExperimentPinApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(200);
         self::assertJsonStringEqualsJsonString('{"variant":"opus","switchedFrom":"sonnet"}', $this->body($client));
+        self::assertCount(1, $this->allPins());
+    }
+
+    public function test_the_weights_of_the_variants_are_stored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'pin-api-weights@example.com');
+        $project = $this->project($em, $owner, 'Pin Api Weights');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put(
+            $client,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            $raw,
+            '{"candidate":"sonnet","variants":["opus","sonnet"],"weights":[1,3]}',
+        );
+
+        self::assertResponseStatusCodeSame(200);
+        $definitions = $this->allDefinitions();
+        self::assertCount(1, $definitions);
+        self::assertSame((string) $project->id, (string) $definitions[0]->project->id);
+        self::assertSame('impl-model', $definitions[0]->experiment);
+        self::assertSame([['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 3]], $definitions[0]->weights);
+    }
+
+    public function test_numeric_variant_names_are_stored_with_their_names(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'pin-api-numeric-weights@example.com');
+        $project = $this->project($em, $owner, 'Pin Api Numeric Weights');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put(
+            $client,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            $raw,
+            '{"candidate":"1","variants":["0","1"],"weights":[1,2]}',
+        );
+
+        self::assertResponseStatusCodeSame(200);
+        $definitions = $this->allDefinitions();
+        self::assertCount(1, $definitions);
+        self::assertSame([['name' => '0', 'weight' => 1], ['name' => '1', 'weight' => 2]], $definitions[0]->weights);
+    }
+
+    /** A weight fault never changes the variant of a run, and never refuses it. */
+    public function test_invalid_weights_still_pin_and_store_no_weights(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'pin-api-bad-weights@example.com');
+        $project = $this->project($em, $owner, 'Pin Api Bad Weights');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put(
+            $client,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            $raw,
+            '{"candidate":"sonnet","variants":["opus","sonnet"],"weights":[1]}',
+        );
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertJsonStringEqualsJsonString('{"variant":"sonnet","switchedFrom":null}', $this->body($client));
+        self::assertCount(1, $this->allPins());
+        self::assertSame([], $this->allDefinitions());
+    }
+
+    /** An older server must accept a field that a newer bridge adds. */
+    public function test_an_unknown_field_in_the_body_is_ignored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'pin-api-unknown@example.com');
+        $project = $this->project($em, $owner, 'Pin Api Unknown');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put(
+            $client,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            $raw,
+            '{"candidate":"sonnet","variants":["opus","sonnet"],"future":{"a":1}}',
+        );
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertJsonStringEqualsJsonString('{"variant":"sonnet","switchedFrom":null}', $this->body($client));
         self::assertCount(1, $this->allPins());
     }
 
@@ -282,5 +370,15 @@ final class ExperimentPinApiTest extends WebTestCase
         $pins = $this->em()->createQuery('SELECT p FROM '.ExperimentPin::class.' p')->getResult();
 
         return $pins;
+    }
+
+    /** @return list<ExperimentDefinition> */
+    private function allDefinitions(): array
+    {
+        $this->em()->clear();
+        /** @var list<ExperimentDefinition> $definitions */
+        $definitions = $this->em()->createQuery('SELECT d FROM '.ExperimentDefinition::class.' d')->getResult();
+
+        return $definitions;
     }
 }
