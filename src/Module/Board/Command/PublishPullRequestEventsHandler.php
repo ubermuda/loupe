@@ -10,11 +10,13 @@ use App\Module\Board\Entity\BoardFixStrategy;
 use App\Module\Board\Entity\BoardMergeStrategy;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomationAction;
+use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Repository\CardAutomationRepository;
+use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\FailedCheckNames;
@@ -69,6 +71,7 @@ final readonly class PublishPullRequestEventsHandler
         private ClockInterface $clock,
         private LoggerInterface $logger,
         private EventDispatcherInterface $events,
+        private CardEventRepository $cardEvents,
     ) {
     }
 
@@ -121,6 +124,7 @@ final readonly class PublishPullRequestEventsHandler
                     $automation->lastAction = CardAutomationAction::ReadyToMerge;
                     $automation->lastActionAt = $this->clock->now();
                     $this->write($link, $command->current->headSha, BoardEventType::PULL_REQUEST_READY_TO_MERGE);
+                    $this->cardEvents->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => $link->number], $automation->lastActionAt);
                     $this->em->flush();
                 }
             }
@@ -221,6 +225,10 @@ final readonly class PublishPullRequestEventsHandler
         $automation->lastActionAt = $this->clock->now();
 
         if ($automation->fixRounds >= $settings->loopLimit || null !== $automation->blockedReason) {
+            // A card already stopped keeps one history row, however many reads follow.
+            if (null === $automation->blockedReason) {
+                $this->cardEvents->record($card, CardEventKind::Stopped, CardReporter::System, null, ['reason' => $reason, 'pullRequest' => $link->number], $automation->lastActionAt);
+            }
             $automation->blockedReason ??= $reason;
             $automation->lastAction = CardAutomationAction::Stopped;
             $this->logger->info('board.pull_request_fix_stopped', [
@@ -241,6 +249,7 @@ final readonly class PublishPullRequestEventsHandler
             $fields += $this->resumableSession($card);
         }
         $this->write($link, $headSha, BoardEventType::PULL_REQUEST_FIX_REQUESTED, $fields);
+        $this->cardEvents->record($card, CardEventKind::FixRequested, CardReporter::System, null, ['reason' => $reason, 'pullRequest' => $link->number], $automation->lastActionAt);
     }
 
     /**

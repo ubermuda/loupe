@@ -71,6 +71,7 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         self::assertNotNull($this->reload($epic)->completedAt);
         $last = $this->movedRows($project)[3];
         self::assertSame(['cardNumber' => $epic->number, 'fromStatus' => 'implementation', 'toStatus' => 'done', 'actor' => 'system'], $last);
+        self::assertEquals(['type' => 'epic-reconciled', 'child' => $third->number], $this->lastCause($epic));
     }
 
     public function test_the_epic_closes_in_the_first_terminal_column_in_board_order(): void
@@ -109,9 +110,12 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         $this->update($this->card($project, parent: $epic), 'done');
         self::assertSame('done', $this->slugOf($epic));
 
-        $this->update($this->card($project), parentCardId: (string) $epic->id);
+        $joining = $this->card($project);
+
+        $this->update($joining, parentCardId: (string) $epic->id);
 
         self::assertSame('implementation', $this->slugOf($epic));
+        self::assertEquals(['type' => 'epic-reconciled', 'child' => $joining->number], $this->lastCause($epic));
     }
 
     public function test_the_epic_closes_when_its_only_open_child_leaves_it(): void
@@ -233,6 +237,7 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         $rows = $this->movedRows($project);
         self::assertCount(2, $rows);
         self::assertSame(['cardNumber' => $blocked->number, 'fromStatus' => 'backlog', 'toStatus' => 'implementation', 'actor' => 'system'], $rows[1]);
+        self::assertEquals(['type' => 'unblocked', 'blocker' => $blocker->number], $this->lastCause($blocked));
     }
 
     public function test_a_blocked_card_with_no_parent_stays_in_the_backlog(): void
@@ -425,6 +430,18 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         }
 
         return $rows;
+    }
+
+    /** @return array<string, mixed>|null the cause of the newest move in the card's history */
+    private function lastCause(Card $card): ?array
+    {
+        $detail = $this->em->getConnection()->fetchOne(
+            "SELECT detail FROM board_card_events WHERE card_id = :card AND kind = 'moved' ORDER BY occurred_at DESC, id DESC LIMIT 1",
+            ['card' => (string) $card->id],
+        );
+        self::assertIsString($detail);
+
+        return json_decode($detail, true, flags: \JSON_THROW_ON_ERROR)['cause'];
     }
 
     private function disableBoard(): void
