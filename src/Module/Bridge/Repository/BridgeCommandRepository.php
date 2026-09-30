@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Repository;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -79,6 +80,27 @@ class BridgeCommandRepository extends ServiceEntityRepository
             ->getQuery()
             ->setHint(Query::HINT_REFRESH, true)
             ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getOneOrNullResult();
+    }
+
+    /** Whether a stop of another run of the same card still waits for its bridge. */
+    public function hasPendingStopForCardExcept(WorkerRun $run): bool
+    {
+        return null !== $this->createQueryBuilder('c')
+            ->select('1')
+            ->join('c.workerRun', 'r')
+            ->andWhere('c.project = :project')
+            ->andWhere('r.cardId = :cardId')
+            ->andWhere('c.workerRun != :run')
+            ->andWhere('c.kind = :stop')
+            ->andWhere('c.state = :pending')
+            ->setParameter('project', $run->project)
+            ->setParameter('cardId', $run->cardId, UuidType::NAME)
+            ->setParameter('run', $run)
+            ->setParameter('stop', BridgeCommandKind::StopRun->value)
+            ->setParameter('pending', BridgeCommandState::Pending->value)
+            ->setMaxResults(1)
+            ->getQuery()
             ->getOneOrNullResult();
     }
 

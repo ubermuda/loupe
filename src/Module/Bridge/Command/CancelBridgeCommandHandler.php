@@ -20,7 +20,7 @@ use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Withdraws the command that waits on a run. A withdrawn stop releases the
- * card hold it wrote, and keeps a hold that another run's stop wrote.
+ * card hold it wrote, unless a stop of another run of the card still waits.
  */
 final readonly class CancelBridgeCommandHandler
 {
@@ -48,7 +48,7 @@ final readonly class CancelBridgeCommandHandler
                 return null;
             }
 
-            if (BridgeCommandKind::StopRun === $pending->kind) {
+            if (BridgeCommandKind::StopRun === $pending->kind && !$this->bridgeCommands->hasPendingStopForCardExcept($run)) {
                 $hold = $this->cardHolds->findOneOfCard($run->project, $run->cardId);
                 if (null !== $hold && null !== $hold->stoppedRun && (string) $hold->stoppedRun->id === (string) $run->id) {
                     $this->holds->release($run->project, [$run->cardId]);

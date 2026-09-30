@@ -126,15 +126,19 @@ no longer applies to the run. A queued run of a paused bridge shows
 **Waiting: bridge paused**.
 
 A control can show and be disabled. Point at it to read the reason. Resume is
-disabled with **The card left** and the column name when the card is no longer
+disabled with **The card left** and the column slug when the card is no longer
 in the column of the rule that started the run. When the bridge does not
 report the `commands` capability, every control is disabled with **Update the
 bridge to 1.5.0 or later to control its runs.**
 
 A stop holds the card. No worker starts on a held card until a person resumes
 one of its runs or moves it to another column. A cancel of a stop that still
-waits releases the hold that the stop wrote. See
-[The card page](board.md#the-card-page).
+waits releases the hold that the stop wrote, unless a stop of another run of
+the card still waits. See [The card page](board.md#the-card-page).
+
+A cancel works only while the bridge has not received the request. A bridge
+that is online receives a request in about a second, and a later cancel does
+not recall it. Cancel is for a request that waits on an offline bridge.
 
 A stop reaches the process group of the worker only. Work that the worker
 started in another process tree keeps running, such as a PHPUnit run inside a
