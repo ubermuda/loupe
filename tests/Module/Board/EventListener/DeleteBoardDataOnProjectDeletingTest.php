@@ -14,6 +14,7 @@ use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Entity\PullRequestComment;
 use App\Module\Board\EventListener\DeleteBoardDataOnProjectDeleting;
 use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Entity\Project;
@@ -138,6 +139,34 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
         self::assertSame(0, $count($doomed));
         self::assertSame(1, $count($spared));
         self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM projects WHERE id = :id', ['id' => (string) $doomed->id]));
+    }
+
+    public function test_the_listener_deletes_the_pull_request_comments_of_its_project_only(): void
+    {
+        self::bootKernel();
+
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $listener = self::getContainer()->get(DeleteBoardDataOnProjectDeleting::class);
+        self::assertInstanceOf(DeleteBoardDataOnProjectDeleting::class, $listener);
+
+        $owner = new User(fullName: 'Riley', email: 'board-delete-comments-'.uniqid().'@example.com', password: 'hashed');
+        $em->persist($owner);
+        $doomed = $this->seedBoard($em, $owner, 'doomed');
+        $spared = $this->seedBoard($em, $owner, 'spared');
+        foreach ([$doomed, $doomed, $spared] as $project) {
+            $em->persist(new PullRequestComment($project, Uuid::v7(), Uuid::v7(), 'github', 'acme/widgets', 5, null, null));
+        }
+        $em->flush();
+
+        $conn = $em->getConnection();
+        $count = static fn (Project $project): int => (int) $conn->fetchOne('SELECT COUNT(*) FROM board_pull_request_comments WHERE project_id = :id', ['id' => (string) $project->id]);
+        self::assertSame(2, $count($doomed));
+
+        $listener(new ProjectDeleting($doomed));
+
+        self::assertSame(0, $count($doomed));
+        self::assertSame(1, $count($spared));
     }
 
     private function seedBoard(EntityManagerInterface $em, User $owner, string $name): Project

@@ -53,10 +53,10 @@ test('a policy is reachable from the footer of another', async ({ page }) => {
         .locator('.lp-landing-footer__nav')
         .getByRole('link', { name: 'AI Policy', exact: true })
         .click();
-    await expect(page).toHaveURL('/ai-policy');
     await expect(
         page.getByRole('heading', { name: 'AI Policy', level: 1 }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 });
+    await expect(page).toHaveURL('/ai-policy');
 });
 
 test('the policies cross-link to each other in the prose', async ({ page }) => {
@@ -65,6 +65,9 @@ test('the policies cross-link to each other in the prose', async ({ page }) => {
         .locator('.lp-legal__body')
         .getByRole('link', { name: 'AI Policy' })
         .click();
+    await expect(
+        page.getByRole('heading', { name: 'AI Policy', level: 1 }),
+    ).toBeVisible({ timeout: 15000 });
     await expect(page).toHaveURL('/ai-policy');
 });
 

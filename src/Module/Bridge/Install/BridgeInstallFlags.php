@@ -9,14 +9,15 @@ use App\Module\Account\Install\InstallFlagDefault;
 use App\Module\Account\Install\InstallFlagDefaultsInterface;
 use App\Module\Bridge\Service\BridgeCommandTtl;
 use App\Module\Bridge\Service\HeartbeatInterval;
+use App\Module\Bridge\Service\StopLadder;
 use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
 /**
- * Seeds the retention window, the heartbeat interval and the command lifetime
- * from their container parameters, so each flag row and its coded fallback
- * start out equal.
+ * Seeds the retention window, the heartbeat interval, the command lifetime and
+ * the stop delays from their container parameters, so each flag row and its
+ * coded fallback start out equal.
  */
 final readonly class BridgeInstallFlags implements InstallFlagDefaultsInterface
 {
@@ -29,6 +30,12 @@ final readonly class BridgeInstallFlags implements InstallFlagDefaultsInterface
 
         #[Autowire(param: 'app.bridge.default_command_ttl_minutes')]
         private int $commandTtlMinutes,
+
+        #[Autowire(param: 'app.bridge.default_stop_sigterm_after_ms')]
+        private int $stopSigtermAfterMs,
+
+        #[Autowire(param: 'app.bridge.default_stop_sigkill_after_ms')]
+        private int $stopSigkillAfterMs,
     ) {
     }
 
@@ -39,5 +46,7 @@ final readonly class BridgeInstallFlags implements InstallFlagDefaultsInterface
         yield new InstallFlagDefault(WorkerRunRetentionPolicy::FLAG, FeatureFlagType::Int, $this->retentionDays);
         yield new InstallFlagDefault(HeartbeatInterval::FLAG, FeatureFlagType::Int, $this->heartbeatIntervalSeconds);
         yield new InstallFlagDefault(BridgeCommandTtl::FLAG, FeatureFlagType::Int, $this->commandTtlMinutes);
+        yield new InstallFlagDefault(StopLadder::SIGTERM_FLAG, FeatureFlagType::Int, $this->stopSigtermAfterMs);
+        yield new InstallFlagDefault(StopLadder::SIGKILL_FLAG, FeatureFlagType::Int, $this->stopSigkillAfterMs);
     }
 }

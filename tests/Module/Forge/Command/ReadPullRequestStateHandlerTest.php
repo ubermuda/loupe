@@ -295,6 +295,27 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         self::assertEquals(new \DateTimeImmutable('2026-09-27 12:01:00'), $this->reload($row)->refreshedAt);
     }
 
+    public function test_an_open_and_merge_time_read_for_the_first_time_is_stored_and_announces_nothing(): void
+    {
+        $row = $this->row();
+        $opened = new \DateTimeImmutable('2026-09-20 08:00:00');
+        $merged = new \DateTimeImmutable('2026-09-21 09:30:00');
+        $this->reader->answers = [
+            new PullRequestSnapshot(state: PullRequestState::Merged),
+            new PullRequestSnapshot(state: PullRequestState::Merged, openedAt: $opened, mergedAt: $merged),
+        ];
+        $this->handle($row, self::NOW);
+        $this->clock->modify('+1 minute');
+
+        $this->handle($row, '2026-09-27 12:00:30');
+
+        self::assertSame(2, $this->reader->reads);
+        self::assertCount(1, $this->changes);
+        $fresh = $this->reload($row);
+        self::assertEquals($opened, $fresh->openedAt);
+        self::assertEquals($merged, $fresh->mergedAt);
+    }
+
     public function test_a_row_read_since_the_request_is_skipped(): void
     {
         $row = $this->row(refreshedAt: '2026-09-27 11:59:00');

@@ -33,6 +33,10 @@ final class ShowEventsControllerTest extends WebTestCase
 
     private const string HEARTBEAT_FLAG = 'bridge.heartbeat_interval_seconds';
 
+    private const string SIGTERM_FLAG = 'bridge.stop_sigterm_after_ms';
+
+    private const string SIGKILL_FLAG = 'bridge.stop_sigkill_after_ms';
+
     public function test_returns_the_callers_own_topic_its_projects_and_a_jwt_for_that_topic_alone(): void
     {
         $client = static::createClient();
@@ -179,7 +183,7 @@ final class ShowEventsControllerTest extends WebTestCase
 
         $flags = $this->flags($client, $raw);
 
-        self::assertSame([self::INBOX_FLAG, self::HEARTBEAT_FLAG], array_keys($flags));
+        self::assertSame([self::INBOX_FLAG, self::HEARTBEAT_FLAG, self::SIGTERM_FLAG, self::SIGKILL_FLAG], array_keys($flags));
         self::assertArrayNotHasKey(AgentPush::FLAG, $flags);
     }
 
@@ -225,6 +229,39 @@ final class ShowEventsControllerTest extends WebTestCase
         [$raw] = $this->issue($client, 'events-heartbeat-floor-'.$stored.'@example.com');
 
         self::assertSame($shared, $this->flags($client, $raw)[self::HEARTBEAT_FLAG]);
+    }
+
+    public function test_the_stop_delays_read_as_the_defaults_when_they_have_no_row(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $this->em();
+        $em->getConnection()->executeStatement(
+            'DELETE FROM feature_flag WHERE name IN (?, ?)',
+            [self::SIGTERM_FLAG, self::SIGKILL_FLAG],
+        );
+        [$raw] = $this->issue($client, 'events-stop-none@example.com');
+
+        $flags = $this->flags($client, $raw);
+
+        self::assertSame(7500, $flags[self::SIGTERM_FLAG]);
+        self::assertSame(2500, $flags[self::SIGKILL_FLAG]);
+    }
+
+    public function test_the_stop_delays_carry_the_stored_values_as_integers(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $this->em();
+        $this->storeIntFlag($em, self::SIGTERM_FLAG, '3000');
+        $this->storeIntFlag($em, self::SIGKILL_FLAG, '99');
+        [$raw] = $this->issue($client, 'events-stop-stored@example.com');
+
+        $flags = $this->flags($client, $raw);
+
+        self::assertSame(3000, $flags[self::SIGTERM_FLAG]);
+        // Below the 100 ms floor, so the bridge gets the default.
+        self::assertSame(2500, $flags[self::SIGKILL_FLAG]);
     }
 
     public function test_push_disabled_hides_the_endpoint(): void
@@ -314,10 +351,15 @@ final class ShowEventsControllerTest extends WebTestCase
 
     private function storeHeartbeatFlag(EntityManagerInterface $em, string $value): void
     {
-        $em->getConnection()->executeStatement('DELETE FROM feature_flag WHERE name = ?', [self::HEARTBEAT_FLAG]);
+        $this->storeIntFlag($em, self::HEARTBEAT_FLAG, $value);
+    }
+
+    private function storeIntFlag(EntityManagerInterface $em, string $name, string $value): void
+    {
+        $em->getConnection()->executeStatement('DELETE FROM feature_flag WHERE name = ?', [$name]);
         $em->getConnection()->executeStatement(
             "INSERT INTO feature_flag (name, type, value, tags, options) VALUES (?, 'int', ?, '[]', NULL)",
-            [self::HEARTBEAT_FLAG, $value],
+            [$name, $value],
         );
     }
 

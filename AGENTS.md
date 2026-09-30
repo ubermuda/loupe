@@ -160,7 +160,7 @@ An existing file keeps its old prose until a rewrite touches it. The `compressin
 
 ## Recommendations and the quality bar
 
-The owner ranks the priorities `correctness > simplicity > performance > shipping speed`. `docs/contributing/architectural-priorities.md` says which one yields in each of the six collisions, and when to escalate rather than apply the ranking. Read it before you call a trade-off.
+The owner ranks the priorities `correctness > simplicity > performance > shipping speed`. `docs/contributing/architectural-priorities.md` says which one yields in each of the six collisions, and when to escalate rather than apply the ranking. Read it before you call a trade-off. The records in `docs/adr/` apply that ranking to recurring questions. Read them before you design a new stage, a bridge rule or an automation.
 
 ### The owner sets the bar, not the agent
 

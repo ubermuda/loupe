@@ -33,6 +33,10 @@ const (
 	// RunWaitingOnForge is a run that ended with its work waiting on the
 	// forge, such as checks on a pushed pull request.
 	RunWaitingOnForge = "waiting-on-forge"
+	// RunStopping and RunStopped follow a person's stop. RunStopped closes the
+	// run and is no outcome, so it carries no exit code and no result.
+	RunStopping = "stopping"
+	RunStopped  = "stopped"
 )
 
 // The reasons of a dropped run.

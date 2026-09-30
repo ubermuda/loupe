@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Service;
 use App\Module\Board\Entity\BoardFixStrategy;
 use App\Module\Board\Entity\BoardMergeStrategy;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
+use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
@@ -30,7 +31,9 @@ final class BoardAutomationTest extends KernelTestCase
 
         $settings = self::getContainer()->get(BoardAutomationSettingsRepository::class);
         self::assertInstanceOf(BoardAutomationSettingsRepository::class, $settings);
-        $this->automation = new BoardAutomation($settings, $em);
+        $comments = self::getContainer()->get(PullRequestCommentRepository::class);
+        self::assertInstanceOf(PullRequestCommentRepository::class, $comments);
+        $this->automation = new BoardAutomation($settings, $comments, $em);
     }
 
     public function test_settings_of_a_project_with_no_row_are_the_unsaved_defaults(): void
