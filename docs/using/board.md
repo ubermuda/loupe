@@ -384,8 +384,8 @@ The **History** tab lists what happened to the card, newest first, on a
 timeline. A row says who created the card and in which column, and who moved
 it from one column to another. When Loupe moved the card on its own, a line
 under the row says why, for example after a pull request merged. The tab also
-records when the automation asked for a fix, when it stopped and when a pull
-request was ready to merge, with the reason. A finished agent run shows its
+records when the automation asked for a fix or stopped, with the reason, and
+when a pull request was ready to merge. A finished agent run shows its
 rule, its duration and its result, and it links to the run while the run is
 kept.
 
@@ -394,8 +394,8 @@ and the name of the person the agent works for. A change by the app reads
 **Loupe**. A change from the site-review widget reads **A reviewer**, because
 the widget does not name its visitor. A deleted account reads **A deleted
 user**. The tab shows 50 rows, and **Show older** loads the next 50 in
-place. Loupe started to record history in this release, so an older card
-starts with an empty tab.
+place. Loupe records history from the version that added this tab, so an
+older card starts with an empty tab.
 
 A card with links to other cards shows a **Linked cards** table. Each row gives
 the kind of link, the other card's number, its title and its column. A row opens
