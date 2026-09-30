@@ -90,6 +90,7 @@ final class McpEndpointAuthTest extends WebTestCase
 
         self::assertSame([
             'board_columns',
+            'bridge_command_cancel',
             'bridge_list',
             'card_create',
             'card_get',
@@ -120,6 +121,8 @@ final class McpEndpointAuthTest extends WebTestCase
             'tag_list',
             'worker_run_get',
             'worker_run_list',
+            'worker_run_resume',
+            'worker_run_stop',
         ], $this->listToolNames($client, $raw));
     }
 
