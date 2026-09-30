@@ -275,28 +275,32 @@ final class GitHubPullRequestStateMapperTest extends TestCase
         self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->changesRequestedSha);
     }
 
-    /** @return iterable<string, array{mixed, ?string, ?string}> */
+    /** @return iterable<string, array{mixed, ?string, ?string, ?string}> */
     public static function approvals(): iterable
     {
-        $first = ['state' => 'APPROVED', 'submittedAt' => '2026-09-20T10:00:00Z', 'commit' => ['oid' => 'aaa1111']];
-        $second = ['state' => 'APPROVED', 'submittedAt' => '2026-09-21T09:00:00Z', 'commit' => ['oid' => 'bbb2222']];
+        $first = ['id' => 'PRR_first', 'state' => 'APPROVED', 'submittedAt' => '2026-09-20T10:00:00Z', 'commit' => ['oid' => 'aaa1111']];
+        $second = ['id' => 'PRR_second', 'state' => 'APPROVED', 'submittedAt' => '2026-09-21T09:00:00Z', 'commit' => ['oid' => 'bbb2222']];
+        $onlySecond = ['2026-09-21 09:00:00', 'bbb2222', 'PRR_second'];
 
-        yield 'no reviews field' => [null, null, null];
-        yield 'empty nodes' => [['nodes' => []], null, null];
-        yield 'only a change request' => [['nodes' => [['state' => 'CHANGES_REQUESTED', 'submittedAt' => '2026-09-20T10:00:00Z', 'commit' => ['oid' => 'aaa1111']]]], null, null];
-        yield 'one approval' => [['nodes' => [$first]], '2026-09-20 10:00:00', 'aaa1111'];
-        yield 'the oldest of two approvals' => [['nodes' => [$second, $first]], '2026-09-20 10:00:00', 'aaa1111'];
-        yield 'an approval beside a change request' => [['nodes' => [['state' => 'CHANGES_REQUESTED', 'submittedAt' => '2026-09-19T10:00:00Z', 'commit' => ['oid' => 'ccc3333']], $second]], '2026-09-21 09:00:00', 'bbb2222'];
-        yield 'a malformed time is skipped' => [['nodes' => [['submittedAt' => 'yesterday'] + $first, $second]], '2026-09-21 09:00:00', 'bbb2222'];
-        yield 'a missing time is skipped' => [['nodes' => [['state' => 'APPROVED', 'commit' => ['oid' => 'aaa1111']], $second]], '2026-09-21 09:00:00', 'bbb2222'];
-        yield 'an empty oid is skipped' => [['nodes' => [['commit' => ['oid' => '']] + $first, $second]], '2026-09-21 09:00:00', 'bbb2222'];
-        yield 'a missing commit is skipped' => [['nodes' => [['commit' => null] + $first, $second]], '2026-09-21 09:00:00', 'bbb2222'];
-        yield 'a node that is not an array is skipped' => [['nodes' => ['APPROVED', $second]], '2026-09-21 09:00:00', 'bbb2222'];
-        yield 'nodes that are not a list' => [['nodes' => 'APPROVED'], null, null];
+        yield 'no reviews field' => [null, null, null, null];
+        yield 'empty nodes' => [['nodes' => []], null, null, null];
+        yield 'only a change request' => [['nodes' => [['state' => 'CHANGES_REQUESTED'] + $first]], null, null, null];
+        yield 'one approval' => [['nodes' => [$first]], '2026-09-20 10:00:00', 'aaa1111', 'PRR_first'];
+        yield 'the oldest of two approvals' => [['nodes' => [$second, $first]], '2026-09-20 10:00:00', 'aaa1111', 'PRR_first'];
+        yield 'an approval beside a change request' => [['nodes' => [['id' => 'PRR_change', 'state' => 'CHANGES_REQUESTED', 'submittedAt' => '2026-09-19T10:00:00Z', 'commit' => ['oid' => 'ccc3333']], $second]], ...$onlySecond];
+        yield 'a malformed time is skipped' => [['nodes' => [['submittedAt' => 'yesterday'] + $first, $second]], ...$onlySecond];
+        yield 'a missing time is skipped' => [['nodes' => [array_diff_key($first, ['submittedAt' => true]), $second]], ...$onlySecond];
+        yield 'an empty oid is skipped' => [['nodes' => [['commit' => ['oid' => '']] + $first, $second]], ...$onlySecond];
+        yield 'a missing commit is skipped' => [['nodes' => [['commit' => null] + $first, $second]], ...$onlySecond];
+        yield 'a missing id is skipped' => [['nodes' => [array_diff_key($first, ['id' => true]), $second]], ...$onlySecond];
+        yield 'an empty id is skipped' => [['nodes' => [['id' => ''] + $first, $second]], ...$onlySecond];
+        yield 'an id that is not a string is skipped' => [['nodes' => [['id' => 42] + $first, $second]], ...$onlySecond];
+        yield 'a node that is not an array is skipped' => [['nodes' => ['APPROVED', $second]], ...$onlySecond];
+        yield 'nodes that are not a list' => [['nodes' => 'APPROVED'], null, null, null];
     }
 
     #[DataProvider('approvals')]
-    public function test_the_oldest_approval_gives_the_approval_time_and_sha(mixed $reviews, ?string $approvedAt, ?string $approvalSha): void
+    public function test_the_oldest_approval_gives_the_approval_time_sha_and_id(mixed $reviews, ?string $approvedAt, ?string $approvalSha, ?string $approvalId): void
     {
         $node = self::pullRequest604();
         if (null === $reviews) {
@@ -309,19 +313,21 @@ final class GitHubPullRequestStateMapperTest extends TestCase
 
         self::assertSame($approvedAt, $snapshot->approvedAt?->format('Y-m-d H:i:s'));
         self::assertSame($approvalSha, $snapshot->approvalSha);
+        self::assertSame($approvalId, $snapshot->approvalId);
     }
 
     public function test_an_approval_counts_whatever_the_review_decision(): void
     {
         $node = self::pullRequest604();
         $node['reviewDecision'] = 'CHANGES_REQUESTED';
-        $node['latestOpinionatedReviews'] = ['nodes' => [['state' => 'APPROVED', 'submittedAt' => '2026-09-20T12:00:00+02:00', 'commit' => ['oid' => 'aaa1111']]]];
+        $node['latestOpinionatedReviews'] = ['nodes' => [['id' => 'PRR_first', 'state' => 'APPROVED', 'submittedAt' => '2026-09-20T12:00:00+02:00', 'commit' => ['oid' => 'aaa1111']]]];
 
         $snapshot = new GitHubPullRequestStateMapper()->map($node, self::rules604(), null);
 
         self::assertSame('2026-09-20 10:00:00', $snapshot->approvedAt?->format('Y-m-d H:i:s'));
         self::assertSame('UTC', $snapshot->approvedAt->getTimezone()->getName());
         self::assertSame('aaa1111', $snapshot->approvalSha);
+        self::assertSame('PRR_first', $snapshot->approvalId);
     }
 
     /** @return iterable<string, array{mixed, ?string}> */

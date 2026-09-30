@@ -34,6 +34,7 @@ final readonly class PullRequestSnapshot
         public ?string $approvalSha = null,
         public ?string $defaultBranch = null,
         public array $headParents = [],
+        public ?string $approvalId = null,
     ) {
     }
 

@@ -39,7 +39,7 @@ final readonly class GitHubPullRequestStateMapper
         $draft = true === ($pullRequest['isDraft'] ?? null);
         $mergeable = $pullRequest['mergeable'] ?? null;
         $mergeStateStatus = $pullRequest['mergeStateStatus'] ?? null;
-        [$approvedAt, $approvalSha] = $this->approval($pullRequest);
+        [$approvedAt, $approvalSha, $approvalId] = $this->approval($pullRequest);
         [$checks, $failedChecks] = $this->checks($pullRequest, $rules, 'BLOCKED' === $mergeStateStatus);
         $mergeability = match (true) {
             'CONFLICTING' === $mergeable, 'DIRTY' === $mergeStateStatus => PullRequestMergeability::Conflicting,
@@ -68,28 +68,30 @@ final readonly class GitHubPullRequestStateMapper
             approvalSha: $approvalSha,
             defaultBranch: $this->defaultBranch($pullRequest),
             headParents: $this->headParents($pullRequest),
+            approvalId: $approvalId,
         );
     }
 
     /**
-     * The time and commit of the oldest approval that stands.
+     * The time, commit and review id of the oldest approval that stands.
      *
      * @param array<mixed> $pullRequest
      *
-     * @return array{?\DateTimeImmutable, ?string}
+     * @return array{?\DateTimeImmutable, ?string, ?string}
      */
     private function approval(array $pullRequest): array
     {
         $nodes = $pullRequest['latestOpinionatedReviews']['nodes'] ?? [];
-        $oldest = [null, null];
+        $oldest = [null, null, null];
         foreach (\is_array($nodes) ? $nodes : [] as $node) {
             if (!\is_array($node) || 'APPROVED' !== ($node['state'] ?? null)) {
                 continue;
             }
             $time = $this->time($node['submittedAt'] ?? null);
             $oid = $node['commit']['oid'] ?? null;
-            if (null !== $time && \is_string($oid) && '' !== $oid && (null === $oldest[0] || $time < $oldest[0])) {
-                $oldest = [$time, $oid];
+            $id = $node['id'] ?? null;
+            if (null !== $time && \is_string($oid) && '' !== $oid && \is_string($id) && '' !== $id && (null === $oldest[0] || $time < $oldest[0])) {
+                $oldest = [$time, $oid, $id];
             }
         }
 

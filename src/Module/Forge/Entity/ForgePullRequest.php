@@ -90,6 +90,9 @@ class ForgePullRequest
     #[ORM\Column(length: 64, nullable: true)]
     public ?string $approvalSha = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    public ?string $approvalId = null;
+
     #[ORM\Column(length: 64, nullable: true)]
     public ?string $coveredSha = null;
 
@@ -136,8 +139,8 @@ class ForgePullRequest
 
     public function apply(PullRequestSnapshot $snapshot): void
     {
-        // Keyed on the time, because GitHub moves the commit of a review onto a later merge from the base.
-        if ($this->approvedAt?->getTimestamp() !== $snapshot->approvedAt?->getTimestamp()) {
+        // Keyed on the review id, because GitHub moves the commit of a review onto a later merge from the base.
+        if ($this->approvalId !== $snapshot->approvalId) {
             $this->coveredSha = $snapshot->approvalSha;
         }
         $this->state = $snapshot->state;
@@ -155,6 +158,7 @@ class ForgePullRequest
         $this->mergedAt = $snapshot->mergedAt;
         $this->approvedAt = $snapshot->approvedAt;
         $this->approvalSha = $snapshot->approvalSha;
+        $this->approvalId = $snapshot->approvalId;
         $this->defaultBranch = $snapshot->defaultBranch;
         $this->headParents = $snapshot->headParents;
     }
@@ -179,6 +183,7 @@ class ForgePullRequest
             $this->approvalSha,
             $this->defaultBranch,
             $this->headParents,
+            $this->approvalId,
         );
     }
 }

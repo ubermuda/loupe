@@ -35,6 +35,7 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertNull($pullRequest->mergedAt);
         self::assertNull($pullRequest->approvedAt);
         self::assertNull($pullRequest->approvalSha);
+        self::assertNull($pullRequest->approvalId);
         self::assertNull($pullRequest->coveredSha);
         self::assertNull($pullRequest->defaultBranch);
         self::assertSame([], $pullRequest->headParents);
@@ -72,44 +73,36 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertSame('approved1', $pullRequest->snapshot()->approvalSha);
         self::assertSame('main', $pullRequest->snapshot()->defaultBranch);
         self::assertSame(['parent1', 'parent2'], $pullRequest->snapshot()->headParents);
+        self::assertSame('PRR_review1', $pullRequest->approvalId);
+        self::assertSame('PRR_review1', $pullRequest->snapshot()->approvalId);
     }
 
     public function test_the_first_approval_sets_the_covered_sha(): void
     {
         $pullRequest = $this->pullRequest();
 
-        $pullRequest->apply($this->approved('2026-09-20 10:00:00', 'approved1'));
+        $pullRequest->apply($this->approved('review1', 'approved1'));
 
         self::assertSame('approved1', $pullRequest->coveredSha);
     }
 
-    public function test_a_new_read_of_the_same_approval_keeps_the_covered_sha_when_its_sha_moved(): void
+    public function test_the_same_approval_with_a_moved_sha_keeps_the_covered_sha(): void
     {
         $pullRequest = $this->pullRequest();
-        $pullRequest->apply($this->approved('2026-09-20 10:00:00', 'approved1'));
+        $pullRequest->apply($this->approved('review1', 'approved1'));
 
-        $pullRequest->apply($this->approved('2026-09-20T10:00:00+00:00', 'mergecommit'));
+        $pullRequest->apply($this->approved('review1', 'mergecommit'));
 
         self::assertSame('mergecommit', $pullRequest->approvalSha);
         self::assertSame('approved1', $pullRequest->coveredSha);
     }
 
-    public function test_the_same_approval_read_in_another_time_zone_keeps_the_covered_sha(): void
+    public function test_a_new_approval_in_the_same_second_resets_the_covered_sha(): void
     {
         $pullRequest = $this->pullRequest();
-        $pullRequest->apply($this->approved('2026-09-20T10:00:00+00:00', 'approved1'));
+        $pullRequest->apply($this->approved('review1', 'approved1'));
 
-        $pullRequest->apply($this->approved('2026-09-20T12:00:00+02:00', 'mergecommit'));
-
-        self::assertSame('approved1', $pullRequest->coveredSha);
-    }
-
-    public function test_a_new_approval_time_resets_the_covered_sha(): void
-    {
-        $pullRequest = $this->pullRequest();
-        $pullRequest->apply($this->approved('2026-09-20 10:00:00', 'approved1'));
-
-        $pullRequest->apply($this->approved('2026-09-22 08:00:00', 'approved2'));
+        $pullRequest->apply($this->approved('review2', 'approved2'));
 
         self::assertSame('approved2', $pullRequest->coveredSha);
     }
@@ -117,11 +110,11 @@ final class PullRequestSnapshotTest extends TestCase
     public function test_a_removed_approval_clears_the_covered_sha(): void
     {
         $pullRequest = $this->pullRequest();
-        $pullRequest->apply($this->approved('2026-09-20 10:00:00', 'approved1'));
+        $pullRequest->apply($this->approved('review1', 'approved1'));
 
         $pullRequest->apply(new PullRequestSnapshot());
 
-        self::assertNull($pullRequest->approvedAt);
+        self::assertNull($pullRequest->approvalId);
         self::assertNull($pullRequest->coveredSha);
     }
 
@@ -149,7 +142,7 @@ final class PullRequestSnapshotTest extends TestCase
 
     public function test_the_approval_and_branch_facts_do_not_break_equality(): void
     {
-        $arguments = [...self::changedArguments(), 'approvedAt' => null, 'approvalSha' => null, 'defaultBranch' => null, 'headParents' => []];
+        $arguments = [...self::changedArguments(), 'approvedAt' => null, 'approvalSha' => null, 'defaultBranch' => null, 'headParents' => [], 'approvalId' => null];
 
         self::assertTrue($this->changed()->equals(new PullRequestSnapshot(...$arguments)));
     }
@@ -227,12 +220,13 @@ final class PullRequestSnapshotTest extends TestCase
             'approvalSha' => 'approved1',
             'defaultBranch' => 'main',
             'headParents' => ['parent1', 'parent2'],
+            'approvalId' => 'PRR_review1',
         ];
     }
 
-    private function approved(string $at, string $sha): PullRequestSnapshot
+    private function approved(string $id, string $sha): PullRequestSnapshot
     {
-        return new PullRequestSnapshot(review: PullRequestReview::Approved, approvedAt: new \DateTimeImmutable($at), approvalSha: $sha);
+        return new PullRequestSnapshot(review: PullRequestReview::Approved, approvedAt: new \DateTimeImmutable('2026-09-20 10:00:00'), approvalSha: $sha, approvalId: $id);
     }
 
     private function pullRequest(): ForgePullRequest
