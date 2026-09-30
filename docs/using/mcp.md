@@ -21,8 +21,8 @@ and follow the steps it prints, in order. Use curl, not a web fetch tool.
 ```
 
 `/setup.md` is public and returns Markdown steps for an agent. The steps
-install the CLI when `loupe version` fails, and stop on Windows, which has no
-build. They sign in with `loupe login` and bind the repository with
+install the CLI with `/install.sh` when `loupe version` fails, and stop on
+Windows, which has no build. They sign in with `loupe login` and bind the repository with
 `loupe init`. Then they connect the MCP server, install the skills, and check
 the result with `loupe status`. The agent asks you when a step needs you, such
 as the browser approval of the sign-in. It never writes a token or a password.

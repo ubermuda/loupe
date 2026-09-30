@@ -21,6 +21,7 @@ final class SetupInstructionsControllerTest extends WebTestCase
         $body = (string) $client->getResponse()->getContent();
 
         self::assertStringContainsString('loupe login --url http://localhost ', $body);
+        self::assertStringContainsString('curl -fsSL http://localhost/install.sh | LOUPE_INSTALL_NO_TTY=1 sh', $body);
         self::assertStringContainsString('<project id>', $body);
         // Shell redirections in the steps prove the text is not HTML-escaped.
         self::assertStringContainsString('> /tmp/loupe-login.log 2>&1 &', $body);

@@ -18,37 +18,15 @@ The `loupe` CLI runs on macOS and Linux, on amd64 and arm64. It has no Windows b
 
 Run `loupe version`. If it prints a version, go to step 4.
 
-If it fails, install the latest CLI release. A CLI release has a tag of the form `cli/vX.Y.Z`. Run this block as one command. It finds the version and the platform, downloads the archive and `checksums.txt` into a temporary directory, checks the archive, and puts the binary in `~/.local/bin`:
+If it fails, install the CLI with the install script of this Loupe. Run:
 
 ```bash
-(
-  set -e
-  version=""
-  page=1
-  while [ -z "$version" ] && [ "$page" -le 10 ]; do
-    releases=$(curl -fsSL "https://api.github.com/repos/ubermuda/loupe/releases?per_page=100&page=${page}")
-    version=$(printf '%s\n' "$releases" | awk -F'"' '/"tag_name":/ {tag=$4} /"prerelease": *false/ && tag ~ /^cli\/v[0-9]+\.[0-9]+\.[0-9]+$/ {print substr(tag, 6); tag=""}' | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)
-    page=$((page + 1))
-  done
-  os=$(uname -s | tr '[:upper:]' '[:lower:]')
-  arch=$(uname -m)
-  case "$arch" in x86_64) arch=amd64 ;; aarch64) arch=arm64 ;; esac
-  archive="loupe_${version}_${os}_${arch}.tar.gz"
-  echo "archive: $archive"
-  cd "$(mktemp -d)"
-  curl -fsSLO "https://github.com/ubermuda/loupe/releases/download/cli/v${version}/${archive}"
-  curl -fsSLO "https://github.com/ubermuda/loupe/releases/download/cli/v${version}/checksums.txt"
-  grep -E "^[0-9a-f]{64}  ${archive}\$" checksums.txt > archive.sha256 || { echo "checksums.txt has no entry for ${archive}" >&2; exit 1; }
-  if command -v shasum > /dev/null; then shasum -a 256 -c archive.sha256; else sha256sum -c archive.sha256; fi
-  tar -xzf "$archive" loupe
-  mkdir -p ~/.local/bin
-  mv loupe ~/.local/bin/
-)
+curl -fsSL {{ instance }}/install.sh | LOUPE_INSTALL_NO_TTY=1 sh
 ```
 
-The archive name must look like `loupe_1.4.0_darwin_arm64.tar.gz`, and the check must print `OK` after it. If the block fails, or it prints `FAILED`, stop and show the output to the user.
+`LOUPE_INSTALL_NO_TTY=1` stops the script from asking questions. It installs the latest CLI release into `~/.local/bin`, and keeps automatic updates off. It checks the download against `checksums.txt` before it installs anything. It prints `Installed loupe <version> at <path>.` when it succeeds. If it fails, stop and show the output to the user.
 
-The CLI updates itself, so keep it in a directory the user can write. The MCP server starts as `loupe mcp`, so `~/.local/bin` must be on the `PATH` of the agent. If `command -v loupe` prints nothing, tell the user how to add `~/.local/bin` to their `PATH`, and ask them to restart the agent from a new terminal. Then stop. Run `loupe version` again. It must print a version.
+The MCP server starts as `loupe mcp`, so the directory of `loupe` must be on the `PATH` of the agent. If the script prints `is not on your PATH`, show the user the line it prints, and ask them to add it to their shell profile and restart the agent from a new terminal. Then stop. Tell the user that automatic updates are off, and that `loupe update auto on` turns them on. Run `loupe version` again. It must print a version.
 
 ## 4. Sign in
 
