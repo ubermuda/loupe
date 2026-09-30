@@ -10,6 +10,7 @@ final readonly class MoveAbandonedCard
 {
     public function __construct(
         public Uuid $cardId,
+        public Uuid $token,
     ) {
     }
 }

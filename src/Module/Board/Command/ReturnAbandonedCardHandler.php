@@ -6,6 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -20,6 +21,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * links is closed and none merged. It runs some minutes after the last close,
  * so it reads everything again under the project lock: a link added or
  * reopened since, a move to a terminal column, or an open child cancels it.
+ * Each close queues a move, and only the newest one acts.
  */
 final readonly class ReturnAbandonedCardHandler
 {
@@ -31,6 +33,7 @@ final readonly class ReturnAbandonedCardHandler
         private ForgePullRequestRepository $forgePullRequests,
         private EntityManagerInterface $em,
         private UpdateCardHandler $updateCard,
+        private CardAutomationRepository $cardAutomations,
     ) {
     }
 
@@ -41,7 +44,7 @@ final readonly class ReturnAbandonedCardHandler
             return;
         }
 
-        $this->em->wrapInTransaction(function () use ($card): void {
+        $this->em->wrapInTransaction(function () use ($card, $command): void {
             $project = $card->project;
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
             if (!$this->boardAutomation->settingsOf($project)->enabled) {
@@ -56,6 +59,9 @@ final readonly class ReturnAbandonedCardHandler
             // Empty also when the card was deleted before the lock.
             $links = $this->cardPullRequests->findCurrentKeys($card);
             if ([] === $links) {
+                return;
+            }
+            if (!$command->token->equals($this->cardAutomations->findOrCreateForUpdate($card)->abandonedMoveToken)) {
                 return;
             }
             $keys = [];

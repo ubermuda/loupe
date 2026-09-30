@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Messenger\MoveAbandonedCard;
 use App\Module\Board\Messenger\MoveAbandonedCardHandler;
+use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
@@ -47,6 +48,28 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
 
         self::assertSame('backlog', $this->storedColumnOf($card));
         self::assertEquals([['system', null, 'in-progress', 'backlog', ['type' => 'abandoned']]], $this->history($card));
+    }
+
+    public function test_an_older_queued_move_does_nothing(): void
+    {
+        $card = $this->linkedCard('in-progress', PullRequestState::Closed);
+        $older = $this->queueToken($card);
+        $newer = $this->queueToken($card);
+
+        $this->handleWith($card, $older);
+        self::assertSame('in-progress', $this->storedColumnOf($card));
+
+        $this->handleWith($card, $newer);
+        self::assertSame('backlog', $this->storedColumnOf($card));
+    }
+
+    public function test_a_card_with_no_queued_move_stays(): void
+    {
+        $card = $this->linkedCard('in-progress', PullRequestState::Closed);
+
+        $this->handleWith($card, Uuid::v7());
+
+        self::assertSame('in-progress', $this->storedColumnOf($card));
     }
 
     public function test_a_pull_request_linked_since_the_close_keeps_the_card(): void
@@ -160,7 +183,7 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
         $handler = self::getContainer()->get(MoveAbandonedCardHandler::class);
         self::assertInstanceOf(MoveAbandonedCardHandler::class, $handler);
 
-        $handler(new MoveAbandonedCard($cardId));
+        $handler(new MoveAbandonedCard($cardId, Uuid::v7()));
 
         self::assertSame(0, (int) $this->em->getConnection()->fetchOne(
             "SELECT COUNT(*) FROM outbox_events WHERE project_id = :project AND type = 'board.card_moved'",
@@ -170,9 +193,28 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
 
     private function handle(Card $card): void
     {
+        $this->handleWith($card, $this->queueToken($card));
+    }
+
+    private function handleWith(Card $card, Uuid $token): void
+    {
         $handler = self::getContainer()->get(MoveAbandonedCardHandler::class);
         self::assertInstanceOf(MoveAbandonedCardHandler::class, $handler);
-        $handler(new MoveAbandonedCard($card->id ?? throw new \LogicException('A persisted card has an id.')));
+        $handler(new MoveAbandonedCard($card->id ?? throw new \LogicException('A persisted card has an id.'), $token));
+    }
+
+    /** Records a token as the newest queued move of the card, as a close does. */
+    private function queueToken(Card $card): Uuid
+    {
+        $token = Uuid::v7();
+        $automations = self::getContainer()->get(CardAutomationRepository::class);
+        self::assertInstanceOf(CardAutomationRepository::class, $automations);
+        $this->em->wrapInTransaction(function () use ($automations, $card, $token): void {
+            $automations->findOrCreateForUpdate($card)->abandonedMoveToken = $token;
+            $this->em->flush();
+        });
+
+        return $token;
     }
 
     private function linkedCard(string $slug, PullRequestState $state): Card

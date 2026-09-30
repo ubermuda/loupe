@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Messenger\MoveAbandonedCard;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
@@ -48,6 +49,7 @@ final readonly class MoveCardsOnPullRequestStateHandler
         private LifecycleStages $stages,
         private UpdateCardHandler $updateCard,
         private MessageBusInterface $bus,
+        private CardAutomationRepository $cardAutomations,
     ) {
     }
 
@@ -104,7 +106,11 @@ final readonly class MoveCardsOnPullRequestStateHandler
                 } elseif ($green && null !== $review && $card->column->slug === $stage['from']) {
                     ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $review, onlyFromColumn: $card->column, cause: CardEventCause::checksPassed($number)));
                 } elseif (isset($abandoned[(string) $card->id]) && !$card->column->backlog) {
-                    $this->bus->dispatch(new MoveAbandonedCard($card->id ?? throw new \LogicException('A stored card has an id.')), [new DelayStamp(self::ABANDONED_DELAY_MILLISECONDS)]);
+                    // Only the newest queued move acts, so it waits for the last close.
+                    $token = Uuid::v7();
+                    $this->cardAutomations->findOrCreateForUpdate($card)->abandonedMoveToken = $token;
+                    $this->em->flush();
+                    $this->bus->dispatch(new MoveAbandonedCard($card->id ?? throw new \LogicException('A stored card has an id.'), $token), [new DelayStamp(self::ABANDONED_DELAY_MILLISECONDS)]);
                 }
             }
         });

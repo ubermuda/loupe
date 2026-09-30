@@ -32,6 +32,10 @@ class CardAutomation
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $lastActionAt = null;
 
+    /** The newest queued Backlog move of the card. An older one finds another token and does nothing. */
+    #[ORM\Column(type: UuidType::NAME, nullable: true)]
+    public ?Uuid $abandonedMoveToken = null;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         #[ORM\OneToOne(targetEntity: Card::class)]

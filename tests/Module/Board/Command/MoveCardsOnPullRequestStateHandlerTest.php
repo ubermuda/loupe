@@ -12,6 +12,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Messenger\MoveAbandonedCard;
+use App\Module\Board\Messenger\MoveAbandonedCardHandler;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
@@ -276,6 +277,28 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
         self::assertSame([(string) $card->id], $this->queuedAbandonedCards());
     }
 
+    public function test_a_close_a_reopen_and_a_second_close_leave_only_the_second_move_able_to_act(): void
+    {
+        $card = $this->linkedCard('in-review');
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
+        $this->handle(new PullRequestSnapshot(state: PullRequestState::Closed), new PullRequestSnapshot());
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
+        $this->pullRequest->state = PullRequestState::Closed;
+        $this->em->flush();
+
+        $messages = $this->queuedAbandonedMessages();
+        self::assertCount(2, $messages);
+        $handler = self::getContainer()->get(MoveAbandonedCardHandler::class);
+        self::assertInstanceOf(MoveAbandonedCardHandler::class, $handler);
+
+        $handler($messages[0]);
+        self::assertSame('in-review', $this->storedColumnOf($card));
+
+        $handler($messages[1]);
+        self::assertSame('backlog', $this->storedColumnOf($card));
+    }
+
     public function test_a_close_queues_the_backlog_move_on_a_board_without_a_terminal_column(): void
     {
         $this->column($this->project, 'done')->terminal = false;
@@ -512,10 +535,16 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
      */
     private function queuedAbandonedCards(): array
     {
+        return array_map(static fn (MoveAbandonedCard $message): string => (string) $message->cardId, $this->queuedAbandonedMessages());
+    }
+
+    /** @return list<MoveAbandonedCard> */
+    private function queuedAbandonedMessages(): array
+    {
         $transport = self::getContainer()->get('messenger.transport.async');
         self::assertInstanceOf(InMemoryTransport::class, $transport);
 
-        $cardIds = [];
+        $messages = [];
         foreach ($transport->getSent() as $envelope) {
             $message = $envelope->getMessage();
             if (!$message instanceof MoveAbandonedCard) {
@@ -524,10 +553,10 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
             $delay = $envelope->last(DelayStamp::class);
             self::assertInstanceOf(DelayStamp::class, $delay);
             self::assertSame(600_000, $delay->getDelay());
-            $cardIds[] = (string) $message->cardId;
+            $messages[] = $message;
         }
 
-        return $cardIds;
+        return $messages;
     }
 
     /** @return list<string> */

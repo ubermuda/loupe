@@ -10,6 +10,7 @@ final readonly class ReturnAbandonedCardCommand
 {
     public function __construct(
         public Uuid $cardId,
+        public Uuid $token,
     ) {
     }
 }

@@ -24,6 +24,6 @@ final readonly class MoveAbandonedCardHandler
             return;
         }
 
-        ($this->returnAbandonedCard)(new ReturnAbandonedCardCommand($message->cardId));
+        ($this->returnAbandonedCard)(new ReturnAbandonedCardCommand($message->cardId, $message->token));
     }
 }
