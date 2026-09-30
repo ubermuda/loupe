@@ -172,6 +172,11 @@ func (r *router) catchUp() {
 		received += len(page.Events)
 		next := after
 		for _, e := range page.Events {
+			// A shut queue drops the row and the cursor passes it, so leave
+			// the rest to the next start.
+			if r.workerContext().Err() != nil {
+				return
+			}
 			if id, err := strconv.ParseInt(e.ID, 10, 64); err == nil {
 				next = max(next, id)
 				if id <= floor {

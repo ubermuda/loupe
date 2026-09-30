@@ -429,3 +429,29 @@ func TestAHeldReplayedEventKeepsItsStaleCheck(t *testing.T) {
 	}
 	h.only(t, "event_stale")
 }
+
+// Ctrl-C during a catch-up stops it before the next row, so the cursor does not
+// pass the rows that the next start must still run.
+func TestACancelledCatchUpRoutesNoMoreRows(t *testing.T) {
+	h := newHarness(t)
+	path := withCursor(t, h, 10, 10)
+	ctx, cancel := context.WithCancel(context.Background())
+	h.router.ctx = ctx
+	cards := &cardReader{column: "next"}
+	h.router.readCard = func(ctx context.Context, handle, cardID string) (api.CardRead, error) {
+		cancel()
+
+		return cards.read(ctx, handle, cardID)
+	}
+	h.router.replay = (&replayer{pages: []api.Replay{{Events: []api.ReplayEvent{row(11, "next"), row(12, "next")}}}}).replay
+
+	h.router.catchUp()
+	h.router.wg.Wait()
+
+	if cards.count() != 1 {
+		t.Fatalf("reads = %d", cards.count())
+	}
+	if st := readCursorFile(t, path); st.Cursor != 11 {
+		t.Fatalf("cursor = %+v", st)
+	}
+}
