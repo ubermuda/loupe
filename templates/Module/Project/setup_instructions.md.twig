@@ -35,15 +35,16 @@ The MCP server starts as `loupe mcp`, so the directory of `loupe` must be on the
 The CLI keeps one sign-in, in `config.json` in its configuration directory. That file holds the tokens of the sign-in, so never print it or read it whole. This command prints only the instance of the sign-in, and whether it has a token:
 
 ```bash
-for f in "$HOME/Library/Application Support/loupe/config.json" "${XDG_CONFIG_HOME:-$HOME/.config}/loupe/config.json"; do
-  if [ -f "$f" ]; then
-    grep -o '"baseUrl": *"[^"]*"' "$f"
-    if grep -q '"refreshToken": *"[^"]' "$f"; then echo "token: yes"; else echo "token: no"; fi
-  fi
-done
+if [ "$(uname -s)" = Darwin ]; then f="$HOME/Library/Application Support/loupe/config.json"; else f="${XDG_CONFIG_HOME:-$HOME/.config}/loupe/config.json"; fi
+if [ -f "$f" ]; then
+  grep -o '"baseUrl": *"[^"]*"' "$f"
+  if grep -q '"refreshToken": *"[^"]' "$f"; then echo "token: yes"; else echo "token: no"; fi
+else
+  echo "no sign-in"
+fi
 ```
 
-If it prints `"baseUrl": "{{ instance }}"` and `token: yes`, go to step 5. If it names another instance, a new sign-in replaces that one, so ask the user before you continue. If a later step says `not logged in`, come back to this step.
+If it prints `"baseUrl": "{{ instance }}"` and `token: yes`, go to step 5. If it prints `no sign-in` or `token: no`, sign in as below. If it names another instance, a new sign-in replaces that one, so ask the user before you continue. If a later step says `not logged in`, come back to this step.
 
 `loupe login` waits until the user approves the sign-in in a browser. Start it in the background, with its output in a log file. `nohup` keeps it alive when your shell call ends:
 
