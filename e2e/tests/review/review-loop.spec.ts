@@ -14,6 +14,7 @@ import {
     suppressToolbar,
     suppressWidget,
 } from '../fixtures';
+import { submitRedirectingForm } from '../helpers';
 import { coverageScaled } from '../timeouts';
 
 const RUN = Date.now();
@@ -812,17 +813,24 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
         .getByRole('button', { name: 'Finish review', exact: true })
         .click();
     await page.getByRole('radio', { name: 'Approve', exact: true }).check();
-    await page.getByRole('button', { name: 'Submit review' }).click();
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Submit review' }),
+        `${review.reviewUrl}/submit`,
+    );
     await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
 
     const current = await context.newPage();
     await suppressToolbar(current);
     await suppressWidget(current);
     await current.goto(review.reviewUrl);
-    await current
-        .locator('.lp-verdict-bar__undo')
-        .getByRole('button', { name: 'Undo', exact: true })
-        .click();
+    await submitRedirectingForm(
+        current,
+        current
+            .locator('.lp-verdict-bar__undo')
+            .getByRole('button', { name: 'Undo', exact: true }),
+        `${review.reviewUrl}/undo`,
+    );
     await expect(current.locator('.lp-flash--success')).toContainText(
         'Your verdict has been withdrawn.',
     );
@@ -835,7 +843,11 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
     await current
         .getByRole('textbox', { name: 'Review note' })
         .fill('Clarify the retry policy.');
-    await current.getByRole('button', { name: 'Submit review' }).click();
+    await submitRedirectingForm(
+        current,
+        current.getByRole('button', { name: 'Submit review' }),
+        `${review.reviewUrl}/submit`,
+    );
     await expect(
         current.locator('.lp-verdict-bar--changes-requested'),
     ).toContainText('Clarify the retry policy.');
@@ -854,10 +866,13 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
     await expect(
         page.locator('.lp-verdict-bar--changes-requested'),
     ).toContainText('Clarify the retry policy.');
-    await page
-        .locator('.lp-verdict-bar__undo')
-        .getByRole('button', { name: 'Undo', exact: true })
-        .click();
+    await submitRedirectingForm(
+        page,
+        page
+            .locator('.lp-verdict-bar__undo')
+            .getByRole('button', { name: 'Undo', exact: true }),
+        `${review.reviewUrl}/undo`,
+    );
     await expect(page.locator('.lp-flash--success')).toContainText(
         'Your verdict has been withdrawn.',
     );
