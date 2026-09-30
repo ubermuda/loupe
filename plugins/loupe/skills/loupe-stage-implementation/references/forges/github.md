@@ -90,6 +90,28 @@ gh pr checks <url> --required --json bucket -q 'group_by(.bucket)|map("\(.[0].bu
 
 `reviewDecision` is `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED` or empty. `mergeStateStatus` is `CLEAN`, `HAS_HOOKS`, `UNSTABLE`, `BEHIND`, `BLOCKED`, `DIRTY` or `UNKNOWN`. Green means `pass=<required count>` and no other bucket.
 
+## Check the approval covers the head
+
+GitHub keeps `reviewDecision` at `APPROVED` after a push when the branch rules do not dismiss a stale review. A review's `commit_id` does not show what the reviewer saw either, because GitHub moves it onto the head that a later merge creates. So read the approval by time with the script of the merge skill. `<merge skill dir>` is the directory of the `loupe-stage-merge` `SKILL.md`:
+
+```bash
+APPROVER=<login> <merge skill dir>/scripts/github-approval-covers.sh <url> <sha>
+```
+
+Set `APPROVER` when the profile `Merge` section names an approver. Then only that reviewer's approval counts. Otherwise omit it, and every reviewer counts.
+
+The script takes each reviewer's last approving or blocking review. The earliest approval that is still current sets the time, so every current approver must have seen each commit. The script reads the pushes to the head branch, and takes the head of the last push before that time. A commit in that head is covered. The script sorts every other commit. A push time is used because a commit made before the approval can reach the branch after it. The script prints one line:
+
+| Line | Exit | Meaning |
+|---|---|---|
+| `COVERED ...` | 0 | Every later commit is a sync merge from the base. |
+| `HOLD commits after approval: ...` | 1 | A later commit adds new content. |
+| `HOLD conflict resolution after approval: ...` | 1 | A later merge from the base does not match what `git merge-tree` makes. |
+| `HOLD head moved`, `HOLD no approval`, `HOLD no push ...`, `HOLD 250 commits or more ...` | 1 | The item fails for that reason. |
+| `UNREAD: ...` | 2 | A read failed. |
+
+A rebase or a force push rewrites commits, so they hold as commits after approval.
+
 ## Update the branch
 
 ```bash

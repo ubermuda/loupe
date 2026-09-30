@@ -100,7 +100,7 @@ final class CardRunToolsTest extends KernelTestCase
         self::assertSame('running', $result['run']['state']);
         $payload = CardMovedOutbox::onlyPayload(self::getContainer(), $this->project);
         self::assertSame('agent', $payload['actor'] ?? null);
-        self::assertSame(['interactiveRun' => true], $payload['card'] ?? null);
+        self::assertSame(['interactiveRun' => true, 'held' => false], $payload['card'] ?? null);
     }
 
     public function test_close_closes_the_run_and_a_second_close_changes_nothing(): void

@@ -39,6 +39,24 @@ final class BridgeRunsApiTest extends WebTestCase
         self::assertSame(WorkerRunState::Lost, $this->reload($gone)->state);
     }
 
+    public function test_the_inventory_accepts_a_stopping_run(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'bridge-runs-stopping@example.com');
+        $project = $this->project($em, $owner, 'Bridge Runs Stopping');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = Uuid::v4();
+        $held = $this->seedRun($em, $project, bridgeId: $bridgeId, state: WorkerRunState::TimedOut, runKey: Uuid::v4());
+
+        $this->put($client, (string) $bridgeId, $raw, ['runs' => [
+            ['runId' => (string) $held->runKey, 'projectId' => (string) $project->id, 'state' => 'stopping'],
+        ]]);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame(WorkerRunState::Stopping, $this->reload($held)->state);
+    }
+
     public function test_an_empty_inventory_is_accepted(): void
     {
         $client = static::createClient();
@@ -62,6 +80,7 @@ final class BridgeRunsApiTest extends WebTestCase
         yield 'a run id that is not a uuid' => [['runs' => [array_merge($run, ['runId' => 'nope'])]]];
         yield 'a project id that is not a uuid' => [['runs' => [array_merge($run, ['projectId' => 'nope'])]]];
         yield 'a closed state' => [['runs' => [array_merge($run, ['state' => 'succeeded'])]]];
+        yield 'a stopped state' => [['runs' => [array_merge($run, ['state' => 'stopped'])]]];
         yield 'a missing state' => [['runs' => [array_merge($run, ['state' => null])]]];
     }
 

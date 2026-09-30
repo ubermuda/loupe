@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
+use App\Module\Bridge\Service\CardHolds;
 use App\Tests\Support\AgentCredential;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -30,9 +31,30 @@ final class ProjectCardApiTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertJsonStringEqualsJsonString(
-            json_encode(['cardId' => (string) $card->id, 'number' => 2, 'column' => 'in-progress'], \JSON_THROW_ON_ERROR),
+            json_encode(['cardId' => (string) $card->id, 'number' => 2, 'column' => 'in-progress', 'held' => false], \JSON_THROW_ON_ERROR),
             (string) $client->getResponse()->getContent(),
         );
+    }
+
+    public function test_it_says_a_person_stopped_the_work_on_the_card(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'card-api-held@example.com');
+        $project = $this->project($em, $owner, 'Card Held');
+        $card = $this->card($em, $project, 'Stopped', 'in-progress');
+        $holds = static::getContainer()->get(CardHolds::class);
+        self::assertInstanceOf(CardHolds::class, $holds);
+        $holds->hold($project, $card->id ?? throw new \LogicException('A created card has an id.'), null, $owner);
+        $raw = AgentCredential::agentToken(static::getContainer(), $owner);
+        $this->enableBoard();
+
+        $this->get($client, '/api/projects/'.$project->id.'/board/cards/'.$card->id, $raw);
+
+        self::assertResponseIsSuccessful();
+        $body = json_decode((string) $client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertTrue($body['held'] ?? null);
     }
 
     /** The card of another project of the same owner is not a card of this project. */
