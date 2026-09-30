@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 const heartbeatBridgeID = "0192f3a1-7777-4d3e-8f10-a2b3c4d5e6f7"
@@ -198,8 +199,8 @@ func TestHeartbeatReturnsTheRangeOfTheReply(t *testing.T) {
 		got, err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v"})
 		server.Close()
 
-		if err != nil || got != tc.want {
-			t.Fatalf("HTTP %d %q: range = %q, err = %v", tc.status, tc.body, got, err)
+		if err != nil || got.CLIRange != tc.want {
+			t.Fatalf("HTTP %d %q: range = %q, err = %v", tc.status, tc.body, got.CLIRange, err)
 		}
 	}
 }
@@ -244,6 +245,47 @@ func TestSecondsReadsAPositiveWholeNumber(t *testing.T) {
 		got, ok := Events{Flags: tc.flags}.Seconds(HeartbeatIntervalFlag)
 		if got != tc.want || ok != tc.ok {
 			t.Fatalf("flags %v: got %d, %v", tc.flags, got, ok)
+		}
+	}
+}
+
+// The stop waits read as whole milliseconds above zero, like the seconds.
+func TestMillisecondsReadsAPositiveWholeNumber(t *testing.T) {
+	for _, tc := range []struct {
+		value any
+		want  time.Duration
+		ok    bool
+	}{
+		{value: float64(7500), want: 7500 * time.Millisecond, ok: true},
+		{value: float64(1), want: time.Millisecond, ok: true},
+		{value: nil},
+		{value: float64(0)},
+		{value: 99.5},
+		{value: "7500"},
+		{value: 1e300},
+	} {
+		got, ok := Events{Flags: map[string]any{StopSigtermFlag: tc.value}}.Milliseconds(StopSigtermFlag)
+		if got != tc.want || ok != tc.ok {
+			t.Fatalf("value %v: got %s, %v", tc.value, got, ok)
+		}
+	}
+}
+
+// A nil capability list sends no key, and an empty one sends [], as Hooks does.
+func TestAnEmptyCapabilityListIsSent(t *testing.T) {
+	for _, tc := range []struct {
+		caps []string
+		want string
+	}{
+		{nil, `{"projects":null,"cliVersion":""}`},
+		{[]string{}, `{"projects":null,"cliVersion":"","capabilities":[]}`},
+	} {
+		b, err := json.Marshal(Heartbeat{Capabilities: tc.caps})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(b) != tc.want {
+			t.Fatalf("body = %s, want %s", b, tc.want)
 		}
 	}
 }

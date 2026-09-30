@@ -15,19 +15,32 @@ func TestReadCardReadsTheColumn(t *testing.T) {
 	var method, path, auth string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		method, path, auth = r.Method, r.URL.EscapedPath(), r.Header.Get("Authorization")
-		fmt.Fprintf(w, `{"cardId":%q,"number":12,"column":"implementation"}`, strings.ToUpper(readCardID))
+		fmt.Fprintf(w, `{"cardId":%q,"number":12,"column":"implementation","held":true}`, strings.ToUpper(readCardID))
 	}))
 	t.Cleanup(server.Close)
 
-	column, err := New(server.URL, "secret", server.Client()).ReadCard(context.Background(), checkProject, readCardID)
+	card, err := New(server.URL, "secret", server.Client()).ReadCard(context.Background(), checkProject, readCardID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if method != http.MethodGet || path != "/api/projects/"+checkProject+"/board/cards/"+readCardID || auth != "Bearer secret" {
 		t.Fatalf("method = %q, path = %q, auth = %q", method, path, auth)
 	}
-	if column != "implementation" {
-		t.Fatalf("column = %q", column)
+	if card.Column != "implementation" || !card.Held {
+		t.Fatalf("card = %+v", card)
+	}
+}
+
+// A server older than the hold sends no held key, and the card reads as free.
+func TestReadCardReadsAMissingHoldAsFree(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, `{"cardId":%q,"number":12,"column":"implementation"}`, readCardID)
+	}))
+	t.Cleanup(server.Close)
+
+	card, err := New(server.URL, "t", server.Client()).ReadCard(context.Background(), checkProject, readCardID)
+	if err != nil || card.Column != "implementation" || card.Held {
+		t.Fatalf("card = %+v, err = %v", card, err)
 	}
 }
 

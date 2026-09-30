@@ -191,6 +191,7 @@ holds, by `commandId`. Each command carries these fields:
 | `bridgeId` | the bridge that must act. Another bridge drops the event |
 | `runKey`, `sessionId` | the run and its session, or `null` when the run has none |
 | `cardId`, `cardNumber`, `ruleName`, `cardColumn` | the card and the rule of the run |
+| `resumeIndex` | the place of the run in its resume series, or `null` when the bridge reported none, as for the first run |
 | `expiresAt` | the time the command expires, as an RFC 3339 date |
 
 The `bridge.command_ttl_minutes` feature flag sets how long a command waits,
@@ -199,6 +200,24 @@ and you change it at **`/admin/feature-flags`**. The default is 15 minutes, from
 below 1 reads as the default. A task runs each minute and marks each pending
 command past its time `expired`. `app.bridge.command_expiry_schedule` in the
 same file sets when that task runs.
+
+### Stop timings
+
+A bridge stops a run in three steps. It sends SIGINT to the process group of
+the worker. It sends SIGTERM when the worker is still alive after a delay, and
+SIGKILL after a second delay. Two feature flags set the delays in milliseconds,
+and you change them at **`/admin/feature-flags`**:
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `bridge.stop_sigterm_after_ms` | 7500 | the wait from SIGINT to SIGTERM |
+| `bridge.stop_sigkill_after_ms` | 2500 | the wait from SIGTERM to SIGKILL |
+
+The defaults come from `app.bridge.default_stop_sigterm_after_ms` and
+`app.bridge.default_stop_sigkill_after_ms` in `config/services.yaml`. A value
+below 100 reads as the default. `GET /api/events` shares both values with each
+bridge in its `flags` map. A change reaches a running bridge at its next
+reconnect.
 
 ### Acknowledging a command
 

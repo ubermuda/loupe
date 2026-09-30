@@ -44,6 +44,11 @@ final class SaveBoardAutomationSettingsFormType extends AbstractType
             'help' => 'board.form.save_board_automation_settings_form.loop_limit.help',
             'attr' => ['min' => BoardAutomationSettings::MIN_LOOP_LIMIT, 'max' => BoardAutomationSettings::MAX_LOOP_LIMIT],
         ]);
+        $builder->add('commentOnFixQueued', CheckboxType::class, [
+            'required' => false,
+            'label' => 'board.form.save_board_automation_settings_form.comment_on_fix_queued.label',
+            'help' => 'board.form.save_board_automation_settings_form.comment_on_fix_queued.help',
+        ]);
     }
 
     #[\Override]

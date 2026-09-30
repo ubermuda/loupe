@@ -125,19 +125,20 @@ None of them compels one.
 Write one when a future reader asks why, and the code cannot answer. Skip one
 when the commit message or a docblock carries the reason well enough.
 
-This repository holds no ADR yet, so the first author creates the home:
+The records live in `docs/adr/`, and `docs/adr/index.md` lists them.
 
-- Put the file at `docs/decisions/NNNN-short-slug.md`, and number it from `0001`.
+- Put the file at `docs/adr/NNNN-short-slug.md`, and take the next number.
 - Give it the front matter every page under `docs/` has, `title` and
   `description`.
-- Use three sections: Context, Decision, Consequences.
+- Use the sections that `docs/adr/index.md` names.
 - Name the options you rejected, and name the cost the decision accepts.
+- Add the record to the list in `docs/adr/index.md`.
 
 A page under `docs/` publishes to the public documentation site by default. The
 loader skips a file name that starts with `_`, and it skips the internal paths
 that `website/src/content.config.ts` excludes. A directory name that starts with
-`_` does not hide the files inside it. Add the new group to
-`website/astro.config.mjs`, or the page is reachable only by its URL. Write every
+`_` does not hide the files inside it. Add the record to the "Decision records"
+group in `website/astro.config.mjs`, or the page is reachable only by its URL. Write every
 ADR as public text.
 
 ### Decisions with no record

@@ -67,6 +67,16 @@ final readonly class GitHubAppApiCheck implements DiagnosticInterface
             return new Diagnostic('github_app_api', DiagnosticState::Failed, 'github.system_status.app_api.missing_permissions', ['%installations%' => implode('; ', $lacking)]);
         }
 
+        $silent = array_filter($installations, static fn ($installation): bool => [] !== $installation->missingWriteAccess(['pull_requests']));
+        if ([] !== $silent) {
+            return new Diagnostic(
+                'github_app_api',
+                DiagnosticState::Warning,
+                'github.system_status.app_api.missing_comment_permission',
+                ['%accounts%' => implode(', ', array_map(static fn ($installation): string => $installation->account, $silent))],
+            );
+        }
+
         return new Diagnostic('github_app_api', DiagnosticState::Ok, 'github.system_status.app_api.working', ['%count%' => \count($installations)]);
     }
 }

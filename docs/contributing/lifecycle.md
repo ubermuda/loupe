@@ -34,10 +34,10 @@ to In review. When the pull request merges, the app moves the card to Done.
 Only a repository connected through the GitHub App gets these moves, as
 [the board page](../using/board.md#what-github-tells-a-card) says.
 
-Three pull request rules start a worker from the events of the app. A failed
+Four pull request rules start a worker from the events of the app. A failed
 check, a conflict or a request for changes starts a fix round. An approved pull
-request with green checks starts the merge. A branch behind `main` starts an
-update. No rule starts a worker when a card enters In review.
+request with green checks starts the merge. An approved branch behind `main`
+starts an update. No rule starts a worker when a card enters In review.
 
 The owner runs `/loupe:product-design` by hand in Claude Code, from a card or
 from a one-line idea. The session creates the card in Product design, or moves
@@ -201,6 +201,18 @@ rules:
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
       Pull request {pullRequestUrl} is behind its base.
       Loupe instance https://loupe.ac.
+
+  - name: sync-approved
+    on: pull_request.review_submitted
+    project: loupe
+    when:
+      verdict: approved
+    permissionMode: bypassPermissions
+    prompt: |
+      Use the loupe-stage-merge skill.
+      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
+      Pull request {pullRequestUrl} is behind its base.
+      Loupe instance https://loupe.ac.
 ```
 
 The `fix-round` rule starts a document fix round when a person requests changes
@@ -217,7 +229,12 @@ cover every commit after it, read by time. A sync merge from the base passes. A
 conflict resolution or any other later commit stops the run as `not ready`.
 Loupe sends `ready_to_merge` without a look at the review, so the skill makes
 this check. The `sync-behind` rule
-updates the branch on GitHub with a merge commit, and reports `waiting`. Every
+updates the branch on GitHub with a merge commit, and reports `waiting`. It
+updates only a pull request whose approval covers the head, because each update
+costs a full CI run. An unapproved branch stops as `not ready`. Loupe sends
+`behind` once, when the branch falls behind, so the `sync-approved` rule runs
+the same update when the owner approves. A branch that is not behind then stops
+as `not ready`. Every
 pull request rule acts only on a card that links the pull request.
 
 Each prompt carries `{projectId}` and the Loupe instance. The implementation

@@ -53,6 +53,22 @@ export async function suppressWidget(page: Page): Promise<void> {
 }
 
 /**
+ * Stops the pages of a context that sends X-Playwright to every origin from
+ * opening the Mercure hub. The hub refuses that header in a preflight, and each
+ * retry posts to /mercure/authorize, which slows every other request.
+ */
+export async function skipUnreachableHub(
+    context: BrowserContext,
+): Promise<void> {
+    await context.addInitScript(() => {
+        window.EventSource = class {
+            addEventListener(): void {}
+            close(): void {}
+        } as unknown as typeof EventSource;
+    });
+}
+
+/**
  * Signs a user in on a fresh browser context of its own, for a spec that
  * drives two browsers at once, such as a live-update spec with an editor and
  * a watcher. The project headers go to the app only: on the Mercure hub
@@ -213,6 +229,10 @@ type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>;
 export const testWithVerifiedAccount = base.extend<{
     verifiedAccount: Credentials;
 }>({
+    context: async ({ context }, use) => {
+        await skipUnreachableHub(context);
+        await use(context);
+    },
     verifiedAccount: [
         async ({ page, request }, use) => {
             const credentials = {
@@ -321,5 +341,10 @@ export function createTest(credentials: Credentials) {
         ],
 
         storageState: ({ workerStorageState }, use) => use(workerStorageState),
+
+        context: async ({ context }, use) => {
+            await skipUnreachableHub(context);
+            await use(context);
+        },
     });
 }

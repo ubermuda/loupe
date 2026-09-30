@@ -92,6 +92,11 @@ parameters:
     # How long a command to a CLI bridge waits before it expires, in minutes, as
     # the default the `bridge.command_ttl_minutes` feature flag starts from.
     app.bridge.default_command_ttl_minutes: 15
+    # How long a CLI bridge waits after SIGINT before SIGTERM, and after SIGTERM before
+    # SIGKILL, in ms, as the defaults the `bridge.stop_sigterm_after_ms` and
+    # `bridge.stop_sigkill_after_ms` feature flags start from.
+    app.bridge.default_stop_sigterm_after_ms: 7500
+    app.bridge.default_stop_sigkill_after_ms: 2500
     # Every minute, so an expired command leaves the pending list soon after its time.
     app.bridge.command_expiry_schedule: '* * * * *'
     # Monthly price of the hosted plan during beta, in whole dollars. Shown on

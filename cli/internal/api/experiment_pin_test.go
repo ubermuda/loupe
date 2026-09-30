@@ -23,7 +23,7 @@ func TestResolveExperimentPinSendsTheContractBody(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	variant, switchedFrom, err := New(server.URL, "secret", server.Client()).
-		ResolveExperimentPin(context.Background(), "my project", "impl-model", pinCard, "sonnet", []string{"opus", "sonnet"})
+		ResolveExperimentPin(context.Background(), "my project", "impl-model", pinCard, "sonnet", []string{"opus", "sonnet"}, []int{1, 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestResolveExperimentPinSendsTheContractBody(t *testing.T) {
 	if auth != "Bearer secret" || contentType != "application/json" {
 		t.Fatalf("auth = %q, content type = %q", auth, contentType)
 	}
-	if want := `{"candidate":"sonnet","variants":["opus","sonnet"]}`; body != want {
+	if want := `{"candidate":"sonnet","variants":["opus","sonnet"],"weights":[1,2]}`; body != want {
 		t.Fatalf("body = %s, want %s", body, want)
 	}
 }
@@ -48,7 +48,7 @@ func TestResolveExperimentPinReadsASwitchedPin(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	variant, switchedFrom, err := New(server.URL, "t", server.Client()).
-		ResolveExperimentPin(context.Background(), "loupe", "impl-model", pinCard, "sonnet", []string{"opus", "sonnet"})
+		ResolveExperimentPin(context.Background(), "loupe", "impl-model", pinCard, "sonnet", []string{"opus", "sonnet"}, []int{1, 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestResolveExperimentPinNamesEachFailure(t *testing.T) {
 			t.Cleanup(server.Close)
 
 			variant, _, err := New(server.URL, "t", server.Client()).
-				ResolveExperimentPin(context.Background(), "loupe", "impl-model", pinCard, "sonnet", []string{"sonnet"})
+				ResolveExperimentPin(context.Background(), "loupe", "impl-model", pinCard, "sonnet", []string{"sonnet"}, []int{1})
 			if err == nil {
 				t.Fatalf("variant = %q, want an error", variant)
 			}
@@ -104,7 +104,7 @@ func TestResolveExperimentPinStopsAtTheDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 	_, _, err := New(server.URL, "t", server.Client()).
-		ResolveExperimentPin(ctx, "loupe", "impl-model", pinCard, "sonnet", []string{"sonnet"})
+		ResolveExperimentPin(ctx, "loupe", "impl-model", pinCard, "sonnet", []string{"sonnet"}, []int{1})
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("err = %v, want the deadline", err)
 	}

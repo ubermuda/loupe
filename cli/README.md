@@ -619,6 +619,12 @@ when each later commit is a merge from the base that git re-creates
 with no conflict. A conflict resolution or any other later commit stops the run
 as `not ready`, so a person approves or proves it.
 
+Loupe sends `pull_request.behind` for every pull request that falls behind its
+base, approved or not. The skill updates the branch only when the approval
+covers the head, by the same check. So an unapproved branch costs no CI run.
+Loupe sends `behind` once, so a rule on `pull_request.review_submitted` with
+`verdict: approved` can run the update when the approval arrives.
+
 Loupe writes these types:
 
 - `pull_request.checks_concluded`
@@ -1200,6 +1206,77 @@ The heartbeat names the bridge by the same `bridgeId` as the rule health report.
 The server keys the row by the account and that id, so two accounts that share
 one config directory each keep a row. Stopping the bridge stops the heartbeat.
 
+### Pause and commands
+
+A person can pause a bridge on the server. The heartbeat reply carries
+`paused`, and a paused bridge starts no queued run and no ask check. Events
+still queue, and the workers that run go on. An unpause starts the queued runs.
+A reply with no `paused` key, as from an older server, keeps the state the
+bridge holds. The bridge keeps the last state in `pause.json` in your config
+directory, with its `bridgeId` and the server URL, and reads it at start. A
+bridge that restarts therefore starts paused. A cache that names another bridge
+or another server holds no pause for this bridge. The first reply that carries
+`paused` writes the cache even when the state does not change, so a broken or
+missing cache heals. When the bridge cannot find its config directory, it runs
+with no cache. An update hands the pause to the new version directly. Each
+heartbeat sends `paused` with the state the bridge applies, and
+`capabilities: ["commands"]`.
+
+The server can also ask the bridge to stop or resume one run. The command comes
+as a `bridge.command` event and again in each heartbeat reply, until the bridge
+answers it. The bridge acts on a command once, by its `commandId`, whichever
+channel brings it first. It keeps the ids in memory, so this holds for one
+bridge process. An update does not hand the ids over. It waits for each
+handler and its answer first, and the server then stops sending the command.
+The bridge drops a command for another bridge, a command past its
+`expiresAt`, and a command that fails its check. The answer goes through
+the outbound queue with the policy of a run report. A 404 with
+`command_not_found` counts as delivered.
+
+A stop names the run by its `runKey`. The bridge refuses a stop of a run it
+does not hold, or of a run that is closed already. A queued run closes as
+`stopped` at once, with no start. For a live worker, the bridge reports
+`stopping` and answers `done`. Then it sends SIGINT to the process group of the
+worker, SIGTERM after a wait, and SIGKILL after a second wait. The steps end
+early when the group has no process left. The flags
+`bridge.stop_sigterm_after_ms` (default 7500) and `bridge.stop_sigkill_after_ms`
+(default 2500) set the waits. A value below 100 reads as the default. When the
+worker ends, the bridge reports `stopped` with the output and the usage, and
+it does not resume the run. The worker still logs `worker_finished` or
+`worker_no_result` first, often at `ERROR`. A run in an ask check or in the resume gate reports
+`stopped` when that step ends. A stop also works while the bridge is paused.
+
+A stop reaches the process group of the worker only. Work that the worker
+started in another process tree keeps running, such as a PHPUnit run inside a
+Docker container.
+
+A stop holds the card, and the bridge starts no worker for a held card. It also
+skips an event whose `card.held` is `true`, whatever the rule says. An event
+whose `card.held` is `false` ends the hold, and runs as usual. A
+`board.column_deleted` event ends the hold of each card in its `movedCardIds`,
+as the server does. A queued run of
+a held card waits until the hold ends. The bridge keeps its holds in memory,
+and hands them to a new version at an update. A restart forgets them, and the
+next event with `card.held` set to `true` holds the card again.
+
+A resume names a run that ended, and continues its session as a new run. The
+bridge refuses the resume when the run has no session id, or when the card
+left the column of the run. It also refuses when it cannot read the card, so
+a person can try again. It refuses when this machine holds no transcript of
+the session, and when the rule of the run is gone or opens an interactive
+session. It refuses a run that is still open, a run it resumes already, and a
+resume during a handover or a shutdown. A held card passes, because the
+person's resume ends the hold on the server, and the bridge ends its own hold
+of the card too.
+
+The resume runs `claude --resume` on the session with a fixed prompt, in a
+worker slot of the rule's pool. Its `queued` report carries the trigger
+`bridge.command`, `continues` with the run key, and a `resumeIndex` one above
+the index of that run. The automatic resumes of the new run count from zero
+again, so `resumeCap` is the new index plus the `maxResumes` of the rule. The
+resume waits for any other worker of the card, and a paused bridge keeps it
+queued.
+
 ### Updates
 
 A release build of the bridge keeps itself up to date. A development build never
@@ -1281,6 +1358,23 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `heartbeat_failed` | `error`, `retry_in_seconds`: the first failure of a run. Level `WARN` |
 | `heartbeat_unsupported` | `error`, `message`: the server answered 404, logged once. Level `WARN` |
 | `heartbeat_interval_changed` | `interval_seconds`: a reconnect brought a new interval |
+| `bridge_paused` | `source`: `server` when a heartbeat reply paused the bridge, `cache` when the bridge started paused |
+| `bridge_unpaused` | `source`: a heartbeat reply ended the pause |
+| `pause_cache_failed` | `path`, `error`: the bridge could not write `pause.json`, and applies the pause anyway. Level `WARN` |
+| `pause_cache_unreadable` | `path`, `error`: `pause.json` does not parse, so the bridge starts with no pause. Level `WARN` |
+| `pause_cache_ignored` | `path`: `pause.json` names another bridge or another server, so the bridge starts with no pause |
+| `pause_cache_unavailable` | `error`: the bridge found no config directory, and runs with no pause cache. Level `WARN` |
+| `command_received` | `command`, `kind`, `card`, `project`, `rule`, `run_key`, `source`: `event` or `heartbeat` |
+| `command_dropped` | the fields of `command_received` and `reason`: `duplicate`, `expired`, `other_bridge`, `handover` or `shutdown`. A heartbeat copy that is `duplicate` or `expired` logs at level `DEBUG`, which the bridge log does not show. For `malformed`, the line has `source`, `error` and, from a heartbeat, `command`, at level `WARN` |
+| `command_acked` | `command`, `kind`, `state`, and `answer`: `command_not_found` when the server no longer held the command |
+| `command_ack_state` | `command`, `kind`, `state`, `stored`: the server kept another state, for example for a command that expired first. Level `WARN` |
+| `worker_resume_asked` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `resume`, `max_resumes`, `continues`: a person's resume queued a run on the session of the run `continues` names |
+| `worker_stopping` | `card`, `project`, `rule`, `pid`: a person stopped a live worker |
+| `stop_signal_sent` | `card`, `project`, `rule`, `pid`, `signal`: `SIGINT`, `SIGTERM` or `SIGKILL` |
+| `stop_signal_failed` | `card`, `project`, `rule`, `pid`, `signal`, `error`: the bridge could not signal the group, and sends no further signal. Level `WARN` |
+| `worker_stopped` | `card`, `project`, `rule`: the bridge reported a stopped run |
+| `card_held` | `card`, `project`, `rule`: the card is held, so the event starts nothing |
+| `card_hold_released` | `card_id`: the hold of the card ended |
 | `event_duplicate` | `id`: the hub sent an event again that the bridge already handled, as after a handover |
 | `worker_adopted` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `pid`: the bridge took over a worker that an earlier version started |
 | `update_skipped` | `reason`: the bridge does not check for updates, for example a development build |

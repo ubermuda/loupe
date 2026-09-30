@@ -50,6 +50,7 @@ final class EditBoardAutomationSettingsController extends AppController
                 mergeStrategy: $data->mergeStrategy ?? throw new \LogicException('merge strategy required after validation'),
                 fixStrategy: $data->fixStrategy ?? throw new \LogicException('fix strategy required after validation'),
                 loopLimit: $data->loopLimit ?? throw new \LogicException('loop limit required after validation'),
+                commentOnFixQueued: $data->commentOnFixQueued,
             ));
             $this->addFlash('success', $this->translator->trans('board.automation.flash.saved'));
 
@@ -58,6 +59,7 @@ final class EditBoardAutomationSettingsController extends AppController
 
         return $this->renderFormResponse('@Board/edit_board_automation_settings.html.twig', $form, [
             'project' => $project,
+            'failedComment' => $this->automation->newestFailedComment($project),
         ]);
     }
 }

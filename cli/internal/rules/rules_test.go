@@ -799,6 +799,37 @@ func TestMatchRuleRendersThePrompt(t *testing.T) {
 	}
 }
 
+// A person's resume names its rule, and carries none of the event that first
+// ran it. The rule matches by name and project alone.
+func TestMatchRuleTakesACommandByName(t *testing.T) {
+	s := checked(t, twoRules)
+	command := event.Event{Type: event.CommandType, Subject: event.Subject{Type: "card", ID: cardID}, ProjectID: projectID, CardNumber: 87, Actor: event.ActorHuman}
+	other := command
+	other.ProjectID = "0192f3a1-4b2c-7d3e-8f10-ffffffffffff"
+
+	for name, tc := range map[string]struct {
+		event event.Event
+		rule  string
+		ok    bool
+	}{
+		"a rule on moves":   {command, "review-from-ready", true},
+		"a rule on creates": {command, "created", true},
+		"an absent rule":    {command, "gone", false},
+		"another project":   {other, "plan", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			m, ok := s.MatchRule(tc.event, tc.rule)
+			if ok != tc.ok || (ok && (m.Skip != Run || m.Rule != tc.rule)) {
+				t.Fatalf("MatchRule = %+v, %v, want %v", m, ok, tc.ok)
+			}
+		})
+	}
+	s.KillProject("loupe", api.ReasonProjectGone)
+	if m, ok := s.MatchRule(command, "plan"); ok {
+		t.Fatalf("MatchRule = %+v on a dead rule", m)
+	}
+}
+
 func TestMatchRuleSkipsADeadRule(t *testing.T) {
 	s := checked(t, twoRules)
 	s.KillProject("loupe", api.ReasonProjectGone)

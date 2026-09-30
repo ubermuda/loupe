@@ -1113,7 +1113,9 @@ func (s *Set) Match(e event.Event) Match {
 
 // MatchRule matches the event against the named rule alone. It fails when the
 // set has no live rule of that name, or when the rule would not run the event.
-// A reload keeps a queued event this way, under the rule that accepted it.
+// A reload keeps a queued event this way, under the rule that accepted it. A
+// command event, which a person's resume carries, needs a live rule of the
+// project alone.
 func (s *Set) MatchRule(e event.Event, name string) (Match, bool) {
 	slug, ok := s.slugs[e.ProjectID]
 	if !ok {
@@ -1125,6 +1127,13 @@ func (s *Set) MatchRule(e event.Event, name string) (Match, bool) {
 	for _, r := range s.rules {
 		if r.Name != name {
 			continue
+		}
+		if e.Type == event.CommandType {
+			if r.Project != slug || s.dead[r.Name] != "" {
+				return Match{}, false
+			}
+
+			return s.run(r, slug, e), true
 		}
 		if !s.triggers(r, slug, e) || (e.Actor == event.ActorReviewer && !r.AllowUntrusted) {
 			return Match{}, false
