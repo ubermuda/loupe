@@ -762,13 +762,14 @@ carries `kind`, `occurredAt` and `actor`.
 `kind` is `created`, `moved`, `fix-requested`, `stopped`, `ready-to-merge` or
 `run-finished`. `actor` carries `kind` and `name`. Its `kind` is `human`,
 `agent`, `reviewer` or `system`. `name` is the current name of the person
-behind the event. It is null when there is no person, such as for a deleted account or the
-app itself.
+behind the event. It is null when there is no person, such as for a deleted
+account or the app itself.
 
 A `moved` event sets `from` and `to`, and a `created` event sets `to` alone.
 Each is a column with `id`, `slug` and `label`. `cause` says why the app moved
 the card on its own, such as a merged pull request. An action of the
-[automation](#automation) sets `reason` and `pullRequest`. A `run-finished`
+[automation](#automation) sets `pullRequest`. A `fix-requested` or `stopped`
+event also sets `reason`, such as `conflict`. A `run-finished`
 event carries the stored record of the run in `run`. A key that does not apply
 is null.
 
