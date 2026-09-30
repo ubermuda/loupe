@@ -47,15 +47,26 @@ final class CancelWorkerRunCommandController extends AppController
             throw new \LogicException('The project voter admits only a signed-in user.');
         }
 
+        // The card frame reads a session that writes nothing, so a flash there would never clear.
+        $fromCardFrame = 'card-worker-runs' === $request->headers->get('Turbo-Frame');
         try {
             ($this->cancelCommand)(new CancelBridgeCommandCommand($run, $user));
         } catch (DomainErrors $e) {
-            foreach ($e->errors as $translationKey) {
-                $this->addFlash('worker-run-command', $this->translator->trans($translationKey));
+            $messages = array_values(array_map($this->translator->trans(...), $e->errors));
+            if ($fromCardFrame) {
+                return $this->render('@Bridge/_card_worker_runs.html.twig', [
+                    'project' => $project,
+                    'cardId' => (string) $run->cardId,
+                    'commandErrors' => $messages,
+                ], new Response(status: Response::HTTP_UNPROCESSABLE_ENTITY));
+            }
+
+            foreach ($messages as $message) {
+                $this->addFlash('worker-run-command', $message);
             }
         }
 
-        if ('card-worker-runs' === $request->headers->get('Turbo-Frame')) {
+        if ($fromCardFrame) {
             return $this->redirectToRoute('app_project_card_worker_runs', [
                 'id' => (string) $project->id,
                 'cardId' => (string) $run->cardId,

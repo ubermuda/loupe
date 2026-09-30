@@ -94,7 +94,7 @@ final class WorkerRunCommandControllersTest extends WebTestCase
         self::assertSame(BridgeCommandState::Cancelled, $this->em()->find(BridgeCommand::class, $pendingId)?->state);
     }
 
-    public function test_a_refused_resume_flashes_the_reason_and_redirects(): void
+    public function test_a_refused_resume_from_the_card_frame_renders_the_frame_with_the_reason(): void
     {
         $client = static::createClient();
         [$owner, $project, $run] = $this->scenario('refused', WorkerRunState::Running);
@@ -104,8 +104,9 @@ final class WorkerRunCommandControllersTest extends WebTestCase
         $client->loginUser($owner);
         $this->post($client, $url, ['HTTP_TURBO_FRAME' => 'card-worker-runs']);
 
-        self::assertResponseRedirects('/projects/'.$project->id.'/worker-runs/card/'.$run->cardId);
-        self::assertSame(['Only an ended run can resume.'], $this->flashes($client, 'worker-run-command'));
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('turbo-frame#card-worker-runs [data-worker-run-command-flash]', 'Only an ended run can resume.');
+        self::assertSame([], $this->flashes($client, 'worker-run-command'));
         self::assertSame(0, $this->countCommands($this->em()));
     }
 

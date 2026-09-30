@@ -261,7 +261,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         );
     }
 
-    public function test_a_refused_command_shows_its_reason_in_the_frame(): void
+    public function test_a_refused_command_shows_its_reason_in_the_frame_once(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -276,12 +276,17 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_POST, $url, ['_csrf_token' => 'csrf-token'], [], ['HTTP_REFERER' => 'http://localhost'.$url, 'HTTP_TURBO_FRAME' => 'card-worker-runs']);
-        $crawler = $client->followRedirect();
+        $crawler = $client->request(Request::METHOD_POST, $url, ['_csrf_token' => 'csrf-token'], [], ['HTTP_REFERER' => 'http://localhost'.$url, 'HTTP_TURBO_FRAME' => 'card-worker-runs']);
 
-        self::assertResponseIsSuccessful();
+        self::assertResponseStatusCodeSame(422);
         $flash = $crawler->filter('turbo-frame#card-worker-runs [data-worker-run-command-flash]');
         self::assertStringContainsString('Only an ended run can resume.', $flash->text());
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/worker-runs/card/'.$cardId);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('turbo-frame#card-worker-runs [data-card-runs]'));
+        self::assertCount(0, $crawler->filter('[data-worker-run-command-flash]'));
     }
 
     /** @param list<string>|null $capabilities */
