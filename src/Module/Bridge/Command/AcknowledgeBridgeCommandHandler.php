@@ -40,7 +40,8 @@ final readonly class AcknowledgeBridgeCommandHandler
             throw new \LogicException('A bridge settles a command as done or refused.');
         }
 
-        $result = $this->em->wrapInTransaction(function () use ($command): AcknowledgeBridgeCommandResult {
+        $released = 0;
+        $result = $this->em->wrapInTransaction(function () use ($command, &$released): AcknowledgeBridgeCommandResult {
             $releasesHold = false;
             if (BridgeCommandState::Done === $command->state) {
                 $known = $this->bridgeCommands->findOneBy(['owner' => $command->owner, 'bridgeId' => $command->bridgeId, 'id' => $command->commandId]);
@@ -61,7 +62,7 @@ final readonly class AcknowledgeBridgeCommandHandler
             $project = $bridgeCommand->project;
             $cardId = $bridgeCommand->workerRun->cardId;
             if ($releasesHold && !$this->bridgeCommands->hasLiveStopForCardSince($project, $cardId, $bridgeCommand->requestedAt)) {
-                $this->cardHolds->release($project, [$cardId]);
+                $released = $this->cardHolds->release($project, [$cardId]);
             }
 
             return new AcknowledgeBridgeCommandResult($bridgeCommand, $settled);
@@ -83,6 +84,9 @@ final readonly class AcknowledgeBridgeCommandHandler
                 ],
                 new AuditSubject('bridge_command', (string) $settled->id),
             );
+        }
+        // A late ack changes no command, and its release still changes the card.
+        if (null !== $settled && ($result->settled || $released > 0)) {
             $this->runsChanged->runsChanged($settled->project);
         }
 
