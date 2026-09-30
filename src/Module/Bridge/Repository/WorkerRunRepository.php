@@ -197,6 +197,24 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param list<string> $ids RFC 4122 strings
+     *
+     * @return list<WorkerRun>
+     */
+    public function findByIds(array $ids): array
+    {
+        if ([] === $ids) {
+            return [];
+        }
+
+        return array_values($this->createQueryBuilder('r')
+            ->andWhere('r.id IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * The owner id and the bridge id of each bridge these runs belong to, once
      * each and in a fixed order, so two callers lock them in the same order.
      *

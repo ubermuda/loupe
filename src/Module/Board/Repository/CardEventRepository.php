@@ -34,6 +34,14 @@ class CardEventRepository extends ServiceEntityRepository
         return $event;
     }
 
+    public function hasRunFinished(Card $card, string $runId): bool
+    {
+        return false !== $this->getEntityManager()->getConnection()->fetchOne(
+            "SELECT 1 FROM board_card_events WHERE card_id = ? AND kind = ? AND detail->>'runId' = ?",
+            [(string) $card->id, CardEventKind::RunFinished->value, $runId],
+        );
+    }
+
     /** @return list<CardEvent> newest first */
     public function findForCard(Card $card): array
     {
