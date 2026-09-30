@@ -544,6 +544,28 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The runs that resume one of these runs, oldest report first.
+     *
+     * @param list<WorkerRun> $runs
+     *
+     * @return list<WorkerRun>
+     */
+    public function findContinuationsOf(array $runs): array
+    {
+        if ([] === $runs) {
+            return [];
+        }
+
+        return array_values($this->createQueryBuilder('r')
+            ->andWhere('r.continuesRun IN (:runs)')
+            ->setParameter('runs', $runs)
+            ->orderBy('r.receivedAt', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * The bridges that have reported a run for this project, for the page filter.
      *
      * @return list<Uuid>

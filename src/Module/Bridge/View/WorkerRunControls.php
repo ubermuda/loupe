@@ -79,7 +79,7 @@ final readonly class WorkerRunControls
                 ? 'bridge.worker_runs.control.resume_requested'
                 : 'bridge.worker_runs.control.stop_requested';
 
-            return new WorkerRunControl(WorkerRunAction::Cancel, label: $quiet ? $label.'_offline' : $label);
+            return new WorkerRunControl(WorkerRunAction::Cancel, label: $quiet ? $label.'_offline' : $label, pendingCommand: $latest);
         }
 
         // The request handler refuses a bridge the owner does not hold, and no update fixes that.
