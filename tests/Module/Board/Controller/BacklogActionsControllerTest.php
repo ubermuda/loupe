@@ -8,7 +8,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\BulkMoveBacklogCardsFormType;
 use App\Module\Board\Form\MoveBacklogCardFormType;
-use App\Module\Board\Form\RankBacklogCardFormType;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -18,7 +17,7 @@ use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\Uid\Uuid;
 use Symfony\UX\Turbo\TurboBundle;
 
-/** The rank, move and bulk move endpoints of the Backlog page. */
+/** The move and bulk move endpoints of the Backlog page. */
 final class BacklogActionsControllerTest extends WebTestCase
 {
     use BoardScenario;
@@ -32,7 +31,6 @@ final class BacklogActionsControllerTest extends WebTestCase
         $owner = $this->user($em, 'backlog-forms@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Waiting');
-        $rankName = RankBacklogCardFormType::nameFor($card);
         $moveName = MoveBacklogCardFormType::nameFor($card);
         $url = '/projects/'.$project->id.'/board/backlog';
         $em->clear();
@@ -42,7 +40,7 @@ final class BacklogActionsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
 
         $row = $crawler->filter('#backlog-row-'.$card->id);
-        self::assertCount(1, $crawler->filter('[data-controller="backlog-rank"] #backlog-row-'.$card->id.' [name="'.$rankName.'[beforeCardId]"]'));
+        self::assertCount(1, $row);
         self::assertCount(1, $row->filter('input[name="'.$moveName.'[_token]"]'));
         self::assertSame(
             ['next', 'in-progress', 'done'],
@@ -54,69 +52,6 @@ final class BacklogActionsControllerTest extends WebTestCase
         $bulkItems = $crawler->filter('#backlog-bulk-menu button[type="submit"]');
         self::assertCount(3, $bulkItems);
         self::assertSame(['popover#close', 'popover#close', 'popover#close'], $bulkItems->each(static fn ($button): string => (string) $button->attr('data-action')));
-    }
-
-    public function test_no_other_sort_draws_the_rank_handle(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
-
-        $owner = $this->user($em, 'backlog-no-handle@example.com');
-        $project = $this->project($em, $owner);
-        $this->card($em, $project, 'Waiting');
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/backlog?sort=newest');
-
-        self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('[data-backlog-card-id]'));
-        self::assertCount(0, $crawler->filter('[data-controller="backlog-rank"]'));
-        self::assertCount(0, $crawler->filter('.lp-backlog-grip'));
-    }
-
-    public function test_a_rank_moves_the_card_above_its_neighbour_and_answers_an_empty_stream(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
-
-        $owner = $this->user($em, 'backlog-rank@example.com');
-        $project = $this->project($em, $owner);
-        $first = $this->card($em, $project, 'First', 'backlog', 0);
-        $this->card($em, $project, 'Second', 'backlog', 1);
-        $third = $this->card($em, $project, 'Third', 'backlog', 2);
-        $em->clear();
-
-        $client->loginUser($owner);
-        $this->post($client, $this->cardUrl($third, 'rank'), RankBacklogCardFormType::nameFor($third), ['beforeCardId' => (string) $first->id], stream: true);
-
-        self::assertResponseIsSuccessful();
-        self::assertStringStartsWith(TurboBundle::STREAM_MEDIA_TYPE, (string) $client->getResponse()->headers->get('Content-Type'));
-        self::assertSame(['Third', 'First', 'Second'], $this->titlesIn($project, 'backlog'));
-    }
-
-    public function test_a_refused_rank_answers_a_stream_with_the_reason(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $this->enableBoard();
-
-        $owner = $this->user($em, 'backlog-rank-refused@example.com');
-        $project = $this->project($em, $owner);
-        $waiting = $this->card($em, $project, 'Waiting');
-        $onBoard = $this->card($em, $project, 'On the board', 'next');
-        $em->clear();
-
-        $client->loginUser($owner);
-        $this->post($client, $this->cardUrl($onBoard, 'rank'), RankBacklogCardFormType::nameFor($onBoard), ['beforeCardId' => (string) $waiting->id], stream: true);
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertStringStartsWith(TurboBundle::STREAM_MEDIA_TYPE, (string) $client->getResponse()->headers->get('Content-Type'));
-        $body = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('target="backlog-confirmation"', $body);
-        self::assertStringContainsString('no longer in the Backlog', $body);
     }
 
     public function test_a_move_removes_the_row_and_confirms_it(): void
@@ -184,7 +119,7 @@ final class BacklogActionsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $this->post($client, $this->bulkUrl($project), BulkMoveBacklogCardsFormType::NAME, ['ids' => $ids, 'column' => $next], stream: true);
+        $this->post($client, $this->bulkUrl($project).'?sort=created&dir=asc', BulkMoveBacklogCardsFormType::NAME, ['ids' => $ids, 'column' => $next], stream: true);
 
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
@@ -209,7 +144,7 @@ final class BacklogActionsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $this->post($client, $this->cardUrl($cards[25], 'move').'?page=2', MoveBacklogCardFormType::nameFor($cards[25]), ['column' => $next], stream: true);
+        $this->post($client, $this->cardUrl($cards[25], 'move').'?page=2&sort=created&dir=asc', MoveBacklogCardFormType::nameFor($cards[25]), ['column' => $next], stream: true);
 
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
@@ -262,7 +197,7 @@ final class BacklogActionsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $this->post($client, $this->bulkUrl($project).'?page=2', BulkMoveBacklogCardsFormType::NAME, ['ids' => [(string) $child->id], 'column' => $done], stream: true);
+        $this->post($client, $this->bulkUrl($project).'?page=2&sort=created&dir=asc', BulkMoveBacklogCardsFormType::NAME, ['ids' => [(string) $child->id], 'column' => $done], stream: true);
 
         // Page 2 showed Card 25, the child and Card 27. The epic left page 1, so Card 25 moved up to it.
         self::assertResponseIsSuccessful();
@@ -289,13 +224,39 @@ final class BacklogActionsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $this->post($client, $this->cardUrl($cards[0], 'move'), MoveBacklogCardFormType::nameFor($cards[0]), ['column' => $next], stream: true);
+        $this->post($client, $this->cardUrl($cards[0], 'move').'?sort=created&dir=asc', MoveBacklogCardFormType::nameFor($cards[0]), ['column' => $next], stream: true);
 
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('target="backlog-results"', $body);
         self::assertStringContainsString('Card 25', $body);
         self::assertStringNotContainsString('action="remove"', $body);
+    }
+
+    public function test_a_move_in_the_default_order_redraws_page_one_with_the_next_oldest_row(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'backlog-move-newest@example.com');
+        $project = $this->project($em, $owner);
+        $cards = [];
+        for ($index = 0; $index < 27; ++$index) {
+            $cards[] = $this->card($em, $project, 'Card '.$index, 'backlog', $index);
+        }
+        $next = (string) $this->column($project, 'next')->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $this->cardUrl($cards[26], 'move'), MoveBacklogCardFormType::nameFor($cards[26]), ['column' => $next], stream: true);
+
+        // Page one showed Card 26 to Card 2, so Card 1 moves up to it.
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('target="backlog-results"', $body);
+        self::assertStringContainsString('Card 1<', $body);
+        self::assertStringNotContainsString('Card 0<', $body);
     }
 
     public function test_a_refused_move_answers_a_stream_with_the_reason(): void
@@ -357,6 +318,9 @@ final class BacklogActionsControllerTest extends WebTestCase
         $this->post($client, $this->cardUrl($onBoard, 'move'), MoveBacklogCardFormType::nameFor($onBoard), ['column' => $done], stream: true);
 
         self::assertResponseStatusCodeSame(422);
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('target="backlog-confirmation"', $body);
+        self::assertStringContainsString('no longer in the Backlog', $body);
         self::assertSame(['On the board'], $this->titlesIn($project, 'next'));
     }
 
@@ -486,8 +450,6 @@ final class BacklogActionsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($stranger);
-        $this->post($client, $this->cardUrl($card, 'rank'), RankBacklogCardFormType::nameFor($card), ['beforeCardId' => ''], stream: true);
-        self::assertResponseStatusCodeSame(403);
         $this->post($client, $this->cardUrl($card, 'move'), MoveBacklogCardFormType::nameFor($card), ['column' => $next], stream: true);
         self::assertResponseStatusCodeSame(403);
         $this->post($client, $this->bulkUrl($project), BulkMoveBacklogCardsFormType::NAME, ['ids' => [(string) $card->id], 'column' => $next], stream: true);
@@ -510,8 +472,6 @@ final class BacklogActionsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $this->post($client, $this->cardUrl($second, 'rank'), RankBacklogCardFormType::nameFor($second), ['beforeCardId' => (string) $first->id], stream: true, token: false);
-        self::assertResponseStatusCodeSame(422);
         $this->post($client, $this->cardUrl($first, 'move'), MoveBacklogCardFormType::nameFor($first), ['column' => $next], stream: true, token: false);
         self::assertResponseStatusCodeSame(422);
         $this->post($client, $this->bulkUrl($project), BulkMoveBacklogCardsFormType::NAME, ['ids' => [(string) $first->id], 'column' => $next], stream: true, token: false);
