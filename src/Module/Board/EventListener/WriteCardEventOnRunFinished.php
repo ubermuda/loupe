@@ -7,6 +7,7 @@ namespace App\Module\Board\EventListener;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
@@ -55,9 +56,9 @@ final readonly class WriteCardEventOnRunFinished
                 $card = $this->cards->findOneByIdAndProjectId($run->cardId->toRfc4122(), (string) $run->project->id);
                 if (null !== $card) {
                     $runId = $run->id ?? throw new \LogicException('A stored run has an id.');
-                    // A timeout sets no end, so the last state change dates the close.
+                    // A timeout sets no end, so the newest state change dates the close.
                     // A new close then moves the row, and a repeated dispatch does not.
-                    $last = array_last($changes[$runId->toRfc4122()] ?? []);
+                    $last = self::newest($changes[$runId->toRfc4122()] ?? []);
                     $closedAt = $run->endedAt ?? $last->at ?? $this->clock->now();
                     $detail = self::detail($run, $runId->toRfc4122(), $closedAt) + ['stateSequence' => null === $last?->sequence ? null : (int) $last->sequence];
                     $this->cardEvents->upsertRunFinished($card, $runId, $run->project->owner, $detail, $closedAt);
@@ -70,6 +71,24 @@ final readonly class WriteCardEventOnRunFinished
                 ]);
             }
         }
+    }
+
+    /**
+     * The change written last. A report can carry an earlier time than a
+     * change before it, so the order by time does not tell.
+     *
+     * @param list<WorkerRunStateChange> $changes
+     */
+    private static function newest(array $changes): ?WorkerRunStateChange
+    {
+        $newest = null;
+        foreach ($changes as $change) {
+            if (null === $newest || (int) $change->sequence > (int) $newest->sequence) {
+                $newest = $change;
+            }
+        }
+
+        return $newest;
     }
 
     /** @return array<string, mixed> */

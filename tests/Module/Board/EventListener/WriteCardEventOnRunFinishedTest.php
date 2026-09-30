@@ -199,6 +199,23 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         self::assertEquals(new \DateTimeImmutable('2026-09-30 10:05:00+00:00'), $rows[0]->occurredAt);
     }
 
+    public function test_the_newest_state_change_counts_even_when_it_carries_an_earlier_time(): void
+    {
+        $run = $this->workerRun($this->card->id, WorkerRunState::Succeeded);
+        $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::TimedOut, new \DateTimeImmutable('2026-09-30 10:30:00+00:00'), new \DateTimeImmutable('2026-09-30 10:30:00+00:00')));
+        $this->em->flush();
+        $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::Succeeded, new \DateTimeImmutable('2026-09-30 10:20:00+00:00'), new \DateTimeImmutable('2026-09-30 10:40:00+00:00')));
+        $this->em->flush();
+
+        $this->listener()($this->event($run));
+
+        $rows = $this->rows();
+        self::assertCount(1, $rows);
+        self::assertEquals(new \DateTimeImmutable('2026-09-30 10:20:00+00:00'), $rows[0]->occurredAt);
+        $sequences = $this->em->getConnection()->fetchFirstColumn('SELECT sequence FROM bridge_worker_run_states WHERE run_id = ? ORDER BY sequence', [(string) $run->id]);
+        self::assertSame((int) end($sequences), $rows[0]->detail['stateSequence']);
+    }
+
     public function test_an_open_run_writes_nothing(): void
     {
         $open = $this->workerRun($this->card->id, WorkerRunState::Running);
