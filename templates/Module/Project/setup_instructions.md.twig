@@ -100,6 +100,8 @@ Go to step 8.
 
 ## 7. Codex only
 
+Run `codex mcp get loupe`. If it prints a server, Codex already has a server named `loupe`. Show it to the user, and ask before you replace it. If the user does not agree, skip the command below.
+
 Declare the MCP server with the project id:
 {% if not projectId %}
 
@@ -110,7 +112,7 @@ Replace `<project id>` with the project id from step 5 before you run the comman
 codex mcp add loupe -- loupe mcp --project {{ id }}
 ```
 
-If Codex already has a server named `loupe`, show it to the user and ask before you replace it. This declaration applies to every repository, and it names one project. Tell the user that another repository with another project needs its own declaration.
+This declaration applies to every repository, and it names one project. Tell the user that another repository with another project needs its own declaration.
 
 Copy the Loupe skills into `~/.agents/skills/`:
 
