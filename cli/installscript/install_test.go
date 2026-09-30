@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -51,15 +52,15 @@ const releasesJSON = `[
 
 var platforms = []string{"darwin_amd64", "darwin_arm64", "linux_amd64", "linux_arm64"}
 
-func archive(t *testing.T) []byte {
+func archive(t *testing.T, loupe string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
-	if err := tw.WriteHeader(&tar.Header{Name: "loupe", Mode: 0o755, Size: int64(len(fakeLoupe))}); err != nil {
+	if err := tw.WriteHeader(&tar.Header{Name: "loupe", Mode: 0o755, Size: int64(len(loupe))}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tw.Write([]byte(fakeLoupe)); err != nil {
+	if _, err := tw.Write([]byte(loupe)); err != nil {
 		t.Fatal(err)
 	}
 	if err := tw.Close(); err != nil {
@@ -77,9 +78,14 @@ func archive(t *testing.T) []byte {
 // decoy server lists wrong sums for names that share a prefix or a suffix.
 // Page N of the list is pages[N-1], or releasesJSON for page 1 when pages is
 // empty. A page past the end is an empty list. requested records each page.
-func release(t *testing.T, corrupt, decoy bool, pages []string, requested *[]string) *httptest.Server {
+func release(t *testing.T, s setup, requested *[]string) *httptest.Server {
 	t.Helper()
-	body := archive(t)
+	loupe := s.loupe
+	if loupe == "" {
+		loupe = fakeLoupe
+	}
+	body := archive(t, loupe)
+	corrupt, decoy, pages := s.corrupt, s.decoy, s.pages
 	sum := sha256.Sum256(body)
 	hexSum := hex.EncodeToString(sum[:])
 	if corrupt {
@@ -157,6 +163,8 @@ type setup struct {
 	decoy      bool
 	noRulesEnv bool
 	pages      []string
+	// loupe replaces the binary in the release archive.
+	loupe string
 	// tty holds the answers of a terminal session, one per line.
 	tty string
 	// fakes holds extra commands, by name, that shadow the real ones.
@@ -195,7 +203,7 @@ func run(t *testing.T, s setup, args ...string) result {
 		t.Skip("sh is not available")
 	}
 	var requested []string
-	srv := release(t, s.corrupt, s.decoy, s.pages, &requested)
+	srv := release(t, s, &requested)
 	home := t.TempDir()
 
 	// A fake brew comes first, so a real Homebrew on the machine never answers.
@@ -563,4 +571,17 @@ func TestInstallReadsTenPagesAtMost(t *testing.T) {
 	if len(r.pages) != 10 {
 		t.Errorf("the script read %d pages, want 10", len(r.pages))
 	}
+}
+
+func TestInstallFailsWhenAutoUpdateCannotBeTurnedOn(t *testing.T) {
+	failing := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$LOUPE_FAKE_ARGS\"\necho 'error: cannot write the rule file' >&2\nexit 1\n"
+	r := run(t, setup{loupe: failing}, "--auto-update")
+	var exitErr *exec.ExitError
+	if !errors.As(r.err, &exitErr) || exitErr.ExitCode() != 2 {
+		t.Fatalf("want exit status 2, got %v:\n%s", r.err, r.out)
+	}
+	bin := filepath.Join(r.home, ".local", "bin", "loupe")
+	assertInstalled(t, bin)
+	assertContains(t, r.out, "Installed loupe 1.10.0", "cannot write the rule file", "Auto-update: unknown",
+		"automatic updates are NOT on", "loupe update auto on", "loupe login --url")
 }

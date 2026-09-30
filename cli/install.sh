@@ -9,7 +9,8 @@ Install the loupe CLI.
 
 Options:
   --install-dir DIR  Install loupe into DIR.
-  --auto-update      Turn on automatic updates.
+  --auto-update      Turn on automatic updates. If that fails, loupe stays
+                     installed and the script exits with status 2.
   --version X.Y.Z    Install this release, not the newest one.
   --help             Show this help.
 
@@ -167,7 +168,7 @@ main() {
 	url=${LOUPE_URL:-}
 	github_api=${LOUPE_GITHUB_API:-https://api.github.com}
 	github_download=${LOUPE_GITHUB_DOWNLOAD:-https://github.com}
-	dir='' auto='' version=''
+	dir='' auto='' version='' auto_failed=''
 
 	while [ $# -gt 0 ]; do
 		case $1 in
@@ -285,6 +286,7 @@ main() {
 	else
 		say "warning: loupe could not set automatic updates:" >&2
 		state=unknown
+		auto_failed=$auto
 	fi
 
 	say ""
@@ -299,6 +301,13 @@ main() {
 	fi
 	say ""
 	say "Next, log in with: loupe login --url ${url:-<your Loupe URL>}"
+
+	if [ -n "$auto_failed" ]; then
+		say "" >&2
+		say "error: loupe is installed at $bin, but automatic updates are NOT on." >&2
+		say "To try again, run: loupe update auto on" >&2
+		exit 2
+	fi
 }
 
 main "$@"

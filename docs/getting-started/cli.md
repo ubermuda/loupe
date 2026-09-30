@@ -79,7 +79,7 @@ curl -fsSL https://<your Loupe instance>/install.sh | sh -s -- --auto-update
 | Option | Purpose |
 |---|---|
 | `--install-dir <dir>` | Install `loupe` into this directory. The script creates it when it is absent |
-| `--auto-update` | Turn automatic updates on, and ask nothing |
+| `--auto-update` | Turn automatic updates on, and ask nothing. If that fails, the script exits with status 2 |
 | `--version <x.y.z>` | Install this release, not the newest one. A leading `v` is allowed |
 | `--help` | Show the options and exit |
 
@@ -103,8 +103,10 @@ supports, and skips a pre-release such as `cli/v1.2.0-rc1`. The GitHub API rate
 limit can stop this step. Then use `--version`.
 
 `--auto-update` runs `loupe update auto on`. It turns updates on also when the
-rule file holds `autoUpdate: false`. When `loupe update auto` fails, the script
-prints a warning and `Auto-update: unknown`, and the binary stays installed.
+rule file holds `autoUpdate: false`. When `loupe update auto on` fails, the
+binary stays installed. The script prints `Auto-update: unknown` and an error
+that says automatic updates are not on. Then it exits with status 2. Run
+`loupe update auto on` to try again.
 
 | Variable | Purpose |
 |---|---|
