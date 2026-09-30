@@ -347,6 +347,22 @@ func TestTheUpdaterReportsTheInstallMethodWithItsState(t *testing.T) {
 
 // An older CLI can still ask a Homebrew bridge to update, and the bridge
 // refuses.
+func TestAScheduledCheckOnlyAnnouncesToAHomebrewInstall(t *testing.T) {
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
+	h := newTestUpdater(t, gh, "1.0.0")
+	h.u.install = installHomebrew
+	h.u.setRange("^1.0")
+
+	h.u.check(context.Background())
+
+	if _, downloads := gh.counts(); downloads != 0 || len(h.staged) != 0 {
+		t.Fatalf("downloads = %d, hook calls = %v", downloads, h.staged)
+	}
+	if got := h.u.state(); got != (api.HeartbeatUpdate{State: "off", Version: "1.2.0", Install: "homebrew"}) {
+		t.Fatalf("state = %+v", got)
+	}
+}
+
 func TestAForcedCheckRefusesAHomebrewInstall(t *testing.T) {
 	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.0.0")

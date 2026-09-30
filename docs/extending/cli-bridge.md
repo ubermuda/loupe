@@ -472,6 +472,8 @@ them off, the check stops before the download. The bridge logs
 then shows "Update available" and the version, with the command that installs
 it. That command is `brew upgrade loupe` for a Homebrew install, and
 `curl -fsSL https://<your Loupe>/install.sh | sh` in all other cases.
+A bridge that runs a Homebrew binary acts as if updates are off, even with
+`autoUpdate: true`, because only `brew upgrade loupe` replaces that binary.
 
 `loupe update auto on` or `loupe update auto off` sets the key. It adds the key
 when the file has none, and changes a plain `true` or `false` on its line. When

@@ -376,7 +376,8 @@ func (u *updater) run(ctx context.Context, force bool) updateResult {
 		return u.result(outcomeFailed, "", msg)
 	}
 	to := c.Version.String()
-	if !force && !u.autoUpdate() {
+	// Homebrew owns a binary in its keg, so only brew upgrade replaces it.
+	if !force && (u.install == installHomebrew || !u.autoUpdate()) {
 		if u.once("available|" + to) {
 			u.log.Info("update_available", "from", u.version, "to", to)
 		}
