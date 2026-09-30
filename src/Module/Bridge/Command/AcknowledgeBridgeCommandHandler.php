@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Repository\BridgeCommandRepository;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
+use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -15,12 +17,15 @@ use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Settles a pending command with the answer of its bridge. A command that is
- * already settled stays as it is, so the bridge can repeat an ack safely.
+ * already settled stays as it is, so the bridge can repeat an ack safely. A
+ * resume the bridge took releases the hold of its card, so a resume that is
+ * cancelled, refused or expired leaves the card held.
  */
 final readonly class AcknowledgeBridgeCommandHandler
 {
     public function __construct(
         private BridgeCommandRepository $bridgeCommands,
+        private CardHolds $cardHolds,
         private WorkerRunChangedPublisher $runsChanged,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
@@ -41,10 +46,12 @@ final readonly class AcknowledgeBridgeCommandHandler
                 return new AcknowledgeBridgeCommandResult(null, false);
             }
 
-            return new AcknowledgeBridgeCommandResult(
-                $bridgeCommand,
-                $bridgeCommand->settle($command->state, $command->reason, $this->clock->now()),
-            );
+            $settled = $bridgeCommand->settle($command->state, $command->reason, $this->clock->now());
+            if ($settled && BridgeCommandKind::ResumeRun === $bridgeCommand->kind && BridgeCommandState::Done === $command->state) {
+                $this->cardHolds->release($bridgeCommand->project, [$bridgeCommand->workerRun->cardId]);
+            }
+
+            return new AcknowledgeBridgeCommandResult($bridgeCommand, $settled);
         });
 
         $settled = $result->command;

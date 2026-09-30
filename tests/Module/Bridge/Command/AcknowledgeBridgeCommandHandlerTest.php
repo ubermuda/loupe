@@ -7,9 +7,12 @@ namespace App\Tests\Module\Bridge\Command;
 use App\Module\Bridge\Command\AcknowledgeBridgeCommandCommand;
 use App\Module\Bridge\Command\AcknowledgeBridgeCommandHandler;
 use App\Module\Bridge\Entity\BridgeCommand;
+use App\Module\Bridge\Service\CardHolds;
+use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Uid\Uuid;
@@ -77,6 +80,32 @@ final class AcknowledgeBridgeCommandHandlerTest extends KernelTestCase
 
         self::assertFalse($result->settled);
         self::assertSame(BridgeCommandState::Expired, $result->command?->state);
+    }
+
+    /** @return iterable<string, array{BridgeCommandKind, BridgeCommandState, bool}> */
+    public static function holdCases(): iterable
+    {
+        yield 'a resume the bridge took' => [BridgeCommandKind::ResumeRun, BridgeCommandState::Done, false];
+        yield 'a resume the bridge refused' => [BridgeCommandKind::ResumeRun, BridgeCommandState::Refused, true];
+        yield 'a stop the bridge took' => [BridgeCommandKind::StopRun, BridgeCommandState::Done, true];
+    }
+
+    #[DataProvider('holdCases')]
+    public function test_only_a_resume_the_bridge_took_releases_the_hold_of_the_card(BridgeCommandKind $kind, BridgeCommandState $state, bool $held): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'ack-handler-hold-'.$kind->value.'-'.$state->value.'@example.com');
+        $run = $this->seedRun($em, $this->project($em, $owner, 'Ack Handler Hold'));
+        $command = $this->seedCommand($em, $run, kind: $kind);
+        $holds = self::getContainer()->get(CardHolds::class);
+        self::assertInstanceOf(CardHolds::class, $holds);
+        $holds->hold($run->project, $run->cardId, $run, $owner);
+
+        $result = $this->handler()(new AcknowledgeBridgeCommandCommand($owner, $command->bridgeId, self::idOf($command), $state, null));
+
+        self::assertTrue($result->settled);
+        self::assertSame($held, $holds->isHeld($run->project, $run->cardId));
     }
 
     public function test_an_unknown_command_answers_no_command(): void

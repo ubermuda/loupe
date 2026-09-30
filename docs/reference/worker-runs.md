@@ -527,7 +527,7 @@ them.
 | Route | What it does |
 |---|---|
 | `POST /projects/{id}/worker-runs/{runId}/stop` | asks the bridge to stop the run, and holds the card |
-| `POST /projects/{id}/worker-runs/{runId}/resume` | asks the bridge to resume the session of the run, and releases the hold of the card |
+| `POST /projects/{id}/worker-runs/{runId}/resume` | asks the bridge to resume the session of the run. The hold of the card ends when the bridge takes the resume |
 | `POST /projects/{id}/worker-runs/{runId}/cancel-command` | withdraws the request that waits on the run. A withdrawn stop releases the hold that it wrote |
 | `POST /projects/{id}/agents/{bridgeId}/pause` | asks the bridge to take no new work |
 | `POST /projects/{id}/agents/{bridgeId}/unpause` | ends the pause |

@@ -27,8 +27,7 @@ use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Stores a person's request to the bridge that holds a worker run, and writes
- * the outbox event that carries it to the bridge. A stop holds the card, and a
- * resume releases it.
+ * the outbox event that carries it to the bridge. A stop holds the card.
  */
 final readonly class RequestBridgeCommandHandler
 {
@@ -112,8 +111,6 @@ final readonly class RequestBridgeCommandHandler
 
                 if (BridgeCommandKind::StopRun === $command->kind) {
                     $this->cardHolds->hold($run->project, $run->cardId, $run, $command->requestedBy);
-                } else {
-                    $this->cardHolds->release($run->project, [$run->cardId]);
                 }
 
                 return $bridgeCommand;

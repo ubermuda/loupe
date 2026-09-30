@@ -131,10 +131,11 @@ in the column of the rule that started the run. When the bridge does not
 report the `commands` capability, every control is disabled with **Update the
 bridge to 1.5.0 or later to control its runs.**
 
-A stop holds the card. No worker starts on a held card until a person resumes
-one of its runs or moves it to another column. A cancel of a stop that still
-waits releases the hold that the stop wrote, unless a stop of another run of
-the card still waits. See [The card page](board.md#the-card-page).
+A stop holds the card. No worker starts on a held card until its bridge takes
+a person's resume of one of its runs, or a person moves it to another column.
+A resume that is cancelled, refused or expired leaves the card held. A cancel
+of a stop that still waits releases the hold that the stop wrote, unless a stop
+of another run of the card still waits. See [The card page](board.md#the-card-page).
 
 A cancel works only while the bridge has not received the request. A bridge
 that is online receives a request in about a second, and a later cancel does

@@ -294,15 +294,17 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         self::assertSame((string) $owner->id, (string) $hold->heldBy?->id);
     }
 
-    public function test_a_resume_releases_the_hold_of_the_card(): void
+    /** The bridge ends the hold when it takes the resume, so a withdrawn resume leaves the card held. */
+    public function test_a_resume_keeps_the_hold_until_the_bridge_takes_it(): void
     {
         $this->boot();
-        [$owner, $run] = $this->scenario('command-resume-releases', state: WorkerRunState::Stopped);
+        [$owner, $run] = $this->scenario('command-resume-keeps', state: WorkerRunState::Stopped);
         $this->service(CardHolds::class)->hold($run->project, $run->cardId, $run, $owner);
 
         $this->request($run, BridgeCommandKind::ResumeRun, $owner);
 
-        self::assertFalse($this->service(CardHolds::class)->isHeld($run->project, $run->cardId));
+        self::assertSame(1, $this->countCommands($this->em()));
+        self::assertTrue($this->service(CardHolds::class)->isHeld($run->project, $run->cardId));
     }
 
     /** The bridge reported the stop, and its ack has not arrived yet. */
