@@ -19,8 +19,9 @@ use Doctrine\ORM\EntityManagerInterface;
 /**
  * Moves a card back to the Backlog, as the system, once every pull request it
  * links is closed and none merged. It runs some minutes after the last close,
- * so it reads everything again under the project lock: a link added or
- * reopened since, a move to a terminal column, or an open child cancels it.
+ * so it reads everything again under the project lock: a link that is now
+ * open, merged or unread, a move to a terminal column, or an open child
+ * cancels it.
  * Each close queues a move, and only the newest one acts.
  */
 final readonly class ReturnAbandonedCardHandler

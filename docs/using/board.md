@@ -628,8 +628,10 @@ while the automation is on:
   counts as open and holds the card back. An epic with an open child stays
   where it is.
 - When each pull request of the card is closed and none merged, the card
-  moves to the Backlog about ten minutes after the last close. A pull request
-  linked or reopened in that time cancels the move. A card that a person moves
+  moves to the Backlog about ten minutes after the last close. Loupe checks the
+  links again at that time. An open, merged or unread pull request cancels the
+  move, so a reopen or a new open link keeps the card. A closed pull request
+  linked in that time does not cancel it. A card that a person moves
   to a terminal column in that time stays there. An epic with an open child
   stays where it is. The move is a system move, so it starts a bridge rule that
   watches the Backlog.
