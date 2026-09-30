@@ -210,6 +210,9 @@ func (u *updater) state() api.HeartbeatUpdate {
 // installHomebrew is the install method of a binary in a Homebrew keg.
 const installHomebrew = "homebrew"
 
+// homebrewRefusal answers a request to update a Homebrew binary by hand.
+const homebrewRefusal = "loupe was installed with Homebrew. Run: brew upgrade loupe"
+
 // installMethod is installHomebrew when the running binary, with its symlinks
 // resolved, is in a Homebrew keg, and "" otherwise.
 func installMethod(executable func() (string, error)) string {
@@ -294,6 +297,9 @@ func (u *updater) checkNow(ctx context.Context, announce func(to string)) update
 	u.mu.Lock()
 	started := u.cancel != nil
 	u.mu.Unlock()
+	if u.install == installHomebrew {
+		return u.result(outcomeFailed, "", homebrewRefusal)
+	}
 	if !started {
 		return u.result(outcomeDeferred, "", "the bridge has not started its update checks yet")
 	}

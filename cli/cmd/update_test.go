@@ -320,8 +320,11 @@ func updateCmd(t *testing.T, self selfUpdate, args ...string) (string, error) {
 	return out.String(), err
 }
 
+// noSelfUpdate is a binary outside Homebrew that has no way to update itself.
 func noSelfUpdate(t *testing.T) selfUpdate {
-	return selfUpdate{apiBase: "http://127.0.0.1:1", version: "1.0.0", executable: func() (string, error) {
+	exe := filepath.Join(t.TempDir(), "loupe")
+
+	return selfUpdate{apiBase: "http://127.0.0.1:1", version: "1.0.0", executable: func() (string, error) { return exe, nil }, serverRange: func(context.Context) (string, error) {
 		t.Fatal("the command updated itself while a bridge runs")
 
 		return "", nil
@@ -726,6 +729,40 @@ func TestUpdateWithNoBridgeRefusesAHomebrewInstall(t *testing.T) {
 	}
 	if listed, downloads := gh.counts(); listed != 0 || downloads != 0 {
 		t.Fatalf("listed = %d, downloads = %d", listed, downloads)
+	}
+}
+
+// A running bridge would replace the binary in the keg, so the command asks
+// no bridge either.
+func TestUpdateRefusesAHomebrewInstallWhileABridgeRuns(t *testing.T) {
+	shortConfigHome(t)
+	serveUpdateTest(t, filepath.Join(t.TempDir(), "rules.yaml"), func(context.Context, func(updateResult)) updateResult {
+		t.Error("the bridge was asked")
+
+		return updateResult{}
+	})
+	self := noSelfUpdate(t)
+	_, link := homebrewBinary(t)
+	self.executable = func() (string, error) { return link, nil }
+
+	_, err := updateCmd(t, self)
+	if err == nil || err.Error() != "loupe was installed with Homebrew. Run: brew upgrade loupe" {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestUpdateAutoWorksUnderHomebrew(t *testing.T) {
+	shortConfigHome(t)
+	path := defaultRuleFile(t, "")
+	self := noSelfUpdate(t)
+	_, link := homebrewBinary(t)
+	self.executable = func() (string, error) { return link, nil }
+
+	if out, err := updateCmd(t, self, "auto", "on"); err != nil || !strings.HasPrefix(out, "Automatic updates: on\n") {
+		t.Fatalf("out = %q, err = %v", out, err)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "autoUpdate: true\n" {
+		t.Fatalf("file = %q", data)
 	}
 }
 

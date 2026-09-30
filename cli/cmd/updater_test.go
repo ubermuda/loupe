@@ -345,6 +345,25 @@ func TestTheUpdaterReportsTheInstallMethodWithItsState(t *testing.T) {
 	}
 }
 
+// An older CLI can still ask a Homebrew bridge to update, and the bridge
+// refuses.
+func TestAForcedCheckRefusesAHomebrewInstall(t *testing.T) {
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
+	h := newTestUpdater(t, gh, "1.0.0")
+	h.u.install = installHomebrew
+	h.u.setRange("^1.0")
+	h.started()
+
+	res := h.u.checkNow(context.Background(), nil)
+
+	if res.OK || res.Outcome != outcomeFailed || res.Problem != "loupe was installed with Homebrew. Run: brew upgrade loupe" {
+		t.Fatalf("res = %+v", res)
+	}
+	if listed, downloads := gh.counts(); listed != 0 || downloads != 0 || len(h.staged) != 0 {
+		t.Fatalf("listed = %d, downloads = %d, hook calls = %v", listed, downloads, h.staged)
+	}
+}
+
 func TestTheUpdaterReportsACurrentVersion(t *testing.T) {
 	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
 	h := newTestUpdater(t, gh, "1.2.0")

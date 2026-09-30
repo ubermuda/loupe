@@ -573,9 +573,10 @@ bridge cannot read moves to `handover-<hash>.json.bad`, and the bridge logs
 
 `loupe update` asks each running bridge to check and install at once. With no
 bridge running, it downloads, verifies and installs the release itself. It
-ignores the skip list and `autoUpdate`. With no bridge running, it refuses to
-replace a binary that Homebrew installed. It then prints
-`brew upgrade loupe`, changes nothing, and exits with status 1. See
+ignores the skip list and `autoUpdate`. It refuses to update a binary that
+Homebrew installed, and it then asks no bridge. It prints
+`brew upgrade loupe`, changes nothing, and exits with status 1. A bridge that
+runs a Homebrew binary also refuses the request of an older CLI. See
 [`cli/README.md`](../../cli/README.md#loupe-update).
 
 ### Log events
