@@ -137,7 +137,7 @@ The loop does not replace a skill that exists. For each `exists:` line, ask the 
 
 ## 8. Check
 
-Run `loupe status`. It asks Loupe for the current project and prints its name.
+Run `loupe status`. It asks Loupe for the current project and prints its name. It checks the sign-in and the project of this repository. It does not check the command that your agent starts, so step 9 is still necessary.
 
 If the command is unknown, run `loupe update`, then run `loupe status` again. If it is still unknown, skip this step.
 
@@ -145,5 +145,5 @@ If `loupe status` fails, show its output to the user and stop.
 
 ## 9. Finish
 
-Tell the user to restart the agent, because an agent reads its MCP servers when it starts. In the new session, call the `project_current` tool and tell the user the project name it gives.
+Tell the user to restart the agent, because an agent reads its MCP servers when it starts. In the new session, call the `project_current` tool and tell the user the project name it gives. If that name differs from the name `loupe status` printed, tell the user that the agent starts the MCP server for another project.
 {% endautoescape %}

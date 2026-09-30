@@ -43,7 +43,9 @@ func newStatusCmd() *cobra.Command {
 			"directory, else from the single project your login covers.\n\n" +
 			"It prints the instance and the project, then notes how Claude Code starts the `" +
 			mcpjson.ServerKey + "` MCP server. That note never fails the check, because an agent " +
-			"other than Claude Code keeps its own configuration.\n\n" +
+			"other than Claude Code keeps its own configuration. A pass proves the login and the " +
+			"project that `loupe mcp` uses in this directory. It does not read the command an " +
+			"agent is configured to start.\n\n" +
 			"The last line on stdout is `" + statusPass + "` or `" + statusFail + "`. A failure " +
 			"exits non-zero, and the error on stderr says what to run next. Read the exit " +
 			"status, because the error comes after the verdict when the two streams merge.",
