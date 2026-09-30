@@ -1,6 +1,6 @@
 ---
 title: "Installing the CLI"
-description: "Download the loupe command-line bridge from a GitHub release, check it, and put it where it can update itself."
+description: "Install the loupe command-line bridge with the install script or Homebrew, or download it from a GitHub release by hand."
 ---
 
 
@@ -11,10 +11,115 @@ repository has an archive for each platform and a `checksums.txt` file. A CLI
 release has a tag of the form `cli/vX.Y.Z`, such as `cli/v1.0.0`. The CLI has
 its own version numbers, apart from the server's.
 
-## Download
+## Install
 
-Pick the archive for your platform. The name is
-`loupe_<version>_<os>_<arch>.tar.gz`:
+Your Loupe instance serves an install script. Run it:
+
+```bash
+curl -fsSL https://<your Loupe instance>/install.sh | sh
+```
+
+Or install the CLI with Homebrew:
+
+```bash
+brew install ubermuda/tap/loupe
+```
+
+The Connect page of a project shows both lines for your instance.
+
+The script downloads the newest release that your instance supports. It checks
+the archive against `checksums.txt`, and installs nothing when the checksum
+does not match. It then puts the binary in a directory on your `PATH`. The
+script stops and changes nothing when Homebrew already installed `loupe`.
+[Script options](#script-options) gives the directory it picks and the options
+it takes.
+
+## Automatic updates
+
+A running bridge can [update itself](../extending/cli-bridge.md#updates).
+Automatic updates are off by default. The `autoUpdate: true` key in the rule
+file turns them on.
+
+When the script runs in a terminal, it asks `Turn on automatic updates? [y/N]`.
+With no terminal, as in a run by an agent, the script asks nothing and leaves
+updates off. When the rule file already holds an `autoUpdate` key, the script
+keeps it and asks nothing.
+
+To turn updates on later, run:
+
+```bash
+loupe update auto on
+```
+
+This command adds the key only when the rule file has none. But the script
+writes `autoUpdate: false` when it leaves updates off, and creates the rule file
+when it is absent. After such an install, `loupe update auto on` stops with
+status 1 and names the line to edit. Change that line to `autoUpdate: true`.
+[`loupe update auto`](../../cli/README.md#loupe-update-auto) describes the
+command.
+
+A Homebrew install updates with `brew upgrade loupe`. With no bridge running,
+`loupe update` refuses to replace a binary that Homebrew installed, and prints
+that command.
+
+## Uninstall
+
+For a Homebrew install, run `brew uninstall loupe`.
+
+For a script install, delete the binary. The script prints its path at the end,
+such as `Installed loupe 1.0.0 at /home/you/.local/bin/loupe.`
+
+## Script options
+
+Give options to the script after `sh -s --`:
+
+```bash
+curl -fsSL https://<your Loupe instance>/install.sh | sh -s -- --auto-update
+```
+
+| Option | Purpose |
+|---|---|
+| `--install-dir <dir>` | Install `loupe` into this directory. The script creates it when it is absent |
+| `--auto-update` | Turn automatic updates on, and ask nothing |
+| `--version <x.y.z>` | Install this release, not the newest one. A leading `v` is allowed |
+| `--help` | Show the options and exit |
+
+With no `--install-dir`, the script uses the first of these that applies:
+
+1. `~/.local/bin`, when it is on your `PATH`.
+2. `~/bin`, when it is on your `PATH`.
+3. The directory you type at the prompt, in a terminal. The default is
+   `~/.local/bin`.
+4. `~/.local/bin`.
+
+When the directory is not on your `PATH`, the script prints the line to add to
+your shell profile.
+
+With no `--version`, the script reads the release list from the GitHub API. It
+takes the highest `cli/vX.Y.Z` release of the major version your instance
+supports, and skips a pre-release such as `cli/v1.2.0-rc1`. The GitHub API rate
+limit can stop this step. Then use `--version`.
+
+`--auto-update` runs `loupe update auto on`. When the rule file holds
+`autoUpdate: false`, that command fails. The script then prints a warning and
+`Auto-update: unknown`, and the binary stays installed.
+
+| Variable | Purpose |
+|---|---|
+| `LOUPE_INSTALL_NO_TTY` | `1` makes the script act as if there is no terminal. It asks nothing, picks the directory without a prompt, and leaves updates off |
+| `LOUPE_RULES_FILE` | The rule file the script reads to find an existing `autoUpdate` key. The default is `rules.yaml` in your config directory |
+
+`LOUPE_RULES_FILE` changes only what the script reads. The script runs
+`loupe update auto` with no `--rules`, so the key goes into `rules.yaml` in your
+config directory. The config directory is `~/Library/Application Support/loupe`
+on macOS, and `$XDG_CONFIG_HOME/loupe` or `~/.config/loupe` on Linux.
+
+The script needs `curl` or `wget`, and `sha256sum` or `shasum`.
+
+## Install by hand
+
+You can also download a release yourself. Pick the archive for your platform.
+The name is `loupe_<version>_<os>_<arch>.tar.gz`:
 
 | Platform | Archive |
 |---|---|
@@ -31,7 +136,7 @@ curl -LO https://github.com/ubermuda/loupe/releases/download/cli/v1.0.0/loupe_1.
 curl -LO https://github.com/ubermuda/loupe/releases/download/cli/v1.0.0/checksums.txt
 ```
 
-## Check the archive
+### Check the archive
 
 `checksums.txt` lists the SHA-256 of every archive of the release. Check the
 archive you downloaded against it:
@@ -46,7 +151,7 @@ The command prints `OK` after the name of your archive. `--ignore-missing` skips
 the archives you did not download. When the command prints `FAILED`, delete the
 archive and do not install it.
 
-## Put it on your PATH
+### Put it on your PATH
 
 Extract the binary and move it to a directory on your `PATH` that you can
 write, such as `~/.local/bin`:
@@ -57,14 +162,15 @@ mkdir -p ~/.local/bin
 mv loupe ~/.local/bin/
 ```
 
-The directory must be one you can write, because a running bridge
-[updates itself](../extending/cli-bridge.md#updates) by replacing the binary
-there. A binary in a directory that belongs to root, such as `/usr/local/bin`,
-cannot update. The bridge then logs `update_blocked`, and the agents page shows
-"Update blocked". When `loupe` is a symlink, the directory of the file it points
-to counts.
-
 Add `~/.local/bin` to your `PATH` if it is not there yet.
+
+## Where the binary can update
+
+With automatic updates on, a bridge replaces the binary in its directory. That
+directory must be one you can write. A binary in a directory that belongs to
+root, such as `/usr/local/bin`, cannot update. The bridge then logs
+`update_blocked`, and the agents page shows "Update blocked". When `loupe` is a
+symlink, the directory of the file it points to counts.
 
 ## Check the install
 
@@ -76,7 +182,9 @@ The first line names the version and the commit, such as
 `loupe 1.0.0 (0f4a2c9b1d7e3f5a6b8c9d0e1f2a3b4c5d6e7f80)`. The second line names
 the Go version and the platform.
 
-Next, sign in with `loupe login` and write a rule file.
+Next, sign in with `loupe login` and write a rule file. After a script install,
+the rule file can already hold the `autoUpdate` line. Add your rules to that
+file.
 [`cli/README.md`](../../cli/README.md) describes both, and
 [Command-line bridge](../extending/cli-bridge.md) describes what the bridge
 does.

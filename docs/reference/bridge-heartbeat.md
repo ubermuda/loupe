@@ -83,7 +83,7 @@ time. A bridge that never sent a `workerPools` list shows no pools.
 | `updating` | The bridge hands over to `version` now |
 | `rolled-back` | The bridge went back from `version`, and skips it |
 | `blocked` | The bridge cannot write the directory of its binary, so it cannot install `version` |
-| `off` | `autoUpdate` is `false`, and `version` waits |
+| `off` | `autoUpdate` is not `true`, and `version` waits |
 | `dev` | A development build, which never updates |
 
 The bridge sends no `update` until its first check has a state. Each heartbeat

@@ -428,9 +428,10 @@ it. Then run `loupe bridge reload`.
 
 ## Updates
 
-A release build of the bridge updates itself. A development build, such as one
-from `just cli-build`, has no version. It never updates, and it logs
-`update_skipped` at start.
+A release build of the bridge can update itself. Automatic updates are off by
+default, and `autoUpdate: true` in `rules.yaml` turns them on. A development
+build, such as one from `just cli-build`, has no version. It never updates, and
+it logs `update_skipped` at start.
 
 ### The check
 
@@ -467,8 +468,16 @@ file again when it is still there.
 
 Automatic updates are off unless `rules.yaml` holds `autoUpdate: true`. With
 them off, the check stops before the download. The bridge logs
-`update_available` once for each version and installs nothing.
-`loupe update auto on` adds the key.
+`update_available` once for each version and installs nothing. The agents page
+then shows "Update available" and the version, with the command that installs
+it. That command is `brew upgrade loupe` for a Homebrew install, and
+`curl -fsSL https://<your Loupe>/install.sh | sh` in all other cases.
+
+`loupe update auto on` or `loupe update auto off` adds the key when the file has
+none. The command never changes a key that the file holds. It exits with status
+1 when the key holds the other value, and `--keep` makes it keep that value and
+exit with status 0. See
+[`loupe update auto`](../../cli/README.md#loupe-update-auto).
 
 An older CLI took a missing key as on. So the first start after a handover from
 such a CLI adds `autoUpdate: true` to `rules.yaml` and logs
@@ -562,7 +571,9 @@ bridge cannot read moves to `handover-<hash>.json.bad`, and the bridge logs
 
 `loupe update` asks each running bridge to check and install at once. With no
 bridge running, it downloads, verifies and installs the release itself. It
-ignores the skip list and `autoUpdate`. See
+ignores the skip list and `autoUpdate`. With no bridge running, it refuses to
+replace a binary that Homebrew installed. It then prints
+`brew upgrade loupe`, changes nothing, and exits with status 1. See
 [`cli/README.md`](../../cli/README.md#loupe-update).
 
 ### Log events
