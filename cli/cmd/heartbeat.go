@@ -28,9 +28,12 @@ const heartbeatLane = "heartbeat"
 // change sends.
 const poolsWindow = 10 * time.Second
 
+// bridgeCapabilities names what this bridge supports to the server.
+var bridgeCapabilities = []string{"commands"}
+
 // heartbeatSender sends one heartbeat. *api.Client is one.
 type heartbeatSender interface {
-	Heartbeat(ctx context.Context, bridgeID string, hb api.Heartbeat) (string, error)
+	Heartbeat(ctx context.Context, bridgeID string, hb api.Heartbeat) (api.HeartbeatReply, error)
 }
 
 // heartbeater tells Loupe that the bridge runs: once at start, then at each
@@ -50,9 +53,10 @@ type heartbeater struct {
 	// heartbeat. Either may be nil.
 	onRange func(string)
 	update  func() api.HeartbeatUpdate
-	// onSent runs after each heartbeat the server accepted, on the goroutine
-	// of the lane. It may be nil.
-	onSent func()
+	// onSent runs after each heartbeat the server accepted, and onReply gets
+	// its reply first, both on the goroutine of the lane. Either may be nil.
+	onSent  func()
+	onReply func(api.HeartbeatReply)
 
 	mu   sync.Mutex
 	body api.Heartbeat
@@ -63,8 +67,11 @@ type heartbeater struct {
 	// the time of the last send.
 	pools     []api.WorkerPoolReport
 	poolsSent []api.WorkerPoolReport
-	sentAt    time.Time
-	interval  time.Duration
+	// paused is the pause of a person that the router applies. It lives apart
+	// from body too.
+	paused   bool
+	sentAt   time.Time
+	interval time.Duration
 	// reset wakes the loop to arm its timer with a new interval.
 	reset chan struct{}
 	// poolsChanged wakes the loop to send changed pool rows.
@@ -160,6 +167,17 @@ func (h *heartbeater) setHooks(rows []api.HookReport) {
 	h.send()
 }
 
+// setPaused applies the pause the router holds, and sends a change at once.
+func (h *heartbeater) setPaused(paused bool) {
+	h.mu.Lock()
+	same := paused == h.paused
+	h.paused = paused
+	h.mu.Unlock()
+	if !same {
+		h.send()
+	}
+}
+
 // setPools applies the rows of the worker pools. The loop sends a change, at
 // most once per poolsWindow. It never blocks, so the router calls it under its
 // lock. A nil heartbeater drops the rows.
@@ -238,6 +256,8 @@ func (h *heartbeater) send() {
 	body := h.body
 	body.Hooks = h.hooks
 	body.WorkerPools = h.pools
+	paused := h.paused
+	body.Paused, body.Capabilities = &paused, bridgeCapabilities
 	h.poolsSent, h.sentAt = h.pools, h.now()
 	h.mu.Unlock()
 	if h.update != nil {
@@ -247,9 +267,12 @@ func (h *heartbeater) send() {
 	}
 
 	h.queue.SendLatest(heartbeatLane, func(ctx context.Context) error {
-		cliRange, err := h.client.Heartbeat(ctx, h.bridgeID, body)
+		reply, err := h.client.Heartbeat(ctx, h.bridgeID, body)
 		if err == nil && h.onRange != nil {
-			h.onRange(cliRange)
+			h.onRange(reply.CLIRange)
+		}
+		if err == nil && h.onReply != nil {
+			h.onReply(reply)
 		}
 
 		return err

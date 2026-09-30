@@ -61,7 +61,7 @@ type router struct {
 	checkTimeout time.Duration
 	// readCard reads a card's column before a resume of an unfinished run. A
 	// nil one resumes with no check. after is time.After, which tests replace.
-	readCard func(ctx context.Context, handle, cardID string) (string, error)
+	readCard func(ctx context.Context, handle, cardID string) (api.CardRead, error)
 	after    func(time.Duration) <-chan time.Time
 	// resolvePin asks which variant of an experiment a card runs with, before
 	// its worker starts. A nil one runs the variant the bridge drew.
@@ -80,6 +80,20 @@ type router struct {
 	update *bridgeUpdate
 	// scriptDir holds the launch scripts, and "" means defaultScriptDir.
 	scriptDir string
+	// ackCommand answers a command through the report queue. A nil one, as in
+	// most tests, answers nothing. pauseFile caches a person's pause, and ""
+	// caches nothing. baseURL names the server in the cache.
+	ackCommand func(ctx context.Context, bridgeID, commandID, state, reason string) (string, error)
+	pauseFile  string
+	baseURL    string
+	// signal sends one step of the stop ladder to the process group of a
+	// worker, and stopAfter times the waits between two steps. A nil one is
+	// signalGroup or time.After, which tests replace.
+	signal    func(pid int, sig stopSignal) error
+	stopAfter func(time.Duration) <-chan time.Time
+	// findTranscript fails when this machine holds no transcript of the
+	// session. A nil one looks in the Claude Code config directory.
+	findTranscript func(sessionID string) error
 
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
@@ -143,6 +157,20 @@ type router struct {
 	live         map[string]liveRun
 	heldEvents   []heldEvent
 	heldFinishes []func()
+	// personPaused stops dispatch while a person pauses the bridge. resume
+	// clears paused only, so a handover keeps it. pauseSynced is on once a
+	// heartbeat reply wrote the cache. handled maps each command the bridge
+	// took to its expiry, and commanding counts the handlers in flight.
+	personPaused bool
+	pauseSynced  bool
+	handled      map[string]time.Time
+	commanding   int
+	// stops holds each run a person stopped until its stopped report goes out.
+	// cardHolds holds the cards of those runs, which start no worker until the
+	// hold ends. stopWaits are the waits of the stop ladder.
+	stops     map[string]bool
+	cardHolds map[string]bool
+	stopWaits stopWaits
 	// lastEventID is the resume point of the stream, and recent the ids of the
 	// last events handled, oldest first, which recentSet indexes.
 	lastEventID string
@@ -338,7 +366,7 @@ func (r *router) columnLocked(e event.Event) string {
 // label names an event's aggregate to a reader: its card number when the event
 // carries one, and its subject id otherwise.
 func label(e event.Event) (string, any) {
-	if e.Type == event.CardMovedType || ((e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType || event.IsPullRequest(e.Type)) && e.CardNumber > 0) {
+	if e.Type == event.CardMovedType || e.Type == event.CommandType || ((e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType || event.IsPullRequest(e.Type)) && e.CardNumber > 0) {
 		return "card", e.CardNumber
 	}
 
@@ -394,7 +422,8 @@ func (r *router) handler() transport.Handler {
 // onData routes one Mercure payload.
 //
 // A type no rule names is dropped in silence: a newer server publishes types
-// an older binary never heard of, which is normal.
+// an older binary never heard of, which is normal. A command goes to its own
+// intake.
 func (r *router) onData(data []byte) {
 	// Every bridge of the account receives an ask event, and only the one that
 	// started the session can resume it. Another bridge's event is not ours to
@@ -405,6 +434,11 @@ func (r *router) onData(data []byte) {
 	set := r.rules()
 	e, err := event.Parse(data, set.ExtraTypes())
 	if err != nil {
+		if e.Type == event.CommandType {
+			r.onCommandEvent(data)
+
+			return
+		}
 		if errors.Is(err, event.ErrUnknownType) {
 			return
 		}
@@ -419,6 +453,10 @@ func (r *router) onData(data []byte) {
 	dead, dropped := r.kill(e, func(s *rules.Set) []rules.Dead { return s.Kill(e) })
 	r.logDead(e, dead)
 	r.logDropped(dropped)
+	// After the kill, so a released card never starts a run of a dead rule.
+	if r.noteCardHold(e) {
+		defer r.dispatch()
+	}
 
 	// A person who touches the card has seen it, which is what a capped chain
 	// waits for. Any event of theirs that parsed counts, matched or not.
@@ -600,6 +638,7 @@ func (r *router) reportHealth(set *rules.Set, project string) {
 func (r *router) applyFlags(events api.Events) {
 	r.mu.Lock()
 	r.inbox = events.Enabled(api.InboxFlag)
+	r.stopWaits = stopWaitsOf(events)
 	r.mu.Unlock()
 	if r.heartbeat != nil {
 		r.heartbeat.setInterval(heartbeatInterval(events))
@@ -707,6 +746,13 @@ func (r *router) enqueue(p pending) {
 		p.set = current
 		p.apply(m)
 	}
+	// A person stopped the work on the card, so no rule starts anything on it.
+	if r.heldLocked(p.event) {
+		r.log.Info("card_held", about(p.event, p.rule)...)
+		r.mu.Unlock()
+
+		return
+	}
 	// A match of an interactive rule opens a session and never waits in the queue.
 	if p.action == rules.ActionInteractive {
 		r.launchLocked(p)
@@ -787,7 +833,7 @@ func (r *router) dispatchLocked() []pending {
 
 		return dropped
 	}
-	if r.paused {
+	if r.paused || r.personPaused {
 		return nil
 	}
 
@@ -799,7 +845,8 @@ func (r *router) dispatchLocked() []pending {
 	waiting := map[string]bool{}
 	for i := 0; i < len(r.queue); {
 		next := r.queue[i]
-		if waiting[next.key] || (r.running[next.key] && !next.checked) {
+		// A queued run of a held card waits until the hold ends.
+		if waiting[next.key] || (r.running[next.key] && !next.checked) || r.heldLocked(next.event) {
 			waiting[next.key] = true
 			i++
 
@@ -980,8 +1027,9 @@ func (r *router) start(p pending) {
 	// had, which a later ask on the session reads.
 	column := cmp.Or(p.column, r.sessions[p.spec.sessionID].column)
 	r.sessions[p.spec.sessionID] = sessionCard{key: p.key, id: id, number: number, column: column}
-	// A checked resume sent resumed when its check let it through.
-	if p.spec.resume && !p.checked {
+	// A checked resume sent resumed when its check let it through. A resume
+	// that continues a run sends queued alone.
+	if p.spec.resume && !p.checked && p.continues == "" {
 		r.emitLocked(p, api.RunStateReport{State: api.RunResumed, AskID: askOf(p.event)})
 	}
 	r.wg.Add(1)
@@ -1000,6 +1048,10 @@ func (r *router) start(p pending) {
 			defer r.mu.Unlock()
 			r.trackLocked(liveRun{p: p, began: began, proc: proc})
 			r.emitLocked(p, api.RunStateReport{State: api.RunRunning, SessionID: p.spec.sessionID, StartedAt: began})
+			// A stop that came while the worker spawned starts its ladder now.
+			if r.stops[p.runID] {
+				r.stopLiveLocked(r.live[p.runID])
+			}
 		}
 		res := r.worker.run(r.workerContext(), p.spec, onStart)
 		r.settle(p, endedRun{res: res, began: began, elapsed: time.Since(began)})
@@ -1059,6 +1111,8 @@ type liveRun struct {
 	p     pending
 	began time.Time
 	proc  workerProc
+	// ended closes when the worker exits, which wakes its stop ladder.
+	ended chan struct{}
 }
 
 // trackLocked records a started worker. The caller holds mu.
@@ -1066,6 +1120,7 @@ func (r *router) trackLocked(run liveRun) {
 	if r.live == nil {
 		r.live = map[string]liveRun{}
 	}
+	run.ended = make(chan struct{})
 	r.live[run.p.runID] = run
 }
 
@@ -1082,7 +1137,10 @@ func (r *router) settle(p pending, e endedRun) {
 		}
 	}
 	r.mu.Lock()
-	delete(r.live, p.runID)
+	if run, ok := r.live[p.runID]; ok {
+		close(run.ended)
+		delete(r.live, p.runID)
+	}
 	if r.frozen {
 		r.wg.Add(1)
 		r.heldFinishes = append(r.heldFinishes, func() {
@@ -1132,11 +1190,14 @@ func classify(res workerResult) (string, string) {
 // card to the resume gate. It runs on the worker goroutine.
 func (r *router) end(p pending, e endedRun) {
 	r.logResult(p, e.res, e.elapsed)
-	var reason string
-	e.state, reason = classify(e.res)
 	r.mu.Lock()
+	if r.endStoppedLocked(p, e) {
+		return
+	}
 	shut := r.shut()
 	r.mu.Unlock()
+	var reason string
+	e.state, reason = classify(e.res)
 
 	if !e.res.killed && !shut && sessionMissing(p, e.res) && r.startFresh(p, e) {
 		return
@@ -1158,8 +1219,34 @@ func (r *router) end(p pending, e endedRun) {
 
 		return
 	}
-	r.emit(p, r.outcome(p, e))
-	r.finish(p)
+	// A stop can come after the check above. The outcome and the check share mu.
+	r.mu.Lock()
+	if r.endStoppedLocked(p, e) {
+		return
+	}
+	r.emitLocked(p, r.outcome(p, e))
+	delete(r.running, p.key)
+	r.releaseLocked(p.slot)
+	dropped := r.dispatchLocked()
+	r.mu.Unlock()
+
+	r.logDropped(dropped)
+}
+
+// endStoppedLocked reports a run that a person stopped as stopped, however it
+// ended, and frees its slot and card. A stopped run never resumes. The caller
+// holds mu, which endStoppedLocked releases when it returns true.
+func (r *router) endStoppedLocked(p pending, e endedRun) bool {
+	if !r.stops[p.runID] {
+		return false
+	}
+	r.releaseLocked(p.slot)
+	r.closeStoppedLocked(p, r.stoppedReport(p, e), true)
+	dropped := r.dispatchLocked()
+	r.mu.Unlock()
+	r.logDropped(dropped)
+
+	return true
 }
 
 // missingSessionOutput starts what claude prints when it has no session to
@@ -1180,6 +1267,9 @@ func sessionMissing(p pending, res workerResult) bool {
 // event, startFresh does nothing and returns false.
 func (r *router) startFresh(p pending, e endedRun) bool {
 	r.mu.Lock()
+	if r.endStoppedLocked(p, e) {
+		return true
+	}
 	current := r.rules()
 	m, ok := matchWorker(current, p.event, p.rule)
 	if !ok {
@@ -1265,7 +1355,9 @@ func (r *router) resumeGate(p pending, e endedRun, reason string, stopped <-chan
 			timeout = askCheckTimeout
 		}
 		ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
-		column, readErr = r.readCard(ctx, p.event.ProjectID, cardID)
+		var card api.CardRead
+		card, readErr = r.readCard(ctx, p.event.ProjectID, cardID)
+		column = card.Column
 		cancel()
 	}
 
@@ -1293,6 +1385,14 @@ func (r *router) resumeGate(p pending, e endedRun, reason string, stopped <-chan
 // decideResume releases.
 func (r *router) decideResume(p pending, e endedRun, reason string, read bool, column string, readErr error) {
 	r.gating--
+	if r.stops[p.runID] {
+		r.closeStoppedLocked(p, r.stoppedReport(p, e), true)
+		dropped := r.dispatchLocked()
+		r.mu.Unlock()
+		r.logDropped(dropped)
+
+		return
+	}
 	current := r.rules()
 	m, ok := matchWorker(current, p.event, p.rule)
 	switch {
@@ -1390,6 +1490,8 @@ func (r *router) check(p pending) {
 			r.logDropped(dropped)
 
 			return
+		case r.stops[p.runID]:
+			r.closeStoppedLocked(p, api.RunStateReport{State: api.RunStopped}, true)
 		case !ok:
 			// A dead rule means a kill ended it, and a live one a reload.
 			var reason []any
@@ -1431,19 +1533,6 @@ func (r *router) check(p pending) {
 
 		r.logDropped(dropped)
 	}()
-}
-
-// finish frees the slot and the card, and starts what waits, in one critical
-// section. A new event for the card cannot slip between the release and the
-// start of the card's waiting event.
-func (r *router) finish(p pending) {
-	r.mu.Lock()
-	delete(r.running, p.key)
-	r.releaseLocked(p.slot)
-	dropped := r.dispatchLocked()
-	r.mu.Unlock()
-
-	r.logDropped(dropped)
 }
 
 // shut reports whether the queue accepts no more starts. The caller holds mu.
@@ -1615,13 +1704,16 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 		return
 	}
 	switch report.State {
-	case api.RunQueued, api.RunResumed, api.RunRunning:
+	case api.RunQueued, api.RunResumed, api.RunRunning, api.RunStopping:
 		if r.held == nil {
 			r.held = map[string]api.InventoryRun{}
 		}
 		r.held[p.runID] = api.InventoryRun{RunID: p.runID, ProjectID: p.event.ProjectID, State: report.State}
 	default:
+		// A run that closes another way drops its stop mark too, so no mark
+		// outlives its run and holds up the drain of a handover.
 		delete(r.held, p.runID)
+		delete(r.stops, p.runID)
 	}
 
 	// The server stores the series links from the report that creates the run.
