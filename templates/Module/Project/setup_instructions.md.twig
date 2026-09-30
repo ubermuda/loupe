@@ -50,16 +50,16 @@ mkdir -p ~/.local/bin
 mv loupe ~/.local/bin/
 ```
 
-The CLI updates itself, so keep it in a directory the user can write. If `~/.local/bin` is not on the `PATH`, tell the user how to add it for their shell, and use `~/.local/bin/loupe` in the next steps. Run `loupe version` again. It must print a version.
+The CLI updates itself, so keep it in a directory the user can write. If `~/.local/bin` is not on the `PATH`, tell the user how to add it. Until then, use `~/.local/bin/loupe` in the next steps. Run `loupe version` again. It must print a version.
 
 ## 4. Sign in
 
 The CLI keeps one sign-in, in `config.json` in its configuration directory: `~/Library/Application Support/loupe/` on macOS, `~/.config/loupe/` on Linux. If that file has `"baseUrl": "{{ instance }}"`, go to step 5. If a later step says `not logged in`, come back to this step.
 
-`loupe login` waits until the user approves the sign-in in a browser. Start it in the background, with its output in a log file:
+`loupe login` waits until the user approves the sign-in in a browser. Start it in the background, with its output in a log file. `nohup` keeps it alive when your shell call ends:
 
 ```bash
-loupe login --url {{ instance }} > /tmp/loupe-login.log 2>&1 &
+nohup loupe login --url {{ instance }} > /tmp/loupe-login.log 2>&1 &
 ```
 
 Read `/tmp/loupe-login.log` until it shows a page URL and a code. Show both to the user, and ask them to open the page, check the code and choose Allow. Then read the log again until the command ends. It ends with `Logged in. Tokens saved.` If it ends with an error, show the error to the user and stop.
@@ -85,7 +85,7 @@ In Codex, run:
 loupe init --project {{ id }} --no-mcp < /dev/null
 ```
 {%- else -%}
-Nobody gave a project id, so find it. If `.loupe.yaml` exists, it already names the project: use its `project` value as the project id, and do not run the command below.
+Nobody gave a project id, so find it. If `.loupe.yaml` exists, it already names the project. Use its `project` value as the project id, and do not run the command below.
 
 Run:
 
