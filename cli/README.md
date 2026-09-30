@@ -1381,8 +1381,8 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `update_check` | `from`, `range`: a check starts |
 | `update_check_failed` | `from`, `error`, and `to` for a failed download. Level `WARN` |
 | `update_state_unreadable` | `error`: `update.json` does not parse, so the check runs with an empty skip list. Level `WARN` |
-| `auto_update_migrated` | `rules`: the first start after a handover from a CLI that took a missing `autoUpdate` key as on added `autoUpdate: true` to the rule file |
-| `auto_update_migration_failed` | `rules`, `error`, and `line` when the rule file takes no new last line: add that line by hand. Updates stay on for the process. Level `WARN` |
+| `auto_update_migrated` | `rules`: a start added `autoUpdate: true` to the rule file, after a handover from a CLI that took a missing key as on, or after a pending try. `update.json` then lists the rule file in `defaultOff`, and no later start changes it |
+| `auto_update_migration_failed` | `rules`, `error`, and `line` when the rule file takes no new last line: add that line by hand. `update.json` lists the rule file in `autoUpdatePending`, updates stay on, and each start tries again. Level `WARN` |
 | `update_unavailable` | `from`, `range`, `message`: the running version is outside the range and no release can replace it. Logged once. Level `WARN` |
 | `update_available` | `from`, `to`: a release waits, and `autoUpdate` is not `true`. Logged once for each version |
 | `update_blocked` | `from`, `to`, `error`: the bridge cannot write the directory of its binary. Logged once for each version. Level `WARN` |
