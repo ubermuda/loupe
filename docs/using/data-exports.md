@@ -10,7 +10,7 @@ asynchronously and emails a download link; the link resolves at
 
 **Nothing happens without a running worker.** The request returns 200, the row
 is created, and the archive is never built. See
-[What runs in production](../getting-started/architecture.md).
+[What runs in production](../architecture.md).
 
 ## What the link guarantees
 
