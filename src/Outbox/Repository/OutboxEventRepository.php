@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Outbox\Repository;
 
+use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Outbox\ActivityFamily;
 use App\Outbox\Entity\OutboxEvent;
@@ -84,6 +85,17 @@ class OutboxEventRepository extends ServiceEntityRepository
             ['id' => array_map(static fn (mixed $id): Uuid => Uuid::fromString((string) $id), $claimedIds)],
             ['sequence' => 'ASC'],
         ));
+    }
+
+    public function highestSequenceForOwner(User $owner): int
+    {
+        return (int) $this->createQueryBuilder('e')
+            ->select('MAX(e.sequence)')
+            ->join('e.project', 'p')
+            ->andWhere('p.owner = :owner')
+            ->setParameter('owner', $owner)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     /**

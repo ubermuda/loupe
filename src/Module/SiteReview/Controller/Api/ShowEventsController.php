@@ -66,6 +66,7 @@ final class ShowEventsController extends AppController
             // empty object unless it is told to preserve it.
             'flags' => (object) $view->flags,
             'cliRange' => CliCompatibility::RANGE,
+            'head' => $view->head,
         ], context: [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true]);
     }
 }
