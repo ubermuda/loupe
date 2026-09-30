@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Mcp;
 
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Bridge\Repository\WorkerRunRepository;
-use App\Module\Project\Entity\Project;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Uid\Uuid;
 
@@ -21,15 +21,16 @@ final readonly class AgentRunCause
     ) {
     }
 
-    /** Null when the call names no session, or a session with no run in the project. */
-    public function forProject(Project $project): ?CardEventCause
+    /** Null when the call names no session, or a session with no run in the project of the card. */
+    public function forCard(Card $card): ?CardEventCause
     {
         $session = $this->requests->getCurrentRequest()?->headers->get(self::SESSION_HEADER);
         if (null === $session || !Uuid::isValid($session)) {
             return null;
         }
 
-        $run = $this->workerRuns->findLatestOfSession($project, Uuid::fromString($session));
+        $cardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
+        $run = $this->workerRuns->findLikeliestOfSession($card->project, Uuid::fromString($session), $cardId);
         if (null === $run) {
             return null;
         }

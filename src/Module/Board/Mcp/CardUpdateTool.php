@@ -95,7 +95,7 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
                 relatedCards: $this->subjects->optionalRelatedCards($relatedCards),
                 parentCardId: $parentCardId,
                 laneEnabled: $laneEnabled,
-                cause: null !== $column && $column !== $card->column ? $this->runCause->forProject($card->project) : null,
+                cause: null !== $column && $column !== $card->column ? $this->runCause->forCard($card) : null,
             ))->card;
 
             $view = ($this->showCard)(new ShowCardCommand($card));

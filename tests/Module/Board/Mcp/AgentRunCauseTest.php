@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Mcp\AgentRunCause;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
@@ -22,6 +23,7 @@ final class AgentRunCauseTest extends KernelTestCase
     private EntityManagerInterface $em;
     private AgentRunCause $cause;
     private Project $project;
+    private Card $card;
 
     protected function setUp(): void
     {
@@ -36,25 +38,28 @@ final class AgentRunCauseTest extends KernelTestCase
         $this->cause = $cause;
 
         $this->project = $this->makeProject('agent-run-cause');
+        $this->card = new Card($this->project, $this->column($this->project, 'backlog'), 'Ship it', '', 1);
+        $this->em->persist($this->card);
+        $this->em->flush();
     }
 
     public function test_no_request_names_no_run(): void
     {
-        self::assertNull($this->cause->forProject($this->project));
+        self::assertNull($this->cause->forCard($this->card));
     }
 
     public function test_a_request_without_the_header_names_no_run(): void
     {
         $this->pushRequest(null);
 
-        self::assertNull($this->cause->forProject($this->project));
+        self::assertNull($this->cause->forCard($this->card));
     }
 
     public function test_a_malformed_header_names_no_run(): void
     {
         $this->pushRequest('not-a-uuid');
 
-        self::assertNull($this->cause->forProject($this->project));
+        self::assertNull($this->cause->forCard($this->card));
     }
 
     public function test_an_unknown_session_names_no_run(): void
@@ -62,7 +67,7 @@ final class AgentRunCauseTest extends KernelTestCase
         $this->workerRun(Uuid::v4(), 'implement', new \DateTimeImmutable('-1 hour'));
         $this->pushRequest((string) Uuid::v4());
 
-        self::assertNull($this->cause->forProject($this->project));
+        self::assertNull($this->cause->forCard($this->card));
     }
 
     public function test_a_session_of_another_project_names_no_run(): void
@@ -71,7 +76,7 @@ final class AgentRunCauseTest extends KernelTestCase
         $this->workerRun($sessionId, 'implement', new \DateTimeImmutable('-1 hour'), $this->makeProject('agent-run-cause-other'));
         $this->pushRequest((string) $sessionId);
 
-        self::assertNull($this->cause->forProject($this->project));
+        self::assertNull($this->cause->forCard($this->card));
     }
 
     public function test_a_known_session_names_its_newest_run(): void
@@ -81,10 +86,30 @@ final class AgentRunCauseTest extends KernelTestCase
         $resumed = $this->workerRun($sessionId, 'fix-round', new \DateTimeImmutable('-1 hour'));
         $this->pushRequest((string) $sessionId);
 
-        $cause = $this->cause->forProject($this->project);
+        $cause = $this->cause->forCard($this->card);
 
         self::assertNotNull($cause);
         self::assertSame(['type' => 'run', 'run' => (string) $resumed->id, 'rule' => 'fix-round'], $cause->detail());
+    }
+
+    public function test_a_run_on_the_moved_card_beats_a_newer_run_on_another_card(): void
+    {
+        $sessionId = Uuid::v4();
+        $onCard = $this->workerRun($sessionId, 'implement', new \DateTimeImmutable('-2 hours'), cardId: $this->card->id, state: WorkerRunState::Succeeded);
+        $this->workerRun($sessionId, 'product-design', new \DateTimeImmutable('-1 hour'), state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+        $this->pushRequest((string) $sessionId);
+
+        self::assertSame(['type' => 'run', 'run' => (string) $onCard->id, 'rule' => 'implement'], $this->cause->forCard($this->card)?->detail());
+    }
+
+    public function test_with_no_run_on_the_moved_card_an_open_run_beats_a_newer_closed_one(): void
+    {
+        $sessionId = Uuid::v4();
+        $open = $this->workerRun($sessionId, 'implement', new \DateTimeImmutable('-2 hours'), state: WorkerRunState::Running);
+        $this->workerRun($sessionId, 'fix-round', new \DateTimeImmutable('-1 hour'), state: WorkerRunState::Succeeded);
+        $this->pushRequest((string) $sessionId);
+
+        self::assertSame(['type' => 'run', 'run' => (string) $open->id, 'rule' => 'implement'], $this->cause->forCard($this->card)?->detail());
     }
 
     private function pushRequest(?string $session): void
@@ -99,18 +124,25 @@ final class AgentRunCauseTest extends KernelTestCase
         $requests->push($request);
     }
 
-    private function workerRun(Uuid $sessionId, string $rule, \DateTimeImmutable $receivedAt, ?Project $project = null): WorkerRun
-    {
+    private function workerRun(
+        Uuid $sessionId,
+        string $rule,
+        \DateTimeImmutable $receivedAt,
+        ?Project $project = null,
+        ?Uuid $cardId = null,
+        WorkerRunState $state = WorkerRunState::Succeeded,
+        WorkerRunKind $kind = WorkerRunKind::Worker,
+    ): WorkerRun {
         $run = new WorkerRun(
             project: $project ?? $this->project,
             bridgeId: Uuid::v4(),
-            cardId: Uuid::v4(),
+            cardId: $cardId ?? Uuid::v4(),
             cardNumber: 1,
             ruleName: $rule,
-            state: WorkerRunState::Succeeded,
+            state: $state,
             sessionId: $sessionId,
             receivedAt: $receivedAt,
-            kind: WorkerRunKind::Worker,
+            kind: $kind,
         );
         $this->em->persist($run);
         $this->em->flush();
