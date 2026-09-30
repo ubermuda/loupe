@@ -138,6 +138,61 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
         self::assertSame($retryAfterSeconds, $failure->retryAfterSeconds);
     }
 
+    public function test_the_lookup_reads_the_comments_since_the_given_time_and_finds_the_marker(): void
+    {
+        $pullRequest = $this->tracked('Ubermuda/Loupe.site', 71_030);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer([['id' => 1, 'body' => 'LGTM'], ['id' => 2, 'body' => "Loupe queued a fix run.\n\n<!-- loupe-fix-run:run-1 -->"]]),
+        ];
+
+        $found = $this->commenter()->hasComment($pullRequest, '<!-- loupe-fix-run:run-1 -->', new \DateTimeImmutable('2026-09-29 11:00:00 UTC'));
+
+        self::assertTrue($found);
+        self::assertSame('GET', $this->requests[1]['method']);
+        $url = parse_url($this->requests[1]['url']);
+        self::assertIsArray($url);
+        self::assertSame('/repos/Ubermuda/Loupe.site/issues/604/comments', $url['path'] ?? null);
+        parse_str($url['query'] ?? '', $query);
+        self::assertSame(['since' => '2026-09-29T11:00:00Z', 'per_page' => '100'], $query);
+    }
+
+    public function test_the_lookup_answers_false_without_the_marker(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 71_031);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer([['id' => 1, 'body' => '<!-- loupe-fix-run:run-2 -->'], ['id' => 2, 'body' => null]]),
+        ];
+
+        self::assertFalse($this->commenter()->hasComment($pullRequest, '<!-- loupe-fix-run:run-1 -->', new \DateTimeImmutable()));
+    }
+
+    /** @return iterable<string, array{int, string, bool}> */
+    public static function lookupFailures(): iterable
+    {
+        yield 'a refusal' => [403, 'permission', true];
+        yield 'a server error' => [502, 'api_failed_http_status_502', false];
+    }
+
+    #[DataProvider('lookupFailures')]
+    public function test_a_failed_lookup_fails_like_a_post(int $status, string $cause, bool $permanent): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 71_040 + $status);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            new MockResponse('{"message":"No"}', ['http_code' => $status]),
+        ];
+
+        try {
+            $this->commenter()->hasComment($pullRequest, '<!-- loupe-fix-run:run-1 -->', new \DateTimeImmutable());
+            self::fail('Expected PullRequestCommentFailed.');
+        } catch (PullRequestCommentFailed $e) {
+            self::assertSame($cause, $e->cause);
+            self::assertSame($permanent, $e->permanent);
+        }
+    }
+
     public function test_a_server_error_is_a_transient_failure_that_names_the_status(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 71_003);

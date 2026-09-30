@@ -16,4 +16,11 @@ interface PullRequestCommenter
 
     /** @throws PullRequestCommentFailed when the forge does not take the comment */
     public function comment(ForgePullRequest $pullRequest, string $body): void;
+
+    /**
+     * Whether a comment created or edited at or after $since holds $marker.
+     *
+     * @throws PullRequestCommentFailed when the forge does not answer, classified as for comment()
+     */
+    public function hasComment(ForgePullRequest $pullRequest, string $marker, \DateTimeImmutable $since): bool;
 }

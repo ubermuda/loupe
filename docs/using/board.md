@@ -652,10 +652,15 @@ The comment gives the reason for the fix and the failed checks. It also gives
 the fix round against the loop limit, and a link to the card. The card page
 lists the runs. A comment that fails never holds the run.
 
-Loupe retries a failed comment 3 times. It does not retry a failure that a
-retry cannot fix, such as a missing permission. After the last failure, the
-tab shows the failure, its pull request and its cause. The tab hides it when
-a later comment posts, or when you turn the setting off. The GitHub App must
+Loupe retries a comment 3 times when it fails for a passing reason, such as a
+GitHub server error. When GitHub limits the rate, Loupe waits as long as
+GitHub asks. A retry never posts a second comment for the same run. Loupe does
+not retry a comment that GitHub refuses, such as for a missing permission. Fix
+the cause, and the next queued fix run posts a new comment.
+
+After the last failure, the tab shows the failure, its pull request and its
+cause. The tab hides it when a later comment posts, or when you turn the
+setting off. The GitHub App must
 have Pull requests: read and write. The comment needs a bridge that reports
 the event that queued a run. An older bridge sends none, so no comment posts.
 

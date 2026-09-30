@@ -54,6 +54,7 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         $this->em->persist($this->card);
         $this->pullRequest = new ForgePullRequest($this->project, 'github', 'Acme/Widgets', 5);
         $this->pullRequest->failedChecks = ['phpunit', 'e2e'];
+        $this->pullRequest->checksSha = 'abc1234';
         $this->em->persist($this->pullRequest);
         $this->em->flush();
     }
@@ -81,7 +82,8 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         $this->em->persist(new BoardAutomationSettings($this->project, loopLimit: 3));
         $this->em->flush();
 
-        $this->handle($this->pending(fixRound: 2));
+        $comment = $this->pending(fixRound: 2);
+        $this->handle($comment);
 
         $urls = self::getContainer()->get(UrlGeneratorInterface::class);
         self::assertInstanceOf(UrlGeneratorInterface::class, $urls);
@@ -93,9 +95,103 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
             ."**Reason:** checks failed\n"
             ."**Failed checks:** `phpunit`, `e2e`\n"
             ."**Round:** 2 of 3\n\n"
-            .'[Open the card and its runs in Loupe]('.$cardUrl.')',
+            .'[Open the card and its runs in Loupe]('.$cardUrl.')'
+            ."\n\n<!-- loupe-fix-run:".$comment->runId->toRfc4122().' -->',
             $this->commenter->comments[0][1],
         );
+    }
+
+    public function test_the_checks_of_another_head_are_not_named(): void
+    {
+        $this->pullRequest->checksSha = 'fedcba9';
+        $this->em->flush();
+
+        $this->handle($this->pending());
+
+        $body = $this->commenter->comments[0][1];
+        self::assertStringContainsString('**Reason:** checks failed', $body);
+        self::assertStringNotContainsString('**Failed checks:**', $body);
+    }
+
+    public function test_the_first_try_posts_without_a_lookup(): void
+    {
+        $this->handle($this->pending());
+
+        self::assertSame([], $this->commenter->lookups);
+        self::assertCount(1, $this->commenter->comments);
+    }
+
+    public function test_a_retry_that_finds_its_marker_marks_the_comment_posted_without_posting_again(): void
+    {
+        $comment = $this->pending();
+        $comment->attempts = 1;
+        $comment->cause = 'api_failed_transport';
+        $this->em->flush();
+        $marker = '<!-- loupe-fix-run:'.$comment->runId->toRfc4122().' -->';
+        $this->commenter->existing = ["An earlier body\n\n".$marker];
+
+        $this->handle($comment);
+
+        self::assertSame([], $this->commenter->comments);
+        self::assertCount(1, $this->commenter->lookups);
+        self::assertSame($marker, $this->commenter->lookups[0][0]);
+        self::assertEquals($comment->createdAt->modify('-1 hour'), $this->commenter->lookups[0][1]);
+        $comment = $this->reload($comment);
+        self::assertSame(PullRequestCommentState::Posted, $comment->state);
+        self::assertEquals($this->clock->now(), $comment->postedAt);
+        self::assertNull($comment->cause);
+        self::assertSame(2, $comment->attempts);
+    }
+
+    public function test_a_retry_that_finds_no_marker_posts(): void
+    {
+        $comment = $this->pending();
+        $comment->attempts = 1;
+        $this->em->flush();
+        $this->commenter->existing = ['<!-- loupe-fix-run:'.Uuid::v7()->toRfc4122().' -->'];
+
+        $this->handle($comment);
+
+        self::assertCount(1, $this->commenter->lookups);
+        self::assertCount(1, $this->commenter->comments);
+        self::assertSame(PullRequestCommentState::Posted, $this->reload($comment)->state);
+    }
+
+    public function test_a_permanent_lookup_failure_marks_the_comment_failed(): void
+    {
+        $comment = $this->pending();
+        $comment->attempts = 1;
+        $this->em->flush();
+        $this->commenter->lookupFailure = new PullRequestCommentFailed('permission', permanent: true);
+
+        $this->handle($comment);
+
+        self::assertSame([], $this->commenter->comments);
+        $comment = $this->reload($comment);
+        self::assertSame(PullRequestCommentState::Failed, $comment->state);
+        self::assertSame('permission', $comment->cause);
+    }
+
+    public function test_a_transient_lookup_failure_counts_the_attempt_and_rethrows(): void
+    {
+        $comment = $this->pending();
+        $comment->attempts = 1;
+        $this->em->flush();
+        $failure = new PullRequestCommentFailed('api_failed_http_status_502', permanent: false);
+        $this->commenter->lookupFailure = $failure;
+
+        try {
+            $this->handle($comment);
+            self::fail('Expected the transient failure to propagate.');
+        } catch (PullRequestCommentFailed $e) {
+            self::assertSame($failure, $e);
+        }
+
+        self::assertSame([], $this->commenter->comments);
+        $comment = $this->reload($comment);
+        self::assertSame(PullRequestCommentState::Pending, $comment->state);
+        self::assertSame(2, $comment->attempts);
+        self::assertSame('api_failed_http_status_502', $comment->cause);
     }
 
     public function test_a_comment_without_a_round_omits_it_and_a_conflict_omits_the_checks(): void
@@ -204,6 +300,7 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
 
         $this->handle($comment);
 
+        self::assertCount(1, $this->commenter->lookups);
         self::assertCount(1, $this->commenter->comments);
         $comment = $this->reload($comment);
         self::assertSame(PullRequestCommentState::Posted, $comment->state);
@@ -248,6 +345,8 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertSame(PullRequestCommentState::Pending, $comment->state);
         self::assertNull($comment->failedAt);
         self::assertNull($comment->cause);
+        // Stored before the forge call, so the retry of a try that died after its post looks for the marker.
+        self::assertSame(1, $comment->attempts);
     }
 
     public function test_an_untracked_pull_request_marks_the_comment_failed(): void

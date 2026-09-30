@@ -12,7 +12,15 @@ final class FakePullRequestCommenter implements PullRequestCommenter
     /** @var list<array{ForgePullRequest, string}> */
     public array $comments = [];
 
+    /** @var list<array{string, \DateTimeImmutable}> the marker and the since time of each lookup */
+    public array $lookups = [];
+
+    /** @var list<string> bodies already on the pull request, which a lookup reads */
+    public array $existing = [];
+
     public ?\Throwable $failure = null;
+
+    public ?\Throwable $lookupFailure = null;
 
     #[\Override]
     public function supports(string $forge): bool
@@ -28,5 +36,16 @@ final class FakePullRequestCommenter implements PullRequestCommenter
         }
 
         $this->comments[] = [$pullRequest, $body];
+    }
+
+    #[\Override]
+    public function hasComment(ForgePullRequest $pullRequest, string $marker, \DateTimeImmutable $since): bool
+    {
+        $this->lookups[] = [$marker, $since];
+        if (null !== $this->lookupFailure) {
+            throw $this->lookupFailure;
+        }
+
+        return array_any($this->existing, static fn (string $body): bool => str_contains($body, $marker));
     }
 }

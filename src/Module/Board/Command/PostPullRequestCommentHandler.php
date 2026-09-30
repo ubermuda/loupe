@@ -17,13 +17,18 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 
 /**
- * Posts one pending fix run comment. A transient failure counts the attempt
- * and rethrows, so Messenger retries it. The bus has no transaction
- * middleware, so the count persists.
+ * Posts one fix run comment. A transient failure counts the attempt and
+ * rethrows, so Messenger retries it. The bus has no transaction middleware,
+ * so the count persists. A permanent failure, such as a missing permission,
+ * marks the row failed and returns. Its message never reaches the failure
+ * transport, so nothing retries it. The next queued fix run posts a new comment.
  */
 final readonly class PostPullRequestCommentHandler
 {
     private const int MAX_RETRY_DELAY_SECONDS = 3600;
+
+    /** The forge clock can run behind this one. */
+    private const string LOOKUP_CLOCK_MARGIN = '-1 hour';
 
     public function __construct(
         private PullRequestCommentRepository $pullRequestComments,
@@ -43,7 +48,7 @@ final readonly class PostPullRequestCommentHandler
             return;
         }
 
-        // Only `messenger:failed:retry` brings a failed row back, so it tries again.
+        // Only `messenger:failed:retry` of a transient failure brings a failed row back, so it tries again.
         if (PullRequestCommentState::Failed === $comment->state) {
             $comment->state = PullRequestCommentState::Pending;
             $comment->failedAt = null;
@@ -66,9 +71,20 @@ final readonly class PostPullRequestCommentHandler
             return;
         }
 
+        // An earlier try may have posted and then lost its flush, so a retry first looks for its marker.
+        // The count is stored before the forge call, so a try that dies after the post still counts.
+        $retry = $comment->attempts > 0;
         ++$comment->attempts;
+        $this->em->flush();
         try {
-            $commenter->comment($pullRequest, $this->body->of($comment, $pullRequest));
+            $found = $retry && $commenter->hasComment(
+                $pullRequest,
+                FixRunCommentBody::marker($comment->runId),
+                $comment->createdAt->modify(self::LOOKUP_CLOCK_MARGIN),
+            );
+            if (!$found) {
+                $commenter->comment($pullRequest, $this->body->of($comment, $pullRequest));
+            }
         } catch (PullRequestCommentFailed $e) {
             if ($e->permanent) {
                 $this->fail($comment, $e->cause);
@@ -92,7 +108,7 @@ final readonly class PostPullRequestCommentHandler
         $comment->postedAt = $this->clock->now();
         $comment->cause = null;
         $this->em->flush();
-        $this->logger->info('board.fix_run_comment_posted', $this->context($comment));
+        $this->logger->info('board.fix_run_comment_posted', $this->context($comment) + ['foundOnRetry' => $found]);
     }
 
     private function fail(PullRequestComment $comment, string $cause): void
