@@ -12,6 +12,7 @@ use App\Module\Bridge\Mcp\BridgeCommandCancelTool;
 use App\Module\Bridge\Mcp\WorkerRunResumeTool;
 use App\Module\Bridge\Mcp\WorkerRunStopTool;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
+use App\Module\Bridge\Service\CardColumnLookupInterface;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
@@ -80,6 +81,76 @@ final class WorkerRunWriteToolsTest extends KernelTestCase
         self::assertSame('This run already has a command that waits for its bridge.', $results[3]['message'] ?? null);
         self::assertSame('Only an ended run can resume.', $results[4]['message'] ?? null);
         self::assertSame(3, $this->countCommands($this->em()));
+    }
+
+    public function test_the_same_run_twice_resumes_once_and_then_reads_pending(): void
+    {
+        $run = $this->runIn(WorkerRunState::Unfinished);
+
+        $results = $this->resume()([(string) $run->id, (string) $run->id])['results'];
+
+        self::assertSame(['resumed', 'refused'], array_column($results, 'outcome'));
+        self::assertSame('pending', $results[1]['code'] ?? null);
+        self::assertSame(1, $this->countCommands($this->em()));
+    }
+
+    /**
+     * An unexpected failure can leave the database in any state, so the rows
+     * after it are not attempted. The rows before it keep their result.
+     */
+    public function test_an_unexpected_failure_stops_the_batch_and_keeps_the_earlier_rows(): void
+    {
+        // The setup builds the lookup, and a built service cannot be replaced.
+        self::ensureKernelShutdown();
+        self::bootKernel();
+        self::getContainer()->set(CardColumnLookupInterface::class, new class implements CardColumnLookupInterface {
+            #[\Override]
+            public function columnOf(Project $project, Uuid $cardId): ?string
+            {
+                throw new \RuntimeException('The board is down.');
+            }
+        });
+        $this->project = $this->em()->find(Project::class, $this->project->id) ?? throw new \LogicException('The setup project exists.');
+        $this->actAsMcpTokenBoundTo($this->project);
+        $first = $this->runIn(WorkerRunState::Unfinished);
+        $failing = $this->runIn(WorkerRunState::Unfinished);
+        $failing->cardColumn = 'implementation';
+        $this->em()->flush();
+        $later = $this->runIn(WorkerRunState::Unfinished);
+
+        $unknown = '0199a1b2-0000-7000-8000-00000000abcd';
+
+        $results = $this->resume()([(string) $first->id, (string) $failing->id, (string) $later->id, $unknown])['results'];
+
+        self::assertSame('resumed', $results[0]['outcome']);
+        self::assertSame(
+            ['runId' => (string) $failing->id, 'outcome' => 'error', 'message' => 'The outcome is unknown. Read worker_run_list.'],
+            $results[1],
+        );
+        self::assertSame(['runId' => (string) $later->id, 'outcome' => 'not-attempted'], $results[2]);
+        self::assertSame(['runId' => $unknown, 'outcome' => 'not-attempted'], $results[3]);
+        self::assertSame(1, $this->countCommands($this->em()));
+    }
+
+    public function test_a_stop_of_a_run_with_a_waiting_command_is_refused(): void
+    {
+        $run = $this->runIn(WorkerRunState::Running);
+        $this->seedCommand($this->em(), $run);
+
+        $row = $this->stop()((string) $run->id)['results'][0];
+
+        self::assertSame(['refused', 'pending'], [$row['outcome'], $row['code'] ?? null]);
+        self::assertSame(1, $this->countCommands($this->em()));
+    }
+
+    public function test_a_stop_of_an_interactive_session_is_refused(): void
+    {
+        $run = $this->seedRun($this->em(), $this->project, bridgeId: $this->bridge->id, state: WorkerRunState::Running, kind: WorkerRunKind::Interactive);
+
+        $row = $this->stop()((string) $run->id)['results'][0];
+
+        self::assertSame(['refused', 'not-controllable'], [$row['outcome'], $row['code'] ?? null]);
+        self::assertSame(0, $this->countCommands($this->em()));
     }
 
     public function test_a_run_with_no_bridge_is_refused(): void

@@ -215,6 +215,57 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         ], $result['commands'][0]);
     }
 
+    public function test_get_leaves_out_linked_runs_of_another_project(): void
+    {
+        [$project, $other] = $this->projects('get-cross');
+        $em = $this->em();
+        $foreignParent = $this->seedRun($em, $other, receivedAt: new \DateTimeImmutable('2026-09-01 09:00:00'), state: WorkerRunState::Unfinished);
+        $run = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-01 10:00:00'), state: WorkerRunState::Unfinished);
+        $run->continuesRun = $foreignParent;
+        $foreignChild = $this->seedRun($em, $other, receivedAt: new \DateTimeImmutable('2026-09-01 11:00:00'), state: WorkerRunState::Unfinished);
+        $foreignChild->continuesRun = $run;
+        $em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = $this->getTool()((string) $run->id);
+
+        self::assertSame([(string) $run->id], array_column($result['runs'], 'runId'));
+    }
+
+    /** A deleted run leaves its continuations with no link back, so each becomes the oldest run of its own branch. */
+    public function test_get_after_a_deleted_ancestor_reads_the_branch_of_the_oldest_run_that_remains(): void
+    {
+        [$project] = $this->projects('get-deleted');
+        $em = $this->em();
+        $root = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-01 10:00:00'), state: WorkerRunState::Unfinished);
+        $child = $this->continuing($root, new \DateTimeImmutable('2026-09-01 11:00:00'));
+        $grandchild = $this->continuing($child, new \DateTimeImmutable('2026-09-01 12:00:00'));
+        $this->continuing($root, new \DateTimeImmutable('2026-09-01 13:00:00'));
+        $em->getConnection()->executeStatement('DELETE FROM bridge_worker_runs WHERE id = ?', [(string) $root->id]);
+        $em->clear();
+        $this->actAsMcpTokenBoundTo($em->find(Project::class, $project->id) ?? throw new \LogicException('The project exists.'));
+
+        $result = $this->getTool()((string) $grandchild->id);
+
+        self::assertSame([(string) $child->id, (string) $grandchild->id], array_column($result['runs'], 'runId'));
+        self::assertNull($result['runs'][0]['continuesRunId']);
+    }
+
+    public function test_an_impossible_date_is_refused(): void
+    {
+        [$project] = $this->projects('list-impossible');
+        $this->actAsMcpTokenBoundTo($project);
+
+        foreach (['2026-02-31', '2026-09-30T24:30:00Z', '2026-13-01T10:00:00Z'] as $value) {
+            try {
+                $this->listTool()(endedBefore: $value);
+                self::fail(\sprintf('Expected %s to be refused.', $value));
+            } catch (ToolCallException $e) {
+                self::assertSame(\sprintf('endedBefore: "%s" is not an ISO 8601 date, such as 2026-09-30 or 2026-09-30T14:00:00Z.', $value), $e->getMessage());
+            }
+        }
+    }
+
     public function test_get_answers_a_run_of_another_project_as_an_unknown_run(): void
     {
         [$project, $other] = $this->projects('get-scope');

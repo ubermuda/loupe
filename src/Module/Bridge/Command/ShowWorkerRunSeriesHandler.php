@@ -44,7 +44,6 @@ final readonly class ShowWorkerRunSeriesHandler
             }
             $frontier = $next;
         }
-        $series[(string) $command->run->id] = $command->run;
 
         $runs = array_values($series);
         usort($runs, static fn (WorkerRun $a, WorkerRun $b): int => [$a->receivedAt, (string) $a->id] <=> [$b->receivedAt, (string) $b->id]);

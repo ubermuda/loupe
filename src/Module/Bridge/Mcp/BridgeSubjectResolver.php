@@ -126,9 +126,17 @@ final readonly class BridgeSubjectResolver
         }
 
         try {
-            return new \DateTimeImmutable($value, new \DateTimeZone('UTC'))->setTimezone(new \DateTimeZone('UTC'));
+            $time = new \DateTimeImmutable($value, new \DateTimeZone('UTC'));
         } catch (\Exception $e) {
             throw new ToolCallException($refusal, previous: $e);
         }
+
+        // PHP rolls an impossible date or time over, so 2026-02-31 reads as 3 March unless it round-trips.
+        $written = substr($value, 0, 10).(\strlen($value) > 10 ? 'T'.substr($value, 11, 5) : '');
+        if ($time->format(\strlen($value) > 10 ? 'Y-m-d\TH:i' : 'Y-m-d') !== $written) {
+            throw new ToolCallException($refusal);
+        }
+
+        return $time->setTimezone(new \DateTimeZone('UTC'));
     }
 }
