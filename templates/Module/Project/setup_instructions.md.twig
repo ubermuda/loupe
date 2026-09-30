@@ -112,7 +112,7 @@ Replace `<project id>` with the project id from step 5 before you run the comman
 codex mcp add loupe -- loupe mcp --project {{ id }}
 ```
 
-This declaration applies to every repository, and it names one project. Tell the user that another repository with another project needs its own declaration.
+Codex keeps one `loupe` declaration for every repository, and it names this project. Tell the user this. A repository of another project needs the declaration changed to that project, and every repository then connects to that project, this one included.
 
 Copy the Loupe skills into `~/.agents/skills/`:
 
