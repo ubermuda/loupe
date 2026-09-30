@@ -19,7 +19,7 @@
                 </div>
             </div>
 
-            {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName} only %}
+            {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, projectId: wizardProject.id} only %}
         </section>
     </div>
 

@@ -2361,6 +2361,18 @@
                 <source>project.connect.skills.manual</source>
                 <target>The Loupe plugin installs both. Run claude plugin marketplace add ubermuda/loupe, then claude plugin install loupe@loupe. You can also copy plugins/loupe/skills/ from the Loupe repository into your project's .claude/skills/.</target>
             </trans-unit>
+            <trans-unit id="project.connect.setup_prompt.heading">
+                <source>project.connect.setup_prompt.heading</source>
+                <target>Set up with one prompt</target>
+            </trans-unit>
+            <trans-unit id="project.connect.setup_prompt.hint">
+                <source>project.connect.setup_prompt.hint</source>
+                <target>Paste this prompt into Claude Code or Codex, in the repository of this project. The agent installs the CLI, signs in, connects the MCP server and installs the skills. It asks you when it needs you.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.setup_prompt.label">
+                <source>project.connect.setup_prompt.label</source>
+                <target>prompt · coding agent</target>
+            </trans-unit>
             <trans-unit id="project.connect.loupe_cli.heading">
                 <source>project.connect.loupe_cli.heading</source>
                 <target>Loupe CLI</target>
