@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
+use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
@@ -67,6 +68,20 @@ class BridgeCommandRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** Locked and read fresh like findOneForBridgeLocked. The unique index allows one pending command per run. */
+    public function findPendingForRunLocked(WorkerRun $run): ?BridgeCommand
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.workerRun = :run')
+            ->andWhere('c.state = :pending')
+            ->setParameter('run', $run)
+            ->setParameter('pending', BridgeCommandState::Pending->value)
+            ->getQuery()
+            ->setHint(Query::HINT_REFRESH, true)
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getOneOrNullResult();
+    }
+
     /** Reads the state alone, like the unique index, so a pending command past its expiry still counts until the sweep runs. */
     public function hasPendingForRun(WorkerRun $run): bool
     {
@@ -79,6 +94,19 @@ class BridgeCommandRepository extends ServiceEntityRepository
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /** @return list<Project> the projects that hold a pending command whose time ran out */
+    public function findProjectsWithDue(\DateTimeImmutable $now): array
+    {
+        return array_values($this->getEntityManager()->createQueryBuilder()
+            ->select('p')
+            ->from(Project::class, 'p')
+            ->andWhere('p IN (SELECT IDENTITY(c.project) FROM '.BridgeCommand::class.' c WHERE c.state = :pending AND c.expiresAt <= :now)')
+            ->setParameter('pending', BridgeCommandState::Pending->value)
+            ->setParameter('now', $now, Types::DATETIME_IMMUTABLE)
+            ->getQuery()
+            ->getResult());
     }
 
     /** Moves every pending command whose time ran out to expired, and answers how many moved. */

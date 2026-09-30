@@ -174,6 +174,35 @@ final class WorkerRunStateTest extends TestCase
         self::assertFalse(WorkerRunState::Closed->isInferred());
     }
 
+    public function test_a_queued_resumed_or_running_run_can_stop(): void
+    {
+        self::assertSame([WorkerRunState::Queued, WorkerRunState::Resumed, WorkerRunState::Running], WorkerRunState::stoppableStates());
+        foreach (WorkerRunState::cases() as $state) {
+            self::assertSame(\in_array($state, WorkerRunState::stoppableStates(), true), $state->isStoppable(), $state->value);
+        }
+        self::assertFalse(WorkerRunState::Stopping->isStoppable());
+    }
+
+    public function test_an_ended_run_that_did_not_finish_can_resume(): void
+    {
+        self::assertSame([
+            WorkerRunState::Blocked,
+            WorkerRunState::GaveUp,
+            WorkerRunState::Failed,
+            WorkerRunState::NoResult,
+            WorkerRunState::Unfinished,
+            WorkerRunState::TimedOut,
+            WorkerRunState::Lost,
+            WorkerRunState::Stopped,
+            WorkerRunState::WaitingForPerson,
+        ], WorkerRunState::resumableStates());
+        foreach (WorkerRunState::cases() as $state) {
+            self::assertSame(\in_array($state, WorkerRunState::resumableStates(), true), $state->isResumable(), $state->value);
+        }
+        self::assertFalse(WorkerRunState::Succeeded->isResumable());
+        self::assertFalse(WorkerRunState::Running->isResumable());
+    }
+
     /** @return iterable<string, array{WorkerRunState}> */
     public static function states(): iterable
     {

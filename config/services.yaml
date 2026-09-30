@@ -288,6 +288,10 @@ when@test:
             autowire: true
             public: true
 
+        App\Module\Bridge\Command\CancelBridgeCommandHandler:
+            autowire: true
+            public: true
+
         App\Module\Project\Command\DeleteProjectHandler:
             autowire: true
             public: true

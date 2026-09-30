@@ -7,6 +7,8 @@ namespace App\Module\Bridge\Command;
 use App\Exception\DomainErrors;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeRepository;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
+use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -24,6 +26,8 @@ final readonly class SetBridgePauseHandler
 
     public function __construct(
         private BridgeRepository $bridges,
+        private ProjectRepository $projects,
+        private WorkerRunChangedPublisher $runsChanged,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private Auditor $auditor,
@@ -62,6 +66,9 @@ final readonly class SetBridgePauseHandler
                 ['bridgeId' => (string) $bridge->id, 'paused' => $bridge->pauseRequested],
                 new AuditSubject('bridge', (string) $bridge->id),
             );
+            foreach ($this->projects->findOwnedBy($command->owner, $bridge->projects) as $project) {
+                $this->runsChanged->runsChanged($project);
+            }
         }
 
         return $bridge;

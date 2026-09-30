@@ -6458,6 +6458,13 @@
             <trans-unit id="bridge.command.error.unknown_bridge"><source>bridge.command.error.unknown_bridge</source><target>The bridge of this run is no longer connected to your account.</target></trans-unit>
             <trans-unit id="bridge.command.error.pending"><source>bridge.command.error.pending</source><target>This run already has a command that waits for its bridge.</target></trans-unit>
             <trans-unit id="bridge.command.error.reason_too_long"><source>bridge.command.error.reason_too_long</source><target>The reason is too long.</target></trans-unit>
+            <trans-unit id="bridge.command.error.not_controllable"><source>bridge.command.error.not_controllable</source><target>You cannot control an interactive session from here.</target></trans-unit>
+            <trans-unit id="bridge.command.error.no_session"><source>bridge.command.error.no_session</source><target>This run has no session to resume.</target></trans-unit>
+            <trans-unit id="bridge.command.error.not_resumable"><source>bridge.command.error.not_resumable</source><target>Only an ended run can resume.</target></trans-unit>
+            <trans-unit id="bridge.command.error.card_left"><source>bridge.command.error.card_left</source><target>The card left the column of this run.</target></trans-unit>
+            <trans-unit id="bridge.command.error.not_stoppable"><source>bridge.command.error.not_stoppable</source><target>Only a queued or running run can stop.</target></trans-unit>
+            <trans-unit id="bridge.command.error.bridge_outdated"><source>bridge.command.error.bridge_outdated</source><target>Update the bridge to control its runs.</target></trans-unit>
+            <trans-unit id="bridge.command.error.nothing_pending"><source>bridge.command.error.nothing_pending</source><target>This run has no command that waits.</target></trans-unit>
             <trans-unit id="bridge.pause.error.unknown_bridge"><source>bridge.pause.error.unknown_bridge</source><target>This bridge is not connected to your account.</target></trans-unit>
             <trans-unit id="board.rules.page.title"><source>board.rules.page.title</source><target>Rules</target></trans-unit>
             <trans-unit id="board.rules.nav"><source>board.rules.nav</source><target>Rules</target></trans-unit>

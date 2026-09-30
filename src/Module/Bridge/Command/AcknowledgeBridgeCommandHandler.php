@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Repository\BridgeCommandRepository;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -20,6 +21,7 @@ final readonly class AcknowledgeBridgeCommandHandler
 {
     public function __construct(
         private BridgeCommandRepository $bridgeCommands,
+        private WorkerRunChangedPublisher $runsChanged,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private Auditor $auditor,
@@ -61,6 +63,7 @@ final readonly class AcknowledgeBridgeCommandHandler
                 ],
                 new AuditSubject('bridge_command', (string) $settled->id),
             );
+            $this->runsChanged->runsChanged($settled->project);
         }
 
         return $result;
