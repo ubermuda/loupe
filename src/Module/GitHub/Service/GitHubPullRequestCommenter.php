@@ -71,7 +71,8 @@ final readonly class GitHubPullRequestCommenter implements PullRequestCommenter
             }
         }
 
-        return false;
+        // The list goes on past the cap, so the comment may exist. Posting again could duplicate it.
+        throw new PullRequestCommentFailed('lookup_incomplete', permanent: true);
     }
 
     /** @return array{int, string} */

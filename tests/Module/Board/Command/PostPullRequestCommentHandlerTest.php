@@ -264,7 +264,8 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
     {
         yield 'the delay GitHub asked for' => [90, 90_000];
         yield 'no wait at all' => [0, 0];
-        yield 'a delay past the cap' => [86_400, 3_600_000];
+        yield 'a delay of hours' => [7_200, 7_200_000];
+        yield 'a delay past the cap' => [172_800, 86_400_000];
     }
 
     #[DataProvider('retryDelays')]

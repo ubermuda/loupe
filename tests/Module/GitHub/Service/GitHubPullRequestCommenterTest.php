@@ -184,7 +184,7 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
         self::assertCount(3, $this->requests);
     }
 
-    public function test_the_lookup_reads_ten_pages_at_most(): void
+    public function test_a_lookup_that_reaches_ten_full_pages_is_a_permanent_incomplete_failure(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 71_034);
         $this->responses = [$this->answer(['token' => 'ghs_token'], 201)];
@@ -192,9 +192,28 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
             $this->responses[] = $this->answer($this->comments(100));
         }
 
-        self::assertFalse($this->commenter()->hasComment($pullRequest, '<!-- loupe-fix-run:run-1 -->', new \DateTimeImmutable()));
+        try {
+            $this->commenter()->hasComment($pullRequest, '<!-- loupe-fix-run:run-1 -->', new \DateTimeImmutable());
+            self::fail('Expected PullRequestCommentFailed.');
+        } catch (PullRequestCommentFailed $e) {
+            self::assertSame('lookup_incomplete', $e->cause);
+            self::assertTrue($e->permanent);
+        }
+
         self::assertCount(11, $this->requests);
         self::assertSame('10', $this->pageOf(10));
+    }
+
+    public function test_a_marker_on_the_tenth_page_is_found(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 71_035);
+        $this->responses = [$this->answer(['token' => 'ghs_token'], 201)];
+        for ($page = 1; $page <= 9; ++$page) {
+            $this->responses[] = $this->answer($this->comments(100));
+        }
+        $this->responses[] = $this->answer([...$this->comments(99), ['id' => 1000, 'body' => '<!-- loupe-fix-run:run-1 -->']]);
+
+        self::assertTrue($this->commenter()->hasComment($pullRequest, '<!-- loupe-fix-run:run-1 -->', new \DateTimeImmutable()));
     }
 
     /** @return list<array{id: int, body: string}> */

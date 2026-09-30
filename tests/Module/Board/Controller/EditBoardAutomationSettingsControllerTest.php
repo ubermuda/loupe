@@ -143,6 +143,18 @@ final class EditBoardAutomationSettingsControllerTest extends WebTestCase
         self::assertStringContainsString('The GitHub App installation is suspended on GitHub.', $note->text());
     }
 
+    public function test_an_incomplete_lookup_says_the_comment_was_not_posted_again(): void
+    {
+        $project = $this->ownedProject('automation-comment-lookup@example.com');
+        $this->commentOnFixQueued($project, true);
+        $this->settledComment($project, PullRequestCommentState::Failed, 'Acme/Widgets', 5, 'lookup_incomplete', new \DateTimeImmutable('-5 minutes'));
+        $this->em->flush();
+
+        $note = $this->page($project)->filter('[data-fix-run-comment-failure]');
+
+        self::assertStringContainsString('Loupe could not tell whether the comment was already posted, so it did not post it again.', $note->text());
+    }
+
     public function test_an_unknown_cause_shows_the_raw_cause(): void
     {
         $project = $this->ownedProject('automation-comment-unknown@example.com');

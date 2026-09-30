@@ -25,7 +25,8 @@ use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
  */
 final readonly class PostPullRequestCommentHandler
 {
-    private const int MAX_RETRY_DELAY_SECONDS = 3600;
+    /** Guards against a nonsense header only. GitHub can ask for more than an hour. */
+    private const int MAX_RETRY_DELAY_SECONDS = 86_400;
 
     /** The forge clock can run behind this one. */
     private const string LOOKUP_CLOCK_MARGIN = '-1 hour';

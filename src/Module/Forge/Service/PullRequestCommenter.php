@@ -19,8 +19,9 @@ interface PullRequestCommenter
 
     /**
      * Whether a comment created or edited at or after $since holds $marker.
+     * False means the whole list was read. A search that stops early throws instead.
      *
-     * @throws PullRequestCommentFailed when the forge does not answer, classified as for comment()
+     * @throws PullRequestCommentFailed when the forge does not answer, classified as for comment(), or when the search is incomplete
      */
     public function hasComment(ForgePullRequest $pullRequest, string $marker, \DateTimeImmutable $since): bool;
 }

@@ -6377,6 +6377,10 @@
                 <source>board.automation.comment_failure.cause.no_commenter</source>
                 <target>Loupe cannot comment on this forge.</target>
             </trans-unit>
+            <trans-unit id="board.automation.comment_failure.cause.lookup_incomplete">
+                <source>board.automation.comment_failure.cause.lookup_incomplete</source>
+                <target>Loupe could not tell whether the comment was already posted, so it did not post it again.</target>
+            </trans-unit>
             <trans-unit id="board.automation.comment_failure.cause.other">
                 <source>board.automation.comment_failure.cause.other</source>
                 <target>Loupe could not post the comment (%cause%).</target>
