@@ -82,6 +82,7 @@ final class AdvanceHeldCardOnBlockerFinishedTest extends KernelTestCase
 
         $this->move($second, 'done');
         self::assertSame($to, $this->slugOf($held));
+        self::assertEquals(['type' => 'unblocked', 'blocker' => $second->number], $this->lastCause($held));
     }
 
     public function test_a_blocker_that_moves_between_open_columns_releases_nothing(): void
@@ -123,6 +124,7 @@ final class AdvanceHeldCardOnBlockerFinishedTest extends KernelTestCase
         $this->relink($held, []);
 
         self::assertSame('tech-design', $this->slugOf($held));
+        self::assertEquals(['type' => 'unblocked'], $this->lastCause($held));
     }
 
     public function test_a_blocking_link_removed_from_the_blocker_advances_the_held_card(): void
@@ -180,6 +182,7 @@ final class AdvanceHeldCardOnBlockerFinishedTest extends KernelTestCase
 
         self::assertSame('tech-design', $this->slugOf($held));
         self::assertSame(1, $this->systemMovesOf($held));
+        self::assertEquals(['type' => 'unblocked'], $this->lastCause($held));
     }
 
     public function test_a_column_made_terminal_leaves_a_card_with_another_open_blocker_where_it_is(): void
@@ -340,6 +343,18 @@ final class AdvanceHeldCardOnBlockerFinishedTest extends KernelTestCase
         }
 
         return $moves;
+    }
+
+    /** @return array<string, mixed>|null the cause of the newest move in the card's history */
+    private function lastCause(Card $card): ?array
+    {
+        $detail = $this->em->getConnection()->fetchOne(
+            "SELECT detail FROM board_card_events WHERE card_id = :card AND kind = 'moved' ORDER BY occurred_at DESC, id DESC LIMIT 1",
+            ['card' => (string) $card->id],
+        );
+        self::assertIsString($detail);
+
+        return json_decode($detail, true, flags: \JSON_THROW_ON_ERROR)['cause'];
     }
 
     private function slugOf(Card $card): string

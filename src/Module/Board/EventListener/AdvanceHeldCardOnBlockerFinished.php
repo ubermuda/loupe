@@ -16,6 +16,7 @@ use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAvailability;
+use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\StageHold;
 use Doctrine\DBAL\Exception as DbalException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -55,7 +56,7 @@ final readonly class AdvanceHeldCardOnBlockerFinished
         }
 
         foreach ($this->cards->findBlockedBy($event->card) as $card) {
-            $this->advance($card);
+            $this->advance($card, CardEventCause::unblocked($event->card->number));
         }
     }
 
@@ -67,7 +68,7 @@ final readonly class AdvanceHeldCardOnBlockerFinished
         }
 
         foreach ($event->cards as $card) {
-            $this->advance($card);
+            $this->advance($card, CardEventCause::unblocked());
         }
     }
 
@@ -94,7 +95,7 @@ final readonly class AdvanceHeldCardOnBlockerFinished
     {
         foreach ($this->cards->findBlockedByAny($finishedIds) as $card) {
             try {
-                $this->advance($card);
+                $this->advance($card, CardEventCause::unblocked());
             } catch (\Throwable $e) {
                 if ($e instanceof DbalException || !$this->em->isOpen()) {
                     throw $e;
@@ -108,7 +109,7 @@ final readonly class AdvanceHeldCardOnBlockerFinished
         }
     }
 
-    private function advance(Card $card): void
+    private function advance(Card $card, CardEventCause $cause): void
     {
         // Before the blockers, because it reads the card's column onto the card.
         $stage = $this->hold->heldStage($card);
@@ -129,6 +130,7 @@ final readonly class AdvanceHeldCardOnBlockerFinished
             actor: CardReporter::System,
             column: $target,
             onlyFromColumn: $card->column,
+            cause: $cause,
         ));
     }
 }
