@@ -18,43 +18,34 @@ The `loupe` CLI runs on macOS and Linux, on amd64 and arm64. It has no Windows b
 
 Run `loupe version`. If it prints a version, go to step 4.
 
-If it fails, install the latest CLI release. A CLI release has a tag of the form `cli/vX.Y.Z`. Find the version, the platform and the archive:
+If it fails, install the latest CLI release. A CLI release has a tag of the form `cli/vX.Y.Z`. Run this block as one command. It finds the version and the platform, downloads the archive and `checksums.txt` into a temporary directory, checks the archive, and puts the binary in `~/.local/bin`:
 
 ```bash
-version=$(curl -fsSL "https://api.github.com/repos/ubermuda/loupe/releases?per_page=100" | grep -o '"tag_name": *"cli/v[^"]*"' | head -n 1 | sed 's/.*cli\/v//; s/"$//')
-os=$(uname -s | tr '[:upper:]' '[:lower:]')
-arch=$(uname -m)
-case "$arch" in x86_64) arch=amd64 ;; aarch64) arch=arm64 ;; esac
-archive="loupe_${version}_${os}_${arch}.tar.gz"
-echo "$archive"
+(
+  set -e
+  version=$(curl -fsSL "https://api.github.com/repos/ubermuda/loupe/releases?per_page=100" | grep -o '"tag_name": *"cli/v[^"]*"' | head -n 1 | sed 's/.*cli\/v//; s/"$//')
+  os=$(uname -s | tr '[:upper:]' '[:lower:]')
+  arch=$(uname -m)
+  case "$arch" in x86_64) arch=amd64 ;; aarch64) arch=arm64 ;; esac
+  archive="loupe_${version}_${os}_${arch}.tar.gz"
+  echo "archive: $archive"
+  cd "$(mktemp -d)"
+  curl -fsSLO "https://github.com/ubermuda/loupe/releases/download/cli/v${version}/${archive}"
+  curl -fsSLO "https://github.com/ubermuda/loupe/releases/download/cli/v${version}/checksums.txt"
+  if command -v shasum > /dev/null; then shasum -a 256 -c --ignore-missing checksums.txt; else sha256sum -c --ignore-missing checksums.txt; fi
+  tar -xzf "$archive" loupe
+  mkdir -p ~/.local/bin
+  mv loupe ~/.local/bin/
+)
 ```
 
-The archive name must look like `loupe_1.4.0_darwin_arm64.tar.gz`. If the version is empty, or the platform is not `darwin` or `linux` with `amd64` or `arm64`, stop and show the output to the user.
+The archive name must look like `loupe_1.4.0_darwin_arm64.tar.gz`, and the check must print `OK` after it. If the block fails, or it prints `FAILED`, stop and show the output to the user.
 
-Download the archive and `checksums.txt` into an empty directory, and check the archive:
-
-```bash
-cd "$(mktemp -d)"
-curl -fsSLO "https://github.com/ubermuda/loupe/releases/download/cli/v${version}/${archive}"
-curl -fsSLO "https://github.com/ubermuda/loupe/releases/download/cli/v${version}/checksums.txt"
-shasum -a 256 -c --ignore-missing checksums.txt
-```
-
-On Linux without `shasum`, run `sha256sum -c --ignore-missing checksums.txt`. The command must print `OK` after the archive name. If it prints `FAILED`, stop, tell the user, and do not install the archive.
-
-Put the binary in `~/.local/bin`:
-
-```bash
-tar -xzf "$archive" loupe
-mkdir -p ~/.local/bin
-mv loupe ~/.local/bin/
-```
-
-The CLI updates itself, so keep it in a directory the user can write. If `~/.local/bin` is not on the `PATH`, tell the user how to add it. Until then, use `~/.local/bin/loupe` in the next steps. Run `loupe version` again. It must print a version.
+The CLI updates itself, so keep it in a directory the user can write. The MCP server starts as `loupe mcp`, so `~/.local/bin` must be on the `PATH` of the agent. If `command -v loupe` prints nothing, tell the user how to add `~/.local/bin` to their `PATH`, and ask them to restart the agent from a new terminal. Then stop. Run `loupe version` again. It must print a version.
 
 ## 4. Sign in
 
-The CLI keeps one sign-in, in `config.json` in its configuration directory: `~/Library/Application Support/loupe/` on macOS, `~/.config/loupe/` on Linux. If that file has `"baseUrl": "{{ instance }}"`, go to step 5. If a later step says `not logged in`, come back to this step.
+The CLI keeps one sign-in, in `config.json` in its configuration directory: `~/Library/Application Support/loupe/` on macOS, `~/.config/loupe/` on Linux. If that file has `"baseUrl": "{{ instance }}"`, go to step 5. If it names another instance, a new sign-in replaces that one, so ask the user before you continue. If a later step says `not logged in`, come back to this step.
 
 `loupe login` waits until the user approves the sign-in in a browser. Start it in the background, with its output in a log file. `nohup` keeps it alive when your shell call ends:
 
@@ -128,7 +119,7 @@ Declare the MCP server with the project id:
 codex mcp add loupe -- loupe mcp --project {{ id }}
 ```
 
-If Codex already has a server named `loupe`, show it to the user and ask before you replace it.
+If Codex already has a server named `loupe`, show it to the user and ask before you replace it. This declaration applies to every repository, and it names one project. Tell the user that another repository with another project needs its own declaration.
 
 Copy the Loupe skills into `~/.agents/skills/`:
 
