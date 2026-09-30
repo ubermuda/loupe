@@ -109,12 +109,13 @@ func TestAckCommandPutsTheState(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		method, path, auth, contentType, body = r.Method, r.URL.EscapedPath(), r.Header.Get("Authorization"), r.Header.Get("Content-Type"), string(raw)
-		fmt.Fprintf(w, `{"commandId":%q,"state":"done"}`, ackCommandID)
+		fmt.Fprintf(w, `{"commandId":%q,"state":"expired"}`, ackCommandID)
 	}))
 	t.Cleanup(server.Close)
 
-	if err := New(server.URL, "secret", server.Client()).AckCommand(context.Background(), ackBridgeID, ackCommandID, CommandDone, ""); err != nil {
-		t.Fatal(err)
+	stored, err := New(server.URL, "secret", server.Client()).AckCommand(context.Background(), ackBridgeID, ackCommandID, CommandDone, "")
+	if err != nil || stored != "expired" {
+		t.Fatalf("stored = %q, err = %v", stored, err)
 	}
 	if method != http.MethodPut || path != "/api/bridges/"+ackBridgeID+"/commands/"+ackCommandID || auth != "Bearer secret" || contentType != "application/json" {
 		t.Fatalf("method = %q, path = %q, auth = %q, content type = %q", method, path, auth, contentType)
@@ -136,7 +137,7 @@ func TestAckCommandClipsTheReason(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	reason := "  " + strings.Repeat("é", 1200)
-	if err := New(server.URL, "t", server.Client()).AckCommand(context.Background(), ackBridgeID, ackCommandID, CommandRefused, reason); err != nil {
+	if _, err := New(server.URL, "t", server.Client()).AckCommand(context.Background(), ackBridgeID, ackCommandID, CommandRefused, reason); err != nil {
 		t.Fatal(err)
 	}
 	if body != `{"state":"refused","reason":"`+strings.Repeat("é", 1000)+`"}` {
@@ -166,7 +167,7 @@ func TestAckCommandNamesEachFailure(t *testing.T) {
 			}))
 			t.Cleanup(server.Close)
 
-			err := New(server.URL, "t", server.Client()).AckCommand(context.Background(), ackBridgeID, ackCommandID, CommandDone, "")
+			_, err := New(server.URL, "t", server.Client()).AckCommand(context.Background(), ackBridgeID, ackCommandID, CommandDone, "")
 			if err == nil || errors.Is(err, ErrCommandNotFound) != tc.notFound || !strings.Contains(err.Error(), tc.text) {
 				t.Fatalf("err = %v", err)
 			}

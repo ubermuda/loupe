@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -117,9 +119,222 @@ func (r *router) handleCommand(c api.Command) (string, string) {
 	return r.resumeRun(c)
 }
 
-// stopRun stops the run a command names.
-func (r *router) stopRun(api.Command) (state, reason string) {
-	return api.CommandRefused, notYet
+// The answers of a stop the bridge cannot act on.
+const (
+	noOpenRun   = "The bridge holds no open run with this key."
+	handingOver = "The bridge is handing over to a new version. Send the stop again."
+)
+
+// The waits of the stop ladder when the server shares none. A flag below
+// minStopWait reads as the default, as on the server.
+const (
+	defaultStopTerm = 7500 * time.Millisecond
+	defaultStopKill = 2500 * time.Millisecond
+	minStopWait     = 100 * time.Millisecond
+)
+
+// stopWaits are the waits of the stop ladder: from SIGINT to SIGTERM, and
+// from SIGTERM to SIGKILL. A zero wait is the default.
+type stopWaits struct {
+	term, kill time.Duration
+}
+
+func stopWaitsOf(events api.Events) stopWaits {
+	return stopWaits{term: stopWait(events, api.StopSigtermFlag, defaultStopTerm), kill: stopWait(events, api.StopSigkillFlag, defaultStopKill)}
+}
+
+func stopWait(events api.Events, flag string, fallback time.Duration) time.Duration {
+	if d, ok := events.Milliseconds(flag); ok && d >= minStopWait {
+		return d
+	}
+
+	return fallback
+}
+
+// stopRun stops the run a command names, and holds its card. A queued run
+// closes at once. A live worker gets the stop ladder, and its end reports
+// stopped. A run in an ask check, in the resume gate or in its spawn is
+// marked, and the next step of that run reports stopped. The answer is done
+// once the stop is under way, and does not wait for the worker to exit.
+func (r *router) stopRun(c api.Command) (state, reason string) {
+	r.quiesce.RLock()
+	defer r.quiesce.RUnlock()
+	r.mu.Lock()
+	switch {
+	case r.frozen:
+		r.mu.Unlock()
+
+		return api.CommandRefused, handingOver
+	case r.stops[c.RunKey]:
+		r.mu.Unlock()
+
+		return api.CommandDone, ""
+	}
+	if _, ok := r.held[c.RunKey]; !ok {
+		r.mu.Unlock()
+
+		return api.CommandRefused, noOpenRun
+	}
+	r.holdCardLocked(c.CardID)
+	if r.stops == nil {
+		r.stops = map[string]bool{}
+	}
+	r.stops[c.RunKey] = true
+	var dropped []pending
+	if i := slices.IndexFunc(r.queue, func(q pending) bool { return q.runID == c.RunKey }); i >= 0 {
+		p := r.queue[i]
+		r.queue = slices.Delete(r.queue, i, i+1)
+		// A checked resume holds its card key already.
+		r.closeStoppedLocked(p, api.RunStateReport{State: api.RunStopped}, p.checked)
+		dropped = r.dispatchLocked()
+	} else if run, ok := r.live[c.RunKey]; ok {
+		r.stopLiveLocked(run)
+	}
+	r.mu.Unlock()
+	r.logDropped(dropped)
+
+	return api.CommandDone, ""
+}
+
+// stopLiveLocked reports a live worker as stopping and starts its ladder. The
+// caller holds mu and marked the run.
+func (r *router) stopLiveLocked(run liveRun) {
+	r.log.Info("worker_stopping", append(about(run.p.event, run.p.rule), "pid", run.proc.pid)...)
+	r.emitLocked(run.p, api.RunStateReport{State: api.RunStopping})
+	r.wg.Add(1)
+	go r.ladder(run, r.stopWaits, r.stoppedLocked())
+}
+
+// ladder sends SIGINT to the process group of a worker, SIGTERM after the
+// first wait, and SIGKILL after the second. It ends early when the group is
+// gone or the bridge shuts down, since the shutdown kills every group.
+func (r *router) ladder(run liveRun, waits stopWaits, stopped <-chan struct{}) {
+	defer r.wg.Done()
+
+	signal, after := r.signal, r.stopAfter
+	if signal == nil {
+		signal = signalGroup
+	}
+	if after == nil {
+		after = time.After
+	}
+	steps := []struct {
+		sig  stopSignal
+		wait time.Duration
+	}{{stopInt, cmp.Or(waits.term, defaultStopTerm)}, {stopTerm, cmp.Or(waits.kill, defaultStopKill)}, {stopKill, 0}}
+	ended := run.ended
+	for _, step := range steps {
+		err := signal(run.proc.pid, step.sig)
+		if errors.Is(err, errGroupGone) {
+			return
+		}
+		if err != nil {
+			r.log.Warn("stop_signal_failed", append(about(run.p.event, run.p.rule), "pid", run.proc.pid, "signal", step.sig.String(), "error", err.Error())...)
+
+			return
+		}
+		r.log.Info("stop_signal_sent", append(about(run.p.event, run.p.rule), "pid", run.proc.pid, "signal", step.sig.String())...)
+		if step.sig == stopKill {
+			return
+		}
+		timer := after(step.wait)
+	wait:
+		for {
+			select {
+			case <-timer:
+				break wait
+			case <-ended:
+				// The worker exited. Its tools can outlive it in the group.
+				if errors.Is(signal(run.proc.pid, stopProbe), errGroupGone) {
+					return
+				}
+				ended = nil
+			case <-stopped:
+				return
+			case <-r.workerContext().Done():
+				return
+			}
+		}
+	}
+}
+
+// closeStoppedLocked sends the report that closes a stopped run, and frees
+// its card key when the run holds it. The caller holds mu.
+func (r *router) closeStoppedLocked(p pending, report api.RunStateReport, holdsKey bool) {
+	delete(r.stops, p.runID)
+	if holdsKey {
+		delete(r.running, p.key)
+	}
+	r.log.Info("worker_stopped", about(p.event, p.rule)...)
+	r.emitLocked(p, report)
+}
+
+// stoppedReport is the stopped report of a worker that ended. It keeps the
+// output and the usage, and carries no exit code and no result.
+func (r *router) stoppedReport(p pending, e endedRun) api.RunStateReport {
+	report := api.RunStateReport{
+		State:     api.RunStopped,
+		SessionID: p.spec.sessionID,
+		StartedAt: e.began,
+		EndedAt:   e.began.Add(e.elapsed),
+		Output:    e.res.output,
+	}
+	if e.res.err == nil {
+		report.Usage = r.usage(p, e.res.usage)
+	}
+
+	return report
+}
+
+// holdCardLocked holds a card, so it starts no worker. The caller holds mu.
+func (r *router) holdCardLocked(cardID string) {
+	if cardID == "" {
+		return
+	}
+	if r.cardHolds == nil {
+		r.cardHolds = map[string]bool{}
+	}
+	r.cardHolds[cardID] = true
+}
+
+// heldLocked reports whether the card of the event is held. The caller
+// holds mu.
+func (r *router) heldLocked(e event.Event) bool {
+	id, _ := cardOf(e)
+
+	return id != "" && r.cardHolds[id]
+}
+
+// releaseHold ends the hold of a card, and starts its queued runs.
+func (r *router) releaseHold(cardID string) {
+	r.mu.Lock()
+	if !r.cardHolds[cardID] {
+		r.mu.Unlock()
+
+		return
+	}
+	delete(r.cardHolds, cardID)
+	r.mu.Unlock()
+
+	r.log.Info("card_hold_released", "card_id", cardID)
+	r.dispatch()
+}
+
+// noteCardHold keeps the hold the server states for the card of the event. An
+// event with no held key changes nothing.
+func (r *router) noteCardHold(e event.Event) {
+	id, _ := cardOf(e)
+	if id == "" || e.Card.Held == nil {
+		return
+	}
+	if !*e.Card.Held {
+		r.releaseHold(id)
+
+		return
+	}
+	r.mu.Lock()
+	r.holdCardLocked(id)
+	r.mu.Unlock()
 }
 
 // resumeRun resumes the run a command names.
@@ -137,10 +352,14 @@ func (r *router) sendAck(c api.Command, state, reason string) {
 		Card: c.CardNumber,
 		Rule: c.RuleName,
 		Send: func(ctx context.Context) (bool, error) {
-			err := r.ackCommand(ctx, r.bridgeID, c.CommandID, state, reason)
+			stored, err := r.ackCommand(ctx, r.bridgeID, c.CommandID, state, reason)
 			switch {
 			case err == nil:
 				r.log.Info("command_acked", "command", c.CommandID, "kind", c.Kind, "state", state)
+				// A command that expired or was cancelled first keeps its own state.
+				if stored != "" && stored != state {
+					r.log.Warn("command_ack_state", "command", c.CommandID, "kind", c.Kind, "state", state, "stored", stored)
+				}
 			case errors.Is(err, api.ErrCommandNotFound):
 				r.log.Info("command_acked", "command", c.CommandID, "kind", c.Kind, "state", state, "answer", "command_not_found")
 			default:

@@ -29,7 +29,8 @@ const recentLimit = 512
 // across an exec. LockFD and ControlFD name the inherited descriptors of the
 // lock file at LockPath and of the control socket, and OldVersion and
 // OldBinary the image that froze it, for a rollback. NewVersion is the image
-// the exec runs, which a recovery skips when it died before its health.
+// the exec runs, which a recovery skips when it died before its health. Holds
+// lists the cards a person stopped.
 type handoverState struct {
 	Format      int                         `json:"format"`
 	Queue       []handoverPending           `json:"queue"`
@@ -37,6 +38,7 @@ type handoverState struct {
 	Chains      map[string]map[string]int   `json:"chains"`
 	Sessions    map[string]handoverSession  `json:"sessions"`
 	Held        map[string]api.InventoryRun `json:"held"`
+	Holds       []string                    `json:"holds,omitempty"`
 	Live        []handoverRun               `json:"live"`
 	LastEventID string                      `json:"lastEventId"`
 	RecentIDs   []string                    `json:"recentIds"`
@@ -227,7 +229,8 @@ func (r *router) resume() {
 }
 
 // drain waits until no run report waits to go out, no ask check, resume gate
-// or launch runs and no worker is between its spawn and its start. A zero timeout is drainTimeout.
+// or launch runs, no worker is between its spawn and its start, and no stopped
+// run waits for its end. A zero timeout is drainTimeout.
 // On an error the caller resumes and gives up the handover.
 func (r *router) drain(ctx context.Context, timeout time.Duration) error {
 	if timeout <= 0 {
@@ -238,29 +241,29 @@ func (r *router) drain(ctx context.Context, timeout time.Duration) error {
 	tick := time.NewTicker(20 * time.Millisecond)
 	defer tick.Stop()
 	for {
-		reports, checks, gates, starting, launches := r.inFlight()
-		if reports == 0 && checks == 0 && gates == 0 && starting == 0 && launches == 0 {
+		reports, checks, gates, starting, launches, stops := r.inFlight()
+		if reports == 0 && checks == 0 && gates == 0 && starting == 0 && launches == 0 && stops == 0 {
 			return nil
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-deadline.C:
-			return fmt.Errorf("after %s the bridge still holds %d run reports, %d ask checks, %d resume gates, %d starting workers and %d launches", timeout, reports, checks, gates, starting, launches)
+			return fmt.Errorf("after %s the bridge still holds %d run reports, %d ask checks, %d resume gates, %d starting workers, %d launches and %d stops", timeout, reports, checks, gates, starting, launches, stops)
 		case <-tick.C:
 		}
 	}
 }
 
-func (r *router) inFlight() (reports, checks, gates, starting, launches int) {
+func (r *router) inFlight() (reports, checks, gates, starting, launches, stops int) {
 	r.mu.Lock()
-	checks, gates, starting, launches = r.checking, r.gating, r.usedLocked()-len(r.live), r.launching
+	checks, gates, starting, launches, stops = r.checking, r.gating, r.usedLocked()-len(r.live), r.launching, len(r.stops)
 	r.mu.Unlock()
 	if r.reports != nil {
 		reports = r.reports.Pending()
 	}
 
-	return reports, checks, gates, starting, launches
+	return reports, checks, gates, starting, launches, stops
 }
 
 // freeze takes the routing state for the next image, and holds back what
@@ -281,6 +284,7 @@ func (r *router) freeze() handoverState {
 		Format:      handoverFormat,
 		Running:     maps.Clone(r.running),
 		Held:        maps.Clone(r.held),
+		Holds:       slices.Sorted(maps.Keys(r.cardHolds)),
 		LastEventID: r.lastEventID,
 		RecentIDs:   slices.Clone(r.recent),
 		Seq:         r.seq,
@@ -329,6 +333,9 @@ func (r *router) adopt(st handoverState) {
 	r.running = maps.Clone(st.Running)
 	r.chains = st.Chains
 	r.held = maps.Clone(st.Held)
+	for _, id := range st.Holds {
+		r.holdCardLocked(id)
+	}
 	r.seq = st.Seq
 	r.lastEventID = st.LastEventID
 	for _, id := range st.RecentIDs {

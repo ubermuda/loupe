@@ -1210,8 +1210,31 @@ answers it. The bridge acts on a command once, by its `commandId`, whichever
 channel brings it first. It drops a command for another bridge, a command past
 its `expiresAt`, and a command that fails its check. The answer goes through
 the outbound queue with the policy of a run report. A 404 with
-`command_not_found` counts as delivered. This build answers each command with
+`command_not_found` counts as delivered. This build answers each resume with
 `refused`.
+
+A stop names the run by its `runKey`. The bridge refuses a stop of a run it
+does not hold, or of a run that is closed already. A queued run closes as
+`stopped` at once, with no start. For a live worker, the bridge reports
+`stopping` and answers `done`. Then it sends SIGINT to the process group of the
+worker, SIGTERM after a wait, and SIGKILL after a second wait. The steps end
+early when the group has no process left. The flags
+`bridge.stop_sigterm_after_ms` (default 7500) and `bridge.stop_sigkill_after_ms`
+(default 2500) set the waits. A value below 100 reads as the default. When the
+worker ends, the bridge reports `stopped` with the output and the usage, and
+it does not resume the run. A run in an ask check or in the resume gate reports
+`stopped` when that step ends. A stop also works while the bridge is paused.
+
+A stop reaches the process group of the worker only. Work that the worker
+started in another process tree keeps running, such as a PHPUnit run inside a
+Docker container.
+
+A stop holds the card, and the bridge starts no worker for a held card. It also
+skips an event whose `card.held` is `true`, whatever the rule says. An event
+whose `card.held` is `false` ends the hold, and runs as usual. A queued run of
+a held card waits until the hold ends. The bridge keeps its holds in memory,
+and hands them to a new version at an update. A restart forgets them, and the
+next event with `card.held` set to `true` holds the card again.
 
 ### Updates
 
@@ -1301,6 +1324,13 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `command_received` | `command`, `kind`, `card`, `project`, `rule`, `run_key`, `source`: `event` or `heartbeat` |
 | `command_dropped` | the fields of `command_received` and `reason`: `duplicate`, `expired`, `other_bridge`, `handover` or `shutdown`. For `malformed`, the line has `source`, `error` and, from a heartbeat, `command`, at level `WARN` |
 | `command_acked` | `command`, `kind`, `state`, and `answer`: `command_not_found` when the server no longer held the command |
+| `command_ack_state` | `command`, `kind`, `state`, `stored`: the server kept another state, for example for a command that expired first. Level `WARN` |
+| `worker_stopping` | `card`, `project`, `rule`, `pid`: a person stopped a live worker |
+| `stop_signal_sent` | `card`, `project`, `rule`, `pid`, `signal`: `SIGINT`, `SIGTERM` or `SIGKILL` |
+| `stop_signal_failed` | `card`, `project`, `rule`, `pid`, `signal`, `error`: the bridge could not signal the group, and sends no further signal. Level `WARN` |
+| `worker_stopped` | `card`, `project`, `rule`: the bridge reported a stopped run |
+| `card_held` | `card`, `project`, `rule`: the card is held, so the event starts nothing |
+| `card_hold_released` | `card_id`: the hold of the card ended |
 | `event_duplicate` | `id`: the hub sent an event again that the bridge already handled, as after a handover |
 | `worker_adopted` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `pid`: the bridge took over a worker that an earlier version started |
 | `update_skipped` | `reason`: the bridge does not check for updates, for example a development build |

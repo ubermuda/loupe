@@ -60,10 +60,12 @@ type Event struct {
 
 // CardState is what the server says about the card an event names.
 // InteractiveRun is true while a person runs an interactive session on it, and
-// Held is true while a person stops the work on it.
+// Held is true while a person stops the work on it. Held is nil when the event
+// has no held key, as from an older server, so a bridge never reads it as the
+// end of a hold.
 type CardState struct {
-	InteractiveRun bool `json:"interactiveRun"`
-	Held           bool `json:"held"`
+	InteractiveRun bool  `json:"interactiveRun"`
+	Held           *bool `json:"held"`
 }
 
 // Subject names the aggregate an event is about. The id is what an MCP tool

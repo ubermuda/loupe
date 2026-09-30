@@ -76,6 +76,24 @@ func (e Events) Seconds(name string) (int, bool) {
 	return int(n), true
 }
 
+// StopSigtermFlag and StopSigkillFlag hold the waits of the stop ladder, in
+// milliseconds.
+const (
+	StopSigtermFlag = "bridge.stop_sigterm_after_ms"
+	StopSigkillFlag = "bridge.stop_sigkill_after_ms"
+)
+
+// Milliseconds reads the flag name as a whole number of milliseconds above
+// zero. It reports false for a missing flag and for any other value.
+func (e Events) Milliseconds(name string) (time.Duration, bool) {
+	n, ok := e.Flags[name].(float64)
+	if !ok || n < 1 || n > float64(math.MaxInt64/int64(time.Millisecond)) || n != math.Trunc(n) {
+		return 0, false
+	}
+
+	return time.Duration(n) * time.Millisecond, true
+}
+
 // maxBody caps a success body the client decodes. A columns or sites list is
 // far smaller, and a misrouted proxy must not make the bridge read without end.
 const maxBody = 1 << 20
@@ -540,7 +558,7 @@ type Heartbeat struct {
 	// Paused and Capabilities send no key when nil, which keeps what the
 	// server holds.
 	Paused       *bool    `json:"paused,omitempty"`
-	Capabilities []string `json:"capabilities,omitempty"`
+	Capabilities []string `json:"capabilities,omitzero"`
 }
 
 // HeartbeatReply is what the server answers to a heartbeat. Paused is nil when

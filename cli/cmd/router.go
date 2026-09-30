@@ -83,8 +83,13 @@ type router struct {
 	// ackCommand answers a command through the report queue. A nil one, as in
 	// most tests, answers nothing. pauseFile caches a person's pause, and ""
 	// caches nothing.
-	ackCommand func(ctx context.Context, bridgeID, commandID, state, reason string) error
+	ackCommand func(ctx context.Context, bridgeID, commandID, state, reason string) (string, error)
 	pauseFile  string
+	// signal sends one step of the stop ladder to the process group of a
+	// worker, and stopAfter times the waits between two steps. A nil one is
+	// signalGroup or time.After, which tests replace.
+	signal    func(pid int, sig stopSignal) error
+	stopAfter func(time.Duration) <-chan time.Time
 
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
@@ -153,6 +158,12 @@ type router struct {
 	// the bridge took to its expiry.
 	personPaused bool
 	handled      map[string]time.Time
+	// stops holds each run a person stopped until its stopped report goes out.
+	// cardHolds holds the cards of those runs, which start no worker until the
+	// hold ends. stopWaits are the waits of the stop ladder.
+	stops     map[string]bool
+	cardHolds map[string]bool
+	stopWaits stopWaits
 	// lastEventID is the resume point of the stream, and recent the ids of the
 	// last events handled, oldest first, which recentSet indexes.
 	lastEventID string
@@ -429,6 +440,7 @@ func (r *router) onData(data []byte) {
 		return
 	}
 	e, key := r.resolve(e)
+	r.noteCardHold(e)
 
 	// A slug change is a person's action, not a directive to an agent, so it
 	// kills rules whatever its actor. Matching then goes on as for any event.
@@ -616,6 +628,7 @@ func (r *router) reportHealth(set *rules.Set, project string) {
 func (r *router) applyFlags(events api.Events) {
 	r.mu.Lock()
 	r.inbox = events.Enabled(api.InboxFlag)
+	r.stopWaits = stopWaitsOf(events)
 	r.mu.Unlock()
 	if r.heartbeat != nil {
 		r.heartbeat.setInterval(heartbeatInterval(events))
@@ -723,6 +736,13 @@ func (r *router) enqueue(p pending) {
 		p.set = current
 		p.apply(m)
 	}
+	// A person stopped the work on the card, so no rule starts anything on it.
+	if r.heldLocked(p.event) {
+		r.log.Info("card_held", about(p.event, p.rule)...)
+		r.mu.Unlock()
+
+		return
+	}
 	// A match of an interactive rule opens a session and never waits in the queue.
 	if p.action == rules.ActionInteractive {
 		r.launchLocked(p)
@@ -815,7 +835,8 @@ func (r *router) dispatchLocked() []pending {
 	waiting := map[string]bool{}
 	for i := 0; i < len(r.queue); {
 		next := r.queue[i]
-		if waiting[next.key] || (r.running[next.key] && !next.checked) {
+		// A queued run of a held card waits until the hold ends.
+		if waiting[next.key] || (r.running[next.key] && !next.checked) || r.heldLocked(next.event) {
 			waiting[next.key] = true
 			i++
 
@@ -1016,6 +1037,10 @@ func (r *router) start(p pending) {
 			defer r.mu.Unlock()
 			r.trackLocked(liveRun{p: p, began: began, proc: proc})
 			r.emitLocked(p, api.RunStateReport{State: api.RunRunning, SessionID: p.spec.sessionID, StartedAt: began})
+			// A stop that came while the worker spawned starts its ladder now.
+			if r.stops[p.runID] {
+				r.stopLiveLocked(r.live[p.runID])
+			}
 		}
 		res := r.worker.run(r.workerContext(), p.spec, onStart)
 		r.settle(p, endedRun{res: res, began: began, elapsed: time.Since(began)})
@@ -1075,6 +1100,8 @@ type liveRun struct {
 	p     pending
 	began time.Time
 	proc  workerProc
+	// ended closes when the worker exits, which wakes its stop ladder.
+	ended chan struct{}
 }
 
 // trackLocked records a started worker. The caller holds mu.
@@ -1082,6 +1109,7 @@ func (r *router) trackLocked(run liveRun) {
 	if r.live == nil {
 		r.live = map[string]liveRun{}
 	}
+	run.ended = make(chan struct{})
 	r.live[run.p.runID] = run
 }
 
@@ -1098,7 +1126,10 @@ func (r *router) settle(p pending, e endedRun) {
 		}
 	}
 	r.mu.Lock()
-	delete(r.live, p.runID)
+	if run, ok := r.live[p.runID]; ok {
+		close(run.ended)
+		delete(r.live, p.runID)
+	}
 	if r.frozen {
 		r.wg.Add(1)
 		r.heldFinishes = append(r.heldFinishes, func() {
@@ -1148,11 +1179,21 @@ func classify(res workerResult) (string, string) {
 // card to the resume gate. It runs on the worker goroutine.
 func (r *router) end(p pending, e endedRun) {
 	r.logResult(p, e.res, e.elapsed)
-	var reason string
-	e.state, reason = classify(e.res)
 	r.mu.Lock()
+	// A stopped run reports stopped however it ended, and never resumes.
+	if r.stops[p.runID] {
+		r.releaseLocked(p.slot)
+		r.closeStoppedLocked(p, r.stoppedReport(p, e), true)
+		dropped := r.dispatchLocked()
+		r.mu.Unlock()
+		r.logDropped(dropped)
+
+		return
+	}
 	shut := r.shut()
 	r.mu.Unlock()
+	var reason string
+	e.state, reason = classify(e.res)
 
 	if !e.res.killed && !shut && sessionMissing(p, e.res) && r.startFresh(p, e) {
 		return
@@ -1311,6 +1352,14 @@ func (r *router) resumeGate(p pending, e endedRun, reason string, stopped <-chan
 // decideResume releases.
 func (r *router) decideResume(p pending, e endedRun, reason string, read bool, column string, readErr error) {
 	r.gating--
+	if r.stops[p.runID] {
+		r.closeStoppedLocked(p, r.stoppedReport(p, e), true)
+		dropped := r.dispatchLocked()
+		r.mu.Unlock()
+		r.logDropped(dropped)
+
+		return
+	}
 	current := r.rules()
 	m, ok := matchWorker(current, p.event, p.rule)
 	switch {
@@ -1408,6 +1457,8 @@ func (r *router) check(p pending) {
 			r.logDropped(dropped)
 
 			return
+		case r.stops[p.runID]:
+			r.closeStoppedLocked(p, api.RunStateReport{State: api.RunStopped}, true)
 		case !ok:
 			// A dead rule means a kill ended it, and a live one a reload.
 			var reason []any
@@ -1633,7 +1684,7 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 		return
 	}
 	switch report.State {
-	case api.RunQueued, api.RunResumed, api.RunRunning:
+	case api.RunQueued, api.RunResumed, api.RunRunning, api.RunStopping:
 		if r.held == nil {
 			r.held = map[string]api.InventoryRun{}
 		}

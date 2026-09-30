@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -51,19 +52,21 @@ func soon() time.Time {
 	return time.Now().Add(time.Hour)
 }
 
-// ackRecorder stands in for the command endpoint. err answers every call.
+// ackRecorder stands in for the command endpoint. err answers every call, and
+// stored is the state the server keeps, or "" for the state sent.
 type ackRecorder struct {
-	mu   sync.Mutex
-	acks []string
-	err  error
+	mu     sync.Mutex
+	acks   []string
+	err    error
+	stored string
 }
 
-func (a *ackRecorder) ack(_ context.Context, bridgeID, commandID, state, reason string) error {
+func (a *ackRecorder) ack(_ context.Context, bridgeID, commandID, state, reason string) (string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.acks = append(a.acks, fmt.Sprintf("%s %s %s %s", bridgeID, commandID, state, reason))
 
-	return a.err
+	return cmp.Or(a.stored, state), a.err
 }
 
 func (a *ackRecorder) recorded() []string {
@@ -101,6 +104,9 @@ func dropReasons(t *testing.T, h *harness) []string {
 
 const refusedYet = "refused This bridge cannot act on the command yet."
 
+// refusedNoRun is the answer to a stop of a run the bridge does not hold.
+const refusedNoRun = "refused " + noOpenRun
+
 // A command is never an event a rule acts on, even when a rule names its type.
 // Another bridge's command is dropped in silence.
 func TestACommandMatchesNoRule(t *testing.T) {
@@ -137,7 +143,7 @@ func TestACommandIsTakenOnceAcrossBothChannels(t *testing.T) {
 	upper.CommandID, upper.Subject.ID, upper.BridgeID = strings.ToUpper(c.CommandID), strings.ToUpper(c.CommandID), strings.ToUpper(testBridgeID)
 	h.reply(api.HeartbeatReply{Commands: []api.Command{upper}})
 
-	if got := acks.recorded(); !slices.Equal(got, []string{testBridgeID + " " + testCommandID + " " + refusedYet}) {
+	if got := acks.recorded(); !slices.Equal(got, []string{testBridgeID + " " + testCommandID + " " + refusedNoRun}) {
 		t.Fatalf("acks = %v", got)
 	}
 	received := h.only(t, "command_received")
@@ -213,7 +219,8 @@ func TestTheBridgeDropsACommandItMustNotRun(t *testing.T) {
 	}
 }
 
-// Each kind reaches its own handler, and each answers refused for now.
+// Each kind reaches its own handler. The bridge holds no run, so it refuses
+// the stop, and it cannot resume yet.
 func TestEachKindOfCommandIsAnswered(t *testing.T) {
 	h := newHarness(t)
 	acks := h.withAcks()
@@ -224,7 +231,7 @@ func TestEachKindOfCommandIsAnswered(t *testing.T) {
 
 	got := acks.recorded()
 	slices.Sort(got)
-	want := []string{testBridgeID + " " + stop.CommandID + " " + refusedYet, testBridgeID + " " + resume.CommandID + " " + refusedYet}
+	want := []string{testBridgeID + " " + stop.CommandID + " " + refusedNoRun, testBridgeID + " " + resume.CommandID + " " + refusedYet}
 	if !slices.Equal(got, want) {
 		t.Fatalf("acks = %v", got)
 	}

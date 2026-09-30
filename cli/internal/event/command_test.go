@@ -2,6 +2,7 @@ package event
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -124,19 +125,24 @@ func TestForAnotherBridgeReadsACommand(t *testing.T) {
 	}
 }
 
-// An older server sends no held key, and that reads as a card nobody holds.
+// An older server sends no held key, and that reads as nil, apart from false.
 func TestParseCardMovedReadsTheHold(t *testing.T) {
 	for name, tc := range map[string]struct {
 		card string
-		want bool
+		want string
 	}{
-		"true":   {`{"interactiveRun":false,"held":true}`, true},
-		"false":  {`{"interactiveRun":false,"held":false}`, false},
-		"absent": {`{"interactiveRun":false}`, false},
+		"true":   {`{"interactiveRun":false,"held":true}`, "true"},
+		"false":  {`{"interactiveRun":false,"held":false}`, "false"},
+		"absent": {`{"interactiveRun":false}`, "nil"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if e := parseOK(t, moved(map[string]string{"card": tc.card}), nil); e.Card.Held != tc.want {
-				t.Fatalf("held = %v, want %v", e.Card.Held, tc.want)
+			e := parseOK(t, moved(map[string]string{"card": tc.card}), nil)
+			got := "nil"
+			if e.Card.Held != nil {
+				got = fmt.Sprint(*e.Card.Held)
+			}
+			if got != tc.want {
+				t.Fatalf("held = %s, want %s", got, tc.want)
 			}
 		})
 	}
