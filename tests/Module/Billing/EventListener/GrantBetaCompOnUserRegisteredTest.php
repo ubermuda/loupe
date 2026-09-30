@@ -40,6 +40,9 @@ final class GrantBetaCompOnUserRegisteredTest extends TestCase
             array_map(static fn (array $record): array => [$record['level'], $record['message']], $logger->records),
         );
         self::assertSame('profile lookup failed', $logger->records[0]['context']['error']);
+        // Only the granter knows the invite, so this pins its own catch, which
+        // is all that guards the signed-in path.
+        self::assertArrayHasKey('betaInviteId', $logger->records[0]['context']);
     }
 
     public function test_a_failed_invite_lookup_is_logged_and_swallowed(): void
