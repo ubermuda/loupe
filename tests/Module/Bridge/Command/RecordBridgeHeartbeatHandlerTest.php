@@ -8,8 +8,10 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\RecordBridgeHeartbeatCommand;
 use App\Module\Bridge\Command\RecordBridgeHeartbeatHandler;
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\CliCompatibility;
+use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
@@ -243,6 +245,39 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', workerPools: []));
 
         self::assertSame([], $this->reload($owner, $bridgeId)->workerPools);
+    }
+
+    public function test_a_first_heartbeat_answers_no_commands_and_stores_the_reports(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-first-commands@example.com');
+        $bridgeId = Uuid::v4();
+
+        $result = $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', paused: true, capabilities: ['commands']));
+
+        self::assertSame([], $result->commands);
+        self::assertFalse($result->bridge->pauseRequested);
+        $stored = $this->reload($owner, $bridgeId);
+        self::assertTrue($stored->pausedReported);
+        self::assertSame(['commands'], $stored->capabilities);
+    }
+
+    public function test_a_later_heartbeat_answers_the_pending_commands_of_the_bridge(): void
+    {
+        self::bootKernel();
+        self::getContainer()->set('clock', new MockClock('2026-09-29 12:10:00'));
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-later-commands@example.com');
+        $project = $this->project($em, $owner, 'Heartbeat Handler Commands');
+        $bridgeId = Uuid::v4();
+        $this->seedBridge($em, $owner, $bridgeId);
+        $pending = $this->seedCommand($em, $this->seedRun($em, $project, bridgeId: $bridgeId));
+        $this->seedCommand($em, $this->seedRun($em, $project, bridgeId: $bridgeId), state: BridgeCommandState::Refused);
+
+        $result = $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7'));
+
+        self::assertSame([(string) $pending->id], array_map(static fn (BridgeCommand $c): string => (string) $c->id, $result->commands));
     }
 
     /** @return array{name: string, size: int, inUse: int, queued: int} */

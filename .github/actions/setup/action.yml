@@ -115,6 +115,24 @@ runs:
         docker network create traefik
         docker compose up -d --wait database php-fpm
 
+    # The bundle downloads the Tailwind binary from GitHub when it is not at
+    # var/tailwind/<version>/, and one 5xx fails the job. The cache puts it there.
+    # A miss still downloads once.
+    - if: inputs.docker == 'true'
+      id: tailwind-version
+      shell: bash
+      run: |
+        version=$(sed -nE "s/^[[:space:]]*binary_version:[[:space:]]*'?([^'[:space:]]+)'?.*/\1/p" config/packages/symfonycasts_tailwind.yaml)
+        echo "Tailwind binary version: $version"
+        test "$(printf '%s\n' "$version" | grep -c .)" = 1
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    - if: inputs.docker == 'true'
+      uses: actions/cache@v6
+      with:
+        path: var/tailwind/${{ steps.tailwind-version.outputs.version }}
+        key: tailwind-${{ steps.tailwind-version.outputs.version }}-${{ runner.os }}-${{ runner.arch }}
+
     # WebTestCase renders real templates, and layout_base.html.twig resolves the
     # compiled stylesheet through AssetMapper. The dev stack has a watcher
     # producing it; here it takes one explicit build.

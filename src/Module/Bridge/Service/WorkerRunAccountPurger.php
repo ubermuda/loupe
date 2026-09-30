@@ -10,8 +10,9 @@ use App\Module\Account\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Removes the run rows, the usage rows and the experiment pins of every project
- * the departing account owned.
+ * Removes the card holds, the run rows, the usage rows and the experiment pins
+ * of every project the departing account owned, and unnames the account on the
+ * holds it placed elsewhere.
  *
  * ProjectAccountPurger runs first and deletes those projects, which fires
  * DeleteWorkerRunsOnProjectDeleting, so this normally finds nothing. It stays
@@ -41,6 +42,14 @@ final readonly class WorkerRunAccountPurger implements AccountDataPurgerInterfac
         $id = (string) ($user->id ?? throw new \LogicException('a persisted user always has an id'));
 
         $connection = $this->em->getConnection();
+        $connection->executeStatement(
+            'DELETE FROM bridge_card_holds WHERE project_id IN (SELECT id FROM projects WHERE owner_id = :id)',
+            ['id' => $id],
+        );
+        $connection->executeStatement(
+            'UPDATE bridge_card_holds SET held_by_id = NULL WHERE held_by_id = :id',
+            ['id' => $id],
+        );
         $connection->executeStatement(
             'DELETE FROM bridge_worker_runs WHERE project_id IN (SELECT id FROM projects WHERE owner_id = :id)',
             ['id' => $id],

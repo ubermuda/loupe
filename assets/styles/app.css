@@ -5687,9 +5687,10 @@
 
     /* A board with epic lanes reads in rows: one row per lane, then "Other
        cards". Every row repeats the column heads and splits its width the same
-       way, so a cell sits under its column. The rows scroll sideways as one. */
+       way, so a cell sits under its column. The rows scroll sideways as one.
+       The strip is a size container, so a lane title can fit its visible width. */
     .lp-board__columns--lanes {
-        @apply overflow-y-auto;
+        @apply @container overflow-y-auto;
     }
     .lp-board-lanes {
         @apply flex flex-col gap-4 w-fit min-w-full min-h-full;
@@ -5760,6 +5761,18 @@
     .lp-board-lane--other .lp-board-lane__title {
         @apply text-base;
     }
+    /* An epic title wraps to two lines and stops short of the pinned deck.
+       The width left out covers the lane buttons, the deck and its label.
+       The floor meets that width where the deck stops pinning, at 36rem. */
+    .lp-board-lane--epic .lp-board-lane__heading {
+        max-width: max(
+            calc(100cqi - var(--spacing) * 106),
+            calc(var(--spacing) * 38)
+        );
+    }
+    .lp-board-lane--epic .lp-board-lane__title {
+        @apply whitespace-normal leading-tight line-clamp-2;
+    }
     .lp-board-lane__progress {
         grid-area: progress;
         @apply inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-xs font-medium text-fg-dim;
@@ -5784,9 +5797,15 @@
         @apply inline-block max-w-15 overflow-hidden;
     }
 
-    /* The Up next deck and its label, at the right end of an epic lane head. */
+    /* The Up next deck and its label, at the right end of an epic lane head.
+       It stays at the right edge of the strip while the lanes scroll sideways.
+       A phone-wide strip leaves it at the lane end, where it covers no title. */
     .lp-board-lane__up-next {
-        @apply ml-auto flex shrink-0 items-center gap-4;
+        @apply sticky right-1 z-10 ml-auto flex shrink-0 items-center gap-4 @max-xl:static;
+    }
+    /* A lifted deck card paints over the decks of the later lanes. */
+    .lp-board-lane__up-next:has(.lp-board-card--dragging) {
+        @apply z-50;
     }
     .lp-board-lane__deck-label {
         @apply m-0 flex flex-col items-end gap-0.5;
@@ -6011,12 +6030,12 @@
         @apply h-13 rounded-xl bg-surface-3 px-1.5;
     }
     .lp-board-lane--collapsed .lp-board-lane__heading {
-        @apply pt-3.5;
+        @apply pt-3.5 max-w-none;
         grid-template-columns: auto minmax(0, max-content) auto;
         grid-template-areas: 'number title progress';
     }
     .lp-board-lane--collapsed .lp-board-lane__title {
-        @apply text-base;
+        @apply block text-base leading-normal truncate;
     }
     .lp-board-lane--collapsed .lp-board-lane__progress::before {
         @apply hidden;

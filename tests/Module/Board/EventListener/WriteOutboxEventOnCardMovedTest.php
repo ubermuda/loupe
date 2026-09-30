@@ -19,6 +19,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\EventListener\WriteOutboxEventOnCardMoved;
 use App\Module\Board\Service\CardMove;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
 use App\Outbox\Entity\OutboxEvent;
@@ -93,7 +94,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
             'fromStatus' => 'backlog',
             'toStatus' => 'next',
             'actor' => 'human',
-            'card' => ['interactiveRun' => false],
+            'card' => ['interactiveRun' => false, 'held' => false],
         ], $this->decode($row));
     }
 
@@ -129,7 +130,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
             'fromStatus' => 'backlog',
             'toStatus' => 'done',
             'actor' => 'agent',
-            'card' => ['interactiveRun' => false],
+            'card' => ['interactiveRun' => false, 'held' => false],
         ], $this->decode($row));
     }
 
@@ -144,7 +145,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
             openInteractiveRun: new OpenInteractiveRun(Uuid::v4(), 'loupe:product-design'),
         ));
 
-        self::assertSame(['interactiveRun' => true], $this->decode($this->onlyRow())['card']);
+        self::assertSame(['interactiveRun' => true, 'held' => false], $this->decode($this->onlyRow())['card']);
     }
 
     /** A move to another column closes the run before the row is written. */
@@ -155,7 +156,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
 
         ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next')));
 
-        self::assertSame(['interactiveRun' => false], $this->decode($this->onlyRow())['card']);
+        self::assertSame(['interactiveRun' => false, 'held' => false], $this->decode($this->onlyRow())['card']);
     }
 
     public function test_a_rank_move_publishes_the_run_as_still_open(): void
@@ -168,7 +169,28 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
 
         self::assertSame(0, $second->position);
         self::assertSame(1, $first->position);
-        self::assertSame(['interactiveRun' => true], $this->decode($this->onlyRow())['card']);
+        self::assertSame(['interactiveRun' => true, 'held' => false], $this->decode($this->onlyRow())['card']);
+    }
+
+    public function test_an_agent_move_of_a_held_card_publishes_it_as_held(): void
+    {
+        $card = $this->card('Stopped', 'backlog');
+        $this->hold($card);
+
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, column: $this->column($this->project, 'next')));
+
+        self::assertSame(['interactiveRun' => false, 'held' => true], $this->decode($this->onlyRow())['card']);
+    }
+
+    /** A person's move releases the hold before the row is written. */
+    public function test_a_human_move_of_a_held_card_publishes_it_as_released(): void
+    {
+        $card = $this->card('Stopped', 'backlog');
+        $this->hold($card);
+
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next')));
+
+        self::assertSame(['interactiveRun' => false, 'held' => false], $this->decode($this->onlyRow())['card']);
     }
 
     /** A card with no id fails the run read, and the listener must not throw. */
@@ -181,7 +203,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
         $listener(new CardMoved($unsaved, new CardMove($this->column($this->project, 'backlog')), CardReporter::Human));
         $this->em->flush();
 
-        self::assertSame(['interactiveRun' => false], $this->decode($this->onlyRow())['card']);
+        self::assertSame(['interactiveRun' => false, 'held' => false], $this->decode($this->onlyRow())['card']);
     }
 
     #[DataProvider('actors')]
@@ -298,6 +320,13 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
         $runs = self::getContainer()->get(InteractiveRuns::class);
         self::assertInstanceOf(InteractiveRuns::class, $runs);
         $runs->open($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), $card->number, Uuid::v4(), 'pairing');
+    }
+
+    private function hold(Card $card): void
+    {
+        $holds = self::getContainer()->get(CardHolds::class);
+        self::assertInstanceOf(CardHolds::class, $holds);
+        $holds->hold($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), null, null);
     }
 
     private function card(string $title, string $column): Card
