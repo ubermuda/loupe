@@ -96,7 +96,7 @@ final class ReportWorkerRunStateRequest
         #[Assert\Length(max: WorkerRun::MAX_RESUME_SKIPPED_LENGTH)]
         public ?string $resumeSkipped = null,
 
-        /** Checked on every state, and stored from an outcome alone. */
+        /** Checked on every state, and stored from an outcome or a stop alone. */
         #[Assert\Valid]
         public ?WorkerRunUsageInput $usage = null,
 
@@ -240,6 +240,19 @@ final class ReportWorkerRunStateRequest
 
         if (null !== $this->startedAt && null !== $this->endedAt && $this->endedAt < $this->startedAt) {
             $context->buildViolation('A run cannot end before it starts.')->atPath('endedAt')->addViolation();
+        }
+    }
+
+    #[Assert\Callback]
+    public function validateStop(ExecutionContextInterface $context): void
+    {
+        if (WorkerRunState::Stopped->value !== $this->state) {
+            return;
+        }
+
+        $end = $this->endedAt ?? $this->at;
+        if (null !== $this->startedAt && null !== $end && $end < $this->startedAt) {
+            $context->buildViolation('A run cannot end before it starts.')->atPath(null === $this->endedAt ? 'at' : 'endedAt')->addViolation();
         }
     }
 

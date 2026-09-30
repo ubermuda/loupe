@@ -254,6 +254,16 @@ class WorkerRun
         $this->startedAt = $startedAt;
     }
 
+    /** A stop carries no exit code. A null output keeps the output the run holds. */
+    public function recordStop(\DateTimeImmutable $endedAt, ?string $output): void
+    {
+        $this->state = WorkerRunState::Stopped;
+        $this->endedAt = $endedAt;
+        if (null !== $output) {
+            $this->output = $output;
+        }
+    }
+
     /** @param array<string, mixed>|null $resultFields */
     public function recordOutcome(
         WorkerRunState $state,

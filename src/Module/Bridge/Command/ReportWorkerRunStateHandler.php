@@ -28,9 +28,9 @@ use Ubermuda\AuditBundle\AuditSubject;
 /**
  * Records one state of a run, and moves the run forward only. A state the run
  * has not held leaves a history row even when it does not move the run. A late
- * report still fills a missing session, start and experiment, but outcome data
- * follows the state that owns it. The outcome that closes the run also writes its usage,
- * through WorkerRunUsageRecorder.
+ * report still fills a missing session, start and experiment, but outcome
+ * data follows the state that owns it. The outcome or the stop that
+ * closes the run also writes its usage, through WorkerRunUsageRecorder.
  */
 final readonly class ReportWorkerRunStateHandler
 {
@@ -230,6 +230,15 @@ final readonly class ReportWorkerRunStateHandler
 
     private function apply(WorkerRun $run, ReportWorkerRunStateCommand $command): void
     {
+        if (WorkerRunState::Stopped === $command->state) {
+            $run->recordStop($command->endedAt ?? $command->at, $command->output);
+            if (null !== $command->usage) {
+                $this->usageRecorder->record($run, $command->usage);
+            }
+
+            return;
+        }
+
         if (!$command->state->isOutcome()) {
             $run->moveTo($command->state);
 

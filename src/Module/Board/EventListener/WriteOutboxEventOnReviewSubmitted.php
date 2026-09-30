@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\StageCard;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Review\ReviewEventType;
@@ -46,6 +47,7 @@ final readonly class WriteOutboxEventOnReviewSubmitted
         private OutboxWriter $outbox,
         private StageCard $stageCard,
         private InteractiveRuns $interactiveRuns,
+        private CardHolds $cardHolds,
     ) {
     }
 
@@ -78,7 +80,7 @@ final readonly class WriteOutboxEventOnReviewSubmitted
             'column' => $stageCard?->column->slug,
         ];
         if (null !== $stageCard) {
-            $payload['card'] = ['interactiveRun' => $this->hasOpenRun($stageCard)];
+            $payload['card'] = ['interactiveRun' => $this->hasOpenRun($stageCard), 'held' => $this->isHeld($stageCard)];
         }
 
         $this->outbox->write($document->project, ReviewEventType::REVIEW_SUBMITTED, $payload);
@@ -88,6 +90,15 @@ final readonly class WriteOutboxEventOnReviewSubmitted
     {
         try {
             return $this->interactiveRuns->hasOpenRun($card->project, $card->id ?? throw new \LogicException('A stage card has an id.'));
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function isHeld(Card $card): bool
+    {
+        try {
+            return $this->cardHolds->isHeld($card->project, $card->id ?? throw new \LogicException('A stage card has an id.'));
         } catch (\Throwable) {
             return false;
         }

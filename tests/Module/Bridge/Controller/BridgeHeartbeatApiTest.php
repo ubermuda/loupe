@@ -9,6 +9,9 @@ use App\Module\Bridge\Controller\Api\BridgeHookInput;
 use App\Module\Bridge\Controller\Api\RecordBridgeHeartbeatRequest;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeRepository;
+use App\Module\Bridge\Service\BridgeCommandPayload;
+use App\Module\Bridge\ValueObject\BridgeCommandKind;
+use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -43,9 +46,11 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(200);
-        self::assertJsonStringEqualsJsonString('{"cliRange":"^1.0"}', (string) $client->getResponse()->getContent());
+        self::assertJsonStringEqualsJsonString('{"cliRange":"^1.0","paused":false,"commands":[]}', (string) $client->getResponse()->getContent());
         $bridge = $this->bridge($owner, $bridgeId);
         self::assertSame([(string) $project->id], $bridge->projects);
+        self::assertNull($bridge->pausedReported);
+        self::assertNull($bridge->capabilities);
         self::assertSame('b4e39aa7', $bridge->cliVersion);
         self::assertSame('2026-09-14 16:00:00', $bridge->lastSeenAt->format('Y-m-d H:i:s'));
         self::assertNull($bridge->updateState);
@@ -268,6 +273,80 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         self::assertCount(1, $this->bridge($owner, $bridgeId)->workerPools ?? []);
     }
 
+    public function test_the_pause_state_and_the_capabilities_are_stored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-capabilities@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'paused' => true, 'capabilities' => ['commands', 'pause']]);
+
+        self::assertResponseStatusCodeSame(200);
+        $bridge = $this->bridge($owner, $bridgeId);
+        self::assertTrue($bridge->pausedReported);
+        self::assertSame(['commands', 'pause'], $bridge->capabilities);
+        self::assertTrue($bridge->takesCommands());
+    }
+
+    /** A bridge from before commands sends neither field, so its heartbeat leaves the stored values alone. */
+    public function test_a_heartbeat_without_the_pause_state_or_the_capabilities_keeps_the_stored_values(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-capabilities-absent@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'paused' => false, 'capabilities' => ['commands']]);
+        self::assertResponseStatusCodeSame(200);
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'paused' => null, 'capabilities' => null]);
+
+        self::assertResponseStatusCodeSame(200);
+        $bridge = $this->bridge($owner, $bridgeId);
+        self::assertFalse($bridge->pausedReported);
+        self::assertSame(['commands'], $bridge->capabilities);
+    }
+
+    /**
+     * The reply carries the pause a person asked for, and the commands this
+     * bridge of this owner has still to act on, oldest first.
+     */
+    public function test_the_reply_carries_the_pause_request_and_the_pending_commands(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('clock', new MockClock('2026-09-29 12:10:00'));
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-commands@example.com');
+        $stranger = $this->user($em, 'heartbeat-commands-stranger@example.com');
+        $project = $this->project($em, $owner, 'Heartbeat Commands');
+        $foreign = $this->project($em, $stranger, 'Heartbeat Commands Foreign');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = Uuid::v4();
+        $bridge = $this->seedBridge($em, $owner, $bridgeId);
+        $bridge->pauseRequested = true;
+        $em->flush();
+
+        $later = $this->seedCommand($em, $this->seedRun($em, $project, bridgeId: $bridgeId, runKey: Uuid::v4()), requestedAt: new \DateTimeImmutable('2026-09-29 12:05:00'));
+        $earlier = $this->seedCommand($em, $this->seedRun($em, $project, bridgeId: $bridgeId), requestedAt: new \DateTimeImmutable('2026-09-29 12:00:00'), kind: BridgeCommandKind::ResumeRun);
+        $this->seedCommand($em, $this->seedRun($em, $project, bridgeId: $bridgeId), requestedAt: new \DateTimeImmutable('2026-09-29 11:00:00'));
+        $this->seedCommand($em, $this->seedRun($em, $project, bridgeId: $bridgeId), state: BridgeCommandState::Done);
+        $this->seedCommand($em, $this->seedRun($em, $project, bridgeId: Uuid::v4()));
+        $this->seedCommand($em, $this->seedRun($em, $foreign, bridgeId: $bridgeId));
+
+        $this->put($client, (string) $bridgeId, $raw, ['projects' => [(string) $project->id], 'cliVersion' => 'b4e39aa7']);
+
+        self::assertResponseStatusCodeSame(200);
+        $reply = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($reply);
+        self::assertTrue($reply['paused']);
+        self::assertSame([(string) $earlier->id, (string) $later->id], array_column($reply['commands'], 'commandId'));
+        self::assertSame(BridgeCommandPayload::of($later), $reply['commands'][1]);
+        self::assertSame('resume-run', $reply['commands'][0]['kind']);
+    }
+
     /**
      * @param array<string, mixed> $overrides
      *
@@ -325,6 +404,14 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         yield 'a worker pool with a queue above the limit' => [['workerPools' => [self::pool(['queued' => 1001])]]];
         yield 'a worker pool size above the limit' => [['workerPools' => [self::pool(['size' => 1001])]]];
         yield 'a worker pool size as text' => [['workerPools' => [self::pool(['size' => 'three'])]]];
+        yield 'capabilities that are not a list' => [['capabilities' => 'commands']];
+        yield 'capabilities keyed by name' => [['capabilities' => ['commands' => 'commands']]];
+        yield 'too many capabilities' => [['capabilities' => array_map(static fn (int $i): string => 'c'.$i, range(0, RecordBridgeHeartbeatRequest::MAX_CAPABILITIES))]];
+        yield 'a capability with an upper-case name' => [['capabilities' => ['Commands']]];
+        yield 'a capability name with a trailing newline' => [['capabilities' => ["commands\n"]]];
+        yield 'a capability name that is too long' => [['capabilities' => [str_repeat('a', 41)]]];
+        yield 'a capability that is not a string' => [['capabilities' => [7]]];
+        yield 'a pause state as text' => [['paused' => 'yes']];
         yield 'no projects' => [['projects' => null]];
         yield 'projects that are not a list' => [['projects' => 'loupe']];
         yield 'a project that is not a uuid' => [['projects' => ['loupe']]];

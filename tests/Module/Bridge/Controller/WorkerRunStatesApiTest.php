@@ -319,6 +319,86 @@ final class WorkerRunStatesApiTest extends WebTestCase
         );
     }
 
+    public function test_a_person_stops_a_run_the_bridge_resumed_for_them(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-stopped@example.com');
+        $project = $this->project($em, $owner, 'Run States Stopped');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+        $start = [
+            'sessionId' => (string) Uuid::v4(),
+            'startedAt' => '2026-09-23T10:00:05+00:00',
+        ];
+
+        $this->put($client, $path, $raw, $this->payload(['state' => 'running', 'trigger' => ['eventType' => 'bridge.command'], ...$start]));
+        self::assertResponseStatusCodeSame(201);
+        $this->put($client, $path, $raw, $this->payload(['state' => 'stopping', 'at' => '2026-09-23T10:02:00+00:00']));
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(WorkerRunState::Stopping, $this->onlyRun()->state);
+        $this->put($client, $path, $raw, $this->payload([
+            'state' => 'stopped',
+            'at' => '2026-09-23T10:03:00+00:00',
+            'endedAt' => '2026-09-23T10:02:30+00:00',
+            'output' => 'stopped halfway',
+            'usage' => ['source' => 'reported', 'models' => []],
+            ...$start,
+        ]));
+        self::assertResponseStatusCodeSame(201);
+
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunState::Stopped, $run->state);
+        self::assertSame('bridge.command', $run->triggerEventType);
+        self::assertSame('2026-09-23T10:02:30+00:00', $run->endedAt?->format(\DateTimeInterface::ATOM));
+        self::assertSame('stopped halfway', $run->output);
+        self::assertNull($run->exitCode);
+        self::assertSame(WorkerRunUsageSource::Reported, $run->usageSource);
+        self::assertSame(['running', 'stopping', 'stopped'], array_map(
+            static fn (WorkerRunStateChange $change): string => $change->state->value,
+            $this->historyOf($run),
+        ));
+    }
+
+    public function test_a_stop_with_no_end_after_its_start_ends_at_its_moment(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-stopped-no-end@example.com');
+        $project = $this->project($em, $owner, 'Run States Stopped No End');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+
+        $this->put($client, $path, $raw, $this->payload([
+            'state' => 'stopped',
+            'at' => '2026-09-23T10:00:05+00:00',
+            'startedAt' => '2026-09-23T10:00:00+00:00',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame('2026-09-23T10:00:05+00:00', $this->onlyRun()->endedAt?->format(\DateTimeInterface::ATOM));
+    }
+
+    public function test_a_queued_run_stops_with_no_start(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-stopped-queued@example.com');
+        $project = $this->project($em, $owner, 'Run States Stopped Queued');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+
+        $this->put($client, $path, $raw, $this->payload());
+        $this->put($client, $path, $raw, $this->payload(['state' => 'stopped', 'at' => '2026-09-23T10:01:00+00:00']));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunState::Stopped, $run->state);
+        self::assertNull($run->startedAt);
+        self::assertNull($run->triggerEventType);
+        self::assertSame('2026-09-23T10:01:00+00:00', $run->endedAt?->format(\DateTimeInterface::ATOM));
+    }
+
     public function test_the_trigger_of_the_first_report_is_stored(): void
     {
         $client = static::createClient();
@@ -446,6 +526,8 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a timed-out state, which only the server infers' => [['state' => 'timed-out']];
         yield 'a lost state, which only the server infers' => [['state' => 'lost']];
         yield 'a closed state, which only an interactive run reaches' => [['state' => 'closed']];
+        yield 'a stop that ends before it starts' => [['state' => 'stopped', 'startedAt' => '2026-09-23T10:00:00+00:00', 'endedAt' => '2026-09-23T09:00:00+00:00']];
+        yield 'a stop with no end whose moment is before its start' => [['state' => 'stopped', 'startedAt' => '2026-09-23T10:00:05+00:00']];
         yield 'a missing moment' => [['at' => null]];
         yield 'a bridge id that is not a uuid' => [['bridgeId' => 'nope']];
         yield 'a card number of zero' => [['cardNumber' => 0]];

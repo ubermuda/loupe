@@ -11,6 +11,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Install\BoardInstallFlags;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
@@ -75,7 +76,7 @@ final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
             'cardId' => (string) $card->id,
             'cardNumber' => $card->number,
             'column' => 'tech-design',
-            'card' => ['interactiveRun' => false],
+            'card' => ['interactiveRun' => false, 'held' => false],
         ], $this->onlyPayload());
     }
 
@@ -90,7 +91,20 @@ final class WriteOutboxEventOnReviewSubmittedTest extends KernelTestCase
 
         $this->submit($document, Verdict::Approved);
 
-        self::assertSame(['interactiveRun' => true], $this->onlyPayload()['card']);
+        self::assertSame(['interactiveRun' => true, 'held' => false], $this->onlyPayload()['card']);
+    }
+
+    public function test_the_row_says_the_stage_card_is_held(): void
+    {
+        $document = $this->document(['design', 'decisions']);
+        $card = $this->card('tech-design', $document);
+        $holds = self::getContainer()->get(CardHolds::class);
+        self::assertInstanceOf(CardHolds::class, $holds);
+        $holds->hold($this->project, $card->id ?? throw new \LogicException('A created card has an id.'), null, null);
+
+        $this->submit($document, Verdict::ChangesRequested);
+
+        self::assertSame(['interactiveRun' => false, 'held' => true], $this->onlyPayload()['card']);
     }
 
     /** The row names the column the card left, because it is written before the card moves. */
