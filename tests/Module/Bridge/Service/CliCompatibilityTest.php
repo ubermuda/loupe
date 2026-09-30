@@ -23,4 +23,20 @@ final class CliCompatibilityTest extends TestCase
     {
         self::assertSame($expected, new CliCompatibility()->isCompatible($version));
     }
+
+    public function test_the_major_version_comes_from_the_range(): void
+    {
+        self::assertSame(1, CliCompatibility::major());
+        self::assertSame(12, CliCompatibility::major('^12.3'));
+    }
+
+    #[TestWith(['~1.0'])]
+    #[TestWith(['>=1.0'])]
+    #[TestWith(['^x.0'])]
+    public function test_a_range_of_another_form_has_no_major(string $range): void
+    {
+        $this->expectException(\LogicException::class);
+
+        CliCompatibility::major($range);
+    }
 }
