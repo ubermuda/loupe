@@ -326,8 +326,9 @@ type Set struct {
 	// set matches nothing.
 	slugs map[string]string
 
-	autoUpdate bool
-	maxWorkers int
+	autoUpdate    bool
+	autoUpdateSet bool
+	maxWorkers    int
 	// pools maps each pool name to its size, DefaultPool included.
 	pools map[string]int
 
@@ -370,7 +371,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		return nil, err
 	}
 
-	s := &Set{dirs: map[string]string{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate}
+	s := &Set{dirs: map[string]string{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil}
 	var errs []error
 	for _, err := range []error{
 		checkWord("defaults.permissionMode", f.Defaults.PermissionMode),
@@ -835,6 +836,11 @@ func braces(names []string) string {
 // AutoUpdate reports whether the bridge may update the CLI on its own.
 func (s *Set) AutoUpdate() bool {
 	return s.autoUpdate
+}
+
+// AutoUpdateSet reports whether the file holds a value for autoUpdate.
+func (s *Set) AutoUpdateSet() bool {
+	return s.autoUpdateSet
 }
 
 // MaxWorkers is the number of workers the bridge runs at once.

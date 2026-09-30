@@ -17,6 +17,9 @@ const stateFile = "update.json"
 type State struct {
 	Skips  []string          `json:"skip,omitempty"`
 	Staged map[string]string `json:"staged,omitempty"`
+	// DefaultOff marks a config dir where an image that takes a missing
+	// autoUpdate key as off has started.
+	DefaultOff bool `json:"defaultOff,omitempty"`
 }
 
 // LoadState reads update.json in dir. A missing file is an empty state.

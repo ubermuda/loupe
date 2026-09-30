@@ -470,6 +470,14 @@ them off, the check stops before the download. The bridge logs
 `update_available` once for each version and installs nothing.
 `loupe update auto on` adds the key.
 
+An older CLI took a missing key as on. So the first start after a handover from
+such a CLI adds `autoUpdate: true` to `rules.yaml` and logs
+`auto_update_migrated`. It then sets `defaultOff` in `update.json`, and no
+later start changes the file. A start that is not a handover only sets
+`defaultOff`. When the file takes no new last line, the bridge logs
+`auto_update_migration_failed` with the line to add by hand. It keeps updates
+on for the process, and the next handover tries again.
+
 ### Blocked
 
 The bridge must be able to write the directory that holds its binary, after it
@@ -576,6 +584,7 @@ ignores the skip list and `autoUpdate`. See
 | `update_rollback_deferred` | The rollback waits, because run reports are still in flight |
 | `update_rolled_back` | A version went on the skip list |
 | `update_recovered` | A start took over the handover of a bridge that died |
+| `auto_update_migrated` | A handover from an older CLI added `autoUpdate: true` |
 
 [Output](../../cli/README.md#output) in `cli/README.md` lists every event with
 its fields, the failure events included.
