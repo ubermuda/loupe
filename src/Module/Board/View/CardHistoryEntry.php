@@ -139,7 +139,12 @@ final readonly class CardHistoryEntry
             'lucide:bot',
             $event->occurredAt,
             $actor,
-            new TranslatableMessage('board.card.history.run_finished', ['%actor%' => $actor, '%rule%' => $rule]),
+            new TranslatableMessage(
+                \in_array($state, [WorkerRunState::NotStarted, WorkerRunState::Skipped, WorkerRunState::Replaced, WorkerRunState::Dropped], true)
+                    ? 'board.card.history.run_not_started'
+                    : 'board.card.history.run_finished',
+                ['%actor%' => $actor, '%rule%' => $rule],
+            ),
             run: new CardHistoryRun(
                 runId: $runExists ? self::runIdOf($event) : null,
                 duration: \is_int($seconds) && $seconds >= 0 ? WorkerRunListItem::formatDuration($seconds) : null,

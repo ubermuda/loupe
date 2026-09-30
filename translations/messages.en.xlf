@@ -5923,6 +5923,7 @@
             <trans-unit id="board.card.history.stopped"><source>board.card.history.stopped</source><target>%actor% stopped the automation on #%pr%.</target></trans-unit>
             <trans-unit id="board.card.history.ready_to_merge"><source>board.card.history.ready_to_merge</source><target>#%pr% is ready to merge.</target></trans-unit>
             <trans-unit id="board.card.history.run_finished"><source>board.card.history.run_finished</source><target>%actor% ran the %rule% rule.</target></trans-unit>
+            <trans-unit id="board.card.history.run_not_started"><source>board.card.history.run_not_started</source><target>The %rule% rule did not run.</target></trans-unit>
             <trans-unit id="board.card.history.changed"><source>board.card.history.changed</source><target>%actor% changed the card.</target></trans-unit>
             <trans-unit id="board.card.history.reason"><source>board.card.history.reason</source><target>Because %reason%.</target></trans-unit>
             <trans-unit id="board.card.history.run_state_unknown"><source>board.card.history.run_state_unknown</source><target>Unknown</target></trans-unit>

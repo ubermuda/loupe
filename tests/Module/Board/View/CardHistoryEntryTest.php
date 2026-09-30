@@ -154,6 +154,18 @@ final class CardHistoryEntryTest extends TestCase
         ), $entry->run);
     }
 
+    public function test_a_run_that_never_started_does_not_say_the_agent_ran_it(): void
+    {
+        foreach (['not-started', 'skipped', 'replaced', 'dropped'] as $state) {
+            $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $this->runDetail($state, null)), true);
+
+            self::assertEquals(new TranslatableMessage('board.card.history.run_not_started', [
+                '%actor%' => new TranslatableMessage('board.card.history.actor.agent', ['%name%' => 'Riley Chen']),
+                '%rule%' => 'implement',
+            ]), $entry->sentence, $state);
+        }
+    }
+
     public function test_a_purged_run_keeps_its_row_with_no_link(): void
     {
         $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $this->runDetail('failed', null)));
