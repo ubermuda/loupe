@@ -35,6 +35,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         $audit = RecordingAuditor::installedIn(self::getContainer());
         [$owner, $run] = $this->scenario('command-stored');
         $run->cardColumn = 'implementation';
+        $run->resumeIndex = 2;
         $this->em()->flush();
 
         $command = $this->request($run, BridgeCommandKind::ResumeRun, $owner, '  resume it  ');
@@ -67,6 +68,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
             'cardNumber' => 7,
             'ruleName' => 'plan',
             'cardColumn' => 'implementation',
+            'resumeIndex' => 2,
             'expiresAt' => '2026-09-29T12:15:00+00:00',
         ]], $this->outboxPayloads());
 
@@ -90,6 +92,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         self::assertNull($payload['runKey']);
         self::assertNull($payload['sessionId']);
         self::assertNull($payload['cardColumn']);
+        self::assertNull($payload['resumeIndex']);
         self::assertSame('stop-run', $payload['kind']);
     }
 

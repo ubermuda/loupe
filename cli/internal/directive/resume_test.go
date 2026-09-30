@@ -47,3 +47,22 @@ func TestRenderResumeUnfinishedNamesTheReasonAndEndsWithTheFooter(t *testing.T) 
 		}
 	}
 }
+
+// A person's resume says a person fixed the cause and asks the worker to go
+// on. It ends with the card footer.
+func TestRenderResumeByPersonAsksTheWorkerToGoOn(t *testing.T) {
+	got := RenderResumeByPerson()
+
+	for _, want := range []string{
+		"A person fixed the cause",
+		"Continue your task from where it stopped",
+		"Check the state of the work",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("RenderResumeByPerson() = %q, want it to contain %q", got, want)
+		}
+	}
+	if !strings.HasSuffix(got, "\n\n"+Footer) {
+		t.Fatalf("RenderResumeByPerson() = %q, want it to end with the card footer", got)
+	}
+}

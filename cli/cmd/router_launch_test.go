@@ -194,7 +194,7 @@ func TestAWorkerOfTheCardStartsWhileItsLaunchRuns(t *testing.T) {
 	h.router.onData([]byte(movedPayload(87, "next", "review", "human")))
 	<-h.worker.started
 
-	if _, _, _, _, launches := h.router.inFlight(); launches != 1 {
+	if _, _, _, _, launches, _, _ := h.router.inFlight(); launches != 1 {
 		t.Fatalf("launches in flight = %d", launches)
 	}
 	if err := os.WriteFile(gate, nil, 0o600); err != nil {

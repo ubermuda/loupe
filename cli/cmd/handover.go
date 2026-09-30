@@ -29,24 +29,28 @@ const recentLimit = 512
 // across an exec. LockFD and ControlFD name the inherited descriptors of the
 // lock file at LockPath and of the control socket, and OldVersion and
 // OldBinary the image that froze it, for a rollback. NewVersion is the image
-// the exec runs, which a recovery skips when it died before its health.
+// the exec runs, which a recovery skips when it died before its health. Holds
+// lists the cards a person stopped.
 type handoverState struct {
-	Format      int                         `json:"format"`
-	Queue       []handoverPending           `json:"queue"`
-	Running     map[string]bool             `json:"running"`
-	Chains      map[string]map[string]int   `json:"chains"`
-	Sessions    map[string]handoverSession  `json:"sessions"`
-	Held        map[string]api.InventoryRun `json:"held"`
-	Live        []handoverRun               `json:"live"`
-	LastEventID string                      `json:"lastEventId"`
-	RecentIDs   []string                    `json:"recentIds"`
-	Seq         uint64                      `json:"seq"`
-	LockFD      int                         `json:"lockFd"`
-	ControlFD   int                         `json:"controlFd"`
-	LockPath    string                      `json:"lockPath"`
-	OldVersion  string                      `json:"oldVersion"`
-	OldBinary   string                      `json:"oldBinary"`
-	NewVersion  string                      `json:"newVersion,omitempty"`
+	Format   int                         `json:"format"`
+	Queue    []handoverPending           `json:"queue"`
+	Running  map[string]bool             `json:"running"`
+	Chains   map[string]map[string]int   `json:"chains"`
+	Sessions map[string]handoverSession  `json:"sessions"`
+	Held     map[string]api.InventoryRun `json:"held"`
+	Holds    []string                    `json:"holds,omitempty"`
+	// PersonPaused is the pause of a person, and nil from an older image.
+	PersonPaused *bool         `json:"personPaused,omitempty"`
+	Live         []handoverRun `json:"live"`
+	LastEventID  string        `json:"lastEventId"`
+	RecentIDs    []string      `json:"recentIds"`
+	Seq          uint64        `json:"seq"`
+	LockFD       int           `json:"lockFd"`
+	ControlFD    int           `json:"controlFd"`
+	LockPath     string        `json:"lockPath"`
+	OldVersion   string        `json:"oldVersion"`
+	OldBinary    string        `json:"oldBinary"`
+	NewVersion   string        `json:"newVersion,omitempty"`
 }
 
 // handoverPending is a queued event. The adopter matches it again against its
@@ -136,35 +140,42 @@ func writeHandover(path string, st handoverState) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), ".handover-*")
-	if err != nil {
+	if err := writeAtomic(path, ".handover-*", b); err != nil {
 		return fmt.Errorf("write handover: %w", err)
+	}
+
+	return nil
+}
+
+// writeAtomic writes a private file through a temporary file named by pattern
+// and a rename.
+func writeAtomic(path, pattern string, b []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(path), pattern)
+	if err != nil {
+		return err
 	}
 	tmp := f.Name()
 	defer os.Remove(tmp)
 	if err := f.Chmod(0o600); err != nil {
 		f.Close()
 
-		return fmt.Errorf("write handover: %w", err)
+		return err
 	}
 	if _, err := f.Write(b); err != nil {
 		f.Close()
 
-		return fmt.Errorf("write handover: %w", err)
+		return err
 	}
 	if err := f.Sync(); err != nil {
 		f.Close()
 
-		return fmt.Errorf("write handover: %w", err)
+		return err
 	}
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("write handover: %w", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		return fmt.Errorf("write handover: %w", err)
+		return err
 	}
 
-	return nil
+	return os.Rename(tmp, path)
 }
 
 // readHandover reads a handover file, and refuses a format this build does not
@@ -219,8 +230,9 @@ func (r *router) resume() {
 	r.dispatch()
 }
 
-// drain waits until no run report waits to go out, no ask check, resume gate
-// or launch runs and no worker is between its spawn and its start. A zero timeout is drainTimeout.
+// drain waits until no run report waits to go out, no ask check, resume gate,
+// launch or command handler runs, no worker is between its spawn and its
+// start, and no stopped run waits for its end. A zero timeout is drainTimeout.
 // On an error the caller resumes and gives up the handover.
 func (r *router) drain(ctx context.Context, timeout time.Duration) error {
 	if timeout <= 0 {
@@ -231,29 +243,29 @@ func (r *router) drain(ctx context.Context, timeout time.Duration) error {
 	tick := time.NewTicker(20 * time.Millisecond)
 	defer tick.Stop()
 	for {
-		reports, checks, gates, starting, launches := r.inFlight()
-		if reports == 0 && checks == 0 && gates == 0 && starting == 0 && launches == 0 {
+		reports, checks, gates, starting, launches, stops, commands := r.inFlight()
+		if reports == 0 && checks == 0 && gates == 0 && starting == 0 && launches == 0 && stops == 0 && commands == 0 {
 			return nil
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-deadline.C:
-			return fmt.Errorf("after %s the bridge still holds %d run reports, %d ask checks, %d resume gates, %d starting workers and %d launches", timeout, reports, checks, gates, starting, launches)
+			return fmt.Errorf("after %s the bridge still holds %d run reports, %d ask checks, %d resume gates, %d starting workers, %d launches, %d stops and %d commands", timeout, reports, checks, gates, starting, launches, stops, commands)
 		case <-tick.C:
 		}
 	}
 }
 
-func (r *router) inFlight() (reports, checks, gates, starting, launches int) {
+func (r *router) inFlight() (reports, checks, gates, starting, launches, stops, commands int) {
 	r.mu.Lock()
-	checks, gates, starting, launches = r.checking, r.gating, r.usedLocked()-len(r.live), r.launching
+	checks, gates, starting, launches, stops, commands = r.checking, r.gating, r.usedLocked()-len(r.live), r.launching, len(r.stops), r.commanding
 	r.mu.Unlock()
 	if r.reports != nil {
 		reports = r.reports.Pending()
 	}
 
-	return reports, checks, gates, starting, launches
+	return reports, checks, gates, starting, launches, stops, commands
 }
 
 // freeze takes the routing state for the next image, and holds back what
@@ -271,12 +283,14 @@ func (r *router) freeze() handoverState {
 	r.paused, r.frozen = true, true
 
 	st := handoverState{
-		Format:      handoverFormat,
-		Running:     maps.Clone(r.running),
-		Held:        maps.Clone(r.held),
-		LastEventID: r.lastEventID,
-		RecentIDs:   slices.Clone(r.recent),
-		Seq:         r.seq,
+		Format:       handoverFormat,
+		Running:      maps.Clone(r.running),
+		Held:         maps.Clone(r.held),
+		Holds:        slices.Sorted(maps.Keys(r.cardHolds)),
+		PersonPaused: new(r.personPaused),
+		LastEventID:  r.lastEventID,
+		RecentIDs:    slices.Clone(r.recent),
+		Seq:          r.seq,
 	}
 	if r.chains != nil {
 		st.Chains = make(map[string]map[string]int, len(r.chains))
@@ -322,6 +336,12 @@ func (r *router) adopt(st handoverState) {
 	r.running = maps.Clone(st.Running)
 	r.chains = st.Chains
 	r.held = maps.Clone(st.Held)
+	for _, id := range st.Holds {
+		r.holdCardLocked(id)
+	}
+	if st.PersonPaused != nil {
+		r.personPaused = *st.PersonPaused
+	}
 	r.seq = st.Seq
 	r.lastEventID = st.LastEventID
 	for _, id := range st.RecentIDs {

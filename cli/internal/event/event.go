@@ -11,6 +11,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/ubermuda/loupe/cli/internal/api"
 )
 
 // Event mirrors the Mercure update payloads the server publishes. Each field
@@ -26,10 +28,12 @@ type Event struct {
 	ToStatus   string  `json:"toStatus"`
 	Actor      string  `json:"actor"`
 	// FromSlug and ToSlug are the old and new slug of a renamed column or
-	// project. Slug is the slug of a deleted column.
-	FromSlug string `json:"fromSlug"`
-	ToSlug   string `json:"toSlug"`
-	Slug     string `json:"slug"`
+	// project. Slug is the slug of a deleted column, and MovedCardIDs the
+	// cards that its delete moved to another column.
+	FromSlug     string   `json:"fromSlug"`
+	ToSlug       string   `json:"toSlug"`
+	Slug         string   `json:"slug"`
+	MovedCardIDs []string `json:"movedCardIds"`
 	// SessionID and BridgeID belong to inbox.ask_closed and
 	// pull_request.fix_requested. CardID belongs to those, to
 	// document.review_submitted and to every pull_request type. Verdict belongs
@@ -57,9 +61,13 @@ type Event struct {
 }
 
 // CardState is what the server says about the card an event names.
-// InteractiveRun is true while a person runs an interactive session on it.
+// InteractiveRun is true while a person runs an interactive session on it, and
+// Held is true while a person stops the work on it. Held is nil when the event
+// has no held key, as from an older server, so a bridge never reads it as the
+// end of a hold.
 type CardState struct {
-	InteractiveRun bool `json:"interactiveRun"`
+	InteractiveRun bool  `json:"interactiveRun"`
+	Held           *bool `json:"held"`
 }
 
 // Subject names the aggregate an event is about. The id is what an MCP tool
@@ -84,6 +92,10 @@ const (
 // AskClosedType is published when an inbox ask closes. The bridge parses it
 // only when a rule names it.
 const AskClosedType = "inbox.ask_closed"
+
+// CommandType is published when the server asks a bridge to stop or resume a
+// run. No rule acts on it, so Parse drops it and ParseCommand reads it.
+const CommandType = "bridge.command"
 
 // ReviewSubmittedType is published when a person approves a document or asks
 // for changes. The bridge parses it only when a rule names it.
@@ -154,17 +166,17 @@ func IsID(s string) bool {
 // prompt through {from} and {to}.
 var SlugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
-// ForAnotherBridge reports whether data is an inbox.ask_closed event that does
-// not name bridgeID as a string, whatever its case, or a
-// pull_request.fix_requested event that names another bridge. The caller drops
-// it before Parse, so another bridge's malformed event logs nothing. Data that
-// is not a JSON object is left to Parse.
+// ForAnotherBridge reports whether data is an inbox.ask_closed or a
+// bridge.command event that does not name bridgeID as a string, whatever its
+// case, or a pull_request.fix_requested event that names another bridge. The
+// caller drops it before Parse, so another bridge's malformed event logs
+// nothing. Data that is not a JSON object is left to Parse.
 func ForAnotherBridge(data []byte, bridgeID string) bool {
 	var head struct {
 		Type     string          `json:"type"`
 		BridgeID json.RawMessage `json:"bridgeId"`
 	}
-	if json.Unmarshal(data, &head) != nil || (head.Type != AskClosedType && head.Type != FixRequestedType) {
+	if json.Unmarshal(data, &head) != nil || (head.Type != AskClosedType && head.Type != FixRequestedType && head.Type != CommandType) {
 		return false
 	}
 	if head.Type == FixRequestedType && len(head.BridgeID) == 0 {
@@ -175,7 +187,7 @@ func ForAnotherBridge(data []byte, bridgeID string) bool {
 		return true
 	}
 	if id == "" {
-		return head.Type == AskClosedType
+		return head.Type != FixRequestedType
 	}
 
 	return !strings.EqualFold(id, bridgeID)
@@ -195,6 +207,8 @@ func Parse(data []byte, extraTypes map[string]bool) (Event, error) {
 	}
 
 	switch {
+	case e.Type == CommandType:
+		return e, fmt.Errorf("%w %q", ErrUnknownType, e.Type)
 	case e.Type == CardMovedType:
 		if err := checkCardMoved(e); err != nil {
 			return e, err
@@ -448,6 +462,74 @@ func checkFixSession(e Event) error {
 	}
 
 	return nil
+}
+
+// maxResumeIndex is the server's cap on the place of a run in its resume series.
+const maxResumeIndex = 32767
+
+// ParseCommand decodes a bridge.command payload and checks it with
+// CheckCommand.
+func ParseCommand(data []byte) (api.Command, error) {
+	var c api.Command
+	if err := json.Unmarshal(data, &c); err != nil {
+		return c, fmt.Errorf("parse command: %w", err)
+	}
+
+	return CheckCommand(c)
+}
+
+// CheckCommand checks a command from either channel, and returns it with its
+// ids in lower case, as Parse does for an event.
+func CheckCommand(c api.Command) (api.Command, error) {
+	if c.Type != CommandType {
+		return c, fmt.Errorf("command has the type %q", c.Type)
+	}
+	for _, f := range []struct {
+		name, value string
+		optional    bool
+	}{
+		{"projectId", c.ProjectID, false},
+		{"commandId", c.CommandID, false},
+		{"bridgeId", c.BridgeID, false},
+		{"cardId", c.CardID, false},
+		{"runKey", c.RunKey, true},
+		{"sessionId", c.SessionID, true},
+	} {
+		if (f.value != "" || !f.optional) && !uuidPattern.MatchString(f.value) {
+			return c, fmt.Errorf("command has a %s that is not a uuid", f.name)
+		}
+	}
+	if c.Subject.Type != "bridge-command" || !strings.EqualFold(c.Subject.ID, c.CommandID) {
+		return c, fmt.Errorf("command %s names another subject", c.CommandID)
+	}
+	if c.Kind != api.CommandStopRun && c.Kind != api.CommandResumeRun {
+		return c, fmt.Errorf("command has an unknown kind %q", c.Kind)
+	}
+	if c.CardNumber <= 0 {
+		return c, fmt.Errorf("command has an invalid cardNumber %d", c.CardNumber)
+	}
+	if c.RuleName == "" {
+		return c, errors.New("command names no rule")
+	}
+	if c.CardColumn != "" && !SlugPattern.MatchString(c.CardColumn) {
+		return c, errors.New("command has a cardColumn that is not a slug")
+	}
+	if c.ResumeIndex != nil && (*c.ResumeIndex < 0 || *c.ResumeIndex > maxResumeIndex) {
+		return c, fmt.Errorf("command has an invalid resumeIndex %d", *c.ResumeIndex)
+	}
+	if c.ExpiresAt.IsZero() {
+		return c, errors.New("command has no expiresAt")
+	}
+
+	c.ProjectID = strings.ToLower(c.ProjectID)
+	c.CommandID = strings.ToLower(c.CommandID)
+	c.Subject.ID = strings.ToLower(c.Subject.ID)
+	c.BridgeID = strings.ToLower(c.BridgeID)
+	c.CardID = strings.ToLower(c.CardID)
+	c.RunKey = strings.ToLower(c.RunKey)
+	c.SessionID = strings.ToLower(c.SessionID)
+
+	return c, nil
 }
 
 func checkCardMoved(e Event) error {
