@@ -6,16 +6,22 @@ namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Mcp\AgentRunCause;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardPayload;
 use App\Module\Board\Mcp\CardUpdateTool;
 use App\Module\Board\Repository\CardLinkRepository;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Board\CardMovedOutbox;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * @phpstan-import-type CardSummary from CardPayload
@@ -140,6 +146,41 @@ final class CardUpdateToolTest extends KernelTestCase
         $payload = CardMovedOutbox::onlyPayload(self::getContainer(), $project);
         self::assertSame($created['cardId'], $payload['subject']['id'] ?? null);
         self::assertSame(CardReporter::Agent->value, $payload['actor'] ?? null);
+    }
+
+    public function test_a_move_with_the_session_header_names_the_worker_run(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('card-update-run-cause');
+        $this->actAsMcpTokenBoundTo($project);
+        $created = ($this->createTool)('Ship it', 'Body', 'feature');
+        $sessionId = Uuid::v4();
+        $run = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v4(),
+            cardId: Uuid::fromString($created['cardId']),
+            cardNumber: $created['number'],
+            ruleName: 'implement',
+            state: WorkerRunState::Running,
+            sessionId: $sessionId,
+        );
+        $this->em->persist($run);
+        $this->em->flush();
+        $this->pushMcpRequest((string) $sessionId);
+
+        ($this->tool)($created['cardId'], status: 'next');
+
+        self::assertEquals(['type' => 'run', 'run' => (string) $run->id, 'rule' => 'implement'], $this->moveCause($created['cardId']));
+    }
+
+    public function test_a_move_without_the_session_header_names_no_cause(): void
+    {
+        $created = $this->card('card-update-no-cause');
+        $this->pushMcpRequest(null);
+
+        ($this->tool)($created['cardId'], status: 'next');
+
+        self::assertNull($this->moveCause($created['cardId']));
     }
 
     public function test_an_unknown_status_names_the_ones_that_work(): void
@@ -370,6 +411,29 @@ final class CardUpdateToolTest extends KernelTestCase
         }
 
         return $names;
+    }
+
+    private function pushMcpRequest(?string $session): void
+    {
+        $request = Request::create('/mcp', Request::METHOD_POST);
+        if (null !== $session) {
+            $request->headers->set(AgentRunCause::SESSION_HEADER, $session);
+        }
+
+        $requests = self::getContainer()->get(RequestStack::class);
+        self::assertInstanceOf(RequestStack::class, $requests);
+        $requests->push($request);
+    }
+
+    private function moveCause(string $cardId): mixed
+    {
+        $rows = $this->em->getConnection()->fetchFirstColumn(
+            "SELECT detail FROM board_card_events WHERE card_id = :card AND kind = 'moved'",
+            ['card' => $cardId],
+        );
+        self::assertCount(1, $rows);
+
+        return json_decode((string) $rows[0], true, flags: \JSON_THROW_ON_ERROR)['cause'];
     }
 
     /** @return CardSummary */

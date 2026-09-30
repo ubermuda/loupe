@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Service;
 
-/** Why the app moved a card on its own. A history row stores it as detail(). */
+use Symfony\Component\Uid\Uuid;
+
+/** Why a card moved: an app rule, or the run of an agent. A history row stores it as detail(). */
 final readonly class CardEventCause
 {
     /** @param array<string, scalar> $fields */
@@ -47,6 +49,11 @@ final readonly class CardEventCause
     public static function columnDeleted(string $label): self
     {
         return new self('column-deleted', ['column' => $label]);
+    }
+
+    public static function run(Uuid|string $runId, string $rule): self
+    {
+        return new self('run', ['run' => (string) $runId, 'rule' => $rule]);
     }
 
     /** @return array<string, scalar> */
