@@ -79,9 +79,10 @@ signs in through the OAuth popup, and the project must allow this site's
 address under its allowed sites. The config reads the environment at startup,
 so restart `just docs` after you change it.
 
-## Not wired up yet
+## Deployment
 
-There is no deployment. GitHub Pages needs the repository to be public, and
-`site` is deliberately unset in `astro.config.mjs` — setting it wrongly breaks
-canonical URLs and the sitemap, and the final URL is not known yet. Expect a
-sitemap warning on every build until then.
+`.github/workflows/docs.yml` builds this site and deploys it to GitHub Pages.
+It runs on each push to `main` that changes `docs/`, `website/` or a changelog
+fragment. Before the build, it folds the changelog fragments into the
+published changelog, and commits nothing. The site is served at
+`https://ubermuda.github.io/loupe/`.

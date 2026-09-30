@@ -1,33 +1,108 @@
 ---
-title: "Getting started"
-description: "Five ways to run Loupe, and what separates them — who your first account is."
+title: "First steps"
+description: "Connect a coding agent to a Loupe instance, send a first document, and review it."
 ---
 
-Loupe never leaves a fresh instance open to whoever finds it: registration
-refuses to create the **first** account. So every path below has to say where
-that first account comes from, and that is what actually distinguishes them.
+To run an instance of your own, read [Installing Loupe](../operating/install/index.md)
+first.
 
-| I want to… | Page | First account |
-|---|---|---|
-| Look at it, without cloning | [Demo](demo.md) | `admin@example.com` / `loupe-admin`, baked into the image |
-| Develop on it | [From source](from-source.md) | `dev@loupe.test` or `admin@loupe.test` / `password`, from `app:dev:seed` |
-| Run it on one machine | [Single-host Docker Compose](docker-compose.md) | the wizard at `/install`, gated by `INSTALL_TOKEN` |
-| Run it on DigitalOcean | [App Platform](digitalocean.md) | the same wizard |
-| Get back in when locked out | [Recovering an instance](../operating/recovering.md) | the address you name; creates or promotes it |
+This page is for a person who already has a Loupe account and the URL of an
+instance. At the end, your agent sends a plan to Loupe, and you review it in the
+browser. The examples use `https://loupe.example.com` as the instance URL.
 
-`app:admin:create` is the escape hatch for every row, not just the last. It
-works on any instance you have a shell on, and needs no mail, no token and no
-wizard.
+## 1. Install the CLI
 
-## Before a real deploy
+The `loupe` CLI connects a coding agent on your machine to Loupe. It runs on
+macOS and Linux. Follow [Installing the CLI](cli.md), then check the install:
 
-Read **[What runs in production](architecture.md)** — Loupe is two processes
-from one image, and the second one is not optional. Then read
-**[Known gaps](../known-gaps.md)**: several things the application needs are not
-configured on your behalf, and two of them leave a feature broken rather than
-merely off.
+```bash
+loupe version
+```
 
-`INSTALL_TOKEN` is the one to set *before* the first deploy rather than after.
-In production the install wizard fails closed — with no token configured,
-`/install` returns 404 and the browser has no route to the first administrator.
-See [First run](../operating/first-run.md).
+## 2. Sign in and name the project
+
+Sign in once on each machine:
+
+```bash
+loupe login --url https://loupe.example.com
+```
+
+The CLI prints a link and a code. Open the link in a browser where you are
+signed in to Loupe. Make sure that the page shows the same code, then choose
+**Allow**. [Signing in the CLI with a code](../using/connected-apps.md#signing-in-the-cli-with-a-code)
+tells what the page shows.
+
+Then name the project in each repository:
+
+```bash
+cd ~/code/my-project
+loupe init
+```
+
+`loupe init` writes `.loupe.yaml`, which holds the project id. It lists the
+projects your login covers and asks which one. Commit the file, so everyone in
+the repository reaches the same project.
+
+When Claude Code does not start the `loupe` MCP server yet, `loupe init` offers
+to declare it for every repository:
+
+```bash
+claude mcp add --scope user loupe -- loupe mcp
+```
+
+To commit the server to the repository instead, run `loupe init --mcp-json`. It
+writes `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "loupe": { "command": "loupe", "args": ["mcp"] }
+  }
+}
+```
+
+The file holds no credential. Claude Code asks you to approve the server the
+first time. [Connecting through the CLI](../using/mcp.md#connecting-through-the-cli)
+has the details.
+
+## 3. Install the Claude Code plugin
+
+The plugin adds skills that tell the agent how to write a document, work a board
+and act on feedback. It holds no credential.
+
+```bash
+claude plugin marketplace add ubermuda/loupe
+claude plugin install loupe@loupe
+```
+
+[The Claude Code plugin](../using/mcp.md#the-claude-code-plugin) lists the
+skills.
+
+## 4. Write a first document
+
+Start Claude Code in the repository, and ask it for a plan. For example:
+
+> Write an implementation plan for the next feature, and send it to Loupe for
+> review.
+
+The agent calls the `document_create` tool. Loupe stores the plan as a document
+in your project, and the tool returns a review URL. The agent gives you that
+URL.
+
+## 5. Read a first review
+
+Open the review URL. Select a passage to comment on it. A comment can also
+suggest a replacement for the passage.
+
+When you finish, select **Finish review**. Approve the version, or request
+changes with a note. When you request changes, ask the agent to read the
+review. It calls `document_get_review` and sends a new version. [Documents and review](../using/documents.md) describes the review page.
+
+## Other ways to connect
+
+A client that is not on your machine connects by URL over OAuth, with no CLI.
+Claude reaching your instance from Anthropic's servers is an example. See
+[Connecting by URL](../using/mcp.md#connecting-by-url).
+
+Loupe issues no static API token, so every connection starts with a sign-in in a
+browser.

@@ -5,12 +5,18 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardEvent;
+use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardColumns;
+use App\Module\Board\Service\CardEventActor;
+use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardMover;
 use App\Module\Bridge\Service\CardHolds;
 use Doctrine\DBAL\LockMode;
@@ -32,8 +38,9 @@ use Ubermuda\AuditBundle\AuditSubject;
  * is re-read afterwards.
  *
  * The move dispatches no CardMoved: the outbox must not see one event per card
- * for a single delete, so only the audit trail records each move. The delete
- * dispatches one BoardColumnDeleted, which names every moved card.
+ * for a single delete, so the audit trail and the card history record each
+ * move here. The delete dispatches one BoardColumnDeleted, which names every
+ * moved card.
  */
 final readonly class DeleteBoardColumnHandler
 {
@@ -49,6 +56,8 @@ final readonly class DeleteBoardColumnHandler
         private EventDispatcherInterface $events,
         private CardMover $mover,
         private CardHolds $cardHolds,
+        private CardEventRepository $cardEvents,
+        private CardEventActor $eventActor,
     ) {
     }
 
@@ -100,7 +109,13 @@ final readonly class DeleteBoardColumnHandler
                 $this->cards->refreshLoadedFrom($column);
 
                 $positions = $this->cards->positionsInColumn($target);
+                $from = CardEvent::columnDetail($column);
+                $to = CardEvent::columnDetail($target);
+                $cause = CardEventCause::columnDeleted($column->label)->detail();
+                $user = $this->eventActor->userFor($command->actor);
                 foreach ($rows as $row) {
+                    $card = $this->em->getReference(Card::class, Uuid::fromString($row['id'])) ?? throw new \LogicException('A moved card exists.');
+                    $this->cardEvents->record($card, CardEventKind::Moved, $command->actor, $user, ['from' => $from, 'to' => $to, 'cause' => $cause], $now);
                     // The shape CardMove::auditContext() gives a single move.
                     $moves[] = [
                         'cardId' => $row['id'],

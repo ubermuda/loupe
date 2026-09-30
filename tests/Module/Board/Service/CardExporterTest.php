@@ -6,6 +6,7 @@ namespace App\Tests\Module\Board\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardLinkKind;
 use App\Module\Board\Entity\CardPullRequest;
@@ -13,6 +14,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Service\CardExporter;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
@@ -119,6 +121,7 @@ final class CardExporterTest extends KernelTestCase
             'parentCardId' => null,
             'parentNumber' => null,
             'laneEnabled' => true,
+            'history' => [],
         ], $rows[0]);
     }
 
@@ -233,6 +236,31 @@ final class CardExporterTest extends KernelTestCase
         self::assertSame('First', $rows[0]['title']);
         self::assertSame([['cardId' => (string) $blocked->id, 'number' => 2, 'kind' => 'blocks']], $rows[0]['relatedCards']);
         self::assertSame([['cardId' => (string) $blocker->id, 'number' => 1, 'kind' => 'blocked-by']], $rows[1]['relatedCards']);
+    }
+
+    public function test_a_card_carries_its_history_newest_first_without_naming_an_account(): void
+    {
+        $owner = $this->user('card-export-history');
+        $project = new Project($owner, 'history-'.uniqid());
+        $this->em->persist($project);
+        $this->seedColumns($project);
+        $card = new Card(project: $project, column: $this->column($project, 'next'), title: 'Tracked', body: '', number: 1);
+        $this->em->persist($card);
+        $events = self::getContainer()->get(CardEventRepository::class);
+        self::assertInstanceOf(CardEventRepository::class, $events);
+        $createdAt = new \DateTimeImmutable('2026-03-01 09:00:00');
+        $events->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => ['slug' => 'backlog']], $createdAt);
+        $events->record($card, CardEventKind::Moved, CardReporter::System, null, ['cause' => ['type' => 'merged', 'pullRequest' => 5]], $createdAt->modify('+1 hour'));
+        $this->em->flush();
+        $this->em->clear();
+
+        $rows = iterator_to_array($this->exporter->export($owner), false);
+
+        self::assertIsArray($rows[0]);
+        self::assertEquals([
+            ['kind' => 'moved', 'occurredAt' => $createdAt->modify('+1 hour')->format(\DateTimeInterface::ATOM), 'actorKind' => 'system', 'detail' => ['cause' => ['type' => 'merged', 'pullRequest' => 5]]],
+            ['kind' => 'created', 'occurredAt' => $createdAt->format(\DateTimeInterface::ATOM), 'actorKind' => 'human', 'detail' => ['column' => ['slug' => 'backlog']]],
+        ], $rows[0]['history']);
     }
 
     public function test_it_exports_the_owner_cards_only(): void

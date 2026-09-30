@@ -164,7 +164,7 @@ deploy as well, and it never migrates down — the database stays at the newest
 schema it has reached. So a rollback is safe across releases that only
 *expanded* the schema, and unsafe across one that dropped, renamed or narrowed
 something: the old image would run against a schema missing what it reads.
-[Running migrations](../operating/migrations.md#a-release-may-only-expand-the-schema)
+[Running migrations](../migrations.md#a-release-may-only-expand-the-schema)
 carries the rule releases are written to follow, and the two options when you
 need to go back past a release that broke it.
 
