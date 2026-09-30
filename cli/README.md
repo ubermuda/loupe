@@ -1608,6 +1608,13 @@ The command prints one line for each bridge. A bridge that hands over prints
 When that `exec` fails, the line says `rejected` instead, and the command exits
 with status 1.
 
+With no bridge running, the command does not replace a binary that Homebrew
+installed. It prints `loupe was installed with Homebrew. Run: brew upgrade loupe`,
+changes nothing, and exits with status 1. The command finds such a binary by its
+path, with symlinks resolved: the path holds `/Cellar/loupe/`. A bridge reports
+the same install method in its heartbeat, so the agents page names
+`brew upgrade loupe`.
+
 ### `loupe update auto`
 
 Shows or sets the `autoUpdate` key of the rule file.

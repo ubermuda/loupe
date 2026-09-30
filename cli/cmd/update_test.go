@@ -709,6 +709,26 @@ func mustConfigDir(t *testing.T) string {
 	return dir
 }
 
+// Homebrew owns a binary in its keg, so the update in place leaves it to brew.
+func TestUpdateWithNoBridgeRefusesAHomebrewInstall(t *testing.T) {
+	shortConfigHome(t)
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
+	self, _ := selfUpdateAgainst(t, gh, "1.0.0")
+	keg, link := homebrewBinary(t)
+	self.executable = func() (string, error) { return link, nil }
+
+	_, err := updateCmd(t, withServerRange(self, "^1.0"))
+	if err == nil || err.Error() != "loupe was installed with Homebrew. Run: brew upgrade loupe" {
+		t.Fatalf("err = %v", err)
+	}
+	if data, _ := os.ReadFile(keg); string(data) != "old" {
+		t.Fatalf("binary = %q", data)
+	}
+	if listed, downloads := gh.counts(); listed != 0 || downloads != 0 {
+		t.Fatalf("listed = %d, downloads = %d", listed, downloads)
+	}
+}
+
 // autoCmd runs `loupe update auto` with args.
 func autoCmd(t *testing.T, args ...string) (string, error) {
 	t.Helper()

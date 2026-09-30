@@ -79,8 +79,11 @@ func newUpdateCmdWith(self selfUpdate) *cobra.Command {
 		Short: "Update the CLI now, through each running bridge or in place",
 		Long: "Asks each running bridge to check for a CLI release now and to hand over " +
 			"to it. The check ignores the skip list and the autoUpdate key. With no running " +
-			"bridge, this command replaces the loupe binary in place. It exits with status 1 " +
-			"when a bridge or the update in place fails.",
+			"bridge, this command replaces the loupe binary in place. A binary that Homebrew " +
+			"installed is left to brew: the command then prints the brew upgrade command, " +
+			"changes nothing and exits with status 1. It also exits with status 1 when a " +
+			"bridge or the update in place fails. Automatic updates are off unless the rule " +
+			"file holds autoUpdate: true; see loupe update auto.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			out := cmd.OutOrStdout()
@@ -372,6 +375,9 @@ func requestUpdate(sock string) (updateResult, error) {
 // cannot read that range, it takes the highest release of the running major
 // version, or the highest release for a development build.
 func (s selfUpdate) run(ctx context.Context, out io.Writer) error {
+	if installMethod(s.executable) == installHomebrew {
+		return errors.New("loupe was installed with Homebrew. Run: brew upgrade loupe")
+	}
 	dir, err := config.Dir()
 	if err != nil {
 		return err

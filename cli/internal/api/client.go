@@ -585,6 +585,9 @@ type WorkerPoolReport struct {
 type HeartbeatUpdate struct {
 	State   string `json:"state"`
 	Version string `json:"version,omitempty"`
+	// Install is homebrew for a binary that Homebrew installed, and empty
+	// otherwise.
+	Install string `json:"install,omitempty"`
 }
 
 // HookReport is how the last run of one hook package on one event went.

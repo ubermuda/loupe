@@ -431,6 +431,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 					updates.markRolledBack(r.update.crashedFrom)
 				}
 			}
+			updates.install = installMethod(updates.executable)
 			hb.onRange, hb.update = updates.setRange, updates.state
 		}
 		if r.update != nil {

@@ -221,6 +221,14 @@ func TestHeartbeatSendsTheUpdateState(t *testing.T) {
 	if body != `{"projects":[],"cliVersion":"1.0.0","update":{"state":"updating","version":"1.2.0"}}` {
 		t.Fatalf("body = %s", body)
 	}
+
+	hb.Update.Install = "homebrew"
+	if _, err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, hb); err != nil {
+		t.Fatal(err)
+	}
+	if body != `{"projects":[],"cliVersion":"1.0.0","update":{"state":"updating","version":"1.2.0","install":"homebrew"}}` {
+		t.Fatalf("body = %s", body)
+	}
 }
 
 // JSON numbers decode as float64, so a whole number arrives with no fraction

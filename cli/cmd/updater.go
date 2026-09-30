@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -112,6 +113,10 @@ type updater struct {
 	// token is held by the check that runs, so two checks never overlap.
 	token chan struct{}
 
+	// install is the install method each state reports. It is fixed before
+	// start.
+	install string
+
 	mu       sync.Mutex
 	cliRange string
 	current  api.HeartbeatUpdate
@@ -194,8 +199,32 @@ func (u *updater) setRange(r string) {
 func (u *updater) state() api.HeartbeatUpdate {
 	u.mu.Lock()
 	defer u.mu.Unlock()
+	s := u.current
+	if s.State != "" {
+		s.Install = u.install
+	}
 
-	return u.current
+	return s
+}
+
+// installHomebrew is the install method of a binary in a Homebrew keg.
+const installHomebrew = "homebrew"
+
+// installMethod is installHomebrew when the running binary, with its symlinks
+// resolved, is in a Homebrew keg, and "" otherwise.
+func installMethod(executable func() (string, error)) string {
+	exe, err := executable()
+	if err != nil {
+		return ""
+	}
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = resolved
+	}
+	if strings.Contains(filepath.ToSlash(exe), "/Cellar/loupe/") {
+		return installHomebrew
+	}
+
+	return ""
 }
 
 func (u *updater) setState(state, version string) {
