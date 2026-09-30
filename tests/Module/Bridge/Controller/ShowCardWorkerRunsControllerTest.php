@@ -186,7 +186,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $bridge = $this->commandBridge($owner);
         $cardId = Uuid::v7();
         $run = $this->seedRun($em, $project, bridgeId: $bridge->id, cardId: $cardId, state: WorkerRunState::Running);
-        $this->seedCommand($em, $run, kind: BridgeCommandKind::StopRun, requestedAt: new \DateTimeImmutable());
+        $this->seedCommand($em, $run, requestedAt: new \DateTimeImmutable(), kind: BridgeCommandKind::StopRun);
 
         $projectId = (string) $project->id;
         $runId = (string) $run->id;

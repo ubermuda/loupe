@@ -902,7 +902,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $project = $this->project($em, $owner, 'Runs control pending');
         $bridge = $this->commandBridge($owner);
         $run = $this->seedRun($em, $project, bridgeId: $bridge->id, state: WorkerRunState::Running);
-        $this->seedCommand($em, $run, kind: BridgeCommandKind::StopRun, requestedAt: new \DateTimeImmutable());
+        $this->seedCommand($em, $run, requestedAt: new \DateTimeImmutable(), kind: BridgeCommandKind::StopRun);
 
         $projectId = (string) $project->id;
         $runId = (string) $run->id;
