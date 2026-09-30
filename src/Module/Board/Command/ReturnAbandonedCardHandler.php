@@ -46,6 +46,23 @@ final readonly class ReturnAbandonedCardHandler
 
         $this->em->wrapInTransaction(function () use ($card, $command): void {
             $project = $card->project;
+            $projectId = $project->id ?? throw new \LogicException('A stored card has a project id.');
+
+            // Empty also when the card was deleted.
+            $links = $this->cardPullRequests->findCurrentKeys($card);
+            if ([] === $links) {
+                return;
+            }
+            $keys = [];
+            foreach ($links as $link) {
+                if (null === $link['repository'] || null === $link['number']) {
+                    return;
+                }
+                $keys[] = ['forge' => $link['forge'], 'repository' => $link['repository'], 'number' => $link['number']];
+            }
+            // A Forge read locks its row, then the project. Taking both in that order waits
+            // out a read that reopens a pull request, and reads the state it committed.
+            $states = $this->forgePullRequests->findCurrentStatesByKeys($projectId, $keys, forUpdate: true);
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
             if (!$this->boardAutomation->settingsOf($project)->enabled) {
                 return;
@@ -55,27 +72,17 @@ final readonly class ReturnAbandonedCardHandler
             if ($card->column->terminal || $card->column->backlog) {
                 return;
             }
-
-            // Empty also when the card was deleted before the lock.
-            $links = $this->cardPullRequests->findCurrentKeys($card);
-            if ([] === $links) {
+            // A link added or removed while this waited was read with no lock.
+            if ($this->cardPullRequests->findCurrentKeys($card) !== $links) {
                 return;
             }
+
             $automation = $this->cardAutomations->findOrCreateForUpdate($card);
             if (!$command->token->equals($automation->abandonedMoveToken)) {
                 return;
             }
             // Consumed now, so a redelivered message cannot undo a later move by a person.
             $automation->abandonedMoveToken = null;
-            $keys = [];
-            foreach ($links as $link) {
-                if (null === $link['repository'] || null === $link['number']) {
-                    return;
-                }
-                $keys[] = ['forge' => $link['forge'], 'repository' => $link['repository'], 'number' => $link['number']];
-            }
-            $projectId = $project->id ?? throw new \LogicException('A stored card has a project id.');
-            $states = $this->forgePullRequests->findCurrentStatesByKeys($projectId, $keys);
             foreach ($keys as $key) {
                 $state = $states[ForgePullRequestRepository::stateKey($key['forge'], $key['repository'], $key['number'])] ?? null;
                 if (PullRequestState::Closed !== $state) {

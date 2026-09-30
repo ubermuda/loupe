@@ -97,7 +97,7 @@ class CardPullRequestRepository extends ServiceEntityRepository
             'repository' => null === $row['repository'] ? null : (string) $row['repository'],
             'number' => null === $row['number'] ? null : (int) $row['number'],
         ], $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT forge, repository, number FROM board_card_pull_requests WHERE card_id = :card',
+            'SELECT forge, repository, number FROM board_card_pull_requests WHERE card_id = :card ORDER BY id',
             ['card' => (string) $card->id],
         ));
     }
