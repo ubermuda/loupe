@@ -349,7 +349,8 @@ The endpoint needs a token with the `agent` scope.
 ```json
 {
   "candidate": "sonnet",
-  "variants": ["opus", "sonnet"]
+  "variants": ["opus", "sonnet"],
+  "weights": [3, 1]
 }
 ```
 
@@ -357,6 +358,11 @@ The endpoint needs a token with the `agent` scope.
 |---|---|
 | `variants` | required. The variants the rule offers now, as a list of 1 to 32 unique names. Each name matches `^[a-z0-9][a-z0-9_-]{0,63}$` |
 | `candidate` | required. The variant the bridge drew for the card. It must be one of `variants` |
+| `weights` | optional. The weight of each variant, in the order of `variants`. Each weight is an integer from 1 to 1000000 |
+
+The server keeps the latest valid `weights` of each experiment in a project. It
+ignores a `weights` list that breaks its rule, and still resolves the pin. A
+fault in `weights` never changes the answer, and never refuses the request.
 
 The server answers the variant the card runs with:
 
@@ -613,14 +619,17 @@ whose last resolve is older than the run retention window. The next run of that
 card then picks a variant again. Every resolve refreshes a pin, so the sweep
 takes only the pins of idle cards.
 
-Deleting a project deletes its run records, its usage, its experiment pins
-and its card holds with it. Deleting an account deletes the same data of every
-project it owned, and removes the account's name from a hold it placed in
+Deleting a project deletes its run records, its usage, its experiment pins,
+its experiment weights and its card holds with it. Deleting an account deletes
+the same data of every project it owned, and removes the account's name from a hold it placed in
 another project. The account's data export holds each run in
 `worker_runs.json`, with its state, its history, its usage source, its worker pool, its `experiment`, `variant`,
 `requestedModel` and `switchedFrom`, and its trigger fields. It holds every usage
 row in `worker_run_usage.json`. It holds every experiment pin in
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
-and when the pin was created and last resolved. It holds every card hold in
-`bridge_card_holds.json`, with its project, its card, the run it stopped and
+and when the pin was created and last resolved. It holds the latest weights of
+each experiment in `experiment_definitions.json`, with its project, its
+experiment, its `weights` as a list of `name` and `weight` objects, and when the
+bridge sent them. It holds
+every card hold in `bridge_card_holds.json`, with its project, its card, the run it stopped and
 when it began. The run is null after the retention sweep deletes it.

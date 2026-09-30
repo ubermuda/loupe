@@ -22,7 +22,7 @@ var experimentRules = strings.Replace(defaultRules, "rules:\n", `experiments:
         weight: 1
         model: claude-opus-5-5
       - name: sonnet
-        weight: 1
+        weight: 3
         model: claude-sonnet-5-5
 rules:
 `, 1) + "    experiment: impl-model\n"
@@ -30,7 +30,7 @@ rules:
 // testExperiment is the experiment of experimentRules.
 var testExperiment = rules.Experiment{Name: "impl-model", Variants: []rules.Variant{
 	{Name: "opus", Weight: 1, Model: "claude-opus-5-5"},
-	{Name: "sonnet", Weight: 1, Model: "claude-sonnet-5-5"},
+	{Name: "sonnet", Weight: 3, Model: "claude-sonnet-5-5"},
 }}
 
 // otherVariant is the variant of testExperiment that v is not.
@@ -45,6 +45,7 @@ func otherVariant(v rules.Variant) rules.Variant {
 type pinCall struct {
 	handle, experiment, cardID, candidate string
 	variants                              []string
+	weights                               []int
 }
 
 // pinServer answers each pin request with answer, and records it.
@@ -54,9 +55,9 @@ type pinServer struct {
 	answer func(ctx context.Context, candidate string) (string, string, error)
 }
 
-func (s *pinServer) resolve(ctx context.Context, handle, experiment, cardID, candidate string, variants []string) (string, string, error) {
+func (s *pinServer) resolve(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int) (string, string, error) {
 	s.mu.Lock()
-	s.calls = append(s.calls, pinCall{handle, experiment, cardID, candidate, slices.Clone(variants)})
+	s.calls = append(s.calls, pinCall{handle, experiment, cardID, candidate, slices.Clone(variants), slices.Clone(weights)})
 	s.mu.Unlock()
 
 	return s.answer(ctx, candidate)
@@ -106,9 +107,10 @@ func TestARunInAnExperimentRunsThePinnedVariant(t *testing.T) {
 	h.send(cardMoved(87))
 
 	calls := pins.recorded()
-	want := pinCall{testProject, "impl-model", cardUUID(87), candidate.Name, []string{"opus", "sonnet"}}
+	want := pinCall{testProject, "impl-model", cardUUID(87), candidate.Name, []string{"opus", "sonnet"}, []int{1, 3}}
 	if len(calls) != 1 || calls[0].handle != want.handle || calls[0].experiment != want.experiment ||
-		calls[0].cardID != want.cardID || calls[0].candidate != want.candidate || !slices.Equal(calls[0].variants, want.variants) {
+		calls[0].cardID != want.cardID || calls[0].candidate != want.candidate || !slices.Equal(calls[0].variants, want.variants) ||
+		!slices.Equal(calls[0].weights, want.weights) {
 		t.Fatalf("pin calls = %+v, want %+v", calls, want)
 	}
 	if workers := h.worker.recorded(); len(workers) != 1 || workers[0].model != candidate.Model {
