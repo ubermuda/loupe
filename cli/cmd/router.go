@@ -80,6 +80,11 @@ type router struct {
 	update *bridgeUpdate
 	// scriptDir holds the launch scripts, and "" means defaultScriptDir.
 	scriptDir string
+	// ackCommand answers a command through the report queue. A nil one, as in
+	// most tests, answers nothing. pauseFile caches a person's pause, and ""
+	// caches nothing.
+	ackCommand func(ctx context.Context, bridgeID, commandID, state, reason string) error
+	pauseFile  string
 
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
@@ -143,6 +148,11 @@ type router struct {
 	live         map[string]liveRun
 	heldEvents   []heldEvent
 	heldFinishes []func()
+	// personPaused stops dispatch while a person pauses the bridge. resume
+	// clears paused only, so a handover keeps it. handled maps each command
+	// the bridge took to its expiry.
+	personPaused bool
+	handled      map[string]time.Time
 	// lastEventID is the resume point of the stream, and recent the ids of the
 	// last events handled, oldest first, which recentSet indexes.
 	lastEventID string
@@ -394,7 +404,8 @@ func (r *router) handler() transport.Handler {
 // onData routes one Mercure payload.
 //
 // A type no rule names is dropped in silence: a newer server publishes types
-// an older binary never heard of, which is normal.
+// an older binary never heard of, which is normal. A command goes to its own
+// intake.
 func (r *router) onData(data []byte) {
 	// Every bridge of the account receives an ask event, and only the one that
 	// started the session can resume it. Another bridge's event is not ours to
@@ -405,6 +416,11 @@ func (r *router) onData(data []byte) {
 	set := r.rules()
 	e, err := event.Parse(data, set.ExtraTypes())
 	if err != nil {
+		if e.Type == event.CommandType {
+			r.onCommandEvent(data)
+
+			return
+		}
 		if errors.Is(err, event.ErrUnknownType) {
 			return
 		}
@@ -787,7 +803,7 @@ func (r *router) dispatchLocked() []pending {
 
 		return dropped
 	}
-	if r.paused {
+	if r.paused || r.personPaused {
 		return nil
 	}
 

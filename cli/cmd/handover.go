@@ -136,35 +136,42 @@ func writeHandover(path string, st handoverState) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), ".handover-*")
-	if err != nil {
+	if err := writeAtomic(path, ".handover-*", b); err != nil {
 		return fmt.Errorf("write handover: %w", err)
+	}
+
+	return nil
+}
+
+// writeAtomic writes a private file through a temporary file named by pattern
+// and a rename.
+func writeAtomic(path, pattern string, b []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(path), pattern)
+	if err != nil {
+		return err
 	}
 	tmp := f.Name()
 	defer os.Remove(tmp)
 	if err := f.Chmod(0o600); err != nil {
 		f.Close()
 
-		return fmt.Errorf("write handover: %w", err)
+		return err
 	}
 	if _, err := f.Write(b); err != nil {
 		f.Close()
 
-		return fmt.Errorf("write handover: %w", err)
+		return err
 	}
 	if err := f.Sync(); err != nil {
 		f.Close()
 
-		return fmt.Errorf("write handover: %w", err)
+		return err
 	}
 	if err := f.Close(); err != nil {
-		return fmt.Errorf("write handover: %w", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		return fmt.Errorf("write handover: %w", err)
+		return err
 	}
 
-	return nil
+	return os.Rename(tmp, path)
 }
 
 // readHandover reads a handover file, and refuses a format this build does not

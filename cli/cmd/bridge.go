@@ -240,6 +240,11 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		claude:     claude,
 	}
 	r.set.Store(set)
+	// The cache is read before subscribe, whose adopt dispatches.
+	if r.pauseFile, err = pausePath(); err != nil {
+		return err
+	}
+	r.loadPause()
 	cleanLaunchScripts(defaultScriptDir(), time.Now(), r.log)
 	logBridgeStart(r.log, cmd, set, path, bl.path, bridgeID)
 	warnUnknownModes(r.log, set)
@@ -396,6 +401,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.resolvePin == nil {
 		r.resolvePin = apiClient(cfg).ResolveExperimentPin
 	}
+	if r.ackCommand == nil {
+		r.ackCommand = apiClient(cfg).AckCommand
+	}
 	r.applyFlags(events)
 	if r.update != nil {
 		r.update.adoptInto(r)
@@ -427,9 +435,11 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		if r.update != nil {
 			hb.onSent = r.update.markBeat
 		}
+		hb.onReply = r.onHeartbeatReply
 		// Adopted runs can end on their own goroutines, and read heartbeat
 		// under mu.
 		r.mu.Lock()
+		hb.paused = r.personPaused
 		r.heartbeat = hb
 		r.notePoolsLocked()
 		r.mu.Unlock()
