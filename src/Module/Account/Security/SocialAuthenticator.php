@@ -7,6 +7,7 @@ namespace App\Module\Account\Security;
 use App\Module\Account\Command\ResolveSocialLoginCommand;
 use App\Module\Account\Command\ResolveSocialLoginHandler;
 use App\Module\Account\Entity\SocialProvider;
+use App\Module\Account\Registration\RegistrationPasses;
 use App\Module\Account\Service\PendingSocialLink;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\SocialProfileFactory;
@@ -75,8 +76,14 @@ final class SocialAuthenticator extends OAuth2Authenticator
 
         $profile = $this->profileFactory->fromResourceOwner($provider, $owner, $accessToken->getToken());
 
+        $session = $request->hasSession() ? $request->getSession() : null;
+        $passToken = $session?->get(RegistrationPasses::SESSION_KEY);
+
         try {
-            $outcome = ($this->resolveSocialLogin)(new ResolveSocialLoginCommand($profile));
+            $outcome = ($this->resolveSocialLogin)(new ResolveSocialLoginCommand(
+                $profile,
+                passToken: is_string($passToken) ? $passToken : null,
+            ));
         } catch (SocialLoginRace $e) {
             // A concurrent callback won a uniqueness race and closed the
             // EntityManager, so nothing can be salvaged in this request. Fail
@@ -99,6 +106,7 @@ final class SocialAuthenticator extends OAuth2Authenticator
         }
 
         $user = $outcome->user ?? throw new \LogicException('Log-in outcome must carry a user.');
+        $session?->remove(RegistrationPasses::SESSION_KEY);
 
         // The callback URL carries no _remember_me parameter and the firewall
         // does not set always_remember_me, so the badge has to be enabled here or

@@ -12,6 +12,7 @@ use App\Module\Account\Command\RegisterUserCommand;
 use App\Module\Account\Command\RegisterUserHandler;
 use App\Module\Account\Form\RegistrationFormType;
 use App\Module\Account\Form\RegistrationRequest;
+use App\Module\Account\Registration\RegistrationPasses;
 use App\Module\Account\Service\EmailRateLimitKey;
 use App\Module\Account\Service\RegistrationGate;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -27,8 +28,6 @@ use Ubermuda\AuditBundle\AuditOutcome;
 #[Route('/register', name: 'app_register')]
 class RegisterController extends AppController
 {
-    private const string INVITE_SESSION_KEY = 'waitlist_invite_token';
-
     public function __construct(
         private readonly RegisterUserHandler $registerUser,
         private readonly TranslatorInterface $translator,
@@ -74,13 +73,13 @@ class RegisterController extends AppController
         $queryToken = $request->query->get('invite');
         if (null !== $queryToken) {
             if (is_string($queryToken) && ($this->checkInviteToken)(new CheckInviteTokenCommand($queryToken))->valid) {
-                $request->getSession()->set(self::INVITE_SESSION_KEY, $queryToken);
+                $request->getSession()->set(RegistrationPasses::SESSION_KEY, $queryToken);
             }
 
             return $this->redirectToRoute('app_register');
         }
 
-        $sessionToken = $request->getSession()->get(self::INVITE_SESSION_KEY);
+        $sessionToken = $request->getSession()->get(RegistrationPasses::SESSION_KEY);
         $inviteToken = is_string($sessionToken) ? $sessionToken : null;
         $hasValidInvite = null !== $inviteToken
             && ($this->checkInviteToken)(new CheckInviteTokenCommand($inviteToken))->valid;
@@ -137,7 +136,7 @@ class RegisterController extends AppController
                 return $this->renderFormResponse('@Account/registration/register.html.twig', $form);
             }
 
-            $request->getSession()->remove(self::INVITE_SESSION_KEY);
+            $request->getSession()->remove(RegistrationPasses::SESSION_KEY);
             $request->getSession()->set('registration_email', $user->email);
 
             return $this->redirectToRoute('app_register_check_email');

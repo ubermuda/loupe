@@ -7,6 +7,7 @@ use App\Module\Account\Command\RegisterUserCommand;
 use App\Module\Account\Command\RegisterUserHandler;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Event\UserRegistered;
+use App\Module\Account\Registration\RegistrationPasses;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\InstallationState;
@@ -195,6 +196,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
             verificationEmailSender: $this->createStub(VerificationEmailSender::class),
             registrationGate: $gate,
             waitlistEntries: $this->createStub(WaitlistEntryRepository::class),
+            registrationPasses: new RegistrationPasses([]),
             eventDispatcher: $this->neverDispatches(),
             logger: new RecordingLogger(),
             auditor: new RecordingAuditor(new NullAuditActorProvider())->auditor,
@@ -464,6 +466,8 @@ final class RegisterUserHandlerTest extends KernelTestCase
         self::assertInstanceOf(VerificationEmailSender::class, $verificationEmailSender);
         $gate = $container->get(RegistrationGate::class);
         self::assertInstanceOf(RegistrationGate::class, $gate);
+        $passes = $container->get(RegistrationPasses::class);
+        self::assertInstanceOf(RegistrationPasses::class, $passes);
 
         return new RegisterUserHandler(
             users: $users,
@@ -472,6 +476,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
             verificationEmailSender: $verificationEmailSender,
             registrationGate: $gate,
             waitlistEntries: $this->entries,
+            registrationPasses: $passes,
             eventDispatcher: $dispatcher,
             logger: $logger ?? new RecordingLogger(),
             auditor: $auditor ?? new RecordingAuditor(new NullAuditActorProvider())->auditor,

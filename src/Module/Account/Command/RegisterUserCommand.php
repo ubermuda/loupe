@@ -10,8 +10,8 @@ final readonly class RegisterUserCommand
         public string $fullName,
         public string $plainPassword,
         /**
-         * Plain waitlist-invite token, if any. Ignored while registration is
-         * open; when the gate is closed, only a valid token bypasses it.
+         * Plain registration-pass token, if any. Redeemed whenever it is valid;
+         * when the gate is closed, only a redeemed pass bypasses it.
          */
         public ?string $inviteToken = null,
     ) {
