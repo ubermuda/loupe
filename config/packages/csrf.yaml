@@ -36,3 +36,4 @@ framework:
             - admin-user-resend-verification
             - billing-comp-grant
             - billing-comp-revoke
+            - billing-beta-invite-revoke

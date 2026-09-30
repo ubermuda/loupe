@@ -1,0 +1,91 @@
+{% extends '@UbermudaAdmin/base.html.twig' %}
+
+{% block title %}{{ 'billing.admin.beta_invite.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+    <div class="admin-page">
+        <div>
+            <h1 class="admin-section-title">{{ 'billing.admin.beta_invite.title'|trans }}</h1>
+            <p class="admin-section-subtitle">{{ 'billing.admin.beta_invite.subtitle'|trans }}</p>
+        </div>
+
+        {% if issuedLink %}
+            <div class="admin-card p-6 flex flex-col gap-3" data-testid="beta-invite-issued"
+                 data-controller="clipboard"
+                 data-clipboard-text-value="{{ issuedLink }}"
+                 data-clipboard-copied-label-value="{{ 'billing.admin.beta_invite.issued.copied'|trans }}">
+                <div>
+                    <h2 class="admin-section-title">{{ 'billing.admin.beta_invite.issued.title'|trans }}</h2>
+                    <p class="admin-section-subtitle">{{ 'billing.admin.beta_invite.issued.help'|trans }}</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <code class="admin-field-input grow break-all" data-testid="beta-invite-link">{{ issuedLink }}</code>
+                    <button type="button" class="admin-button admin-button-small shrink-0" data-clipboard-target="button" data-action="clipboard#copy">{{ 'billing.admin.beta_invite.issued.copy'|trans }}</button>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="admin-card p-6 flex flex-col gap-4">
+            <div>
+                <h2 class="admin-section-title">{{ 'billing.admin.beta_invite.create.title'|trans }}</h2>
+                <p class="admin-section-subtitle">{{ 'billing.admin.beta_invite.create.subtitle'|trans }}</p>
+            </div>
+            {{ form_start(form, {'attr': {'novalidate': 'novalidate', 'class': 'flex flex-col gap-4', 'data-testid': 'beta-invite-create'}}) }}
+                {{ form_errors(form) }}
+                <div class="flex flex-col gap-1.5">
+                    {{ form_label(form.note, null, {'label_attr': {'class': 'admin-field-label'}}) }}
+                    {{ form_widget(form.note, {'attr': form.note.vars.attr|merge({'class': 'admin-field-input'})}) }}
+                    {{ form_help(form.note) }}
+                    {{ form_errors(form.note) }}
+                </div>
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <button type="submit" class="admin-button">{{ 'billing.admin.beta_invite.create.button'|trans }}</button>
+                </div>
+            {{ form_end(form) }}
+        </div>
+
+        <div class="admin-card p-0">
+            {% if invites is empty %}
+                <p class="admin-section-subtitle p-6">{{ 'billing.admin.beta_invite.empty'|trans }}</p>
+            {% else %}
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>{{ 'billing.admin.beta_invite.column.note'|trans }}</th>
+                            <th>{{ 'billing.admin.beta_invite.column.created'|trans }}</th>
+                            <th>{{ 'billing.admin.beta_invite.column.state'|trans }}</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invite in invites %}
+                            <tr data-beta-invite-id="{{ invite.id }}">
+                                <td data-testid="beta-invite-note">{{ invite.note ?? '—' }}</td>
+                                <td>{{ invite.createdAt|date('j M Y') }}</td>
+                                <td data-testid="beta-invite-state">
+                                    {% if invite.redeemed and invite.redeemedBy %}
+                                        <span class="admin-badge admin-badge-count">{{ 'billing.admin.beta_invite.state.used_by'|trans({'%email%': invite.redeemedBy.email, '%date%': invite.redeemedAt|date('j M Y')}) }}</span>
+                                    {% elseif invite.redeemed %}
+                                        <span class="admin-badge admin-badge-count">{{ 'billing.admin.beta_invite.state.used_on'|trans({'%date%': invite.redeemedAt|date('j M Y')}) }}</span>
+                                    {% elseif invite.revoked %}
+                                        <span class="admin-badge admin-badge-neutral">{{ 'billing.admin.beta_invite.state.revoked_on'|trans({'%date%': invite.revokedAt|date('j M Y')}) }}</span>
+                                    {% else %}
+                                        <span class="admin-badge admin-badge-on">{{ 'billing.admin.beta_invite.state.unused'|trans }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if invite.usable %}
+                                        <form method="post" action="{{ path('app_admin_beta_invites_revoke', {id: invite.id}) }}">
+                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-beta-invite-revoke') }}">
+                                            <button type="submit" class="admin-button-secondary admin-button-small" data-testid="beta-invite-revoke">{{ 'billing.admin.beta_invite.revoke.button'|trans }}</button>
+                                        </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

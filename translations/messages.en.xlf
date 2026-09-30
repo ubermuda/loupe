@@ -3589,6 +3589,118 @@
                 <source>billing.admin.comp.error.not_comped</source>
                 <target>This account holds no comp to revoke.</target>
             </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.page.title">
+                <source>billing.admin.beta_invite.page.title</source>
+                <target>Beta invites</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.title">
+                <source>billing.admin.beta_invite.title</source>
+                <target>Beta invites</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.subtitle">
+                <source>billing.admin.beta_invite.subtitle</source>
+                <target>Each link lets one person sign up past the registration cap, with a comp.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.issued.title">
+                <source>billing.admin.beta_invite.issued.title</source>
+                <target>New link</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.issued.help">
+                <source>billing.admin.beta_invite.issued.help</source>
+                <target>Copy this link now. It does not show again.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.issued.copy">
+                <source>billing.admin.beta_invite.issued.copy</source>
+                <target>Copy</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.issued.copied">
+                <source>billing.admin.beta_invite.issued.copied</source>
+                <target>Copied!</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.create.title">
+                <source>billing.admin.beta_invite.create.title</source>
+                <target>Create a link</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.create.subtitle">
+                <source>billing.admin.beta_invite.create.subtitle</source>
+                <target>The link works once. You see it one time, after you create it.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.create.button">
+                <source>billing.admin.beta_invite.create.button</source>
+                <target>Create link</target>
+            </trans-unit>
+            <trans-unit id="billing.form.create_beta_invite_form.note.label">
+                <source>billing.form.create_beta_invite_form.note.label</source>
+                <target>Note</target>
+            </trans-unit>
+            <trans-unit id="billing.form.create_beta_invite_form.note.placeholder">
+                <source>billing.form.create_beta_invite_form.note.placeholder</source>
+                <target>reddit u/foo</target>
+            </trans-unit>
+            <trans-unit id="billing.form.create_beta_invite_form.note.help">
+                <source>billing.form.create_beta_invite_form.note.help</source>
+                <target>Optional. Say who the link is for.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.empty">
+                <source>billing.admin.beta_invite.empty</source>
+                <target>No beta invite links yet.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.column.note">
+                <source>billing.admin.beta_invite.column.note</source>
+                <target>Note</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.column.created">
+                <source>billing.admin.beta_invite.column.created</source>
+                <target>Created</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.column.state">
+                <source>billing.admin.beta_invite.column.state</source>
+                <target>State</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.state.unused">
+                <source>billing.admin.beta_invite.state.unused</source>
+                <target>Unused</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.state.used_by">
+                <source>billing.admin.beta_invite.state.used_by</source>
+                <target>Used by %email% on %date%</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.state.used_on">
+                <source>billing.admin.beta_invite.state.used_on</source>
+                <target>Used on %date%</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.state.revoked_on">
+                <source>billing.admin.beta_invite.state.revoked_on</source>
+                <target>Revoked on %date%</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.revoke.button">
+                <source>billing.admin.beta_invite.revoke.button</source>
+                <target>Revoke</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.flash.revoked">
+                <source>billing.admin.beta_invite.flash.revoked</source>
+                <target>The link is revoked.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.error.redeemed">
+                <source>billing.admin.beta_invite.error.redeemed</source>
+                <target>This link is already used, so you cannot revoke it.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.error.revoked">
+                <source>billing.admin.beta_invite.error.revoked</source>
+                <target>This link is already revoked.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.panel.title">
+                <source>billing.admin.beta_invite.panel.title</source>
+                <target>Beta</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.panel.since">
+                <source>billing.admin.beta_invite.panel.since</source>
+                <target>Beta tester since %date%</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.panel.note">
+                <source>billing.admin.beta_invite.panel.note</source>
+                <target>Invite note: %note%</target>
+            </trans-unit>
             <trans-unit id="billing.flash.capacity_full">
                 <source>billing.flash.capacity_full</source>
                 <target>We are at capacity right now, so checkout is unavailable. Join the waitlist and we will invite you back as soon as a spot frees up.</target>

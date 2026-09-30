@@ -29,4 +29,15 @@ class BetaInviteRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['redeemedBy' => $user]);
     }
+
+    /** @return list<BetaInvite> */
+    public function findAllNewestFirst(): array
+    {
+        return $this->createQueryBuilder('i')
+            ->leftJoin('i.redeemedBy', 'r')
+            ->addSelect('r')
+            ->orderBy('i.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }
