@@ -428,9 +428,10 @@ it. Then run `loupe bridge reload`.
 
 ## Updates
 
-A release build of the bridge updates itself. A development build, such as one
-from `just cli-build`, has no version. It never updates, and it logs
-`update_skipped` at start.
+A release build of the bridge can update itself. Automatic updates are off by
+default, and `autoUpdate: true` in `rules.yaml` turns them on. A development
+build, such as one from `just cli-build`, has no version. It never updates, and
+it logs `update_skipped` at start.
 
 ### The check
 
@@ -465,8 +466,30 @@ of the archive with its line in `checksums.txt`. A mismatch logs
 `versions/<version>/loupe` in its config directory. A later check uses that
 file again when it is still there.
 
-With `autoUpdate: false` in `rules.yaml`, the check stops before the download.
-The bridge logs `update_available` once for each version and installs nothing.
+Automatic updates are off unless `rules.yaml` holds `autoUpdate: true`. With
+them off, the check stops before the download. The bridge logs
+`update_available` once for each version and installs nothing. The agents page
+then shows "Update available" and the version, with the command that installs
+it. That command is `brew upgrade loupe` for a Homebrew install, and
+`curl -fsSL https://<your Loupe>/install.sh | sh` in all other cases.
+A bridge that runs a Homebrew binary acts as if updates are off, even with
+`autoUpdate: true`, because only `brew upgrade loupe` replaces that binary.
+
+`loupe update auto on` or `loupe update auto off` sets the key. It adds the key
+when the file has none, and changes a plain `true` or `false` on its line. When
+it cannot change the line alone, it exits with status 1 and names the line to
+edit. With `--keep`, a key that the file holds keeps its value. See
+[`loupe update auto`](../../cli/README.md#loupe-update-auto).
+
+An older CLI took a missing key as on. So the first start after a handover from
+such a CLI adds `autoUpdate: true` to the rule file and logs
+`auto_update_migrated`. `update.json` keeps this record for each rule file.
+`defaultOff` lists each rule file that a new CLI started with, and no later
+start of that file changes it. A start that is not a handover only adds the
+file to `defaultOff`. When the file takes no new last line, the bridge logs
+`auto_update_migration_failed` with the line to add by hand. It then adds the
+file to `autoUpdatePending` and keeps updates on. Each later start of that rule
+file, a handover or a plain restart, keeps updates on and tries again.
 
 ### Blocked
 
@@ -552,7 +575,10 @@ bridge cannot read moves to `handover-<hash>.json.bad`, and the bridge logs
 
 `loupe update` asks each running bridge to check and install at once. With no
 bridge running, it downloads, verifies and installs the release itself. It
-ignores the skip list and `autoUpdate`. See
+ignores the skip list and `autoUpdate`. It refuses to update a binary that
+Homebrew installed, and it then asks no bridge. It prints
+`brew upgrade loupe`, changes nothing, and exits with status 1. A bridge that
+runs a Homebrew binary also refuses the request of an older CLI. See
 [`cli/README.md`](../../cli/README.md#loupe-update).
 
 ### Log events
@@ -560,7 +586,7 @@ ignores the skip list and `autoUpdate`. See
 | Event | What happened |
 |---|---|
 | `update_check` | A check starts |
-| `update_available` | A release waits, and `autoUpdate` is `false` |
+| `update_available` | A release waits, and `autoUpdate` is not `true` |
 | `update_unavailable` | The running version is outside the range, and no release fits |
 | `update_blocked` | The bridge cannot write the directory of its binary |
 | `update_download` | The bridge downloads a release |
@@ -574,6 +600,7 @@ ignores the skip list and `autoUpdate`. See
 | `update_rollback_deferred` | The rollback waits, because run reports are still in flight |
 | `update_rolled_back` | A version went on the skip list |
 | `update_recovered` | A start took over the handover of a bridge that died |
+| `auto_update_migrated` | A handover from an older CLI added `autoUpdate: true` |
 
 [Output](../../cli/README.md#output) in `cli/README.md` lists every event with
 its fields, the failure events included.

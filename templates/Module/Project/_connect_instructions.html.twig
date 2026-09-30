@@ -12,7 +12,10 @@
     'claude mcp add --transport http ' ~ mcpServerName ~ ' ' ~ mcpUrl,
     'claude mcp login ' ~ mcpServerName
 ]|join("\n") -%}
+{#- The Homebrew line is a comment, so pasting the whole block installs once. -#}
 {%- set loupeCommand = [
+    'curl -fsSL ' ~ url('app_install_script') ~ ' | sh',
+    '# ' ~ 'project.connect.loupe_cli.homebrew'|trans ~ ' brew install ubermuda/tap/loupe',
     'loupe login --url ' ~ url('app_home')|trim('/', 'right'),
     'loupe init'
 ]|join("\n") -%}

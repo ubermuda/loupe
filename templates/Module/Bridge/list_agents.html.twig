@@ -65,6 +65,14 @@
                     {% endif %}
                     <span>{{ 'bridge.agents.runtime'|trans }}</span>
                 </footer>
+                {% if connection.updateChip and connection.updateChip.command %}
+                <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ connection.updateChip.command }}"
+                     data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+                    <twig:ux:icon name="lucide:terminal" class="lp-connect-field__glyph w-4 h-4" />
+                    <code class="lp-connect-field__value" data-agent-update-command>{{ connection.updateChip.command }}</code>
+                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                </div>
+                {% endif %}
             </div>
         </article>
         {% endfor %}

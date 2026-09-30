@@ -16,6 +16,11 @@ security:
         livez:
             pattern: ^/livez$
             security: false
+        # The CLI install script is public. With no security listener, a signed-in
+        # browser's session is never read, so the answer stays publicly cacheable.
+        install_script:
+            pattern: ^/install\.sh$
+            security: false
         # The suspension gate on these two firewalls is the user_checker, not
         # RequireNotSuspendedListener: that listener exempts ^/api and ^/mcp
         # because an HTML redirect would corrupt a machine client's response.
