@@ -7,12 +7,16 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardEvent;
+use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardEventActor;
 use App\Module\Board\Service\CardLinkResolver;
 use App\Module\Board\Service\CardLinkSync;
 use App\Module\Board\Service\CardParentPolicy;
@@ -44,6 +48,8 @@ final readonly class CreateCardHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private EventDispatcherInterface $events,
+        private CardEventRepository $cardEvents,
+        private CardEventActor $eventActor,
     ) {
     }
 
@@ -126,6 +132,10 @@ final readonly class CreateCardHandler
             $card->syncDocuments(...$documents);
 
             $this->em->persist($card);
+            $actor = $command->actor ?? $command->reporter;
+            $this->cardEvents->record($card, CardEventKind::Created, $actor, $this->eventActor->userFor($actor), [
+                'column' => CardEvent::columnDetail($column),
+            ], $card->createdAt);
             $this->cardLinkSync->sync($card, $relatedCards);
             $this->em->flush();
 

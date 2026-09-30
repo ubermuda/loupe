@@ -8,6 +8,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Service\CardEventCause;
 
 /**
  * $card and $actor are required. $actor is who makes this change, and a move
@@ -39,6 +40,8 @@ use App\Module\Board\Entity\CardType;
  *
  * $onlyFromColumn and $onlyFromOpenColumn are checked under the lock too. A
  * card that no longer sits there is left alone, with no change and no error.
+ *
+ * $cause says why the app moved the card, for the card's history.
  */
 final readonly class UpdateCardCommand
 {
@@ -71,6 +74,7 @@ final readonly class UpdateCardCommand
         public ?BoardColumn $expectedColumn = null,
         public ?BoardColumn $onlyFromColumn = null,
         public bool $onlyFromOpenColumn = false,
+        public ?CardEventCause $cause = null,
     ) {
     }
 }

@@ -57,6 +57,7 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
 
         self::assertSame('in-review', $card->column->slug);
         self::assertSame([['fromStatus' => 'implementation', 'toStatus' => 'in-review', 'actor' => 'system']], $this->moves());
+        self::assertEquals([['system', null, 'implementation', 'in-review', ['type' => 'checks-passed', 'pullRequest' => 5]]], $this->history($card));
     }
 
     public function test_green_checks_on_the_same_sha_again_move_nothing(): void
@@ -185,6 +186,7 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
 
         self::assertSame('done', $card->column->slug);
         self::assertSame([['fromStatus' => 'in-review', 'toStatus' => 'done', 'actor' => 'system']], $this->moves());
+        self::assertEquals([['system', null, 'in-review', 'done', ['type' => 'merged', 'pullRequest' => 5]]], $this->history($card));
     }
 
     public function test_a_merge_with_a_second_link_still_open_moves_nothing(): void
@@ -418,6 +420,21 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
             $event = json_decode((string) $payload, true, flags: \JSON_THROW_ON_ERROR);
 
             return ['fromStatus' => $event['fromStatus'], 'toStatus' => $event['toStatus'], 'actor' => $event['actor']];
+        }, $rows);
+    }
+
+    /** @return list<array{mixed, mixed, mixed, mixed, mixed}> actor kind, actor user, from slug, to slug, cause */
+    private function history(Card $card): array
+    {
+        $rows = $this->em->getConnection()->fetchAllAssociative(
+            "SELECT actor_kind, actor_user_id, detail FROM board_card_events WHERE card_id = :card AND kind = 'moved' ORDER BY occurred_at, id",
+            ['card' => (string) $card->id],
+        );
+
+        return array_map(static function (array $row): array {
+            $detail = json_decode((string) $row['detail'], true, flags: \JSON_THROW_ON_ERROR);
+
+            return [$row['actor_kind'], $row['actor_user_id'], $detail['from']['slug'], $detail['to']['slug'], $detail['cause']];
         }, $rows);
     }
 
