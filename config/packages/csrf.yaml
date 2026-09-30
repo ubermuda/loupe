@@ -22,6 +22,8 @@ framework:
             - site-review-comment-action
             - board-card-delete
             - worker-run-close
+            - worker-run-command
+            - bridge-pause
             - billing-checkout
             - billing-portal
             - wizard-skip
