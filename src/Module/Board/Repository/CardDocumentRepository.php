@@ -149,7 +149,7 @@ final class CardDocumentRepository extends ServiceEntityRepository
     }
 
     /**
-     * The tag names of each approved document linked to the card, as the
+     * The tag names of each approved, unarchived document linked to the card, as the
      * database holds them now, so a document loaded earlier cannot answer with
      * a stale status. An approved document with no tag maps to an empty list.
      *
@@ -162,7 +162,7 @@ final class CardDocumentRepository extends ServiceEntityRepository
              JOIN documents d ON d.id = cd.document_id
              LEFT JOIN document_tags dt ON dt.document_id = d.id
              LEFT JOIN tags t ON t.id = dt.tag_id
-             WHERE cd.card_id = :card AND d.status = :status
+             WHERE cd.card_id = :card AND d.status = :status AND d.archived_at IS NULL
              ORDER BY cd.linked_at, d.id',
             ['card' => (string) $card->id, 'status' => DocumentStatus::Approved->value],
         );

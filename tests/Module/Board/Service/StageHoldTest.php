@@ -136,6 +136,15 @@ final class StageHoldTest extends KernelTestCase
         self::assertNull($this->hold->heldStage($card));
     }
 
+    public function test_an_archived_document_holds_nothing(): void
+    {
+        $document = $this->document(['product'], DocumentStatus::Approved);
+        $card = $this->card('product-design', $document);
+        $this->em->getConnection()->update('documents', ['archived_at' => '2026-09-30 12:00:00'], ['id' => (string) $document->id]);
+
+        self::assertNull($this->hold->heldStage($card));
+    }
+
     public function test_the_stage_reads_the_column_the_database_holds(): void
     {
         $card = $this->card('product-design', $this->document(['product'], DocumentStatus::Approved));
