@@ -12,7 +12,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -24,15 +26,27 @@ if [ "$1 $2" = "update auto" ]; then
 fi
 `
 
-// The releases list mixes a server tag, a newer major, a pre-release and a
-// compact JSON entry, so only numeric sort within major 1 picks 1.10.0.
+// The releases page holds a GitHub prerelease, a draft, a server tag, a newer
+// major, a pre-release suffix, a body that looks like JSON, and both pretty and
+// compact objects. Only numeric sort of the published 1.x tags picks 1.10.0.
 const releasesJSON = `[
-  {"tag_name": "v1.20.0"},
-  {"tag_name": "cli/v2.0.0"},
-  {"tag_name": "cli/v1.11.0-rc1"},
-  {"tag_name":"cli/v1.10.0"},
-  {"tag_name": "cli/v1.3.0"},
-  {"tag_name": "cli/v1.9.2"}
+  {
+    "url": "https://api.github.com/repos/ubermuda/loupe/releases/11",
+    "tag_name": "cli/v1.11.0",
+    "name": "loupe CLI v1.11.0",
+    "draft": false,
+    "prerelease": true,
+    "author": {"login": "bot", "type": "Bot", "site_admin": false},
+    "assets": [{"name": "checksums.txt", "uploader": {"login": "bot"}, "state": "uploaded"}],
+    "body": "Fixes {a}, [b] and \"tag_name\": \"cli/v1.99.0\", \"draft\": false, \"prerelease\": false}"
+  },
+  {"url":"x","tag_name":"cli/v1.12.0","draft":true,"prerelease":false,"author":{"login":"bot"},"assets":[]},
+  {"tag_name": "v1.20.0", "draft": false, "prerelease": false},
+  {"tag_name": "cli/v2.0.0", "draft": false, "prerelease": false},
+  {"tag_name": "cli/v1.11.0-rc1", "draft": false, "prerelease": false},
+  {"tag_name":"cli/v1.10.0","draft":false,"prerelease":false},
+  {"tag_name": "cli/v1.3.0", "draft": false, "prerelease": false},
+  {"prerelease": false, "draft": false, "tag_name": "cli/v1.9.2"}
 ]`
 
 var platforms = []string{"darwin_amd64", "darwin_arm64", "linux_amd64", "linux_arm64"}
@@ -61,7 +75,9 @@ func archive(t *testing.T) []byte {
 // release serves the releases list and, for every version, the four archives
 // and a checksums.txt. A corrupt server lists a wrong sum for each archive. A
 // decoy server lists wrong sums for names that share a prefix or a suffix.
-func release(t *testing.T, corrupt, decoy bool) *httptest.Server {
+// Page N of the list is pages[N-1], or releasesJSON for page 1 when pages is
+// empty. A page past the end is an empty list. requested records each page.
+func release(t *testing.T, corrupt, decoy bool, pages []string, requested *[]string) *httptest.Server {
 	t.Helper()
 	body := archive(t)
 	sum := sha256.Sum256(body)
@@ -70,9 +86,23 @@ func release(t *testing.T, corrupt, decoy bool) *httptest.Server {
 		hexSum = strings.Repeat("0", 64)
 	}
 
+	if len(pages) == 0 {
+		pages = []string{releasesJSON}
+	}
+	var mu sync.Mutex
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/repos/ubermuda/loupe/releases" {
-			_, _ = w.Write([]byte(releasesJSON))
+			page := r.URL.Query().Get("page")
+			mu.Lock()
+			*requested = append(*requested, page)
+			mu.Unlock()
+			n, err := strconv.Atoi(page)
+			if err != nil || n < 1 || n > len(pages) {
+				_, _ = w.Write([]byte("[]"))
+
+				return
+			}
+			_, _ = w.Write([]byte(pages[n-1]))
 
 			return
 		}
@@ -114,6 +144,7 @@ type result struct {
 	out    string
 	err    error
 	called string
+	pages  []string
 }
 
 type setup struct {
@@ -125,6 +156,7 @@ type setup struct {
 	piped      bool
 	decoy      bool
 	noRulesEnv bool
+	pages      []string
 	// tty holds the answers of a terminal session, one per line.
 	tty string
 	// fakes holds extra commands, by name, that shadow the real ones.
@@ -162,7 +194,8 @@ func run(t *testing.T, s setup, args ...string) result {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("sh is not available")
 	}
-	srv := release(t, s.corrupt, s.decoy)
+	var requested []string
+	srv := release(t, s.corrupt, s.decoy, s.pages, &requested)
 	home := t.TempDir()
 
 	// A fake brew comes first, so a real Homebrew on the machine never answers.
@@ -236,7 +269,9 @@ func run(t *testing.T, s setup, args ...string) result {
 	out, err := cmd.CombinedOutput()
 	called, _ := os.ReadFile(filepath.Join(home, "args.txt"))
 
-	return result{home: home, out: string(out), err: err, called: string(called)}
+	srv.Close()
+
+	return result{home: home, out: string(out), err: err, called: string(called), pages: requested}
 }
 
 func assertContains(t *testing.T, got string, wants ...string) {
@@ -485,4 +520,47 @@ func TestInstallTreatsACommentAnswerAsEmpty(t *testing.T) {
 	}
 	assertInstalled(t, filepath.Join(r.home, ".local", "bin", "loupe"))
 	assertCalled(t, r, "update auto off --keep --rules "+filepath.Join(r.home, "rules.yaml"))
+}
+
+func TestInstallSkipsPrereleasesAndDrafts(t *testing.T) {
+	r := run(t, setup{})
+	if r.err != nil {
+		t.Fatalf("install failed: %v\n%s", r.err, r.out)
+	}
+	assertContains(t, r.out, "Installed loupe 1.10.0")
+	for _, v := range []string{"1.11.0", "1.12.0", "1.99.0"} {
+		if strings.Contains(r.out, v) {
+			t.Errorf("the script chose %s:\n%s", v, r.out)
+		}
+	}
+}
+
+func TestInstallReadsTheNextPages(t *testing.T) {
+	serverOnly := `[{"tag_name": "v1.20.0", "draft": false, "prerelease": false}]`
+	cli := `[{"tag_name": "cli/v1.5.0", "draft": false, "prerelease": false}]`
+	r := run(t, setup{pages: []string{serverOnly, cli}})
+	if r.err != nil {
+		t.Fatalf("install failed: %v\n%s", r.err, r.out)
+	}
+	assertContains(t, r.out, "Installed loupe 1.5.0")
+	if got := strings.Join(r.pages, ","); got != "1,2,3" {
+		t.Errorf("the script read pages %s, want 1,2,3 and a stop at the empty page", got)
+	}
+}
+
+func TestInstallReadsTenPagesAtMost(t *testing.T) {
+	var pages []string
+	for range 12 {
+		pages = append(pages, `[{"tag_name": "v1.20.0", "draft": false, "prerelease": false}]`)
+	}
+	pages[9] = `[{"tag_name": "cli/v1.6.0", "draft": false, "prerelease": false}]`
+	pages[10] = `[{"tag_name": "cli/v1.7.0", "draft": false, "prerelease": false}]`
+	r := run(t, setup{pages: pages})
+	if r.err != nil {
+		t.Fatalf("install failed: %v\n%s", r.err, r.out)
+	}
+	assertContains(t, r.out, "Installed loupe 1.6.0")
+	if len(r.pages) != 10 {
+		t.Errorf("the script read %d pages, want 10", len(r.pages))
+	}
 }

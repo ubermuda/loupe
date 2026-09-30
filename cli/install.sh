@@ -105,10 +105,58 @@ rules_file() {
 	fi
 }
 
+# published_tags FILE prints one line for each release of a GitHub release list:
+# its tag when "draft" and "prerelease" are both false, else "-".
+# It tracks nesting and strings, so key order, JSON layout and the body do not matter.
+published_tags() {
+	awk '
+	{
+		n = length($0)
+		for (i = 1; i <= n; i++) {
+			c = substr($0, i, 1)
+			if (instr) {
+				if (esc) esc = 0
+				else if (c == "\\") esc = 1
+				else if (c == "\"") {
+					instr = 0
+					if (nest == 2) {
+						str = substr($0, start, i - start)
+						if (want_key) key = str
+						else if (key == "tag_name") tag = str
+					}
+				}
+				continue
+			}
+			if (c == "\"") { instr = 1; start = i + 1; continue }
+			if (c == "{" || c == "[") {
+				nest++
+				if (nest == 2 && c == "{") { tag = ""; draft = ""; pre = ""; key = ""; lit = ""; want_key = 1 }
+				continue
+			}
+			if (nest != 2) {
+				if (c == "}" || c == "]") nest--
+				continue
+			}
+			if (c == ":") { want_key = 0; lit = "" }
+			else if (c == "," || c == "}") {
+				if (key == "draft") draft = lit
+				if (key == "prerelease") pre = lit
+				want_key = 1; lit = ""
+				if (c == "}") {
+					out = "-"
+					if (tag != "" && draft == "false" && pre == "false") out = tag
+					print out
+					nest--
+				}
+			} else if (c == "]") nest--
+			else if (c ~ /[a-z]/) lit = lit c
+		}
+	}' "$1"
+}
+
 latest_version() {
 	# Only plain X.Y.Z tags match, so a pre-release such as cli/v1.2.0-rc1 does not.
-	grep -o '"tag_name": *"cli/v[0-9]*\.[0-9]*\.[0-9]*"' "$work/releases.json" |
-		sed 's/.*"cli\/v//; s/"$//' |
+	sed -n 's/^cli\/v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p' "$work/tags" |
 		grep "^$major\." |
 		sort -t. -k1,1n -k2,2n -k3,3n |
 		tail -n 1
@@ -167,8 +215,16 @@ main() {
 	if [ -n "$version" ]; then
 		say "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || die "the version must look like 1.2.3, not $version."
 	else
-		fetch "$github_api/repos/ubermuda/loupe/releases?per_page=100" "$work/releases.json" ||
-			die "cannot read the release list from $github_api."
+		: >"$work/tags"
+		page=1
+		while [ "$page" -le 10 ]; do
+			fetch "$github_api/repos/ubermuda/loupe/releases?per_page=100&page=$page" "$work/page.json" ||
+				die "cannot read the release list from $github_api."
+			published_tags "$work/page.json" >"$work/page.tags"
+			[ -s "$work/page.tags" ] || break
+			cat "$work/page.tags" >>"$work/tags"
+			page=$((page + 1))
+		done
 		version=$(latest_version)
 		[ -n "$version" ] || die "no loupe CLI release $major.x found. The GitHub API rate limit can cause this. Try again later, or use --version."
 	fi
