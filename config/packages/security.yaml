@@ -144,6 +144,8 @@ security:
         - { path: ^/waitlist,        roles: PUBLIC_ACCESS }
         - { path: ^/forgot-password, roles: PUBLIC_ACCESS }
         - { path: ^/install,         roles: PUBLIC_ACCESS }
+        # A beta invite link carries a signed-out visitor to sign-up.
+        - { path: ^/beta/,           roles: PUBLIC_ACCESS }
         # The emailed deletion link must be reachable logged-out and by an
         # unverified logged-in user; it covers both GET (confirm) and POST
         # (execute), which share the same path. /goodbye is the public landing

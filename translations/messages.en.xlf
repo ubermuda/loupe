@@ -3489,6 +3489,46 @@
                 <source>billing.checkout_success.hint</source>
                 <target>Activation usually takes a few seconds. Reload the page if the app still asks you to subscribe.</target>
             </trans-unit>
+            <trans-unit id="billing.beta_invite.page.title">
+                <source>billing.beta_invite.page.title</source>
+                <target>Beta access</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.redeemed.heading">
+                <source>billing.beta_invite.redeemed.heading</source>
+                <target>Welcome to the beta</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.redeemed.description">
+                <source>billing.beta_invite.redeemed.description</source>
+                <target>Your account now has free access for as long as the beta runs.</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.redeemed.stripe_hint">
+                <source>billing.beta_invite.redeemed.stripe_hint</source>
+                <target>You still have a paid subscription, and the beta does not stop it. Cancel it so that you are not charged.</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.redeemed.manage_subscription">
+                <source>billing.beta_invite.redeemed.manage_subscription</source>
+                <target>Manage your subscription</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.redeemed.continue">
+                <source>billing.beta_invite.redeemed.continue</source>
+                <target>Continue to the app</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.invalid.page.title">
+                <source>billing.beta_invite.invalid.page.title</source>
+                <target>Link not valid</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.invalid.heading">
+                <source>billing.beta_invite.invalid.heading</source>
+                <target>This link is no longer valid</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.invalid.body">
+                <source>billing.beta_invite.invalid.body</source>
+                <target>Someone already used this beta invite, or it was withdrawn. Ask for a new link.</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.invalid.back">
+                <source>billing.beta_invite.invalid.back</source>
+                <target>Back to Loupe</target>
+            </trans-unit>
             <trans-unit id="billing.flash.checkout_unavailable">
                 <source>billing.flash.checkout_unavailable</source>
                 <target>Checkout is unavailable right now. Please try again later.</target>
