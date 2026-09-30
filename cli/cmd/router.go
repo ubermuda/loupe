@@ -1190,14 +1190,7 @@ func classify(res workerResult) (string, string) {
 func (r *router) end(p pending, e endedRun) {
 	r.logResult(p, e.res, e.elapsed)
 	r.mu.Lock()
-	// A stopped run reports stopped however it ended, and never resumes.
-	if r.stops[p.runID] {
-		r.releaseLocked(p.slot)
-		r.closeStoppedLocked(p, r.stoppedReport(p, e), true)
-		dropped := r.dispatchLocked()
-		r.mu.Unlock()
-		r.logDropped(dropped)
-
+	if r.endStoppedLocked(p, e) {
 		return
 	}
 	shut := r.shut()
@@ -1225,8 +1218,34 @@ func (r *router) end(p pending, e endedRun) {
 
 		return
 	}
-	r.emit(p, r.outcome(p, e))
-	r.finish(p)
+	// A stop can come after the check above. The outcome and the check share mu.
+	r.mu.Lock()
+	if r.endStoppedLocked(p, e) {
+		return
+	}
+	r.emitLocked(p, r.outcome(p, e))
+	delete(r.running, p.key)
+	r.releaseLocked(p.slot)
+	dropped := r.dispatchLocked()
+	r.mu.Unlock()
+
+	r.logDropped(dropped)
+}
+
+// endStoppedLocked reports a run that a person stopped as stopped, however it
+// ended, and frees its slot and card. A stopped run never resumes. The caller
+// holds mu, which endStoppedLocked releases when it returns true.
+func (r *router) endStoppedLocked(p pending, e endedRun) bool {
+	if !r.stops[p.runID] {
+		return false
+	}
+	r.releaseLocked(p.slot)
+	r.closeStoppedLocked(p, r.stoppedReport(p, e), true)
+	dropped := r.dispatchLocked()
+	r.mu.Unlock()
+	r.logDropped(dropped)
+
+	return true
 }
 
 // missingSessionOutput starts what claude prints when it has no session to
@@ -1247,6 +1266,9 @@ func sessionMissing(p pending, res workerResult) bool {
 // event, startFresh does nothing and returns false.
 func (r *router) startFresh(p pending, e endedRun) bool {
 	r.mu.Lock()
+	if r.endStoppedLocked(p, e) {
+		return true
+	}
 	current := r.rules()
 	m, ok := matchWorker(current, p.event, p.rule)
 	if !ok {
@@ -1510,19 +1532,6 @@ func (r *router) check(p pending) {
 
 		r.logDropped(dropped)
 	}()
-}
-
-// finish frees the slot and the card, and starts what waits, in one critical
-// section. A new event for the card cannot slip between the release and the
-// start of the card's waiting event.
-func (r *router) finish(p pending) {
-	r.mu.Lock()
-	delete(r.running, p.key)
-	r.releaseLocked(p.slot)
-	dropped := r.dispatchLocked()
-	r.mu.Unlock()
-
-	r.logDropped(dropped)
 }
 
 // shut reports whether the queue accepts no more starts. The caller holds mu.
