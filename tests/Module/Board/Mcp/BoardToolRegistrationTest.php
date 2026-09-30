@@ -233,7 +233,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertArrayNotHasKey('required', $schema);
     }
 
-    public function test_card_get_and_card_update_take_a_card_id_or_a_number(): void
+    public function test_the_single_card_tools_take_a_card_id_or_a_number(): void
     {
         foreach ([CardGetTool::NAME, CardGetHistoryTool::NAME, CardUpdateTool::NAME] as $toolName) {
             $schema = $this->registry->getTool($toolName)->tool->inputSchema;
