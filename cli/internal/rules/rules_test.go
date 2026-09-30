@@ -8,8 +8,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/directive"
@@ -1277,5 +1279,94 @@ func TestMatchRuleCarriesThePool(t *testing.T) {
 		if !ok || m.Pool != tc.want {
 			t.Fatalf("MatchRule(%s) = %+v, %v; want pool %s", tc.rule, m, ok, tc.want)
 		}
+	}
+}
+
+// beforeRule is a worker rule whose before block holds FIELDS.
+const beforeRule = `
+projects:
+  loupe:
+    dir: {dir}
+launch:
+  command: ['{script}']
+rules:
+  - on: board.card_moved
+    project: loupe
+    to: ready
+    prompt: Card {cardNumber}.
+    before:
+FIELDS`
+
+func withBefore(fields string) string {
+	return strings.Replace(beforeRule, "FIELDS", "      "+strings.ReplaceAll(strings.TrimSpace(fields), "\n", "\n      ")+"\n", 1)
+}
+
+func TestParseReadsTheBeforeTimeout(t *testing.T) {
+	for name, tc := range map[string]struct {
+		fields string
+		want   time.Duration
+	}{
+		"the default":      {"run: [prepare]", DefaultBeforeTimeout},
+		"an explicit time": {"run: [prepare]\ntimeout: 90s", 90 * time.Second},
+		"the maximum":      {"run: [prepare]\ntimeout: 60m", MaxBeforeTimeout},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := parse(t, withBefore(tc.fields)).Rules()[0]
+			if r.Before == nil || r.beforeTimeout != tc.want {
+				t.Fatalf("before = %+v, timeout = %s, want %s", r.Before, r.beforeTimeout, tc.want)
+			}
+		})
+	}
+}
+
+func TestParseRefusesAnInvalidBefore(t *testing.T) {
+	onCreated := strings.Replace(strings.Replace(withBefore("run: [prepare, '{cardNumber}']"), "on: board.card_moved", "on: board.card_created", 1), "    to: ready\n", "", 1)
+	interactive := strings.Replace(withBefore("run: [prepare]"), "  - on:", "  - action: interactive\n    on:", 1)
+
+	for name, tc := range map[string]struct {
+		body string
+		want string
+	}{
+		"a timeout over the maximum": {withBefore("run: [prepare]\ntimeout: 61m"), "before.timeout is 61m, and the most it takes is 1h0m0s"},
+		"a zero timeout":             {withBefore("run: [prepare]\ntimeout: 0s"), "before.timeout must be positive"},
+		"a negative timeout":         {withBefore("run: [prepare]\ntimeout: -1m"), "before.timeout must be positive"},
+		"an unparsable timeout":      {withBefore("run: [prepare]\ntimeout: soon"), `before.timeout "soon" is not a duration`},
+		"no run":                     {withBefore("timeout: 1m"), "before.run is required"},
+		"an empty run":               {withBefore("run: []"), "before.run is required"},
+		"a blank program":            {withBefore("run: ['  ', x]"), "before.run is required"},
+		"an unknown placeholder":     {withBefore("run: [prepare, '{title}']"), "before.run: unknown placeholder {title}"},
+		"another type's placeholder": {onCreated, "before.run: placeholder {cardNumber} has no value for board.card_created events"},
+		"an unknown field":           {withBefore("run: [prepare]\nshell: sh"), "field shell not found"},
+		"an interactive rule":        {interactive, "before names worker behaviour"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			text, _ := file(t, tc.body)
+			_, err := Parse([]byte(text), Defaults{})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want it to contain %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// Each element of before.run is filled on its own, with no prompt footer, so a
+// value never splits into two arguments.
+func TestMatchRendersTheBeforeCommand(t *testing.T) {
+	s := checked(t, withBefore("run: [prepare, '--card={cardNumber}', '{cardId} {to}']\ntimeout: 2m"))
+
+	m := s.Match(moved("backlog", "ready", event.ActorHuman))
+	want := []string{"prepare", "--card=87", cardID + " ready"}
+	if m.Before == nil || !slices.Equal(m.Before.Argv, want) || m.Before.Timeout != 2*time.Minute {
+		t.Fatalf("before = %+v, want argv %q", m.Before, want)
+	}
+	m.Before.Argv[0] = "changed"
+	if again := s.Match(moved("backlog", "ready", event.ActorHuman)); again.Before.Argv[0] != "prepare" {
+		t.Fatalf("a change to one match reached the rule: %q", again.Before.Argv)
+	}
+}
+
+func TestMatchHasNoBeforeForARuleWithout(t *testing.T) {
+	if m := checked(t, oneRule).Match(moved("backlog", "ready", event.ActorHuman)); m.Skip != Run || m.Before != nil {
+		t.Fatalf("Match = %+v", m)
 	}
 }
