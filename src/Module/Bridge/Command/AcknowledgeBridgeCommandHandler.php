@@ -18,8 +18,8 @@ use Ubermuda\AuditBundle\AuditSubject;
 /**
  * Settles a pending command with the answer of its bridge. A command that is
  * already settled stays as it is, so the bridge can repeat an ack safely. A
- * resume the bridge took releases the hold of its card, so a resume that is
- * cancelled, refused or expired leaves the card held.
+ * resume the bridge took releases the hold of its card, unless a person asked
+ * for a stop of the card since. A resume the bridge never took keeps the hold.
  */
 final readonly class AcknowledgeBridgeCommandHandler
 {
@@ -47,8 +47,12 @@ final readonly class AcknowledgeBridgeCommandHandler
             }
 
             $settled = $bridgeCommand->settle($command->state, $command->reason, $this->clock->now());
-            if ($settled && BridgeCommandKind::ResumeRun === $bridgeCommand->kind && BridgeCommandState::Done === $command->state) {
-                $this->cardHolds->release($bridgeCommand->project, [$bridgeCommand->workerRun->cardId]);
+            // Also on a late ack, because the bridge resumed the run even when a cancel or the expiry settled the row first.
+            $project = $bridgeCommand->project;
+            $cardId = $bridgeCommand->workerRun->cardId;
+            if (BridgeCommandKind::ResumeRun === $bridgeCommand->kind && BridgeCommandState::Done === $command->state
+                && !$this->bridgeCommands->hasLiveStopForCardSince($project, $cardId, $bridgeCommand->requestedAt)) {
+                $this->cardHolds->release($project, [$cardId]);
             }
 
             return new AcknowledgeBridgeCommandResult($bridgeCommand, $settled);

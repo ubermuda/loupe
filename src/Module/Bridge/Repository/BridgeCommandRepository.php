@@ -102,6 +102,27 @@ class BridgeCommandRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** Whether a stop of the card that was asked at or after the time still waits or was taken. */
+    public function hasLiveStopForCardSince(Project $project, Uuid $cardId, \DateTimeImmutable $at): bool
+    {
+        return null !== $this->createQueryBuilder('c')
+            ->select('1')
+            ->join('c.workerRun', 'r')
+            ->andWhere('c.project = :project')
+            ->andWhere('r.cardId = :cardId')
+            ->andWhere('c.kind = :stop')
+            ->andWhere('c.state IN (:live)')
+            ->andWhere('c.requestedAt >= :at')
+            ->setParameter('project', $project)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('stop', BridgeCommandKind::StopRun->value)
+            ->setParameter('live', [BridgeCommandState::Pending->value, BridgeCommandState::Done->value])
+            ->setParameter('at', $at, Types::DATETIME_IMMUTABLE)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** Whether the newest stop of the run was withdrawn, so the run never stopped through it. */
     public function lastStopWasCancelled(WorkerRun $run): bool
     {
