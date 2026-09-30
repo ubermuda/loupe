@@ -118,6 +118,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-just
+      - uses: ./.github/actions/docker-mirror
+        with:
+          images: golang:1.26-alpine
       - run: just cli-test
 
   # Three runners, each with its own stack, database and seed. `chromium` holds
