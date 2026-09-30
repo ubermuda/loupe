@@ -96,6 +96,35 @@ class BridgeCommandRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * The newest command of each run. On a tie of the request time, the higher id wins.
+     *
+     * @param list<WorkerRun> $runs
+     *
+     * @return array<string, BridgeCommand> keyed by the RFC 4122 run id
+     */
+    public function findLatestForRuns(array $runs): array
+    {
+        if ([] === $runs) {
+            return [];
+        }
+
+        /** @var list<BridgeCommand> $commands */
+        $commands = $this->createQueryBuilder('c')
+            ->andWhere('c.workerRun IN (:runs)')
+            ->andWhere('NOT EXISTS (SELECT n.id FROM '.BridgeCommand::class.' n WHERE n.workerRun = c.workerRun AND (n.requestedAt > c.requestedAt OR (n.requestedAt = c.requestedAt AND n.id > c.id)))')
+            ->setParameter('runs', $runs)
+            ->getQuery()
+            ->getResult();
+
+        $latest = [];
+        foreach ($commands as $command) {
+            $latest[(string) $command->workerRun->id] = $command;
+        }
+
+        return $latest;
+    }
+
     /** @return list<Project> the projects that hold a pending command whose time ran out */
     public function findProjectsWithDue(\DateTimeImmutable $now): array
     {

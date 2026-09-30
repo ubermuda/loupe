@@ -10,6 +10,7 @@ use App\Module\Bridge\Repository\WorkerRunUsageRepository;
 use App\Module\Bridge\Service\CardRunWarnings;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Bridge\View\CardUsageTotal;
+use App\Module\Bridge\View\WorkerRunControls;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Module\Project\Entity\Project;
 use Psr\Clock\ClockInterface;
@@ -30,6 +31,7 @@ final class CardWorkerRunsExtension extends AbstractExtension
         private readonly WorkerRunUsageRepository $workerRunUsages,
         private readonly ClockInterface $clock,
         private readonly CardRunWarnings $runWarnings,
+        private readonly WorkerRunControls $controls,
     ) {
     }
 
@@ -63,11 +65,13 @@ final class CardWorkerRunsExtension extends AbstractExtension
         }
 
         $now = $this->clock->now();
+        $runs = $this->workerRuns->findRecentForCard($project, Uuid::fromString($cardId), self::LIMIT);
+        $controls = $this->controls->forRuns($project, $runs);
 
         return array_map(
             // The card page shows neither history nor its own title, so it loads none.
-            static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, [], null),
-            $this->workerRuns->findRecentForCard($project, Uuid::fromString($cardId), self::LIMIT),
+            static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, [], null, $controls[(string) $run->id] ?? null),
+            $runs,
         );
     }
 
