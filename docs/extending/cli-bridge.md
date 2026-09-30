@@ -473,19 +473,21 @@ then shows "Update available" and the version, with the command that installs
 it. That command is `brew upgrade loupe` for a Homebrew install, and
 `curl -fsSL https://<your Loupe>/install.sh | sh` in all other cases.
 
-`loupe update auto on` or `loupe update auto off` adds the key when the file has
-none. The command never changes a key that the file holds. It exits with status
-1 when the key holds the other value, and `--keep` makes it keep that value and
-exit with status 0. See
+`loupe update auto on` or `loupe update auto off` sets the key. It adds the key
+when the file has none, and changes a plain `true` or `false` on its line. When
+it cannot change the line alone, it exits with status 1 and names the line to
+edit. With `--keep`, a key that the file holds keeps its value. See
 [`loupe update auto`](../../cli/README.md#loupe-update-auto).
 
 An older CLI took a missing key as on. So the first start after a handover from
-such a CLI adds `autoUpdate: true` to `rules.yaml` and logs
-`auto_update_migrated`. It then sets `defaultOff` in `update.json`, and no
-later start changes the file. A start that is not a handover only sets
-`defaultOff`. When the file takes no new last line, the bridge logs
-`auto_update_migration_failed` with the line to add by hand. It keeps updates
-on for the process, and the next handover tries again.
+such a CLI adds `autoUpdate: true` to the rule file and logs
+`auto_update_migrated`. `update.json` keeps this record for each rule file.
+`defaultOff` lists each rule file that a new CLI started with, and no later
+start of that file changes it. A start that is not a handover only adds the
+file to `defaultOff`. When the file takes no new last line, the bridge logs
+`auto_update_migration_failed` with the line to add by hand. It then adds the
+file to `autoUpdatePending` and keeps updates on. Each later start of that rule
+file, a handover or a plain restart, keeps updates on and tries again.
 
 ### Blocked
 

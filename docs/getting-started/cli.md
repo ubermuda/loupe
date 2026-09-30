@@ -51,12 +51,11 @@ To turn updates on later, run:
 loupe update auto on
 ```
 
-This command adds the key only when the rule file has none. But the script
-writes `autoUpdate: false` when it leaves updates off, and creates the rule file
-when it is absent. After such an install, `loupe update auto on` stops with
-status 1 and names the line to edit. Change that line to `autoUpdate: true`.
+The script writes `autoUpdate: false` when it leaves updates off, and creates
+the rule file when it is absent. `loupe update auto on` changes that value to
+`true` on its line, and keeps the rest of the file.
 [`loupe update auto`](../../cli/README.md#loupe-update-auto) describes the
-command.
+command, and the rare case where it cannot change the line.
 
 A Homebrew install updates with `brew upgrade loupe`. With no bridge running,
 `loupe update` refuses to replace a binary that Homebrew installed, and prints
@@ -86,11 +85,14 @@ curl -fsSL https://<your Loupe instance>/install.sh | sh -s -- --auto-update
 
 With no `--install-dir`, the script uses the first of these that applies:
 
-1. `~/.local/bin`, when it is on your `PATH`.
-2. `~/bin`, when it is on your `PATH`.
-3. The directory you type at the prompt, in a terminal. The default is
+1. The directory of the `loupe` that is already on your `PATH`, with symlinks
+   resolved. The script skips a `loupe` that Homebrew owns. So a second run
+   replaces the binary in place.
+2. `~/.local/bin`, when it is on your `PATH`.
+3. `~/bin`, when it is on your `PATH`.
+4. The directory you type at the prompt, in a terminal. The default is
    `~/.local/bin`.
-4. `~/.local/bin`.
+5. `~/.local/bin`.
 
 When the directory is not on your `PATH`, the script prints the line to add to
 your shell profile.
@@ -100,19 +102,18 @@ takes the highest `cli/vX.Y.Z` release of the major version your instance
 supports, and skips a pre-release such as `cli/v1.2.0-rc1`. The GitHub API rate
 limit can stop this step. Then use `--version`.
 
-`--auto-update` runs `loupe update auto on`. When the rule file holds
-`autoUpdate: false`, that command fails. The script then prints a warning and
-`Auto-update: unknown`, and the binary stays installed.
+`--auto-update` runs `loupe update auto on`. It turns updates on also when the
+rule file holds `autoUpdate: false`. When `loupe update auto` fails, the script
+prints a warning and `Auto-update: unknown`, and the binary stays installed.
 
 | Variable | Purpose |
 |---|---|
 | `LOUPE_INSTALL_NO_TTY` | `1` makes the script act as if there is no terminal. It asks nothing, picks the directory without a prompt, and leaves updates off |
-| `LOUPE_RULES_FILE` | The rule file the script reads to find an existing `autoUpdate` key. The default is `rules.yaml` in your config directory |
+| `LOUPE_INSTALL_TTY` | A file that the script reads the answers from, in place of `/dev/tty` |
+| `LOUPE_RULES_FILE` | The rule file that the script reads and writes. The default is `rules.yaml` in your config directory |
 
-`LOUPE_RULES_FILE` changes only what the script reads. The script runs
-`loupe update auto` with no `--rules`, so the key goes into `rules.yaml` in your
-config directory. The config directory is `~/Library/Application Support/loupe`
-on macOS, and `$XDG_CONFIG_HOME/loupe` or `~/.config/loupe` on Linux.
+The config directory is `~/Library/Application Support/loupe` on macOS, and
+`$XDG_CONFIG_HOME/loupe` or `~/.config/loupe` on Linux.
 
 The script needs `curl` or `wget`, and `sha256sum` or `shasum`.
 
