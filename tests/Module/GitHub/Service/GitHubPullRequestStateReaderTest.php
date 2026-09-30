@@ -10,7 +10,6 @@ use App\Module\Forge\Entity\ForgeRepository;
 use App\Module\Forge\Entity\ForgeRepositorySource;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
-use App\Module\Forge\Repository\ForgeRepositoryRepository;
 use App\Module\Forge\Service\PullRequestStateReaders;
 use App\Module\Forge\Service\PullRequestUnreadable;
 use App\Module\GitHub\Entity\GitHubInstallation;
@@ -18,6 +17,7 @@ use App\Module\GitHub\Entity\GitHubRepositorySelection;
 use App\Module\GitHub\Repository\GitHubInstallationRepository;
 use App\Module\GitHub\Service\GitHubAppApi;
 use App\Module\GitHub\Service\GitHubAppConfiguration;
+use App\Module\GitHub\Service\GitHubPullRequestInstallations;
 use App\Module\GitHub\Service\GitHubPullRequestStateMapper;
 use App\Module\GitHub\Service\GitHubPullRequestStateReader;
 use App\Module\Project\Entity\Project;
@@ -356,14 +356,11 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertTrue(openssl_pkey_export($key, $pem));
         self::assertIsString($pem);
 
-        $forgeRepositories = self::getContainer()->get(ForgeRepositoryRepository::class);
-        self::assertInstanceOf(ForgeRepositoryRepository::class, $forgeRepositories);
-        $installations = self::getContainer()->get(GitHubInstallationRepository::class);
-        self::assertInstanceOf(GitHubInstallationRepository::class, $installations);
+        $installations = self::getContainer()->get(GitHubPullRequestInstallations::class);
+        self::assertInstanceOf(GitHubPullRequestInstallations::class, $installations);
 
         return new GitHubPullRequestStateReader(
             new GitHubAppApi($client, new GitHubAppConfiguration(null, null, null, null, '123456', $pem), $this->clock),
-            $forgeRepositories,
             $installations,
             new GitHubPullRequestStateMapper(),
             $this->clock,

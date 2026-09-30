@@ -619,6 +619,12 @@ when each later commit is a merge from the base that git re-creates
 with no conflict. A conflict resolution or any other later commit stops the run
 as `not ready`, so a person approves or proves it.
 
+Loupe sends `pull_request.behind` for every pull request that falls behind its
+base, approved or not. The skill updates the branch only when the approval
+covers the head, by the same check. So an unapproved branch costs no CI run.
+Loupe sends `behind` once, so a rule on `pull_request.review_submitted` with
+`verdict: approved` can run the update when the approval arrives.
+
 Loupe writes these types:
 
 - `pull_request.checks_concluded`

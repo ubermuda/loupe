@@ -16,6 +16,7 @@ final readonly class SaveBoardAutomationSettingsCommand
         public BoardMergeStrategy $mergeStrategy,
         public BoardFixStrategy $fixStrategy,
         public int $loopLimit,
+        public bool $commentOnFixQueued,
     ) {
     }
 }

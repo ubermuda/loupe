@@ -193,6 +193,68 @@ final class GitHubAppApiTest extends TestCase
         self::assertSame(['statuses', 'metadata'], $access->missingReadAccess(['checks', 'contents', 'statuses', 'metadata']));
     }
 
+    public function test_only_a_write_grant_counts_as_write_access(): void
+    {
+        $access = new GitHubAppInstallationAccess(1, 'ubermuda', ['pull_requests' => 'read', 'checks' => 'write', 'statuses' => 'none']);
+
+        self::assertSame(['pull_requests', 'statuses', 'metadata'], $access->missingWriteAccess(['pull_requests', 'checks', 'statuses', 'metadata']));
+    }
+
+    public function test_post_sends_a_json_body_with_the_installation_token_and_answers_the_created_resource(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            $this->created(['id' => 99, 'body' => 'Hello']),
+        ]);
+
+        self::assertSame(['id' => 99, 'body' => 'Hello'], $api->post(42, '/repos/acme/widgets/issues/7/comments', ['body' => 'Hello']));
+        self::assertSame('POST', $this->requests[1]['method']);
+        self::assertSame('https://api.github.com/repos/acme/widgets/issues/7/comments', $this->requests[1]['url']);
+        self::assertSame(self::TOKEN, $this->bearer(1));
+        $body = $this->requests[1]['options']['body'] ?? null;
+        self::assertIsString($body);
+        self::assertSame(['body' => 'Hello'], json_decode($body, true, flags: \JSON_THROW_ON_ERROR));
+    }
+
+    public function test_post_names_the_status_of_a_refused_request(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            new MockResponse('{"message":"Resource not accessible by integration"}', ['http_code' => 403]),
+        ]);
+
+        $failure = $this->failure(static fn () => $api->post(42, '/repos/acme/widgets/issues/7/comments', ['body' => 'Hello']));
+
+        self::assertSame('http_status', $failure->reason);
+        self::assertSame(403, $failure->status);
+    }
+
+    /** @return iterable<string, array{int, array<string, string>, bool}> */
+    public static function rateLimits(): iterable
+    {
+        yield 'a 403 with no rate limit headers' => [403, [], false];
+        yield 'a 403 with no requests left' => [403, ['x-ratelimit-remaining' => '0'], true];
+        yield 'a 403 with requests left' => [403, ['x-ratelimit-remaining' => '12'], false];
+        yield 'a 403 that asks to retry later' => [403, ['retry-after' => '60'], true];
+        yield 'a 429' => [429, [], true];
+        yield 'a 404 with no requests left' => [404, ['x-ratelimit-remaining' => '0'], false];
+    }
+
+    /** @param array<string, string> $headers */
+    #[DataProvider('rateLimits')]
+    public function test_a_refused_request_says_whether_github_limited_the_rate(int $status, array $headers, bool $rateLimited): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            new MockResponse('{"message":"API rate limit exceeded"}', ['http_code' => $status, 'response_headers' => $headers]),
+        ]);
+
+        $failure = $this->failure(static fn () => $api->post(42, '/repos/acme/widgets/issues/7/comments', ['body' => 'Hello']));
+
+        self::assertSame($status, $failure->status);
+        self::assertSame($rateLimited, $failure->rateLimited);
+    }
+
     public function test_graphql_posts_the_query_with_the_installation_token_and_answers_the_data(): void
     {
         $api = $this->api([

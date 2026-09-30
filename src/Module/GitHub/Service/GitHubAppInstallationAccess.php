@@ -27,4 +27,17 @@ final readonly class GitHubAppInstallationAccess
             fn (string $name): bool => !\in_array($this->permissions[$name] ?? null, ['read', 'write'], true),
         ));
     }
+
+    /**
+     * @param list<string> $names
+     *
+     * @return list<string> the names that do not grant write access
+     */
+    public function missingWriteAccess(array $names): array
+    {
+        return array_values(array_filter(
+            $names,
+            fn (string $name): bool => 'write' !== ($this->permissions[$name] ?? null),
+        ));
+    }
 }
