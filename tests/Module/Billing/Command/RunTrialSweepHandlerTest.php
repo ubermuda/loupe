@@ -24,6 +24,7 @@ use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\RecordingMailer;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
@@ -279,18 +280,23 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
 
     public function test_a_failing_send_counts_the_row_as_failed_and_the_batch_continues(): void
     {
-        $first = $this->seedProfile('failedsendone');
-        $second = $this->seedProfile('failedsendtwo');
+        $profiles = [
+            'failedsendone@example.com' => $this->seedProfile('failedsendone'),
+            'failedsendtwo@example.com' => $this->seedProfile('failedsendtwo'),
+        ];
 
-        // Throws on the first send only: one row fails after its markers
-        // commit, the next row must still be processed.
+        // Throws on the first send only, whichever row the unordered query
+        // returns first. The other row must still be processed.
         $mailer = new class implements MailerInterface {
-            private int $calls = 0;
+            public ?string $rejected = null;
 
             #[\Override]
             public function send(RawMessage $message, ?Envelope $envelope = null): void
             {
-                if (1 === ++$this->calls) {
+                if (null === $this->rejected) {
+                    Assert::assertInstanceOf(TemplatedEmail::class, $message);
+                    $this->rejected = $message->getTo()[0]->getAddress();
+
                     throw new \RuntimeException('SMTP down');
                 }
             }
@@ -314,18 +320,20 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
         // The failing row's counts are lost (the throw lands after its markers
         // commit, before its tallies), the surviving row's are kept.
         self::assertEquals(new TrialSweepResult(disabled: 1, churnedSurveys: 1, failed: 1), $result);
-        self::assertEquals($this->now, $this->trial($first)->surveySentAt);
-        self::assertEquals($this->now, $this->trial($second)->surveySentAt);
-        self::assertEquals($this->now, $first->user->disabledAt);
-        self::assertEquals($this->now, $second->user->disabledAt);
+        foreach ($profiles as $profile) {
+            self::assertEquals($this->now, $this->trial($profile)->surveySentAt);
+            self::assertEquals($this->now, $profile->user->disabledAt);
+        }
+        self::assertNotNull($mailer->rejected);
+        $failed = $profiles[$mailer->rejected] ?? self::fail('the rejected send went to an unseeded address');
 
         // The record names the row the sweep left unsettled. The SMTP error is
         // unbounded text with no erasure path, so it stays in the log line.
         $failure = $this->audit->record('billing.trial_sweep_row_failed');
         self::assertSame(AuditOutcome::Failed, $failure->outcome);
         self::assertSame([
-            'subscriptionId' => (string) $this->trial($first)->id,
-            'userId' => (string) $first->user->id,
+            'subscriptionId' => (string) $this->trial($failed)->id,
+            'userId' => (string) $failed->user->id,
         ], $failure->context);
         self::assertNotNull($failure->subject);
         self::assertSame('user', $failure->subject->type);

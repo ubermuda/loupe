@@ -252,6 +252,14 @@ Verify the worker's resolution before you merge. Read its merge commit: the
 resolved. Run the `comm` proof in `references/git-traps.md` yourself, then run
 `merge-ready.sh` on the new head. The approval covers a resolution that passes.
 
+The bridge's `merge-ready` rule runs the `loupe-stage-merge` skill, and that
+worker reads the approval by time as `merge-ready.sh` does. It compares push
+times, where `merge-ready.sh` compares commit times. It merges after a sync. It never merges after a conflict resolution, because it cannot run the
+`comm` proof as well as a person. It reports `not ready <url>: conflict
+resolution after approval` and leaves that merge to you. Any other commit after
+the approval holds as `not ready <url>: commits after approval` until the owner
+approves again.
+
 A fix that is not a conflict goes to the bridge too. Follow
 `references/dispatch.md` only when no bridge worker picks it up and the
 branch's session is gone.
