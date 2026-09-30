@@ -208,6 +208,7 @@ final class ListAgentsControllerTest extends WebTestCase
         $bridge->pauseRequested = true;
         $bridge->pauseRequestedAt = new \DateTimeImmutable('2026-09-14 16:05:00');
         $bridge->pauseRequestedBy = $owner;
+        $bridge->pausedReported = true;
         $other = $this->seedBridge($this->em(), $owner, projects: [(string) $project->id]);
         $this->em()->flush();
         $this->em()->clear();
@@ -223,7 +224,7 @@ final class ListAgentsControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-agent-connection-id="'.$other->id.'"] [data-agent-paused]'));
     }
 
-    public function test_a_pause_with_no_known_person_shows_the_time_alone(): void
+    public function test_a_pause_the_bridge_has_not_confirmed_reads_as_requested(): void
     {
         $client = static::createClient();
         [$owner, $project] = $this->pauseScenario('paused-nobody', pauseRequested: true);
@@ -233,7 +234,7 @@ final class ListAgentsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
 
         self::assertResponseIsSuccessful();
-        self::assertSame('Paused Sep 14, 16:05', preg_replace('/\s+/', ' ', trim($crawler->filter('[data-agent-paused]')->text())));
+        self::assertSame('Pause requested Sep 14, 16:05', preg_replace('/\s+/', ' ', trim($crawler->filter('[data-agent-paused]')->text())));
     }
 
     #[TestWith([false, 'pause', 'Pause new work'])]

@@ -6473,6 +6473,7 @@
             <trans-unit id="bridge.agents.status.pausing"><source>bridge.agents.status.pausing</source><target>Pausing</target></trans-unit>
             <trans-unit id="bridge.agents.status.unpausing"><source>bridge.agents.status.unpausing</source><target>Resuming new work</target></trans-unit>
             <trans-unit id="bridge.agents.paused"><source>bridge.agents.paused</source><target>Paused</target></trans-unit>
+            <trans-unit id="bridge.agents.pause_requested"><source>bridge.agents.pause_requested</source><target>Pause requested</target></trans-unit>
             <trans-unit id="bridge.agents.paused_by"><source>bridge.agents.paused_by</source><target>%time% by %person%</target></trans-unit>
             <trans-unit id="bridge.agents.menu"><source>bridge.agents.menu</source><target>Bridge actions</target></trans-unit>
             <trans-unit id="bridge.agents.pause"><source>bridge.agents.pause</source><target>Pause new work</target></trans-unit>
