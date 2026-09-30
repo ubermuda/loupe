@@ -95,8 +95,8 @@ Open the review URL. Select a passage to comment on it. A comment can also
 suggest a replacement for the passage.
 
 When you finish, select **Finish review**. Approve the version, or request
-changes with a note. Then ask the agent to read the review. It calls
-`document_get_review` and sends a new version. [Documents and review](../using/documents.md) describes the review page.
+changes with a note. When you request changes, ask the agent to read the
+review. It calls `document_get_review` and sends a new version. [Documents and review](../using/documents.md) describes the review page.
 
 ## Other ways to connect
 
