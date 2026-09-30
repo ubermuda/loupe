@@ -61,7 +61,17 @@ final readonly class GitHubPullRequestStateMapper
             review: $this->review($pullRequest),
             readyToMerge: PullRequestState::Open === $state && !$draft && PullRequestChecks::Passed === $checks && PullRequestMergeability::Mergeable === $mergeability,
             changesRequestedSha: $this->changesRequestedSha($pullRequest, $headSha),
+            openedAt: $this->time($pullRequest['createdAt'] ?? null),
+            mergedAt: $this->time($pullRequest['mergedAt'] ?? null),
         );
+    }
+
+    /** A malformed time is null, because the times feed reports only and must not make the read unreadable. */
+    private function time(mixed $value): ?\DateTimeImmutable
+    {
+        $time = \is_string($value) ? \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $value) : false;
+
+        return false === $time ? null : $time->setTimezone(new \DateTimeZone('UTC'));
     }
 
     /**

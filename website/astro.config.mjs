@@ -146,6 +146,14 @@ export default defineConfig({
             { slug: 'contributing/lifecycle' },
           ],
         },
+        {
+          label: 'Decision records',
+          collapsed: true,
+          items: [
+            { label: 'Overview', slug: 'adr' },
+            { slug: 'adr/0001-app-over-worker' },
+          ],
+        },
         { label: 'Troubleshooting', slug: 'troubleshooting' },
         { label: 'Known gaps', slug: 'known-gaps' },
         { label: 'Changelog', slug: 'changelog' },

@@ -78,6 +78,12 @@ class ForgePullRequest
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $nextRefreshAt = null;
 
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $openedAt = null;
+
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $mergedAt = null;
+
     /** @var list<string> the newest forge ids of the reviews whose verdict went out, so a redelivered review is announced once */
     #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
     public array $announcedReviewIds = [];
@@ -125,6 +131,8 @@ class ForgePullRequest
         $this->review = $snapshot->review;
         $this->readyToMerge = $snapshot->readyToMerge;
         $this->changesRequestedSha = $snapshot->changesRequestedSha;
+        $this->openedAt = $snapshot->openedAt;
+        $this->mergedAt = $snapshot->mergedAt;
     }
 
     public function snapshot(): PullRequestSnapshot
@@ -141,6 +149,8 @@ class ForgePullRequest
             $this->review,
             $this->readyToMerge,
             $this->changesRequestedSha,
+            $this->openedAt,
+            $this->mergedAt,
         );
     }
 }
