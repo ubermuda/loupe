@@ -82,9 +82,10 @@ type router struct {
 	scriptDir string
 	// ackCommand answers a command through the report queue. A nil one, as in
 	// most tests, answers nothing. pauseFile caches a person's pause, and ""
-	// caches nothing.
+	// caches nothing. baseURL names the server in the cache.
 	ackCommand func(ctx context.Context, bridgeID, commandID, state, reason string) (string, error)
 	pauseFile  string
+	baseURL    string
 	// signal sends one step of the stop ladder to the process group of a
 	// worker, and stopAfter times the waits between two steps. A nil one is
 	// signalGroup or time.After, which tests replace.
@@ -157,10 +158,13 @@ type router struct {
 	heldEvents   []heldEvent
 	heldFinishes []func()
 	// personPaused stops dispatch while a person pauses the bridge. resume
-	// clears paused only, so a handover keeps it. handled maps each command
-	// the bridge took to its expiry.
+	// clears paused only, so a handover keeps it. pauseSynced is on once a
+	// heartbeat reply wrote the cache. handled maps each command the bridge
+	// took to its expiry, and commanding counts the handlers in flight.
 	personPaused bool
+	pauseSynced  bool
 	handled      map[string]time.Time
+	commanding   int
 	// stops holds each run a person stopped until its stopped report goes out.
 	// cardHolds holds the cards of those runs, which start no worker until the
 	// hold ends. stopWaits are the waits of the stop ladder.

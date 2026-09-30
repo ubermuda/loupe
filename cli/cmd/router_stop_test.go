@@ -443,6 +443,7 @@ func TestAHandoverCarriesTheHoldsAndRefusesAStop(t *testing.T) {
 
 	next := newHarness(t)
 	next.router.adopt(roundTrip(t, st))
+	next.reply(pausedReply(false))
 	next.send(cardMoved(87))
 	if got := startedCards(t, next); !slices.Equal(got, []int{88}) {
 		t.Fatalf("started = %v, want the queued card 88 alone", got)
@@ -464,7 +465,7 @@ func TestAnOutcomeDropsTheStopMark(t *testing.T) {
 	h.router.emitLocked(p, api.RunStateReport{State: api.RunSucceeded})
 	h.router.mu.Unlock()
 
-	if _, _, _, _, _, stops := h.router.inFlight(); stops != 0 {
+	if _, _, _, _, _, stops, _ := h.router.inFlight(); stops != 0 {
 		t.Fatalf("stops = %d after the outcome", stops)
 	}
 }

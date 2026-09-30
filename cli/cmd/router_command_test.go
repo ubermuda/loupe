@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -148,7 +150,8 @@ func TestACommandIsTakenOnceAcrossBothChannels(t *testing.T) {
 	if str(t, received, "command") != testCommandID || str(t, received, "kind") != api.CommandStopRun || str(t, received, "source") != "event" || num(t, received, "card") != 87 {
 		t.Fatalf("command_received = %v", received)
 	}
-	if got := dropReasons(t, h); !slices.Equal(got, []string{"duplicate"}) {
+	// The heartbeat copy logs its drop at DEBUG.
+	if got := dropReasons(t, h); len(got) != 0 {
 		t.Fatalf("drop reasons = %v", got)
 	}
 	acked := h.only(t, "command_acked")
@@ -191,9 +194,6 @@ func TestTheBridgeDropsACommandItMustNotRun(t *testing.T) {
 	}{
 		"expired event": {func(h *harness) {
 			h.send(commandPayload(testCommand(testCommandID, api.CommandStopRun, testBridgeID, time.Now().Add(-time.Second))))
-		}, "expired"},
-		"expired heartbeat": {func(h *harness) {
-			h.reply(api.HeartbeatReply{Commands: []api.Command{testCommand(testCommandID, api.CommandStopRun, testBridgeID, time.Now().Add(-time.Second))}})
 		}, "expired"},
 		"another bridge": {func(h *harness) {
 			h.reply(api.HeartbeatReply{Commands: []api.Command{testCommand(testCommandID, api.CommandStopRun, foreignBridge, soon())}})
@@ -364,6 +364,33 @@ func TestAShutRouterTakesNoCommand(t *testing.T) {
 	}
 }
 
+// debugLogger is newBridgeLogger at level DEBUG.
+func debugLogger(w io.Writer) *slog.Logger {
+	return slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.MessageKey {
+				a.Key = "event"
+			}
+
+			return a
+		},
+	}))
+}
+
+// testBaseURL is the server a test bridge names in its pause cache.
+const testBaseURL = "https://loupe.test"
+
+// cached is a harness whose pause cache is path, for the test bridge and
+// server.
+func cached(t *testing.T, path string) *harness {
+	t.Helper()
+	h := newHarness(t)
+	h.router.pauseFile, h.router.baseURL = path, testBaseURL
+
+	return h
+}
+
 // The bridge keeps the last pause in its config directory, and a bridge that
 // starts reads it before any dispatch.
 func TestThePauseCacheStartsTheBridgePaused(t *testing.T) {
@@ -375,15 +402,13 @@ func TestThePauseCacheStartsTheBridgePaused(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	first := newHarness(t)
-	first.router.pauseFile = path
+	first := cached(t, path)
 	first.reply(pausedReply(true))
-	if paused, err := readPause(path); err != nil || !paused {
+	if paused, err := first.router.readPause(); err != nil || !paused {
 		t.Fatalf("readPause = %v, %v", paused, err)
 	}
 
-	next := newHarness(t)
-	next.router.pauseFile = path
+	next := cached(t, path)
 	next.router.loadPause()
 	next.send(cardMoved(87))
 	if next.runs() != 0 {
@@ -394,17 +419,39 @@ func TestThePauseCacheStartsTheBridgePaused(t *testing.T) {
 	}
 
 	first.reply(pausedReply(false))
-	if paused, err := readPause(path); err != nil || paused {
+	if paused, err := first.router.readPause(); err != nil || paused {
 		t.Fatalf("readPause after the unpause = %v, %v", paused, err)
+	}
+}
+
+// A cache that another bridge or another server wrote holds no pause for this
+// bridge, which starts free.
+func TestAPauseCacheOfAnotherBridgeOrServerIsIgnored(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "pause.json")
+	cached(t, path).reply(pausedReply(true))
+
+	for name, change := range map[string]func(r *router){
+		"another bridge": func(r *router) { r.bridgeID = foreignBridge },
+		"another server": func(r *router) { r.baseURL = "https://other.test" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := cached(t, path)
+			change(h.router)
+
+			h.router.loadPause()
+
+			if h.router.personPaused {
+				t.Fatal("the cache of another bridge paused this one")
+			}
+			h.only(t, "pause_cache_ignored")
+		})
 	}
 }
 
 // A missing cache starts the bridge free and logs nothing. A cache it cannot
 // read starts it free and says so.
 func TestAMissingOrBrokenPauseCacheStartsTheBridgeFree(t *testing.T) {
-	dir := t.TempDir()
-	h := newHarness(t)
-	h.router.pauseFile = filepath.Join(dir, "pause.json")
+	h := cached(t, filepath.Join(t.TempDir(), "pause.json"))
 	h.router.loadPause()
 	if log := strings.TrimSpace(h.log.String()); log != "" || h.router.personPaused {
 		t.Fatalf("log = %s, paused = %v", log, h.router.personPaused)
@@ -420,15 +467,92 @@ func TestAMissingOrBrokenPauseCacheStartsTheBridgeFree(t *testing.T) {
 	}
 }
 
+// The first reply that carries paused writes the cache, even when the bridge
+// holds that state already, so a broken cache heals. It logs no change.
+func TestTheFirstPauseReplyHealsTheCache(t *testing.T) {
+	h := cached(t, filepath.Join(t.TempDir(), "pause.json"))
+	if err := os.WriteFile(h.router.pauseFile, []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.router.loadPause()
+
+	h.reply(pausedReply(false))
+
+	if paused, err := h.router.readPause(); err != nil || paused {
+		t.Fatalf("readPause = %v, %v", paused, err)
+	}
+	if n := len(h.events(t, "bridge_unpaused")); n != 0 {
+		t.Fatalf("bridge_unpaused lines = %d for no change", n)
+	}
+}
+
 // A failed cache write logs and changes nothing else.
 func TestAPauseCacheWriteFailureLogsAndGoesOn(t *testing.T) {
-	h := newHarness(t)
-	h.router.pauseFile = filepath.Join(t.TempDir(), "missing", "pause.json")
+	h := cached(t, filepath.Join(t.TempDir(), "missing", "pause.json"))
 
 	h.reply(pausedReply(true))
 
 	h.only(t, "pause_cache_failed")
 	if !h.router.personPaused {
 		t.Fatal("the pause did not apply")
+	}
+}
+
+// A bridge with no config directory runs with no pause cache and says so.
+func TestAMissingConfigDirRunsWithNoPauseCache(t *testing.T) {
+	h := newHarness(t)
+
+	h.router.usePauseCache("", errors.New("locate config dir: $HOME is not defined"))
+	h.reply(pausedReply(true))
+
+	h.only(t, "pause_cache_unavailable")
+	if h.router.pauseFile != "" || !h.router.personPaused {
+		t.Fatalf("pauseFile = %q, paused = %v", h.router.pauseFile, h.router.personPaused)
+	}
+}
+
+// A handover carries the pause, so the next image holds it whatever its cache
+// says. A state with no pause, from an older image, keeps the cached pause.
+func TestAHandoverCarriesThePersonPause(t *testing.T) {
+	h := newHarness(t)
+	h.reply(pausedReply(true))
+	st := h.router.freeze()
+
+	next := newHarness(t)
+	next.router.adopt(roundTrip(t, st))
+	next.send(cardMoved(87))
+	if !next.router.personPaused || next.runs() != 0 {
+		t.Fatalf("paused = %v, runs = %d", next.router.personPaused, next.runs())
+	}
+
+	st.PersonPaused = nil
+	older := newHarness(t)
+	older.router.personPaused = true
+	older.router.adopt(roundTrip(t, st))
+	if !older.router.personPaused {
+		t.Fatal("a state with no pause cleared the cached pause")
+	}
+}
+
+// A heartbeat brings each command until the bridge answers it, so its copy of
+// a handled or expired command logs at DEBUG. The event keeps INFO.
+func TestAHeartbeatDropLogsAtDebug(t *testing.T) {
+	h := newHarness(t)
+	h.router.log = debugLogger(h.log)
+	h.withAcks()
+	c := testCommand(testCommandID, api.CommandStopRun, testBridgeID, soon())
+	expired := testCommand("0199a0e2-0000-7c5e-9f2a-3b1c6d7e8f91", api.CommandStopRun, testBridgeID, time.Now().Add(-time.Second))
+
+	h.send(commandPayload(c))
+	h.reply(api.HeartbeatReply{Commands: []api.Command{c, expired}})
+	h.send(commandPayload(expired))
+
+	var got []string
+	for _, line := range h.events(t, "command_dropped") {
+		got = append(got, str(t, line, "source")+" "+str(t, line, "reason")+" "+str(t, line, "level"))
+	}
+	want := []string{"heartbeat duplicate DEBUG", "heartbeat expired DEBUG", "event expired INFO"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("command_dropped = %v, want %v", got, want)
 	}
 }

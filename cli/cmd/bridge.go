@@ -241,10 +241,8 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 	}
 	r.set.Store(set)
 	// The cache is read before subscribe, whose adopt dispatches.
-	if r.pauseFile, err = pausePath(); err != nil {
-		return err
-	}
-	r.loadPause()
+	r.baseURL = cfg.BaseURL
+	r.usePauseCache(pausePath())
 	cleanLaunchScripts(defaultScriptDir(), time.Now(), r.log)
 	logBridgeStart(r.log, cmd, set, path, bl.path, bridgeID)
 	warnUnknownModes(r.log, set)

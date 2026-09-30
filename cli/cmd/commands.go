@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"maps"
 	"os"
 	"path/filepath"
@@ -84,12 +85,19 @@ func (r *router) takeCommand(c api.Command, source string) {
 			r.handled = map[string]time.Time{}
 		}
 		r.handled[c.CommandID] = c.ExpiresAt
-		// Under mu, so shutdown never waits on wg before this Add.
+		// Under mu, so shutdown never waits on wg before this Add, and a drain
+		// never misses the handler.
 		r.wg.Add(1)
+		r.commanding++
 	}
 	r.mu.Unlock()
 	if reason != "" {
-		r.log.Info("command_dropped", append(attrs, "reason", reason)...)
+		// A heartbeat brings each command again until the bridge answers it.
+		level := slog.LevelInfo
+		if source == commandFromHeartbeat && (reason == "duplicate" || reason == "expired") {
+			level = slog.LevelDebug
+		}
+		r.log.Log(context.Background(), level, "command_dropped", append(attrs, "reason", reason)...)
 
 		return
 	}
@@ -100,6 +108,9 @@ func (r *router) takeCommand(c api.Command, source string) {
 
 		state, why := r.handleCommand(c)
 		r.sendAck(c, state, why)
+		r.mu.Lock()
+		r.commanding--
+		r.mu.Unlock()
 	}()
 }
 
@@ -484,28 +495,33 @@ func (r *router) sendAck(c api.Command, state, reason string) {
 }
 
 // setPersonPause applies the pause the server holds for a person. A change is
-// logged, cached and sent with the next heartbeat, and an unpause starts the
-// queued runs.
+// logged and sent with the next heartbeat, and an unpause starts the queued
+// runs. The first reply writes the cache even with no change, so a broken or
+// missing cache heals, and each change writes it again.
 func (r *router) setPersonPause(paused bool) {
 	r.mu.Lock()
-	if r.personPaused == paused {
+	changed := r.personPaused != paused
+	if !changed && r.pauseSynced {
 		r.mu.Unlock()
 
 		return
 	}
-	r.personPaused = paused
+	r.personPaused, r.pauseSynced = paused, true
 	hb := r.heartbeat
 	r.mu.Unlock()
 
+	if r.pauseFile != "" {
+		if err := r.writePause(paused); err != nil {
+			r.log.Warn("pause_cache_failed", "path", r.pauseFile, "error", err.Error())
+		}
+	}
+	if !changed {
+		return
+	}
 	if paused {
 		r.log.Info("bridge_paused", "source", "server")
 	} else {
 		r.log.Info("bridge_unpaused", "source", "server")
-	}
-	if r.pauseFile != "" {
-		if err := writePause(r.pauseFile, paused); err != nil {
-			r.log.Warn("pause_cache_failed", "path", r.pauseFile, "error", err.Error())
-		}
 	}
 	if hb != nil {
 		hb.setPaused(paused)
@@ -515,17 +531,35 @@ func (r *router) setPersonPause(paused bool) {
 	}
 }
 
+// usePauseCache takes the path of the pause cache and reads it. With no path
+// the bridge runs with no cache.
+func (r *router) usePauseCache(path string, err error) {
+	if err != nil {
+		r.log.Warn("pause_cache_unavailable", "error", err.Error())
+
+		return
+	}
+	r.pauseFile = path
+	r.loadPause()
+}
+
 // loadPause reads the cached pause at start, before any dispatch. A missing
-// cache leaves the bridge free, and so does one it cannot read.
+// cache leaves the bridge free, and so does one it cannot read or one that
+// another bridge or server wrote.
 func (r *router) loadPause() {
 	if r.pauseFile == "" {
 		return
 	}
-	paused, err := readPause(r.pauseFile)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			r.log.Warn("pause_cache_unreadable", "path", r.pauseFile, "error", err.Error())
-		}
+	paused, err := r.readPause()
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return
+	case errors.Is(err, errOtherPause):
+		r.log.Info("pause_cache_ignored", "path", r.pauseFile)
+
+		return
+	case err != nil:
+		r.log.Warn("pause_cache_unreadable", "path", r.pauseFile, "error", err.Error())
 
 		return
 	}
@@ -537,13 +571,18 @@ func (r *router) loadPause() {
 	}
 }
 
-// pauseCache is what the pause cache holds.
+// pauseCache is what the pause cache holds. The server keys a pause by the
+// bridge id and holds it on one server, so the cache names both.
 type pauseCache struct {
-	Paused bool `json:"paused"`
+	Paused   bool   `json:"paused"`
+	BridgeID string `json:"bridgeId"`
+	BaseURL  string `json:"baseUrl"`
 }
 
-// pausePath names the pause cache. The server keys a pause by the bridge id,
-// which config.json holds, so one cache serves the directory.
+// errOtherPause is a cache that another bridge or another server wrote.
+var errOtherPause = errors.New("the pause cache names another bridge or server")
+
+// pausePath names the pause cache in the config directory.
 func pausePath() (string, error) {
 	dir, err := config.Dir()
 	if err != nil {
@@ -553,8 +592,8 @@ func pausePath() (string, error) {
 	return filepath.Join(dir, "pause.json"), nil
 }
 
-func readPause(path string) (bool, error) {
-	b, err := os.ReadFile(path)
+func (r *router) readPause() (bool, error) {
+	b, err := os.ReadFile(r.pauseFile)
 	if err != nil {
 		return false, err
 	}
@@ -562,15 +601,18 @@ func readPause(path string) (bool, error) {
 	if err := json.Unmarshal(b, &c); err != nil {
 		return false, err
 	}
+	if !strings.EqualFold(c.BridgeID, r.bridgeID) || c.BaseURL != r.baseURL {
+		return false, errOtherPause
+	}
 
 	return c.Paused, nil
 }
 
-func writePause(path string, paused bool) error {
-	b, err := json.Marshal(pauseCache{Paused: paused})
+func (r *router) writePause(paused bool) error {
+	b, err := json.Marshal(pauseCache{Paused: paused, BridgeID: r.bridgeID, BaseURL: r.baseURL})
 	if err != nil {
 		return err
 	}
 
-	return writeAtomic(path, ".pause-*", b)
+	return writeAtomic(r.pauseFile, ".pause-*", b)
 }

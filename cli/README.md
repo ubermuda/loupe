@@ -1200,15 +1200,23 @@ A person can pause a bridge on the server. The heartbeat reply carries
 still queue, and the workers that run go on. An unpause starts the queued runs.
 A reply with no `paused` key, as from an older server, keeps the state the
 bridge holds. The bridge keeps the last state in `pause.json` in your config
-directory, and reads it at start, so a bridge that restarts or updates starts
-paused. Each heartbeat sends `paused` with the state the bridge applies, and
+directory, with its `bridgeId` and the server URL, and reads it at start. A
+bridge that restarts therefore starts paused. A cache that names another bridge
+or another server holds no pause for this bridge. The first reply that carries
+`paused` writes the cache even when the state does not change, so a broken or
+missing cache heals. When the bridge cannot find its config directory, it runs
+with no cache. An update hands the pause to the new version directly. Each
+heartbeat sends `paused` with the state the bridge applies, and
 `capabilities: ["commands"]`.
 
 The server can also ask the bridge to stop or resume one run. The command comes
 as a `bridge.command` event and again in each heartbeat reply, until the bridge
 answers it. The bridge acts on a command once, by its `commandId`, whichever
-channel brings it first. It drops a command for another bridge, a command past
-its `expiresAt`, and a command that fails its check. The answer goes through
+channel brings it first. It keeps the ids in memory, so this holds for one
+bridge process. An update does not hand the ids over. It waits for each
+handler and its answer first, and the server then stops sending the command.
+The bridge drops a command for another bridge, a command past its
+`expiresAt`, and a command that fails its check. The answer goes through
 the outbound queue with the policy of a run report. A 404 with
 `command_not_found` counts as delivered.
 
@@ -1339,8 +1347,10 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `bridge_unpaused` | `source`: a heartbeat reply ended the pause |
 | `pause_cache_failed` | `path`, `error`: the bridge could not write `pause.json`, and applies the pause anyway. Level `WARN` |
 | `pause_cache_unreadable` | `path`, `error`: `pause.json` does not parse, so the bridge starts with no pause. Level `WARN` |
+| `pause_cache_ignored` | `path`: `pause.json` names another bridge or another server, so the bridge starts with no pause |
+| `pause_cache_unavailable` | `error`: the bridge found no config directory, and runs with no pause cache. Level `WARN` |
 | `command_received` | `command`, `kind`, `card`, `project`, `rule`, `run_key`, `source`: `event` or `heartbeat` |
-| `command_dropped` | the fields of `command_received` and `reason`: `duplicate`, `expired`, `other_bridge`, `handover` or `shutdown`. For `malformed`, the line has `source`, `error` and, from a heartbeat, `command`, at level `WARN` |
+| `command_dropped` | the fields of `command_received` and `reason`: `duplicate`, `expired`, `other_bridge`, `handover` or `shutdown`. A heartbeat copy that is `duplicate` or `expired` logs at level `DEBUG`, which the bridge log does not show. For `malformed`, the line has `source`, `error` and, from a heartbeat, `command`, at level `WARN` |
 | `command_acked` | `command`, `kind`, `state`, and `answer`: `command_not_found` when the server no longer held the command |
 | `command_ack_state` | `command`, `kind`, `state`, `stored`: the server kept another state, for example for a command that expired first. Level `WARN` |
 | `worker_resume_asked` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `resume`, `max_resumes`, `continues`: a person's resume queued a run on the session of the run `continues` names |

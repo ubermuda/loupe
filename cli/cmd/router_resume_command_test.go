@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/directive"
@@ -233,5 +235,27 @@ func TestAPersonsResumeWaitsForTheWorkerOfItsCard(t *testing.T) {
 	calls := h.worker.recorded()
 	if len(calls) != 2 || calls[1].sessionID != testSession || !calls[1].resume {
 		t.Fatalf("workers = %+v", calls)
+	}
+}
+
+// A handover waits for a command handler, because the frozen state could not
+// name the run a resume is about to queue.
+func TestDrainWaitsForACommandHandler(t *testing.T) {
+	h := newHarness(t)
+	h.withAcks()
+	h.transcripts(true)
+	reads := &cardReads{column: "next", entered: make(chan struct{}, 1), release: make(chan struct{})}
+	h.router.readCard = reads.read
+
+	h.router.onHeartbeatReply(api.HeartbeatReply{Commands: []api.Command{resumeOf(endedRunKey)}})
+	<-reads.entered
+	err := h.router.drain(context.Background(), 50*time.Millisecond)
+	if err == nil || !strings.Contains(err.Error(), "1 commands") {
+		t.Fatalf("drain = %v, want the command named", err)
+	}
+	close(reads.release)
+	h.router.wg.Wait()
+	if err := h.router.drain(context.Background(), 50*time.Millisecond); err != nil {
+		t.Fatalf("drain after the command = %v", err)
 	}
 }
