@@ -606,7 +606,12 @@ project the token's user owns:
   "projects": [
     {"id": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7", "slug": "my-app", "name": "My App"}
   ],
-  "flags": {"inbox.enabled": false, "bridge.heartbeat_interval_seconds": 60},
+  "flags": {
+    "inbox.enabled": false,
+    "bridge.heartbeat_interval_seconds": 60,
+    "bridge.stop_sigterm_after_ms": 7500,
+    "bridge.stop_sigkill_after_ms": 2500
+  },
   "cliRange": "^1.0"
 }
 ```
@@ -618,12 +623,14 @@ heartbeat reply.
 `flags` holds the feature flags a bridge reads. The server lists a flag here
 only when its code names the flag, so no other flag reaches a token holder. A
 value is a boolean or an integer, as the flag's type says. Today the map holds
-two flags:
+four flags:
 
 | Flag | Type | Value |
 |---|---|---|
 | `inbox.enabled` | boolean | `false` on an instance that holds no row for it |
 | `bridge.heartbeat_interval_seconds` | integer | the seconds between two heartbeats, 60 on an instance that holds no row for it. A stored value below 10 reads as 60 |
+| `bridge.stop_sigterm_after_ms` | integer | the milliseconds from SIGINT to SIGTERM when the bridge stops a run, 7500 on an instance that holds no row for it. A stored value below 100 reads as 7500 |
+| `bridge.stop_sigkill_after_ms` | integer | the milliseconds from SIGTERM to SIGKILL when the bridge stops a run, 2500 on an instance that holds no row for it. A stored value below 100 reads as 2500 |
 
 The bridge reads the map at start and again at each reconnect. A flag change
 therefore reaches a running bridge at its next reconnect.
