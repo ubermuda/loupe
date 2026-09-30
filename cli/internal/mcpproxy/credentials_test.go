@@ -170,6 +170,46 @@ func TestAnEmptyProjectSendsNoHeader(t *testing.T) {
 	}
 }
 
+func TestTheSessionIsSentInItsHeader(t *testing.T) {
+	var mu sync.Mutex
+	var header []string
+	resp, err := post(t, &Credentials{Tokens: api.StaticToken("static"), Session: fixed("claude-session")}, func(_ http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		header = r.Header.Values(SessionHeader)
+	})
+	if err != nil {
+		t.Fatalf("RoundTrip: %v", err)
+	}
+	resp.Body.Close()
+	mu.Lock()
+	defer mu.Unlock()
+	if len(header) != 1 || header[0] != "claude-session" {
+		t.Fatalf("header = %v, want [claude-session]", header)
+	}
+}
+
+func TestAnEmptySessionSendsNoHeader(t *testing.T) {
+	for name, session := range map[string]func() string{"nil": nil, "empty": fixed("")} {
+		var mu sync.Mutex
+		var header []string
+		resp, err := post(t, &Credentials{Tokens: api.StaticToken("static"), Session: session}, func(_ http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			defer mu.Unlock()
+			header = r.Header.Values(SessionHeader)
+		})
+		if err != nil {
+			t.Fatalf("%s: RoundTrip: %v", name, err)
+		}
+		resp.Body.Close()
+		mu.Lock()
+		defer mu.Unlock()
+		if len(header) != 0 {
+			t.Fatalf("%s: header = %v, want none", name, header)
+		}
+	}
+}
+
 func TestASuccessPassesStraightThrough(t *testing.T) {
 	resp, err := post(t, &Credentials{Tokens: api.StaticToken("static")}, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"cmp"
 	"net/http"
 	"os"
 	"os/signal"
@@ -53,6 +54,9 @@ func newMcpCmd() *cobra.Command {
 			hc := &http.Client{Transport: &mcpproxy.Credentials{
 				Tokens:  tokenSource(cfg, &http.Client{Timeout: refreshTimeout}),
 				Project: project,
+				Session: func() string {
+					return cmp.Or(os.Getenv(sessionEnv), os.Getenv("CLAUDE_CODE_SESSION_ID"))
+				},
 			}}
 
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)

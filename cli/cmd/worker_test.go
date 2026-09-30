@@ -10,19 +10,22 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
-const ceilingVar = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="
+const (
+	ceilingVar = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="
+	sessionVar = "LOUPE_SESSION_ID="
+)
 
 // claude -p ends a worker at its background wait ceiling and exits 0. The
 // bridge lifts the ceiling unless the operator set it.
 func TestWorkerEnvLiftsTheWaitCeiling(t *testing.T) {
-	base := make([]string, 1, 2)
+	base := make([]string, 1, 3)
 	base[0] = "HOME=/home/a"
 
-	got := workerEnv(base)
-	if !slices.Equal(got, []string{"HOME=/home/a", ceilingVar + "0"}) {
+	got := workerEnv(base, "s1")
+	if !slices.Equal(got, []string{"HOME=/home/a", ceilingVar + "0", sessionVar + "s1"}) {
 		t.Fatalf("workerEnv = %q", got)
 	}
-	if extended := base[:2]; extended[1] != "" {
+	if extended := base[:3]; extended[1] != "" || extended[2] != "" {
 		t.Fatalf("workerEnv wrote into the caller's array: %q", extended)
 	}
 }
@@ -30,9 +33,24 @@ func TestWorkerEnvLiftsTheWaitCeiling(t *testing.T) {
 func TestWorkerEnvKeepsTheOperatorsCeiling(t *testing.T) {
 	for _, set := range []string{ceilingVar + "5000", ceilingVar + "0", ceilingVar} {
 		base := []string{"HOME=/home/a", set}
-		if got := workerEnv(base); !slices.Equal(got, base) {
+		want := []string{"HOME=/home/a", set, sessionVar + "s1"}
+		if got := workerEnv(base, "s1"); !slices.Equal(got, want) {
 			t.Fatalf("workerEnv(%q) = %q", base, got)
 		}
+	}
+}
+
+// The bridge names the session of each worker, so the server can name the run
+// that moves a card. An inherited value names another session.
+func TestWorkerEnvReplacesAnInheritedSession(t *testing.T) {
+	base := []string{sessionVar + "outer", "HOME=/home/a", sessionVar + "again"}
+
+	got := workerEnv(base, "s1")
+	if !slices.Equal(got, []string{"HOME=/home/a", ceilingVar + "0", sessionVar + "s1"}) {
+		t.Fatalf("workerEnv = %q", got)
+	}
+	if !slices.Equal(base, []string{sessionVar + "outer", "HOME=/home/a", sessionVar + "again"}) {
+		t.Fatalf("workerEnv changed the caller's array: %q", base)
 	}
 }
 

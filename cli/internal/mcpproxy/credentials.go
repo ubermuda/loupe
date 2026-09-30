@@ -16,8 +16,12 @@ import (
 // of a credential that covers one when the header is absent.
 const ProjectHeader = "X-Loupe-Project"
 
-// Credentials adds the bearer token and the project header to every request,
-// and refreshes the token once when the server rejects it.
+// SessionHeader names the claude session that makes a request, so the server
+// can name the worker run of an agent move.
+const SessionHeader = "X-Loupe-Session"
+
+// Credentials adds the bearer token, the project header and the session header
+// to every request, and refreshes the token once when the server rejects it.
 //
 // It asks the token source per request rather than caching a token, because the
 // source refreshes under a file lock that another loupe process may hold.
@@ -27,6 +31,9 @@ type Credentials struct {
 	// Project gives the project header, read once per request. A nil function
 	// or an empty value sends no header, which leaves the project to the server.
 	Project func() string
+	// Session gives the session header, read once per request. A nil function
+	// or an empty value sends no header.
+	Session func() string
 	// Base sends the request. A nil value uses http.DefaultTransport.
 	Base http.RoundTripper
 }
@@ -47,8 +54,12 @@ func (c *Credentials) RoundTrip(req *http.Request) (*http.Response, error) {
 	if c.Project != nil {
 		project = c.Project()
 	}
+	session := ""
+	if c.Session != nil {
+		session = c.Session()
+	}
 
-	resp, err := c.send(req, token, project, rewind)
+	resp, err := c.send(req, token, project, session, rewind)
 	if err != nil || resp.StatusCode != http.StatusUnauthorized {
 		resp, err = markSessionGone(req, resp, err)
 
@@ -64,7 +75,7 @@ func (c *Credentials) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	resp, err = c.send(req, fresh, project, rewind)
+	resp, err = c.send(req, fresh, project, session, rewind)
 	resp, err = markSessionGone(req, resp, err)
 
 	return explain(project, resp, err)
@@ -97,9 +108,9 @@ func markSessionGone(req *http.Request, resp *http.Response, err error) (*http.R
 	return resp, nil
 }
 
-// send sends one copy of req with the given token and project. The original is
-// left alone, so the caller can send it again.
-func (c *Credentials) send(req *http.Request, token, project string, rewind func() (io.ReadCloser, error)) (*http.Response, error) {
+// send sends one copy of req with the given token, project and session. The
+// original is left alone, so the caller can send it again.
+func (c *Credentials) send(req *http.Request, token, project, session string, rewind func() (io.ReadCloser, error)) (*http.Response, error) {
 	attempt := req.Clone(req.Context())
 	if rewind != nil {
 		body, err := rewind()
@@ -111,6 +122,9 @@ func (c *Credentials) send(req *http.Request, token, project string, rewind func
 	attempt.Header.Set("Authorization", "Bearer "+token)
 	if project != "" {
 		attempt.Header.Set(ProjectHeader, project)
+	}
+	if session != "" {
+		attempt.Header.Set(SessionHeader, session)
 	}
 
 	base := c.Base
