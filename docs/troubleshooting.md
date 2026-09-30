@@ -17,7 +17,7 @@ nothing warns you.
 docker exec <web-container> sh -c "ps aux | grep -c '[m]essenger:consume'"   # 0 is your bug
 ```
 
-See [What runs in production](getting-started/architecture.md).
+See [What runs in production](architecture.md).
 
 ## Registration does not work
 

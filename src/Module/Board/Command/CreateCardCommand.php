@@ -32,6 +32,8 @@ final readonly class CreateCardCommand
         public ?string $parentCardId = null,
         /** Null keeps the entity default, which draws the lane. */
         public ?bool $laneEnabled = null,
+        /** Who makes the call, for the card's history. Null means the reporter. */
+        public ?CardReporter $actor = null,
     ) {
     }
 }
