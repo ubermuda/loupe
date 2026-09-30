@@ -89,6 +89,11 @@ parameters:
     # How often a CLI bridge posts its heartbeat, in seconds, as the default the
     # `bridge.heartbeat_interval_seconds` feature flag starts from.
     app.bridge.default_heartbeat_interval_seconds: 60
+    # How long a command to a CLI bridge waits before it expires, in minutes, as
+    # the default the `bridge.command_ttl_minutes` feature flag starts from.
+    app.bridge.default_command_ttl_minutes: 15
+    # Every minute, so an expired command leaves the pending list soon after its time.
+    app.bridge.command_expiry_schedule: '* * * * *'
     # Monthly price of the hosted plan during beta, in whole dollars. Shown on
     # the landing page only — Stripe remains the source of truth for what is
     # actually charged.
@@ -267,6 +272,14 @@ when@test:
             public: true
 
         App\Module\Project\Service\ProjectDeleter:
+            autowire: true
+            public: true
+
+        App\Module\Bridge\Command\RequestBridgeCommandHandler:
+            autowire: true
+            public: true
+
+        App\Module\Bridge\Command\SetBridgePauseHandler:
             autowire: true
             public: true
 

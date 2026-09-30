@@ -25,10 +25,15 @@ final class RecordBridgeHeartbeatRequest
     /** Far above the pools one bridge runs, and small enough to bound the JSON column. */
     public const int MAX_WORKER_POOLS = 50;
 
+    /** Far above the features one bridge reports, and small enough to bound the JSON column. */
+    public const int MAX_CAPABILITIES = 20;
+
     /**
      * @param list<string>|null                $projects
-     * @param list<BridgeHookInput>|null       $hooks       null from a bridge that predates hooks
-     * @param list<BridgeWorkerPoolInput>|null $workerPools null from a bridge that predates worker pools
+     * @param list<BridgeHookInput>|null       $hooks        null from a bridge that predates hooks
+     * @param list<BridgeWorkerPoolInput>|null $workerPools  null from a bridge that predates worker pools
+     * @param bool|null                        $paused       null from a bridge that predates the pause
+     * @param list<string>|null                $capabilities null from a bridge that predates capabilities
      */
     public function __construct(
         #[Assert\All([new Assert\NotBlank(), new Assert\Uuid()])]
@@ -55,7 +60,27 @@ final class RecordBridgeHeartbeatRequest
         #[Assert\Type('list')]
         #[Assert\Valid]
         public ?array $workerPools = null,
+        public ?bool $paused = null,
+
+        #[Assert\All([new Assert\Type('string'), new Assert\Regex(pattern: Bridge::CAPABILITY_PATTERN)])]
+        #[Assert\Count(max: self::MAX_CAPABILITIES)]
+        #[Assert\Type('list')]
+        public ?array $capabilities = null,
     ) {
+    }
+
+    /**
+     * The capability names once each. Null when the bridge sent no report.
+     *
+     * @return list<string>|null
+     */
+    public function capabilities(): ?array
+    {
+        if (null === $this->capabilities) {
+            return null;
+        }
+
+        return array_values(array_unique($this->capabilities));
     }
 
     /**

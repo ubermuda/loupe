@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Command;
 
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Project\Repository\ProjectRepository;
@@ -22,6 +23,7 @@ final readonly class RecordBridgeHeartbeatHandler
 {
     public function __construct(
         private BridgeRepository $bridges,
+        private BridgeCommandRepository $bridgeCommands,
         private ProjectRepository $projects,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -37,39 +39,40 @@ final readonly class RecordBridgeHeartbeatHandler
 
         // Two first heartbeats of one bridge would otherwise both miss the read
         // and one would trip the primary key.
-        [$bridge, $created] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
+        [$bridge, $created, $commands] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
             $this->bridges->lockForWrite($ownerId, $command->bridgeId);
 
             $now = $this->clock->now();
             $bridge = $this->bridges->findOneByOwnerAndId($command->owner, $command->bridgeId);
+            $created = null === $bridge;
             if (null === $bridge) {
                 $bridge = new Bridge($command->owner, $command->bridgeId, $projects, $command->cliVersion, $now);
-                $bridge->updateState = $command->updateState;
-                $bridge->updateVersion = $command->updateVersion;
                 $bridge->hooks = $command->hooks ?? [];
-                if (null !== $command->workerPools) {
-                    $bridge->workerPools = $command->workerPools;
-                    $bridge->workerPoolsReportedAt = $now;
-                }
                 $this->em->persist($bridge);
-
-                return [$bridge, true];
+            } else {
+                $bridge->projects = $projects;
+                $bridge->cliVersion = $command->cliVersion;
+                $bridge->lastSeenAt = $now;
+                if (null !== $command->hooks) {
+                    $bridge->hooks = $command->hooks;
+                }
             }
 
-            $bridge->projects = $projects;
-            $bridge->cliVersion = $command->cliVersion;
-            $bridge->lastSeenAt = $now;
             $bridge->updateState = $command->updateState;
             $bridge->updateVersion = $command->updateVersion;
-            if (null !== $command->hooks) {
-                $bridge->hooks = $command->hooks;
-            }
             if (null !== $command->workerPools) {
                 $bridge->workerPools = $command->workerPools;
                 $bridge->workerPoolsReportedAt = $now;
             }
+            if (null !== $command->paused) {
+                $bridge->pausedReported = $command->paused;
+            }
+            if (null !== $command->capabilities) {
+                $bridge->capabilities = $command->capabilities;
+            }
 
-            return [$bridge, false];
+            // Read under the lock a new command takes, so the reply misses no command stored before it.
+            return [$bridge, $created, $this->bridgeCommands->findPendingFor($command->owner, $command->bridgeId, $now)];
         });
 
         // A heartbeat that replaces the row is routine traffic, once a minute per
@@ -83,6 +86,6 @@ final readonly class RecordBridgeHeartbeatHandler
             );
         }
 
-        return new RecordBridgeHeartbeatResult($bridge, CliCompatibility::RANGE);
+        return new RecordBridgeHeartbeatResult($bridge, CliCompatibility::RANGE, $commands);
     }
 }

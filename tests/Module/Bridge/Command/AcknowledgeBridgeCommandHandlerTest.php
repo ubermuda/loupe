@@ -1,0 +1,107 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Module\Bridge\Command;
+
+use App\Module\Bridge\Command\AcknowledgeBridgeCommandCommand;
+use App\Module\Bridge\Command\AcknowledgeBridgeCommandHandler;
+use App\Module\Bridge\Entity\BridgeCommand;
+use App\Module\Bridge\ValueObject\BridgeCommandState;
+use App\Tests\Module\Bridge\BridgeScenario;
+use App\Tests\Support\RecordingAuditor;
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Uid\Uuid;
+use Ubermuda\AuditBundle\AuditOutcome;
+
+final class AcknowledgeBridgeCommandHandlerTest extends KernelTestCase
+{
+    use BridgeScenario;
+
+    private const string NOW = '2026-09-29T12:05:00+00:00';
+
+    public function test_a_settled_command_is_audited_without_the_reason(): void
+    {
+        self::bootKernel();
+        self::getContainer()->set('clock', new MockClock(self::NOW));
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $em = $this->em();
+        $owner = $this->user($em, 'ack-handler-audit@example.com');
+        $run = $this->seedRun($em, $this->project($em, $owner, 'Ack Handler Audit'));
+        $command = $this->seedCommand($em, $run);
+
+        $result = $this->handler()(new AcknowledgeBridgeCommandCommand($owner, $command->bridgeId, self::idOf($command), BridgeCommandState::Refused, 'busy'));
+
+        self::assertTrue($result->settled);
+        self::assertSame(BridgeCommandState::Refused, $result->command?->state);
+        $record = $audit->record('bridge.command_settled');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame([
+            'commandId' => (string) $command->id,
+            'state' => 'refused',
+            'kind' => 'stop-run',
+            'projectId' => (string) $run->project->id,
+            'runId' => (string) $run->id,
+            'bridgeId' => (string) $command->bridgeId,
+        ], $record->context);
+    }
+
+    public function test_a_repeated_ack_is_not_audited(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $em = $this->em();
+        $owner = $this->user($em, 'ack-handler-repeat@example.com');
+        $command = $this->seedCommand($em, $this->seedRun($em, $this->project($em, $owner, 'Ack Handler Repeat')));
+        $ack = new AcknowledgeBridgeCommandCommand($owner, $command->bridgeId, self::idOf($command), BridgeCommandState::Done, null);
+
+        $this->handler()($ack);
+        $result = $this->handler()($ack);
+
+        self::assertFalse($result->settled);
+        self::assertSame(BridgeCommandState::Done, $result->command?->state);
+        self::assertCount(1, $audit->records('bridge.command_settled'));
+    }
+
+    /** The expiry sweep writes by bulk update, so the handler must read the row and not a managed copy. */
+    public function test_a_command_the_sweep_expired_after_it_was_loaded_stays_expired(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'ack-handler-sweep@example.com');
+        $command = $this->seedCommand($em, $this->seedRun($em, $this->project($em, $owner, 'Ack Handler Sweep')));
+        $em->getConnection()->executeStatement("UPDATE bridge_commands SET state = 'expired' WHERE id = ?", [(string) $command->id]);
+
+        $result = $this->handler()(new AcknowledgeBridgeCommandCommand($owner, $command->bridgeId, self::idOf($command), BridgeCommandState::Done, null));
+
+        self::assertFalse($result->settled);
+        self::assertSame(BridgeCommandState::Expired, $result->command?->state);
+    }
+
+    public function test_an_unknown_command_answers_no_command(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $owner = $this->user($this->em(), 'ack-handler-unknown@example.com');
+
+        $result = $this->handler()(new AcknowledgeBridgeCommandCommand($owner, Uuid::v4(), Uuid::v4(), BridgeCommandState::Done, null));
+
+        self::assertNull($result->command);
+        self::assertFalse($result->settled);
+        self::assertSame([], $audit->operations());
+    }
+
+    private static function idOf(BridgeCommand $command): Uuid
+    {
+        return $command->id ?? throw new \LogicException('A flushed command has an id.');
+    }
+
+    private function handler(): AcknowledgeBridgeCommandHandler
+    {
+        $handler = self::getContainer()->get(AcknowledgeBridgeCommandHandler::class);
+        self::assertInstanceOf(AcknowledgeBridgeCommandHandler::class, $handler);
+
+        return $handler;
+    }
+}

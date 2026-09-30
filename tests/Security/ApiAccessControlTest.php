@@ -80,6 +80,19 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertTrue($this->decide('/api/bridges/'.$bridge.'/runs', ['ROLE_USER', 'ROLE_API_AGENT']));
     }
 
+    /** The ack rule grants one command of one bridge, and to an agent token alone. */
+    public function test_the_command_ack_rule_does_not_open_the_rest_of_a_bridge(): void
+    {
+        $bridge = '0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f';
+        $command = '1a2b3c4d-8f1c-4c4e-9a3a-1d2b3c4d5e6f';
+        self::assertTrue($this->decide('/api/bridges/'.$bridge.'/commands/'.$command, ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertFalse($this->decide('/api/bridges/'.$bridge.'/commands/'.$command, ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
+        self::assertFalse($this->decide('/api/bridges/'.$bridge.'/commands', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/bridges/'.$bridge.'/commands/', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/bridges/'.$bridge.'/commands/'.$command.'/extra', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/bridges/a/b/commands/'.$command, self::ALL_ROLES));
+    }
+
     /** The rules rule grants one route, so nothing beside it under a bridge opens. */
     public function test_the_bridge_rules_rule_does_not_open_the_rest_of_a_project(): void
     {
