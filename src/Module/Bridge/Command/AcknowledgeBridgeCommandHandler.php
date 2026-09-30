@@ -9,6 +9,7 @@ use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -40,6 +41,15 @@ final readonly class AcknowledgeBridgeCommandHandler
         }
 
         $result = $this->em->wrapInTransaction(function () use ($command): AcknowledgeBridgeCommandResult {
+            $releasesHold = false;
+            if (BridgeCommandState::Done === $command->state) {
+                $known = $this->bridgeCommands->findOneBy(['owner' => $command->owner, 'bridgeId' => $command->bridgeId, 'id' => $command->commandId]);
+                if (null !== $known && BridgeCommandKind::ResumeRun === $known->kind) {
+                    // The lock a stop takes to hold the card, before the row lock as a cancel takes them.
+                    $this->em->lock($known->project, LockMode::PESSIMISTIC_WRITE);
+                    $releasesHold = true;
+                }
+            }
             // The row lock orders two acks and the expiry sweep, so only one of them settles the command.
             $bridgeCommand = $this->bridgeCommands->findOneForBridgeLocked($command->owner, $command->bridgeId, $command->commandId);
             if (null === $bridgeCommand) {
@@ -50,8 +60,7 @@ final readonly class AcknowledgeBridgeCommandHandler
             // Also on a late ack, because the bridge resumed the run even when a cancel or the expiry settled the row first.
             $project = $bridgeCommand->project;
             $cardId = $bridgeCommand->workerRun->cardId;
-            if (BridgeCommandKind::ResumeRun === $bridgeCommand->kind && BridgeCommandState::Done === $command->state
-                && !$this->bridgeCommands->hasLiveStopForCardSince($project, $cardId, $bridgeCommand->requestedAt)) {
+            if ($releasesHold && !$this->bridgeCommands->hasLiveStopForCardSince($project, $cardId, $bridgeCommand->requestedAt)) {
                 $this->cardHolds->release($project, [$cardId]);
             }
 
