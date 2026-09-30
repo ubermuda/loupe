@@ -246,7 +246,8 @@ with no epic last in both directions. A filter change keeps the sort.
 The **Move to** menu of a row sends the card to the end of a board column. Tick
 rows to show the bulk bar. It has a button for the first column that is not
 terminal, such as **Move to Next**, a **Move to** menu for any board column, and
-**Clear**. A bulk move takes the ticked cards of one page, in Backlog order.
+**Clear**. A bulk move takes the ticked cards of one page. They keep
+the rank that the board holds for them, whatever the sort of the page.
 When one move is refused, no card moves.
 
 An empty Backlog shows **The Backlog is empty**. Filters that match no card
