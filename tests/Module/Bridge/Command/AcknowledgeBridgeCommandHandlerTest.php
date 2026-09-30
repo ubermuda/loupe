@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Command;
 
+use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\AcknowledgeBridgeCommandCommand;
 use App\Module\Bridge\Command\AcknowledgeBridgeCommandHandler;
-use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\CardHolds;
