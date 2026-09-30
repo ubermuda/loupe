@@ -139,8 +139,7 @@ final class StageHoldTest extends KernelTestCase
     public function test_a_stage_column_made_terminal_holds_nothing(): void
     {
         $card = $this->card('product-design', $this->document(['product'], DocumentStatus::Approved));
-        $this->column($this->project, 'product-design')->terminal = true;
-        $this->em->flush();
+        $this->em->getConnection()->update('board_columns', ['terminal' => 'true'], ['id' => (string) $this->column($this->project, 'product-design')->id]);
 
         self::assertNull($this->hold->heldStage($card));
     }

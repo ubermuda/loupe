@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 
@@ -20,6 +21,7 @@ final readonly class StageHold
         private CardRepository $cards,
         private CardDocumentRepository $cardDocuments,
         private LifecycleStages $stages,
+        private BoardColumnRepository $boardColumns,
     ) {
     }
 
@@ -32,13 +34,15 @@ final readonly class StageHold
     /**
      * The stage an approved document of the card says it has passed, while
      * the card still sits in the column that stage starts from. It reads the
-     * card's column onto the card.
+     * card's column, and the board's columns, onto the entities.
      *
      * @return array{from: string, to: string}|null
      */
     public function heldStage(Card $card): ?array
     {
         $this->cards->refreshColumn($card);
+        // The column itself too: another request may have renamed it or made it terminal.
+        $this->boardColumns->findForProjectFresh($card->project);
         // A finished card waits for nothing, even in a column that shares a stage slug.
         if ($card->column->terminal) {
             return null;
