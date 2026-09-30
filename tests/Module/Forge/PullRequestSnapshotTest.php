@@ -31,6 +31,8 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertNull($pullRequest->refreshedAt);
         self::assertSame(0, $pullRequest->refreshAttempts);
         self::assertNull($pullRequest->changesRequestedSha);
+        self::assertNull($pullRequest->openedAt);
+        self::assertNull($pullRequest->mergedAt);
         self::assertTrue($pullRequest->snapshot()->equals(new PullRequestSnapshot()));
     }
 
@@ -52,12 +54,23 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertSame(PullRequestReview::ChangesRequested, $pullRequest->review);
         self::assertTrue($pullRequest->readyToMerge);
         self::assertSame('1000', $pullRequest->changesRequestedSha);
+        self::assertEquals(new \DateTimeImmutable('2026-09-20 08:00:00'), $pullRequest->openedAt);
+        self::assertEquals(new \DateTimeImmutable('2026-09-21 09:30:00'), $pullRequest->mergedAt);
         self::assertTrue($pullRequest->snapshot()->equals($snapshot));
+        self::assertEquals(new \DateTimeImmutable('2026-09-20 08:00:00'), $pullRequest->snapshot()->openedAt);
+        self::assertEquals(new \DateTimeImmutable('2026-09-21 09:30:00'), $pullRequest->snapshot()->mergedAt);
     }
 
     public function test_equal_snapshots_are_equal(): void
     {
         self::assertTrue($this->changed()->equals($this->changed()));
+    }
+
+    public function test_the_open_and_merge_times_do_not_break_equality(): void
+    {
+        $arguments = [...self::changedArguments(), 'openedAt' => null, 'mergedAt' => null];
+
+        self::assertTrue($this->changed()->equals(new PullRequestSnapshot(...$arguments)));
     }
 
     /** @param array<string, mixed> $change */
@@ -127,6 +140,8 @@ final class PullRequestSnapshotTest extends TestCase
             'review' => PullRequestReview::ChangesRequested,
             'readyToMerge' => true,
             'changesRequestedSha' => '1000',
+            'openedAt' => new \DateTimeImmutable('2026-09-20 08:00:00'),
+            'mergedAt' => new \DateTimeImmutable('2026-09-21 09:30:00'),
         ];
     }
 

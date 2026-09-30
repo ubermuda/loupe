@@ -85,6 +85,7 @@ final class GitHubPullRequestStateReaderTest extends KernelTestCase
         self::assertIsString($body['query'] ?? null);
         self::assertStringContainsString('latestOpinionatedReviews(first:100,writersOnly:true){nodes{state commit{oid}}}', $body['query']);
         self::assertStringNotContainsString('reviews(last:1', $body['query']);
+        self::assertStringContainsString(' createdAt mergedAt ', $body['query']);
         self::assertSame('https://api.github.com/repos/Ubermuda/Loupe/rules/branches/main?per_page=100&page=1', $this->requests[2]['url']);
         self::assertSame('https://api.github.com/repos/Ubermuda/Loupe/compare/main...'.self::HEAD, $this->requests[3]['url']);
     }
