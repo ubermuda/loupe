@@ -6490,6 +6490,7 @@
             <trans-unit id="bridge.command.error.not_stoppable"><source>bridge.command.error.not_stoppable</source><target>Only a queued or running run can stop.</target></trans-unit>
             <trans-unit id="bridge.command.error.bridge_outdated"><source>bridge.command.error.bridge_outdated</source><target>Update the bridge to control its runs.</target></trans-unit>
             <trans-unit id="bridge.command.error.nothing_pending"><source>bridge.command.error.nothing_pending</source><target>This run has no command that waits.</target></trans-unit>
+            <trans-unit id="bridge.pause.error.bridge_outdated"><source>bridge.pause.error.bridge_outdated</source><target>Update the bridge to pause it.</target></trans-unit>
             <trans-unit id="bridge.pause.error.unknown_bridge"><source>bridge.pause.error.unknown_bridge</source><target>This bridge is not connected to your account.</target></trans-unit>
             <trans-unit id="board.rules.page.title"><source>board.rules.page.title</source><target>Rules</target></trans-unit>
             <trans-unit id="board.rules.nav"><source>board.rules.nav</source><target>Rules</target></trans-unit>

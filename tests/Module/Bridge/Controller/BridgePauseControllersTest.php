@@ -118,6 +118,8 @@ final class BridgePauseControllersTest extends WebTestCase
         $owner = $this->user($em, 'bridge-pause-'.$name.'@example.com');
         $project = $this->project($em, $owner, 'Bridge pause '.$name);
         $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id]);
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $em->flush();
 
         return [$owner, $project, $bridge];
     }

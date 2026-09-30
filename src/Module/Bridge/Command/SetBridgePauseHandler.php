@@ -23,6 +23,7 @@ use Ubermuda\AuditBundle\AuditSubject;
 final readonly class SetBridgePauseHandler
 {
     public const string UNKNOWN_BRIDGE = 'bridge.pause.error.unknown_bridge';
+    public const string BRIDGE_OUTDATED = 'bridge.pause.error.bridge_outdated';
 
     public function __construct(
         private BridgeRepository $bridges,
@@ -46,6 +47,10 @@ final readonly class SetBridgePauseHandler
             if (null === $bridge || $bridge->pauseRequested === $command->paused) {
                 return [$bridge, false];
             }
+            // An unpause stays open, so a person can clear a pause that an older bridge never applied.
+            if ($command->paused && !$bridge->takesCommands()) {
+                return [self::BRIDGE_OUTDATED, false];
+            }
 
             $bridge->pauseRequested = $command->paused;
             $bridge->pauseRequestedAt = $this->clock->now();
@@ -55,6 +60,9 @@ final readonly class SetBridgePauseHandler
             return [$bridge, true];
         });
 
+        if (self::BRIDGE_OUTDATED === $bridge) {
+            throw new DomainErrors(['bridge' => self::BRIDGE_OUTDATED]);
+        }
         if (!$bridge instanceof Bridge) {
             throw new DomainErrors(['bridge' => self::UNKNOWN_BRIDGE]);
         }

@@ -397,6 +397,8 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $stranger = $this->user($this->em(), 'run-publish-pause-stranger@example.com');
         $foreign = $this->project($this->em(), $stranger, 'Run publish pause foreign');
         $bridge = $this->seedBridge($this->em(), $this->owner, projects: [(string) $this->project->id, (string) $foreign->id]);
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $this->em()->flush();
         $pause = fn (bool $paused) => $this->service(SetBridgePauseHandler::class)(new SetBridgePauseCommand($this->owner, $bridge->id, $paused, $this->owner));
 
         $pause(true);

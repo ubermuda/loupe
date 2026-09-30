@@ -551,6 +551,7 @@ error:
 | Only a queued or running run can stop | a stop of a run that is not `queued`, `resumed` or `running` |
 | Update the bridge to control its runs | the bridge does not report the `commands` capability |
 | This run has no command that waits | a cancel with no request that waits |
+| Update the bridge to pause it | a pause of a bridge that does not report the `commands` capability. An unpause is always accepted |
 
 A queued run of a bridge that reports a pause shows **Waiting: bridge paused**
 in the web UI. The run keeps the state `queued`.
