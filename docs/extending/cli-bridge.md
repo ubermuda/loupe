@@ -1026,6 +1026,13 @@ rules:
       Pull request {pullRequestUrl} is ready to merge at {headSha}.
 ```
 
+Loupe sends `pull_request.ready_to_merge` without a look at the review. The
+`loupe-stage-merge` skill reads the approval again before it merges. It merges
+only when every current approval is later than the push of every commit, or
+when each later commit is a merge from the base that git re-creates
+with no conflict. A conflict resolution or any other later commit stops the run
+as `not ready`, so a person approves or proves it.
+
 A rule on `pull_request.fix_requested` can set `resume: true`. When the event
 names a session, the bridge resumes it with the rule's prompt and the card
 footer. When it names no session, the bridge starts a new session. The bridge
