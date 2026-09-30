@@ -325,8 +325,10 @@ loupe status: PASS
 The `Claude Code:` line is a note, and it never fails the check. An agent other
 than Claude Code, such as Codex, keeps its own configuration.
 
-The last line is `loupe status: PASS` or `loupe status: FAIL`. A failure exits
-with status 1, and the error on stderr says what to run next:
+The last line on stdout is `loupe status: PASS` or `loupe status: FAIL`. A
+failure exits with status 1, and the error on stderr says what to run next.
+Read the exit status, because the error comes after the verdict when you merge
+the two streams:
 
 ```text
 Claude Code: does not declare "loupe". Run `loupe init --mcp` to declare it. Other agents keep their own configuration.

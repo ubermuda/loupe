@@ -21,7 +21,7 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/projectfile"
 )
 
-// The last line of `loupe status`, which a script or an agent reads.
+// The last line of `loupe status` on stdout. The error follows it on stderr.
 const (
 	statusPass = "loupe status: PASS"
 	statusFail = "loupe status: FAIL"
@@ -44,8 +44,9 @@ func newStatusCmd() *cobra.Command {
 			"It prints the instance and the project, then notes how Claude Code starts the `" +
 			mcpjson.ServerKey + "` MCP server. That note never fails the check, because an agent " +
 			"other than Claude Code keeps its own configuration.\n\n" +
-			"The last line is `" + statusPass + "` or `" + statusFail + "`. A failure exits " +
-			"non-zero, and the error says what to run next.",
+			"The last line on stdout is `" + statusPass + "` or `" + statusFail + "`. A failure " +
+			"exits non-zero, and the error on stderr says what to run next. Read the exit " +
+			"status, because the error comes after the verdict when the two streams merge.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			out := cmd.OutOrStdout()
 			err := checkStatus(cmd.Context(), out, projectID, cmd.ErrOrStderr())
