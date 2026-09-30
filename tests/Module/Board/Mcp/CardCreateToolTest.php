@@ -72,6 +72,11 @@ final class CardCreateToolTest extends KernelTestCase
         $card = ($this->tool)('Dictated', 'Body', 'idea', reporter: 'human');
 
         self::assertSame(CardReporter::Human->value, $card['reporter']);
+        // The claimed person is not the account behind the call, so the history names the agent.
+        self::assertSame('agent', $this->em->getConnection()->fetchOne(
+            "SELECT actor_kind FROM board_card_events WHERE card_id = :card AND kind = 'created'",
+            ['card' => $card['cardId']],
+        ));
     }
 
     /** Release 1 keeps the old parameter working, so an agent mid-upgrade is not broken. */
