@@ -45,7 +45,10 @@ Step 5 also moves a child that a person put back in `<default>` on purpose, when
 
 ## Build a child
 
-1. A child uses the tech design of its epic. The breakdown links that design to the child, and a child skips product design and tech design.
+A Breakdown child has the entry line in its body. A standalone child has none, for example a card that a person moved under an epic by hand. The epic still groups it on the board. To find the design of the epic, call `card_get` on `parent.cardId` and read its linked tech design. A standalone child skips a linked document with that id.
+
+1. A Breakdown child uses the tech design of its epic. The breakdown links that design to the child, and a Breakdown child skips product design and tech design.
 2. The entry line of the body names the entry. Find the entry with that ID in the Breakdown section of the design.
-3. When the body names no entry, or the design has no entry with that ID, stop with `STAGE RESULT: blocked: no breakdown item`.
+3. When the design has no entry with that ID, stop with `STAGE RESULT: blocked: no breakdown item`.
 4. The plan, the code and the pull request cover only the design sections that the entry covers. Another child builds the rest.
+5. A standalone child needs a tech design of its own, as any other card. It builds that design, and never the design of its epic.
