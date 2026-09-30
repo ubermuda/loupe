@@ -43,6 +43,22 @@ export async function expectFilterFocusRingVisible(
 const mailpitUrl =
     process.env['MAILPIT_URL'] ?? 'https://mailpit.loupe.dev.localhost';
 
+/**
+ * GET a Mailpit API path as JSON, or null when the request fails. expect.poll
+ * stops on the first throw, so a poll returns false on null and retries.
+ */
+async function mailpitJson(
+    request: APIRequestContext,
+    path: string,
+): Promise<any | null> {
+    try {
+        const res = await request.get(`${mailpitUrl}${path}`);
+        return await res.json();
+    } catch {
+        return null;
+    }
+}
+
 /** Subject of the registration verification email. */
 export const VERIFICATION_SUBJECT = 'Confirm your account';
 
@@ -54,20 +70,22 @@ export async function fetchVerificationUrl(
     await expect
         .poll(
             async () => {
-                const listRes = await request.get(
-                    `${mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`,
+                const list = await mailpitJson(
+                    request,
+                    `/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`,
                 );
-                const list = await listRes.json();
+                if (list === null) return false;
 
                 const unread = (list.messages ?? []).filter(
                     (m: { Read: boolean }) => !m.Read,
                 );
                 if (!unread.length) return false;
 
-                const msgRes = await request.get(
-                    `${mailpitUrl}/api/v1/message/${unread[0].ID}`,
+                const msg = await mailpitJson(
+                    request,
+                    `/api/v1/message/${unread[0].ID}`,
                 );
-                const msg = await msgRes.json();
+                if (msg === null) return false;
                 const match = (msg.Text as string).match(/https?:\/\/\S+/);
                 if (!match) return false;
 
@@ -99,10 +117,11 @@ export async function getLatestEmailTo(
     await expect
         .poll(
             async () => {
-                const listRes = await request.get(
-                    `${mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}`,
+                const list = await mailpitJson(
+                    request,
+                    `/api/v1/search?query=${encodeURIComponent(`to:${address}`)}`,
                 );
-                const list = await listRes.json();
+                if (list === null) return false;
                 const messages: Array<{
                     ID: string;
                     Subject: string;
@@ -110,10 +129,11 @@ export async function getLatestEmailTo(
                 }> = list.messages ?? [];
                 if (!messages.length) return false;
 
-                const msgRes = await request.get(
-                    `${mailpitUrl}/api/v1/message/${messages[0].ID}`,
+                const msg = await mailpitJson(
+                    request,
+                    `/api/v1/message/${messages[0].ID}`,
                 );
-                const msg = await msgRes.json();
+                if (msg === null) return false;
 
                 result = {
                     body:
@@ -181,10 +201,11 @@ export async function getEmailWithSubject(
     await expect
         .poll(
             async () => {
-                const listRes = await request.get(
-                    `${mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:${address} subject:"${subject}"`)}`,
+                const list = await mailpitJson(
+                    request,
+                    `/api/v1/search?query=${encodeURIComponent(`to:${address} subject:"${subject}"`)}`,
                 );
-                const list = await listRes.json();
+                if (list === null) return false;
                 const messages: Array<{ ID: string }> = list.messages ?? [];
                 if (!messages.length) return false;
                 // Mailpit lists newest first, so an unchanged head means the
@@ -192,10 +213,11 @@ export async function getEmailWithSubject(
                 if (afterId !== undefined && messages[0].ID === afterId)
                     return false;
 
-                const msgRes = await request.get(
-                    `${mailpitUrl}/api/v1/message/${messages[0].ID}`,
+                const msg = await mailpitJson(
+                    request,
+                    `/api/v1/message/${messages[0].ID}`,
                 );
-                const msg = await msgRes.json();
+                if (msg === null) return false;
 
                 result = {
                     body:
