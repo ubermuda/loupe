@@ -548,6 +548,8 @@ type Heartbeat struct {
 type HeartbeatReply struct {
 	CLIRange string
 	Paused   *bool
+	// Commands are decoded and not checked. Run each through
+	// event.CheckCommand before use.
 	Commands []Command
 }
 
