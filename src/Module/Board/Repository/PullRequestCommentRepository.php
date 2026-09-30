@@ -10,6 +10,7 @@ use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /** @extends ServiceEntityRepository<PullRequestComment> */
@@ -73,5 +74,27 @@ class PullRequestCommentRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
 
         return $comment instanceof PullRequestComment ? $comment : null;
+    }
+
+    /**
+     * Points the unposted rows of one repository in one project at its new
+     * path, so the post still finds its pull request after a rename.
+     */
+    public function repoint(Uuid $projectId, string $forge, string $from, string $to): int
+    {
+        return (int) $this->createQueryBuilder('comment')
+            ->update()
+            ->set('comment.repository', ':to')
+            ->andWhere('comment.project = :project')
+            ->andWhere('comment.forge = :forge')
+            ->andWhere('LOWER(comment.repository) = :from')
+            ->andWhere('comment.state IN (:states)')
+            ->setParameter('project', $projectId, UuidType::NAME)
+            ->setParameter('forge', $forge)
+            ->setParameter('from', mb_strtolower($from))
+            ->setParameter('to', $to)
+            ->setParameter('states', [PullRequestCommentState::Pending->value, PullRequestCommentState::Failed->value])
+            ->getQuery()
+            ->execute();
     }
 }
