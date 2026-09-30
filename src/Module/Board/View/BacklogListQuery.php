@@ -23,7 +23,8 @@ final readonly class BacklogListQuery
         public ?CardType $type = null,
         /** Null is any epic, NO_EPIC is no epic, and a card id is that epic. */
         public ?string $epic = null,
-        public BacklogSort $sort = BacklogSort::Rank,
+        public BacklogSort $sort = BacklogSort::Created,
+        public BacklogDirection $dir = BacklogDirection::Desc,
     ) {
     }
 
@@ -38,7 +39,8 @@ final readonly class BacklogListQuery
             search: '' === $search ? null : $search,
             type: CardType::tryFrom($query->getString('type')),
             epic: self::NO_EPIC === $epic || Uuid::isValid($epic) ? $epic : null,
-            sort: BacklogSort::tryFrom($query->getString('sort')) ?? BacklogSort::Rank,
+            sort: BacklogSort::tryFrom($query->getString('sort')) ?? BacklogSort::Created,
+            dir: BacklogDirection::tryFrom($query->getString('dir')) ?? BacklogDirection::Desc,
         );
     }
 
@@ -53,13 +55,30 @@ final readonly class BacklogListQuery
         return null !== $this->search || null !== $this->type || null !== $this->epic;
     }
 
-    /** Only the rank order can take a drag, because only it is the order a drag changes. */
-    public function isRanked(): bool
+    /**
+     * The params of a column header link: the current column reverses, and
+     * another column starts in its first direction. The list starts at page one.
+     *
+     * @return array{page: int, search?: string, type?: string, epic?: string, sort?: string, dir?: string}
+     */
+    public function sortParams(BacklogSort $column): array
     {
-        return BacklogSort::Rank === $this->sort;
+        $dir = $column === $this->sort ? $this->dir->reversed() : $column->firstDirection();
+
+        return (clone ($this, ['page' => 1, 'sort' => $column, 'dir' => $dir]))->routeParams();
     }
 
-    /** @return array{page: int, search?: string, type?: string, epic?: string, sort?: string} */
+    /** The aria-sort value of a column header. */
+    public function ariaSort(BacklogSort $column): string
+    {
+        if ($column !== $this->sort) {
+            return 'none';
+        }
+
+        return BacklogDirection::Asc === $this->dir ? 'ascending' : 'descending';
+    }
+
+    /** @return array{page: int, search?: string, type?: string, epic?: string, sort?: string, dir?: string} */
     public function routeParams(): array
     {
         $params = ['page' => $this->page];
@@ -76,8 +95,9 @@ final readonly class BacklogListQuery
             $params['epic'] = $this->epic;
         }
 
-        if (!$this->isRanked()) {
+        if (BacklogSort::Created !== $this->sort || BacklogDirection::Desc !== $this->dir) {
             $params['sort'] = $this->sort->value;
+            $params['dir'] = $this->dir->value;
         }
 
         return $params;
