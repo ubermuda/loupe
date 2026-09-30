@@ -85,9 +85,16 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#cli/v}"
           tap="$RUNNER_TEMP/tap"
-          git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/ubermuda/homebrew-tap.git" "$tap"
+          # The tap is public, so the clone needs no token and .git/config never holds one.
+          git clone --depth 1 https://github.com/ubermuda/homebrew-tap.git "$tap"
+          status=0
+          sh cli/scripts/homebrew-publishable.sh "$version" "$tap/Formula/loupe.rb" || status=$?
+          if [ "$status" = 3 ]; then exit 0; fi
+          if [ "$status" != 0 ]; then exit "$status"; fi
           mkdir -p "$tap/Formula"
           sh cli/scripts/homebrew-formula.sh "$version" "$RUNNER_TEMP/checksums.txt" > "$tap/Formula/loupe.rb"
+          auth=$(printf 'x-access-token:%s' "$TAP_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
           cd "$tap"
           git add Formula/loupe.rb
           if git diff --cached --quiet; then
@@ -97,4 +104,4 @@ jobs:
           git -c user.name='github-actions[bot]' \
             -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
             commit -m "loupe $version"
-          git push origin HEAD
+          git -c http.extraheader="AUTHORIZATION: basic $auth" push origin HEAD
