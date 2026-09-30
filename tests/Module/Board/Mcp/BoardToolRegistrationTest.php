@@ -10,6 +10,7 @@ use App\Module\Board\Command\SearchBoardHandler;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Mcp\BoardColumnsTool;
 use App\Module\Board\Mcp\CardCreateTool;
+use App\Module\Board\Mcp\CardGetHistoryTool;
 use App\Module\Board\Mcp\CardGetTool;
 use App\Module\Board\Mcp\CardListTool;
 use App\Module\Board\Mcp\CardRunCloseTool;
@@ -61,6 +62,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
         yield 'board_columns' => [BoardColumnsTool::NAME, BoardColumnsTool::class];
         yield 'card_search' => [CardSearchTool::NAME, CardSearchTool::class];
         yield 'card_get' => [CardGetTool::NAME, CardGetTool::class];
+        yield 'card_get_history' => [CardGetHistoryTool::NAME, CardGetHistoryTool::class];
         yield 'card_update' => [CardUpdateTool::NAME, CardUpdateTool::class];
         yield 'feedback_list' => [FeedbackListTool::NAME, FeedbackListTool::class];
         yield 'feedback_mark_addressed' => [FeedbackMarkAddressedTool::NAME, FeedbackMarkAddressedTool::class];
@@ -89,6 +91,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertNotContains(CardCreateTool::NAME, $names);
         self::assertNotContains(BoardColumnsTool::NAME, $names);
         self::assertNotContains(CardSearchTool::NAME, $names);
+        self::assertNotContains(CardGetHistoryTool::NAME, $names);
         self::assertNotContains(CardUpdateTool::NAME, $names);
         self::assertNotContains(FeedbackListTool::NAME, $names);
         self::assertNotContains(FeedbackMarkAddressedTool::NAME, $names);
@@ -111,7 +114,8 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertSame($order[CardListTool::NAME] + 1, $order[BoardColumnsTool::NAME]);
         self::assertLessThan($order[CardSearchTool::NAME], $order[BoardColumnsTool::NAME]);
         self::assertLessThan($order[CardGetTool::NAME], $order[CardSearchTool::NAME]);
-        self::assertLessThan($order[CardUpdateTool::NAME], $order[CardGetTool::NAME]);
+        self::assertSame($order[CardGetTool::NAME] + 1, $order[CardGetHistoryTool::NAME]);
+        self::assertLessThan($order[CardUpdateTool::NAME], $order[CardGetHistoryTool::NAME]);
         self::assertLessThan($order[FeedbackMarkAddressedTool::NAME], $order[FeedbackListTool::NAME]);
         self::assertSame($order[CardUpdateTool::NAME] + 1, $order[CardRunOpenTool::NAME]);
         self::assertSame($order[CardRunOpenTool::NAME] + 1, $order[CardRunCloseTool::NAME]);
@@ -229,9 +233,9 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertArrayNotHasKey('required', $schema);
     }
 
-    public function test_card_get_and_card_update_take_a_card_id_or_a_number(): void
+    public function test_the_single_card_tools_take_a_card_id_or_a_number(): void
     {
-        foreach ([CardGetTool::NAME, CardUpdateTool::NAME] as $toolName) {
+        foreach ([CardGetTool::NAME, CardGetHistoryTool::NAME, CardUpdateTool::NAME] as $toolName) {
             $schema = $this->registry->getTool($toolName)->tool->inputSchema;
             $number = $schema['properties']['number'];
 
