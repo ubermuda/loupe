@@ -16,9 +16,12 @@ final class ResolveExperimentPinRequest
 {
     public const int MAX_VARIANTS = 32;
 
+    public const int MAX_WEIGHT = 1_000_000;
+
     public function __construct(
         public mixed $candidate = null,
         public mixed $variants = null,
+        public mixed $weights = null,
     ) {
     }
 
@@ -48,6 +51,33 @@ final class ResolveExperimentPinRequest
         }
 
         return ['candidate' => $this->candidate, 'variants' => $names];
+    }
+
+    /**
+     * The weight of each variant, by name. Null when the choice is invalid, or
+     * the weights are not one int from 1 to MAX_WEIGHT for each variant. A bad
+     * list never refuses the pin, so an older bridge that sends none still runs.
+     *
+     * @return non-empty-array<string, int<1, max>>|null
+     */
+    public function weights(): ?array
+    {
+        $choice = $this->choice();
+        $weights = $this->weights;
+        if (null === $choice || !\is_array($weights) || !array_is_list($weights) || \count($weights) !== \count($choice['variants'])) {
+            return null;
+        }
+
+        $byName = [];
+        foreach ($choice['variants'] as $i => $name) {
+            $weight = $weights[$i];
+            if (!\is_int($weight) || $weight < 1 || $weight > self::MAX_WEIGHT) {
+                return null;
+            }
+            $byName[$name] = $weight;
+        }
+
+        return $byName;
     }
 
     public static function isName(string $name): bool

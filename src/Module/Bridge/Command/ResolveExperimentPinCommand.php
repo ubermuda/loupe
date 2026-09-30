@@ -7,7 +7,11 @@ namespace App\Module\Bridge\Command;
 use App\Module\Account\Entity\User;
 use Symfony\Component\Uid\Uuid;
 
-/** The variant a card runs with in one experiment. The candidate is one of the variants. */
+/**
+ * The variant a card runs with in one experiment. The candidate is one of the
+ * variants. The weights map each variant to its weight, and are null when the
+ * bridge sent no valid list.
+ */
 final readonly class ResolveExperimentPinCommand
 {
     public function __construct(
@@ -18,6 +22,8 @@ final readonly class ResolveExperimentPinCommand
         public string $candidate,
         /** @var non-empty-list<string> */
         public array $variants,
+        /** @var array<string, int>|null */
+        public ?array $weights = null,
     ) {
     }
 }

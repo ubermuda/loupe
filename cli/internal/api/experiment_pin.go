@@ -16,16 +16,21 @@ var ErrExperimentPinsUnsupported = errors.New("the server has no experiment pin 
 
 // ResolveExperimentPin asks the server which variant of an experiment a card
 // runs with. candidate is the variant the bridge drew, and variants are the
-// ones the rule offers now. It answers the variant, and the variant the pin
-// moved from, or "" when the pin did not move.
-func (c *Client) ResolveExperimentPin(ctx context.Context, handle, experiment, cardID, candidate string, variants []string) (string, string, error) {
+// ones the rule offers now. weights holds the weight of each variant, in the
+// order of variants. It answers the variant, and the variant the pin moved
+// from, or "" when the pin did not move.
+func (c *Client) ResolveExperimentPin(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int) (string, string, error) {
 	if variants == nil {
 		variants = []string{}
+	}
+	if weights == nil {
+		weights = []int{}
 	}
 	body, err := json.Marshal(struct {
 		Candidate string   `json:"candidate"`
 		Variants  []string `json:"variants"`
-	}{candidate, variants})
+		Weights   []int    `json:"weights"`
+	}{candidate, variants, weights})
 	if err != nil {
 		return "", "", fmt.Errorf("encode the experiment pin: %w", err)
 	}

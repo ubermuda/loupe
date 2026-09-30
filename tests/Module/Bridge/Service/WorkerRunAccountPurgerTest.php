@@ -8,6 +8,7 @@ use App\Module\Account\Deletion\AccountDeletionCleanup;
 use App\Module\Account\Deletion\AccountPurger;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\CardHold;
+use App\Module\Bridge\Entity\ExperimentDefinition;
 use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunAccountPurger;
@@ -91,6 +92,25 @@ final class WorkerRunAccountPurgerTest extends KernelTestCase
         self::assertSame(
             [(string) $keptPin->id],
             $em->getConnection()->fetchFirstColumn('SELECT id FROM bridge_experiment_pins'),
+        );
+    }
+
+    public function test_it_takes_the_experiment_definitions_of_the_departing_account_alone(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $leaving = $this->user($em, 'definitions-purge-leaving@example.com');
+        $staying = $this->user($em, 'definitions-purge-staying@example.com');
+        $em->persist(new ExperimentDefinition($this->project($em, $leaving, 'Leaving Definitions'), 'impl-model', ['opus' => 1]));
+        $keptDefinition = new ExperimentDefinition($this->project($em, $staying, 'Staying Definitions'), 'impl-model', ['opus' => 1]);
+        $em->persist($keptDefinition);
+        $em->flush();
+
+        $this->purge($leaving);
+
+        self::assertSame(
+            [(string) $keptDefinition->id],
+            $em->getConnection()->fetchFirstColumn('SELECT id FROM bridge_experiment_definitions'),
         );
     }
 

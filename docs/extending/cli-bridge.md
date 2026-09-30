@@ -399,6 +399,8 @@ through the
 [experiment pin endpoint](../reference/worker-runs.md#resolving-an-experiment-pin).
 The server keeps the first pin of each card, so a card keeps its variant on
 every later run, resumes included.
+Each pin request also sends the weight of each variant. The server keeps the
+latest weights of each experiment.
 
 A change to the weights moves only the cards that have no pin yet. When you
 remove a variant, its cards take the candidate on their next run. That run

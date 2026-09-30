@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Bridge\Command;
 
+use App\Module\Bridge\Repository\ExperimentDefinitionRepository;
 use App\Module\Bridge\Repository\ExperimentPinRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
@@ -18,12 +19,14 @@ use Symfony\Component\Uid\Uuid;
  * Pins the candidate on the first call for a card, keeps a pin the rule still
  * offers, and moves a pin the rule dropped to the candidate. Every call
  * refreshes the pin, so the retention sweep keeps the pins of active cards.
+ * Valid weights replace the stored weights of the experiment.
  */
 final readonly class ResolveExperimentPinHandler
 {
     public function __construct(
         private ProjectRepository $projects,
         private ExperimentPinRepository $experimentPins,
+        private ExperimentDefinitionRepository $experimentDefinitions,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
     ) {
@@ -77,6 +80,10 @@ final readonly class ResolveExperimentPinHandler
 
             $pin->updatedAt = $now;
             $this->em->flush();
+
+            if (null !== $command->weights) {
+                $this->experimentDefinitions->upsert($project, $command->experiment, $command->weights, $now);
+            }
 
             return new ResolveExperimentPinResult($pin->variant, $switchedFrom);
         });
