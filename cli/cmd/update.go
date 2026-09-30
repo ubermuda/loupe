@@ -137,9 +137,10 @@ func newUpdateAutoCmd() *cobra.Command {
 		Long: "With no argument, shows whether a bridge updates the CLI on its own. Automatic " +
 			"updates are off when the rule file has no autoUpdate key. With on or off, adds " +
 			"the key as a new last line of the rule file, and creates the file when it is absent. " +
-			"The command never changes a key that is there: it exits with status 1 when the key " +
-			"holds the other value, and with --keep it keeps that value and exits with status 0. " +
-			"A running bridge reads the change on loupe bridge reload.",
+			"A key that holds the other value changes on its own line, and the rest of the file " +
+			"stays. When that line cannot change alone, the command exits with status 1 and names " +
+			"the line to edit. With --keep, a key that is there keeps its value, and the command " +
+			"exits with status 0. A running bridge reads the change on loupe bridge reload.",
 		Args:      cobra.MatchAll(cobra.MaximumNArgs(1), cobra.OnlyValidArgs),
 		ValidArgs: []string{"on", "off"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -167,16 +168,25 @@ func newUpdateAutoCmd() *cobra.Command {
 			switch {
 			case err != nil:
 				return fmt.Errorf("rule file %s: %w", path, err)
-			case kept == nil:
-				fmt.Fprintln(out, "Automatic updates: "+onOff(on))
-				fmt.Fprintf(out, "Wrote %s to %s. A running bridge reads it on loupe bridge reload.\n", rules.AutoUpdateLine(on), path)
-			case keep:
+			case kept != nil && keep:
 				fmt.Fprintf(out, "Automatic updates: %s (kept from %s)\n", onOff(*kept), path)
-			case *kept != on:
-				return fmt.Errorf("%s already holds %s; edit that line to %s", path, rules.AutoUpdateLine(*kept), rules.AutoUpdateLine(on))
-			default:
+
+				return nil
+			case kept != nil && *kept == on:
 				fmt.Fprintln(out, "Automatic updates: "+onOff(on))
+
+				return nil
+			case kept != nil:
+				err := rules.ReplaceAutoUpdate(path, on)
+				if errors.Is(err, rules.ErrEditRefused) {
+					return fmt.Errorf("%s already holds %s; edit that line to %s", path, rules.AutoUpdateLine(*kept), rules.AutoUpdateLine(on))
+				}
+				if err != nil {
+					return fmt.Errorf("rule file %s: %w", path, err)
+				}
 			}
+			fmt.Fprintln(out, "Automatic updates: "+onOff(on))
+			fmt.Fprintf(out, "Wrote %s to %s. A running bridge reads it on loupe bridge reload.\n", rules.AutoUpdateLine(on), path)
 
 			return nil
 		},

@@ -437,8 +437,7 @@ before you downgrade.
 off when the key is absent. With updates off, the bridge installs no release,
 and it only logs `update_available`. A reload applies a change to the key. A
 CLI older than this key refuses the file, because `autoUpdate` is an unknown key
-there. [`loupe update auto`](#loupe-update-auto) reads the key, and adds it when the
-file has none.
+there. [`loupe update auto`](#loupe-update-auto) reads and sets the key.
 
 ```yaml
 autoUpdate: true
@@ -1636,12 +1635,18 @@ as a new last line, and creates the file when it is absent. It then prints
 `Automatic updates: on` and the line it wrote. A running bridge reads the
 change on `loupe bridge reload`.
 
-The command never changes a key that the file holds. When the key holds the
-value you ask for, it prints that value. When the key holds the other value,
-the command exits with status 1 and names the line to edit. With `--keep`, it
-prints `Automatic updates: off (kept from <path>)` and exits with status 0.
-When a new last line would not be a top-level key, as in a flow mapping, the
-command changes nothing, exits with status 1, and names the line to add by hand.
+When the key holds the value you ask for, the command prints that value. When
+the key holds the other value, the command changes the value on the line of the
+key, and every other byte of the file stays, comments included. It then prints
+the same two lines as for a new key. The value must be a plain `true` or
+`false` on the line of the key. In other cases, such as a flow mapping, the
+command changes nothing, exits with status 1, and names the line to edit.
+
+With `--keep`, a key that the file holds keeps its value, whatever it is. The
+command prints `Automatic updates: off (kept from <path>)` and exits with
+status 0. When a new last line would not be a top-level key, as in a flow
+mapping, the command changes nothing, exits with status 1, and names the line
+to add by hand.
 
 ## `loupe version`
 

@@ -796,20 +796,34 @@ func TestUpdateAutoTakesTheRulesFlag(t *testing.T) {
 	}
 }
 
-// The command never rewrites a line the user wrote.
-func TestUpdateAutoLeavesAnExistingKey(t *testing.T) {
+// The command changes the value on the key's line, and keeps the rest.
+func TestUpdateAutoFlipsAnExistingKey(t *testing.T) {
 	shortConfigHome(t)
-	path := defaultRuleFile(t, "autoUpdate: false\n")
+	path := defaultRuleFile(t, "# mine\nautoUpdate: false # asked at install\n")
 
 	out, err := autoCmd(t, "off")
 	if err != nil || out != "Automatic updates: off\n" {
 		t.Fatalf("same value: out = %q, err = %v", out, err)
 	}
 	out, err = autoCmd(t, "on")
-	if err == nil || err.Error() != path+" already holds autoUpdate: false; edit that line to autoUpdate: true" || strings.Contains(out, "Automatic updates") {
+	if err != nil || out != "Automatic updates: on\nWrote autoUpdate: true to "+path+". A running bridge reads it on loupe bridge reload.\n" {
 		t.Fatalf("other value: out = %q, err = %v", out, err)
 	}
-	if data, _ := os.ReadFile(path); string(data) != "autoUpdate: false\n" {
+	if data, _ := os.ReadFile(path); string(data) != "# mine\nautoUpdate: true # asked at install\n" {
+		t.Fatalf("file = %q", data)
+	}
+}
+
+// A value that cannot change on its line alone is left to the user.
+func TestUpdateAutoNamesTheLineToEditWhenItCannotFlipTheKey(t *testing.T) {
+	shortConfigHome(t)
+	path := defaultRuleFile(t, "{autoUpdate: false}\n")
+
+	out, err := autoCmd(t, "on")
+	if err == nil || err.Error() != path+" already holds autoUpdate: false; edit that line to autoUpdate: true" || strings.Contains(out, "Automatic updates") {
+		t.Fatalf("out = %q, err = %v", out, err)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "{autoUpdate: false}\n" {
 		t.Fatalf("file = %q", data)
 	}
 }

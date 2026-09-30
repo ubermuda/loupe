@@ -134,6 +134,48 @@ func TestSetAutoUpdateWritesThroughASymlink(t *testing.T) {
 	}
 }
 
+// The flip changes the value on the key's own line, and every other byte stays.
+func TestReplaceAutoUpdateFlipsTheValueInPlace(t *testing.T) {
+	for _, tc := range []struct{ name, body, want string }{
+		{"a comment", "# mine\nautoUpdate: false # asked at install\nmaxWorkers: 2\n", "# mine\nautoUpdate: true # asked at install\nmaxWorkers: 2\n"},
+		{"the last line", "maxWorkers: 2\nautoUpdate: False", "maxWorkers: 2\nautoUpdate: true"},
+		{"CRLF", "autoUpdate: false\r\nmaxWorkers: 2\r\n", "autoUpdate: true\r\nmaxWorkers: 2\r\n"},
+		{"the same value", "autoUpdate: true\n", "autoUpdate: true\n"},
+	} {
+		path := writeFile(t, tc.body, 0o640)
+
+		if err := ReplaceAutoUpdate(path, true); err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if data, _ := os.ReadFile(path); string(data) != tc.want {
+			t.Fatalf("%s: file = %q", tc.name, data)
+		}
+		if info, _ := os.Stat(path); info.Mode().Perm() != 0o640 {
+			t.Fatalf("%s: mode = %v", tc.name, info.Mode())
+		}
+	}
+}
+
+func TestReplaceAutoUpdateRefusesAValueItCannotEditOnItsLine(t *testing.T) {
+	for name, body := range map[string]string{
+		"a flow mapping":      "{autoUpdate: false}\n",
+		"a value on its line": "autoUpdate:\n  false\n",
+		"an empty value":      "autoUpdate:\n",
+		"a tag":               "autoUpdate: !!bool false\n",
+		"an alias":            "x: &no false\nautoUpdate: *no\n",
+		"no key":              "maxWorkers: 2\n",
+	} {
+		path := writeFile(t, body, 0o600)
+
+		if err := ReplaceAutoUpdate(path, true); !errors.Is(err, ErrEditRefused) {
+			t.Fatalf("%s: err = %v", name, err)
+		}
+		if data, _ := os.ReadFile(path); string(data) != body {
+			t.Fatalf("%s: file changed to %q", name, data)
+		}
+	}
+}
+
 func TestReadAutoUpdateOfAMissingFileOrKey(t *testing.T) {
 	for _, path := range []string{filepath.Join(t.TempDir(), FileName), writeFile(t, "maxWorkers: 2\n", 0o600)} {
 		if on, present, err := ReadAutoUpdate(path); err != nil || present || on {
