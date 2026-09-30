@@ -39,6 +39,10 @@ final readonly class StageHold
     public function heldStage(Card $card): ?array
     {
         $this->cards->refreshColumn($card);
+        // A finished card waits for nothing, even in a column that shares a stage slug.
+        if ($card->column->terminal) {
+            return null;
+        }
 
         foreach ($this->cardDocuments->findApprovedTagNamesForCard($card) as $names) {
             $stage = $this->stages->forTagNames($names);
