@@ -465,8 +465,10 @@ of the archive with its line in `checksums.txt`. A mismatch logs
 `versions/<version>/loupe` in its config directory. A later check uses that
 file again when it is still there.
 
-With `autoUpdate: false` in `rules.yaml`, the check stops before the download.
-The bridge logs `update_available` once for each version and installs nothing.
+Automatic updates are off unless `rules.yaml` holds `autoUpdate: true`. With
+them off, the check stops before the download. The bridge logs
+`update_available` once for each version and installs nothing.
+`loupe update auto on` adds the key.
 
 ### Blocked
 
@@ -560,7 +562,7 @@ ignores the skip list and `autoUpdate`. See
 | Event | What happened |
 |---|---|
 | `update_check` | A check starts |
-| `update_available` | A release waits, and `autoUpdate` is `false` |
+| `update_available` | A release waits, and `autoUpdate` is not `true` |
 | `update_unavailable` | The running version is outside the range, and no release fits |
 | `update_blocked` | The bridge cannot write the directory of its binary |
 | `update_download` | The bridge downloads a release |

@@ -434,13 +434,14 @@ refuses the file, because `defaults` is an unknown key there. Remove the block
 before you downgrade.
 
 `autoUpdate` at the top of the file turns [updates](#updates) on or off. It is
-on when the key is absent. `autoUpdate: false` stops the bridge from installing
-a release, and it then only logs `update_available`. A reload applies a change
-to the key. A CLI older than this key refuses the file, because `autoUpdate` is
-an unknown key there.
+off when the key is absent. With updates off, the bridge installs no release,
+and it only logs `update_available`. A reload applies a change to the key. A
+CLI older than this key refuses the file, because `autoUpdate` is an unknown key
+there. [`loupe update auto`](#loupe-update-auto) reads the key, and adds it when the
+file has none.
 
 ```yaml
-autoUpdate: false
+autoUpdate: true
 ```
 
 `maxWorkers` at the top of the file is the number of workers the bridge runs at
@@ -1294,9 +1295,9 @@ workers in flight keep running and the queue survives. When the new version
 does not connect and send a heartbeat within 60 seconds, the bridge goes back to
 the old version and skips the new one from then on.
 
-`autoUpdate: false` in the [rule file](#the-rule-file) turns this off. The
-bridge must also be able to write the directory of its binary, or it logs
-`update_blocked`. [Updates](../docs/extending/cli-bridge.md#updates) in the
+The bridge does this only with `autoUpdate: true` in the
+[rule file](#the-rule-file). The bridge must also be able to write the
+directory of its binary, or it logs `update_blocked`. [Updates](../docs/extending/cli-bridge.md#updates) in the
 bridge documentation gives every step, the rollback, the recovery after a crash
 and the files in the config directory.
 
@@ -1382,7 +1383,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `update_check_failed` | `from`, `error`, and `to` for a failed download. Level `WARN` |
 | `update_state_unreadable` | `error`: `update.json` does not parse, so the check runs with an empty skip list. Level `WARN` |
 | `update_unavailable` | `from`, `range`, `message`: the running version is outside the range and no release can replace it. Logged once. Level `WARN` |
-| `update_available` | `from`, `to`: a release waits, and `autoUpdate` is `false`. Logged once for each version |
+| `update_available` | `from`, `to`: a release waits, and `autoUpdate` is not `true`. Logged once for each version |
 | `update_blocked` | `from`, `to`, `error`: the bridge cannot write the directory of its binary. Logged once for each version. Level `WARN` |
 | `update_download` | `from`, `to`, `url` |
 | `update_verified` | `from`, `to`: the archive matches `checksums.txt` |
@@ -1604,6 +1605,34 @@ The command prints one line for each bridge. A bridge that hands over prints
 `handing-over`, and the command waits until the bridge runs the new binary.
 When that `exec` fails, the line says `rejected` instead, and the command exits
 with status 1.
+
+### `loupe update auto`
+
+Shows or sets the `autoUpdate` key of the rule file.
+
+```bash
+loupe update auto
+loupe update auto on
+loupe update auto off --keep
+```
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--rules` | `rules.yaml` in your config dir | Read and write this rule file |
+| `--keep` | off | Keep a key that the file holds, whatever its value |
+
+With no argument, the command prints `Automatic updates: on`, `off`, or
+`off (default)` when the file has no key. With `on` or `off`, it adds the key
+as a new last line, and creates the file when it is absent. It then prints
+`Automatic updates: on` and the line it wrote. A running bridge reads the
+change on `loupe bridge reload`.
+
+The command never changes a key that the file holds. When the key holds the
+value you ask for, it prints that value. When the key holds the other value,
+the command exits with status 1 and names the line to edit. With `--keep`, it
+prints `Automatic updates: off (kept from <path>)` and exits with status 0.
+When a new last line would not be a top-level key, as in a flow mapping, the
+command changes nothing, exits with status 1, and names the line to add by hand.
 
 ## `loupe version`
 

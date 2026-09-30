@@ -180,7 +180,7 @@ type File struct {
 	Experiments []Experiment `yaml:"experiments"`
 	Hooks       []HookEntry  `yaml:"hooks"`
 	Launch      LaunchConfig `yaml:"launch"`
-	// AutoUpdate is on when the key is absent.
+	// AutoUpdate is off when the key is absent.
 	AutoUpdate  *bool                 `yaml:"autoUpdate"`
 	MaxWorkers  *int                  `yaml:"maxWorkers"`
 	WorkerPools map[string]WorkerPool `yaml:"workerPools"`
@@ -370,7 +370,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		return nil, err
 	}
 
-	s := &Set{dirs: map[string]string{}, autoUpdate: f.AutoUpdate == nil || *f.AutoUpdate}
+	s := &Set{dirs: map[string]string{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate}
 	var errs []error
 	for _, err := range []error{
 		checkWord("defaults.permissionMode", f.Defaults.PermissionMode),
@@ -492,6 +492,9 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		}
 	}
 
+	if len(f.Rules) == 0 {
+		return nil, withExample(errors.Join(errs...))
+	}
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}

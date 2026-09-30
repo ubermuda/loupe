@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/update"
 )
 
@@ -118,8 +119,77 @@ func newUpdateCmdWith(self selfUpdate) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&rulesPath, "rules", "", "update only the bridge that reads this `path`")
+	cmd.AddCommand(newUpdateAutoCmd())
 
 	return cmd
+}
+
+func newUpdateAutoCmd() *cobra.Command {
+	var rulesPath string
+	var keep bool
+
+	cmd := &cobra.Command{
+		Use:   "auto [on|off]",
+		Short: "Show or set the autoUpdate key of the rule file",
+		Long: "With no argument, shows whether a bridge updates the CLI on its own. Automatic " +
+			"updates are off when the rule file has no autoUpdate key. With on or off, adds " +
+			"the key as a new last line of the rule file, and creates the file when it is absent. " +
+			"The command never changes a key that is there: it exits with status 1 when the key " +
+			"holds the other value, and with --keep it keeps that value and exits with status 0. " +
+			"A running bridge reads the change on loupe bridge reload.",
+		Args:      cobra.MatchAll(cobra.MaximumNArgs(1), cobra.OnlyValidArgs),
+		ValidArgs: []string{"on", "off"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			out := cmd.OutOrStdout()
+			path, err := rulesPathOr(rulesPath)
+			if err != nil {
+				return err
+			}
+			if len(args) == 0 {
+				on, present, err := rules.ReadAutoUpdate(path)
+				if err != nil {
+					return fmt.Errorf("rule file %s: %w", path, err)
+				}
+				state := onOff(on)
+				if !present {
+					state += " (default)"
+				}
+				fmt.Fprintln(out, "Automatic updates: "+state)
+
+				return nil
+			}
+
+			on := args[0] == "on"
+			kept, err := rules.SetAutoUpdate(path, on)
+			switch {
+			case err != nil:
+				return fmt.Errorf("rule file %s: %w", path, err)
+			case kept == nil:
+				fmt.Fprintln(out, "Automatic updates: "+onOff(on))
+				fmt.Fprintf(out, "Wrote %s to %s. A running bridge reads it on loupe bridge reload.\n", rules.AutoUpdateLine(on), path)
+			case keep:
+				fmt.Fprintf(out, "Automatic updates: %s (kept from %s)\n", onOff(*kept), path)
+			case *kept != on:
+				return fmt.Errorf("%s already holds %s; edit that line to %s", path, rules.AutoUpdateLine(*kept), rules.AutoUpdateLine(on))
+			default:
+				fmt.Fprintln(out, "Automatic updates: "+onOff(on))
+			}
+
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&rulesPath, "rules", "", "read and write the rule file at this `path`; empty uses rules.yaml in your config directory")
+	cmd.Flags().BoolVar(&keep, "keep", false, "keep an autoUpdate key that the file holds, whatever its value")
+
+	return cmd
+}
+
+func onOff(on bool) string {
+	if on {
+		return "on"
+	}
+
+	return "off"
 }
 
 // absOr gives the absolute rulesPath, or rulesPath when it has none.
