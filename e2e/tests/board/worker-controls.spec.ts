@@ -23,6 +23,8 @@ test.afterAll(async ({ request }) => {
 test('the owner stops a running run, which holds the card, and cancels the stop', async ({
     page,
 }) => {
+    // A card, a board load, a token and two reports outlast the default budget on CI.
+    test.slow();
     await suppressWidget(page);
     const flag = await page.request.post('/dev/e2e/feature-flag', {
         form: { name: 'board.enabled', enabled: 1 },
