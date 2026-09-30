@@ -11,6 +11,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\EventListener\WriteCardEventOnRunFinished;
 use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
@@ -71,6 +72,7 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
             'durationSeconds' => 125,
             'resumeIndex' => 1,
             'resumeCap' => 3,
+            'closedAt' => '2026-09-30T10:02:05+00:00',
         ];
         $detail = $row->detail;
         // JSONB does not keep key order.
@@ -117,6 +119,30 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         self::assertSame((string) $first[0]->id, (string) $rows[0]->id);
         self::assertSame('timed-out', $rows[0]->detail['state']);
         self::assertEquals(new \DateTimeImmutable('2026-09-30 11:00:00+00:00'), $rows[0]->occurredAt);
+    }
+
+    public function test_a_second_timeout_with_no_end_takes_the_time_of_its_state_change(): void
+    {
+        $run = $this->workerRun($this->card->id, WorkerRunState::TimedOut);
+        $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::TimedOut, new \DateTimeImmutable('2026-09-30 10:00:00+00:00'), new \DateTimeImmutable('2026-09-30 10:00:00+00:00')));
+        $this->em->flush();
+        $this->listener()($this->event($run));
+        $this->listener()($this->event($run));
+        $first = $this->rows();
+        self::assertCount(1, $first);
+        self::assertEquals(new \DateTimeImmutable('2026-09-30 10:00:00+00:00'), $first[0]->occurredAt);
+
+        $run = $this->em->find(WorkerRun::class, $run->id);
+        self::assertInstanceOf(WorkerRun::class, $run);
+        $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, new \DateTimeImmutable('2026-09-30 10:10:00+00:00'), new \DateTimeImmutable('2026-09-30 10:10:00+00:00')));
+        $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::TimedOut, new \DateTimeImmutable('2026-09-30 10:30:00+00:00'), new \DateTimeImmutable('2026-09-30 10:30:00+00:00')));
+        $this->em->flush();
+        $this->listener()($this->event($run));
+
+        $rows = $this->rows();
+        self::assertCount(1, $rows);
+        self::assertSame((string) $first[0]->id, (string) $rows[0]->id);
+        self::assertEquals(new \DateTimeImmutable('2026-09-30 10:30:00+00:00'), $rows[0]->occurredAt);
     }
 
     public function test_a_timed_out_run_that_later_succeeds_keeps_one_row_with_the_later_outcome(): void

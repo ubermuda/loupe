@@ -9,6 +9,7 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\WorkerRunRepository;
+use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
@@ -25,6 +26,7 @@ final readonly class WriteCardEventOnRunFinished
 {
     public function __construct(
         private WorkerRunRepository $workerRuns,
+        private WorkerRunStateChangeRepository $stateChanges,
         private CardRepository $cards,
         private CardEventRepository $cardEvents,
         private ClockInterface $clock,
@@ -36,6 +38,7 @@ final readonly class WriteCardEventOnRunFinished
     {
         try {
             $runs = $this->workerRuns->findByIds($event->runIds);
+            $changes = $this->stateChanges->findForRuns($runs);
         } catch (\Throwable $e) {
             $this->logger->warning('board.card_event_write_failed', ['projectId' => (string) $event->projectId, 'exception' => $e]);
 
@@ -52,7 +55,11 @@ final readonly class WriteCardEventOnRunFinished
                 $card = $this->cards->findOneByIdAndProjectId($run->cardId->toRfc4122(), (string) $run->project->id);
                 if (null !== $card) {
                     $runId = $run->id ?? throw new \LogicException('A stored run has an id.');
-                    $this->cardEvents->upsertRunFinished($card, $runId, $run->project->owner, self::detail($run, $runId->toRfc4122()), $run->endedAt ?? $this->clock->now());
+                    // A timeout sets no end, so the last state change dates the close.
+                    // A new close then moves the row, and a repeated dispatch does not.
+                    $last = $changes[$runId->toRfc4122()] ?? [];
+                    $closedAt = $run->endedAt ?? ([] === $last ? null : $last[\array_key_last($last)]->at) ?? $this->clock->now();
+                    $this->cardEvents->upsertRunFinished($card, $runId, $run->project->owner, self::detail($run, $runId->toRfc4122(), $closedAt), $closedAt);
                 }
             } catch (\Throwable $e) {
                 $this->logger->warning('board.card_event_write_failed', [
@@ -65,7 +72,7 @@ final readonly class WriteCardEventOnRunFinished
     }
 
     /** @return array<string, mixed> */
-    private static function detail(WorkerRun $run, string $runId): array
+    private static function detail(WorkerRun $run, string $runId, \DateTimeImmutable $closedAt): array
     {
         $startedAt = $run->startedAt;
         $endedAt = $run->endedAt;
@@ -80,6 +87,7 @@ final readonly class WriteCardEventOnRunFinished
             'durationSeconds' => null !== $startedAt && null !== $endedAt ? $endedAt->getTimestamp() - $startedAt->getTimestamp() : null,
             'resumeIndex' => $run->resumeIndex,
             'resumeCap' => $run->resumeCap,
+            'closedAt' => $closedAt->format(\DateTimeInterface::ATOM),
         ];
     }
 }
