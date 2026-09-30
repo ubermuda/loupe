@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -18,7 +19,14 @@ final class CliUpdateInput
 
         #[Assert\Length(max: Bridge::MAX_UPDATE_VERSION_LENGTH)]
         public ?string $version = null,
+        /** No constraint: a method this server does not know must not refuse the whole heartbeat. */
+        public ?string $install = null,
     ) {
+    }
+
+    public function install(): ?CliInstallMethod
+    {
+        return null === $this->install ? null : CliInstallMethod::tryFrom($this->install);
     }
 
     /** @return list<string> */

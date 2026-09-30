@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\BridgeExporter;
+use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -23,6 +24,7 @@ final class BridgeExporterTest extends TestCase
         $bridge = new Bridge($owner, $id, [$projectId], 'b4e39aa7 (dirty)', new \DateTimeImmutable('2026-09-14T16:00:00+00:00'));
         $bridge->updateState = CliUpdateState::RolledBack;
         $bridge->updateVersion = '1.3.0';
+        $bridge->installMethod = CliInstallMethod::Homebrew;
         $hook = ['package' => 'github:acme/loupe-hooks', 'ref' => 'v1.2.0', 'event' => 'start', 'lastRunAt' => null, 'outcome' => 'never', 'error' => null];
         $bridge->hooks = [$hook];
         $pool = ['name' => 'default', 'size' => 3, 'inUse' => 1, 'queued' => 0];
@@ -43,6 +45,7 @@ final class BridgeExporterTest extends TestCase
             'lastSeenAt' => '2026-09-14T16:00:00+00:00',
             'updateState' => 'rolled-back',
             'updateVersion' => '1.3.0',
+            'installMethod' => 'homebrew',
             'hooks' => [$hook],
             'workerPools' => [$pool],
             'workerPoolsReportedAt' => '2026-09-14T15:59:00+00:00',

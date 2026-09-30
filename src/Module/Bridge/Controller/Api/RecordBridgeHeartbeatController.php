@@ -58,6 +58,7 @@ final class RecordBridgeHeartbeatController extends AppController
             cliVersion: $payload->cliVersion(),
             updateState: $payload->update?->state(),
             updateVersion: $payload->update?->version,
+            installMethod: $payload->update?->install(),
             hooks: $payload->hooks(),
             workerPools: $payload->workerPools(),
             paused: $payload->paused,

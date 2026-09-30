@@ -12,6 +12,7 @@ use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\BridgeCommandPayload;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
+use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -76,6 +77,46 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $bridge = $this->bridge($owner, $bridgeId);
         self::assertSame(CliUpdateState::RolledBack, $bridge->updateState);
         self::assertSame('1.3.0', $bridge->updateVersion);
+        self::assertNull($bridge->installMethod);
+    }
+
+    public function test_the_install_method_is_stored(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-install@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, [
+            'projects' => [],
+            'cliVersion' => '1.2.0',
+            'update' => ['state' => 'off', 'version' => '1.3.0', 'install' => 'homebrew'],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(CliInstallMethod::Homebrew, $this->bridge($owner, $bridgeId)->installMethod);
+    }
+
+    /** A newer CLI may name a method this server does not know, and its heartbeat must still land. */
+    public function test_an_unknown_install_method_is_stored_as_null(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-install-unknown@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, [
+            'projects' => [],
+            'cliVersion' => '1.2.0',
+            'update' => ['state' => 'current', 'install' => 'snap'],
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $bridge = $this->bridge($owner, $bridgeId);
+        self::assertSame(CliUpdateState::Current, $bridge->updateState);
+        self::assertNull($bridge->installMethod);
     }
 
     /** The row holds current state, so a heartbeat with no update report clears the last one. */

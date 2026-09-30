@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Entity;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Repository\BridgeRepository;
+use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -43,6 +44,10 @@ class Bridge
     /** The version the update concerns, such as the one a rollback left. */
     #[ORM\Column(name: 'update_version', length: self::MAX_UPDATE_VERSION_LENGTH, nullable: true)]
     public ?string $updateVersion = null;
+
+    /** Null when the last update report named no method, or one this server does not know. */
+    #[ORM\Column(name: 'install_method', length: 20, nullable: true, enumType: CliInstallMethod::class)]
+    public ?CliInstallMethod $installMethod = null;
 
     /**
      * The hooks the bridge runs, as its last heartbeat reported them.
