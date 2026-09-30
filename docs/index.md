@@ -15,8 +15,10 @@ flow to live web pages.
 
 ## Start here
 
-- **[Getting started](getting-started/index.md)** — five ways to run it, and
-  which one you want.
+- **[Getting started](getting-started/index.md)** connects your coding agent
+  to an instance and takes you through a first review.
+- **[Installing Loupe](operating/install/index.md)** gives five ways to run an
+  instance, and helps you choose one.
 - **[Using Loupe](using/documents.md)** — documents, the MCP endpoint, site
   review, the admin area.
 - **[Extending Loupe](extending/reverse-proxy.md)** — optional infrastructure:
