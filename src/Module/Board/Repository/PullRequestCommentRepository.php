@@ -32,11 +32,12 @@ class PullRequestCommentRepository extends ServiceEntityRepository
         ?string $headSha,
         ?string $reason,
         ?int $fixRound,
+        ?Uuid $forgePullRequestId,
         \DateTimeImmutable $createdAt,
     ): ?Uuid {
         $id = $this->getEntityManager()->getConnection()->fetchOne(
-            'INSERT INTO board_pull_request_comments (id, project_id, run_id, card_id, forge, repository, number, head_sha, reason, fix_round, state, attempts, created_at)
-             VALUES (:id, :project, :run, :card, :forge, :repository, :number, :headSha, :reason, :fixRound, :state, 0, :createdAt)
+            'INSERT INTO board_pull_request_comments (id, project_id, run_id, card_id, forge, repository, number, head_sha, reason, fix_round, forge_pull_request_id, state, attempts, created_at)
+             VALUES (:id, :project, :run, :card, :forge, :repository, :number, :headSha, :reason, :fixRound, :forgePullRequest, :state, 0, :createdAt)
              ON CONFLICT (run_id) DO NOTHING RETURNING id',
             [
                 'id' => Uuid::v7()->toRfc4122(),
@@ -49,6 +50,7 @@ class PullRequestCommentRepository extends ServiceEntityRepository
                 'headSha' => $headSha,
                 'reason' => $reason,
                 'fixRound' => $fixRound,
+                'forgePullRequest' => $forgePullRequestId?->toRfc4122(),
                 'state' => PullRequestCommentState::Pending->value,
                 'createdAt' => $createdAt,
             ],

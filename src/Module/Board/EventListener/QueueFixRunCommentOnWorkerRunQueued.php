@@ -10,6 +10,7 @@ use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Event\WorkerRunQueued;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\PullRequestCommenters;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,6 +29,7 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
         private PullRequestCommenters $commenters,
         private PullRequestCommentRepository $pullRequestComments,
         private CardAutomationRepository $cardAutomations,
+        private ForgePullRequestRepository $forgePullRequests,
         private EntityManagerInterface $em,
         private MessageBusInterface $bus,
         private ClockInterface $clock,
@@ -69,10 +71,15 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
         }
 
         $fixRound = $this->cardAutomations->findByCardIds([$event->cardId])[(string) $event->cardId]->fixRounds ?? null;
+        // Forge keeps its row through a repository rename, so the post finds the pull request by id.
+        $forgePullRequestId = $this->forgePullRequests->findByKeys(
+            $event->projectId,
+            [['forge' => $forge, 'repository' => $repository, 'number' => $number]],
+        )[0]->id ?? null;
 
         // One transaction, so a message that fails to queue leaves no pending row behind.
         // It is a DBAL one, because a failed ORM transaction closes the entity manager of the bridge request.
-        $commentId = $this->em->getConnection()->transactional(function () use ($event, $forge, $repository, $number, $fixRound) {
+        $commentId = $this->em->getConnection()->transactional(function () use ($event, $forge, $repository, $number, $fixRound, $forgePullRequestId) {
             $commentId = $this->pullRequestComments->insertIfMissing(
                 $event->projectId,
                 $event->runId,
@@ -83,6 +90,7 @@ final readonly class QueueFixRunCommentOnWorkerRunQueued
                 $event->headSha,
                 $event->reason,
                 $fixRound,
+                $forgePullRequestId,
                 $this->clock->now(),
             );
             if (null !== $commentId) {

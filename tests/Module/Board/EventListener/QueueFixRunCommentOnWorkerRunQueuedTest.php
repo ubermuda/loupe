@@ -16,6 +16,8 @@ use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Bridge\Event\WorkerRunQueued;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\PullRequestCommenters;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
@@ -71,12 +73,25 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
         self::assertSame(PullRequestCommentState::Pending, $comment->state);
         self::assertSame(0, $comment->attempts);
         self::assertNull($comment->fixRound);
+        self::assertNull($comment->forgePullRequestId);
 
         $sent = $this->transport->getSent();
         self::assertCount(1, $sent);
         $message = $sent[0]->getMessage();
         self::assertInstanceOf(PostFixRunComment::class, $message);
         self::assertEquals($comment->id, $message->commentId);
+    }
+
+    public function test_the_comment_stores_the_id_of_the_tracked_pull_request(): void
+    {
+        $this->commentOnFixQueued(true);
+        $pullRequest = new ForgePullRequest($this->project, 'github', 'acme/widgets', 5);
+        $this->em->persist($pullRequest);
+        $this->em->flush();
+
+        $this->listener()($this->event());
+
+        self::assertEquals($pullRequest->id, $this->comments()[0]->forgePullRequestId);
     }
 
     public function test_the_comment_stores_the_fix_round_of_the_card(): void
@@ -175,6 +190,7 @@ final class QueueFixRunCommentOnWorkerRunQueuedTest extends KernelTestCase
             $container->get(PullRequestCommenters::class),
             $container->get(PullRequestCommentRepository::class),
             $container->get(CardAutomationRepository::class),
+            $container->get(ForgePullRequestRepository::class),
             $this->em,
             $bus,
             $container->get(ClockInterface::class),

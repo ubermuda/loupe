@@ -55,7 +55,9 @@ final readonly class PostPullRequestCommentHandler
             $comment->failedAt = null;
         }
 
-        $pullRequest = $this->forgePullRequests->findByKeys(
+        // The id survives a rename. The key covers a row with no id, and a row that a rename merged into one under the new path.
+        $pullRequest = null === $comment->forgePullRequestId ? null : $this->forgePullRequests->find($comment->forgePullRequestId);
+        $pullRequest ??= $this->forgePullRequests->findByKeys(
             $comment->project->id ?? throw new \LogicException('A persisted project has an id.'),
             [['forge' => $comment->forge, 'repository' => $comment->repository, 'number' => $comment->number]],
         )[0] ?? null;

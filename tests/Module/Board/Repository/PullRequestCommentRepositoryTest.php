@@ -88,6 +88,7 @@ final class PullRequestCommentRepositoryTest extends KernelTestCase
             null,
             'conflict',
             $fixRound,
+            null,
             new \DateTimeImmutable('2026-09-29 12:00:00'),
         );
     }

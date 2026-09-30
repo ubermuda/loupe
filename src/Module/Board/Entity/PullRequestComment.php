@@ -70,6 +70,10 @@ class PullRequestComment
         /** The fix round of the card when the bridge queued the run. */
         #[ORM\Column(nullable: true)]
         public ?int $fixRound = null,
+
+        /** The Forge row of the pull request when the run was queued. Forge keeps it through a rename. */
+        #[ORM\Column(type: UuidType::NAME, nullable: true)]
+        public ?Uuid $forgePullRequestId = null,
     ) {
     }
 }

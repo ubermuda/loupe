@@ -350,6 +350,29 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertSame(1, $comment->attempts);
     }
 
+    public function test_a_comment_follows_its_pull_request_through_a_repository_rename(): void
+    {
+        $comment = $this->pending(forgePullRequestId: $this->pullRequest->id);
+        $this->pullRequest->repository = 'acme/renamed';
+        $this->em->flush();
+
+        $this->handle($comment);
+
+        self::assertCount(1, $this->commenter->comments);
+        self::assertSame($this->pullRequest, $this->commenter->comments[0][0]);
+        self::assertSame(PullRequestCommentState::Posted, $this->reload($comment)->state);
+    }
+
+    public function test_a_comment_whose_pull_request_row_is_gone_falls_back_to_the_key(): void
+    {
+        $comment = $this->pending(forgePullRequestId: Uuid::v7());
+
+        $this->handle($comment);
+
+        self::assertCount(1, $this->commenter->comments);
+        self::assertSame($this->pullRequest, $this->commenter->comments[0][0]);
+    }
+
     public function test_an_untracked_pull_request_marks_the_comment_failed(): void
     {
         $comment = $this->pending(number: 99);
@@ -374,7 +397,7 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
         self::assertSame([], $this->commenter->comments);
     }
 
-    private function pending(?string $reason = 'checks-failed', int $number = 5, ?int $fixRound = null): PullRequestComment
+    private function pending(?string $reason = 'checks-failed', int $number = 5, ?int $fixRound = null, ?Uuid $forgePullRequestId = null): PullRequestComment
     {
         $comment = new PullRequestComment(
             project: $this->project,
@@ -387,6 +410,7 @@ final class PostPullRequestCommentHandlerTest extends KernelTestCase
             reason: $reason,
             createdAt: $this->clock->now(),
             fixRound: $fixRound,
+            forgePullRequestId: $forgePullRequestId,
         );
         $this->em->persist($comment);
         $this->em->flush();
