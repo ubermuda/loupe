@@ -5137,10 +5137,6 @@
                 <source>board.backlog.filter.no_epic</source>
                 <target>No epic</target>
             </trans-unit>
-            <trans-unit id="board.backlog.filter.sort_label">
-                <source>board.backlog.filter.sort_label</source>
-                <target>Sort</target>
-            </trans-unit>
             <trans-unit id="board.backlog.filter.clear">
                 <source>board.backlog.filter.clear</source>
                 <target>Clear</target>
@@ -5152,22 +5148,6 @@
             <trans-unit id="board.backlog.filter.count_matching">
                 <source>board.backlog.filter.count_matching</source>
                 <target>{0}%matching% of no card|{1}%matching% of 1 card|]1,Inf[ %matching% of %count% cards</target>
-            </trans-unit>
-            <trans-unit id="board.backlog.sort.rank">
-                <source>board.backlog.sort.rank</source>
-                <target>Rank</target>
-            </trans-unit>
-            <trans-unit id="board.backlog.sort.newest">
-                <source>board.backlog.sort.newest</source>
-                <target>Newest first</target>
-            </trans-unit>
-            <trans-unit id="board.backlog.sort.oldest">
-                <source>board.backlog.sort.oldest</source>
-                <target>Oldest first</target>
-            </trans-unit>
-            <trans-unit id="board.backlog.sort.updated">
-                <source>board.backlog.sort.updated</source>
-                <target>Recently updated</target>
             </trans-unit>
             <trans-unit id="board.backlog.table.label">
                 <source>board.backlog.table.label</source>
@@ -5216,10 +5196,6 @@
             <trans-unit id="board.backlog.select_card">
                 <source>board.backlog.select_card</source>
                 <target>Select card #%number%</target>
-            </trans-unit>
-            <trans-unit id="board.backlog.drag">
-                <source>board.backlog.drag</source>
-                <target>Drag to change the rank</target>
             </trans-unit>
             <trans-unit id="board.backlog.move_to">
                 <source>board.backlog.move_to</source>
