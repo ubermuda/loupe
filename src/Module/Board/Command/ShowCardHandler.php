@@ -19,6 +19,7 @@ final readonly class ShowCardHandler
         private CardLinkRepository $cardLinks,
         private CardRepository $cards,
         private CardPullRequestStates $pullRequestStates,
+        private ShowCardHistoryHandler $history,
     ) {
     }
 
@@ -42,6 +43,7 @@ final readonly class ShowCardHandler
                 $this->cardLinks->findForCard($command->card),
             ),
             $this->pullRequestStates->forCards([$command->card]),
+            ($this->history)(new ShowCardHistoryCommand($command->card)),
             $children,
             $progress,
         );

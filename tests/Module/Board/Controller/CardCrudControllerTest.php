@@ -321,8 +321,8 @@ final class CardCrudControllerTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame .lp-card-drawer'));
-        // Overview, Details, Conversation and Feedback.
-        self::assertCount(4, $crawler->filter('[role="tab"]'));
+        // Overview, Details, Conversation, Feedback and History.
+        self::assertCount(5, $crawler->filter('[role="tab"]'));
         // A missing translation renders its key, and the gate does not fail on that.
         self::assertDoesNotMatchRegularExpression('/\\bboard\\.card\\.[a-z_.]+/', $crawler->filter('main')->text());
         self::assertCount(1, $crawler->filter('a[data-action="card-drawer#close"]'));

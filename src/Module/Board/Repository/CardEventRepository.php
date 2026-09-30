@@ -42,6 +42,22 @@ class CardEventRepository extends ServiceEntityRepository
         );
     }
 
+    /** @return list<CardEvent> newest first, with the actor loaded */
+    public function findPageForCard(Card $card, int $offset, int $limit): array
+    {
+        return array_values($this->createQueryBuilder('e')
+            ->addSelect('u')
+            ->leftJoin('e.actorUser', 'u')
+            ->andWhere('e.card = :card')
+            ->setParameter('card', $card)
+            ->orderBy('e.occurredAt', 'DESC')
+            ->addOrderBy('e.id', 'DESC')
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult());
+    }
+
     /** @return list<CardEvent> newest first */
     public function findForCard(Card $card): array
     {

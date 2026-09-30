@@ -374,6 +374,34 @@ class WorkerRunRepository extends ServiceEntityRepository
         ));
     }
 
+    /**
+     * The runs among $ids that the project still stores. The retention sweep deletes the others.
+     *
+     * @param list<Uuid> $ids
+     *
+     * @return list<string> RFC 4122 strings
+     */
+    public function findExistingIds(Project $project, array $ids): array
+    {
+        if ([] === $ids) {
+            return [];
+        }
+
+        $found = $this->createQueryBuilder('r')
+            ->select('r.id')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.id IN (:ids)')
+            ->setParameter('project', $project)
+            ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_map(
+            static fn (mixed $id): string => $id instanceof Uuid ? $id->toRfc4122() : Uuid::fromString(\is_string($id) ? $id : throw new \LogicException('A run id is a string.'))->toRfc4122(),
+            $found,
+        ));
+    }
+
     public function hasOpenInteractive(Project $project, Uuid $cardId): bool
     {
         return null !== $this->interactive($project)
