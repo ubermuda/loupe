@@ -132,6 +132,27 @@ final class CardHistoryTabTest extends WebTestCase
         self::assertStringNotContainsString('created it', (string) $client->getResponse()->getContent());
     }
 
+    public function test_a_card_of_another_project_is_not_found_under_this_project(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'history-victim@example.com');
+        $intruder = $this->user($em, 'history-intruder@example.com');
+        $project = $this->project($em, $owner);
+        $ownProject = $this->project($em, $intruder, 'intruder-app');
+        $card = $this->card($em, $project, 'Someone else\'s past');
+        $this->events()->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => CardEvent::columnDetail($this->column($project, 'backlog'))]);
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($intruder);
+        $client->request(Request::METHOD_GET, '/projects/'.$ownProject->id.'/board/cards/'.$card->id.'/history');
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertStringNotContainsString('created it', (string) $client->getResponse()->getContent());
+    }
+
     public function test_a_finished_run_links_to_the_run_until_the_run_is_purged(): void
     {
         $client = static::createClient();

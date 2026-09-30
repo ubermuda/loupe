@@ -10,7 +10,10 @@ use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardReporter;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\Uid\Uuid;
 
 /** @extends ServiceEntityRepository<CardEvent> */
 class CardEventRepository extends ServiceEntityRepository
@@ -34,12 +37,34 @@ class CardEventRepository extends ServiceEntityRepository
         return $event;
     }
 
-    public function hasRunFinished(Card $card, string $runId): bool
+    /**
+     * Writes the `run-finished` row of a run once. It goes through DBAL in its own
+     * transaction, a savepoint inside a caller's, so a failed insert leaves the
+     * entity manager and the caller's transaction usable.
+     *
+     * @param array<string, mixed> $detail with a `runId`
+     */
+    public function insertRunFinishedOnce(Card $card, ?User $actorUser, array $detail, \DateTimeImmutable $at): void
     {
-        return false !== $this->getEntityManager()->getConnection()->fetchOne(
-            "SELECT 1 FROM board_card_events WHERE card_id = ? AND kind = ? AND detail->>'runId' = ?",
-            [(string) $card->id, CardEventKind::RunFinished->value, $runId],
-        );
+        $this->getEntityManager()->getConnection()->transactional(static fn (Connection $connection): int|string => $connection->executeStatement(
+            "INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at)
+             SELECT ?::uuid, ?::uuid, ?::uuid, ?, ?, ?::uuid, ?::jsonb, ?::timestamp
+             WHERE NOT EXISTS (SELECT 1 FROM board_card_events WHERE card_id = ?::uuid AND kind = ? AND detail->>'runId' = ?)",
+            [
+                Uuid::v7()->toRfc4122(),
+                (string) $card->id,
+                (string) $card->project->id,
+                CardEventKind::RunFinished->value,
+                CardReporter::Agent->value,
+                $actorUser?->id?->toRfc4122(),
+                $detail,
+                $at,
+                (string) $card->id,
+                CardEventKind::RunFinished->value,
+                $detail['runId'] ?? throw new \LogicException('A run-finished row names its run.'),
+            ],
+            [6 => Types::JSON, 7 => Types::DATETIME_IMMUTABLE],
+        ));
     }
 
     /** @return list<CardEvent> newest first, with the actor loaded */

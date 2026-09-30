@@ -17,6 +17,7 @@ use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
 
 final class WriteCardEventOnRunFinishedTest extends KernelTestCase
@@ -111,6 +112,29 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         self::assertCount(1, $rows);
         self::assertSame((string) $finished->id, $rows[0]->detail['runId']);
         self::assertSame(1, $this->countAll());
+    }
+
+    public function test_the_dispatcher_calls_the_listener(): void
+    {
+        $run = $this->workerRun($this->card->id, WorkerRunState::TimedOut);
+        $dispatcher = self::getContainer()->get(EventDispatcherInterface::class);
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+
+        $dispatcher->dispatch($this->event($run));
+
+        self::assertCount(1, $this->rows());
+    }
+
+    public function test_a_failed_write_leaves_the_entity_manager_and_the_transaction_usable(): void
+    {
+        $run = $this->workerRun($this->card->id, WorkerRunState::Succeeded);
+        // Postgres rolls DDL back with the test transaction, so the constraint dies with the test.
+        $this->em->getConnection()->executeStatement('ALTER TABLE board_card_events ADD CONSTRAINT test_refuse_rows CHECK (false) NOT VALID');
+
+        $this->listener()($this->event($run));
+
+        self::assertTrue($this->em->isOpen());
+        self::assertSame(0, $this->countAll());
     }
 
     private function workerRun(?Uuid $cardId, WorkerRunState $state): WorkerRun
