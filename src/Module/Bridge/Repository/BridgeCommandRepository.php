@@ -83,25 +83,40 @@ class BridgeCommandRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** Whether a stop of another run of the same card still waits for its bridge. */
-    public function hasPendingStopForCardExcept(WorkerRun $run): bool
+    /** Whether a stop of any run of the card still waits for its bridge. */
+    public function hasPendingStopForCard(Project $project, Uuid $cardId): bool
     {
         return null !== $this->createQueryBuilder('c')
             ->select('1')
             ->join('c.workerRun', 'r')
             ->andWhere('c.project = :project')
             ->andWhere('r.cardId = :cardId')
-            ->andWhere('c.workerRun != :run')
             ->andWhere('c.kind = :stop')
             ->andWhere('c.state = :pending')
-            ->setParameter('project', $run->project)
-            ->setParameter('cardId', $run->cardId, UuidType::NAME)
-            ->setParameter('run', $run)
+            ->setParameter('project', $project)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
             ->setParameter('stop', BridgeCommandKind::StopRun->value)
             ->setParameter('pending', BridgeCommandState::Pending->value)
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /** Whether the newest stop of the run was withdrawn, so the run never stopped through it. */
+    public function lastStopWasCancelled(WorkerRun $run): bool
+    {
+        $last = $this->createQueryBuilder('c')
+            ->andWhere('c.workerRun = :run')
+            ->andWhere('c.kind = :stop')
+            ->setParameter('run', $run)
+            ->setParameter('stop', BridgeCommandKind::StopRun->value)
+            ->orderBy('c.requestedAt', 'DESC')
+            ->addOrderBy('c.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $last instanceof BridgeCommand && BridgeCommandState::Cancelled === $last->state;
     }
 
     /** Reads the state alone, like the unique index, so a pending command past its expiry still counts until the sweep runs. */

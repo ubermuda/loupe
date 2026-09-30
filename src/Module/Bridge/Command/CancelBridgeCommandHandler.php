@@ -12,6 +12,7 @@ use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -19,8 +20,8 @@ use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
- * Withdraws the command that waits on a run. A withdrawn stop releases the
- * card hold it wrote, unless a stop of another run of the card still waits.
+ * Withdraws the command that waits on a run. When no stop of the card waits
+ * any more, and the stop that wrote the card hold was withdrawn, the hold goes.
  */
 final readonly class CancelBridgeCommandHandler
 {
@@ -42,19 +43,21 @@ final readonly class CancelBridgeCommandHandler
         $run = $command->run;
 
         $cancelled = $this->em->wrapInTransaction(function () use ($run): ?BridgeCommand {
+            // The same lock a hold takes, so two cancels of one card cannot both see the other stop as pending.
+            $this->em->lock($run->project, LockMode::PESSIMISTIC_WRITE);
             // The row lock orders the cancel with an ack and the expiry sweep, so only one of them settles the command.
             $pending = $this->bridgeCommands->findPendingForRunLocked($run);
             if (null === $pending || !$pending->settle(BridgeCommandState::Cancelled, null, $this->clock->now())) {
                 return null;
             }
+            $this->em->flush();
 
-            if (BridgeCommandKind::StopRun === $pending->kind && !$this->bridgeCommands->hasPendingStopForCardExcept($run)) {
-                $hold = $this->cardHolds->findOneOfCard($run->project, $run->cardId);
-                if (null !== $hold && null !== $hold->stoppedRun && (string) $hold->stoppedRun->id === (string) $run->id) {
+            if (BridgeCommandKind::StopRun === $pending->kind && !$this->bridgeCommands->hasPendingStopForCard($run->project, $run->cardId)) {
+                $stoppedRun = $this->cardHolds->findOneOfCard($run->project, $run->cardId)?->stoppedRun;
+                if (null !== $stoppedRun && $this->bridgeCommands->lastStopWasCancelled($stoppedRun)) {
                     $this->holds->release($run->project, [$run->cardId]);
                 }
             }
-            $this->em->flush();
 
             return $pending;
         });

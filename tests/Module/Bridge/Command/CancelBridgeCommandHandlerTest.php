@@ -130,6 +130,21 @@ final class CancelBridgeCommandHandlerTest extends KernelTestCase
         self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
     }
 
+    public function test_the_last_cancelled_stop_of_a_card_releases_its_hold(): void
+    {
+        $this->boot();
+        [$owner, $run] = $this->scenario('cancel-stop-both');
+        $other = $this->seedRun($this->em(), $run->project, cardId: $run->cardId, state: WorkerRunState::Queued);
+        $this->seedCommand($this->em(), $run);
+        $this->seedCommand($this->em(), $other);
+        $this->holds()->hold($run->project, $run->cardId, $run, $owner);
+
+        $this->cancel($run, $owner);
+        $this->cancel($other, $owner);
+
+        self::assertFalse($this->holds()->isHeld($run->project, $run->cardId));
+    }
+
     public function test_a_cancelled_resume_keeps_the_hold_of_the_card(): void
     {
         $this->boot();
