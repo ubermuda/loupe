@@ -12,6 +12,7 @@ use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -56,10 +57,11 @@ final readonly class WriteCardEventOnRunFinished
                 $card = $this->cards->findOneByIdAndProjectId($run->cardId->toRfc4122(), (string) $run->project->id);
                 if (null !== $card) {
                     $runId = $run->id ?? throw new \LogicException('A stored run has an id.');
-                    // A timeout sets no end, so the newest state change dates the close.
+                    // A timeout sets no end, so the newest change into the current state dates the close.
                     // A new close then moves the row, and a repeated dispatch does not.
-                    $last = self::newest($changes[$runId->toRfc4122()] ?? []);
-                    $closedAt = $run->endedAt ?? $last->at ?? $this->clock->now();
+                    $runChanges = $changes[$runId->toRfc4122()] ?? [];
+                    $last = self::newest($runChanges);
+                    $closedAt = $run->endedAt ?? self::newest($runChanges, $run->state)->at ?? $this->clock->now();
                     $detail = self::detail($run, $runId->toRfc4122(), $closedAt) + ['stateSequence' => null === $last?->sequence ? null : (int) $last->sequence];
                     $this->cardEvents->upsertRunFinished($card, $runId, $run->project->owner, $detail, $closedAt);
                 }
@@ -74,15 +76,18 @@ final readonly class WriteCardEventOnRunFinished
     }
 
     /**
-     * The change written last. A report can carry an earlier time than a
-     * change before it, so the order by time does not tell.
+     * The change written last, into the given state when one is given. A report
+     * can carry an earlier time than a change before it, so time does not tell.
      *
      * @param list<WorkerRunStateChange> $changes
      */
-    private static function newest(array $changes): ?WorkerRunStateChange
+    private static function newest(array $changes, ?WorkerRunState $state = null): ?WorkerRunStateChange
     {
         $newest = null;
         foreach ($changes as $change) {
+            if (null !== $state && $change->state !== $state) {
+                continue;
+            }
             if (null === $newest || (int) $change->sequence > (int) $newest->sequence) {
                 $newest = $change;
             }

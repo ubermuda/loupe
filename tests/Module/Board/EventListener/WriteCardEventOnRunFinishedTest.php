@@ -216,6 +216,21 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         self::assertSame((int) end($sequences), $rows[0]->detail['stateSequence']);
     }
 
+    public function test_a_stale_report_after_a_timeout_does_not_move_the_close_time(): void
+    {
+        $run = $this->workerRun($this->card->id, WorkerRunState::TimedOut);
+        $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::TimedOut, new \DateTimeImmutable('2026-09-30 10:30:00+00:00'), new \DateTimeImmutable('2026-09-30 10:30:00+00:00')));
+        $this->em->flush();
+        $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, new \DateTimeImmutable('2026-09-30 10:05:00+00:00'), new \DateTimeImmutable('2026-09-30 10:35:00+00:00')));
+        $this->em->flush();
+
+        $this->listener()($this->event($run));
+
+        $rows = $this->rows();
+        self::assertCount(1, $rows);
+        self::assertEquals(new \DateTimeImmutable('2026-09-30 10:30:00+00:00'), $rows[0]->occurredAt);
+    }
+
     public function test_an_open_run_writes_nothing(): void
     {
         $open = $this->workerRun($this->card->id, WorkerRunState::Running);
