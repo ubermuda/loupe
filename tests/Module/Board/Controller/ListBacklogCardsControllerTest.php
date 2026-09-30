@@ -17,7 +17,7 @@ final class ListBacklogCardsControllerTest extends WebTestCase
 {
     use BoardScenario;
 
-    public function test_the_backlog_lists_its_cards_in_rank_order_with_their_epic(): void
+    public function test_the_backlog_lists_its_cards_newest_first_with_their_epic(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -26,8 +26,8 @@ final class ListBacklogCardsControllerTest extends WebTestCase
         $owner = $this->user($em, 'backlog-page@example.com');
         $project = $this->project($em, $owner);
         $epic = $this->typed($em, $this->card($em, $project, 'Big epic', 'next'), CardType::Epic);
-        $this->card($em, $project, 'Second', 'backlog', 1);
-        $this->childOf($em, $epic, $this->card($em, $project, 'First', 'backlog', 0));
+        $this->card($em, $project, 'Older', 'backlog', 0);
+        $this->childOf($em, $epic, $this->card($em, $project, 'Newer', 'backlog', 1));
         $this->card($em, $project, 'On the board', 'next', 1);
         $url = $this->backlogUrl($project);
         $em->clear();
@@ -37,10 +37,73 @@ final class ListBacklogCardsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $rows = $crawler->filter('[data-backlog-card-id]');
-        self::assertSame(['First', 'Second'], $rows->filter('.lp-backlog-row__title')->each(
+        self::assertSame(['Newer', 'Older'], $rows->filter('.lp-backlog-row__title')->each(
             static fn (Crawler $node): string => trim($node->text()),
         ));
         self::assertStringContainsString('Big epic', $rows->first()->text());
+    }
+
+    public function test_the_column_headers_sort_the_list_and_name_the_order(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'backlog-headers@example.com');
+        $project = $this->project($em, $owner);
+        $this->card($em, $project, 'Otter feature');
+        $this->typed($em, $this->card($em, $project, 'Otter bug'), CardType::Bug);
+        $url = $this->backlogUrl($project);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['Otter bug', 'Otter feature'], $this->titles($crawler));
+        self::assertSame(
+            ['Type' => 'none', 'Epic' => 'none', 'Added' => 'descending'],
+            $this->sortHeaders($crawler),
+        );
+        self::assertSame($url.'?page=1&sort=type&dir=asc', $crawler->selectLink('Type')->attr('href'));
+        self::assertSame($url.'?page=1&sort=created&dir=asc', $crawler->selectLink('Added')->attr('href'));
+        self::assertCount(0, $crawler->filter('form.lp-filter-form input[name="sort"]'));
+
+        $crawler = $client->request(Request::METHOD_GET, $url.'?sort=type&dir=asc&epic=none');
+
+        self::assertSame(['Otter bug', 'Otter feature'], $this->titles($crawler));
+        self::assertSame(
+            ['Type' => 'ascending', 'Epic' => 'none', 'Added' => 'none'],
+            $this->sortHeaders($crawler),
+        );
+        self::assertSame($url.'?page=1&epic=none&sort=type&dir=desc', $crawler->selectLink('Type')->attr('href'));
+        self::assertSame($url.'?page=1&epic=none', $crawler->selectLink('Added')->attr('href'));
+        self::assertSame('type', $crawler->filter('form.lp-filter-form input[name="sort"]')->attr('value'));
+        self::assertSame('asc', $crawler->filter('form.lp-filter-form input[name="dir"]')->attr('value'));
+
+        $crawler = $client->request(Request::METHOD_GET, $url.'?sort=type&dir=desc');
+        self::assertSame(['Otter feature', 'Otter bug'], $this->titles($crawler));
+    }
+
+    public function test_an_old_sort_link_shows_the_newest_first(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'backlog-old-sort@example.com');
+        $project = $this->project($em, $owner);
+        $this->card($em, $project, 'Older');
+        $this->card($em, $project, 'Newer');
+        $url = $this->backlogUrl($project);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $url.'?sort=oldest');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['Newer', 'Older'], $this->titles($crawler));
+        self::assertSame('descending', $this->sortHeaders($crawler)['Added']);
     }
 
     public function test_the_backlog_paginates(): void
@@ -107,17 +170,17 @@ final class ListBacklogCardsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, $url.'?type=bug&epic='.$epicId.'&sort=newest');
+        $crawler = $client->request(Request::METHOD_GET, $url.'?type=bug&epic='.$epicId.'&sort=epic&dir=desc');
 
         self::assertResponseIsSuccessful();
         self::assertSame(['Child bug'], $this->titles($crawler));
         self::assertSame('1 of 3 cards', trim($crawler->filter('#backlog-filter-count')->text()));
         self::assertSame('bug', $crawler->filter('#backlog-type option[selected]')->attr('value'));
         self::assertSame($epicId, $crawler->filter('#backlog-epic option[selected]')->attr('value'));
-        self::assertSame('newest', $crawler->filter('#backlog-sort option[selected]')->attr('value'));
+        self::assertSame('epic', $crawler->filter('form.lp-filter-form input[name="sort"]')->attr('value'));
 
         $crawler = $client->request(Request::METHOD_GET, $url.'?epic=none');
-        self::assertSame(['Loose bug', 'Loose feature'], $this->titles($crawler));
+        self::assertSame(['Loose feature', 'Loose bug'], $this->titles($crawler));
     }
 
     public function test_filters_that_match_nothing_offer_to_clear_them(): void
@@ -153,9 +216,9 @@ final class ListBacklogCardsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, $url.'?page=4&type=feature&sort=oldest');
+        $client->request(Request::METHOD_GET, $url.'?page=4&type=feature&sort=epic&dir=asc');
 
-        self::assertResponseRedirects($url.'?page=1&type=feature&sort=oldest');
+        self::assertResponseRedirects($url.'?page=1&type=feature&sort=epic&dir=asc');
     }
 
     public function test_the_page_follows_the_board_topic_with_a_hidden_notice(): void
@@ -227,6 +290,19 @@ final class ListBacklogCardsControllerTest extends WebTestCase
         return $crawler->filter('[data-backlog-card-id] .lp-backlog-row__title')->each(
             static fn (Crawler $node): string => trim($node->text()),
         );
+    }
+
+    /** @return array<string, string> the aria-sort of each sortable header, by its label */
+    private function sortHeaders(Crawler $crawler): array
+    {
+        $headers = [];
+        $crawler->filter('[role="columnheader"][aria-sort]')->each(
+            static function (Crawler $node) use (&$headers): void {
+                $headers[trim($node->text())] = (string) $node->attr('aria-sort');
+            },
+        );
+
+        return $headers;
     }
 
     private function backlogUrl(Project $project): string
