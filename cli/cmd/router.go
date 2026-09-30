@@ -447,15 +447,16 @@ func (r *router) onData(data []byte) {
 		return
 	}
 	e, key := r.resolve(e)
-	if r.noteCardHold(e) {
-		defer r.dispatch()
-	}
 
 	// A slug change is a person's action, not a directive to an agent, so it
 	// kills rules whatever its actor. Matching then goes on as for any event.
 	dead, dropped := r.kill(e, func(s *rules.Set) []rules.Dead { return s.Kill(e) })
 	r.logDead(e, dead)
 	r.logDropped(dropped)
+	// After the kill, so a released card never starts a run of a dead rule.
+	if r.noteCardHold(e) {
+		defer r.dispatch()
+	}
 
 	// A person who touches the card has seen it, which is what a capped chain
 	// waits for. Any event of theirs that parsed counts, matched or not.
