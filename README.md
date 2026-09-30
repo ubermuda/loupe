@@ -45,7 +45,7 @@ page.
 
 The image is for **evaluating** Loupe, not running it: its `APP_SECRET` is a
 committed constant, nothing terminates TLS, and mail is discarded. See
-[Demo](docs/getting-started/demo.md) for the volume and port options.
+[Demo](docs/operating/install/demo.md) for the volume and port options.
 
 ## Develop on it
 
@@ -68,8 +68,10 @@ The full documentation is published at
 from [`docs/`](docs/index.md) in this repository, so the same pages are readable
 here on GitHub:
 
-- [Getting started](docs/getting-started/index.md) — five ways to run it, and
-  which one you want
+- [Getting started](docs/getting-started/index.md) connects your coding agent
+  and takes you through a first review
+- [Installing Loupe](docs/operating/install/index.md) gives five ways to run it,
+  and helps you choose one
 - [Using Loupe](docs/using/documents.md) — documents, MCP, site review, admin
 - [Extending Loupe](docs/extending/reverse-proxy.md) — proxy, Mercure, object
   storage, social login, billing

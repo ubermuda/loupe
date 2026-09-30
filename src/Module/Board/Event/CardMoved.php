@@ -6,6 +6,7 @@ namespace App\Module\Board\Event;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardMove;
 
 /**
@@ -20,6 +21,7 @@ final readonly class CardMoved
         public Card $card,
         public CardMove $move,
         public CardReporter $actor,
+        public ?CardEventCause $cause = null,
     ) {
     }
 }

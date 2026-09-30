@@ -13,7 +13,7 @@ after.
 how the stack is built, not from a drill somebody ran. Rehearse yours on a
 scratch instance while nothing depends on it.
 
-This page covers the [single-host Docker Compose](../getting-started/docker-compose.md)
+This page covers the [single-host Docker Compose](install/docker-compose.md)
 stack. On App Platform the database is a managed cluster and you restore it from
 the provider's own snapshot; only the key half below applies.
 

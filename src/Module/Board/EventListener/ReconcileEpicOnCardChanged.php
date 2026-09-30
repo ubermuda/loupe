@@ -14,6 +14,7 @@ use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAvailability;
+use App\Module\Board\Service\CardEventCause;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
@@ -48,7 +49,7 @@ final readonly class ReconcileEpicOnCardChanged
         // The move itself does not read the parent under the lock.
         $this->cards->refreshTypeAndParent($card);
         if (null !== $card->parent) {
-            $this->reconcile($card->parent);
+            $this->reconcile($card->parent, $card->number);
         }
 
         if ($card->column->terminal && !$event->move->fromColumn->terminal) {
@@ -65,13 +66,13 @@ final readonly class ReconcileEpicOnCardChanged
 
         foreach ([$event->oldParent, $event->newParent] as $epic) {
             if (null !== $epic) {
-                $this->reconcile($epic);
+                $this->reconcile($epic, $event->card->number);
             }
         }
     }
 
     /** Closes an epic whose children are all finished, and reopens a closed one with an open child. */
-    private function reconcile(Card $epic): void
+    private function reconcile(Card $epic, int $childNumber): void
     {
         $columns = $this->boardColumns->findForProjectFresh($epic->project);
         $this->cards->refreshColumn($epic);
@@ -87,7 +88,7 @@ final readonly class ReconcileEpicOnCardChanged
         };
 
         if (null !== $target) {
-            $this->move($epic, $target);
+            $this->move($epic, $target, CardEventCause::epicReconciled($childNumber));
         }
     }
 
@@ -105,13 +106,13 @@ final readonly class ReconcileEpicOnCardChanged
         }
 
         foreach ($freed as $card) {
-            $this->move($card, $target);
+            $this->move($card, $target, CardEventCause::unblocked($blocker->number));
         }
     }
 
-    private function move(Card $card, BoardColumn $column): void
+    private function move(Card $card, BoardColumn $column, CardEventCause $cause): void
     {
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $column));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $column, cause: $cause));
     }
 
     /**

@@ -143,5 +143,5 @@ On the single-host stack the hub sits behind a compose profile and stays off
 unless you ask for it. On App Platform, setting `mercure_jwt_secret` runs a hub
 as a second service and routes `/.well-known/mercure` on the app's own domain to
 it, deriving all three variables itself. See
-[Single-host Docker Compose](../getting-started/docker-compose.md) and
-[App Platform](../getting-started/digitalocean.md).
+[Single-host Docker Compose](../operating/install/docker-compose.md) and
+[App Platform](../operating/install/digitalocean.md).

@@ -23,7 +23,7 @@ Checkout session, `/billing/checkout/success` returns from it, and
 Trials end on a schedule rather than on a request: `app:sweep-ended-trials`
 disables expired trials and cancellations past their period, and sends survey
 emails. Like everything scheduled, it runs only if a worker is consuming — see
-[What runs in production](../getting-started/architecture.md).
+[What runs in production](../architecture.md).
 
 An account disabled this way meets a paywall that still lets it reach the
 subscribe page, and — when a registration cap is full — the waitlist.

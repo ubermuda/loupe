@@ -16,7 +16,7 @@ review. To turn it on, set `MERCURE_JWT_SECRET` and
 `MERCURE_PUBLIC_URL` in `docker/compose/prod.env`, give the hub's hostname a route
 in your reverse proxy, and add `--profile mercure` to every `docker compose`
 command for this stack. `backup` takes scheduled database dumps and uploads them
-to a bucket you supply — see [Backing up](../operating/backups.md).
+to a bucket you supply — see [Backing up](../backups.md).
 
 ```bash
 cp docker/compose/prod.env.example docker/compose/prod.env      # then fill it in
@@ -51,7 +51,7 @@ What you still have to provide:
   The wizard fails closed in production, so an unset value means `/install`
   returns 404 and there is no browser route to an account at all. The
   `${INSTALL_TOKEN:?}` guard in `prod.yaml` stops the stack rather than let
-  that happen. [First run](../operating/first-run.md) walks the wizard through.
+  that happen. [First run](../first-run.md) walks the wizard through.
 - **A reverse proxy.** Both published ports bind to loopback. Terminate TLS in
   front, forward `X-Forwarded-Proto` and `X-Forwarded-For`, and set
   `TRUSTED_PROXIES` if that proxy reaches the app from a public address.
@@ -62,8 +62,8 @@ What you still have to provide:
 - **A bucket for backups.** A `backup` service takes scheduled `pg_dump`s and
   uploads them off this host, but it is off until you set the `BACKUP_S3_*`
   variables and add `--profile backup` to every compose command for this stack.
-  Nothing else copies `database_data` anywhere. [Backing up](../operating/backups.md)
-  covers it, and [Restoring the database](../operating/restoring.md) covers
+  Nothing else copies `database_data` anywhere. [Backing up](../backups.md)
+  covers it, and [Restoring the database](../restoring.md) covers
   putting a dump back — which needs `APP_ENCRYPTION_KEY` as well as the dump.
 
 Unlike App Platform, this topology *can* share a filesystem, so `EXPORT_STORAGE`

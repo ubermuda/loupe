@@ -12,6 +12,7 @@ use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAutomation;
+use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\LifecycleStages;
 use App\Module\Board\Service\PullRequestMoveTriggers;
 use App\Module\Forge\Entity\PullRequestState;
@@ -77,7 +78,8 @@ final readonly class MoveCardsOnPullRequestStateHandler
         // A terminal review column would finish the card before any merge.
         $review = array_find($columns, static fn (BoardColumn $column): bool => $column->slug === $stage['to'] && !$column->terminal);
 
-        $this->em->wrapInTransaction(function () use ($cards, $finished, $green, $terminal, $review, $stage, $current, $ownLinks, $project, $projectId): void {
+        $number = $pullRequest->number;
+        $this->em->wrapInTransaction(function () use ($cards, $finished, $green, $terminal, $review, $stage, $current, $ownLinks, $project, $projectId, $number): void {
             $done = [];
             if ($finished && null !== $terminal) {
                 // The lock UpdateCardHandler takes, held until Forge commits. A read of a
@@ -89,9 +91,9 @@ final readonly class MoveCardsOnPullRequestStateHandler
 
             foreach ($cards as $card) {
                 if (isset($done[(string) $card->id])) {
-                    ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $terminal, onlyFromOpenColumn: true));
+                    ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $terminal, onlyFromOpenColumn: true, cause: CardEventCause::merged($number)));
                 } elseif ($green && null !== $review && $card->column->slug === $stage['from']) {
-                    ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $review, onlyFromColumn: $card->column));
+                    ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $review, onlyFromColumn: $card->column, cause: CardEventCause::checksPassed($number)));
                 }
             }
         });

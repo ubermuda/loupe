@@ -55,6 +55,7 @@ final class AdvertisedTools
         'board_columns',
         'card_search',
         'card_get',
+        'card_get_history',
         'card_update',
         'card_run_open',
         'card_run_close',
