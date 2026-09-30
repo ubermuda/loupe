@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { createTest } from '../fixtures';
+import { submitRedirectingForm } from '../helpers';
 
 const test = createTest({
     email: 'e2e-delete-project@example.com',
@@ -42,7 +43,12 @@ test('deleting a project requires typing its exact name', async ({ page }) => {
 
     await confirmInput.fill(projectName);
     await expect(confirmButton).toBeEnabled();
-    await confirmButton.click();
+    // The delete and the /projects render are two server round trips, which
+    // together outgrow the 5s expect budget on a loaded runner.
+    const deleteAction = await confirmButton.evaluate(
+        (button: HTMLButtonElement) => button.form!.action,
+    );
+    await submitRedirectingForm(page, confirmButton, deleteAction);
 
     // Post-submit content signal (the delete redirects to a different URL, but
     // the success flash is the stated acceptance criterion, not just the URL).
