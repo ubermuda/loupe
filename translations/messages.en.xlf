@@ -2497,6 +2497,10 @@
                 <source>project.connect.tool.card_get</source>
                 <target>Read one card, with its full Markdown body, every pull request linked to it and its linked cards (relatedCards).</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.card_get_history">
+                <source>project.connect.tool.card_get_history</source>
+                <target>Read the history of one card, newest first: when it was created, each move with who made it and why, and each automation action. One page at a time.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.card_update">
                 <source>project.connect.tool.card_update</source>
                 <target>Change a card. Omitted fields keep their value, and moving a card to a terminal column stamps its completion time. relatedCards replaces every link that touches the card.</target>
