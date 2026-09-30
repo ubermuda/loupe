@@ -807,8 +807,12 @@
     .lp-backlog-check {
         @apply size-4 m-0 cursor-pointer accent-accent-ink;
     }
-    .lp-backlog-sort {
-        @apply ml-auto;
+    /* A column header link that sorts the Backlog. It keeps the header text style. */
+    .lp-backlog-sort-link {
+        @apply inline-flex items-center gap-1 rounded-sm no-underline transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
+    }
+    .lp-backlog-sort-link__idle {
+        @apply opacity-50;
     }
     /* The Move to menu of a row and of the bulk bar. */
     .lp-backlog-move {

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Module\Board\View;
 
-/** The orders the Backlog page offers. Rank is the order the board keeps. */
+/** The columns the Backlog page sorts by. */
 enum BacklogSort: string
 {
-    case Rank = 'rank';
-    case Newest = 'newest';
-    case Oldest = 'oldest';
-    case Updated = 'updated';
+    case Created = 'created';
+    case Type = 'type';
+    case Epic = 'epic';
 
-    public function translationKey(): string
+    /** The direction a first click on the column header asks for. */
+    public function firstDirection(): BacklogDirection
     {
-        return 'board.backlog.sort.'.$this->value;
+        return self::Created === $this ? BacklogDirection::Desc : BacklogDirection::Asc;
     }
 }

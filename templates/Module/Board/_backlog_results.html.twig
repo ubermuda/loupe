@@ -5,10 +5,10 @@
     <div class="lp-document-table__head" role="row">
         <input type="checkbox" class="lp-backlog-check" aria-label="{{ 'board.backlog.select_all'|trans }}" data-backlog-select-target="all" data-action="backlog-select#toggleAll">
         <span role="columnheader">{{ 'board.backlog.table.card'|trans }}</span>
-        <span role="columnheader">{{ 'board.backlog.table.type'|trans }}</span>
-        <span role="columnheader">{{ 'board.backlog.table.epic'|trans }}</span>
+        {% include '@Board/_backlog_sort_header.html.twig' with {project: project, listQuery: listQuery, column: constant('App\\Module\\Board\\View\\BacklogSort::Type'), label: 'board.backlog.table.type'|trans} only %}
+        {% include '@Board/_backlog_sort_header.html.twig' with {project: project, listQuery: listQuery, column: constant('App\\Module\\Board\\View\\BacklogSort::Epic'), label: 'board.backlog.table.epic'|trans} only %}
         <span role="columnheader">{{ 'board.backlog.table.feedback'|trans }}</span>
-        <span role="columnheader">{{ 'board.backlog.table.added'|trans }}</span>
+        {% include '@Board/_backlog_sort_header.html.twig' with {project: project, listQuery: listQuery, column: constant('App\\Module\\Board\\View\\BacklogSort::Created'), label: 'board.backlog.table.added'|trans} only %}
         <span class="sr-only" role="columnheader">{{ 'board.backlog.table.actions'|trans }}</span>
     </div>
     <div class="lp-document-list" role="rowgroup">

@@ -11,7 +11,6 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\View\BacklogListQuery;
-use App\Module\Board\View\BacklogSort;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -61,7 +60,6 @@ final class ListBacklogCardsController extends AppController
             'view' => $view,
             'listQuery' => $listQuery,
             'types' => CardType::cases(),
-            'sorts' => BacklogSort::cases(),
         ]);
     }
 }

@@ -1,0 +1,14 @@
+{#- A Backlog column header that sorts the list. Props: project (Project), listQuery (BacklogListQuery), column (BacklogSort), label (string). -#}
+{% set ariaSort = listQuery.ariaSort(column) %}
+<span role="columnheader" aria-sort="{{ ariaSort }}">
+    <a class="lp-backlog-sort-link" href="{{ path('app_project_board_backlog', {projectId: project.id}|merge(listQuery.sortParams(column))) }}">
+        {{ label }}
+        {% if ariaSort == 'ascending' %}
+        <twig:ux:icon name="lucide:arrow-up" class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        {% elseif ariaSort == 'descending' %}
+        <twig:ux:icon name="lucide:arrow-down" class="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        {% else %}
+        <twig:ux:icon name="lucide:arrow-up-down" class="lp-backlog-sort-link__idle w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        {% endif %}
+    </a>
+</span>

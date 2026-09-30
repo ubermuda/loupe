@@ -65,12 +65,11 @@
 
             <a href="{{ backlogPath }}" data-autosearch-target="clearButton" class="lp-filter-clear">{{ 'board.backlog.filter.clear'|trans }}</a>
 
-            <label class="sr-only" for="backlog-sort">{{ 'board.backlog.filter.sort_label'|trans }}</label>
-            <select id="backlog-sort" name="sort" class="lp-input lp-select lp-filter-select lp-backlog-sort" data-action="change->autosearch#search">
-                {% for sort in sorts %}
-                <option value="{{ sort.value }}"{{ listQuery.sort == sort ? ' selected' : '' }}>{{ sort.translationKey|trans }}</option>
-                {% endfor %}
-            </select>
+            {# A filter change keeps the order the column headers chose. #}
+            {% if listQuery.routeParams.sort is defined %}
+            <input type="hidden" name="sort" value="{{ listQuery.sort.value }}">
+            <input type="hidden" name="dir" value="{{ listQuery.dir.value }}">
+            {% endif %}
         </form>
 
         <span id="backlog-filter-count" class="lp-filter-count">{% include '@Board/_backlog_count.html.twig' with {view: view, listQuery: listQuery} only %}</span>
