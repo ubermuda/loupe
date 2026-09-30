@@ -397,7 +397,7 @@ final class CardCrudControllerTest extends WebTestCase
         $row = $crawler->filter('[data-card-runs] [data-card-run="'.$runId.'"]');
         self::assertSame('/projects/'.$project->id.'/worker-runs?search='.$runId, $row->attr('href'));
         self::assertStringContainsString('plan the card', $row->text());
-        self::assertStringContainsString('Failed', $row->filter('.lp-status-chip')->text());
+        self::assertStringContainsString('Failed', $crawler->filter('[data-card-run-row="'.$runId.'"] .lp-status-chip')->text());
         // The run reported no usage, so the total says so rather than show $0.00.
         self::assertSame('Total usage Usage unknown', $crawler->filter('[data-card-runs] [data-card-usage-total]')->text());
         self::assertSame('/projects/'.$project->id.'/board/cards/'.$cardId.'/edit', $crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('href'));
@@ -454,7 +454,7 @@ final class CardCrudControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $row = $crawler->filter('[data-card-runs] [data-card-run="'.$runId.'"]');
-        self::assertSame('Queued', $row->filter('.lp-status-chip')->text());
+        self::assertSame('Queued', $crawler->filter('[data-card-run-row="'.$runId.'"] .lp-status-chip')->text());
         self::assertSame('2026-03-04T05:06:00+00:00', $row->filter('time')->attr('datetime'));
         self::assertStringNotContainsString('·', $row->filter('.lp-card-run__meta')->text());
         // A live update reloads the section from the Bridge fragment, not the whole card.

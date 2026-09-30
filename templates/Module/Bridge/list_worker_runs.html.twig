@@ -89,6 +89,12 @@
          data-worker-run-refresh-frames-value="{{ ['worker-runs-shown', 'worker-runs-count']|json_encode }}"
          data-worker-run-refresh-whole-value="{{ items|length > 0 or listQuery.isNarrowed ? 'false' : 'true' }}">
     <turbo-frame id="worker-runs-frame" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
+    {% set commandFlashes = app.flashes('worker-run-command') %}
+    {% if commandFlashes is not empty %}
+    <div class="lp-worker-run-flashes lp-worker-run-flashes--page" data-worker-run-command-flash>
+        {% include '_flash_messages.html.twig' with {flashes: {error: commandFlashes}} only %}
+    </div>
+    {% endif %}
     {% if items|length > 0 %}
     <twig:DataTable modifier="runs" :columns="[
         {label: 'bridge.worker_runs.column.work'|trans},
@@ -111,7 +117,10 @@
                 </button>
                 {% if item.interactive %}<span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_runs.interactive'|trans }}</span>{% endif %}
             </div>
-            <twig:StatusChip :modifier="item.state.chipModifier()" :label="item.state.translationKey()|trans" :reason="run.failureReason" :id="'worker-run-reason-' ~ run.id" />
+            <div class="lp-worker-run-outcome">
+                <twig:StatusChip :modifier="item.state.chipModifier()" :label="item.state.translationKey()|trans" :reason="run.failureReason" :id="'worker-run-reason-' ~ run.id" />
+                {% if item.control and item.control.label %}{% set controlLabel = item.control.label|trans(item.control.labelParameters) %}<span class="lp-worker-run-control-label{{ item.control.labelWarns ? ' lp-worker-run-control-label--warns' : '' }}" title="{{ controlLabel }}" data-worker-run-control-label>{{ controlLabel }}</span>{% endif %}
+            </div>
             <span class="lp-data-table__cell">{{ run.ruleName }}{% if run.workerPool is not null %} <span class="lp-tag lp-tag--neutral" data-worker-pool>{{ 'bridge.worker_runs.worker_pool_label'|trans({'%pool%': run.workerPool}) }}</span>{% endif %}</span>
             <span class="lp-data-table__cell lp-data-table__cell--end">{% if item.interactive and item.state.isOpen() and item.duration() is not null %}{{ 'bridge.worker_runs.running_for'|trans({'%duration%': item.duration()}) }}{% else %}{{ item.duration() }}{% endif %}</span>
             <span class="lp-data-table__cell"><time datetime="{{ shownAt|date('c') }}" title="{{ shownAt|date('Y-m-d H:i:s T') }}">{{ shownAt|relative_time }}</time></span>

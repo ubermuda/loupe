@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Twig;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunUsageRepository;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\CardRunWarnings;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Bridge\View\CardUsageTotal;
@@ -32,6 +33,7 @@ final class CardWorkerRunsExtension extends AbstractExtension
         private readonly ClockInterface $clock,
         private readonly CardRunWarnings $runWarnings,
         private readonly WorkerRunControls $controls,
+        private readonly CardHolds $cardHolds,
     ) {
     }
 
@@ -43,6 +45,7 @@ final class CardWorkerRunsExtension extends AbstractExtension
             new TwigFunction('card_run_warnings', $this->cardRunWarnings(...)),
             new TwigFunction('card_run_warning', $this->cardRunWarning(...)),
             new TwigFunction('card_usage_total', $this->cardUsageTotal(...)),
+            new TwigFunction('card_held', $this->cardHeld(...)),
         ];
     }
 
@@ -73,6 +76,11 @@ final class CardWorkerRunsExtension extends AbstractExtension
             static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, [], null, $controls[(string) $run->id] ?? null),
             $runs,
         );
+    }
+
+    public function cardHeld(Project $project, string $cardId): bool
+    {
+        return Uuid::isValid($cardId) && $this->cardHolds->isHeld($project, Uuid::fromString($cardId));
     }
 
     /** Every run of the card counts, not only the ones the card lists. */

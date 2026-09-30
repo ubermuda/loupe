@@ -20,6 +20,7 @@
             <h2 class="lp-dialog-title" id="run-title-{{ run.id }}">{{ 'bridge.worker_runs.details.title'|trans }}</h2>
             <p class="lp-run-drawer__identifier">{{ run.id }}</p>
             <span class="lp-status-chip lp-status-chip--{{ item.state.chipModifier() }}">{{ item.state.translationKey()|trans }}</span>
+            {% if item.control and item.control.label %}<span class="lp-worker-run-control-label{{ item.control.labelWarns ? ' lp-worker-run-control-label--warns' : '' }}" data-worker-run-control-label>{{ item.control.label|trans(item.control.labelParameters) }}</span>{% endif %}
             {% if item.interactive %}<span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_runs.interactive'|trans }}</span>{% endif %}
         </div>
         <button type="button" class="lp-btn" data-action="modal#close" autofocus>{{ 'bridge.worker_runs.details.close'|trans }}</button>
@@ -69,6 +70,9 @@
     </div>
     <footer class="lp-run-drawer__footer">
         <p role="status" data-worker-run-output-target="status"></p>
+        {% if item.control and item.control.action and is_granted('project.manage', project) %}
+        {% include '@Bridge/_worker_run_control_form.html.twig' with {project: project, run: run, control: item.control, frame: '_top', compact: false} only %}
+        {% endif %}
         <button type="button" class="lp-btn" data-action="worker-run-output#copy">{{ 'bridge.worker_runs.details.copy'|trans }}</button>
     </footer>
 {% endblock %}
