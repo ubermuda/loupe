@@ -25,6 +25,7 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->mergeStrategy = $command->mergeStrategy;
         $settings->fixStrategy = $command->fixStrategy;
         $settings->loopLimit = $command->loopLimit;
+        $settings->commentOnFixQueued = $command->commentOnFixQueued;
         $this->em->flush();
 
         $this->auditor->record('board.automation_settings_saved', AuditOutcome::Success, [
@@ -33,6 +34,7 @@ final readonly class SaveBoardAutomationSettingsHandler
             'mergeStrategy' => $command->mergeStrategy->value,
             'fixStrategy' => $command->fixStrategy->value,
             'loopLimit' => $command->loopLimit,
+            'commentOnFixQueued' => $command->commentOnFixQueued,
         ]);
     }
 }

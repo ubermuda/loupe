@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardPullRequestRepository;
+use App\Module\Board\Repository\PullRequestCommentRepository;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
 use App\Outbox\OutboxWriter;
@@ -30,6 +31,7 @@ final readonly class RecordForgeDeliveryHandler
 {
     public function __construct(
         private CardPullRequestRepository $cardPullRequests,
+        private PullRequestCommentRepository $pullRequestComments,
         private EntityManagerInterface $em,
         private OutboxWriter $outbox,
         private Auditor $auditor,
@@ -62,6 +64,8 @@ final readonly class RecordForgeDeliveryHandler
         if (null === $delivery->movedTo) {
             return;
         }
+
+        $this->pullRequestComments->repoint($projectId, $delivery->forge, $delivery->repository, $delivery->movedTo);
 
         $forge = Forge::tryFrom($delivery->forge) ?? Forge::Other;
         $moved = $this->cardPullRequests->repoint($projectId, $forge, $delivery->repository, $delivery->movedTo);

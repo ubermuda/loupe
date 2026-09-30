@@ -79,16 +79,21 @@ test('the owner changes the automation settings and reads them back', async ({
     const mergeStrategy = settings.getByLabel('Merge strategy');
     const fixStrategy = settings.getByLabel('Fix strategy');
     const loopLimit = settings.getByLabel('Loop limit');
+    const commentOnFixQueued = settings.getByLabel(
+        'Comment on the pull request when a fix run is queued',
+    );
 
     await expect(enabled).toBeChecked();
     await expect(mergeStrategy).toHaveValue('worker');
     await expect(fixStrategy).toHaveValue('fresh');
     await expect(loopLimit).toHaveValue('3');
+    await expect(commentOnFixQueued).not.toBeChecked();
 
     await enabled.uncheck();
     await mergeStrategy.selectOption('off');
     await fixStrategy.selectOption('resume');
     await loopLimit.fill('5');
+    await commentOnFixQueued.check();
     await settings.getByRole('button', { name: 'Save automation' }).click();
 
     await expect(page.getByText('Automation settings saved.')).toBeVisible(
@@ -100,4 +105,5 @@ test('the owner changes the automation settings and reads them back', async ({
     await expect(mergeStrategy).toHaveValue('off');
     await expect(fixStrategy).toHaveValue('resume');
     await expect(loopLimit).toHaveValue('5');
+    await expect(commentOnFixQueued).toBeChecked();
 });
