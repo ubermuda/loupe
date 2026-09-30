@@ -683,6 +683,7 @@ An agent drives the board through the MCP endpoint. See
 | `card_list` | `status`, `type` and `reporter`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
 | `card_search` | `query` is required. `page` and `perPage` are optional. |
 | `card_get` | Exactly one of `cardId` and `number`. |
+| `card_get_history` | Exactly one of `cardId` and `number`. `page` and `perPage` are optional. |
 | `card_update` | Exactly one of `cardId` and `number` is required. `title`, `body`, `type`, `status`, `pullRequestUrls`, `documentIds` and `relatedCards` are optional. |
 | `card_run_open` | `sessionId`, `name` and exactly one of `cardId` and `number` are required. `status` is optional. |
 | `card_run_close` | `sessionId` and exactly one of `cardId` and `number` are required. |
@@ -758,6 +759,27 @@ the automation never acted on the card. `card_update`, `card_create`,
 `card_get` also returns `relatedCards`, the cards linked to this one. Each entry
 carries `cardId`, `number`, `title`, `status` and `kind`, where `kind` is how
 this card reads the link. `card_search` does not carry `relatedCards`.
+
+`card_get_history` reads what happened to one card, newest first. It pages the
+same way `card_list` does, with 50 events by default and 100 at most. Each event
+carries `kind`, `occurredAt` and `actor`.
+
+`kind` is `created`, `moved`, `fix-requested`, `stopped`, `ready-to-merge` or
+`run-finished`. `actor` carries `kind` and `name`. Its `kind` is `human`,
+`agent`, `reviewer` or `system`. `name` is the current name of the person
+behind the event. It is null when there is no person, such as for a deleted
+account or the app itself.
+
+A `moved` event sets `from` and `to`, and a `created` event sets `to` alone.
+Each is a column with `id`, `slug` and `label`. `cause` says why the app moved
+the card on its own, such as a merged pull request. An action of the
+[automation](#automation) sets `pullRequest`. A `fix-requested` or `stopped`
+event also sets `reason`, such as `conflict`. A `run-finished`
+event carries the stored record of the run in `run`. A key that does not apply
+is null.
+
+The history starts empty. A change made before Loupe began to record history
+has no event.
 
 ## Cards raised from the review widget
 
