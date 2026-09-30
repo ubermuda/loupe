@@ -15,7 +15,6 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -43,9 +42,6 @@ final class SeedDevDataCommand extends Command
     private const string PASSWORD = 'password';
     private const string PROJECT_NAME = 'Dev Project';
 
-    /**
-     * @param iterable<DevDataSeederInterface> $seeders
-     */
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly UserRepository $users,
@@ -54,9 +50,6 @@ final class SeedDevDataCommand extends Command
 
         #[Autowire(param: 'app.terms.version')]
         private readonly string $termsVersion,
-
-        #[AutowireIterator('app.dev_data_seeder')]
-        private readonly iterable $seeders,
     ) {
         parent::__construct();
     }
@@ -73,11 +66,7 @@ final class SeedDevDataCommand extends Command
         // A second account rather than ROLE_ADMIN on the first: toggling one
         // user's role to compare the admin and member views is what makes a dev
         // database drift, and it costs nothing to keep both logged in at once.
-        $admin = $this->seedUser(self::ADMIN_EMAIL, 'Admin User', ['ROLE_ADMIN']);
-
-        foreach ($this->seeders as $seeder) {
-            $seeder->seed($admin);
-        }
+        $this->seedUser(self::ADMIN_EMAIL, 'Admin User', ['ROLE_ADMIN']);
 
         $project = ($this->ensureProject)(new EnsureHarnessProjectCommand($user, self::PROJECT_NAME));
 
