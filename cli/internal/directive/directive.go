@@ -36,6 +36,16 @@ func RenderResumeUnfinished(reason string) string {
 		"\n\n" + Footer
 }
 
+// RenderResumeByPerson is the whole prompt of a resume that a person asks for,
+// after a run that stopped or was blocked. No rule edits it.
+func RenderResumeByPerson() string {
+	return "A person fixed the cause of your stop or block, and asks you to go on. " +
+		"Check the state of the work first, because it can have changed while you were stopped. " +
+		"Continue your task from where it stopped, then finish the stage. " +
+		"Wait for each command in the foreground, and report your status." +
+		"\n\n" + Footer
+}
+
 // InboxLine ends the footer of a worker on an instance with the inbox on. An
 // agent copies both ids from it into inbox_ask. Loupe records a read only under
 // readerSessionId, and the bridge skips the resume of an ask read in full.

@@ -14,8 +14,10 @@ import (
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/directive"
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
+	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
 // The channels a command arrives on, as command_received names them.
@@ -23,9 +25,6 @@ const (
 	commandFromEvent     = "event"
 	commandFromHeartbeat = "heartbeat"
 )
-
-// notYet is the answer of a kind this build cannot act on.
-const notYet = "This bridge cannot act on the command yet."
 
 // onCommandEvent takes a bridge.command event. ForAnotherBridge dropped the
 // events of other bridges already.
@@ -119,10 +118,11 @@ func (r *router) handleCommand(c api.Command) (string, string) {
 	return r.resumeRun(c)
 }
 
-// The answers of a stop the bridge cannot act on.
+// The answers of a stop the bridge cannot act on. A resume in a handover
+// takes handingOver too.
 const (
 	noOpenRun   = "The bridge holds no open run with this key."
-	handingOver = "The bridge is handing over to a new version. Send the stop again."
+	handingOver = "The bridge is handing over to a new version. Send the command again."
 )
 
 // The waits of the stop ladder when the server shares none. A flag below
@@ -337,9 +337,121 @@ func (r *router) noteCardHold(e event.Event) {
 	r.mu.Unlock()
 }
 
-// resumeRun resumes the run a command names.
-func (r *router) resumeRun(api.Command) (state, reason string) {
-	return api.CommandRefused, notYet
+// The answers of a resume the bridge cannot act on.
+const (
+	noSession       = "The run has no session to resume."
+	noWorkerRule    = "The rule of the run no longer runs workers on this bridge."
+	cardMovedAway   = "The card left the column of the run."
+	noTranscript    = "The session of the run is not on the machine of this bridge."
+	bridgeShutting  = "The bridge is shutting down."
+	runOpen         = "The run is still open."
+	resumingAlready = "The bridge resumes this run already."
+)
+
+// resumeRun queues a resume of the session of a run that ended, as its next
+// run. The resume waits for the card and a worker slot, and a pause keeps it
+// queued. A held card passes, because the person's resume ends the hold on the
+// server, and resumeRun ends the hold of this bridge. The automatic resumes of
+// the new run count from zero again.
+func (r *router) resumeRun(c api.Command) (state, reason string) {
+	if c.SessionID == "" {
+		return api.CommandRefused, noSession
+	}
+	if r.readCard != nil {
+		timeout := r.checkTimeout
+		if timeout <= 0 {
+			timeout = askCheckTimeout
+		}
+		ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
+		card, err := r.readCard(ctx, c.ProjectID, c.CardID)
+		cancel()
+		if err != nil {
+			return api.CommandRefused, "The bridge could not read the card: " + err.Error()
+		}
+		if card.Column != c.CardColumn {
+			return api.CommandRefused, cardMovedAway
+		}
+	}
+	find := r.findTranscript
+	if find == nil {
+		find = findTranscript
+	}
+	if err := find(c.SessionID); err != nil {
+		return api.CommandRefused, noTranscript
+	}
+
+	e := event.Event{
+		Type: event.CommandType, Subject: event.Subject{Type: "card", ID: c.CardID}, ProjectID: c.ProjectID,
+		CardNumber: c.CardNumber, SessionID: c.SessionID, Actor: event.ActorHuman,
+	}
+	r.quiesce.RLock()
+	defer r.quiesce.RUnlock()
+	r.mu.Lock()
+	current := r.rules()
+	m, ok := matchWorker(current, e, c.RuleName)
+	_, held := r.held[c.RunKey]
+	_, live := r.live[c.RunKey]
+	continued := slices.ContainsFunc(r.queue, func(p pending) bool { return p.continues == c.RunKey })
+	for _, run := range r.live {
+		continued = continued || run.p.continues == c.RunKey
+	}
+	switch {
+	case r.frozen:
+		reason = handingOver
+	case r.shut():
+		reason = bridgeShutting
+	case !ok:
+		reason = noWorkerRule
+	case held || live:
+		reason = runOpen
+	case continued:
+		reason = resumingAlready
+	}
+	if reason != "" {
+		r.mu.Unlock()
+
+		return api.CommandRefused, reason
+	}
+
+	p := pending{
+		key: keyFor(e), event: e, set: current, runID: config.NewUUID(), continues: c.RunKey, column: c.CardColumn,
+		spec: workerSpec{resume: true, sessionID: c.SessionID, prompt: directive.RenderResumeByPerson()},
+	}
+	p.apply(m)
+	if c.ResumeIndex != nil {
+		p.resumeIndex = *c.ResumeIndex
+	}
+	p.resumeIndex++
+	p.maxResumes = p.resumeIndex + m.MaxResumes
+	if r.sessions == nil {
+		r.sessions = map[string]sessionCard{}
+	}
+	r.sessions[c.SessionID] = sessionCard{key: p.key, id: c.CardID, number: c.CardNumber, column: c.CardColumn}
+	r.seq++
+	p.seq = r.seq
+	r.queue = append(r.queue, p)
+	r.log.Info("worker_resume_asked", append(about(e, p.rule),
+		"worker_pool", p.pool, "session_id", c.SessionID, "resume", p.resumeIndex, "max_resumes", p.maxResumes, "continues", c.RunKey,
+	)...)
+	r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
+	dropped := r.dispatchLocked()
+	r.mu.Unlock()
+	r.logDropped(dropped)
+	r.releaseHold(c.CardID)
+
+	return api.CommandDone, ""
+}
+
+// findTranscript fails when the Claude Code config directory holds no
+// transcript of the session.
+func findTranscript(sessionID string) error {
+	dir, err := transcript.ConfigDir()
+	if err != nil {
+		return err
+	}
+	_, err = transcript.Find(dir, sessionID)
+
+	return err
 }
 
 // sendAck hands the answer to the report queue, which retries a failure. A

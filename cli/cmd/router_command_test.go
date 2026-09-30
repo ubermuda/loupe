@@ -102,8 +102,6 @@ func dropReasons(t *testing.T, h *harness) []string {
 	return out
 }
 
-const refusedYet = "refused This bridge cannot act on the command yet."
-
 // refusedNoRun is the answer to a stop of a run the bridge does not hold.
 const refusedNoRun = "refused " + noOpenRun
 
@@ -220,7 +218,7 @@ func TestTheBridgeDropsACommandItMustNotRun(t *testing.T) {
 }
 
 // Each kind reaches its own handler. The bridge holds no run, so it refuses
-// the stop, and it cannot resume yet.
+// the stop, and the resume names no session.
 func TestEachKindOfCommandIsAnswered(t *testing.T) {
 	h := newHarness(t)
 	acks := h.withAcks()
@@ -231,7 +229,7 @@ func TestEachKindOfCommandIsAnswered(t *testing.T) {
 
 	got := acks.recorded()
 	slices.Sort(got)
-	want := []string{testBridgeID + " " + stop.CommandID + " " + refusedNoRun, testBridgeID + " " + resume.CommandID + " " + refusedYet}
+	want := []string{testBridgeID + " " + stop.CommandID + " " + refusedNoRun, testBridgeID + " " + resume.CommandID + " refused " + noSession}
 	if !slices.Equal(got, want) {
 		t.Fatalf("acks = %v", got)
 	}

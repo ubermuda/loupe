@@ -90,6 +90,9 @@ type router struct {
 	// signalGroup or time.After, which tests replace.
 	signal    func(pid int, sig stopSignal) error
 	stopAfter func(time.Duration) <-chan time.Time
+	// findTranscript fails when this machine holds no transcript of the
+	// session. A nil one looks in the Claude Code config directory.
+	findTranscript func(sessionID string) error
 
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
@@ -359,7 +362,7 @@ func (r *router) columnLocked(e event.Event) string {
 // label names an event's aggregate to a reader: its card number when the event
 // carries one, and its subject id otherwise.
 func label(e event.Event) (string, any) {
-	if e.Type == event.CardMovedType || ((e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType || event.IsPullRequest(e.Type)) && e.CardNumber > 0) {
+	if e.Type == event.CardMovedType || e.Type == event.CommandType || ((e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType || event.IsPullRequest(e.Type)) && e.CardNumber > 0) {
 		return "card", e.CardNumber
 	}
 
@@ -1017,8 +1020,9 @@ func (r *router) start(p pending) {
 	// had, which a later ask on the session reads.
 	column := cmp.Or(p.column, r.sessions[p.spec.sessionID].column)
 	r.sessions[p.spec.sessionID] = sessionCard{key: p.key, id: id, number: number, column: column}
-	// A checked resume sent resumed when its check let it through.
-	if p.spec.resume && !p.checked {
+	// A checked resume sent resumed when its check let it through. A resume
+	// that continues a run sends queued alone.
+	if p.spec.resume && !p.checked && p.continues == "" {
 		r.emitLocked(p, api.RunStateReport{State: api.RunResumed, AskID: askOf(p.event)})
 	}
 	r.wg.Add(1)
