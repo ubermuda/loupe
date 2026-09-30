@@ -70,6 +70,7 @@ final readonly class ReturnAbandonedCardHandler
             }
 
             $this->cards->refreshColumn($card);
+            $this->em->refresh($card->column);
             if ($card->column->terminal || $card->column->backlog) {
                 return;
             }

@@ -76,6 +76,19 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
         self::assertSame('in-progress', $this->storedColumnOf($card));
     }
 
+    public function test_a_card_whose_column_turned_terminal_since_it_loaded_stays(): void
+    {
+        $card = $this->linkedCard('in-progress', PullRequestState::Closed);
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_columns SET terminal = true WHERE id = :column',
+            ['column' => (string) $card->column->id],
+        );
+
+        $this->handle($card);
+
+        self::assertSame('in-progress', $this->storedColumnOf($card));
+    }
+
     public function test_a_card_with_no_queued_move_stays(): void
     {
         $card = $this->linkedCard('in-progress', PullRequestState::Closed);
