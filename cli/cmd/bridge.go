@@ -228,6 +228,10 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		defer b.close()
 		b.recovered = leftoverHandover(b.file, bl.log)
 	}
+	cursorFile, err := cursorPath(path)
+	if err != nil {
+		return err
+	}
 
 	r := &router{
 		log:        bl.log,
@@ -238,6 +242,7 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		update:     b,
 		hookRunner: newHookRunner(hookList, bridgeID, bl.log),
 		claude:     claude,
+		cursorFile: cursorFile,
 	}
 	r.set.Store(set)
 	// The cache is read before subscribe, whose adopt dispatches.
@@ -402,10 +407,16 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.ackCommand == nil {
 		r.ackCommand = apiClient(cfg).AckCommand
 	}
+	if r.replay == nil {
+		r.replay = apiClient(cfg).Replay
+	}
 	r.applyFlags(events)
+	// A handover's resume point and recent ids win over the cursor file's.
+	r.loadCursor(events.Head)
 	if r.update != nil {
 		r.update.adoptInto(r)
 	}
+	r.seedResumePoint()
 	var updates *updater
 	var watched <-chan struct{}
 	if r.bridgeID != "" {

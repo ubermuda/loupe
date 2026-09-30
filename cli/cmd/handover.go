@@ -116,10 +116,12 @@ type handoverRun struct {
 	runPin
 }
 
-// heldEvent is a stream event that arrived after a freeze.
+// heldEvent is a stream event that arrived after a freeze. replayed marks an
+// event of a catch-up.
 type heldEvent struct {
-	id   string
-	data []byte
+	id       string
+	data     []byte
+	replayed bool
 }
 
 // handoverPath names the handover file of the bridge that reads rulesPath. It
@@ -223,7 +225,7 @@ func (r *router) resume() {
 		done()
 	}
 	for _, e := range events {
-		r.handleEvent(e.id, e.data)
+		r.handleEvent(e.id, e.data, e.replayed)
 	}
 	r.eventMu.Unlock()
 
@@ -408,28 +410,38 @@ func (r *router) adoptLocked(run handoverRun) {
 // onEvent handles one stream event, unless its id was handled already, as
 // across the replay after a handover. After a freeze, it holds the event back.
 func (r *router) onEvent(id string, data []byte) {
+	r.takeEvent(id, data, false)
+}
+
+// takeEvent is onEvent for a stream event or, when replayed, for an event of a
+// catch-up.
+func (r *router) takeEvent(id string, data []byte, replayed bool) {
 	r.eventMu.Lock()
 	defer r.eventMu.Unlock()
 
 	r.mu.Lock()
 	if r.frozen {
-		r.heldEvents = append(r.heldEvents, heldEvent{id: id, data: slices.Clone(data)})
+		r.heldEvents = append(r.heldEvents, heldEvent{id: id, data: slices.Clone(data), replayed: replayed})
 		r.mu.Unlock()
 
 		return
 	}
 	r.mu.Unlock()
-	r.handleEvent(id, data)
+	r.handleEvent(id, data, replayed)
 }
 
-// handleEvent records the id as handled and routes the event. The caller holds
-// eventMu.
-func (r *router) handleEvent(id string, data []byte) {
+// handleEvent records the id as handled, routes the event and moves the
+// cursor. An id the last catch-up read counts as handled, because the hub can
+// send it again after the catch-up. The caller holds eventMu.
+func (r *router) handleEvent(id string, data []byte, replayed bool) {
 	if id != "" {
 		r.mu.Lock()
-		seen := r.recentSet[id]
+		seen := r.recentSet[id] || r.caughtUp[id]
 		if !seen {
 			r.rememberLocked(id)
+		}
+		if replayed && r.caughtUp != nil {
+			r.caughtUp[id] = true
 		}
 		r.mu.Unlock()
 		if seen {
@@ -438,7 +450,8 @@ func (r *router) handleEvent(id string, data []byte) {
 			return
 		}
 	}
-	r.onData(data)
+	r.route(data, replayed)
+	r.advanceCursor(id)
 }
 
 // onID keeps the stream's resume point.
