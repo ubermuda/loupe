@@ -17,6 +17,9 @@ final readonly class GitHubPullRequestCommenter implements PullRequestCommenter
     /** An operator must change the App settings, so a retry cannot succeed. */
     private const array CONFIGURATION_REASONS = ['not_configured', 'bad_key'];
 
+    private const int PAGE_SIZE = 100;
+    private const int MAX_PAGES = 10;
+
     public function __construct(
         private GitHubAppApi $api,
         private GitHubPullRequestInstallations $installations,
@@ -45,18 +48,30 @@ final readonly class GitHubPullRequestCommenter implements PullRequestCommenter
     public function hasComment(ForgePullRequest $pullRequest, string $marker, \DateTimeImmutable $since): bool
     {
         [$installationId, $path] = $this->installation($pullRequest);
+        $sinceUtc = $since->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
 
-        try {
-            // The list runs oldest first and has no sort. `since` keeps it to the comments after the queue, so one page is enough.
-            $comments = $this->api->get($installationId, $this->commentsPath($path, $pullRequest), [
-                'since' => $since->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
-                'per_page' => 100,
-            ]);
-        } catch (GitHubAppApiFailed $e) {
-            throw self::failed($e);
+        // The list runs oldest first and has no sort. `since` keeps it to the
+        // comments after the queue, and the page cap bounds a very busy pull request.
+        for ($page = 1; $page <= self::MAX_PAGES; ++$page) {
+            try {
+                $comments = $this->api->get($installationId, $this->commentsPath($path, $pullRequest), [
+                    'since' => $sinceUtc,
+                    'per_page' => self::PAGE_SIZE,
+                    'page' => $page,
+                ]);
+            } catch (GitHubAppApiFailed $e) {
+                throw self::failed($e);
+            }
+
+            if (array_any($comments, static fn (mixed $comment): bool => \is_array($comment) && \is_string($comment['body'] ?? null) && str_contains($comment['body'], $marker))) {
+                return true;
+            }
+            if (\count($comments) < self::PAGE_SIZE) {
+                return false;
+            }
         }
 
-        return array_any($comments, static fn (mixed $comment): bool => \is_array($comment) && \is_string($comment['body'] ?? null) && str_contains($comment['body'], $marker));
+        return false;
     }
 
     /** @return array{int, string} */

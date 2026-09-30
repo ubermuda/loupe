@@ -154,7 +154,60 @@ final class GitHubPullRequestCommenterTest extends KernelTestCase
         self::assertIsArray($url);
         self::assertSame('/repos/Ubermuda/Loupe.site/issues/604/comments', $url['path'] ?? null);
         parse_str($url['query'] ?? '', $query);
-        self::assertSame(['since' => '2026-09-29T11:00:00Z', 'per_page' => '100'], $query);
+        self::assertSame(['since' => '2026-09-29T11:00:00Z', 'per_page' => '100', 'page' => '1'], $query);
+    }
+
+    public function test_the_lookup_reads_the_next_page_until_it_finds_the_marker(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 71_032);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer($this->comments(100)),
+            $this->answer([['id' => 101, 'body' => '<!-- loupe-fix-run:run-1 -->']]),
+        ];
+
+        self::assertTrue($this->commenter()->hasComment($pullRequest, '<!-- loupe-fix-run:run-1 -->', new \DateTimeImmutable()));
+        self::assertCount(3, $this->requests);
+        self::assertSame(['1', '2'], [$this->pageOf(1), $this->pageOf(2)]);
+    }
+
+    public function test_the_lookup_stops_at_a_short_page(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 71_033);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer($this->comments(100)),
+            $this->answer($this->comments(99)),
+        ];
+
+        self::assertFalse($this->commenter()->hasComment($pullRequest, '<!-- loupe-fix-run:run-1 -->', new \DateTimeImmutable()));
+        self::assertCount(3, $this->requests);
+    }
+
+    public function test_the_lookup_reads_ten_pages_at_most(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 71_034);
+        $this->responses = [$this->answer(['token' => 'ghs_token'], 201)];
+        for ($page = 1; $page <= 11; ++$page) {
+            $this->responses[] = $this->answer($this->comments(100));
+        }
+
+        self::assertFalse($this->commenter()->hasComment($pullRequest, '<!-- loupe-fix-run:run-1 -->', new \DateTimeImmutable()));
+        self::assertCount(11, $this->requests);
+        self::assertSame('10', $this->pageOf(10));
+    }
+
+    /** @return list<array{id: int, body: string}> */
+    private function comments(int $count): array
+    {
+        return array_map(static fn (int $id): array => ['id' => $id, 'body' => 'LGTM'], range(1, $count));
+    }
+
+    private function pageOf(int $request): ?string
+    {
+        parse_str((string) parse_url($this->requests[$request]['url'], \PHP_URL_QUERY), $query);
+
+        return \is_string($query['page'] ?? null) ? $query['page'] : null;
     }
 
     public function test_the_lookup_answers_false_without_the_marker(): void
