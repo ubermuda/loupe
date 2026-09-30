@@ -45,6 +45,7 @@ final class BetaInviteAdminControllerTest extends WebTestCase
         $client->loginUser($admin);
         $crawler = $client->request(Request::METHOD_GET, '/admin/beta-invites');
         $this->assertResponseIsSuccessful();
+        $this->assertSelectorExists('a[href="/admin/beta-invites"]');
         $this->assertSelectorNotExists('[data-testid="beta-invite-link"]');
 
         $form = $crawler->filter('[data-testid="beta-invite-create"]')->form([
