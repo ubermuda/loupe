@@ -92,6 +92,20 @@ func TestAHandoverWritesTheKeyOnce(t *testing.T) {
 	}
 }
 
+func TestAHandoverWritesTheKeyWhenTheStateIsUnreadable(t *testing.T) {
+	m := newMigration(t, migrationRules, update.State{})
+	if err := os.WriteFile(filepath.Join(m.dir, "update.json"), []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if !m.run(true) {
+		t.Fatal("the process must take a missing key as on")
+	}
+	if got := m.body(t); got != migrationRules+"autoUpdate: true\n" {
+		t.Fatalf("rules = %q", got)
+	}
+}
+
 func TestAHandoverAfterTheMarkerWritesNothing(t *testing.T) {
 	m := newMigration(t, migrationRules, update.State{})
 	m.run(false)

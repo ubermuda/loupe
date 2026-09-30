@@ -19,6 +19,12 @@ func migrateAutoUpdate(log *slog.Logger, dir, rulesPath string, handover bool) b
 	st, err := update.LoadState(dir)
 	if err != nil {
 		log.Warn("auto_update_migration_failed", "rules", rulesPath, "error", err.Error())
+		// With no state to hold a pending entry, the key in the rule file is the only record that survives a restart.
+		if handover {
+			if _, err := rules.SetAutoUpdate(rulesPath, true); err != nil {
+				log.Warn("auto_update_migration_failed", "rules", rulesPath, "error", err.Error(), "line", rules.AutoUpdateLine(true))
+			}
+		}
 
 		return handover
 	}
