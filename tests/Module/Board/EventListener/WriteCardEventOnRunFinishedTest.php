@@ -15,6 +15,7 @@ use App\Module\Bridge\Event\WorkerRunChanged;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -78,15 +79,65 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         self::assertSame($expected, $detail);
     }
 
-    public function test_a_second_dispatch_for_the_same_run_writes_nothing_more(): void
+    public function test_a_second_dispatch_with_the_same_state_leaves_the_row_unchanged(): void
     {
-        $run = $this->workerRun($this->card->id, WorkerRunState::Failed);
+        $run = $this->workerRun($this->card->id, WorkerRunState::Succeeded);
+        $run->endedAt = new \DateTimeImmutable('2026-09-30 10:00:00+00:00');
+        $this->em->flush();
 
+        $this->listener()($this->event($run));
+        $first = $this->rows();
+        self::assertCount(1, $first);
+
+        $run = $this->em->find(WorkerRun::class, $run->id);
+        self::assertInstanceOf(WorkerRun::class, $run);
+        $run->endedAt = new \DateTimeImmutable('2026-09-30 11:00:00+00:00');
+        $this->em->flush();
+        $this->listener()($this->event($run));
+        $second = $this->rows();
+        self::assertCount(1, $second);
+        self::assertSame((string) $first[0]->id, (string) $second[0]->id);
+        self::assertEquals($first[0]->occurredAt, $second[0]->occurredAt);
+        self::assertSame($first[0]->detail, $second[0]->detail);
+    }
+
+    public function test_a_timed_out_run_that_later_succeeds_keeps_one_row_with_the_later_outcome(): void
+    {
+        $run = $this->workerRun($this->card->id, WorkerRunState::TimedOut);
+        $run->endedAt = new \DateTimeImmutable('2026-09-30 10:00:00+00:00');
+        $this->em->flush();
+        $this->listener()($this->event($run));
+        $first = $this->rows();
+        self::assertCount(1, $first);
+        self::assertSame('timed-out', $first[0]->detail['state']);
+
+        $run = $this->em->find(WorkerRun::class, $run->id);
+        self::assertInstanceOf(WorkerRun::class, $run);
+        $run->state = WorkerRunState::Succeeded;
+        $run->endedAt = new \DateTimeImmutable('2026-09-30 10:05:00+00:00');
+        $this->em->flush();
+        $this->listener()($this->event($run));
+
+        $rows = $this->rows();
+        self::assertCount(1, $rows);
+        self::assertSame((string) $first[0]->id, (string) $rows[0]->id);
+        self::assertSame('succeeded', $rows[0]->detail['state']);
+        self::assertEquals(new \DateTimeImmutable('2026-09-30 10:05:00+00:00'), $rows[0]->occurredAt);
+        self::assertSame((string) $run->id, $rows[0]->runId?->toRfc4122());
+    }
+
+    public function test_the_table_refuses_a_second_row_for_one_run_of_one_card(): void
+    {
+        $run = $this->workerRun($this->card->id, WorkerRunState::Succeeded);
         $this->listener()($this->event($run));
         self::assertCount(1, $this->rows());
 
-        $this->listener()($this->event($run));
-        self::assertCount(1, $this->rows());
+        $this->expectException(UniqueConstraintViolationException::class);
+        $this->em->getConnection()->executeStatement(
+            "INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, detail, occurred_at, run_id)
+             VALUES (?, ?, ?, 'run-finished', 'agent', '{}', NOW(), ?)",
+            [Uuid::v7()->toRfc4122(), (string) $this->card->id, (string) $this->project->id, (string) $run->id],
+        );
     }
 
     public function test_an_open_run_writes_nothing(): void

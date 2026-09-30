@@ -15,7 +15,8 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
- * Writes one `run-finished` history row for each run that closed. The event
+ * Writes one `run-finished` history row for each run that closed. A run that
+ * reopens and closes with a different state updates its row. The event
  * comes after a commit, or inside a card move's transaction, so the rows go
  * through DBAL and never flush the entity manager.
  */
@@ -50,7 +51,8 @@ final readonly class WriteCardEventOnRunFinished
             try {
                 $card = $this->cards->findOneByIdAndProjectId($run->cardId->toRfc4122(), (string) $run->project->id);
                 if (null !== $card) {
-                    $this->cardEvents->insertRunFinishedOnce($card, $run->project->owner, self::detail($run, (string) $run->id), $run->endedAt ?? $this->clock->now());
+                    $runId = $run->id ?? throw new \LogicException('A stored run has an id.');
+                    $this->cardEvents->upsertRunFinished($card, $runId, $run->project->owner, self::detail($run, $runId->toRfc4122()), $run->endedAt ?? $this->clock->now());
                 }
             } catch (\Throwable $e) {
                 $this->logger->warning('board.card_event_write_failed', [

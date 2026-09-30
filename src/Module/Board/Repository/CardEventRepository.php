@@ -38,18 +38,19 @@ class CardEventRepository extends ServiceEntityRepository
     }
 
     /**
-     * Writes the `run-finished` row of a run once. It goes through DBAL in its own
-     * transaction, a savepoint inside a caller's, so a failed insert leaves the
-     * entity manager and the caller's transaction usable.
+     * Writes the `run-finished` row of a run, or gives the row a changed outcome.
+     * It goes through DBAL in its own transaction, a savepoint inside a caller's,
+     * so a failed write leaves the entity manager and the caller's transaction usable.
      *
-     * @param array<string, mixed> $detail with a `runId`
+     * @param array<string, mixed> $detail with the `runId` and the `state`
      */
-    public function insertRunFinishedOnce(Card $card, ?User $actorUser, array $detail, \DateTimeImmutable $at): void
+    public function upsertRunFinished(Card $card, Uuid $runId, ?User $actorUser, array $detail, \DateTimeImmutable $at): void
     {
         $this->getEntityManager()->getConnection()->transactional(static fn (Connection $connection): int|string => $connection->executeStatement(
-            "INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at)
-             SELECT ?::uuid, ?::uuid, ?::uuid, ?, ?, ?::uuid, ?::jsonb, ?::timestamp
-             WHERE NOT EXISTS (SELECT 1 FROM board_card_events WHERE card_id = ?::uuid AND kind = ? AND detail->>'runId' = ?)",
+            "INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at, run_id)
+             VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?::uuid, ?::jsonb, ?::timestamp, ?::uuid)
+             ON CONFLICT (card_id, run_id) DO UPDATE SET detail = EXCLUDED.detail, occurred_at = EXCLUDED.occurred_at
+             WHERE (board_card_events.detail->>'state') IS DISTINCT FROM (EXCLUDED.detail->>'state')",
             [
                 Uuid::v7()->toRfc4122(),
                 (string) $card->id,
@@ -59,9 +60,7 @@ class CardEventRepository extends ServiceEntityRepository
                 $actorUser?->id?->toRfc4122(),
                 $detail,
                 $at,
-                (string) $card->id,
-                CardEventKind::RunFinished->value,
-                $detail['runId'] ?? throw new \LogicException('A run-finished row names its run.'),
+                $runId->toRfc4122(),
             ],
             [6 => Types::JSON, 7 => Types::DATETIME_IMMUTABLE],
         ));

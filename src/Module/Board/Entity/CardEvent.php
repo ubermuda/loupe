@@ -13,13 +13,15 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * One row of a card's history, written once and never changed.
+ * One row of a card's history, written once and never changed. A run's row is
+ * the exception: it takes the final outcome when a reopened run closes again.
  *
  * The index is ascending: Postgres reads it backwards for the newest-first list.
  */
 #[ORM\Entity(repositoryClass: CardEventRepository::class, readOnly: true)]
 #[ORM\Index(name: 'idx_board_card_events_card_occurred', columns: ['card_id', 'occurred_at', 'id'])]
 #[ORM\Table(name: 'board_card_events')]
+#[ORM\UniqueConstraint(name: 'uniq_board_card_events_card_run', columns: ['card_id', 'run_id'])]
 class CardEvent
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]
@@ -56,6 +58,9 @@ class CardEvent
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $occurredAt = new \DateTimeImmutable(),
+
+        #[ORM\Column(type: UuidType::NAME, nullable: true)]
+        public readonly ?Uuid $runId = null,
     ) {
     }
 
