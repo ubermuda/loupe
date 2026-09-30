@@ -24,7 +24,7 @@ class ExperimentDefinition
     public private(set) ?Uuid $id = null;
 
     public function __construct(
-        #[ORM\JoinColumn(nullable: false)]
+        #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public Project $project,
 
