@@ -148,6 +148,30 @@ final class ConnectAgentControllerTest extends WebTestCase
         self::assertNotEmpty($crawler->filter('.lp-tools__name'));
     }
 
+    /** The Homebrew line is a shell comment, so a person who pastes the whole block does not install twice. */
+    public function test_the_loupe_cli_method_installs_the_cli_first(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->user($em, 'connect-install@example.com');
+        $project = new Project($owner, 'connect-site-install');
+        $em->persist($project);
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/connect');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([
+            'curl -fsSL http://localhost/install.sh | sh',
+            '# or, with Homebrew: brew install ubermuda/tap/loupe',
+            'loupe login --url http://localhost',
+            'loupe init',
+        ], explode("\n", $crawler->filter('[data-testid="install-loupe_cli"] .lp-code-dark__body')->text(null, false)));
+    }
+
     public function test_non_owner_is_denied(): void
     {
         $client = static::createClient();

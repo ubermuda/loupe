@@ -2367,7 +2367,11 @@
             </trans-unit>
             <trans-unit id="project.connect.loupe_cli.sub">
                 <source>project.connect.loupe_cli.sub</source>
-                <target>Sign in once, then write the config into the repository. Each repository names its own project in .loupe.yaml, so one login serves them all.</target>
+                <target>Install the CLI, sign in once, then write the config into the repository. Each repository names its own project in .loupe.yaml, so one login serves them all.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.loupe_cli.homebrew">
+                <source>project.connect.loupe_cli.homebrew</source>
+                <target>or, with Homebrew:</target>
             </trans-unit>
             <trans-unit id="project.connect.loupe_cli.label">
                 <source>project.connect.loupe_cli.label</source>
