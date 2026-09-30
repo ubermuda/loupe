@@ -445,21 +445,20 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** @return list<WorkerRun> the card's open runs, then its latest runs, newest first */
-    public function findRecentForCard(Project $project, Uuid $cardId, int $limit): array
+    /** @return list<WorkerRun> the card's open runs, newest first */
+    public function findOpenForCard(Project $project, Uuid $cardId, int $limit): array
     {
         return $this->createQueryBuilder('r')
-            ->addSelect('CASE WHEN r.state IN (:openStates) THEN 0 ELSE 1 END AS HIDDEN openFirst')
             ->andWhere('r.project = :project')
             ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.state IN (:openStates)')
             ->setParameter('project', $project)
             ->setParameter('cardId', $cardId, UuidType::NAME)
             ->setParameter('openStates', array_map(
                 static fn (WorkerRunState $state): string => $state->value,
                 WorkerRunState::openStates(),
             ))
-            ->orderBy('openFirst', 'ASC')
-            ->addOrderBy('r.receivedAt', 'DESC')
+            ->orderBy('r.receivedAt', 'DESC')
             ->addOrderBy('r.id', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()

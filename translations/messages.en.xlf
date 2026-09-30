@@ -5919,7 +5919,7 @@
             <trans-unit id="board.card.overview.completed"><source>board.card.overview.completed</source><target>Completed</target></trans-unit>
             <trans-unit id="board.card.runs.title"><source>board.card.runs.title</source><target>Agent runs</target></trans-unit>
             <trans-unit id="board.card.runs.all"><source>board.card.runs.all</source><target>Run history</target></trans-unit>
-            <trans-unit id="board.card.runs.empty"><source>board.card.runs.empty</source><target>No agent has run on this card yet.</target></trans-unit>
+            <trans-unit id="board.card.runs.open_title"><source>board.card.runs.open_title</source><target>Runs in progress</target></trans-unit>
             <trans-unit id="board.card.runs.usage.total"><source>board.card.runs.usage.total</source><target>Total usage</target></trans-unit>
             <trans-unit id="board.card.runs.usage.tokens"><source>board.card.runs.usage.tokens</source><target>%input% input · %output% output · %cacheRead% cache read · %cacheWrite% cache write</target></trans-unit>
             <trans-unit id="board.card.runs.usage.estimated"><source>board.card.runs.usage.estimated</source><target>Estimated</target></trans-unit>

@@ -67,11 +67,11 @@ final class CardWorkerRunsExtension extends AbstractExtension
         return array_map(
             // The card page shows neither history nor its own title, so it loads none.
             static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, [], null),
-            $this->workerRuns->findRecentForCard($project, Uuid::fromString($cardId), self::LIMIT),
+            $this->workerRuns->findOpenForCard($project, Uuid::fromString($cardId), self::LIMIT),
         );
     }
 
-    /** Every run of the card counts, not only the ones the card lists. */
+    /** Every run of the card counts, the finished ones too. */
     public function cardUsageTotal(Project $project, string $cardId): CardUsageTotal
     {
         if (!Uuid::isValid($cardId)) {

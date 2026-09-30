@@ -26,7 +26,8 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $project = $this->project($em, $owner, 'Fragment');
         $cardId = Uuid::v7();
         $run = $this->seedRun($em, $project, ruleName: 'plan the card', cardId: $cardId, state: WorkerRunState::Running);
-        $this->seedRun($em, $project, ruleName: 'another card');
+        $this->seedRun($em, $project, ruleName: 'finished work', cardId: $cardId, state: WorkerRunState::Succeeded, hasResult: true);
+        $this->seedRun($em, $project, ruleName: 'another card', state: WorkerRunState::Running);
 
         $projectId = (string) $project->id;
         $runId = (string) $run->id;
@@ -45,6 +46,10 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $row = $frame->filter('[data-card-run="'.$runId.'"]');
         self::assertStringContainsString('plan the card', $row->text());
         self::assertSame('Running', $row->filter('.lp-status-chip')->text());
+        // A finished run moves to the card history, so the overview leaves it out.
+        self::assertStringNotContainsString('finished work', $frame->text());
+        self::assertSame('Runs in progress', $frame->filter('[data-card-runs] h2')->text());
+        self::assertSame('/projects/'.$projectId.'/worker-runs', $frame->filter('[data-card-runs] [data-card-runs-all]')->attr('href'));
     }
 
     public function test_a_resumed_run_names_its_place_in_the_series(): void
@@ -55,7 +60,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $owner = $this->user($em, 'card-fragment-resume@example.com');
         $project = $this->project($em, $owner, 'Fragment resume');
         $cardId = Uuid::v7();
-        $run = $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::GaveUp, hasResult: true);
+        $run = $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Running);
         $run->resumeIndex = 3;
         $run->resumeCap = 3;
         $em->flush();
@@ -70,10 +75,10 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $row = $crawler->filter('[data-card-run="'.$runId.'"]');
         self::assertSame('Resume 3 of 3', $row->filter('[data-worker-run-resume]')->text());
-        self::assertSame('Gave up', $row->filter('.lp-status-chip')->text());
+        self::assertSame('Running', $row->filter('.lp-status-chip')->text());
     }
 
-    public function test_only_a_running_interactive_session_offers_a_close_control(): void
+    public function test_a_running_interactive_session_offers_a_close_control_and_a_closed_one_is_gone(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -107,10 +112,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertStringContainsString('Interactive session', $openRow->text());
         self::assertStringContainsString('running for', $openRow->text());
 
-        $closedRow = $crawler->filter('[data-card-run-row="'.$closedId.'"]');
-        self::assertStringContainsString('Interactive session', $closedRow->text());
-        self::assertStringNotContainsString('running for', $closedRow->text());
-        self::assertStringContainsString('5m 0s', $closedRow->text());
+        self::assertCount(0, $crawler->filter('[data-card-run-row="'.$closedId.'"]'));
 
         $workerRow = $crawler->filter('[data-card-run-row="'.$workerId.'"]');
         self::assertStringNotContainsString('Interactive session', $workerRow->text());
@@ -137,6 +139,9 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
 
         self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[data-card-runs] [data-card-run]'));
+        self::assertSame('Agent runs', $crawler->filter('[data-card-runs] h2')->text());
+        self::assertCount(1, $crawler->filter('[data-card-runs] [data-card-runs-all]'));
         $total = $crawler->filter('turbo-frame#card-worker-runs [data-card-runs] [data-card-usage-total]');
         self::assertCount(1, $total);
         self::assertSame('$12.34', $total->filter('[data-card-usage-cost]')->text());
@@ -146,7 +151,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertCount(0, $total->filter('[data-card-usage-unknown]'));
     }
 
-    public function test_a_card_whose_runs_report_no_usage_shows_usage_unknown(): void
+    public function test_an_open_run_with_no_usage_shows_usage_unknown(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -155,6 +160,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $project = $this->project($em, $owner, 'Fragment usage unknown');
         $cardId = Uuid::v7();
         $this->seedRun($em, $project, cardId: $cardId);
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Running);
 
         $projectId = (string) $project->id;
         $em->clear();
@@ -190,28 +196,31 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('[data-card-runs] [data-card-run]'));
-        self::assertSelectorTextContains('[data-card-runs] .lp-card-detail__empty', 'No agent has run on this card yet.');
-        $total = $crawler->filter('[data-card-runs] .lp-card-detail__empty + [data-card-usage-total]');
+        $total = $crawler->filter('[data-card-runs] [data-card-usage-total]');
         self::assertCount(1, $total);
         self::assertSame('$0.01', $total->filter('[data-card-usage-cost]')->text());
     }
 
-    public function test_a_card_with_no_runs_says_so(): void
+    /** The frame stays, empty, so a live update can fill it when a run opens. */
+    public function test_a_card_with_no_open_run_and_no_usage_gets_an_empty_frame(): void
     {
         $client = static::createClient();
         $em = $this->em();
 
         $owner = $this->user($em, 'card-fragment-empty@example.com');
         $project = $this->project($em, $owner, 'Fragment empty');
+        $cardId = Uuid::v7();
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Failed);
         $projectId = (string) $project->id;
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.Uuid::v7());
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('turbo-frame#card-worker-runs [data-card-runs]', 'No agent has run on this card yet.');
-        self::assertSelectorNotExists('[data-card-usage-total]');
+        $frame = $crawler->filter('turbo-frame#card-worker-runs');
+        self::assertCount(1, $frame);
+        self::assertSame('', trim($frame->html()));
     }
 
     public function test_another_users_project_is_refused(): void

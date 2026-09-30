@@ -1,9 +1,12 @@
 {% set runs = card_worker_runs(project, cardId) %}
+{% set usage = card_usage_total(project, cardId) %}
 <turbo-frame id="card-worker-runs" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
+{# The usage of a card outlives its runs, so a card with no open run can still have usage. #}
+{% if runs is not empty or usage.known %}
 <section class="lp-card-overview__section" data-card-runs>
     <div class="lp-section-heading">
-        <h2 class="lp-card-panel__title">{{ 'board.card.runs.title'|trans }}</h2>
-        {% if runs is not empty %}<a class="lp-workshop-text-link" href="{{ path('app_project_worker_runs', {id: project.id}) }}" data-turbo-frame="_top">{{ 'board.card.runs.all'|trans }}</a>{% endif %}
+        <h2 class="lp-card-panel__title">{{ (runs is not empty ? 'board.card.runs.open_title' : 'board.card.runs.title')|trans }}</h2>
+        <a class="lp-workshop-text-link" href="{{ path('app_project_worker_runs', {id: project.id}) }}" data-turbo-frame="_top" data-card-runs-all>{{ 'board.card.runs.all'|trans }}</a>
     </div>
     {% for item in runs %}
     <div class="lp-card-run-row" data-card-run-row="{{ item.run.id }}">
@@ -22,12 +25,7 @@
     </form>
     {% endif %}
     </div>
-    {% else %}
-    <p class="lp-card-detail__empty">{{ 'board.card.runs.empty'|trans }}</p>
     {% endfor %}
-    {% set usage = card_usage_total(project, cardId) %}
-    {# The usage of a card outlives its runs, so a card with no runs can still have usage. #}
-    {% if runs is not empty or usage.known %}
     <p class="lp-card-usage-total" data-card-usage-total>
         <span class="lp-card-usage-total__label">{{ 'board.card.runs.usage.total'|trans }}</span>
         {% if usage.known %}
@@ -39,6 +37,6 @@
         <span data-card-usage-unknown>{{ 'board.card.runs.usage.unknown'|trans }}</span>
         {% endif %}
     </p>
-    {% endif %}
 </section>
+{% endif %}
 </turbo-frame>

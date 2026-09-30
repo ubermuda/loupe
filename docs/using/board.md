@@ -374,9 +374,11 @@ terminal column shows no block.
 The card page and the drawer show the state from when they opened. Reload the
 page to see a newer state. The board tiles update by themselves.
 
-The page also lists the card's five latest agent runs, with the rule that
-started each run, when it ran, how long it took and how it ended. A run opens
-its details on the **Runs** tab of the Activity page.
+The page also lists up to five agent runs of the card that are still in
+progress, with the rule that started each run, when it started and its state.
+A run opens its details on the **Runs** tab of the Activity page. A finished
+run leaves this list, and the **Run history** link shows it. A card with no
+run in progress and no usage shows no runs section.
 
 A card with links to other cards shows a **Linked cards** table. Each row gives
 the kind of link, the other card's number, its title and its column. A row opens
