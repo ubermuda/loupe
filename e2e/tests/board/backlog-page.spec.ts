@@ -1,6 +1,7 @@
 /**
- * Browser coverage for the Backlog page: the filters, the Move to menu of a
- * row, the bulk bar and the state where the filters match nothing.
+ * Browser coverage for the Backlog page: the filters, the column headers that
+ * sort, the Move to menu of a row, the bulk bar and the state where the
+ * filters match nothing.
  *
  * The cards come from the MCP card_create tool, because it sets the type and
  * the parent in one call. A card with no status lands in Backlog.
@@ -251,6 +252,51 @@ test('ticked rows move to Next together', async ({ page, backlog }) => {
     await expect(row(page, stays)).toBeVisible();
     await expect(bar).toBeHidden();
     await expect(page.locator('#backlog-filter-count')).toHaveText('1 card');
+});
+
+test('the column headers sort the list, newest first by default', async ({
+    page,
+    backlog,
+}) => {
+    const feature = await backlog.create('Sortable feature');
+    const bug = await backlog.create('Sortable bug', { type: 'bug' });
+    const docs = await backlog.create('Sortable docs', { type: 'docs' });
+
+    const rows = page.locator('[data-backlog-card-id]');
+    const header = (name: string) =>
+        page.getByRole('columnheader').filter({
+            has: page.getByRole('link', { name, exact: true }),
+        });
+
+    await page.goto(backlog.backlogUrl);
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0)).toHaveAttribute('data-backlog-card-id', docs.id);
+    await expect(rows.nth(1)).toHaveAttribute('data-backlog-card-id', bug.id);
+    await expect(rows.nth(2)).toHaveAttribute(
+        'data-backlog-card-id',
+        feature.id,
+    );
+    await expect(header('Added')).toHaveAttribute('aria-sort', 'descending');
+    await expect(header('Type')).toHaveAttribute('aria-sort', 'none');
+
+    await page.getByRole('link', { name: 'Type', exact: true }).click();
+    await expect(page).toHaveURL(/sort=type&dir=asc/, ROUND_TRIP);
+    await expect(header('Type')).toHaveAttribute('aria-sort', 'ascending');
+    await expect(header('Added')).toHaveAttribute('aria-sort', 'none');
+    await expect(rows.nth(0)).toHaveAttribute('data-backlog-card-id', bug.id);
+    await expect(rows.nth(1)).toHaveAttribute('data-backlog-card-id', docs.id);
+    await expect(rows.nth(2)).toHaveAttribute(
+        'data-backlog-card-id',
+        feature.id,
+    );
+
+    await page.getByRole('link', { name: 'Type', exact: true }).click();
+    await expect(page).toHaveURL(/sort=type&dir=desc/, ROUND_TRIP);
+    await expect(header('Type')).toHaveAttribute('aria-sort', 'descending');
+    await expect(rows.nth(0)).toHaveAttribute(
+        'data-backlog-card-id',
+        feature.id,
+    );
 });
 
 test('filters that match nothing offer to clear them', async ({
