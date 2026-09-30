@@ -1690,7 +1690,10 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 		}
 		r.held[p.runID] = api.InventoryRun{RunID: p.runID, ProjectID: p.event.ProjectID, State: report.State}
 	default:
+		// A run that closes another way drops its stop mark too, so no mark
+		// outlives its run and holds up the drain of a handover.
 		delete(r.held, p.runID)
+		delete(r.stops, p.runID)
 	}
 
 	// The server stores the series links from the report that creates the run.

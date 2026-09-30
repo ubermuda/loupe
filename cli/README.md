@@ -1222,7 +1222,8 @@ early when the group has no process left. The flags
 `bridge.stop_sigterm_after_ms` (default 7500) and `bridge.stop_sigkill_after_ms`
 (default 2500) set the waits. A value below 100 reads as the default. When the
 worker ends, the bridge reports `stopped` with the output and the usage, and
-it does not resume the run. A run in an ask check or in the resume gate reports
+it does not resume the run. The worker still logs `worker_finished` or
+`worker_no_result` first, often at `ERROR`. A run in an ask check or in the resume gate reports
 `stopped` when that step ends. A stop also works while the bridge is paused.
 
 A stop reaches the process group of the worker only. Work that the worker

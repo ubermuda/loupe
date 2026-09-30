@@ -449,6 +449,26 @@ func TestAHandoverCarriesTheHoldsAndRefusesAStop(t *testing.T) {
 	}
 }
 
+// A stop can mark a run just before end() reports its outcome. That outcome
+// drops the mark, so the drain of a handover does not wait for it.
+func TestAnOutcomeDropsTheStopMark(t *testing.T) {
+	h := newHarness(t)
+	rec := h.states()
+	h.send(cardMoved(87))
+	p := pending{runID: firstRun(t, rec)}
+	p.event.Subject.ID, p.event.CardNumber = cardUUID(87), 87
+
+	h.router.mu.Lock()
+	h.router.held[p.runID] = api.InventoryRun{RunID: p.runID, State: api.RunRunning}
+	h.router.stops = map[string]bool{p.runID: true}
+	h.router.emitLocked(p, api.RunStateReport{State: api.RunSucceeded})
+	h.router.mu.Unlock()
+
+	if _, _, _, _, _, stops := h.router.inFlight(); stops != 0 {
+		t.Fatalf("stops = %d after the outcome", stops)
+	}
+}
+
 // A stored state that differs from the answer is logged.
 func TestAnAckThatFindsAnotherStateIsLogged(t *testing.T) {
 	h := newHarness(t)
