@@ -44,6 +44,21 @@ final class LifecycleStagesTest extends TestCase
         yield 'both stages is ambiguous' => [['product', 'design', 'decisions'], null];
     }
 
+    /**
+     * @param list<string>                         $tags
+     * @param array{from: string, to: string}|null $expected
+     */
+    #[DataProvider('documents')]
+    public function test_tag_names_read_as_the_document_does(array $tags, ?array $expected): void
+    {
+        self::assertSame($expected, new LifecycleStages()->forTagNames($tags));
+    }
+
+    public function test_tag_names_match_in_any_case(): void
+    {
+        self::assertSame(['from' => 'product-design', 'to' => 'tech-design'], new LifecycleStages()->forTagNames(['Product']));
+    }
+
     public function test_passed_checks_move_a_card_from_implementation_to_in_review(): void
     {
         self::assertSame(['from' => 'implementation', 'to' => 'in-review'], new LifecycleStages()->forPassedChecks());

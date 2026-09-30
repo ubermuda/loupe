@@ -552,6 +552,53 @@ class CardRepository extends ServiceEntityRepository
         )));
     }
 
+    /**
+     * The cards that block this one from a column that is not terminal, as the
+     * database holds them now, by number.
+     *
+     * @return list<Card>
+     */
+    public function findOpenBlockersOf(Card $card): array
+    {
+        return $this->cardsByIds($this->getEntityManager()->getConnection()->fetchFirstColumn(
+            "SELECT s.id FROM board_card_links l
+             JOIN board_cards s ON s.id = l.source_card_id
+             JOIN board_columns k ON k.id = s.column_id
+             WHERE l.target_card_id = :id AND l.kind = 'blocks' AND k.terminal = false
+             ORDER BY s.number",
+            ['id' => (string) $card->id],
+        ));
+    }
+
+    /**
+     * The cards this one blocks, as the database holds them now, by number.
+     *
+     * @return list<Card>
+     */
+    public function findBlockedBy(Card $blocker): array
+    {
+        return $this->cardsByIds($this->getEntityManager()->getConnection()->fetchFirstColumn(
+            "SELECT t.id FROM board_card_links l
+             JOIN board_cards t ON t.id = l.target_card_id
+             WHERE l.source_card_id = :id AND l.kind = 'blocks'
+             ORDER BY t.number",
+            ['id' => (string) $blocker->id],
+        ));
+    }
+
+    /**
+     * @param list<mixed> $ids
+     *
+     * @return list<Card>
+     */
+    private function cardsByIds(array $ids): array
+    {
+        return array_values(array_filter(array_map(
+            fn (mixed $id): ?Card => \is_string($id) ? $this->getEntityManager()->find(Card::class, Uuid::fromString($id)) : null,
+            $ids,
+        )));
+    }
+
     /** Reads the title and body as the database holds them now, like refreshColumn(). */
     public function refreshContent(Card $card): void
     {
