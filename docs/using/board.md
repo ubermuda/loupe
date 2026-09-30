@@ -627,6 +627,12 @@ while the automation is on:
   terminal column. A link that Loupe never read, such as one on another forge,
   counts as open and holds the card back. An epic with an open child stays
   where it is.
+- When each pull request of the card is closed and none merged, the card
+  moves to the Backlog about ten minutes after the last close. A pull request
+  linked or reopened in that time cancels the move. A card that a person moves
+  to a terminal column in that time stays there. An epic with an open child
+  stays where it is. The move is a system move, so it starts a bridge rule that
+  watches the Backlog.
 
 The system makes these moves, and a card in a terminal column never moves. For
 any other pull request, move the card yourself, or have your agent move it with
