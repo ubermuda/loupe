@@ -1,6 +1,6 @@
 ---
 title: "The admin area"
-description: "Instance status, feature flags, the waitlist, the audit log and the site-review outbox. Requires ROLE_ADMIN."
+description: "Instance status, feature flags, the waitlist, beta invites, the audit log and the site-review outbox. Requires ROLE_ADMIN."
 ---
 
 `/admin` is the dashboard. Everything below it needs `ROLE_ADMIN`, which
@@ -96,6 +96,24 @@ it.
 When a registration cap is closed, `/waitlist` collects addresses and
 `/admin/waitlist` works through them: invite a single entry, invite a selection,
 or invite the oldest. Redeeming an invite converts the entry into an account.
+
+## Beta invites
+
+`/admin/beta-invites` makes single-use links for beta testers. Type an optional
+note that says who the link is for, then select **Create link**. The page shows
+the link once, because the database keeps only its hash. Copy it and send it to
+the tester.
+
+The link opens `/beta/<token>`. It lets one person sign up when the
+registration cap is full, with the form, GitHub or Google. The new account gets
+a comp that never expires. A person who is signed in already can open the link
+too, and their account gets the comp at once. When registration is switched off,
+the link answers 404.
+
+The list shows each link as unused, used by an account on a date, or revoked on
+a date. Revoke an unused link with its **Revoke** button. A used link cannot be
+revoked. The admin page of a tester's account says "Beta tester since" with the
+date, and shows the note.
 
 ## Agent outbox
 
