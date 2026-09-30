@@ -173,7 +173,7 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-It installs ten skills, each covering one part of working a Loupe project:
+It installs eleven skills, each covering one part of working a Loupe project:
 
 | Skill | Covers |
 |---|---|
@@ -181,6 +181,7 @@ It installs ten skills, each covering one part of working a Loupe project:
 | `loupe:loupe-site-review` | Acting on widget comments and marking them addressed |
 | `loupe:loupe-board` | Reading a board, writing a card, linking a pull request |
 | `loupe:loupe-inbox` | Asking the project owner, and ending a turn on a blocking ask |
+| `loupe:loupe-workers` | Reading worker runs and bridges, and stopping, resuming or cancelling a run |
 | `loupe:product-design` | An interactive product design session with the owner, from a card or a one-line idea |
 | `loupe:loupe-stage-product-design` | One review round on a product document |
 | `loupe:loupe-stage-tech-design` | A card entering the tech design column |
@@ -240,6 +241,12 @@ Roughly in the order an agent uses them:
 | `inbox_list` | Read a page of inbox items, filtered by state, ask, session, card or document |
 | `inbox_get` | Read one inbox item, with its answer and its links |
 | `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
+| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, rule, bridge, words or the time a run ended, each with the reason it ended |
+| `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output and the commands sent to its bridge |
+| `bridge_list` | List the bridges that follow the project, with their heartbeat, their pause, their worker pools and their open runs |
+| `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
+| `worker_run_stop` | Ask the bridge to stop a queued or running worker run, which also holds the card |
+| `bridge_command_cancel` | Withdraw the resume or stop command that waits on a worker run, before its bridge reads it |
 
 ### Finding a document without reading every one
 
