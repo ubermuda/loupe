@@ -27,6 +27,7 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -36,6 +37,7 @@ jobs:
 
   cs-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -43,6 +45,7 @@ jobs:
 
   phpstan:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -52,6 +55,7 @@ jobs:
 
   arkitect:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -59,6 +63,7 @@ jobs:
 
   gamache:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -66,6 +71,7 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -76,6 +82,7 @@ jobs:
 
   phpunit:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -85,6 +92,7 @@ jobs:
       # The flag rides the invocation, not the `phpunit` recipe, so a
       # workstation run still writes nothing. PHPUnit creates the directory.
       - run: just phpunit --log-junit var/phpunit-timing/junit.xml
+        timeout-minutes: 10
 
       - name: phpunit timing
         if: always() && hashFiles('var/phpunit-timing/junit.xml') != ''
@@ -103,6 +111,7 @@ jobs:
   # no database behind it.
   js-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -115,6 +124,7 @@ jobs:
   # toolchain in a container.
   cli-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-just
@@ -131,6 +141,7 @@ jobs:
   e2e-shard:
     name: e2e-${{ matrix.name }}
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       # Every leg reports, so one red shard still leaves the others' timing
       # and Playwright report to read.
@@ -178,15 +189,17 @@ jobs:
           mkdir -p var/log
           sudo chmod -R a+rwX var
 
-      # The browser download is the cacheable half; --with-deps still installs
-      # the system libraries, which apt keeps outside this path.
       - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
 
-      - run: npx playwright install --with-deps chromium
+      # No --with-deps: the runner image already has every library Chromium
+      # needs, and apt only added fallback fonts from a mirror that can stall.
+      # A missing library fails the first launch with Playwright's own list.
+      - run: npx playwright install chromium
         working-directory: e2e
+        timeout-minutes: 5
 
       # The runner's whole database is disposable, so the suite runs against the
       # main stack rather than the `just e2e-up` sidecar, whose only purpose is
@@ -194,6 +207,7 @@ jobs:
       # whole test groups and never splits one, so a serial spec stays on one
       # runner. An empty `split` runs the whole half.
       - run: just e2e ${{ matrix.split }}
+        timeout-minutes: 25
         env:
           E2E_BASE_URL: http://localhost
           MAILPIT_URL: http://localhost:8025
@@ -231,6 +245,7 @@ jobs:
   # required check counts as satisfied, so the branch stays mergeable.
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: e2e-shard
     if: always()
     steps:
