@@ -153,12 +153,19 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
 
     public function test_a_deleted_card_does_nothing(): void
     {
+        $card = $this->linkedCard('in-progress', PullRequestState::Closed);
+        $cardId = $card->id ?? throw new \LogicException('A persisted card has an id.');
+        $this->em->remove($card);
+        $this->em->flush();
         $handler = self::getContainer()->get(MoveAbandonedCardHandler::class);
         self::assertInstanceOf(MoveAbandonedCardHandler::class, $handler);
 
-        $handler(new MoveAbandonedCard(Uuid::v7()));
+        $handler(new MoveAbandonedCard($cardId));
 
-        $this->addToAssertionCount(1);
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne(
+            "SELECT COUNT(*) FROM outbox_events WHERE project_id = :project AND type = 'board.card_moved'",
+            ['project' => (string) $this->project->id],
+        ));
     }
 
     private function handle(Card $card): void
