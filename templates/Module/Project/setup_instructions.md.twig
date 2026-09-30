@@ -145,5 +145,9 @@ If `loupe status` fails, show its output to the user and stop.
 
 ## 9. Finish
 
-Tell the user to restart the agent, because an agent reads its MCP servers when it starts. In the new session, call the `project_current` tool and tell the user the project name it gives. If that name differs from the name `loupe status` printed, tell the user that the agent starts the MCP server for another project.
+Tell the user to restart the agent, because an agent reads its MCP servers when it starts. The new session does not see these steps, so give the user this prompt to paste into it:
+
+```text
+Call the Loupe tool project_current, then run `loupe status` in this repository. Tell me both project names. If they differ, tell me that the agent starts the Loupe MCP server for another project.
+```
 {% endautoescape %}
