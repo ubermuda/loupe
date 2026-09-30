@@ -14,8 +14,6 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\EpicChildrenOpen;
 use App\Module\Board\Command\MoveBacklogCardCommand;
 use App\Module\Board\Command\MoveBacklogCardHandler;
-use App\Module\Board\Command\RankBacklogCardCommand;
-use App\Module\Board\Command\RankBacklogCardHandler;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
@@ -31,7 +29,7 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
-/** The three writes of the Backlog page, each a shell over UpdateCardHandler. */
+/** The two writes of the Backlog page, each a shell over UpdateCardHandler. */
 final class BacklogCardMovesTest extends KernelTestCase
 {
     use BoardColumnFixtures;
@@ -56,36 +54,6 @@ final class BacklogCardMovesTest extends KernelTestCase
         $this->actAs($owner);
     }
 
-    public function test_a_rank_puts_the_card_above_the_card_below_the_drop(): void
-    {
-        $this->card('First');
-        $second = $this->card('Second');
-        $third = $this->card('Third');
-
-        $this->rank($third, before: $second);
-
-        self::assertSame(['First', 'Third', 'Second'], $this->backlogTitles());
-    }
-
-    public function test_a_rank_to_the_end_puts_the_card_below_the_card_above_the_drop(): void
-    {
-        $first = $this->card('First');
-        $this->card('Second');
-        $third = $this->card('Third');
-
-        $this->rank($first, after: $third);
-
-        self::assertSame(['Second', 'Third', 'First'], $this->backlogTitles());
-    }
-
-    public function test_a_rank_refuses_a_card_outside_the_backlog(): void
-    {
-        $onBoard = $this->card('On the board', 'next');
-        $waiting = $this->card('Waiting');
-
-        $this->expectDomainError(['card' => RankBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->rank($onBoard, before: $waiting));
-    }
-
     public function test_a_move_puts_the_card_at_the_end_of_the_target_and_keeps_its_epic(): void
     {
         $epic = $this->card('Epic', 'next', CardType::Epic);
@@ -107,7 +75,7 @@ final class BacklogCardMovesTest extends KernelTestCase
         $onBoard = $this->card('On the board', 'next');
         $waiting = $this->card('Waiting');
 
-        $this->expectDomainError(['card' => RankBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->move($onBoard, 'in-progress'));
+        $this->expectDomainError(['card' => MoveBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->move($onBoard, 'in-progress'));
         $this->expectDomainError(['column' => MoveBacklogCardHandler::TARGET_IS_BACKLOG], fn () => $this->move($waiting, 'backlog'));
     }
 
@@ -129,23 +97,12 @@ final class BacklogCardMovesTest extends KernelTestCase
         $waiting = $this->card('Waiting');
         $onBoard = $this->card('On the board', 'next');
 
-        $this->expectDomainError(['ids' => RankBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->bulkMove([(string) $waiting->id, (string) $onBoard->id], 'in-progress'));
-        $this->expectDomainError(['ids' => RankBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->bulkMove([(string) $waiting->id, '01890a5d-ac96-774b-bcce-b302099a8057'], 'next'));
-        $this->expectDomainError(['ids' => RankBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->bulkMove(['not-a-card'], 'next'));
+        $this->expectDomainError(['ids' => MoveBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->bulkMove([(string) $waiting->id, (string) $onBoard->id], 'in-progress'));
+        $this->expectDomainError(['ids' => MoveBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->bulkMove([(string) $waiting->id, '01890a5d-ac96-774b-bcce-b302099a8057'], 'next'));
+        $this->expectDomainError(['ids' => MoveBacklogCardHandler::NOT_IN_BACKLOG], fn () => $this->bulkMove(['not-a-card'], 'next'));
         $this->expectDomainError(['ids' => BulkMoveBacklogCardsHandler::NONE_CHOSEN], fn () => $this->bulkMove([], 'next'));
         $this->expectDomainError(['column' => MoveBacklogCardHandler::TARGET_IS_BACKLOG], fn () => $this->bulkMove([(string) $waiting->id], 'backlog'));
         self::assertSame(['Waiting'], $this->backlogTitles());
-    }
-
-    public function test_a_rank_refuses_a_card_another_request_moved_out_of_the_backlog(): void
-    {
-        $waiting = $this->card('Waiting');
-        $stale = $this->card('Stale');
-        $this->moveBehindTheEntityManager($stale, 'next');
-
-        $this->expectDomainError(['column' => UpdateCardHandler::COLUMN_CHANGED], fn () => $this->rank($stale, before: $waiting));
-
-        self::assertSame(['Stale'], $this->titlesIn('next'));
     }
 
     public function test_a_move_refuses_a_card_another_request_moved_out_of_the_backlog(): void
@@ -306,13 +263,6 @@ final class BacklogCardMovesTest extends KernelTestCase
         $tokens = self::getContainer()->get('security.token_storage');
         self::assertInstanceOf(TokenStorageInterface::class, $tokens);
         $tokens->setToken(new UsernamePasswordToken($user, 'main', $user->getRoles()));
-    }
-
-    private function rank(Card $card, ?Card $before = null, ?Card $after = null): void
-    {
-        $handler = self::getContainer()->get(RankBacklogCardHandler::class);
-        self::assertInstanceOf(RankBacklogCardHandler::class, $handler);
-        $handler(new RankBacklogCardCommand($card, CardReporter::Human, $before?->id?->toRfc4122(), $after?->id?->toRfc4122()));
     }
 
     private function move(Card $card, string $slug): void

@@ -67,7 +67,7 @@ final readonly class BulkMoveBacklogCardsHandler
         }
         $outside = array_filter($cards, static fn (Card $card): bool => $card->column !== $command->backlog);
         if (\count($cards) !== \count($cardIds) || [] !== $outside) {
-            throw new DomainErrors(['ids' => RankBacklogCardHandler::NOT_IN_BACKLOG]);
+            throw new DomainErrors(['ids' => MoveBacklogCardHandler::NOT_IN_BACKLOG]);
         }
 
         return $this->em->wrapInTransaction(function () use ($cards, $command): array {

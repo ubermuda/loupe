@@ -5209,10 +5209,6 @@
                 <source>board.backlog.select_card</source>
                 <target>Select card #%number%</target>
             </trans-unit>
-            <trans-unit id="board.backlog.drag">
-                <source>board.backlog.drag</source>
-                <target>Drag to change the rank</target>
-            </trans-unit>
             <trans-unit id="board.backlog.move_to">
                 <source>board.backlog.move_to</source>
                 <target>Move to</target>

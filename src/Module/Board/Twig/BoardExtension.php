@@ -18,7 +18,6 @@ use App\Module\Board\Form\DeleteBoardColumnRequest;
 use App\Module\Board\Form\MoveBacklogCardFormType;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Board\Form\MoveCardRequest;
-use App\Module\Board\Form\RankBacklogCardFormType;
 use App\Module\Board\Form\ReorderBoardColumnsFormType;
 use App\Module\Board\Form\ReorderBoardColumnsRequest;
 use App\Module\Board\Form\SetCardLaneFormType;
@@ -81,8 +80,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
             new TwigFunction('card_move_form', $this->cardMoveForm(...)),
             new TwigFunction('card_move_fields', $this->cardMoveFields(...), ['needs_environment' => true, 'is_safe' => ['html']]),
             new TwigFunction('card_lane_form', $this->cardLaneForm(...)),
-            // The Backlog page writes these forms by hand, so 25 rows build no column choices.
-            new TwigFunction('backlog_rank_form_name', RankBacklogCardFormType::nameFor(...)),
+            // The Backlog page writes this form by hand, so 25 rows build no column choices.
             new TwigFunction('backlog_move_form_name', MoveBacklogCardFormType::nameFor(...)),
             new TwigFunction('card_digest', $this->cardDigest(...)),
             new TwigFunction('lane_head_digest', $this->digest->forLaneHead(...)),

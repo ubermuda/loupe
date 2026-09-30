@@ -11,6 +11,7 @@ use App\Module\Board\Service\CardMover;
 /** Moves one card from the Backlog to the end of a column the board draws. */
 final readonly class MoveBacklogCardHandler
 {
+    public const string NOT_IN_BACKLOG = 'board.backlog.error.not_in_backlog';
     public const string TARGET_IS_BACKLOG = 'board.backlog.error.target_is_backlog';
 
     public function __construct(
@@ -22,7 +23,7 @@ final readonly class MoveBacklogCardHandler
     {
         $card = $command->card;
         if (!$card->column->backlog) {
-            throw new DomainErrors(['card' => RankBacklogCardHandler::NOT_IN_BACKLOG]);
+            throw new DomainErrors(['card' => self::NOT_IN_BACKLOG]);
         }
         if ($command->column->backlog) {
             throw new DomainErrors(['column' => self::TARGET_IS_BACKLOG]);
