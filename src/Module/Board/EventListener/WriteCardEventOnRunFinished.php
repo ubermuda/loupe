@@ -34,23 +34,31 @@ final readonly class WriteCardEventOnRunFinished
     public function __invoke(WorkerRunChanged $event): void
     {
         try {
-            foreach ($this->workerRuns->findByIds($event->runIds) as $run) {
-                if ($run->state->isOpen()) {
-                    continue;
-                }
-                $card = $this->cards->findOneByIdAndProjectId($run->cardId->toRfc4122(), (string) $run->project->id);
-                if (null === $card) {
-                    continue;
-                }
-
-                $this->cardEvents->insertRunFinishedOnce($card, $run->project->owner, self::detail($run, (string) $run->id), $run->endedAt ?? $this->clock->now());
-            }
+            $runs = $this->workerRuns->findByIds($event->runIds);
         } catch (\Throwable $e) {
-            $this->logger->warning('board.card_event_write_failed', [
-                'projectId' => (string) $event->projectId,
-                'runIds' => $event->runIds,
-                'exception' => $e,
-            ]);
+            $this->logger->warning('board.card_event_write_failed', ['projectId' => (string) $event->projectId, 'exception' => $e]);
+
+            return;
+        }
+
+        // One try per run, so a failed row does not cost the other runs theirs.
+        foreach ($runs as $run) {
+            if ($run->state->isOpen()) {
+                continue;
+            }
+
+            try {
+                $card = $this->cards->findOneByIdAndProjectId($run->cardId->toRfc4122(), (string) $run->project->id);
+                if (null !== $card) {
+                    $this->cardEvents->insertRunFinishedOnce($card, $run->project->owner, self::detail($run, (string) $run->id), $run->endedAt ?? $this->clock->now());
+                }
+            } catch (\Throwable $e) {
+                $this->logger->warning('board.card_event_write_failed', [
+                    'projectId' => (string) $event->projectId,
+                    'runId' => (string) $run->id,
+                    'exception' => $e,
+                ]);
+            }
         }
     }
 

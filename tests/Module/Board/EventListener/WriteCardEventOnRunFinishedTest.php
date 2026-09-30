@@ -137,6 +137,22 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         self::assertSame(0, $this->countAll());
     }
 
+    public function test_a_failed_write_for_one_run_still_writes_the_others(): void
+    {
+        $refused = $this->workerRun($this->card->id, WorkerRunState::Failed);
+        $finished = $this->workerRun($this->card->id, WorkerRunState::Succeeded);
+        $this->em->getConnection()->executeStatement(\sprintf(
+            "ALTER TABLE board_card_events ADD CONSTRAINT test_refuse_one_run CHECK (detail->>'runId' IS DISTINCT FROM '%s') NOT VALID",
+            (string) $refused->id,
+        ));
+
+        $this->listener()($this->event($refused, $finished));
+
+        $rows = $this->rows();
+        self::assertCount(1, $rows);
+        self::assertSame((string) $finished->id, $rows[0]->detail['runId']);
+    }
+
     private function workerRun(?Uuid $cardId, WorkerRunState $state): WorkerRun
     {
         $run = new WorkerRun(
