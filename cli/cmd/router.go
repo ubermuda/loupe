@@ -183,8 +183,8 @@ type router struct {
 	recentSet   map[string]bool
 	// cursor is the highest outbox sequence handled, and floor the head the
 	// bridge started from with no cursor. hasCursor is off while neither is
-	// known. caughtUp holds the ids the last catch-up read, and cursorFailing
-	// is on while the cursor file cannot be written.
+	// known. caughtUp holds the ids every catch-up read, and cursorFailing is
+	// on while the cursor file cannot be written.
 	cursor, floor int64
 	hasCursor     bool
 	caughtUp      map[string]bool

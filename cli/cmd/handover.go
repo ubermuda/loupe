@@ -431,8 +431,8 @@ func (r *router) takeEvent(id string, data []byte, replayed bool) {
 }
 
 // handleEvent records the id as handled, routes the event and moves the
-// cursor. An id the last catch-up read counts as handled, because the hub can
-// send it again after the catch-up. The caller holds eventMu.
+// cursor. An id a catch-up read counts as handled, because the hub can send it
+// again after the catch-up. The caller holds eventMu.
 func (r *router) handleEvent(id string, data []byte, replayed bool) {
 	if id != "" {
 		r.mu.Lock()

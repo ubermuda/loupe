@@ -319,6 +319,29 @@ func TestTheHubCannotRunAnEventTheCatchUpRead(t *testing.T) {
 	h.only(t, "event_duplicate")
 }
 
+// The hub can drop a connection before the stream reads a line, and then
+// replay from the same point after the next catch-up. An event an earlier
+// catch-up read still does not run twice.
+func TestTheHubCannotRunAnEventAnEarlierCatchUpRead(t *testing.T) {
+	h := newHarness(t)
+	withCursor(t, h, 0, 0)
+	page := api.Replay{Events: []api.ReplayEvent{row(1, "next")}}
+	for id := 2; id <= recentLimit+1; id++ {
+		page.Events = append(page.Events, row(id, "done"))
+	}
+	h.router.replay = (&replayer{pages: []api.Replay{page}}).replay
+
+	h.router.catchUp()
+	h.router.catchUp()
+	h.router.onEvent("1", []byte(cardMoved(1)))
+	h.router.wg.Wait()
+
+	if got := startedCards(t, h); !slices.Equal(got, []int{1}) {
+		t.Fatalf("started = %v", got)
+	}
+	h.only(t, "event_duplicate")
+}
+
 // A replayed card move whose card left the column since does not run.
 func TestAReplayedMoveOfACardThatMovedOnIsStale(t *testing.T) {
 	h := newHarness(t)

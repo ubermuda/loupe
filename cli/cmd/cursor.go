@@ -151,7 +151,7 @@ func (r *router) saveCursor(st cursorState) {
 func (r *router) catchUp() {
 	r.mu.Lock()
 	start, floor, ok := r.cursor, r.floor, r.hasCursor && r.replay != nil
-	if ok {
+	if ok && r.caughtUp == nil {
 		r.caughtUp = map[string]bool{}
 	}
 	r.mu.Unlock()
