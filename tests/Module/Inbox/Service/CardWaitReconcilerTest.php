@@ -755,6 +755,7 @@ final class CardWaitReconcilerTest extends KernelTestCase
     {
         yield 'no review asked' => [static function (ForgePullRequest $row): void { $row->review = PullRequestReview::None; }];
         yield 'blocked mergeability' => [static function (ForgePullRequest $row): void { $row->mergeability = PullRequestMergeability::Blocked; }];
+        yield 'behind' => [static function (ForgePullRequest $row): void { $row->mergeability = PullRequestMergeability::Behind; }];
         yield 'changes requested on an older commit' => [static function (ForgePullRequest $row): void {
             $row->review = PullRequestReview::ChangesRequested;
             $row->changesRequestedSha = self::HEAD_B;
@@ -779,7 +780,6 @@ final class CardWaitReconcilerTest extends KernelTestCase
         yield 'pending checks' => [static function (ForgePullRequest $row): void { $row->checks = PullRequestChecks::Pending; }];
         yield 'failed checks' => [static function (ForgePullRequest $row): void { $row->checks = PullRequestChecks::Failed; }];
         yield 'checks of an older commit' => [static function (ForgePullRequest $row): void { $row->checksSha = self::HEAD_B; }];
-        yield 'behind' => [static function (ForgePullRequest $row): void { $row->mergeability = PullRequestMergeability::Behind; }];
         yield 'unknown mergeability' => [static function (ForgePullRequest $row): void { $row->mergeability = PullRequestMergeability::Unknown; }];
         yield 'conflicting' => [static function (ForgePullRequest $row): void { $row->mergeability = PullRequestMergeability::Conflicting; }];
         yield 'approved' => [static function (ForgePullRequest $row): void { $row->review = PullRequestReview::Approved; }];

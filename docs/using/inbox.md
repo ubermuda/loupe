@@ -211,7 +211,8 @@ A pull request is ready for review when all of these are true:
 
 - It is open, and it is not a draft.
 - Its checks passed on its newest commit.
-- It is mergeable, or GitHub blocks the merge until a review.
+- It is mergeable, it is behind its base branch, or GitHub blocks the merge
+  until a review.
 - It needs a review, or it has no review rule. A request for changes on an
   older commit also counts, because the author pushed a fix after it.
 - No worker run of the card is open.
