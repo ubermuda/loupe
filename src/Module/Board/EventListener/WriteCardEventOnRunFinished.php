@@ -58,7 +58,7 @@ final readonly class WriteCardEventOnRunFinished
                     // A timeout sets no end, so the last state change dates the close.
                     // A new close then moves the row, and a repeated dispatch does not.
                     $last = $changes[$runId->toRfc4122()] ?? [];
-                    $closedAt = $run->endedAt ?? ([] === $last ? null : $last[\array_key_last($last)]->at) ?? $this->clock->now();
+                    $closedAt = $run->endedAt ?? ([] === $last ? null : array_last($last)->at) ?? $this->clock->now();
                     $this->cardEvents->upsertRunFinished($card, $runId, $run->project->owner, self::detail($run, $runId->toRfc4122(), $closedAt), $closedAt);
                 }
             } catch (\Throwable $e) {

@@ -48,10 +48,10 @@ class CardEventRepository extends ServiceEntityRepository
     public function upsertRunFinished(Card $card, Uuid $runId, ?User $actorUser, array $detail, \DateTimeImmutable $at): void
     {
         $this->getEntityManager()->getConnection()->transactional(static fn (Connection $connection): int|string => $connection->executeStatement(
-            "INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at, run_id)
+            'INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at, run_id)
              VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?::uuid, ?::jsonb, ?::timestamp, ?::uuid)
              ON CONFLICT (card_id, run_id) DO UPDATE SET detail = EXCLUDED.detail, occurred_at = EXCLUDED.occurred_at
-             WHERE board_card_events.detail IS DISTINCT FROM EXCLUDED.detail",
+             WHERE board_card_events.detail IS DISTINCT FROM EXCLUDED.detail',
             [
                 Uuid::v7()->toRfc4122(),
                 (string) $card->id,
