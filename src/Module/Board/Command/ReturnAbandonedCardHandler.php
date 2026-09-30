@@ -61,9 +61,12 @@ final readonly class ReturnAbandonedCardHandler
             if ([] === $links) {
                 return;
             }
-            if (!$command->token->equals($this->cardAutomations->findOrCreateForUpdate($card)->abandonedMoveToken)) {
+            $automation = $this->cardAutomations->findOrCreateForUpdate($card);
+            if (!$command->token->equals($automation->abandonedMoveToken)) {
                 return;
             }
+            // Consumed now, so a redelivered message cannot undo a later move by a person.
+            $automation->abandonedMoveToken = null;
             $keys = [];
             foreach ($links as $link) {
                 if (null === $link['repository'] || null === $link['number']) {

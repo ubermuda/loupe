@@ -25,6 +25,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
+use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
@@ -553,6 +554,7 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
             $delay = $envelope->last(DelayStamp::class);
             self::assertInstanceOf(DelayStamp::class, $delay);
             self::assertSame(600_000, $delay->getDelay());
+            self::assertSame(['async'], $envelope->last(TransportNamesStamp::class)?->getTransportNames());
             $messages[] = $message;
         }
 

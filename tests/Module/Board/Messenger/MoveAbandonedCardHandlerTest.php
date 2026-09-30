@@ -63,6 +63,19 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
         self::assertSame('backlog', $this->storedColumnOf($card));
     }
 
+    public function test_a_redelivered_move_leaves_a_card_a_person_took_out_of_the_backlog(): void
+    {
+        $card = $this->linkedCard('in-progress', PullRequestState::Closed);
+        $token = $this->queueToken($card);
+        $this->handleWith($card, $token);
+        self::assertSame('backlog', $this->storedColumnOf($card));
+        $this->moveBehindTheEntity($card, 'in-progress');
+
+        $this->handleWith($card, $token);
+
+        self::assertSame('in-progress', $this->storedColumnOf($card));
+    }
+
     public function test_a_card_with_no_queued_move_stays(): void
     {
         $card = $this->linkedCard('in-progress', PullRequestState::Closed);

@@ -24,6 +24,7 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
+use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -110,7 +111,8 @@ final readonly class MoveCardsOnPullRequestStateHandler
                     $token = Uuid::v7();
                     $this->cardAutomations->findOrCreateForUpdate($card)->abandonedMoveToken = $token;
                     $this->em->flush();
-                    $this->bus->dispatch(new MoveAbandonedCard($card->id ?? throw new \LogicException('A stored card has an id.'), $token), [new DelayStamp(self::ABANDONED_DELAY_MILLISECONDS)]);
+                    // A named transport keeps PlaywrightSyncMiddleware from handling it inline, before the delay.
+                    $this->bus->dispatch(new MoveAbandonedCard($card->id ?? throw new \LogicException('A stored card has an id.'), $token), [new DelayStamp(self::ABANDONED_DELAY_MILLISECONDS), new TransportNamesStamp(['async'])]);
                 }
             }
         });
