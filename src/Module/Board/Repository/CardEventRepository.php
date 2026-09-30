@@ -13,6 +13,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /** @extends ServiceEntityRepository<CardEvent> */
@@ -67,19 +68,25 @@ class CardEventRepository extends ServiceEntityRepository
     }
 
     /** @return list<CardEvent> newest first, with the actor loaded */
-    public function findPageForCard(Card $card, int $offset, int $limit): array
+    public function findPageForCard(Card $card, ?\DateTimeImmutable $beforeAt, ?string $beforeId, int $limit): array
     {
-        return array_values($this->createQueryBuilder('e')
+        $query = $this->createQueryBuilder('e')
             ->addSelect('u')
             ->leftJoin('e.actorUser', 'u')
             ->andWhere('e.card = :card')
             ->setParameter('card', $card)
             ->orderBy('e.occurredAt', 'DESC')
             ->addOrderBy('e.id', 'DESC')
-            ->setFirstResult($offset)
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult());
+            ->setMaxResults($limit);
+
+        if (null !== $beforeAt && null !== $beforeId) {
+            $query
+                ->andWhere('e.occurredAt < :beforeAt OR (e.occurredAt = :beforeAt AND e.id < :beforeId)')
+                ->setParameter('beforeAt', $beforeAt, Types::DATETIME_IMMUTABLE)
+                ->setParameter('beforeId', Uuid::fromString($beforeId), UuidType::NAME);
+        }
+
+        return array_values($query->getQuery()->getResult());
     }
 
     /** @return list<CardEvent> newest first */

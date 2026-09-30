@@ -22,22 +22,24 @@ final readonly class ShowCardHistoryHandler
 
     public function __invoke(ShowCardHistoryCommand $command): CardHistoryView
     {
-        $events = $this->cardEvents->findPageForCard($command->card, $command->offset, self::PAGE_SIZE + 1);
+        $events = $this->cardEvents->findPageForCard($command->card, $command->beforeAt, $command->beforeId?->toRfc4122(), self::PAGE_SIZE + 1);
         $hasOlder = \count($events) > self::PAGE_SIZE;
         $events = \array_slice($events, 0, self::PAGE_SIZE);
+        $last = $hasOlder ? array_last($events) : null;
 
         $runIds = array_values(array_filter(array_map(CardHistoryEntry::runIdOf(...), $events)));
         $existing = $this->workerRuns->findExistingIds($command->card->project, array_map(Uuid::fromString(...), $runIds));
 
         return new CardHistoryView(
             $command->card,
-            $command->offset,
+            $command->beforeId?->toRfc4122(),
             array_map(static function (CardEvent $event) use ($existing): CardHistoryEntry {
                 $runId = CardHistoryEntry::runIdOf($event);
 
                 return CardHistoryEntry::of($event, null !== $runId && \in_array(Uuid::fromString($runId)->toRfc4122(), $existing, true));
             }, $events),
-            $hasOlder ? $command->offset + self::PAGE_SIZE : null,
+            $last?->occurredAt->format(ShowCardHistoryCommand::CURSOR_FORMAT),
+            $last?->id?->toRfc4122(),
         );
     }
 }

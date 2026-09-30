@@ -21,8 +21,8 @@
     </div>
 </div>
 {% endfor %}
-{% if history.nextOffset is not null %}
-<turbo-frame id="card-history-older-{{ history.nextOffset }}" class="lp-card-history__older">
-    <a class="lp-workshop-text-link" href="{{ path('app_board_card_history', {projectId: project.id, cardId: history.card.id, offset: history.nextOffset}) }}" data-card-history-older>{{ 'board.card.history.show_older'|trans }}</a>
+{% if history.olderBeforeId is not null %}
+<turbo-frame id="card-history-older-{{ history.olderBeforeId }}" class="lp-card-history__older">
+    <a class="lp-workshop-text-link" href="{{ path('app_board_card_history', {projectId: project.id, cardId: history.card.id, before: history.olderBefore, beforeId: history.olderBeforeId}) }}" data-card-history-older>{{ 'board.card.history.show_older'|trans }}</a>
 </turbo-frame>
 {% endif %}

@@ -89,27 +89,127 @@ final class CardHistoryTabTest extends WebTestCase
         $em->flush();
         $em->clear();
 
+        $lastShown = $this->events()->findForCard($card)[49];
+
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, $this->cardUrl($card));
 
         self::assertResponseIsSuccessful();
         self::assertCount(50, $crawler->filter('#card-panel-history [data-card-history-entry]'));
         self::assertStringNotContainsString('created it', $crawler->filter('#card-panel-history')->text());
-        $frame = $crawler->filter('#card-panel-history turbo-frame#card-history-older-50');
+        self::assertSame(['pullRequest' => 50], $lastShown->detail);
+        $frameId = 'card-history-older-'.$lastShown->id;
+        $frame = $crawler->filter('#card-panel-history turbo-frame#'.$frameId);
         self::assertCount(1, $frame);
         $link = $frame->filter('a[data-card-history-older]');
         self::assertSame('Show older', trim($link->text()));
+        parse_str((string) parse_url((string) $link->attr('href'), \PHP_URL_QUERY), $query);
+        self::assertSame(['before' => $lastShown->occurredAt->format('Y-m-d\TH:i:s.uP'), 'beforeId' => (string) $lastShown->id], $query);
 
         $older = $client->request(Request::METHOD_GET, (string) $link->attr('href'));
 
         self::assertResponseIsSuccessful();
-        self::assertStringStartsWith('<turbo-frame id="card-history-older-50"', trim((string) $client->getResponse()->getContent()));
+        self::assertStringStartsWith('<turbo-frame id="'.$frameId.'"', trim((string) $client->getResponse()->getContent()));
         $root = $older->filter('turbo-frame')->first();
-        self::assertSame('card-history-older-50', $root->attr('id'));
+        self::assertSame($frameId, $root->attr('id'));
         $rows = $root->filter('[data-card-history-entry]');
         self::assertCount(1, $rows);
         self::assertStringContainsString('Riley Chen created it in Backlog.', $rows->text());
         self::assertCount(1, $older->filter('turbo-frame'));
+    }
+
+    public function test_a_row_written_after_the_first_page_does_not_repeat_on_the_older_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'history-shift@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'A busy story');
+        $backlog = CardEvent::columnDetail($this->column($project, 'backlog'));
+        $events = $this->events();
+        $events->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => $backlog], new \DateTimeImmutable('-100 minutes'));
+        for ($i = 50; $i >= 1; --$i) {
+            $events->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => $i], new \DateTimeImmutable('-'.$i.' minutes'));
+        }
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $this->cardUrl($card));
+        $href = (string) $crawler->filter('#card-panel-history a[data-card-history-older]')->attr('href');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $card = $em->find(Card::class, $card->id);
+        self::assertInstanceOf(Card::class, $card);
+        $this->events()->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => 99], new \DateTimeImmutable());
+        $em->flush();
+
+        $older = $client->request(Request::METHOD_GET, $href);
+
+        self::assertResponseIsSuccessful();
+        $rows = $older->filter('[data-card-history-entry]');
+        self::assertCount(1, $rows);
+        self::assertStringContainsString('Riley Chen created it in Backlog.', $rows->text());
+    }
+
+    public function test_rows_that_share_one_instant_page_by_id_with_no_repeat_and_no_gap(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'history-ties@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'All at once');
+        $at = new \DateTimeImmutable('-1 hour');
+        $events = $this->events();
+        for ($i = 1; $i <= 52; ++$i) {
+            $events->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => $i], $at);
+        }
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $this->cardUrl($card));
+        $first = $this->pullRequestsOf($crawler->filter('#card-panel-history [data-card-history-entry]')->each(static fn ($row): string => $row->text()));
+        $older = $client->request(Request::METHOD_GET, (string) $crawler->filter('#card-panel-history a[data-card-history-older]')->attr('href'));
+        $second = $this->pullRequestsOf($older->filter('[data-card-history-entry]')->each(static fn ($row): string => $row->text()));
+
+        self::assertCount(50, $first);
+        self::assertCount(2, $second);
+        $all = [...$first, ...$second];
+        sort($all);
+        self::assertSame(range(1, 52), $all);
+    }
+
+    public function test_the_older_page_refuses_a_missing_or_malformed_cursor(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'history-cursor@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Bad cursor');
+        $em->clear();
+        $url = $this->cardUrl($card).'/history';
+        $id = (string) Uuid::v7();
+
+        $client->loginUser($owner);
+        foreach ([
+            '',
+            '?before='.rawurlencode('2026-09-30T10:00:00.000000+00:00'),
+            '?beforeId='.$id,
+            '?before=yesterday&beforeId='.$id,
+            '?before='.rawurlencode('2026-09-30T10:00:00+00:00').'&beforeId='.$id,
+            '?before='.rawurlencode('2026-09-30T10:00:00.000000+00:00').'&beforeId=not-a-uuid',
+            '?offset=50',
+        ] as $query) {
+            $client->request(Request::METHOD_GET, $url.$query);
+            self::assertResponseStatusCodeSame(404, $query);
+        }
+
+        $client->request(Request::METHOD_GET, $url.'?before='.rawurlencode('2026-09-30T10:00:00.000000+00:00').'&beforeId='.$id);
+        self::assertResponseIsSuccessful();
     }
 
     public function test_another_user_cannot_read_the_history(): void
@@ -126,7 +226,7 @@ final class CardHistoryTabTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($stranger);
-        $client->request(Request::METHOD_GET, $this->cardUrl($card).'/history?offset=0');
+        $client->request(Request::METHOD_GET, $this->cardUrl($card).'/history');
 
         self::assertResponseStatusCodeSame(403);
         self::assertStringNotContainsString('created it', (string) $client->getResponse()->getContent());
@@ -224,6 +324,16 @@ final class CardHistoryTabTest extends WebTestCase
         self::assertInstanceOf(CardEventRepository::class, $events);
 
         return $events;
+    }
+
+    /**
+     * @param list<string> $texts
+     *
+     * @return list<int>
+     */
+    private function pullRequestsOf(array $texts): array
+    {
+        return array_map(static fn (string $text): int => preg_match('/#(\d+) is ready to merge/', $text, $m) ? (int) $m[1] : 0, $texts);
     }
 
     private function cardUrl(Card $card): string

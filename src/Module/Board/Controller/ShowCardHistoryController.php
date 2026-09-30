@@ -17,6 +17,7 @@ use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Uid\Uuid;
 
 /** The older rows of a card's history, for the frame that replaces the Show older link. */
 #[IsGranted(CardVoter::VIEW, subject: 'card')]
@@ -37,12 +38,22 @@ final class ShowCardHistoryController extends AppController
 
     public function __invoke(
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(cardId, projectId)')] Card $card,
-        #[MapQueryParameter(options: ['min_range' => 0])] int $offset = 0,
+        #[MapQueryParameter] ?string $before = null,
+        #[MapQueryParameter] ?string $beforeId = null,
     ): Response {
         $this->board->requireEnabled();
 
+        $beforeAt = null === $before ? false : \DateTimeImmutable::createFromFormat(ShowCardHistoryCommand::CURSOR_FORMAT, $before);
+        if (false === $beforeAt || $beforeAt->format(ShowCardHistoryCommand::CURSOR_FORMAT) !== $before || null === $beforeId || !Uuid::isValid($beforeId)) {
+            throw $this->createNotFoundException('The older page needs the time and the id of the last row shown.');
+        }
+
         return $this->render('@Board/_card_history_page.html.twig', [
-            'history' => ($this->handler)(new ShowCardHistoryCommand($card, $offset)),
+            'history' => ($this->handler)(new ShowCardHistoryCommand(
+                $card,
+                $beforeAt->setTimezone(new \DateTimeZone(date_default_timezone_get())),
+                Uuid::fromString($beforeId),
+            )),
         ]);
     }
 }
