@@ -7,9 +7,11 @@ namespace App\Module\Board\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\UserDataExporterInterface;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardLink;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
+use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -28,6 +30,7 @@ final readonly class CardExporter implements UserDataExporterInterface
         private CardRepository $cards,
         private CardLinkRepository $cardLinks,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
+        private CardEventRepository $cardEvents,
         private TranslatorInterface $translator,
     ) {
     }
@@ -107,6 +110,16 @@ final readonly class CardExporter implements UserDataExporterInterface
                 'parentCardId' => null === $card->parent ? null : (string) $card->parent->id,
                 'parentNumber' => $card->parent?->number,
                 'laneEnabled' => $card->laneEnabled,
+                // No actor user: another account's name is not this account's data.
+                'history' => array_map(
+                    static fn (CardEvent $event): array => [
+                        'kind' => $event->kind->value,
+                        'occurredAt' => $event->occurredAt->format(\DateTimeInterface::ATOM),
+                        'actorKind' => $event->actorKind->value,
+                        'detail' => $event->detail,
+                    ],
+                    $this->cardEvents->findForCard($card),
+                ),
             ];
         }
     }

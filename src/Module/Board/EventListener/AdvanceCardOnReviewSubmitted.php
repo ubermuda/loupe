@@ -12,6 +12,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardAvailability;
+use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\LifecycleStages;
 use App\Module\Board\Service\StageHold;
 use App\Module\Project\Entity\Project;
@@ -93,6 +94,7 @@ final readonly class AdvanceCardOnReviewSubmitted
                 actor: CardReporter::System,
                 column: $target,
                 onlyFromColumn: $link->card->column,
+                cause: CardEventCause::documentApproved($document->title),
             ));
         }
     }
