@@ -1338,7 +1338,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `resume_skipped` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `message`: the session read every item of its ask, so no worker ran. For an unfinished run, the line adds `reason`: `card_moved`, `shutdown`, `rule_dead` or `reload`, at level `WARN` |
 | `resume_session_missing` | `card`, `project`, `rule`, `session_id`, `message`: a fix request named a session that this machine does not hold, so the bridge queues a new session. Level `WARN` |
 | `resume_check_failed` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `error`, `message`: the ask check failed, and the session resumes. Level `WARN` |
-| `card_read_failed` | `card`, `project`, `rule`, `error`, `message`: the card read before the resume of an unfinished run failed, and the session resumes. Level `WARN` |
+| `card_read_failed` | `card`, `project`, `rule`, `error`, `message`: the card read before the resume of an unfinished run, or before a replayed card move, failed. The session resumes, or the move runs. Level `WARN` |
 | `experiment_pin_failed` | `card`, `project`, `rule`, `experiment`, `variant`, `error`, `message`: the pin request for the card failed, so the worker runs `variant`, the variant the bridge drew. Level `WARN` |
 | `worker_resuming` | `card`, `project`, `rule`, `session_id`, `resume`, `max_resumes`, `reason`: the bridge resumes a run that did not finish. Level `WARN` |
 | `worker_gave_up` | `card`, `project`, `rule`, `resume`, `max_resumes`, `reason`, `message`: a run did not finish at the cap of `maxResumes`. Level `ERROR` |
@@ -1375,7 +1375,12 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `worker_stopped` | `card`, `project`, `rule`: the bridge reported a stopped run |
 | `card_held` | `card`, `project`, `rule`: the card is held, so the event starts nothing |
 | `card_hold_released` | `card_id`: the hold of the card ended |
-| `event_duplicate` | `id`: the hub sent an event again that the bridge already handled, as after a handover |
+| `event_duplicate` | `id`: the hub or the catch-up sent an event again that the bridge already handled, as after a handover |
+| `catch_up_done` | `after`: the cursor the catch-up read from, `events`: the events it received, `cursor`: the cursor after it |
+| `catch_up_failed` | `after`, `error`: a replay page failed, so the bridge reads the stream live and tries again at the next connect. Level `WARN` |
+| `event_stale` | `card`, `project`, `rule`, `column`: the column of the card now, `to`: the column of the replayed move. The card left that column, so no worker runs |
+| `cursor_unreadable` | `file`, `error`: the cursor file does not parse, so the bridge starts as with no file. Level `WARN` |
+| `cursor_save_failed` | `file`, `error`: the bridge could not write the cursor file, logged once until a write works again. Routing goes on. Level `WARN` |
 | `worker_adopted` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `pid`: the bridge took over a worker that an earlier version started |
 | `update_skipped` | `reason`: the bridge does not check for updates, for example a development build |
 | `update_check` | `from`, `range`: a check starts |
@@ -1679,5 +1684,19 @@ when you upgrade the server.
 
 The bridge sends the id of the last event it read as `Last-Event-ID` when it
 reconnects. The hub then replays the events published in the gap, for as long
-as the hub keeps its history. A bridge that you stop and start again reads no
-event from the time it was stopped.
+as the hub keeps its history.
+
+The bridge does not depend on that history. It keeps a cursor in
+`cursor-<hash>.json` in your config directory: the highest outbox sequence it
+handled. On every connect, before it reads the stream, it reads the events after
+the cursor from `GET /api/events/replay`. So a bridge that you stop and start
+again runs the events of the time it was stopped. It runs an event that it
+handled already only once.
+
+A bridge with no cursor file starts from the `head` that `GET /api/events`
+sends, and runs no event older than that start. A server that sends no `head`
+gives the bridge no cursor, and the bridge then catches up nothing. A replayed
+card move whose card left the column since does not start a worker, and logs
+`event_stale`. The
+[Replay section](../docs/extending/cli-bridge.md#replay) of the bridge
+documentation gives every rule.
