@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\BoardEventType;
 use App\Module\Board\Command\CardLinkInput;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Command\DeleteBoardColumnCommand;
+use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Command\DeleteCardCommand;
 use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
@@ -26,6 +29,7 @@ use App\Module\Review\Command\SubmitReviewCommand;
 use App\Module\Review\Command\SubmitReviewHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Verdict;
+use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -165,6 +169,60 @@ final class AdvanceHeldCardOnBlockerFinishedTest extends KernelTestCase
         self::assertSame('tech-design', $this->slugOf($held));
     }
 
+    public function test_a_column_made_terminal_finishes_its_blockers_and_advances_the_held_card(): void
+    {
+        $first = $this->card('in-progress');
+        $second = $this->card('in-progress');
+        $held = $this->heldCard(['product'], 'product-design', [$first, $second]);
+
+        $this->configureColumn($this->reloadProject(), 'in-progress', terminal: true);
+        $this->em->clear();
+
+        self::assertSame('tech-design', $this->slugOf($held));
+        self::assertSame(1, $this->systemMovesOf($held));
+    }
+
+    public function test_a_column_made_terminal_leaves_a_card_with_another_open_blocker_where_it_is(): void
+    {
+        $finishing = $this->card('in-progress');
+        $open = $this->card('backlog');
+        $held = $this->heldCard(['product'], 'product-design', [$finishing, $open]);
+
+        $this->configureColumn($this->reloadProject(), 'in-progress', terminal: true);
+        $this->em->clear();
+
+        self::assertSame('product-design', $this->slugOf($held));
+    }
+
+    public function test_a_deleted_column_whose_blockers_go_to_a_terminal_column_advances_the_held_card(): void
+    {
+        $blocker = $this->card('next');
+        $held = $this->heldCard(['product'], 'product-design', [$blocker]);
+
+        $delete = self::getContainer()->get(DeleteBoardColumnHandler::class);
+        self::assertInstanceOf(DeleteBoardColumnHandler::class, $delete);
+        $project = $this->reloadProject();
+        $delete(new DeleteBoardColumnCommand($this->column($project, 'next'), CardReporter::Human, $this->column($project, 'done')));
+        $this->em->clear();
+
+        self::assertSame('done', $this->slugOf($blocker));
+        self::assertSame('tech-design', $this->slugOf($held));
+    }
+
+    public function test_a_deleted_column_whose_blockers_go_to_an_open_column_releases_nothing(): void
+    {
+        $blocker = $this->card('next');
+        $held = $this->heldCard(['product'], 'product-design', [$blocker]);
+
+        $delete = self::getContainer()->get(DeleteBoardColumnHandler::class);
+        self::assertInstanceOf(DeleteBoardColumnHandler::class, $delete);
+        $project = $this->reloadProject();
+        $delete(new DeleteBoardColumnCommand($this->column($project, 'next'), CardReporter::Human, $this->column($project, 'in-progress')));
+        $this->em->clear();
+
+        self::assertSame('product-design', $this->slugOf($held));
+    }
+
     public function test_nothing_moves_while_the_board_is_switched_off(): void
     {
         $blocker = $this->card('backlog');
@@ -266,6 +324,22 @@ final class AdvanceHeldCardOnBlockerFinishedTest extends KernelTestCase
     private function reloadProject(): Project
     {
         return $this->em->find(Project::class, $this->project->id) ?? throw new \LogicException('The project must exist.');
+    }
+
+    private function systemMovesOf(Card $card): int
+    {
+        $outbox = self::getContainer()->get(OutboxEventRepository::class);
+        self::assertInstanceOf(OutboxEventRepository::class, $outbox);
+
+        $moves = 0;
+        foreach ($outbox->findBy(['project' => $this->project->id, 'type' => BoardEventType::CARD_MOVED]) as $row) {
+            $payload = json_decode($row->payload, true, 512, \JSON_THROW_ON_ERROR);
+            if (\is_array($payload) && $payload['subject'] === ['type' => 'card', 'id' => (string) $card->id] && 'system' === $payload['actor']) {
+                ++$moves;
+            }
+        }
+
+        return $moves;
     }
 
     private function slugOf(Card $card): string

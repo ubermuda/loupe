@@ -9,13 +9,19 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Event\BoardColumnDeleted;
+use App\Module\Board\Event\BoardColumnTerminalChanged;
 use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\StageHold;
+use Doctrine\DBAL\Exception as DbalException;
+use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Moves a card that an approval left in its stage column once its last open
@@ -24,6 +30,9 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
  *
  * ReconcileEpicOnCardChanged releases cards that wait in the Backlog, and
  * this one cards that wait in a stage column, so the two never move one card.
+ *
+ * A column change must never throw, so a failed release there is logged and
+ * skipped, as ResolveFeedbackOnBoardColumnTerminalChanged does.
  */
 final readonly class AdvanceHeldCardOnBlockerFinished
 {
@@ -33,6 +42,8 @@ final readonly class AdvanceHeldCardOnBlockerFinished
         private StageHold $hold,
         private UpdateCardHandler $updateCard,
         private BoardAvailability $board,
+        private EntityManagerInterface $em,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -58,6 +69,51 @@ final readonly class AdvanceHeldCardOnBlockerFinished
 
         foreach ($event->cards as $card) {
             $this->advance($card);
+        }
+    }
+
+    /** A column made terminal finishes every card it holds, with no CardMoved. */
+    #[AsEventListener(priority: -5)]
+    public function onBoardColumnTerminalChanged(BoardColumnTerminalChanged $event): void
+    {
+        if ($event->terminal && $this->board->isEnabled()) {
+            $this->advanceBlockedBy($event->cardIds, $event->columnId);
+        }
+    }
+
+    /** A deleted open column sends its cards to the target column with no CardMoved. */
+    #[AsEventListener(priority: -5)]
+    public function onBoardColumnDeleted(BoardColumnDeleted $event): void
+    {
+        if (!$event->terminal && $event->targetTerminal && $this->board->isEnabled()) {
+            $this->advanceBlockedBy($event->movedCardIds, $event->columnId);
+        }
+    }
+
+    /** @param list<string> $finishedIds */
+    private function advanceBlockedBy(array $finishedIds, string $columnId): void
+    {
+        $blocked = [];
+        foreach ($finishedIds as $id) {
+            $finished = $this->cards->find(Uuid::fromString($id));
+            foreach (null === $finished ? [] : $this->cards->findBlockedBy($finished) as $card) {
+                $blocked[spl_object_id($card)] = $card;
+            }
+        }
+
+        foreach ($blocked as $card) {
+            try {
+                $this->advance($card);
+            } catch (\Throwable $e) {
+                if ($e instanceof DbalException || !$this->em->isOpen()) {
+                    throw $e;
+                }
+                $this->logger->warning('board.held_card_advance_failed', [
+                    'cardId' => (string) $card->id,
+                    'columnId' => $columnId,
+                    'exception' => $e,
+                ]);
+            }
         }
     }
 
