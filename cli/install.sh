@@ -14,7 +14,9 @@ Options:
   --help             Show this help.
 
 Environment:
-  LOUPE_INSTALL_NO_TTY=1  Treat the session as non-interactive.
+  LOUPE_INSTALL_NO_TTY=1     Treat the session as non-interactive.
+  LOUPE_INSTALL_TTY=FILE     Read the answers from FILE, not from /dev/tty.
+  LOUPE_RULES_FILE=FILE      Read and write the rule file at FILE.
 EOF
 }
 
@@ -43,8 +45,30 @@ sha256() {
 	fi
 }
 
-terminal() {
-	[ "${LOUPE_INSTALL_NO_TTY:-}" != 1 ] && (exec 3</dev/tty) 2>/dev/null
+# ask PROMPT reads one answer from the terminal on fd 3 into answer.
+# A pasted block can feed its comment line to the prompt, so a comment counts as empty.
+ask() {
+	printf '%s' "$1" >&2
+	answer=''
+	read -r answer <&3 || true
+	case $answer in
+	'#'*) answer='' ;;
+	esac
+}
+
+# existing_dir prints the directory of a loupe on PATH that Homebrew does not own.
+existing_dir() {
+	found=$(command -v loupe 2>/dev/null) || return 1
+	case $found in
+	/*) ;;
+	*) return 1 ;;
+	esac
+	real=$(readlink -f "$found" 2>/dev/null) || real=''
+	[ -n "$real" ] || real=$found
+	case $real in
+	*/Cellar/* | /opt/homebrew/* | */.linuxbrew/*) return 1 ;;
+	esac
+	say "${real%/*}"
 }
 
 on_path() {
@@ -59,10 +83,8 @@ pick_dir() {
 		say "$HOME/.local/bin"
 	elif on_path "$HOME/bin"; then
 		say "$HOME/bin"
-	elif terminal; then
-		printf 'Install directory [~/.local/bin]: ' >/dev/tty
-		answer=
-		read -r answer </dev/tty || true
+	elif [ -n "$tty" ]; then
+		ask 'Install directory [~/.local/bin]: '
 		case $answer in
 		'') say "$HOME/.local/bin" ;;
 		'~' | '~'/*) say "$HOME${answer#?}" ;;
@@ -131,6 +153,14 @@ main() {
 		exit 0
 	fi
 
+	tty=''
+	ttydev=${LOUPE_INSTALL_TTY:-/dev/tty}
+	# A failed redirection on exec ends a POSIX shell, so a subshell tries it first.
+	if [ "${LOUPE_INSTALL_NO_TTY:-}" != 1 ] && (exec 3<"$ttydev") 2>/dev/null; then
+		exec 3<"$ttydev"
+		tty=1
+	fi
+
 	work=$(mktemp -d)
 	trap 'rm -rf "$work"' EXIT
 
@@ -156,33 +186,41 @@ main() {
 
 	tar -xzf "$work/$archive" -C "$work" loupe
 
-	[ -n "$dir" ] || dir=$(pick_dir)
-	mkdir -p "$dir"
+	reachable=''
+	if [ -z "$dir" ]; then
+		if dir=$(existing_dir); then
+			reachable=1
+		else
+			dir=$(pick_dir)
+		fi
+	fi
+	mkdir -p "$dir" || die "cannot create $dir. Choose another directory with --install-dir."
 	dir=$(CDPATH='' cd -- "$dir" && pwd)
 	bin="$dir/loupe"
 	# A rename replaces a running binary in one step, and the old process keeps its copy.
-	cp "$work/loupe" "$dir/.loupe.tmp.$$"
-	chmod 755 "$dir/.loupe.tmp.$$"
-	mv -f "$dir/.loupe.tmp.$$" "$bin"
+	tmp="$dir/.loupe.tmp.$$"
+	if ! { cp "$work/loupe" "$tmp" && chmod 755 "$tmp" && mv -f "$tmp" "$bin"; }; then
+		rm -f "$tmp"
+		die "cannot install loupe into $dir. Choose another directory with --install-dir."
+	fi
 
 	if [ -n "$auto" ]; then
-		choice=on
+		set -- update auto on
 	elif grep -q '^autoUpdate:' "$(rules_file)" 2>/dev/null; then
-		choice="off --keep"
-	elif terminal; then
-		printf 'Turn on automatic updates? [y/N] ' >/dev/tty
-		answer=
-		read -r answer </dev/tty || true
+		set -- update auto off --keep
+	elif [ -n "$tty" ]; then
+		ask 'Turn on automatic updates? [y/N] '
 		case $answer in
-		[yY]*) choice="on --keep" ;;
-		*) choice="off --keep" ;;
+		[yY]*) set -- update auto on --keep ;;
+		*) set -- update auto off --keep ;;
 		esac
 	else
-		choice="off --keep"
+		set -- update auto off --keep
 	fi
-	# choice holds words that must split into arguments.
-	# shellcheck disable=SC2086
-	if output=$("$bin" update auto $choice </dev/null 2>&1); then
+	if [ -n "${LOUPE_RULES_FILE:-}" ]; then
+		set -- "$@" --rules "$LOUPE_RULES_FILE"
+	fi
+	if output=$("$bin" "$@" </dev/null 2>&1); then
 		state=unknown
 		case $output in
 		*"Automatic updates: on"*) state=on ;;
@@ -198,7 +236,7 @@ main() {
 	say "$output"
 	say "Auto-update: $state"
 	[ "$state" = on ] || say "To turn on automatic updates, run: loupe update auto on"
-	if ! on_path "$dir"; then
+	if [ -z "$reachable" ] && ! on_path "$dir"; then
 		say ""
 		say "$dir is not on your PATH. Add this line to your shell profile:"
 		say "  export PATH=\"$dir:\$PATH\""

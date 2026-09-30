@@ -59,8 +59,9 @@ func archive(t *testing.T) []byte {
 }
 
 // release serves the releases list and, for every version, the four archives
-// and a checksums.txt. A corrupt server lists a wrong sum for each archive.
-func release(t *testing.T, corrupt bool) *httptest.Server {
+// and a checksums.txt. A corrupt server lists a wrong sum for each archive. A
+// decoy server lists wrong sums for names that share a prefix or a suffix.
+func release(t *testing.T, corrupt, decoy bool) *httptest.Server {
 	t.Helper()
 	body := archive(t)
 	sum := sha256.Sum256(body)
@@ -85,6 +86,10 @@ func release(t *testing.T, corrupt bool) *httptest.Server {
 		}
 		if file == "checksums.txt" {
 			for _, p := range platforms {
+				if decoy {
+					fmt.Fprintf(w, "%s  loupe_%s_%s.tar.gz.sbom\n", strings.Repeat("0", 64), version, p)
+					fmt.Fprintf(w, "%s  old-loupe_%s_%s.tar.gz\n", strings.Repeat("1", 64), version, p)
+				}
 				fmt.Fprintf(w, "%s  loupe_%s_%s.tar.gz\n", hexSum, version, p)
 			}
 
@@ -118,6 +123,28 @@ type setup struct {
 	onlyOnPath bool
 	rules      string
 	piped      bool
+	decoy      bool
+	noRulesEnv bool
+	// tty holds the answers of a terminal session, one per line.
+	tty string
+	// fakes holds extra commands, by name, that shadow the real ones.
+	fakes map[string]string
+	// prepare runs before the script and returns directories to put first on PATH.
+	prepare func(home string) []string
+}
+
+// pathWithoutLoupe drops each PATH directory that holds a loupe, so a real
+// install on the machine never becomes the target of a test.
+func pathWithoutLoupe() string {
+	var keep []string
+	for _, d := range filepath.SplitList(os.Getenv("PATH")) {
+		if _, err := os.Stat(filepath.Join(d, "loupe")); err == nil {
+			continue
+		}
+		keep = append(keep, d)
+	}
+
+	return strings.Join(keep, string(os.PathListSeparator))
 }
 
 func scriptPath(t *testing.T) string {
@@ -135,7 +162,7 @@ func run(t *testing.T, s setup, args ...string) result {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("sh is not available")
 	}
-	srv := release(t, s.corrupt)
+	srv := release(t, s.corrupt, s.decoy)
 	home := t.TempDir()
 
 	// A fake brew comes first, so a real Homebrew on the machine never answers.
@@ -150,6 +177,11 @@ func run(t *testing.T, s setup, args ...string) result {
 	if err := os.WriteFile(filepath.Join(fakeBin, "brew"), []byte("#!/bin/sh\nexit "+brewExit+"\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	for name, body := range s.fakes {
+		if err := os.WriteFile(filepath.Join(fakeBin, name), []byte(body), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	if s.rules != "" {
 		if err := os.WriteFile(filepath.Join(home, "rules.yaml"), []byte(s.rules), 0o644); err != nil {
@@ -157,9 +189,14 @@ func run(t *testing.T, s setup, args ...string) result {
 		}
 	}
 
-	path := fakeBin + string(os.PathListSeparator) + os.Getenv("PATH")
+	path := fakeBin + string(os.PathListSeparator) + pathWithoutLoupe()
 	if !s.onlyOnPath {
 		path = filepath.Join(home, ".local", "bin") + string(os.PathListSeparator) + path
+	}
+	if s.prepare != nil {
+		for _, d := range s.prepare(home) {
+			path = d + string(os.PathListSeparator) + path
+		}
 	}
 
 	script := s.script
@@ -182,9 +219,19 @@ func run(t *testing.T, s setup, args ...string) result {
 		"PATH=" + path,
 		"LOUPE_GITHUB_API=" + srv.URL,
 		"LOUPE_GITHUB_DOWNLOAD=" + srv.URL,
-		"LOUPE_INSTALL_NO_TTY=1",
-		"LOUPE_RULES_FILE=" + filepath.Join(home, "rules.yaml"),
 		"LOUPE_FAKE_ARGS=" + filepath.Join(home, "args.txt"),
+	}
+	if s.tty == "" {
+		cmd.Env = append(cmd.Env, "LOUPE_INSTALL_NO_TTY=1")
+	} else {
+		answers := filepath.Join(home, "answers")
+		if err := os.WriteFile(answers, []byte(s.tty), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		cmd.Env = append(cmd.Env, "LOUPE_INSTALL_TTY="+answers)
+	}
+	if !s.noRulesEnv {
+		cmd.Env = append(cmd.Env, "LOUPE_RULES_FILE="+filepath.Join(home, "rules.yaml"))
 	}
 	out, err := cmd.CombinedOutput()
 	called, _ := os.ReadFile(filepath.Join(home, "args.txt"))
@@ -198,6 +245,13 @@ func assertContains(t *testing.T, got string, wants ...string) {
 		if !strings.Contains(got, want) {
 			t.Errorf("output lacks %q:\n%s", want, got)
 		}
+	}
+}
+
+func assertCalled(t *testing.T, r result, want string) {
+	t.Helper()
+	if got := strings.TrimSpace(r.called); got != want {
+		t.Errorf("loupe was called with %q, want %q", got, want)
 	}
 }
 
@@ -230,9 +284,7 @@ func TestInstallPicksTheHighestReleaseOfTheMajor(t *testing.T) {
 	if strings.Contains(r.out, "export PATH") {
 		t.Errorf("the output asks to change PATH, but the directory is on PATH:\n%s", r.out)
 	}
-	if strings.TrimSpace(r.called) != "update auto off --keep" {
-		t.Errorf("loupe was called with %q, want update auto off --keep", r.called)
-	}
+	assertCalled(t, r, "update auto off --keep --rules "+filepath.Join(r.home, "rules.yaml"))
 }
 
 func TestInstallReadsTheLinesTheServerInserts(t *testing.T) {
@@ -270,9 +322,7 @@ func TestInstallWithAutoUpdateTurnsItOn(t *testing.T) {
 		t.Fatalf("install failed: %v\n%s", r.err, r.out)
 	}
 	assertContains(t, r.out, "Auto-update: on")
-	if strings.TrimSpace(r.called) != "update auto on" {
-		t.Errorf("loupe was called with %q, want update auto on", r.called)
-	}
+	assertCalled(t, r, "update auto on --rules "+filepath.Join(r.home, "rules.yaml"))
 }
 
 func TestInstallKeepsAnExistingAutoUpdateKey(t *testing.T) {
@@ -280,9 +330,7 @@ func TestInstallKeepsAnExistingAutoUpdateKey(t *testing.T) {
 	if r.err != nil {
 		t.Fatalf("install failed: %v\n%s", r.err, r.out)
 	}
-	if strings.TrimSpace(r.called) != "update auto off --keep" {
-		t.Errorf("loupe was called with %q, want update auto off --keep", r.called)
-	}
+	assertCalled(t, r, "update auto off --keep --rules "+filepath.Join(r.home, "rules.yaml"))
 }
 
 func TestInstallRefusesAChecksumMismatch(t *testing.T) {
@@ -338,4 +386,103 @@ func TestInstallRefusesAMalformedVersion(t *testing.T) {
 		t.Fatalf("install accepted version 1.3:\n%s", r.out)
 	}
 	assertNotInstalled(t, r.home)
+}
+
+func TestInstallWithoutARulesOverrideLetsLoupePickTheFile(t *testing.T) {
+	r := run(t, setup{noRulesEnv: true})
+	if r.err != nil {
+		t.Fatalf("install failed: %v\n%s", r.err, r.out)
+	}
+	assertCalled(t, r, "update auto off --keep")
+}
+
+func TestInstallIgnoresChecksumsOfSimilarNames(t *testing.T) {
+	r := run(t, setup{decoy: true})
+	if r.err != nil {
+		t.Fatalf("install failed: %v\n%s", r.err, r.out)
+	}
+	assertInstalled(t, filepath.Join(r.home, ".local", "bin", "loupe"))
+}
+
+func TestInstallRemovesTheTempFileOnFailure(t *testing.T) {
+	r := run(t, setup{fakes: map[string]string{"chmod": "#!/bin/sh\nexit 1\n"}})
+	if r.err == nil {
+		t.Fatalf("install succeeded with a failing chmod:\n%s", r.out)
+	}
+	assertNotInstalled(t, r.home)
+	left, _ := filepath.Glob(filepath.Join(r.home, ".local", "bin", ".loupe.tmp.*"))
+	if len(left) > 0 {
+		t.Errorf("the temp file stays behind: %v", left)
+	}
+}
+
+// existing puts a loupe at dir, so the script finds it with command -v.
+func existing(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "loupe"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestInstallReplacesTheLoupeOnPath(t *testing.T) {
+	var dir string
+	r := run(t, setup{prepare: func(home string) []string {
+		dir = filepath.Join(home, "tools", "bin")
+		existing(t, dir)
+
+		return []string{dir}
+	}})
+	if r.err != nil {
+		t.Fatalf("install failed: %v\n%s", r.err, r.out)
+	}
+	assertContains(t, r.out, filepath.Join(dir, "loupe"))
+	assertNotInstalled(t, r.home)
+	if b, _ := os.ReadFile(filepath.Join(dir, "loupe")); string(b) != fakeLoupe {
+		t.Errorf("the loupe on PATH was not replaced")
+	}
+}
+
+func TestInstallFollowsASymlinkOnPath(t *testing.T) {
+	var real string
+	r := run(t, setup{prepare: func(home string) []string {
+		real = filepath.Join(home, "opt", "loupe")
+		existing(t, real)
+		link := filepath.Join(home, "links")
+		if err := os.MkdirAll(link, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(real, "loupe"), filepath.Join(link, "loupe")); err != nil {
+			t.Fatal(err)
+		}
+
+		return []string{link}
+	}})
+	if r.err != nil {
+		t.Fatalf("install failed: %v\n%s", r.err, r.out)
+	}
+	if b, _ := os.ReadFile(filepath.Join(real, "loupe")); string(b) != fakeLoupe {
+		t.Errorf("the symlink target was not replaced:\n%s", r.out)
+	}
+}
+
+func TestInstallAsksOnATerminal(t *testing.T) {
+	r := run(t, setup{onlyOnPath: true, tty: "~/custom\ny\n"})
+	if r.err != nil {
+		t.Fatalf("install failed: %v\n%s", r.err, r.out)
+	}
+	assertInstalled(t, filepath.Join(r.home, "custom", "loupe"))
+	assertContains(t, r.out, "Install directory", "Turn on automatic updates?")
+	assertCalled(t, r, "update auto on --keep --rules "+filepath.Join(r.home, "rules.yaml"))
+}
+
+func TestInstallTreatsACommentAnswerAsEmpty(t *testing.T) {
+	r := run(t, setup{onlyOnPath: true, tty: "# a pasted comment\n#y\n"})
+	if r.err != nil {
+		t.Fatalf("install failed: %v\n%s", r.err, r.out)
+	}
+	assertInstalled(t, filepath.Join(r.home, ".local", "bin", "loupe"))
+	assertCalled(t, r, "update auto off --keep --rules "+filepath.Join(r.home, "rules.yaml"))
 }
