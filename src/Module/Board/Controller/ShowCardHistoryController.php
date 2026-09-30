@@ -43,7 +43,8 @@ final class ShowCardHistoryController extends AppController
     ): Response {
         $this->board->requireEnabled();
 
-        $beforeAt = null === $before ? false : \DateTimeImmutable::createFromFormat(ShowCardHistoryCommand::CURSOR_FORMAT, $before);
+        // createFromFormat() throws on a null byte instead of returning false.
+        $beforeAt = null === $before || str_contains($before, "\0") ? false : \DateTimeImmutable::createFromFormat(ShowCardHistoryCommand::CURSOR_FORMAT, $before);
         if (false === $beforeAt || $beforeAt->format(ShowCardHistoryCommand::CURSOR_FORMAT) !== $before || null === $beforeId || !Uuid::isValid($beforeId)) {
             throw $this->createNotFoundException('The older page needs the time and the id of the last row shown.');
         }

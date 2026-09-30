@@ -202,6 +202,7 @@ final class CardHistoryTabTest extends WebTestCase
             '?before=yesterday&beforeId='.$id,
             '?before='.rawurlencode('2026-09-30T10:00:00+00:00').'&beforeId='.$id,
             '?before='.rawurlencode('2026-09-30T10:00:00.000000+00:00').'&beforeId=not-a-uuid',
+            '?before=%00&beforeId='.$id,
             '?offset=50',
         ] as $query) {
             $client->request(Request::METHOD_GET, $url.$query);
