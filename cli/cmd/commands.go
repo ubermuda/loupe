@@ -318,34 +318,43 @@ func (r *router) heldLocked(e event.Event) bool {
 
 // releaseHold ends the hold of a card, and starts its queued runs.
 func (r *router) releaseHold(cardID string) {
+	if r.dropHold(cardID) {
+		r.dispatch()
+	}
+}
+
+// dropHold ends the hold of a card and starts nothing. It reports whether the
+// card was held.
+func (r *router) dropHold(cardID string) bool {
 	r.mu.Lock()
 	if !r.cardHolds[cardID] {
 		r.mu.Unlock()
 
-		return
+		return false
 	}
 	delete(r.cardHolds, cardID)
 	r.mu.Unlock()
-
 	r.log.Info("card_hold_released", "card_id", cardID)
-	r.dispatch()
+
+	return true
 }
 
 // noteCardHold keeps the hold the server states for the card of the event. An
-// event with no held key changes nothing.
-func (r *router) noteCardHold(e event.Event) {
+// event with no held key changes nothing. It reports whether the event ended a
+// hold, and starts nothing, so the event can replace a stale queued run first.
+func (r *router) noteCardHold(e event.Event) bool {
 	id, _ := cardOf(e)
 	if id == "" || e.Card.Held == nil {
-		return
+		return false
 	}
 	if !*e.Card.Held {
-		r.releaseHold(id)
-
-		return
+		return r.dropHold(id)
 	}
 	r.mu.Lock()
 	r.holdCardLocked(id)
 	r.mu.Unlock()
+
+	return false
 }
 
 // The answers of a resume the bridge cannot act on.
@@ -379,7 +388,8 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 		if err != nil {
 			return api.CommandRefused, "The bridge could not read the card: " + err.Error()
 		}
-		if card.Column != c.CardColumn {
+		// A run of a pull request event records no column, so it has none to leave.
+		if c.CardColumn != "" && card.Column != c.CardColumn {
 			return api.CommandRefused, cardMovedAway
 		}
 	}

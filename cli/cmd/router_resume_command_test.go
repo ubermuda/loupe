@@ -259,3 +259,17 @@ func TestDrainWaitsForACommandHandler(t *testing.T) {
 		t.Fatalf("drain after the command = %v", err)
 	}
 }
+
+// A run of a pull request event records no column, so the card may sit in any
+// column when a person resumes it.
+func TestAPersonsResumeOfARunWithNoColumnReadsNoMove(t *testing.T) {
+	h := newHarness(t)
+	h.transcripts(true)
+	h.router.readCard = (&cardReads{column: "done"}).read
+	c := resumeOf(endedRunKey)
+	c.CardColumn = ""
+
+	if state, reason := h.resume(c); state != api.CommandDone {
+		t.Fatalf("resume = %s %q, want done", state, reason)
+	}
+}

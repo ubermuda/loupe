@@ -483,3 +483,31 @@ func TestAnAckThatFindsAnotherStateIsLogged(t *testing.T) {
 		t.Fatalf("command_ack_state = %v", line)
 	}
 }
+
+// A move that ends the hold replaces the run that waited on the held card,
+// before any run starts. The run from before the stop never starts.
+func TestAMoveThatEndsTheHoldReplacesTheWaitingRun(t *testing.T) {
+	h := newHarness(t)
+	rec := h.states()
+	s := h.stopper()
+	block := h.blocked()
+	s.gone = true
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	first := firstRun(t, rec)
+	h.router.onData([]byte(cardMoved(87)))
+	h.stop(t, first)
+	s.next(t)
+	close(block)
+	h.router.wg.Wait()
+
+	h.router.onData([]byte(heldPayload(87, false)))
+	h.router.wg.Wait()
+	if h.runs() != 2 {
+		t.Fatalf("runs = %d, want the move alone to start after the stop", h.runs())
+	}
+	if !slices.ContainsFunc(rec.states(), func(s stateSent) bool { return s.report.State == api.RunReplaced }) {
+		t.Fatalf("states = %+v, want the waiting run replaced", rec.states())
+	}
+}

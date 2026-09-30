@@ -447,7 +447,9 @@ func (r *router) onData(data []byte) {
 		return
 	}
 	e, key := r.resolve(e)
-	r.noteCardHold(e)
+	if r.noteCardHold(e) {
+		defer r.dispatch()
+	}
 
 	// A slug change is a person's action, not a directive to an agent, so it
 	// kills rules whatever its actor. Matching then goes on as for any event.
