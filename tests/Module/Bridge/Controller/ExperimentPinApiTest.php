@@ -69,7 +69,28 @@ final class ExperimentPinApiTest extends WebTestCase
         self::assertCount(1, $definitions);
         self::assertSame((string) $project->id, (string) $definitions[0]->project->id);
         self::assertSame('impl-model', $definitions[0]->experiment);
-        self::assertSame(['opus' => 1, 'sonnet' => 3], $definitions[0]->weights);
+        self::assertSame([['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 3]], $definitions[0]->weights);
+    }
+
+    public function test_numeric_variant_names_are_stored_with_their_names(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'pin-api-numeric-weights@example.com');
+        $project = $this->project($em, $owner, 'Pin Api Numeric Weights');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put(
+            $client,
+            $this->path((string) $project->id, 'impl-model', (string) Uuid::v7()),
+            $raw,
+            '{"candidate":"1","variants":["0","1"],"weights":[1,2]}',
+        );
+
+        self::assertResponseStatusCodeSame(200);
+        $definitions = $this->allDefinitions();
+        self::assertCount(1, $definitions);
+        self::assertSame([['name' => '0', 'weight' => 1], ['name' => '1', 'weight' => 2]], $definitions[0]->weights);
     }
 
     /** A weight fault never changes the variant of a run, and never refuses it. */

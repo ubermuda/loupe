@@ -54,11 +54,12 @@ final class ResolveExperimentPinRequest
     }
 
     /**
-     * The weight of each variant, by name. Null when the choice is invalid, or
-     * the weights are not one int from 1 to MAX_WEIGHT for each variant. A bad
-     * list never refuses the pin, so an older bridge that sends none still runs.
+     * The weight of each variant, in the order of the variants. Null when the
+     * choice is invalid, or the weights are not one int from 1 to MAX_WEIGHT for
+     * each variant. A bad list never refuses the pin, so an older bridge that
+     * sends none still runs. A list, because PHP turns a key such as "0" into an int.
      *
-     * @return non-empty-array<string, int<1, max>>|null
+     * @return non-empty-list<array{name: string, weight: int<1, max>}>|null
      */
     public function weights(): ?array
     {
@@ -68,16 +69,16 @@ final class ResolveExperimentPinRequest
             return null;
         }
 
-        $byName = [];
+        $named = [];
         foreach ($choice['variants'] as $i => $name) {
             $weight = $weights[$i];
             if (!\is_int($weight) || $weight < 1 || $weight > self::MAX_WEIGHT) {
                 return null;
             }
-            $byName[$name] = $weight;
+            $named[] = ['name' => $name, 'weight' => $weight];
         }
 
-        return $byName;
+        return $named;
     }
 
     public static function isName(string $name): bool

@@ -31,7 +31,7 @@ class ExperimentDefinition
         #[ORM\Column(name: 'experiment', length: WorkerRun::MAX_EXPERIMENT_NAME_LENGTH)]
         public string $experiment,
 
-        /** @var array<string, int> the weight of each variant, by name */
+        /** @var list<array{name: string, weight: int}> each variant and its weight, in the order of the rule */
         #[ORM\Column(name: 'weights', type: Types::JSON)]
         public array $weights,
 

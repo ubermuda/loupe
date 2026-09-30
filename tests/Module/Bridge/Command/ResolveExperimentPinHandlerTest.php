@@ -123,22 +123,22 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
         $this->boot();
         [$owner, $project] = $this->scenario('pin-weights');
 
-        $this->resolve($owner, $project, Uuid::v7(), 'sonnet', ['opus', 'sonnet'], weights: ['opus' => 1, 'sonnet' => 3]);
+        $this->resolve($owner, $project, Uuid::v7(), 'sonnet', ['opus', 'sonnet'], weights: [['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 3]]);
 
         $definition = $this->onlyDefinition();
         self::assertSame((string) $project->id, (string) $definition->project->id);
         self::assertSame('impl-model', $definition->experiment);
-        self::assertSame(['opus' => 1, 'sonnet' => 3], $definition->weights);
+        self::assertSame([['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 3]], $definition->weights);
         self::assertSame(self::NOW, $definition->reportedAt->format(\DateTimeInterface::ATOM));
 
         $later = '2026-09-30T09:00:00+00:00';
         $clock = self::getContainer()->get('clock');
         self::assertInstanceOf(MockClock::class, $clock);
         $clock->modify($later);
-        $this->resolve($owner, $project, Uuid::v7(), 'haiku', ['haiku', 'opus'], weights: ['haiku' => 2, 'opus' => 5]);
+        $this->resolve($owner, $project, Uuid::v7(), 'haiku', ['haiku', 'opus'], weights: [['name' => 'haiku', 'weight' => 2], ['name' => 'opus', 'weight' => 5]]);
 
         $definition = $this->onlyDefinition();
-        self::assertSame(['haiku' => 2, 'opus' => 5], $definition->weights);
+        self::assertSame([['name' => 'haiku', 'weight' => 2], ['name' => 'opus', 'weight' => 5]], $definition->weights);
         self::assertSame($later, $definition->reportedAt->format(\DateTimeInterface::ATOM));
     }
 
@@ -159,7 +159,7 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
         [, $project] = $this->scenario('pin-weights-foreign');
         $stranger = $this->user($this->em(), 'pin-weights-foreign-stranger@example.com');
 
-        $this->resolve($stranger, $project, Uuid::v7(), 'sonnet', ['opus', 'sonnet'], weights: ['opus' => 1, 'sonnet' => 1]);
+        $this->resolve($stranger, $project, Uuid::v7(), 'sonnet', ['opus', 'sonnet'], weights: [['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 1]]);
 
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_experiment_definitions'));
     }
@@ -189,8 +189,8 @@ final class ResolveExperimentPinHandlerTest extends KernelTestCase
     }
 
     /**
-     * @param non-empty-list<string>  $variants
-     * @param array<string, int>|null $weights
+     * @param non-empty-list<string>                      $variants
+     * @param list<array{name: string, weight: int}>|null $weights
      */
     private function resolve(
         User $owner,

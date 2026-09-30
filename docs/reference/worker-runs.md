@@ -583,6 +583,7 @@ row in `worker_run_usage.json`. It holds every experiment pin in
 `experiment_pins.json`, with its project, its card, its experiment, its variant,
 and when the pin was created and last resolved. It holds the latest weights of
 each experiment in `experiment_definitions.json`, with its project, its
-experiment, the weight of each variant and when the bridge sent them. It holds
+experiment, its `weights` as a list of `name` and `weight` objects, and when the
+bridge sent them. It holds
 every card hold in `bridge_card_holds.json`, with its project, its card, the run it stopped and
 when it began. The run is null after the retention sweep deletes it.

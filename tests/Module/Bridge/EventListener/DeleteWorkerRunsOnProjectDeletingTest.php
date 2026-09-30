@@ -134,8 +134,8 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         $owner = $this->user($em, 'definitions-delete@example.com');
         $doomed = $this->project($em, $owner, 'Doomed Definitions');
         $kept = $this->project($em, $owner, 'Kept Definitions');
-        $em->persist(new ExperimentDefinition($doomed, 'impl-model', ['opus' => 1]));
-        $keptDefinition = new ExperimentDefinition($kept, 'impl-model', ['opus' => 1]);
+        $em->persist(new ExperimentDefinition($doomed, 'impl-model', [['name' => 'opus', 'weight' => 1]]));
+        $keptDefinition = new ExperimentDefinition($kept, 'impl-model', [['name' => 'opus', 'weight' => 1]]);
         $em->persist($keptDefinition);
         $em->flush();
 

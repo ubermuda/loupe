@@ -14,7 +14,18 @@ final class ResolveExperimentPinRequestTest extends TestCase
     {
         $request = new ResolveExperimentPinRequest('sonnet', ['opus', 'sonnet'], [1, 1_000_000]);
 
-        self::assertSame(['opus' => 1, 'sonnet' => 1_000_000], $request->weights());
+        self::assertSame(
+            [['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 1_000_000]],
+            $request->weights(),
+        );
+    }
+
+    /** PHP turns a numeric string key into an int, so a map would lose these names. */
+    public function test_numeric_variant_names_keep_their_names(): void
+    {
+        $request = new ResolveExperimentPinRequest('1', ['0', '1'], [1, 2]);
+
+        self::assertSame([['name' => '0', 'weight' => 1], ['name' => '1', 'weight' => 2]], $request->weights());
     }
 
     /** @return iterable<string, array{mixed}> */

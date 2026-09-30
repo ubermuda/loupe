@@ -101,8 +101,8 @@ final class WorkerRunAccountPurgerTest extends KernelTestCase
         $em = $this->em();
         $leaving = $this->user($em, 'definitions-purge-leaving@example.com');
         $staying = $this->user($em, 'definitions-purge-staying@example.com');
-        $em->persist(new ExperimentDefinition($this->project($em, $leaving, 'Leaving Definitions'), 'impl-model', ['opus' => 1]));
-        $keptDefinition = new ExperimentDefinition($this->project($em, $staying, 'Staying Definitions'), 'impl-model', ['opus' => 1]);
+        $em->persist(new ExperimentDefinition($this->project($em, $leaving, 'Leaving Definitions'), 'impl-model', [['name' => 'opus', 'weight' => 1]]));
+        $keptDefinition = new ExperimentDefinition($this->project($em, $staying, 'Staying Definitions'), 'impl-model', [['name' => 'opus', 'weight' => 1]]);
         $em->persist($keptDefinition);
         $em->flush();
 

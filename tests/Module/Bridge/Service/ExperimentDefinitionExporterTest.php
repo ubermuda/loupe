@@ -22,10 +22,10 @@ final class ExperimentDefinitionExporterTest extends KernelTestCase
         $em->persist(new ExperimentDefinition(
             project: $this->project($em, $exporting, 'Weighted Project'),
             experiment: 'plan-model',
-            weights: ['opus' => 1, 'sonnet' => 3],
+            weights: [['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 3]],
             reportedAt: new \DateTimeImmutable('2026-09-14T11:00:00+00:00'),
         ));
-        $em->persist(new ExperimentDefinition($this->project($em, $other, 'Other Project'), 'plan-model', ['opus' => 1]));
+        $em->persist(new ExperimentDefinition($this->project($em, $other, 'Other Project'), 'plan-model', [['name' => 'opus', 'weight' => 1]]));
         $em->flush();
         $em->clear();
 
@@ -34,7 +34,7 @@ final class ExperimentDefinitionExporterTest extends KernelTestCase
         self::assertSame([[
             'project' => 'Weighted Project',
             'experiment' => 'plan-model',
-            'weights' => ['opus' => 1, 'sonnet' => 3],
+            'weights' => [['name' => 'opus', 'weight' => 1], ['name' => 'sonnet', 'weight' => 3]],
             'reportedAt' => '2026-09-14T11:00:00+00:00',
         ]], $rows);
     }
