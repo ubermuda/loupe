@@ -8,6 +8,7 @@ use App\Mercure\UserTopicBuilder;
 use App\Module\Bridge\Service\HeartbeatInterval;
 use App\Module\Bridge\Service\StopLadder;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Outbox\Repository\OutboxEventRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireServiceClosure;
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
@@ -25,6 +26,7 @@ final readonly class ShowEventsHandler
 
     public function __construct(
         private ProjectRepository $projects,
+        private OutboxEventRepository $outboxEvents,
         private UserTopicBuilder $userTopics,
         private FeatureFlagService $featureFlags,
         private HeartbeatInterval $heartbeatInterval,
@@ -61,6 +63,7 @@ final readonly class ShowEventsHandler
             topic: $topic,
             projects: $this->projects->findByOwner($command->user),
             flags: $this->sharedFlags(),
+            head: $this->outboxEvents->highestSequenceForOwner($command->user),
         );
     }
 
