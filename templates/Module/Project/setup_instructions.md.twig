@@ -26,7 +26,7 @@ curl -fsSL {{ instance }}/install.sh | LOUPE_INSTALL_NO_TTY=1 sh
 
 `LOUPE_INSTALL_NO_TTY=1` stops the script from asking questions. It installs the latest CLI release, into `~/.local/bin` unless `~/bin` is on the `PATH`. It checks the download against `checksums.txt` before it installs anything. It prints `Installed loupe <version> at <path>.` when it succeeds. If it fails, stop and show the output to the user.
 
-The script prints `Auto-update:` with the state of automatic updates. Tell the user that state. When it is not `on`, tell them that `loupe update auto on` turns them on.
+After `Installed loupe`, the script prints the state of automatic updates, and the command that changes it. Show those lines to the user.
 
 The MCP server starts as `loupe mcp`, so the directory of `loupe` must be on the `PATH` of the agent. If the script prints `is not on your PATH`, show the user the line it prints, and ask them to add it to their shell profile and restart the agent from a new terminal. Then stop. Run `loupe version` again. It must print a version.
 
