@@ -514,8 +514,9 @@ this page.
 
 The project owner can stop, resume and pause from the web UI. The pages and
 their labels are in [Stop, resume and cancel](../using/worker-runs.md#stop-resume-and-cancel).
-These routes serve them. They are not API routes: each one takes the session
-cookie and a CSRF token, and needs the permission to manage the project.
+These routes serve them. Each route takes the session cookie and a CSRF token,
+and needs the permission to manage the project. An agent token does not open
+them.
 
 | Route | What it does |
 |---|---|
@@ -535,8 +536,8 @@ section. A bridge route goes back to the card of the bridge on the agents page.
 | 403 | the CSRF token is missing or wrong, or the person cannot manage the project |
 | 404 | the run is not in the project, or the bridge does not follow the project |
 
-The server refuses some requests after the 303. The page then shows the reason
-as an error:
+A refused request still answers 303, and the page then shows the reason as an
+error:
 
 | Reason | When |
 |---|---|

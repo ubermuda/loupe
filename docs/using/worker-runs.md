@@ -132,8 +132,8 @@ report the `commands` capability, every control is disabled with **Update the
 bridge to 1.5.0 or later to control its runs.**
 
 A stop holds the card. No worker starts on a held card until a person resumes
-one of its runs or moves it to another column. Cancel a stop that still waits
-to release the hold that the stop wrote. See
+one of its runs or moves it to another column. A cancel of a stop that still
+waits releases the hold that the stop wrote. See
 [The card page](board.md#the-card-page).
 
 A stop reaches the process group of the worker only. Work that the worker
