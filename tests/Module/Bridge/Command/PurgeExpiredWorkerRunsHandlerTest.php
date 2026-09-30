@@ -44,6 +44,20 @@ final class PurgeExpiredWorkerRunsHandlerTest extends KernelTestCase
         self::assertNotNull($em->find(WorkerRun::class, $fresh->id));
     }
 
+    /** The sweep deletes runs in bulk, so only the foreign key can take their commands. */
+    public function test_it_takes_the_commands_of_a_deleted_run(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'commands-sweep@example.com'), 'Swept Commands');
+        $this->seedCommand($em, $this->seedRun($em, $project, new \DateTimeImmutable('2026-01-01 00:00:00')));
+        $kept = $this->seedCommand($em, $this->seedRun($em, $project, new \DateTimeImmutable('2026-09-01 00:00:00'), cardNumber: 2));
+
+        self::assertSame(1, ($this->handler())(new PurgeExpiredWorkerRunsCommand()));
+
+        self::assertSame([(string) $kept->id], $em->getConnection()->fetchFirstColumn('SELECT id FROM bridge_commands'));
+    }
+
     /** A pin that no run refreshed within the window goes, and the count still names the runs alone. */
     public function test_it_deletes_a_pin_past_the_window_and_keeps_one_inside_it(): void
     {

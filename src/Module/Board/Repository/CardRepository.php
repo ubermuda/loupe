@@ -1131,6 +1131,69 @@ class CardRepository extends ServiceEntityRepository
         );
     }
 
+    /**
+     * Ranks the column from 0 without $card, and leaves the rank $gapAt free
+     * when it is given. Only a card whose rank changes is written. $card is
+     * left out by id, because its row may still sit in the column until the
+     * caller flushes.
+     */
+    public function rankWithout(BoardColumn $column, Card $card, ?int $gapAt = null): void
+    {
+        $parameters = [
+            'column' => (string) $column->id,
+            'card' => (string) ($card->id ?? throw new \LogicException('Only a persisted card is ranked.')),
+        ];
+        if (null !== $gapAt) {
+            $parameters['gap'] = $gapAt;
+        }
+
+        $this->getEntityManager()->getConnection()->executeStatement(
+            \sprintf(
+                'UPDATE board_cards c
+                 SET position = ranked.rank
+                 FROM (
+                     SELECT id, %s AS rank
+                     FROM (
+                         SELECT id, row_number() OVER (ORDER BY position, created_at, id) - 1 AS r
+                         FROM board_cards
+                         WHERE column_id = :column AND id <> :card
+                     ) numbered
+                 ) ranked
+                 WHERE c.id = ranked.id AND c.position <> ranked.rank',
+                null === $gapAt ? 'r' : 'CASE WHEN r >= :gap THEN r + 1 ELSE r END',
+            ),
+            $parameters,
+        );
+    }
+
+    /**
+     * Reads the ranks of the column back onto every loaded card that sits in
+     * it both in memory and in the database, except $skipped, and marks them
+     * clean so a flush writes no rank again.
+     *
+     * @return array<string, int> card id => position, for the whole column
+     */
+    public function refreshLoadedRanks(BoardColumn $column, Card $skipped): array
+    {
+        $positions = $this->positionsInColumn($column);
+        $em = $this->getEntityManager();
+        $unitOfWork = $em->getUnitOfWork();
+        foreach ($unitOfWork->getIdentityMap()[Card::class] ?? [] as $card) {
+            if (!$card instanceof Card || $card === $skipped || $em->isUninitializedObject($card) || $card->column !== $column) {
+                continue;
+            }
+            $position = $positions[(string) $card->id] ?? null;
+            if (null === $position) {
+                continue;
+            }
+
+            $card->position = $position;
+            $unitOfWork->setOriginalEntityProperty(spl_object_id($card), 'position', $position);
+        }
+
+        return $positions;
+    }
+
     /** Stamps every card of a column that turned terminal and was not finished yet. */
     public function stampCompletion(BoardColumn $column, \DateTimeImmutable $now): void
     {

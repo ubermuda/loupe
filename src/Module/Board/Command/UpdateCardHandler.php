@@ -338,7 +338,7 @@ final readonly class UpdateCardHandler
 
     /**
      * The rank next to a neighbour, counted among the other cards of the
-     * column, which is the list CardGroupOrder::place() splices into. Call it
+     * column, which is the list CardGroupOrder::place() opens a gap in. Call it
      * under the lock: the SQL order is fresh even when a loaded rank is stale.
      */
     private function neighbourRank(Card $card, BoardColumn $column, ?string $beforeCardId, ?string $afterCardId): int

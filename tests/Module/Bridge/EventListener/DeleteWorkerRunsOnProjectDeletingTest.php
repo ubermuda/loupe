@@ -148,6 +148,27 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         );
     }
 
+    public function test_deleting_a_project_takes_its_commands_and_leaves_another_projects_commands(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'commands-delete@example.com');
+        $doomed = $this->project($em, $owner, 'Doomed Commands');
+        $kept = $this->project($em, $owner, 'Kept Commands');
+        $this->seedCommand($em, $this->seedRun($em, $doomed));
+        $keptCommand = $this->seedCommand($em, $this->seedRun($em, $kept));
+        self::assertSame(2, $this->countCommands($em));
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        self::assertSame(
+            [(string) $keptCommand->id],
+            $em->getConnection()->fetchFirstColumn('SELECT id FROM bridge_commands'),
+        );
+    }
+
     /**
      * One bridge follows several projects, so deleting one of them leaves the
      * bridge row and its list alone. The next heartbeat drops the id.

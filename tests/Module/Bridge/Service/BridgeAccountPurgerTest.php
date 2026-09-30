@@ -37,6 +37,50 @@ final class BridgeAccountPurgerTest extends KernelTestCase
         );
     }
 
+    /** A command whose project went by any other path would otherwise hold the users row. */
+    public function test_it_takes_the_commands_of_the_departing_account_alone(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $leaving = $this->user($em, 'commands-purge-leaving@example.com');
+        $staying = $this->user($em, 'commands-purge-staying@example.com');
+        $this->seedCommand($em, $this->seedRun($em, $this->project($em, $leaving, 'Leaving Commands')));
+        $kept = $this->seedCommand($em, $this->seedRun($em, $this->project($em, $staying, 'Staying Commands')));
+
+        $this->purge($leaving);
+
+        self::assertSame([(string) $kept->id], $em->getConnection()->fetchFirstColumn('SELECT id FROM bridge_commands'));
+    }
+
+    /** The users row goes by SQL, so the foreign keys clear what points at the person. */
+    public function test_account_deletion_clears_the_person_on_another_accounts_bridge_and_commands(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $leaving = $this->user($em, 'commands-requester-leaving@example.com');
+        $staying = $this->user($em, 'commands-requester-staying@example.com');
+        $bridge = $this->seedBridge($em, $staying);
+        $bridge->pauseRequested = true;
+        $bridge->pauseRequestedBy = $leaving;
+        $command = $this->seedCommand($em, $this->seedRun($em, $this->project($em, $staying, 'Requested Commands')), requestedBy: $leaving);
+        $em->flush();
+        $connection = $em->getConnection();
+        self::assertSame((string) $leaving->id, $connection->fetchOne('SELECT requested_by_id FROM bridge_commands'));
+
+        $accountPurger = static::getContainer()->get(AccountPurger::class);
+        self::assertInstanceOf(AccountPurger::class, $accountPurger);
+        $accountPurger->purge($leaving);
+
+        self::assertSame(
+            [['id' => (string) $command->id, 'requested_by_id' => null]],
+            $connection->fetchAllAssociative('SELECT id, requested_by_id FROM bridge_commands'),
+        );
+        self::assertSame(
+            [['pause_requested' => true, 'pause_requested_by_id' => null]],
+            $connection->fetchAllAssociative('SELECT pause_requested, pause_requested_by_id FROM bridges'),
+        );
+    }
+
     /** ProjectAccountPurger clears the EntityManager, so this slot always gets a detached user. */
     public function test_it_purges_a_detached_user(): void
     {
