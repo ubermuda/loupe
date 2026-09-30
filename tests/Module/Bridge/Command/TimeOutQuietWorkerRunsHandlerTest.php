@@ -34,14 +34,15 @@ final class TimeOutQuietWorkerRunsHandlerTest extends KernelTestCase
         $bridgeId = $this->seedBridge($this->em(), $owner, lastSeenAt: new \DateTimeImmutable('2026-09-23 11:56:59'))->id;
         $queued = $this->openRun($project, $bridgeId, WorkerRunState::Queued);
         $running = $this->openRun($project, $bridgeId, WorkerRunState::Running);
+        $stopping = $this->openRun($project, $bridgeId, WorkerRunState::Stopping);
 
         $changed = $this->sweep();
 
-        foreach ([$queued, $running] as $run) {
+        foreach ([$queued, $running, $stopping] as $run) {
             self::assertSame(WorkerRunState::TimedOut, $this->reload($run)->state);
             self::assertSame([['timed-out', self::NOW]], $this->history($run));
         }
-        self::assertCount(2, $changed);
+        self::assertCount(3, $changed);
     }
 
     public function test_the_runs_of_a_live_bridge_stay_open(): void

@@ -11,12 +11,9 @@ use App\Module\Board\Repository\CardRepository;
 /**
  * Keeps an open column numbered from 0 with no gaps.
  *
- * Every write that adds a card to a column, takes one out, or deletes one goes
- * through here, so the rank the board reads and the MCP payload reports is the
- * card's real place in its column rather than a number with holes in it.
- *
- * The caller flushes. Nothing here writes to the database itself, so a move and
- * the renumbering it causes land together or not at all.
+ * One statement ranks the other cards of a column, and the ranks are read back
+ * onto the loaded cards. The moving card changes in memory only, so the caller
+ * runs this inside its transaction and flushes the card.
  */
 final readonly class CardGroupOrder
 {
@@ -28,46 +25,22 @@ final readonly class CardGroupOrder
     /** Puts the card at the wanted rank in its own column, then renumbers the column from 0. */
     public function place(Card $card, int $position): void
     {
-        $members = $this->columnWithout($card->column, $card);
+        $target = max(0, $position);
+        $this->cards->rankWithout($card->column, $card, $target);
+        $positions = $this->cards->refreshLoadedRanks($card->column, $card);
 
-        $target = max(0, min($position, \count($members)));
-        array_splice($members, $target, 0, [$card]);
-
-        $this->renumber($members);
+        $others = \count($positions) - (isset($positions[(string) $card->id]) ? 1 : 0);
+        $card->position = min($target, $others);
     }
 
-    /**
-     * Closes the gap a card leaves in a column. A terminal column keeps no
-     * position, so it is left alone.
-     *
-     * $leaving is still in the column in the database, because it has not been
-     * flushed out of it yet, so it is dropped by identity.
-     */
+    /** Closes the gap a card leaves in a column. A terminal column keeps no position, so it is left alone. */
     public function compact(BoardColumn $column, Card $leaving): void
     {
         if ($column->terminal) {
             return;
         }
 
-        $this->renumber($this->columnWithout($column, $leaving));
-    }
-
-    /**
-     * @param list<Card> $members
-     */
-    private function renumber(array $members): void
-    {
-        foreach ($members as $index => $member) {
-            $member->position = $index;
-        }
-    }
-
-    /** @return list<Card> */
-    private function columnWithout(BoardColumn $column, Card $excluded): array
-    {
-        return array_values(array_filter(
-            $this->cards->findRanked($column),
-            static fn (Card $member): bool => $member !== $excluded,
-        ));
+        $this->cards->rankWithout($column, $leaving);
+        $this->cards->refreshLoadedRanks($column, $leaving);
     }
 }

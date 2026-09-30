@@ -35,7 +35,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 ## Code review
 
-1. Before a push, run `mcp__codex-cli__review` with `model: "gpt-6-astra"`. When the tool is missing, stop with `STAGE RESULT: blocked: codex MCP unavailable`.
+1. Before a push, run `mcp__codex-cli__review` with `model: "gpt-6-sol"`. When the tool is missing, stop with `STAGE RESULT: blocked: codex MCP unavailable`.
 2. Follow the pass and scope rules of `working-with-prs` "The gate, before you open anything": two clean passes in a row, and a commit scope once the branch has more than one commit.
 3. Alternate the scope: one pass with `base: "origin/<base>"`, the next with `commit: "<sha>"` for the newest commit that carries work.
 4. Count a pass as clean only against the current tree. Check that each summary covers the largest change.

@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\Service;
 use App\Module\Account\Deletion\AccountDeletionCleanup;
 use App\Module\Account\Deletion\AccountPurger;
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Entity\CardHold;
 use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunAccountPurger;
@@ -90,6 +91,27 @@ final class WorkerRunAccountPurgerTest extends KernelTestCase
         self::assertSame(
             [(string) $keptPin->id],
             $em->getConnection()->fetchFirstColumn('SELECT id FROM bridge_experiment_pins'),
+        );
+    }
+
+    public function test_it_takes_the_holds_of_the_departing_account_and_unnames_it_elsewhere(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $leaving = $this->user($em, 'holds-purge-leaving@example.com');
+        $staying = $this->user($em, 'holds-purge-staying@example.com');
+        $now = new \DateTimeImmutable();
+        $em->persist(new CardHold($this->project($em, $leaving, 'Leaving Holds'), Uuid::v7(), null, $staying, $now));
+        $foreign = new CardHold($this->project($em, $staying, 'Staying Holds'), Uuid::v7(), null, $leaving, $now);
+        $em->persist($foreign);
+        $em->flush();
+        $em->clear();
+
+        $this->purge($leaving);
+
+        self::assertSame(
+            [['id' => (string) $foreign->id, 'held_by_id' => null]],
+            $em->getConnection()->fetchAllAssociative('SELECT id, held_by_id FROM bridge_card_holds'),
         );
     }
 

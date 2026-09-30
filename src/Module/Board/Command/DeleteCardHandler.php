@@ -13,6 +13,7 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Board\Service\CardParentPolicy;
 use App\Module\Board\Service\PullRequestTracking;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -37,6 +38,7 @@ final readonly class DeleteCardHandler
         private Auditor $auditor,
         private EventDispatcherInterface $events,
         private InteractiveRuns $interactiveRuns,
+        private CardHolds $cardHolds,
     ) {
     }
 
@@ -74,8 +76,8 @@ final readonly class DeleteCardHandler
             $parent = $card->parent;
             $drawsLane = $card->drawsLane();
 
-            // Before the remove, so the delete and the renumbering it causes
-            // reach the database in one flush.
+            // Inside the transaction, so the delete and the renumbering it
+            // causes commit together or not at all.
             $this->groupOrder->compact($card->column, $card);
 
             // The link rows cascade in the database, but the comments would
@@ -86,9 +88,10 @@ final readonly class DeleteCardHandler
                 $this->em->remove($link->comment);
             }
 
-            // No tool and no page can reach the runs of a deleted card to close them.
+            // No tool and no page can reach the runs or the hold of a deleted card.
             if (null !== $card->id) {
                 $this->interactiveRuns->closeOnMove($card->project, [$card->id]);
+                $this->cardHolds->release($card->project, [$card->id]);
             }
 
             $trackedBefore = $this->pullRequestTracking->referencesOf($card);

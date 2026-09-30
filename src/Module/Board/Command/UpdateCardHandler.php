@@ -24,6 +24,7 @@ use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestTracking;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\InteractiveRuns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -57,6 +58,7 @@ final readonly class UpdateCardHandler
         private Auditor $auditor,
         private EventDispatcherInterface $events,
         private InteractiveRuns $interactiveRuns,
+        private CardHolds $cardHolds,
     ) {
     }
 
@@ -173,6 +175,11 @@ final readonly class UpdateCardHandler
             $move = $column !== $card->column || null !== $position
                 ? $this->mover->move($card, $column, $position)
                 : null;
+
+            // Before CardMoved, so the outbox row of this move reads the card as released.
+            if (null !== $move && $move->fromColumn !== $card->column && CardReporter::Human === $command->actor) {
+                $this->cardHolds->release($card->project, [$card->id ?? throw new \LogicException('A persisted card has an id.')]);
+            }
 
             // After the move, which closes the runs of a card that changes
             // column, so the run this update opens is not the one closed.
@@ -331,7 +338,7 @@ final readonly class UpdateCardHandler
 
     /**
      * The rank next to a neighbour, counted among the other cards of the
-     * column, which is the list CardGroupOrder::place() splices into. Call it
+     * column, which is the list CardGroupOrder::place() opens a gap in. Call it
      * under the lock: the SQL order is fresh even when a loaded rank is stale.
      */
     private function neighbourRank(Card $card, BoardColumn $column, ?string $beforeCardId, ?string $afterCardId): int

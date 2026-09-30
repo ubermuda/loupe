@@ -27,6 +27,7 @@ final readonly class RateLimitWorkerRunReports
         'api_bridge_runs_report',
         'api_project_interactive_run_report',
         'api_project_experiment_pin_resolve',
+        'api_bridge_command_ack',
     ];
 
     public function __construct(
