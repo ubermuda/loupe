@@ -43,8 +43,8 @@ loupe init
 projects your login covers and asks which one. Commit the file, so everyone in
 the repository reaches the same project.
 
-`loupe init` then offers to declare the `loupe` MCP server to Claude Code for
-every repository:
+When Claude Code does not start the `loupe` MCP server yet, `loupe init` offers
+to declare it for every repository:
 
 ```bash
 claude mcp add --scope user loupe -- loupe mcp
@@ -95,8 +95,8 @@ Open the review URL. Select a passage to comment on it. A comment can also
 suggest a replacement for the passage.
 
 When you finish, select **Finish review**. Approve the version, or request
-changes with a note. The agent reads your comments and verdict, and sends a new
-version. [Documents and review](../using/documents.md) describes the review page.
+changes with a note. Then ask the agent to read the review. It calls
+`document_get_review` and sends a new version. [Documents and review](../using/documents.md) describes the review page.
 
 ## Other ways to connect
 

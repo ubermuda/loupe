@@ -84,4 +84,5 @@ so restart `just docs` after you change it.
 `.github/workflows/docs.yml` builds this site and deploys it to GitHub Pages.
 It runs on each push to `main` that changes `docs/`, `website/` or a changelog
 fragment. Before the build, it folds the changelog fragments into the
-published changelog, and commits nothing. The site is served at `https://ubermuda.github.io/loupe/`.
+published changelog, and commits nothing. The site is served at
+`https://ubermuda.github.io/loupe/`.
