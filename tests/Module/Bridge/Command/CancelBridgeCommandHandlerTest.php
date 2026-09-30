@@ -130,6 +130,23 @@ final class CancelBridgeCommandHandlerTest extends KernelTestCase
         self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
     }
 
+    /** A stop of another run went through after the hold was written, so a later cancel keeps the card held. */
+    public function test_a_cancelled_stop_keeps_the_hold_a_taken_stop_of_another_run_needs(): void
+    {
+        $this->boot();
+        [$owner, $run] = $this->scenario('cancel-stop-other-taken');
+        $first = $this->seedRun($this->em(), $run->project, cardId: $run->cardId, state: WorkerRunState::Running);
+        $taken = $this->seedRun($this->em(), $run->project, cardId: $run->cardId, state: WorkerRunState::Stopped);
+        $this->seedCommand($this->em(), $first, BridgeCommandState::Cancelled, new \DateTimeImmutable('2026-09-29 12:03:00'));
+        $this->holds()->hold($run->project, $run->cardId, $first, $owner);
+        $this->seedCommand($this->em(), $taken, BridgeCommandState::Done, new \DateTimeImmutable('2026-09-29 12:03:00'));
+        $this->seedCommand($this->em(), $run, requestedAt: new \DateTimeImmutable('2026-09-29 12:03:00'));
+
+        $this->cancel($run, $owner);
+
+        self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
+    }
+
     public function test_the_last_cancelled_stop_of_a_card_releases_its_hold(): void
     {
         $this->boot();

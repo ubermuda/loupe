@@ -53,8 +53,10 @@ final readonly class CancelBridgeCommandHandler
             $this->em->flush();
 
             if (BridgeCommandKind::StopRun === $pending->kind && !$this->bridgeCommands->hasPendingStopForCard($run->project, $run->cardId)) {
-                $stoppedRun = $this->cardHolds->findOneOfCard($run->project, $run->cardId)?->stoppedRun;
-                if (null !== $stoppedRun && $this->bridgeCommands->lastStopWasCancelled($stoppedRun)) {
+                $hold = $this->cardHolds->findOneOfCard($run->project, $run->cardId);
+                // A stop of another run that the bridge took since the hold keeps the card held.
+                if (null !== $hold && null !== $hold->stoppedRun && $this->bridgeCommands->lastStopWasCancelled($hold->stoppedRun)
+                    && !$this->bridgeCommands->hasLiveStopForCardSince($run->project, $run->cardId, $hold->heldAt)) {
                     $this->holds->release($run->project, [$run->cardId]);
                 }
             }
