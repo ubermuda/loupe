@@ -60,6 +60,12 @@ final readonly class DeliverPullRequestNoticeHandler
             return;
         }
 
+        if (!StaleApprovalNoticeBody::stillHolds($notice, $pullRequest)) {
+            $this->fail($notice, 'outdated');
+
+            return;
+        }
+
         $commenter = $this->commenters->for($pullRequest->forge);
         if (null === $commenter) {
             $this->fail($notice, 'no_commenter');

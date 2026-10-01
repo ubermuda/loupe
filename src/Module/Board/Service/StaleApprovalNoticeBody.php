@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\PullRequestNotice;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestState;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -30,6 +32,15 @@ final readonly class StaleApprovalNoticeBody
     public static function marker(string $noticeKey): string
     {
         return '<!-- loupe-notice: '.$noticeKey.' -->';
+    }
+
+    /** Delivery is async, so a new head, a new approval or a merge can outdate the notice before it posts. */
+    public static function stillHolds(PullRequestNotice $notice, ForgePullRequest $pullRequest): bool
+    {
+        return PullRequestState::Open === $pullRequest->state
+            && null !== $pullRequest->headSha
+            && self::key($pullRequest->headSha) === $notice->noticeKey
+            && $pullRequest->approvalIsStale();
     }
 
     public function of(PullRequestNotice $notice): string

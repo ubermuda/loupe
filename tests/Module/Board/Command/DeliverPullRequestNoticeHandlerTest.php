@@ -11,6 +11,7 @@ use App\Module\Board\Entity\PullRequestNotice;
 use App\Module\Board\Repository\PullRequestNoticeRepository;
 use App\Module\Board\Service\StaleApprovalNoticeBody;
 use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\PullRequestCommenters;
 use App\Module\Forge\Service\PullRequestCommentFailed;
@@ -18,6 +19,7 @@ use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\FakePullRequestCommenter;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
@@ -47,6 +49,9 @@ final class DeliverPullRequestNoticeHandlerTest extends KernelTestCase
 
         $this->project = $this->makeProject('deliver-notice');
         $this->pullRequest = new ForgePullRequest($this->project, 'github', 'Acme/Widgets', 5);
+        $this->pullRequest->headSha = $this->pullRequest->uncoveredSha = self::HEAD;
+        $this->pullRequest->approvalId = 'review1';
+        $this->pullRequest->approvalSha = $this->pullRequest->coveredSha = 'approved1';
         $this->em->persist($this->pullRequest);
         $this->em->flush();
     }
@@ -182,6 +187,29 @@ final class DeliverPullRequestNoticeHandlerTest extends KernelTestCase
         $notice = $this->reload($notice);
         self::assertSame(PullRequestCommentState::Failed, $notice->state);
         self::assertSame('unknown_pull_request', $notice->cause);
+    }
+
+    /** @return iterable<string, array{\Closure(ForgePullRequest): void}> */
+    public static function outdatedPullRequests(): iterable
+    {
+        yield 'a new head' => [static function (ForgePullRequest $pullRequest): void { $pullRequest->headSha = 'ccccccc'; }];
+        yield 'a new approval of the head' => [static function (ForgePullRequest $pullRequest): void { $pullRequest->coveredSha = self::HEAD; }];
+        yield 'a merge' => [static function (ForgePullRequest $pullRequest): void { $pullRequest->state = PullRequestState::Merged; }];
+    }
+
+    #[DataProvider('outdatedPullRequests')]
+    public function test_a_notice_that_the_pull_request_outdated_before_delivery_is_not_posted(\Closure $change): void
+    {
+        $notice = $this->pending();
+        $change($this->pullRequest);
+        $this->em->flush();
+
+        $this->handle($notice);
+
+        self::assertSame([], $this->commenter->comments);
+        $notice = $this->reload($notice);
+        self::assertSame(PullRequestCommentState::Failed, $notice->state);
+        self::assertSame('outdated', $notice->cause);
     }
 
     public function test_a_posted_notice_is_not_posted_again(): void
