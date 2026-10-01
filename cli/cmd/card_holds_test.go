@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -107,6 +108,63 @@ func TestAFailedHeldListKeepsTheHolds(t *testing.T) {
 	line := h.only(t, "card_holds_unreadable")
 	if str(t, line, "level") != "WARN" || str(t, line, "error") != "HTTP 500" {
 		t.Fatalf("card_holds_unreadable = %v", line)
+	}
+}
+
+// A hold event moves the cursor. The hub can send its id again after a
+// release, and that copy is a duplicate, so the card stays free.
+func TestAHoldEventMovesTheCursorAndRunsOnce(t *testing.T) {
+	h := newHarness(t)
+	path := withCursor(t, h, 10, 10)
+
+	h.router.onEvent("11", []byte(holdPayload("board.card_held", 87)))
+	if st := readCursorFile(t, path); st.Cursor != 11 || !h.cardHoldOf(87) {
+		t.Fatalf("cursor = %+v, held = %v", st, h.cardHoldOf(87))
+	}
+	h.router.onEvent("12", []byte(holdPayload("board.card_released", 87)))
+	h.router.onEvent("11", []byte(holdPayload("board.card_held", 87)))
+
+	if st := readCursorFile(t, path); st.Cursor != 12 {
+		t.Fatalf("cursor = %+v", st)
+	}
+	if line := h.only(t, "event_duplicate"); str(t, line, "id") != "11" {
+		t.Fatalf("event_duplicate = %v", line)
+	}
+	if h.cardHoldOf(87) {
+		t.Fatal("a duplicate held the card again")
+	}
+	h.send(cardMoved(87))
+	if h.runs() != 1 {
+		t.Fatalf("runs = %d on a free card", h.runs())
+	}
+}
+
+// On connect the list comes after the catch-up, so it wins over a replayed
+// hold of a card the list leaves out.
+func TestTheHeldListWinsOverAReplayedHold(t *testing.T) {
+	h := newHarness(t)
+	withCursor(t, h, 10, 10)
+	rep := &replayer{pages: []api.Replay{{Events: []api.ReplayEvent{
+		{ID: "11", Type: "board.card_held", Data: holdPayload("board.card_held", 87)},
+	}}}}
+	h.router.replay = rep.replay
+	h.router.readHolds = (&holdLists{}).read
+
+	h.router.handler().OnConnect()
+	h.router.wg.Wait()
+
+	if got := rep.called(); !slices.Equal(got, []int64{10}) {
+		t.Fatalf("replay afters = %v", got)
+	}
+	if h.cardHoldOf(87) {
+		t.Fatal("the replayed hold outlived the list")
+	}
+	if released := h.only(t, "card_hold_released"); str(t, released, "card_id") != cardUUID(87) {
+		t.Fatalf("card_hold_released = %v", released)
+	}
+	h.send(cardMoved(87))
+	if h.runs() != 1 {
+		t.Fatalf("runs = %d after the list freed the card", h.runs())
 	}
 }
 
