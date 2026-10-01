@@ -258,6 +258,32 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         self::assertNull($pullRequest->syncFailedReason);
     }
 
+    public function test_a_holder_that_waits_for_a_mergeability_reread_queues_a_pass_after_it(): void
+    {
+        $holder = $this->candidate(4, PullRequestMergeability::Unknown, approvedAt: '-1 hour');
+        $holder->nextRefreshAt = $this->clock->now()->modify('+120 seconds');
+        $this->behind(5, approvedAt: '-2 hours');
+        $this->em->flush();
+
+        $this->handle();
+
+        self::assertSame([], $this->updater->updates);
+        $passes = $this->queuedPasses();
+        self::assertCount(1, $passes);
+        self::assertSame(180_000, $passes[0]->last(DelayStamp::class)?->getDelay());
+    }
+
+    public function test_a_reread_long_overdue_queues_a_pass_with_no_delay(): void
+    {
+        $holder = $this->candidate(4, PullRequestMergeability::Unknown, approvedAt: '-1 hour');
+        $holder->nextRefreshAt = $this->clock->now()->modify('-5 minutes');
+        $this->em->flush();
+
+        $this->handle();
+
+        self::assertSame(0, $this->queuedPasses()[0]->last(DelayStamp::class)?->getDelay());
+    }
+
     public function test_a_holder_stops_the_line(): void
     {
         $this->candidate(4, PullRequestMergeability::Mergeable, approvedAt: '-1 hour');

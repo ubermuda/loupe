@@ -55,12 +55,14 @@ final class SyncLineTest extends TestCase
     public function test_an_up_to_date_candidate_with_running_or_passed_checks_holds_the_line(): void
     {
         $holder = $this->candidate(4, approvedAt: '-1 hour', mergeability: PullRequestMergeability::Mergeable, checks: PullRequestChecks::Passed);
+        $holder->nextRefreshAt = $this->now->modify('+1 minute');
         $behind = $this->candidate(5, approvedAt: '-2 hours');
 
         $line = new SyncLine([$holder, $behind], $this->now);
 
         self::assertSame($holder, $line->holder);
         self::assertNull($line->next);
+        self::assertNull($line->holderRereadAt);
         self::assertNull($line->statusOf($holder));
         $this->assertStatus($line, $behind, PullRequestSyncStatus::WaitsTurn, blockerNumber: 4);
     }
@@ -74,6 +76,16 @@ final class SyncLineTest extends TestCase
 
         self::assertSame($holder, $line->holder);
         self::assertNull($line->next);
+        self::assertEquals($this->now->modify('+1 minute'), $line->holderRereadAt);
+    }
+
+    public function test_an_unknown_mergeability_under_a_fresh_marker_waits_for_no_reread(): void
+    {
+        $holder = $this->candidate(4, mergeability: PullRequestMergeability::Unknown, checks: PullRequestChecks::Pending);
+        $holder->nextRefreshAt = $this->now->modify('+1 minute');
+        $this->mark($holder, '-1 minute');
+
+        self::assertNull(new SyncLine([$holder], $this->now)->holderRereadAt);
     }
 
     public function test_an_unknown_mergeability_that_the_reads_gave_up_on_does_not_hold_the_line(): void
@@ -91,11 +103,13 @@ final class SyncLineTest extends TestCase
     {
         $holder = $this->candidate(4, mergeability: PullRequestMergeability::Unknown, checks: PullRequestChecks::Pending);
         $holder->syncedSha = $holder->headSha;
+        $holder->nextRefreshAt = $this->now->modify('+1 minute');
 
         $line = new SyncLine([$holder, $this->candidate(5)], $this->now);
 
         self::assertSame($holder, $line->holder);
         self::assertNull($line->next);
+        self::assertNull($line->holderRereadAt);
     }
 
     public function test_failed_checks_do_not_hold_the_line(): void

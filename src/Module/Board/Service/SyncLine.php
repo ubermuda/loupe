@@ -24,6 +24,9 @@ final readonly class SyncLine
 
     public ?ForgePullRequest $holder;
 
+    /** When Forge rereads the holder, if the holder holds only while it waits for that reread to resolve its mergeability. */
+    public ?\DateTimeImmutable $holderRereadAt;
+
     /** The pull request to sync now, or null while a holder exists or none is behind. */
     public ?ForgePullRequest $next;
 
@@ -46,6 +49,7 @@ final readonly class SyncLine
             $candidates,
             static fn (ForgePullRequest $row): bool => $fresh($row) || self::isUpToDate($row),
         ));
+        $this->holderRereadAt = null !== $this->holder && !$fresh($this->holder) && self::awaitsReread($this->holder) ? $this->holder->nextRefreshAt : null;
         $this->next = null !== $this->holder ? null : self::first(array_filter(
             $candidates,
             static fn (ForgePullRequest $row): bool => PullRequestMergeability::Behind === $row->mergeability && null === $row->syncFailedReason && !$stale($row),
@@ -110,15 +114,23 @@ final readonly class SyncLine
 
     private static function isUpToDate(ForgePullRequest $row): bool
     {
-        // Forge stops rereading an unknown mergeability after a few tries, so only a pending read or a head Loupe synced still holds.
-        $known = PullRequestMergeability::Unknown !== $row->mergeability
-            || null !== $row->nextRefreshAt
-            || (null !== $row->syncedSha && $row->syncedSha === $row->headSha);
+        $holds = PullRequestMergeability::Unknown !== $row->mergeability || self::isOwnSync($row) || self::awaitsReread($row);
 
-        return $known
+        return $holds
             && PullRequestMergeability::Behind !== $row->mergeability
             && PullRequestMergeability::Conflicting !== $row->mergeability
             && (PullRequestChecks::Pending === $row->checks || PullRequestChecks::Passed === $row->checks);
+    }
+
+    /** Forge stops rereading an unknown mergeability after a few tries, so an unknown one holds only while a reread is due. */
+    private static function awaitsReread(ForgePullRequest $row): bool
+    {
+        return PullRequestMergeability::Unknown === $row->mergeability && null !== $row->nextRefreshAt && !self::isOwnSync($row);
+    }
+
+    private static function isOwnSync(ForgePullRequest $row): bool
+    {
+        return null !== $row->syncedSha && $row->syncedSha === $row->headSha;
     }
 
     /** @param array<ForgePullRequest> $rows */
