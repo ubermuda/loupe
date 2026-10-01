@@ -37,9 +37,6 @@ final readonly class SyncNextPullRequestHandler
     /** Lets the pass after the lifetime find the marker stale, whatever the clock skew between workers. */
     private const int EXPIRY_MARGIN_SECONDS = 30;
 
-    /** Lets the reread of an unknown mergeability run before the pass that follows it. */
-    private const int REREAD_MARGIN_SECONDS = 60;
-
     public function __construct(
         private ProjectRepository $projects,
         private BoardAvailability $board,
@@ -139,7 +136,8 @@ final readonly class SyncNextPullRequestHandler
 
         // The last reread fires no event when the mergeability stays unknown, so nothing else would free the line.
         if (null !== $line->holderRereadAt) {
-            $delay = max(0, $line->holderRereadAt->getTimestamp() - $now->getTimestamp() + self::REREAD_MARGIN_SECONDS);
+            // One second past the end, so the pass finds the window closed. A closed window queues nothing, so this cannot loop.
+            $delay = $line->holderRereadAt->getTimestamp() - $now->getTimestamp() + 1;
             $this->bus->dispatch(new SyncNextPullRequest($projectId), [new DelayStamp($delay * 1000)]);
         }
 

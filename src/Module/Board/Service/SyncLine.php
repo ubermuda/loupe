@@ -22,9 +22,12 @@ final readonly class SyncLine
 
     public const string TIMEOUT = 'timeout';
 
+    /** How long after its planned reread an unknown mergeability still holds, so the reread can run first. */
+    public const int REREAD_MARGIN_SECONDS = 60;
+
     public ?ForgePullRequest $holder;
 
-    /** When Forge rereads the holder, if the holder holds only while it waits for that reread to resolve its mergeability. */
+    /** When the holder stops holding, if it holds only while a reread may still resolve its unknown mergeability. */
     public ?\DateTimeImmutable $holderRereadAt;
 
     /** The pull request to sync now, or null while a holder exists or none is behind. */
@@ -47,9 +50,9 @@ final readonly class SyncLine
         $this->timedOut = array_values(array_filter($rows, $stale));
         $this->holder = self::first(array_filter(
             $candidates,
-            static fn (ForgePullRequest $row): bool => $fresh($row) || self::isUpToDate($row),
+            static fn (ForgePullRequest $row): bool => $fresh($row) || self::isUpToDate($row, $now),
         ));
-        $this->holderRereadAt = null !== $this->holder && !$fresh($this->holder) && self::awaitsReread($this->holder) ? $this->holder->nextRefreshAt : null;
+        $this->holderRereadAt = null !== $this->holder && !$fresh($this->holder) ? self::rereadWindowEnd($this->holder, $now) : null;
         $this->next = null !== $this->holder ? null : self::first(array_filter(
             $candidates,
             static fn (ForgePullRequest $row): bool => PullRequestMergeability::Behind === $row->mergeability && null === $row->syncFailedReason && !$stale($row),
@@ -112,9 +115,9 @@ final readonly class SyncLine
             && PullRequestReview::ChangesRequested !== $row->review;
     }
 
-    private static function isUpToDate(ForgePullRequest $row): bool
+    private static function isUpToDate(ForgePullRequest $row, \DateTimeImmutable $now): bool
     {
-        $holds = PullRequestMergeability::Unknown !== $row->mergeability || self::isOwnSync($row) || self::awaitsReread($row);
+        $holds = PullRequestMergeability::Unknown !== $row->mergeability || self::isOwnSync($row) || null !== self::rereadWindowEnd($row, $now);
 
         return $holds
             && PullRequestMergeability::Behind !== $row->mergeability
@@ -122,10 +125,18 @@ final readonly class SyncLine
             && (PullRequestChecks::Pending === $row->checks || PullRequestChecks::Passed === $row->checks);
     }
 
-    /** Forge stops rereading an unknown mergeability after a few tries, so an unknown one holds only while a reread is due. */
-    private static function awaitsReread(ForgePullRequest $row): bool
+    /**
+     * Forge stops rereading an unknown mergeability after a few tries, or after a failed read, so an unknown one
+     * holds only until shortly after its planned reread. The end is null once it has passed.
+     */
+    private static function rereadWindowEnd(ForgePullRequest $row, \DateTimeImmutable $now): ?\DateTimeImmutable
     {
-        return PullRequestMergeability::Unknown === $row->mergeability && null !== $row->nextRefreshAt && !self::isOwnSync($row);
+        if (PullRequestMergeability::Unknown !== $row->mergeability || null === $row->nextRefreshAt || self::isOwnSync($row)) {
+            return null;
+        }
+        $end = $row->nextRefreshAt->modify(\sprintf('+%d seconds', self::REREAD_MARGIN_SECONDS));
+
+        return $now < $end ? $end : null;
     }
 
     private static function isOwnSync(ForgePullRequest $row): bool

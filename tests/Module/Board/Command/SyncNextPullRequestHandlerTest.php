@@ -270,18 +270,22 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         self::assertSame([], $this->updater->updates);
         $passes = $this->queuedPasses();
         self::assertCount(1, $passes);
-        self::assertSame(180_000, $passes[0]->last(DelayStamp::class)?->getDelay());
+        self::assertSame(181_000, $passes[0]->last(DelayStamp::class)?->getDelay());
     }
 
-    public function test_a_reread_long_overdue_queues_a_pass_with_no_delay(): void
+    public function test_a_reread_overdue_past_its_window_frees_the_line_and_queues_no_reread_pass(): void
     {
-        $holder = $this->candidate(4, PullRequestMergeability::Unknown, approvedAt: '-1 hour');
-        $holder->nextRefreshAt = $this->clock->now()->modify('-5 minutes');
+        $unknown = $this->candidate(4, PullRequestMergeability::Unknown, approvedAt: '-2 hours');
+        $unknown->nextRefreshAt = $this->clock->now()->modify('-5 minutes');
+        $behind = $this->behind(5, approvedAt: '-1 hour');
         $this->em->flush();
 
         $this->handle();
 
-        self::assertSame(0, $this->queuedPasses()[0]->last(DelayStamp::class)?->getDelay());
+        self::assertCount(1, $this->updater->updates);
+        self::assertSame($behind, $this->updater->updates[0][0]);
+        $delays = array_map(static fn (Envelope $envelope): ?int => $envelope->last(DelayStamp::class)?->getDelay(), $this->queuedPasses());
+        self::assertSame([(SyncLine::MARKER_LIFETIME_SECONDS + 30) * 1000], $delays);
     }
 
     public function test_a_holder_stops_the_line(): void

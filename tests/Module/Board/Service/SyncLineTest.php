@@ -76,7 +76,7 @@ final class SyncLineTest extends TestCase
 
         self::assertSame($holder, $line->holder);
         self::assertNull($line->next);
-        self::assertEquals($this->now->modify('+1 minute'), $line->holderRereadAt);
+        self::assertEquals($this->now->modify(\sprintf('+%d seconds', 60 + SyncLine::REREAD_MARGIN_SECONDS)), $line->holderRereadAt);
     }
 
     public function test_an_unknown_mergeability_under_a_fresh_marker_waits_for_no_reread(): void
@@ -86,6 +86,30 @@ final class SyncLineTest extends TestCase
         $this->mark($holder, '-1 minute');
 
         self::assertNull(new SyncLine([$holder], $this->now)->holderRereadAt);
+    }
+
+    public function test_an_unknown_mergeability_holds_through_the_margin_after_its_reread(): void
+    {
+        $holder = $this->candidate(4, mergeability: PullRequestMergeability::Unknown, checks: PullRequestChecks::Pending);
+        $holder->nextRefreshAt = $this->now->modify('-30 seconds');
+
+        $line = new SyncLine([$holder, $this->candidate(5)], $this->now);
+
+        self::assertSame($holder, $line->holder);
+        self::assertEquals($this->now->modify(\sprintf('+%d seconds', SyncLine::REREAD_MARGIN_SECONDS - 30)), $line->holderRereadAt);
+    }
+
+    public function test_an_unknown_mergeability_past_its_reread_window_does_not_hold_the_line(): void
+    {
+        $unknown = $this->candidate(4, mergeability: PullRequestMergeability::Unknown, checks: PullRequestChecks::Pending);
+        $unknown->nextRefreshAt = $this->now->modify(\sprintf('-%d seconds', SyncLine::REREAD_MARGIN_SECONDS));
+        $behind = $this->candidate(5);
+
+        $line = new SyncLine([$unknown, $behind], $this->now);
+
+        self::assertNull($line->holder);
+        self::assertNull($line->holderRereadAt);
+        self::assertSame($behind, $line->next);
     }
 
     public function test_an_unknown_mergeability_that_the_reads_gave_up_on_does_not_hold_the_line(): void
