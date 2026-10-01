@@ -322,6 +322,14 @@ that bridge id, as the [bridge page](../extending/cli-bridge.md) describes. The
 banner shows the first eight characters of the bridge id, and the full id is in
 their tooltip.
 
+A live rule on `pull_request.behind` races the app when the project has the
+automation and **Sync an approved pull request that is behind** on. Loupe and
+the worker of that rule then both update the same branch. The Rules page marks
+such a rule with "Races the app sync. Remove it from rules.yaml." The board
+banner lists it below the dead rules, and the inbox gets a
+[notice](inbox.md#notices). Remove the rule from the `rules.yaml` of its
+bridge. The mark goes away when that bridge sends its next report.
+
 The column dialog and the delete dialog in board settings warn before they save when a live rule
 watches that column's slug. A rename changes the slug, and a delete removes it,
 so the rule stops matching in both cases.
@@ -363,9 +371,15 @@ when one applies, and the review: **Approved**, **Changes requested** or
 with no usable URL shows **Unavailable**. See
 [What GitHub tells a card](#what-github-tells-a-card).
 
+When the project syncs an approved pull request that is behind, each open pull
+request whose base is the default branch also shows one line about its sync. It shows
+**Waits for an approval**, **Conflicts with the base**, **Waits its turn behind
+#N**, **Synced, checks running** or **Sync failed** with the cause. A pull
+request with nothing to wait for shows no line. See [Automation](#automation).
+
 When the automation acted on the card, a line under the links says what it did
-last, and when. It asked for a fix round, it stopped, or it marked the pull
-request ready to merge. See [Automation](#automation). When the automation is
+last, and when. It asked for a fix round, it stopped, it marked the pull
+request ready to merge, or it synced the branch with its base. See [Automation](#automation). When the automation is
 blocked, a notice gives the reason: the checks fail, the pull request has a
 merge conflict, or a reviewer requested changes. Loupe clears the block and
 resets the fix count when a person moves the card to another column, when the
@@ -379,15 +393,20 @@ When an approval did not move the card because a blocker is open, the page says
 The card page and the drawer show the state from when they opened. Reload the
 page to see a newer state. The board tiles update by themselves.
 
-The page also lists the card's five latest agent runs, with the rule that
-started each run, when it ran, how long it took and how it ended. A run opens
-its details on the **Runs** tab of the Activity page.
-The project owner can stop, resume and cancel runs from this list. See
+The page also lists up to five agent runs of the card that are still in
+progress, with the rule that started each run, when it started and its state.
+A run opens its details on the **Runs** tab of the Activity page. A finished
+run leaves this list, and the **Run history** link shows it. A card with no
+run in progress, no usage and no hold shows no runs section.
+The project owner can stop a run in progress, or cancel a stop that still
+waits for the bridge, from this list. Resume a finished run on the **Runs**
+tab of the Activity page. See
 [Stop, resume and cancel](worker-runs.md#stop-resume-and-cancel).
 
 A stop of a run holds the card. The runs section then shows **Held: no worker
-starts on this card until you resume one of its runs or move it.** No bridge
-starts a worker on a held card. These actions release the hold:
+starts on this card until you resume one of its runs in Run history, or move
+it.** No bridge starts a worker on a held card. These actions release the
+hold:
 
 - A person resumes one of the runs of the card.
 - A person moves the card to another column. A move by an agent or by the
@@ -395,6 +414,24 @@ starts a worker on a held card. These actions release the hold:
 - A person cancels the stop while it still waits for the bridge. This releases
   only the hold that this stop wrote.
 - A person deletes the column of the card, or the card.
+
+The **History** tab lists what happened to the card, newest first, on a
+timeline. A row says who created the card and in which column, and who moved
+it from one column to another. When Loupe moved the card on its own, a line
+under the row says why, for example after a pull request merged. An agent's
+move inside a worker run names that run on the same line. The tab also
+records when the automation asked for a fix or stopped, with the reason, and
+when a pull request was ready to merge. A finished agent run shows its
+rule, its duration and its result, and it links to the run while the run is
+kept.
+
+A row names a person by their full name. An agent's change reads **Agent for**
+and the name of the person the agent works for. A change by the app reads
+**Loupe**. A change from the site-review widget reads **A reviewer**, because
+the widget does not name its visitor. A deleted account reads **A deleted
+user**. The tab shows 50 rows, and **Show older** loads the next 50 in
+place. Loupe records history from the version that added this tab, so an
+older card starts with an empty tab.
 
 A card with links to other cards shows a **Linked cards** table. Each row gives
 the kind of link, the other card's number, its title and its column. A row opens
@@ -511,9 +548,11 @@ refuses a change of parent, it shows why and keeps the card where it was.
 Loupe moves an epic on its own:
 
 - When the last open child moves to a terminal column, the epic moves to the
-  first terminal column of the board.
-- When a child of a done epic leaves the terminal column, or an open card joins a
-  done epic, the epic moves back to the `implementation` column.
+  first terminal column of the board. If the epic links an open pull request,
+  it moves to the `in-review` column instead and waits there.
+- When a child of a done epic or of an epic in `in-review` leaves the terminal
+  column, or an open card joins such an epic, the epic moves back to the
+  `implementation` column.
 - When a child with a parent waits in Backlog and its last blocker
   moves to a terminal column, the child moves to the `implementation` column.
 
@@ -529,6 +568,34 @@ from the epic, first.
 When an epic is done, its lane goes away. The epic shows in its terminal column
 as one card with its count, and its children leave the board. The children stay
 on the epic page, on the history page of their column, and in the MCP tools.
+
+### The epic pull request
+
+An epic can link its own pull request, which carries the merged work of its
+children. Loupe counts a linked pull request as open until it is merged or
+closed. A link that Loupe never read also counts as open.
+
+While a linked pull request is open, the epic does not close when its last
+child finishes. It waits in the `in-review` column. The merge of the pull
+request then moves the epic to the first terminal column, as for any card. A
+board with no `in-review` column, or a terminal one, closes the epic at once.
+
+When each linked pull request is closed and none merged, the epic does not
+close when its last child finishes. It goes back to the Backlog about ten
+minutes later, as for any card.
+
+For a repository connected through the GitHub App, Loupe also changes the
+pull request, while the automation is on:
+
+- When the epic enters `in-review`, Loupe marks its linked pull requests ready
+  for review.
+- When the epic goes back to `implementation`, Loupe converts them to draft.
+- When a person or an agent moves the epic to the Backlog, Loupe closes its
+  open linked pull requests.
+
+The reverse also applies. When you close the epic pull request on GitHub and
+none merged, the card goes back to the Backlog after about ten minutes, as for
+any card.
 
 ## What a card holds
 
@@ -639,7 +706,8 @@ while the automation is on:
 - When the required checks pass on an open pull request that is not a draft, a
   card in the `implementation` column moves to `in-review`. A draft whose
   checks passed moves the card when it is marked ready. A board with no
-  `in-review` column, or a terminal one, skips this move.
+  `in-review` column, or a terminal one, skips this move. A card with an open
+  child stays where it is.
 - When the pull request merges or closes, and each pull request of the card is
   merged or closed with at least one merged, the card moves to the first
   terminal column. A link that Loupe never read, such as one on another forge,
@@ -673,6 +741,7 @@ gets these requests. A card in a terminal column never gets one.
 | **Fix strategy** | Fresh | Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card, and falls back to a new worker |
 | **Loop limit** | 3 | The number of fix requests a card gets in a row, from 1 to 20 |
 | **Comment on the pull request when a fix run is queued** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
+| **Sync an approved pull request that is behind** | off | When on, Loupe updates the branch of an approved pull request that is behind its base, one at a time |
 
 The comment gives the reason for the fix and the failed checks. It also gives
 the fix round against the loop limit, and a link to the card. The card page
@@ -689,6 +758,27 @@ cause. The tab hides it when a later comment posts, or when you turn the
 setting off. The GitHub App must
 have Pull requests: read and write. The comment needs a bridge that reports
 the event that queued a run. An older bridge sends none, so no comment posts.
+
+The sync setting keeps approved work up to date with its base, so it can merge.
+Loupe syncs one pull request of the project at a time. It picks the pull
+request with the oldest approval, and the lower number breaks a tie. While an
+approved pull request is up to date, or a sync of it runs, no other pull request
+syncs. A sync that does not finish in ten minutes counts as failed.
+
+Loupe syncs only a pull request that it reads as behind its base. That happens
+only when the rules of the base branch require a branch to be up to date before
+it merges. On another base, a pull request that is behind can merge as it is, so
+nothing syncs.
+
+A pull request counts as approved when a person with write access approved its
+current head. An approval of a head that Loupe synced still counts, so a sync
+needs no new review. The exception is a base branch whose rules dismiss stale
+approvals on a push. GitHub then removes the approval when Loupe syncs, and the
+pull request shows **Waits for an approval** until a person approves it again.
+A request for changes removes the pull request from
+the line. Loupe only updates the branch, and it never merges. The GitHub App
+must have Contents: read and write. See
+[Forge webhooks](../extending/forge-webhooks.md).
 
 Loupe asks for a fix when the required checks fail, when the pull request
 conflicts with its base, and when a reviewer requests changes. At the loop
@@ -796,7 +886,7 @@ card in its stage column. Each entry carries `cardId`, `number`, `title` and
 same way `card_list` does, with 50 events by default and 100 at most. Each event
 carries `kind`, `occurredAt` and `actor`.
 
-`kind` is `created`, `moved`, `fix-requested`, `stopped`, `ready-to-merge` or
+`kind` is `created`, `moved`, `fix-requested`, `stopped`, `ready-to-merge`, `synced` or
 `run-finished`. `actor` carries `kind` and `name`. Its `kind` is `human`,
 `agent`, `reviewer` or `system`. `name` is the current name of the person
 behind the event. It is null when there is no person, such as for a deleted

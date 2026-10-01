@@ -1,0 +1,20 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'billing.beta_invite.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="lp-billing">
+    <h1 class="lp-workspace-title">{{ 'billing.beta_invite.redeemed.heading'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'billing.beta_invite.redeemed.description'|trans }}</p>
+
+    <section class="lp-billing-block">
+        {% if hasLiveSubscription %}
+            <p class="lp-connect-hint" data-beta-stripe-hint>
+                {{ 'billing.beta_invite.redeemed.stripe_hint'|trans }}
+                <a href="{{ path('app_billing_subscribe') }}">{{ 'billing.beta_invite.redeemed.manage_subscription'|trans }}</a>
+            </p>
+        {% endif %}
+        <a href="{{ path('app_home') }}" class="lp-btn lp-btn--primary">{{ 'billing.beta_invite.redeemed.continue'|trans }}</a>
+    </section>
+</div>
+{% endblock %}

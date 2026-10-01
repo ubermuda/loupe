@@ -208,22 +208,25 @@ Register it on GitHub under Settings, Developer settings, GitHub Apps.
 | Webhook URL | `https://<host>/webhooks/forge/github` |
 | Webhook secret | the value of `GITHUB_APP_WEBHOOK_SECRET` |
 
-Grant these repository permissions. Pull requests is read and write. The
-others are read-only. Loupe needs the write access only to post the fix-run
-comment.
+Grant these repository permissions. Pull requests and Contents are read and
+write. The others are read-only. Loupe needs write access to Pull requests to
+post the fix-run comment, and to mark an epic pull request ready, convert it to
+draft or close it. It needs write access to Contents to sync a branch that is
+behind its base.
 
 | Permission | Why |
 |---|---|
-| Pull requests (read and write) | the merge and the review verdict; write lets Loupe post the fix-run comment |
+| Pull requests (read and write) | the merge and the review verdict; write lets Loupe post the fix-run comment, and mark an epic pull request ready, draft or closed |
 | Checks | the aggregate check conclusion |
-| Contents | GitHub offers the Push event only with it |
+| Contents (read and write) | GitHub offers the Push event only with it; write lets Loupe sync a pull request branch with its base |
 | Commit statuses | the status of each check context |
 | Metadata | GitHub requires it, and it carries the Repository event |
 
 An installation that exists before this change keeps its old permissions.
-When you change the App to read and write, the owner of each installation
-must accept the new permission on GitHub. Until then, `/admin/status` shows a
-warning that names each account that has not accepted it.
+When you change a permission to read and write, the owner of each
+installation must accept the new permission on GitHub. Until then,
+`/admin/status` shows a warning that names each account that has not accepted
+it.
 
 Subscribe to these events. The permissions decide which events GitHub offers.
 GitHub sends the installation events without a subscription.

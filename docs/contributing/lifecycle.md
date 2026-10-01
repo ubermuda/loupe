@@ -195,28 +195,6 @@ rules:
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
       Pull request {pullRequestUrl} is ready to merge at {headSha}.
       Loupe instance https://loupe.ac.
-
-  - name: sync-behind
-    on: pull_request.behind
-    project: loupe
-    permissionMode: bypassPermissions
-    prompt: |
-      Use the loupe-stage-merge skill.
-      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
-      Pull request {pullRequestUrl} is behind its base.
-      Loupe instance https://loupe.ac.
-
-  - name: sync-approved
-    on: pull_request.review_submitted
-    project: loupe
-    when:
-      verdict: approved
-    permissionMode: bypassPermissions
-    prompt: |
-      Use the loupe-stage-merge skill.
-      Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
-      Pull request {pullRequestUrl} is behind its base.
-      Loupe instance https://loupe.ac.
 ```
 
 The `fix-round` rule starts a document fix round when a person requests changes
@@ -232,14 +210,18 @@ same head, an approval, and every required check green. The approval must also
 cover every commit after it, read by time. A sync merge from the base passes. A
 conflict resolution or any other later commit stops the run as `not ready`.
 Loupe sends `ready_to_merge` without a look at the review, so the skill makes
-this check. The `sync-behind` rule
-updates the branch on GitHub with a merge commit, and reports `waiting`. It
-updates only a pull request whose approval covers the head, because each update
-costs a full CI run. An unapproved branch stops as `not ready`. Loupe sends
-`behind` once, when the branch falls behind, so the `sync-approved` rule runs
-the same update when the owner approves. A branch that is not behind then stops
-as `not ready`. Every
-pull request rule acts only on a card that links the pull request.
+this check. Every pull request rule acts only on a card that links the pull
+request.
+
+The example has no rule on `pull_request.behind`. The project turns on the
+board automation setting **Sync an approved pull request that is behind**, so
+Loupe updates such a branch itself, with no worker. A rule on
+`pull_request.behind` then races the app, and the Rules page, the board banner
+and an inbox notice flag it. The report of a rule holds no `when`, so Loupe
+cannot flag a rule on `pull_request.review_submitted` that only re-ran the sync.
+Remove such a rule by hand. A project with the setting off can still run a
+`pull_request.behind` rule with the `loupe-stage-merge` skill, which updates an
+approved branch.
 
 Each prompt carries `{projectId}` and the Loupe instance. The implementation
 skill uses both to build the card link in the pull request body. Without the

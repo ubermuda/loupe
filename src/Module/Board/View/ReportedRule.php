@@ -17,6 +17,7 @@ final readonly class ReportedRule
         public string $state,
         public ?string $reason,
         public \DateTimeImmutable $reportedAt,
+        public bool $racesSync,
     ) {
     }
 }

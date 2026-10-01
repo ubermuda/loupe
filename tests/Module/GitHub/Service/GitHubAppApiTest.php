@@ -216,6 +216,45 @@ final class GitHubAppApiTest extends TestCase
         self::assertSame(['body' => 'Hello'], json_decode($body, true, flags: \JSON_THROW_ON_ERROR));
     }
 
+    public function test_put_sends_a_json_body_with_the_installation_token_and_answers_an_accepted_body(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            new MockResponse('{"message":"Updating pull request branch."}', ['http_code' => 202]),
+        ]);
+
+        self::assertSame(['message' => 'Updating pull request branch.'], $api->put(42, '/repos/acme/widgets/pulls/7/update-branch', ['expected_head_sha' => 'abc']));
+        self::assertSame('PUT', $this->requests[1]['method']);
+        self::assertSame('https://api.github.com/repos/acme/widgets/pulls/7/update-branch', $this->requests[1]['url']);
+        self::assertSame(self::TOKEN, $this->bearer(1));
+        $body = $this->requests[1]['options']['body'] ?? null;
+        self::assertIsString($body);
+        self::assertSame(['expected_head_sha' => 'abc'], json_decode($body, true, flags: \JSON_THROW_ON_ERROR));
+    }
+
+    public function test_put_answers_an_empty_array_for_an_accepted_empty_body(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            new MockResponse('', ['http_code' => 202]),
+        ]);
+
+        self::assertSame([], $api->put(42, '/repos/acme/widgets/pulls/7/update-branch', ['expected_head_sha' => 'abc']));
+    }
+
+    public function test_put_names_the_status_of_a_refused_request(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            new MockResponse('{"message":"expected head sha didn\'t match current head ref."}', ['http_code' => 422]),
+        ]);
+
+        $failure = $this->failure(static fn () => $api->put(42, '/repos/acme/widgets/pulls/7/update-branch', ['expected_head_sha' => 'abc']));
+
+        self::assertSame('http_status', $failure->reason);
+        self::assertSame(422, $failure->status);
+    }
+
     public function test_post_names_the_status_of_a_refused_request(): void
     {
         $api = $this->api([
@@ -292,6 +331,29 @@ final class GitHubAppApiTest extends TestCase
         ]);
 
         self::assertSame('graphql_error', $this->failure(static fn () => $api->graphql(42, '{x}', []))->reason);
+    }
+
+    public function test_a_graphql_error_carries_the_type_of_the_error_that_failed_the_call(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            $this->ok(['data' => ['closePullRequest' => null], 'errors' => [['type' => 'NOT_FOUND'], ['type' => 'FORBIDDEN', 'message' => 'Resource not accessible by integration']]]),
+        ]);
+
+        $failure = $this->failure(static fn () => $api->graphql(42, '{x}', []));
+
+        self::assertSame('graphql_error', $failure->reason);
+        self::assertSame('FORBIDDEN', $failure->graphqlType);
+    }
+
+    public function test_a_graphql_error_without_a_type_carries_none(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            $this->ok(['errors' => [['message' => 'Parse error']]]),
+        ]);
+
+        self::assertNull($this->failure(static fn () => $api->graphql(42, '{', []))->graphqlType);
     }
 
     public function test_get_sends_the_query_with_the_installation_token(): void

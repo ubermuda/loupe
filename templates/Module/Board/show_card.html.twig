@@ -34,7 +34,7 @@
     <div class="lp-card-drawer__body">
         <h1 class="lp-card-drawer__title">{{ card.title }}</h1>
         <div class="lp-tabs" role="tablist" aria-label="{{ 'board.card.drawer.sections'|trans }}">
-            {% for tab in ['overview', 'details', 'conversation', 'feedback'] %}
+            {% for tab in ['overview', 'details', 'conversation', 'feedback', 'history'] %}
             <button type="button" class="lp-tabs__tab" role="tab" id="card-tab-{{ tab }}" aria-controls="card-panel-{{ tab }}" data-panel-tabs-target="tab" data-panel-tab="{{ tab }}" data-action="click->panel-tabs#select keydown->panel-tabs#keydown">{{ ('board.card.tab.' ~ tab)|trans }}</button>
             {% endfor %}
         </div>
@@ -76,7 +76,7 @@
                     {% if automation and automation.lastAction and (automation.lastAction.value != 'stopped' or automation.blockedReason) %}
                     <p class="lp-card-automation" data-card-automation>
                         <twig:ux:icon name="lucide:bot" class="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span>{{ {'fix-requested': 'board.card.automation.fix_requested', stopped: 'board.card.automation.stopped', 'ready-to-merge': 'board.card.automation.ready_to_merge'}[automation.lastAction.value]|trans }}</span>
+                        <span>{{ {'fix-requested': 'board.card.automation.fix_requested', stopped: 'board.card.automation.stopped', 'ready-to-merge': 'board.card.automation.ready_to_merge', synced: 'board.card.automation.synced'}[automation.lastAction.value]|trans }}</span>
                         {% if automation.lastActionAt %}<time datetime="{{ automation.lastActionAt|date('c') }}">{{ automation.lastActionAt|relative_time }}</time>{% endif %}
                     </p>
                     {% if automation.blockedReason and not card.column.terminal %}
@@ -182,6 +182,12 @@
                 {% endfor %}
             </ul>
             {% else %}<p class="lp-card-detail__empty">{{ 'board.card.site_review.empty'|trans }}</p>{% endif %}
+        </section>
+
+        <section class="lp-card-panel" id="card-panel-history" role="tabpanel" aria-labelledby="card-tab-history" data-panel-tabs-target="panel" data-panel-panel="history" hidden>
+            {% if history.entries is not empty %}
+            <div data-card-history>{% include '@Board/_card_history_entries.html.twig' with {history: history} only %}</div>
+            {% else %}<p class="lp-card-detail__empty" data-card-history-empty>{{ 'board.card.history.empty'|trans }}</p>{% endif %}
         </section>
     </div>
 

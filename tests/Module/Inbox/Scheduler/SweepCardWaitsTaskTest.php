@@ -7,6 +7,7 @@ namespace App\Tests\Module\Inbox\Scheduler;
 use App\Module\Inbox\Entity\InboxCardWatch;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
+use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Inbox\Messenger\ReconcileCardWaits;
 use App\Module\Inbox\Scheduler\SweepCardWaitsTask;
@@ -80,6 +81,26 @@ final class SweepCardWaitsTaskTest extends KernelTestCase
         self::assertSame(1, $sent[(string) $this->watched->id] ?? 0);
         self::assertArrayNotHasKey((string) $this->closedWatch->id, $sent);
         self::assertArrayNotHasKey((string) $this->quiet->id, $sent);
+    }
+
+    public function test_while_the_inbox_is_off_a_project_with_an_open_notice_is_reconciled(): void
+    {
+        $noticed = $this->project($this->em, $this->owner($this->em, 'sweep-notice'), 'sweep-notice');
+        $this->em->persist(new InboxItem(project: $noticed, number: 1, kind: InboxItemKind::Notice, title: 'A bridge rule races the app sync', blocking: false));
+        $closed = $this->project($this->em, $this->owner($this->em, 'sweep-notice-closed'), 'sweep-notice-closed');
+        $closedNotice = new InboxItem(project: $closed, number: 1, kind: InboxItemKind::Notice, title: 'A bridge rule races the app sync', blocking: false);
+        $closedNotice->state = InboxItemState::Done;
+        $this->em->persist($closedNotice);
+        $this->em->flush();
+        $this->switchFlag($this->em, InboxInstallFlags::FLAG_INBOX_ENABLED, false);
+        $this->transport->reset();
+
+        $this->task()();
+
+        $sent = $this->sent();
+        self::assertSame(1, $sent[(string) $noticed->id] ?? 0);
+        self::assertSame(1, $sent[(string) $this->watched->id] ?? 0);
+        self::assertArrayNotHasKey((string) $closed->id, $sent);
     }
 
     private function task(): SweepCardWaitsTask

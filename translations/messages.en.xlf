@@ -3529,6 +3529,70 @@
                 <source>billing.checkout_success.hint</source>
                 <target>Activation usually takes a few seconds. Reload the page if the app still asks you to subscribe.</target>
             </trans-unit>
+            <trans-unit id="billing.beta_invite.page.title">
+                <source>billing.beta_invite.page.title</source>
+                <target>Beta access</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.claim.heading">
+                <source>billing.beta_invite.claim.heading</source>
+                <target>Join the beta</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.claim.description">
+                <source>billing.beta_invite.claim.description</source>
+                <target>This link gives your account free access for as long as the beta runs. It works once.</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.claim.submit">
+                <source>billing.beta_invite.claim.submit</source>
+                <target>Claim free beta access</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.sign_up.heading">
+                <source>billing.beta_invite.sign_up.heading</source>
+                <target>You have a beta invite</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.sign_up.description">
+                <source>billing.beta_invite.sign_up.description</source>
+                <target>This link lets you create an account with free access for as long as the beta runs. It works once.</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.sign_up.submit">
+                <source>billing.beta_invite.sign_up.submit</source>
+                <target>Continue to sign up</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.redeemed.heading">
+                <source>billing.beta_invite.redeemed.heading</source>
+                <target>Welcome to the beta</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.redeemed.description">
+                <source>billing.beta_invite.redeemed.description</source>
+                <target>Your account now has free access for as long as the beta runs.</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.redeemed.stripe_hint">
+                <source>billing.beta_invite.redeemed.stripe_hint</source>
+                <target>You still have a paid subscription, and the beta does not stop it. Cancel it so that you are not charged.</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.redeemed.manage_subscription">
+                <source>billing.beta_invite.redeemed.manage_subscription</source>
+                <target>Manage your subscription</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.redeemed.continue">
+                <source>billing.beta_invite.redeemed.continue</source>
+                <target>Continue to the app</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.invalid.page.title">
+                <source>billing.beta_invite.invalid.page.title</source>
+                <target>Link not valid</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.invalid.heading">
+                <source>billing.beta_invite.invalid.heading</source>
+                <target>This link is no longer valid</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.invalid.body">
+                <source>billing.beta_invite.invalid.body</source>
+                <target>Someone already used this beta invite, or it was withdrawn. Ask for a new link.</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.invalid.back">
+                <source>billing.beta_invite.invalid.back</source>
+                <target>Back to Loupe</target>
+            </trans-unit>
             <trans-unit id="billing.flash.checkout_unavailable">
                 <source>billing.flash.checkout_unavailable</source>
                 <target>Checkout is unavailable right now. Please try again later.</target>
@@ -3588,6 +3652,118 @@
             <trans-unit id="billing.admin.comp.error.not_comped">
                 <source>billing.admin.comp.error.not_comped</source>
                 <target>This account holds no comp to revoke.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.page.title">
+                <source>billing.admin.beta_invite.page.title</source>
+                <target>Beta invites</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.title">
+                <source>billing.admin.beta_invite.title</source>
+                <target>Beta invites</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.subtitle">
+                <source>billing.admin.beta_invite.subtitle</source>
+                <target>Each link lets one person sign up past the registration cap, with a comp.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.issued.title">
+                <source>billing.admin.beta_invite.issued.title</source>
+                <target>New link</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.issued.help">
+                <source>billing.admin.beta_invite.issued.help</source>
+                <target>Send this link to the tester. The list below keeps a copy button until the link is used or revoked.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.issued.copy">
+                <source>billing.admin.beta_invite.issued.copy</source>
+                <target>Copy</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.issued.copied">
+                <source>billing.admin.beta_invite.issued.copied</source>
+                <target>Copied!</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.create.title">
+                <source>billing.admin.beta_invite.create.title</source>
+                <target>Create a link</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.create.subtitle">
+                <source>billing.admin.beta_invite.create.subtitle</source>
+                <target>The link works once. You can copy it again from the list until it is used or revoked.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.create.button">
+                <source>billing.admin.beta_invite.create.button</source>
+                <target>Create link</target>
+            </trans-unit>
+            <trans-unit id="billing.form.create_beta_invite_form.note.label">
+                <source>billing.form.create_beta_invite_form.note.label</source>
+                <target>Note</target>
+            </trans-unit>
+            <trans-unit id="billing.form.create_beta_invite_form.note.placeholder">
+                <source>billing.form.create_beta_invite_form.note.placeholder</source>
+                <target>reddit u/foo</target>
+            </trans-unit>
+            <trans-unit id="billing.form.create_beta_invite_form.note.help">
+                <source>billing.form.create_beta_invite_form.note.help</source>
+                <target>Optional. Say who the link is for.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.empty">
+                <source>billing.admin.beta_invite.empty</source>
+                <target>No beta invite links yet.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.column.note">
+                <source>billing.admin.beta_invite.column.note</source>
+                <target>Note</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.column.created">
+                <source>billing.admin.beta_invite.column.created</source>
+                <target>Created</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.column.state">
+                <source>billing.admin.beta_invite.column.state</source>
+                <target>State</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.state.unused">
+                <source>billing.admin.beta_invite.state.unused</source>
+                <target>Unused</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.state.used_by">
+                <source>billing.admin.beta_invite.state.used_by</source>
+                <target>Used by %email% on %date%</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.state.used_on">
+                <source>billing.admin.beta_invite.state.used_on</source>
+                <target>Used on %date%</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.state.revoked_on">
+                <source>billing.admin.beta_invite.state.revoked_on</source>
+                <target>Revoked on %date%</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.revoke.button">
+                <source>billing.admin.beta_invite.revoke.button</source>
+                <target>Revoke</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.flash.revoked">
+                <source>billing.admin.beta_invite.flash.revoked</source>
+                <target>The link is revoked.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.error.redeemed">
+                <source>billing.admin.beta_invite.error.redeemed</source>
+                <target>This link is already used, so you cannot revoke it.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.error.revoked">
+                <source>billing.admin.beta_invite.error.revoked</source>
+                <target>This link is already revoked.</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.panel.title">
+                <source>billing.admin.beta_invite.panel.title</source>
+                <target>Beta</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.panel.since">
+                <source>billing.admin.beta_invite.panel.since</source>
+                <target>Beta tester since %date%</target>
+            </trans-unit>
+            <trans-unit id="billing.admin.beta_invite.panel.note">
+                <source>billing.admin.beta_invite.panel.note</source>
+                <target>Invite note: %note%</target>
             </trans-unit>
             <trans-unit id="billing.flash.capacity_full">
                 <source>billing.flash.capacity_full</source>
@@ -4602,6 +4778,10 @@
                 <source>inbox.item.kind.wait</source>
                 <target>Waiting</target>
             </trans-unit>
+            <trans-unit id="inbox.item.kind.notice">
+                <source>inbox.item.kind.notice</source>
+                <target>Notice</target>
+            </trans-unit>
             <trans-unit id="inbox.item.dismiss">
                 <source>inbox.item.dismiss</source>
                 <target>Dismiss</target>
@@ -4669,6 +4849,10 @@
             <trans-unit id="inbox.item.error.closed_by_loupe">
                 <source>inbox.item.error.closed_by_loupe</source>
                 <target>Loupe closed this item, so it takes no response.</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.error.notice">
+                <source>inbox.item.error.notice</source>
+                <target>A notice takes no response. Loupe closes it when the fact ends.</target>
             </trans-unit>
             <trans-unit id="inbox.answer.pick_one">
                 <source>inbox.answer.pick_one</source>
@@ -5587,6 +5771,14 @@
                 <source>board.bridge_rules.hint</source>
                 <target>A dead rule starts no agent. Fix the rule in rules.yaml, then restart the bridge.</target>
             </trans-unit>
+            <trans-unit id="board.bridge_rules.racing_title">
+                <source>board.bridge_rules.racing_title</source>
+                <target>{0}No bridge rule races the app sync.|{1}1 bridge rule races the app sync|]1,Inf]%count% bridge rules race the app sync</target>
+            </trans-unit>
+            <trans-unit id="board.bridge_rules.racing_hint">
+                <source>board.bridge_rules.racing_hint</source>
+                <target>The app syncs a pull request that is behind. Remove each rule on pull_request.behind from rules.yaml.</target>
+            </trans-unit>
             <trans-unit id="board.bridge_rules.columns">
                 <source>board.bridge_rules.columns</source>
                 <target>Columns:</target>
@@ -5948,6 +6140,33 @@
             <trans-unit id="board.card.tab.overview"><source>board.card.tab.overview</source><target>Overview</target></trans-unit>
             <trans-unit id="board.card.tab.conversation"><source>board.card.tab.conversation</source><target>Conversation</target></trans-unit>
             <trans-unit id="board.card.tab.feedback"><source>board.card.tab.feedback</source><target>Feedback</target></trans-unit>
+            <trans-unit id="board.card.tab.history"><source>board.card.tab.history</source><target>History</target></trans-unit>
+            <trans-unit id="board.card.history.empty"><source>board.card.history.empty</source><target>No history is recorded yet.</target></trans-unit>
+            <trans-unit id="board.card.history.show_older"><source>board.card.history.show_older</source><target>Show older</target></trans-unit>
+            <trans-unit id="board.card.history.actor.system"><source>board.card.history.actor.system</source><target>Loupe</target></trans-unit>
+            <trans-unit id="board.card.history.actor.reviewer"><source>board.card.history.actor.reviewer</source><target>A reviewer</target></trans-unit>
+            <trans-unit id="board.card.history.actor.deleted"><source>board.card.history.actor.deleted</source><target>A deleted user</target></trans-unit>
+            <trans-unit id="board.card.history.actor.agent"><source>board.card.history.actor.agent</source><target>Agent for %name%</target></trans-unit>
+            <trans-unit id="board.card.history.created"><source>board.card.history.created</source><target>%actor% created it in %column%.</target></trans-unit>
+            <trans-unit id="board.card.history.moved"><source>board.card.history.moved</source><target>%actor% moved it from %from% to %to%.</target></trans-unit>
+            <trans-unit id="board.card.history.fix_requested"><source>board.card.history.fix_requested</source><target>%actor% asked for a fix on #%pr%.</target></trans-unit>
+            <trans-unit id="board.card.history.stopped"><source>board.card.history.stopped</source><target>%actor% stopped the automation on #%pr%.</target></trans-unit>
+            <trans-unit id="board.card.history.ready_to_merge"><source>board.card.history.ready_to_merge</source><target>#%pr% is ready to merge.</target></trans-unit>
+            <trans-unit id="board.card.history.synced"><source>board.card.history.synced</source><target>%actor% updated #%pr% with its base branch.</target></trans-unit>
+            <trans-unit id="board.card.history.run_finished"><source>board.card.history.run_finished</source><target>%actor% ran the %rule% rule.</target></trans-unit>
+            <trans-unit id="board.card.history.run_not_started"><source>board.card.history.run_not_started</source><target>The %rule% rule did not run.</target></trans-unit>
+            <trans-unit id="board.card.history.changed"><source>board.card.history.changed</source><target>%actor% changed the card.</target></trans-unit>
+            <trans-unit id="board.card.history.reason"><source>board.card.history.reason</source><target>Because %reason%.</target></trans-unit>
+            <trans-unit id="board.card.history.run_state_unknown"><source>board.card.history.run_state_unknown</source><target>Unknown</target></trans-unit>
+            <trans-unit id="board.card.history.cause.merged"><source>board.card.history.cause.merged</source><target>After #%pr% merged.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.checks_passed"><source>board.card.history.cause.checks_passed</source><target>After the checks passed on #%pr%.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.document_approved"><source>board.card.history.cause.document_approved</source><target>After the document %document% was approved.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.epic_reconciled"><source>board.card.history.cause.epic_reconciled</source><target>After its child card #%child% changed.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.unblocked"><source>board.card.history.cause.unblocked</source><target>After #%blocker% finished.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.unblocked_any"><source>board.card.history.cause.unblocked_any</source><target>After it had no open blocker left.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.abandoned"><source>board.card.history.cause.abandoned</source><target>After every pull request closed without a merge.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.run"><source>board.card.history.cause.run</source><target>Via the %rule% run.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.column_deleted"><source>board.card.history.cause.column_deleted</source><target>After the %column% column was deleted.</target></trans-unit>
             <trans-unit id="board.card.overview.description"><source>board.card.overview.description</source><target>Description</target></trans-unit>
             <trans-unit id="board.card.overview.status"><source>board.card.overview.status</source><target>Status</target></trans-unit>
             <trans-unit id="board.card.overview.reporter"><source>board.card.overview.reporter</source><target>Reporter</target></trans-unit>
@@ -5957,8 +6176,8 @@
             <trans-unit id="board.card.overview.completed"><source>board.card.overview.completed</source><target>Completed</target></trans-unit>
             <trans-unit id="board.card.runs.title"><source>board.card.runs.title</source><target>Agent runs</target></trans-unit>
             <trans-unit id="board.card.runs.all"><source>board.card.runs.all</source><target>Run history</target></trans-unit>
-            <trans-unit id="board.card.runs.empty"><source>board.card.runs.empty</source><target>No agent has run on this card yet.</target></trans-unit>
-            <trans-unit id="board.card.runs.held"><source>board.card.runs.held</source><target>Held: no worker starts on this card until you resume one of its runs or move it.</target></trans-unit>
+            <trans-unit id="board.card.runs.open_title"><source>board.card.runs.open_title</source><target>Runs in progress</target></trans-unit>
+            <trans-unit id="board.card.runs.held"><source>board.card.runs.held</source><target>Held: no worker starts on this card until you resume one of its runs in Run history, or move it.</target></trans-unit>
             <trans-unit id="board.card.runs.usage.total"><source>board.card.runs.usage.total</source><target>Total usage</target></trans-unit>
             <trans-unit id="board.card.runs.usage.tokens"><source>board.card.runs.usage.tokens</source><target>%input% input · %output% output · %cacheRead% cache read · %cacheWrite% cache write</target></trans-unit>
             <trans-unit id="board.card.runs.usage.estimated"><source>board.card.runs.usage.estimated</source><target>Estimated</target></trans-unit>
@@ -5982,6 +6201,16 @@
             <trans-unit id="board.card.link.mergeability.conflicting"><source>board.card.link.mergeability.conflicting</source><target>Conflict</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.behind"><source>board.card.link.mergeability.behind</source><target>Behind base</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.blocked"><source>board.card.link.mergeability.blocked</source><target>Merge blocked</target></trans-unit>
+            <trans-unit id="board.card.link.sync.waits_for_approval"><source>board.card.link.sync.waits_for_approval</source><target>Waits for an approval</target></trans-unit>
+            <trans-unit id="board.card.link.sync.conflicts"><source>board.card.link.sync.conflicts</source><target>Conflicts with the base</target></trans-unit>
+            <trans-unit id="board.card.link.sync.waits_turn"><source>board.card.link.sync.waits_turn</source><target>Waits its turn behind #%number%</target></trans-unit>
+            <trans-unit id="board.card.link.sync.synced_checks_running"><source>board.card.link.sync.synced_checks_running</source><target>Synced, checks running</target></trans-unit>
+            <trans-unit id="board.card.link.sync.sync_failed"><source>board.card.link.sync.sync_failed</source><target>Sync failed: %reason%</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.permission"><source>board.card.link.sync.reason.permission</source><target>the app may not write to the repository</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.refused"><source>board.card.link.sync.reason.refused</source><target>the forge refused the update</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.timeout"><source>board.card.link.sync.reason.timeout</source><target>the update did not finish in time</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.no_updater"><source>board.card.link.sync.reason.no_updater</source><target>Loupe cannot update a pull request on this forge</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.retries_exhausted"><source>board.card.link.sync.reason.retries_exhausted</source><target>the forge failed each try to update the branch</target></trans-unit>
             <trans-unit id="board.card.link.review.approved"><source>board.card.link.review.approved</source><target>Approved</target></trans-unit>
             <trans-unit id="board.card.link.review.changes_requested"><source>board.card.link.review.changes_requested</source><target>Changes requested</target></trans-unit>
             <trans-unit id="board.card.link.review.required"><source>board.card.link.review.required</source><target>Review required</target></trans-unit>
@@ -5989,6 +6218,7 @@
             <trans-unit id="board.card.automation.fix_requested"><source>board.card.automation.fix_requested</source><target>The automation asked for a fix.</target></trans-unit>
             <trans-unit id="board.card.automation.stopped"><source>board.card.automation.stopped</source><target>The automation stopped.</target></trans-unit>
             <trans-unit id="board.card.automation.ready_to_merge"><source>board.card.automation.ready_to_merge</source><target>The automation marked the pull request ready to merge.</target></trans-unit>
+            <trans-unit id="board.card.automation.synced"><source>board.card.automation.synced</source><target>The automation updated the pull request branch with its base.</target></trans-unit>
             <trans-unit id="board.card.held_by"><source>board.card.held_by</source><target>Approved, and waits for its blockers:</target></trans-unit>
             <trans-unit id="board.card.automation.blocked"><source>board.card.automation.blocked</source><target>The automation is blocked: %reason%. The block clears when a person moves the card, when the checks pass, or when a reviewer approves or requests changes.</target></trans-unit>
             <trans-unit id="board.card.automation.reason.conflict"><source>board.card.automation.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
@@ -6402,6 +6632,14 @@
                 <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.help</source>
                 <target>Loupe posts a new comment on the GitHub pull request each time a bridge queues a fix run for it. The GitHub App needs "Pull requests: read and write". It needs a bridge that reports the event that queued a run. An older bridge sends none, so no comment posts.</target>
             </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.label">
+                <source>board.form.save_board_automation_settings_form.sync_behind.label</source>
+                <target>Sync an approved pull request that is behind</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.help">
+                <source>board.form.save_board_automation_settings_form.sync_behind.help</source>
+                <target>Loupe updates the branch of the next approved pull request that is behind its base, one at a time. The GitHub App needs "Contents: read and write".</target>
+            </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>
                 <target>Loupe could not post the last fix run comment on %pull_request%</target>
@@ -6525,6 +6763,7 @@
             <trans-unit id="board.rules.live_count"><source>board.rules.live_count</source><target>{0} No live rules|{1} 1 live rule|]1,Inf[ %count% live rules</target></trans-unit>
             <trans-unit id="board.rules.status.live"><source>board.rules.status.live</source><target>Live</target></trans-unit>
             <trans-unit id="board.rules.status.dead"><source>board.rules.status.dead</source><target>Invalid</target></trans-unit>
+            <trans-unit id="board.rules.races_sync"><source>board.rules.races_sync</source><target>Races the app sync. Remove it from rules.yaml.</target></trans-unit>
             <trans-unit id="board.rules.event_description"><source>board.rules.event_description</source><target>Listens for %event%.</target></trans-unit>
             <trans-unit id="board.rules.flow_label"><source>board.rules.flow_label</source><target>Rule handoff</target></trans-unit>
             <trans-unit id="board.rules.reported_at"><source>board.rules.reported_at</source><target>Reported %time%</target></trans-unit>
@@ -6727,7 +6966,8 @@
             <trans-unit id="github.system_status.app_api.unreachable"><source>github.system_status.app_api.unreachable</source><target>GitHub did not list the installations of the App (%reason%). Make sure that GITHUB_APP_ID is the App ID and that GITHUB_APP_PRIVATE_KEY is a current private key of the App.</target></trans-unit>
             <trans-unit id="github.system_status.app_api.none_installed"><source>github.system_status.app_api.none_installed</source><target>GitHub accepts the App key. No account has installed the App yet.</target></trans-unit>
             <trans-unit id="github.system_status.app_api.missing_permissions"><source>github.system_status.app_api.missing_permissions</source><target>These installations do not grant each permission Loupe reads: %installations%. On GitHub, give the App read access to checks, contents, metadata, pull requests and commit statuses, then let each account accept the new permissions.</target></trans-unit>
-            <trans-unit id="github.system_status.app_api.missing_comment_permission"><source>github.system_status.app_api.missing_comment_permission</source><target>The GitHub App cannot comment on pull requests for the accounts %accounts%. Grant Pull requests: read and write to use fix run comments.</target></trans-unit>
+            <trans-unit id="github.system_status.app_api.missing_comment_permission"><source>github.system_status.app_api.missing_comment_permission</source><target>The GitHub App cannot write to pull requests for the accounts %accounts%. Loupe cannot post fix run comments, or mark ready, draft or close an epic pull request. Grant Pull requests: read and write.</target></trans-unit>
+            <trans-unit id="github.system_status.app_api.missing_contents_write"><source>github.system_status.app_api.missing_contents_write</source><target>The GitHub App cannot write the contents of repositories for the accounts %accounts%. Loupe cannot sync a pull request branch that is behind its base for these accounts. Grant Contents: read and write to use the sync.</target></trans-unit>
             <trans-unit id="github.system_status.app_api.working"><source>github.system_status.app_api.working</source><target>{0}GitHub accepts the App key. No account has installed the App yet.|{1}GitHub accepts the App key, and its installation grants each permission Loupe reads.|]1,Inf[GitHub accepts the App key, and its %count% installations grant each permission Loupe reads.</target></trans-unit>
             <trans-unit id="check.github_hook_key.label"><source>check.github_hook_key.label</source><target>GitHub webhook secrets</target></trans-unit>
             <trans-unit id="github.system_status.hook_key.readable"><source>github.system_status.hook_key.readable</source><target>APP_ENCRYPTION_KEY is readable, so projects can create a GitHub webhook.</target></trans-unit>

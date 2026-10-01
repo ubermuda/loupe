@@ -114,8 +114,9 @@ final class GitHubAppApi
         $data = $body['data'] ?? null;
         $errors = \is_array($body['errors'] ?? null) ? $body['errors'] : [];
         foreach ($errors as $error) {
-            if (!\is_array($error) || 'NOT_FOUND' !== ($error['type'] ?? null)) {
-                throw new GitHubAppApiFailed('graphql_error');
+            $type = \is_array($error) ? ($error['type'] ?? null) : null;
+            if ('NOT_FOUND' !== $type) {
+                throw new GitHubAppApiFailed('graphql_error', graphqlType: \is_string($type) ? $type : null);
             }
         }
 
@@ -144,6 +145,18 @@ final class GitHubAppApi
     public function post(int $installationId, string $path, array $body): array
     {
         return $this->send('POST', $path, ['json' => $body], $this->installationToken($installationId));
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     *
+     * @return array<mixed> the decoded answer, or an empty array when GitHub accepts with no body
+     *
+     * @throws GitHubAppApiFailed
+     */
+    public function put(int $installationId, string $path, array $body): array
+    {
+        return $this->send('PUT', $path, ['json' => $body], $this->installationToken($installationId), emptyBodyAccepted: true);
     }
 
     /** @throws GitHubAppApiFailed */
@@ -207,7 +220,7 @@ final class GitHubAppApi
      *
      * @throws GitHubAppApiFailed
      */
-    private function send(string $method, string $path, array $options, ?string $installationToken = null): array
+    private function send(string $method, string $path, array $options, ?string $installationToken = null, bool $emptyBodyAccepted = false): array
     {
         $options['headers'] = ['Authorization' => 'Bearer '.($installationToken ?? $this->jwt())];
         try {
@@ -217,6 +230,10 @@ final class GitHubAppApi
                 $headers = $response->getHeaders(false);
                 $rateLimited = self::rateLimited($status, $headers);
                 throw new GitHubAppApiFailed('http_status', $status, $rateLimited, $rateLimited ? $this->retryAfter($headers) : null);
+            }
+
+            if ($emptyBodyAccepted && '' === $response->getContent()) {
+                return [];
             }
 
             return $response->toArray();

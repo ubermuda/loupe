@@ -77,6 +77,8 @@ final class ReportWorkerRunHandlerTest extends KernelTestCase
         self::assertCount(1, $changes->events());
         self::assertEquals($project->id, $changes->events()[0]->projectId);
         self::assertSame([$cardId->toRfc4122()], $changes->events()[0]->cardIds);
+        self::assertNotNull($first->run);
+        self::assertSame([(string) $first->run->id], $changes->events()[0]->runIds);
         self::assertSame([$depth], $changes->transactionDepths());
     }
 

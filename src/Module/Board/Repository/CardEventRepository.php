@@ -10,7 +10,11 @@ use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardReporter;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Component\Uid\Uuid;
 
 /** @extends ServiceEntityRepository<CardEvent> */
 class CardEventRepository extends ServiceEntityRepository
@@ -32,6 +36,77 @@ class CardEventRepository extends ServiceEntityRepository
         $this->getEntityManager()->persist($event);
 
         return $event;
+    }
+
+    /**
+     * Writes the `run-finished` row of a run, or gives the row the outcome of a later close.
+     * It goes through DBAL in its own transaction, a savepoint inside a caller's,
+     * so a failed write leaves the entity manager and the caller's transaction usable.
+     * A write that read an older state change than the row holds changes nothing,
+     * and so does a write for a run that left the state it records, such as a reopen.
+     * The share lock waits for an open change to the run, then reads its new state.
+     *
+     * @param array<string, mixed> $detail with the `runId` and the `state`
+     */
+    public function upsertRunFinished(Card $card, Uuid $runId, ?User $actorUser, array $detail, \DateTimeImmutable $at): void
+    {
+        $this->getEntityManager()->getConnection()->transactional(static function (Connection $connection) use ($card, $runId, $actorUser, $detail, $at): void {
+            // The project first, as a run report locks it, so the run lock below cannot deadlock with one.
+            $connection->executeQuery('SELECT 1 FROM projects WHERE id = ?::uuid FOR KEY SHARE', [(string) $card->project->id]);
+            $connection->executeStatement(
+                'INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at, run_id)
+             SELECT ?::uuid, ?::uuid, ?::uuid, ?, ?, ?::uuid, ?::jsonb, ?::timestamp, r.id
+             FROM bridge_worker_runs r WHERE r.id = ?::uuid AND r.state = ? FOR SHARE OF r
+             ON CONFLICT (card_id, run_id) DO UPDATE SET detail = EXCLUDED.detail, occurred_at = EXCLUDED.occurred_at
+             WHERE board_card_events.detail IS DISTINCT FROM EXCLUDED.detail
+               AND COALESCE((EXCLUDED.detail->>\'stateSequence\')::bigint, 0) >= COALESCE((board_card_events.detail->>\'stateSequence\')::bigint, 0)',
+                [
+                    Uuid::v7()->toRfc4122(),
+                    (string) $card->id,
+                    (string) $card->project->id,
+                    CardEventKind::RunFinished->value,
+                    CardReporter::Agent->value,
+                    $actorUser?->id?->toRfc4122(),
+                    $detail,
+                    $at,
+                    $runId->toRfc4122(),
+                    $detail['state'] ?? null,
+                ],
+                [6 => Types::JSON, 7 => Types::DATETIME_IMMUTABLE],
+            );
+        });
+    }
+
+    /** Removes the row of a run that reopened, unless the row holds a newer state change than the reopen. */
+    public function deleteRunFinished(Card $card, Uuid $runId, ?int $stateSequence): void
+    {
+        $this->getEntityManager()->getConnection()->transactional(static fn (Connection $connection): int|string => $connection->executeStatement(
+            "DELETE FROM board_card_events WHERE card_id = ?::uuid AND run_id = ?::uuid
+               AND COALESCE((detail->>'stateSequence')::bigint, 0) <= ?",
+            [(string) $card->id, $runId->toRfc4122(), $stateSequence ?? \PHP_INT_MAX],
+        ));
+    }
+
+    /** @return list<CardEvent> newest first, older than the given row when one is given, with the actor loaded */
+    public function findPageBeforeForCard(Card $card, ?\DateTimeImmutable $beforeAt, ?string $beforeId, int $limit): array
+    {
+        $query = $this->createQueryBuilder('e')
+            ->addSelect('u')
+            ->leftJoin('e.actorUser', 'u')
+            ->andWhere('e.card = :card')
+            ->setParameter('card', $card)
+            ->orderBy('e.occurredAt', 'DESC')
+            ->addOrderBy('e.id', 'DESC')
+            ->setMaxResults($limit);
+
+        if (null !== $beforeAt && null !== $beforeId) {
+            $query
+                ->andWhere('e.occurredAt < :beforeAt OR (e.occurredAt = :beforeAt AND e.id < :beforeId)')
+                ->setParameter('beforeAt', $beforeAt, Types::DATETIME_IMMUTABLE)
+                ->setParameter('beforeId', Uuid::fromString($beforeId), UuidType::NAME);
+        }
+
+        return array_values($query->getQuery()->getResult());
     }
 
     /** @return list<CardEvent> newest first */

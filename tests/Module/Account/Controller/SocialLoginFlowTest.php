@@ -7,6 +7,8 @@ namespace App\Tests\Module\Account\Controller;
 use App\Module\Account\Entity\ConnectedAccount;
 use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Entity\WaitlistEntry;
+use App\Module\Account\Registration\RegistrationPasses;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
@@ -209,6 +211,45 @@ final class SocialLoginFlowTest extends WebTestCase
         self::assertSelectorNotExists('.auth-error');
     }
 
+    public function test_at_cap_an_invite_link_lets_a_matching_identity_sign_up(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->setProviderFlag($client, SocialProvider::Google, true);
+        $this->closeRegistration($client);
+        $token = $this->seedInvite($client, 'oauth-invited@example.com');
+        $this->stubProvider($client, 'google-sub-invited', ['email' => 'oauth-invited@example.com', 'email_verified' => true, 'name' => 'Invited OAuth']);
+
+        $client->request(Request::METHOD_GET, '/register?invite='.$token);
+        $client->request(Request::METHOD_GET, self::CALLBACK);
+
+        self::assertResponseRedirects('/');
+        self::assertNotNull($client->getContainer()->get(UserRepository::class)->findOneByEmail('oauth-invited@example.com'));
+        self::assertNotNull(
+            $client->getContainer()->get(WaitlistEntryRepository::class)->findOneByEmail('oauth-invited@example.com')?->convertedAt,
+        );
+        self::assertFalse($client->getRequest()->getSession()->has(RegistrationPasses::SESSION_KEY));
+    }
+
+    public function test_at_cap_an_invite_link_does_not_let_another_identity_sign_up(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->setProviderFlag($client, SocialProvider::Google, true);
+        $this->closeRegistration($client);
+        $token = $this->seedInvite($client, 'oauth-rightful@example.com');
+        $this->stubProvider($client, 'google-sub-other', ['email' => 'oauth-other@example.com', 'email_verified' => true, 'name' => 'Other OAuth']);
+
+        $client->request(Request::METHOD_GET, '/register?invite='.$token);
+        $client->request(Request::METHOD_GET, self::CALLBACK);
+
+        self::assertResponseRedirects('/waitlist?joined=1');
+        self::assertNull($client->getContainer()->get(UserRepository::class)->findOneByEmail('oauth-other@example.com'));
+        self::assertNull(
+            $client->getContainer()->get(WaitlistEntryRepository::class)->findOneByEmail('oauth-rightful@example.com')?->convertedAt,
+        );
+    }
+
     public function test_a_new_identity_is_refused_when_registration_is_switched_off(): void
     {
         // Distinct from the at-cap case above: a full instance still takes
@@ -251,6 +292,18 @@ final class SocialLoginFlowTest extends WebTestCase
 
         $em->persist(new FeatureFlag(name: RegistrationGate::CAP_FLAG, type: FeatureFlagType::Int, value: $users->countActive()));
         $em->flush();
+    }
+
+    /** @param non-empty-string $email */
+    private function seedInvite(KernelBrowser $client, string $email): string
+    {
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
+        $entry = new WaitlistEntry($email);
+        $token = $entry->issueInviteToken();
+        $em->persist($entry);
+        $em->flush();
+
+        return $token;
     }
 
     public function test_a_password_less_account_cannot_sign_in_through_the_password_form(): void
