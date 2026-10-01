@@ -104,6 +104,7 @@ export default defineConfig({
             // below. Adding a spec here asserts that it is safe beside all of them.
             testIgnore: [
                 /account\/waitlist\.spec\.ts/,
+                /billing\/beta-invite\.spec\.ts/,
                 /billing\/trial-end-lifecycle\.spec\.ts/,
                 /install\/.*\.spec\.ts/,
                 /board\/.*\.spec\.ts/,
@@ -169,18 +170,28 @@ export default defineConfig({
             dependencies: ['global-flags'],
         },
         {
+            name: 'beta-invite',
+            // Closes registration.cap, as the waitlist spec does.
+            testMatch: /billing\/beta-invite\.spec\.ts/,
+            workers: 1,
+            use: {
+                ...devices['Desktop Chrome'],
+            },
+            dependencies: ['waitlist'],
+        },
+        {
             name: 'trial-end-lifecycle',
             testMatch: /billing\/trial-end-lifecycle\.spec\.ts/,
             use: {
                 ...devices['Desktop Chrome'],
             },
-            // Serialized after waitlist: mutates registration.cap AND
+            // Serialized after beta-invite: mutates registration.cap AND
             // billing.enabled, and its sweep trigger disables every
             // expired-trial account in the database — nothing else may be
             // registering users or relying on billing being off while it
             // runs. For a targeted run of this spec alone, pass --no-deps to
             // skip the dependency chain.
-            dependencies: ['waitlist'],
+            dependencies: ['beta-invite'],
         },
         {
             name: 'install-reset',
@@ -195,6 +206,7 @@ export default defineConfig({
                 'admin',
                 'global-flags',
                 'waitlist',
+                'beta-invite',
                 'trial-end-lifecycle',
             ],
             use: {

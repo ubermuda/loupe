@@ -1,0 +1,15 @@
+{% extends '@Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'billing.beta_invite.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="flex flex-col gap-3 py-4 text-center">
+    <h1 class="text-xl font-semibold tracking-tight text-fg">{{ 'billing.beta_invite.sign_up.heading'|trans }}</h1>
+    <p class="text-fg-mute text-sm leading-normal">{{ 'billing.beta_invite.sign_up.description'|trans }}</p>
+
+    <form method="post" action="{{ path('app_billing_beta_invite_claim', {token: token}) }}" data-beta-sign-up-form>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-beta-invite-claim') }}">
+        <button type="submit" class="auth-submit mt-1.5">{{ 'billing.beta_invite.sign_up.submit'|trans }}</button>
+    </form>
+</div>
+{% endblock %}

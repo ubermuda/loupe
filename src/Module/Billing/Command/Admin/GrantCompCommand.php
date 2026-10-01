@@ -10,7 +10,7 @@ final readonly class GrantCompCommand
 {
     public function __construct(
         public User $target,
-        public User $actor,
+        public ?User $actor,
     ) {
     }
 }

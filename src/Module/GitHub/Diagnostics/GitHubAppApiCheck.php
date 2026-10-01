@@ -77,6 +77,16 @@ final readonly class GitHubAppApiCheck implements DiagnosticInterface
             );
         }
 
+        $readOnly = array_filter($installations, static fn ($installation): bool => [] !== $installation->missingWriteAccess(['contents']));
+        if ([] !== $readOnly) {
+            return new Diagnostic(
+                'github_app_api',
+                DiagnosticState::Warning,
+                'github.system_status.app_api.missing_contents_write',
+                ['%accounts%' => implode(', ', array_map(static fn ($installation): string => $installation->account, $readOnly))],
+            );
+        }
+
         return new Diagnostic('github_app_api', DiagnosticState::Ok, 'github.system_status.app_api.working', ['%count%' => \count($installations)]);
     }
 }

@@ -1,0 +1,7 @@
+<div class="admin-card p-6 flex flex-col gap-2" data-testid="beta-panel">
+    <h2 class="admin-section-title">{{ 'billing.admin.beta_invite.panel.title'|trans }}</h2>
+    <p class="admin-action-help">{{ 'billing.admin.beta_invite.panel.since'|trans({'%date%': redeemedAt|date('j M Y')}) }}</p>
+    {% if note %}
+        <p class="admin-action-help">{{ 'billing.admin.beta_invite.panel.note'|trans({'%note%': note}) }}</p>
+    {% endif %}
+</div>

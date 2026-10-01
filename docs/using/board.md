@@ -363,9 +363,15 @@ when one applies, and the review: **Approved**, **Changes requested** or
 with no usable URL shows **Unavailable**. See
 [What GitHub tells a card](#what-github-tells-a-card).
 
+When the project syncs an approved pull request that is behind, each open pull
+request whose base is the default branch also shows one line about its sync. It shows
+**Waits for an approval**, **Conflicts with the base**, **Waits its turn behind
+#N**, **Synced, checks running** or **Sync failed** with the cause. A pull
+request with nothing to wait for shows no line. See [Automation](#automation).
+
 When the automation acted on the card, a line under the links says what it did
-last, and when. It asked for a fix round, it stopped, or it marked the pull
-request ready to merge. See [Automation](#automation). When the automation is
+last, and when. It asked for a fix round, it stopped, it marked the pull
+request ready to merge, or it synced the branch with its base. See [Automation](#automation). When the automation is
 blocked, a notice gives the reason: the checks fail, the pull request has a
 merge conflict, or a reviewer requested changes. Loupe clears the block and
 resets the fix count when a person moves the card to another column, when the
@@ -673,6 +679,7 @@ gets these requests. A card in a terminal column never gets one.
 | **Fix strategy** | Fresh | Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card, and falls back to a new worker |
 | **Loop limit** | 3 | The number of fix requests a card gets in a row, from 1 to 20 |
 | **Comment on the pull request when a fix run is queued** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
+| **Sync an approved pull request that is behind** | off | When on, Loupe updates the branch of an approved pull request that is behind its base, one at a time |
 
 The comment gives the reason for the fix and the failed checks. It also gives
 the fix round against the loop limit, and a link to the card. The card page
@@ -689,6 +696,27 @@ cause. The tab hides it when a later comment posts, or when you turn the
 setting off. The GitHub App must
 have Pull requests: read and write. The comment needs a bridge that reports
 the event that queued a run. An older bridge sends none, so no comment posts.
+
+The sync setting keeps approved work up to date with its base, so it can merge.
+Loupe syncs one pull request of the project at a time. It picks the pull
+request with the oldest approval, and the lower number breaks a tie. While an
+approved pull request is up to date, or a sync of it runs, no other pull request
+syncs. A sync that does not finish in ten minutes counts as failed.
+
+Loupe syncs only a pull request that it reads as behind its base. That happens
+only when the rules of the base branch require a branch to be up to date before
+it merges. On another base, a pull request that is behind can merge as it is, so
+nothing syncs.
+
+A pull request counts as approved when a person with write access approved its
+current head. An approval of a head that Loupe synced still counts, so a sync
+needs no new review. The exception is a base branch whose rules dismiss stale
+approvals on a push. GitHub then removes the approval when Loupe syncs, and the
+pull request shows **Waits for an approval** until a person approves it again.
+A request for changes removes the pull request from
+the line. Loupe only updates the branch, and it never merges. The GitHub App
+must have Contents: read and write. See
+[Forge webhooks](../extending/forge-webhooks.md).
 
 Loupe asks for a fix when the required checks fail, when the pull request
 conflicts with its base, and when a reviewer requests changes. At the loop
@@ -796,7 +824,7 @@ card in its stage column. Each entry carries `cardId`, `number`, `title` and
 same way `card_list` does, with 50 events by default and 100 at most. Each event
 carries `kind`, `occurredAt` and `actor`.
 
-`kind` is `created`, `moved`, `fix-requested`, `stopped`, `ready-to-merge` or
+`kind` is `created`, `moved`, `fix-requested`, `stopped`, `ready-to-merge`, `synced` or
 `run-finished`. `actor` carries `kind` and `name`. Its `kind` is `human`,
 `agent`, `reviewer` or `system`. `name` is the current name of the person
 behind the event. It is null when there is no person, such as for a deleted
