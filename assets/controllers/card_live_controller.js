@@ -28,6 +28,23 @@ export default class extends Controller {
             }
         };
         this.element.addEventListener('close', this.onDialogClose, true);
+        // A successful delete leaves the page, so only a failed one clears the mark.
+        this.deleting = false;
+        this.onSubmitStart = (event) => {
+            if (event.target.matches?.('[data-card-delete]')) {
+                this.deleting = true;
+            }
+        };
+        this.onSubmitEnd = (event) => {
+            if (
+                event.target.matches?.('[data-card-delete]') &&
+                !event.detail?.success
+            ) {
+                this.deleting = false;
+            }
+        };
+        this.element.addEventListener('turbo:submit-start', this.onSubmitStart);
+        this.element.addEventListener('turbo:submit-end', this.onSubmitEnd);
         this.unsubscribe = on(
             ['board.card_changed', 'worker_run.changed'],
             (change) => this.changed(change),
@@ -39,6 +56,11 @@ export default class extends Controller {
         clearTimeout(this.timeout);
         this.request?.abort();
         this.element.removeEventListener('close', this.onDialogClose, true);
+        this.element.removeEventListener(
+            'turbo:submit-start',
+            this.onSubmitStart,
+        );
+        this.element.removeEventListener('turbo:submit-end', this.onSubmitEnd);
         this.unsubscribe?.();
         this.unsubscribe = undefined;
     }
@@ -58,7 +80,8 @@ export default class extends Controller {
             }
             if (change.change === 'deleted') {
                 // The standalone page has no drawer to show the delete, so it loads the not-found page.
-                if (!this.frameValue) {
+                // A delete this page submitted already redirects, and a reload would race that redirect.
+                if (!this.frameValue && !(change.own && this.deleting)) {
                     window.Turbo?.visit(window.location.href, {
                         action: 'replace',
                     });
