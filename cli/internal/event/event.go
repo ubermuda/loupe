@@ -81,6 +81,13 @@ type Subject struct {
 // type whose fields this build knows.
 const CardMovedType = "board.card_moved"
 
+// The server publishes these when a person pauses the agents on a card, or
+// lets them run again. No rule acts on them.
+const (
+	CardHeldType     = "board.card_held"
+	CardReleasedType = "board.card_released"
+)
+
 // The types that change a slug a rule can name. The bridge marks those rules
 // dead, so it parses these types whether or not a rule names them.
 const (
@@ -195,9 +202,9 @@ func ForAnotherBridge(data []byte, bridgeID string) bool {
 
 // Parse decodes a Mercure data payload into an Event.
 //
-// board.card_moved and the three slug-changing types are always parsed, with
-// their own fields checked. Any other type is parsed only when
-// extraTypes names it, and then only the fields every event carries are
+// board.card_moved, the two hold types and the three slug-changing types are
+// always parsed, with their own fields checked. Any other type is parsed only
+// when extraTypes names it, and then only the fields every event carries are
 // checked. The type is checked rather than assumed: without it any well-formed
 // JSON, `{}` included, would reach a worker.
 func Parse(data []byte, extraTypes map[string]bool) (Event, error) {
@@ -211,6 +218,10 @@ func Parse(data []byte, extraTypes map[string]bool) (Event, error) {
 		return e, fmt.Errorf("%w %q", ErrUnknownType, e.Type)
 	case e.Type == CardMovedType:
 		if err := checkCardMoved(e); err != nil {
+			return e, err
+		}
+	case e.Type == CardHeldType, e.Type == CardReleasedType:
+		if err := checkCardHold(e); err != nil {
 			return e, err
 		}
 	case e.Type == ColumnRenamedType, e.Type == ProjectRenamedType:
@@ -530,6 +541,14 @@ func CheckCommand(c api.Command) (api.Command, error) {
 	c.SessionID = strings.ToLower(c.SessionID)
 
 	return c, nil
+}
+
+func checkCardHold(e Event) error {
+	if e.Subject.Type != "card" {
+		return fmt.Errorf("%s event has a subject that is not a card", e.Type)
+	}
+
+	return checkCommon(e)
 }
 
 func checkCardMoved(e Event) error {

@@ -496,6 +496,15 @@ func (r *router) route(data []byte, replayed bool) {
 
 		return
 	}
+	// A hold event only states the hold. No rule matches it, and it is not a
+	// person's look at the card that resets a chain.
+	if e.Type == event.CardHeldType || e.Type == event.CardReleasedType {
+		if r.noteCardHold(e) {
+			r.dispatch()
+		}
+
+		return
+	}
 	e, key := r.resolve(e)
 
 	// A slug change is a person's action, not a directive to an agent, so it

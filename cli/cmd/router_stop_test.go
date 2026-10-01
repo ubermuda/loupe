@@ -358,6 +358,83 @@ func TestTheHoldOfTheServerSkipsAndReleasesACard(t *testing.T) {
 	h.only(t, "card_hold_released")
 }
 
+// holdPayload is a board.card_held or board.card_released event of the card.
+func holdPayload(typ string, number int) string {
+	return fmt.Sprintf(`{"type":%q,"subject":{"type":"card","id":%q},"projectId":%q,"cardNumber":%d,"actor":"human"}`,
+		typ, cardUUID(number), testProject, number)
+}
+
+// A card_held event holds the card, so a move of the card starts nothing.
+func TestAHeldEventHoldsTheCard(t *testing.T) {
+	h := newHarness(t)
+
+	h.send(holdPayload("board.card_held", 87))
+	h.send(cardMoved(87))
+
+	if h.runs() != 0 {
+		t.Fatalf("runs = %d on a held card", h.runs())
+	}
+	h.only(t, "card_held")
+}
+
+// A card_released event ends the hold and starts the run that waits for it.
+func TestAReleasedEventStartsTheRunThatWaits(t *testing.T) {
+	h := newHarness(t)
+	rec := h.states()
+	h.transcripts(true)
+	h.router.readCard = (&cardReads{column: "next"}).read
+
+	h.send(holdPayload("board.card_held", 87))
+	if state, _ := h.resume(resumeOf(endedRunKey)); state != api.CommandDone {
+		t.Fatalf("resume = %s", state)
+	}
+	if h.runs() != 0 {
+		t.Fatalf("workers = %d while held", h.runs())
+	}
+	wantStates(t, rec.states(), api.RunQueued)
+
+	h.send(holdPayload("board.card_released", 87))
+	if h.runs() != 1 {
+		t.Fatalf("workers = %d after the release", h.runs())
+	}
+	h.only(t, "card_hold_released")
+}
+
+// A rule never matches a hold event, even a rule that names its type.
+func TestAHoldEventMatchesNoRule(t *testing.T) {
+	h := newHarnessWith(t, defaultRules+`
+  - name: held
+    on: board.card_held
+    project: loupe
+    prompt: A card is held.
+  - name: released
+    on: board.card_released
+    project: loupe
+    prompt: A card is released.
+`, rules.Defaults{})
+
+	h.send(holdPayload("board.card_held", 87))
+	h.send(holdPayload("board.card_released", 87))
+
+	if h.runs() != 0 {
+		t.Fatalf("runs = %d from a hold event", h.runs())
+	}
+	h.only(t, "card_hold_released")
+}
+
+// A hold event with a bad field is malformed, and holds nothing.
+func TestAMalformedHoldEventIsLogged(t *testing.T) {
+	h := newHarness(t)
+
+	h.send(`{"type":"board.card_held","subject":{"type":"card","id":"card-uuid"},"projectId":"` + testProject + `","actor":"human"}`)
+	h.send(cardMoved(87))
+
+	h.only(t, "event_malformed")
+	if h.runs() != 1 {
+		t.Fatalf("runs = %d after a malformed hold", h.runs())
+	}
+}
+
 // An event with no held key, such as the close of an ask, keeps the hold.
 func TestAnEventWithNoCardStateKeepsTheHold(t *testing.T) {
 	h := newHarnessWith(t, resumeRules, rules.Defaults{})
