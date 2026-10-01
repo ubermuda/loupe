@@ -7,7 +7,6 @@ namespace App\Module\Board\Service;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
-use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 
 /** The stored state of one pull request that a card links. */
@@ -23,7 +22,7 @@ final readonly class PullRequestStateView
         public PullRequestChecks $checks,
         public array $failedChecks,
         public PullRequestMergeability $mergeability,
-        public PullRequestReview $review,
+        public PullRequestReviewView $review,
         public bool $readyToMerge,
         public ?\DateTimeImmutable $refreshedAt,
         public ?PullRequestSyncView $sync = null,
@@ -38,7 +37,7 @@ final readonly class PullRequestStateView
             $row->checks,
             $row->failedChecks,
             $row->mergeability,
-            $row->review,
+            PullRequestReviewView::of($row),
             $row->readyToMerge,
             $row->refreshedAt,
             $sync,

@@ -455,6 +455,31 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         self::assertEqualsCanonicalizing($expected, $changes->getArrayCopy());
     }
 
+    public function test_a_push_that_makes_the_approval_outdated_tells_the_card(): void
+    {
+        $card = $this->linkedCard();
+        $changes = $this->cardChanges();
+
+        $this->handle(
+            new PullRequestSnapshot(headSha: 'approved1', review: PullRequestReview::Approved, approvalSha: 'approved1', approvalId: 'review1', coveredSha: 'approved1'),
+            new PullRequestSnapshot(headSha: 'pushed1', review: PullRequestReview::Approved, approvalSha: 'approved1', approvalId: 'review1', coveredSha: 'approved1'),
+        );
+
+        self::assertSame([[(string) $card->id, CardChanged::UPDATED, false]], $changes->getArrayCopy());
+    }
+
+    public function test_a_covered_head_that_ends_an_outdated_approval_tells_the_card(): void
+    {
+        $card = $this->linkedCard();
+        $changes = $this->cardChanges();
+        $previous = new PullRequestSnapshot(headSha: 'pushed1', review: PullRequestReview::Approved, approvalSha: 'approved1', approvalId: 'review1', coveredSha: 'approved1');
+
+        $this->handle($previous, new PullRequestSnapshot(headSha: 'pushed1', review: PullRequestReview::Approved, approvalSha: 'approved1', approvalId: 'review1', coveredSha: 'pushed1'));
+
+        self::assertSame([], $this->outbox());
+        self::assertSame([[(string) $card->id, CardChanged::UPDATED, false]], $changes->getArrayCopy());
+    }
+
     /** A new push clears failed checks, and neither this nor a solved conflict publishes a fact. */
     public function test_a_displayed_change_with_no_fact_still_tells_the_card(): void
     {

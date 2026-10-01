@@ -13,6 +13,7 @@ use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetTool;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
+use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -115,6 +116,28 @@ final class CardGetToolTest extends KernelTestCase
         self::assertSame('2026-09-27T11:00:00+00:00', $state['refreshedAt']);
         self::assertNull($read['pullRequests'][1]['state']);
         self::assertSame(['fixRounds' => 1, 'blockedReason' => null, 'lastAction' => 'fix-requested', 'lastActionAt' => null], $read['automation']);
+    }
+
+    public function test_an_approval_of_an_older_head_reads_outdated(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('card-get-outdated');
+        $this->actAsMcpTokenBoundTo($project);
+        $created = ($this->createTool)('Ship it', 'Body', 'tooling', pullRequestUrls: ['https://github.com/ubermuda/loupe/pull/7']);
+        $projectId = $project->id ?? throw new \LogicException('The project is persisted.');
+        $row = $this->forgeRows()->findByKeys($projectId, [['forge' => 'github', 'repository' => 'ubermuda/loupe', 'number' => 7]])[0];
+        $row->review = PullRequestReview::Approved;
+        $row->approvalId = 'review7';
+        $row->approvalSha = $row->coveredSha = 'approved7';
+        $row->headSha = 'pushed7';
+        $row->refreshedAt = new \DateTimeImmutable('2026-09-27T11:00:00+00:00');
+        $this->em->flush();
+
+        $state = ($this->tool)($created['cardId'])['pullRequests'][0]['state'];
+
+        self::assertNotNull($state);
+        self::assertSame('approval-outdated', $state['review']);
+        self::assertFalse($state['readyToMerge']);
     }
 
     public function test_a_card_with_no_automation_row_reads_a_null_automation(): void
