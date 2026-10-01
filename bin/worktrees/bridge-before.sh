@@ -30,9 +30,8 @@ root="$main/.worktrees/$name"
 
 git -C "$main" fetch origin
 # A tree deleted from disk stays registered until a prune, and holds its branch.
-git -C "$main" worktree prune
+git -C "$main" worktree prune --expire now
 
-created_worktree=0
 registered=$(git -C "$main" worktree list --porcelain)
 if grep -qxF "worktree $root" <<<"$registered"; then
     echo "bridge-before: $name already exists; re-provisioning it." >&2
@@ -60,17 +59,12 @@ else
     else
         git -C "$main" worktree add --detach "$root" origin/main
     fi
-    created_worktree=1
 fi
 
 # From main: bootstrap's bare `docker compose` calls resolve their file from the cwd.
 if ! (cd "$main" && just worktree-up "$name" "card:$card_id"); then
     echo "bridge-before: could not provision $name (reason above)." >&2
-    # Remove only the tree this run added, and never a branch. The sidecars and
-    # databases stay, because their names may belong to a colliding slug.
-    if [ "$created_worktree" = 1 ]; then
-        git -C "$main" worktree remove --force "$root" || true
-    fi
+    # The tree stays, so the next run provisions it again and the teardown removes it.
     exit 1
 fi
 
