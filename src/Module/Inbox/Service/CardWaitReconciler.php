@@ -319,7 +319,9 @@ final readonly class CardWaitReconciler
             $automation = $automations[$cardId] ?? null;
 
             if ($idle && self::waitsForReview($row, $row->headSha)) {
-                $waits[] = [$cardId, WantedCardWait::forPullRequestReady($rowId, $row->number, $row->headSha)];
+                $waits[] = [$cardId, PullRequestReview::Approved === $row->review
+                    ? WantedCardWait::forPullRequestChangedAfterApproval($rowId, $row->number, $row->headSha)
+                    : WantedCardWait::forPullRequestReady($rowId, $row->number, $row->headSha)];
             }
             if (null !== $automation && (null !== $automation->blockedReason || ($idle && $automation->fixRounds >= $loopLimit))) {
                 $waits[] = [$cardId, WantedCardWait::forPullRequestFixStopped($rowId, $row->number, $row->headSha, $automation->blockedReason)];
@@ -329,13 +331,16 @@ final readonly class CardWaitReconciler
         return $waits;
     }
 
-    /** A changes-requested review on an older commit waits again, because GitHub keeps it until someone reviews anew. */
+    /**
+     * A changes-requested review on an older commit waits again, because GitHub keeps it until someone reviews anew.
+     * An approval waits again once the head has commits it does not cover.
+     */
     private static function waitsForReview(ForgePullRequest $row, string $headSha): bool
     {
         $review = match ($row->review) {
             PullRequestReview::Required, PullRequestReview::None => true,
             PullRequestReview::ChangesRequested => null !== $row->changesRequestedSha && $row->changesRequestedSha !== $headSha,
-            PullRequestReview::Approved => false,
+            PullRequestReview::Approved => null !== $row->coveredSha && $row->coveredSha !== $headSha,
         };
 
         return $review
