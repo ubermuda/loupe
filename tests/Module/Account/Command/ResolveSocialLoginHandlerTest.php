@@ -12,6 +12,7 @@ use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Event\UserRegistered;
+use App\Module\Account\Registration\RegistrationPasses;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
@@ -74,6 +75,8 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
     {
         $joinWaitlist = self::getContainer()->get(JoinWaitlistHandler::class);
         self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
+        $passes = self::getContainer()->get(RegistrationPasses::class);
+        self::assertInstanceOf(RegistrationPasses::class, $passes);
 
         return new ResolveSocialLoginHandler(
             $this->connectedAccounts,
@@ -82,6 +85,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             $gate,
             $joinWaitlist,
             $this->waitlistEntries,
+            $passes,
             $logger ?? new RecordingLogger(),
             $dispatcher,
             new DisplayNameDeriver(),
@@ -657,6 +661,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new RegistrationGate($this->openFlags(), $users, new InstallationState($users)),
             $joinWaitlist,
             $waitlistEntries,
+            new RegistrationPasses([]),
             new RecordingLogger(),
             $this->neverDispatches(),
             new DisplayNameDeriver(),
@@ -747,6 +752,61 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         }
     }
 
+    public function test_at_cap_a_matching_waitlist_invite_creates_the_account_and_converts_the_entry(): void
+    {
+        $token = $this->seedInvite('oauth-invitee@example.com');
+        $this->closeRegistration();
+
+        $outcome = ($this->handler)(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-invitee', 'oauth-invitee@example.com', 'Invitee', emailVerified: true),
+            passToken: $token,
+        ));
+
+        self::assertSame('oauth-invitee@example.com', $this->resolvedUser($outcome)->email);
+
+        $this->em->clear();
+        self::assertNotNull($this->users->findOneByEmail('oauth-invitee@example.com'));
+        self::assertNotNull($this->waitlistEntries->findOneByEmail('oauth-invitee@example.com')?->convertedAt);
+    }
+
+    /**
+     * The User object exists before the pass decision, so this pins that a
+     * refusal never persists it.
+     */
+    public function test_at_cap_a_mismatched_waitlist_invite_is_waitlisted_and_persists_no_user(): void
+    {
+        $token = $this->seedInvite('oauth-rightful@example.com');
+        $this->closeRegistration();
+
+        $outcome = ($this->handler)(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-other', 'oauth-other@example.com', 'Other', emailVerified: true),
+            passToken: $token,
+        ));
+
+        self::assertTrue($outcome->waitlisted);
+
+        $this->em->clear();
+        self::assertNull($this->users->findOneByEmail('oauth-other@example.com'));
+        self::assertNull($this->connectedAccounts->findOneByProviderAndProviderUserId(SocialProvider::Google, 'g-other'));
+        self::assertNotNull($this->waitlistEntries->findOneByEmail('oauth-other@example.com'));
+        $rightful = $this->waitlistEntries->findOneByEmail('oauth-rightful@example.com');
+        self::assertNotNull($rightful);
+        self::assertNull($rightful->convertedAt);
+    }
+
+    public function test_an_open_gate_still_consumes_a_matching_invite(): void
+    {
+        $token = $this->seedInvite('oauth-open-invitee@example.com');
+
+        ($this->handler)(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Google, 'g-open-invitee', 'oauth-open-invitee@example.com', 'Open', emailVerified: true),
+            passToken: $token,
+        ));
+
+        $this->em->clear();
+        self::assertNotNull($this->waitlistEntries->findOneByEmail('oauth-open-invitee@example.com')?->convertedAt);
+    }
+
     public function test_at_cap_existing_identity_still_logs_in(): void
     {
         $owner = $this->persistUser('cap-owner@example.com');
@@ -809,6 +869,17 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         $this->handler = $this->buildHandler($realGate, $this->createStub(EventDispatcherInterface::class));
 
         return $realGate;
+    }
+
+    /** @param non-empty-string $email */
+    private function seedInvite(string $email): string
+    {
+        $entry = new WaitlistEntry($email);
+        $token = $entry->issueInviteToken();
+        $this->em->persist($entry);
+        $this->em->flush();
+
+        return $token;
     }
 
     /** @param non-empty-string $email */

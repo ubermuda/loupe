@@ -7,6 +7,7 @@ namespace App\Module\Account\Command;
 use App\Module\Account\Entity\ConnectedAccount;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Event\UserRegistered;
+use App\Module\Account\Registration\RegistrationPasses;
 use App\Module\Account\Repository\ConnectedAccountRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
@@ -33,6 +34,7 @@ final readonly class ResolveSocialLoginHandler
         private RegistrationGate $registrationGate,
         private JoinWaitlistHandler $joinWaitlist,
         private WaitlistEntryRepository $waitlistEntries,
+        private RegistrationPasses $registrationPasses,
         private LoggerInterface $logger,
         private EventDispatcherInterface $eventDispatcher,
         private DisplayNameDeriver $displayNameDeriver,
@@ -98,15 +100,11 @@ final readonly class ResolveSocialLoginHandler
         // the waitlist join runs after it rather than inside, because a caught
         // DBAL uniqueness exception still aborts the surrounding Postgres
         // transaction.
-        $user = $this->em->wrapInTransaction(function () use ($profile, $matchEmail): ?User {
+        $user = $this->em->wrapInTransaction(function () use ($command, $profile, $matchEmail): ?User {
             // Serialize this capacity decision against the form registration
             // handler's — the same advisory lock, so the two paths can never
             // both take the last slot.
             $this->registrationGate->acquireCapacityLock($this->em->getConnection());
-
-            if (!$this->registrationGate->isOpen()) {
-                return null;
-            }
 
             // The provider's name is real data and worth keeping; there is no
             // form to ask on when it sends none, so the address is the only
@@ -118,6 +116,17 @@ final readonly class ResolveSocialLoginHandler
                     : $this->displayNameDeriver->derive($matchEmail),
                 email: $matchEmail,
             );
+
+            // Redeemed even when the gate is open, so the token cannot bypass
+            // the cap later. A refusal returns null and the transaction still
+            // commits, so nothing may be persisted above this check.
+            $redeemed = null !== $command->passToken
+                && $this->registrationPasses->redeem($command->passToken, $user);
+
+            if (!$this->registrationGate->isOpen() && !$redeemed) {
+                return null;
+            }
+
             $user->emailVerifiedAt = new \DateTimeImmutable();
             $this->em->persist($user);
             $this->em->persist($this->link($user, $profile));
