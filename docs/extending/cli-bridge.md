@@ -283,7 +283,7 @@ the only sign of it.
 
 Each time the bridge connects to the hub, it sends the runs it holds to
 `PUT /api/bridges/{bridgeId}/runs`. A held run is one whose last state is
-`queued`, `resumed`, `running` or `stopping`. Loupe marks `lost` each open or timed-out run
+`queued`, `resumed`, `preparing`, `running` or `stopping`. Loupe marks `lost` each open or timed-out run
 of that bridge that the list does not name. The bridge keeps its id across restarts, so
 Loupe closes the open runs of a bridge that died when it next connects. The
 inventory goes out after every state the
@@ -635,6 +635,23 @@ bridge refuses it when the card left the column of the run, or when this
 machine holds no transcript of the session. The new run reports the trigger
 `bridge.command`. [Pause and commands](../../cli/README.md#pause-and-commands)
 in `cli/README.md` gives every rule and log event.
+
+## Before command
+
+A worker rule can set `before`, a command that runs ahead of the worker. The
+command makes or refreshes the folder the worker runs in, and prints that
+folder as the last line of its output. The run reports the state `preparing`
+while the command runs. It holds the run's worker slot and its card, so no
+other run of the card starts first.
+
+The run fails, and claude does not start, when the command exits with a code
+that is not 0, runs past its timeout, or prints a path that is not an existing
+directory. It also fails when the bridge cannot read the command's output. The command runs again before each resume. A resumed conversation
+starts in the folder its transcript records. It starts in the printed folder
+only when the session has no transcript on this machine, or when the recorded
+folder is gone. A recorded folder that the bridge cannot read fails the resume.
+[The before command](../../cli/README.md#the-before-command) in
+`cli/README.md` gives the fields, the timeouts and the folder contract.
 
 ## Hooks
 

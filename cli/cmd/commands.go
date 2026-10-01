@@ -285,7 +285,7 @@ func (r *router) closeStoppedLocked(p pending, report api.RunStateReport, holdsK
 func (r *router) stoppedReport(p pending, e endedRun) api.RunStateReport {
 	report := api.RunStateReport{
 		State:     api.RunStopped,
-		SessionID: p.spec.sessionID,
+		SessionID: sessionOf(p, e),
 		StartedAt: e.began,
 		EndedAt:   e.began.Add(e.elapsed),
 		Output:    e.res.output,

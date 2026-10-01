@@ -399,6 +399,130 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertSame('2026-09-23T10:01:00+00:00', $run->endedAt?->format(\DateTimeInterface::ATOM));
     }
 
+    public function test_a_preparing_report_with_no_session_is_accepted(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-preparing@example.com');
+        $project = $this->project($em, $owner, 'Run States Preparing');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+
+        $this->put($client, $path, $raw, $this->payload());
+        $this->put($client, $path, $raw, $this->payload(['state' => 'preparing', 'at' => '2026-09-23T10:00:02+00:00']));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunState::Preparing, $run->state);
+        self::assertNull($run->sessionId);
+        self::assertNull($run->startedAt);
+    }
+
+    public function test_a_preparing_run_moves_to_running(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-preparing-running@example.com');
+        $project = $this->project($em, $owner, 'Run States Preparing Running');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+        $sessionId = (string) Uuid::v4();
+
+        $this->put($client, $path, $raw, $this->payload());
+        $this->put($client, $path, $raw, $this->payload(['state' => 'preparing', 'at' => '2026-09-23T10:00:02+00:00']));
+        $this->put($client, $path, $raw, $this->payload([
+            'state' => 'running',
+            'at' => '2026-09-23T10:00:05+00:00',
+            'sessionId' => $sessionId,
+            'startedAt' => '2026-09-23T10:00:05+00:00',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunState::Running, $run->state);
+        self::assertSame($sessionId, (string) $run->sessionId);
+        self::assertSame(['queued', 'preparing', 'running'], array_map(
+            static fn (WorkerRunStateChange $change): string => $change->state->value,
+            $this->historyOf($run),
+        ));
+    }
+
+    /** The before command failed, so the agent never started and the run has no session. */
+    public function test_a_preparing_run_fails_with_no_session(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-preparing-failed@example.com');
+        $project = $this->project($em, $owner, 'Run States Preparing Failed');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+
+        $this->put($client, $path, $raw, $this->payload());
+        $this->put($client, $path, $raw, $this->payload(['state' => 'preparing', 'at' => '2026-09-23T10:00:02+00:00']));
+        $this->put($client, $path, $raw, $this->payload([
+            'state' => 'failed',
+            'at' => '2026-09-23T10:00:04+00:00',
+            'startedAt' => '2026-09-23T10:00:02+00:00',
+            'endedAt' => '2026-09-23T10:00:04+00:00',
+            'exitCode' => 1,
+            'output' => 'before: npm ci failed',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunState::Failed, $run->state);
+        self::assertNull($run->sessionId);
+        self::assertSame(1, $run->exitCode);
+        self::assertSame('before: npm ci failed', $run->output);
+        self::assertSame('2026-09-23T10:00:02+00:00', $run->startedAt?->format(\DateTimeInterface::ATOM));
+        self::assertSame(['queued', 'preparing', 'failed'], array_map(
+            static fn (WorkerRunStateChange $change): string => $change->state->value,
+            $this->historyOf($run),
+        ));
+    }
+
+    public function test_a_preparing_run_stops(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-preparing-stopped@example.com');
+        $project = $this->project($em, $owner, 'Run States Preparing Stopped');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+
+        $this->put($client, $path, $raw, $this->payload(['state' => 'preparing', 'at' => '2026-09-23T10:00:02+00:00']));
+        $this->put($client, $path, $raw, $this->payload(['state' => 'stopped', 'at' => '2026-09-23T10:00:30+00:00']));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunState::Stopped, $run->state);
+        self::assertNull($run->exitCode);
+        self::assertSame('2026-09-23T10:00:30+00:00', $run->endedAt?->format(\DateTimeInterface::ATOM));
+    }
+
+    /** Reports can arrive out of order, and a late preparing report never moves a running run back. */
+    public function test_a_late_preparing_report_leaves_a_running_run_running(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-preparing-late@example.com');
+        $project = $this->project($em, $owner, 'Run States Preparing Late');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+
+        $this->put($client, $path, $raw, $this->payload([
+            'state' => 'running',
+            'at' => '2026-09-23T10:00:05+00:00',
+            'sessionId' => (string) Uuid::v4(),
+            'startedAt' => '2026-09-23T10:00:05+00:00',
+        ]));
+        self::assertResponseStatusCodeSame(201);
+        $this->put($client, $path, $raw, $this->payload(['state' => 'preparing', 'at' => '2026-09-23T10:00:02+00:00']));
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(WorkerRunState::Running, $this->onlyRun()->state);
+    }
+
     public function test_the_trigger_of_the_first_report_is_stored(): void
     {
         $client = static::createClient();

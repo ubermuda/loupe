@@ -80,6 +80,36 @@ func Find(configDir, sessionID string) (string, error) {
 	return found, nil
 }
 
+// StartDir is the folder the session started in: the cwd of the first line
+// that holds a non-empty one, and "" when no line does. claude --resume finds
+// the session only from that folder.
+func StartDir(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("read the transcript: %w", err)
+	}
+	defer f.Close()
+
+	r := bufio.NewReaderSize(f, 1<<16)
+	for {
+		line, err := r.ReadBytes('\n')
+		if bytes.Contains(line, []byte(`"cwd"`)) {
+			var entry struct {
+				Cwd string `json:"cwd"`
+			}
+			if json.Unmarshal(line, &entry) == nil && entry.Cwd != "" {
+				return entry.Cwd, nil
+			}
+		}
+		if errors.Is(err, io.EOF) {
+			return "", nil
+		}
+		if err != nil {
+			return "", fmt.Errorf("read the transcript: %w", err)
+		}
+	}
+}
+
 // claudeModel is one model of Claude Code's modelUsage object.
 type claudeModel struct {
 	InputTokens              int64    `json:"inputTokens"`

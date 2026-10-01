@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -63,6 +64,35 @@ func TestFindTakesTheNewestOfTwoCopies(t *testing.T) {
 	}
 	if path, err := Find(dir, workSession); err != nil || path != newer {
 		t.Fatalf("Find = %q, %v", path, err)
+	}
+}
+
+// StartDir reads the cwd of the first line that holds one, past a long line
+// and a line with an empty cwd.
+func TestStartDirReadsTheFirstCwd(t *testing.T) {
+	long := `{"type":"summary","summary":"` + strings.Repeat("x", 100_000) + `"}`
+	for name, tc := range map[string]struct {
+		lines []string
+		want  string
+	}{
+		"a cwd on a later line":         {[]string{long, `{"type":"user","cwd":""}`, `{"type":"user","cwd":"/work/a"}`, `{"cwd":"/work/b"}`}, "/work/a"},
+		"no cwd":                        {[]string{long, `{"type":"user"}`}, ""},
+		"an empty file":                 {nil, ""},
+		"a last line with no newline":   {[]string{`{"type":"summary"}`, `{"cwd":"/work/c"}`}, "/work/c"},
+		"a line that names cwd as text": {[]string{`{"type":"user","message":"the \"cwd\" field"}`, `{"cwd":"/work/d"}`}, "/work/d"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "s.jsonl")
+			if err := os.WriteFile(path, []byte(strings.Join(tc.lines, "\n")), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if got, err := StartDir(path); err != nil || got != tc.want {
+				t.Fatalf("StartDir = %q, %v, want %q", got, err, tc.want)
+			}
+		})
+	}
+	if _, err := StartDir(filepath.Join(t.TempDir(), "gone.jsonl")); err == nil {
+		t.Fatal("StartDir of a missing file did not fail")
 	}
 }
 
