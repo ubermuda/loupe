@@ -12,5 +12,6 @@ enum CardEventKind: string
     case FixRequested = 'fix-requested';
     case Stopped = 'stopped';
     case ReadyToMerge = 'ready-to-merge';
+    case Synced = 'synced';
     case RunFinished = 'run-finished';
 }

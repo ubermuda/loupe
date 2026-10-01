@@ -138,6 +138,17 @@ final class CardHistoryEntryTest extends TestCase
         self::assertEquals(new TranslatableMessage('board.card.history.ready_to_merge', ['%pr%' => 42]), $entry->sentence);
     }
 
+    public function test_a_synced_pull_request_names_its_number(): void
+    {
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::Synced, CardReporter::System, null, ['pullRequest' => 42]));
+
+        self::assertSame('lucide:git-compare', $entry->icon);
+        self::assertEquals(new TranslatableMessage('board.card.history.synced', [
+            '%actor%' => new TranslatableMessage('board.card.history.actor.system'),
+            '%pr%' => 42,
+        ]), $entry->sentence);
+    }
+
     public function test_a_finished_run_carries_its_rule_duration_and_result(): void
     {
         $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $this->runDetail('succeeded', 192)), true);

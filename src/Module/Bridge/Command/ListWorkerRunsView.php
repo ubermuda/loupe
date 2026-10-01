@@ -21,6 +21,8 @@ final readonly class ListWorkerRunsView
         public array $pageList,
         public array $bridgeIds,
         public ?int $clampedPage,
+        public int $page,
+        public int $perPage,
     ) {
     }
 }

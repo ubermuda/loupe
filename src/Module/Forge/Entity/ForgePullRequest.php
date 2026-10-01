@@ -103,6 +103,20 @@ class ForgePullRequest
     #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
     public array $headParents = [];
 
+    /** The head Loupe asked the forge to bring up to date with its base. */
+    #[ORM\Column(length: 64, nullable: true)]
+    public ?string $syncFromSha = null;
+
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $syncRequestedAt = null;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    public ?string $syncFailedReason = null;
+
+    /** The last head that a sync by Loupe produced. */
+    #[ORM\Column(length: 64, nullable: true)]
+    public ?string $syncedSha = null;
+
     /** @var list<string> the newest forge ids of the reviews whose verdict went out, so a redelivered review is announced once */
     #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
     public array $announcedReviewIds = [];
@@ -140,8 +154,27 @@ class ForgePullRequest
     public function apply(PullRequestSnapshot $snapshot): void
     {
         // Keyed on the review id, because GitHub moves the commit of a review onto a later merge from the base.
-        if ($this->approvalId !== $snapshot->approvalId) {
+        $approvalChanged = $this->approvalId !== $snapshot->approvalId;
+        $headMoved = $this->headSha !== $snapshot->headSha;
+        if ($approvalChanged) {
             $this->coveredSha = $snapshot->approvalSha;
+            $this->syncFailedReason = null;
+        }
+        // After the approval reset, so an approval of the head Loupe asked to update still follows the sync in one read.
+        // The update merges the base into the head Loupe asked for, so the new head has exactly two parents and that head comes first.
+        $syncMerge = 2 === \count($snapshot->headParents) && $snapshot->headParents[0] === $this->syncFromSha;
+        if ($headMoved && null !== $this->syncFromSha && $syncMerge && $this->coveredSha === $this->syncFromSha) {
+            // The merge commit of a sync from the covered head adds only base changes, so the approval still covers it.
+            $this->coveredSha = $this->syncedSha = $snapshot->headSha;
+        } elseif ($headMoved) {
+            // A head that a person pushed is not a sync, even when it returns to a commit Loupe synced before.
+            $this->syncedSha = null;
+        }
+        // A sync in flight keeps its marker through a new approval, so its merge commit is still recognised.
+        if ($headMoved) {
+            $this->syncFromSha = null;
+            $this->syncRequestedAt = null;
+            $this->syncFailedReason = null;
         }
         $this->state = $snapshot->state;
         $this->draft = $snapshot->draft;

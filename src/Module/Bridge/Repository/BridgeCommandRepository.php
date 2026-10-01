@@ -155,6 +155,28 @@ class BridgeCommandRepository extends ServiceEntityRepository
     }
 
     /**
+     * Every command of these runs, oldest request first.
+     *
+     * @param list<WorkerRun> $runs
+     *
+     * @return list<BridgeCommand>
+     */
+    public function findForRuns(array $runs): array
+    {
+        if ([] === $runs) {
+            return [];
+        }
+
+        return array_values($this->createQueryBuilder('c')
+            ->andWhere('c.workerRun IN (:runs)')
+            ->setParameter('runs', $runs)
+            ->orderBy('c.requestedAt', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * The newest command of each run. On a tie of the request time, the higher id wins.
      *
      * @param list<WorkerRun> $runs

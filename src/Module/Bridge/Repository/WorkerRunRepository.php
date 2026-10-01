@@ -10,6 +10,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
+use App\Module\Bridge\View\WorkerRunListQuery;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
@@ -545,15 +546,9 @@ class WorkerRunRepository extends ServiceEntityRepository
      *
      * @return Paginator<WorkerRun>
      */
-    public function findPaginatedByProject(
-        Project $project,
-        int $page,
-        int $perPage,
-        ?string $search = null,
-        ?WorkerRunState $state = null,
-        ?Uuid $bridgeId = null,
-        bool $open = false,
-    ): Paginator {
+    public function findPaginatedByProject(Project $project, int $page, int $perPage, WorkerRunListQuery $query): Paginator
+    {
+        $search = $query->search;
         $qb = $this->createQueryBuilder('r')
             ->andWhere('r.project = :project')
             ->setParameter('project', $project)
@@ -580,22 +575,66 @@ class WorkerRunRepository extends ServiceEntityRepository
             $qb->andWhere($match)->setParameter('search', $search);
         }
 
-        if (null !== $state) {
-            $qb->andWhere('r.state = :state')->setParameter('state', $state->value);
+        if (null !== $query->state) {
+            $qb->andWhere('r.state = :state')->setParameter('state', $query->state->value);
         }
 
-        if ($open) {
+        if ([] !== $query->states) {
+            $qb->andWhere('r.state IN (:states)')
+                ->setParameter('states', array_map(static fn (WorkerRunState $state): string => $state->value, $query->states));
+        }
+
+        if (null !== $query->cardNumber) {
+            $qb->andWhere('r.cardNumber = :cardNumber')->setParameter('cardNumber', $query->cardNumber);
+        }
+
+        if (null !== $query->rule) {
+            $qb->andWhere('r.ruleName = :rule')->setParameter('rule', $query->rule);
+        }
+
+        // A timed-out, lost or replaced run moves state with no end, so its first report stands in.
+        if (null !== $query->endedAfter) {
+            $qb->andWhere('COALESCE(r.endedAt, r.receivedAt) >= :endedAfter')->setParameter('endedAfter', $query->endedAfter, Types::DATETIME_IMMUTABLE);
+        }
+
+        if (null !== $query->endedBefore) {
+            $qb->andWhere('COALESCE(r.endedAt, r.receivedAt) <= :endedBefore')->setParameter('endedBefore', $query->endedBefore, Types::DATETIME_IMMUTABLE);
+        }
+
+        if ($query->open) {
             $qb->andWhere('r.state IN (:openStates)')
                 ->setParameter('openStates', array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::openStates()));
         }
 
-        if (null !== $bridgeId) {
+        if (null !== $query->bridgeId) {
             $qb->andWhere('r.bridgeId = :bridgeId')
-                ->setParameter('bridgeId', $bridgeId, UuidType::NAME);
+                ->setParameter('bridgeId', $query->bridgeId, UuidType::NAME);
         }
 
         // Nothing is fetch-joined, so the page LIMIT already counts runs.
         return new Paginator($qb->getQuery(), fetchJoinCollection: false);
+    }
+
+    /**
+     * The runs that resume one of these runs, oldest report first.
+     *
+     * @param list<WorkerRun> $runs
+     *
+     * @return list<WorkerRun>
+     */
+    public function findContinuationsOf(array $runs): array
+    {
+        if ([] === $runs) {
+            return [];
+        }
+
+        return array_values($this->createQueryBuilder('r')
+            ->andWhere('r.continuesRun IN (:runs)')
+            ->setParameter('runs', $runs)
+            ->orderBy('r.receivedAt', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->getQuery()
+            ->getResult());
     }
 
     /**
