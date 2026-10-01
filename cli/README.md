@@ -445,21 +445,23 @@ Each entry in `rules` takes these fields:
 | `project` | yes | A project slug from `projects` |
 | `to` | for `board.card_moved` | The column slug the card enters |
 | `from` | no | The column slug the card leaves. Omitted, any column matches |
-| `prompt` | yes | The prompt the worker runs, with placeholders |
-| `permissionMode` | no | Defaults to `defaults.permissionMode`, then to `--permission-mode`. An interactive rule takes no default. A mode `claude` takes, such as `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `manual` or `plan` |
-| `model` | no | Defaults to `defaults.model`, then to `--model`. An interactive rule takes no default. An alias such as `opus` or a full model name, with no whitespace |
+| `prompt` | yes, except on a command rule | The prompt the worker runs, with placeholders. A command rule cannot set it |
+| `permissionMode` | no | Defaults to `defaults.permissionMode`, then to `--permission-mode`. An interactive rule takes no default, and a command rule cannot set it. A mode `claude` takes, such as `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `manual` or `plan` |
+| `model` | no | Defaults to `defaults.model`, then to `--model`. An interactive rule takes no default, and a command rule cannot set it. An alias such as `opus` or a full model name, with no whitespace |
 | `maxChain` | no | The agent-triggered runs in a row this rule starts for one card. Defaults to `3`. At least 1. See [The chain cap](#the-chain-cap) |
-| `maxResumes` | no | The resumes the bridge runs after a run that did not finish. Defaults to `2`, and `0` turns resumes off. At most 32767. See [Resuming an unfinished run](#resuming-an-unfinished-run) |
-| `resultFields` | no | Optional fields the worker adds to its structured result. Each key is a field name, and each value is a JSON Schema fragment. See [The structured result](#the-structured-result) |
+| `maxResumes` | no | The resumes the bridge runs after a run that did not finish. Defaults to `2`, and `0` turns resumes off. At most 32767. A command rule cannot set it. See [Resuming an unfinished run](#resuming-an-unfinished-run) |
+| `resultFields` | no | Optional fields the worker adds to its structured result. Each key is a field name, and each value is a JSON Schema fragment. A command rule cannot set it. See [The structured result](#the-structured-result) |
 | `allowUntrusted` | no | Defaults to `false`. See below |
-| `resume` | for `inbox.ask_closed` | `true` resumes the session that asked. A rule on `inbox.ask_closed` needs it. A rule on `pull_request.fix_requested` can set it, and no other rule can. See [Resuming a session](#resuming-a-session) and [A pull request event](#a-pull-request-event) |
+| `resume` | for `inbox.ask_closed` | `true` resumes the session that asked. A rule on `inbox.ask_closed` needs it. A worker rule on `pull_request.fix_requested` can set it, and no other rule can. See [Resuming a session](#resuming-a-session) and [A pull request event](#a-pull-request-event) |
 | `verdict` | no | `approved` or `changes-requested`. Omitted, either verdict matches. Only a rule on `document.review_submitted` can set it. See [A review verdict](#a-review-verdict) |
 | `when` | no | A map of event field to value. The rule matches only an event whose fields hold every value. Only a rule on `pull_request.checks_concluded`, `pull_request.review_submitted` or `pull_request.fix_requested` can set it. See [A pull request event](#a-pull-request-event) |
 | `card` | no | A block that limits the rule by the state of its card. Only a rule on `board.card_moved` or `document.review_submitted` can set it. See [A card in an interactive session](#a-card-in-an-interactive-session) |
-| `action` | no | `interactive` opens an interactive session in a terminal instead of a worker. Omitted, the rule is a worker rule. See [Opening an interactive session](#opening-an-interactive-session) |
-| `workerPool` | no | The worker pool the rule's workers take a slot from. A pool name from `workerPools`, or `default`. Omitted, the rule uses `default`. An interactive rule cannot set it. See [The queue](#the-queue) |
-| `before` | no | A command that runs ahead of the worker and prints the folder the worker starts in. It holds `run`, an argv list, and `timeout`, which defaults to `15m` and is at most `60m`. An interactive rule cannot set it. See [The before command](#the-before-command) |
-| `experiment` | no | An experiment name from `experiments`. The variant of the card picks the model, so the rule cannot set `model`, and `defaults.model` does not apply. An interactive rule cannot set it. See below |
+| `action` | no | `interactive` opens an interactive session in a terminal instead of a worker. `command` runs a command with no agent. Omitted, the rule is a worker rule. See [Opening an interactive session](#opening-an-interactive-session) and [The command action](#the-command-action) |
+| `workerPool` | no | The worker pool the rule's workers take a slot from. A pool name from `workerPools`, or `default`. Omitted, the rule uses `default`. An interactive rule or a command rule cannot set it. See [The queue](#the-queue) |
+| `before` | no | A command that runs ahead of the worker and prints the folder the worker starts in. It holds `run`, an argv list, and `timeout`, which defaults to `15m` and is at most `60m`. An interactive rule or a command rule cannot set it. See [The before command](#the-before-command) |
+| `experiment` | no | An experiment name from `experiments`. The variant of the card picks the model, so the rule cannot set `model`, and `defaults.model` does not apply. An interactive rule or a command rule cannot set it. See below |
+| `run` | for `action: command` | The argv list of the command, with placeholders. Only a command rule can set it. See [The command action](#the-command-action) |
+| `timeout` | no | How long the command of a command rule can run, such as `5m`. Defaults to `10m`, and is at most `60m`. Only a command rule can set it |
 
 The optional `defaults:` block sets `permissionMode` and `model` for every rule
 of the file:
@@ -975,6 +977,65 @@ session](#resuming-a-session) says what each case does.
 A command that still runs when the bridge updates itself is handed over. The
 new image waits for it, then starts claude, as it does for a worker.
 
+### The command action
+
+A rule with `action: command` runs a command for the card, and starts no agent.
+Use it for a step that needs no judgement, such as the teardown of a card's
+worktree when the card reaches `done`:
+
+```yaml
+rules:
+  - name: teardown
+    on: board.card_moved
+    project: my-app
+    to: done
+    action: command
+    run: [bin/teardown.sh, "{cardNumber}"]
+    timeout: 5m
+```
+
+`run` is an argv list, and no shell reads it. Each element takes the
+placeholders that a prompt takes for the rule's event type, and the bridge
+fills each element on its own. A value therefore never splits into two
+arguments. The command runs in the project's `dir`, with the bridge's own
+environment. `timeout` defaults to `10m`, and the bridge refuses more than
+`60m`.
+
+A command rule works on `board.card_moved`, `document.review_submitted` and the
+`pull_request.*` events only, because its run reports against a card. It takes
+`name`, `on`, `project`, `to`, `from`, `verdict`, `when`, `card`,
+`allowUntrusted`, `maxChain`, `run` and `timeout`. The rule check refuses
+`prompt`, `model`, `permissionMode`, `resume`, `resultFields`, `experiment`,
+`workerPool`, `maxResumes` and `before` on it. The `defaults:` block and the
+bridge flags do not reach it. A command run never counts toward a chain, so
+`maxChain` never stops it.
+
+A command takes no worker slot, so it starts while every pool is full. It still
+holds its card. A command that arrives while a worker of the card runs waits for
+that worker, and a worker that arrives while the command runs waits for the
+command. A teardown therefore never cancels the work of the card. Commands on
+different cards all run at the same time. A command waits in
+[the queue](#the-queue) as a worker does: a paused bridge keeps it there, a held
+card skips it, and a newer event of the same card and rule replaces it.
+
+The run reports `queued`, then `running` with no session. It ends as
+`succeeded` when the command exits with code 0, and as `failed` otherwise. A
+command that runs past its timeout, that the bridge kills, or that never starts
+fails with the exit code `-1`. The output of a failed run starts with the
+reason on its first line, and the end of the command's output follows. Every
+report of the run carries `"kind": "command"`, and the run has no session and
+no cost. A person's stop ends the command's process group as it ends a worker,
+and the run reports `stopping`, then `stopped`.
+
+The bridge never resumes or retries a failed command. A person can run it again
+with **Run again** on the run, as
+[Pause and commands](#pause-and-commands) says.
+
+The bridge writes `command.json`, `command.stdout`, `command.stderr` and
+`command.exit` in the run directory. A command that still runs when the bridge
+updates itself is handed over. The new image waits for it, and reports how it
+ends.
+
 ### The structured result
 
 Every prompt ends with a request for a structured result. `--json-schema` makes
@@ -1060,7 +1121,9 @@ free `quick` slot unused.
 A run keeps the slot of the pool it started in until it ends. The resume of an
 unfinished run, and the new session that replaces a missing one, start in the
 pool their rule names at that time. An interactive rule takes no slot, so it
-opens its session while every pool is full.
+opens its session while every pool is full. A [command rule](#the-command-action)
+takes no slot either. Its run waits in the queue only for its card, and logs
+`worker_queued` with an empty `worker_pool`.
 
 A reload never stops a worker. When a reload makes a pool smaller, or lowers
 `maxWorkers`, the running workers go on, and the pool starts no new run until
@@ -1329,16 +1392,18 @@ or another server holds no pause for this bridge. The first reply that carries
 missing cache heals. When the bridge cannot find its config directory, it runs
 with no cache. An update hands the pause to the new version directly. Each
 heartbeat sends `paused` with the state the bridge applies, and
-`capabilities: ["commands"]`.
+`capabilities: ["commands", "rerun-command"]`.
 
-The project owner sends a stop, a resume or a pause from the web UI. Stop and
-Resume are in the runs section of a card page and in the drawer of a run on
-the **Runs** tab of the Activity page. **Pause new work** is in the menu of the
-bridge card on the agents page. These controls need a bridge of version 1.5.0
-or later, which reports the `commands` capability. The page disables them for
-an older bridge.
+The project owner sends a stop, a resume, a rerun or a pause from the web UI.
+Stop, Resume and Run again are in the runs section of a card page and in the
+drawer of a run on the **Runs** tab of the Activity page. **Pause new work** is
+in the menu of the bridge card on the agents page. These controls need a bridge
+of version 1.5.0 or later, which reports the `commands` capability. Run again
+also needs the `rerun-command` capability. The page disables a control for a
+bridge that does not report its capability.
 
-The server can also ask the bridge to stop or resume one run. The command comes
+The server can also ask the bridge to stop or resume one run, or to run the
+command of a failed command run again. The command comes
 as a `bridge.command` event and again in each heartbeat reply, until the bridge
 answers it. The bridge acts on a command once, by its `commandId`, whichever
 channel brings it first. It keeps the ids in memory, so this holds for one
@@ -1359,7 +1424,8 @@ early when the group has no process left. The flags
 (default 2500) set the waits. A value below 100 reads as the default. When the
 worker ends, the bridge reports `stopped` with the output and the usage, and
 it does not resume the run. The worker still logs `worker_finished` or
-`worker_no_result` first, often at `ERROR`. A run in an ask check or in the resume gate reports
+`worker_no_result` first, often at `ERROR`. A stopped command run logs
+`command_failed` first. A run in an ask check or in the resume gate reports
 `stopped` when that step ends. A stop also works while the bridge is paused.
 
 A stop reaches the process group of the worker only. Work that the worker
@@ -1392,6 +1458,19 @@ the index of that run. The automatic resumes of the new run count from zero
 again, so `resumeCap` is the new index plus the `maxResumes` of the rule. The
 resume waits for any other worker of the card, and a paused bridge keeps it
 queued.
+
+A rerun, of the kind `rerun-command`, names a
+[command run](#the-command-action) that ended as `failed`, `timed-out` or
+`lost`. The bridge queues the command of the run's rule again, as a new run
+that continues the failed run. The new run fills the command from the card
+and the project alone. `{cardId}`, `{cardNumber}`, `{projectId}` and
+`{project}` keep their values, and the placeholders of the event, such as
+`{to}`, are empty. Its `queued` report carries the trigger `bridge.command`,
+`continues` with the run key, and a `resumeIndex` one above the index of that
+run. The bridge refuses the rerun when the rule of the run is gone or no longer
+runs a command. It also refuses when the card has a run that is open on this
+bridge, and during a handover or a shutdown. A held card passes, and the bridge
+ends its own hold of the card. The rerun logs `command_rerun_asked`.
 
 ### Updates
 
@@ -1453,6 +1532,9 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `before_started` | `card`, `project`, `rule`, `worker_pool`, `pid`: the rule's before command started |
 | `before_finished` | `card`, `project`, `rule`, `dir`, `output`: the before command printed the folder the worker starts in |
 | `before_failed` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`: the before command failed, so no worker started. Level `ERROR` |
+| `command_started` | `card`, `project`, `rule`, `pid`: the command of a [command rule](#the-command-action) started |
+| `command_finished` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`: the command of a command rule exited with code 0 |
+| `command_failed` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`: the command of a command rule exited with another code, ran past its timeout, was killed or never started. Level `ERROR` |
 | `resume_dir_gone` | `card`, `project`, `rule`, `session_id`, `new_session_id`, `dir`, `message`: the folder of the resumed session is gone, so the bridge starts a new session. Level `WARN` |
 | `resume_failed` | `card`, `project`, `rule`, `session_id`, `output`: a person's resume found the session's folder gone, so no worker started. Level `ERROR` |
 | `worker_started` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `ask` for the resume of an ask, and `resume` for the resume of an unfinished run |
@@ -1489,8 +1571,9 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `command_dropped` | the fields of `command_received` and `reason`: `duplicate`, `expired`, `other_bridge`, `handover` or `shutdown`. A heartbeat copy that is `duplicate` or `expired` logs at level `DEBUG`, which the bridge log does not show. For `malformed`, the line has `source`, `error` and, from a heartbeat, `command`, at level `WARN` |
 | `command_acked` | `command`, `kind`, `state`, and `answer`: `command_not_found` when the server no longer held the command |
 | `command_ack_state` | `command`, `kind`, `state`, `stored`: the server kept another state, for example for a command that expired first. Level `WARN` |
+| `command_rerun_asked` | `card`, `project`, `rule`, `continues`: a person's rerun queued the command of a command rule again, as a run that continues the run `continues` names |
 | `worker_resume_asked` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `resume`, `max_resumes`, `continues`: a person's resume queued a run on the session of the run `continues` names |
-| `worker_stopping` | `card`, `project`, `rule`, `pid`: a person stopped a live worker |
+| `worker_stopping` | `card`, `project`, `rule`, `pid`: a person stopped a live worker, or the live command of a command rule |
 | `stop_signal_sent` | `card`, `project`, `rule`, `pid`, `signal`: `SIGINT`, `SIGTERM` or `SIGKILL` |
 | `stop_signal_failed` | `card`, `project`, `rule`, `pid`, `signal`, `error`: the bridge could not signal the group, and sends no further signal. Level `WARN` |
 | `worker_stopped` | `card`, `project`, `rule`: the bridge reported a stopped run |
@@ -1504,6 +1587,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `cursor_save_failed` | `file`, `error`: the bridge could not write the cursor file, logged once until a write works again. Routing goes on. Level `WARN` |
 | `worker_adopted` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `pid`: the bridge took over a worker that an earlier version started |
 | `before_adopted` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `pid`: the bridge took over a before command that an earlier version started |
+| `command_adopted` | `card`, `project`, `rule`, `pid`: the bridge took over the command of a command rule that an earlier version started |
 | `update_skipped` | `reason`: the bridge does not check for updates, for example a development build |
 | `update_check` | `from`, `range`: a check starts |
 | `update_check_failed` | `from`, `error`, and `to` for a failed download. Level `WARN` |

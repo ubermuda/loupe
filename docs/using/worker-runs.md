@@ -22,7 +22,7 @@ page describes it. **Events** lists the [project events](activity.md).
 
 | Column | Meaning |
 |---|---|
-| Work | the number of the card the worker was started for, then its title. A card that is gone, or a board that is off, shows the number alone. An interactive run adds the tag **Interactive session** |
+| Work | the number of the card the worker was started for, then its title. A card that is gone, or a board that is off, shows the number alone. An interactive run adds the tag **Interactive session**, and a command run adds the tag **Command** |
 | Outcome | the state of the run, from the list below. A run with a failure reason shows a help icon, and the reason shows when you hover over or focus the outcome |
 | Rule | the bridge rule that matched the event. A long rule name is cut short, and the drawer shows it in full. A run that names a worker pool adds a tag with the pool, such as **quick pool** |
 | Duration | how long the worker ran. A run that is still open shows how long it has run so far, and an open interactive run shows "running for" in front. A run with no start, or a run that closed with no reported end, shows nothing |
@@ -47,6 +47,14 @@ from opus`. A run with no experiment shows no line.
 A run that never started carries the reason instead of an exit code, such as a
 missing `claude` binary, or a terminal launcher that failed.
 
+A bridge rule can run a command with no agent, such as a script that removes
+the worktree of a finished card. See
+[Command action](../extending/cli-bridge.md#command-action). Its run shows the
+tag **Command** on this page, in the drawer, in the runs of a card and on the
+Workshop. A command run has no session and no cost. It succeeds when the
+command exits with code 0, and fails otherwise. The output of a failed run
+starts with the reason, such as a timeout.
+
 The list reads newest first, by when the first report of each run arrived, 20
 runs to a page.
 
@@ -64,7 +72,7 @@ runs to a page.
 | **Stopped** | a person stopped the run, and the bridge does not resume it |
 | **Waiting for a person** | the rule's chain cap stopped the run, and a move by a person starts a new one |
 | **Dropped** | the bridge stopped, a rule died, or a reload removed the rule, before the run started |
-| **Succeeded** | the worker exited with code 0, with a structured result |
+| **Succeeded** | the worker exited with code 0, with a structured result. A command run succeeds on exit code 0 alone |
 | **No result** | the worker exited with code 0, with no structured result |
 | **Unfinished** | the worker said that its work still runs or remains |
 | **Blocked** | the worker said that it cannot go on without a person |
@@ -104,25 +112,28 @@ resume did not run.
 
 The project owner can control a run from the runs section of a card page and
 from the drawer of a run. The card page lists only the runs in progress, so it
-offers **Stop** and **Cancel request** for a stop. Resume an ended run from
-this page. Other people see the labels and no controls. An interactive run has
-no controls, and its owner uses **Close session** instead.
+offers **Stop** and **Cancel request** for a stop. Resume an ended run, or run
+a command again, from this page. Other people see the labels and no controls.
+An interactive run has no controls, and its owner uses **Close session**
+instead.
 
 | Control | When it shows | What it does |
 |---|---|---|
 | **Stop** | the run is Queued, Resumed, Preparing or Running | asks the bridge to stop the run |
 | **Resume** | the run ended as Blocked, Gave up, Failed, No result, Unfinished, Timed out, Lost, Stopped or Waiting for a person, and it has a session | asks the bridge to continue the session as a new run |
-| **Cancel request** | a stop or a resume still waits for the bridge | withdraws the request |
+| **Run again** | a command run ended as Failed, Timed out or Lost | asks the bridge to run the command again as a new run |
+| **Cancel request** | a stop, a resume or a rerun still waits for the bridge | withdraws the request |
 
-A request waits until the bridge takes it. The row then shows **Stop requested**
-or **Resume requested**. When the bridge sends no heartbeat, the label ends
-with **, bridge offline**. A request that waits longer than the
+A request waits until the bridge takes it. The row then shows the label of the
+request: **Stop requested**, **Resume requested** or **Run again requested**.
+When the bridge sends no heartbeat, the label ends with **, bridge offline**. A request that waits longer than the
 `bridge.command_ttl_minutes` flag expires. The flag is 15 minutes by default.
 See [Pause and commands](../reference/bridge-heartbeat.md#pause-and-commands).
 
 The row shows a notice when a request did not work. An expired stop shows
 **The stop request expired before the bridge took it.**, and an expired resume
-shows the same text for a resume. A refused request shows **The bridge
+shows the same text for a resume. An expired rerun shows **The request to run
+again expired before the bridge took it.** A refused request shows **The bridge
 refused:** and the reason the bridge gave, such as a session that is not on its
 machine. The notice goes when a person sends a new request, or when the control
 no longer applies to the run. A queued run of a paused bridge shows
@@ -132,11 +143,17 @@ A control can show and be disabled. Point at it to read the reason. Resume is
 disabled with **The card left** and the column slug when the card is no longer
 in the column of the rule that started the run. When the bridge does not
 report the `commands` capability, every control is disabled with **Update the
-bridge to 1.5.0 or later to control its runs.**
+bridge to 1.5.0 or later to control its runs.** **Run again** is also disabled
+with **Update the bridge to run a command again.** when the bridge does not
+report the `rerun-command` capability.
+
+The bridge refuses **Run again** when the rule of the run is gone or no longer
+runs a command. It also refuses while the card has a run that is open on that
+bridge. The bridge never runs a failed command again by itself.
 
 A stop holds the card. No worker starts on a held card until its bridge takes
-a person's resume of one of its runs, or a person moves it to another column.
-A resume that the bridge never takes leaves the card held. A cancel
+a person's resume or rerun of one of its runs, or a person moves it to another
+column. A resume that the bridge never takes leaves the card held. A cancel
 of a stop that still waits releases the hold that the stop wrote, unless a stop
 of another run of the card still waits. See [The card page](board.md#the-card-page).
 
@@ -162,7 +179,8 @@ session, an ended run in a state that can resume, and a card still in the column
 that started the series. A run with a request that still waits refuses a second
 one, and so does a bridge that does not take commands. A refused run gives a
 code and a message, and `worker_run_resume` takes up to 50 runs in one call.
-There is no tool that pauses a bridge.
+There is no tool that pauses a bridge, and no tool that runs a command again.
+Each run row carries its `kind`: `worker`, `interactive` or `command`.
 
 ## A warning on the card
 
