@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
+use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardAutomationAction;
@@ -193,6 +194,75 @@ final class ShowCardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-card-automation-blocked]'));
     }
 
+    public function test_the_card_page_shows_the_sync_status_of_each_open_pull_request(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'card-sync-status@example.com');
+        $project = $this->project($em, $owner);
+        $em->persist(new BoardAutomationSettings($project, syncBehind: true));
+        $card = $this->card($em, $project, 'Keep up with main');
+        $links = [];
+        foreach ([20, 21, 22, 23, 24, 25] as $number) {
+            $links[$number] = $this->link($card, $number);
+        }
+        $card->replacePullRequests(...array_values($links));
+
+        $this->inLine($this->row($em, $project, 20))->mergeability = PullRequestMergeability::Behind;
+        $this->approved($this->inLine($this->row($em, $project, 21)))->syncFailedReason = 'permission';
+        $this->approved($this->inLine($this->row($em, $project, 22)))->syncFailedReason = 'api_failed_http_status_500';
+        $holder = $this->approved($this->inLine($this->row($em, $project, 23)));
+        $holder->mergeability = PullRequestMergeability::Mergeable;
+        $holder->syncedSha = $holder->headSha;
+        $this->approved($this->inLine($this->row($em, $project, 24)))->mergeability = PullRequestMergeability::Behind;
+        $this->approved($this->inLine($this->row($em, $project, 25)))->mergeability = PullRequestMergeability::Conflicting;
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
+
+        self::assertResponseIsSuccessful();
+        $expected = [
+            20 => ['waits-for-approval', 'Waits for an approval'],
+            21 => ['sync-failed', 'Sync failed: the app may not write to the repository'],
+            22 => ['sync-failed', 'Sync failed: api_failed_http_status_500'],
+            23 => ['synced-checks-running', 'Synced, checks running'],
+            24 => ['waits-turn', 'Waits its turn behind #23'],
+            25 => ['conflicts', 'Conflicts with the base'],
+        ];
+        foreach ($expected as $number => [$status, $text]) {
+            $line = $crawler->filter('[data-linked-pull-request="'.$links[$number]->id.'"] [data-pull-request-sync]');
+            self::assertCount(1, $line, 'Pull request #'.$number);
+            self::assertSame($status, $line->attr('data-pull-request-sync'));
+            self::assertSame($text, trim($line->text()));
+        }
+    }
+
+    public function test_the_card_page_shows_no_sync_status_while_the_setting_is_off(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'card-sync-status-off@example.com');
+        $project = $this->project($em, $owner);
+        $em->persist(new BoardAutomationSettings($project, syncBehind: false));
+        $card = $this->card($em, $project, 'Left behind');
+        $link = $this->link($card, 30);
+        $card->replacePullRequests($link);
+        $this->inLine($this->row($em, $project, 30))->mergeability = PullRequestMergeability::Behind;
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-linked-pull-request="'.$link->id.'"] [data-pull-request-state="open"]'));
+        self::assertCount(0, $crawler->filter('[data-pull-request-sync]'));
+    }
+
     private function link(Card $card, int $number): CardPullRequest
     {
         return new CardPullRequest(
@@ -209,6 +279,26 @@ final class ShowCardControllerTest extends WebTestCase
         $row = new ForgePullRequest($project, 'github', 'loupe/loupe', $number);
         $row->refreshedAt = new \DateTimeImmutable();
         $em->persist($row);
+
+        return $row;
+    }
+
+    private function inLine(ForgePullRequest $row): ForgePullRequest
+    {
+        $row->headSha = 'head'.$row->number;
+        $row->baseBranch = 'main';
+        $row->defaultBranch = 'main';
+
+        return $row;
+    }
+
+    private function approved(ForgePullRequest $row): ForgePullRequest
+    {
+        $row->approvalId = 'review-'.$row->number;
+        $row->approvalSha = $row->headSha;
+        $row->coveredSha = $row->headSha;
+        $row->approvedAt = new \DateTimeImmutable('-'.$row->number.' minutes');
+        $row->review = PullRequestReview::Approved;
 
         return $row;
     }

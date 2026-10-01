@@ -5,6 +5,12 @@
         <strong>{{ link.repository ? link.repository ~ ' #' ~ link.number : link.url }}</strong>
         {% if not href %}<p class="lp-inbox-linked-table__note">{{ 'board.card.pull_requests.not_linkable'|trans }}</p>{% endif %}
     </td>
-    <td>{% if state and state.refreshedAt %}{% include '@Board/_pull_request_state.html.twig' with {state: state} only %}{% else %}<span class="lp-tag">{{ (href ? 'board.card.link.status_not_reported' : 'board.card.link.status_unavailable')|trans }}</span>{% endif %}</td>
+    <td>{% if state and state.refreshedAt %}{% include '@Board/_pull_request_state.html.twig' with {state: state} only %}{% else %}<span class="lp-tag">{{ (href ? 'board.card.link.status_not_reported' : 'board.card.link.status_unavailable')|trans }}</span>{% endif %}
+        {% set sync = state ? state.sync : null %}
+        {% if sync %}
+        {% set reasonKey = {permission: 'board.card.link.sync.reason.permission', refused: 'board.card.link.sync.reason.refused', timeout: 'board.card.link.sync.reason.timeout', no_updater: 'board.card.link.sync.reason.no_updater'}[sync.reason] ?? null %}
+        <p class="lp-inbox-linked-table__note" data-pull-request-sync="{{ sync.status.value }}">{{ {'sync-failed': 'board.card.link.sync.sync_failed', conflicts: 'board.card.link.sync.conflicts', 'waits-for-approval': 'board.card.link.sync.waits_for_approval', 'synced-checks-running': 'board.card.link.sync.synced_checks_running', 'waits-turn': 'board.card.link.sync.waits_turn'}[sync.status.value]|trans({'%number%': sync.blockerNumber, '%reason%': reasonKey ? reasonKey|trans : sync.reason}) }}</p>
+        {% endif %}
+    </td>
     <td>{% if href %}<a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ href }}" rel="noopener noreferrer" target="_blank" aria-label="{{ 'board.card.link.open_pull_request'|trans }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></a>{% endif %}</td>
 </tr>

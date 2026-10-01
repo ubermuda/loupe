@@ -5927,6 +5927,15 @@
             <trans-unit id="board.card.link.mergeability.conflicting"><source>board.card.link.mergeability.conflicting</source><target>Conflict</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.behind"><source>board.card.link.mergeability.behind</source><target>Behind base</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.blocked"><source>board.card.link.mergeability.blocked</source><target>Merge blocked</target></trans-unit>
+            <trans-unit id="board.card.link.sync.waits_for_approval"><source>board.card.link.sync.waits_for_approval</source><target>Waits for an approval</target></trans-unit>
+            <trans-unit id="board.card.link.sync.conflicts"><source>board.card.link.sync.conflicts</source><target>Conflicts with the base</target></trans-unit>
+            <trans-unit id="board.card.link.sync.waits_turn"><source>board.card.link.sync.waits_turn</source><target>Waits its turn behind #%number%</target></trans-unit>
+            <trans-unit id="board.card.link.sync.synced_checks_running"><source>board.card.link.sync.synced_checks_running</source><target>Synced, checks running</target></trans-unit>
+            <trans-unit id="board.card.link.sync.sync_failed"><source>board.card.link.sync.sync_failed</source><target>Sync failed: %reason%</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.permission"><source>board.card.link.sync.reason.permission</source><target>the app may not write to the repository</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.refused"><source>board.card.link.sync.reason.refused</source><target>the forge refused the update</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.timeout"><source>board.card.link.sync.reason.timeout</source><target>the update did not finish in time</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.no_updater"><source>board.card.link.sync.reason.no_updater</source><target>Loupe cannot update a pull request on this forge</target></trans-unit>
             <trans-unit id="board.card.link.review.approved"><source>board.card.link.review.approved</source><target>Approved</target></trans-unit>
             <trans-unit id="board.card.link.review.changes_requested"><source>board.card.link.review.changes_requested</source><target>Changes requested</target></trans-unit>
             <trans-unit id="board.card.link.review.required"><source>board.card.link.review.required</source><target>Review required</target></trans-unit>
