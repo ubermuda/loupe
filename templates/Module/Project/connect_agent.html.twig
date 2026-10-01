@@ -37,7 +37,7 @@
                         </div>
                         <button type="button" class="lp-btn lp-btn--icon" data-action="modal#close" aria-label="{{ 'project.connect.dialog.close'|trans }}"><twig:ux:icon name="lucide:x" /></button>
                     </header>
-                    {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName} only %}
+                    {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, projectId: project.id} only %}
                     <details class="lp-tools-disclosure">
                         <summary class="lp-tools-disclosure__summary">
                             <twig:ux:icon name="lucide:chevron-right" class="lp-tools-disclosure__caret" />

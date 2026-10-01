@@ -27,6 +27,22 @@ test.describe('first-run wizard', () => {
 
         await expect(page).toHaveURL(/\/welcome\/connect$/);
         await expect(page.locator('ol[data-wizard-step="2"]')).toBeVisible();
+
+        // The setup prompt is open, and names the project created above. The
+        // id is checked against the dashboard URL at the end of the flow.
+        const setupPrompt = page.locator('[data-testid="setup-prompt"]');
+        await expect(setupPrompt).toBeVisible();
+        await expect(setupPrompt).toContainText(
+            /curl -fsSL "https?:\/\/[^"]+\/setup\.md\?project=[0-9a-f-]{36}"/,
+        );
+        const promptText = (await setupPrompt.textContent()) ?? '';
+        await expect(
+            page
+                .locator('[data-controller="clipboard"]')
+                .filter({ has: setupPrompt })
+                .getByRole('button', { name: 'Copy' }),
+        ).toBeVisible();
+
         // The three ways to connect start collapsed, so the command is in the DOM
         // but out of the accessibility tree until its disclosure is opened.
         await expect(page.locator('details.lp-install')).toHaveCount(3);
@@ -71,6 +87,8 @@ test.describe('first-run wizard', () => {
         await page.getByRole('button', { name: 'Go to dashboard' }).click();
 
         await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+\/documents$/);
+        const projectId = new URL(page.url()).pathname.split('/')[2];
+        expect(promptText).toContain(`/setup.md?project=${projectId}"`);
 
         await page.goto('/welcome');
         await expect(page).not.toHaveURL(/\/welcome/);

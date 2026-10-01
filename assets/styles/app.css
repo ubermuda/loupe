@@ -4274,6 +4274,10 @@
     .lp-connect-tag {
         @apply inline-flex items-center rounded-full font-semibold bg-status-ok-bg text-status-ok-deep shrink-0 text-xs py-0.5 px-2;
     }
+    /* An eyebrow with a tag beside it, such as the recommended way to connect. */
+    .lp-connect-block__heading {
+        @apply flex items-center gap-2;
+    }
 
     /* A person or a record, on the paper: an icon or initial, a name, a quiet
        second line, and one action. Distinct from .lp-connect-field, which is a

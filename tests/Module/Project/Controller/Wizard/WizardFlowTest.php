@@ -57,7 +57,8 @@ final class WizardFlowTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $user = $this->createUser($em, 'flowconnectok', 'flow-connect-ok@example.com');
-        $em->persist(new Project($user, 'flow-project'));
+        $project = new Project($user, 'flow-project');
+        $em->persist($project);
         $em->flush();
 
         $client->loginUser($user);
@@ -65,6 +66,7 @@ final class WizardFlowTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('claude mcp add', $crawler->text());
+        self::assertSelectorTextContains('[data-testid="setup-prompt"]', '/setup.md?project='.$project->id);
         self::assertSelectorExists('form[action$="/welcome/skip"]');
     }
 
