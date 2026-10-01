@@ -227,6 +227,14 @@ folder check of `.loupe/lifecycle.md` then stops it with
 its own cost. An older skill that starts in the card folder tries to make its
 own worktree from there.
 
+A pull request opened before the switch has a session that started in the
+main checkout. The `fix-pr` rule resumes that session in the folder its
+transcript records, so the folder check stops each of its rounds with
+`STAGE RESULT: blocked: no worker folder`. Run those rounds by hand, as
+[Fix rounds by hand](#fix-rounds-by-hand) says. The command starts a new
+session in the card worktree. The cost ends when the last such pull request
+merges or closes.
+
 The `fix-round` rule starts a document fix round when a person requests changes
 on a product or tech design document. The event names the linked card in the
 column where the document's stage starts. A document with no such card starts
