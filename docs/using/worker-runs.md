@@ -149,7 +149,9 @@ report the `rerun-command` capability.
 
 The bridge refuses **Run again** when the rule of the run is gone or no longer
 runs a command. It also refuses while the card has a run that is open on that
-bridge. The bridge never runs a failed command again by itself.
+bridge. It refuses when the command of the rule reads a value of its first
+event, such as `{to}`, because a rerun knows only the card and the project.
+The bridge never runs a failed command again by itself.
 
 A stop holds the card. No worker starts on a held card until its bridge takes
 a person's resume or rerun of one of its runs, or a person moves it to another

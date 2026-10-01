@@ -155,3 +155,21 @@ func TestMatchRuleFillsTheCommandOfARerun(t *testing.T) {
 		t.Fatalf("command = %+v, want argv %q", m.Command, want)
 	}
 }
+
+// A rerun knows the card and the project only, so RerunGaps names every other
+// placeholder of the run once.
+func TestRerunGapsNamesWhatARerunCannotFill(t *testing.T) {
+	for name, tc := range map[string]struct {
+		run  string
+		want []string
+	}{
+		"card and project": {"run: [teardown, '{cardNumber}', '{cardId}', '{project}', '{projectId}']", nil},
+		"event values":     {"run: [teardown, '{to}', '--from={from}', '{to}']", []string{"to", "from"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := parse(t, withCommand(tc.run)).RerunGaps("teardown"); !slices.Equal(got, tc.want) {
+				t.Fatalf("gaps = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

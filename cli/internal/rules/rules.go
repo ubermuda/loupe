@@ -1254,6 +1254,30 @@ func (s *Set) Match(e event.Event) Match {
 	return Match{Skip: NoRule, Project: slug}
 }
 
+// RerunGaps names the placeholders in the run of the named rule that a rerun
+// cannot fill. A rerun knows the card and the project, and nothing else of
+// the event that started the first run.
+func (s *Set) RerunGaps(name string) []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	known := values(event.Event{Type: event.CommandType}, "")
+	var gaps []string
+	for _, r := range s.rules {
+		if r.Name != name {
+			continue
+		}
+		for _, arg := range r.Run {
+			for _, p := range directive.Placeholders(arg) {
+				if _, ok := known[p]; !ok && !slices.Contains(gaps, p) {
+					gaps = append(gaps, p)
+				}
+			}
+		}
+	}
+
+	return gaps
+}
+
 // MatchRule matches the event against the named rule alone. It fails when the
 // set has no live rule of that name, or when the rule would not run the event.
 // A reload keeps a queued event this way, under the rule that accepted it. A

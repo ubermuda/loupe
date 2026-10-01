@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
+	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
 // failedCommandKey is the key of a command run of card 87 that failed.
@@ -97,6 +99,21 @@ func TestARerunRunsTheCommandAgain(t *testing.T) {
 	}
 	if h.cardHeld(87) || h.runs() != 0 {
 		t.Fatalf("card held = %v, workers = %d", h.cardHeld(87), h.runs())
+	}
+}
+
+// A rerun knows the card alone. A command that reads another value of its
+// first event would run with that value empty, so the bridge refuses it.
+func TestARerunIsRefusedWhenTheCommandNeedsItsFirstEvent(t *testing.T) {
+	ruleFile := strings.NewReplacer("TIMEOUT", "1m", "'{cardNumber}']", "'{cardNumber}', '{from}']").Replace(commandRunRules)
+	h := newHarnessWith(t, ruleFile, rules.Defaults{})
+	f := &fakeCommand{}
+	h.router.worker.command = f.run
+
+	state, reason := h.rerun(rerunOf(failedCommandKey))
+
+	if state != api.CommandRefused || reason != needsEvent+" {from}" || len(f.recorded()) != 0 {
+		t.Fatalf("rerun = %s %q, commands = %d", state, reason, len(f.recorded()))
 	}
 }
 

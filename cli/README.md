@@ -1463,9 +1463,9 @@ A rerun, of the kind `rerun-command`, names a
 [command run](#the-command-action) that ended as `failed`, `timed-out` or
 `lost`. The bridge queues the command of the run's rule again, as a new run
 that continues the failed run. The new run fills the command from the card
-and the project alone. `{cardId}`, `{cardNumber}`, `{projectId}` and
-`{project}` keep their values, and the placeholders of the event, such as
-`{to}`, are empty. Its `queued` report carries the trigger `bridge.command`,
+and the project alone: `{cardId}`, `{cardNumber}`, `{projectId}` and
+`{project}`. The bridge refuses the rerun of a command that names any other
+placeholder, such as `{to}`, because that value would be empty. Its `queued` report carries the trigger `bridge.command`,
 `continues` with the run key, and a `resumeIndex` one above the index of that
 run. The bridge refuses the rerun when the rule of the run is gone or no longer
 runs a command. It also refuses when the card has a run that is open on this

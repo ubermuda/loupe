@@ -480,6 +480,7 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 const (
 	noCommandRule = "The rule of the run no longer runs a command on this bridge."
 	cardBusy      = "The card has a run that is still open on this bridge."
+	needsEvent    = "The command of the rule needs values that only its first event held:"
 )
 
 // rerunCommand queues the command of a failed command run again, as a new run
@@ -508,6 +509,10 @@ func (r *router) rerunCommand(c api.Command) (state, reason string) {
 		reason = noCommandRule
 	case r.running[key] || queued:
 		reason = cardBusy
+	}
+	// A value of the first event would render empty, so the command would differ.
+	if gaps := current.RerunGaps(c.RuleName); reason == "" && len(gaps) > 0 {
+		reason = needsEvent + " {" + strings.Join(gaps, "} {") + "}"
 	}
 	if reason != "" {
 		r.mu.Unlock()

@@ -642,7 +642,9 @@ run ended as `failed`, `timed-out` or `lost`. The person selects **Run again**
 on the run. The bridge queues the command as a new run that continues the
 failed run, with the trigger `bridge.command`. It refuses the rerun when the
 rule of the run is gone or no longer runs a command, and when the card has a
-run that is open on this bridge. A bridge that does not report the
+run that is open on this bridge. It also refuses a command that reads a value
+of its first event other than the card and the project, because a rerun has no
+such value. A bridge that does not report the
 `rerun-command` capability gets no rerun, and the web UI disables the control.
 [Pause and commands](../../cli/README.md#pause-and-commands) in `cli/README.md`
 gives every rule and log event.

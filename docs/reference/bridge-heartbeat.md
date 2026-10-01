@@ -258,6 +258,7 @@ The bridge refuses a rerun with one of these reasons:
 |---|---|
 | The rule of the run no longer runs a command on this bridge. | the rule is gone, or it no longer has `action: command` |
 | The card has a run that is still open on this bridge. | a run of the card runs or waits in the queue, a rerun of the same run included |
+| The command of the rule needs values that only its first event held: `{to}` | the `run` of the rule names a placeholder other than `{cardId}`, `{cardNumber}`, `{projectId}` and `{project}`, and the reason lists each one |
 The server writes a `bridge.command_settled` record to the audit log when an
 answer settles a command.
 
