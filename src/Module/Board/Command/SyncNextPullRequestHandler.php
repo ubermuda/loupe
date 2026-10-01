@@ -18,7 +18,6 @@ use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Uid\Uuid;
@@ -33,6 +32,13 @@ final readonly class SyncNextPullRequestHandler
 {
     /** Guards against a nonsense header only. GitHub can ask for more than an hour. */
     private const int MAX_RETRY_DELAY_SECONDS = 86_400;
+
+    private const int MAX_RETRIES = 3;
+
+    /** The first wait after a transient failure with no Retry-After. Each later retry waits twice as long. */
+    private const int BACKOFF_SECONDS = 30;
+
+    private const string RETRIES_EXHAUSTED = 'retries_exhausted';
 
     /** Lets the pass after the lifetime find the marker stale, whatever the clock skew between workers. */
     private const int EXPIRY_MARGIN_SECONDS = 30;
@@ -60,16 +66,32 @@ final readonly class SyncNextPullRequestHandler
             return;
         }
 
-        $pullRequest = $this->em->wrapInTransaction(fn (): ?ForgePullRequest => $this->pick($project, $command->projectId));
+        $pullRequest = null;
+        $attempt = 0;
+        if (null !== $command->retryPullRequestId && null !== $command->retrySha) {
+            $pullRequest = $this->em->wrapInTransaction(fn (): ?ForgePullRequest => $this->retryTarget($project, $command));
+            $attempt = $command->attempt;
+        }
+        // A retry that lost its target runs as a plain pass, so the line still moves.
+        if (null === $pullRequest) {
+            $pullRequest = $this->em->wrapInTransaction(fn (): ?ForgePullRequest => $this->pick($project, $command->projectId));
+            $attempt = 0;
+        }
         if (null === $pullRequest) {
             return;
         }
+
+        $this->update($pullRequest, $attempt, $command->projectId);
+    }
+
+    private function update(ForgePullRequest $pullRequest, int $attempt, Uuid $projectId): void
+    {
         $id = $pullRequest->id ?? throw new \LogicException('A stored pull request has an id.');
         $sha = $pullRequest->syncFromSha ?? throw new \LogicException('The pick carries its marker.');
 
         $updater = $this->updaters->for($pullRequest->forge);
         if (null === $updater) {
-            $this->fail($id, $sha, 'no_updater', $command->projectId);
+            $this->fail($id, $sha, 'no_updater', $projectId);
 
             return;
         }
@@ -78,37 +100,74 @@ final readonly class SyncNextPullRequestHandler
             $updater->update($pullRequest, $sha);
         } catch (PullRequestSyncFailed $e) {
             if ($e->permanent) {
-                $this->fail($id, $sha, $e->cause, $command->projectId);
-
-                return;
+                $this->fail($id, $sha, $e->cause, $projectId);
+            } elseif ($attempt >= self::MAX_RETRIES) {
+                $this->fail($id, $sha, self::RETRIES_EXHAUSTED, $projectId);
+            } else {
+                $this->retryLater($id, $sha, $attempt + 1, $e, $projectId);
             }
 
-            $this->em->wrapInTransaction(function () use ($id, $sha): void {
-                $row = $this->forgePullRequests->findForUpdate($id);
-                if (null !== $row && $row->syncFromSha === $sha) {
-                    $row->syncFromSha = null;
-                    $row->syncRequestedAt = null;
-                }
-            });
-            $this->logger->warning('board.pull_request_sync_retried', ['pullRequestId' => (string) $id, 'cause' => $e->cause, 'retryAfterSeconds' => $e->retryAfterSeconds]);
-
-            if (null === $e->retryAfterSeconds) {
-                throw $e;
-            }
-
-            // forceRetry false keeps the retry budget of the transport, and only the delay changes.
-            throw new RecoverableMessageHandlingException($e->getMessage(), 0, $e, retryDelay: min($e->retryAfterSeconds, self::MAX_RETRY_DELAY_SECONDS) * 1000, forceRetry: false);
+            return;
         }
 
         // GitHub accepts the update before the merge commit exists, so a later read records the sync on the cards.
         $this->logger->info('board.pull_request_sync_requested', [
             'pullRequestId' => (string) $id,
-            'projectId' => (string) $command->projectId,
+            'projectId' => (string) $projectId,
             'forge' => $pullRequest->forge,
             'repository' => $pullRequest->repository,
             'pullRequestNumber' => $pullRequest->number,
             'fromSha' => $sha,
+            'attempt' => $attempt,
         ]);
+    }
+
+    /**
+     * Keeps the marker and dates it at the retry, so the line stays held and the
+     * timeout counts from the retry. The handler owns the retry, so a wait longer
+     * than the marker lifetime never lets a timeout pass call the forge early.
+     */
+    private function retryLater(Uuid $id, string $sha, int $attempt, PullRequestSyncFailed $e, Uuid $projectId): void
+    {
+        $delay = null === $e->retryAfterSeconds
+            ? self::BACKOFF_SECONDS * 2 ** ($attempt - 1)
+            : min(max(0, $e->retryAfterSeconds), self::MAX_RETRY_DELAY_SECONDS);
+        $queued = $this->em->wrapInTransaction(function () use ($id, $sha, $attempt, $delay, $projectId): bool {
+            $row = $this->forgePullRequests->findForUpdate($id);
+            if (null === $row || $row->syncFromSha !== $sha) {
+                return false;
+            }
+            $row->syncRequestedAt = $this->clock->now()->modify(\sprintf('+%d seconds', $delay));
+            $this->bus->dispatch(new SyncNextPullRequest($projectId, $id, $sha, $attempt), [new DelayStamp($delay * 1000)]);
+
+            return true;
+        });
+        $this->logger->warning('board.pull_request_sync_retried', [
+            'pullRequestId' => (string) $id,
+            'cause' => $e->cause,
+            'attempt' => $attempt,
+            'delaySeconds' => $delay,
+            'queued' => $queued,
+        ]);
+    }
+
+    /** The pull request of a retry, while the setting is on and Loupe still waits to update the same head. */
+    private function retryTarget(Project $project, SyncNextPullRequestCommand $command): ?ForgePullRequest
+    {
+        $settings = $this->boardAutomationSettings->findOneByProjectForUpdate($project);
+        if (null === $settings || !$settings->enabled || !$settings->syncBehind || null === $command->retryPullRequestId) {
+            return null;
+        }
+        $row = $this->forgePullRequests->findForUpdate($command->retryPullRequestId);
+        if (null === $row || $row->syncFromSha !== $command->retrySha || $row->headSha !== $command->retrySha) {
+            return null;
+        }
+
+        $row->syncRequestedAt = $this->clock->now();
+        $this->em->flush();
+        $this->queueTimeoutPass($command->projectId);
+
+        return $row;
     }
 
     private function pick(Project $project, Uuid $projectId): ?ForgePullRequest
@@ -155,13 +214,17 @@ final readonly class SyncNextPullRequestHandler
         $locked->syncFromSha = $sha;
         $locked->syncRequestedAt = $now;
         $this->em->flush();
+        $this->queueTimeoutPass($projectId);
 
-        // A head that never moves fires no other pass, so this one records the timeout. It commits with the marker.
+        return $locked;
+    }
+
+    /** A head that never moves fires no other pass, so this one records the timeout. It commits with the marker. */
+    private function queueTimeoutPass(Uuid $projectId): void
+    {
         $this->bus->dispatch(new SyncNextPullRequest($projectId), [
             new DelayStamp((SyncLine::MARKER_LIFETIME_SECONDS + self::EXPIRY_MARGIN_SECONDS) * 1000),
         ]);
-
-        return $locked;
     }
 
     /** Records the cause only while the head is the one Loupe asked to update, because a later head clears it anyway. */

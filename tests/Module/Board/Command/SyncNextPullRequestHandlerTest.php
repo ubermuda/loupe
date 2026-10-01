@@ -35,7 +35,6 @@ use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Messenger\Envelope;
-use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
@@ -180,65 +179,135 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         self::assertSame([], $this->immediatePasses());
     }
 
-    public function test_a_transient_failure_clears_the_marker_and_rethrows(): void
+    public function test_a_transient_failure_keeps_the_marker_and_queues_a_retry_with_a_backoff(): void
     {
         $pullRequest = $this->behind(5);
         $card = $this->linkedCard(5);
-        $failure = new PullRequestSyncFailed('api_failed_http_status_502', permanent: false);
-        $this->updater->failure = $failure;
+        $this->updater->failure = new PullRequestSyncFailed('api_failed_http_status_502', permanent: false);
 
-        try {
-            $this->handle();
-            self::fail('Expected the transient failure to propagate.');
-        } catch (PullRequestSyncFailed $e) {
-            self::assertSame($failure, $e);
-        }
+        $this->handle();
 
         $this->em->refresh($pullRequest);
-        self::assertNull($pullRequest->syncFromSha);
-        self::assertNull($pullRequest->syncRequestedAt);
+        self::assertSame('head005', $pullRequest->syncFromSha);
+        self::assertEquals($this->clock->now()->modify('+30 seconds'), $pullRequest->syncRequestedAt);
         self::assertNull($pullRequest->syncFailedReason);
         self::assertSame([], $this->cardEvents($card));
+        [$retry, $delay] = $this->retryPass();
+        self::assertEquals($pullRequest->id, $retry->retryPullRequestId);
+        self::assertSame('head005', $retry->retrySha);
+        self::assertSame(1, $retry->attempt);
+        self::assertSame(30_000, $delay);
     }
 
-    public function test_a_transient_failure_with_a_delay_asks_messenger_to_wait(): void
+    public function test_a_later_transient_failure_doubles_the_backoff(): void
+    {
+        $pullRequest = $this->marked($this->behind(5));
+        $this->updater->failure = new PullRequestSyncFailed('api_failed_transport', permanent: false);
+
+        $this->handle(retry: $pullRequest, attempt: 2);
+
+        [$retry, $delay] = $this->retryPass();
+        self::assertSame(3, $retry->attempt);
+        self::assertSame(120_000, $delay);
+    }
+
+    public function test_a_transient_failure_waits_as_long_as_the_forge_asks(): void
     {
         $pullRequest = $this->behind(5);
-        $failure = new PullRequestSyncFailed('api_failed_rate_limited', permanent: false, retryAfterSeconds: 90);
-        $this->updater->failure = $failure;
+        $this->updater->failure = new PullRequestSyncFailed('api_failed_rate_limited', permanent: false, retryAfterSeconds: 90);
 
-        try {
-            $this->handle();
-            self::fail('Expected the transient failure to propagate.');
-        } catch (RecoverableMessageHandlingException $e) {
-            self::assertSame(90_000, $e->getRetryDelay());
-            self::assertFalse($e->forceRetry());
-            self::assertSame($failure, $e->getPrevious());
-        }
+        $this->handle();
 
+        self::assertSame(90_000, $this->retryPass()[1]);
         $this->em->refresh($pullRequest);
-        self::assertNull($pullRequest->syncFromSha);
+        self::assertEquals($this->clock->now()->modify('+90 seconds'), $pullRequest->syncRequestedAt);
     }
 
-    public function test_a_transient_failure_keeps_a_marker_that_a_later_pass_set(): void
+    public function test_a_wait_longer_than_the_marker_lifetime_keeps_the_line_held(): void
+    {
+        $pullRequest = $this->behind(5);
+        $this->updater->failure = new PullRequestSyncFailed('api_failed_rate_limited', permanent: false, retryAfterSeconds: 3600);
+        $this->handle();
+        $this->updater->failure = null;
+
+        $this->clock->sleep(SyncLine::MARKER_LIFETIME_SECONDS + 30);
+        $this->handle();
+
+        self::assertCount(1, $this->updater->updates);
+        $this->em->refresh($pullRequest);
+        self::assertSame('head005', $pullRequest->syncFromSha);
+        self::assertNull($pullRequest->syncFailedReason);
+    }
+
+    public function test_a_transient_failure_after_the_head_moved_queues_no_retry(): void
     {
         $pullRequest = $this->behind(5);
         $this->updater->failure = new PullRequestSyncFailed('api_failed_transport', permanent: false);
         $this->updater->during = function (ForgePullRequest $row): void {
             $this->em->getConnection()->executeStatement(
-                'UPDATE forge_pull_requests SET head_sha = :head, sync_from_sha = :head WHERE id = :id',
+                'UPDATE forge_pull_requests SET head_sha = :head, sync_from_sha = NULL, sync_requested_at = NULL WHERE id = :id',
                 ['head' => 'moved01', 'id' => (string) $row->id],
             );
         };
 
-        try {
-            $this->handle();
-            self::fail('Expected the transient failure to propagate.');
-        } catch (PullRequestSyncFailed) {
-        }
+        $this->handle();
+
+        self::assertSame([], $this->retryPasses());
+        $this->em->refresh($pullRequest);
+        self::assertNull($pullRequest->syncFromSha);
+    }
+
+    public function test_a_retry_calls_the_forge_again_for_its_pull_request(): void
+    {
+        $pullRequest = $this->marked($this->behind(5));
+        $this->clock->sleep(30);
+
+        $this->handle(retry: $pullRequest, attempt: 1);
+
+        self::assertCount(1, $this->updater->updates);
+        self::assertSame($pullRequest, $this->updater->updates[0][0]);
+        self::assertSame('head005', $this->updater->updates[0][1]);
+        $this->em->refresh($pullRequest);
+        self::assertEquals($this->clock->now(), $pullRequest->syncRequestedAt);
+        $delays = array_map(static fn (Envelope $envelope): ?int => $envelope->last(DelayStamp::class)?->getDelay(), $this->queuedPasses());
+        self::assertSame([(SyncLine::MARKER_LIFETIME_SECONDS + 30) * 1000], $delays);
+    }
+
+    public function test_a_retry_whose_head_moved_does_not_call_the_forge(): void
+    {
+        $pullRequest = $this->marked($this->behind(5));
+        $this->em->getConnection()->executeStatement(
+            'UPDATE forge_pull_requests SET head_sha = :head, sync_from_sha = NULL, sync_requested_at = NULL WHERE id = :id',
+            ['head' => 'moved01', 'id' => (string) $pullRequest->id],
+        );
+
+        $this->handle(retry: $pullRequest, sha: 'head005', attempt: 1);
+
+        self::assertSame([], $this->updater->updates);
+    }
+
+    public function test_a_retry_while_the_setting_is_off_does_not_call_the_forge(): void
+    {
+        $pullRequest = $this->marked($this->behind(5));
+        $this->settings(enabled: true, syncBehind: false);
+
+        $this->handle(retry: $pullRequest, attempt: 1);
+
+        self::assertSame([], $this->updater->updates);
+    }
+
+    public function test_the_last_retry_that_fails_records_the_exhausted_retries(): void
+    {
+        $pullRequest = $this->marked($this->behind(5));
+        $this->updater->failure = new PullRequestSyncFailed('api_failed_http_status_502', permanent: false);
+
+        $this->handle(retry: $pullRequest, attempt: 3);
 
         $this->em->refresh($pullRequest);
-        self::assertSame('moved01', $pullRequest->syncFromSha);
+        self::assertSame('retries_exhausted', $pullRequest->syncFailedReason);
+        self::assertNull($pullRequest->syncFromSha);
+        self::assertSame([], $this->retryPasses());
+        self::assertCount(1, $this->immediatePasses());
     }
 
     public function test_a_head_that_moved_after_the_line_was_read_is_not_marked(): void
@@ -437,7 +506,7 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         return $this->service(CardEventRepository::class)->findForCard($card);
     }
 
-    private function handle(): void
+    private function handle(?ForgePullRequest $retry = null, ?string $sha = null, int $attempt = 0): void
     {
         $handler = new SyncNextPullRequestHandler(
             projects: $this->service(ProjectRepository::class),
@@ -451,7 +520,12 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
             bus: $this->service(MessageBusInterface::class),
         );
 
-        $handler(new SyncNextPullRequestCommand($this->project->id ?? throw new \LogicException('A flushed project has an id.')));
+        $handler(new SyncNextPullRequestCommand(
+            $this->project->id ?? throw new \LogicException('A flushed project has an id.'),
+            $retry?->id,
+            null === $retry ? null : $sha ?? $retry->syncFromSha,
+            $attempt,
+        ));
     }
 
     /** @return list<Envelope> */
@@ -464,6 +538,40 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
             $transport->getSent(),
             static fn (Envelope $envelope): bool => $envelope->getMessage() instanceof SyncNextPullRequest,
         ));
+    }
+
+    /** The row as a pass leaves it after it asked the forge for an update. */
+    private function marked(ForgePullRequest $row): ForgePullRequest
+    {
+        $row->syncFromSha = $row->headSha;
+        $row->syncRequestedAt = $this->clock->now();
+        $this->em->flush();
+
+        return $row;
+    }
+
+    /** @return list<Envelope> the passes that retry one pull request */
+    private function retryPasses(): array
+    {
+        return array_values(array_filter(
+            $this->queuedPasses(),
+            static function (Envelope $envelope): bool {
+                $message = $envelope->getMessage();
+
+                return $message instanceof SyncNextPullRequest && null !== $message->retryPullRequestId;
+            },
+        ));
+    }
+
+    /** @return array{SyncNextPullRequest, ?int} the message of the single retry pass, and its delay */
+    private function retryPass(): array
+    {
+        $retries = $this->retryPasses();
+        self::assertCount(1, $retries);
+        $message = $retries[0]->getMessage();
+        self::assertInstanceOf(SyncNextPullRequest::class, $message);
+
+        return [$message, $retries[0]->last(DelayStamp::class)?->getDelay()];
     }
 
     /** @return list<Envelope> the passes queued with no delay */

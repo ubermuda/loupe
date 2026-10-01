@@ -204,7 +204,7 @@ final class ShowCardControllerTest extends WebTestCase
         $em->persist(new BoardAutomationSettings($project, syncBehind: true));
         $card = $this->card($em, $project, 'Keep up with main');
         $links = [];
-        foreach ([20, 21, 22, 23, 24, 25] as $number) {
+        foreach ([20, 21, 22, 23, 24, 25, 26] as $number) {
             $links[$number] = $this->link($card, $number);
         }
         $card->replacePullRequests(...array_values($links));
@@ -217,6 +217,7 @@ final class ShowCardControllerTest extends WebTestCase
         $holder->syncedSha = $holder->headSha;
         $this->approved($this->inLine($this->row($em, $project, 24)))->mergeability = PullRequestMergeability::Behind;
         $this->approved($this->inLine($this->row($em, $project, 25)))->mergeability = PullRequestMergeability::Conflicting;
+        $this->approved($this->inLine($this->row($em, $project, 26)))->syncFailedReason = 'retries_exhausted';
         $em->flush();
         $em->clear();
 
@@ -231,6 +232,7 @@ final class ShowCardControllerTest extends WebTestCase
             23 => ['synced-checks-running', 'Synced, checks running'],
             24 => ['waits-turn', 'Waits its turn behind #23'],
             25 => ['conflicts', 'Conflicts with the base'],
+            26 => ['sync-failed', 'Sync failed: the forge failed each try to update the branch'],
         ];
         foreach ($expected as $number => [$status, $text]) {
             $line = $crawler->filter('[data-linked-pull-request="'.$links[$number]->id.'"] [data-pull-request-sync]');

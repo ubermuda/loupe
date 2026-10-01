@@ -18,6 +18,6 @@ final readonly class SyncNextPullRequestMessageHandler
 
     public function __invoke(SyncNextPullRequest $message): void
     {
-        ($this->syncNextPullRequest)(new SyncNextPullRequestCommand($message->projectId));
+        ($this->syncNextPullRequest)(new SyncNextPullRequestCommand($message->projectId, $message->retryPullRequestId, $message->retrySha, $message->attempt));
     }
 }
