@@ -6759,6 +6759,84 @@
         @apply text-right tabular-nums;
     }
 
+    /* ── Experiments ───────────────────────────────────────────────── */
+
+    /* Experiment, Cards, Last run. */
+    .lp-data-table--experiments {
+        --lp-data-table-columns: minmax(0, 1fr) calc(var(--spacing) * 28)
+            calc(var(--spacing) * 32);
+    }
+    /* Card, Variant, Column, Runs, Fix rounds, Cost, Left out. */
+    .lp-data-table--experiment-cards {
+        --lp-data-table-columns: minmax(0, 1fr) calc(var(--spacing) * 24)
+            calc(var(--spacing) * 28) calc(var(--spacing) * 14)
+            calc(var(--spacing) * 20) calc(var(--spacing) * 20)
+            calc(var(--spacing) * 48);
+    }
+    @container (width < 56rem) {
+        .lp-data-table--experiment-cards {
+            @apply overflow-x-auto;
+        }
+        .lp-data-table--experiment-cards .lp-data-table__header,
+        .lp-data-table--experiment-cards .lp-data-table__row {
+            @apply min-w-4xl;
+        }
+    }
+    .lp-experiment-heading {
+        @apply flex items-baseline gap-3 mb-2;
+    }
+    .lp-experiment-heading__back {
+        @apply text-sm font-semibold text-fg-mute no-underline hover:text-ink;
+    }
+    .lp-experiment-heading__name {
+        @apply m-0 font-mono text-lg font-bold text-ink;
+    }
+    .lp-experiment-tabs {
+        @apply mb-4;
+    }
+    /* The answer of the comparison, above its tables. */
+    .lp-experiment-headline {
+        @apply m-0 text-base text-ink;
+    }
+    .lp-experiment-section {
+        @apply mt-8 mb-0 text-sm font-semibold text-ink;
+    }
+    .lp-experiment-table {
+        @apply mt-2 overflow-x-auto;
+    }
+    .lp-experiment-table__table {
+        @apply w-full text-sm text-fg border-collapse;
+    }
+    .lp-experiment-table__table th,
+    .lp-experiment-table__table td {
+        @apply py-1.5 pr-3 border-b border-line-faint text-left align-middle;
+    }
+    .lp-experiment-table__table thead th {
+        @apply border-line text-xs font-semibold text-fg-label;
+    }
+    .lp-experiment-table__table tbody th {
+        @apply font-semibold text-ink;
+    }
+    .lp-experiment-table__table .lp-experiment-table__number {
+        @apply text-right tabular-nums whitespace-nowrap;
+    }
+    .lp-experiment-table__range {
+        @apply text-fg-dim;
+    }
+    /* A row that splits the metric above it, such as the fix rounds of one reason. */
+    .lp-experiment-table__table .lp-experiment-table__part th {
+        @apply pl-4 font-normal text-fg-mute;
+    }
+    .lp-experiment-table__table .lp-status-chip {
+        @apply ml-2;
+    }
+    .lp-experiment-note {
+        @apply mt-3 mb-0 text-xs text-fg-dim;
+    }
+    .lp-experiment-reasons {
+        @apply flex flex-wrap gap-1;
+    }
+
     /* ── Inbox page ─────────────────────────────────────────────────────
        An ask is one block: the agent's context above its items. A closed ask
        keeps its shape and loses its fill, so open work stands out. */

@@ -1,0 +1,74 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ report.experiment }} — {{ 'bridge.experiments.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    {% include 'activity/_crumbs.html.twig' with {project: project} only %}
+{% endblock %}
+
+{% block body %}
+{% set boardEnabled = is_feature_enabled('board.enabled') %}
+{% set routeParams = {id: project.id, experiment: report.experiment} %}
+<div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
+    {% include 'activity/_header.html.twig' with {} only %}
+
+    {% include 'activity/_tabs.html.twig' with {project: project, active: 'experiments'} only %}
+
+    {% include '@Bridge/_experiment_tabs.html.twig' with {project: project, experiment: report.experiment, active: 'cards'} only %}
+
+    <div class="lp-list-filters lp-cost-controls">
+        <nav class="lp-cost-toggle" aria-label="{{ 'bridge.experiments.cards.filter_label'|trans }}" data-experiment-filter>
+            <a class="lp-cost-toggle__option"
+               href="{{ path('app_project_experiment_cards', routeParams) }}"
+               {% if query.variant is null and not query.leftOutOnly %}aria-current="true"{% endif %}>{{ 'bridge.experiments.cards.all'|trans }}</a>
+            {% for variant in report.variants %}
+                <a class="lp-cost-toggle__option"
+                   href="{{ path('app_project_experiment_cards', routeParams|merge({variant: variant.name})) }}"
+                   {% if query.variant == variant.name %}aria-current="true"{% endif %}>{{ variant.name }}</a>
+            {% endfor %}
+            <a class="lp-cost-toggle__option"
+               href="{{ path('app_project_experiment_cards', routeParams|merge({'left-out': 1})) }}"
+               {% if query.leftOutOnly %}aria-current="true"{% endif %}>{{ 'bridge.experiments.cards.left_out'|trans }}</a>
+        </nav>
+        <span class="lp-filter-count">{{ 'bridge.experiments.card_count'|trans({'%count%': report.filteredTotal}) }}</span>
+    </div>
+
+    {% if report.cards is not empty %}
+    <twig:DataTable modifier="experiment-cards" :columns="[
+        {label: 'bridge.experiments.cards.column.card'|trans},
+        {label: 'bridge.experiments.cards.column.variant'|trans},
+        {label: 'bridge.experiments.cards.column.column'|trans},
+        {label: 'bridge.experiments.cards.column.runs'|trans, align: 'end'},
+        {label: 'bridge.experiments.cards.column.fix_rounds'|trans, align: 'end'},
+        {label: 'bridge.experiments.cards.column.cost'|trans, align: 'end'},
+        {label: 'bridge.experiments.cards.column.left_out'|trans},
+    ]">
+        {% for card in report.cards %}
+        <div class="lp-data-table__row" data-experiment-card="{{ card.cardId }}">
+            <div class="lp-data-table__cell lp-data-table__primary">
+                {% if boardEnabled and card.column is not null %}<a class="lp-data-table__target" href="{{ path('app_board_card', {projectId: project.id, cardId: card.cardId}) }}">{% endif %}
+                    {% if card.number is not null %}<span class="lp-data-table__number">{{ 'bridge.worker_runs.card_number'|trans({'%number%': card.number}) }}</span>{% endif %}
+                    <span class="lp-data-table__title">{{ card.title ?? 'bridge.experiments.cards.untitled'|trans }}</span>
+                {% if boardEnabled and card.column is not null %}</a>{% endif %}
+            </div>
+            <span class="lp-data-table__cell">{{ card.variant ?? '–' }}</span>
+            <span class="lp-data-table__cell" data-experiment-card-column>{{ card.column is not null ? card.column.label|trans : '–' }}</span>
+            <span class="lp-data-table__cell lp-data-table__cell--end" data-experiment-card-runs>{{ card.runs }}</span>
+            <span class="lp-data-table__cell lp-data-table__cell--end">{{ card.fixRounds }}</span>
+            <span class="lp-data-table__cell lp-data-table__cell--end" data-experiment-card-cost>{{ (card.costMicros / 1000000)|format_currency('USD') }}</span>
+            <span class="lp-data-table__cell lp-experiment-reasons">
+                {% for reason in card.leftOut %}<span class="lp-tag lp-tag--amber">{{ ('bridge.experiments.left_out_reason.' ~ reason.value)|trans }}</span>{% endfor %}
+            </span>
+        </div>
+        {% endfor %}
+    </twig:DataTable>
+
+    <twig:Pagination route="app_project_experiment_cards" :page="report.page" :totalPages="report.totalPages" :pageList="report.pageList" :routeParams="routeParams|merge(query.routeParams)" />
+    {% else %}
+    <div class="lp-empty-state" data-experiment-cards-empty>
+        <twig:ux:icon name="lucide:chart-column" class="lp-empty-state__icon w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'bridge.experiments.cards.empty'|trans }}</h2>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

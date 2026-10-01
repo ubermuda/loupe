@@ -1,0 +1,12 @@
+<div class="lp-experiment-heading">
+    <a class="lp-experiment-heading__back" href="{{ path('app_project_experiments', {id: project.id}) }}">{{ 'bridge.experiments.back'|trans }}</a>
+    <h2 class="lp-experiment-heading__name">{{ experiment }}</h2>
+</div>
+<nav class="lp-tabs lp-experiment-tabs" aria-label="{{ 'bridge.experiments.tabs.label'|trans }}">
+    <a class="lp-tabs__tab"
+       href="{{ path('app_project_experiment', {id: project.id, experiment: experiment}) }}"
+       {% if active == 'comparison' %}aria-current="page"{% endif %}>{{ 'bridge.experiments.tabs.comparison'|trans }}</a>
+    <a class="lp-tabs__tab"
+       href="{{ path('app_project_experiment_cards', {id: project.id, experiment: experiment}) }}"
+       {% if active == 'cards' %}aria-current="page"{% endif %}>{{ 'bridge.experiments.tabs.cards'|trans }}</a>
+</nav>

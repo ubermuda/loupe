@@ -10,9 +10,6 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Repository\CardEventRepository;
-use App\Module\Board\Repository\CardPullRequestRepository;
-use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\BoardCardReportSource;
 use App\Module\Bridge\Experiment\CardColumn;
 use App\Module\Bridge\Experiment\CardOutcome;
@@ -39,14 +36,9 @@ final class BoardCardReportSourceTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
 
-        // No service reads the alias yet, so the compiled container drops it.
-        $container = self::getContainer();
-        $this->source = new BoardCardReportSource(
-            $container->get(CardRepository::class),
-            $container->get(CardEventRepository::class),
-            $container->get(CardPullRequestRepository::class),
-            $container->get(BoardAvailability::class),
-        );
+        $source = self::getContainer()->get(CardReportSourceInterface::class);
+        self::assertInstanceOf(BoardCardReportSource::class, $source);
+        $this->source = $source;
     }
 
     public function test_it_returns_the_columns_of_the_projects_cards_only(): void
