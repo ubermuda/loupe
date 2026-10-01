@@ -7,7 +7,7 @@
             <h3>{{ card.title }}</h3>
             <footer class="lp-workshop-work-card__run">
                 <span class="lp-status-chip lp-status-chip--{{ card.stateTone }}"><span class="lp-status-chip__dot"></span>{{ card.stateLabel|trans }}</span>
-                <span class="lp-workshop-work-card__kind">{% if card.kind is null %}{{ 'project.workshop.in_motion.kind.interactive'|trans }}{% elseif card.kind is same as('') %}{{ 'project.workshop.in_motion.kind.worker'|trans }}{% else %}{{ card.kind }}{% endif %}</span>
+                <span class="lp-workshop-work-card__kind">{% if card.command %}{{ 'project.workshop.in_motion.kind.command'|trans }}{% elseif card.kind is null %}{{ 'project.workshop.in_motion.kind.interactive'|trans }}{% elseif card.kind is same as('') %}{{ 'project.workshop.in_motion.kind.worker'|trans }}{% else %}{{ card.kind }}{% endif %}</span>
                 <time class="lp-workshop-work-card__elapsed"
                       datetime="{{ card.since|date('c') }}"
                       data-controller="elapsed"

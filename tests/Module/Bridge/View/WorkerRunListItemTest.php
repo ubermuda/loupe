@@ -110,6 +110,29 @@ final class WorkerRunListItemTest extends TestCase
         self::assertFalse(new WorkerRunListItem($worker, $now, [], null)->closable);
     }
 
+    public function test_a_command_run_is_marked_as_a_command(): void
+    {
+        $now = new \DateTimeImmutable();
+        $command = new WorkerRun(
+            project: new Project(new User('Alice A', 'alice@example.com', 'x'), 'My project'),
+            bridgeId: Uuid::v7(),
+            cardId: Uuid::v7(),
+            cardNumber: 7,
+            ruleName: 'sync',
+            state: WorkerRunState::Running,
+            startedAt: new \DateTimeImmutable('2026-09-23 10:00:00'),
+            kind: WorkerRunKind::Command,
+        );
+
+        $item = new WorkerRunListItem($command, $now, [], null);
+
+        self::assertTrue($item->command);
+        self::assertFalse($item->interactive);
+        self::assertFalse($item->closable);
+        self::assertFalse(new WorkerRunListItem($this->queuedRun(), $now, [], null)->command);
+        self::assertFalse(new WorkerRunListItem($this->interactiveRun(WorkerRunState::Running), $now, [], null)->command);
+    }
+
     private function interactiveRun(WorkerRunState $state): WorkerRun
     {
         return new WorkerRun(

@@ -116,6 +116,7 @@
                     <span class="sr-only">{{ 'bridge.worker_runs.details.open'|trans }}</span>
                 </button>
                 {% if item.interactive %}<span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_runs.interactive'|trans }}</span>{% endif %}
+                {% if item.command %}<span class="lp-tag lp-tag--neutral" data-worker-run-command>{{ 'bridge.worker_runs.command'|trans }}</span>{% endif %}
             </div>
             <div class="lp-worker-run-outcome">
                 <twig:StatusChip :modifier="item.state.chipModifier()" :label="item.state.translationKey()|trans" :reason="run.failureReason" :id="'worker-run-reason-' ~ run.id" />

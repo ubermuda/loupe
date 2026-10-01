@@ -6103,6 +6103,10 @@
                 <source>bridge.worker_runs.interactive</source>
                 <target>Interactive session</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.command">
+                <source>bridge.worker_runs.command</source>
+                <target>Command</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.running_for">
                 <source>bridge.worker_runs.running_for</source>
                 <target>running for %duration%</target>
@@ -6392,6 +6396,10 @@
             <trans-unit id="project.workshop.in_motion.kind.worker">
                 <source>project.workshop.in_motion.kind.worker</source>
                 <target>Worker</target>
+            </trans-unit>
+            <trans-unit id="project.workshop.in_motion.kind.command">
+                <source>project.workshop.in_motion.kind.command</source>
+                <target>Command</target>
             </trans-unit>
             <trans-unit id="project.workshop.in_motion.elapsed.minutes">
                 <source>project.workshop.in_motion.elapsed.minutes</source>

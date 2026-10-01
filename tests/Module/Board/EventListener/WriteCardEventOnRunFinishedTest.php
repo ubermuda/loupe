@@ -13,6 +13,7 @@ use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Event\WorkerRunChanged;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
@@ -67,6 +68,7 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
             'ruleName' => 'plan',
             'state' => 'succeeded',
             'interactive' => false,
+            'command' => false,
             'startedAt' => '2026-09-30T10:00:00+00:00',
             'endedAt' => '2026-09-30T10:02:05+00:00',
             'durationSeconds' => 125,
@@ -80,6 +82,30 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         ksort($expected);
         ksort($detail);
         self::assertSame($expected, $detail);
+    }
+
+    public function test_a_finished_command_run_says_it_is_a_command(): void
+    {
+        $run = new WorkerRun(
+            project: $this->project,
+            bridgeId: Uuid::v7(),
+            cardId: $this->card->id ?? throw new \LogicException('A persisted card has an id.'),
+            cardNumber: 1,
+            ruleName: 'sync',
+            state: WorkerRunState::Failed,
+            endedAt: new \DateTimeImmutable('2026-09-30 10:00:00+00:00'),
+            exitCode: 1,
+            kind: WorkerRunKind::Command,
+        );
+        $this->em->persist($run);
+        $this->em->flush();
+
+        $this->listener()($this->event($run));
+
+        $rows = $this->rows();
+        self::assertCount(1, $rows);
+        self::assertTrue($rows[0]->detail['command']);
+        self::assertFalse($rows[0]->detail['interactive']);
     }
 
     public function test_a_repeated_dispatch_leaves_the_row_unchanged(): void
