@@ -72,7 +72,7 @@ func (b procResult) failureOf(k procKind) string {
 	case b.timedOut:
 		return "the " + k.label + " ran past its timeout, so the bridge killed it"
 	case b.killed:
-		return "the bridge shut down while the " + k.label + " ran"
+		return "the bridge stopped the " + k.label + " before it ended"
 	case b.exitCode != 0:
 		return fmt.Sprintf("the %s exited with code %d", k.label, b.exitCode)
 	}

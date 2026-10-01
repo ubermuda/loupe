@@ -143,7 +143,7 @@ func TestRunBeforeCancelIsAKill(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(200*time.Millisecond, cancel)
 	res, _ := before(t, ctx, "sleep", "30")
-	if res.timedOut || !res.killed || res.failure() != "the bridge shut down while the before command ran" {
+	if res.timedOut || !res.killed || res.failure() != "the bridge stopped the before command before it ended" {
 		t.Fatalf("runBefore = %+v, failure %q", res, res.failure())
 	}
 }
