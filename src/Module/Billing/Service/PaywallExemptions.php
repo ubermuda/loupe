@@ -23,6 +23,7 @@ final readonly class PaywallExemptions
         'app_billing_portal',
         // A tester whose trial ended is the one who needs the invite link.
         'app_billing_beta_invite',
+        'app_billing_beta_invite_claim',
         'app_login',
         'app_logout',
         'app_register_check_email',

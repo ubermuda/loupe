@@ -12,5 +12,8 @@ enum BetaInviteOutcome
     case SignUp;
     /** Sign-up is switched off, so the link leads nowhere. */
     case RegistrationDisabled;
+    /** Usable, and the signed-in user may claim it with a POST. */
+    case Claimable;
+    /** Redeemed by the signed-in user. */
     case Redeemed;
 }

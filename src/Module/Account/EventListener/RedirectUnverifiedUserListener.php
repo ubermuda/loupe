@@ -43,6 +43,7 @@ final readonly class RedirectUnverifiedUserListener
         // A beta link grants its comp at sign-up before verification, so a
         // signed-in unverified account may redeem one too.
         'app_billing_beta_invite',
+        'app_billing_beta_invite_claim',
     ];
 
     public function __construct(

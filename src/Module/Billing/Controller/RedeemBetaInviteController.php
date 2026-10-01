@@ -13,11 +13,12 @@ use App\Module\Billing\Command\OpenBetaInviteHandler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Util\TargetPathTrait;
 
 /**
- * A signed-in user redeems at once. A signed-out visitor carries the token to
- * sign-up, where the registration pass redeems it inside the account's
- * creation transaction.
+ * Redeems nothing, because Turbo prefetches a link on hover. A signed-in user
+ * claims the link with ClaimBetaInviteController. A signed-out visitor carries
+ * the token to sign-up, where the registration pass redeems it.
  */
 #[Route(
     '/beta/{token}',
@@ -26,6 +27,8 @@ use Symfony\Component\Routing\Attribute\Route;
 )]
 final class RedeemBetaInviteController extends AppController
 {
+    use TargetPathTrait;
+
     public function __construct(
         private readonly OpenBetaInviteHandler $openBetaInvite,
     ) {
@@ -45,9 +48,14 @@ final class RedeemBetaInviteController extends AppController
             case BetaInviteOutcome::RegistrationDisabled:
                 throw $this->createNotFoundException();
             case BetaInviteOutcome::SignUp:
-                $request->getSession()->set(RegistrationPasses::SESSION_KEY, $token);
+                $session = $request->getSession();
+                $session->set(RegistrationPasses::SESSION_KEY, $token);
+                // A visitor who signs in to an existing account comes back here to claim it.
+                $this->saveTargetPath($session, 'main', $request->getUri());
 
                 return $this->redirectToRoute('app_register');
+            case BetaInviteOutcome::Claimable:
+                return $this->render('@Billing/redeem_beta_invite_claim.html.twig', ['token' => $token]);
             case BetaInviteOutcome::Redeemed:
                 return $this->render('@Billing/redeem_beta_invite.html.twig', [
                     'hasLiveSubscription' => $view->hasLiveSubscription,

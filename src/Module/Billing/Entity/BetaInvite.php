@@ -76,6 +76,11 @@ class BetaInvite
         return null !== $this->redeemedAt;
     }
 
+    public function isRedeemedBy(User $user): bool
+    {
+        return null !== $user->id && true === $this->redeemedBy?->id?->equals($user->id);
+    }
+
     public function isRevoked(): bool
     {
         return null !== $this->revokedAt;

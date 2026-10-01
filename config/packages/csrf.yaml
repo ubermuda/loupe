@@ -37,3 +37,4 @@ framework:
             - billing-comp-grant
             - billing-comp-revoke
             - billing-beta-invite-revoke
+            - billing-beta-invite-claim

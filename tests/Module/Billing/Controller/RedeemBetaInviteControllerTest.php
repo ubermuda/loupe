@@ -30,6 +30,7 @@ use League\OAuth2\Client\Token\AccessToken;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
 use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
@@ -94,8 +95,16 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/beta/'.$token);
         $client->request(Request::METHOD_GET, self::GOOGLE_CALLBACK);
 
-        self::assertResponseRedirects('/');
+        // Back to the link, which shows the success page to its redeemer once
+        // the terms gate lets the new account through.
+        self::assertResponseRedirects('http://localhost/beta/'.$token);
         $user = $this->userByEmail($client, 'beta-oauth@example.com');
+        AcceptedTerms::stamp($user, $client->getContainer());
+        $client->getContainer()->get(EntityManagerInterface::class)->flush();
+        $client->followRedirect();
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('[data-beta-claim-form]');
+        self::assertSelectorNotExists('[data-beta-invite-invalid]');
         self::assertSame($user->id?->toRfc4122(), $this->reload($client, $invite)->redeemedBy?->id?->toRfc4122());
         $comp = $this->currentComp($client, $user);
         self::assertNotNull($comp);
@@ -148,7 +157,64 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         self::assertSame('first-tester@example.com', $this->reload($client, $invite)->redeemedBy?->email);
     }
 
-    public function test_a_signed_in_user_redeems_at_once_and_gets_a_comp(): void
+    public function test_a_signed_out_visitor_is_returned_to_the_link_after_signing_in_to_an_existing_account(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->closeRegistration($client);
+        $existing = new User(fullName: 'Existing', email: 'beta-existing@example.com');
+        $container = $client->getContainer();
+        $existing->password = $container->get(UserPasswordHasherInterface::class)->hashPassword($existing, 'SecurePassword1!');
+        $existing->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($existing, $container);
+        $em = $container->get(EntityManagerInterface::class);
+        $em->persist($existing);
+        $em->flush();
+        [$invite, $token] = $this->seedInvite($client);
+
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        self::assertStringEndsWith('/beta/'.$token, (string) $client->getRequest()->getSession()->get('_security.main.target_path'));
+
+        $client->request(Request::METHOD_GET, '/login');
+        $client->submitForm('Sign in', ['email' => 'beta-existing@example.com', 'password' => 'SecurePassword1!']);
+
+        self::assertResponseRedirects('http://localhost/beta/'.$token);
+        $client->followRedirect();
+        self::assertSelectorExists('[data-beta-claim-form]');
+        self::assertTrue($this->reload($client, $invite)->isUsable());
+    }
+
+    public function test_a_signed_in_get_shows_the_claim_page_and_redeems_nothing(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tester = new BillingScenario($client->getContainer())->verifiedUser('beta-prefetch');
+        [$invite, $token] = $this->seedInvite($client);
+
+        $client->loginUser($tester);
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-beta-claim-form]');
+        self::assertTrue($this->reload($client, $invite)->isUsable());
+        self::assertSame([], $this->comps($client, $tester));
+    }
+
+    public function test_a_claim_with_a_bad_csrf_token_is_refused(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tester = new BillingScenario($client->getContainer())->verifiedUser('beta-csrf');
+        [$invite, $token] = $this->seedInvite($client);
+
+        $client->loginUser($tester);
+        $this->claim($client, $token, 'not-a-valid-token');
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertTrue($this->reload($client, $invite)->isUsable());
+    }
+
+    public function test_a_signed_in_user_claims_the_link_and_gets_a_comp(): void
     {
         $client = static::createClient();
         $client->disableReboot();
@@ -157,15 +223,18 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         [$invite, $token] = $this->seedInvite($client);
 
         $client->loginUser($tester);
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
 
+        self::assertResponseRedirects('/beta/'.$token);
+        $client->followRedirect();
         self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('[data-beta-claim-form]');
         self::assertSelectorNotExists('[data-beta-stripe-hint]');
         self::assertSame($tester->id?->toRfc4122(), $this->reload($client, $invite)->redeemedBy?->id?->toRfc4122());
         self::assertNotNull($this->currentComp($client, $tester));
     }
 
-    public function test_a_signed_in_user_whose_email_is_not_verified_redeems_at_once(): void
+    public function test_a_signed_in_user_whose_email_is_not_verified_can_claim_the_link(): void
     {
         $client = static::createClient();
         $client->disableReboot();
@@ -178,8 +247,10 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
 
         $client->loginUser($tester);
         $client->request(Request::METHOD_GET, '/beta/'.$token);
-
         self::assertResponseIsSuccessful();
+        $client->request(Request::METHOD_POST, '/beta/'.$token, ['_csrf_token' => 'csrf-token']);
+
+        self::assertResponseRedirects('/beta/'.$token);
         self::assertSame($tester->id?->toRfc4122(), $this->reload($client, $invite)->redeemedBy?->id?->toRfc4122());
         self::assertNotNull($this->currentComp($client, $tester));
     }
@@ -193,11 +264,13 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         [, $token] = $this->seedInvite($client);
 
         $client->loginUser($tester);
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
+        $client->request(Request::METHOD_POST, '/beta/'.$token, ['_csrf_token' => 'csrf-token']);
+        $client->followRedirect();
 
         self::assertResponseIsSuccessful();
         self::assertSelectorNotExists('[data-beta-invite-invalid]');
+        self::assertSelectorNotExists('[data-beta-claim-form]');
         self::assertCount(1, $audit->records('billing.beta_invite_redeemed'));
         self::assertCount(1, $this->comps($client, $tester));
     }
@@ -212,9 +285,10 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         [, $token] = $this->seedInvite($client);
 
         $client->loginUser($first);
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
         $client->loginUser($second);
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $client->request(Request::METHOD_POST, '/beta/'.$token, ['_csrf_token' => 'csrf-token']);
+        $client->followRedirect();
 
         self::assertResponseStatusCodeSame(404);
         self::assertSelectorExists('[data-beta-invite-invalid]');
@@ -276,9 +350,9 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         [$invite, $token] = $this->seedInvite($client);
 
         $client->loginUser($tester);
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
 
-        self::assertResponseIsSuccessful();
+        self::assertResponseRedirects('/beta/'.$token);
         self::assertTrue($this->reload($client, $invite)->isRedeemed());
         self::assertCount(1, $this->comps($client, $tester));
     }
@@ -294,7 +368,8 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         [, $token] = $this->seedInvite($client);
 
         $client->loginUser($tester);
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
+        $client->followRedirect();
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('[data-beta-stripe-hint]');
@@ -312,8 +387,10 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
 
         $client->loginUser($tester);
         $client->request(Request::METHOD_GET, '/beta/'.$token);
-
         self::assertResponseIsSuccessful();
+        $client->request(Request::METHOD_POST, '/beta/'.$token, ['_csrf_token' => 'csrf-token']);
+
+        self::assertResponseRedirects('/beta/'.$token);
         self::assertNotNull($this->currentComp($client, $tester));
     }
 
@@ -373,6 +450,16 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
         self::assertSelectorNotExists('[data-beta-invite-invalid]');
         self::assertFalse($client->getRequest()->getSession()->has(RegistrationPasses::SESSION_KEY));
+    }
+
+    /**
+     * The GET first, as a browser does: it also gives BrowserKit the history
+     * that lets the stateless CSRF sentinel pass as same-origin.
+     */
+    private function claim(KernelBrowser $client, string $token, string $csrfToken = 'csrf-token'): void
+    {
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $client->request(Request::METHOD_POST, '/beta/'.$token, ['_csrf_token' => $csrfToken]);
     }
 
     /** @return array{BetaInvite, string} */
