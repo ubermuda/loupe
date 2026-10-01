@@ -97,7 +97,7 @@ enum WorkerRunState: string
     /** @return list<self> */
     public static function stoppableStates(): array
     {
-        return [self::Queued, self::Resumed, self::Running];
+        return [self::Queued, self::Resumed, self::Preparing, self::Running];
     }
 
     /** @return list<self> */

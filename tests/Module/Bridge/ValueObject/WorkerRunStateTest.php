@@ -185,9 +185,9 @@ final class WorkerRunStateTest extends TestCase
         self::assertFalse(WorkerRunState::Closed->isInferred());
     }
 
-    public function test_a_queued_resumed_or_running_run_can_stop(): void
+    public function test_a_queued_resumed_preparing_or_running_run_can_stop(): void
     {
-        self::assertSame([WorkerRunState::Queued, WorkerRunState::Resumed, WorkerRunState::Running], WorkerRunState::stoppableStates());
+        self::assertSame([WorkerRunState::Queued, WorkerRunState::Resumed, WorkerRunState::Preparing, WorkerRunState::Running], WorkerRunState::stoppableStates());
         foreach (WorkerRunState::cases() as $state) {
             self::assertSame(\in_array($state, WorkerRunState::stoppableStates(), true), $state->isStoppable(), $state->value);
         }
