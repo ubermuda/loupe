@@ -39,6 +39,10 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertNull($pullRequest->coveredSha);
         self::assertNull($pullRequest->defaultBranch);
         self::assertSame([], $pullRequest->headParents);
+        self::assertNull($pullRequest->syncFromSha);
+        self::assertNull($pullRequest->syncRequestedAt);
+        self::assertNull($pullRequest->syncFailedReason);
+        self::assertNull($pullRequest->syncedSha);
         self::assertTrue($pullRequest->snapshot()->equals(new PullRequestSnapshot()));
     }
 
@@ -126,6 +130,76 @@ final class PullRequestSnapshotTest extends TestCase
         $pullRequest->apply(new PullRequestSnapshot(headSha: 'synced1'));
 
         self::assertSame('synced1', $pullRequest->coveredSha);
+    }
+
+    public function test_the_head_of_an_app_sync_moves_the_covered_sha(): void
+    {
+        $pullRequest = $this->syncRequested();
+
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'synced1', parents: ['approved1', 'base1']));
+
+        self::assertSame('synced1', $pullRequest->coveredSha);
+        self::assertSame('synced1', $pullRequest->syncedSha);
+        self::assertNull($pullRequest->syncFromSha);
+        self::assertNull($pullRequest->syncRequestedAt);
+        self::assertNull($pullRequest->syncFailedReason);
+    }
+
+    public function test_a_head_whose_first_parent_is_not_the_sync_start_keeps_the_covered_sha(): void
+    {
+        $pullRequest = $this->syncRequested();
+
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'pushed1', parents: ['base1', 'approved1']));
+
+        self::assertSame('approved1', $pullRequest->coveredSha);
+        self::assertNull($pullRequest->syncedSha);
+        self::assertNull($pullRequest->syncFromSha);
+    }
+
+    public function test_a_sync_start_that_the_approval_does_not_cover_keeps_the_covered_sha(): void
+    {
+        $pullRequest = $this->syncRequested();
+        $pullRequest->syncFromSha = 'other1';
+
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'synced1', parents: ['other1']));
+
+        self::assertSame('approved1', $pullRequest->coveredSha);
+        self::assertNull($pullRequest->syncedSha);
+    }
+
+    public function test_a_new_approval_wins_over_the_sync_head(): void
+    {
+        $pullRequest = $this->syncRequested();
+
+        $pullRequest->apply($this->approved('review2', 'approved2', head: 'synced1', parents: ['approved1']));
+
+        self::assertSame('approved2', $pullRequest->coveredSha);
+        self::assertNull($pullRequest->syncedSha);
+        self::assertNull($pullRequest->syncFromSha);
+    }
+
+    public function test_a_new_head_clears_the_sync_failure(): void
+    {
+        $pullRequest = $this->syncRequested();
+        $pullRequest->syncFailedReason = 'refused';
+
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'pushed1', parents: ['base1']));
+
+        self::assertNull($pullRequest->syncFailedReason);
+        self::assertNull($pullRequest->syncFromSha);
+        self::assertNull($pullRequest->syncRequestedAt);
+    }
+
+    public function test_the_same_head_and_approval_keep_the_sync_marker(): void
+    {
+        $pullRequest = $this->syncRequested();
+        $pullRequest->syncFailedReason = 'refused';
+
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'approved1'));
+
+        self::assertSame('approved1', $pullRequest->syncFromSha);
+        self::assertEquals(new \DateTimeImmutable('2026-09-20 11:00:00'), $pullRequest->syncRequestedAt);
+        self::assertSame('refused', $pullRequest->syncFailedReason);
     }
 
     public function test_equal_snapshots_are_equal(): void
@@ -224,9 +298,21 @@ final class PullRequestSnapshotTest extends TestCase
         ];
     }
 
-    private function approved(string $id, string $sha): PullRequestSnapshot
+    /** @param list<string> $parents */
+    private function approved(string $id, string $sha, ?string $head = null, array $parents = []): PullRequestSnapshot
     {
-        return new PullRequestSnapshot(review: PullRequestReview::Approved, approvedAt: new \DateTimeImmutable('2026-09-20 10:00:00'), approvalSha: $sha, approvalId: $id);
+        return new PullRequestSnapshot(headSha: $head, review: PullRequestReview::Approved, approvedAt: new \DateTimeImmutable('2026-09-20 10:00:00'), approvalSha: $sha, headParents: $parents, approvalId: $id);
+    }
+
+    /** An approved pull request on its approved head, with an app sync asked from that head. */
+    private function syncRequested(): ForgePullRequest
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'approved1'));
+        $pullRequest->syncFromSha = 'approved1';
+        $pullRequest->syncRequestedAt = new \DateTimeImmutable('2026-09-20 11:00:00');
+
+        return $pullRequest;
     }
 
     private function pullRequest(): ForgePullRequest
