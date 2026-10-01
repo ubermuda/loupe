@@ -104,9 +104,8 @@ The script takes each reviewer's last approving or blocking review. The earliest
 
 | Line | Exit | Meaning |
 |---|---|---|
-| `COVERED ...` | 0 | Every later commit is a sync merge from the base. |
+| `COVERED ...` | 0 | Every later commit is a merge from the base, with or without a conflict resolution. |
 | `HOLD commits after approval: ...` | 1 | A later commit adds new content. |
-| `HOLD conflict resolution after approval: ...` | 1 | A later merge from the base does not match what `git merge-tree` makes. |
 | `HOLD head moved`, `HOLD no approval`, `HOLD no push ...`, `HOLD 250 commits or more ...` | 1 | The item fails for that reason. |
 | `UNREAD: ...` | 2 | A read failed. |
 

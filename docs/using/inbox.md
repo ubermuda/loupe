@@ -239,6 +239,13 @@ An approval ends the wait. So does a request for changes on the newest commit,
 a new commit whose checks did not pass yet, a merge and a close. A pull request
 with changes requested waits again after a new commit with passing checks.
 
+An approved pull request waits again when it gets new commits after the
+approval. The wait says "Pull request #N has new commits after your approval",
+with the short SHA of the newest commit. A merge from the base branch does not
+count, with or without a conflict resolution. A force push, such as a rebase,
+counts, so you approve the rewritten branch again. A new approval of the newest
+commit ends the wait.
+
 The fix loop wait opens when the board automation stops asking for fixes,
 because the card used all of its fix rounds. The wait names the reason of the
 fix that the automation did not ask for, such as `checks-failed`. While a
