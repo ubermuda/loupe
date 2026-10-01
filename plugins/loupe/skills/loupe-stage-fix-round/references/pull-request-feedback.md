@@ -61,13 +61,13 @@ Never resolve a thread. The reviewer resolves it.
 
 ## Check the worker folder
 
-Run this in the worker folder:
+When the profile `Environment` section names a folder check, run it first. When the check fails, stop with `STAGE RESULT: blocked: no worker folder`. Then run this in the worker folder:
 
 ```bash
 git branch --show-current
 ```
 
-When it prints nothing, HEAD is detached. Run `git fetch origin <head branch>` and `git switch <head branch>`. When no local branch has that name, run `git switch --track -c <head branch> origin/<head branch>` instead. When the current branch then differs from the head branch, change nothing, and stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
+When it prints nothing, HEAD is detached. When it prints the base branch of the profile `Gate` section, treat it the same way. Run `git fetch origin <head branch>` and `git switch <head branch>`. When no local branch has that name, run `git switch --track -c <head branch> origin/<head branch>` instead. When the current branch then differs from the head branch, change nothing, and stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
 
 Sync the branch:
 

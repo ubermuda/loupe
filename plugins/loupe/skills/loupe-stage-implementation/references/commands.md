@@ -25,22 +25,24 @@ Slug a column label from the prompt: lowercase, with hyphens for spaces. Compare
 
 ## Check the worker folder
 
-The worker folder is the folder the worker starts in. The bridge rules make it, refresh it and remove it, and a stage never does. `<base>` is the base branch from the profile `Gate` section. Run this in the worker folder:
+The worker folder is the folder the worker starts in. The bridge rules make it and remove it, and a stage never does. A worker with no rule for its folder starts in the project directory. `<base>` is the base branch from the profile `Gate` section.
+
+When the profile `Environment` section names a folder check, run it first. When the check fails, stop with `STAGE RESULT: blocked: no worker folder`. Then run this in the worker folder:
 
 ```bash
 git branch --show-current
 ```
 
 1. When it prints nothing, HEAD is detached. Run `git switch -c card-<number>-<short-slug>`. `<short-slug>` is two to four lowercase words from the card title, joined with hyphens.
-2. When it prints a branch that starts `card-<number>-`, keep that branch.
-3. When it prints `<base>`, stop with `STAGE RESULT: blocked: no worker folder`. The worker started in the main checkout, because no rule made a folder for it.
+2. When it prints `<base>`, run the same `git switch -c` command.
+3. When it prints a branch that starts `card-<number>-`, keep that branch.
 4. When it prints any other branch, stop with `STAGE RESULT: blocked: worker folder on branch <branch>`.
 
 ## Reruns
 
 1. A linked plan document whose `references` hold the tech design id is the plan. Reuse it, and create no second plan.
 2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch for it. Run `git branch --show-current`. When HEAD is detached, run `git fetch origin <head>` and `git switch <head>`. When no local branch has that name, run `git switch --track -c <head> origin/<head>` instead. When the current branch then differs from the head branch, stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
-3. Sync that branch with `git fetch origin <head>` and `git merge --ff-only origin/<head>`. When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push. Then resume at the gate.
+3. Sync that branch with `git fetch origin <head>` and `git merge --ff-only origin/<head>`. When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push. When the sync brought commits, run the refresh of the profile `Environment` section, when it names one. Then resume at the gate.
 4. Before you create a pull request, list the open pull requests for the branch with the forge adapter. Link one it lists, and create none.
 
 ## The gate

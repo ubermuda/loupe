@@ -11,7 +11,7 @@ Accepted on 2026-09-30.
 
 The stage skills ship in the Loupe plugin. Every repository that uses Loupe runs the same skills. Each repository keeps its own values in `.loupe/lifecycle.md`, such as its gate commands and its pull request format.
 
-Until card 405, the skills also set up the place where they work. The implementation skill creates a git worktree from the main checkout, runs the provisioning command of the profile, and binds its writes to the new tree. The fix round skill sets up or refreshes that tree from the pull request branch. The profile's "Worktree" section feeds these steps. In this repository it names `.worktrees/card-<number>`, `just worktree-up` and `just worktree-down`.
+Until card 405, the skills also set up their own place of work. The implementation skill creates a git worktree from the main checkout, runs the provisioning command of the profile, and binds its writes to the new tree. The fix round skill sets up or refreshes that tree from the pull request branch. The profile's "Worktree" section feeds these steps. In this repository it names `.worktrees/card-<number>`, `just worktree-up` and `just worktree-down`.
 
 This fails in two ways:
 

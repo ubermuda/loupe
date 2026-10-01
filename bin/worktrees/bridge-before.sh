@@ -29,9 +29,12 @@ name="card-$number"
 root="$main/.worktrees/$name"
 
 git -C "$main" fetch origin
+# A tree deleted from disk stays registered until a prune, and holds its branch.
+git -C "$main" worktree prune
 
 created_worktree=0
-if git -C "$main" worktree list --porcelain | grep -qxF "worktree $root"; then
+registered=$(git -C "$main" worktree list --porcelain)
+if grep -qxF "worktree $root" <<<"$registered"; then
     echo "bridge-before: $name already exists; re-provisioning it." >&2
 elif [ -e "$root" ]; then
     echo "bridge-before: $root exists but is not a registered worktree. Remove it and retry." >&2
@@ -40,9 +43,7 @@ else
     # The '-' after the number keeps card-4 from matching card-40-*.
     branch=$(git -C "$main" for-each-ref --sort=-committerdate --count=1 \
         --format='%(refname:short)' "refs/heads/$name-*")
-    if [ -n "$branch" ]; then
-        git -C "$main" worktree add "$root" "$branch"
-    elif [ -n "$pr" ]; then
+    if [ -n "$pr" ]; then
         head=$(cd "$main" && gh pr view "$pr" --json headRefName -q .headRefName)
         if [ -z "$head" ]; then
             echo "bridge-before: pull request $pr has no head branch." >&2
@@ -54,6 +55,8 @@ else
         else
             git -C "$main" worktree add --track -b "$head" "$root" "origin/$head"
         fi
+    elif [ -n "$branch" ]; then
+        git -C "$main" worktree add "$root" "$branch"
     else
         git -C "$main" worktree add --detach "$root" origin/main
     fi

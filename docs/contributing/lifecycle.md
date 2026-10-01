@@ -221,8 +221,9 @@ runs `just worktree-down` with no agent when the card reaches Done.
 fields.
 
 Edit `rules.yaml` before the bridge loads a plugin of version 0.10.0 or later.
-A new skill that starts with no `before` rule runs in the main checkout, and
-it stops with `STAGE RESULT: blocked: no worker folder`. The reverse order has
+A new skill that starts with no `before` rule runs in the main checkout. The
+folder check of `.loupe/lifecycle.md` then stops it with
+`STAGE RESULT: blocked: no worker folder`. The reverse order has
 its own cost. An older skill that starts in the card folder tries to make its
 own worktree from there.
 
@@ -329,7 +330,7 @@ card worktree, when no worker runs on the card. The `before` script makes that
 worktree and prints its path:
 
 ```sh
-cd "$(bin/worktrees/bridge-before.sh <number> <id> <pull request number>)"
+dir=$(bin/worktrees/bridge-before.sh <number> <id> <pull request number>) && cd "$dir" && \
 claude -p --permission-mode bypassPermissions -- "Use the loupe-stage-fix-round skill. Card <number> (cardId <id>) in project loupe (projectId <id>), column in-review. Loupe instance https://loupe.ac."
 ```
 
