@@ -12,7 +12,7 @@ The profile has these sections: `Instruction files`, `Worktree`, `Gate`, `Code r
 
 ## Pick the forge adapter
 
-The stage skills name forge operations. An adapter file maps them to commands for one forge. The operations are these: find and validate a pull request, list feedback items, reply to a thread, and post a top-level comment. Also read checks and failed logs, create a pull request, and check mergeability. The merge stage adds four more: read the merge state, check the approval covers the head, update the branch, and merge.
+The stage skills name forge operations. An adapter file maps them to commands for one forge. The operations are these: find and validate a pull request, list feedback items, reply to a thread, post a top-level comment, and post a refusal comment. Also read checks and failed logs, create a pull request, and check mergeability. The merge stage adds four more: read the merge state, check the approval covers the head, update the branch, and merge.
 
 1. Read the forge from `pullRequests[].forge` in `card_get`: `github`, `gitlab`, `bitbucket` or `other`.
 2. Before a pull request exists, read the host of `git remote get-url origin`. `github.com` is `github`, a `gitlab` host is `gitlab`, `bitbucket.org` is `bitbucket`, and any other host is `other`.
@@ -82,3 +82,15 @@ The stage ends at the push. The app reads the pull request again after each push
 ## Record a block
 
 Read the card with `card_get`. Send its whole `body` back with `card_update`, plus one final paragraph that starts `Blocked:`. The paragraph names the reason, the branch, and the pull request URL when one exists.
+
+## Post a refusal comment
+
+A run that acts on a pull request posts one comment when it ends `STAGE RESULT: not ready <url>: <reason>` or `STAGE RESULT: blocked: <reason>`. The comment tells a person on the pull request why the work stopped.
+
+1. Post no comment for `waiting`. Post none for a fault that an approver cannot fix on the pull request: `worktree binding failed`, `codex MCP unavailable` or `preview not seeded`. `loupe MCP unavailable` is not a `blocked:` form, so it posts none either.
+2. Make the reason key. Lowercase the reason, and turn each run of characters outside `a-z` and `0-9` into one hyphen. Remove a hyphen at the start or the end.
+3. Read the head commit with the forge adapter. The marker line is `<!-- loupe-refusal: <head sha> <reason key> -->`.
+4. List the top-level comments with the forge adapter. When a comment holds the same marker, post nothing. A new head or a new reason posts again.
+5. Post the comment with the forge adapter. Start the body with the marker line. Then write the reason, and the next step from the first sentence after the result line.
+6. Never edit, hide or delete a refusal comment when the block clears.
+7. When the post fails, keep the same result line. Say in the sentences after it that the comment failed.
