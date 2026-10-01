@@ -3,7 +3,7 @@
 {% block title %}{{ card.title }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block flash_messages %}
-    {% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' %}{{ parent() }}{% endif %}
+    {% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' and not app.request.headers.has('X-Loupe-Live-Refresh') %}{{ parent() }}{% endif %}
 {% endblock %}
 
 {% block topbar_crumbs %}
@@ -23,7 +23,7 @@
 {% endif %}
 <turbo-frame id="card-drawer-frame"{% if not inDrawer %} target="_top"{% endif %}>
 <div class="lp-card-drawer" data-card-drawer-card-id="{{ card.id }}" data-controller="panel-tabs card-live" data-panel-tabs-active-value="{{ activeTab }}" data-card-live-card-id-value="{{ card.id }}" data-card-live-url-value="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}" data-card-live-frame-value="{{ inDrawer ? 'true' : 'false' }}">
-    {% if inDrawer %}
+    {% if inDrawer and not app.request.headers.has('X-Loupe-Live-Refresh') %}
         {% include '_flash_messages.html.twig' with {flashes: app.flashes(['success', 'error', 'warning', 'info'])} only %}
     {% endif %}
     <header class="lp-card-drawer__header">

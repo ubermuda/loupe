@@ -24,6 +24,7 @@ use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 use Symfony\Component\Uid\Uuid;
@@ -512,6 +513,41 @@ final class CardCrudControllerTest extends WebTestCase
             self::assertSame($selected ? '0' : '-1', $button->attr('tabindex'), $tab);
             self::assertSame($selected ? null : '', $crawler->filter('#card-panel-'.$tab)->attr('hidden'), $tab);
         }
+    }
+
+    /**
+     * A live refresh renders no flash, so the flash waits for the page the reader opens next.
+     *
+     * @param array<string, string> $server
+     */
+    #[TestWith([[]])]
+    #[TestWith([['HTTP_TURBO_FRAME' => 'card-drawer-frame']])]
+    public function test_a_live_refresh_leaves_the_flashes_and_the_cookie_alone(array $server): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'card-live-refresh-'.\count($server).'@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Refreshes live');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $url = '/projects/'.$project->id.'/board/cards/'.$card->id;
+        $client->request(Request::METHOD_GET, $url);
+        $session = $client->getRequest()->getSession();
+        self::assertInstanceOf(FlashBagAwareSessionInterface::class, $session);
+        $session->getFlashBag()->add('success', 'Saved elsewhere');
+        $session->save();
+
+        $crawler = $client->request(Request::METHOD_GET, $url, server: $server + ['HTTP_X_LOUPE_LIVE_REFRESH' => '1']);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.lp-flash'));
+        self::assertNull(self::findMercureCookie($client->getResponse()));
+
+        $crawler = $client->request(Request::METHOD_GET, $url, server: $server);
+        self::assertStringContainsString('Saved elsewhere', $crawler->filter('.lp-flash')->text());
     }
 
     public function test_a_stranger_cannot_reach_a_card(): void

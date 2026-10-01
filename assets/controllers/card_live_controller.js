@@ -67,10 +67,11 @@ export default class extends Controller {
         this.request?.abort();
         const request = new AbortController();
         this.request = request;
+        const tab = this.activeTab();
         const url = new URL(this.urlValue, window.location.href);
-        url.searchParams.set('tab', this.activeTab());
-        // A frame response leaves the subscriber cookie of the host page alone.
-        const headers = { Accept: 'text/html' };
+        url.searchParams.set('tab', tab);
+        // The refresh header keeps the subscriber cookie and the waiting flashes.
+        const headers = { Accept: 'text/html', 'X-Loupe-Live-Refresh': '1' };
         if (this.frameValue) {
             headers['Turbo-Frame'] = 'card-drawer-frame';
         }
@@ -91,6 +92,11 @@ export default class extends Controller {
             return;
         }
         if (request.signal.aborted || this.holding()) {
+            return;
+        }
+        if (this.activeTab() !== tab) {
+            this.schedule();
+
             return;
         }
 

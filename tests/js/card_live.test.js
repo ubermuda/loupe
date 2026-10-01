@@ -185,10 +185,37 @@ it('asks for the open tab, and morphs the new card in', async () => {
     expect(options.credentials).toBe('same-origin');
     expect(options.headers.Accept).toBe('text/html');
     expect(options.headers['Turbo-Frame']).toBeUndefined();
+    expect(options.headers['X-Loupe-Live-Refresh']).toBe('1');
     expect(document.querySelector('[data-card-drawer-card-id]')).toBe(root);
     expect(root.querySelector('[data-column]').textContent).toBe('Done');
     expect(root.querySelector('#card-panel-history').hidden).toBe(false);
     expect(root.querySelector('#card-panel-overview').hidden).toBe(true);
+});
+
+it('fetches again when the reader switches tab while a fetch runs', async () => {
+    const root = await mount();
+    let resolve;
+    fetch.mockImplementationOnce(() => new Promise((done) => (resolve = done)));
+    cardChanged();
+    await settle();
+    root.querySelectorAll('[data-panel-tabs-target="tab"]').forEach((tab) =>
+        tab.setAttribute(
+            'aria-selected',
+            String(tab.dataset.panelTab === 'history'),
+        ),
+    );
+    resolve({ ok: true, text: async () => page(cardHtml({ column: 'Done' })) });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(root.querySelector('[data-column]').textContent).toBe('Next');
+
+    answer(cardHtml({ tab: 'history', column: 'Done' }));
+    await settle();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(new URL(fetch.mock.calls[1][0]).searchParams.get('tab')).toBe(
+        'history',
+    );
+    expect(root.querySelector('[data-column]').textContent).toBe('Done');
+    expect(root.querySelector('#card-panel-history').hidden).toBe(false);
 });
 
 it('sends the frame header in the drawer, so the host keeps its subscriptions', async () => {

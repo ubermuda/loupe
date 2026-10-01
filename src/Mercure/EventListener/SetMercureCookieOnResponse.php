@@ -19,6 +19,9 @@ use Symfony\Component\Mercure\Authorization;
 #[AsEventListener(event: KernelEvents::RESPONSE, priority: 8)]
 final readonly class SetMercureCookieOnResponse
 {
+    /** A background refresh of part of a page must not narrow the topics of the whole page. */
+    public const string LIVE_REFRESH_HEADER = 'X-Loupe-Live-Refresh';
+
     /** @param \Closure(): Authorization $authorization */
     public function __construct(
         private MercureSubscriptions $subscriptions,
@@ -30,7 +33,7 @@ final readonly class SetMercureCookieOnResponse
 
     public function __invoke(ResponseEvent $event): void
     {
-        if (!$event->isMainRequest()) {
+        if (!$event->isMainRequest() || $event->getRequest()->headers->has(self::LIVE_REFRESH_HEADER)) {
             return;
         }
 
