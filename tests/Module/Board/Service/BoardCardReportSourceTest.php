@@ -5,11 +5,19 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Service;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardEventKind;
+use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\Forge;
+use App\Module\Board\Repository\CardEventRepository;
+use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\BoardCardReportSource;
 use App\Module\Bridge\Experiment\CardColumn;
+use App\Module\Bridge\Experiment\CardOutcome;
 use App\Module\Bridge\Experiment\CardReportSourceInterface;
+use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -32,11 +40,13 @@ final class BoardCardReportSourceTest extends KernelTestCase
         $this->em = $em;
 
         // No service reads the alias yet, so the compiled container drops it.
-        $cards = self::getContainer()->get(CardRepository::class);
-        self::assertInstanceOf(CardRepository::class, $cards);
-        $board = self::getContainer()->get(BoardAvailability::class);
-        self::assertInstanceOf(BoardAvailability::class, $board);
-        $this->source = new BoardCardReportSource($cards, $board);
+        $container = self::getContainer();
+        $this->source = new BoardCardReportSource(
+            $container->get(CardRepository::class),
+            $container->get(CardEventRepository::class),
+            $container->get(CardPullRequestRepository::class),
+            $container->get(BoardAvailability::class),
+        );
     }
 
     public function test_it_returns_the_columns_of_the_projects_cards_only(): void
@@ -74,6 +84,102 @@ final class BoardCardReportSourceTest extends KernelTestCase
         $this->enableBoard();
 
         self::assertSame([], $this->source->columnsFor($this->makeProject('card-report-empty'), []));
+    }
+
+    public function test_it_reads_the_outcome_of_each_card_from_its_history_and_pull_requests(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('card-outcome');
+        $other = $this->makeProject('card-outcome-other');
+        $merged = $this->card($project, 1, 'done');
+        $handMoved = $this->card($project, 2, 'done');
+        $quiet = $this->card($project, 3, 'in-progress');
+        $foreign = $this->card($other, 1, 'done');
+
+        $first = new \DateTimeImmutable('2026-09-01 09:00:00');
+        $this->event($merged, CardEventKind::Created, [], $first);
+        $this->event($merged, CardEventKind::FixRequested, ['reason' => 'conflict', 'pullRequest' => 7], $first->modify('+1 hour'));
+        $this->event($merged, CardEventKind::FixRequested, ['reason' => 'checks-failed', 'pullRequest' => 7], $first->modify('+2 hours'));
+        $this->event($merged, CardEventKind::FixRequested, ['reason' => 'checks-failed', 'pullRequest' => 8], $first->modify('+3 hours'));
+        $this->event($merged, CardEventKind::Stopped, ['reason' => 'conflict', 'pullRequest' => 7], $first->modify('+4 hours'));
+        $this->event($merged, CardEventKind::Moved, ['from' => [], 'to' => [], 'cause' => ['type' => 'checks-passed', 'pullRequest' => 8]], $first->modify('+5 hours'));
+        $this->event($merged, CardEventKind::Moved, ['from' => [], 'to' => [], 'cause' => ['type' => 'merged', 'pullRequest' => 8]], $first->modify('+6 hours'));
+        $this->event($handMoved, CardEventKind::Moved, ['from' => [], 'to' => [], 'cause' => null], $first->modify('+1 day'));
+        $this->event($handMoved, CardEventKind::Moved, ['cause' => 'merged'], $first->modify('+2 days'));
+        $this->event($foreign, CardEventKind::FixRequested, ['reason' => 'conflict', 'pullRequest' => 1], $first->modify('-1 day'));
+
+        $this->pullRequest($project, $merged, 7, new \DateTimeImmutable('2026-09-01 10:00:00'), null);
+        $this->pullRequest($project, $merged, 8, new \DateTimeImmutable('2026-09-01 12:00:00'), new \DateTimeImmutable('2026-09-02 16:00:00'));
+        $this->pullRequest($other, $foreign, 7, new \DateTimeImmutable('2026-08-01 10:00:00'), new \DateTimeImmutable('2026-08-01 11:00:00'));
+        $this->em->clear();
+
+        $outcomes = $this->source->outcomesFor($project, [$merged, $handMoved, $quiet, $foreign, Uuid::v7()]);
+
+        $expected = [
+            (string) $merged => new CardOutcome(
+                fixRounds: ['checks-failed' => 2, 'conflict' => 1],
+                stopped: true,
+                merged: true,
+                openedAt: new \DateTimeImmutable('2026-09-01 10:00:00'),
+                mergedAt: new \DateTimeImmutable('2026-09-02 16:00:00'),
+            ),
+            (string) $handMoved => new CardOutcome(),
+            (string) $quiet => new CardOutcome(),
+        ];
+        ksort($expected);
+        ksort($outcomes);
+        self::assertEquals($expected, $outcomes);
+        self::assertSame(3, $outcomes[(string) $merged]->totalFixRounds());
+        self::assertSame(30.0, $outcomes[(string) $merged]->hoursToMerge());
+        self::assertNull($outcomes[(string) $handMoved]->hoursToMerge());
+    }
+
+    public function test_the_history_starts_at_the_first_event_of_the_project(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('history-start');
+        $other = $this->makeProject('history-start-other');
+        self::assertNull($this->source->historyStartFor($project));
+
+        $card = $this->card($project, 1, 'in-progress');
+        $this->event($card, CardEventKind::Moved, [], new \DateTimeImmutable('2026-09-03 08:00:00'));
+        $this->event($card, CardEventKind::Created, [], new \DateTimeImmutable('2026-09-02 08:00:00'));
+        $this->event($this->card($other, 1, 'in-progress'), CardEventKind::Created, [], new \DateTimeImmutable('2026-01-01 08:00:00'));
+        $this->em->clear();
+
+        self::assertEquals(new \DateTimeImmutable('2026-09-02 08:00:00'), $this->source->historyStartFor($project));
+    }
+
+    public function test_it_reads_no_outcome_and_no_history_when_the_board_is_off(): void
+    {
+        $project = $this->makeProject('card-outcome-off');
+        $card = $this->card($project, 1, 'done');
+        $this->event($card, CardEventKind::Created, [], new \DateTimeImmutable('2026-09-02 08:00:00'));
+        $this->disableBoard();
+
+        self::assertSame([], $this->source->outcomesFor($project, [$card]));
+        self::assertNull($this->source->historyStartFor($project));
+    }
+
+    /** @param array<string, mixed> $detail */
+    private function event(Uuid $cardId, CardEventKind $kind, array $detail, \DateTimeImmutable $at): void
+    {
+        $card = $this->em->find(Card::class, $cardId) ?? throw new \LogicException('The card exists.');
+        $events = self::getContainer()->get(CardEventRepository::class);
+        self::assertInstanceOf(CardEventRepository::class, $events);
+        $events->record($card, $kind, CardReporter::System, null, $detail, $at);
+        $this->em->flush();
+    }
+
+    private function pullRequest(Project $project, Uuid $cardId, int $number, \DateTimeImmutable $openedAt, ?\DateTimeImmutable $mergedAt): void
+    {
+        $card = $this->em->find(Card::class, $cardId) ?? throw new \LogicException('The card exists.');
+        $this->em->persist(new CardPullRequest($card, 'https://github.com/Acme/Widgets/pull/'.$number, Forge::GitHub, 'Acme/Widgets', $number));
+        $row = new ForgePullRequest($project, Forge::GitHub->value, 'Acme/Widgets', $number);
+        $row->openedAt = $openedAt;
+        $row->mergedAt = $mergedAt;
+        $this->em->persist($row);
+        $this->em->flush();
     }
 
     private function card(Project $project, int $number, string $column): Uuid
