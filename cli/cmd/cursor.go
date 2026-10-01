@@ -17,6 +17,28 @@ import (
 // catchUpTimeout bounds the read of one replay page.
 const catchUpTimeout = 10 * time.Second
 
+// caughtUpLimit bounds the ids that catch-ups read. The hub can send them again
+// until the stream reads a live line, and only more than this many caught-up
+// events with no live line between them pass it.
+const caughtUpLimit = 20000
+
+// rememberCaughtUpLocked adds an id a catch-up read, and forgets the oldest
+// past caughtUpLimit. The caller holds mu.
+func (r *router) rememberCaughtUpLocked(id string) {
+	if r.caughtUpSet[id] {
+		return
+	}
+	if r.caughtUpSet == nil {
+		r.caughtUpSet = map[string]bool{}
+	}
+	r.caughtUp = append(r.caughtUp, id)
+	r.caughtUpSet[id] = true
+	if len(r.caughtUp) > caughtUpLimit {
+		delete(r.caughtUpSet, r.caughtUp[0])
+		r.caughtUp = slices.Delete(r.caughtUp, 0, 1)
+	}
+}
+
 // cursorState is the cursor file. Cursor is the highest outbox sequence the
 // bridge handled, and Floor the head it started from with no cursor. A
 // catch-up never runs an event at or below Floor, which happened before the
@@ -173,9 +195,6 @@ func (r *router) saveCursor(st cursorState) {
 func (r *router) catchUp() {
 	r.mu.Lock()
 	start, floor, ok := r.cursor, r.floor, r.hasCursor && r.replay != nil
-	if ok && r.caughtUp == nil {
-		r.caughtUp = map[string]bool{}
-	}
 	r.mu.Unlock()
 	if !ok {
 		return

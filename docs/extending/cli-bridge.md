@@ -758,9 +758,11 @@ writes it after each event it handles.
 
 On every connect, the bridge reads the pages after its cursor before it reads
 the stream. It drops an event whose `id` it handled already, and routes the
-others as the hub sends them. The server can repeat an event at or below
-`after`, so the bridge never drops an event only because its `id` is below the
-cursor. When a page fails, for example with `429`, the bridge logs
+others as the hub sends them. The hub can send the events of a catch-up again
+after it, so the bridge remembers the ids of the last 20000 events that
+catch-ups read, and none of them runs twice. The server can repeat an event at
+or below `after`, so the bridge never drops an event only because its `id` is
+below the cursor. When a page fails, for example with `429`, the bridge logs
 `catch_up_failed` and reads the stream live. The saved cursor then stays at the
 page that failed, also across a restart, while live events run. The next
 connect reads again from there, and a catch-up that reads to the last page

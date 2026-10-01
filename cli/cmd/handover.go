@@ -436,12 +436,12 @@ func (r *router) takeEvent(id string, data []byte, replayed bool) {
 func (r *router) handleEvent(id string, data []byte, replayed bool) {
 	if id != "" {
 		r.mu.Lock()
-		seen := r.recentSet[id] || r.caughtUp[id]
+		seen := r.recentSet[id] || r.caughtUpSet[id]
 		if !seen {
 			r.rememberLocked(id)
 		}
-		if replayed && r.caughtUp != nil {
-			r.caughtUp[id] = true
+		if replayed {
+			r.rememberCaughtUpLocked(id)
 		}
 		r.mu.Unlock()
 		if seen {

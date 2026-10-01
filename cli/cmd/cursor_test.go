@@ -503,6 +503,18 @@ func TestTheHubCannotRunAnEventAnEarlierCatchUpRead(t *testing.T) {
 	h.only(t, "event_duplicate")
 }
 
+// The ids that catch-ups read stay bounded, the oldest going first.
+func TestTheCaughtUpIDsStayBounded(t *testing.T) {
+	h := newHarness(t)
+	for i := range caughtUpLimit + 1 {
+		h.router.rememberCaughtUpLocked(strconv.Itoa(i))
+	}
+	if len(h.router.caughtUp) != caughtUpLimit || len(h.router.caughtUpSet) != caughtUpLimit ||
+		h.router.caughtUpSet["0"] || !h.router.caughtUpSet[strconv.Itoa(caughtUpLimit)] {
+		t.Fatalf("caught up holds %d ids, with 0: %v", len(h.router.caughtUp), h.router.caughtUpSet["0"])
+	}
+}
+
 // A replayed card move whose card left the column since does not run.
 func TestAReplayedMoveOfACardThatMovedOnIsStale(t *testing.T) {
 	h := newHarness(t)
