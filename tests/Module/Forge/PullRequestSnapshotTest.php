@@ -167,7 +167,7 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertNull($pullRequest->syncedSha);
     }
 
-    public function test_a_new_approval_wins_over_the_sync_head(): void
+    public function test_a_new_approval_of_another_head_keeps_the_coverage_with_the_approval(): void
     {
         $pullRequest = $this->syncRequested();
 
@@ -175,6 +175,41 @@ final class PullRequestSnapshotTest extends TestCase
 
         self::assertSame('approved2', $pullRequest->coveredSha);
         self::assertNull($pullRequest->syncedSha);
+        self::assertNull($pullRequest->syncFromSha);
+    }
+
+    public function test_a_new_approval_of_the_sync_start_moves_the_coverage_to_the_synced_head(): void
+    {
+        $pullRequest = $this->syncRequested();
+
+        $pullRequest->apply($this->approved('review2', 'approved1', head: 'synced1', parents: ['approved1']));
+
+        self::assertSame('synced1', $pullRequest->coveredSha);
+        self::assertSame('synced1', $pullRequest->syncedSha);
+        self::assertNull($pullRequest->syncFromSha);
+    }
+
+    public function test_a_new_approval_keeps_the_marker_and_clears_the_failure(): void
+    {
+        $pullRequest = $this->syncRequested();
+        $pullRequest->syncFailedReason = 'refused';
+
+        $pullRequest->apply($this->approved('review2', 'approved1', head: 'approved1'));
+
+        self::assertSame('approved1', $pullRequest->syncFromSha);
+        self::assertEquals(new \DateTimeImmutable('2026-09-20 11:00:00'), $pullRequest->syncRequestedAt);
+        self::assertNull($pullRequest->syncFailedReason);
+    }
+
+    public function test_an_approval_while_the_sync_runs_and_then_the_synced_head_moves_the_coverage(): void
+    {
+        $pullRequest = $this->syncRequested();
+        $pullRequest->apply($this->approved('review2', 'approved1', head: 'approved1'));
+
+        $pullRequest->apply($this->approved('review2', 'approved1', head: 'synced1', parents: ['approved1', 'base1']));
+
+        self::assertSame('synced1', $pullRequest->coveredSha);
+        self::assertSame('synced1', $pullRequest->syncedSha);
         self::assertNull($pullRequest->syncFromSha);
     }
 

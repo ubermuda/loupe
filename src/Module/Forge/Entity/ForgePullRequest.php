@@ -158,11 +158,15 @@ class ForgePullRequest
         $headMoved = $this->headSha !== $snapshot->headSha;
         if ($approvalChanged) {
             $this->coveredSha = $snapshot->approvalSha;
-        } elseif ($headMoved && null !== $this->syncFromSha && ($snapshot->headParents[0] ?? null) === $this->syncFromSha && $this->coveredSha === $this->syncFromSha) {
+            $this->syncFailedReason = null;
+        }
+        // After the approval reset, so an approval of the head Loupe asked to update still follows the sync in one read.
+        if ($headMoved && null !== $this->syncFromSha && ($snapshot->headParents[0] ?? null) === $this->syncFromSha && $this->coveredSha === $this->syncFromSha) {
             // The merge commit of a sync from the covered head adds only base changes, so the approval still covers it.
             $this->coveredSha = $this->syncedSha = $snapshot->headSha;
         }
-        if ($headMoved || $approvalChanged) {
+        // A sync in flight keeps its marker through a new approval, so its merge commit is still recognised.
+        if ($headMoved) {
             $this->syncFromSha = null;
             $this->syncRequestedAt = null;
             $this->syncFailedReason = null;
