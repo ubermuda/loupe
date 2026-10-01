@@ -22,6 +22,9 @@ enum WorkerRunState: string
 
     case Skipped = 'skipped';
 
+    /** The bridge runs the before command of the rule, and the agent has not started. */
+    case Preparing = 'preparing';
+
     case Running = 'running';
 
     /** A person asked the bridge to stop the run, and the process is still ending. */
@@ -83,7 +86,7 @@ enum WorkerRunState: string
     /** @return list<self> */
     public static function openStates(): array
     {
-        return [self::Queued, self::Resumed, self::Running, self::Stopping];
+        return [self::Queued, self::Resumed, self::Preparing, self::Running, self::Stopping];
     }
 
     public function isOpen(): bool
@@ -115,9 +118,10 @@ enum WorkerRunState: string
         return match ($this) {
             self::Queued => 0,
             self::Resumed => 1,
-            self::Running => 2,
-            self::Stopping => 3,
-            default => 4,
+            self::Preparing => 2,
+            self::Running => 3,
+            self::Stopping => 4,
+            default => 5,
         };
     }
 
@@ -129,6 +133,7 @@ enum WorkerRunState: string
             self::Replaced => 'bridge.worker_runs.state.replaced',
             self::Resumed => 'bridge.worker_runs.state.resumed',
             self::Skipped => 'bridge.worker_runs.state.skipped',
+            self::Preparing => 'bridge.worker_runs.state.preparing',
             self::Running => 'bridge.worker_runs.state.running',
             self::Stopping => 'bridge.worker_runs.state.stopping',
             self::Stopped => 'bridge.worker_runs.state.stopped',
@@ -156,7 +161,7 @@ enum WorkerRunState: string
             self::Failed, self::NoResult, self::GaveUp, self::Dropped, self::TimedOut, self::Lost => 'failed',
             // The bridge or a person set these runs aside by design, so nothing waits and nothing failed.
             self::Replaced, self::Skipped, self::Stopped => 'resolved',
-            self::Queued, self::Resumed, self::Running, self::Stopping, self::WaitingForPerson, self::NotStarted, self::Unfinished, self::Blocked, self::WaitingOnForge => 'pending',
+            self::Queued, self::Resumed, self::Preparing, self::Running, self::Stopping, self::WaitingForPerson, self::NotStarted, self::Unfinished, self::Blocked, self::WaitingOnForge => 'pending',
         };
     }
 }

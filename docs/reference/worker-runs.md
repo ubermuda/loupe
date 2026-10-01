@@ -27,6 +27,7 @@ the `site-review` or the `mcp` scope.
 | `replaced` | the bridge | a newer event for the same card and rule took the place of this run in the queue |
 | `resumed` | the bridge | the ask the session waited on closed, and the bridge resumes the session |
 | `skipped` | the bridge | the session already read every answer of its ask, so the bridge does not resume it |
+| `preparing` | the bridge | the bridge runs the `before` command of the rule, and the worker process has not started |
 | `running` | the bridge | the worker process started |
 | `stopping` | the bridge | a person asked the bridge to stop the run, and the worker process is still ending |
 | `stopped` | the bridge | a person stopped the run. The bridge never resumes it |
@@ -44,7 +45,7 @@ the `site-review` or the `mcp` scope.
 | `lost` | the server | the bridge reconnected, and it no longer holds the run |
 | `closed` | the server | an interactive run ended. See [Interactive sessions](../using/worker-runs.md#interactive-sessions) |
 
-`queued`, `resumed`, `running` and `stopping` are open states. Every other state
+`queued`, `resumed`, `preparing`, `running` and `stopping` are open states. Every other state
 closes the run. `succeeded`, `no-result`, `unfinished`, `blocked`,
 `waiting-on-forge`, `gave-up`, `failed` and `not-started` are the outcomes. Only
 an outcome carries an exit code, a result flag, a result status, result fields
@@ -200,7 +201,7 @@ stores it to the second.
 ### How a report moves the run
 
 A run moves forward only. The open states rank `queued`, then `resumed`, then
-`running`, then `stopping`, and every closed state ranks above them. A report
+`preparing`, then `running`, then `stopping`, and every closed state ranks above them. A report
 moves an open run when its state ranks higher than the state the run holds. A
 late `running` therefore does not move a `stopping` run back. A report never moves
 a closed run, with two exceptions:
@@ -261,7 +262,7 @@ open run the bridge holds, across all its projects.
 | `runs` | required. A list of at most 1000 runs, which may be empty |
 | `runs[].runId` | required. The uuid the bridge generated for the run |
 | `runs[].projectId` | required. The uuid of the run's project |
-| `runs[].state` | required. `queued`, `resumed`, `running` or `stopping` |
+| `runs[].state` | required. `queued`, `resumed`, `preparing`, `running` or `stopping` |
 
 The server compares the list with the runs of that bridge that are open or
 `timed-out`, in the projects the token's user owns:
