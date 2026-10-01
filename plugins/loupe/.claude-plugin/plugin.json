@@ -1,8 +1,8 @@
 {
   "name": "loupe",
   "displayName": "Loupe",
-  "version": "0.8.3",
-  "description": "Skills for working a Loupe project from Claude Code: documents, the board, the inbox, site review and the card stages.",
+  "version": "0.9.0",
+  "description": "Skills for working a Loupe project from Claude Code: documents, the board, the inbox, site review, the workers and the card stages.",
   "author": {
     "name": "Geoffrey Bachelet",
     "url": "https://github.com/ubermuda"

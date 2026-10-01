@@ -179,6 +179,28 @@ class ProjectRepository extends ServiceEntityRepository
     }
 
     /**
+     * The owner's projects among $ids. Another owner's project reads the same as one that does not exist.
+     *
+     * @param list<string> $ids canonical uuids
+     *
+     * @return list<Project>
+     */
+    public function findOwnedBy(User $owner, array $ids): array
+    {
+        if ([] === $ids) {
+            return [];
+        }
+
+        return array_values($this->createQueryBuilder('p')
+            ->andWhere('p.owner = :owner')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('owner', $owner)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * Resolves an owner's project from a uuid or a slug, never from a name.
      * The id wins when a handle is one project's id and another's slug.
      */

@@ -8,6 +8,7 @@ use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
 use App\Module\Bridge\View\CardTitleSourceInterface;
+use App\Module\Bridge\View\WorkerRunControls;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Utils\PageList;
 use Psr\Clock\ClockInterface;
@@ -22,6 +23,7 @@ final readonly class ListWorkerRunsHandler
         private WorkerRunRepository $workerRuns,
         private WorkerRunStateChangeRepository $workerRunStateChanges,
         private CardTitleSourceInterface $cardTitles,
+        private WorkerRunControls $controls,
         private ClockInterface $clock,
     ) {
     }
@@ -36,15 +38,7 @@ final readonly class ListWorkerRunsHandler
         // float, which setFirstResult() then refuses.
         $page = min(max(1, $listQuery->page), intdiv(\PHP_INT_MAX, $perPage));
 
-        $paginator = $this->workerRuns->findPaginatedByProject(
-            $command->project,
-            $page,
-            $perPage,
-            $listQuery->search,
-            $listQuery->state,
-            $listQuery->bridgeId,
-            $listQuery->open,
-        );
+        $paginator = $this->workerRuns->findPaginatedByProject($command->project, $page, $perPage, $listQuery);
         $total = \count($paginator);
         $totalPages = max(1, (int) ceil($total / $perPage));
 
@@ -58,10 +52,11 @@ final readonly class ListWorkerRunsHandler
             $cardIds[(string) $run->cardId] = $run->cardId;
         }
         $titles = $this->cardTitles->titlesFor($command->project, array_values($cardIds));
+        $controls = $this->controls->forRuns($command->project, $runs);
 
         return new ListWorkerRunsView(
             items: array_map(
-                static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, $histories[(string) $run->id] ?? [], $titles[(string) $run->cardId] ?? null),
+                static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, $histories[(string) $run->id] ?? [], $titles[(string) $run->cardId] ?? null, $controls[(string) $run->id] ?? null),
                 $runs,
             ),
             filteredTotal: $total,
@@ -69,6 +64,8 @@ final readonly class ListWorkerRunsHandler
             pageList: PageList::build($page, $totalPages),
             bridgeIds: $this->workerRuns->bridgeIdsOf($command->project),
             clampedPage: PageList::clampedPage($page, $total, $perPage),
+            page: $page,
+            perPage: $perPage,
         );
     }
 }

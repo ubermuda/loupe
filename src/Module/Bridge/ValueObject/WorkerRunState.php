@@ -94,6 +94,28 @@ enum WorkerRunState: string
         return \in_array($this, self::openStates(), true);
     }
 
+    /** @return list<self> */
+    public static function stoppableStates(): array
+    {
+        return [self::Queued, self::Resumed, self::Running];
+    }
+
+    /** @return list<self> */
+    public static function resumableStates(): array
+    {
+        return [self::Blocked, self::GaveUp, self::Failed, self::NoResult, self::Unfinished, self::TimedOut, self::Lost, self::Stopped, self::WaitingForPerson];
+    }
+
+    public function isStoppable(): bool
+    {
+        return \in_array($this, self::stoppableStates(), true);
+    }
+
+    public function isResumable(): bool
+    {
+        return \in_array($this, self::resumableStates(), true);
+    }
+
     /** How a worker process ended. Only these states carry an exit code or a failure reason. */
     public function isOutcome(): bool
     {

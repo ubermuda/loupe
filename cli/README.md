@@ -307,6 +307,43 @@ refuses a project your login does not cover rather than ignoring the header.
 endpoints and the MCP endpoint, and it covers every project you own, including
 ones you create later.
 
+## `loupe status`
+
+Checks the setup that `loupe mcp` depends on, with one real call.
+
+```bash
+loupe status                     # project from .loupe.yaml
+loupe status --project <uuid>    # project from the command line
+```
+
+It reads your login and resolves the project the same way `loupe mcp` does. It
+then opens one MCP session with your instance and calls `project_current`. The
+whole check stops after 30 seconds.
+
+```text
+Instance:    https://loupe.ac
+Project:     Acme site (acme, 01a0c0d9-905c-7922-a586-ccc8ce043704)
+Claude Code: starts `loupe mcp` for every project.
+loupe status: PASS
+```
+
+The `Claude Code:` line is a note, and it never fails the check. An agent other
+than Claude Code, such as Codex, keeps its own configuration.
+
+The last line on stdout is `loupe status: PASS` or `loupe status: FAIL`. A
+failure exits with status 1, and the error on stderr says what to run next.
+Read the exit status, because the error comes after the verdict when you merge
+the two streams:
+
+```text
+Claude Code: does not declare "loupe". Run `loupe init --mcp` to declare it. Other agents keep their own configuration.
+loupe status: FAIL
+error: not logged in: run `loupe login` first
+```
+
+An agent that sets Loupe up runs it before it asks for a restart, so a bad login
+or a wrong project shows up while the person is still there.
+
 ## `loupe bridge run`
 
 Reads the rule file, subscribes to the event stream of every project you own on
@@ -1293,6 +1330,13 @@ missing cache heals. When the bridge cannot find its config directory, it runs
 with no cache. An update hands the pause to the new version directly. Each
 heartbeat sends `paused` with the state the bridge applies, and
 `capabilities: ["commands"]`.
+
+The project owner sends a stop, a resume or a pause from the web UI. Stop and
+Resume are in the runs section of a card page and in the drawer of a run on
+the **Runs** tab of the Activity page. **Pause new work** is in the menu of the
+bridge card on the agents page. These controls need a bridge of version 1.5.0
+or later, which reports the `commands` capability. The page disables them for
+an older bridge.
 
 The server can also ask the bridge to stop or resume one run. The command comes
 as a `bridge.command` event and again in each heartbeat reply, until the bridge

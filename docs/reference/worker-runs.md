@@ -517,6 +517,52 @@ to start does. The bridge in `cli/` logs `report_folded` when the server answers
 Send `Accept: application/json` to get a 422 body as JSON, on any endpoint of
 this page.
 
+## Controls in the web UI
+
+The project owner can stop, resume and pause from the web UI. The pages and
+their labels are in [Stop, resume and cancel](../using/worker-runs.md#stop-resume-and-cancel).
+These routes serve them. Each route takes the session cookie and a CSRF token,
+and needs the permission to manage the project. An agent token does not open
+them.
+
+| Route | What it does |
+|---|---|
+| `POST /projects/{id}/worker-runs/{runId}/stop` | asks the bridge to stop the run, and holds the card |
+| `POST /projects/{id}/worker-runs/{runId}/resume` | asks the bridge to resume the session of the run. The hold of the card ends when the bridge takes the resume |
+| `POST /projects/{id}/worker-runs/{runId}/cancel-command` | withdraws the request that waits on the run. A withdrawn stop releases the hold that it wrote |
+| `POST /projects/{id}/agents/{bridgeId}/pause` | asks the bridge to take no new work |
+| `POST /projects/{id}/agents/{bridgeId}/unpause` | ends the pause |
+
+`{runId}` is the id the server gives the run, not the `runId` of the bridge.
+Each route answers 303. A run route goes back to the list of runs, filtered to
+the run, or to the runs section of the card when the request comes from that
+section. A bridge route goes back to the card of the bridge on the agents page.
+
+| Status | When |
+|---|---|
+| 403 | the CSRF token is missing or wrong, or the person cannot manage the project |
+| 404 | the run is not in the project, or the bridge does not follow the project |
+
+A refused request still answers 303, and the page then shows the reason as an
+error:
+
+| Reason | When |
+|---|---|
+| No bridge runs this session | the run names no bridge |
+| The bridge of this run is no longer connected to your account | the account holds no row for the bridge. A pause gives the same refusal |
+| This run already has a command that waits for its bridge | a request waits on the run |
+| You cannot control an interactive session from here | the run is interactive |
+| This run has no session to resume | a resume of a run with no `sessionId` |
+| Only an ended run can resume | a resume of an open run, or of a run that ended as `succeeded`, `waiting-on-forge`, `dropped`, `replaced`, `skipped`, `not-started` or `closed` |
+| The card left the column of this run | a resume when the card is no longer in the `cardColumn` of the run |
+| Only a queued or running run can stop | a stop of a run that is not `queued`, `resumed` or `running` |
+| Update the bridge to control its runs | the bridge does not report the `commands` capability |
+| This run has no command that waits | a cancel with no request that waits |
+| Update the bridge to pause it | a pause of a bridge that does not report the `commands` capability. An unpause is always accepted |
+
+A queued run of a bridge that reports a pause shows **Waiting: bridge paused**
+in the web UI. The run keeps the state `queued`.
+
 ## Feature flag and rate limit
 
 The endpoints on this page need the `agent.push.enabled` feature flag, as
