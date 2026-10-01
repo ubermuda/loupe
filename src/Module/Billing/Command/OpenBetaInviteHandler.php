@@ -37,24 +37,31 @@ final readonly class OpenBetaInviteHandler
             );
         }
 
-        $invite = $this->em->wrapInTransaction(function () use ($command, $user): ?BetaInvite {
+        /** @var array{?BetaInvite, bool} $result the invite this user holds, and whether this request redeemed it */
+        $result = $this->em->wrapInTransaction(function () use ($command, $user): array {
             $invite = $this->betaInvites->findOneByToken($command->token);
             if (null === $invite) {
-                return null;
+                return [null, false];
             }
 
             // The lock serializes two people who hold the same link.
             $this->em->lock($invite, LockMode::PESSIMISTIC_WRITE);
             $this->em->refresh($invite);
 
+            // A reload of the page that redeemed it. The comp is already granted.
+            if (null !== $user->id && true === $invite->redeemedBy?->id?->equals($user->id)) {
+                return [$invite, false];
+            }
+
             if (!$invite->isUsable()) {
-                return null;
+                return [null, false];
             }
 
             $invite->redeem($user);
 
-            return $invite;
+            return [$invite, true];
         });
+        [$invite, $redeemedNow] = $result;
 
         if (null === $invite) {
             return new OpenBetaInviteView(BetaInviteOutcome::Invalid);
@@ -62,7 +69,9 @@ final readonly class OpenBetaInviteHandler
 
         // After the commit, so a failed grant leaves the invite used and the
         // account on its trial, the same as at sign-up.
-        ($this->grantBetaComp)($invite);
+        if ($redeemedNow) {
+            ($this->grantBetaComp)($invite);
+        }
 
         return new OpenBetaInviteView(
             BetaInviteOutcome::Redeemed,

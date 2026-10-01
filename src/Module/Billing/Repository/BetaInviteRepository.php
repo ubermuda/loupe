@@ -25,9 +25,10 @@ class BetaInviteRepository extends ServiceEntityRepository
         return $this->findOneBy(['tokenHash' => BetaInvite::hashToken($token)]);
     }
 
+    /** The first redemption, when a user redeemed several links. */
     public function findOneRedeemedBy(User $user): ?BetaInvite
     {
-        return $this->findOneBy(['redeemedBy' => $user]);
+        return $this->findOneBy(['redeemedBy' => $user], ['redeemedAt' => 'ASC']);
     }
 
     /** @return list<BetaInvite> */

@@ -18,6 +18,8 @@ use App\Module\Billing\Repository\BetaInviteRepository;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Tests\Support\BillingGrants;
 use App\Tests\Support\BillingScenario;
+use App\Tests\Support\InstalledInstance;
+use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\SocialLoginScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use KnpU\OAuth2ClientBundle\Client\ClientRegistry;
@@ -160,6 +162,87 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         self::assertSelectorNotExists('[data-beta-stripe-hint]');
         self::assertSame($tester->id?->toRfc4122(), $this->reload($client, $invite)->redeemedBy?->id?->toRfc4122());
         self::assertNotNull($this->currentComp($client, $tester));
+    }
+
+    public function test_a_reload_by_the_user_who_redeemed_the_link_shows_the_success_page_and_grants_nothing_more(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $audit = RecordingAuditor::installedIn($client->getContainer());
+        $tester = new BillingScenario($client->getContainer())->verifiedUser('beta-reload');
+        [, $token] = $this->seedInvite($client);
+
+        $client->loginUser($tester);
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('[data-beta-invite-invalid]');
+        self::assertCount(1, $audit->records('billing.beta_invite_redeemed'));
+        self::assertCount(1, $this->comps($client, $tester));
+    }
+
+    public function test_a_link_another_user_redeemed_stays_invalid_for_a_signed_in_user(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $scenario = new BillingScenario($client->getContainer());
+        $first = $scenario->verifiedUser('beta-first');
+        $second = $scenario->verifiedUser('beta-second');
+        [, $token] = $this->seedInvite($client);
+
+        $client->loginUser($first);
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $client->loginUser($second);
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSelectorExists('[data-beta-invite-invalid]');
+        self::assertSame([], $this->comps($client, $second));
+    }
+
+    public function test_a_form_sign_up_with_a_beta_link_while_the_cap_is_open_uses_the_invite_and_grants_a_comp(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        InstalledInstance::ensure($client->getContainer());
+        [$invite, $token] = $this->seedInvite($client);
+
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $client->followRedirect();
+        $client->submitForm('Create account', [
+            'registration_form[email]' => 'beta-open@example.com',
+            'registration_form[fullName]' => 'Beta Open',
+            'registration_form[plainPassword]' => 'SecurePassword1!',
+            'registration_form[agreeTerms]' => true,
+        ]);
+
+        self::assertResponseRedirects('/register/check-email');
+        $user = $this->userByEmail($client, 'beta-open@example.com');
+        self::assertSame($user->id?->toRfc4122(), $this->reload($client, $invite)->redeemedBy?->id?->toRfc4122());
+        self::assertNotNull($this->currentComp($client, $user));
+    }
+
+    public function test_at_cap_a_form_sign_up_with_a_duplicate_email_is_refused_and_the_invite_stays_usable(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->closeRegistration($client);
+        [$invite, $token] = $this->seedInvite($client);
+
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $client->followRedirect();
+        $client->submitForm('Create account', [
+            'registration_form[email]' => 'gate-filler@example.com',
+            'registration_form[fullName]' => 'Gate Filler Again',
+            'registration_form[plainPassword]' => 'SecurePassword1!',
+            'registration_form[agreeTerms]' => true,
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        $reloaded = $this->reload($client, $invite);
+        self::assertTrue($reloaded->isUsable());
+        self::assertNull($reloaded->redeemedBy);
     }
 
     public function test_a_signed_in_user_who_is_already_comped_uses_the_invite_and_keeps_one_comp(): void

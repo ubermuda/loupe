@@ -107,7 +107,8 @@ the tester.
 The link opens `/beta/<token>`. It lets one person sign up when the
 registration cap is full, with the form, GitHub or Google. The new account gets
 a comp that never expires. A person who is signed in already can open the link
-too, and their account gets the comp at once. When registration is switched off,
+too, and their account gets the comp at once. A person who already has an
+account should sign in first and then open the link. When registration is switched off,
 the link answers 404.
 
 The list shows each link as unused, used by an account on a date, or revoked on

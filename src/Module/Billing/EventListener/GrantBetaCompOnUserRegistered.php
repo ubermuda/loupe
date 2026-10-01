@@ -12,10 +12,11 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
  * Ignores `billing.enabled`: a comp is open-ended, so it cannot start a trial
- * clock that ticks down unwatched. The negative priority runs it after
- * ProvisionTrialOnUserRegistered.
+ * clock that ticks down unwatched. It runs before ProvisionTrialOnUserRegistered,
+ * whose throw would stop dispatch. It swallows its own failures, and
+ * GrantCompHandler creates the profile itself.
  */
-#[AsEventListener(priority: -10)]
+#[AsEventListener(priority: 10)]
 final readonly class GrantBetaCompOnUserRegistered
 {
     public function __construct(
