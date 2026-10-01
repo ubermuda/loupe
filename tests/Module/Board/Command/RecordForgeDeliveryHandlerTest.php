@@ -13,6 +13,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Entity\PullRequestComment;
 use App\Module\Board\Entity\PullRequestCommentState;
+use App\Module\Board\Entity\PullRequestNotice;
 use App\Module\Forge\ForgeDelivery;
 use App\Module\Forge\ForgeEventType;
 use App\Module\Project\Entity\Project;
@@ -77,6 +78,23 @@ final class RecordForgeDeliveryHandlerTest extends KernelTestCase
         self::assertSame('acme/old', $this->pathOf($posted));
         self::assertSame('acme/old', $this->pathOf($otherForge));
         self::assertSame('acme/old', $this->pathOf($strangers));
+    }
+
+    public function test_a_move_repoints_every_stale_approval_notice_and_keeps_one_per_key(): void
+    {
+        $owner = $this->project('notice-owner');
+        $posted = $this->notice($owner, 'acme/old', 5, 'stale-approval:aaa');
+        $collides = $this->notice($owner, 'acme/old', 6, 'stale-approval:bbb');
+        $existing = $this->notice($owner, 'acme/new', 6, 'stale-approval:bbb');
+        $otherKey = $this->notice($owner, 'acme/old', 6, 'stale-approval:ccc');
+
+        $this->handle($owner, new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, 'github', 'Acme/Old', movedTo: 'Acme/New'));
+
+        $paths = $this->em->getConnection()->fetchAllKeyValue('SELECT id, repository FROM board_pull_request_notices WHERE project_id = :p', ['p' => (string) $owner->id]);
+        self::assertSame('acme/new', $paths[(string) $posted->id]);
+        self::assertArrayNotHasKey((string) $collides->id, $paths);
+        self::assertSame('acme/new', $paths[(string) $existing->id]);
+        self::assertSame('acme/new', $paths[(string) $otherKey->id]);
     }
 
     public function test_a_delivery_without_state_reads_writes_a_bare_fact_row_and_one_with_state_reads_does_not(): void
@@ -178,5 +196,15 @@ final class RecordForgeDeliveryHandlerTest extends KernelTestCase
         $this->em->flush();
 
         return $project;
+    }
+
+    private function notice(Project $project, string $repository, int $number, string $key): PullRequestNotice
+    {
+        $notice = new PullRequestNotice($project, Uuid::v7(), 'github', $repository, $number, $key);
+        $notice->state = PullRequestCommentState::Posted;
+        $this->em->persist($notice);
+        $this->em->flush();
+
+        return $notice;
     }
 }

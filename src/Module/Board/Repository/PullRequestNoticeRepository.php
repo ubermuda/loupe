@@ -42,4 +42,29 @@ class PullRequestNoticeRepository extends ServiceEntityRepository
 
         return \is_string($id) ? Uuid::fromString($id) : null;
     }
+
+    /**
+     * Points every notice of one repository at its new path, posted ones included, so a rename keeps one notice per key.
+     * A row that the new path already holds wins, and the old one goes.
+     */
+    public function repoint(Uuid $projectId, string $forge, string $from, string $to): int
+    {
+        if (mb_strtolower($from) === mb_strtolower($to)) {
+            return 0;
+        }
+
+        $parameters = ['project' => $projectId->toRfc4122(), 'forge' => $forge, 'from' => mb_strtolower($from), 'to' => mb_strtolower($to)];
+        $connection = $this->getEntityManager()->getConnection();
+        $connection->executeStatement(
+            'DELETE FROM board_pull_request_notices old WHERE old.project_id = :project AND old.forge = :forge AND old.repository = :from
+            AND EXISTS (SELECT 1 FROM board_pull_request_notices new WHERE new.project_id = old.project_id AND new.forge = old.forge
+                AND new.repository = :to AND new.number = old.number AND new.notice_key = old.notice_key)',
+            $parameters,
+        );
+
+        return (int) $connection->executeStatement(
+            'UPDATE board_pull_request_notices SET repository = :to WHERE project_id = :project AND forge = :forge AND repository = :from',
+            $parameters,
+        );
+    }
 }
