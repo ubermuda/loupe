@@ -54,25 +54,25 @@ class CardEventRepository extends ServiceEntityRepository
             // The project first, as a run report locks it, so the run lock below cannot deadlock with one.
             $connection->executeQuery('SELECT 1 FROM projects WHERE id = ?::uuid FOR KEY SHARE', [(string) $card->project->id]);
             $connection->executeStatement(
-            'INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at, run_id)
+                'INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at, run_id)
              SELECT ?::uuid, ?::uuid, ?::uuid, ?, ?, ?::uuid, ?::jsonb, ?::timestamp, r.id
              FROM bridge_worker_runs r WHERE r.id = ?::uuid AND r.state = ? FOR SHARE OF r
              ON CONFLICT (card_id, run_id) DO UPDATE SET detail = EXCLUDED.detail, occurred_at = EXCLUDED.occurred_at
              WHERE board_card_events.detail IS DISTINCT FROM EXCLUDED.detail
                AND COALESCE((EXCLUDED.detail->>\'stateSequence\')::bigint, 0) >= COALESCE((board_card_events.detail->>\'stateSequence\')::bigint, 0)',
-            [
-                Uuid::v7()->toRfc4122(),
-                (string) $card->id,
-                (string) $card->project->id,
-                CardEventKind::RunFinished->value,
-                CardReporter::Agent->value,
-                $actorUser?->id?->toRfc4122(),
-                $detail,
-                $at,
-                $runId->toRfc4122(),
-                $detail['state'] ?? null,
-            ],
-            [6 => Types::JSON, 7 => Types::DATETIME_IMMUTABLE],
+                [
+                    Uuid::v7()->toRfc4122(),
+                    (string) $card->id,
+                    (string) $card->project->id,
+                    CardEventKind::RunFinished->value,
+                    CardReporter::Agent->value,
+                    $actorUser?->id?->toRfc4122(),
+                    $detail,
+                    $at,
+                    $runId->toRfc4122(),
+                    $detail['state'] ?? null,
+                ],
+                [6 => Types::JSON, 7 => Types::DATETIME_IMMUTABLE],
             );
         });
     }
