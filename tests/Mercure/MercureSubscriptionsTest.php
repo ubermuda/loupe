@@ -62,6 +62,15 @@ final class MercureSubscriptionsTest extends TestCase
         self::assertSame([], $this->respond($subscriptions, $authorization, $request));
     }
 
+    public function test_a_live_refresh_keeps_the_cookie_of_the_page(): void
+    {
+        [$subscriptions, $authorization, $request] = $this->subscriptions(self::HUB, new TestHandler());
+        $subscriptions->request(self::BOARD);
+        $request->headers->set(SetMercureCookieOnResponse::LIVE_REFRESH_HEADER, '1');
+
+        self::assertSame([], $this->respond($subscriptions, $authorization, $request));
+    }
+
     public function test_a_topic_requested_after_the_first_read_still_reaches_the_cookie(): void
     {
         [$subscriptions, $authorization, $request] = $this->subscriptions(self::HUB, new TestHandler());
