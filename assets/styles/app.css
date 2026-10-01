@@ -1388,6 +1388,45 @@
     .lp-card-feedback-list p {
         @apply text-sm text-fg-mute mb-2;
     }
+    /* The History tab: a vertical timeline, newest first. The line joins each icon to the next row. */
+    .lp-card-history__entry {
+        @apply relative flex items-start gap-3 pb-5;
+    }
+    .lp-card-history__entry::before {
+        content: '';
+        @apply absolute left-4 top-8 bottom-0 w-px -translate-x-1/2 bg-line;
+    }
+    .lp-card-history__entry:last-child::before {
+        @apply hidden;
+    }
+    .lp-card-history__icon {
+        @apply relative flex size-8 shrink-0 items-center justify-center rounded-full border border-line bg-surface-1 text-fg-mute;
+    }
+    .lp-card-history__content {
+        @apply min-w-0 flex-1 pt-1.5;
+    }
+    .lp-card-history__sentence {
+        @apply m-0 text-sm text-ink;
+    }
+    .lp-card-history__link {
+        @apply text-ink underline-offset-2 hover:underline;
+    }
+    .lp-card-history__cause {
+        @apply m-0 mt-0.5 text-sm text-fg-mute;
+    }
+    .lp-card-history__meta {
+        @apply m-0 mt-1 flex flex-wrap items-center gap-2 text-xs text-fg-mute;
+    }
+    .lp-card-history__meta .lp-status-chip {
+        @apply ml-0;
+    }
+    /* The frame that swaps the Show older link for the next page of rows. */
+    .lp-card-history__older {
+        @apply block;
+    }
+    .lp-card-history__older > .lp-workshop-text-link {
+        @apply ml-11 text-sm;
+    }
 }
 
 /* ── lp- component classes (review UI, dashboard, api-tokens) ──────── */
@@ -6757,6 +6796,91 @@
     }
     .lp-cost-table__table .lp-cost-table__number {
         @apply text-right tabular-nums;
+    }
+
+    /* ── Experiments ───────────────────────────────────────────────── */
+
+    /* Experiment, Cards, Last run. */
+    .lp-data-table--experiments {
+        --lp-data-table-columns: minmax(0, 1fr) calc(var(--spacing) * 28)
+            calc(var(--spacing) * 32);
+    }
+    /* Card, Variant, Column, Runs, Fix rounds, Cost, Left out. */
+    .lp-data-table--experiment-cards {
+        --lp-data-table-columns: minmax(0, 1fr) calc(var(--spacing) * 24)
+            calc(var(--spacing) * 28) calc(var(--spacing) * 14)
+            calc(var(--spacing) * 20) calc(var(--spacing) * 20)
+            calc(var(--spacing) * 48);
+    }
+    @container (width < 56rem) {
+        .lp-data-table--experiment-cards {
+            @apply overflow-x-auto;
+        }
+        .lp-data-table--experiment-cards .lp-data-table__header,
+        .lp-data-table--experiment-cards .lp-data-table__row {
+            @apply min-w-4xl;
+        }
+    }
+    .lp-experiment-heading {
+        @apply flex items-baseline gap-3 mb-2;
+    }
+    .lp-experiment-heading__back {
+        @apply text-sm font-semibold text-fg-mute no-underline hover:text-ink;
+    }
+    .lp-experiment-heading__name {
+        @apply m-0 font-mono text-lg font-bold text-ink;
+    }
+    .lp-experiment-tabs {
+        @apply mb-4;
+    }
+    /* The answer of the comparison, above its tables. */
+    .lp-experiment-headline {
+        @apply m-0 text-base text-ink;
+    }
+    .lp-experiment-section {
+        @apply mt-8 mb-0 text-base font-semibold text-ink;
+    }
+    /* The panel of a data table, for a real table with a header row. */
+    .lp-experiment-table {
+        @apply mt-3 overflow-x-auto rounded-xl border border-line bg-white;
+    }
+    .lp-experiment-table__table {
+        @apply w-full text-sm text-fg-mute border-collapse;
+    }
+    .lp-experiment-table__table th,
+    .lp-experiment-table__table td {
+        @apply h-13 px-5 border-b border-line text-left align-middle;
+    }
+    .lp-experiment-table__table tbody tr:last-child > * {
+        @apply border-b-0;
+    }
+    .lp-experiment-table__table thead th {
+        @apply h-10 bg-app text-xs font-semibold uppercase tracking-wider text-fg-dim;
+    }
+    .lp-experiment-table__table tbody th {
+        @apply font-semibold text-ink;
+    }
+    .lp-experiment-table__table .lp-experiment-table__number {
+        @apply text-right tabular-nums whitespace-nowrap;
+    }
+    .lp-experiment-table__table tbody .lp-experiment-table__number {
+        @apply font-mono text-xs;
+    }
+    .lp-experiment-table__range {
+        @apply text-fg-dim;
+    }
+    /* A row that splits the metric above it, such as the fix rounds of one reason. */
+    .lp-experiment-table__table .lp-experiment-table__part th {
+        @apply pl-9 font-normal text-fg-mute;
+    }
+    .lp-experiment-table__table .lp-status-chip {
+        @apply ml-2;
+    }
+    .lp-experiment-note {
+        @apply mt-3 mb-0 text-xs text-fg-dim;
+    }
+    .lp-experiment-reasons {
+        @apply flex flex-wrap gap-1;
     }
 
     /* ── Inbox page ─────────────────────────────────────────────────────

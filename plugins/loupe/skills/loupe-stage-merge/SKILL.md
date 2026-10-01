@@ -31,6 +31,8 @@ Merge one card's pull request when it is ready, or bring a branch that is behind
 
 ### Update
 
+This step serves a project with the board automation setting "Sync an approved pull request that is behind" off. With it on, Loupe updates the branch itself, and a `pull_request.behind` rule races it.
+
 1. When `mergeable` is `CONFLICTING`, stop with `STAGE RESULT: not ready <url>: conflicting`. The app sends a fix request for a conflict.
 2. When the review decision is not `APPROVED`, stop with `STAGE RESULT: not ready <url>: not approved`. The merge would stop there too.
 3. Check that the approval covers the head, as "Merge" item 4 says. Use the head of step 6 in place of the SHA of the prompt. When there is no approval, stop with `STAGE RESULT: not ready <url>: not approved`. When the check holds for another reason, stop with `STAGE RESULT: not ready <url>: <reason>`. When it cannot read the approval, stop with `STAGE RESULT: blocked: approval unreadable <url>`. Each update costs a full CI run, and the base can move again before an approval arrives.

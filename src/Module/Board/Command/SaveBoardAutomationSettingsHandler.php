@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Event\BoardAutomationSettingsSaved;
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Service\BoardAutomation;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -18,6 +20,7 @@ final readonly class SaveBoardAutomationSettingsHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private MessageBusInterface $bus,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -32,6 +35,7 @@ final readonly class SaveBoardAutomationSettingsHandler
         $settings->commentOnFixQueued = $command->commentOnFixQueued;
         $settings->syncBehind = $command->syncBehind;
         $this->em->flush();
+        $this->events->dispatch(new BoardAutomationSettingsSaved($command->project));
 
         // A pull request that fell behind while the sync was off waits for no other trigger.
         if (!$wasSyncing && $command->enabled && $command->syncBehind) {

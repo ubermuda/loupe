@@ -210,12 +210,13 @@ Register it on GitHub under Settings, Developer settings, GitHub Apps.
 
 Grant these repository permissions. Pull requests and Contents are read and
 write. The others are read-only. Loupe needs write access to Pull requests to
-post the fix-run comment, and to Contents to sync a branch that is behind its
-base.
+post the fix-run comment, and to mark an epic pull request ready, convert it to
+draft or close it. It needs write access to Contents to sync a branch that is
+behind its base.
 
 | Permission | Why |
 |---|---|
-| Pull requests (read and write) | the merge and the review verdict; write lets Loupe post the fix-run comment |
+| Pull requests (read and write) | the merge and the review verdict; write lets Loupe post the fix-run comment, and mark an epic pull request ready, draft or closed |
 | Checks | the aggregate check conclusion |
 | Contents (read and write) | GitHub offers the Push event only with it; write lets Loupe sync a pull request branch with its base |
 | Commit statuses | the status of each check context |

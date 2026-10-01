@@ -72,11 +72,11 @@ final readonly class WorkerRunListItem
      */
     public function duration(): ?string
     {
-        $seconds = $this->durationSeconds;
-        if (null === $seconds) {
-            return null;
-        }
+        return null === $this->durationSeconds ? null : self::formatDuration($this->durationSeconds);
+    }
 
+    public static function formatDuration(int $seconds): string
+    {
         if ($seconds < 60) {
             return $seconds.'s';
         }

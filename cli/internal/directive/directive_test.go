@@ -82,3 +82,23 @@ func TestRenderLeavesOtherBracesAlone(t *testing.T) {
 		t.Fatalf("Render = %q", got)
 	}
 }
+
+// An argument of a command takes an empty string for a name the event cannot
+// fill, so the command never reads a literal placeholder.
+func TestRenderArgumentEmptiesAMissingName(t *testing.T) {
+	got := RenderArgument("--pr={pullRequestNumber} --card={cardNumber}", map[string]string{"cardNumber": "87"})
+	if got != "--pr= --card=87" {
+		t.Fatalf("RenderArgument = %q", got)
+	}
+}
+
+// An argument passes as given, with its trailing whitespace, because no shell
+// reads it.
+func TestRenderArgumentKeepsTrailingWhitespace(t *testing.T) {
+	for _, template := range []string{"x ", "{cardNumber}\t", "{missing}\n", " "} {
+		want := strings.NewReplacer("{cardNumber}", "87", "{missing}", "").Replace(template)
+		if got := RenderArgument(template, map[string]string{"cardNumber": "87"}); got != want {
+			t.Fatalf("RenderArgument(%q) = %q, want %q", template, got, want)
+		}
+	}
+}

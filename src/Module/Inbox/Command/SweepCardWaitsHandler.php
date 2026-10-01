@@ -6,13 +6,15 @@ namespace App\Module\Inbox\Command;
 
 use App\Module\Inbox\Messenger\ReconcileCardWaits;
 use App\Module\Inbox\Repository\InboxCardWatchRepository;
+use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\InboxAvailability;
 use App\Module\Project\Repository\ProjectRepository;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
- * The backstop for a wait no event reported. While the inbox is off, only a
- * project with an open watch has work, because its items must close.
+ * The backstop for a wait or a notice no event reported. While the inbox is
+ * off, only a project with an open watch or notice has work, because its items
+ * must close.
  */
 final readonly class SweepCardWaitsHandler
 {
@@ -20,6 +22,7 @@ final readonly class SweepCardWaitsHandler
         private InboxAvailability $inbox,
         private ProjectRepository $projects,
         private InboxCardWatchRepository $inboxCardWatches,
+        private InboxItemRepository $inboxItems,
         private MessageBusInterface $bus,
     ) {
     }
@@ -29,7 +32,7 @@ final readonly class SweepCardWaitsHandler
     {
         $projectIds = $this->inbox->isEnabled()
             ? $this->projects->findAllIds()
-            : $this->inboxCardWatches->findProjectIdsWithOpenWatch();
+            : array_values(array_unique([...$this->inboxCardWatches->findProjectIdsWithOpenWatch(), ...$this->inboxItems->findProjectIdsWithOpenNotice()]));
 
         foreach ($projectIds as $projectId) {
             $this->bus->dispatch(new ReconcileCardWaits($projectId, null));

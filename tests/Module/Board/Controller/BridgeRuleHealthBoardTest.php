@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
@@ -54,6 +55,49 @@ final class BridgeRuleHealthBoardTest extends WebTestCase
         self::assertStringContainsString('backlog, next', $triage);
         self::assertStringContainsString('unknown_column', $triage);
         self::assertStringNotContainsString('review', $banner->text());
+    }
+
+    public function test_the_banner_names_each_live_behind_rule_while_the_app_syncs(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $this->enableBoard();
+        $owner = $this->user($em, 'rules-banner-racing@example.com');
+        $project = $this->project($em, $owner);
+        $em->persist(new BoardAutomationSettings($project, syncBehind: true));
+        $bridgeId = $this->report($em, $project, [
+            $this->rule('merge-behind', [], 'live', null, 'pull_request.behind'),
+            $this->rule('stale-behind', [], 'dead', 'unknown_event', 'pull_request.behind'),
+            $this->rule('plan', ['next'], 'live'),
+        ], new \DateTimeImmutable('2026-09-30 09:00:00'));
+
+        $crawler = $this->board($client, $owner, $project);
+
+        $banner = $crawler->filter(self::BANNER);
+        self::assertCount(1, $banner);
+        self::assertStringContainsString('1 bridge rule races the app sync', $banner->text());
+        self::assertStringContainsString('Remove each rule on pull_request.behind from rules.yaml.', $banner->text());
+        self::assertSame(['merge-behind'], $banner->filter('[data-racing-bridge-rule]')->each(static fn (Crawler $node): string => (string) $node->attr('data-racing-bridge-rule')));
+        $racing = $banner->filter('[data-racing-bridge-rule="merge-behind"]')->text();
+        self::assertStringContainsString('Bridge: '.substr((string) $bridgeId, 0, 8), $racing);
+        self::assertStringContainsString('Reported Sep 30, 2026 09:00', $racing);
+        self::assertSame(['stale-behind'], $banner->filter('[data-bridge-rule]')->each(static fn (Crawler $node): string => (string) $node->attr('data-bridge-rule')));
+    }
+
+    public function test_no_racing_rule_while_the_app_does_not_sync(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $this->enableBoard();
+        $owner = $this->user($em, 'rules-banner-not-racing@example.com');
+        $project = $this->project($em, $owner);
+        $em->persist(new BoardAutomationSettings($project, syncBehind: false));
+        $this->report($em, $project, [$this->rule('merge-behind', [], 'live', null, 'pull_request.behind')]);
+
+        $crawler = $this->board($client, $owner, $project);
+
+        self::assertCount(1, $crawler->filter('.lp-board'));
+        self::assertCount(0, $crawler->filter(self::BANNER));
     }
 
     public function test_no_banner_without_a_report(): void
@@ -175,9 +219,9 @@ final class BridgeRuleHealthBoardTest extends WebTestCase
      *
      * @return array{name: string, on: string, columns: list<string>, state: string, reason: ?string}
      */
-    private function rule(string $name, array $columns, string $state, ?string $reason = null): array
+    private function rule(string $name, array $columns, string $state, ?string $reason = null, string $on = 'board.card_moved'): array
     {
-        return ['name' => $name, 'on' => 'board.card_moved', 'columns' => $columns, 'state' => $state, 'reason' => $reason];
+        return ['name' => $name, 'on' => $on, 'columns' => $columns, 'state' => $state, 'reason' => $reason];
     }
 
     /** @param list<array{name: string, on: string, columns: list<string>, state: string, reason: ?string}> $rules */

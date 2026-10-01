@@ -217,6 +217,7 @@ func newHarnessWith(t *testing.T, body string, defaults rules.Defaults) *harness
 		worker:   w.ops(),
 		bridgeID: testBridgeID,
 		after:    now,
+		startDir: func(string) (string, error) { return "", nil },
 	}, set)
 
 	return h

@@ -841,3 +841,101 @@ func TestAFreezeHoldsBackAResumeGate(t *testing.T) {
 		t.Fatalf("workers = %d, want the held resume to run", got)
 	}
 }
+
+// freezeInBefore starts card 87 under beforeRules, and freezes while its
+// before command runs.
+func freezeInBefore(t *testing.T, h *harness) handoverState {
+	t.Helper()
+	h.router.onData([]byte(cardMoved(87)))
+	eventually(t, "the before command", func() bool {
+		h.router.mu.Lock()
+		defer h.router.mu.Unlock()
+
+		return len(h.router.live) == 1
+	})
+	h.router.pause()
+	if err := h.router.drain(context.Background(), 5*time.Second); err != nil {
+		t.Fatal(err)
+	}
+
+	return h.router.freeze()
+}
+
+// A run whose before command runs crosses a handover in its before phase. The
+// next image waits for the command, then starts claude in its folder with the
+// session and the prompt of the run.
+func TestAHandoverAdoptsARunInItsBeforeCommand(t *testing.T) {
+	h, f, _ := withBefore(t, "1m")
+	h.states()
+	f.block = make(chan struct{})
+	defer close(f.block)
+	st := roundTrip(t, freezeInBefore(t, h))
+	if len(st.Live) != 1 {
+		t.Fatalf("live = %+v", st.Live)
+	}
+	run := st.Live[0]
+	if run.Phase != phaseBefore || run.PID != 4242 || run.SessionID != testSession || !strings.HasPrefix(run.Prompt, "Card 87.") {
+		t.Fatalf("live = %+v", run)
+	}
+
+	for name, res := range map[string]beforeResult{
+		"a command that succeeds": {dir: t.TempDir()},
+		"a command that fails":    {exitCode: 1, output: "npm ci failed"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			h2, _, _ := withBefore(t, "1m")
+			rec := h2.states()
+			h2.router.worker.adoptBefore = func(context.Context, string) beforeResult { return res }
+			h2.router.adopt(st)
+			h2.router.wg.Wait()
+
+			calls := h2.worker.recorded()
+			final := finalOf(t, rec.states(), run.RunID)
+			if res.exitCode != 0 {
+				if len(calls) != 0 || final.State != api.RunFailed || final.Output != "the before command exited with code 1\nnpm ci failed" {
+					t.Fatalf("worker = %+v, final = %+v", calls, final)
+				}
+
+				return
+			}
+			if len(calls) != 1 || calls[0].dir != res.dir || calls[0].sessionID != testSession || calls[0].prompt != run.Prompt || calls[0].resume {
+				t.Fatalf("worker = %+v, want it in %s", calls, res.dir)
+			}
+			wantStates(t, ofRun(rec.states(), run.RunID), api.RunRunning, api.RunSucceeded)
+			if !final.StartedAt.Equal(run.Began) || h2.used() != 0 {
+				t.Fatalf("final = %+v, used = %d", final, h2.used())
+			}
+		})
+	}
+	if h.runs() != 0 {
+		t.Fatal("the frozen image started claude")
+	}
+}
+
+// A real before command that a frozen image started finishes under the next
+// image, which starts claude in its folder and removes the run directory.
+func TestAnAdoptedBeforeCommandFinishesUnderTheNextImage(t *testing.T) {
+	shortConfigHome(t)
+	body := strings.Replace(strings.Replace(beforeRules, "TIMEOUT", "1m", 1), "[prepare, '{cardNumber}']", `[sh, -c, 'sleep 1; mkdir -p tree; echo tree']`, 1)
+	h := newHarnessWith(t, body, rules.Defaults{})
+	h.states()
+	st := roundTrip(t, freezeInBefore(t, h))
+
+	h2 := newHarnessWith(t, body, rules.Defaults{})
+	rec := h2.states()
+	h2.router.adopt(st)
+	h2.router.wg.Wait()
+
+	calls := h2.worker.recorded()
+	if len(calls) != 1 || calls[0].dir != filepath.Join(h.dir, "tree") {
+		t.Fatalf("worker = %+v, want it in %s", calls, filepath.Join(h.dir, "tree"))
+	}
+	wantStates(t, ofRun(rec.states(), st.Live[0].RunID), api.RunRunning, api.RunSucceeded)
+	runs, err := config.RunsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if left, err := os.ReadDir(runs); err != nil || len(left) != 0 {
+		t.Fatalf("runs dir holds %v, %v", left, err)
+	}
+}

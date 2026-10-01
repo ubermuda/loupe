@@ -7,17 +7,23 @@ namespace App\Module\Inbox\Service\Dev;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardEvent;
+use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\BridgeRuleReportRepository;
+use App\Module\Board\Repository\CardEventRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
@@ -41,6 +47,7 @@ use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\CardWaitReconciler;
 use App\Module\Inbox\Service\InboxAvailability;
 use App\Module\Inbox\Service\InboxSearchIndexer;
+use App\Module\Inbox\Service\RacingRuleNoticeReconciler;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
@@ -83,9 +90,15 @@ final readonly class ProjectShowcaseSeeder
         private InboxCardWatchRepository $inboxCardWatches,
         private InboxAvailability $inbox,
         private DocumentTagApplier $tagApplier,
+        private CardEventRepository $cardEvents,
         private BoardAutomationSettingsRepository $boardAutomationSettings,
+        private BridgeRuleReportRepository $bridgeRuleReports,
+        private RacingRuleNoticeReconciler $racingRuleNotice,
     ) {
     }
+
+    /** The bridge whose report holds a rule that races the app sync. */
+    public const string RACING_BRIDGE_ID = '0199a2f0-5c1e-7a3b-9d4e-6f8a1b2c3d4e';
 
     /** The card in Tech design whose tech design in review gives the showcase its wait item. */
     public const string WAITING_CARD_TITLE = 'Board onboarding';
@@ -105,6 +118,7 @@ final readonly class ProjectShowcaseSeeder
         $written = !$this->inboxItems->findOneBy(['project' => $project, 'title' => self::MARKER_TITLE]) instanceof InboxItem;
         if ($written) {
             $cards = $this->seedCards($project);
+            $this->seedHistory($project, $owner, $cards['history']);
             $documents = $this->seedDocuments($owner, $project, $cards['onboarding']);
             $this->seedInbox($project, $owner, $reviewer, $cards, $documents);
             $this->seedEpicLane($project);
@@ -128,6 +142,8 @@ final readonly class ProjectShowcaseSeeder
             $this->em->flush();
             $outdatedCard = '/projects/'.$project->id.'/board/cards/'.$card->id;
         }
+
+        $this->seedRacingRule($project);
 
         $enabled = $this->inbox->isEnabled();
         if (!$waitingCard instanceof Card) {
@@ -202,6 +218,19 @@ final readonly class ProjectShowcaseSeeder
         }
 
         return $columns['in-review'] ?? $columns['in-progress'] ?? $columns['backlog'] ?? throw new \LogicException('The project has no backlog column.');
+    }
+
+    /** A live bridge rule on pull_request.behind, which races the sync seedSyncLine turns on, and the notice it opens. */
+    private function seedRacingRule(Project $project): void
+    {
+        $bridgeId = Uuid::fromString(self::RACING_BRIDGE_ID);
+        if (!$this->bridgeRuleReports->findOneByProjectAndBridge($project, $bridgeId) instanceof BridgeRuleReport) {
+            $this->em->persist(new BridgeRuleReport($project, $bridgeId, [
+                ['name' => 'sync-behind', 'on' => 'pull_request.behind', 'columns' => [], 'state' => BridgeRuleReport::STATE_LIVE, 'reason' => null],
+            ]));
+            $this->em->flush();
+        }
+        $this->racingRuleNotice->reconcile($project);
     }
 
     /** A pull request whose base is the default branch, approved on its head when $approvedAt is set. */
@@ -562,6 +591,73 @@ final readonly class ProjectShowcaseSeeder
         $this->em->persist($ask);
 
         return $ask;
+    }
+
+    /** A History tab with one row of each kind, and a run still open on the same card. The other cards keep no rows. */
+    private function seedHistory(Project $project, User $owner, Card $card): void
+    {
+        $columns = [];
+        foreach ($this->boardColumns->findForProject($project) as $column) {
+            $columns[$column->slug] = CardEvent::columnDetail($column);
+        }
+        $backlog = $columns['backlog'] ?? throw new \LogicException('The project has no backlog column.');
+        $inProgress = $columns['in-progress'] ?? $backlog;
+        $done = $columns['done'] ?? $backlog;
+        $cardId = $card->id ?? throw new \LogicException('A stored card has an id.');
+
+        $endedAt = new \DateTimeImmutable('-47 hours');
+        $finished = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v4(),
+            cardId: $cardId,
+            cardNumber: $card->number,
+            ruleName: 'fix',
+            state: WorkerRunState::Succeeded,
+            runKey: Uuid::v4(),
+            startedAt: $endedAt->modify('-434 seconds'),
+            endedAt: $endedAt,
+            exitCode: 0,
+            hasResult: true,
+            output: 'The failing test now passes. The run pushed one commit.',
+            receivedAt: $endedAt,
+            cardColumn: $inProgress['slug'],
+        );
+        $startedAt = new \DateTimeImmutable('-4 minutes');
+        $open = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v4(),
+            cardId: $cardId,
+            cardNumber: $card->number,
+            ruleName: 'implement',
+            state: WorkerRunState::Running,
+            runKey: Uuid::v4(),
+            startedAt: $startedAt,
+            receivedAt: $startedAt,
+            cardColumn: $inProgress['slug'],
+        );
+        $this->em->persist($finished);
+        $this->em->persist($open);
+        $this->em->persist(new WorkerRunStateChange($finished, WorkerRunState::Succeeded, $endedAt, $endedAt));
+        $this->em->persist(new WorkerRunStateChange($open, WorkerRunState::Running, $startedAt, $startedAt));
+        $this->em->flush();
+
+        $this->cardEvents->record($card, CardEventKind::Created, CardReporter::Human, $owner, ['column' => $backlog], new \DateTimeImmutable('-4 days'));
+        $this->cardEvents->record($card, CardEventKind::Moved, CardReporter::Agent, $owner, ['from' => $backlog, 'to' => $inProgress, 'cause' => null], new \DateTimeImmutable('-3 days'));
+        $this->cardEvents->record($card, CardEventKind::FixRequested, CardReporter::System, null, ['reason' => 'checks-failed', 'pullRequest' => 441], new \DateTimeImmutable('-48 hours'));
+        $this->cardEvents->record($card, CardEventKind::RunFinished, CardReporter::Agent, $owner, [
+            'runId' => (string) $finished->id,
+            'ruleName' => $finished->ruleName,
+            'state' => $finished->state->value,
+            'interactive' => false,
+            'startedAt' => $finished->startedAt?->format(\DateTimeInterface::ATOM),
+            'endedAt' => $endedAt->format(\DateTimeInterface::ATOM),
+            'durationSeconds' => 434,
+            'resumeIndex' => null,
+            'resumeCap' => null,
+        ], $endedAt);
+        $this->cardEvents->record($card, CardEventKind::ReadyToMerge, CardReporter::System, null, ['pullRequest' => 441], new \DateTimeImmutable('-30 hours'));
+        $this->cardEvents->record($card, CardEventKind::Moved, CardReporter::System, null, ['from' => $inProgress, 'to' => $done, 'cause' => CardEventCause::merged(441)->detail()], new \DateTimeImmutable('-28 hours'));
+        $this->cardEvents->record($card, CardEventKind::Moved, CardReporter::Human, $owner, ['from' => $done, 'to' => $inProgress, 'cause' => null], new \DateTimeImmutable('-6 hours'));
     }
 
     /** An epic lane whose child card holds the warning of a run that gave up. */
