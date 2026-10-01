@@ -929,7 +929,10 @@ resumed conversation starts in the folder where it began, because `claude
 --resume` finds a conversation only from that folder. The bridge reads that
 folder from the `cwd` field of the session's transcript. It uses the folder
 that the command printed only when the recorded folder no longer exists. Then
-the run starts a new conversation in the printed folder.
+the run starts a new conversation in the printed folder, with the rule's
+prompt. A person's resume from the runs page fails instead, with a reason that
+names the folder, because it has no event to fill the rule's prompt. A session
+with no transcript on this machine resumes in the printed folder.
 
 A command that still runs when the bridge updates itself is handed over. The
 new image waits for it, then starts claude, as it does for a worker.
