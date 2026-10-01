@@ -46,6 +46,7 @@ final class ShowCardController extends AppController
             'progress' => $view->progress,
             'heldBy' => $view->heldBy,
             'pullRequestStates' => $view->pullRequestStates,
+            'history' => $view->history,
         ]);
         $response->setVary('Turbo-Frame', false);
 

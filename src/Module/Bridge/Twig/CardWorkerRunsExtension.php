@@ -68,7 +68,7 @@ final class CardWorkerRunsExtension extends AbstractExtension
         }
 
         $now = $this->clock->now();
-        $runs = $this->workerRuns->findRecentForCard($project, Uuid::fromString($cardId), self::LIMIT);
+        $runs = $this->workerRuns->findOpenForCard($project, Uuid::fromString($cardId), self::LIMIT);
         $controls = $this->controls->forRuns($project, $runs);
 
         return array_map(
@@ -83,7 +83,7 @@ final class CardWorkerRunsExtension extends AbstractExtension
         return Uuid::isValid($cardId) && $this->cardHolds->isHeld($project, Uuid::fromString($cardId));
     }
 
-    /** Every run of the card counts, not only the ones the card lists. */
+    /** Every run of the card counts, the finished ones too. */
     public function cardUsageTotal(Project $project, string $cardId): CardUsageTotal
     {
         if (!Uuid::isValid($cardId)) {

@@ -14,15 +14,17 @@ final readonly class WorkerRunChanged
 {
     /**
      * @param list<string> $cardIds RFC 4122 strings
+     * @param list<string> $runIds  RFC 4122 strings
      */
     public function __construct(
         public Uuid $projectId,
         public array $cardIds,
+        public array $runIds,
     ) {
     }
 
     /**
-     * One event per project, each with the distinct cards of its runs.
+     * One event per project, each with its runs and their distinct cards.
      *
      * @param iterable<WorkerRun> $runs
      *
@@ -32,15 +34,21 @@ final readonly class WorkerRunChanged
     {
         $projects = [];
         $cards = [];
+        $runIds = [];
         foreach ($runs as $run) {
             $projectId = $run->project->id ?? throw new \LogicException('A persisted project has an id.');
             $key = $projectId->toRfc4122();
             $projects[$key] = $projectId;
             $cards[$key][$run->cardId->toRfc4122()] = true;
+            $runIds[$key][($run->id ?? throw new \LogicException('A persisted run has an id.'))->toRfc4122()] = true;
         }
 
         return array_values(array_map(
-            static fn (string $key): self => new self($projects[$key], array_map(strval(...), array_keys($cards[$key]))),
+            static fn (string $key): self => new self(
+                $projects[$key],
+                array_map(strval(...), array_keys($cards[$key])),
+                array_map(strval(...), array_keys($runIds[$key])),
+            ),
             array_keys($projects),
         ));
     }

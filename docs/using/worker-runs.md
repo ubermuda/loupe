@@ -102,8 +102,10 @@ resume did not run.
 ## Stop, resume and cancel
 
 The project owner can control a run from the runs section of a card page and
-from the drawer of a run. Other people see the labels and no controls. An
-interactive run has no controls, and its owner uses **Close session** instead.
+from the drawer of a run. The card page lists only the runs in progress, so it
+offers **Stop** and **Cancel request** for a stop. Resume an ended run from
+this page. Other people see the labels and no controls. An interactive run has
+no controls, and its owner uses **Close session** instead.
 
 | Control | When it shows | What it does |
 |---|---|---|
@@ -172,10 +174,10 @@ warning in place until it ends.
 
 ## The usage total of a card
 
-The runs section of a card shows one **Total usage** line below its runs. The
-line counts every run of the card, not only the five the card lists. It also
-counts the usage of runs that the retention sweep deleted. A card whose runs
-were all deleted still shows the line, under the text that no agent has run. The line shows the
+The runs section of a card shows one **Total usage** line below its runs in
+progress. The line counts every run of the card, and the finished runs too. It
+also counts the usage of runs that the retention sweep deleted. A card with no
+run in progress shows the line alone when its usage is known. The line shows the
 cost in US dollars, then the input, output, cache read and cache write tokens.
 A large count is short, such as `45.3k` or `1.2M`.
 

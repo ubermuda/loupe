@@ -51,20 +51,30 @@ final readonly class ReturnAbandonedCardHandler
 
             // Empty also when the card was deleted.
             $links = $this->cardPullRequests->findCurrentKeys($card);
-            if ([] === $links) {
-                return;
-            }
             $keys = [];
             foreach ($links as $link) {
-                if (null === $link['repository'] || null === $link['number']) {
-                    return;
+                if (null !== $link['repository'] && null !== $link['number']) {
+                    $keys[] = ['forge' => $link['forge'], 'repository' => $link['repository'], 'number' => $link['number']];
                 }
-                $keys[] = ['forge' => $link['forge'], 'repository' => $link['repository'], 'number' => $link['number']];
+            }
+            if ([] === $links || \count($keys) !== \count($links)) {
+                // No Forge row is read here, so the project lock alone guards the token.
+                $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+                $this->cardAutomations->consumeAbandonedMoveToken($card, $command->token);
+
+                return;
             }
             // A Forge read locks its row, then the project. Taking both in that order waits
             // out a read that reopens a pull request, and reads the state it committed.
             $states = $this->forgePullRequests->findCurrentStatesByKeys($projectId, $keys, forUpdate: true);
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+            $automation = $this->cardAutomations->findOrCreateForUpdate($card);
+            if (!$command->token->equals($automation->abandonedMoveToken)) {
+                return;
+            }
+            // Consumed on every path, so a redelivered message cannot undo a later move by a
+            // person, and a null token tells the epic reconciler that no move is pending.
+            $automation->abandonedMoveToken = null;
             if (!$this->boardAutomation->settingsOf($project)->enabled) {
                 return;
             }
@@ -79,12 +89,6 @@ final readonly class ReturnAbandonedCardHandler
                 return;
             }
 
-            $automation = $this->cardAutomations->findOrCreateForUpdate($card);
-            if (!$command->token->equals($automation->abandonedMoveToken)) {
-                return;
-            }
-            // Consumed now, so a redelivered message cannot undo a later move by a person.
-            $automation->abandonedMoveToken = null;
             foreach ($keys as $key) {
                 $state = $states[ForgePullRequestRepository::stateKey($key['forge'], $key['repository'], $key['number'])] ?? null;
                 if (PullRequestState::Closed !== $state) {
