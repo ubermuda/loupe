@@ -51,9 +51,11 @@ type workerResult struct {
 	err       error
 	// dir is the run directory, which the router removes once it reported.
 	dir string
-	// before says the rule's before command failed, or the folder of a resume
-	// is gone, so claude never ran and the run never resumes.
-	before bool
+	// before says the rule's before command failed, and resumeGone that the
+	// folder of a resume is gone. Either way claude never ran and the run
+	// never resumes.
+	before     bool
+	resumeGone bool
 	// reported is the modelUsage claude printed, which counts the whole session.
 	// usage is what this process spent, and nil when unknown.
 	reported transcript.Usage
@@ -374,11 +376,14 @@ func readCapped(path string, limit int) (*capWriter, error) {
 	return w, nil
 }
 
+// errNoExitFile says the wrapper shell ended before it wrote its exit file.
+var errNoExitFile = errors.New("the worker shell ended before it recorded one")
+
 // readExitStatus reads the exit code the worker shell recorded for claude.
 func readExitStatus(path string) (int, error) {
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return 0, errors.New("the worker shell ended before it recorded one")
+		return 0, errNoExitFile
 	}
 	if err != nil {
 		return 0, err

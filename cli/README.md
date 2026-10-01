@@ -925,14 +925,10 @@ column and back to run it again. A person's stop during `preparing` ends the
 command's process group, and the run reports `stopped`.
 
 The command runs again before each resume, so it can refresh the folder. A
-resumed conversation starts in the folder where it began, because `claude
---resume` finds a conversation only from that folder. The bridge reads that
-folder from the `cwd` field of the session's transcript. It uses the folder
-that the command printed only when the recorded folder no longer exists. Then
-the run starts a new conversation in the printed folder, with the rule's
-prompt. A person's resume from the runs page fails instead, with a reason that
-names the folder, because it has no event to fill the rule's prompt. A session
-with no transcript on this machine resumes in the printed folder.
+resumed conversation still starts in the folder where it began. The bridge
+uses the printed folder only when the session has no transcript on this
+machine, or when the recorded folder no longer exists. [Resuming a
+session](#resuming-a-session) says what each case does.
 
 A command that still runs when the bridge updates itself is handed over. The
 new image waits for it, then starts claude, as it does for a worker.
@@ -1056,12 +1052,25 @@ rules:
       Read its items with inbox_list, filtered by that ask id, and continue your work.
 ```
 
-The bridge runs `claude -p --resume <sessionId> -- <prompt>` in the project's
-`dir`, with `--permission-mode` and `--model` in front when the rule has them.
-The session id comes from the event. `resume` is valid on `inbox.ask_closed`
-and `pull_request.fix_requested` only, and a rule on `inbox.ask_closed` without
-`resume: true` stops the bridge at start. [A pull request
-event](#a-pull-request-event) says how a fix request resumes.
+The bridge runs `claude -p --resume <sessionId> -- <prompt>` with
+`--permission-mode` and `--model` in front when the rule has them. The session
+id comes from the event.
+
+Every resume starts in the folder where its conversation began, because
+`claude --resume` finds a conversation only from that folder. The bridge reads
+that folder from the `cwd` field of the session's transcript. A session with no
+transcript on this machine resumes in the project's `dir`, or in the folder
+that a [before command](#the-before-command) printed. When the recorded folder
+no longer exists, the run starts a new conversation in the project's `dir` or
+the printed folder, with the rule's prompt, and logs `resume_dir_gone`. A
+person's resume from the runs page fails instead, with a reason that names the
+folder, because it has no event to fill the rule's prompt. The run also fails
+when the rule no longer runs the event. A failed run logs `resume_failed`.
+
+`resume` is valid on `inbox.ask_closed` and `pull_request.fix_requested` only,
+and a rule on `inbox.ask_closed` without `resume: true` stops the bridge at
+start. [A pull request event](#a-pull-request-event) says how a fix request
+resumes.
 
 The event names the bridge that started the session. The bridge ignores an
 event that names another bridge, or no bridge, before it reads any other field,
@@ -1109,9 +1118,11 @@ reported like any failed worker.
 `claude -p` exits when the worker ends its turn. A command, a monitor or a
 subagent that the worker left in the background dies with it, and no later turn
 sees its result. So the bridge resumes a run that did not finish, on the same
-session. A run did not finish when it exited with a non-zero code, when it had
-no structured result, or when its status is `unfinished`. The bridge does not
-resume a `blocked` run, a run it killed, or a run that ended during a shutdown.
+session. The resume starts in the folder where the conversation began, as
+[Resuming a session](#resuming-a-session) says. A run did not finish when it
+exited with a non-zero code, when it had no structured result, or when its
+status is `unfinished`. The bridge does not resume a `blocked` run, a run it
+killed, or a run that ended during a shutdown.
 
 The rule's `maxResumes` caps the resumes that follow one run. The cap comes
 from the rule when the first run starts. A run that did not finish at the cap

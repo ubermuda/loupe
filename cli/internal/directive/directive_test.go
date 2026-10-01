@@ -91,3 +91,14 @@ func TestRenderArgumentEmptiesAMissingName(t *testing.T) {
 		t.Fatalf("RenderArgument = %q", got)
 	}
 }
+
+// An argument passes as given, with its trailing whitespace, because no shell
+// reads it.
+func TestRenderArgumentKeepsTrailingWhitespace(t *testing.T) {
+	for _, template := range []string{"x ", "{cardNumber}\t", "{missing}\n", " "} {
+		want := strings.NewReplacer("{cardNumber}", "87", "{missing}", "").Replace(template)
+		if got := RenderArgument(template, map[string]string{"cardNumber": "87"}); got != want {
+			t.Fatalf("RenderArgument(%q) = %q, want %q", template, got, want)
+		}
+	}
+}

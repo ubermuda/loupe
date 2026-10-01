@@ -1066,7 +1066,7 @@ func (r *router) runAgent(p pending, began time.Time, beforeDir string) {
 	if p.spec.resume {
 		var reason string
 		if p, reason = r.resumeDir(p); reason != "" {
-			failed := workerResult{exitCode: -1, output: reason, dir: beforeDir, before: true}
+			failed := workerResult{exitCode: -1, output: reason, dir: beforeDir, resumeGone: true}
 			r.settle(p, endedRun{res: failed, began: began, elapsed: time.Since(began)})
 
 			return
@@ -1366,7 +1366,7 @@ type endedRun struct {
 // reason the run is worth a resume. An empty reason means no resume.
 func classify(res workerResult) (string, string) {
 	switch {
-	case res.before:
+	case res.before || res.resumeGone:
 		return api.RunFailed, ""
 	case res.err != nil:
 		return api.RunNotStarted, ""
@@ -1402,7 +1402,7 @@ func (r *router) end(p pending, e endedRun) {
 		return
 	}
 	switch {
-	case e.res.before && (e.res.killed || shut):
+	case (e.res.before || e.res.resumeGone) && (e.res.killed || shut):
 		e.skipped = api.DropShutdown
 	case reason == "":
 	case e.res.killed || shut:
@@ -1458,7 +1458,7 @@ const missingSessionOutput = "No conversation found with session ID"
 // event names failed because this machine has no such session.
 func sessionMissing(p pending, res workerResult) bool {
 	return p.event.Type == event.FixRequestedType && p.continues == "" && p.spec.resume && !p.fresh &&
-		!res.before && res.err == nil && res.exitCode != 0 && !res.hasResult &&
+		!res.before && !res.resumeGone && res.err == nil && res.exitCode != 0 && !res.hasResult &&
 		strings.HasPrefix(strings.TrimSpace(res.output), missingSessionOutput)
 }
 
@@ -1993,6 +1993,8 @@ func (r *router) logResult(p pending, res workerResult, elapsed time.Duration) {
 	switch {
 	case res.before:
 		r.log.Error("before_failed", append(about(p.event, p.rule), "exit", res.exitCode, "duration_ms", elapsed.Milliseconds(), "output", res.output)...)
+	case res.resumeGone:
+		r.log.Error("resume_failed", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "output", res.output)...)
 	case res.killed:
 		r.log.Error("worker_finished", args...)
 	case !res.hasResult:

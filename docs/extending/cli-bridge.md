@@ -617,8 +617,9 @@ other run of the card starts first.
 The run fails, and claude does not start, when the command exits with a code
 that is not 0, runs past its timeout, or prints a path that is not an existing
 directory. The command runs again before each resume. A resumed conversation
-starts in the folder its transcript records, and in the printed folder only
-when the recorded one is gone.
+starts in the folder its transcript records. It starts in the printed folder
+only when the session has no transcript on this machine, or when the recorded
+folder is gone.
 [The before command](../../cli/README.md#the-before-command) in
 `cli/README.md` gives the fields, the timeouts and the folder contract.
 

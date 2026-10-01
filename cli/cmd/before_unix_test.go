@@ -143,8 +143,33 @@ func TestRunBeforeCancelIsAKill(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(200*time.Millisecond, cancel)
 	res, _ := before(t, ctx, "sleep", "30")
-	if res.timedOut || !res.killed || !strings.Contains(res.failure(), "stopped the before command") {
+	if res.timedOut || !res.killed || res.failure() != "the bridge shut down while the before command ran" {
 		t.Fatalf("runBefore = %+v, failure %q", res, res.failure())
+	}
+}
+
+// A wrapper shell that ends with no exit file names the before command, and
+// not a worker.
+func TestRunBeforeReportsAMissingExitStatus(t *testing.T) {
+	res, _ := before(t, context.Background(), "sh", "-c", "kill -9 $PPID")
+	if res.killed || res.exitCode != -1 {
+		t.Fatalf("runBefore = %+v", res)
+	}
+	if !strings.Contains(res.output, "the before command's shell ended before it recorded one") || strings.Contains(res.output, "worker") {
+		t.Fatalf("output = %q", res.output)
+	}
+}
+
+// The command runs in the project dir, with the bridge's environment.
+func TestRunBeforeRunsInTheProjectDirWithTheBridgeEnvironment(t *testing.T) {
+	t.Setenv("LOUPE_BEFORE_PROBE", "probe-value")
+	res, project := before(t, context.Background(), "sh", "-c", `echo "$LOUPE_BEFORE_PROBE $(pwd -P)" >&2`)
+	want, err := filepath.EvalSymlinks(project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.failure() != "" || res.output != "probe-value "+want {
+		t.Fatalf("output = %q, want %q", res.output, "probe-value "+want)
 	}
 }
 

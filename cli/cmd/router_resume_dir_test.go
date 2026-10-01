@@ -247,4 +247,11 @@ func TestAPersonsResumeWhoseFolderIsGoneFails(t *testing.T) {
 	if h.runs() != 0 || h.used() != 0 || h.cardHeld(87) {
 		t.Fatalf("runs = %d, used = %d, card held = %v", h.runs(), h.used(), h.cardHeld(87))
 	}
+	// The rule has no before command, so the log names the resume folder.
+	if line := h.only(t, "resume_failed"); !strings.Contains(str(t, line, "output"), gone) {
+		t.Fatalf("resume_failed = %v", line)
+	}
+	if got := h.events(t, "before_failed"); len(got) != 0 {
+		t.Fatalf("before_failed = %v", got)
+	}
 }

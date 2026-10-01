@@ -52,7 +52,7 @@ func (b beforeResult) failure() string {
 	case b.timedOut:
 		return "the before command ran past its timeout, so the bridge killed it"
 	case b.killed:
-		return "the bridge stopped the before command"
+		return "the bridge shut down while the before command ran"
 	case b.exitCode != 0:
 		return fmt.Sprintf("the before command exited with code %d", b.exitCode)
 	}
@@ -201,6 +201,9 @@ func beforeOutcome(dir, project string, killed, timedOut bool) beforeResult {
 	stdout, stdoutErr := readTail(filepath.Join(dir, "before.stdout"), maxStdout)
 	stderr, stderrErr := readTail(filepath.Join(dir, "before.stderr"), maxOutput)
 	code, codeErr := readExitStatus(filepath.Join(dir, "before.exit"))
+	if errors.Is(codeErr, errNoExitFile) {
+		codeErr = errors.New("the before command's shell ended before it recorded one")
+	}
 	res.exitCode = code
 	if codeErr != nil {
 		res.exitCode = -1

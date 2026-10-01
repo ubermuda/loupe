@@ -99,19 +99,17 @@ func RenderArgument(template string, values map[string]string) string {
 }
 
 func fill(template string, values map[string]string) string {
-	return fillWith(template, values, func(m string) string { return m })
+	return strings.TrimRight(fillWith(template, values, func(m string) string { return m }), " \t\n")
 }
 
 // fillWith fills each placeholder from values, and a missing name with what
 // missing returns for the placeholder as written.
 func fillWith(template string, values map[string]string, missing func(string) string) string {
-	body := placeholder.ReplaceAllStringFunc(template, func(m string) string {
+	return placeholder.ReplaceAllStringFunc(template, func(m string) string {
 		if v, ok := values[m[1:len(m)-1]]; ok {
 			return v
 		}
 
 		return missing(m)
 	})
-
-	return strings.TrimRight(body, " \t\n")
 }
