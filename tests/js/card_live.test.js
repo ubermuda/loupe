@@ -18,6 +18,7 @@ const {
     default: CardLiveController,
     DEBOUNCE_MILLISECONDS,
     RETRY_MILLISECONDS,
+    READ_TIMEOUT_MILLISECONDS,
 } = await import('../../assets/controllers/card_live_controller.js');
 
 const CARD = '0199aaaa-0000-7000-8000-000000000001';
@@ -234,6 +235,27 @@ it('drops a read in flight when a newer change comes, and does not retry it', as
 
     resolveFirst({ ok: false, status: 503 });
     await vi.advanceTimersByTimeAsync(60000);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(root.querySelector('[data-column]').textContent).toBe('Done');
+});
+
+it('stops a read that answers nothing, and tries again', async () => {
+    const root = await mount();
+    fetch.mockImplementationOnce(
+        (url, { signal }) =>
+            new Promise((done, fail) =>
+                signal.addEventListener('abort', () =>
+                    fail(new DOMException('Aborted', 'AbortError')),
+                ),
+            ),
+    );
+    cardChanged();
+    await settle();
+    await vi.advanceTimersByTimeAsync(READ_TIMEOUT_MILLISECONDS);
+    expect(fetch.mock.calls[0][1].signal.aborted).toBe(true);
+
+    answer(cardHtml({ column: 'Done' }));
+    await vi.advanceTimersByTimeAsync(RETRY_MILLISECONDS[0]);
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(root.querySelector('[data-column]').textContent).toBe('Done');
 });

@@ -8,6 +8,9 @@ export const DEBOUNCE_MILLISECONDS = 300;
 /** A failed read tries again after each wait, and a new change starts the count again. */
 export const RETRY_MILLISECONDS = [1000, 3000, 9000];
 
+/** A read that answers nothing in this time stops, and counts as a failure. */
+export const READ_TIMEOUT_MILLISECONDS = 10000;
+
 /**
  * Morphs the card in again on a change to it or to a worker run, and after a
  * reconnect. An open dialog holds the update until it closes. A form with
@@ -102,6 +105,11 @@ export default class extends Controller {
         }
 
         let html;
+        let timedOut = false;
+        const timer = setTimeout(() => {
+            timedOut = true;
+            request.abort();
+        }, READ_TIMEOUT_MILLISECONDS);
         try {
             // eslint-disable-next-line no-restricted-syntax -- a read-only GET of the card to morph, not a mutation.
             const response = await fetch(url.toString(), {
@@ -119,11 +127,13 @@ export default class extends Controller {
             }
             html = await response.text();
         } catch {
-            if (!request.signal.aborted) {
+            if (timedOut || !request.signal.aborted) {
                 this.retry(attempt);
             }
 
             return;
+        } finally {
+            clearTimeout(timer);
         }
         if (request.signal.aborted || this.holding()) {
             return;
