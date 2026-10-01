@@ -333,6 +333,64 @@ func TestAFailedCatchUpKeepsTheGap(t *testing.T) {
 	}
 }
 
+// While a gap is open, the bridge forgets no id it handled, also across a
+// restart. So more than recentLimit live events in a gap still run once when
+// the catch-up reads them. Closing the gap trims the ids to recentLimit.
+func TestAGapKeepsEveryIDItHandled(t *testing.T) {
+	h := newHarness(t)
+	path := withCursor(t, h, 10, 10)
+	h.router.replay = (&replayer{err: errors.New("HTTP 429")}).replay
+	h.router.catchUp()
+	last := 11 + recentLimit + 50
+	page := api.Replay{}
+	for id := 11; id <= last; id++ {
+		to := "done"
+		if id == 11 {
+			to = "next"
+		}
+		h.router.onEvent(strconv.Itoa(id), []byte(movedPayload(id, "backlog", to, "human")))
+		page.Events = append(page.Events, row(id, to))
+	}
+	h.router.wg.Wait()
+	st := readCursorFile(t, path)
+	if st.Cursor != 10 || !st.Gap || len(st.RecentIDs) != last-10 {
+		t.Fatalf("cursor = %d, gap = %v, recent ids = %d", st.Cursor, st.Gap, len(st.RecentIDs))
+	}
+
+	restarted := newHarness(t)
+	restarted.router.cursorFile = path
+	restarted.router.loadCursor(nil)
+	restarted.router.replay = (&replayer{pages: []api.Replay{page}}).replay
+	restarted.router.catchUp()
+	restarted.router.wg.Wait()
+
+	if got := startedCards(t, restarted); len(got) != 0 {
+		t.Fatalf("started again = %v", got)
+	}
+	st = readCursorFile(t, path)
+	if st.Cursor != int64(last) || st.Gap || len(st.RecentIDs) != recentLimit || st.RecentIDs[recentLimit-1] != strconv.Itoa(last) {
+		t.Fatalf("cursor = %d, gap = %v, recent ids = %d", st.Cursor, st.Gap, len(st.RecentIDs))
+	}
+}
+
+// A frozen router holds the events of a catch-up and runs none of them, so the
+// catch-up keeps the gap open.
+func TestAFrozenCatchUpKeepsTheGap(t *testing.T) {
+	h := newHarness(t)
+	path := withCursor(t, h, 10, 10)
+	h.router.replay = (&replayer{err: errors.New("HTTP 429"), fails: 1, pages: []api.Replay{
+		{Events: []api.ReplayEvent{row(11, "next")}},
+	}}).replay
+	h.router.catchUp()
+
+	h.router.freeze()
+	h.router.catchUp()
+
+	if st := readCursorFile(t, path); st.Cursor != 10 || !st.Gap {
+		t.Fatalf("cursor = %+v", st)
+	}
+}
+
 // A page that fails after another page moved the cursor keeps the gap at the
 // cursor of that page.
 func TestAGapOpensWhereThePageFailed(t *testing.T) {

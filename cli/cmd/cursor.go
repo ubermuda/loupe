@@ -20,11 +20,18 @@ const catchUpTimeout = 10 * time.Second
 // cursorState is the cursor file. Cursor is the highest outbox sequence the
 // bridge handled, and Floor the head it started from with no cursor. A
 // catch-up never runs an event at or below Floor, which happened before the
-// first start. RecentIDs are the ids handled last.
+// first start. RecentIDs are the ids handled last, and every id handled since
+// a gap opened while Gap is on.
 type cursorState struct {
 	Cursor    int64    `json:"cursor"`
 	Floor     int64    `json:"floor"`
 	RecentIDs []string `json:"recentIds"`
+	Gap       bool     `json:"gap,omitempty"`
+}
+
+// cursorStateLocked is the state the cursor file holds. The caller holds mu.
+func (r *router) cursorStateLocked() cursorState {
+	return cursorState{Cursor: r.cursor, Floor: r.floor, RecentIDs: slices.Clone(r.recent), Gap: r.gap}
 }
 
 // cursorPath names the cursor file of the bridge that reads rulesPath. It
@@ -84,14 +91,14 @@ func (r *router) loadCursor(head *int64) {
 	r.mu.Lock()
 	switch {
 	case ok:
-		r.cursor, r.floor, r.hasCursor = st.Cursor, st.Floor, true
+		r.cursor, r.floor, r.hasCursor, r.gap = st.Cursor, st.Floor, true, st.Gap
 		for _, id := range st.RecentIDs {
 			r.rememberLocked(id)
 		}
 	case head != nil:
 		r.cursor, r.floor, r.hasCursor = *head, *head, true
 	}
-	st = cursorState{Cursor: r.cursor, Floor: r.floor, RecentIDs: slices.Clone(r.recent)}
+	st = r.cursorStateLocked()
 	r.mu.Unlock()
 	if !ok && head != nil {
 		r.saveCursor(st)
@@ -110,7 +117,7 @@ func (r *router) seedResumePoint() {
 
 // advanceCursor moves the cursor up to the id of an event the router handled,
 // and saves it with the recent ids. An id that is no sequence moves nothing.
-// While a gap is open, a live event moves only the highest id seen.
+// While a gap is open, a live event moves nothing.
 func (r *router) advanceCursor(id string, replayed bool) {
 	if id == "" {
 		return
@@ -122,13 +129,11 @@ func (r *router) advanceCursor(id string, replayed bool) {
 		return
 	}
 	if n, err := strconv.ParseInt(id, 10, 64); err == nil {
-		if r.gap && !replayed {
-			r.seen = max(r.seen, n)
-		} else {
+		if !r.gap || replayed {
 			r.cursor = max(r.cursor, n)
 		}
 	}
-	st := cursorState{Cursor: r.cursor, Floor: r.floor, RecentIDs: slices.Clone(r.recent)}
+	st := r.cursorStateLocked()
 	r.mu.Unlock()
 	r.saveCursor(st)
 }
@@ -164,7 +169,7 @@ func (r *router) catchUp() {
 		return
 	}
 
-	after, received := start, 0
+	after, read, received := start, start, 0
 	for {
 		ctx, cancel := context.WithTimeout(r.workerContext(), catchUpTimeout)
 		page, err := r.replay(ctx, after)
@@ -184,7 +189,7 @@ func (r *router) catchUp() {
 				return
 			}
 			if id, err := strconv.ParseInt(e.ID, 10, 64); err == nil {
-				next = max(next, id)
+				next, read = max(next, id), max(read, id)
 				if id <= floor {
 					continue
 				}
@@ -197,37 +202,37 @@ func (r *router) catchUp() {
 		after = next
 	}
 
-	cursor := r.closeGap()
+	cursor := r.closeGap(read)
 	r.log.Info("catch_up_done", "after", start, "events", received, "cursor", cursor)
 }
 
 // openGap holds the cursor at after, the start of a page that failed, so the
-// next catch-up and a restart read from there. Live events then move only the
-// highest id seen.
+// next catch-up and a restart read from there. Live events then move nothing,
+// and the router forgets no id it handles, so that catch-up runs none twice.
 func (r *router) openGap(after int64) {
 	r.mu.Lock()
-	if !r.gap {
-		r.gap, r.seen = true, 0
-	}
-	r.seen = max(r.seen, r.cursor)
-	r.cursor = after
-	st := cursorState{Cursor: r.cursor, Floor: r.floor, RecentIDs: slices.Clone(r.recent)}
+	r.gap, r.cursor = true, after
+	st := r.cursorStateLocked()
 	r.mu.Unlock()
 	r.saveCursor(st)
 }
 
-// closeGap ends a gap after a catch-up read to the last page, and moves the
-// cursor to the highest id seen meanwhile. It returns the cursor.
-func (r *router) closeGap() int64 {
+// closeGap ends a gap after a catch-up read to the last page. Every event up
+// to read, the highest id it read, then ran or was a duplicate, so the cursor
+// moves there, and the recent ids shrink back to recentLimit. A frozen router
+// holds replayed events it has not run, so it keeps the gap. closeGap returns
+// the cursor.
+func (r *router) closeGap(read int64) int64 {
 	r.mu.Lock()
-	if !r.gap {
+	if !r.gap || r.frozen {
 		defer r.mu.Unlock()
 
 		return r.cursor
 	}
 	r.gap = false
-	r.cursor = max(r.cursor, r.seen)
-	st := cursorState{Cursor: r.cursor, Floor: r.floor, RecentIDs: slices.Clone(r.recent)}
+	r.cursor = max(r.cursor, read)
+	r.trimRecentLocked()
+	st := r.cursorStateLocked()
 	r.mu.Unlock()
 	r.saveCursor(st)
 

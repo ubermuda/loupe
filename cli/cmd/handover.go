@@ -462,7 +462,7 @@ func (r *router) onID(id string) {
 }
 
 // rememberLocked adds an id to the recent ones, and forgets the oldest past
-// recentLimit. The caller holds mu.
+// recentLimit. While a gap is open it forgets none. The caller holds mu.
 func (r *router) rememberLocked(id string) {
 	if r.recentSet[id] {
 		return
@@ -472,8 +472,18 @@ func (r *router) rememberLocked(id string) {
 	}
 	r.recent = append(r.recent, id)
 	r.recentSet[id] = true
-	if len(r.recent) > recentLimit {
-		delete(r.recentSet, r.recent[0])
-		r.recent = slices.Delete(r.recent, 0, 1)
+	if !r.gap {
+		r.trimRecentLocked()
+	}
+}
+
+// trimRecentLocked forgets the oldest recent ids past recentLimit. The caller
+// holds mu.
+func (r *router) trimRecentLocked() {
+	if over := len(r.recent) - recentLimit; over > 0 {
+		for _, id := range r.recent[:over] {
+			delete(r.recentSet, id)
+		}
+		r.recent = slices.Delete(r.recent, 0, over)
 	}
 }

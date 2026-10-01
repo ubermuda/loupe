@@ -190,9 +190,8 @@ type router struct {
 	caughtUp      map[string]bool
 	cursorFailing bool
 	// gap is on from a failed catch-up until one ends, and holds the cursor at
-	// the failed page. seen is the highest id handled while it is on.
-	gap  bool
-	seen int64
+	// the failed page.
+	gap bool
 	// eventMu keeps the events in order while resume replays the held ones. It
 	// is taken before mu, never under it.
 	eventMu sync.Mutex

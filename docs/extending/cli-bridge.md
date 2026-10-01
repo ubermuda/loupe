@@ -764,7 +764,8 @@ cursor. When a page fails, for example with `429`, the bridge logs
 `catch_up_failed` and reads the stream live. The saved cursor then stays at the
 page that failed, also across a restart, while live events run. The next
 connect reads again from there, and a catch-up that reads to the last page
-moves the cursor to the highest id the bridge handled.
+moves the cursor to the highest id it read. While the gap is open, the file
+keeps the id of every event the bridge handled, so none of them runs twice.
 
 A bridge with no cursor file starts from `head`, which also becomes its floor.
 The bridge never runs a replayed event at or below the floor, so a first start
