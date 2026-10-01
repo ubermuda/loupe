@@ -243,6 +243,29 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
         self::assertSame([], $this->moves());
     }
 
+    public function test_green_checks_leave_an_epic_with_an_open_child_in_implementation(): void
+    {
+        $epic = $this->linkedCard('implementation');
+        $epic->type = CardType::Epic;
+        $this->child($epic, 'backlog');
+
+        $this->handle(new PullRequestSnapshot(), $this->passed());
+
+        self::assertSame('implementation', $this->storedColumnOf($epic));
+        self::assertSame([], $this->moves());
+    }
+
+    public function test_green_checks_move_an_epic_whose_children_are_all_finished(): void
+    {
+        $epic = $this->linkedCard('implementation');
+        $epic->type = CardType::Epic;
+        $this->child($epic, 'done');
+
+        $this->handle(new PullRequestSnapshot(), $this->passed());
+
+        self::assertSame('in-review', $this->storedColumnOf($epic));
+    }
+
     public function test_a_merge_with_a_second_link_never_read_moves_nothing(): void
     {
         $card = $this->linkedCard('in-review');
@@ -483,6 +506,14 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
         $this->em->flush();
 
         return $card;
+    }
+
+    private function child(Card $parent, string $slug): void
+    {
+        $child = new Card($this->project, $this->column($this->project, $slug), 'A child', '', ++$this->cardNumber);
+        $child->parent = $parent;
+        $this->em->persist($child);
+        $this->em->flush();
     }
 
     /** A null state links a pull request that Forge never read. */
