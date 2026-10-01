@@ -4,20 +4,18 @@
 <div class="lp-document-table lp-document-table--backlog" role="table" aria-label="{{ 'board.backlog.table.label'|trans }}">
     <div class="lp-document-table__head" role="row">
         <input type="checkbox" class="lp-backlog-check" aria-label="{{ 'board.backlog.select_all'|trans }}" data-backlog-select-target="all" data-action="backlog-select#toggleAll">
-        <span></span>
         <span role="columnheader">{{ 'board.backlog.table.card'|trans }}</span>
-        <span role="columnheader">{{ 'board.backlog.table.type'|trans }}</span>
-        <span role="columnheader">{{ 'board.backlog.table.epic'|trans }}</span>
+        {% include '@Board/_backlog_sort_header.html.twig' with {project: project, listQuery: listQuery, column: constant('App\\Module\\Board\\View\\BacklogSort::Type'), label: 'board.backlog.table.type'|trans} only %}
+        {% include '@Board/_backlog_sort_header.html.twig' with {project: project, listQuery: listQuery, column: constant('App\\Module\\Board\\View\\BacklogSort::Epic'), label: 'board.backlog.table.epic'|trans} only %}
         <span role="columnheader">{{ 'board.backlog.table.feedback'|trans }}</span>
-        <span role="columnheader">{{ 'board.backlog.table.added'|trans }}</span>
+        {% include '@Board/_backlog_sort_header.html.twig' with {project: project, listQuery: listQuery, column: constant('App\\Module\\Board\\View\\BacklogSort::Created'), label: 'board.backlog.table.added'|trans} only %}
         <span class="sr-only" role="columnheader">{{ 'board.backlog.table.actions'|trans }}</span>
     </div>
-    {# Rank drag only in rank order, because only that order is the one a drag changes. #}
-    <div class="lp-document-list" role="rowgroup"{% if listQuery.isRanked %} data-controller="backlog-rank"{% endif %}>
+    <div class="lp-document-list" role="rowgroup">
         {% for card in view.items %}
         {% set routeParams = {projectId: project.id, cardId: card.id}|merge(listQuery.routeParams) %}
         {% set moveName = backlog_move_form_name(card) %}
-        <div class="lp-document-row lp-backlog-row" id="backlog-row-{{ card.id }}" data-backlog-card-id="{{ card.id }}" data-card-id="{{ card.id }}" data-backlog-rank-target="row" role="row">
+        <div class="lp-document-row lp-backlog-row" id="backlog-row-{{ card.id }}" data-backlog-card-id="{{ card.id }}" data-card-id="{{ card.id }}" role="row">
             <input type="checkbox"
                    class="lp-backlog-check"
                    name="{{ constant('App\\Module\\Board\\Form\\BulkMoveBacklogCardsFormType::NAME') }}[ids][]"
@@ -26,23 +24,10 @@
                    aria-label="{{ 'board.backlog.select_card'|trans({'%number%': card.number}) }}"
                    data-backlog-select-target="box"
                    data-action="backlog-select#update">
-            <span role="cell">
-                {% if listQuery.isRanked %}
-                {% set rankName = backlog_rank_form_name(card) %}
-                <span class="lp-backlog-grip" title="{{ 'board.backlog.drag'|trans }}" data-action="pointerdown->backlog-rank#press">
-                    <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
-                </span>
-                <form method="post" action="{{ path('app_project_board_backlog_rank', routeParams) }}" data-backlog-rank-target="form" hidden>
-                    <input type="hidden" name="{{ rankName }}[beforeCardId]" data-backlog-rank-field="before">
-                    <input type="hidden" name="{{ rankName }}[afterCardId]" data-backlog-rank-field="after">
-                    <input type="hidden" name="{{ rankName }}[_token]" value="{{ csrf_token('submit') }}" data-controller="csrf-protection">
-                </form>
-                {% endif %}
-            </span>
             <div class="lp-document-row__main" role="cell">
                 <div class="lp-document-row__head">
                     <span class="lp-board-card__number">#{{ card.number }}</span>
-                    <a class="lp-backlog-row__title" href="{{ path('app_board_card', {projectId: project.id, cardId: card.id}) }}" draggable="false">{{ card.title }}</a>
+                    <a class="lp-backlog-row__title" href="{{ path('app_board_card', {projectId: project.id, cardId: card.id}) }}">{{ card.title }}</a>
                 </div>
             </div>
             <div role="cell">{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</div>

@@ -95,7 +95,7 @@ func TestAReloadThatFailsToParseKeepsTheSet(t *testing.T) {
 	h := newHarness(t)
 	old := h.router.rules()
 
-	res := h.reload(t, "projects: {}\nrules: []\n")
+	res := h.reload(t, "projects: {}\nrules:\n  - {on: board.card_moved, project: gone, to: next, prompt: x}\n")
 
 	if res.OK || res.Stage != "parse" || len(res.Problems) != 2 {
 		t.Fatalf("result = %+v, want a parse failure with two problems", res)

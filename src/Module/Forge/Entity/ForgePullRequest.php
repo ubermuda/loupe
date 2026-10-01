@@ -84,6 +84,25 @@ class ForgePullRequest
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $mergedAt = null;
 
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $approvedAt = null;
+
+    #[ORM\Column(length: 64, nullable: true)]
+    public ?string $approvalSha = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    public ?string $approvalId = null;
+
+    #[ORM\Column(length: 64, nullable: true)]
+    public ?string $coveredSha = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    public ?string $defaultBranch = null;
+
+    /** @var list<string> */
+    #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
+    public array $headParents = [];
+
     /** @var list<string> the newest forge ids of the reviews whose verdict went out, so a redelivered review is announced once */
     #[ORM\Column(type: Types::JSON, options: ['default' => '[]'])]
     public array $announcedReviewIds = [];
@@ -120,6 +139,10 @@ class ForgePullRequest
 
     public function apply(PullRequestSnapshot $snapshot): void
     {
+        // Keyed on the review id, because GitHub moves the commit of a review onto a later merge from the base.
+        if ($this->approvalId !== $snapshot->approvalId) {
+            $this->coveredSha = $snapshot->approvalSha;
+        }
         $this->state = $snapshot->state;
         $this->draft = $snapshot->draft;
         $this->headSha = $snapshot->headSha;
@@ -133,6 +156,11 @@ class ForgePullRequest
         $this->changesRequestedSha = $snapshot->changesRequestedSha;
         $this->openedAt = $snapshot->openedAt;
         $this->mergedAt = $snapshot->mergedAt;
+        $this->approvedAt = $snapshot->approvedAt;
+        $this->approvalSha = $snapshot->approvalSha;
+        $this->approvalId = $snapshot->approvalId;
+        $this->defaultBranch = $snapshot->defaultBranch;
+        $this->headParents = $snapshot->headParents;
     }
 
     public function snapshot(): PullRequestSnapshot
@@ -151,6 +179,11 @@ class ForgePullRequest
             $this->changesRequestedSha,
             $this->openedAt,
             $this->mergedAt,
+            $this->approvedAt,
+            $this->approvalSha,
+            $this->defaultBranch,
+            $this->headParents,
+            $this->approvalId,
         );
     }
 }

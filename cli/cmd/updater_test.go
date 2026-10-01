@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -282,6 +283,100 @@ func TestTheUpdaterHonoursTheSkipList(t *testing.T) {
 
 	if len(h.staged) != 1 || !strings.HasPrefix(h.staged[0], "1.1.0 ") {
 		t.Fatalf("hook calls = %v", h.staged)
+	}
+}
+
+// homebrewBinary is a binary in a Homebrew keg, and the link to it on PATH.
+func homebrewBinary(t *testing.T) (string, string) {
+	t.Helper()
+	root := t.TempDir()
+	keg := filepath.Join(root, "Cellar", "loupe", "1.0.0", "bin", "loupe")
+	link := filepath.Join(root, "bin", "loupe")
+	for _, dir := range []string{filepath.Dir(keg), filepath.Dir(link)} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(keg, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(keg, link); err != nil {
+		t.Fatal(err)
+	}
+
+	return keg, link
+}
+
+func TestInstallMethodFindsAHomebrewKeg(t *testing.T) {
+	keg, link := homebrewBinary(t)
+	plain := filepath.Join(t.TempDir(), "loupe")
+	if err := os.WriteFile(plain, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		exe  func() (string, error)
+		want string
+	}{
+		{"the keg", func() (string, error) { return keg, nil }, "homebrew"},
+		{"a link to the keg", func() (string, error) { return link, nil }, "homebrew"},
+		{"a plain binary", func() (string, error) { return plain, nil }, ""},
+		{"no executable", func() (string, error) { return "", errors.New("gone") }, ""},
+	} {
+		if got := installMethod(tc.exe); got != tc.want {
+			t.Fatalf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestTheUpdaterReportsTheInstallMethodWithItsState(t *testing.T) {
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
+	h := newTestUpdater(t, gh, "1.2.0")
+	h.u.install = "homebrew"
+	if got := h.u.state(); got != (api.HeartbeatUpdate{}) {
+		t.Fatalf("state before a check = %+v", got)
+	}
+	h.u.setRange("^1.0")
+
+	h.u.check(context.Background())
+
+	if got := h.u.state(); got != (api.HeartbeatUpdate{State: "current", Install: "homebrew"}) {
+		t.Fatalf("state = %+v", got)
+	}
+}
+
+// An older CLI can still ask a Homebrew bridge to update, and the bridge
+// refuses.
+func TestAScheduledCheckOnlyAnnouncesToAHomebrewInstall(t *testing.T) {
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
+	h := newTestUpdater(t, gh, "1.0.0")
+	h.u.install = installHomebrew
+	h.u.setRange("^1.0")
+
+	h.u.check(context.Background())
+
+	if _, downloads := gh.counts(); downloads != 0 || len(h.staged) != 0 {
+		t.Fatalf("downloads = %d, hook calls = %v", downloads, h.staged)
+	}
+	if got := h.u.state(); got != (api.HeartbeatUpdate{State: "off", Version: "1.2.0", Install: "homebrew"}) {
+		t.Fatalf("state = %+v", got)
+	}
+}
+
+func TestAForcedCheckRefusesAHomebrewInstall(t *testing.T) {
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
+	h := newTestUpdater(t, gh, "1.0.0")
+	h.u.install = installHomebrew
+	h.u.setRange("^1.0")
+	h.started()
+
+	res := h.u.checkNow(context.Background(), nil)
+
+	if res.OK || res.Outcome != outcomeFailed || res.Problem != "loupe was installed with Homebrew. Run: brew upgrade loupe" {
+		t.Fatalf("res = %+v", res)
+	}
+	if listed, downloads := gh.counts(); listed != 0 || downloads != 0 || len(h.staged) != 0 {
+		t.Fatalf("listed = %d, downloads = %d, hook calls = %v", listed, downloads, h.staged)
 	}
 }
 

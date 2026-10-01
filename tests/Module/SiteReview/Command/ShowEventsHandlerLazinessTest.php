@@ -11,6 +11,7 @@ use App\Module\Bridge\Service\StopLadder;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\SiteReview\Command\ShowEventsCommand;
 use App\Module\SiteReview\Command\ShowEventsHandler;
+use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Support\FeatureFlags;
 use PHPUnit\Framework\TestCase;
 
@@ -31,6 +32,7 @@ final class ShowEventsHandlerLazinessTest extends TestCase
 
         $handler = new ShowEventsHandler(
             $this->createStub(ProjectRepository::class),
+            $this->createStub(OutboxEventRepository::class),
             new UserTopicBuilder('https://loupe.example.com'),
             FeatureFlags::service(),
             new HeartbeatInterval(FeatureFlags::service(), 30),
