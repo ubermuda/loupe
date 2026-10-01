@@ -171,9 +171,6 @@ rules:
     project: loupe
     verdict: changes-requested
     permissionMode: acceptEdits
-    before:
-      run: [bin/worktrees/bridge-before.sh, "{cardNumber}", "{cardId}"]
-      timeout: 15m
     prompt: |
       Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}), column {column}.
@@ -213,8 +210,7 @@ rules:
     run: [bin/worktrees/bridge-teardown.sh, "{cardNumber}"]
 ```
 
-The `before` command of the `implementation`, `fix-round` and `fix-pr` rules
-makes or
+The `before` command of the `implementation` and `fix-pr` rules makes or
 refreshes `.worktrees/card-<number>`, provisions it with `just worktree-up`,
 and prints its path. The worker starts in that folder, and the stage skills
 work there. The `fix-pr` rule also passes the pull request number, so the
