@@ -8,6 +8,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
+use App\Module\Board\Service\RacingBridgeRules;
 use App\Module\Board\View\ReportedRule;
 
 final readonly class ListRulesHandler
@@ -15,12 +16,14 @@ final readonly class ListRulesHandler
     public function __construct(
         private BridgeRuleReportRepository $bridgeRuleReports,
         private BoardColumnRepository $boardColumns,
+        private RacingBridgeRules $racingRules,
     ) {
     }
 
     public function __invoke(ListRulesCommand $command): ListRulesView
     {
         $rules = [];
+        $appSyncsBehind = $this->racingRules->appSyncsBehind($command->project);
         foreach ($this->bridgeRuleReports->findForProject($command->project) as $report) {
             foreach ($report->rules as $rule) {
                 $rules[] = new ReportedRule(
@@ -31,6 +34,7 @@ final readonly class ListRulesHandler
                     $rule['state'],
                     $rule['reason'],
                     $report->receivedAt,
+                    $appSyncsBehind && RacingBridgeRules::racesSync($rule),
                 );
             }
         }

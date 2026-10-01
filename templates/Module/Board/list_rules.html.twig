@@ -60,6 +60,7 @@
             </span>
             <time class="lp-rule-row__report" datetime="{{ rule.reportedAt|date('c') }}">{{ 'board.rules.reported_at'|trans({'%time%': rule.reportedAt|date('M j, H:i')}) }}</time>
             {% if rule.reason %}<p class="lp-rule-row__reason">{{ rule.reason }}</p>{% endif %}
+            {% if rule.racesSync %}<p class="lp-rule-row__reason" data-rule-races-sync>{{ 'board.rules.races_sync'|trans }}</p>{% endif %}
         </article>
         {% endfor %}
     </div>
