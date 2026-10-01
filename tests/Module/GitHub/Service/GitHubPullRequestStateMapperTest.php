@@ -275,6 +275,108 @@ final class GitHubPullRequestStateMapperTest extends TestCase
         self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->changesRequestedSha);
     }
 
+    /** @return iterable<string, array{mixed, ?string, ?string, ?string}> */
+    public static function approvals(): iterable
+    {
+        $first = ['id' => 'PRR_first', 'state' => 'APPROVED', 'submittedAt' => '2026-09-20T10:00:00Z', 'commit' => ['oid' => 'aaa1111']];
+        $second = ['id' => 'PRR_second', 'state' => 'APPROVED', 'submittedAt' => '2026-09-21T09:00:00Z', 'commit' => ['oid' => 'bbb2222']];
+        $onlySecond = ['2026-09-21 09:00:00', 'bbb2222', 'PRR_second'];
+
+        yield 'no reviews field' => [null, null, null, null];
+        yield 'empty nodes' => [['nodes' => []], null, null, null];
+        yield 'only a change request' => [['nodes' => [['state' => 'CHANGES_REQUESTED'] + $first]], null, null, null];
+        yield 'one approval' => [['nodes' => [$first]], '2026-09-20 10:00:00', 'aaa1111', 'PRR_first'];
+        yield 'the oldest of two approvals' => [['nodes' => [$second, $first]], '2026-09-20 10:00:00', 'aaa1111', 'PRR_first'];
+        yield 'an approval beside a change request' => [['nodes' => [['id' => 'PRR_change', 'state' => 'CHANGES_REQUESTED', 'submittedAt' => '2026-09-19T10:00:00Z', 'commit' => ['oid' => 'ccc3333']], $second]], ...$onlySecond];
+        yield 'a malformed time is skipped' => [['nodes' => [['submittedAt' => 'yesterday'] + $first, $second]], ...$onlySecond];
+        yield 'a missing time is skipped' => [['nodes' => [array_diff_key($first, ['submittedAt' => true]), $second]], ...$onlySecond];
+        yield 'an empty oid is skipped' => [['nodes' => [['commit' => ['oid' => '']] + $first, $second]], ...$onlySecond];
+        yield 'a missing commit is skipped' => [['nodes' => [['commit' => null] + $first, $second]], ...$onlySecond];
+        yield 'a missing id is skipped' => [['nodes' => [array_diff_key($first, ['id' => true]), $second]], ...$onlySecond];
+        yield 'an empty id is skipped' => [['nodes' => [['id' => ''] + $first, $second]], ...$onlySecond];
+        yield 'an id that is not a string is skipped' => [['nodes' => [['id' => 42] + $first, $second]], ...$onlySecond];
+        yield 'a node that is not an array is skipped' => [['nodes' => ['APPROVED', $second]], ...$onlySecond];
+        yield 'nodes that are not a list' => [['nodes' => 'APPROVED'], null, null, null];
+    }
+
+    #[DataProvider('approvals')]
+    public function test_the_oldest_approval_gives_the_approval_time_sha_and_id(mixed $reviews, ?string $approvedAt, ?string $approvalSha, ?string $approvalId): void
+    {
+        $node = self::pullRequest604();
+        if (null === $reviews) {
+            unset($node['latestOpinionatedReviews']);
+        } else {
+            $node['latestOpinionatedReviews'] = $reviews;
+        }
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, self::rules604(), null);
+
+        self::assertSame($approvedAt, $snapshot->approvedAt?->format('Y-m-d H:i:s'));
+        self::assertSame($approvalSha, $snapshot->approvalSha);
+        self::assertSame($approvalId, $snapshot->approvalId);
+    }
+
+    public function test_an_approval_counts_whatever_the_review_decision(): void
+    {
+        $node = self::pullRequest604();
+        $node['reviewDecision'] = 'CHANGES_REQUESTED';
+        $node['latestOpinionatedReviews'] = ['nodes' => [['id' => 'PRR_first', 'state' => 'APPROVED', 'submittedAt' => '2026-09-20T12:00:00+02:00', 'commit' => ['oid' => 'aaa1111']]]];
+
+        $snapshot = new GitHubPullRequestStateMapper()->map($node, self::rules604(), null);
+
+        self::assertSame('2026-09-20 10:00:00', $snapshot->approvedAt?->format('Y-m-d H:i:s'));
+        self::assertSame('UTC', $snapshot->approvedAt->getTimezone()->getName());
+        self::assertSame('aaa1111', $snapshot->approvalSha);
+        self::assertSame('PRR_first', $snapshot->approvalId);
+    }
+
+    /** @return iterable<string, array{mixed, ?string}> */
+    public static function defaultBranches(): iterable
+    {
+        yield 'a default branch' => [['defaultBranchRef' => ['name' => 'main']], 'main'];
+        yield 'no base repository' => [null, null];
+        yield 'no default branch' => [['defaultBranchRef' => null], null];
+        yield 'an empty name' => [['defaultBranchRef' => ['name' => '']], null];
+        yield 'a name that is not a string' => [['defaultBranchRef' => ['name' => 42]], null];
+    }
+
+    #[DataProvider('defaultBranches')]
+    public function test_the_default_branch_of_the_base_repository(mixed $baseRepository, ?string $expected): void
+    {
+        $node = self::pullRequest604();
+        if (null === $baseRepository) {
+            unset($node['baseRepository']);
+        } else {
+            $node['baseRepository'] = $baseRepository;
+        }
+
+        self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->defaultBranch);
+    }
+
+    /** @return iterable<string, array{mixed, list<string>}> */
+    public static function headParents(): iterable
+    {
+        yield 'one parent' => [['nodes' => [['oid' => 'aaa1111']]], ['aaa1111']];
+        yield 'a merge commit' => [['nodes' => [['oid' => 'aaa1111'], ['oid' => 'bbb2222']]], ['aaa1111', 'bbb2222']];
+        yield 'no parents field' => [null, []];
+        yield 'nodes that are not a list' => [['nodes' => 'aaa1111'], []];
+        yield 'a malformed parent is skipped' => [['nodes' => [['oid' => ''], 'bbb2222', ['oid' => 42], ['oid' => 'ccc3333']]], ['ccc3333']];
+    }
+
+    /** @param list<string> $expected */
+    #[DataProvider('headParents')]
+    public function test_the_parents_of_the_head_commit(mixed $parents, array $expected): void
+    {
+        $node = self::pullRequest604();
+        if (null === $parents) {
+            unset($node['commits']['nodes'][0]['commit']['parents']);
+        } else {
+            $node['commits']['nodes'][0]['commit']['parents'] = $parents;
+        }
+
+        self::assertSame($expected, new GitHubPullRequestStateMapper()->map($node, self::rules604(), null)->headParents);
+    }
+
     public function test_a_draft_is_never_ready_to_merge(): void
     {
         $node = self::allPassed(self::pullRequest604());
