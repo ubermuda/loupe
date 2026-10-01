@@ -143,7 +143,7 @@ final readonly class PublishPullRequestEventsHandler
         }
     }
 
-    /** Whether the card page or the tile shows something new. A new head or base alone shows nothing. */
+    /** Whether the card page or the tile shows something new. A new head or base alone shows nothing, unless it makes the approval outdated. */
     private static function displayedChange(PullRequestSnapshot $previous, PullRequestSnapshot $current): bool
     {
         return $previous->state !== $current->state
@@ -151,7 +151,15 @@ final readonly class PublishPullRequestEventsHandler
             || $previous->checks !== $current->checks
             || $previous->failedChecks !== $current->failedChecks
             || $previous->mergeability !== $current->mergeability
-            || $previous->review !== $current->review;
+            || $previous->review !== $current->review
+            || $previous->readyToMerge !== $current->readyToMerge
+            || self::approvalIsStale($previous) !== self::approvalIsStale($current);
+    }
+
+    /** The rule of ForgePullRequest::approvalIsStale(), read from a snapshot. */
+    private static function approvalIsStale(PullRequestSnapshot $snapshot): bool
+    {
+        return null !== $snapshot->approvalId && $snapshot->coveredSha !== $snapshot->headSha;
     }
 
     /** @return list<Fact> */

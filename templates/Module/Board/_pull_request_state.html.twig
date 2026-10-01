@@ -13,7 +13,7 @@
         <twig:StatusChip :modifier="checks[0]" :label="checks[1]|trans" />
         {% set mergeability = {conflicting: ['failed', 'board.card.link.mergeability.conflicting'], behind: ['pending', 'board.card.link.mergeability.behind'], blocked: ['failed', 'board.card.link.mergeability.blocked']}[state.mergeability.value] ?? null %}
         {% if mergeability %}<twig:StatusChip :modifier="mergeability[0]" :label="mergeability[1]|trans" />{% endif %}
-        {% set review = {approved: ['ok', 'board.card.link.review.approved'], 'changes-requested': ['failed', 'board.card.link.review.changes_requested'], required: ['pending', 'board.card.link.review.required']}[state.review.value] ?? null %}
+        {% set review = {approved: ['ok', 'board.card.link.review.approved'], 'approval-outdated': ['pending', 'board.card.link.review.approval_outdated'], 'changes-requested': ['failed', 'board.card.link.review.changes_requested'], required: ['pending', 'board.card.link.review.required']}[state.review.value] ?? null %}
         {% if review %}<twig:StatusChip :modifier="review[0]" :label="review[1]|trans" />{% endif %}
         {% if failedNames %}<span class="lp-pull-request-state__failed">{{ failedNames }}</span>{% endif %}
     {% endif %}

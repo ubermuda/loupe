@@ -80,6 +80,7 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertSame(['parent1', 'parent2'], $pullRequest->snapshot()->headParents);
         self::assertSame('PRR_review1', $pullRequest->approvalId);
         self::assertSame('PRR_review1', $pullRequest->snapshot()->approvalId);
+        self::assertSame('approved1', $pullRequest->snapshot()->coveredSha);
     }
 
     public function test_the_first_approval_sets_the_covered_sha(): void
@@ -328,6 +329,41 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertSame('pushed1', $pullRequest->coveredSha);
     }
 
+    public function test_an_approval_that_does_not_cover_the_head_is_stale_and_holds_the_merge(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'pushed1'));
+
+        $pullRequest->settleReadyToMerge(true);
+
+        self::assertTrue($pullRequest->approvalIsStale());
+        self::assertFalse($pullRequest->readyToMerge);
+    }
+
+    public function test_an_approval_that_covers_the_head_keeps_the_forge_readiness(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'approved1'));
+
+        $pullRequest->settleReadyToMerge(true);
+        self::assertFalse($pullRequest->approvalIsStale());
+        self::assertTrue($pullRequest->readyToMerge);
+
+        $pullRequest->settleReadyToMerge(false);
+        self::assertFalse($pullRequest->readyToMerge);
+    }
+
+    public function test_a_pull_request_with_no_approval_keeps_the_forge_readiness(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'pushed1'));
+
+        $pullRequest->settleReadyToMerge(true);
+
+        self::assertFalse($pullRequest->approvalIsStale());
+        self::assertTrue($pullRequest->readyToMerge);
+    }
+
     public function test_equal_snapshots_are_equal(): void
     {
         self::assertTrue($this->changed()->equals($this->changed()));
@@ -342,7 +378,7 @@ final class PullRequestSnapshotTest extends TestCase
 
     public function test_the_approval_and_branch_facts_do_not_break_equality(): void
     {
-        $arguments = [...self::changedArguments(), 'approvedAt' => null, 'approvalSha' => null, 'defaultBranch' => null, 'headParents' => [], 'approvalId' => null];
+        $arguments = [...self::changedArguments(), 'approvedAt' => null, 'approvalSha' => null, 'defaultBranch' => null, 'headParents' => [], 'approvalId' => null, 'coveredSha' => 'other1'];
 
         self::assertTrue($this->changed()->equals(new PullRequestSnapshot(...$arguments)));
     }

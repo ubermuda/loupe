@@ -211,6 +211,17 @@ class ForgePullRequest
         };
     }
 
+    public function approvalIsStale(): bool
+    {
+        return null !== $this->approvalId && $this->coveredSha !== $this->headSha;
+    }
+
+    /** A forge counts an approval of an older head, so a stale approval holds the merge. */
+    public function settleReadyToMerge(bool $forgeReady): void
+    {
+        $this->readyToMerge = $forgeReady && !$this->approvalIsStale();
+    }
+
     public function snapshot(): PullRequestSnapshot
     {
         return new PullRequestSnapshot(
@@ -232,6 +243,7 @@ class ForgePullRequest
             $this->defaultBranch,
             $this->headParents,
             $this->approvalId,
+            $this->coveredSha,
         );
     }
 }

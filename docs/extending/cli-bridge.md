@@ -1239,12 +1239,13 @@ rules:
       Pull request {pullRequestUrl} is ready to merge at {headSha}.
 ```
 
-Loupe sends `pull_request.ready_to_merge` without a look at the review. The
+Loupe sends `pull_request.ready_to_merge` only when an approval, if there is
+one, covers the head. The head can move after the event, so the
 `loupe-stage-merge` skill reads the approval again before it merges. It merges
 only when every current approval is later than the push of every commit, or
-when each later commit is a merge from the base that git re-creates
-with no conflict. A conflict resolution or any other later commit stops the run
-as `not ready`, so a person approves or proves it.
+when each later commit is a merge from the base, with or without a conflict
+resolution. Any other later commit stops the run as `not ready`, so a person
+approves it.
 
 Loupe sends `pull_request.behind` for every pull request that falls behind its
 base, approved or not. The skill updates the branch only when the approval
