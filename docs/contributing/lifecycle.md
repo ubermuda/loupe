@@ -325,13 +325,15 @@ at the same time interfere with each other.
 ## Fix rounds by hand
 
 The `fix-pr` rule starts a pull request fix round. For a repository that the app
-does not read, run one by hand after review feedback arrives. Run it from the
-card worktree, when no worker runs on the card. The `before` script makes that
-worktree and prints its path:
+does not read, run one by hand after review feedback arrives, when no worker
+runs on the card. Set the three values, and run the commands from the main
+checkout. The `before` script makes or refreshes the card worktree and prints
+its path, and the round runs there:
 
 ```sh
-dir=$(bin/worktrees/bridge-before.sh <number> <id> <pull request number>) && cd "$dir" && \
-claude -p --permission-mode bypassPermissions -- "Use the loupe-stage-fix-round skill. Card <number> (cardId <id>) in project loupe (projectId <id>), column in-review. Loupe instance https://loupe.ac."
+card=405 card_id=01a0f4b8-0ec7-7b8e-b4e5-3cd6408919ef pr=710
+dir=$(bin/worktrees/bridge-before.sh "$card" "$card_id" "$pr") && cd "$dir" && \
+claude -p --permission-mode bypassPermissions -- "Use the loupe-stage-fix-round skill. Card $card (cardId $card_id) in project loupe (projectId <project id>), column in-review. Loupe instance https://loupe.ac."
 ```
 
 The prompt names the column the card is in. A card in Implementation with an

@@ -66,9 +66,10 @@ fi
 # From main: bootstrap's bare `docker compose` calls resolve their file from the cwd.
 if ! (cd "$main" && just worktree-up "$name" "card:$card_id"); then
     echo "bridge-before: could not provision $name (reason above)." >&2
-    # Remove only the tree this run added. A branch is never deleted.
+    # Remove only the tree this run added, with its sidecars and databases.
+    # The teardown never deletes a branch.
     if [ "$created_worktree" = 1 ]; then
-        git -C "$main" worktree remove --force "$root" || true
+        (cd "$main" && just worktree-down "$name") || true
     fi
     exit 1
 fi
