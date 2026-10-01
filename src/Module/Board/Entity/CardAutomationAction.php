@@ -9,4 +9,5 @@ enum CardAutomationAction: string
     case FixRequested = 'fix-requested';
     case Stopped = 'stopped';
     case ReadyToMerge = 'ready-to-merge';
+    case Synced = 'synced';
 }

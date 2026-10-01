@@ -9,6 +9,7 @@ use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
+use App\Security\ProjectScopedSubject;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use MartinGeorgiev\Doctrine\DBAL\Type as PostgresType;
@@ -42,7 +43,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_key', columns: ['project_id', 'bridge_id', 'run_key'])]
 // One session holds one open interactive run on a card.
 #[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_interactive_open', columns: ['project_id', 'card_id', 'session_id'], options: ['where' => "(((kind)::text = 'interactive'::text) AND ((state)::text = 'running'::text))"])]
-class WorkerRun
+class WorkerRun implements ProjectScopedSubject
 {
     /** Mirrors the cap the bridge applies to a worker's output before it reports. */
     public const int MAX_OUTPUT_LENGTH = 4000;
@@ -289,5 +290,17 @@ class WorkerRun
         $this->resultStatus = $resultStatus;
         $this->resultFields = $resultFields;
         $this->resumeSkipped = $resumeSkipped;
+    }
+
+    #[\Override]
+    public function scopedProject(): Project
+    {
+        return $this->project;
+    }
+
+    #[\Override]
+    public function scopedSubjectType(): string
+    {
+        return 'worker_run';
     }
 }

@@ -147,6 +147,22 @@ A stop reaches the process group of the worker only. Work that the worker
 started in another process tree keeps running, such as a PHPUnit run inside a
 Docker container. A resume continues the session with a fixed prompt.
 
+### Through the MCP
+
+An agent can read the runs and the bridges, and stop, resume and cancel, through
+the [MCP endpoint](mcp.md#what-the-tools-do). `worker_run_list` and
+`worker_run_get` read the runs, and `bridge_list` reads the bridges.
+`worker_run_stop`, `worker_run_resume` and `bridge_command_cancel` send and
+withdraw requests. The connection acts as the project owner, on its own project
+only.
+
+The tools apply the same checks as the controls on this page. A resume needs a
+session, an ended run in a state that can resume, and a card still in the column
+that started the series. A run with a request that still waits refuses a second
+one, and so does a bridge that does not take commands. A refused run gives a
+code and a message, and `worker_run_resume` takes up to 50 runs in one call.
+There is no tool that pauses a bridge.
+
 ## A warning on the card
 
 A card whose latest outcome is **Gave up** or **Blocked** shows a warning on the

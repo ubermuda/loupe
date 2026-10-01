@@ -10,6 +10,8 @@ final readonly class ResolveSocialLoginCommand
 {
     public function __construct(
         public SocialProfile $profile,
+        /** Plain registration-pass token from the session, if any. */
+        public ?string $passToken = null,
     ) {
     }
 }

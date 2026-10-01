@@ -42,6 +42,10 @@ card. Each item gives the `id`, the page `url`, the page `context`, the
 `anchors`, the `body`, the drawing `strokes`, the `status` and `createdAt`. The
 strokes are the full vector points. The archive has no separate site-review file.
 
+`beta_invite.json` holds `betaTesterSince`, the date the user redeemed a beta
+invite. It is empty for a user who redeemed none. The admin's note on the invite
+stays out of the export.
+
 The archive holds one file per kind of data. `audit_log.json` is one of them. It
 holds the audit records the user is the actor of, and the records that name the
 user as the subject. What was done to the account is the account's data too.
