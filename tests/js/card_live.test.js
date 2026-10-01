@@ -1,0 +1,327 @@
+/** @vitest-environment jsdom */
+import { Application } from '@hotwired/stimulus';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+const live = vi.hoisted(() => ({ subscriptions: [] }));
+
+vi.mock('../../assets/lib/live.js', () => ({
+    on: (types, handler, options) => {
+        const subscription = { types, handler, options, removed: false };
+        live.subscriptions.push(subscription);
+        return () => {
+            subscription.removed = true;
+        };
+    },
+}));
+
+const { default: CardLiveController, DEBOUNCE_MILLISECONDS } =
+    await import('../../assets/controllers/card_live_controller.js');
+
+const CARD = '0199aaaa-0000-7000-8000-000000000001';
+const URL_PATH = `/projects/p/board/cards/${CARD}`;
+
+let application;
+let responses;
+let connects;
+
+class CountingController extends CardLiveController {
+    connect() {
+        connects += 1;
+        super.connect();
+    }
+}
+
+function cardHtml({
+    column = 'Next',
+    tab = 'overview',
+    frame = false,
+    flash = '',
+    feedback = '<details class="lp-feedback"><summary>Entry</summary>Body</details>',
+    body = '',
+} = {}) {
+    const tabs = ['overview', 'details', 'history']
+        .map(
+            (name) =>
+                `<button type="button" role="tab" id="card-tab-${name}" data-panel-tabs-target="tab" data-panel-tab="${name}" aria-selected="${name === tab}">${name}</button>`,
+        )
+        .join('');
+    const panels = ['overview', 'details', 'history']
+        .map(
+            (name) =>
+                `<section id="card-panel-${name}" data-panel-panel="${name}"${name === tab ? '' : ' hidden'}>${name === 'overview' ? feedback : ''}</section>`,
+        )
+        .join('');
+
+    return `<div class="lp-card-drawer" data-card-drawer-card-id="${CARD}" data-controller="card-live" data-card-live-card-id-value="${CARD}" data-card-live-url-value="${URL_PATH}" data-card-live-frame-value="${frame}">
+        ${flash}
+        <header class="lp-card-drawer__header"><span class="lp-tag" data-column>${column}</span></header>
+        <div class="lp-card-drawer__body">
+            <div class="lp-tabs" role="tablist">${tabs}</div>
+            ${panels}
+            ${body}
+        </div>
+        <footer><div data-controller="modal"><dialog id="delete"></dialog></div></footer>
+    </div>`;
+}
+
+function page(html) {
+    return `<!doctype html><html><body><main>${html}</main></body></html>`;
+}
+
+function answer(html, ok = true) {
+    responses.push({ ok, text: async () => page(html) });
+}
+
+async function mount(options = {}) {
+    document.body.innerHTML = `<main>${cardHtml(options)}</main>`;
+    await vi.advanceTimersByTimeAsync(0);
+
+    return document.querySelector('[data-card-drawer-card-id]');
+}
+
+function subscription() {
+    expect(live.subscriptions).toHaveLength(1);
+    return live.subscriptions[0];
+}
+
+function cardChanged(change = {}) {
+    subscription().handler({
+        type: 'board.card_changed',
+        cardId: CARD,
+        change: 'moved',
+        local: false,
+        own: false,
+        ...change,
+    });
+}
+
+async function settle() {
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS);
+}
+
+beforeEach(() => {
+    vi.useFakeTimers();
+    live.subscriptions = [];
+    responses = [];
+    connects = 0;
+    vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => responses.shift() ?? { ok: false }),
+    );
+    application = Application.start();
+    application.register('card-live', CountingController);
+});
+
+afterEach(async () => {
+    document.body.replaceChildren();
+    await vi.advanceTimersByTimeAsync(0);
+    application.stop();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+});
+
+it('listens for card and worker run changes', async () => {
+    await mount();
+    expect(subscription().types).toEqual([
+        'board.card_changed',
+        'worker_run.changed',
+    ]);
+});
+
+it('ignores another card, a change this page made, and a delete', async () => {
+    await mount();
+    cardChanged({ cardId: '0199aaaa-0000-7000-8000-000000000002' });
+    cardChanged({ local: true, own: true });
+    cardChanged({ change: 'deleted' });
+    await settle();
+    expect(fetch).not.toHaveBeenCalled();
+});
+
+it('fetches on the hub echo of a change this reader made elsewhere on the page', async () => {
+    await mount();
+    answer(cardHtml());
+    cardChanged({ own: true });
+    await settle();
+    expect(fetch).toHaveBeenCalledOnce();
+});
+
+it('fetches on a worker run change, which names no card', async () => {
+    await mount();
+    answer(cardHtml());
+    subscription().handler({ type: 'worker_run.changed', local: false });
+    await settle();
+    expect(fetch).toHaveBeenCalledOnce();
+});
+
+it('fetches once for a burst of changes', async () => {
+    await mount();
+    answer(cardHtml());
+    cardChanged();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MILLISECONDS - 1);
+    cardChanged();
+    cardChanged();
+    expect(fetch).not.toHaveBeenCalled();
+    await settle();
+    expect(fetch).toHaveBeenCalledOnce();
+});
+
+it('fetches after a reconnect', async () => {
+    await mount();
+    answer(cardHtml());
+    subscription().options.onReconnect();
+    await settle();
+    expect(fetch).toHaveBeenCalledOnce();
+});
+
+it('asks for the open tab, and morphs the new card in', async () => {
+    const root = await mount({ tab: 'history' });
+    answer(cardHtml({ tab: 'history', column: 'Done' }));
+    cardChanged();
+    await settle();
+
+    const [url, options] = fetch.mock.calls[0];
+    expect(new URL(url).pathname).toBe(URL_PATH);
+    expect(new URL(url).searchParams.get('tab')).toBe('history');
+    expect(options.credentials).toBe('same-origin');
+    expect(options.headers.Accept).toBe('text/html');
+    expect(options.headers['Turbo-Frame']).toBeUndefined();
+    expect(document.querySelector('[data-card-drawer-card-id]')).toBe(root);
+    expect(root.querySelector('[data-column]').textContent).toBe('Done');
+    expect(root.querySelector('#card-panel-history').hidden).toBe(false);
+    expect(root.querySelector('#card-panel-overview').hidden).toBe(true);
+});
+
+it('sends the frame header in the drawer, so the host keeps its subscriptions', async () => {
+    await mount({ frame: true });
+    answer(cardHtml({ frame: true }));
+    cardChanged();
+    await settle();
+    expect(fetch.mock.calls[0][1].headers['Turbo-Frame']).toBe(
+        'card-drawer-frame',
+    );
+});
+
+it('keeps the controller connected through the morph', async () => {
+    const root = await mount();
+    answer(cardHtml({ column: 'Done' }));
+    cardChanged();
+    await settle();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(connects).toBe(1);
+    expect(live.subscriptions).toHaveLength(1);
+
+    answer(cardHtml({ column: 'Shipped' }));
+    cardChanged();
+    await settle();
+    expect(root.querySelector('[data-column]').textContent).toBe('Shipped');
+});
+
+it('ignores a response that is not OK', async () => {
+    const root = await mount();
+    answer(cardHtml({ column: 'Done' }), false);
+    cardChanged();
+    await settle();
+    expect(root.querySelector('[data-column]').textContent).toBe('Next');
+});
+
+it('holds the update while a dialog is open, and fetches when it closes', async () => {
+    const root = await mount();
+    const dialog = root.querySelector('#delete');
+    dialog.setAttribute('open', '');
+    answer(cardHtml({ column: 'Done' }));
+    cardChanged();
+    await settle();
+    expect(fetch).not.toHaveBeenCalled();
+
+    dialog.removeAttribute('open');
+    dialog.dispatchEvent(new Event('close'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(root.querySelector('[data-column]').textContent).toBe('Done');
+});
+
+it('does not fetch when a dialog closes with nothing held', async () => {
+    const root = await mount();
+    root.querySelector('#delete').dispatchEvent(new Event('close'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).not.toHaveBeenCalled();
+});
+
+it('keeps a form with unsaved input, and updates the rest', async () => {
+    const form = (value) =>
+        `<form id="reply"><textarea name="body">${value}</textarea><input type="checkbox" name="notify"><select name="kind"><option>a</option><option>b</option></select></form>`;
+    const root = await mount({ body: form('') });
+    root.querySelector('textarea').value = 'Draft reply';
+    answer(cardHtml({ column: 'Done', body: form('Server text') }));
+    cardChanged();
+    await settle();
+
+    expect(root.querySelector('textarea').value).toBe('Draft reply');
+    expect(root.querySelector('[data-column]').textContent).toBe('Done');
+});
+
+it('updates a form with no unsaved input', async () => {
+    const form = (value) =>
+        `<form id="reply"><textarea name="body">${value}</textarea><select name="kind"><option>a</option><option>b</option></select></form>`;
+    const root = await mount({ body: form('') });
+    answer(cardHtml({ body: form('Server text') }));
+    cardChanged();
+    await settle();
+
+    expect(root.querySelector('textarea').value).toBe('Server text');
+});
+
+it('counts a changed checkbox or select as unsaved input', async () => {
+    const form = (marker) =>
+        `<form id="reply" data-marker="${marker}"><input type="checkbox" name="notify"><select name="kind"><option>a</option><option>b</option></select></form>`;
+    const root = await mount({ body: form('old') });
+    root.querySelector('input[type="checkbox"]').checked = true;
+    answer(cardHtml({ body: form('new') }));
+    cardChanged();
+    await settle();
+    expect(root.querySelector('form').dataset.marker).toBe('old');
+
+    root.querySelector('input[type="checkbox"]').checked = false;
+    root.querySelector('select').value = 'b';
+    answer(cardHtml({ body: form('new') }));
+    cardChanged();
+    await settle();
+    expect(root.querySelector('form').dataset.marker).toBe('old');
+});
+
+it('keeps a flash on screen and an open disclosure open', async () => {
+    const root = await mount({
+        flash: '<div class="lp-flash" role="status">Card saved</div>',
+    });
+    root.querySelector('details').open = true;
+    answer(cardHtml({ column: 'Done' }));
+    cardChanged();
+    await settle();
+
+    expect(root.querySelector('.lp-flash')?.textContent).toBe('Card saved');
+    expect(root.querySelector('details').open).toBe(true);
+    expect(root.querySelector('[data-column]').textContent).toBe('Done');
+});
+
+it('stops listening and drops an answer that arrives after it disconnects', async () => {
+    const root = await mount();
+    let resolve;
+    fetch.mockImplementationOnce(
+        (url, options) =>
+            new Promise((done) => {
+                resolve = done;
+                options.signal.addEventListener('abort', () => done(null));
+            }),
+    );
+    cardChanged();
+    await settle();
+    const signal = fetch.mock.calls[0][1].signal;
+
+    root.remove();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(subscription().removed).toBe(true);
+    expect(signal.aborted).toBe(true);
+    resolve({ ok: true, text: async () => page(cardHtml({ column: 'Done' })) });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(root.querySelector('[data-column]').textContent).toBe('Next');
+});
