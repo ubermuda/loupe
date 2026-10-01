@@ -237,3 +237,16 @@ func atoi(t *testing.T, s string) int {
 
 	return n
 }
+
+// A command that exits 0 with stdout the bridge cannot read fails, because
+// the folder it printed is unknown.
+func TestABeforeOutcomeWithUnreadStdoutFails(t *testing.T) {
+	dir, project := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "before.exit"), []byte("0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res := beforeOutcome(dir, project, false, false)
+	if res.dir != "" || !strings.HasPrefix(res.failure(), "the bridge cannot read the before command's output: ") {
+		t.Fatalf("beforeOutcome = %+v, failure %q", res, res.failure())
+	}
+}

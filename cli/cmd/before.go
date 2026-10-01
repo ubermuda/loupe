@@ -213,6 +213,10 @@ func beforeOutcome(dir, project string, killed, timedOut bool) beforeResult {
 		var folder string
 		folder, rest = lastOutputLine(stdout)
 		res.dir, res.reason = resolveFolder(folder, project)
+		// Unread stdout can hide the folder, so the run must not start in the project dir.
+		if stdoutErr != nil {
+			res.dir, res.reason = "", "the bridge cannot read the before command's output: "+stdoutErr.Error()
+		}
 	}
 
 	parts := []string{strings.TrimRight(stderr, "\n"), strings.Trim(rest, "\n")}

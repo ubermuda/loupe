@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"maps"
 	"net"
@@ -1143,10 +1144,14 @@ func (r *router) resumeDir(p pending) (pending, string) {
 	if recorded == "" {
 		return p, ""
 	}
-	if info, err := os.Stat(recorded); err == nil && info.IsDir() {
+	info, err := os.Stat(recorded)
+	if err == nil && info.IsDir() {
 		p.spec.dir = recorded
 
 		return p, ""
+	}
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return p, fmt.Sprintf("the bridge cannot read %s, where the conversation started: %s", recorded, err)
 	}
 	gone := fmt.Sprintf("the conversation started in %s, which is gone", recorded)
 	// A person's resume carries nothing of the event that started the series,

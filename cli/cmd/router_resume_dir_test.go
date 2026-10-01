@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -253,5 +254,31 @@ func TestAPersonsResumeWhoseFolderIsGoneFails(t *testing.T) {
 	}
 	if got := h.events(t, "before_failed"); len(got) != 0 {
 		t.Fatalf("before_failed = %v", got)
+	}
+}
+
+// A recorded folder the bridge cannot read may still exist, so the resume
+// fails rather than replace the conversation with a fresh session.
+func TestAResumeWhoseFolderCannotBeReadFails(t *testing.T) {
+	h := newHarness(t)
+	rec := h.states()
+	h.transcripts(true)
+	loop := filepath.Join(t.TempDir(), "loop")
+	if err := os.Symlink(loop, loop); err != nil {
+		t.Fatal(err)
+	}
+	withStartDirs(h, map[string]string{testSession: loop})
+
+	if state, reason := h.resume(resumeOf(endedRunKey)); state != api.CommandDone {
+		t.Fatalf("resume = %s %q", state, reason)
+	}
+
+	sent := rec.states()
+	wantStates(t, sent, api.RunQueued, api.RunFailed)
+	if failed := sent[1].report; !strings.Contains(failed.Output, "the bridge cannot read "+loop) {
+		t.Fatalf("failed = %+v", failed)
+	}
+	if h.runs() != 0 {
+		t.Fatalf("runs = %d", h.runs())
 	}
 }
