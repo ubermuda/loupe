@@ -124,7 +124,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertCount(0, $workerRow->filter('form'));
     }
 
-    public function test_the_owner_resumes_an_ended_run_from_its_row(): void
+    public function test_an_ended_run_leaves_the_card_so_its_resume_lives_in_run_history(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -143,15 +143,8 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/card/'.$cardId);
 
         self::assertResponseIsSuccessful();
-        $form = $crawler->filter('[data-card-run-row="'.$runId.'"] form[data-worker-run-control]');
-        self::assertCount(1, $form);
-        self::assertSame('/projects/'.$projectId.'/worker-runs/'.$runId.'/resume', $form->attr('action'));
-        self::assertSame('card-worker-runs', $form->attr('data-turbo-frame'));
-        self::assertNotEmpty($form->filter('input[name="_csrf_token"]')->attr('value'));
-        $button = $form->filter('button');
-        self::assertSame('Resume', $button->attr('title'));
-        self::assertSame('Resume', $button->attr('aria-label'));
-        self::assertNull($button->attr('disabled'));
+        self::assertCount(0, $crawler->filter('[data-card-run-row="'.$runId.'"]'));
+        self::assertCount(0, $crawler->filter('form[action$="/resume"]'));
     }
 
     public function test_the_owner_stops_a_running_run_from_its_row(): void
@@ -205,7 +198,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertSame('Stop requested', $row->filter('[data-worker-run-control-label]')->text());
     }
 
-    public function test_a_bridge_without_commands_disables_resume_and_says_why(): void
+    public function test_a_bridge_without_commands_disables_stop_and_says_why(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -214,7 +207,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         $project = $this->project($em, $owner, 'Control outdated');
         $bridge = $this->commandBridge($owner, null);
         $cardId = Uuid::v7();
-        $run = $this->seedRun($em, $project, exitCode: 1, bridgeId: $bridge->id, cardId: $cardId, state: WorkerRunState::Blocked);
+        $run = $this->seedRun($em, $project, bridgeId: $bridge->id, cardId: $cardId, state: WorkerRunState::Running);
 
         $projectId = (string) $project->id;
         $runId = (string) $run->id;
@@ -258,7 +251,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame(
-            'Held: no worker starts on this card until you resume one of its runs or move it.',
+            'Held: no worker starts on this card until you resume one of its runs in Run history, or move it.',
             $crawler->filter('turbo-frame#card-worker-runs [data-card-held]')->text(),
         );
     }

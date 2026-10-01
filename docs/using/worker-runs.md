@@ -102,8 +102,10 @@ resume did not run.
 ## Stop, resume and cancel
 
 The project owner can control a run from the runs section of a card page and
-from the drawer of a run. Other people see the labels and no controls. An
-interactive run has no controls, and its owner uses **Close session** instead.
+from the drawer of a run. The card page lists only the runs in progress, so it
+offers **Stop** and **Cancel request** for a stop. Resume an ended run from
+this page. Other people see the labels and no controls. An interactive run has
+no controls, and its owner uses **Close session** instead.
 
 | Control | When it shows | What it does |
 |---|---|---|
