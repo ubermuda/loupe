@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Repository;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\Entity\ExperimentPin;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
@@ -15,6 +16,7 @@ use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\LockMode;
+use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\Query\Expr\Join;
@@ -388,6 +390,63 @@ class WorkerRunRepository extends ServiceEntityRepository
             static fn (mixed $id): string => $id instanceof Uuid ? $id->toRfc4122() : Uuid::fromString(\is_string($id) ? $id : throw new \LogicException('A card id is a string.'))->toRfc4122(),
             $ids,
         ));
+    }
+
+    /**
+     * One row per experiment and card of the project's runs, with the last run of the pair.
+     *
+     * @return list<array{experiment: string, cardId: string, lastRunAt: \DateTimeImmutable}>
+     */
+    public function findExperimentCardRows(Project $project): array
+    {
+        $connection = $this->getEntityManager()->getConnection();
+        /** @var list<array{experiment: string, card_id: string, last_run_at: string}> $rows */
+        $rows = $connection->fetchAllAssociative(
+            'SELECT experiment, card_id, MAX(received_at) AS last_run_at
+            FROM bridge_worker_runs
+            WHERE project_id = :project AND experiment IS NOT NULL
+            GROUP BY experiment, card_id',
+            ['project' => ($project->id ?? throw new \LogicException('Project has no id.'))->toRfc4122()],
+        );
+
+        $type = Type::getType(Types::DATETIME_IMMUTABLE);
+        $platform = $connection->getDatabasePlatform();
+
+        return array_map(static function (array $row) use ($type, $platform): array {
+            $lastRunAt = $type->convertToPHPValue($row['last_run_at'], $platform);
+
+            return [
+                'experiment' => $row['experiment'],
+                'cardId' => $row['card_id'],
+                'lastRunAt' => $lastRunAt instanceof \DateTimeImmutable ? $lastRunAt : throw new \LogicException('A run has a receive time.'),
+            ];
+        }, $rows);
+    }
+
+    /**
+     * Every worker run, of any experiment or of none, of the cards that ran in
+     * the experiment or are pinned to it. Oldest first.
+     *
+     * @return list<WorkerRun>
+     */
+    public function findWorkerRunsOfExperimentCards(Project $project, string $experiment): array
+    {
+        return array_values($this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.kind = :worker')
+            ->andWhere(\sprintf(
+                'r.cardId IN (SELECT e.cardId FROM %1$s e WHERE e.project = :project AND e.experiment = :experiment)'
+                .' OR r.cardId IN (SELECT pin.cardId FROM %2$s pin WHERE pin.project = :project AND pin.experiment = :experiment)',
+                WorkerRun::class,
+                ExperimentPin::class,
+            ))
+            ->setParameter('project', $project)
+            ->setParameter('worker', WorkerRunKind::Worker->value)
+            ->setParameter('experiment', $experiment)
+            ->orderBy('r.receivedAt', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->getQuery()
+            ->getResult());
     }
 
     /**

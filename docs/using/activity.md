@@ -5,6 +5,7 @@ description: "The Events tab of the Activity page, which lists the durable event
 
 Open **Activity** in a project's sidebar, then the **Events** tab, to read its durable event history.
 The **Runs** tab lists the [worker runs](worker-runs.md), and the **Cost** tab charts [the cost of finished cards](worker-runs.md#the-cost-of-finished-cards).
+The **Experiments** tab compares the variants of each [experiment](experiments.md).
 
 The topbar bell opens the latest 12 events without leaving the current page.
 Closing the panel returns focus to the bell and keeps the page's unsaved fields.

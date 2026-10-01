@@ -424,6 +424,9 @@ with its own `model:` runs that model on the card. For example, a `fix-round`
 rule with `model: opus` runs Opus on a card that the experiment gave to Sonnet.
 So make every rule that acts on the session of the card join the experiment.
 
+The [Experiments](../using/experiments.md) tab of the project's **Activity**
+page compares the variants of each experiment.
+
 To end an experiment, give each rule that joins it a plain `model:` again, and
 remove its `experiment:` key. You can keep the `experiments:` block or delete
 it. Then run `loupe bridge reload`.

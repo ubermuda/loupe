@@ -783,6 +783,20 @@ final class CardWaitReconcilerTest extends KernelTestCase
         yield 'unknown mergeability' => [static function (ForgePullRequest $row): void { $row->mergeability = PullRequestMergeability::Unknown; }];
         yield 'conflicting' => [static function (ForgePullRequest $row): void { $row->mergeability = PullRequestMergeability::Conflicting; }];
         yield 'approved' => [static function (ForgePullRequest $row): void { $row->review = PullRequestReview::Approved; }];
+        yield 'approved on the head' => [static function (ForgePullRequest $row): void {
+            $row->review = PullRequestReview::Approved;
+            $row->coveredSha = self::HEAD_A;
+        }];
+        yield 'approved on an older commit with failed checks' => [static function (ForgePullRequest $row): void {
+            $row->review = PullRequestReview::Approved;
+            $row->coveredSha = self::HEAD_B;
+            $row->checks = PullRequestChecks::Failed;
+        }];
+        yield 'approved on an older commit as a draft' => [static function (ForgePullRequest $row): void {
+            $row->review = PullRequestReview::Approved;
+            $row->coveredSha = self::HEAD_B;
+            $row->draft = true;
+        }];
         yield 'changes requested on the head commit' => [static function (ForgePullRequest $row): void {
             $row->review = PullRequestReview::ChangesRequested;
             $row->changesRequestedSha = self::HEAD_A;
@@ -858,6 +872,31 @@ final class CardWaitReconcilerTest extends KernelTestCase
         $pullRequest->review = PullRequestReview::Approved;
         $this->em->flush();
 
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertSame(InboxItemState::Done, $watch->item->state);
+        self::assertSame(InboxCardWaitEndReason::Resolved, $this->onlyWait($watch)->endReason);
+    }
+
+    public function test_new_commits_after_the_approval_open_a_wait_that_a_new_approval_closes(): void
+    {
+        $pullRequest = $this->pullRequest(5);
+        $pullRequest->review = PullRequestReview::Approved;
+        $pullRequest->coveredSha = self::HEAD_B;
+        $this->em->flush();
+
+        $this->reconcile();
+
+        $watch = $this->onlyWatch();
+        self::assertSame(InboxItemState::Open, $watch->item->state);
+        self::assertSame('Pull request #5 has new commits after your approval (aaaaaaa)', $watch->item->body);
+        $wait = $this->onlyWait($watch);
+        self::assertSame(InboxCardWaitTrigger::PullRequestReady, $wait->trigger);
+        self::assertSame(self::HEAD_A, $wait->headSha);
+
+        $pullRequest->coveredSha = self::HEAD_A;
+        $this->em->flush();
         $this->reconcile();
 
         $watch = $this->onlyWatch();

@@ -69,8 +69,10 @@ class WorkerRun implements ProjectScopedSubject
 
     public const int MAX_EXPERIMENT_NAME_LENGTH = 64;
 
-    /** The name of an experiment or of one of its variants. */
-    public const string EXPERIMENT_NAME_PATTERN = '/^[a-z0-9][a-z0-9_-]{0,63}$/D';
+    /** The name of an experiment or of one of its variants, bare for a route requirement. */
+    public const string EXPERIMENT_NAME = '[a-z0-9][a-z0-9_-]{0,63}';
+
+    public const string EXPERIMENT_NAME_PATTERN = '/^'.self::EXPERIMENT_NAME.'$/D';
 
     /** The largest value of a smallint column. */
     public const int MAX_RESUME_COUNT = 32767;

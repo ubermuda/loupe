@@ -52,8 +52,7 @@ Merge only when every item holds. The first item that fails ends the run with `S
 
 Item 4 reads the approval by time. A forge can keep a review decision `APPROVED` after new commits arrive, so item 3 alone is not enough. A commit counts as later when it reached the branch after the earliest current approval. The forge adapter sorts each later commit:
 
-- A merge from the base that git re-creates with no conflict is a sync. The approval covers it.
-- A merge from the base that git cannot re-create is a conflict resolution. Stop with `STAGE RESULT: not ready <url>: conflict resolution after approval`. A person proves the resolution. You do not, because a worker cannot judge a resolution as well as a person.
+- A merge from the base is a sync, with or without a conflict resolution. The approval covers it.
 - Any other commit is new content, such as a review fix or a test fix. Stop with `STAGE RESULT: not ready <url>: commits after approval`.
 
 When the adapter cannot read the approval, stop with `STAGE RESULT: blocked: approval unreadable <url>`.

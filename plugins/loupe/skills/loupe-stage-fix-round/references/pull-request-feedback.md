@@ -124,6 +124,6 @@ m=$(git rev-parse --git-path merge-desc)
 git commit -F "$m" --cleanup=verbatim
 ```
 
-Put the resolution and nothing else in the merge commit. The owner's approval covers a sync, a rebase and a conflict resolution, but not new content. A fix for a check or a review goes in a later commit of its own, and it needs a new approval.
+Put the resolution and nothing else in the merge commit. The owner's approval covers a sync and a conflict resolution. It does not cover a rebase or new content. A fix for a check or a review goes in a later commit of its own, and it needs a new approval.
 
 Then run the gate, and push without force. Never merge or approve the pull request.
