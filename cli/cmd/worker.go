@@ -51,8 +51,8 @@ type workerResult struct {
 	err       error
 	// dir is the run directory, which the router removes once it reported.
 	dir string
-	// before says the rule's before command failed, so claude never ran and
-	// the run never resumes.
+	// before says the rule's before command failed, or the folder of a resume
+	// is gone, so claude never ran and the run never resumes.
 	before bool
 	// reported is the modelUsage claude printed, which counts the whole session.
 	// usage is what this process spent, and nil when unknown.

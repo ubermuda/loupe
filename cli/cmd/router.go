@@ -25,6 +25,7 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
+	"github.com/ubermuda/loupe/cli/internal/transcript"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
 
@@ -94,6 +95,9 @@ type router struct {
 	// findTranscript fails when this machine holds no transcript of the
 	// session. A nil one looks in the Claude Code config directory.
 	findTranscript func(sessionID string) error
+	// startDir is the folder a session started in, and "" when this machine
+	// holds no transcript of it. A nil one is transcriptStartDir.
+	startDir func(sessionID string) (string, error)
 
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
@@ -1059,6 +1063,15 @@ func (r *router) runAgent(p pending, began time.Time, beforeDir string) {
 	if !prepared {
 		began = time.Now()
 	}
+	if p.spec.resume {
+		var reason string
+		if p, reason = r.resumeDir(p); reason != "" {
+			failed := workerResult{exitCode: -1, output: reason, dir: beforeDir, before: true}
+			r.settle(p, endedRun{res: failed, began: began, elapsed: time.Since(began)})
+
+			return
+		}
+	}
 	onStart := func(proc workerProc) {
 		if !prepared {
 			began = time.Now()
@@ -1077,6 +1090,77 @@ func (r *router) runAgent(p pending, began time.Time, beforeDir string) {
 	// before command are what remains.
 	res.dir = cmp.Or(res.dir, beforeDir)
 	r.settle(p, endedRun{res: res, began: began, elapsed: time.Since(began)})
+}
+
+// resumeDir starts a resume in the folder its conversation started in, because
+// claude --resume finds the conversation only from there. When that folder is
+// gone, the run starts a new session in the folder it has, with the rule's
+// prompt. reason says why the run cannot start at all.
+func (r *router) resumeDir(p pending) (pending, string) {
+	lookup := r.startDir
+	if lookup == nil {
+		lookup = transcriptStartDir
+	}
+	recorded, err := lookup(p.spec.sessionID)
+	if err != nil {
+		r.log.Warn("resume_dir_unknown", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "error", err.Error())...)
+
+		return p, ""
+	}
+	if recorded == "" {
+		return p, ""
+	}
+	if info, err := os.Stat(recorded); err == nil && info.IsDir() {
+		p.spec.dir = recorded
+
+		return p, ""
+	}
+	gone := fmt.Sprintf("the conversation started in %s, which is gone", recorded)
+	// A person's resume carries nothing of the event that started the series,
+	// so the rule's prompt would hold its placeholders as text.
+	if p.event.Type == event.CommandType {
+		return p, gone + ", so the bridge cannot resume it"
+	}
+	r.mu.Lock()
+	m, ok := matchWorker(r.rules(), p.event, p.rule)
+	if !ok {
+		r.mu.Unlock()
+
+		return p, gone + ", and the rule no longer runs the event"
+	}
+	old := p.spec.sessionID
+	p.fresh, p.spec.resume, p.spec.sessionID, p.spec.prompt = true, false, r.worker.sessionID(), m.Prompt
+	if r.inbox {
+		p.spec.prompt += "\n" + directive.InboxLine(p.spec.sessionID, r.bridgeID)
+	}
+	if s, found := r.sessions[old]; found {
+		r.sessions[p.spec.sessionID] = s
+	}
+	r.mu.Unlock()
+	r.log.Warn("resume_dir_gone", append(about(p.event, p.rule),
+		"session_id", old, "new_session_id", p.spec.sessionID, "dir", p.spec.dir,
+		"message", gone+", so the bridge starts a new session",
+	)...)
+
+	return p, ""
+}
+
+// transcriptStartDir is the folder the session started in, from its transcript
+// in the Claude Code config directory, and "" when there is none.
+func transcriptStartDir(sessionID string) (string, error) {
+	dir, err := transcript.ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	path, err := transcript.Find(dir, sessionID)
+	if errors.Is(err, transcript.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return transcript.StartDir(path)
 }
 
 // prepare runs the before command of the run's rule in the project dir, in
