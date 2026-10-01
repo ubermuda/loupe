@@ -44,6 +44,15 @@ class CardAutomationRepository extends ServiceEntityRepository
         return $automation instanceof CardAutomation ? $automation : throw new \LogicException('The row exists after the insert.');
     }
 
+    /** Clears the queued Backlog move of the card when it is this one. A card with no row, or a deleted card, changes nothing. */
+    public function consumeAbandonedMoveToken(Card $card, Uuid $token): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE board_card_automations SET abandoned_move_token = NULL WHERE card_id = :card AND abandoned_move_token = :token',
+            ['card' => (string) $card->id, 'token' => $token->toRfc4122()],
+        );
+    }
+
     /**
      * @param list<Uuid> $cardIds
      *

@@ -1,0 +1,28 @@
+{#- The rows of one history page, then the frame that loads the next page. Props: history (CardHistoryView). -#}
+{% set project = history.card.project %}
+{% for entry in history.entries %}
+<div class="lp-card-history__entry" data-card-history-entry>
+    <span class="lp-card-history__icon" aria-hidden="true">{{ ux_icon(entry.icon, {class: 'w-4 h-4'}) }}</span>
+    <div class="lp-card-history__content">
+        <p class="lp-card-history__sentence">
+            {% if entry.run and entry.run.runId %}
+            <a class="lp-card-history__link" href="{{ path('app_project_worker_runs', {id: project.id, search: entry.run.runId}) }}" data-turbo-frame="_top" data-card-history-run="{{ entry.run.runId }}">{{ entry.sentence|trans }}</a>
+            {% else %}{{ entry.sentence|trans }}{% endif %}
+        </p>
+        {% if entry.cause %}<p class="lp-card-history__cause">{{ entry.cause|trans }}</p>{% endif %}
+        <p class="lp-card-history__meta">
+            <time datetime="{{ entry.occurredAt|date('c') }}">{{ entry.occurredAt|relative_time }}</time>
+            {% if entry.run %}
+            {% if entry.run.duration %}<span>{{ entry.run.duration }}</span>{% endif %}
+            {% if entry.run.interactive %}<span class="lp-tag lp-tag--neutral">{{ 'bridge.worker_runs.interactive'|trans }}</span>{% endif %}
+            <span class="lp-status-chip lp-status-chip--{{ entry.run.chipModifier }}">{{ entry.run.stateKey|trans }}</span>
+            {% endif %}
+        </p>
+    </div>
+</div>
+{% endfor %}
+{% if history.olderBeforeId is not null %}
+<turbo-frame id="card-history-older-{{ history.olderBeforeId }}" class="lp-card-history__older">
+    <a class="lp-workshop-text-link" href="{{ path('app_board_card_history', {projectId: project.id, cardId: history.card.id, before: history.olderBefore, beforeId: history.olderBeforeId}) }}" data-card-history-older>{{ 'board.card.history.show_older'|trans }}</a>
+</turbo-frame>
+{% endif %}
