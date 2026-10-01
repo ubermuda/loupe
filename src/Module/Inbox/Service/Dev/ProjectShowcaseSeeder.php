@@ -93,6 +93,9 @@ final readonly class ProjectShowcaseSeeder
     /** The title that says this project already holds the sync line cards. */
     public const string SYNC_MARKER_TITLE = 'Faster search indexing';
 
+    /** The title of the card whose approval covers an older head. */
+    public const string OUTDATED_APPROVAL_TITLE = 'Retry a declined payment';
+
     /**
      * A second run writes nothing but asks Loupe for the wait items again, so
      * a run after inbox.enabled goes on opens them.
@@ -119,10 +122,16 @@ final readonly class ProjectShowcaseSeeder
             $this->em->flush();
             $syncCards = array_map(static fn (Card $card): string => '/projects/'.$project->id.'/board/cards/'.$card->id, $cards);
         }
+        $outdatedCard = null;
+        if (!$this->cards->findOneBy(['project' => $project, 'title' => self::OUTDATED_APPROVAL_TITLE]) instanceof Card) {
+            $card = $this->seedOutdatedApproval($project);
+            $this->em->flush();
+            $outdatedCard = '/projects/'.$project->id.'/board/cards/'.$card->id;
+        }
 
         $enabled = $this->inbox->isEnabled();
         if (!$waitingCard instanceof Card) {
-            return new ShowcaseSeeding($written, false, $enabled, 0, $syncCards);
+            return new ShowcaseSeeding($written, false, $enabled, 0, $syncCards, $outdatedCard);
         }
         $cardId = $waitingCard->id ?? throw new \LogicException('A stored card has an id.');
         $this->cardWaits->reconcile($project, null);
@@ -133,6 +142,7 @@ final readonly class ProjectShowcaseSeeder
             $enabled,
             \count($this->inboxCardWatches->findOpenCardIds($project)),
             $syncCards,
+            $outdatedCard,
         );
     }
 
@@ -151,11 +161,7 @@ final readonly class ProjectShowcaseSeeder
         $settings->syncBehind = true;
         $this->em->persist($settings);
 
-        $columns = [];
-        foreach ($this->boardColumns->findForProject($project) as $column) {
-            $columns[$column->slug] = $column;
-        }
-        $column = $columns['in-review'] ?? $columns['in-progress'] ?? $columns['backlog'] ?? throw new \LogicException('The project has no backlog column.');
+        $column = $this->reviewColumn($project);
         $number = $this->cards->nextNumber($project);
         $cards = [];
         foreach ([self::SYNC_MARKER_TITLE, 'Retry a failed webhook', 'Paginate the activity feed', 'Cache the board columns', 'Rename the export archive'] as $offset => $title) {
@@ -171,6 +177,31 @@ final readonly class ProjectShowcaseSeeder
         $this->syncRow($cards[4], 456, PullRequestMergeability::Behind, '-1 hour')->syncFailedReason = 'permission';
 
         return $cards;
+    }
+
+    /** A pull request that passes every check, with an approval of a head before the last push. */
+    private function seedOutdatedApproval(Project $project): Card
+    {
+        $card = new Card(project: $project, column: $this->reviewColumn($project), title: self::OUTDATED_APPROVAL_TITLE, body: '', number: $this->cards->nextNumber($project), type: CardType::Feature);
+        $this->em->persist($card);
+
+        $state = $this->syncRow($card, 457, PullRequestMergeability::Mergeable, '-3 hours');
+        $state->checks = PullRequestChecks::Passed;
+        $state->approvalSha = $state->coveredSha = hash('sha1', 'atlas-457-old');
+        $state->uncoveredSha = $state->headSha;
+        $state->readyToMerge = false;
+
+        return $card;
+    }
+
+    private function reviewColumn(Project $project): BoardColumn
+    {
+        $columns = [];
+        foreach ($this->boardColumns->findForProject($project) as $column) {
+            $columns[$column->slug] = $column;
+        }
+
+        return $columns['in-review'] ?? $columns['in-progress'] ?? $columns['backlog'] ?? throw new \LogicException('The project has no backlog column.');
     }
 
     /** A pull request whose base is the default branch, approved on its head when $approvedAt is set. */
