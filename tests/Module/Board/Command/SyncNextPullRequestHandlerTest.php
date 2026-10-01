@@ -9,16 +9,13 @@ use App\Module\Board\Command\SyncNextPullRequestHandler;
 use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
-use App\Module\Board\Entity\CardAutomationAction;
 use App\Module\Board\Entity\CardEvent;
-use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardEventRepository;
-use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\SyncLine;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -34,7 +31,6 @@ use App\Tests\Module\Board\FakePullRequestBranchUpdater;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
@@ -68,11 +64,10 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         $this->settings(enabled: true, syncBehind: true);
     }
 
-    public function test_it_syncs_the_next_pull_request_and_marks_its_cards(): void
+    public function test_it_asks_the_forge_to_sync_the_next_pull_request_and_leaves_its_cards_to_the_read_that_confirms_it(): void
     {
         $pullRequest = $this->behind(5);
         $card = $this->linkedCard(5);
-        $doneCard = $this->linkedCard(5, 'done');
 
         $this->handle();
 
@@ -84,17 +79,8 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         self::assertEquals($this->clock->now(), $pullRequest->syncRequestedAt);
         self::assertNull($pullRequest->syncFailedReason);
 
-        $automation = $this->automationOf($card);
-        self::assertNotNull($automation);
-        self::assertSame(CardAutomationAction::Synced, $automation->lastAction);
-        self::assertEquals($this->clock->now(), $automation->lastActionAt);
-        $events = $this->cardEvents($card);
-        self::assertCount(1, $events);
-        self::assertSame(CardEventKind::Synced, $events[0]->kind);
-        self::assertSame(['pullRequest' => 5], $events[0]->detail);
-
-        self::assertNull($this->automationOf($doneCard));
-        self::assertSame([], $this->cardEvents($doneCard));
+        self::assertNull($this->automationOf($card));
+        self::assertSame([], $this->cardEvents($card));
     }
 
     public function test_a_marker_queues_a_pass_for_after_it_expires(): void
@@ -135,18 +121,6 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         self::assertSame([], $this->queuedPasses());
         $this->em->refresh($pullRequest);
         self::assertNull($pullRequest->syncFromSha);
-    }
-
-    public function test_a_card_that_links_the_pull_request_twice_hears_once(): void
-    {
-        $this->behind(5);
-        $card = $this->linkedCard(5);
-        $this->em->persist(new CardPullRequest($card, 'https://github.com/acme/widgets/pull/5', Forge::GitHub, 'acme/widgets', 5));
-        $this->em->flush();
-
-        $this->handle();
-
-        self::assertCount(1, $this->cardEvents($card));
     }
 
     public function test_a_permanent_failure_on_the_same_head_records_the_cause(): void
@@ -416,11 +390,7 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
             boardAutomationSettings: $this->service(BoardAutomationSettingsRepository::class),
             forgePullRequests: $this->service(ForgePullRequestRepository::class),
             updaters: new PullRequestBranchUpdaters([$this->updater]),
-            cardPullRequests: $this->service(CardPullRequestRepository::class),
-            cardAutomations: $this->service(CardAutomationRepository::class),
-            cardEvents: $this->service(CardEventRepository::class),
             em: $this->em,
-            events: $this->service(EventDispatcherInterface::class),
             clock: $this->clock,
             logger: new NullLogger(),
             bus: $this->service(MessageBusInterface::class),

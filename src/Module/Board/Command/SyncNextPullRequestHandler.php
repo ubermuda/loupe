@@ -4,17 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardAutomationAction;
-use App\Module\Board\Entity\CardEventKind;
-use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\Forge;
-use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
-use App\Module\Board\Repository\CardAutomationRepository;
-use App\Module\Board\Repository\CardEventRepository;
-use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\SyncLine;
 use App\Module\Forge\Entity\ForgePullRequest;
@@ -26,7 +17,6 @@ use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
-use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -53,11 +43,7 @@ final readonly class SyncNextPullRequestHandler
         private BoardAutomationSettingsRepository $boardAutomationSettings,
         private ForgePullRequestRepository $forgePullRequests,
         private PullRequestBranchUpdaters $updaters,
-        private CardPullRequestRepository $cardPullRequests,
-        private CardAutomationRepository $cardAutomations,
-        private CardEventRepository $cardEvents,
         private EntityManagerInterface $em,
-        private EventDispatcherInterface $events,
         private ClockInterface $clock,
         private LoggerInterface $logger,
         private MessageBusInterface $bus,
@@ -114,8 +100,8 @@ final readonly class SyncNextPullRequestHandler
             throw new RecoverableMessageHandlingException($e->getMessage(), 0, $e, retryDelay: min($e->retryAfterSeconds, self::MAX_RETRY_DELAY_SECONDS) * 1000, forceRetry: false);
         }
 
-        $this->recordOnCards($pullRequest, $command->projectId);
-        $this->logger->info('board.pull_request_synced', [
+        // GitHub accepts the update before the merge commit exists, so a later read records the sync on the cards.
+        $this->logger->info('board.pull_request_sync_requested', [
             'pullRequestId' => (string) $id,
             'projectId' => (string) $command->projectId,
             'forge' => $pullRequest->forge,
@@ -186,44 +172,5 @@ final readonly class SyncNextPullRequestHandler
             return true;
         });
         $this->logger->warning('board.pull_request_sync_failed', ['pullRequestId' => (string) $id, 'fromSha' => $sha, 'cause' => $cause, 'recorded' => $recorded]);
-    }
-
-    private function recordOnCards(ForgePullRequest $pullRequest, Uuid $projectId): void
-    {
-        $forge = Forge::tryFrom($pullRequest->forge);
-        if (null === $forge) {
-            return;
-        }
-
-        /** @var array<string, Card> $cards */
-        $cards = [];
-        foreach ($this->cardPullRequests->findForPullRequest($projectId, $forge, $pullRequest->repository, $pullRequest->number) as $link) {
-            if (!$link->card->column->terminal) {
-                $cards[(string) $link->card->id] ??= $link->card;
-            }
-        }
-        if ([] === $cards) {
-            return;
-        }
-
-        $now = $this->clock->now();
-        $this->em->wrapInTransaction(function () use ($cards, $pullRequest, $now): void {
-            foreach ($cards as $card) {
-                $automation = $this->cardAutomations->findOrCreateForUpdate($card);
-                $automation->lastAction = CardAutomationAction::Synced;
-                $automation->lastActionAt = $now;
-                $this->cardEvents->record($card, CardEventKind::Synced, CardReporter::System, null, ['pullRequest' => $pullRequest->number], $now);
-                $this->em->flush();
-            }
-        });
-
-        foreach ($cards as $card) {
-            $this->events->dispatch(new CardChanged(
-                $projectId,
-                $card->id ?? throw new \LogicException('A linked card has an id.'),
-                CardChanged::UPDATED,
-                false,
-            ));
-        }
     }
 }
