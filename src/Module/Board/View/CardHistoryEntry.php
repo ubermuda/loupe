@@ -168,7 +168,7 @@ final readonly class CardHistoryEntry
         if (!\is_array($cause)) {
             return null;
         }
-        // Removed links and column changes finish no single blocker to name.
+        // A removed link or a column change names no single blocker.
         if ('unblocked' === ($cause['type'] ?? null) && !\array_key_exists('blocker', $cause)) {
             return new TranslatableMessage('board.card.history.cause.unblocked_any');
         }

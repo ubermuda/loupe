@@ -5942,7 +5942,7 @@
             <trans-unit id="board.card.history.cause.document_approved"><source>board.card.history.cause.document_approved</source><target>After the document %document% was approved.</target></trans-unit>
             <trans-unit id="board.card.history.cause.epic_reconciled"><source>board.card.history.cause.epic_reconciled</source><target>After its child card #%child% changed.</target></trans-unit>
             <trans-unit id="board.card.history.cause.unblocked"><source>board.card.history.cause.unblocked</source><target>After #%blocker% finished.</target></trans-unit>
-            <trans-unit id="board.card.history.cause.unblocked_any"><source>board.card.history.cause.unblocked_any</source><target>After its blockers finished.</target></trans-unit>
+            <trans-unit id="board.card.history.cause.unblocked_any"><source>board.card.history.cause.unblocked_any</source><target>After it had no open blocker left.</target></trans-unit>
             <trans-unit id="board.card.history.cause.abandoned"><source>board.card.history.cause.abandoned</source><target>After every pull request closed without a merge.</target></trans-unit>
             <trans-unit id="board.card.history.cause.run"><source>board.card.history.cause.run</source><target>Via the %rule% run.</target></trans-unit>
             <trans-unit id="board.card.history.cause.column_deleted"><source>board.card.history.cause.column_deleted</source><target>After the %column% column was deleted.</target></trans-unit>
