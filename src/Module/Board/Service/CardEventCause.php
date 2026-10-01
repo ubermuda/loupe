@@ -36,9 +36,10 @@ final readonly class CardEventCause
         return new self('epic-reconciled', ['child' => $childNumber]);
     }
 
-    public static function unblocked(int $blockerNumber): self
+    /** @param int|null $blockerNumber null when no single blocker move freed the card, such as a removed link */
+    public static function unblocked(?int $blockerNumber = null): self
     {
-        return new self('unblocked', ['blocker' => $blockerNumber]);
+        return new self('unblocked', null === $blockerNumber ? [] : ['blocker' => $blockerNumber]);
     }
 
     public static function abandoned(): self

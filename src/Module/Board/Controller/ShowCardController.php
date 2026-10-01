@@ -44,6 +44,7 @@ final class ShowCardController extends AppController
             'relatedCards' => $view->relatedCards,
             'children' => $view->children,
             'progress' => $view->progress,
+            'heldBy' => $view->heldBy,
             'pullRequestStates' => $view->pullRequestStates,
             'history' => $view->history,
         ]);

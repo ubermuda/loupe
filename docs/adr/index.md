@@ -20,3 +20,4 @@ A record has these sections:
 ## Records
 
 - [0001: Let the app do mechanical work, not a bridge worker](0001-app-over-worker.md)
+- [0002: Keep the stage skills generic, and let bridge rules set up the environment](0002-generic-stage-skills.md)

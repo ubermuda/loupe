@@ -4,10 +4,19 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Service;
 
+use App\Exception\DomainErrors;
 use App\Mercure\LiveUpdatePublisher;
 use App\Mercure\LiveUpdates;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Command\AcknowledgeBridgeCommandCommand;
+use App\Module\Bridge\Command\AcknowledgeBridgeCommandHandler;
+use App\Module\Bridge\Command\CancelBridgeCommandCommand;
+use App\Module\Bridge\Command\CancelBridgeCommandHandler;
+use App\Module\Bridge\Command\ExpireBridgeCommandsCommand;
+use App\Module\Bridge\Command\ExpireBridgeCommandsHandler;
+use App\Module\Bridge\Command\RecordBridgeHeartbeatCommand;
+use App\Module\Bridge\Command\RecordBridgeHeartbeatHandler;
 use App\Module\Bridge\Command\ReportBridgeRunsCommand;
 use App\Module\Bridge\Command\ReportBridgeRunsHandler;
 use App\Module\Bridge\Command\ReportSessionUsageCommand;
@@ -17,10 +26,18 @@ use App\Module\Bridge\Command\ReportWorkerRunHandler;
 use App\Module\Bridge\Command\ReportWorkerRunStateCommand;
 use App\Module\Bridge\Command\ReportWorkerRunStateHandler;
 use App\Module\Bridge\Command\ReportWorkerRunStateResult;
+use App\Module\Bridge\Command\RequestBridgeCommandCommand;
+use App\Module\Bridge\Command\RequestBridgeCommandHandler;
+use App\Module\Bridge\Command\SetBridgePauseCommand;
+use App\Module\Bridge\Command\SetBridgePauseHandler;
+use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Scheduler\TimeOutQuietWorkerRunsTask;
 use App\Module\Bridge\Service\InteractiveRuns;
 use App\Module\Bridge\Service\WorkerRunChangedPublisher;
+use App\Module\Bridge\ValueObject\BridgeCommandKind;
+use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\HeldRunKey;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
@@ -292,6 +309,105 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         self::assertEqualsCanonicalizing([[$this->runTopic($this->project)], [$this->runTopic($other)]], $topics);
     }
 
+    public function test_a_command_request_publishes_and_a_refusal_does_not(): void
+    {
+        $run = $this->commandRun();
+        $request = $this->service(RequestBridgeCommandHandler::class);
+
+        $request(new RequestBridgeCommandCommand($run, BridgeCommandKind::StopRun, $this->owner));
+        $this->assertRunsChangedAtTerminate([$this->project]);
+
+        try {
+            $request(new RequestBridgeCommandCommand($run, BridgeCommandKind::StopRun, $this->owner));
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors) {
+        }
+        $this->assertRunsChangedAtTerminate([$this->project]);
+    }
+
+    public function test_a_cancel_publishes_and_a_refused_cancel_does_not(): void
+    {
+        $run = $this->commandRun();
+        $this->seedCommand($this->em(), $run);
+        $cancel = $this->service(CancelBridgeCommandHandler::class);
+
+        $cancel(new CancelBridgeCommandCommand($run, $this->owner));
+        $this->assertRunsChangedAtTerminate([$this->project]);
+
+        try {
+            $cancel(new CancelBridgeCommandCommand($run, $this->owner));
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors) {
+        }
+        $this->assertRunsChangedAtTerminate([$this->project]);
+    }
+
+    public function test_an_ack_publishes_only_when_it_settles_the_command(): void
+    {
+        $command = $this->seedCommand($this->em(), $this->commandRun());
+        $ack = new AcknowledgeBridgeCommandCommand($this->owner, $command->bridgeId, $command->id ?? throw new \LogicException('The command has no id.'), BridgeCommandState::Done, null);
+        $handler = $this->service(AcknowledgeBridgeCommandHandler::class);
+
+        self::assertTrue($handler($ack)->settled);
+        $this->assertRunsChangedAtTerminate([$this->project]);
+
+        self::assertFalse($handler($ack)->settled);
+        $this->assertRunsChangedAtTerminate([$this->project]);
+    }
+
+    public function test_the_expiry_sweep_publishes_once_per_project_with_an_expired_command(): void
+    {
+        $other = $this->project($this->em(), $this->owner, 'Run publish expiry');
+        $quiet = $this->project($this->em(), $this->owner, 'Run publish quiet');
+        $due = new \DateTimeImmutable('2026-09-23 11:00:00');
+        foreach ([$this->project, $this->project, $other] as $project) {
+            $this->seedCommand($this->em(), $this->seedRun($this->em(), $project), requestedAt: $due->modify('-15 minutes'), expiresAt: $due);
+        }
+        $this->seedCommand($this->em(), $this->seedRun($this->em(), $quiet), requestedAt: $due, expiresAt: new \DateTimeImmutable('2026-09-23 12:30:00'));
+
+        self::assertSame(3, $this->service(ExpireBridgeCommandsHandler::class)(new ExpireBridgeCommandsCommand()));
+
+        $this->assertRunsChangedAtTerminate([$this->project, $other]);
+
+        self::assertSame(0, $this->service(ExpireBridgeCommandsHandler::class)(new ExpireBridgeCommandsCommand()));
+        $this->assertRunsChangedAtTerminate([$this->project, $other]);
+    }
+
+    public function test_a_heartbeat_publishes_on_the_owned_projects_when_the_reported_pause_changes(): void
+    {
+        $stranger = $this->user($this->em(), 'run-publish-heartbeat-stranger@example.com');
+        $foreign = $this->project($this->em(), $stranger, 'Run publish foreign');
+        $bridge = $this->seedBridge($this->em(), $this->owner, projects: [(string) $this->project->id]);
+        $bridge->pausedReported = false;
+        $this->em()->flush();
+        $heartbeat = fn (?bool $paused) => $this->service(RecordBridgeHeartbeatHandler::class)(new RecordBridgeHeartbeatCommand(
+            $this->owner, $bridge->id, [(string) $this->project->id, (string) $foreign->id], 'b4e39aa7', paused: $paused,
+        ));
+
+        $heartbeat(true);
+        $this->assertRunsChangedAtTerminate([$this->project]);
+
+        $heartbeat(true);
+        $heartbeat(null);
+        $this->assertRunsChangedAtTerminate([$this->project]);
+    }
+
+    public function test_a_pause_change_publishes_on_the_owned_projects_of_the_bridge(): void
+    {
+        $stranger = $this->user($this->em(), 'run-publish-pause-stranger@example.com');
+        $foreign = $this->project($this->em(), $stranger, 'Run publish pause foreign');
+        $bridge = $this->seedBridge($this->em(), $this->owner, projects: [(string) $this->project->id, (string) $foreign->id]);
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $this->em()->flush();
+        $pause = fn (bool $paused) => $this->service(SetBridgePauseHandler::class)(new SetBridgePauseCommand($this->owner, $bridge->id, $paused, $this->owner));
+
+        $pause(true);
+        $this->assertRunsChangedAtTerminate([$this->project]);
+
+        $pause(true);
+        $this->assertRunsChangedAtTerminate([$this->project]);
+    }
+
     public function test_with_live_updates_off_it_neither_builds_the_hub_nor_publishes(): void
     {
         $log = new TestHandler();
@@ -367,6 +483,15 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         ));
     }
 
+    private function commandRun(): WorkerRun
+    {
+        $bridge = $this->seedBridge($this->em(), $this->owner);
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $this->em()->flush();
+
+        return $this->seedRun($this->em(), $this->project, bridgeId: $bridge->id, state: WorkerRunState::Running);
+    }
+
     private function finishedRun(Uuid $cardId): ReportWorkerRunCommand
     {
         return new ReportWorkerRunCommand(
@@ -423,6 +548,31 @@ final class WorkerRunChangedPublisherTest extends KernelTestCase
         $this->dispatcher()->dispatch(new TerminateEvent(self::$kernel, Request::create('/'), new Response()), KernelEvents::TERMINATE);
 
         self::assertCount($expected, $this->published);
+    }
+
+    /**
+     * Ends the request, then compares the run pages told so far. Other topics,
+     * such as the activity feed an outbox write tells, do not count.
+     *
+     * @param list<Project> $projects
+     */
+    private function assertRunsChangedAtTerminate(array $projects): void
+    {
+        self::assertNotNull(self::$kernel);
+        $this->dispatcher()->dispatch(new TerminateEvent(self::$kernel, Request::create('/'), new Response()), KernelEvents::TERMINATE);
+
+        $runsChanged = array_values(array_filter(
+            $this->published,
+            static fn (Update $update): bool => str_contains($update->getData(), '"type":"'.WorkerRunChangedPublisher::TYPE.'"'),
+        ));
+        foreach ($runsChanged as $update) {
+            self::assertTrue($update->isPrivate());
+            self::assertSame('{"type":"worker_run.changed","origin":null}', $update->getData());
+        }
+        self::assertEqualsCanonicalizing(
+            array_map($this->runTopic(...), $projects),
+            array_map(static fn (Update $update): string => $update->getTopics()[0], $runsChanged),
+        );
     }
 
     private function assertSignalsTheProject(Update $update): void

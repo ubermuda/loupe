@@ -13,13 +13,18 @@ import (
 // another whenever the server forgets the session.
 func dialLoupe(endpoint string, hc *http.Client) mcpproxy.Dial {
 	return func(ctx context.Context) (mcp.Connection, error) {
-		return (&mcp.StreamableClientTransport{
-			Endpoint:   endpoint,
-			HTTPClient: hc,
-			// Loupe answers a GET on the endpoint with 405, so there is no
-			// standalone event stream to listen on. Asking for one costs a
-			// failed request per session.
-			DisableStandaloneSSE: true,
-		}).Connect(ctx)
+		return loupeTransport(endpoint, hc).Connect(ctx)
+	}
+}
+
+// loupeTransport is the client transport for one connection to endpoint.
+func loupeTransport(endpoint string, hc *http.Client) *mcp.StreamableClientTransport {
+	return &mcp.StreamableClientTransport{
+		Endpoint:   endpoint,
+		HTTPClient: hc,
+		// Loupe answers a GET on the endpoint with 405, so there is no
+		// standalone event stream to listen on. Asking for one costs a
+		// failed request per session.
+		DisableStandaloneSSE: true,
 	}
 }

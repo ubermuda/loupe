@@ -1,0 +1,158 @@
+{# twig-cs-fixer-disable TranslationKey #}
+{%- set instance = url('app_home')|trim('/', 'right') -%}
+{%- set id = projectId ?? '<project id>' -%}
+{%- autoescape false -%}
+# Set up Loupe
+
+These steps set up Loupe at {{ instance }} for the current repository. Do the steps in order. Stop and ask the user when a step needs them. Never invent or write a token, a password or a URL that the user did not give you.
+
+## 1. Pick your section
+
+Steps 6 and 7 are different for each agent. Read the section for the agent you run in: Claude Code or Codex. If you are not sure which agent you are, ask the user.
+
+## 2. Check the operating system
+
+The `loupe` CLI runs on macOS and Linux, on amd64 and arm64. It has no Windows build. If this machine runs Windows, stop and tell the user this.
+
+## 3. Install the CLI
+
+Run `loupe version`. If it prints a version, go to step 4.
+
+If it fails, install the CLI with the install script of this Loupe. Run:
+
+```bash
+curl -fsSL {{ instance }}/install.sh | LOUPE_INSTALL_NO_TTY=1 sh
+```
+
+`LOUPE_INSTALL_NO_TTY=1` stops the script from asking questions. It installs the latest CLI release, into `~/.local/bin` unless `~/bin` is on the `PATH`. It checks the download against `checksums.txt` before it installs anything. It prints `Installed loupe <version> at <path>.` when it succeeds. If it fails, stop and show the output to the user.
+
+After `Installed loupe`, the script prints the state of automatic updates, and the command that changes it. Show those lines to the user.
+
+The MCP server starts as `loupe mcp`, so the directory of `loupe` must be on the `PATH` of the agent. If the script prints `is not on your PATH`, show the user the line it prints, and ask them to add it to their shell profile and restart the agent from a new terminal. Then stop. Run `loupe version` again. It must print a version.
+
+## 4. Sign in
+
+The CLI keeps one sign-in, in `config.json` in its configuration directory. That file holds the tokens of the sign-in, so never print it or read it whole. This command prints only the instance of the sign-in, and whether it has a token:
+
+```bash
+if [ "$(uname -s)" = Darwin ]; then f="$HOME/Library/Application Support/loupe/config.json"; else f="${XDG_CONFIG_HOME:-$HOME/.config}/loupe/config.json"; fi
+if [ -f "$f" ]; then
+  grep -o '"baseUrl": *"[^"]*"' "$f"
+  if grep -q '"refreshToken": *"[^"]' "$f"; then echo "token: yes"; else echo "token: no"; fi
+else
+  echo "no sign-in"
+fi
+```
+
+If it prints `"baseUrl": "{{ instance }}"` and `token: yes`, go to step 5. If it prints `no sign-in` or `token: no`, sign in as below. If it names another instance, a new sign-in replaces that one, so ask the user before you continue. If a later step says `not logged in`, come back to this step.
+
+`loupe login` waits until the user approves the sign-in in a browser. Start it in the background, with its output in a log file. `nohup` keeps it alive when your shell call ends:
+
+```bash
+nohup loupe login --url {{ instance }} > /tmp/loupe-login.log 2>&1 &
+```
+
+Read `/tmp/loupe-login.log` until it shows a page URL and a code. Show both to the user, and ask them to open the page, check the code and choose Allow. Then read the log again until the command ends. It ends with `Logged in. Tokens saved.` If it ends with an error, show the error to the user and stop.
+
+## 5. Bind the repository
+
+Run the commands in this step and the next steps from the root of the repository.
+
+{% if projectId -%}
+The project id is `{{ id }}`.
+
+If `.loupe.yaml` exists, read it. When its `project` is `{{ id }}`, the file is correct. In Codex, go to step 7. In Claude Code, still run the command below, because it keeps the file and declares the server. When its `project` is another id, ask the user before you replace it. Add `--force` to the command below only when the user agrees.
+
+In Claude Code, run:
+
+```bash
+loupe init --project {{ id }} --mcp < /dev/null
+```
+
+In Codex, run:
+
+```bash
+loupe init --project {{ id }} --no-mcp < /dev/null
+```
+{%- else -%}
+Nobody gave a project id, so find it. If `.loupe.yaml` exists, it already names the project. Use its `project` value as the project id, and do not run the command below.
+
+Run:
+
+```bash
+loupe init --no-mcp < /dev/null
+```
+
+The output tells you what to do next:
+
+- `Your login covers one project` means the command wrote `.loupe.yaml`. Use its `project` value as the project id.
+- `Which project does this repository belong to?` comes before a list of projects, each with its id. Show the list to the user and ask which project to use. Then run `loupe init --project <project id> --no-mcp < /dev/null`, with the chosen id in place of `<project id>`.
+- `your login covers no project` means the user has no project yet. Ask the user to create a project at {{ instance }} in a browser, and stop.
+
+In Claude Code, then run:
+
+```bash
+loupe init --mcp < /dev/null
+```
+{%- endif %}
+
+
+In Claude Code, `--mcp` declares the `loupe` MCP server at user scope. Never use `--mcp-json`. If the output contains `Left it.`, another server already has the name `loupe`. Show the output to the user and ask whether to run the command it names. When the user agrees, run that command, then run the `loupe init` command for Claude Code again.
+
+## 6. Claude Code only
+
+Step 5 declared the MCP server. Install the Loupe skills:
+
+```bash
+claude plugin marketplace add ubermuda/loupe
+claude plugin install loupe@loupe
+```
+
+Go to step 8.
+
+## 7. Codex only
+
+Run `codex mcp get loupe`. If it prints a server, Codex already has a server named `loupe`. Show it to the user, and ask before you replace it. If the user does not agree, skip the command below.
+
+Declare the MCP server with the project id:
+{% if not projectId %}
+
+Replace `<project id>` with the project id from step 5 before you run the command. Do not type the angle brackets.
+{% endif %}
+
+```bash
+codex mcp add loupe -- loupe mcp --project {{ id }}
+```
+
+Codex keeps one `loupe` declaration for every repository, and it names this project. Tell the user this. A repository of another project needs the declaration changed to that project, and every repository then connects to that project, this one included.
+
+Copy the Loupe skills into `~/.agents/skills/`:
+
+```bash
+source=$(mktemp -d)
+git clone --depth 1 https://github.com/ubermuda/loupe.git "$source/loupe"
+mkdir -p ~/.agents/skills
+for skill in "$source"/loupe/plugins/loupe/skills/*/; do
+  name=$(basename "$skill")
+  if [ -e ~/.agents/skills/"$name" ]; then echo "exists: $name"; else cp -R "${skill%/}" ~/.agents/skills/"$name"; fi
+done
+```
+
+The loop does not replace a skill that exists. For each `exists:` line, ask the user before you replace that skill.
+
+## 8. Check
+
+Run `loupe status`. It asks Loupe for the current project and prints its name. It checks the sign-in and the project of this repository. It does not check the command that your agent starts, so step 9 is still necessary.
+
+If the command is unknown, run `loupe update`, then run `loupe status` again. If it is still unknown, skip this step.
+
+If `loupe status` fails, show its output to the user and stop.
+
+## 9. Finish
+
+Tell the user to restart the agent, because an agent reads its MCP servers when it starts. The new session does not see these steps, so give the user this prompt to paste into it:
+
+```text
+Call the Loupe tool project_current, then run `loupe status` in this repository. Tell me both project names. If they differ, tell me that the agent starts the Loupe MCP server for another project.
+```
+{% endautoescape %}

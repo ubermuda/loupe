@@ -7,9 +7,11 @@ namespace App\Module\Bridge\Twig;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Repository\WorkerRunUsageRepository;
+use App\Module\Bridge\Service\CardHolds;
 use App\Module\Bridge\Service\CardRunWarnings;
 use App\Module\Bridge\View\CardRunWarning;
 use App\Module\Bridge\View\CardUsageTotal;
+use App\Module\Bridge\View\WorkerRunControls;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Module\Project\Entity\Project;
 use Psr\Clock\ClockInterface;
@@ -30,6 +32,8 @@ final class CardWorkerRunsExtension extends AbstractExtension
         private readonly WorkerRunUsageRepository $workerRunUsages,
         private readonly ClockInterface $clock,
         private readonly CardRunWarnings $runWarnings,
+        private readonly WorkerRunControls $controls,
+        private readonly CardHolds $cardHolds,
     ) {
     }
 
@@ -41,6 +45,7 @@ final class CardWorkerRunsExtension extends AbstractExtension
             new TwigFunction('card_run_warnings', $this->cardRunWarnings(...)),
             new TwigFunction('card_run_warning', $this->cardRunWarning(...)),
             new TwigFunction('card_usage_total', $this->cardUsageTotal(...)),
+            new TwigFunction('card_held', $this->cardHeld(...)),
         ];
     }
 
@@ -63,12 +68,19 @@ final class CardWorkerRunsExtension extends AbstractExtension
         }
 
         $now = $this->clock->now();
+        $runs = $this->workerRuns->findOpenForCard($project, Uuid::fromString($cardId), self::LIMIT);
+        $controls = $this->controls->forRuns($project, $runs);
 
         return array_map(
             // The card page shows neither history nor its own title, so it loads none.
-            static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, [], null),
-            $this->workerRuns->findOpenForCard($project, Uuid::fromString($cardId), self::LIMIT),
+            static fn (WorkerRun $run): WorkerRunListItem => new WorkerRunListItem($run, $now, [], null, $controls[(string) $run->id] ?? null),
+            $runs,
         );
+    }
+
+    public function cardHeld(Project $project, string $cardId): bool
+    {
+        return Uuid::isValid($cardId) && $this->cardHolds->isHeld($project, Uuid::fromString($cardId));
     }
 
     /** Every run of the card counts, the finished ones too. */

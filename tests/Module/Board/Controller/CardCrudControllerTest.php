@@ -452,7 +452,7 @@ final class CardCrudControllerTest extends WebTestCase
         $row = $crawler->filter('[data-card-runs] [data-card-run="'.$runId.'"]');
         self::assertSame('/projects/'.$project->id.'/worker-runs?search='.$runId, $row->attr('href'));
         self::assertStringContainsString('queued rule', $row->text());
-        self::assertSame('Queued', $row->filter('.lp-status-chip')->text());
+        self::assertSame('Queued', $crawler->filter('[data-card-run-row="'.$runId.'"] .lp-status-chip')->text());
         self::assertSame('Runs in progress', $crawler->filter('[data-card-runs] h2')->text());
         // The run reported no usage, so the total says so rather than show $0.00.
         self::assertSame('Total usage Usage unknown', $crawler->filter('[data-card-runs] [data-card-usage-total]')->text());

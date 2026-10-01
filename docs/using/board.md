@@ -372,6 +372,10 @@ resets the fix count when a person moves the card to another column, when the
 checks pass, or when a reviewer approves or requests changes. A card in a
 terminal column shows no block.
 
+When an approval did not move the card because a blocker is open, the page says
+**Approved, and waits for its blockers:** and links to each open blocker. See
+[An approval waits for open blockers](#an-approval-waits-for-open-blockers).
+
 The card page and the drawer show the state from when they opened. Reload the
 page to see a newer state. The board tiles update by themselves.
 
@@ -379,7 +383,23 @@ The page also lists up to five agent runs of the card that are still in
 progress, with the rule that started each run, when it started and its state.
 A run opens its details on the **Runs** tab of the Activity page. A finished
 run leaves this list, and the **Run history** link shows it. A card with no
-run in progress and no usage shows no runs section.
+run in progress, no usage and no hold shows no runs section.
+The project owner can stop a run in progress, or cancel a stop that still
+waits for the bridge, from this list. Resume a finished run on the **Runs**
+tab of the Activity page. See
+[Stop, resume and cancel](worker-runs.md#stop-resume-and-cancel).
+
+A stop of a run holds the card. The runs section then shows **Held: no worker
+starts on this card until you resume one of its runs in Run history, or move
+it.** No bridge starts a worker on a held card. These actions release the
+hold:
+
+- A person resumes one of the runs of the card.
+- A person moves the card to another column. A move by an agent or by the
+  automation keeps the hold, and so does a move inside the same column.
+- A person cancels the stop while it still waits for the bridge. This releases
+  only the hold that this stop wrote.
+- A person deletes the column of the card, or the card.
 
 The **History** tab lists what happened to the card, newest first, on a
 timeline. A row says who created the card and in which column, and who moved
@@ -789,6 +809,12 @@ the automation never acted on the card. `card_update`, `card_create`,
 carries `cardId`, `number`, `title`, `status` and `kind`, where `kind` is how
 this card reads the link. `card_search` does not carry `relatedCards`.
 
+`card_get` also returns `heldBy`, the open blocking cards that keep an approved
+card in its stage column. Each entry carries `cardId`, `number`, `title` and
+`status`. The list is empty when the card is not held. `card_create`,
+`card_update` and `card_run_open` return it too, and `card_list` does not. See
+[An approval waits for open blockers](#an-approval-waits-for-open-blockers).
+
 `card_get_history` reads what happened to one card, newest first. It pages the
 same way `card_list` does, with 50 events by default and 100 at most. Each event
 carries `kind`, `occurredAt` and `actor`.
@@ -848,6 +874,37 @@ The link is one-way. A document does not list the cards that point at it,
 because the module boundary runs one way: Board may read Review, and Review must
 not learn that cards exist.
 
+### An approval moves a card
+
+An approval of a stage document moves each linked card that sits in the column
+the stage starts from. A product design is a document with the tag `product`,
+and its approval moves a card from Product design to Tech design. A tech design
+is a document with the tags `design` and `decisions`, and its approval moves a
+card from Tech design to Implementation. A document with the tags of both stages
+moves no card.
+
+### An approval waits for open blockers
+
+An approval does not move a card while a card that blocks it is open. A blocker
+is open while it sits in a column that is not terminal. Only a `blocks` link
+counts, and a `relates-to` link holds nothing. The approval stays on the
+document, and the card stays in its column.
+
+The card moves on when it has no open blocker left:
+
+- The last open blocker moves into a terminal column.
+- A person or an agent removes the last blocking link, from either card, or
+  changes it to another kind or direction.
+- A person deletes the last open blocker.
+
+The card then moves to the column the stage leads to, as the app. It moves only
+while it still sits in the stage column and its document is still approved. A
+card that a person moved away since stays where it is.
+
+The card page names the open blockers, and `card_get` lists them under `heldBy`.
+The board tile and `card_list` do not show the hold. A move by a person or an
+agent is never held, so a card with an open blocker still moves by hand.
+
 ## Cards linked to a card
 
 A card links to other cards of the same project. From one card, each link reads
@@ -886,6 +943,11 @@ Loupe refuses the whole call, and changes nothing, for each of these:
 
 Deleting a card removes each link that touches it. Deleting a project removes
 every link of its board.
+
+An open `blocked-by` card keeps an approved card in its stage column. The card
+moves on when its last blocker reaches a terminal column, or when its last
+blocking link goes away. See
+[An approval waits for open blockers](#an-approval-waits-for-open-blockers).
 
 ## Review feedback on a card
 
