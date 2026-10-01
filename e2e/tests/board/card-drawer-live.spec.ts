@@ -1,8 +1,8 @@
 /**
- * Browser coverage for a card edited in the drawer while another session
- * changes it: the drawer warns before a save overwrites newer text, and shows
- * a card deleted elsewhere as deleted. The hub delivers both changes, so the
- * run needs a Mercure hub the browser can reach.
+ * Browser coverage for a card open in the drawer while another session
+ * changes it: the drawer warns before a save overwrites newer text, shows a
+ * card deleted elsewhere as deleted, and shows a move made elsewhere. The hub
+ * delivers each change, so the run needs a Mercure hub the browser can reach.
  */
 
 import { test, expect, type APIRequestContext } from '@playwright/test';
@@ -124,5 +124,68 @@ test('the drawer warns about a change made elsewhere, and shows a card deleted e
     ).toHaveCount(0);
 
     await editor.context().close();
+    await other.context().close();
+});
+
+test('the open drawer shows a move made elsewhere, on the tab the reader had open', async ({
+    browser,
+    request,
+}) => {
+    test.slow();
+    await setFlag(request, 'board.enabled', true);
+    await setFlag(request, 'live_updates.enabled', true);
+
+    const email = `e2e+drawermove+${RUN}@example.com`;
+    const registered = await request.post('/dev/register-and-verify', {
+        form: { fullName: 'E2E Drawer Move User', email, password: PASSWORD },
+    });
+    expect(registered.status()).toBe(200);
+
+    const reader = await signedInPage(browser, email, PASSWORD);
+    const seeded = await reader.request.post('/dev/seed/document', {
+        form: { title: 'E2E Drawer Move Project', markdown: '# Move' },
+    });
+    expect(seeded.status()).toBe(201);
+    const projectId = (await seeded.json()).projectId as string;
+    const boardUrl = `/projects/${projectId}/board`;
+
+    await reader.goto(`${boardUrl}/cards/new`);
+    await reader.getByLabel('Title', { exact: true }).fill('Moving card');
+    await reader.getByLabel('Column').selectOption({ label: 'Next' });
+    await reader
+        .getByRole('button', { name: 'Create card', exact: true })
+        .click();
+    await expect(
+        reader.getByRole('heading', { name: 'Moving card', exact: true }),
+    ).toBeVisible();
+    const cardUrl = new URL(reader.url()).pathname;
+
+    await reader.goto(boardUrl);
+    await expect(reader.locator('[data-board-live-connected]')).toHaveCount(1);
+    await reader
+        .locator('.lp-board-card[data-card-title="Moving card"]')
+        .getByRole('link')
+        .first()
+        .click();
+    const drawer = reader.locator('dialog.lp-card-drawer-overlay');
+    const identity = drawer.locator('.lp-card-drawer__identity');
+    await expect(identity).toContainText('Next');
+    await drawer.getByRole('tab', { name: 'History', exact: true }).click();
+
+    const other = await signedInPage(browser, email, PASSWORD);
+    await other.goto(cardUrl);
+    await other.getByRole('tab', { name: 'Details', exact: true }).click();
+    await other
+        .locator('.lp-card-move__form select[name$="[column]"]')
+        .selectOption({ label: 'In progress' });
+    await expect(other).toHaveURL(new RegExp(`${boardUrl}$`));
+
+    await expect(identity).toContainText('In progress');
+    await expect(
+        drawer.getByRole('tab', { name: 'History', exact: true }),
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(drawer.locator('#card-panel-history')).toBeVisible();
+
+    await reader.context().close();
     await other.context().close();
 });
