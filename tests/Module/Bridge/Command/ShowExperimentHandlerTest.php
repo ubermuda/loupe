@@ -327,6 +327,57 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         self::assertSame('b', $view->headline->cheaperVariant);
     }
 
+    public function test_a_metric_judges_the_floor_on_its_own_sample(): void
+    {
+        foreach (['a' => '2.000000', 'b' => '0.500000'] as $variant => $cost) {
+            for ($i = 0; $i < Stats::MIN_FINISHED_CARDS; ++$i) {
+                $card = Uuid::v7();
+                $run = $this->experimentRun($card, $variant, at: \sprintf('+%d hours', $i + 1));
+                if (0 === $i) {
+                    $this->seedUsage($this->em, $run, costUsd: $cost);
+                }
+                $this->outcomes[(string) $card] = new CardOutcome(
+                    merged: true,
+                    openedAt: 0 === $i ? new \DateTimeImmutable('2026-09-02 08:00:00') : null,
+                    mergedAt: 0 === $i ? new \DateTimeImmutable('2026-09-02 '.('a' === $variant ? '10' : '09').':00:00') : null,
+                );
+            }
+        }
+        $this->em->flush();
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        self::assertSame([5, 5], array_map(static fn (ExperimentVariant $variant): int => $variant->finishedCards, $view->variants));
+        // Five finished cards each, and one cost, one token count and one duration each.
+        self::assertEquals(new Interval(2.0, 2.0, 2.0), $view->metrics[ExperimentMetric::COST]->for('a'));
+        self::assertEquals(new Interval(0.5, 0.5, 0.5), $view->metrics[ExperimentMetric::COST]->for('b'));
+        self::assertFalse($view->metrics[ExperimentMetric::COST]->clear);
+        self::assertFalse($view->metrics[ExperimentMetric::OUTPUT_TOKENS]->clear);
+        self::assertEquals(new Interval(2.0, 2.0, 2.0), $view->metrics[ExperimentMetric::HOURS_TO_MERGE]->for('a'));
+        self::assertFalse($view->metrics[ExperimentMetric::HOURS_TO_MERGE]->clear);
+        // Every finished card is in the fix rounds sample, so the floor holds there.
+        self::assertTrue($view->metrics[ExperimentMetric::FIX_ROUNDS]->clear);
+        self::assertTrue($view->metrics[ExperimentMetric::MERGE_RATE]->clear);
+    }
+
+    public function test_a_variant_with_no_usage_has_no_total_cost(): void
+    {
+        $this->seedUsage($this->em, $this->experimentRun(Uuid::v7(), 'a'), costUsd: '0.000000');
+        $this->experimentRun(Uuid::v7(), 'b');
+        $this->em->persist(new ExperimentDefinition($this->project, self::EXPERIMENT, [['name' => 'a', 'weight' => 1], ['name' => 'b', 'weight' => 1], ['name' => 'c', 'weight' => 1]]));
+        $this->em->flush();
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        // A recorded zero stays a zero.
+        self::assertSame(['a' => 0, 'b' => null, 'c' => null], array_combine(
+            array_map(static fn (ExperimentVariant $variant): string => $variant->name, $view->variants),
+            array_map(static fn (ExperimentVariant $variant): ?int => $variant->costMicros, $view->variants),
+        ));
+    }
+
     public function test_a_single_variant_is_never_clear(): void
     {
         for ($i = 0; $i < 6; ++$i) {

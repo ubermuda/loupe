@@ -64,11 +64,14 @@ interval. A value per merged card uses a bootstrap of the mean. The bootstrap
 has a fixed seed, so a page shows the same range on each load.
 
 A metric compares the first two variants by name. It gives a clear answer when
-each of the two variants has at least 5 finished cards, and one of these is
-true:
+each of the two variants has at least 5 cards behind its value, and one of
+these is true:
 
 - The two ranges do not overlap.
 - The two values are within 10% of each other.
+
+A rate counts the finished cards. A value per merged card counts only the
+merged cards that have the value, such as a cost or the two times of a merge.
 
 A metric with no clear answer shows a **Too few cards** chip. An experiment
 with one variant never gives a clear answer.

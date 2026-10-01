@@ -72,6 +72,25 @@ final class ShowExperimentControllerTest extends WebTestCase
         self::assertSame('/projects/'.$projectId.'/worker-runs/experiments/model-test/cards?left-out=1', $leftOut->filter('a')->attr('href'));
     }
 
+    public function test_a_variant_with_no_usage_shows_no_cost(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'experiment-no-usage@example.com');
+        $project = $this->boardProject($em, $owner);
+        $this->seedUsage($em, $this->experimentRun($em, $project, $this->experimentCard($em, $project, 1), 'a'), costUsd: '1.000000');
+        $this->experimentRun($em, $project, $this->experimentCard($em, $project, 2), 'b');
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments/model-test');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('$1.00', $this->cells($crawler->filter('[data-experiment-variant="a"]'))[6]);
+        self::assertSame('–', $this->cells($crawler->filter('[data-experiment-variant="b"]'))[6]);
+    }
+
     public function test_an_unknown_experiment_is_not_found(): void
     {
         $client = static::createClient();

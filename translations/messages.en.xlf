@@ -5932,7 +5932,7 @@
             <trans-unit id="bridge.experiments.metrics.heading"><source>bridge.experiments.metrics.heading</source><target>Metrics</target></trans-unit>
             <trans-unit id="bridge.experiments.metrics.metric"><source>bridge.experiments.metrics.metric</source><target>Metric</target></trans-unit>
             <trans-unit id="bridge.experiments.metrics.likely_range"><source>bridge.experiments.metrics.likely_range</source><target>Likely range</target></trans-unit>
-            <trans-unit id="bridge.experiments.metrics.note"><source>bridge.experiments.metrics.note</source><target>The likely range holds the true value 95 times in 100. A metric is clear when the first two variants each have at least %count% finished cards and their ranges do not overlap, or their values are close.</target></trans-unit>
+            <trans-unit id="bridge.experiments.metrics.note"><source>bridge.experiments.metrics.note</source><target>The likely range holds the true value 95 times in 100. A metric is clear when the first two variants each have at least %count% cards behind the value and their ranges do not overlap, or their values are close.</target></trans-unit>
             <trans-unit id="bridge.experiments.metric.merge-rate"><source>bridge.experiments.metric.merge-rate</source><target>Merge rate</target></trans-unit>
             <trans-unit id="bridge.experiments.metric.stop-rate"><source>bridge.experiments.metric.stop-rate</source><target>Stop rate</target></trans-unit>
             <trans-unit id="bridge.experiments.metric.fix-rounds"><source>bridge.experiments.metric.fix-rounds</source><target>Fix rounds per merged card</target></trans-unit>

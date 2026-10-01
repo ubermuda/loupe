@@ -140,7 +140,7 @@ final readonly class ShowExperimentHandler
                 cards: \count($rows),
                 finishedCards: $finished[$name],
                 runs: array_sum(array_map(static fn (array $row): int => \count($row['runs']), $rows)),
-                costMicros: array_sum(array_map(static fn (array $row): int => $row['costMicros'] ?? 0, $rows)),
+                costMicros: self::totalCost($rows),
             );
         }
 
@@ -174,6 +174,18 @@ final readonly class ShowExperimentHandler
             variantFilter: $command->variant,
             leftOutOnly: $command->leftOutOnly,
         );
+    }
+
+    /**
+     * Null when no kept card reported usage, so the table does not show a cost of zero.
+     *
+     * @param list<array{costMicros: ?int}> $rows
+     */
+    private static function totalCost(array $rows): ?int
+    {
+        $costs = array_filter(array_column($rows, 'costMicros'), static fn (?int $cost): bool => null !== $cost);
+
+        return [] === $costs ? null : array_sum($costs);
     }
 
     /**
@@ -227,25 +239,28 @@ final readonly class ShowExperimentHandler
         $reasons = array_map(strval(...), array_keys($reasons));
         sort($reasons, \SORT_STRING);
 
-        $metric = static function (string $key, callable $interval, array $parts = []) use ($variantNames, $finished): ExperimentMetric {
+        // A sample gives the range and the card count that the floor of a clear answer reads.
+        $metric = static function (string $key, callable $sample, array $parts = []) use ($variantNames): ExperimentMetric {
             $byVariant = [];
+            $counts = [];
             foreach ($variantNames as $name) {
-                $byVariant[$name] = $interval($name);
+                [$byVariant[$name], $counts[$name]] = $sample($name);
             }
 
-            return new ExperimentMetric($key, $byVariant, self::clear($variantNames, $byVariant, $finished), array_values($parts));
+            return new ExperimentMetric($key, $byVariant, self::clear($variantNames, $byVariant, $counts), array_values($parts));
         };
-        $bootstrap = static fn (string $key, callable $value): \Closure => static fn (string $name): ?Interval => Stats::bootstrapMean(
-            array_values(array_filter(array_map($value, $merged[$name]), static fn (int|float|null $item): bool => null !== $item)),
-            $experiment.':'.$key.':'.$name,
-        );
+        $bootstrap = static fn (string $key, callable $value): \Closure => static function (string $name) use ($key, $value, $merged, $experiment): array {
+            $values = array_values(array_filter(array_map($value, $merged[$name]), static fn (int|float|null $item): bool => null !== $item));
+
+            return [Stats::bootstrapMean($values, $experiment.':'.$key.':'.$name), \count($values)];
+        };
 
         return [
-            ExperimentMetric::MERGE_RATE => $metric(ExperimentMetric::MERGE_RATE, static fn (string $name): ?Interval => Stats::wilson(\count($merged[$name]), $finished[$name])),
-            ExperimentMetric::STOP_RATE => $metric(ExperimentMetric::STOP_RATE, static function (string $name) use ($kept): ?Interval {
+            ExperimentMetric::MERGE_RATE => $metric(ExperimentMetric::MERGE_RATE, static fn (string $name): array => [Stats::wilson(\count($merged[$name]), $finished[$name]), $finished[$name]]),
+            ExperimentMetric::STOP_RATE => $metric(ExperimentMetric::STOP_RATE, static function (string $name) use ($kept, $finished): array {
                 $closed = array_filter(array_merge(...array_column($kept[$name] ?? [], 'runs')), static fn (WorkerRun $run): bool => $run->state->isOutcome());
 
-                return Stats::wilson(\count(array_filter($closed, static fn (WorkerRun $run): bool => \in_array($run->state, self::STOP_STATES, true))), \count($closed));
+                return [Stats::wilson(\count(array_filter($closed, static fn (WorkerRun $run): bool => \in_array($run->state, self::STOP_STATES, true))), \count($closed)), $finished[$name]];
             }),
             ExperimentMetric::FIX_ROUNDS => $metric(
                 ExperimentMetric::FIX_ROUNDS,
@@ -264,9 +279,9 @@ final readonly class ShowExperimentHandler
     /**
      * @param list<string>             $variantNames
      * @param array<string, ?Interval> $byVariant
-     * @param array<string, int>       $finished
+     * @param array<string, int>       $counts       the cards behind each range
      */
-    private static function clear(array $variantNames, array $byVariant, array $finished): bool
+    private static function clear(array $variantNames, array $byVariant, array $counts): bool
     {
         if (\count($variantNames) < 2) {
             return false;
@@ -275,7 +290,7 @@ final readonly class ShowExperimentHandler
         $intervalA = $byVariant[$a] ?? null;
         $intervalB = $byVariant[$b] ?? null;
 
-        return null !== $intervalA && null !== $intervalB && Stats::isClear($intervalA, $intervalB, $finished[$a] ?? 0, $finished[$b] ?? 0);
+        return null !== $intervalA && null !== $intervalB && Stats::isClear($intervalA, $intervalB, $counts[$a] ?? 0, $counts[$b] ?? 0);
     }
 
     /** @param list<string> $variantNames */

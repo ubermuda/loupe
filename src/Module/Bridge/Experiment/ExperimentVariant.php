@@ -17,8 +17,8 @@ final readonly class ExperimentVariant
         /** Merged, or in a terminal column. */
         public int $finishedCards,
         public int $runs,
-        /** Millionths of a dollar. */
-        public int $costMicros,
+        /** Millionths of a dollar. Null when no kept card of the variant reported usage. */
+        public ?int $costMicros,
     ) {
     }
 }

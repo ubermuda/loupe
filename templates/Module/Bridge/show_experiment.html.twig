@@ -84,7 +84,7 @@
                         <td class="lp-experiment-table__number">{{ variant.cards }}</td>
                         <td class="lp-experiment-table__number">{{ variant.finishedCards }}</td>
                         <td class="lp-experiment-table__number">{{ variant.runs }}</td>
-                        <td class="lp-experiment-table__number">{{ (variant.costMicros / 1000000)|format_currency('USD') }}</td>
+                        <td class="lp-experiment-table__number">{{ variant.costMicros is null ? '–' : (variant.costMicros / 1000000)|format_currency('USD') }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
