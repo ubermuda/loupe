@@ -48,7 +48,7 @@ function cardHtml({
     const panels = ['overview', 'details', 'history']
         .map(
             (name) =>
-                `<section id="card-panel-${name}" data-panel-panel="${name}"${name === tab ? '' : ' hidden'}>${name === 'overview' ? feedback : ''}</section>`,
+                `<section id="card-panel-${name}" role="tabpanel" data-panel-panel="${name}"${name === tab ? '' : ' hidden'}>${name === 'overview' ? feedback : ''}</section>`,
         )
         .join('');
 
@@ -128,13 +128,53 @@ it('listens for card and worker run changes', async () => {
     ]);
 });
 
-it('ignores another card, a change this page made, and a delete', async () => {
-    await mount();
+it('ignores another card, a change this page made, and a delete in the drawer', async () => {
+    const visit = vi.fn();
+    vi.stubGlobal('Turbo', { visit });
+    await mount({ frame: true });
     cardChanged({ cardId: '0199aaaa-0000-7000-8000-000000000002' });
     cardChanged({ local: true, own: true });
     cardChanged({ change: 'deleted' });
     await settle();
     expect(fetch).not.toHaveBeenCalled();
+    expect(visit).not.toHaveBeenCalled();
+});
+
+it('loads the page again when the card on the standalone page is deleted', async () => {
+    const visit = vi.fn();
+    vi.stubGlobal('Turbo', { visit });
+    await mount();
+    cardChanged({ change: 'deleted' });
+    await settle();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(visit).toHaveBeenCalledWith(window.location.href, {
+        action: 'replace',
+    });
+});
+
+it('keeps a tab where the reader loaded older history', async () => {
+    vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+            observe() {}
+            unobserve() {}
+            disconnect() {}
+        },
+    );
+    const root = await mount({ tab: 'history' });
+    const older = document.createElement('turbo-frame');
+    // A lazy frame waits for an intersection that never comes, so it fetches nothing.
+    older.setAttribute('loading', 'lazy');
+    older.setAttribute('src', '/older');
+    older.textContent = 'Older entries';
+    root.querySelector('#card-panel-history').append(older);
+    answer(cardHtml({ tab: 'history', column: 'Done' }));
+    cardChanged();
+    await settle();
+    expect(root.querySelector('[data-column]').textContent).toBe('Done');
+    expect(root.querySelector('#card-panel-history').textContent).toContain(
+        'Older entries',
+    );
 });
 
 it('fetches on the hub echo of a change this reader made elsewhere on the page', async () => {

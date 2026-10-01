@@ -46,11 +46,20 @@ export default class extends Controller {
         if (change.local) {
             return;
         }
-        if (
-            change.type === 'board.card_changed' &&
-            (change.cardId !== this.cardIdValue || change.change === 'deleted')
-        ) {
-            return;
+        if (change.type === 'board.card_changed') {
+            if (change.cardId !== this.cardIdValue) {
+                return;
+            }
+            if (change.change === 'deleted') {
+                // The standalone page has no drawer to show the delete, so it loads the not-found page.
+                if (!this.frameValue) {
+                    window.Turbo?.visit(window.location.href, {
+                        action: 'replace',
+                    });
+                }
+
+                return;
+            }
         }
         this.schedule();
     }
@@ -131,7 +140,11 @@ export default class extends Controller {
             const target = event.target;
             if (
                 target.classList?.contains('lp-flash') ||
-                (target instanceof HTMLFormElement && hasUnsavedInput(target))
+                (target instanceof HTMLFormElement &&
+                    hasUnsavedInput(target)) ||
+                // A tab where the reader loaded more, such as older history, keeps what it loaded.
+                (target.getAttribute?.('role') === 'tabpanel' &&
+                    target.querySelector('turbo-frame[src]') !== null)
             ) {
                 event.preventDefault();
             }
