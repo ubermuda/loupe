@@ -195,4 +195,6 @@ the rule file can already hold the `autoUpdate` line. Add your rules to that
 file.
 [`cli/README.md`](../../cli/README.md) describes both, and
 [Command-line bridge](../extending/cli-bridge.md) describes what the bridge
-does.
+does. When worker rules already exist, the
+[setup prompt](../using/mcp.md#set-up-with-one-prompt) can add a `before`
+command and a teardown rule to them.

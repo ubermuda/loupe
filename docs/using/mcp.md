@@ -24,7 +24,11 @@ and follow the steps it prints, in order. Use curl, not a web fetch tool.
 install the CLI with `/install.sh` when `loupe version` fails, and stop on
 Windows, which has no build. They sign in with `loupe login` and bind the repository with
 `loupe init`. Then they connect the MCP server, install the skills, and check
-the result with `loupe status`. The agent asks you when a step needs you, such
+the result with `loupe status`. When your rule file holds worker rules for the
+repository, the steps then ask whether each bridge worker gets its own folder.
+If it does, the agent adds a
+[`before` command](../extending/cli-bridge.md#before-command) to those rules,
+and a teardown rule. The agent asks you when a step needs you, such
 as the browser approval of the sign-in. It never writes a token or a password.
 
 The `project` parameter fills the project id into the commands. The page
