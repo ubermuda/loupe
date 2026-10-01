@@ -10,6 +10,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnsChanged;
+use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
@@ -222,9 +223,7 @@ final readonly class UpdateCardHandler
                 $trackedBefore = $this->pullRequestTracking->referencesOf($card);
                 $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
             }
-            if (null !== $relatedCards) {
-                $this->cardLinkSync->sync($card, $relatedCards);
-            }
+            $unblocked = null === $relatedCards ? [] : $this->cardLinkSync->sync($card, $relatedCards);
 
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
@@ -249,6 +248,9 @@ final readonly class UpdateCardHandler
             }
             if ($parentChanged) {
                 $this->events->dispatch(new CardParentChanged($card, $oldParent, $card->parent, $command->actor));
+            }
+            if ([] !== $unblocked) {
+                $this->events->dispatch(new CardBlockersRemoved($card->project, $unblocked, $command->actor));
             }
 
             return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged, $lanesBefore !== $lanesAfter, $contentChanged, $openedRun);
