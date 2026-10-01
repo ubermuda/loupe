@@ -746,6 +746,7 @@ gets these requests. A card in a terminal column never gets one.
 | **Fix strategy** | Fresh | Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card, and falls back to a new worker |
 | **Loop limit** | 3 | The number of fix requests a card gets in a row, from 1 to 20 |
 | **Comment on the pull request when a fix run is queued** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
+| **Comment on a pull request when new commits follow its approval** | off | When on, Loupe posts one comment for each new head that the approval does not cover |
 | **Sync an approved pull request that is behind** | off | When on, Loupe updates the branch of an approved pull request that is behind its base, one at a time |
 
 The comment gives the reason for the fix and the failed checks. It also gives
@@ -763,6 +764,15 @@ cause. The tab hides it when a later comment posts, or when you turn the
 setting off. The GitHub App must
 have Pull requests: read and write. The comment needs a bridge that reports
 the event that queued a run. An older bridge sends none, so no comment posts.
+
+An approval that does not cover the newest commit starts no merge. GitHub says
+which commit the approval covers. When the approval comment setting is on, Loupe posts
+one comment on the pull request, such as "Not merged: commit `abc1234` came
+after your approval. Approve the new head to merge." Each head gets one
+comment at most. A push of another commit gets a new comment. The setting needs
+**Send fix and merge requests** on, and the GitHub App must have Pull requests:
+read and write. A comment that fails retries like a fix run comment. The tab
+does not show its failure.
 
 The sync setting keeps approved work up to date with its base, so it can merge.
 Loupe syncs one pull request of the project at a time. It picks the pull

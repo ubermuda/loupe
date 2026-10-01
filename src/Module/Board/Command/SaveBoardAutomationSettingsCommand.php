@@ -17,6 +17,7 @@ final readonly class SaveBoardAutomationSettingsCommand
         public BoardFixStrategy $fixStrategy,
         public int $loopLimit,
         public bool $commentOnFixQueued,
+        public bool $commentOnStaleApproval,
         public bool $syncBehind,
     ) {
     }

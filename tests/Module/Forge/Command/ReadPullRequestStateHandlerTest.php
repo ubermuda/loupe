@@ -415,6 +415,21 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         self::assertSame(2, $this->coverage->reads);
     }
 
+    public function test_a_read_that_only_judges_the_head_not_covered_is_announced(): void
+    {
+        $row = $this->approvedRow();
+        $this->reader->answers = [$this->approvedRead('pushed1'), $this->approvedRead('pushed1')];
+        $this->coverage->answers = [ApprovalCoverage::Unknown, ApprovalCoverage::NotCovered];
+
+        $this->handle($row, self::NOW);
+        $this->clock->modify('+1 minute');
+        $this->handle($row, '2026-09-27 12:00:30');
+
+        self::assertCount(2, $this->changes);
+        self::assertTrue($this->changes[1]->current->equals($this->changes[1]->previous));
+        self::assertSame('pushed1', $this->changes[1]->pullRequest->uncoveredSha);
+    }
+
     public function test_coverage_is_not_asked_without_a_head_after_an_open_approval(): void
     {
         $covered = $this->approvedRow();

@@ -15,6 +15,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Entity\PullRequestComment;
+use App\Module\Board\Entity\PullRequestNotice;
 use App\Module\Board\EventListener\DeleteBoardDataOnProjectDeleting;
 use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Entity\Project;
@@ -156,17 +157,22 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
         $spared = $this->seedBoard($em, $owner, 'spared');
         foreach ([$doomed, $doomed, $spared] as $project) {
             $em->persist(new PullRequestComment($project, Uuid::v7(), Uuid::v7(), 'github', 'acme/widgets', 5, null, null));
+            $em->persist(new PullRequestNotice($project, Uuid::v7(), 'stale-approval:abc1234'));
         }
         $em->flush();
 
         $conn = $em->getConnection();
         $count = static fn (Project $project): int => (int) $conn->fetchOne('SELECT COUNT(*) FROM board_pull_request_comments WHERE project_id = :id', ['id' => (string) $project->id]);
+        $notices = static fn (Project $project): int => (int) $conn->fetchOne('SELECT COUNT(*) FROM board_pull_request_notices WHERE project_id = :id', ['id' => (string) $project->id]);
         self::assertSame(2, $count($doomed));
+        self::assertSame(2, $notices($doomed));
 
         $listener(new ProjectDeleting($doomed));
 
         self::assertSame(0, $count($doomed));
         self::assertSame(1, $count($spared));
+        self::assertSame(0, $notices($doomed));
+        self::assertSame(1, $notices($spared));
     }
 
     private function seedBoard(EntityManagerInterface $em, User $owner, string $name): Project

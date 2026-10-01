@@ -6695,6 +6695,18 @@
                 <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.help</source>
                 <target>Loupe posts a new comment on the GitHub pull request each time a bridge queues a fix run for it. The GitHub App needs "Pull requests: read and write". It needs a bridge that reports the event that queued a run. An older bridge sends none, so no comment posts.</target>
             </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_stale_approval.label">
+                <source>board.form.save_board_automation_settings_form.comment_on_stale_approval.label</source>
+                <target>Comment on a pull request when new commits follow its approval</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.comment_on_stale_approval.help">
+                <source>board.form.save_board_automation_settings_form.comment_on_stale_approval.help</source>
+                <target>An approval that does not cover the newest commit starts no merge. Loupe then posts one comment on the GitHub pull request for that commit. The GitHub App needs "Pull requests: read and write".</target>
+            </trans-unit>
+            <trans-unit id="board.stale_approval_notice.body">
+                <source>board.stale_approval_notice.body</source>
+                <target>Not merged: commit `%sha%` came after your approval. Approve the new head to merge.</target>
+            </trans-unit>
             <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.label">
                 <source>board.form.save_board_automation_settings_form.sync_behind.label</source>
                 <target>Sync an approved pull request that is behind</target>
