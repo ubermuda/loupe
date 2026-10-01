@@ -143,7 +143,7 @@ final readonly class PublishPullRequestEventsHandler
         }
     }
 
-    /** Whether the card page or the tile shows something new. A new head or base alone shows nothing, and a new covered head can change the review chip. */
+    /** Whether the card page or the tile shows something new. A new head or base alone shows nothing, unless it makes the approval outdated. */
     private static function displayedChange(PullRequestSnapshot $previous, PullRequestSnapshot $current): bool
     {
         return $previous->state !== $current->state
@@ -153,7 +153,13 @@ final readonly class PublishPullRequestEventsHandler
             || $previous->mergeability !== $current->mergeability
             || $previous->review !== $current->review
             || $previous->readyToMerge !== $current->readyToMerge
-            || $previous->coveredSha !== $current->coveredSha;
+            || self::approvalIsStale($previous) !== self::approvalIsStale($current);
+    }
+
+    /** The rule of ForgePullRequest::approvalIsStale(), read from a snapshot. */
+    private static function approvalIsStale(PullRequestSnapshot $snapshot): bool
+    {
+        return null !== $snapshot->approvalId && $snapshot->coveredSha !== $snapshot->headSha;
     }
 
     /** @return list<Fact> */
