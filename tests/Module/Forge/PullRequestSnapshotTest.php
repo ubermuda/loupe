@@ -156,6 +156,27 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertNull($pullRequest->syncFromSha);
     }
 
+    public function test_a_pushed_head_forgets_the_synced_head(): void
+    {
+        $pullRequest = $this->syncRequested();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'synced1', parents: ['approved1', 'base1']));
+
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'pushed1', parents: ['synced1']));
+
+        self::assertNull($pullRequest->syncedSha);
+        self::assertSame('synced1', $pullRequest->coveredSha);
+    }
+
+    public function test_a_read_of_the_same_head_keeps_the_synced_head(): void
+    {
+        $pullRequest = $this->syncRequested();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'synced1', parents: ['approved1', 'base1']));
+
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'synced1', parents: ['approved1', 'base1']));
+
+        self::assertSame('synced1', $pullRequest->syncedSha);
+    }
+
     public function test_a_sync_start_that_the_approval_does_not_cover_keeps_the_covered_sha(): void
     {
         $pullRequest = $this->syncRequested();

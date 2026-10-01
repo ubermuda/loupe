@@ -164,6 +164,9 @@ class ForgePullRequest
         if ($headMoved && null !== $this->syncFromSha && ($snapshot->headParents[0] ?? null) === $this->syncFromSha && $this->coveredSha === $this->syncFromSha) {
             // The merge commit of a sync from the covered head adds only base changes, so the approval still covers it.
             $this->coveredSha = $this->syncedSha = $snapshot->headSha;
+        } elseif ($headMoved) {
+            // A head that a person pushed is not a sync, even when it returns to a commit Loupe synced before.
+            $this->syncedSha = null;
         }
         // A sync in flight keeps its marker through a new approval, so its merge commit is still recognised.
         if ($headMoved) {

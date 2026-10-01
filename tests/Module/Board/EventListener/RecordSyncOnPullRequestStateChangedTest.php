@@ -74,6 +74,30 @@ final class RecordSyncOnPullRequestStateChangedTest extends KernelTestCase
         self::assertSame([], $this->cardEvents($doneCard));
     }
 
+    public function test_a_confirming_read_that_is_also_ready_to_merge_ends_on_ready_to_merge(): void
+    {
+        $card = $this->linkedCard();
+
+        $this->read(from: 'approved1', to: 'synced1', syncedSha: 'synced1', readyToMerge: true);
+
+        $automation = $this->automationOf($card);
+        self::assertNotNull($automation);
+        self::assertSame(CardAutomationAction::ReadyToMerge, $automation->lastAction);
+        self::assertEqualsCanonicalizing(
+            [CardEventKind::Synced, CardEventKind::ReadyToMerge],
+            array_map(static fn (CardEvent $event): CardEventKind => $event->kind, $this->cardEvents($card)),
+        );
+    }
+
+    public function test_a_force_push_back_to_a_synced_head_records_nothing(): void
+    {
+        $card = $this->linkedCard();
+
+        $this->read(from: 'pushed1', to: 'synced1', syncedSha: null);
+
+        self::assertSame([], $this->cardEvents($card));
+    }
+
     public function test_a_head_move_that_is_not_the_sync_records_nothing(): void
     {
         $card = $this->linkedCard();
@@ -113,12 +137,13 @@ final class RecordSyncOnPullRequestStateChangedTest extends KernelTestCase
     }
 
     /** The row as apply() leaves it, and the event Forge dispatches inside the transaction of the read. */
-    private function read(string $from, string $to, ?string $syncedSha): void
+    private function read(string $from, string $to, ?string $syncedSha, bool $readyToMerge = false): void
     {
         $this->pullRequest->headSha = $to;
         $this->pullRequest->syncedSha = $syncedSha;
+        $this->pullRequest->readyToMerge = $readyToMerge;
         $this->em->flush();
-        $event = new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(headSha: $from), new PullRequestSnapshot(headSha: $to));
+        $event = new PullRequestStateChanged($this->pullRequest, new PullRequestSnapshot(headSha: $from), new PullRequestSnapshot(headSha: $to, readyToMerge: $readyToMerge));
 
         $events = self::getContainer()->get(EventDispatcherInterface::class);
         self::assertInstanceOf(EventDispatcherInterface::class, $events);
