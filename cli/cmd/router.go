@@ -1232,8 +1232,16 @@ func (r *router) afterBefore(p pending, began time.Time, res beforeResult) {
 	if failure == "" && shut {
 		failure, res.killed = "the bridge shut down before the agent started", true
 	}
+	// The reason comes first, and the end of the output fills the room left.
 	out := &capWriter{limit: maxOutput}
-	_, _ = out.Write([]byte(strings.TrimLeft(failure+"\n"+res.output, "\n")))
+	_, _ = out.Write([]byte(failure))
+	sep := "\n"
+	if failure == "" {
+		sep = ""
+	}
+	if room := maxOutput - len(failure) - len(sep); res.output != "" && room > len(truncatedMark) {
+		_, _ = out.Write([]byte(sep + tailOf(res.output, room)))
+	}
 	// The server reads a failed run from a non-zero exit code alone.
 	code := res.exitCode
 	if code == 0 {

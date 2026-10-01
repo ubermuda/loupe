@@ -81,6 +81,25 @@ func TestRunBeforeKeepsTheExitCode(t *testing.T) {
 	}
 }
 
+// A long output keeps its end, after one truncation marker, because a failed
+// command prints why at the end.
+func TestRunBeforeKeepsTheEndOfALongOutput(t *testing.T) {
+	for name, script := range map[string]string{
+		"stdout": "head -c 9000 /dev/zero | tr '\\0' x; echo; echo the real error; exit 1",
+		"stderr": "head -c 9000 /dev/zero | tr '\\0' x >&2; echo the real error >&2; exit 1",
+	} {
+		t.Run(name, func(t *testing.T) {
+			res, _ := before(t, context.Background(), "sh", "-c", script)
+			if !strings.HasPrefix(res.output, truncatedMark) || !strings.HasSuffix(res.output, "the real error") || len(res.output) > maxOutput {
+				t.Fatalf("output = %d bytes, %q…%q", len(res.output), res.output[:min(40, len(res.output))], res.output[max(0, len(res.output)-40):])
+			}
+			if n := strings.Count(res.output, "truncated"); n != 1 {
+				t.Fatalf("output holds %d truncation markers", n)
+			}
+		})
+	}
+}
+
 // No shell parses an argument, so a value with spaces and quotes stays one.
 func TestRunBeforePassesEachArgumentAsIs(t *testing.T) {
 	res, _ := before(t, context.Background(), "sh", "-c", "[ \"$#\" = 1 ] && [ \"$1\" = 'a b \"c\" $HOME' ] || exit 9", "sh", `a b "c" $HOME`)

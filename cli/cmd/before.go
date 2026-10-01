@@ -9,9 +9,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ubermuda/loupe/cli/internal/config"
 )
@@ -197,7 +199,7 @@ func adoptBeforeProc(ctx context.Context, dir string) beforeResult {
 func beforeOutcome(dir, project string, killed, timedOut bool) beforeResult {
 	res := beforeResult{runDir: dir, killed: killed, timedOut: timedOut}
 	stdout, stdoutErr := readTail(filepath.Join(dir, "before.stdout"), maxStdout)
-	stderr, stderrErr := readCapped(filepath.Join(dir, "before.stderr"), maxOutput)
+	stderr, stderrErr := readTail(filepath.Join(dir, "before.stderr"), maxOutput)
 	code, codeErr := readExitStatus(filepath.Join(dir, "before.exit"))
 	res.exitCode = code
 	if codeErr != nil {
@@ -210,47 +212,64 @@ func beforeOutcome(dir, project string, killed, timedOut bool) beforeResult {
 		res.dir, res.reason = resolveFolder(folder, project)
 	}
 
-	out := &capWriter{limit: maxOutput}
-	parts := []string{strings.TrimRight(stderr.buf.String(), "\n"), strings.Trim(rest, "\n")}
+	parts := []string{strings.TrimRight(stderr, "\n"), strings.Trim(rest, "\n")}
 	if readErr := errors.Join(stdoutErr, stderrErr); readErr != nil {
 		parts = append(parts, readErr.Error())
 	}
 	if codeErr != nil && !killed {
 		parts = append(parts, "(no exit status: "+codeErr.Error()+")")
 	}
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		if out.buf.Len() > 0 {
-			_, _ = out.Write([]byte("\n"))
-		}
-		_, _ = out.Write([]byte(part))
-	}
-	out.dropped = out.dropped || stderr.dropped
-	res.output = out.text()
+	parts = slices.DeleteFunc(parts, func(part string) bool { return part == "" })
+	// A failed command prints why at the end, so the output keeps the end.
+	res.output = tailOf(strings.Join(parts, "\n"), maxOutput)
 
 	return res
 }
 
-// readTail reads the last limit bytes of the file at path.
+// truncatedMark starts a text whose start tailOf dropped.
+const truncatedMark = "(truncated) …"
+
+// tailOf keeps the end of s in at most limit bytes, after truncatedMark when
+// it drops the start. It cuts at the start of a rune.
+func tailOf(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	cut := len(s) - max(limit-len(truncatedMark), 0)
+	for cut < len(s) && !utf8.RuneStart(s[cut]) {
+		cut++
+	}
+
+	return truncatedMark + s[cut:]
+}
+
+// readTail reads the last limit bytes of the file at path, after
+// truncatedMark when it drops the start.
 func readTail(path string, limit int64) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("read before output: %w", err)
 	}
 	defer f.Close()
+	cut := false
 	if info, err := f.Stat(); err == nil && info.Size() > limit {
 		if _, err := f.Seek(info.Size()-limit, io.SeekStart); err != nil {
 			return "", fmt.Errorf("read before output: %w", err)
 		}
+		cut = true
 	}
 	b, err := io.ReadAll(f)
 	if err != nil {
 		return "", fmt.Errorf("read before output: %w", err)
 	}
+	if !cut {
+		return string(b), nil
+	}
+	for len(b) > 0 && !utf8.RuneStart(b[0]) {
+		b = b[1:]
+	}
 
-	return string(b), nil
+	return truncatedMark + string(b), nil
 }
 
 // lastLine splits stdout into its last non-empty line, trimmed, and what

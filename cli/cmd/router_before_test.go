@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/rules"
@@ -167,6 +168,50 @@ func TestAFailedBeforeFailsTheRunAndFreesTheCard(t *testing.T) {
 		t.Fatalf("resumed = %d, used = %d, card held = %v", len(h.events(t, "worker_resuming")), h.used(), h.cardHeld(87))
 	}
 	h.only(t, "before_failed")
+}
+
+// A failed before command with a long output reports the reason first, then
+// the end of the output after one truncation marker, within the cap.
+func TestAFailedBeforeReportsTheEndOfItsOutput(t *testing.T) {
+	h, f, _ := withBefore(t, "1m")
+	rec := h.states()
+	long := tailOf(strings.Repeat("x", 9000)+"\nthe real error", maxOutput)
+	f.result = beforeResult{exitCode: 1, output: long}
+
+	h.send(cardMoved(87))
+
+	out := outcomeOf(t, rec.states(), rec.states()[0].runID).Output
+	if !strings.HasPrefix(out, "the before command exited with code 1\n"+truncatedMark) || !strings.HasSuffix(out, "the real error") || len(out) > maxOutput {
+		t.Fatalf("output = %d bytes, %q…", len(out), out[:min(80, len(out))])
+	}
+	if n := strings.Count(out, "truncated"); n != 1 {
+		t.Fatalf("output holds %d truncation markers", n)
+	}
+}
+
+// A reason longer than the cap keeps its start, and no output follows it.
+func TestAFailedBeforeCapsALongReason(t *testing.T) {
+	h, f, _ := withBefore(t, "1m")
+	rec := h.states()
+	f.result = beforeResult{reason: "the before command printed " + strings.Repeat("y", 9000), output: "rest"}
+
+	h.send(cardMoved(87))
+
+	out := outcomeOf(t, rec.states(), rec.states()[0].runID).Output
+	if !strings.HasPrefix(out, "the before command printed y") || strings.Contains(out, "rest") || len(out) > maxOutput+len(truncatedMark) {
+		t.Fatalf("output = %d bytes", len(out))
+	}
+}
+
+// The tail of a text cuts at the start of a rune.
+func TestTailOfCutsAtARune(t *testing.T) {
+	got := tailOf(strings.Repeat("é", 100), 51)
+	if !strings.HasPrefix(got, truncatedMark) || len(got) > 51 || !utf8.ValidString(got) {
+		t.Fatalf("tailOf = %q", got)
+	}
+	if tailOf("short", 51) != "short" {
+		t.Fatal("tailOf changed a short text")
+	}
 }
 
 // The rule's timeout ends a before command that runs too long.
