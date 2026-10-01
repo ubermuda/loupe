@@ -33,6 +33,7 @@ final class RacingBridgeRulesTest extends KernelTestCase
         $racingRules = self::getContainer()->get(RacingBridgeRules::class);
         self::assertInstanceOf(RacingBridgeRules::class, $racingRules);
         $this->racingRules = $racingRules;
+        $this->enableBoard();
     }
 
     public function test_a_live_behind_rule_races_while_the_app_syncs(): void
@@ -52,6 +53,17 @@ final class RacingBridgeRulesTest extends KernelTestCase
         $this->settings($project, enabled: true, syncBehind: false);
         $this->report($project);
 
+        self::assertSame([], $this->racing($project));
+    }
+
+    public function test_no_rule_races_while_the_board_is_switched_off(): void
+    {
+        $project = $this->makeProject('racing-board-off');
+        $this->settings($project, enabled: true, syncBehind: true);
+        $this->report($project);
+        $this->disableBoard();
+
+        self::assertFalse($this->racingRules->appSyncsBehind($project));
         self::assertSame([], $this->racing($project));
     }
 

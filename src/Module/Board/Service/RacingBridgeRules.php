@@ -14,6 +14,7 @@ final readonly class RacingBridgeRules
 {
     public function __construct(
         private BoardAutomation $boardAutomation,
+        private BoardAvailability $board,
     ) {
     }
 
@@ -44,6 +45,10 @@ final readonly class RacingBridgeRules
 
     public function appSyncsBehind(Project $project): bool
     {
+        if (!$this->board->isEnabled()) {
+            return false;
+        }
+
         $settings = $this->boardAutomation->settingsOf($project);
 
         return $settings->enabled && $settings->syncBehind;
