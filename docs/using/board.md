@@ -760,7 +760,7 @@ this card reads the link. `card_search` does not carry `relatedCards`.
 same way `card_list` does, with 50 events by default and 100 at most. Each event
 carries `kind`, `occurredAt` and `actor`.
 
-`kind` is `created`, `moved`, `fix-requested`, `stopped`, `ready-to-merge` or
+`kind` is `created`, `moved`, `fix-requested`, `stopped`, `ready-to-merge`, `synced` or
 `run-finished`. `actor` carries `kind` and `name`. Its `kind` is `human`,
 `agent`, `reviewer` or `system`. `name` is the current name of the person
 behind the event. It is null when there is no person, such as for a deleted

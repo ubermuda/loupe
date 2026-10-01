@@ -51,6 +51,7 @@ final class EditBoardAutomationSettingsController extends AppController
                 fixStrategy: $data->fixStrategy ?? throw new \LogicException('fix strategy required after validation'),
                 loopLimit: $data->loopLimit ?? throw new \LogicException('loop limit required after validation'),
                 commentOnFixQueued: $data->commentOnFixQueued,
+                syncBehind: $data->syncBehind,
             ));
             $this->addFlash('success', $this->translator->trans('board.automation.flash.saved'));
 

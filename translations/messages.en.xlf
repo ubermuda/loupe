@@ -6347,6 +6347,14 @@
                 <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.help</source>
                 <target>Loupe posts a new comment on the GitHub pull request each time a bridge queues a fix run for it. The GitHub App needs "Pull requests: read and write". It needs a bridge that reports the event that queued a run. An older bridge sends none, so no comment posts.</target>
             </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.label">
+                <source>board.form.save_board_automation_settings_form.sync_behind.label</source>
+                <target>Sync an approved pull request that is behind</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.help">
+                <source>board.form.save_board_automation_settings_form.sync_behind.help</source>
+                <target>Loupe updates the branch of the next approved pull request that is behind its base, one at a time. The GitHub App needs "Contents: read and write".</target>
+            </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>
                 <target>Loupe could not post the last fix run comment on %pull_request%</target>

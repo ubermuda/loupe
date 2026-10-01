@@ -24,11 +24,12 @@ class SaveBoardAutomationSettingsRequest
         #[Assert\Range(min: BoardAutomationSettings::MIN_LOOP_LIMIT, max: BoardAutomationSettings::MAX_LOOP_LIMIT)]
         public ?int $loopLimit = 3,
         public bool $commentOnFixQueued = false,
+        public bool $syncBehind = false,
     ) {
     }
 
     public static function fromSettings(BoardAutomationSettings $settings): self
     {
-        return new self($settings->enabled, $settings->mergeStrategy, $settings->fixStrategy, $settings->loopLimit, $settings->commentOnFixQueued);
+        return new self($settings->enabled, $settings->mergeStrategy, $settings->fixStrategy, $settings->loopLimit, $settings->commentOnFixQueued, $settings->syncBehind);
     }
 }
