@@ -67,8 +67,10 @@ export default class extends Controller {
         this.schedule();
     }
 
+    /** A newer change makes a read in flight stale, so it stops, and its failure retries nothing. */
     schedule() {
         clearTimeout(this.timeout);
+        this.request?.abort();
         this.timeout = setTimeout(() => this.refresh(), DEBOUNCE_MILLISECONDS);
     }
 
@@ -109,7 +111,7 @@ export default class extends Controller {
             });
             if (!response?.ok) {
                 // A card the reader may no longer see answers the same on every try.
-                if (response?.status >= 500) {
+                if (response?.status >= 500 && !request.signal.aborted) {
                     this.retry(attempt);
                 }
 

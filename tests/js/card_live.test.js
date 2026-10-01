@@ -218,6 +218,26 @@ it('shows the fresh first page when a new row moves where it ends', async () => 
     expect(panel.querySelector('#older-b').textContent).toBe('Show older');
 });
 
+it('drops a read in flight when a newer change comes, and does not retry it', async () => {
+    const root = await mount();
+    let resolveFirst;
+    fetch.mockImplementationOnce(
+        () => new Promise((done) => (resolveFirst = done)),
+    );
+    cardChanged();
+    await settle();
+    answer(cardHtml({ column: 'Done' }));
+    cardChanged();
+    await settle();
+    expect(fetch.mock.calls[0][1].signal.aborted).toBe(true);
+    expect(root.querySelector('[data-column]').textContent).toBe('Done');
+
+    resolveFirst({ ok: false, status: 503 });
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(root.querySelector('[data-column]').textContent).toBe('Done');
+});
+
 it('tries a failed read again after a growing wait', async () => {
     const root = await mount();
     responses.push({ ok: false, status: 503 });
