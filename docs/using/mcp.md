@@ -20,6 +20,8 @@ project comes from the repository rather than from the credential.
 Install the CLI, sign in once, and name the project in each repository:
 
 ```bash
+curl -fsSL https://<your Loupe>/install.sh | sh
+# or, with Homebrew: brew install ubermuda/tap/loupe
 loupe login                  # a browser sign-in, once per machine
 cd ~/code/my-project
 loupe init                   # writes .loupe.yaml, choosing from your projects

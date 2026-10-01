@@ -315,7 +315,7 @@ func startE2EBridge(t *testing.T, fake *e2eLoupe, old string, env ...string) *e2
 	raw, _ := json.Marshal(cfg)
 	rulesPath := filepath.Join(home, "rules.yaml")
 	// No resume, so a failed run reports at once rather than after the delay.
-	rulesBody := "projects:\n  loupe:\n    dir: " + filepath.Join(home, "work") + "\nrules:\n" +
+	rulesBody := "autoUpdate: true\nprojects:\n  loupe:\n    dir: " + filepath.Join(home, "work") + "\nrules:\n" +
 		"  - on: board.card_moved\n    project: loupe\n    to: next\n    maxResumes: 0\n    prompt: \"{cardNumber}\"\n"
 	b.installed = filepath.Join(home, "bin", "loupe")
 	oldBytes, err := os.ReadFile(old)

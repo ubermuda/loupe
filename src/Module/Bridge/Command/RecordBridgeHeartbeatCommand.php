@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use Symfony\Component\Uid\Uuid;
 
@@ -33,6 +34,7 @@ final readonly class RecordBridgeHeartbeatCommand
         public ?array $workerPools = null,
         public ?bool $paused = null,
         public ?array $capabilities = null,
+        public ?CliInstallMethod $installMethod = null,
     ) {
     }
 }
