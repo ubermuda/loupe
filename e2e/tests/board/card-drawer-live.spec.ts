@@ -180,7 +180,8 @@ test('the open drawer shows a move made elsewhere, on the tab the reader had ope
         .selectOption({ label: 'In progress' });
     await expect(other).toHaveURL(new RegExp(`${boardUrl}$`));
 
-    await expect(identity).toContainText('In progress');
+    // The update waits for the hub, a debounce and a fetch of the card.
+    await expect(identity).toContainText('In progress', { timeout: 15000 });
     await expect(
         drawer.getByRole('tab', { name: 'History', exact: true }),
     ).toHaveAttribute('aria-selected', 'true');

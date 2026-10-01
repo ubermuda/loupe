@@ -6,10 +6,9 @@ import { on } from '../lib/live.js';
 export const DEBOUNCE_MILLISECONDS = 300;
 
 /**
- * Morphs the card in again when the Mercure hub reports a change to it or to
- * a worker run, and after each reconnect for any change it missed. An open
- * dialog holds the update until it closes. A form with unsaved input, a flash
- * and an open disclosure keep their state through the morph.
+ * Morphs the card in again on a change to it or to a worker run, and after a
+ * reconnect. An open dialog holds the update until it closes. A form with
+ * unsaved input, a flash and an open disclosure keep their state.
  */
 export default class extends Controller {
     static values = { cardId: String, url: String, frame: Boolean };
