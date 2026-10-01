@@ -21,6 +21,9 @@ from 1 inside the project, so you can say "item 12" to an agent.
 - A **to-do** asks you to do something, such as publishing release notes.
 - A **waiting** item tells you that a card waits for you. Loupe opens it, not
   an agent. See [Automatic items](#automatic-items).
+- A **notice** tells you about a fact of the project that needs a change.
+  Loupe opens it, takes no answer, and closes it when the fact ends. See
+  [Notices](#notices).
 
 An **ask** is the set of items that one agent session hands over at once. The
 agent writes a short context for the ask, and the page shows that context above
@@ -200,6 +203,21 @@ a document or on a pull request therefore shows after a short delay.
 Loupe also checks the automatic items of every project every 15 minutes. A
 wait that Loupe did not see when it started or ended opens or closes its item
 on the next check.
+
+### Notices
+
+Loupe opens one notice for a project while a bridge rule races its sync. The
+rule listens to `pull_request.behind`, and the project has the board setting
+**Sync an approved pull request that is behind** on. Loupe and the worker of
+that rule then both update the same branch. The notice names each such rule and
+the first eight characters of its bridge id. Remove each rule from the
+`rules.yaml` of its bridge.
+
+A notice does not block an agent and takes no answer. It holds no card. Loupe
+closes it as **done** when a bridge report or a change of the setting ends the
+conflict. Loupe reads the rules when a bridge reports them, and again in a
+check every 15 minutes. That check also opens or closes the notice. A rule that
+you remove stays in the notice until that bridge sends its next report.
 
 ### Pull request waits
 

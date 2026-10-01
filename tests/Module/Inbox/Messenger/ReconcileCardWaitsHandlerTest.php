@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Messenger;
 
+use App\Module\Board\Entity\BoardAutomationSettings;
+use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Entity\CardDocument;
 use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Inbox\Messenger\ReconcileCardWaits;
 use App\Module\Inbox\Messenger\ReconcileCardWaitsHandler;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Tests\Module\Inbox\InboxFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -79,6 +82,59 @@ final class ReconcileCardWaitsHandlerTest extends KernelTestCase
         ($this->handler)(new ReconcileCardWaits((string) Uuid::v7(), null));
 
         self::assertSame($before, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM inbox_items'));
+    }
+
+    public function test_a_project_reconcile_opens_the_notice_of_a_rule_reported_before(): void
+    {
+        $project = $this->racingProject('reconcile-notice');
+
+        ($this->handler)(new ReconcileCardWaits((string) $project->id, null));
+
+        self::assertSame(['open'], $this->noticeStates((string) $project->id));
+    }
+
+    public function test_a_reconcile_of_some_cards_leaves_the_notice_alone(): void
+    {
+        $project = $this->racingProject('reconcile-notice-cards');
+
+        ($this->handler)(new ReconcileCardWaits((string) $project->id, [(string) Uuid::v7()]));
+
+        self::assertSame([], $this->noticeStates((string) $project->id));
+    }
+
+    public function test_a_project_reconcile_with_the_inbox_off_closes_the_notice_as_obsolete(): void
+    {
+        $project = $this->racingProject('reconcile-notice-off');
+        ($this->handler)(new ReconcileCardWaits((string) $project->id, null));
+        $this->switchFlag($this->em, InboxInstallFlags::FLAG_INBOX_ENABLED, false);
+
+        ($this->handler)(new ReconcileCardWaits((string) $project->id, null));
+
+        self::assertSame(['obsolete'], $this->noticeStates((string) $project->id));
+    }
+
+    /** A project whose sync is on and whose bridge reported a racing rule, with no event since. */
+    private function racingProject(string $slug): Project
+    {
+        $project = $this->project($this->em, $this->owner($this->em, $slug), $slug);
+        $settings = new BoardAutomationSettings($project);
+        $settings->syncBehind = true;
+        $this->em->persist($settings);
+        $this->em->persist(new BridgeRuleReport($project, Uuid::v4(), [
+            ['name' => 'sync-behind', 'on' => 'pull_request.behind', 'columns' => [], 'state' => BridgeRuleReport::STATE_LIVE, 'reason' => null],
+        ]));
+        $this->em->flush();
+
+        return $project;
+    }
+
+    /** @return list<string> oldest first */
+    private function noticeStates(string $projectId): array
+    {
+        return array_map(
+            static fn (mixed $state): string => (string) $state,
+            $this->em->getConnection()->fetchFirstColumn("SELECT state FROM inbox_items WHERE project_id = :id AND kind = 'notice' ORDER BY number", ['id' => $projectId]),
+        );
     }
 
     private function openWaitItems(string $projectId): int

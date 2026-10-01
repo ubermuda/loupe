@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BridgeRuleReport;
+use App\Module\Board\Event\BridgeRulesReported;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -27,6 +29,7 @@ final readonly class ReportBridgeRulesHandler
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private ClockInterface $clock,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -56,6 +59,7 @@ final readonly class ReportBridgeRulesHandler
 
             return $report;
         });
+        $this->events->dispatch(new BridgeRulesReported($project));
 
         $this->auditor->record(
             'board.bridge_rules_reported',
