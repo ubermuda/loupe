@@ -161,7 +161,9 @@ class ForgePullRequest
             $this->syncFailedReason = null;
         }
         // After the approval reset, so an approval of the head Loupe asked to update still follows the sync in one read.
-        if ($headMoved && null !== $this->syncFromSha && ($snapshot->headParents[0] ?? null) === $this->syncFromSha && $this->coveredSha === $this->syncFromSha) {
+        // The update merges the base into the head Loupe asked for, so the new head has exactly two parents and that head comes first.
+        $syncMerge = 2 === \count($snapshot->headParents) && $snapshot->headParents[0] === $this->syncFromSha;
+        if ($headMoved && null !== $this->syncFromSha && $syncMerge && $this->coveredSha === $this->syncFromSha) {
             // The merge commit of a sync from the covered head adds only base changes, so the approval still covers it.
             $this->coveredSha = $this->syncedSha = $snapshot->headSha;
         } elseif ($headMoved) {
