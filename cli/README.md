@@ -1377,7 +1377,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `card_hold_released` | `card_id`: the hold of the card ended |
 | `event_duplicate` | `id`: the hub or the catch-up sent an event again that the bridge already handled, as after a handover |
 | `catch_up_done` | `after`: the cursor the catch-up read from, `events`: the events it received, `cursor`: the cursor after it |
-| `catch_up_failed` | `after`, `error`: a replay page failed, so the bridge reads the stream live and tries again at the next connect. Level `WARN` |
+| `catch_up_failed` | `after`, `error`: a replay page failed, so the bridge reads the stream live. The saved cursor stays at `after` until a catch-up reads to the last page, so the next connect or a restart reads from there. Level `WARN` |
 | `event_stale` | `card`, `project`, `rule`, `column`: the column of the card now, `to`: the column of the replayed move. The card left that column, so no worker runs |
 | `cursor_unreadable` | `file`, `error`: the cursor file does not parse, so the bridge starts as with no file. Level `WARN` |
 | `cursor_save_failed` | `file`, `error`: the bridge could not write the cursor file, logged once until a write works again. Routing goes on. Level `WARN` |

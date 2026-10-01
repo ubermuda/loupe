@@ -761,8 +761,10 @@ the stream. It drops an event whose `id` it handled already, and routes the
 others as the hub sends them. The server can repeat an event at or below
 `after`, so the bridge never drops an event only because its `id` is below the
 cursor. When a page fails, for example with `429`, the bridge logs
-`catch_up_failed` and reads the stream live. The next connect tries again from
-the cursor.
+`catch_up_failed` and reads the stream live. The saved cursor then stays at the
+page that failed, also across a restart, while live events run. The next
+connect reads again from there, and a catch-up that reads to the last page
+moves the cursor to the highest id the bridge handled.
 
 A bridge with no cursor file starts from `head`, which also becomes its floor.
 The bridge never runs a replayed event at or below the floor, so a first start

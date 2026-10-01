@@ -110,7 +110,8 @@ func (r *router) seedResumePoint() {
 
 // advanceCursor moves the cursor up to the id of an event the router handled,
 // and saves it with the recent ids. An id that is no sequence moves nothing.
-func (r *router) advanceCursor(id string) {
+// While a gap is open, a live event moves only the highest id seen.
+func (r *router) advanceCursor(id string, replayed bool) {
 	if id == "" {
 		return
 	}
@@ -121,7 +122,11 @@ func (r *router) advanceCursor(id string) {
 		return
 	}
 	if n, err := strconv.ParseInt(id, 10, 64); err == nil {
-		r.cursor = max(r.cursor, n)
+		if r.gap && !replayed {
+			r.seen = max(r.seen, n)
+		} else {
+			r.cursor = max(r.cursor, n)
+		}
 	}
 	st := cursorState{Cursor: r.cursor, Floor: r.floor, RecentIDs: slices.Clone(r.recent)}
 	r.mu.Unlock()
@@ -146,8 +151,8 @@ func (r *router) saveCursor(st cursorState) {
 
 // catchUp reads the outbox events after the cursor, page by page, and routes
 // each one above the floor as a replayed event. It stops at the last page, or
-// at a page that does not move past the one before. A failure ends it, and the
-// stream then goes on live.
+// at a page that does not move past the one before. A failure opens a gap at
+// the failed page and ends it, and the stream then goes on live.
 func (r *router) catchUp() {
 	r.mu.Lock()
 	start, floor, ok := r.cursor, r.floor, r.hasCursor && r.replay != nil
@@ -166,6 +171,7 @@ func (r *router) catchUp() {
 		cancel()
 		if err != nil {
 			r.log.Warn("catch_up_failed", "after", after, "error", err.Error())
+			r.openGap(after)
 
 			return
 		}
@@ -191,10 +197,41 @@ func (r *router) catchUp() {
 		after = next
 	}
 
-	r.mu.Lock()
-	cursor := r.cursor
-	r.mu.Unlock()
+	cursor := r.closeGap()
 	r.log.Info("catch_up_done", "after", start, "events", received, "cursor", cursor)
+}
+
+// openGap holds the cursor at after, the start of a page that failed, so the
+// next catch-up and a restart read from there. Live events then move only the
+// highest id seen.
+func (r *router) openGap(after int64) {
+	r.mu.Lock()
+	if !r.gap {
+		r.gap, r.seen = true, 0
+	}
+	r.seen = max(r.seen, r.cursor)
+	r.cursor = after
+	st := cursorState{Cursor: r.cursor, Floor: r.floor, RecentIDs: slices.Clone(r.recent)}
+	r.mu.Unlock()
+	r.saveCursor(st)
+}
+
+// closeGap ends a gap after a catch-up read to the last page, and moves the
+// cursor to the highest id seen meanwhile. It returns the cursor.
+func (r *router) closeGap() int64 {
+	r.mu.Lock()
+	if !r.gap {
+		defer r.mu.Unlock()
+
+		return r.cursor
+	}
+	r.gap = false
+	r.cursor = max(r.cursor, r.seen)
+	st := cursorState{Cursor: r.cursor, Floor: r.floor, RecentIDs: slices.Clone(r.recent)}
+	r.mu.Unlock()
+	r.saveCursor(st)
+
+	return st.Cursor
 }
 
 // stale reports whether a replayed card move is out of date: its card has left

@@ -451,7 +451,7 @@ func (r *router) handleEvent(id string, data []byte, replayed bool) {
 		}
 	}
 	r.route(data, replayed)
-	r.advanceCursor(id)
+	r.advanceCursor(id, replayed)
 }
 
 // onID keeps the stream's resume point.

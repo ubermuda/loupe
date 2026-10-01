@@ -20,13 +20,16 @@ type replayer struct {
 	pages  []api.Replay
 	err    error
 	afters []int64
+	// fails answers that many first calls with err, and 0 answers every call
+	// with err when err is set.
+	fails int
 }
 
 func (f *replayer) replay(_ context.Context, after int64) (api.Replay, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.afters = append(f.afters, after)
-	if f.err != nil {
+	if f.err != nil && (f.fails == 0 || len(f.afters) <= f.fails) {
 		return api.Replay{}, f.err
 	}
 	if len(f.pages) == 0 {
@@ -296,6 +299,62 @@ func TestAFailedCatchUpLeavesTheStreamLive(t *testing.T) {
 	if len(h.events(t, "catch_up_done")) != 0 {
 		t.Fatal("a failed catch-up logged catch_up_done")
 	}
+}
+
+// A failed catch-up leaves a gap. A live event past the gap does not move the
+// saved cursor, so a restart catches up from the gap too. The next catch-up
+// reads from the gap, and once it ends the cursor takes the highest id seen.
+func TestAFailedCatchUpKeepsTheGap(t *testing.T) {
+	h := newHarness(t)
+	path := withCursor(t, h, 10, 10)
+	rep := &replayer{err: errors.New("HTTP 429"), fails: 1, pages: []api.Replay{
+		{Events: []api.ReplayEvent{row(11, "next"), row(20, "next")}},
+	}}
+	h.router.replay = rep.replay
+
+	h.router.catchUp()
+	h.router.onEvent("20", []byte(cardMoved(20)))
+	h.router.wg.Wait()
+	if st := readCursorFile(t, path); st.Cursor != 10 {
+		t.Fatalf("cursor while the gap is open = %+v", st)
+	}
+
+	h.router.catchUp()
+	h.router.wg.Wait()
+
+	if got := rep.called(); !slices.Equal(got, []int64{10, 10}) {
+		t.Fatalf("replay afters = %v", got)
+	}
+	if got := startedCards(t, h); !slices.Equal(got, []int{20, 11}) {
+		t.Fatalf("started = %v", got)
+	}
+	if st := readCursorFile(t, path); st.Cursor != 20 {
+		t.Fatalf("cursor after the gap closed = %+v", st)
+	}
+}
+
+// A page that fails after another page moved the cursor keeps the gap at the
+// cursor of that page.
+func TestAGapOpensWhereThePageFailed(t *testing.T) {
+	h := newHarness(t)
+	path := withCursor(t, h, 10, 10)
+	rep := &replayer{pages: []api.Replay{{Events: []api.ReplayEvent{row(11, "next"), row(12, "next")}, HasMore: true}}}
+	h.router.replay = func(ctx context.Context, after int64) (api.Replay, error) {
+		if after == 12 {
+			return api.Replay{}, errors.New("HTTP 429")
+		}
+
+		return rep.replay(ctx, after)
+	}
+
+	h.router.catchUp()
+	h.router.onEvent("30", []byte(cardMoved(30)))
+	h.router.wg.Wait()
+
+	if st := readCursorFile(t, path); st.Cursor != 12 {
+		t.Fatalf("cursor = %+v", st)
+	}
+	h.only(t, "catch_up_failed")
 }
 
 // The hub can send again, after the catch-up, every event the catch-up read.
