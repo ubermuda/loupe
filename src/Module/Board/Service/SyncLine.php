@@ -110,7 +110,13 @@ final readonly class SyncLine
 
     private static function isUpToDate(ForgePullRequest $row): bool
     {
-        return PullRequestMergeability::Behind !== $row->mergeability
+        // Forge stops rereading an unknown mergeability after a few tries, so only a pending read or a head Loupe synced still holds.
+        $known = PullRequestMergeability::Unknown !== $row->mergeability
+            || null !== $row->nextRefreshAt
+            || (null !== $row->syncedSha && $row->syncedSha === $row->headSha);
+
+        return $known
+            && PullRequestMergeability::Behind !== $row->mergeability
             && PullRequestMergeability::Conflicting !== $row->mergeability
             && (PullRequestChecks::Pending === $row->checks || PullRequestChecks::Passed === $row->checks);
     }

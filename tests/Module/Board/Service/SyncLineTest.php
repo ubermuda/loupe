@@ -65,9 +65,32 @@ final class SyncLineTest extends TestCase
         $this->assertStatus($line, $behind, PullRequestSyncStatus::WaitsTurn, blockerNumber: 4);
     }
 
-    public function test_pending_checks_and_an_unknown_mergeability_hold_the_line(): void
+    public function test_an_unknown_mergeability_with_a_read_still_scheduled_holds_the_line(): void
     {
         $holder = $this->candidate(4, mergeability: PullRequestMergeability::Unknown, checks: PullRequestChecks::Pending);
+        $holder->nextRefreshAt = $this->now->modify('+1 minute');
+
+        $line = new SyncLine([$holder, $this->candidate(5)], $this->now);
+
+        self::assertSame($holder, $line->holder);
+        self::assertNull($line->next);
+    }
+
+    public function test_an_unknown_mergeability_that_the_reads_gave_up_on_does_not_hold_the_line(): void
+    {
+        $unknown = $this->candidate(4, mergeability: PullRequestMergeability::Unknown, checks: PullRequestChecks::Pending);
+        $behind = $this->candidate(5);
+
+        $line = new SyncLine([$unknown, $behind], $this->now);
+
+        self::assertNull($line->holder);
+        self::assertSame($behind, $line->next);
+    }
+
+    public function test_an_unknown_mergeability_on_the_head_the_app_synced_holds_the_line(): void
+    {
+        $holder = $this->candidate(4, mergeability: PullRequestMergeability::Unknown, checks: PullRequestChecks::Pending);
+        $holder->syncedSha = $holder->headSha;
 
         $line = new SyncLine([$holder, $this->candidate(5)], $this->now);
 
