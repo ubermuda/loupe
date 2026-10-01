@@ -16,6 +16,7 @@ use App\Module\Billing\Entity\Subscription;
 use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BetaInviteRepository;
 use App\Module\Billing\Repository\BillingProfileRepository;
+use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\BillingGrants;
 use App\Tests\Support\BillingScenario;
 use App\Tests\Support\InstalledInstance;
@@ -160,6 +161,25 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorNotExists('[data-beta-stripe-hint]');
+        self::assertSame($tester->id?->toRfc4122(), $this->reload($client, $invite)->redeemedBy?->id?->toRfc4122());
+        self::assertNotNull($this->currentComp($client, $tester));
+    }
+
+    public function test_a_signed_in_user_whose_email_is_not_verified_redeems_at_once(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tester = new User(fullName: 'Unverified', email: 'beta-unverified@example.com', password: 'x');
+        AcceptedTerms::stamp($tester, $client->getContainer());
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
+        $em->persist($tester);
+        $em->flush();
+        [$invite, $token] = $this->seedInvite($client);
+
+        $client->loginUser($tester);
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+
+        self::assertResponseIsSuccessful();
         self::assertSame($tester->id?->toRfc4122(), $this->reload($client, $invite)->redeemedBy?->id?->toRfc4122());
         self::assertNotNull($this->currentComp($client, $tester));
     }

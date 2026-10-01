@@ -40,6 +40,9 @@ final readonly class RedirectUnverifiedUserListener
         // entry an unverified suspended account bounces to the verify page and
         // never learns it was suspended.
         'app_account_suspended',
+        // A beta link grants its comp at sign-up before verification, so a
+        // signed-in unverified account may redeem one too.
+        'app_billing_beta_invite',
     ];
 
     public function __construct(
