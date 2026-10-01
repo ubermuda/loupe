@@ -49,14 +49,14 @@ final readonly class WriteCardEventOnRunFinished
 
         // One try per run, so a failed row does not cost the other runs theirs.
         foreach ($runs as $run) {
-            if ($run->state->isOpen()) {
-                continue;
-            }
-
             try {
                 $card = $this->cards->findOneByIdAndProjectId($run->cardId->toRfc4122(), (string) $run->project->id);
-                if (null !== $card) {
-                    $runId = $run->id ?? throw new \LogicException('A stored run has an id.');
+                $runId = $run->id ?? throw new \LogicException('A stored run has an id.');
+                if (null !== $card && $run->state->isOpen()) {
+                    // A timed-out run can reopen, and its row must not show it finished meanwhile.
+                    $sequence = self::newest($changes[$runId->toRfc4122()] ?? [])?->sequence;
+                    $this->cardEvents->deleteRunFinished($card, $runId, null === $sequence ? null : (int) $sequence);
+                } elseif (null !== $card) {
                     // A timeout sets no end, so the newest change into the current state dates the close.
                     // A new close then moves the row, and a repeated dispatch does not.
                     $runChanges = $changes[$runId->toRfc4122()] ?? [];

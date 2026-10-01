@@ -69,6 +69,16 @@ class CardEventRepository extends ServiceEntityRepository
         ));
     }
 
+    /** Removes the row of a run that reopened, unless the row holds a newer state change than the reopen. */
+    public function deleteRunFinished(Card $card, Uuid $runId, ?int $stateSequence): void
+    {
+        $this->getEntityManager()->getConnection()->transactional(static fn (Connection $connection): int|string => $connection->executeStatement(
+            "DELETE FROM board_card_events WHERE card_id = ?::uuid AND run_id = ?::uuid
+               AND COALESCE((detail->>'stateSequence')::bigint, 0) <= ?",
+            [(string) $card->id, $runId->toRfc4122(), $stateSequence ?? \PHP_INT_MAX],
+        ));
+    }
+
     /** @return list<CardEvent> newest first, with the actor loaded */
     public function findPageForCard(Card $card, ?\DateTimeImmutable $beforeAt, ?string $beforeId, int $limit): array
     {

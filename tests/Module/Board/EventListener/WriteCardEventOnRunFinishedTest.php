@@ -231,6 +231,34 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
         self::assertEquals(new \DateTimeImmutable('2026-09-30 10:30:00+00:00'), $rows[0]->occurredAt);
     }
 
+    public function test_a_reopened_run_loses_its_row_until_it_closes_again(): void
+    {
+        $run = $this->workerRun($this->card->id, WorkerRunState::TimedOut);
+        $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::TimedOut, new \DateTimeImmutable('2026-09-30 10:30:00+00:00'), new \DateTimeImmutable('2026-09-30 10:30:00+00:00')));
+        $this->em->flush();
+        $this->listener()($this->event($run));
+        self::assertCount(1, $this->rows());
+
+        $run = $this->em->find(WorkerRun::class, $run->id);
+        self::assertInstanceOf(WorkerRun::class, $run);
+        $run->state = WorkerRunState::Running;
+        $this->em->persist(new WorkerRunStateChange($run, WorkerRunState::Running, new \DateTimeImmutable('2026-09-30 10:35:00+00:00'), new \DateTimeImmutable('2026-09-30 10:35:00+00:00')));
+        $this->em->flush();
+        $this->listener()($this->event($run));
+        self::assertCount(0, $this->rows());
+    }
+
+    public function test_a_late_reopen_does_not_remove_a_newer_close(): void
+    {
+        $events = self::getContainer()->get(CardEventRepository::class);
+        self::assertInstanceOf(CardEventRepository::class, $events);
+        $runId = Uuid::v7();
+        $events->upsertRunFinished($this->card, $runId, null, ['runId' => (string) $runId, 'state' => 'succeeded', 'stateSequence' => 5], new \DateTimeImmutable('2026-09-30 10:05:00+00:00'));
+        $events->deleteRunFinished($this->card, $runId, 3);
+
+        self::assertCount(1, $this->rows());
+    }
+
     public function test_an_open_run_writes_nothing(): void
     {
         $open = $this->workerRun($this->card->id, WorkerRunState::Running);
