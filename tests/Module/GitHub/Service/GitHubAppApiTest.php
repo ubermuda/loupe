@@ -294,6 +294,29 @@ final class GitHubAppApiTest extends TestCase
         self::assertSame('graphql_error', $this->failure(static fn () => $api->graphql(42, '{x}', []))->reason);
     }
 
+    public function test_a_graphql_error_carries_the_type_of_the_error_that_failed_the_call(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            $this->ok(['data' => ['closePullRequest' => null], 'errors' => [['type' => 'NOT_FOUND'], ['type' => 'FORBIDDEN', 'message' => 'Resource not accessible by integration']]]),
+        ]);
+
+        $failure = $this->failure(static fn () => $api->graphql(42, '{x}', []));
+
+        self::assertSame('graphql_error', $failure->reason);
+        self::assertSame('FORBIDDEN', $failure->graphqlType);
+    }
+
+    public function test_a_graphql_error_without_a_type_carries_none(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            $this->ok(['errors' => [['message' => 'Parse error']]]),
+        ]);
+
+        self::assertNull($this->failure(static fn () => $api->graphql(42, '{', []))->graphqlType);
+    }
+
     public function test_get_sends_the_query_with_the_installation_token(): void
     {
         $api = $this->api([
