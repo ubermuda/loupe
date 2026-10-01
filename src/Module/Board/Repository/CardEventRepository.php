@@ -50,7 +50,10 @@ class CardEventRepository extends ServiceEntityRepository
      */
     public function upsertRunFinished(Card $card, Uuid $runId, ?User $actorUser, array $detail, \DateTimeImmutable $at): void
     {
-        $this->getEntityManager()->getConnection()->transactional(static fn (Connection $connection): int|string => $connection->executeStatement(
+        $this->getEntityManager()->getConnection()->transactional(static function (Connection $connection) use ($card, $runId, $actorUser, $detail, $at): void {
+            // The project first, as a run report locks it, so the run lock below cannot deadlock with one.
+            $connection->executeQuery('SELECT 1 FROM projects WHERE id = ?::uuid FOR KEY SHARE', [(string) $card->project->id]);
+            $connection->executeStatement(
             'INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at, run_id)
              SELECT ?::uuid, ?::uuid, ?::uuid, ?, ?, ?::uuid, ?::jsonb, ?::timestamp, r.id
              FROM bridge_worker_runs r WHERE r.id = ?::uuid AND r.state = ? FOR SHARE OF r
@@ -70,7 +73,8 @@ class CardEventRepository extends ServiceEntityRepository
                 $detail['state'] ?? null,
             ],
             [6 => Types::JSON, 7 => Types::DATETIME_IMMUTABLE],
-        ));
+            );
+        });
     }
 
     /** Removes the row of a run that reopened, unless the row holds a newer state change than the reopen. */
