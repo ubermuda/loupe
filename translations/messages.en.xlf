@@ -3505,6 +3505,18 @@
                 <source>billing.beta_invite.claim.submit</source>
                 <target>Claim free beta access</target>
             </trans-unit>
+            <trans-unit id="billing.beta_invite.sign_up.heading">
+                <source>billing.beta_invite.sign_up.heading</source>
+                <target>You have a beta invite</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.sign_up.description">
+                <source>billing.beta_invite.sign_up.description</source>
+                <target>This link lets you create an account with free access for as long as the beta runs. It works once.</target>
+            </trans-unit>
+            <trans-unit id="billing.beta_invite.sign_up.submit">
+                <source>billing.beta_invite.sign_up.submit</source>
+                <target>Continue to sign up</target>
+            </trans-unit>
             <trans-unit id="billing.beta_invite.redeemed.heading">
                 <source>billing.beta_invite.redeemed.heading</source>
                 <target>Welcome to the beta</target>

@@ -54,22 +54,75 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         $this->closeRegistration($client);
         [, $token] = $this->seedInvite($client);
 
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
 
         self::assertResponseRedirects('/register');
-        self::assertSame($token, $client->getRequest()->getSession()->get(RegistrationPasses::SESSION_KEY));
+        $session = $client->getRequest()->getSession();
+        self::assertSame($token, $session->get(RegistrationPasses::SESSION_KEY));
+        self::assertSame('http://localhost/beta/'.$token, $session->get('_security.main.target_path'));
     }
 
-    public function test_a_hover_prefetch_stores_no_token_for_a_signed_out_visitor(): void
+    public function test_a_signed_out_get_shows_the_continue_page_and_stores_nothing_in_the_session(): void
     {
         $client = static::createClient();
         $client->disableReboot();
         $this->closeRegistration($client);
         [, $token] = $this->seedInvite($client);
 
-        $client->request(Request::METHOD_GET, '/beta/'.$token, server: ['HTTP_X_SEC_PURPOSE' => 'prefetch']);
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
 
-        self::assertResponseRedirects('/register');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-beta-sign-up-form]');
+        $session = $client->getRequest()->getSession();
+        self::assertFalse($session->has(RegistrationPasses::SESSION_KEY));
+        self::assertFalse($session->has('_security.main.target_path'));
+    }
+
+    public function test_a_signed_out_continue_with_a_bad_csrf_token_is_refused(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->closeRegistration($client);
+        [, $token] = $this->seedInvite($client);
+
+        $this->claim($client, $token, 'not-a-valid-token');
+
+        // The firewall answers a signed-out access denial with its login entry point.
+        self::assertResponseRedirects('http://localhost/login');
+        self::assertFalse($client->getRequest()->getSession()->has(RegistrationPasses::SESSION_KEY));
+    }
+
+    public function test_a_signed_out_continue_for_a_link_used_after_the_page_loaded_stores_nothing(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->closeRegistration($client);
+        [$invite, $token] = $this->seedInvite($client);
+
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $first = $this->persistUser($client, 'continue-first@example.com');
+        $this->reload($client, $invite)->redeem($client->getContainer()->get(UserRepository::class)->find($first->id) ?? throw new \LogicException('persisted above'));
+        $client->getContainer()->get(EntityManagerInterface::class)->flush();
+        $client->request(Request::METHOD_POST, '/beta/'.$token, ['_csrf_token' => 'csrf-token']);
+
+        self::assertResponseRedirects('/beta/'.$token);
+        $session = $client->getRequest()->getSession();
+        self::assertFalse($session->has(RegistrationPasses::SESSION_KEY));
+        self::assertFalse($session->has('_security.main.target_path'));
+    }
+
+    public function test_a_signed_out_continue_for_a_revoked_link_stores_nothing(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->closeRegistration($client);
+        [$invite, $token] = $this->seedInvite($client);
+        $invite->revoke();
+        $client->getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $this->claim($client, $token);
+
+        self::assertResponseRedirects('/beta/'.$token);
         self::assertFalse($client->getRequest()->getSession()->has(RegistrationPasses::SESSION_KEY));
     }
 
@@ -81,7 +134,7 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         $admin = $this->persistUser($client, 'beta-admin@example.com');
         [$invite, $token] = $this->seedInvite($client, $admin);
 
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
         $client->followRedirect();
         $client->submitForm('Create account', [
             'registration_form[email]' => 'beta-form@example.com',
@@ -107,7 +160,7 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         [$invite, $token] = $this->seedInvite($client);
         $this->stubProvider($client, 'google-sub-beta', ['email' => 'beta-oauth@example.com', 'email_verified' => true, 'name' => 'Beta OAuth']);
 
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
         $client->request(Request::METHOD_GET, self::GOOGLE_CALLBACK);
 
         // Back to the link, which shows the success page to its redeemer once
@@ -134,7 +187,7 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         $this->closeRegistration($client);
         [$invite, $token] = $this->seedInvite($client);
 
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
         $client->followRedirect();
         // Re-read: each request resets the entity manager, which detaches $invite.
         $this->reload($client, $invite)->revoke();
@@ -160,7 +213,7 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         [$invite, $token] = $this->seedInvite($client);
         $this->stubProvider($client, 'google-sub-late', ['email' => 'beta-late-oauth@example.com', 'email_verified' => true, 'name' => 'Late OAuth']);
 
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
         $first = $this->persistUser($client, 'first-tester@example.com');
         $this->reload($client, $invite)->redeem($client->getContainer()->get(UserRepository::class)->find($first->id) ?? throw new \LogicException('persisted above'));
         $client->getContainer()->get(EntityManagerInterface::class)->flush();
@@ -187,8 +240,8 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         $em->flush();
         [$invite, $token] = $this->seedInvite($client);
 
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
-        self::assertStringEndsWith('/beta/'.$token, (string) $client->getRequest()->getSession()->get('_security.main.target_path'));
+        $this->claim($client, $token);
+        self::assertSame('http://localhost/beta/'.$token, $client->getRequest()->getSession()->get('_security.main.target_path'));
 
         $client->request(Request::METHOD_GET, '/login');
         $client->submitForm('Sign in', ['email' => 'beta-existing@example.com', 'password' => 'SecurePassword1!']);
@@ -335,7 +388,7 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         InstalledInstance::ensure($client->getContainer());
         [$invite, $token] = $this->seedInvite($client);
 
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
         $client->followRedirect();
         $client->submitForm('Create account', [
             'registration_form[email]' => 'beta-open@example.com',
@@ -357,7 +410,7 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         $this->closeRegistration($client);
         [$invite, $token] = $this->seedInvite($client);
 
-        $client->request(Request::METHOD_GET, '/beta/'.$token);
+        $this->claim($client, $token);
         $client->followRedirect();
         $client->submitForm('Create account', [
             'registration_form[email]' => 'gate-filler@example.com',

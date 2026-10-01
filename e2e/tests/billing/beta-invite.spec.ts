@@ -72,6 +72,12 @@ test.describe.serial('beta invite links', () => {
         await expect(guest).toHaveURL(/\/waitlist$/);
 
         await guest.goto(link);
+        await expect(guest).toHaveURL(/\/beta\/[0-9a-f]{64}$/);
+        await submitRedirectingForm(
+            guest,
+            guest.getByRole('button', { name: 'Continue to sign up' }),
+            link,
+        );
         await expect(guest).toHaveURL(/\/register$/);
         await guest.getByLabel('Email').fill(testerEmail);
         await guest.getByLabel('Display name').fill('Beta Tester');
