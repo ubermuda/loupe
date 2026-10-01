@@ -17,6 +17,8 @@ final readonly class ShowExperimentCommand
         public ?string $variant = null,
         /** Narrows the Cards tab to the cards the report leaves out. */
         public bool $leftOutOnly = false,
+        /** The Cards tab shows no metric, so it skips the bootstraps. */
+        public bool $withMetrics = true,
     ) {
     }
 }

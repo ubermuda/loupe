@@ -30,6 +30,9 @@ final class ShowExperimentControllerTest extends WebTestCase
             if (1 === $i) {
                 $this->cardEvent($em, $card, CardEventKind::FixRequested, ['reason' => 'conflict', 'pullRequest' => 1], '-90 minutes');
             }
+            if (2 === $i) {
+                $this->cardEvent($em, $card, CardEventKind::FixRequested, ['reason' => 'rebase-needed', 'pullRequest' => 2], '-90 minutes');
+            }
             $card = $this->experimentCard($em, $project, $i + 5, merged: true);
             $this->seedUsage($em, $this->experimentRun($em, $project, $card, 'b'), costUsd: '1.000000');
         }
@@ -62,6 +65,7 @@ final class ShowExperimentControllerTest extends WebTestCase
         self::assertSame(['–', '–', '–', '–'], \array_slice($this->cells($crawler->filter('[data-metric="hours-to-merge"]')), 1));
         self::assertStringStartsWith('Conflict', $this->cells($crawler->filter('[data-metric-part="conflict"]'))[0]);
         self::assertSame('0.2', $this->cells($crawler->filter('[data-metric-part="conflict"]'))[1]);
+        self::assertStringStartsWith('Other reason: rebase-needed', $this->cells($crawler->filter('[data-metric-part="rebase-needed"]'))[0]);
 
         $leftOut = $crawler->filter('[data-experiment-left-out]');
         self::assertStringContainsString('1 card is left out', $leftOut->text());

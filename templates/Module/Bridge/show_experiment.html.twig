@@ -108,7 +108,7 @@
                     {% set format = formats[metric.key] %}
                     {{ _self.metric_row(metric, ('bridge.experiments.metric.' ~ metric.key)|trans, format, report.variants, false) }}
                     {% for part in metric.parts %}
-                        {{ _self.metric_row(part, part.key in knownReasons ? ('bridge.experiments.fix_reason.' ~ part.key)|trans : part.key, format, report.variants, true) }}
+                        {{ _self.metric_row(part, part.key in knownReasons ? ('bridge.experiments.fix_reason.' ~ part.key)|trans : 'bridge.experiments.fix_reason.other'|trans({'%reason%': part.key}), format, report.variants, true) }}
                     {% endfor %}
                 {% endfor %}
             </tbody>

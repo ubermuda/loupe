@@ -12,7 +12,6 @@ final readonly class CardOutcome
      */
     public function __construct(
         public array $fixRounds = [],
-        public bool $stopped = false,
         /** True only when an app rule moved the card because its pull request merged. */
         public bool $merged = false,
         /** The earliest opening of the card's pull requests. */

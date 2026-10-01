@@ -5766,6 +5766,7 @@
             <trans-unit id="bridge.experiments.fix_reason.conflict"><source>bridge.experiments.fix_reason.conflict</source><target>Conflict</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.checks-failed"><source>bridge.experiments.fix_reason.checks-failed</source><target>Checks failed</target></trans-unit>
             <trans-unit id="bridge.experiments.fix_reason.changes-requested"><source>bridge.experiments.fix_reason.changes-requested</source><target>Changes requested</target></trans-unit>
+            <trans-unit id="bridge.experiments.fix_reason.other"><source>bridge.experiments.fix_reason.other</source><target>Other reason: %reason%</target></trans-unit>
             <trans-unit id="bridge.experiments.too_few_cards"><source>bridge.experiments.too_few_cards</source><target>Too few cards</target></trans-unit>
             <trans-unit id="bridge.experiments.range"><source>bridge.experiments.range</source><target>%low%–%high%</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out"><source>bridge.experiments.left_out</source><target>{0} No card is left out of the figures.|{1} 1 card is left out of the figures.|]1,Inf[ %count% cards are left out of the figures.</target></trans-unit>

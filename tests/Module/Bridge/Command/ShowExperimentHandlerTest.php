@@ -121,7 +121,6 @@ final class ShowExperimentHandlerTest extends KernelTestCase
             (string) $plainAfter => [],
             (string) $noHistory => ['no-history'],
         ], $this->reasonsById($view, [$switched, $mixed, $switchedAndMixed, $beforeTest, $otherColumn, $plainAfter, $noHistory]));
-        self::assertSame(LeftOutReason::Switched, $this->card($view, $switchedAndMixed)->firstLeftOut());
         self::assertSame(2, $view->includedCards);
         self::assertSame(5, $view->leftOutCards);
         // A left-out card counts in no variant.
@@ -138,6 +137,60 @@ final class ShowExperimentHandlerTest extends KernelTestCase
 
         self::assertNotNull($view);
         self::assertSame([LeftOutReason::NoHistory], $view->cards[0]->leftOut);
+    }
+
+    public function test_a_card_with_a_pin_and_no_run_stays_in_with_or_without_history(): void
+    {
+        $card = Uuid::v7();
+        $this->em->persist(new ExperimentPin($this->project, $card, self::EXPERIMENT, 'a'));
+        $this->em->flush();
+
+        $withHistory = $this->show();
+        $this->historyStart = null;
+        $withoutHistory = $this->show();
+
+        self::assertNotNull($withHistory);
+        self::assertNotNull($withoutHistory);
+        self::assertSame([], $withHistory->cards[0]->leftOut);
+        self::assertSame([], $withoutHistory->cards[0]->leftOut);
+        self::assertSame(1, $withoutHistory->includedCards);
+    }
+
+    public function test_it_ignores_the_rows_of_another_project(): void
+    {
+        $card = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($card, 'a'), costUsd: '1.000000');
+
+        $other = $this->project($this->em, $this->user($this->em, 'experiment-other-'.uniqid().'@example.com'), 'Other experiment');
+        $foreign = $this->seedRun($this->em, $other, receivedAt: $this->start->modify('+2 hours'), cardId: $card, state: WorkerRunState::Succeeded, runKey: Uuid::v7());
+        $foreign->experiment = self::EXPERIMENT;
+        $foreign->variant = 'b';
+        $foreign->requestedModel = 'foreign-model';
+        $this->seedUsage($this->em, $foreign, costUsd: '9.000000');
+        $this->em->persist(new ExperimentPin($other, Uuid::v7(), self::EXPERIMENT, 'b'));
+        $this->em->flush();
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        self::assertEquals([new ExperimentVariant('a', 'claude-opus-5-5', null, 1, 0, 1, 1_000_000)], $view->variants);
+        self::assertSame([(string) $card], array_map(static fn (ExperimentCard $row): string => (string) $row->cardId, $view->cards));
+        self::assertSame(1_000_000, $view->cards[0]->costMicros);
+    }
+
+    public function test_the_cards_tab_skips_the_metrics(): void
+    {
+        $card = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($card, 'a'), costUsd: '1.000000');
+        $this->outcomes[(string) $card] = new CardOutcome(merged: true);
+
+        $view = $this->show(withMetrics: false);
+
+        self::assertNotNull($view);
+        self::assertSame([], $view->metrics);
+        self::assertNull($view->headline);
+        self::assertSame(1, $view->variants[0]->finishedCards);
+        self::assertSame([(string) $card], array_map(static fn (ExperimentCard $row): string => (string) $row->cardId, $view->cards));
     }
 
     public function test_it_compares_the_variants_on_each_metric(): void
@@ -218,6 +271,7 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         self::assertEquals(new Interval(2.0, 2.0, 2.0), $hours->for('a'));
         self::assertEquals(new Interval(4.0, 4.0, 4.0), $hours->for('b'));
 
+        self::assertNotNull($view->headline);
         self::assertSame('b', $view->headline->cheaperVariant);
         self::assertSame(0.5, $view->headline->saving);
         self::assertTrue($view->headline->costClear);
@@ -242,6 +296,7 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         self::assertNotNull($cost->for('a'));
         self::assertNotNull($cost->for('b'));
         self::assertFalse($cost->clear);
+        self::assertNotNull($view->headline);
         self::assertFalse($view->headline->costClear);
         self::assertSame('b', $view->headline->cheaperVariant);
     }
@@ -262,6 +317,7 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         foreach ($view->metrics as $metric) {
             self::assertFalse($metric->clear, $metric->key);
         }
+        self::assertNotNull($view->headline);
         self::assertNull($view->headline->cheaperVariant);
         self::assertNull($view->headline->saving);
         self::assertFalse($view->headline->qualitySettled);
@@ -298,7 +354,7 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         self::assertSame([(string) $leftOut], array_map(static fn (ExperimentCard $card): string => (string) $card->cardId, $onlyLeftOut->cards));
     }
 
-    private function show(int $page = 1, ?string $variant = null, bool $leftOutOnly = false): ?ExperimentReportView
+    private function show(int $page = 1, ?string $variant = null, bool $leftOutOnly = false, bool $withMetrics = true): ?ExperimentReportView
     {
         $this->em->clear();
         $reports = new readonly class($this->outcomes, $this->columns, $this->historyStart) implements CardReportSourceInterface {
@@ -348,7 +404,7 @@ final class ShowExperimentHandlerTest extends KernelTestCase
             $titles,
         );
 
-        return $handler(new ShowExperimentCommand($this->managedProject(), self::EXPERIMENT, $page, $variant, $leftOutOnly));
+        return $handler(new ShowExperimentCommand($this->managedProject(), self::EXPERIMENT, $page, $variant, $leftOutOnly, $withMetrics));
     }
 
     private function managedProject(): Project

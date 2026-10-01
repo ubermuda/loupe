@@ -48,16 +48,13 @@ final readonly class BoardCardReportSource implements CardReportSourceInterface
         }
 
         $cards = [];
-        foreach ($this->cardEvents->findKindsOfCards($project, $cardIds, [CardEventKind::FixRequested, CardEventKind::Stopped, CardEventKind::Moved]) as $row) {
-            $card = $cards[$row['cardId']] ?? ['fixRounds' => [], 'stopped' => false, 'merged' => false];
+        foreach ($this->cardEvents->findKindsOfCards($project, $cardIds, [CardEventKind::FixRequested, CardEventKind::Moved]) as $row) {
+            $card = $cards[$row['cardId']] ?? ['fixRounds' => [], 'merged' => false];
             $detail = $row['detail'];
             switch ($row['kind']) {
                 case CardEventKind::FixRequested:
                     $reason = \is_string($detail['reason'] ?? null) ? $detail['reason'] : 'unknown';
                     $card['fixRounds'][$reason] = ($card['fixRounds'][$reason] ?? 0) + 1;
-                    break;
-                case CardEventKind::Stopped:
-                    $card['stopped'] = true;
                     break;
                 case CardEventKind::Moved:
                     // A move by hand to a terminal column carries no cause, so it is no merge.
@@ -78,7 +75,6 @@ final readonly class BoardCardReportSource implements CardReportSourceInterface
             ksort($card['fixRounds']);
             $outcomes[$cardId] = new CardOutcome(
                 fixRounds: $card['fixRounds'],
-                stopped: $card['stopped'],
                 merged: $card['merged'],
                 openedAt: $times[$cardId]['openedAt'] ?? null,
                 mergedAt: $times[$cardId]['mergedAt'] ?? null,

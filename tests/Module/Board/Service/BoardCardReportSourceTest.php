@@ -110,7 +110,6 @@ final class BoardCardReportSourceTest extends KernelTestCase
         $expected = [
             (string) $merged => new CardOutcome(
                 fixRounds: ['checks-failed' => 2, 'conflict' => 1],
-                stopped: true,
                 merged: true,
                 openedAt: new \DateTimeImmutable('2026-09-01 10:00:00'),
                 mergedAt: new \DateTimeImmutable('2026-09-02 16:00:00'),

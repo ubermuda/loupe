@@ -14,14 +14,15 @@ final readonly class ExperimentReportView
 {
     /**
      * @param list<ExperimentVariant>         $variants by name
-     * @param array<string, ExperimentMetric> $metrics  key => metric, in display order
+     * @param array<string, ExperimentMetric> $metrics  key => metric, in display order, empty when the command skips them
      * @param list<ExperimentCard>            $cards    one page of the Cards tab, the latest run first
      * @param list<int|null>                  $pageList
      */
     public function __construct(
         public Project $project,
         public string $experiment,
-        public ExperimentHeadline $headline,
+        /** Null when the command skips the metrics. */
+        public ?ExperimentHeadline $headline,
         public array $variants,
         public array $metrics,
         public int $includedCards,

@@ -32,9 +32,4 @@ final readonly class ExperimentCard
     {
         return [] === $this->leftOut;
     }
-
-    public function firstLeftOut(): ?LeftOutReason
-    {
-        return $this->leftOut[0] ?? null;
-    }
 }

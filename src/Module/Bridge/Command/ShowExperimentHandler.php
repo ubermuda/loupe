@@ -144,8 +144,7 @@ final readonly class ShowExperimentHandler
             );
         }
 
-        $metrics = $this->metrics($experiment, $variantNames, $kept, $finished);
-        $cost = $metrics[ExperimentMetric::COST];
+        $metrics = $command->withMetrics ? $this->metrics($experiment, $variantNames, $kept, $finished) : [];
 
         $filtered = array_values(array_filter($cards, static fn (array $row): bool => (null === $command->variant || ($row['card']->included() && $command->variant === $row['card']->variant))
             && (!$command->leftOutOnly || !$row['card']->included())));
@@ -161,7 +160,7 @@ final readonly class ShowExperimentHandler
         return new ExperimentReportView(
             project: $project,
             experiment: $experiment,
-            headline: self::headline($variantNames, $cost, $metrics[ExperimentMetric::MERGE_RATE], $metrics[ExperimentMetric::FIX_ROUNDS]),
+            headline: [] === $metrics ? null : self::headline($variantNames, $metrics[ExperimentMetric::COST], $metrics[ExperimentMetric::MERGE_RATE], $metrics[ExperimentMetric::FIX_ROUNDS]),
             variants: $variants,
             metrics: $metrics,
             includedCards: $included,
@@ -198,7 +197,7 @@ final readonly class ShowExperimentHandler
         if (null !== $first && [] !== array_filter($plainRuns, static fn (WorkerRun $run): bool => $run->cardColumn === $first->cardColumn && $run->receivedAt < $first->receivedAt)) {
             $reasons[] = LeftOutReason::BeforeTest;
         }
-        if (null === $historyStart || (null !== $first && $first->receivedAt < $historyStart)) {
+        if (null !== $first && (null === $historyStart || $first->receivedAt < $historyStart)) {
             $reasons[] = LeftOutReason::NoHistory;
         }
 

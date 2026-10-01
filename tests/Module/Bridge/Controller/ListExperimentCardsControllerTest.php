@@ -126,4 +126,21 @@ final class ListExperimentCardsControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(404);
     }
+
+    public function test_another_users_project_is_refused(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'experiment-cards-theirs@example.com');
+        $stranger = $this->user($em, 'experiment-cards-stranger@example.com');
+        $project = $this->boardProject($em, $owner);
+        $this->experimentRun($em, $project, $this->experimentCard($em, $project, 1), 'a');
+        $projectId = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($stranger);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs/experiments/model-test/cards');
+
+        self::assertResponseStatusCodeSame(403);
+    }
 }

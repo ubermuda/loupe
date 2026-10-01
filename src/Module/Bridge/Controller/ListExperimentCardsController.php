@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Controller;
 use App\Controller\AppController;
 use App\Module\Bridge\Command\ShowExperimentCommand;
 use App\Module\Bridge\Command\ShowExperimentHandler;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\View\ExperimentCardsQuery;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
@@ -20,7 +21,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route(
     '/projects/{id:project}/worker-runs/experiments/{experiment}/cards',
     name: 'app_project_experiment_cards',
-    requirements: ['experiment' => ShowExperimentController::EXPERIMENT_NAME],
+    requirements: ['experiment' => WorkerRun::EXPERIMENT_NAME],
     methods: ['GET'],
 )]
 class ListExperimentCardsController extends AppController
@@ -34,7 +35,7 @@ class ListExperimentCardsController extends AppController
     public function __invoke(Project $project, string $experiment, Request $request): Response
     {
         $query = ExperimentCardsQuery::fromQuery($request->query);
-        $report = ($this->showExperiment)(new ShowExperimentCommand($project, $experiment, $query->page, $query->variant, $query->leftOutOnly))
+        $report = ($this->showExperiment)(new ShowExperimentCommand($project, $experiment, $query->page, $query->variant, $query->leftOutOnly, withMetrics: false))
             ?? throw $this->createNotFoundException('No run and no pin name this experiment.');
 
         if (null !== $report->clampedPage) {
