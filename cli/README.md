@@ -222,6 +222,11 @@ command forwards every message to `/mcp` on your Loupe instance over HTTPS, and
 adds the bearer token from your own `loupe login` plus the project. So no tool
 and no configuration file holds a credential.
 
+It also sends the session id from `LOUPE_SESSION_ID`, else from
+`CLAUDE_CODE_SESSION_ID`, in the `X-Loupe-Session` header. The bridge sets
+`LOUPE_SESSION_ID` for each worker, so the card history names the run that
+moved a card.
+
 It defines no tools of its own. It copies JSON-RPC messages and reads no method
 name except the two the handshake needs, so a tool Loupe adds reaches your agent
 with no new release of this CLI.
@@ -434,13 +439,13 @@ refuses the file, because `defaults` is an unknown key there. Remove the block
 before you downgrade.
 
 `autoUpdate` at the top of the file turns [updates](#updates) on or off. It is
-on when the key is absent. `autoUpdate: false` stops the bridge from installing
-a release, and it then only logs `update_available`. A reload applies a change
-to the key. A CLI older than this key refuses the file, because `autoUpdate` is
-an unknown key there.
+off when the key is absent. With updates off, the bridge installs no release,
+and it only logs `update_available`. A reload applies a change to the key. A
+CLI older than this key refuses the file, because `autoUpdate` is an unknown key
+there. [`loupe update auto`](#loupe-update-auto) reads and sets the key.
 
 ```yaml
-autoUpdate: false
+autoUpdate: true
 ```
 
 `maxWorkers` at the top of the file is the number of workers the bridge runs at
@@ -1294,9 +1299,9 @@ workers in flight keep running and the queue survives. When the new version
 does not connect and send a heartbeat within 60 seconds, the bridge goes back to
 the old version and skips the new one from then on.
 
-`autoUpdate: false` in the [rule file](#the-rule-file) turns this off. The
-bridge must also be able to write the directory of its binary, or it logs
-`update_blocked`. [Updates](../docs/extending/cli-bridge.md#updates) in the
+The bridge does this only with `autoUpdate: true` in the
+[rule file](#the-rule-file). The bridge must also be able to write the
+directory of its binary, or it logs `update_blocked`. [Updates](../docs/extending/cli-bridge.md#updates) in the
 bridge documentation gives every step, the rollback, the recovery after a crash
 and the files in the config directory.
 
@@ -1386,8 +1391,10 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `update_check` | `from`, `range`: a check starts |
 | `update_check_failed` | `from`, `error`, and `to` for a failed download. Level `WARN` |
 | `update_state_unreadable` | `error`: `update.json` does not parse, so the check runs with an empty skip list. Level `WARN` |
+| `auto_update_migrated` | `rules`: a start added `autoUpdate: true` to the rule file, after a handover from a CLI that took a missing key as on, or after a pending try. `update.json` then lists the rule file in `defaultOff`, and no later start changes it |
+| `auto_update_migration_failed` | `rules`, `error`, and `line` when the rule file takes no new last line: add that line by hand. `update.json` lists the rule file in `autoUpdatePending`, updates stay on, and each start tries again. Level `WARN` |
 | `update_unavailable` | `from`, `range`, `message`: the running version is outside the range and no release can replace it. Logged once. Level `WARN` |
-| `update_available` | `from`, `to`: a release waits, and `autoUpdate` is `false`. Logged once for each version |
+| `update_available` | `from`, `to`: a release waits, and `autoUpdate` is not `true`. Logged once for each version |
 | `update_blocked` | `from`, `to`, `error`: the bridge cannot write the directory of its binary. Logged once for each version. Level `WARN` |
 | `update_download` | `from`, `to`, `url` |
 | `update_verified` | `from`, `to`: the archive matches `checksums.txt` |
@@ -1609,6 +1616,50 @@ The command prints one line for each bridge. A bridge that hands over prints
 `handing-over`, and the command waits until the bridge runs the new binary.
 When that `exec` fails, the line says `rejected` instead, and the command exits
 with status 1.
+
+The command does not update a binary that Homebrew installed, and it asks no
+bridge either. It prints
+`loupe was installed with Homebrew. Run: brew upgrade loupe`, changes nothing,
+and exits with status 1. A bridge that runs a Homebrew binary refuses the
+request of an older CLI with the same message, and stages nothing. Automatic
+updates with `autoUpdate: true` still run. The command finds such a binary by its
+path, with symlinks resolved: the path holds `/Cellar/loupe/`. A bridge reports
+the same install method in its heartbeat, so the agents page names
+`brew upgrade loupe`.
+
+### `loupe update auto`
+
+Shows or sets the `autoUpdate` key of the rule file.
+
+```bash
+loupe update auto
+loupe update auto on
+loupe update auto off --keep
+```
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--rules` | `rules.yaml` in your config dir | Read and write this rule file |
+| `--keep` | off | Keep a key that the file holds, whatever its value |
+
+With no argument, the command prints `Automatic updates: on`, `off`, or
+`off (default)` when the file has no key. With `on` or `off`, it adds the key
+as a new last line, and creates the file when it is absent. It then prints
+`Automatic updates: on` and the line it wrote. A running bridge reads the
+change on `loupe bridge reload`.
+
+When the key holds the value you ask for, the command prints that value. When
+the key holds the other value, the command changes the value on the line of the
+key, and every other byte of the file stays, comments included. It then prints
+the same two lines as for a new key. The value must be a plain `true` or
+`false` on the line of the key. In other cases, such as a flow mapping, the
+command changes nothing, exits with status 1, and names the line to edit.
+
+With `--keep`, a key that the file holds keeps its value, whatever it is. The
+command prints `Automatic updates: off (kept from <path>)` and exits with
+status 0. When a new last line would not be a top-level key, as in a flow
+mapping, the command changes nothing, exits with status 1, and names the line
+to add by hand.
 
 ## `loupe version`
 

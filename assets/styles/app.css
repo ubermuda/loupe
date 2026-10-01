@@ -7526,6 +7526,22 @@
     .lp-agent-card__purpose {
         @apply my-4 text-sm leading-relaxed text-fg-mute;
     }
+    /* The update command stays collapsed until the "Update available" chip opens it. */
+    .lp-agent-update-toggle {
+        @apply cursor-pointer;
+    }
+    .lp-agent-update-toggle__caret {
+        @apply w-3 h-3 shrink-0 transition-transform duration-100;
+    }
+    .disclosure-open .lp-agent-update-toggle__caret {
+        @apply rotate-180;
+    }
+    .lp-agent-update-command {
+        @apply hidden mt-4 overflow-hidden;
+    }
+    .lp-agent-update-command.open {
+        @apply flex;
+    }
     .lp-agent-card__facts {
         @apply grid grid-cols-1 sm:grid-cols-2 gap-3 m-0;
     }

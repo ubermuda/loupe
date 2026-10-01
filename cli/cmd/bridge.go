@@ -244,6 +244,9 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		claude:     claude,
 		cursorFile: cursorFile,
 	}
+	if dir, err := config.Dir(); err == nil {
+		r.assumeAutoUpdate = migrateAutoUpdate(bl.log, dir, path, o.resumeFile != "")
+	}
 	r.set.Store(set)
 	// The cache is read before subscribe, whose adopt dispatches.
 	r.baseURL = cfg.BaseURL
@@ -427,13 +430,14 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 			if r.update != nil {
 				hook = r.update.handover(r, version)
 			}
-			updates = newUpdater(r.log, version, dir, func() bool { return r.rules().AutoUpdate() }, hook)
+			updates = newUpdater(r.log, version, dir, func() bool { return autoUpdateOn(r.rules(), r.assumeAutoUpdate) }, hook)
 			if r.update != nil {
 				updates.executable = r.update.installed
 				if r.update.crashedFrom != "" {
 					updates.markRolledBack(r.update.crashedFrom)
 				}
 			}
+			updates.install = installMethod(updates.executable)
 			hb.onRange, hb.update = updates.setRange, updates.state
 		}
 		if r.update != nil {
