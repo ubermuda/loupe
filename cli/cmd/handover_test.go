@@ -878,14 +878,14 @@ func TestAHandoverAdoptsARunInItsBeforeCommand(t *testing.T) {
 		t.Fatalf("live = %+v", run)
 	}
 
-	for name, res := range map[string]beforeResult{
+	for name, res := range map[string]procResult{
 		"a command that succeeds": {dir: t.TempDir()},
 		"a command that fails":    {exitCode: 1, output: "npm ci failed"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			h2, _, _ := withBefore(t, "1m")
 			rec := h2.states()
-			h2.router.worker.adoptBefore = func(context.Context, string) beforeResult { return res }
+			h2.router.worker.adoptBefore = func(context.Context, string) procResult { return res }
 			h2.router.adopt(st)
 			h2.router.wg.Wait()
 

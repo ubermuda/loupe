@@ -15,12 +15,12 @@ import (
 
 // before runs argv as a before command in a new project directory, with a
 // short config home, and returns the result and the project directory.
-func before(t *testing.T, ctx context.Context, argv ...string) (beforeResult, string) {
+func before(t *testing.T, ctx context.Context, argv ...string) (procResult, string) {
 	t.Helper()
 	shortConfigHome(t)
 	project := t.TempDir()
 	started := false
-	res := runBefore(ctx, beforeSpec{argv: argv, dir: project, runID: "run-1"}, func(proc workerProc) {
+	res := runBefore(ctx, procSpec{argv: argv, dir: project, runID: "run-1"}, func(proc workerProc) {
 		started = proc.pid > 0 && proc.dir != ""
 	})
 	if res.err == nil && !started {
@@ -185,7 +185,7 @@ func TestRunBeforeWritesItsOwnFiles(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(res.runDir, "run.json")); !os.IsNotExist(err) {
 		t.Fatalf("run.json: %v, want none", err)
 	}
-	rec, err := readBeforeRecord(res.runDir)
+	rec, err := readProcRecord(beforeProc, res.runDir)
 	if err != nil || rec.PID <= 0 || rec.Dir != project || len(rec.Argv) != 2 || rec.StartedAt.IsZero() {
 		t.Fatalf("record = %+v, %v", rec, err)
 	}
@@ -217,8 +217,8 @@ func TestAdoptBeforeKeepsTheDeadline(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	rec := beforeRecord{PID: cmd.Process.Pid, StartedAt: time.Now(), StartTime: processStart(cmd.Process.Pid), Dir: t.TempDir(), Deadline: time.Now().Add(300 * time.Millisecond)}
-	if err := writeBeforeRecord(dir, rec); err != nil {
+	rec := procRecord{PID: cmd.Process.Pid, StartedAt: time.Now(), StartTime: processStart(cmd.Process.Pid), Dir: t.TempDir(), Deadline: time.Now().Add(300 * time.Millisecond)}
+	if err := writeProcRecord(beforeProc, dir, rec); err != nil {
 		t.Fatal(err)
 	}
 
