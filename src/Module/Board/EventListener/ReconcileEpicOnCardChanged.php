@@ -14,6 +14,7 @@ use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\AbandonedCardMoves;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\LifecycleStages;
@@ -41,6 +42,7 @@ final readonly class ReconcileEpicOnCardChanged
         private LifecycleStages $stages,
         private CardPullRequestRepository $cardPullRequests,
         private ForgePullRequestRepository $forgePullRequests,
+        private AbandonedCardMoves $abandonedMoves,
     ) {
     }
 
@@ -80,7 +82,7 @@ final readonly class ReconcileEpicOnCardChanged
 
     /**
      * Closes an epic whose children are all finished, or holds it in review
-     * while its own pull request is open. An abandoned pull request leaves it in place.
+     * while its own pull request is open. An abandoned pull request queues its Backlog move.
      * Reopens a closed or held epic with an open child.
      */
     private function reconcile(Card $epic, int $childNumber): void
@@ -94,15 +96,22 @@ final readonly class ReconcileEpicOnCardChanged
         $stage = $this->stages->forPassedChecks();
         $review = array_find($columns, static fn (BoardColumn $column): bool => $column->slug === $stage['to'] && !$column->terminal);
         $inReview = null !== $review && $epic->column === $review;
+        $open = [] !== $this->cards->openChildNumbers($epic);
+        $state = $open || $epic->column->terminal ? null : $this->pullRequestState($epic);
+        if (PullRequestState::Closed === $state) {
+            // The move queued at the close skips an epic with an open child, so queue it again.
+            if (!$epic->column->backlog) {
+                $this->abandonedMoves->queue($epic);
+            }
+
+            return;
+        }
+
         $target = match (true) {
-            [] !== $this->cards->openChildNumbers($epic) => $epic->column->terminal || $inReview ? self::reopenColumn($columns) : null,
+            $open => $epic->column->terminal || $inReview ? self::reopenColumn($columns) : null,
             $epic->column->terminal => null,
-            default => match ($this->pullRequestState($epic)) {
-                // The delayed Backlog move of an abandoned pull request owns the epic.
-                PullRequestState::Closed => null,
-                PullRequestState::Open => $inReview ? null : ($review ?? self::firstTerminal($columns)),
-                default => self::firstTerminal($columns),
-            },
+            PullRequestState::Open === $state => $inReview ? null : ($review ?? self::firstTerminal($columns)),
+            default => self::firstTerminal($columns),
         };
 
         if (null !== $target) {

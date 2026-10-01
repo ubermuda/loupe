@@ -8,11 +8,10 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
-use App\Module\Board\Messenger\MoveAbandonedCard;
 use App\Module\Board\Repository\BoardColumnRepository;
-use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\AbandonedCardMoves;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\LifecycleStages;
@@ -22,9 +21,6 @@ use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Messenger\Stamp\DelayStamp;
-use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -37,9 +33,6 @@ use Symfony\Component\Uid\Uuid;
  */
 final readonly class MoveCardsOnPullRequestStateHandler
 {
-    /** Long enough for a person to link a replacement pull request first. */
-    private const int ABANDONED_DELAY_MILLISECONDS = 600_000;
-
     public function __construct(
         private CardPullRequestRepository $cardPullRequests,
         private BoardColumnRepository $boardColumns,
@@ -49,8 +42,7 @@ final readonly class MoveCardsOnPullRequestStateHandler
         private EntityManagerInterface $em,
         private LifecycleStages $stages,
         private UpdateCardHandler $updateCard,
-        private MessageBusInterface $bus,
-        private CardAutomationRepository $cardAutomations,
+        private AbandonedCardMoves $abandonedMoves,
     ) {
     }
 
@@ -108,12 +100,7 @@ final readonly class MoveCardsOnPullRequestStateHandler
                     // Only a card with no open child moves, so an epic whose pull request is ready early waits.
                     ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $review, onlyFromColumn: $card->column, cause: CardEventCause::checksPassed($number)));
                 } elseif (isset($abandoned[(string) $card->id]) && !$card->column->backlog) {
-                    // Only the newest queued move acts, so it waits for the last close.
-                    $token = Uuid::v7();
-                    $this->cardAutomations->findOrCreateForUpdate($card)->abandonedMoveToken = $token;
-                    $this->em->flush();
-                    // A named transport keeps PlaywrightSyncMiddleware from handling it inline, before the delay.
-                    $this->bus->dispatch(new MoveAbandonedCard($card->id ?? throw new \LogicException('A stored card has an id.'), $token), [new DelayStamp(self::ABANDONED_DELAY_MILLISECONDS), new TransportNamesStamp(['async'])]);
+                    $this->abandonedMoves->queue($card);
                 }
             }
         });

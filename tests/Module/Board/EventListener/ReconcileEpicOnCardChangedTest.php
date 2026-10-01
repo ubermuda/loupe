@@ -20,6 +20,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Install\BoardInstallFlags;
+use App\Module\Board\Messenger\MoveAbandonedCard;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
@@ -27,6 +28,9 @@ use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
+use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Ubermuda\FeatureFlagsBundle\Reader\DoctrineFeatureFlagReader;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
@@ -343,6 +347,7 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         self::assertSame('in-review', $this->slugOf($epic));
         self::assertNull($this->reload($epic)->completedAt);
         self::assertEquals(['type' => 'epic-reconciled', 'child' => $child->number], $this->lastCause($epic));
+        self::assertSame([], $this->queuedAbandonedCards());
     }
 
     public function test_a_pull_request_forge_never_read_holds_the_epic_in_review(): void
@@ -395,7 +400,7 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         self::assertSame('done', $this->slugOf($epic));
     }
 
-    public function test_an_epic_stays_when_its_pull_request_closed_unmerged_before_the_last_child(): void
+    public function test_an_epic_whose_pull_request_closed_unmerged_queues_its_backlog_move_when_the_last_child_finishes(): void
     {
         $project = $this->reviewProject('epic-abandoned');
         $epic = $this->card($project, 'implementation', CardType::Epic);
@@ -406,6 +411,7 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
 
         self::assertSame('implementation', $this->slugOf($epic));
         self::assertCount(1, $this->movedRows($project));
+        self::assertSame([(string) $epic->id], $this->queuedAbandonedCards());
     }
 
     public function test_an_epic_in_the_backlog_stays_when_its_only_pull_request_closed_unmerged(): void
@@ -418,9 +424,10 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         $this->update($child, 'done');
 
         self::assertSame('backlog', $this->slugOf($epic));
+        self::assertSame([], $this->queuedAbandonedCards());
     }
 
-    public function test_a_board_with_no_review_column_leaves_an_epic_with_an_abandoned_pull_request_in_place(): void
+    public function test_a_board_with_no_review_column_queues_the_backlog_move_of_an_epic_with_an_abandoned_pull_request(): void
     {
         $project = $this->lifecycleProject('epic-no-review-abandoned');
         $epic = $this->card($project, 'implementation', CardType::Epic);
@@ -430,6 +437,7 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         $this->update($child, 'done');
 
         self::assertSame('implementation', $this->slugOf($epic));
+        self::assertSame([(string) $epic->id], $this->queuedAbandonedCards());
     }
 
     public function test_an_epic_closes_when_its_pull_request_merged_before_the_last_child(): void
@@ -443,6 +451,7 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         $this->update($child, 'done');
 
         self::assertSame('done', $this->slugOf($epic));
+        self::assertSame([], $this->queuedAbandonedCards());
     }
 
     public function test_an_epic_in_review_that_gains_an_open_child_returns_to_implementation(): void
@@ -547,6 +556,26 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         }
         $this->em->flush();
         $this->em->clear();
+    }
+
+    /** @return list<string> the cards of the queued Backlog moves, each with a ten-minute delay */
+    private function queuedAbandonedCards(): array
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        $cards = [];
+        foreach ($transport->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if (!$message instanceof MoveAbandonedCard) {
+                continue;
+            }
+            self::assertSame(600_000, $envelope->last(DelayStamp::class)?->getDelay());
+            self::assertSame(['async'], $envelope->last(TransportNamesStamp::class)?->getTransportNames());
+            $cards[] = (string) $message->cardId;
+        }
+
+        return $cards;
     }
 
     private function delete(Card $card): void
