@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Outbox\Repository;
 
+use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Outbox\ActivityFamily;
 use App\Outbox\Entity\OutboxEvent;
@@ -84,6 +85,63 @@ class OutboxEventRepository extends ServiceEntityRepository
             ['id' => array_map(static fn (mixed $id): Uuid => Uuid::fromString((string) $id), $claimedIds)],
             ['sequence' => 'ASC'],
         ));
+    }
+
+    public function highestSequenceForOwner(User $owner): int
+    {
+        return (int) $this->ownedQueryBuilder($owner)
+            ->select('MAX(e.sequence)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /** The creation time of the highest row at or below the sequence, in any project. */
+    public function createdAtOfHighestAtOrBelow(int $sequence): ?\DateTimeImmutable
+    {
+        $event = $this->createQueryBuilder('e')
+            ->andWhere('e.sequence <= :sequence')
+            ->setParameter('sequence', $sequence)
+            ->orderBy('e.sequence', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $event instanceof OutboxEvent ? $event->createdAt : null;
+    }
+
+    /**
+     * The owner's highest rows at or below the sequence created since the given
+     * time, highest first.
+     *
+     * @return list<OutboxEvent>
+     */
+    public function findOwnedAtOrBelowSince(User $owner, int $sequence, \DateTimeImmutable $since, int $limit): array
+    {
+        return $this->ownedQueryBuilder($owner)
+            ->andWhere('e.sequence <= :sequence')
+            ->andWhere('e.createdAt >= :since')
+            ->setParameter('sequence', $sequence)
+            ->setParameter('since', $since)
+            ->orderBy('e.sequence', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * The owner's rows above the sequence, lowest first.
+     *
+     * @return list<OutboxEvent>
+     */
+    public function findOwnedAbove(User $owner, int $sequence, int $limit): array
+    {
+        return $this->ownedQueryBuilder($owner)
+            ->andWhere('e.sequence > :sequence')
+            ->setParameter('sequence', $sequence)
+            ->orderBy('e.sequence', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
     }
 
     /**
@@ -189,6 +247,14 @@ class OutboxEventRepository extends ServiceEntityRepository
             ->orderBy('candidate.name', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    private function ownedQueryBuilder(User $owner): QueryBuilder
+    {
+        return $this->createQueryBuilder('e')
+            ->join('e.project', 'p')
+            ->andWhere('p.owner = :owner')
+            ->setParameter('owner', $owner);
     }
 
     private static function escapeLike(string $text): string

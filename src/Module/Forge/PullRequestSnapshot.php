@@ -12,7 +12,10 @@ use App\Module\Forge\Entity\PullRequestState;
 /** What a forge said about one pull request at one read. The defaults are those of a row nobody has read yet. */
 final readonly class PullRequestSnapshot
 {
-    /** @param list<string> $failedChecks the names of the failed checks on $checksSha */
+    /**
+     * @param list<string> $failedChecks the names of the failed checks on $checksSha
+     * @param list<string> $headParents
+     */
     public function __construct(
         public PullRequestState $state = PullRequestState::Open,
         public bool $draft = false,
@@ -27,6 +30,11 @@ final readonly class PullRequestSnapshot
         public ?string $changesRequestedSha = null,
         public ?\DateTimeImmutable $openedAt = null,
         public ?\DateTimeImmutable $mergedAt = null,
+        public ?\DateTimeImmutable $approvedAt = null,
+        public ?string $approvalSha = null,
+        public ?string $defaultBranch = null,
+        public array $headParents = [],
+        public ?string $approvalId = null,
     ) {
     }
 
@@ -39,7 +47,7 @@ final readonly class PullRequestSnapshot
 
     /**
      * Strict, because a loose `==` holds two numeric-looking commit hashes equal.
-     * The open and merge times are left out, so a time read first on a stored row announces no change.
+     * The times and the approval and branch facts are left out, so a fact read first on a stored row announces no change.
      */
     public function equals(self $other): bool
     {

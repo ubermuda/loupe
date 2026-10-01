@@ -64,13 +64,8 @@ export default defineConfig({
           label: 'Getting started',
           collapsed: true,
           items: [
-            { label: 'Choosing a path', slug: 'getting-started' },
-            { slug: 'getting-started/demo' },
-            { slug: 'getting-started/from-source' },
+            { label: 'First steps', slug: 'getting-started' },
             { slug: 'getting-started/cli' },
-            { slug: 'getting-started/docker-compose' },
-            { slug: 'getting-started/digitalocean' },
-            { slug: 'getting-started/architecture' },
           ],
         },
         {
@@ -115,6 +110,16 @@ export default defineConfig({
           label: 'Operating',
           collapsed: true,
           items: [
+            {
+              label: 'Installing',
+              items: [
+                { label: 'Choosing a path', slug: 'operating/install' },
+                { slug: 'operating/install/demo' },
+                { slug: 'operating/install/from-source' },
+                { slug: 'operating/install/docker-compose' },
+                { slug: 'operating/install/digitalocean' },
+              ],
+            },
             { slug: 'operating/first-run' },
             { slug: 'operating/migrations' },
             { slug: 'operating/post-deploy-checks' },
@@ -154,6 +159,7 @@ export default defineConfig({
             { slug: 'adr/0001-app-over-worker' },
           ],
         },
+        { label: 'What runs in production', slug: 'architecture' },
         { label: 'Troubleshooting', slug: 'troubleshooting' },
         { label: 'Known gaps', slug: 'known-gaps' },
         { label: 'Changelog', slug: 'changelog' },

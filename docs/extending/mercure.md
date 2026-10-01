@@ -25,7 +25,7 @@ Two feature flags use the hub, and each switches on its own:
 
 | Flag | Switches |
 |---|---|
-| `agent.push.enabled` | The outbox drain, the bridge CLI's subscriber credentials at `GET /api/events`, and its worker-run reports at `PUT /api/projects/{handle}/worker-runs/{runId}`, `PUT /api/bridges/{bridgeId}/runs` and `POST /api/projects/{handle}/worker-runs`. |
+| `agent.push.enabled` | The outbox drain, the bridge CLI's subscriber credentials at `GET /api/events`, its catch-up read at `GET /api/events/replay`, and its worker-run reports at `PUT /api/projects/{handle}/worker-runs/{runId}`, `PUT /api/bridges/{bridgeId}/runs` and `POST /api/projects/{handle}/worker-runs`. |
 | `live_updates.enabled` | Live updates in the browser: the subscriber cookie, the page element, `POST /mercure/authorize`, every publish of `LiveUpdatePublisher`, the live board, the worker run lists, and the inbox count in the sidebar. |
 
 Both flags require all three variables. With any of them blank, the flag reads
@@ -143,5 +143,5 @@ On the single-host stack the hub sits behind a compose profile and stays off
 unless you ask for it. On App Platform, setting `mercure_jwt_secret` runs a hub
 as a second service and routes `/.well-known/mercure` on the app's own domain to
 it, deriving all three variables itself. See
-[Single-host Docker Compose](../getting-started/docker-compose.md) and
-[App Platform](../getting-started/digitalocean.md).
+[Single-host Docker Compose](../operating/install/docker-compose.md) and
+[App Platform](../operating/install/digitalocean.md).

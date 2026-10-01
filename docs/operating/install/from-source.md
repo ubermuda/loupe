@@ -8,7 +8,7 @@ description: "A development clone. Assumes Docker, just, and a way to reach the 
 `compose.yaml` attaches to an **external** Docker network named `traefik` and
 asks a step-ca resolver for certificates on `*.dev.localhost`. None of that is
 created for you, and an absent network makes `just up` fail rather than degrade.
-[Reverse proxy](../extending/reverse-proxy.md) has both ready-made setups:
+[Reverse proxy](../../extending/reverse-proxy.md) has both ready-made setups:
 `examples/traefik-stepca/` for the hostnames the rest of this page assumes, and
 `examples/no-proxy/` if you would rather bind a port and skip TLS.
 
@@ -41,5 +41,5 @@ That host is the `traefik-stepca` example's TCP route, and it assumes
 
 Set a real `MERCURE_JWT_SECRET`, `APP_SECRET`, and (if you use encrypted columns)
 `APP_ENCRYPTION_KEY` per environment. `.env` documents every variable inline;
-[Environment variables](../reference/environment.md#secrets) has the commands that generate these three.
+[Environment variables](../../reference/environment.md#secrets) has the commands that generate these three.
 **Never commit real secrets.**

@@ -20,6 +20,8 @@ project comes from the repository rather than from the credential.
 Install the CLI, sign in once, and name the project in each repository:
 
 ```bash
+curl -fsSL https://<your Loupe>/install.sh | sh
+# or, with Homebrew: brew install ubermuda/tap/loupe
 loupe login                  # a browser sign-in, once per machine
 cd ~/code/my-project
 loupe init                   # writes .loupe.yaml, choosing from your projects
@@ -230,6 +232,7 @@ Roughly in the order an agent uses them:
 | `board_columns` | List the board's columns, each with its slug, label, terminal flag, default flag and backlog flag |
 | `card_search` | Search every card's title and body by words, finished ones included |
 | `card_get` | Read one card, with the pull requests and their stored state, what the automation did, and the feedback linked to it |
+| `card_get_history` | Read a page of one card's history, newest first: its creation, its moves and the automation's actions |
 | `card_update` | Change a card, or move it to another column |
 | `card_run_open` | Record an open interactive session on a card, and optionally move the card in the same step |
 | `card_run_close` | Close the interactive run a session opened on a card |

@@ -13,8 +13,8 @@ per-container migrations race against the same database.
 docker run --rm --env-file <your prod env file> <image> docker/prod/release.sh
 ```
 
-[Single-host Docker Compose](../getting-started/docker-compose.md) and
-[App Platform](../getting-started/digitalocean.md) each have their own way of
+[Single-host Docker Compose](install/docker-compose.md) and
+[App Platform](install/digitalocean.md) each have their own way of
 invoking it.
 
 ## A release may only expand the schema

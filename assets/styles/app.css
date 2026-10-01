@@ -779,7 +779,7 @@
     .lp-document-table--backlog .lp-document-row.lp-backlog-row {
         @apply gap-3;
         grid-template-columns:
-            calc(var(--spacing) * 4) calc(var(--spacing) * 4)
+            calc(var(--spacing) * 4)
             minmax(0, 2.6fr) minmax(calc(var(--spacing) * 24), 0.55fr)
             minmax(calc(var(--spacing) * 24), 1.2fr)
             calc(var(--spacing) * 19) calc(var(--spacing) * 25)
@@ -798,13 +798,6 @@
         .lp-document-row:has(.lp-backlog-check:checked) {
         @apply bg-accent-faint-2;
     }
-    /* The row the rank drag holds, and a row whose rank the server has not taken yet. */
-    .lp-backlog-row--dragging {
-        @apply relative z-20 shadow-lg;
-    }
-    .lp-backlog-row[aria-busy='true'] {
-        @apply opacity-60;
-    }
     .lp-backlog-row__title {
         @apply min-w-0 truncate font-display font-semibold text-ink no-underline hover:text-accent-ink;
     }
@@ -814,12 +807,12 @@
     .lp-backlog-check {
         @apply size-4 m-0 cursor-pointer accent-accent-ink;
     }
-    /* The drag handle. Only the handle stops a touch scroll, so the list still scrolls. */
-    .lp-backlog-grip {
-        @apply flex cursor-grab touch-none text-fg-faint;
+    /* A column header link that sorts the Backlog. It keeps the header text style. */
+    .lp-backlog-sort-link {
+        @apply inline-flex items-center gap-1 rounded-sm no-underline transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
     }
-    .lp-backlog-sort {
-        @apply ml-auto;
+    .lp-backlog-sort-link__idle {
+        @apply opacity-50;
     }
     /* The Move to menu of a row and of the bulk bar. */
     .lp-backlog-move {
@@ -7532,6 +7525,22 @@
     }
     .lp-agent-card__purpose {
         @apply my-4 text-sm leading-relaxed text-fg-mute;
+    }
+    /* The update command stays collapsed until the "Update available" chip opens it. */
+    .lp-agent-update-toggle {
+        @apply cursor-pointer;
+    }
+    .lp-agent-update-toggle__caret {
+        @apply w-3 h-3 shrink-0 transition-transform duration-100;
+    }
+    .disclosure-open .lp-agent-update-toggle__caret {
+        @apply rotate-180;
+    }
+    .lp-agent-update-command {
+        @apply hidden mt-4 overflow-hidden;
+    }
+    .lp-agent-update-command.open {
+        @apply flex;
     }
     .lp-agent-card__facts {
         @apply grid grid-cols-1 sm:grid-cols-2 gap-3 m-0;

@@ -11,6 +11,8 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Messenger\MoveAbandonedCard;
+use App\Module\Board\Messenger\MoveAbandonedCardHandler;
 use App\Module\Board\Service\BoardAutomation;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestChecks;
@@ -22,6 +24,9 @@ use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
+use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
 {
@@ -57,6 +62,7 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
 
         self::assertSame('in-review', $card->column->slug);
         self::assertSame([['fromStatus' => 'implementation', 'toStatus' => 'in-review', 'actor' => 'system']], $this->moves());
+        self::assertEquals([['system', null, 'implementation', 'in-review', ['type' => 'checks-passed', 'pullRequest' => 5]]], $this->history($card));
     }
 
     public function test_green_checks_on_the_same_sha_again_move_nothing(): void
@@ -185,6 +191,7 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
 
         self::assertSame('done', $card->column->slug);
         self::assertSame([['fromStatus' => 'in-review', 'toStatus' => 'done', 'actor' => 'system']], $this->moves());
+        self::assertEquals([['system', null, 'in-review', 'done', ['type' => 'merged', 'pullRequest' => 5]]], $this->history($card));
     }
 
     public function test_a_merge_with_a_second_link_still_open_moves_nothing(): void
@@ -259,7 +266,7 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
         self::assertSame('in-review', $card->column->slug);
     }
 
-    public function test_every_link_closed_with_none_merged_moves_nothing(): void
+    public function test_every_link_closed_with_none_merged_moves_nothing_now_and_queues_the_backlog_move(): void
     {
         $card = $this->linkedCard('in-review');
         $this->alsoLink($card, 6, PullRequestState::Closed);
@@ -267,6 +274,92 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
         $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
 
         self::assertSame('in-review', $card->column->slug);
+        self::assertSame([], $this->moves());
+        self::assertSame([(string) $card->id], $this->queuedAbandonedCards());
+    }
+
+    public function test_a_close_a_reopen_and_a_second_close_leave_only_the_second_move_able_to_act(): void
+    {
+        $card = $this->linkedCard('in-review');
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
+        $this->handle(new PullRequestSnapshot(state: PullRequestState::Closed), new PullRequestSnapshot());
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
+        $this->pullRequest->state = PullRequestState::Closed;
+        $this->em->flush();
+
+        $messages = $this->queuedAbandonedMessages();
+        self::assertCount(2, $messages);
+        $handler = self::getContainer()->get(MoveAbandonedCardHandler::class);
+        self::assertInstanceOf(MoveAbandonedCardHandler::class, $handler);
+
+        $handler($messages[0]);
+        self::assertSame('in-review', $this->storedColumnOf($card));
+
+        $handler($messages[1]);
+        self::assertSame('backlog', $this->storedColumnOf($card));
+    }
+
+    public function test_a_close_queues_the_backlog_move_on_a_board_without_a_terminal_column(): void
+    {
+        $this->column($this->project, 'done')->terminal = false;
+        $this->em->flush();
+        $card = $this->linkedCard('in-review');
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
+
+        self::assertSame([(string) $card->id], $this->queuedAbandonedCards());
+    }
+
+    public function test_a_close_with_another_link_merged_queues_no_backlog_move(): void
+    {
+        $this->column($this->project, 'done')->terminal = false;
+        $this->em->flush();
+        $card = $this->linkedCard('in-review');
+        $this->alsoLink($card, 6, PullRequestState::Merged);
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
+
+        self::assertSame([], $this->queuedAbandonedCards());
+    }
+
+    public function test_a_close_with_another_link_open_queues_no_backlog_move(): void
+    {
+        $card = $this->linkedCard('in-review');
+        $this->alsoLink($card, 6, PullRequestState::Open);
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
+
+        self::assertSame([], $this->queuedAbandonedCards());
+    }
+
+    public function test_a_close_with_another_link_never_read_queues_no_backlog_move(): void
+    {
+        $card = $this->linkedCard('in-review');
+        $this->alsoLink($card, 6, null);
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
+
+        self::assertSame([], $this->queuedAbandonedCards());
+    }
+
+    public function test_a_close_queues_no_backlog_move_for_a_card_already_in_the_backlog(): void
+    {
+        $this->linkedCard('backlog');
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
+
+        self::assertSame([], $this->queuedAbandonedCards());
+    }
+
+    public function test_a_close_queues_no_backlog_move_while_automation_is_off(): void
+    {
+        $this->linkedCard('in-review');
+        $this->disableAutomation();
+
+        $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(state: PullRequestState::Closed));
+
+        self::assertSame([], $this->queuedAbandonedCards());
     }
 
     public function test_two_spellings_of_the_merged_pull_request_both_read_as_merged(): void
@@ -419,6 +512,53 @@ final class MoveCardsOnPullRequestStateHandlerTest extends KernelTestCase
 
             return ['fromStatus' => $event['fromStatus'], 'toStatus' => $event['toStatus'], 'actor' => $event['actor']];
         }, $rows);
+    }
+
+    /** @return list<array{mixed, mixed, mixed, mixed, mixed}> actor kind, actor user, from slug, to slug, cause */
+    private function history(Card $card): array
+    {
+        $rows = $this->em->getConnection()->fetchAllAssociative(
+            "SELECT actor_kind, actor_user_id, detail FROM board_card_events WHERE card_id = :card AND kind = 'moved' ORDER BY occurred_at, id",
+            ['card' => (string) $card->id],
+        );
+
+        return array_map(static function (array $row): array {
+            $detail = json_decode((string) $row['detail'], true, flags: \JSON_THROW_ON_ERROR);
+
+            return [$row['actor_kind'], $row['actor_user_id'], $detail['from']['slug'], $detail['to']['slug'], $detail['cause']];
+        }, $rows);
+    }
+
+    /**
+     * The cards of the queued backlog moves, each with a ten-minute delay.
+     *
+     * @return list<string>
+     */
+    private function queuedAbandonedCards(): array
+    {
+        return array_map(static fn (MoveAbandonedCard $message): string => (string) $message->cardId, $this->queuedAbandonedMessages());
+    }
+
+    /** @return list<MoveAbandonedCard> */
+    private function queuedAbandonedMessages(): array
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        $messages = [];
+        foreach ($transport->getSent() as $envelope) {
+            $message = $envelope->getMessage();
+            if (!$message instanceof MoveAbandonedCard) {
+                continue;
+            }
+            $delay = $envelope->last(DelayStamp::class);
+            self::assertInstanceOf(DelayStamp::class, $delay);
+            self::assertSame(600_000, $delay->getDelay());
+            self::assertSame(['async'], $envelope->last(TransportNamesStamp::class)?->getTransportNames());
+            $messages[] = $message;
+        }
+
+        return $messages;
     }
 
     /** @return list<string> */

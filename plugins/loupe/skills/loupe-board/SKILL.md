@@ -1,6 +1,6 @@
 ---
 name: loupe-board
-description: "Use when working a project board in the Loupe app through the loupe MCP, calling board_columns, card_create, card_list, card_get, card_update, card_run_open or card_run_close, writing a card, moving a card between columns, linking a document to a card, or linking a pull request to a card."
+description: "Use when working a project board in the Loupe app through the loupe MCP, calling board_columns, card_create, card_list, card_get, card_get_history, card_update, card_run_open or card_run_close, writing a card, moving a card between columns, linking a document to a card, or linking a pull request to a card."
 ---
 
 # Working a Loupe board
@@ -62,15 +62,16 @@ When no column fits a role, leave the card where it is and tell the owner.
 | `card_list` | Read one page of the board, with its columns. Filter by `status`, `type`, `reporter` or `parentCardId`. A terminal column reads newest completion first, and every other column reads in rank order. |
 | `card_search` | Ask whether a card about something already exists. It reads the title and the body of every card, done ones included. |
 | `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents, its linked cards, the feedback items that belong to it, and its parent or its children. |
+| `card_get_history` | Read one card's history, newest first: its creation, each move with who made it and why, and each action of the automation. It pages like `card_list`. |
 | `feedback_list` | Read the feedback of the whole project, each item with its card. It returns the pending items unless you pass `status`. |
 | `feedback_mark_addressed` | Mark feedback items addressed after you fix them. |
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status puts the card at the end of the column it arrives in. |
 | `card_run_open` | Record an open interactive run on a card when an interactive skill starts work on it. It can move the card in the same step. |
 | `card_run_close` | Close the interactive run of your session on a card when the session ends. |
 
-`card_get` and `card_update` take a `cardId`, which you read from `card_list`,
-`card_search` or `card_create`. They also take the card `number` in place of the
-`cardId`.
+`card_get`, `card_get_history` and `card_update` take a `cardId`, which you
+read from `card_list`, `card_search` or `card_create`. They also take the card
+`number` in place of the `cardId`.
 
 An interactive session, such as `/loupe:product-design`, calls `card_run_open`
 with `sessionId` set to `$CLAUDE_CODE_SESSION_ID` and `name` set to the skill
@@ -365,8 +366,9 @@ rejects no link, because a self-hosted forge is a legitimate answer.
 For a repository connected through the GitHub App, with the board automation
 on, Loupe moves the card itself. Green checks move a card from `implementation`
 to `in-review`. A merge moves the card to a terminal column once each of its
-pull requests is merged or closed. For any other link, an agent or a person
-moves the card.
+pull requests is merged or closed. When each pull request is closed and none
+merged, the card moves to the Backlog about ten minutes after the last close.
+For any other link, an agent or a person moves the card.
 
 ## Common mistakes
 

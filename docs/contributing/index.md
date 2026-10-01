@@ -8,8 +8,9 @@ Thanks for your interest in improving Loupe! This guide covers the essentials.
 
 ## Getting set up
 
-Follow [From source](../getting-started/from-source.md) to
-get a local environment running.
+Follow [From source](../operating/install/from-source.md) to
+get a local environment running. [What runs in production](../architecture.md)
+names the processes an instance needs.
 
 ## Before you open a pull request
 

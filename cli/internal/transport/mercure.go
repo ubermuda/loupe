@@ -1,8 +1,8 @@
 // Package transport subscribes to a Mercure hub over Server-Sent Events and
 // delivers each event's data payload to a handler. The connection is outbound,
-// so it works from behind NAT with no inbound path. Dropped connections are
-// retried with capped backoff (best-effort delivery — no replay of events
-// missed while disconnected).
+// so it works from behind NAT with no inbound path. A dropped connection is
+// retried with capped backoff from Last-Event-ID, and OnConnect runs before the
+// first line, so a caller can catch up there on what the hub no longer holds.
 package transport
 
 import (

@@ -307,6 +307,12 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         self::assertSame('checks-failed', $automation->blockedReason);
         self::assertSame(CardAutomationAction::Stopped, $automation->lastAction);
         self::assertEquals($this->clock->now(), $automation->lastActionAt);
+        // The fourth read finds the card already stopped, so the stop is one row.
+        self::assertEquals([
+            ['fix-requested', 'system', null, ['reason' => 'checks-failed', 'pullRequest' => 5], '2026-09-28 12:00:00'],
+            ['fix-requested', 'system', null, ['reason' => 'checks-failed', 'pullRequest' => 5], '2026-09-28 12:00:00'],
+            ['stopped', 'system', null, ['reason' => 'checks-failed', 'pullRequest' => 5], '2026-09-28 12:01:00'],
+        ], $this->history($card));
     }
 
     public function test_one_read_with_two_fix_reasons_asks_for_one_fix_and_names_the_conflict(): void
@@ -346,6 +352,7 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
 
         self::assertSame(['pull_request.ready_to_merge'], array_column($this->outbox(), 'type'));
         self::assertSame(CardAutomationAction::ReadyToMerge, $this->automationOf($card)->lastAction);
+        self::assertEquals([['ready-to-merge', 'system', null, ['pullRequest' => 5], '2026-09-28 12:00:00']], $this->history($card));
 
         $this->configure(mergeStrategy: BoardMergeStrategy::Off);
         $this->handle(new PullRequestSnapshot(), new PullRequestSnapshot(readyToMerge: true));
@@ -636,6 +643,23 @@ final class PublishPullRequestEventsHandlerTest extends KernelTestCase
         });
 
         return $changes;
+    }
+
+    /** @return list<array{mixed, mixed, mixed, mixed, mixed}> kind, actor kind, actor user, detail, occurred at */
+    private function history(Card $card): array
+    {
+        $rows = $this->em->getConnection()->fetchAllAssociative(
+            'SELECT kind, actor_kind, actor_user_id, detail, occurred_at FROM board_card_events WHERE card_id = :card ORDER BY occurred_at, id',
+            ['card' => (string) $card->id],
+        );
+
+        return array_map(static fn (array $row): array => [
+            $row['kind'],
+            $row['actor_kind'],
+            $row['actor_user_id'],
+            json_decode((string) $row['detail'], true, flags: \JSON_THROW_ON_ERROR),
+            $row['occurred_at'],
+        ], $rows);
     }
 
     private function eventsOfType(string $type): int

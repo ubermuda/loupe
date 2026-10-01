@@ -95,7 +95,7 @@ compatibility; they are not the canonical source.
 
 Decide two things at planning time, and say in the plan which of them the change needs.
 
-**Documentation.** Ask whether the change alters what a user or an operator does, sees or configures. If it does, name the page that covers it under `docs/`: `docs/using/` for product behaviour, `docs/reference/` for commands and environment variables, `docs/operating/` for deployment and running, `docs/getting-started/` for setup, and `docs/extending/` for the plugin and MCP surface. A feature that ships with no doc change claims that nothing observable changed, so make that claim deliberately.
+**Documentation.** Ask whether the change alters what a user or an operator does, sees or configures. If it does, name the page that covers it under `docs/`: `docs/using/` for product behaviour, `docs/reference/` for commands and environment variables, `docs/operating/` for deployment and running, `docs/getting-started/` for a user's first steps, `docs/operating/install/` for installing an instance, and `docs/extending/` for the plugin and MCP surface. A feature that ships with no doc change claims that nothing observable changed, so make that claim deliberately.
 
 **Landing page.** Ask whether the change adds, removes or alters a capability the landing page claims, or should now claim. The page is `templates/Module/Landing/landing.html.twig` with its partials in `templates/Module/Landing/landing/`, and the marketing footer is `templates/_marketing_footer.html.twig`. A landing page that describes a product one release behind is worse than one that says less.
 

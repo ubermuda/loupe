@@ -90,6 +90,8 @@ final readonly class CardCreateTool implements FlagGatedToolInterface
                 relatedCards: $this->subjects->requireRelatedCards($relatedCards),
                 parentCardId: $parentCardId,
                 laneEnabled: $laneEnabled,
+                // A claimed human reporter is not the account that makes this call.
+                actor: CardReporter::Agent,
             ));
 
             $view = ($this->showCard)(new ShowCardCommand($card));
