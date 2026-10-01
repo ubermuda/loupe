@@ -378,6 +378,58 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         ));
     }
 
+    public function test_a_card_with_an_unpriced_usage_row_has_an_unknown_cost(): void
+    {
+        $unpriced = Uuid::v7();
+        $run = $this->experimentRun($unpriced, 'a', at: '+1 hour');
+        $this->seedUsage($this->em, $run, costUsd: '1.000000');
+        $this->seedUsage($this->em, $run, model: 'unpriced-model', costUsd: null);
+        $priced = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($priced, 'a', at: '+2 hours'), costUsd: '2.000000');
+        $onlyUnpriced = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($onlyUnpriced, 'b', at: '+3 hours'), model: 'unpriced-model', costUsd: null);
+        foreach ([$unpriced, $priced, $onlyUnpriced] as $card) {
+            $this->outcomes[(string) $card] = new CardOutcome(merged: true);
+        }
+        $this->em->flush();
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        self::assertSame([(string) $onlyUnpriced => null, (string) $priced => 2_000_000, (string) $unpriced => null], array_combine(
+            array_map(static fn (ExperimentCard $row): string => (string) $row->cardId, $view->cards),
+            array_map(static fn (ExperimentCard $row): ?int => $row->costMicros, $view->cards),
+        ));
+        self::assertSame([2_000_000, null], array_map(static fn (ExperimentVariant $variant): ?int => $variant->costMicros, $view->variants));
+        self::assertEquals(new Interval(2.0, 2.0, 2.0), $view->metrics[ExperimentMetric::COST]->for('a'));
+        self::assertNull($view->metrics[ExperimentMetric::COST]->for('b'));
+        // The tokens of an unpriced row are still known.
+        self::assertSame(30.0, $view->metrics[ExperimentMetric::OUTPUT_TOKENS]->for('a')?->point);
+        self::assertSame(20.0, $view->metrics[ExperimentMetric::OUTPUT_TOKENS]->for('b')?->point);
+    }
+
+    public function test_a_pin_that_names_another_variant_than_the_runs_mixes_the_card(): void
+    {
+        $switched = Uuid::v7();
+        $this->experimentRun($switched, 'a', at: '+1 hour');
+        $this->em->persist(new ExperimentPin($this->project, $switched, self::EXPERIMENT, 'b'));
+        $agreed = Uuid::v7();
+        $this->experimentRun($agreed, 'a', at: '+2 hours');
+        $this->em->persist(new ExperimentPin($this->project, $agreed, self::EXPERIMENT, 'a'));
+        $pinOnly = Uuid::v7();
+        $this->em->persist(new ExperimentPin($this->project, $pinOnly, self::EXPERIMENT, 'b'));
+        $this->em->flush();
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        self::assertSame([LeftOutReason::Mixed], $this->card($view, $switched)->leftOut);
+        self::assertSame('a', $this->card($view, $switched)->variant);
+        self::assertSame([], $this->card($view, $agreed)->leftOut);
+        self::assertSame('a', $this->card($view, $agreed)->variant);
+        self::assertSame('b', $this->card($view, $pinOnly)->variant);
+    }
+
     public function test_a_single_variant_is_never_clear(): void
     {
         for ($i = 0; $i < 6; ++$i) {

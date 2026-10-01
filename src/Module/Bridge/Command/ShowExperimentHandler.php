@@ -94,8 +94,9 @@ final readonly class ShowExperimentHandler
             $own = $experimentRuns[$id] ?? [];
             $first = $own[0] ?? null;
             $last = [] === $own ? null : $own[\count($own) - 1];
-            $variant = $pinVariants[$id] ?? $first?->variant;
-            $leftOut = self::leftOut($own, $plainRuns[$id] ?? [], $historyStart);
+            // A pin can switch before a run reports it, so the runs name the variant that did the work.
+            $variant = null === $first ? $pinVariants[$id] ?? null : $first->variant;
+            $leftOut = self::leftOut($own, $plainRuns[$id] ?? [], $pinVariants[$id] ?? null, $historyStart);
             $outcome = $outcomes[$id] ?? new CardOutcome();
             $column = $columns[$id] ?? null;
             $cost = $usage[$id] ?? ['costMicros' => null, 'outputTokens' => null];
@@ -194,10 +195,14 @@ final readonly class ShowExperimentHandler
      *
      * @return list<LeftOutReason>
      */
-    private static function leftOut(array $experimentRuns, array $plainRuns, ?\DateTimeImmutable $historyStart): array
+    private static function leftOut(array $experimentRuns, array $plainRuns, ?string $pinVariant, ?\DateTimeImmutable $historyStart): array
     {
         $first = $experimentRuns[0] ?? null;
-        $variants = array_unique(array_filter(array_map(static fn (WorkerRun $run): ?string => $run->variant, $experimentRuns), static fn (?string $variant): bool => null !== $variant));
+        $variants = array_map(static fn (WorkerRun $run): ?string => $run->variant, $experimentRuns);
+        if (null !== $first) {
+            $variants[] = $pinVariant;
+        }
+        $variants = array_unique(array_filter($variants, static fn (?string $variant): bool => null !== $variant));
 
         $reasons = [];
         if ([] !== array_filter($experimentRuns, static fn (WorkerRun $run): bool => null !== $run->switchedFrom)) {

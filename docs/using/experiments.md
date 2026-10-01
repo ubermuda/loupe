@@ -51,7 +51,9 @@ value, and the **Likely range** around it.
 
 The cost and the output tokens use only the merged cards whose experiment runs
 reported usage. A card with no usage is not a card that cost nothing, so it
-stays out of these two samples. It still counts in the other metrics.
+stays out of these two samples. It still counts in the other metrics. A card
+with a usage row for a model that has no price has an unknown cost, so it
+stays out of the cost sample and the variant total.
 
 A card counts as merged only when a rule moved it because its pull request
 merged. A card that a person moved to a terminal column is finished, but it
@@ -84,7 +86,7 @@ below the metrics shows how many cards are left out, and links to them.
 | Reason | When |
 |---|---|
 | Switched variant | a run of the card moved it from a variant that the rule no longer offered |
-| Mixed variants | the runs of the card name more than one variant |
+| Mixed variants | the runs and the pin of the card name more than one variant |
 | Implemented before the test | a worker run with no experiment worked the card in the same column before the first experiment run |
 | Run before the card history | the first experiment run of the card is older than the card history of the project |
 | No experiment run | a pin puts the card in the experiment, and no experiment run worked the card |
@@ -94,8 +96,8 @@ below the metrics shows how many cards are left out, and links to them.
 The **Cards** tab lists the cards of the experiment, 20 to a page, the latest
 run first. A row shows the card, the variant, the column, the runs, the fix
 rounds, the cost, and a tag for each reason that leaves the card out. The cost
-shows a dash when no experiment run of the card reported usage. Select a card
-to open it on the board.
+shows a dash when no experiment run of the card reported usage, or when the
+cost is unknown. Select a card to open it on the board.
 
 The filters above the list show all the cards, the kept cards of one variant,
 or the cards that are left out. Each filter lands in the URL, so a filtered

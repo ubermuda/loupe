@@ -10,7 +10,7 @@ enum LeftOutReason: string
     /** A run of the card moved it from a variant the rule no longer offered. */
     case Switched = 'switched';
 
-    /** The runs of the card name more than one variant. */
+    /** The runs and the pin of the card name more than one variant. */
     case Mixed = 'mixed';
 
     /** A run with no experiment worked the card in the same column before the experiment did. */

@@ -150,18 +150,19 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
 
     /**
      * The usage of each card's runs in one experiment, in millionths of a dollar.
-     * A row whose run is gone has no experiment, so it does not count.
+     * A row whose run is gone has no experiment, so it does not count. One row
+     * with no price makes the cost of its card unknown.
      *
-     * @return array<string, array{costMicros: int, outputTokens: int}> card id => sums
+     * @return array<string, array{costMicros: ?int, outputTokens: int}> card id => sums
      */
     public function sumOfExperimentByCard(Project $project, string $experiment): array
     {
-        /** @var list<array{card_id: string, cost_micros: int|string, output: int|string}> $rows */
+        /** @var list<array{card_id: string, cost_micros: int|string|null, output: int|string}> $rows */
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
             <<<'SQL'
                 SELECT
                     u.card_id,
-                    COALESCE(SUM(ROUND(u.cost_usd * 1000000)), 0)::bigint AS cost_micros,
+                    CASE WHEN BOOL_OR(u.cost_usd IS NULL) THEN NULL ELSE SUM(ROUND(u.cost_usd * 1000000))::bigint END AS cost_micros,
                     SUM(u.output_tokens) AS output
                 FROM bridge_worker_run_usage u
                 JOIN bridge_worker_runs r ON r.id = u.run_id
@@ -176,7 +177,7 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
 
         $sums = [];
         foreach ($rows as $row) {
-            $sums[$row['card_id']] = ['costMicros' => (int) $row['cost_micros'], 'outputTokens' => (int) $row['output']];
+            $sums[$row['card_id']] = ['costMicros' => null === $row['cost_micros'] ? null : (int) $row['cost_micros'], 'outputTokens' => (int) $row['output']];
         }
 
         return $sums;
