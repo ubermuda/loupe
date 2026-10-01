@@ -189,8 +189,10 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
     {
         $events = self::getContainer()->get(CardEventRepository::class);
         self::assertInstanceOf(CardEventRepository::class, $events);
-        $runId = Uuid::v7();
+        $run = $this->workerRun($this->card->id, WorkerRunState::Succeeded);
+        $runId = $run->id ?? throw new \LogicException('A stored run has an id.');
         $events->upsertRunFinished($this->card, $runId, null, ['runId' => (string) $runId, 'state' => 'succeeded', 'stateSequence' => 5], new \DateTimeImmutable('2026-09-30 10:05:00+00:00'));
+        $this->setRunState($runId, WorkerRunState::TimedOut);
         $events->upsertRunFinished($this->card, $runId, null, ['runId' => (string) $runId, 'state' => 'timed-out', 'stateSequence' => 3], new \DateTimeImmutable('2026-09-30 10:10:00+00:00'));
 
         $rows = $this->rows();
@@ -252,11 +254,28 @@ final class WriteCardEventOnRunFinishedTest extends KernelTestCase
     {
         $events = self::getContainer()->get(CardEventRepository::class);
         self::assertInstanceOf(CardEventRepository::class, $events);
-        $runId = Uuid::v7();
+        $run = $this->workerRun($this->card->id, WorkerRunState::Succeeded);
+        $runId = $run->id ?? throw new \LogicException('A stored run has an id.');
         $events->upsertRunFinished($this->card, $runId, null, ['runId' => (string) $runId, 'state' => 'succeeded', 'stateSequence' => 5], new \DateTimeImmutable('2026-09-30 10:05:00+00:00'));
         $events->deleteRunFinished($this->card, $runId, 3);
 
         self::assertCount(1, $this->rows());
+    }
+
+    public function test_a_delayed_close_write_for_a_run_that_reopened_writes_nothing(): void
+    {
+        $events = self::getContainer()->get(CardEventRepository::class);
+        self::assertInstanceOf(CardEventRepository::class, $events);
+        $run = $this->workerRun($this->card->id, WorkerRunState::Running);
+        $runId = $run->id ?? throw new \LogicException('A stored run has an id.');
+        $events->upsertRunFinished($this->card, $runId, null, ['runId' => (string) $runId, 'state' => 'timed-out', 'stateSequence' => 3], new \DateTimeImmutable('2026-09-30 10:10:00+00:00'));
+
+        self::assertCount(0, $this->rows());
+    }
+
+    private function setRunState(Uuid $runId, WorkerRunState $state): void
+    {
+        $this->em->getConnection()->executeStatement('UPDATE bridge_worker_runs SET state = ? WHERE id = ?', [$state->value, $runId->toRfc4122()]);
     }
 
     public function test_an_open_run_writes_nothing(): void

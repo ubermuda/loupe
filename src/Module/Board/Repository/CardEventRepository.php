@@ -42,7 +42,8 @@ class CardEventRepository extends ServiceEntityRepository
      * Writes the `run-finished` row of a run, or gives the row the outcome of a later close.
      * It goes through DBAL in its own transaction, a savepoint inside a caller's,
      * so a failed write leaves the entity manager and the caller's transaction usable.
-     * A write that read an older state change than the row holds changes nothing.
+     * A write that read an older state change than the row holds changes nothing,
+     * and so does a write for a run that left the state it records, such as a reopen.
      *
      * @param array<string, mixed> $detail with the `runId` and the `state`
      */
@@ -50,7 +51,8 @@ class CardEventRepository extends ServiceEntityRepository
     {
         $this->getEntityManager()->getConnection()->transactional(static fn (Connection $connection): int|string => $connection->executeStatement(
             'INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at, run_id)
-             VALUES (?::uuid, ?::uuid, ?::uuid, ?, ?, ?::uuid, ?::jsonb, ?::timestamp, ?::uuid)
+             SELECT ?::uuid, ?::uuid, ?::uuid, ?, ?, ?::uuid, ?::jsonb, ?::timestamp, r.id
+             FROM bridge_worker_runs r WHERE r.id = ?::uuid AND r.state = ?
              ON CONFLICT (card_id, run_id) DO UPDATE SET detail = EXCLUDED.detail, occurred_at = EXCLUDED.occurred_at
              WHERE board_card_events.detail IS DISTINCT FROM EXCLUDED.detail
                AND COALESCE((EXCLUDED.detail->>\'stateSequence\')::bigint, 0) >= COALESCE((board_card_events.detail->>\'stateSequence\')::bigint, 0)',
@@ -64,6 +66,7 @@ class CardEventRepository extends ServiceEntityRepository
                 $detail,
                 $at,
                 $runId->toRfc4122(),
+                $detail['state'] ?? null,
             ],
             [6 => Types::JSON, 7 => Types::DATETIME_IMMUTABLE],
         ));
