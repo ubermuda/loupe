@@ -82,7 +82,7 @@ final readonly class LinkedInboxItemsView implements InboxItemsView
     #[\Override]
     public function acceptsResponse(InboxItem $item): bool
     {
-        if (InboxItemKind::Review === $item->kind && InboxItemState::Open !== $item->state) {
+        if (InboxItemKind::Notice === $item->kind || (InboxItemKind::Review === $item->kind && InboxItemState::Open !== $item->state)) {
             return false;
         }
         $heldByClosedAsk = [] !== array_filter(

@@ -402,7 +402,7 @@ func TestIsOutcomeNamesTheEndsOfARun(t *testing.T) {
 			t.Fatalf("IsOutcome(%q) = false", state)
 		}
 	}
-	for _, state := range []string{RunQueued, RunReplaced, RunResumed, RunSkipped, RunRunning, RunWaitingForPerson, RunDropped} {
+	for _, state := range []string{RunQueued, RunReplaced, RunResumed, RunSkipped, RunPreparing, RunRunning, RunWaitingForPerson, RunDropped} {
 		if IsOutcome(state) {
 			t.Fatalf("IsOutcome(%q) = true", state)
 		}

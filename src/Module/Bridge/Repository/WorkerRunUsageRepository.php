@@ -149,6 +149,46 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
     }
 
     /**
+     * The usage of each card's runs in one experiment, in millionths of a dollar.
+     * A row whose run is gone has no experiment, so it does not count. One row
+     * with no price makes the cost of its card unknown. A run that started and
+     * reported no usage makes both sums of its card unknown.
+     *
+     * @return array<string, array{costMicros: ?int, outputTokens: ?int}> card id => sums
+     */
+    public function sumOfExperimentByCard(Project $project, string $experiment): array
+    {
+        /** @var list<array{card_id: string, cost_micros: int|string|null, output: int|string|null}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            <<<'SQL'
+                SELECT
+                    r.card_id,
+                    CASE WHEN BOOL_OR(r.usage_source IS NULL AND r.started_at IS NOT NULL) OR BOOL_OR(u.run_id IS NOT NULL AND u.cost_usd IS NULL)
+                        THEN NULL ELSE SUM(ROUND(u.cost_usd * 1000000))::bigint END AS cost_micros,
+                    CASE WHEN BOOL_OR(r.usage_source IS NULL AND r.started_at IS NOT NULL) THEN NULL ELSE SUM(u.output_tokens) END AS output
+                FROM bridge_worker_runs r
+                LEFT JOIN bridge_worker_run_usage u ON u.run_id = r.id AND u.project_id = :project
+                WHERE r.project_id = :project AND r.experiment = :experiment
+                GROUP BY r.card_id
+                SQL,
+            [
+                'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
+                'experiment' => $experiment,
+            ],
+        );
+
+        $sums = [];
+        foreach ($rows as $row) {
+            $sums[$row['card_id']] = [
+                'costMicros' => null === $row['cost_micros'] ? null : (int) $row['cost_micros'],
+                'outputTokens' => null === $row['output'] ? null : (int) $row['output'],
+            ];
+        }
+
+        return $sums;
+    }
+
+    /**
      * The rule names and the models of every usage row of the project, sorted.
      *
      * @return array{rules: list<string>, models: list<string>}

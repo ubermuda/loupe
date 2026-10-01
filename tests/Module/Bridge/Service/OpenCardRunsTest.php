@@ -57,8 +57,10 @@ final class OpenCardRunsTest extends TestCase
         $running = Uuid::v7();
         $noStart = Uuid::v7();
         $resumed = Uuid::v7();
+        $preparing = Uuid::v7();
         $runs = $this->openRuns(
             $this->workerRun($running, WorkerRunState::Running, '2026-09-01 09:00:00', startedAt: '2026-09-01 09:30:00'),
+            $this->workerRun($preparing, WorkerRunState::Preparing, '2026-09-01 05:00:00', startedAt: '2026-09-01 05:15:00'),
             $this->workerRun($noStart, WorkerRunState::Running, '2026-09-01 08:00:00'),
             $this->workerRun($resumed, WorkerRunState::Resumed, '2026-09-01 07:00:00', startedAt: '2026-09-01 06:00:00'),
         );
@@ -70,6 +72,7 @@ final class OpenCardRunsTest extends TestCase
         self::assertSame('09:30', $since[(string) $running]);
         self::assertSame('08:00', $since[(string) $noStart]);
         self::assertSame('07:00', $since[(string) $resumed]);
+        self::assertSame('05:15', $since[(string) $preparing]);
     }
 
     public function test_runs_sort_by_rank_then_by_the_longest_wait(): void

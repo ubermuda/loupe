@@ -458,6 +458,7 @@ Each entry in `rules` takes these fields:
 | `card` | no | A block that limits the rule by the state of its card. Only a rule on `board.card_moved` or `document.review_submitted` can set it. See [A card in an interactive session](#a-card-in-an-interactive-session) |
 | `action` | no | `interactive` opens an interactive session in a terminal instead of a worker. Omitted, the rule is a worker rule. See [Opening an interactive session](#opening-an-interactive-session) |
 | `workerPool` | no | The worker pool the rule's workers take a slot from. A pool name from `workerPools`, or `default`. Omitted, the rule uses `default`. An interactive rule cannot set it. See [The queue](#the-queue) |
+| `before` | no | A command that runs ahead of the worker and prints the folder the worker starts in. It holds `run`, an argv list, and `timeout`, which defaults to `15m` and is at most `60m`. An interactive rule cannot set it. See [The before command](#the-before-command) |
 | `experiment` | no | An experiment name from `experiments`. The variant of the card picks the model, so the rule cannot set `model`, and `defaults.model` does not apply. An interactive rule cannot set it. See below |
 
 The optional `defaults:` block sets `permissionMode` and `model` for every rule
@@ -923,6 +924,57 @@ their own, so they can both start a worker for the same card. Map each project
 in one bridge only. One rule file also serves one bridge only, because a second
 bridge on the same file refuses to start.
 
+### The before command
+
+A worker rule can run a command before its worker starts. The command makes or
+refreshes the folder the worker runs in, such as a git worktree for the card:
+
+```yaml
+rules:
+  - name: implementation
+    on: board.card_moved
+    project: my-app
+    to: implementation
+    before:
+      run: [bin/worktree-for-card.sh, "{cardNumber}", "{cardId}"]
+      timeout: 15m
+    prompt: |
+      Card {cardNumber} entered implementation.
+```
+
+`run` is an argv list, and no shell reads it. Each element takes the
+placeholders that the rule's `prompt` takes for its event type. A placeholder
+that the event cannot fill becomes an empty string. The command runs in the
+project's `dir`, with the bridge's own environment.
+
+The bridge reads the last line of standard output that is not empty. That line
+names the folder where the worker starts. A relative path resolves against the
+project's `dir`. When the command prints nothing, the worker starts in the
+project's `dir`. Claude Code's `WorktreeCreate` hook uses the same contract, so
+one script can serve both.
+
+The command runs after the run leaves the queue. It holds the run's worker slot
+and its card, so no other run of the card starts while it runs. Other cards
+still use the other slots. The run reports the state `preparing` while the
+command runs, and `running` once claude starts.
+
+`timeout` defaults to `15m`, and the bridge refuses more than `60m`. The run
+fails, and claude does not start, when the command exits with a code that is
+not 0, runs past its timeout, or prints a path that is not an existing
+directory. The failed run reports the exit code, or `-1`, and the end of the
+command's output. The bridge does not resume it. Move the card out of the
+column and back to run it again. A person's stop during `preparing` ends the
+command's process group, and the run reports `stopped`.
+
+The command runs again before each resume, so it can refresh the folder. A
+resumed conversation still starts in the folder where it began. The bridge
+uses the printed folder only when the session has no transcript on this
+machine, or when the recorded folder no longer exists. [Resuming a
+session](#resuming-a-session) says what each case does.
+
+A command that still runs when the bridge updates itself is handed over. The
+new image waits for it, then starts claude, as it does for a worker.
+
 ### The structured result
 
 Every prompt ends with a request for a structured result. `--json-schema` makes
@@ -1042,12 +1094,25 @@ rules:
       Read its items with inbox_list, filtered by that ask id, and continue your work.
 ```
 
-The bridge runs `claude -p --resume <sessionId> -- <prompt>` in the project's
-`dir`, with `--permission-mode` and `--model` in front when the rule has them.
-The session id comes from the event. `resume` is valid on `inbox.ask_closed`
-and `pull_request.fix_requested` only, and a rule on `inbox.ask_closed` without
-`resume: true` stops the bridge at start. [A pull request
-event](#a-pull-request-event) says how a fix request resumes.
+The bridge runs `claude -p --resume <sessionId> -- <prompt>` with
+`--permission-mode` and `--model` in front when the rule has them. The session
+id comes from the event.
+
+Every resume starts in the folder where its conversation began, because
+`claude --resume` finds a conversation only from that folder. The bridge reads
+that folder from the `cwd` field of the session's transcript. A session with no
+transcript on this machine resumes in the project's `dir`, or in the folder
+that a [before command](#the-before-command) printed. When the recorded folder
+no longer exists, the run starts a new conversation in the project's `dir` or
+the printed folder, with the rule's prompt, and logs `resume_dir_gone`. A
+person's resume from the runs page fails instead, with a reason that names the
+folder, because it has no event to fill the rule's prompt. The run also fails
+when the rule no longer runs the event. A failed run logs `resume_failed`.
+
+`resume` is valid on `inbox.ask_closed` and `pull_request.fix_requested` only,
+and a rule on `inbox.ask_closed` without `resume: true` stops the bridge at
+start. [A pull request event](#a-pull-request-event) says how a fix request
+resumes.
 
 The event names the bridge that started the session. The bridge ignores an
 event that names another bridge, or no bridge, before it reads any other field,
@@ -1095,9 +1160,11 @@ reported like any failed worker.
 `claude -p` exits when the worker ends its turn. A command, a monitor or a
 subagent that the worker left in the background dies with it, and no later turn
 sees its result. So the bridge resumes a run that did not finish, on the same
-session. A run did not finish when it exited with a non-zero code, when it had
-no structured result, or when its status is `unfinished`. The bridge does not
-resume a `blocked` run, a run it killed, or a run that ended during a shutdown.
+session. The resume starts in the folder where the conversation began, as
+[Resuming a session](#resuming-a-session) says. A run did not finish when it
+exited with a non-zero code, when it had no structured result, or when its
+status is `unfinished`. The bridge does not resume a `blocked` run, a run it
+killed, or a run that ended during a shutdown.
 
 The rule's `maxResumes` caps the resumes that follow one run. The cap comes
 from the rule when the first run starts. A run that did not finish at the cap
@@ -1383,6 +1450,11 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `worker_queued` | `card`, `project`, `rule`, `worker_pool`, `queue_depth`, `pool_depth` |
 | `worker_coalesced` | `card`, `project`, `rule`, `worker_pool`: the event replaced one that waits for the same card and rule |
 | `chain_capped` | `card`, `project`, `rule`, `worker_pool`, `max_chain`, `message`: the rule reached its cap on that card |
+| `before_started` | `card`, `project`, `rule`, `worker_pool`, `pid`: the rule's before command started |
+| `before_finished` | `card`, `project`, `rule`, `dir`, `output`: the before command printed the folder the worker starts in |
+| `before_failed` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`: the before command failed, so no worker started. Level `ERROR` |
+| `resume_dir_gone` | `card`, `project`, `rule`, `session_id`, `new_session_id`, `dir`, `message`: the folder of the resumed session is gone, so the bridge starts a new session. Level `WARN` |
+| `resume_failed` | `card`, `project`, `rule`, `session_id`, `output`: a person's resume found the session's folder gone, so no worker started. Level `ERROR` |
 | `worker_started` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `ask` for the resume of an ask, and `resume` for the resume of an unfinished run |
 | `resume_skipped` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `message`: the session read every item of its ask, so no worker ran. For an unfinished run, the line adds `reason`: `card_moved`, `shutdown`, `rule_dead` or `reload`, at level `WARN` |
 | `resume_session_missing` | `card`, `project`, `rule`, `session_id`, `message`: a fix request named a session that this machine does not hold, so the bridge queues a new session. Level `WARN` |
@@ -1431,6 +1503,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `cursor_unreadable` | `file`, `error`: the cursor file does not parse, so the bridge starts as with no file. Level `WARN` |
 | `cursor_save_failed` | `file`, `error`: the bridge could not write the cursor file, logged once until a write works again. Routing goes on. Level `WARN` |
 | `worker_adopted` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `pid`: the bridge took over a worker that an earlier version started |
+| `before_adopted` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `pid`: the bridge took over a before command that an earlier version started |
 | `update_skipped` | `reason`: the bridge does not check for updates, for example a development build |
 | `update_check` | `from`, `range`: a check starts |
 | `update_check_failed` | `from`, `error`, and `to` for a failed download. Level `WARN` |
