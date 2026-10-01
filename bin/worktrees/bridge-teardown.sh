@@ -15,9 +15,9 @@ main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/slug.sh"
 
 # The teardown names its resources by slug, so a sibling with the same slug would lose them.
-others=$(worktree_slug_index "$main" | awk -v s="card-$number" '$1 == s && $2 != s {print $2}')
-if [ -n "$others" ]; then
-    echo "bridge-teardown: worktree '$others' shares the slug card-$number. Remove it by hand." >&2
+owners=$(worktree_slug_index "$main" | awk -v s="card-$number" '$1 == s {n++} END {print n + 0}')
+if [ "$owners" -gt 1 ]; then
+    echo "bridge-teardown: $owners worktrees share the slug card-$number. Remove them by hand." >&2
     exit 1
 fi
 
