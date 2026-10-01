@@ -230,6 +230,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         $result = $this->getTool()((string) $run->id);
 
         self::assertSame([(string) $run->id], array_column($result['runs'], 'runId'));
+        self::assertNull($result['runs'][0]['continuesRunId']);
     }
 
     /** A deleted run leaves its continuations with no link back, so each becomes the oldest run of its own branch. */

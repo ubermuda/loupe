@@ -54,7 +54,7 @@ final readonly class WorkerRunPayload
     {
         return [
             ...$this->forRow($run, $pending),
-            'continuesRunId' => null === $run->continuesRun ? null : (string) $run->continuesRun->id,
+            'continuesRunId' => null === $run->continuesRun || $run->continuesRun->project !== $run->project ? null : (string) $run->continuesRun->id,
             'receivedAt' => $run->receivedAt->format(\DATE_ATOM),
             'triggerEventType' => $run->triggerEventType,
             'triggerForge' => $run->triggerForge,
