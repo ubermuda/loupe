@@ -38,15 +38,7 @@ final readonly class ListWorkerRunsHandler
         // float, which setFirstResult() then refuses.
         $page = min(max(1, $listQuery->page), intdiv(\PHP_INT_MAX, $perPage));
 
-        $paginator = $this->workerRuns->findPaginatedByProject(
-            $command->project,
-            $page,
-            $perPage,
-            $listQuery->search,
-            $listQuery->state,
-            $listQuery->bridgeId,
-            $listQuery->open,
-        );
+        $paginator = $this->workerRuns->findPaginatedByProject($command->project, $page, $perPage, $listQuery);
         $total = \count($paginator);
         $totalPages = max(1, (int) ceil($total / $perPage));
 
@@ -72,6 +64,8 @@ final readonly class ListWorkerRunsHandler
             pageList: PageList::build($page, $totalPages),
             bridgeIds: $this->workerRuns->bridgeIdsOf($command->project),
             clampedPage: PageList::clampedPage($page, $total, $perPage),
+            page: $page,
+            perPage: $perPage,
         );
     }
 }
