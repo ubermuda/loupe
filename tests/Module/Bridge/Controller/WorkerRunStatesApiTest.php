@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\Controller;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
 use App\Module\Bridge\Repository\WorkerRunStateChangeRepository;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Outbox\AgentPush;
@@ -481,6 +482,107 @@ final class WorkerRunStatesApiTest extends WebTestCase
         ));
     }
 
+    public function test_a_command_run_succeeds_with_no_session(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-command@example.com');
+        $project = $this->project($em, $owner, 'Run States Command');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+        $command = ['kind' => 'command', 'ruleName' => 'sync'];
+
+        $this->put($client, $path, $raw, $this->payload($command));
+        self::assertResponseStatusCodeSame(201);
+        $this->put($client, $path, $raw, $this->payload([
+            ...$command,
+            'state' => 'running',
+            'at' => '2026-09-23T10:00:02+00:00',
+            'startedAt' => '2026-09-23T10:00:02+00:00',
+        ]));
+        self::assertResponseStatusCodeSame(201);
+        $this->put($client, $path, $raw, $this->payload([
+            ...$command,
+            'state' => 'succeeded',
+            'at' => '2026-09-23T10:00:09+00:00',
+            'startedAt' => '2026-09-23T10:00:02+00:00',
+            'endedAt' => '2026-09-23T10:00:09+00:00',
+            'exitCode' => 0,
+            'output' => 'synced',
+        ]));
+        self::assertResponseStatusCodeSame(201);
+
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunKind::Command, $run->kind);
+        self::assertSame(WorkerRunState::Succeeded, $run->state);
+        self::assertNull($run->sessionId);
+        self::assertSame(0, $run->exitCode);
+        self::assertSame('synced', $run->output);
+        self::assertSame(['queued', 'running', 'succeeded'], array_map(
+            static fn (WorkerRunStateChange $change): string => $change->state->value,
+            $this->historyOf($run),
+        ));
+    }
+
+    /** A command that could not start or was killed reports exit code -1, and its output says why. */
+    public function test_a_command_run_fails_with_exit_code_minus_one(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-command-failed@example.com');
+        $project = $this->project($em, $owner, 'Run States Command Failed');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload([
+            'kind' => 'command',
+            'state' => 'failed',
+            'at' => '2026-09-23T10:00:04+00:00',
+            'startedAt' => '2026-09-23T10:00:02+00:00',
+            'endedAt' => '2026-09-23T10:00:04+00:00',
+            'exitCode' => -1,
+            'output' => 'exec: "sync-tool": executable file not found in $PATH',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunKind::Command, $run->kind);
+        self::assertSame(WorkerRunState::Failed, $run->state);
+        self::assertSame(-1, $run->exitCode);
+        self::assertNull($run->failureReason);
+        self::assertNull($run->sessionId);
+    }
+
+    /** The first report sets the kind, so a later report that names another kind leaves it. */
+    public function test_a_later_report_keeps_the_kind_of_the_first(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-command-kind@example.com');
+        $project = $this->project($em, $owner, 'Run States Command Kind');
+        $raw = $this->agentToken($client, $owner);
+        $path = $this->path($project->id, (string) Uuid::v4());
+
+        $this->put($client, $path, $raw, $this->payload(['kind' => 'command']));
+        $this->put($client, $path, $raw, $this->payload(['kind' => 'worker', 'state' => 'preparing', 'at' => '2026-09-23T10:00:02+00:00']));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(WorkerRunKind::Command, $this->onlyRun()->kind);
+    }
+
+    public function test_a_run_with_no_kind_is_a_worker_run(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-no-kind@example.com');
+        $project = $this->project($em, $owner, 'Run States No Kind');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload());
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(WorkerRunKind::Worker, $this->onlyRun()->kind);
+    }
+
     public function test_a_preparing_run_stops(): void
     {
         $client = static::createClient();
@@ -657,6 +759,9 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a card number of zero' => [['cardNumber' => 0]];
         yield 'a blank rule name' => [['ruleName' => ' ']];
         yield 'running with no session' => [['state' => 'running', 'startedAt' => '2026-09-23T10:00:00+00:00']];
+        yield 'a worker kind running with no session' => [['kind' => 'worker', 'state' => 'running', 'startedAt' => '2026-09-23T10:00:00+00:00']];
+        yield 'an interactive kind, which a bridge never reports' => [['kind' => 'interactive']];
+        yield 'an unknown kind' => [['kind' => 'script']];
         yield 'running with no start' => [['state' => 'running', 'sessionId' => (string) Uuid::v4()]];
         yield 'an outcome with no end' => [array_merge($outcome, ['state' => 'succeeded', 'endedAt' => null])];
         yield 'an outcome with no output' => [array_merge($outcome, ['state' => 'succeeded', 'output' => null])];

@@ -115,6 +115,27 @@ final class TimeOutQuietWorkerRunsHandlerTest extends KernelTestCase
         self::assertNull($this->reload($run)->bridgeId);
     }
 
+    /** A bridge runs a command run as it runs a worker, so its silence times the command out too. */
+    public function test_an_open_command_run_of_a_quiet_bridge_times_out(): void
+    {
+        [$owner, $project] = $this->scenario('sweep-command');
+        $bridgeId = $this->seedBridge($this->em(), $owner, lastSeenAt: new \DateTimeImmutable('2026-09-23 11:56:59'))->id;
+        $run = $this->seedRun(
+            $this->em(),
+            $project,
+            new \DateTimeImmutable('2026-09-23 11:00:00'),
+            bridgeId: $bridgeId,
+            state: WorkerRunState::Running,
+            runKey: Uuid::v4(),
+            kind: WorkerRunKind::Command,
+        );
+
+        $changed = $this->sweep();
+
+        self::assertSame([$run->id], array_map(static fn (WorkerRun $timedOut): ?Uuid => $timedOut->id, $changed));
+        self::assertSame(WorkerRunState::TimedOut, $this->reload($run)->state);
+    }
+
     public function test_the_locked_read_skips_an_interactive_run_it_is_given(): void
     {
         [, $project] = $this->scenario('sweep-interactive-locked');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunTrigger;
 use App\Module\Bridge\ValueObject\WorkerRunUsageReport;
@@ -54,6 +55,8 @@ final readonly class ReportWorkerRunStateCommand
         public ?string $switchedFrom = null,
         /** Stored when the report creates the run. A later report never changes it. */
         public ?WorkerRunTrigger $trigger = null,
+        /** Stored when the report creates the run. A later report never changes it. */
+        public WorkerRunKind $kind = WorkerRunKind::Worker,
     ) {
     }
 }

@@ -195,14 +195,14 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->join('r.project', 'p')
             ->leftJoin(Bridge::class, 'b', Join::ON, 'IDENTITY(b.owner) = IDENTITY(p.owner) AND b.id = r.bridgeId')
             // No bridge holds an interactive run, so it would always read as quiet.
-            ->andWhere('r.kind = :worker')
+            ->andWhere('r.kind <> :interactive')
             ->andWhere('r.state IN (:openStates)')
             ->andWhere('b.lastSeenAt < :quietBefore OR (b.lastSeenAt IS NULL AND r.receivedAt < :quietBefore)')
             ->setParameter('openStates', array_map(
                 static fn (WorkerRunState $state): string => $state->value,
                 WorkerRunState::openStates(),
             ))
-            ->setParameter('worker', WorkerRunKind::Worker->value)
+            ->setParameter('interactive', WorkerRunKind::Interactive->value)
             ->setParameter('quietBefore', $quietBefore, Types::DATETIME_IMMUTABLE)
             ->orderBy('r.id', 'ASC')
             ->setMaxResults($limit)
@@ -271,7 +271,7 @@ class WorkerRunRepository extends ServiceEntityRepository
     {
         return array_values($this->createQueryBuilder('r')
             ->andWhere('r.id IN (:ids)')
-            ->andWhere('r.kind = :worker')
+            ->andWhere('r.kind <> :interactive')
             ->andWhere('r.state IN (:openStates)')
             ->andWhere(\sprintf(
                 'EXISTS (SELECT qb.id FROM %1$s qb WHERE qb.id = r.bridgeId AND qb.lastSeenAt < :quietBefore'
@@ -282,7 +282,7 @@ class WorkerRunRepository extends ServiceEntityRepository
                 Project::class,
             ))
             ->setParameter('quietBefore', $quietBefore, Types::DATETIME_IMMUTABLE)
-            ->setParameter('worker', WorkerRunKind::Worker->value)
+            ->setParameter('interactive', WorkerRunKind::Interactive->value)
             ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
             ->setParameter('openStates', array_map(
                 static fn (WorkerRunState $state): string => $state->value,
