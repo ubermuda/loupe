@@ -187,6 +187,21 @@ final class GitHubPullRequestStateWriterTest extends KernelTestCase
         self::assertFalse($failure->permanent);
     }
 
+    public function test_a_graphql_rate_limit_is_a_transient_failure_with_a_fallback_delay(): void
+    {
+        $pullRequest = $this->tracked('ubermuda/loupe', 72_046);
+        $this->responses = [
+            $this->answer(['token' => 'ghs_token'], 201),
+            $this->answer(['data' => null, 'errors' => [['type' => 'RATE_LIMITED', 'message' => 'API rate limit exceeded']]]),
+        ];
+
+        $failure = $this->failure(fn () => $this->writer()->close($pullRequest));
+
+        self::assertSame('api_failed_rate_limited', $failure->cause);
+        self::assertFalse($failure->permanent);
+        self::assertSame(60, $failure->retryAfterSeconds);
+    }
+
     public function test_a_missing_pull_request_is_a_permanent_not_found_failure(): void
     {
         $pullRequest = $this->tracked('ubermuda/loupe', 72_042);

@@ -22,6 +22,9 @@ final readonly class GitHubPullRequestStateWriter implements PullRequestStateWri
     /** An operator must change the App settings, so a retry cannot succeed. */
     private const array CONFIGURATION_REASONS = ['not_configured', 'bad_key'];
 
+    /** GitHub sends a GraphQL rate limit as an HTTP 200 error body, so the API client reads no delay for it. */
+    private const int GRAPHQL_RATE_LIMIT_RETRY_SECONDS = 60;
+
     public function __construct(
         private GitHubAppApi $api,
         private GitHubPullRequestInstallations $installations,
@@ -99,6 +102,9 @@ final readonly class GitHubPullRequestStateWriter implements PullRequestStateWri
     {
         if ($e->rateLimited) {
             return new PullRequestWriteFailed('api_failed_rate_limited', permanent: false, previous: $e, retryAfterSeconds: $e->retryAfterSeconds);
+        }
+        if ('graphql_error' === $e->reason && 'RATE_LIMITED' === $e->graphqlType) {
+            return new PullRequestWriteFailed('api_failed_rate_limited', permanent: false, previous: $e, retryAfterSeconds: self::GRAPHQL_RATE_LIMIT_RETRY_SECONDS);
         }
         if (('http_status' === $e->reason && \in_array($e->status, self::REFUSED_STATUSES, true))
             || ('graphql_error' === $e->reason && 'FORBIDDEN' === $e->graphqlType)) {
