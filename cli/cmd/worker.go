@@ -36,6 +36,10 @@ const maxStdout = 1 << 20
 // worker mid-task and exits 0.
 const ceilingEnv = "CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS"
 
+// sessionEnv gives `loupe mcp` the claude session of a worker, so the server
+// can name the run that moves a card.
+const sessionEnv = "LOUPE_SESSION_ID"
+
 // workerResult is one finished worker. err is set when the process never ran,
 // which is a different fault from a process that ran and failed. hasResult
 // says whether stdout held a valid structured result, and killed that the
@@ -136,15 +140,24 @@ func workerArgs(spec workerSpec) []string {
 }
 
 // workerEnv is claude's environment. A ceiling the operator set, empty
-// included, stays as set.
-func workerEnv(environ []string) []string {
+// included, stays as set. The session id replaces an inherited one.
+func workerEnv(environ []string, sessionID string) []string {
+	env := make([]string, 0, len(environ)+2)
+	ceiling := false
 	for _, e := range environ {
-		if strings.HasPrefix(e, ceilingEnv+"=") {
-			return environ
+		if strings.HasPrefix(e, sessionEnv+"=") {
+			continue
 		}
+		if strings.HasPrefix(e, ceilingEnv+"=") {
+			ceiling = true
+		}
+		env = append(env, e)
+	}
+	if !ceiling {
+		env = append(env, ceilingEnv+"=0")
 	}
 
-	return append(slices.Clip(environ), ceilingEnv+"=0")
+	return append(env, sessionEnv+"="+sessionID)
 }
 
 // workerShell runs claude on the argv after $0 and records claude's exit code
@@ -275,7 +288,7 @@ func startWorker(ctx context.Context, spec workerSpec) (*exec.Cmd, string, *atom
 	status := filepath.Join(dir, "status")
 	cmd := exec.CommandContext(ctx, "/bin/sh", append([]string{"-c", workerShell, status}, workerArgs(spec)...)...)
 	cmd.Dir = spec.dir
-	cmd.Env = workerEnv(os.Environ())
+	cmd.Env = workerEnv(os.Environ(), spec.sessionID)
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cmd.WaitDelay = waitDelay
 	setProcessGroup(cmd)

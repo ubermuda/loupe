@@ -74,12 +74,12 @@ func TestParseFillsDefaults(t *testing.T) {
 	}
 }
 
-func TestAutoUpdateIsOnUnlessTheFileTurnsItOff(t *testing.T) {
+func TestAutoUpdateIsOffUnlessTheFileTurnsItOn(t *testing.T) {
 	for _, tc := range []struct {
 		line string
 		want bool
 	}{
-		{line: "", want: true},
+		{line: "", want: false},
 		{line: "autoUpdate: true\n", want: true},
 		{line: "autoUpdate: false\n", want: false},
 	} {
@@ -286,6 +286,25 @@ func TestLoadPrintsAnExampleWhenTheFileIsMissing(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), path) {
 		t.Fatalf("the caller names the path, so Load must not: %v", err)
+	}
+}
+
+// A file with keys and no rules is as far from a working bridge as a missing
+// one, so it shows the example once.
+func TestParsePrintsAnExampleWhenTheFileHasNoRules(t *testing.T) {
+	for name, body := range map[string]string{
+		"autoUpdate only": "autoUpdate: false\n",
+		"projects only":   "projects:\n  loupe:\n    dir: {dir}\n",
+		"an empty list":   "autoUpdate: true\nrules: []\n",
+	} {
+		text, _ := file(t, body)
+		_, err := Parse([]byte(text), Defaults{})
+		if err == nil || !strings.Contains(err.Error(), "has no rules") || strings.Count(err.Error(), Example) != 1 {
+			t.Fatalf("%s: err = %v, want the example once", name, err)
+		}
+	}
+	if _, err := Parse([]byte("rules: [{}]\n"), Defaults{}); err == nil || strings.Contains(err.Error(), Example) {
+		t.Fatalf("a file with a rule must not show the example: %v", err)
 	}
 }
 

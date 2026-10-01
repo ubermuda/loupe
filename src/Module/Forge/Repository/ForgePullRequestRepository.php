@@ -203,18 +203,19 @@ final class ForgePullRequestRepository extends ServiceEntityRepository
     /**
      * The state of each row as the database holds it now. A scalar read, so
      * the identity map cannot answer with a row loaded before a lock.
+     * $forUpdate locks the rows, in id order, until the transaction ends.
      *
      * @param list<array{forge: string, repository: string, number: int}> $keys
      *
      * @return array<string, PullRequestState> keyed by stateKey()
      */
-    public function findCurrentStatesByKeys(Uuid $projectId, array $keys): array
+    public function findCurrentStatesByKeys(Uuid $projectId, array $keys, bool $forUpdate = false): array
     {
         if ([] === $keys) {
             return [];
         }
 
-        $rows = $this->createQueryBuilder('pr')
+        $query = $this->createQueryBuilder('pr')
             ->select('pr.forge', 'pr.repository', 'pr.number', 'pr.state')
             ->andWhere('pr.project = :project')
             ->andWhere('pr.forge IN (:forges)')
@@ -224,8 +225,12 @@ final class ForgePullRequestRepository extends ServiceEntityRepository
             ->setParameter('forges', array_values(array_unique(array_column($keys, 'forge'))))
             ->setParameter('repositories', array_values(array_unique(array_map(mb_strtolower(...), array_column($keys, 'repository')))))
             ->setParameter('numbers', array_values(array_unique(array_column($keys, 'number'))))
-            ->getQuery()
-            ->getArrayResult();
+            ->orderBy('pr.id', 'ASC')
+            ->getQuery();
+        if ($forUpdate) {
+            $query->setLockMode(LockMode::PESSIMISTIC_WRITE);
+        }
+        $rows = $query->getArrayResult();
 
         $states = [];
         foreach ($rows as $row) {

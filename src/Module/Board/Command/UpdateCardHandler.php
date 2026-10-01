@@ -15,6 +15,7 @@ use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardLinkResolver;
 use App\Module\Board\Service\CardLinkSync;
 use App\Module\Board\Service\CardMover;
@@ -243,7 +244,8 @@ final readonly class UpdateCardHandler
             // commit: nothing survives a rollback, and nothing is lost when the
             // process dies after it.
             if (null !== $move) {
-                $this->events->dispatch(new CardMoved($card, $move, $command->actor, $command->cause));
+                $cause = $command->cause ?? (null === $openedRun ? null : CardEventCause::run($openedRun->id ?? throw new \LogicException('A persisted run has an id.'), $openedRun->ruleName));
+                $this->events->dispatch(new CardMoved($card, $move, $command->actor, $cause));
             }
             if ($parentChanged) {
                 $this->events->dispatch(new CardParentChanged($card, $oldParent, $card->parent, $command->actor));

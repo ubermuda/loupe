@@ -342,7 +342,7 @@ final readonly class CardWaitReconciler
             && !$row->draft
             && PullRequestChecks::Passed === $row->checks
             && $row->checksSha === $headSha
-            && \in_array($row->mergeability, [PullRequestMergeability::Mergeable, PullRequestMergeability::Blocked], true);
+            && \in_array($row->mergeability, [PullRequestMergeability::Mergeable, PullRequestMergeability::Behind, PullRequestMergeability::Blocked], true);
     }
 
     private static function runTrigger(string $state): ?InboxCardWaitTrigger

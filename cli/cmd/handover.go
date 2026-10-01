@@ -126,10 +126,12 @@ type handoverRun struct {
 // phaseBefore is the phase of a run whose before command runs.
 const phaseBefore = "before"
 
-// heldEvent is a stream event that arrived after a freeze.
+// heldEvent is a stream event that arrived after a freeze. replayed marks an
+// event of a catch-up.
 type heldEvent struct {
-	id   string
-	data []byte
+	id       string
+	data     []byte
+	replayed bool
 }
 
 // handoverPath names the handover file of the bridge that reads rulesPath. It
@@ -233,7 +235,7 @@ func (r *router) resume() {
 		done()
 	}
 	for _, e := range events {
-		r.handleEvent(e.id, e.data)
+		r.handleEvent(e.id, e.data, e.replayed)
 	}
 	r.eventMu.Unlock()
 
@@ -448,28 +450,38 @@ func (r *router) adoptBeforeLocked(p pending, run handoverRun) {
 // onEvent handles one stream event, unless its id was handled already, as
 // across the replay after a handover. After a freeze, it holds the event back.
 func (r *router) onEvent(id string, data []byte) {
+	r.takeEvent(id, data, false)
+}
+
+// takeEvent is onEvent for a stream event or, when replayed, for an event of a
+// catch-up.
+func (r *router) takeEvent(id string, data []byte, replayed bool) {
 	r.eventMu.Lock()
 	defer r.eventMu.Unlock()
 
 	r.mu.Lock()
 	if r.frozen {
-		r.heldEvents = append(r.heldEvents, heldEvent{id: id, data: slices.Clone(data)})
+		r.heldEvents = append(r.heldEvents, heldEvent{id: id, data: slices.Clone(data), replayed: replayed})
 		r.mu.Unlock()
 
 		return
 	}
 	r.mu.Unlock()
-	r.handleEvent(id, data)
+	r.handleEvent(id, data, replayed)
 }
 
-// handleEvent records the id as handled and routes the event. The caller holds
-// eventMu.
-func (r *router) handleEvent(id string, data []byte) {
+// handleEvent records the id as handled, routes the event and moves the
+// cursor. An id a catch-up read counts as handled, because the hub can send it
+// again after the catch-up. The caller holds eventMu.
+func (r *router) handleEvent(id string, data []byte, replayed bool) {
 	if id != "" {
 		r.mu.Lock()
-		seen := r.recentSet[id]
+		seen := r.recentSet[id] || r.caughtUpSet[id]
 		if !seen {
 			r.rememberLocked(id)
+		}
+		if replayed {
+			r.rememberCaughtUpLocked(id)
 		}
 		r.mu.Unlock()
 		if seen {
@@ -478,7 +490,8 @@ func (r *router) handleEvent(id string, data []byte) {
 			return
 		}
 	}
-	r.onData(data)
+	r.route(data, replayed)
+	r.advanceCursor(id, replayed)
 }
 
 // onID keeps the stream's resume point.
@@ -489,7 +502,7 @@ func (r *router) onID(id string) {
 }
 
 // rememberLocked adds an id to the recent ones, and forgets the oldest past
-// recentLimit. The caller holds mu.
+// recentLimit. While a gap is open it forgets none. The caller holds mu.
 func (r *router) rememberLocked(id string) {
 	if r.recentSet[id] {
 		return
@@ -499,8 +512,18 @@ func (r *router) rememberLocked(id string) {
 	}
 	r.recent = append(r.recent, id)
 	r.recentSet[id] = true
-	if len(r.recent) > recentLimit {
-		delete(r.recentSet, r.recent[0])
-		r.recent = slices.Delete(r.recent, 0, 1)
+	if !r.gap {
+		r.trimRecentLocked()
+	}
+}
+
+// trimRecentLocked forgets the oldest recent ids past recentLimit. The caller
+// holds mu.
+func (r *router) trimRecentLocked() {
+	if over := len(r.recent) - recentLimit; over > 0 {
+		for _, id := range r.recent[:over] {
+			delete(r.recentSet, id)
+		}
+		r.recent = slices.Delete(r.recent, 0, over)
 	}
 }

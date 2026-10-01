@@ -187,7 +187,7 @@ type File struct {
 	Experiments []Experiment `yaml:"experiments"`
 	Hooks       []HookEntry  `yaml:"hooks"`
 	Launch      LaunchConfig `yaml:"launch"`
-	// AutoUpdate is on when the key is absent.
+	// AutoUpdate is off when the key is absent.
 	AutoUpdate  *bool                 `yaml:"autoUpdate"`
 	MaxWorkers  *int                  `yaml:"maxWorkers"`
 	WorkerPools map[string]WorkerPool `yaml:"workerPools"`
@@ -350,8 +350,9 @@ type Set struct {
 	// set matches nothing.
 	slugs map[string]string
 
-	autoUpdate bool
-	maxWorkers int
+	autoUpdate    bool
+	autoUpdateSet bool
+	maxWorkers    int
 	// pools maps each pool name to its size, DefaultPool included.
 	pools map[string]int
 
@@ -394,7 +395,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		return nil, err
 	}
 
-	s := &Set{dirs: map[string]string{}, autoUpdate: f.AutoUpdate == nil || *f.AutoUpdate}
+	s := &Set{dirs: map[string]string{}, autoUpdate: f.AutoUpdate != nil && *f.AutoUpdate, autoUpdateSet: f.AutoUpdate != nil}
 	var errs []error
 	for _, err := range []error{
 		checkWord("defaults.permissionMode", f.Defaults.PermissionMode),
@@ -516,6 +517,9 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		}
 	}
 
+	if len(f.Rules) == 0 {
+		return nil, withExample(errors.Join(errs...))
+	}
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
@@ -900,6 +904,11 @@ func braces(names []string) string {
 // AutoUpdate reports whether the bridge may update the CLI on its own.
 func (s *Set) AutoUpdate() bool {
 	return s.autoUpdate
+}
+
+// AutoUpdateSet reports whether the file holds a value for autoUpdate.
+func (s *Set) AutoUpdateSet() bool {
+	return s.autoUpdateSet
 }
 
 // MaxWorkers is the number of workers the bridge runs at once.
