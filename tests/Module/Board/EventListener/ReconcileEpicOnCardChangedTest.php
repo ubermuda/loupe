@@ -395,11 +395,49 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         self::assertSame('done', $this->slugOf($epic));
     }
 
-    public function test_an_epic_in_review_closes_when_its_pull_request_finished_before_the_last_child(): void
+    public function test_an_epic_stays_when_its_pull_request_closed_unmerged_before_the_last_child(): void
     {
-        $project = $this->reviewProject('epic-review-close');
-        $epic = $this->card($project, 'in-review', CardType::Epic);
+        $project = $this->reviewProject('epic-abandoned');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
         $this->linkPullRequest($epic, 7, PullRequestState::Closed);
+        $child = $this->card($project, parent: $epic);
+
+        $this->update($child, 'done');
+
+        self::assertSame('implementation', $this->slugOf($epic));
+        self::assertCount(1, $this->movedRows($project));
+    }
+
+    public function test_an_epic_in_the_backlog_stays_when_its_only_pull_request_closed_unmerged(): void
+    {
+        $project = $this->reviewProject('epic-backlog-abandoned');
+        $epic = $this->card($project, 'backlog', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Closed);
+        $child = $this->card($project, parent: $epic);
+
+        $this->update($child, 'done');
+
+        self::assertSame('backlog', $this->slugOf($epic));
+    }
+
+    public function test_a_board_with_no_review_column_leaves_an_epic_with_an_abandoned_pull_request_in_place(): void
+    {
+        $project = $this->lifecycleProject('epic-no-review-abandoned');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Closed);
+        $child = $this->card($project, parent: $epic);
+
+        $this->update($child, 'done');
+
+        self::assertSame('implementation', $this->slugOf($epic));
+    }
+
+    public function test_an_epic_closes_when_its_pull_request_merged_before_the_last_child(): void
+    {
+        $project = $this->reviewProject('epic-merged-first');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Merged);
+        $this->linkPullRequest($epic, 8, PullRequestState::Closed);
         $child = $this->card($project, parent: $epic);
 
         $this->update($child, 'done');

@@ -549,6 +549,9 @@ child finishes. It waits in the `in-review` column. The merge of the pull
 request then moves the epic to the first terminal column, as for any card. A
 board with no `in-review` column, or a terminal one, closes the epic at once.
 
+When each linked pull request is closed and none merged, the epic does not
+close when its last child finishes. It stays in its column.
+
 For a repository connected through the GitHub App, Loupe also changes the
 pull request, while the automation is on:
 
