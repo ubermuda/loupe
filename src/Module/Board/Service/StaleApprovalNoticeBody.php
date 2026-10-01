@@ -40,6 +40,7 @@ final readonly class StaleApprovalNoticeBody
         return PullRequestState::Open === $pullRequest->state
             && null !== $pullRequest->headSha
             && self::key($pullRequest->headSha) === $notice->noticeKey
+            && $pullRequest->uncoveredSha === $pullRequest->headSha
             && $pullRequest->approvalIsStale();
     }
 

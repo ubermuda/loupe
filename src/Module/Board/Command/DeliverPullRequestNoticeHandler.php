@@ -60,12 +60,6 @@ final readonly class DeliverPullRequestNoticeHandler
             return;
         }
 
-        if (!StaleApprovalNoticeBody::stillHolds($notice, $pullRequest)) {
-            $this->fail($notice, 'outdated');
-
-            return;
-        }
-
         $commenter = $this->commenters->for($pullRequest->forge);
         if (null === $commenter) {
             $this->fail($notice, 'no_commenter');
@@ -84,6 +78,12 @@ final readonly class DeliverPullRequestNoticeHandler
                 StaleApprovalNoticeBody::marker($notice->noticeKey),
                 $notice->createdAt->modify(self::LOOKUP_CLOCK_MARGIN),
             );
+            // After the lookup, so a retry of a notice that did post is not marked outdated.
+            if (!$found && !StaleApprovalNoticeBody::stillHolds($notice, $pullRequest)) {
+                $this->fail($notice, 'outdated');
+
+                return;
+            }
             if (!$found) {
                 $commenter->comment($pullRequest, $this->body->of($notice));
             }

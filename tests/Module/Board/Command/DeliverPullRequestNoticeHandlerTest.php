@@ -195,6 +195,21 @@ final class DeliverPullRequestNoticeHandlerTest extends KernelTestCase
         yield 'a new head' => [static function (ForgePullRequest $pullRequest): void { $pullRequest->headSha = 'ccccccc'; }];
         yield 'a new approval of the head' => [static function (ForgePullRequest $pullRequest): void { $pullRequest->coveredSha = self::HEAD; }];
         yield 'a merge' => [static function (ForgePullRequest $pullRequest): void { $pullRequest->state = PullRequestState::Merged; }];
+        yield 'a new approval whose coverage is unknown' => [static function (ForgePullRequest $pullRequest): void { $pullRequest->uncoveredSha = null; }];
+    }
+
+    public function test_a_retry_that_finds_its_marker_after_the_head_moved_marks_the_notice_posted(): void
+    {
+        $notice = $this->pending();
+        $notice->attempts = 1;
+        $this->pullRequest->headSha = 'ccccccc';
+        $this->em->flush();
+        $this->commenter->existing = ['<!-- loupe-notice: stale-approval:'.self::HEAD." -->\n\nAn earlier body"];
+
+        $this->handle($notice);
+
+        self::assertSame([], $this->commenter->comments);
+        self::assertSame(PullRequestCommentState::Posted, $this->reload($notice)->state);
     }
 
     #[DataProvider('outdatedPullRequests')]
