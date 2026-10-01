@@ -209,12 +209,13 @@ Register it on GitHub under Settings, Developer settings, GitHub Apps.
 | Webhook secret | the value of `GITHUB_APP_WEBHOOK_SECRET` |
 
 Grant these repository permissions. Pull requests is read and write. The
-others are read-only. Loupe needs the write access only to post the fix-run
-comment.
+others are read-only. Loupe needs the write access to post the fix-run
+comment, and to mark an epic pull request ready, convert it to draft or close
+it.
 
 | Permission | Why |
 |---|---|
-| Pull requests (read and write) | the merge and the review verdict; write lets Loupe post the fix-run comment |
+| Pull requests (read and write) | the merge and the review verdict; write lets Loupe post the fix-run comment, and mark an epic pull request ready, draft or closed |
 | Checks | the aggregate check conclusion |
 | Contents | GitHub offers the Push event only with it |
 | Commit statuses | the status of each check context |
