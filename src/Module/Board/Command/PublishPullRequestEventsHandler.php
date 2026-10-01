@@ -143,7 +143,7 @@ final readonly class PublishPullRequestEventsHandler
         }
     }
 
-    /** Whether the card page or the tile shows something new. A new head or base alone shows nothing. */
+    /** Whether the card page or the tile shows something new. A new head or base alone shows nothing, and a new covered head can change the review chip. */
     private static function displayedChange(PullRequestSnapshot $previous, PullRequestSnapshot $current): bool
     {
         return $previous->state !== $current->state
@@ -151,7 +151,9 @@ final readonly class PublishPullRequestEventsHandler
             || $previous->checks !== $current->checks
             || $previous->failedChecks !== $current->failedChecks
             || $previous->mergeability !== $current->mergeability
-            || $previous->review !== $current->review;
+            || $previous->review !== $current->review
+            || $previous->readyToMerge !== $current->readyToMerge
+            || $previous->coveredSha !== $current->coveredSha;
     }
 
     /** @return list<Fact> */

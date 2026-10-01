@@ -243,6 +243,7 @@ class ForgePullRequest
             $this->defaultBranch,
             $this->headParents,
             $this->approvalId,
+            $this->coveredSha,
         );
     }
 }
