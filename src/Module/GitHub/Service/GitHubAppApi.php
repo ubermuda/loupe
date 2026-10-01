@@ -114,8 +114,9 @@ final class GitHubAppApi
         $data = $body['data'] ?? null;
         $errors = \is_array($body['errors'] ?? null) ? $body['errors'] : [];
         foreach ($errors as $error) {
-            if (!\is_array($error) || 'NOT_FOUND' !== ($error['type'] ?? null)) {
-                throw new GitHubAppApiFailed('graphql_error');
+            $type = \is_array($error) ? ($error['type'] ?? null) : null;
+            if ('NOT_FOUND' !== $type) {
+                throw new GitHubAppApiFailed('graphql_error', graphqlType: \is_string($type) ? $type : null);
             }
         }
 

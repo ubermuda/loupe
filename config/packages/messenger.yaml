@@ -24,8 +24,10 @@ framework:
             Symfony\Component\Notifier\Message\SmsMessage: async
             App\Module\Account\Messenger\GenerateDataExportMessage: async
             App\Module\Billing\Messenger\CancelSubscriptionMessage: async
+            App\Module\Board\Messenger\CloseEpicPullRequests: async
             App\Module\Board\Messenger\MoveAbandonedCard: async
             App\Module\Board\Messenger\PostFixRunComment: async
+            App\Module\Board\Messenger\SyncEpicPullRequestDraft: async
             App\Module\Board\Messenger\SyncNextPullRequest: async
             App\Module\Forge\Messenger\RefreshPullRequestState: async
             App\Module\Inbox\Messenger\ReconcileCardWaits: async
