@@ -53,7 +53,12 @@ final readonly class DeliverPullRequestNoticeHandler
             $notice->failedAt = null;
         }
 
+        // A pull request unlinked and linked again before delivery has a new Forge row under the same key.
         $pullRequest = $this->forgePullRequests->find($notice->forgePullRequestId);
+        $pullRequest ??= $this->forgePullRequests->findByKeys(
+            $notice->project->id ?? throw new \LogicException('A persisted project has an id.'),
+            [['forge' => $notice->forge, 'repository' => $notice->repository, 'number' => $notice->number]],
+        )[0] ?? null;
         if (null === $pullRequest) {
             $this->fail($notice, 'unknown_pull_request');
 

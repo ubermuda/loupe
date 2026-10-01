@@ -177,9 +177,22 @@ final class DeliverPullRequestNoticeHandlerTest extends KernelTestCase
         self::assertNull($notice->failedAt);
     }
 
+    public function test_a_notice_whose_pull_request_was_linked_again_posts_on_the_new_row(): void
+    {
+        $notice = $this->pending(Uuid::v7());
+
+        $this->handle($notice);
+
+        self::assertCount(1, $this->commenter->comments);
+        self::assertSame($this->pullRequest, $this->commenter->comments[0][0]);
+        self::assertSame(PullRequestCommentState::Posted, $this->reload($notice)->state);
+    }
+
     public function test_a_notice_whose_pull_request_is_gone_is_marked_failed(): void
     {
         $notice = $this->pending(Uuid::v7());
+        $this->em->remove($this->pullRequest);
+        $this->em->flush();
 
         $this->handle($notice);
 
