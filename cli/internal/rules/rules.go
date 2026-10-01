@@ -1263,7 +1263,7 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 		// Each element is one argument, so a value never splits in two.
 		before = &Before{Argv: make([]string, len(r.Before.Run)), Timeout: r.beforeTimeout}
 		for i, arg := range r.Before.Run {
-			before.Argv[i] = directive.RenderPlain(arg, v)
+			before.Argv[i] = directive.RenderArgument(arg, v)
 		}
 	}
 
@@ -1412,6 +1412,12 @@ func values(e event.Event, slug string) map[string]string {
 		v["column"] = e.Column
 		v["documentId"] = e.Subject.ID
 		v["verdict"] = e.Verdict
+	case event.CommandType:
+		v["cardId"] = e.Subject.ID
+		v["cardNumber"] = UnknownCard
+		if e.CardNumber > 0 {
+			v["cardNumber"] = strconv.Itoa(e.CardNumber)
+		}
 	}
 	if event.IsPullRequest(e.Type) {
 		v["cardId"] = e.CardID

@@ -82,3 +82,12 @@ func TestRenderLeavesOtherBracesAlone(t *testing.T) {
 		t.Fatalf("Render = %q", got)
 	}
 }
+
+// An argument of a command takes an empty string for a name the event cannot
+// fill, so the command never reads a literal placeholder.
+func TestRenderArgumentEmptiesAMissingName(t *testing.T) {
+	got := RenderArgument("--pr={pullRequestNumber} --card={cardNumber}", map[string]string{"cardNumber": "87"})
+	if got != "--pr= --card=87" {
+		t.Fatalf("RenderArgument = %q", got)
+	}
+}

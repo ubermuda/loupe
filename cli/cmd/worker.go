@@ -51,6 +51,9 @@ type workerResult struct {
 	err       error
 	// dir is the run directory, which the router removes once it reported.
 	dir string
+	// before says the rule's before command failed, so claude never ran and
+	// the run never resumes.
+	before bool
 	// reported is the modelUsage claude printed, which counts the whole session.
 	// usage is what this process spent, and nil when unknown.
 	reported transcript.Usage
@@ -79,6 +82,9 @@ type workerSpec struct {
 	runID string
 	rule  string
 	key   string
+	// before is the command that runs ahead of claude and prints its dir, or
+	// nil.
+	before *rules.Before
 }
 
 // workerOps is the process surface the router drives. Tests replace run so the
@@ -92,10 +98,15 @@ type workerOps struct {
 	// nil one is adoptWorker.
 	adopt     func(ctx context.Context, dir string) workerResult
 	sessionID func() string
+	// before runs a rule's before command, and calls onStart once it exists.
+	// adoptBefore waits for one a former image started. A nil one is
+	// runBefore or adoptBeforeProc.
+	before      func(ctx context.Context, spec beforeSpec, onStart func(workerProc)) beforeResult
+	adoptBefore func(ctx context.Context, dir string) beforeResult
 }
 
 func defaultWorkerOps() workerOps {
-	return workerOps{run: runWorker, adopt: adoptWorker, sessionID: config.NewUUID}
+	return workerOps{run: runWorker, adopt: adoptWorker, sessionID: config.NewUUID, before: runBefore, adoptBefore: adoptBeforeProc}
 }
 
 // workerArgs builds claude's argv. The prompt is an argv element, so no shell

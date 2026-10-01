@@ -1370,3 +1370,21 @@ func TestMatchHasNoBeforeForARuleWithout(t *testing.T) {
 		t.Fatalf("Match = %+v", m)
 	}
 }
+
+// A person's resume carries the card and nothing of the pull request. The
+// before command takes the card, and an empty string for each other name.
+func TestMatchRuleFillsTheBeforeCommandOfAResume(t *testing.T) {
+	s := checked(t, "projects:\n  loupe:\n    dir: {dir}\nrules:\n  - name: fix\n    on: pull_request.fix_requested\n    project: loupe\n    prompt: Fix.\n"+
+		"    before:\n      run: [prepare, '{cardId}', '{cardNumber}', '--pr={pullRequestNumber}', '{headSha}']\n")
+	command := event.Event{Type: event.CommandType, Subject: event.Subject{Type: "card", ID: cardID}, ProjectID: projectID, CardNumber: 87, Actor: event.ActorHuman}
+
+	m, ok := s.MatchRule(command, "fix")
+	want := []string{"prepare", cardID, "87", "--pr=", ""}
+	if !ok || m.Before == nil || !slices.Equal(m.Before.Argv, want) {
+		t.Fatalf("before = %+v, want argv %q", m.Before, want)
+	}
+	command.CardNumber = 0
+	if m, _ := s.MatchRule(command, "fix"); m.Before.Argv[2] != UnknownCard {
+		t.Fatalf("argv = %q, want an unknown card", m.Before.Argv)
+	}
+}

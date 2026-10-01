@@ -92,13 +92,25 @@ func RenderResume(template string, values map[string]string) string {
 	return fill(template, values) + "\n\n" + ResumeFooter
 }
 
+// RenderArgument fills one argument of a command. A name that values lacks
+// becomes empty, so the command never reads a placeholder as literal text.
+func RenderArgument(template string, values map[string]string) string {
+	return fillWith(template, values, func(string) string { return "" })
+}
+
 func fill(template string, values map[string]string) string {
+	return fillWith(template, values, func(m string) string { return m })
+}
+
+// fillWith fills each placeholder from values, and a missing name with what
+// missing returns for the placeholder as written.
+func fillWith(template string, values map[string]string, missing func(string) string) string {
 	body := placeholder.ReplaceAllStringFunc(template, func(m string) string {
 		if v, ok := values[m[1:len(m)-1]]; ok {
 			return v
 		}
 
-		return m
+		return missing(m)
 	})
 
 	return strings.TrimRight(body, " \t\n")

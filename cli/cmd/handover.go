@@ -114,7 +114,17 @@ type handoverRun struct {
 	handoverSeries
 	// runPin is the variant of a run in an experiment, which its outcome names.
 	runPin
+	// Phase is phaseBefore while the rule's before command runs, with what
+	// claude takes once it ends. An older image writes no phase.
+	Phase          string `json:"phase,omitempty"`
+	Prompt         string `json:"prompt,omitempty"`
+	PermissionMode string `json:"permissionMode,omitempty"`
+	Model          string `json:"model,omitempty"`
+	Schema         string `json:"schema,omitempty"`
 }
+
+// phaseBefore is the phase of a run whose before command runs.
+const phaseBefore = "before"
 
 // heldEvent is a stream event that arrived after a freeze.
 type heldEvent struct {
@@ -315,11 +325,15 @@ func (r *router) freeze() handoverState {
 		st.Queue = append(st.Queue, q)
 	}
 	for _, run := range r.live {
-		st.Live = append(st.Live, handoverRun{
+		h := handoverRun{
 			RunID: run.p.runID, Key: run.p.key, Rule: run.p.rule, Event: run.p.event, SessionID: run.p.spec.sessionID,
 			Began: run.began, PID: run.proc.pid, Dir: run.proc.dir, Seq: run.p.seq, Resume: run.p.spec.resume, Fresh: run.p.fresh,
 			Pool: run.p.slot, handoverSeries: seriesOf(run.p), runPin: run.p.pin,
-		})
+		}
+		if run.before {
+			h.Phase, h.Prompt, h.PermissionMode, h.Model, h.Schema = phaseBefore, run.p.spec.prompt, run.p.spec.permissionMode, run.p.spec.model, run.p.spec.schema
+		}
+		st.Live = append(st.Live, h)
 	}
 	slices.SortFunc(st.Live, func(a, b handoverRun) int {
 		return cmp.Or(a.Began.Compare(b.Began), cmp.Compare(a.RunID, b.RunID))
@@ -389,6 +403,11 @@ func (r *router) adoptLocked(run handoverRun) {
 	p.slot = p.pool
 	r.takeLocked(p.slot)
 	r.hold(p.key)
+	if run.Phase == phaseBefore {
+		r.adoptBeforeLocked(p, run)
+
+		return
+	}
 	r.trackLocked(liveRun{p: p, began: run.Began, proc: workerProc{pid: run.PID, dir: run.Dir}})
 	r.log.Info("worker_adopted", append(about(p.event, p.rule), "worker_pool", p.slot, "session_id", p.spec.sessionID, "pid", run.PID)...)
 
@@ -402,6 +421,27 @@ func (r *router) adoptLocked(run handoverRun) {
 
 		res := wait(r.workerContext(), run.Dir)
 		r.settle(p, endedRun{res: res, began: run.Began, elapsed: time.Since(run.Began)})
+	}()
+}
+
+// adoptBeforeLocked waits for the before command of a run a former image
+// started, on its own goroutine, then goes on as that image would have. The
+// caller holds mu and took the run's slot and card.
+func (r *router) adoptBeforeLocked(p pending, run handoverRun) {
+	p.spec.prompt, p.spec.permissionMode, p.spec.model, p.spec.schema = run.Prompt, run.PermissionMode, run.Model, run.Schema
+	p.spec.runID, p.spec.rule, p.spec.key = run.RunID, run.Rule, run.Key
+	r.trackLocked(liveRun{p: p, began: run.Began, proc: workerProc{pid: run.PID, dir: run.Dir}, before: true})
+	r.log.Info("before_adopted", append(about(p.event, p.rule), "worker_pool", p.slot, "session_id", p.spec.sessionID, "pid", run.PID)...)
+
+	wait := r.worker.adoptBefore
+	if wait == nil {
+		wait = adoptBeforeProc
+	}
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+
+		r.afterBefore(p, run.Began, wait(r.workerContext(), run.Dir))
 	}()
 }
 
