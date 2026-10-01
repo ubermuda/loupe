@@ -1,0 +1,17 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'billing.beta_invite.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block body %}
+<div class="lp-billing">
+    <h1 class="lp-workspace-title">{{ 'billing.beta_invite.claim.heading'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'billing.beta_invite.claim.description'|trans }}</p>
+
+    <section class="lp-billing-block">
+        <form method="post" action="{{ path('app_billing_beta_invite_claim', {token: token}) }}" data-beta-claim-form>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-beta-invite-claim') }}">
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'billing.beta_invite.claim.submit'|trans }}</button>
+        </form>
+    </section>
+</div>
+{% endblock %}

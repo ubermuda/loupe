@@ -1,6 +1,6 @@
 ---
 title: "The admin area"
-description: "Instance status, feature flags, the waitlist, the audit log and the site-review outbox. Requires ROLE_ADMIN."
+description: "Instance status, feature flags, the waitlist, beta invites, the audit log and the site-review outbox. Requires ROLE_ADMIN."
 ---
 
 `/admin` is the dashboard. Everything below it needs `ROLE_ADMIN`, which
@@ -96,6 +96,28 @@ it.
 When a registration cap is closed, `/waitlist` collects addresses and
 `/admin/waitlist` works through them: invite a single entry, invite a selection,
 or invite the oldest. Redeeming an invite converts the entry into an account.
+
+## Beta invites
+
+`/admin/beta-invites` makes single-use links for beta testers. Type an optional
+note that says who the link is for, then select **Create link**. The page shows
+the link. Copy it and send it to the tester. Each unused link in the list has a
+**Copy** button, so you can copy it again later.
+
+The link opens `/beta/<token>`. It lets one person sign up when the
+registration cap is full, with the form, GitHub or Google. A signed-out visitor
+selects **Continue to sign up** to reach the sign-up page with the link applied.
+The new account gets a comp that never expires. A person who already has an
+account opens the link and selects **Claim free beta access**, and their account
+gets the comp. If they are signed out, they select **Continue to sign up** and
+sign in from the sign-up page. The link then opens again for them to claim.
+When registration is switched off, the link creates no account, and it answers
+404 to a signed-out visitor. A signed-in account can still claim it.
+
+The list shows each link as unused, used by an account on a date, or revoked on
+a date. Revoke an unused link with its **Revoke** button. A used link cannot be
+revoked. The admin page of a tester's account says "Beta tester since" with the
+date, and shows the note.
 
 ## Agent outbox
 
