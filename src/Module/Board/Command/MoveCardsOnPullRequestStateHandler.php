@@ -104,7 +104,8 @@ final readonly class MoveCardsOnPullRequestStateHandler
             foreach ($cards as $card) {
                 if (null !== $terminal && isset($done[(string) $card->id])) {
                     ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $terminal, onlyFromOpenColumn: true, cause: CardEventCause::merged($number)));
-                } elseif ($green && null !== $review && $card->column->slug === $stage['from']) {
+                } elseif ($green && null !== $review && $card->column->slug === $stage['from'] && [] === $this->cards->openChildNumbers($card)) {
+                    // Only a card with no open child moves, so an epic whose pull request is ready early waits.
                     ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::System, column: $review, onlyFromColumn: $card->column, cause: CardEventCause::checksPassed($number)));
                 } elseif (isset($abandoned[(string) $card->id]) && !$card->column->backlog) {
                     // Only the newest queued move acts, so it waits for the last close.

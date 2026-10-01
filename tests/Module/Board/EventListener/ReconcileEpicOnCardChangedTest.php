@@ -15,9 +15,13 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardLinkKind;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\Forge;
 use App\Module\Board\Install\BoardInstallFlags;
+use App\Module\Forge\Entity\ForgePullRequest;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
 use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
@@ -327,6 +331,140 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         ], $this->movedRows($project));
     }
 
+    public function test_the_last_child_to_finish_holds_an_epic_with_an_open_pull_request_in_review(): void
+    {
+        $project = $this->reviewProject('epic-hold-open');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Open);
+        $child = $this->card($project, parent: $epic);
+
+        $this->update($child, 'done');
+
+        self::assertSame('in-review', $this->slugOf($epic));
+        self::assertNull($this->reload($epic)->completedAt);
+        self::assertEquals(['type' => 'epic-reconciled', 'child' => $child->number], $this->lastCause($epic));
+    }
+
+    public function test_a_pull_request_forge_never_read_holds_the_epic_in_review(): void
+    {
+        $project = $this->reviewProject('epic-hold-unread');
+        $epic = $this->card($project, 'next', CardType::Epic);
+        $this->linkPullRequest($epic, 7, null);
+        $child = $this->card($project, parent: $epic);
+
+        $this->update($child, 'done');
+
+        self::assertSame('in-review', $this->slugOf($epic));
+    }
+
+    public function test_an_unparsed_pull_request_link_holds_the_epic_in_review(): void
+    {
+        $project = $this->reviewProject('epic-hold-unparsed');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $card = $this->reload($epic);
+        $this->em->persist(new CardPullRequest($card, 'https://git.example.com/acme/widgets/merge/7'));
+        $this->em->flush();
+        $this->em->clear();
+        $child = $this->card($project, parent: $epic);
+
+        $this->update($child, 'done');
+
+        self::assertSame('in-review', $this->slugOf($epic));
+    }
+
+    public function test_the_last_child_to_finish_closes_an_epic_with_no_pull_request_on_a_board_with_review(): void
+    {
+        $project = $this->reviewProject('epic-close-no-pr');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $child = $this->card($project, parent: $epic);
+
+        $this->update($child, 'done');
+
+        self::assertSame('done', $this->slugOf($epic));
+    }
+
+    public function test_the_last_child_to_finish_closes_an_epic_whose_pull_request_merged(): void
+    {
+        $project = $this->reviewProject('epic-close-merged');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Merged);
+        $child = $this->card($project, parent: $epic);
+
+        $this->update($child, 'done');
+
+        self::assertSame('done', $this->slugOf($epic));
+    }
+
+    public function test_an_epic_in_review_closes_when_its_pull_request_finished_before_the_last_child(): void
+    {
+        $project = $this->reviewProject('epic-review-close');
+        $epic = $this->card($project, 'in-review', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Closed);
+        $child = $this->card($project, parent: $epic);
+
+        $this->update($child, 'done');
+
+        self::assertSame('done', $this->slugOf($epic));
+    }
+
+    public function test_an_epic_in_review_that_gains_an_open_child_returns_to_implementation(): void
+    {
+        $project = $this->reviewProject('epic-review-reopen');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Open);
+        $this->update($this->card($project, parent: $epic), 'done');
+        self::assertSame('in-review', $this->slugOf($epic));
+
+        $joining = $this->card($project);
+        $this->update($joining, parentCardId: (string) $epic->id);
+
+        self::assertSame('implementation', $this->slugOf($epic));
+        self::assertEquals(['type' => 'epic-reconciled', 'child' => $joining->number], $this->lastCause($epic));
+
+        $this->update($joining, 'done');
+
+        self::assertSame('in-review', $this->slugOf($epic));
+    }
+
+    public function test_a_board_with_no_review_column_closes_an_epic_with_an_open_pull_request(): void
+    {
+        $project = $this->lifecycleProject('epic-no-review');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Open);
+        $child = $this->card($project, parent: $epic);
+
+        $this->update($child, 'done');
+
+        self::assertSame('done', $this->slugOf($epic));
+    }
+
+    public function test_a_terminal_review_column_does_not_hold_the_epic(): void
+    {
+        $project = $this->lifecycleProject('epic-terminal-review');
+        $this->em->persist(new BoardColumn($this->reloadProject($project), 'In review', 'in-review', 5, terminal: true));
+        $this->em->flush();
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Open);
+        $child = $this->card($project, parent: $epic);
+
+        $this->update($child, 'done');
+
+        self::assertSame('done', $this->slugOf($epic));
+    }
+
+    public function test_a_closed_epic_with_an_open_pull_request_stays_closed(): void
+    {
+        $project = $this->reviewProject('epic-closed-stays');
+        $epic = $this->card($project, 'done', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Open);
+        $this->card($project, 'done', parent: $epic);
+        $leaving = $this->card($project, 'done', parent: $epic);
+
+        $this->update($leaving, parentCardId: '');
+
+        self::assertSame('done', $this->slugOf($epic));
+    }
+
     public function test_nothing_moves_while_the_board_is_switched_off(): void
     {
         $project = $this->lifecycleProject('epic-flag-off');
@@ -347,6 +485,30 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         $this->em->flush();
 
         return $project;
+    }
+
+    /** A lifecycle board with an open `in-review` column after `implementation`. */
+    private function reviewProject(string $label): Project
+    {
+        $project = $this->lifecycleProject($label);
+        $this->em->persist(new BoardColumn($this->reloadProject($project), 'In review', 'in-review', 5));
+        $this->em->flush();
+
+        return $project;
+    }
+
+    /** A null state links a pull request that Forge never read. */
+    private function linkPullRequest(Card $card, int $number, ?PullRequestState $state): void
+    {
+        $fresh = $this->reload($card);
+        $this->em->persist(new CardPullRequest($fresh, 'https://github.com/Acme/Widgets/pull/'.$number, Forge::GitHub, 'Acme/Widgets', $number));
+        if (null !== $state) {
+            $row = new ForgePullRequest($fresh->project, 'github', 'Acme/Widgets', $number);
+            $row->state = $state;
+            $this->em->persist($row);
+        }
+        $this->em->flush();
+        $this->em->clear();
     }
 
     private function delete(Card $card): void

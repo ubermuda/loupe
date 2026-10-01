@@ -12,9 +12,13 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\CardEventCause;
+use App\Module\Board\Service\LifecycleStages;
+use App\Module\Forge\Entity\PullRequestState;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
@@ -34,6 +38,9 @@ final readonly class ReconcileEpicOnCardChanged
         private BoardColumnRepository $boardColumns,
         private UpdateCardHandler $updateCard,
         private BoardAvailability $board,
+        private LifecycleStages $stages,
+        private CardPullRequestRepository $cardPullRequests,
+        private ForgePullRequestRepository $forgePullRequests,
     ) {
     }
 
@@ -71,7 +78,10 @@ final readonly class ReconcileEpicOnCardChanged
         }
     }
 
-    /** Closes an epic whose children are all finished, and reopens a closed one with an open child. */
+    /**
+     * Closes an epic whose children are all finished, or holds it in review
+     * while its own pull request is open. Reopens a closed or held epic with an open child.
+     */
     private function reconcile(Card $epic, int $childNumber): void
     {
         $columns = $this->boardColumns->findForProjectFresh($epic->project);
@@ -80,11 +90,14 @@ final readonly class ReconcileEpicOnCardChanged
             return;
         }
 
-        $open = [] !== $this->cards->openChildNumbers($epic);
+        $stage = $this->stages->forPassedChecks();
+        $review = array_find($columns, static fn (BoardColumn $column): bool => $column->slug === $stage['to'] && !$column->terminal);
+        $inReview = null !== $review && $epic->column === $review;
         $target = match (true) {
-            !$open && !$epic->column->terminal => array_find($columns, static fn (BoardColumn $column): bool => $column->terminal),
-            $open && $epic->column->terminal => self::reopenColumn($columns),
-            default => null,
+            [] !== $this->cards->openChildNumbers($epic) => $epic->column->terminal || $inReview ? self::reopenColumn($columns) : null,
+            $epic->column->terminal => null,
+            null !== $review && $this->hasOpenPullRequest($epic) => $inReview ? null : $review,
+            default => array_find($columns, static fn (BoardColumn $column): bool => $column->terminal),
         };
 
         if (null !== $target) {
@@ -108,6 +121,28 @@ final readonly class ReconcileEpicOnCardChanged
         foreach ($freed as $card) {
             $this->move($card, $target, CardEventCause::unblocked($blocker->number));
         }
+    }
+
+    /** A link that Forge never read, or that no parser could read, counts as open. */
+    private function hasOpenPullRequest(Card $epic): bool
+    {
+        $links = $this->cardPullRequests->findCurrentKeys($epic);
+        $keys = [];
+        foreach ($links as $link) {
+            if (null === $link['repository'] || null === $link['number']) {
+                return true;
+            }
+            $keys[] = ['forge' => $link['forge'], 'repository' => $link['repository'], 'number' => $link['number']];
+        }
+
+        $projectId = $epic->project->id ?? throw new \LogicException('A stored card has a project id.');
+        $states = $this->forgePullRequests->findCurrentStatesByKeys($projectId, $keys);
+
+        return array_any($keys, static fn (array $key): bool => !\in_array(
+            $states[ForgePullRequestRepository::stateKey($key['forge'], $key['repository'], $key['number'])] ?? null,
+            [PullRequestState::Merged, PullRequestState::Closed],
+            true,
+        ));
     }
 
     private function move(Card $card, BoardColumn $column, CardEventCause $cause): void
