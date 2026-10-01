@@ -18,6 +18,7 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/directive"
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
+	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transcript"
 )
 
@@ -122,8 +123,11 @@ func commandAttrs(c api.Command, source string) []any {
 // handleCommand runs the handler of the command's kind, and returns the
 // state and the reason of its answer.
 func (r *router) handleCommand(c api.Command) (string, string) {
-	if c.Kind == api.CommandStopRun {
+	switch c.Kind {
+	case api.CommandStopRun:
 		return r.stopRun(c)
+	case api.CommandRerunCommand:
+		return r.rerunCommand(c)
 	}
 
 	return r.resumeRun(c)
@@ -463,6 +467,66 @@ func (r *router) resumeRun(c api.Command) (state, reason string) {
 	r.log.Info("worker_resume_asked", append(about(e, p.rule),
 		"worker_pool", p.pool, "session_id", c.SessionID, "resume", p.resumeIndex, "max_resumes", p.maxResumes, "continues", c.RunKey,
 	)...)
+	r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
+	dropped := r.dispatchLocked()
+	r.mu.Unlock()
+	r.logDropped(dropped)
+	r.releaseHold(c.CardID)
+
+	return api.CommandDone, ""
+}
+
+// The answers of a rerun the bridge cannot act on.
+const (
+	noCommandRule = "The rule of the run no longer runs a command on this bridge."
+	cardBusy      = "The card has a run that is still open on this bridge."
+)
+
+// rerunCommand queues the command of a failed command run again, as a new run
+// that continues it. It refuses while the card has a run that holds it or
+// waits in the queue, the rerun of this run included. A held card passes,
+// because a person's rerun acts on the card, and rerunCommand ends the hold of
+// this bridge.
+func (r *router) rerunCommand(c api.Command) (state, reason string) {
+	e := event.Event{
+		Type: event.CommandType, Subject: event.Subject{Type: "card", ID: c.CardID}, ProjectID: c.ProjectID,
+		CardNumber: c.CardNumber, Actor: event.ActorHuman,
+	}
+	key := keyFor(e)
+	r.quiesce.RLock()
+	defer r.quiesce.RUnlock()
+	r.mu.Lock()
+	current := r.rules()
+	m, ok := matchAction(current, e, c.RuleName, rules.ActionCommand)
+	queued := slices.ContainsFunc(r.queue, func(p pending) bool { return p.key == key })
+	switch {
+	case r.frozen:
+		reason = handingOver
+	case r.shut():
+		reason = bridgeShutting
+	case !ok:
+		reason = noCommandRule
+	case r.running[key] || queued:
+		reason = cardBusy
+	}
+	if reason != "" {
+		r.mu.Unlock()
+
+		return api.CommandRefused, reason
+	}
+
+	p := pending{key: key, event: e, set: current, runID: config.NewUUID(), continues: c.RunKey, column: c.CardColumn}
+	p.apply(m)
+	if c.ResumeIndex != nil {
+		p.resumeIndex = *c.ResumeIndex
+	}
+	// A command run never resumes on its own, so its cap is its own place.
+	p.resumeIndex++
+	p.maxResumes = p.resumeIndex
+	r.seq++
+	p.seq = r.seq
+	r.queue = append(r.queue, p)
+	r.log.Info("command_rerun_asked", append(about(e, p.rule), "continues", c.RunKey)...)
 	r.emitLocked(p, api.RunStateReport{State: api.RunQueued})
 	dropped := r.dispatchLocked()
 	r.mu.Unlock()

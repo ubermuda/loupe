@@ -218,18 +218,24 @@ func TestTheBridgeDropsACommandItMustNotRun(t *testing.T) {
 }
 
 // Each kind reaches its own handler. The bridge holds no run, so it refuses
-// the stop, and the resume names no session.
+// the stop, the resume names no session, and the rule of the rerun runs no
+// command.
 func TestEachKindOfCommandIsAnswered(t *testing.T) {
 	h := newHarness(t)
 	acks := h.withAcks()
 	stop := testCommand(testCommandID, api.CommandStopRun, testBridgeID, soon())
 	resume := testCommand("0199a0e2-0000-7c5e-9f2a-3b1c6d7e8f91", api.CommandResumeRun, testBridgeID, soon())
+	rerun := testCommand("0199a0e2-0000-7c5e-9f2a-3b1c6d7e8f92", api.CommandRerunCommand, testBridgeID, soon())
 
-	h.reply(api.HeartbeatReply{Commands: []api.Command{stop, resume}})
+	h.reply(api.HeartbeatReply{Commands: []api.Command{stop, resume, rerun}})
 
 	got := acks.recorded()
 	slices.Sort(got)
-	want := []string{testBridgeID + " " + stop.CommandID + " " + refusedNoRun, testBridgeID + " " + resume.CommandID + " refused " + noSession}
+	want := []string{
+		testBridgeID + " " + stop.CommandID + " " + refusedNoRun,
+		testBridgeID + " " + resume.CommandID + " refused " + noSession,
+		testBridgeID + " " + rerun.CommandID + " refused " + noCommandRule,
+	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("acks = %v", got)
 	}
