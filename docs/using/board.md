@@ -686,6 +686,11 @@ request with the oldest approval, and the lower number breaks a tie. While an
 approved pull request is up to date, or a sync of it runs, no other pull request
 syncs. A sync that does not finish in ten minutes counts as failed.
 
+Loupe syncs only a pull request that it reads as behind its base. That happens
+only when the rules of the base branch require a branch to be up to date before
+it merges. On another base, a pull request that is behind can merge as it is, so
+nothing syncs.
+
 A pull request counts as approved when a person with write access approved its
 current head. An approval of a head that Loupe synced still counts, so a sync
 never needs a new review. A request for changes removes the pull request from

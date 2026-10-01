@@ -123,7 +123,7 @@ final class SyncLineTest extends TestCase
         self::assertSame($behind, $line->next);
     }
 
-    public function test_an_unknown_mergeability_on_the_head_the_app_synced_holds_the_line(): void
+    public function test_an_unknown_mergeability_on_the_head_the_app_synced_holds_within_its_reread_window(): void
     {
         $holder = $this->candidate(4, mergeability: PullRequestMergeability::Unknown, checks: PullRequestChecks::Pending);
         $holder->syncedSha = $holder->headSha;
@@ -133,7 +133,20 @@ final class SyncLineTest extends TestCase
 
         self::assertSame($holder, $line->holder);
         self::assertNull($line->next);
+        self::assertEquals($this->now->modify(\sprintf('+%d seconds', 60 + SyncLine::REREAD_MARGIN_SECONDS)), $line->holderRereadAt);
+    }
+
+    public function test_an_unknown_mergeability_on_the_head_the_app_synced_does_not_hold_once_the_rereads_end(): void
+    {
+        $unknown = $this->candidate(4, mergeability: PullRequestMergeability::Unknown, checks: PullRequestChecks::Pending);
+        $unknown->syncedSha = $unknown->headSha;
+        $behind = $this->candidate(5);
+
+        $line = new SyncLine([$unknown, $behind], $this->now);
+
+        self::assertNull($line->holder);
         self::assertNull($line->holderRereadAt);
+        self::assertSame($behind, $line->next);
     }
 
     public function test_failed_checks_do_not_hold_the_line(): void

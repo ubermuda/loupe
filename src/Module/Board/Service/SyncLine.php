@@ -117,7 +117,7 @@ final readonly class SyncLine
 
     private static function isUpToDate(ForgePullRequest $row, \DateTimeImmutable $now): bool
     {
-        $holds = PullRequestMergeability::Unknown !== $row->mergeability || self::isOwnSync($row) || null !== self::rereadWindowEnd($row, $now);
+        $holds = PullRequestMergeability::Unknown !== $row->mergeability || null !== self::rereadWindowEnd($row, $now);
 
         return $holds
             && PullRequestMergeability::Behind !== $row->mergeability
@@ -131,17 +131,12 @@ final readonly class SyncLine
      */
     private static function rereadWindowEnd(ForgePullRequest $row, \DateTimeImmutable $now): ?\DateTimeImmutable
     {
-        if (PullRequestMergeability::Unknown !== $row->mergeability || null === $row->nextRefreshAt || self::isOwnSync($row)) {
+        if (PullRequestMergeability::Unknown !== $row->mergeability || null === $row->nextRefreshAt) {
             return null;
         }
         $end = $row->nextRefreshAt->modify(\sprintf('+%d seconds', self::REREAD_MARGIN_SECONDS));
 
         return $now < $end ? $end : null;
-    }
-
-    private static function isOwnSync(ForgePullRequest $row): bool
-    {
-        return null !== $row->syncedSha && $row->syncedSha === $row->headSha;
     }
 
     /** @param array<ForgePullRequest> $rows */
