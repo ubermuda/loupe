@@ -85,6 +85,24 @@ class CardPullRequestRepository extends ServiceEntityRepository
     }
 
     /**
+     * Every pull request link of one card as the database holds it now, read
+     * past the identity map so a link added after the card loaded counts.
+     *
+     * @return list<array{forge: string, repository: ?string, number: ?int}>
+     */
+    public function findCurrentKeys(Card $card): array
+    {
+        return array_map(static fn (array $row): array => [
+            'forge' => (string) $row['forge'],
+            'repository' => null === $row['repository'] ? null : (string) $row['repository'],
+            'number' => null === $row['number'] ? null : (int) $row['number'],
+        ], $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT forge, repository, number FROM board_card_pull_requests WHERE card_id = :card ORDER BY id',
+            ['card' => (string) $card->id],
+        ));
+    }
+
+    /**
      * The GitHub pull requests the cards link, as the database holds them.
      *
      * @param list<Uuid> $cardIds
