@@ -19,7 +19,7 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
 {
     use BridgeScenario;
 
-    public function test_it_returns_the_cards_latest_runs_in_this_project_only(): void
+    public function test_it_returns_the_cards_open_runs_in_this_project_only_newest_first(): void
     {
         self::bootKernel();
         $em = $this->em();
@@ -27,37 +27,38 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         $project = $this->project($em, $owner, 'Runs');
         $other = $this->project($em, $owner, 'Other runs');
         $cardId = Uuid::v7();
+        $at = static fn (string $time): \DateTimeImmutable => new \DateTimeImmutable('2026-01-01 '.$time);
+        $this->seedRun($em, $project, receivedAt: $at('09:00'), ruleName: 'queued', cardId: $cardId, state: WorkerRunState::Queued);
+        $this->seedRun($em, $project, receivedAt: $at('09:10'), ruleName: 'resumed', cardId: $cardId, state: WorkerRunState::Resumed);
+        $this->seedRun($em, $project, receivedAt: $at('09:20'), ruleName: 'running', cardId: $cardId, state: WorkerRunState::Running);
+        $this->seedRun($em, $project, receivedAt: $at('09:30'), ruleName: 'stopping', cardId: $cardId, state: WorkerRunState::Stopping);
+        $this->seedRun($em, $project, receivedAt: $at('11:00'), ruleName: 'succeeded', cardId: $cardId);
+        $this->seedRun($em, $project, receivedAt: $at('11:05'), ruleName: 'closed', cardId: $cardId, state: WorkerRunState::Closed, kind: WorkerRunKind::Interactive);
+        $this->seedRun($em, $project, receivedAt: $at('11:10'), ruleName: 'another card', state: WorkerRunState::Running);
+        $this->seedRun($em, $other, receivedAt: $at('11:15'), ruleName: 'another project', cardId: $cardId, state: WorkerRunState::Running);
+
+        $runs = self::getContainer()->get(CardWorkerRunsExtension::class)->cardWorkerRuns($project, (string) $cardId);
+
+        self::assertSame(
+            ['stopping', 'running', 'resumed', 'queued'],
+            array_map(static fn (WorkerRunListItem $item): string => $item->run->ruleName, $runs),
+        );
+    }
+
+    public function test_it_returns_at_most_the_newest_open_runs(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'card-many-open-runs@example.com'), 'Many open runs');
+        $cardId = Uuid::v7();
         for ($minute = 1; $minute <= 7; ++$minute) {
-            $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 11:0'.$minute.':00'), ruleName: 'rule-'.$minute, cardId: $cardId);
+            $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 11:0'.$minute.':00'), ruleName: 'rule-'.$minute, cardId: $cardId, state: WorkerRunState::Running);
         }
-        $this->seedRun($em, $project, ruleName: 'another card');
-        $this->seedRun($em, $other, ruleName: 'another project', cardId: $cardId);
 
         $runs = self::getContainer()->get(CardWorkerRunsExtension::class)->cardWorkerRuns($project, (string) $cardId);
 
         self::assertSame(
             ['rule-7', 'rule-6', 'rule-5', 'rule-4', 'rule-3'],
-            array_map(static fn (WorkerRunListItem $item): string => $item->run->ruleName, $runs),
-        );
-    }
-
-    /** A run still in flight is what a reader looks for, so it stays in the five however old it is. */
-    public function test_an_open_run_comes_before_newer_closed_runs(): void
-    {
-        self::bootKernel();
-        $em = $this->em();
-        $project = $this->project($em, $this->user($em, 'card-open-runs@example.com'), 'Open runs');
-        $cardId = Uuid::v7();
-        $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 09:00:00'), ruleName: 'running', cardId: $cardId, state: WorkerRunState::Running);
-        for ($minute = 1; $minute <= 5; ++$minute) {
-            $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 11:0'.$minute.':00'), ruleName: 'closed-'.$minute, cardId: $cardId);
-        }
-        $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-01-01 10:00:00'), ruleName: 'queued', cardId: $cardId, state: WorkerRunState::Queued);
-
-        $runs = self::getContainer()->get(CardWorkerRunsExtension::class)->cardWorkerRuns($project, (string) $cardId);
-
-        self::assertSame(
-            ['queued', 'running', 'closed-5', 'closed-4', 'closed-3'],
             array_map(static fn (WorkerRunListItem $item): string => $item->run->ruleName, $runs),
         );
     }
@@ -79,13 +80,15 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
         self::assertSame(WorkerRunAction::Stop, $runs[0]->control?->action);
     }
 
-    public function test_a_card_with_no_runs_gets_an_empty_list(): void
+    public function test_a_card_with_no_open_run_gets_an_empty_list(): void
     {
         self::bootKernel();
         $em = $this->em();
         $project = $this->project($em, $this->user($em, 'card-no-runs@example.com'), 'Quiet');
+        $cardId = Uuid::v7();
+        $this->seedRun($em, $project, cardId: $cardId, state: WorkerRunState::Failed);
 
-        self::assertSame([], self::getContainer()->get(CardWorkerRunsExtension::class)->cardWorkerRuns($project, (string) Uuid::v7()));
+        self::assertSame([], self::getContainer()->get(CardWorkerRunsExtension::class)->cardWorkerRuns($project, (string) $cardId));
     }
 
     public function test_a_card_whose_latest_outcome_gave_up_or_is_blocked_has_a_warning(): void

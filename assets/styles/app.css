@@ -1388,6 +1388,45 @@
     .lp-card-feedback-list p {
         @apply text-sm text-fg-mute mb-2;
     }
+    /* The History tab: a vertical timeline, newest first. The line joins each icon to the next row. */
+    .lp-card-history__entry {
+        @apply relative flex items-start gap-3 pb-5;
+    }
+    .lp-card-history__entry::before {
+        content: '';
+        @apply absolute left-4 top-8 bottom-0 w-px -translate-x-1/2 bg-line;
+    }
+    .lp-card-history__entry:last-child::before {
+        @apply hidden;
+    }
+    .lp-card-history__icon {
+        @apply relative flex size-8 shrink-0 items-center justify-center rounded-full border border-line bg-surface-1 text-fg-mute;
+    }
+    .lp-card-history__content {
+        @apply min-w-0 flex-1 pt-1.5;
+    }
+    .lp-card-history__sentence {
+        @apply m-0 text-sm text-ink;
+    }
+    .lp-card-history__link {
+        @apply text-ink underline-offset-2 hover:underline;
+    }
+    .lp-card-history__cause {
+        @apply m-0 mt-0.5 text-sm text-fg-mute;
+    }
+    .lp-card-history__meta {
+        @apply m-0 mt-1 flex flex-wrap items-center gap-2 text-xs text-fg-mute;
+    }
+    .lp-card-history__meta .lp-status-chip {
+        @apply ml-0;
+    }
+    /* The frame that swaps the Show older link for the next page of rows. */
+    .lp-card-history__older {
+        @apply block;
+    }
+    .lp-card-history__older > .lp-workshop-text-link {
+        @apply ml-11 text-sm;
+    }
 }
 
 /* ── lp- component classes (review UI, dashboard, api-tokens) ──────── */

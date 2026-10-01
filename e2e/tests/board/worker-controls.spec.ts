@@ -94,7 +94,7 @@ test('the owner stops a running run, which holds the card, and cancels the stop'
     await expect(label).toHaveText('Stop requested');
     await expect(held).toBeVisible();
     await expect(held).toContainText(
-        'Held: no worker starts on this card until you resume one of its runs or move it.',
+        'Held: no worker starts on this card until you resume one of its runs in Run history, or move it.',
     );
 
     await row
