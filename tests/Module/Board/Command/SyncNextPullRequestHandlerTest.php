@@ -196,6 +196,23 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         self::assertSame('moved01', $pullRequest->syncFromSha);
     }
 
+    public function test_a_head_that_moved_after_the_line_was_read_is_not_marked(): void
+    {
+        $pullRequest = $this->behind(5);
+        // The line reads the row this entity manager holds, and only the lock reads the database.
+        $this->em->getConnection()->executeStatement(
+            'UPDATE forge_pull_requests SET head_sha = :head WHERE id = :id',
+            ['head' => 'moved01', 'id' => (string) $pullRequest->id],
+        );
+
+        $this->handle();
+
+        self::assertSame([], $this->updater->updates);
+        $this->em->refresh($pullRequest);
+        self::assertNull($pullRequest->syncFromSha);
+        self::assertNull($pullRequest->syncFailedReason);
+    }
+
     public function test_a_holder_stops_the_line(): void
     {
         $this->candidate(4, PullRequestMergeability::Mergeable, approvedAt: '-1 hour');
