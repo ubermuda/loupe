@@ -42,6 +42,10 @@ const (
 	RunPreparing = "preparing"
 )
 
+// RunKindCommand is the kind of the run of a command rule. It runs no agent,
+// so its running report names no session.
+const RunKindCommand = "command"
+
 // The reasons of a dropped run.
 const (
 	DropShutdown = "shutdown"
@@ -75,6 +79,9 @@ type RunStateReport struct {
 	CardID     string    `json:"cardId"`
 	CardNumber int       `json:"cardNumber"`
 	RuleName   string    `json:"ruleName"`
+	// Kind is RunKindCommand for the run of a command rule, and empty for a
+	// worker run.
+	Kind string `json:"kind,omitempty"`
 
 	SessionID string    `json:"sessionId,omitzero"`
 	StartedAt time.Time `json:"startedAt,omitzero"`

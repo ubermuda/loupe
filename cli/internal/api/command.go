@@ -15,8 +15,9 @@ import (
 
 // The kinds of a command.
 const (
-	CommandStopRun   = "stop-run"
-	CommandResumeRun = "resume-run"
+	CommandStopRun      = "stop-run"
+	CommandResumeRun    = "resume-run"
+	CommandRerunCommand = "rerun-command"
 )
 
 // The states a bridge answers a command with.
@@ -25,10 +26,10 @@ const (
 	CommandRefused = "refused"
 )
 
-// Command asks this bridge to stop or resume one worker run. It arrives as a
-// bridge.command event and again in each heartbeat reply, with the same keys.
-// A null runKey, sessionId or cardColumn decodes as "". ResumeIndex is nil for
-// a run that reported none.
+// Command asks this bridge to stop or resume one run, or to run the command
+// of a failed command run again. It arrives as a bridge.command event and
+// again in each heartbeat reply, with the same keys. A null runKey, sessionId
+// or cardColumn decodes as "". ResumeIndex is nil for a run that reported none.
 type Command struct {
 	Type        string         `json:"type"`
 	ProjectID   string         `json:"projectId"`
