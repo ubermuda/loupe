@@ -328,6 +328,41 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertSame('pushed1', $pullRequest->coveredSha);
     }
 
+    public function test_an_approval_that_does_not_cover_the_head_is_stale_and_holds_the_merge(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'pushed1'));
+
+        $pullRequest->settleReadyToMerge(true);
+
+        self::assertTrue($pullRequest->approvalIsStale());
+        self::assertFalse($pullRequest->readyToMerge);
+    }
+
+    public function test_an_approval_that_covers_the_head_keeps_the_forge_readiness(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'approved1'));
+
+        $pullRequest->settleReadyToMerge(true);
+        self::assertFalse($pullRequest->approvalIsStale());
+        self::assertTrue($pullRequest->readyToMerge);
+
+        $pullRequest->settleReadyToMerge(false);
+        self::assertFalse($pullRequest->readyToMerge);
+    }
+
+    public function test_a_pull_request_with_no_approval_keeps_the_forge_readiness(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'pushed1'));
+
+        $pullRequest->settleReadyToMerge(true);
+
+        self::assertFalse($pullRequest->approvalIsStale());
+        self::assertTrue($pullRequest->readyToMerge);
+    }
+
     public function test_equal_snapshots_are_equal(): void
     {
         self::assertTrue($this->changed()->equals($this->changed()));

@@ -93,6 +93,8 @@ final readonly class ReadPullRequestStateHandler
             $pullRequest->apply($current);
             $pullRequest->refreshedAt = $readStartedAt;
             $this->judgeCoverage($pullRequest);
+            $pullRequest->settleReadyToMerge($current->readyToMerge);
+            $settled = $pullRequest->snapshot();
             $this->retryUnknownMergeability($pullRequest);
 
             // One event per read, so Board asks at most one fix for a verdict and a state change together.
@@ -100,8 +102,8 @@ final readonly class ReadPullRequestStateHandler
                 $pullRequest->recordAnnouncedReview($command->reviewId);
             }
             // The snapshot leaves the approval out, so a new approval of an unchanged head shows only in the covered head.
-            if (!$current->equals($previous) || null !== $verdict || $pullRequest->coveredSha !== $coveredBefore) {
-                $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current, $verdict));
+            if (!$settled->equals($previous) || null !== $verdict || $pullRequest->coveredSha !== $coveredBefore) {
+                $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $settled, $verdict));
             }
 
             return null;
