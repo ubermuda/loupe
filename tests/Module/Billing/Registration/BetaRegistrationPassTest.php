@@ -38,8 +38,8 @@ final class BetaRegistrationPassTest extends KernelTestCase
         $token = $this->seed();
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $em->getConnection()->executeStatement(
-            'UPDATE beta_invites SET revoked_at = NOW() WHERE token_hash = ?',
-            [BetaInvite::hashToken($token)],
+            'UPDATE beta_invites SET revoked_at = NOW() WHERE token = ?',
+            [$token],
         );
 
         self::assertFalse($this->redeem($token, new User(fullName: 'Tester', email: 'pass-late@example.com')));

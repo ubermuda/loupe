@@ -36,7 +36,7 @@ final class BetaInviteAdminControllerTest extends WebTestCase
         self::assertNull($this->row($invite)['revoked_at']);
     }
 
-    public function test_an_admin_creates_a_link_and_sees_it_only_once(): void
+    public function test_an_admin_creates_a_link_and_the_list_keeps_it_copyable(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -61,9 +61,9 @@ final class BetaInviteAdminControllerTest extends WebTestCase
         self::assertSame(1, preg_match('#^https?://[^/]+/beta/([0-9a-f]{64})$#', trim($link->text()), $matches));
         $token = $matches[1] ?? throw new \LogicException('the link carries a token');
 
-        $rows = $this->em()->getConnection()->fetchAllAssociative('SELECT token_hash, note, created_by_id FROM beta_invites');
+        $rows = $this->em()->getConnection()->fetchAllAssociative('SELECT token, note, created_by_id FROM beta_invites');
         self::assertCount(1, $rows);
-        self::assertSame(BetaInvite::hashToken($token), $rows[0]['token_hash']);
+        self::assertSame($token, $rows[0]['token']);
         self::assertSame('reddit u/foo', $rows[0]['note']);
         self::assertSame((string) $admin->id, $rows[0]['created_by_id']);
         $this->assertSelectorTextContains('[data-beta-invite-id] [data-testid="beta-invite-note"]', 'reddit u/foo');
@@ -71,7 +71,7 @@ final class BetaInviteAdminControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/admin/beta-invites');
         $this->assertResponseIsSuccessful();
         $this->assertSelectorNotExists('[data-testid="beta-invite-link"]');
-        self::assertStringNotContainsString($token, (string) $client->getResponse()->getContent());
+        $this->assertSelectorExists('[data-beta-invite-id] [data-clipboard-text-value$="/beta/'.$token.'"] [data-testid="beta-invite-copy"]');
     }
 
     public function test_a_note_is_optional(): void
@@ -128,12 +128,15 @@ final class BetaInviteAdminControllerTest extends WebTestCase
 
         $this->assertSelectorTextContains($unusedRow.' [data-testid="beta-invite-state"]', 'Unused');
         $this->assertSelectorExists($unusedRow.' [data-testid="beta-invite-revoke"]');
+        $this->assertSelectorExists($unusedRow.' [data-testid="beta-invite-copy"]');
 
         $this->assertSelectorTextContains($usedRow.' [data-testid="beta-invite-state"]', 'Used by beta-list-redeemer@admin-test.example.com on');
         $this->assertSelectorNotExists($usedRow.' [data-testid="beta-invite-revoke"]');
+        $this->assertSelectorNotExists($usedRow.' [data-testid="beta-invite-copy"]');
 
         $this->assertSelectorTextContains($revokedRow.' [data-testid="beta-invite-state"]', 'Revoked on');
         $this->assertSelectorNotExists($revokedRow.' [data-testid="beta-invite-revoke"]');
+        $this->assertSelectorNotExists($revokedRow.' [data-testid="beta-invite-copy"]');
     }
 
     public function test_an_admin_revokes_an_unused_link(): void

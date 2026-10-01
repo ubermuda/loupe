@@ -101,8 +101,8 @@ or invite the oldest. Redeeming an invite converts the entry into an account.
 
 `/admin/beta-invites` makes single-use links for beta testers. Type an optional
 note that says who the link is for, then select **Create link**. The page shows
-the link once, because the database keeps only its hash. Copy it and send it to
-the tester.
+the link. Copy it and send it to the tester. Each unused link in the list has a
+**Copy** button, so you can copy it again later.
 
 The link opens `/beta/<token>`. It lets one person sign up when the
 registration cap is full, with the form, GitHub or Google. A signed-out visitor

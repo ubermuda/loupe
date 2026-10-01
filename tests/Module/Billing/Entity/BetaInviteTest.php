@@ -10,14 +10,13 @@ use PHPUnit\Framework\TestCase;
 
 final class BetaInviteTest extends TestCase
 {
-    public function test_issue_stores_only_the_hash_of_the_raw_token(): void
+    public function test_issue_stores_the_token_it_returns(): void
     {
         $creator = new User(fullName: 'Admin', email: 'admin@example.com');
         [$invite, $token] = BetaInvite::issue($creator, 'For Riley');
 
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $token);
-        self::assertSame(hash('sha256', $token), $invite->tokenHash);
-        self::assertNotSame($token, $invite->tokenHash);
+        self::assertSame($token, $invite->token);
         self::assertSame($creator, $invite->createdBy);
         self::assertSame('For Riley', $invite->note);
     }

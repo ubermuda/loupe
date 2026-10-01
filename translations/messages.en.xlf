@@ -3631,7 +3631,7 @@
             </trans-unit>
             <trans-unit id="billing.admin.beta_invite.issued.help">
                 <source>billing.admin.beta_invite.issued.help</source>
-                <target>Copy this link now. It does not show again.</target>
+                <target>Send this link to the tester. The list below keeps a copy button until the link is used or revoked.</target>
             </trans-unit>
             <trans-unit id="billing.admin.beta_invite.issued.copy">
                 <source>billing.admin.beta_invite.issued.copy</source>
@@ -3647,7 +3647,7 @@
             </trans-unit>
             <trans-unit id="billing.admin.beta_invite.create.subtitle">
                 <source>billing.admin.beta_invite.create.subtitle</source>
-                <target>The link works once. You see it one time, after you create it.</target>
+                <target>The link works once. You can copy it again from the list until it is used or revoked.</target>
             </trans-unit>
             <trans-unit id="billing.admin.beta_invite.create.button">
                 <source>billing.admin.beta_invite.create.button</source>

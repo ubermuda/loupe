@@ -75,10 +75,17 @@
                                 </td>
                                 <td>
                                     {% if invite.usable %}
-                                        <form method="post" action="{{ path('app_admin_beta_invites_revoke', {id: invite.id}) }}">
-                                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-beta-invite-revoke') }}">
-                                            <button type="submit" class="admin-button-secondary admin-button-small" data-testid="beta-invite-revoke">{{ 'billing.admin.beta_invite.revoke.button'|trans }}</button>
-                                        </form>
+                                        <div class="flex items-center gap-2">
+                                            <span data-controller="clipboard"
+                                                  data-clipboard-text-value="{{ url('app_billing_beta_invite', {token: invite.token}) }}"
+                                                  data-clipboard-copied-label-value="{{ 'billing.admin.beta_invite.issued.copied'|trans }}">
+                                                <button type="button" class="admin-button-secondary admin-button-small" data-testid="beta-invite-copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'billing.admin.beta_invite.issued.copy'|trans }}</button>
+                                            </span>
+                                            <form method="post" action="{{ path('app_admin_beta_invites_revoke', {id: invite.id}) }}">
+                                                <input type="hidden" name="_csrf_token" value="{{ csrf_token('billing-beta-invite-revoke') }}">
+                                                <button type="submit" class="admin-button-secondary admin-button-small" data-testid="beta-invite-revoke">{{ 'billing.admin.beta_invite.revoke.button'|trans }}</button>
+                                            </form>
+                                        </div>
                                     {% endif %}
                                 </td>
                             </tr>

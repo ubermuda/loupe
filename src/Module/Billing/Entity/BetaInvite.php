@@ -35,9 +35,9 @@ class BetaInvite
     public ?\DateTimeImmutable $revokedAt = null;
 
     private function __construct(
-        /** Only the hash is stored, so a database leak yields no usable link. */
+        /** Kept raw so the admin list can copy the link again. */
         #[ORM\Column(length: 64, unique: true)]
-        public string $tokenHash,
+        public string $token,
 
         #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
         #[ORM\ManyToOne(targetEntity: User::class)]
@@ -52,23 +52,18 @@ class BetaInvite
     }
 
     /**
-     * @return array{self, string} the invite and the raw token, which exists only here
+     * @return array{self, string} the invite and its token
      */
     public static function issue(?User $createdBy, ?string $note = null): array
     {
         $token = bin2hex(random_bytes(32));
 
-        return [new self(self::hashToken($token), $createdBy, $note), $token];
-    }
-
-    public static function hashToken(string $token): string
-    {
-        return hash('sha256', $token);
+        return [new self($token, $createdBy, $note), $token];
     }
 
     public function matches(string $token): bool
     {
-        return hash_equals($this->tokenHash, self::hashToken($token));
+        return hash_equals($this->token, $token);
     }
 
     public function isRedeemed(): bool
