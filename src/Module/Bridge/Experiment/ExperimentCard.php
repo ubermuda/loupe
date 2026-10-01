@@ -22,8 +22,8 @@ final readonly class ExperimentCard
         public ?CardColumn $column,
         public int $runs,
         public int $fixRounds,
-        /** Millionths of a dollar. */
-        public int $costMicros,
+        /** Millionths of a dollar. Null when no experiment run of the card reported usage. */
+        public ?int $costMicros,
         public array $leftOut,
     ) {
     }

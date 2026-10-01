@@ -55,7 +55,7 @@
             <span class="lp-data-table__cell" data-experiment-card-column>{{ card.column is not null ? card.column.label|trans : '–' }}</span>
             <span class="lp-data-table__cell lp-data-table__cell--end" data-experiment-card-runs>{{ card.runs }}</span>
             <span class="lp-data-table__cell lp-data-table__cell--end">{{ card.fixRounds }}</span>
-            <span class="lp-data-table__cell lp-data-table__cell--end" data-experiment-card-cost>{{ (card.costMicros / 1000000)|format_currency('USD') }}</span>
+            <span class="lp-data-table__cell lp-data-table__cell--end" data-experiment-card-cost>{{ card.costMicros is null ? '–' : (card.costMicros / 1000000)|format_currency('USD') }}</span>
             <span class="lp-data-table__cell lp-experiment-reasons">
                 {% for reason in card.leftOut %}<span class="lp-tag lp-tag--amber">{{ ('bridge.experiments.left_out_reason.' ~ reason.value)|trans }}</span>{% endfor %}
             </span>

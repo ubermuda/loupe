@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Controller;
 
+use App\Module\Bridge\Entity\ExperimentPin;
 use App\Tests\Module\Bridge\ExperimentScenario;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -55,6 +56,8 @@ final class ListExperimentCardsControllerTest extends WebTestCase
         self::assertSame((string) $b->id, $rows->attr('data-experiment-card'));
         self::assertSame('In progress', trim($rows->filter('[data-experiment-card-column]')->text()));
         self::assertSame('2', trim($rows->filter('[data-experiment-card-runs]')->text()));
+        // Its runs reported no usage, which differs from a recorded zero.
+        self::assertSame('–', trim($rows->filter('[data-experiment-card-cost]')->text()));
         self::assertCount(0, $rows->filter('.lp-tag'));
     }
 
@@ -69,6 +72,9 @@ final class ListExperimentCardsControllerTest extends WebTestCase
         $this->experimentRun($em, $project, $kept, 'a');
         $this->experimentRun($em, $project, $leftOut, 'a', at: '-3 hours');
         $this->experimentRun($em, $project, $leftOut, 'b', switchedFrom: 'a', at: '-2 hours');
+        $pinned = $this->experimentCard($em, $project, 3);
+        $em->persist(new ExperimentPin($project, $pinned->id ?? throw new \LogicException('The card has an id.'), 'model-test', 'a'));
+        $em->flush();
         $projectId = (string) $project->id;
         $em->clear();
 
@@ -78,9 +84,11 @@ final class ListExperimentCardsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('Left out', trim($crawler->filter('[data-experiment-filter] [aria-current="true"]')->text()));
         $rows = $crawler->filter('[data-experiment-card]');
-        self::assertCount(1, $rows);
-        self::assertSame((string) $leftOut->id, $rows->attr('data-experiment-card'));
-        self::assertSame(['Switched variant', 'Mixed variants'], $rows->filter('.lp-tag')->each(static fn (Crawler $tag): string => trim($tag->text())));
+        self::assertCount(2, $rows);
+        $switched = $crawler->filter('[data-experiment-card="'.$leftOut->id.'"]');
+        self::assertSame(['Switched variant', 'Mixed variants'], $switched->filter('.lp-tag')->each(static fn (Crawler $tag): string => trim($tag->text())));
+        $pin = $crawler->filter('[data-experiment-card="'.$pinned->id.'"]');
+        self::assertSame(['No experiment run'], $pin->filter('.lp-tag')->each(static fn (Crawler $tag): string => trim($tag->text())));
     }
 
     public function test_the_cards_come_twenty_to_a_page(): void

@@ -88,7 +88,7 @@ final readonly class ShowExperimentHandler
 
         /** @var list<array{card: ExperimentCard, lastRunAt: ?\DateTimeImmutable}> $cards */
         $cards = [];
-        /** @var array<string, list<array{outcome: CardOutcome, finished: bool, runs: list<WorkerRun>, costMicros: int, outputTokens: int}>> $kept variant => kept cards */
+        /** @var array<string, list<array{outcome: CardOutcome, finished: bool, runs: list<WorkerRun>, costMicros: ?int, outputTokens: ?int}>> $kept variant => kept cards, null sums when no run reported usage */
         $kept = [];
         foreach ($cardIds as $id => $cardId) {
             $own = $experimentRuns[$id] ?? [];
@@ -98,7 +98,7 @@ final readonly class ShowExperimentHandler
             $leftOut = self::leftOut($own, $plainRuns[$id] ?? [], $historyStart);
             $outcome = $outcomes[$id] ?? new CardOutcome();
             $column = $columns[$id] ?? null;
-            $cost = $usage[$id] ?? ['costMicros' => 0, 'outputTokens' => 0];
+            $cost = $usage[$id] ?? ['costMicros' => null, 'outputTokens' => null];
 
             $cards[] = [
                 'card' => new ExperimentCard(
@@ -140,7 +140,7 @@ final readonly class ShowExperimentHandler
                 cards: \count($rows),
                 finishedCards: $finished[$name],
                 runs: array_sum(array_map(static fn (array $row): int => \count($row['runs']), $rows)),
-                costMicros: array_sum(array_column($rows, 'costMicros')),
+                costMicros: array_sum(array_map(static fn (array $row): int => $row['costMicros'] ?? 0, $rows)),
             );
         }
 
@@ -200,14 +200,17 @@ final readonly class ShowExperimentHandler
         if (null !== $first && (null === $historyStart || $first->receivedAt < $historyStart)) {
             $reasons[] = LeftOutReason::NoHistory;
         }
+        if (null === $first) {
+            $reasons[] = LeftOutReason::NoRun;
+        }
 
         return $reasons;
     }
 
     /**
-     * @param list<string>                                                                                                                $variantNames
-     * @param array<string, list<array{outcome: CardOutcome, finished: bool, runs: list<WorkerRun>, costMicros: int, outputTokens: int}>> $kept
-     * @param array<string, int>                                                                                                          $finished
+     * @param list<string>                                                                                                                  $variantNames
+     * @param array<string, list<array{outcome: CardOutcome, finished: bool, runs: list<WorkerRun>, costMicros: ?int, outputTokens: ?int}>> $kept
+     * @param array<string, int>                                                                                                            $finished
      *
      * @return array<string, ExperimentMetric>
      */
@@ -252,8 +255,8 @@ final readonly class ShowExperimentHandler
                     $reasons,
                 ),
             ),
-            ExperimentMetric::COST => $metric(ExperimentMetric::COST, $bootstrap(ExperimentMetric::COST, static fn (array $row): float => $row['costMicros'] / 1_000_000)),
-            ExperimentMetric::OUTPUT_TOKENS => $metric(ExperimentMetric::OUTPUT_TOKENS, $bootstrap(ExperimentMetric::OUTPUT_TOKENS, static fn (array $row): int => $row['outputTokens'])),
+            ExperimentMetric::COST => $metric(ExperimentMetric::COST, $bootstrap(ExperimentMetric::COST, static fn (array $row): ?float => null === $row['costMicros'] ? null : $row['costMicros'] / 1_000_000)),
+            ExperimentMetric::OUTPUT_TOKENS => $metric(ExperimentMetric::OUTPUT_TOKENS, $bootstrap(ExperimentMetric::OUTPUT_TOKENS, static fn (array $row): ?int => $row['outputTokens'])),
             ExperimentMetric::HOURS_TO_MERGE => $metric(ExperimentMetric::HOURS_TO_MERGE, $bootstrap(ExperimentMetric::HOURS_TO_MERGE, static fn (array $row): ?float => $row['outcome']->hoursToMerge())),
         ];
     }

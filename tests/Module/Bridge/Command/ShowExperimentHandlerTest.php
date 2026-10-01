@@ -76,7 +76,7 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         $view = $this->show();
 
         self::assertNotNull($view);
-        self::assertEquals([new ExperimentCard($card, null, null, 'a', null, 0, 0, 0, [])], $view->cards);
+        self::assertEquals([new ExperimentCard($card, null, null, 'a', null, 0, 0, null, [LeftOutReason::NoRun])], $view->cards);
         self::assertSame(['a'], array_map(static fn (ExperimentVariant $variant): string => $variant->name, $view->variants));
     }
 
@@ -139,11 +139,12 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         self::assertSame([LeftOutReason::NoHistory], $view->cards[0]->leftOut);
     }
 
-    public function test_a_card_with_a_pin_and_no_run_stays_in_with_or_without_history(): void
+    public function test_a_card_with_a_pin_and_no_run_is_left_out_as_never_run_with_or_without_history(): void
     {
         $card = Uuid::v7();
         $this->em->persist(new ExperimentPin($this->project, $card, self::EXPERIMENT, 'a'));
         $this->em->flush();
+        $this->outcomes[(string) $card] = new CardOutcome(merged: true);
 
         $withHistory = $this->show();
         $this->historyStart = null;
@@ -151,9 +152,34 @@ final class ShowExperimentHandlerTest extends KernelTestCase
 
         self::assertNotNull($withHistory);
         self::assertNotNull($withoutHistory);
-        self::assertSame([], $withHistory->cards[0]->leftOut);
-        self::assertSame([], $withoutHistory->cards[0]->leftOut);
-        self::assertSame(1, $withoutHistory->includedCards);
+        self::assertSame([LeftOutReason::NoRun], $withHistory->cards[0]->leftOut);
+        self::assertSame([LeftOutReason::NoRun], $withoutHistory->cards[0]->leftOut);
+        self::assertSame(0, $withHistory->includedCards);
+        self::assertSame(1, $withHistory->leftOutCards);
+        self::assertNull($withHistory->metrics[ExperimentMetric::MERGE_RATE]->for('a'));
+    }
+
+    public function test_a_merged_card_with_no_usage_stays_out_of_the_cost_and_token_samples_only(): void
+    {
+        $withUsage = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($withUsage, 'a', at: '+1 hour'), costUsd: '1.000000');
+        $noUsage = Uuid::v7();
+        $this->experimentRun($noUsage, 'a', at: '+2 hours');
+        $this->outcomes[(string) $withUsage] = new CardOutcome(fixRounds: ['conflict' => 2], merged: true);
+        $this->outcomes[(string) $noUsage] = new CardOutcome(merged: true);
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        self::assertEquals(new Interval(1.0, 1.0, 1.0), $view->metrics[ExperimentMetric::COST]->for('a'));
+        self::assertEquals(new Interval(20.0, 20.0, 20.0), $view->metrics[ExperimentMetric::OUTPUT_TOKENS]->for('a'));
+        self::assertEquals(Stats::wilson(2, 2), $view->metrics[ExperimentMetric::MERGE_RATE]->for('a'));
+        self::assertSame(1.0, $view->metrics[ExperimentMetric::FIX_ROUNDS]->for('a')?->point);
+        self::assertSame(1_000_000, $view->variants[0]->costMicros);
+        self::assertSame([(string) $noUsage => null, (string) $withUsage => 1_000_000], array_combine(
+            array_map(static fn (ExperimentCard $row): string => (string) $row->cardId, $view->cards),
+            array_map(static fn (ExperimentCard $row): ?int => $row->costMicros, $view->cards),
+        ));
     }
 
     public function test_it_ignores_the_rows_of_another_project(): void

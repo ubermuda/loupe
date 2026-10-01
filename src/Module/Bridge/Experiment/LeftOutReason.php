@@ -18,4 +18,7 @@ enum LeftOutReason: string
 
     /** The card history starts after the first experiment run of the card. */
     case NoHistory = 'no-history';
+
+    /** A pin names the card, and no experiment run worked it. */
+    case NoRun = 'no-run';
 }

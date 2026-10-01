@@ -5951,6 +5951,7 @@
             <trans-unit id="bridge.experiments.left_out_reason.mixed"><source>bridge.experiments.left_out_reason.mixed</source><target>Mixed variants</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out_reason.before-test"><source>bridge.experiments.left_out_reason.before-test</source><target>Implemented before the test</target></trans-unit>
             <trans-unit id="bridge.experiments.left_out_reason.no-history"><source>bridge.experiments.left_out_reason.no-history</source><target>Run before the card history</target></trans-unit>
+            <trans-unit id="bridge.experiments.left_out_reason.no-run"><source>bridge.experiments.left_out_reason.no-run</source><target>No experiment run</target></trans-unit>
             <trans-unit id="bridge.experiments.cards.filter_label"><source>bridge.experiments.cards.filter_label</source><target>Show cards</target></trans-unit>
             <trans-unit id="bridge.experiments.cards.all"><source>bridge.experiments.cards.all</source><target>All</target></trans-unit>
             <trans-unit id="bridge.experiments.cards.left_out"><source>bridge.experiments.cards.left_out</source><target>Left out</target></trans-unit>
