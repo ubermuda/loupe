@@ -16,9 +16,9 @@ use Mcp\Exception\ToolCallException;
  * Reads the bridges that follow the project.
  *
  * @phpstan-type OpenRun array{runId: string, cardNumber: int, rule: string, state: string}
- * @phpstan-type BridgeRow array{bridgeId: string, liveness: 'live'|'quiet', lastSeenAt: ?string, cliVersion: string, pauseRequested: bool, pausedReported: ?bool, takesCommands: bool, workerPools: list<array{name: string, size: int, inUse: int, queued: int}>|null, workerPoolsReportedAt: ?string, openRuns: list<OpenRun>}
+ * @phpstan-type BridgeRow array{bridgeId: string, liveness: 'live'|'quiet', lastSeenAt: ?string, cliVersion: string, pauseRequested: bool, pausedReported: ?bool, takesCommands: bool, takesReruns: bool, workerPools: list<array{name: string, size: int, inUse: int, queued: int}>|null, workerPoolsReportedAt: ?string, openRuns: list<OpenRun>}
  */
-#[McpTool(name: self::NAME, description: 'List the CLI bridges that follow this project. A bridge runs the workers of the project on a machine. Each bridge has bridgeId, liveness, lastSeenAt, cliVersion, pauseRequested, pausedReported, takesCommands, workerPools, workerPoolsReportedAt and openRuns. liveness is live while the bridge sends its heartbeat, and quiet when it missed several. lastSeenAt is the time of its last heartbeat. pauseRequested says that a person asked the bridge to start no new work. pausedReported says whether the bridge reported that it is paused, or is null when it reported nothing. takesCommands is false for an older bridge, which cannot resume or stop a run. workerPools lists each pool of the bridge with its name, size, inUse and queued counts, as its last heartbeat reported them, or is null. openRuns lists the queued, resumed, preparing, running and stopping runs of this project on the bridge, each with runId, cardNumber, rule and state.')]
+#[McpTool(name: self::NAME, description: 'List the CLI bridges that follow this project. A bridge runs the workers of the project on a machine. Each bridge has bridgeId, liveness, lastSeenAt, cliVersion, pauseRequested, pausedReported, takesCommands, takesReruns, workerPools, workerPoolsReportedAt and openRuns. liveness is live while the bridge sends its heartbeat, and quiet when it missed several. lastSeenAt is the time of its last heartbeat. pauseRequested says that a person asked the bridge to start no new work. pausedReported says whether the bridge reported that it is paused, or is null when it reported nothing. takesCommands is false for an older bridge, which cannot resume or stop a run. takesReruns is false for a bridge that cannot run a failed command run again. workerPools lists each pool of the bridge with its name, size, inUse and queued counts, as its last heartbeat reported them, or is null. openRuns lists the queued, resumed, preparing, running and stopping runs of this project on the bridge, each with runId, cardNumber, rule and state.')]
 final readonly class BridgeListTool
 {
     public const string NAME = 'bridge_list';
@@ -58,6 +58,7 @@ final readonly class BridgeListTool
                     'pauseRequested' => $connection->bridge->pauseRequested,
                     'pausedReported' => $connection->bridge->pausedReported,
                     'takesCommands' => $connection->bridge->takesCommands(),
+                    'takesReruns' => $connection->bridge->takesReruns(),
                     'workerPools' => $connection->bridge->workerPools,
                     'workerPoolsReportedAt' => $connection->bridge->workerPoolsReportedAt?->format(\DATE_ATOM),
                     'openRuns' => $openRuns[$connection->bridge->id->toRfc4122()] ?? [],

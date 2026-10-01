@@ -13,6 +13,7 @@ final readonly class CardHistoryRun
         public string $stateKey,
         public string $chipModifier,
         public bool $interactive,
+        public bool $command,
     ) {
     }
 }

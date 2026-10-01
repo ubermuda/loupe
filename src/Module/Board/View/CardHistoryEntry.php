@@ -154,6 +154,7 @@ final readonly class CardHistoryEntry
                 stateKey: $state?->translationKey() ?? 'board.card.history.run_state_unknown',
                 chipModifier: $state?->chipModifier() ?? 'resolved',
                 interactive: true === ($detail['interactive'] ?? null),
+                command: true === ($detail['command'] ?? null),
             ),
         );
     }

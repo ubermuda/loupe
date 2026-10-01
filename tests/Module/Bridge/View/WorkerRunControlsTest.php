@@ -85,6 +85,99 @@ final class WorkerRunControlsTest extends KernelTestCase
         self::assertNull($this->controlOf($project, $run));
     }
 
+    /** @return iterable<string, array{WorkerRunState}> */
+    public static function rerunnable(): iterable
+    {
+        yield 'failed' => [WorkerRunState::Failed];
+        yield 'timed out' => [WorkerRunState::TimedOut];
+        yield 'lost' => [WorkerRunState::Lost];
+    }
+
+    #[DataProvider('rerunnable')]
+    public function test_an_ended_command_run_offers_rerun(WorkerRunState $state): void
+    {
+        [$project, $bridge] = $this->scenario('controls-rerun-'.$state->value);
+        $run = $this->seedCommandRun($project, $bridge, $state);
+
+        $control = $this->controlOf($project, $run);
+
+        self::assertSame(WorkerRunAction::Rerun, $control?->action);
+        self::assertTrue($control->enabled);
+        self::assertSame('bridge.worker_runs.control.rerun', $control->action->translationKey());
+    }
+
+    public function test_a_running_command_run_offers_stop(): void
+    {
+        [$project, $bridge] = $this->scenario('controls-command-stop');
+
+        self::assertSame(WorkerRunAction::Stop, $this->controlOf($project, $this->seedCommandRun($project, $bridge, WorkerRunState::Running))?->action);
+    }
+
+    public function test_a_succeeded_command_run_has_no_control(): void
+    {
+        [$project, $bridge] = $this->scenario('controls-command-succeeded');
+
+        self::assertNull($this->controlOf($project, $this->seedCommandRun($project, $bridge, WorkerRunState::Succeeded)));
+    }
+
+    /** A failed worker run with no session offers nothing, because only a command run runs again. */
+    public function test_a_failed_worker_run_with_no_session_offers_no_rerun(): void
+    {
+        [$project, $bridge] = $this->scenario('controls-worker-no-rerun');
+        $run = $this->seedWorkerRun($project, $bridge, WorkerRunState::Failed);
+        $run->sessionId = null;
+        $this->em()->flush();
+
+        self::assertNull($this->controlOf($project, $run));
+    }
+
+    public function test_a_bridge_that_does_not_report_reruns_disables_the_rerun(): void
+    {
+        [$project, $bridge] = $this->scenario('controls-rerun-old', capabilities: [Bridge::CAPABILITY_COMMANDS]);
+        $run = $this->seedCommandRun($project, $bridge, WorkerRunState::Failed);
+
+        $control = $this->controlOf($project, $run);
+
+        self::assertSame(WorkerRunAction::Rerun, $control?->action);
+        self::assertFalse($control->enabled);
+        self::assertSame('bridge.worker_runs.control.rerun_outdated', $control->disabledReason);
+        self::assertSame([], $control->disabledParameters);
+    }
+
+    public function test_a_pending_rerun_offers_cancel(): void
+    {
+        [$project, $bridge] = $this->scenario('controls-rerun-pending');
+        $run = $this->seedCommandRun($project, $bridge, WorkerRunState::Failed);
+        $this->seedCommand($this->em(), $run, kind: BridgeCommandKind::RerunCommand);
+
+        $control = $this->controlOf($project, $run);
+
+        self::assertSame(WorkerRunAction::Cancel, $control?->action);
+        self::assertSame('bridge.worker_runs.control.rerun_requested', $control->label);
+    }
+
+    public function test_a_pending_rerun_on_a_quiet_bridge_says_the_bridge_is_offline(): void
+    {
+        [$project, $bridge] = $this->scenario('controls-rerun-offline', lastSeenAt: new \DateTimeImmutable('2026-09-28T12:00:00+00:00'));
+        $run = $this->seedCommandRun($project, $bridge, WorkerRunState::Failed);
+        $this->seedCommand($this->em(), $run, kind: BridgeCommandKind::RerunCommand);
+
+        self::assertSame('bridge.worker_runs.control.rerun_requested_offline', $this->controlOf($project, $run)?->label);
+    }
+
+    public function test_an_expired_rerun_warns_while_the_run_still_failed(): void
+    {
+        [$project, $bridge] = $this->scenario('controls-rerun-expired');
+        $run = $this->seedCommandRun($project, $bridge, WorkerRunState::Failed);
+        $this->seedCommand($this->em(), $run, state: BridgeCommandState::Expired, kind: BridgeCommandKind::RerunCommand);
+
+        $control = $this->controlOf($project, $run);
+
+        self::assertSame(WorkerRunAction::Rerun, $control?->action);
+        self::assertSame('bridge.worker_runs.control.rerun_expired', $control->label);
+        self::assertTrue($control->labelWarns);
+    }
+
     public function test_a_run_with_no_bridge_has_no_control(): void
     {
         [$project] = $this->scenario('controls-no-bridge');
@@ -371,7 +464,7 @@ final class WorkerRunControlsTest extends KernelTestCase
      *
      * @return array{Project, Bridge}
      */
-    private function scenario(string $name, ?array $capabilities = [Bridge::CAPABILITY_COMMANDS], \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable(self::NOW)): array
+    private function scenario(string $name, ?array $capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND], \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable(self::NOW)): array
     {
         $em = $this->em();
         $owner = $this->user($em, $name.'@example.com');
@@ -382,9 +475,9 @@ final class WorkerRunControlsTest extends KernelTestCase
     }
 
     /** @param list<string>|null $capabilities */
-    private function commandBridge(User $owner, \DateTimeImmutable $lastSeenAt, ?array $capabilities = [Bridge::CAPABILITY_COMMANDS]): Bridge
+    private function commandBridge(User $owner, \DateTimeImmutable $lastSeenAt, ?array $capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND]): Bridge
     {
-        $bridge = $this->seedBridge($this->em(), $owner, lastSeenAt: $lastSeenAt);
+        $bridge = $this->seedBridge($this->em(), $owner, cliVersion: 'b4e39aa7', lastSeenAt: $lastSeenAt);
         $bridge->capabilities = $capabilities;
         $this->em()->flush();
 
@@ -394,6 +487,11 @@ final class WorkerRunControlsTest extends KernelTestCase
     private function seedWorkerRun(Project $project, Bridge $bridge, WorkerRunState $state, ?Uuid $cardId = null): WorkerRun
     {
         return $this->seedRun($this->em(), $project, bridgeId: $bridge->id, cardId: $cardId, state: $state, runKey: Uuid::v7());
+    }
+
+    private function seedCommandRun(Project $project, Bridge $bridge, WorkerRunState $state): WorkerRun
+    {
+        return $this->seedRun($this->em(), $project, ruleName: 'sync', bridgeId: $bridge->id, state: $state, runKey: Uuid::v7(), kind: WorkerRunKind::Command);
     }
 
     private function card(Project $project, string $column): Uuid

@@ -12,6 +12,7 @@ use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Repository\CardHoldRepository;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -19,8 +20,9 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
+use Symfony\Component\Uid\Uuid;
 
-/** A person stops, resumes or withdraws a command on a worker run. */
+/** A person stops, resumes, runs again or withdraws a command on a worker run. */
 final class WorkerRunCommandControllersTest extends WebTestCase
 {
     use BridgeScenario;
@@ -62,6 +64,85 @@ final class WorkerRunCommandControllersTest extends WebTestCase
         $command = $this->onlyCommand();
         self::assertSame(BridgeCommandKind::ResumeRun, $command->kind);
         self::assertNull($command->reason);
+    }
+
+    public function test_the_owner_runs_a_failed_command_run_again(): void
+    {
+        $client = static::createClient();
+        [$owner, $project, $run] = $this->scenario('rerun', WorkerRunState::Failed, WorkerRunKind::Command);
+        $url = $this->url($project, $run, 'rerun');
+        $cardId = $run->cardId;
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $url);
+
+        self::assertSame([], $this->flashes($client, 'worker-run-command'));
+        self::assertResponseRedirects('/projects/'.$project->id.'/worker-runs?search='.$run->id);
+        $command = $this->onlyCommand();
+        self::assertSame(BridgeCommandKind::RerunCommand, $command->kind);
+        self::assertSame(BridgeCommandState::Pending, $command->state);
+        $project = $this->em()->find(Project::class, $project->id);
+        self::assertNotNull($project);
+        self::assertNull($this->cardHolds()->findOneOfCard($project, $cardId));
+    }
+
+    public function test_a_rerun_of_a_worker_run_flashes_the_reason(): void
+    {
+        $client = static::createClient();
+        [$owner, $project, $run] = $this->scenario('rerun-worker', WorkerRunState::Failed);
+        $url = $this->url($project, $run, 'rerun');
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $url);
+
+        self::assertResponseRedirects('/projects/'.$project->id.'/worker-runs?search='.$run->id);
+        self::assertSame(['Only a command run can run again.'], $this->flashes($client, 'worker-run-command'));
+        self::assertSame(0, $this->countCommands($this->em()));
+    }
+
+    public function test_a_rerun_from_the_card_frame_returns_to_the_frame(): void
+    {
+        $client = static::createClient();
+        [$owner, $project, $run] = $this->scenario('rerun-frame', WorkerRunState::Failed, WorkerRunKind::Command);
+        $url = $this->url($project, $run, 'rerun');
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $this->post($client, $url, ['HTTP_TURBO_FRAME' => 'card-worker-runs']);
+
+        self::assertResponseRedirects('/projects/'.$project->id.'/worker-runs/card/'.$run->cardId);
+        self::assertSame(1, $this->countCommands($this->em()));
+    }
+
+    public function test_a_rerun_from_a_user_who_cannot_manage_the_project_is_refused(): void
+    {
+        $client = static::createClient();
+        [, $project, $run] = $this->scenario('rerun-theirs', WorkerRunState::Failed, WorkerRunKind::Command);
+        $stranger = $this->user($this->em(), 'run-command-rerun-stranger@example.com');
+        $url = $this->url($project, $run, 'rerun');
+        $this->em()->clear();
+
+        $client->loginUser($stranger);
+        $this->post($client, $url);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, $this->countCommands($this->em()));
+    }
+
+    public function test_a_rerun_without_a_valid_csrf_token_is_refused(): void
+    {
+        $client = static::createClient();
+        [$owner, $project, $run] = $this->scenario('rerun-csrf', WorkerRunState::Failed, WorkerRunKind::Command);
+        $url = $this->url($project, $run, 'rerun');
+        $this->em()->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_POST, $url, ['_csrf_token' => 'forged']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, $this->countCommands($this->em()));
     }
 
     public function test_a_request_from_the_card_frame_returns_to_the_frame(): void
@@ -169,15 +250,15 @@ final class WorkerRunCommandControllersTest extends WebTestCase
     }
 
     /** @return array{0: User, 1: Project, 2: WorkerRun} */
-    private function scenario(string $name, WorkerRunState $state): array
+    private function scenario(string $name, WorkerRunState $state, WorkerRunKind $kind = WorkerRunKind::Worker): array
     {
         $em = $this->em();
         $owner = $this->user($em, 'run-command-'.$name.'@example.com');
         $project = $this->project($em, $owner, 'Run command '.$name);
         $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id]);
-        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND];
         $em->flush();
-        $run = $this->seedRun($em, $project, exitCode: WorkerRunState::Failed === $state ? 1 : 0, bridgeId: $bridge->id, state: $state);
+        $run = $this->seedRun($em, $project, exitCode: WorkerRunState::Failed === $state ? 1 : 0, bridgeId: $bridge->id, state: $state, runKey: Uuid::v4(), kind: $kind);
 
         return [$owner, $project, $run];
     }

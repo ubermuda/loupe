@@ -69,6 +69,22 @@ final class BridgeCommandTest extends TestCase
         self::assertTrue($bridge->takesCommands());
     }
 
+    public function test_a_bridge_takes_reruns_only_when_it_reports_commands_and_reruns(): void
+    {
+        $bridge = new Bridge(new User('Riley Chen', 'riley@example.com', 'x'), Uuid::v4(), [], '1.6.0', new \DateTimeImmutable());
+        self::assertFalse($bridge->takesReruns());
+
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        self::assertFalse($bridge->takesReruns());
+
+        $bridge->capabilities = [Bridge::CAPABILITY_RERUN_COMMAND];
+        self::assertFalse($bridge->takesReruns());
+
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND];
+        $bridge->cliVersion = 'b4e39aa7';
+        self::assertTrue($bridge->takesReruns());
+    }
+
     private function command(?string $reason): BridgeCommand
     {
         $owner = new User('Riley Chen', 'riley@example.com', 'x');

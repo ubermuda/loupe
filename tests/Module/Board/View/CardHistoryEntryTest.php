@@ -164,7 +164,18 @@ final class CardHistoryEntryTest extends TestCase
             stateKey: 'bridge.worker_runs.state.succeeded',
             chipModifier: 'ok',
             interactive: false,
+            command: false,
         ), $entry->run);
+    }
+
+    public function test_a_finished_command_run_says_it_is_a_command(): void
+    {
+        $detail = [...$this->runDetail('failed', 4), 'command' => true];
+
+        $entry = CardHistoryEntry::of($this->event(CardEventKind::RunFinished, CardReporter::Agent, $this->user, $detail), true);
+
+        self::assertTrue($entry->run?->command);
+        self::assertFalse($entry->run->interactive);
     }
 
     public function test_a_run_that_never_started_does_not_say_the_agent_ran_it(): void
@@ -257,6 +268,7 @@ final class CardHistoryEntryTest extends TestCase
             'ruleName' => 'implement',
             'state' => $state,
             'interactive' => false,
+            'command' => false,
             'startedAt' => '2026-09-30T10:00:00+00:00',
             'endedAt' => '2026-09-30T10:03:12+00:00',
             'durationSeconds' => $durationSeconds,

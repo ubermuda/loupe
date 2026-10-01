@@ -60,6 +60,9 @@ type workerResult struct {
 	// never resumes.
 	before     bool
 	resumeGone bool
+	// command says the process was the command of a command rule, which
+	// succeeds on exit code 0 and never resumes.
+	command bool
 	// reported is the modelUsage claude printed, which counts the whole session.
 	// usage is what this process spent, and nil when unknown.
 	reported transcript.Usage
@@ -91,6 +94,9 @@ type workerSpec struct {
 	// before is the command that runs ahead of claude and prints its dir, or
 	// nil.
 	before *rules.Before
+	// command is the command of a command rule, which runs in place of
+	// claude, or nil.
+	command *rules.Command
 }
 
 // workerOps is the process surface the router drives. Tests replace run so the
@@ -107,12 +113,20 @@ type workerOps struct {
 	// before runs a rule's before command, and calls onStart once it exists.
 	// adoptBefore waits for one a former image started. A nil one is
 	// runBefore or adoptBeforeProc.
-	before      func(ctx context.Context, spec beforeSpec, onStart func(workerProc)) beforeResult
-	adoptBefore func(ctx context.Context, dir string) beforeResult
+	before      func(ctx context.Context, spec procSpec, onStart func(workerProc)) procResult
+	adoptBefore func(ctx context.Context, dir string) procResult
+	// command runs the command of a command rule, and adoptCommand waits for
+	// one a former image started. A nil one is runRuleCommand or
+	// adoptRuleCommand.
+	command      func(ctx context.Context, spec procSpec, onStart func(workerProc)) procResult
+	adoptCommand func(ctx context.Context, dir string) procResult
 }
 
 func defaultWorkerOps() workerOps {
-	return workerOps{run: runWorker, adopt: adoptWorker, sessionID: config.NewUUID, before: runBefore, adoptBefore: adoptBeforeProc}
+	return workerOps{
+		run: runWorker, adopt: adoptWorker, sessionID: config.NewUUID, before: runBefore, adoptBefore: adoptBeforeProc,
+		command: runRuleCommand, adoptCommand: adoptRuleCommand,
+	}
 }
 
 // workerArgs builds claude's argv. The prompt is an argv element, so no shell

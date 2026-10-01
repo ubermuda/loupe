@@ -1,11 +1,11 @@
-{% set routes = {resume: 'app_project_worker_run_resume', stop: 'app_project_worker_run_stop', cancel: 'app_project_worker_run_cancel_command'} %}
+{% set routes = {resume: 'app_project_worker_run_resume', rerun: 'app_project_worker_run_rerun', stop: 'app_project_worker_run_stop', cancel: 'app_project_worker_run_cancel_command'} %}
 {% set actionLabel = control.action.translationKey()|trans %}
 {% set reason = control.enabled ? null : control.disabledReason|trans(control.disabledParameters) %}
 <form method="post" action="{{ path(routes[control.action.value], {id: project.id, runId: run.id}) }}" class="{{ compact ? 'lp-card-run__action' : 'lp-run-drawer__control' }}" data-turbo-frame="{{ frame }}" data-worker-run-control="{{ control.action.value }}">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token('worker-run-command') }}">
     {% if compact %}
     <button type="submit" class="lp-btn lp-btn--icon lp-btn--compact" title="{{ reason ?? actionLabel }}" aria-label="{{ actionLabel }}"{% if reason %} aria-describedby="worker-run-control-reason-{{ run.id }}" disabled{% endif %}>
-        {% if control.action.value == 'resume' %}<twig:ux:icon name="lucide:rotate-ccw" class="size-3.5" />{% elseif control.action.value == 'stop' %}<twig:ux:icon name="lucide:square" class="size-3.5" />{% else %}<twig:ux:icon name="lucide:x" class="size-3.5" />{% endif %}
+        {% if control.action.value == 'resume' %}<twig:ux:icon name="lucide:rotate-ccw" class="size-3.5" />{% elseif control.action.value == 'rerun' %}<twig:ux:icon name="lucide:rotate-cw" class="size-3.5" />{% elseif control.action.value == 'stop' %}<twig:ux:icon name="lucide:square" class="size-3.5" />{% else %}<twig:ux:icon name="lucide:x" class="size-3.5" />{% endif %}
         {% if reason %}<span class="sr-only" id="worker-run-control-reason-{{ run.id }}">{{ reason }}</span>{% endif %}
     </button>
     {% else %}

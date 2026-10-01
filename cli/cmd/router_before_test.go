@@ -41,14 +41,14 @@ rules:
 // held command ends as killed when its context ends.
 type fakeBefore struct {
 	mu      sync.Mutex
-	specs   []beforeSpec
-	results []beforeResult
-	result  beforeResult
-	started chan beforeSpec
+	specs   []procSpec
+	results []procResult
+	result  procResult
+	started chan procSpec
 	block   chan struct{}
 }
 
-func (f *fakeBefore) run(ctx context.Context, spec beforeSpec, onStart func(workerProc)) beforeResult {
+func (f *fakeBefore) run(ctx context.Context, spec procSpec, onStart func(workerProc)) procResult {
 	f.mu.Lock()
 	f.specs = append(f.specs, spec)
 	res := f.result
@@ -66,14 +66,14 @@ func (f *fakeBefore) run(ctx context.Context, spec beforeSpec, onStart func(work
 		select {
 		case <-f.block:
 		case <-ctx.Done():
-			return beforeResult{exitCode: -1, killed: true, timedOut: errors.Is(ctx.Err(), context.DeadlineExceeded)}
+			return procResult{exitCode: -1, killed: true, timedOut: errors.Is(ctx.Err(), context.DeadlineExceeded)}
 		}
 	}
 
 	return res
 }
 
-func (f *fakeBefore) recorded() []beforeSpec {
+func (f *fakeBefore) recorded() []procSpec {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -86,7 +86,7 @@ func withBefore(t *testing.T, timeout string) (*harness, *fakeBefore, string) {
 	t.Helper()
 	h := newHarnessWith(t, strings.Replace(beforeRules, "TIMEOUT", timeout, 1), rules.Defaults{})
 	folder := t.TempDir()
-	f := &fakeBefore{result: beforeResult{dir: folder}}
+	f := &fakeBefore{result: procResult{dir: folder}}
 	h.router.worker.before = f.run
 
 	return h, f, folder
@@ -139,8 +139,8 @@ func TestARuleWithNoBeforeReportsNoPreparing(t *testing.T) {
 func TestAFailedBeforeFailsTheRunAndFreesTheCard(t *testing.T) {
 	h, f, _ := withBefore(t, "1m")
 	rec := h.states()
-	f.result = beforeResult{exitCode: 2, output: "npm ci failed"}
-	f.started, f.block = make(chan beforeSpec, 1), make(chan struct{})
+	f.result = procResult{exitCode: 2, output: "npm ci failed"}
+	f.started, f.block = make(chan procSpec, 1), make(chan struct{})
 
 	h.router.onData([]byte(cardMoved(87)))
 	<-f.started
@@ -176,7 +176,7 @@ func TestAFailedBeforeReportsTheEndOfItsOutput(t *testing.T) {
 	h, f, _ := withBefore(t, "1m")
 	rec := h.states()
 	long := tailOf(strings.Repeat("x", 9000)+"\nthe real error", maxOutput)
-	f.result = beforeResult{exitCode: 1, output: long}
+	f.result = procResult{exitCode: 1, output: long}
 
 	h.send(cardMoved(87))
 
@@ -193,7 +193,7 @@ func TestAFailedBeforeReportsTheEndOfItsOutput(t *testing.T) {
 func TestAFailedBeforeCapsALongReason(t *testing.T) {
 	h, f, _ := withBefore(t, "1m")
 	rec := h.states()
-	f.result = beforeResult{reason: "the before command printed " + strings.Repeat("y", 9000), output: "rest"}
+	f.result = procResult{reason: "the before command printed " + strings.Repeat("y", 9000), output: "rest"}
 
 	h.send(cardMoved(87))
 
@@ -236,7 +236,7 @@ func TestABeforeThatRunsPastItsTimeoutFails(t *testing.T) {
 func TestABeforeFolderThatIsNoDirectoryFails(t *testing.T) {
 	h, f, _ := withBefore(t, "1m")
 	rec := h.states()
-	f.result = beforeResult{reason: `the before command printed "x", which is not a directory`}
+	f.result = procResult{reason: `the before command printed "x", which is not a directory`}
 
 	h.send(cardMoved(87))
 
@@ -251,7 +251,7 @@ func TestABeforeFolderThatIsNoDirectoryFails(t *testing.T) {
 func TestABeforeThatNeverStartedFails(t *testing.T) {
 	h, f, _ := withBefore(t, "1m")
 	rec := h.states()
-	f.result = beforeResult{err: errors.New("chdir /gone: no such file or directory")}
+	f.result = procResult{err: errors.New("chdir /gone: no such file or directory")}
 
 	h.send(cardMoved(87))
 
@@ -269,7 +269,7 @@ func TestAShutdownDuringBeforeIsAKill(t *testing.T) {
 	rec := h.states()
 	ctx, cancel := context.WithCancel(context.Background())
 	h.router.ctx = ctx
-	f.started, f.block = make(chan beforeSpec, 1), make(chan struct{})
+	f.started, f.block = make(chan procSpec, 1), make(chan struct{})
 	defer close(f.block)
 
 	h.router.onData([]byte(cardMoved(87)))
@@ -286,7 +286,7 @@ func TestAShutdownDuringBeforeIsAKill(t *testing.T) {
 // A person's stop reaches the process group of the before command. The run
 // then reports stopped, with no session, and starts no claude.
 func TestAStopDuringBeforeStopsTheRun(t *testing.T) {
-	for name, after := range map[string]beforeResult{
+	for name, after := range map[string]procResult{
 		"the command dies":     {exitCode: -1},
 		"the command succeeds": {},
 	} {
@@ -299,7 +299,7 @@ func TestAStopDuringBeforeStopsTheRun(t *testing.T) {
 				after.dir = folder
 			}
 			f.result = after
-			f.started, f.block = make(chan beforeSpec, 1), make(chan struct{})
+			f.started, f.block = make(chan procSpec, 1), make(chan struct{})
 			s.on = func(sig stopSignal) {
 				if sig == stopInt {
 					close(f.block)
@@ -324,7 +324,7 @@ func TestAStopDuringBeforeStopsTheRun(t *testing.T) {
 // worker starts in the other slot meanwhile.
 func TestAnotherCardStartsWhileABeforeCommandRuns(t *testing.T) {
 	h, f, _ := withBefore(t, "1m")
-	f.started, f.block = make(chan beforeSpec, 1), make(chan struct{})
+	f.started, f.block = make(chan procSpec, 1), make(chan struct{})
 
 	h.router.onData([]byte(cardMoved(1)))
 	<-f.started
@@ -360,7 +360,7 @@ func TestAResumeRunsTheBeforeCommandAgain(t *testing.T) {
 // for the next image. A resume of the router starts claude then.
 func TestABeforeThatEndsInAHandoverPauseWaitsForIt(t *testing.T) {
 	h, f, folder := withBefore(t, "1m")
-	f.started, f.block = make(chan beforeSpec, 1), make(chan struct{})
+	f.started, f.block = make(chan procSpec, 1), make(chan struct{})
 
 	h.router.onData([]byte(cardMoved(87)))
 	<-f.started
