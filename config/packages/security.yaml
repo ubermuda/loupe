@@ -16,6 +16,11 @@ security:
         livez:
             pattern: ^/livez$
             security: false
+        # The CLI install script is public. With no security listener, a signed-in
+        # browser's session is never read, so the answer stays publicly cacheable.
+        install_script:
+            pattern: ^/install\.sh$
+            security: false
         # The suspension gate on these two firewalls is the user_checker, not
         # RequireNotSuspendedListener: that listener exempts ^/api and ^/mcp
         # because an HTML redirect would corrupt a machine client's response.
@@ -123,6 +128,8 @@ security:
         # Carries the AGPL source offer, which a network user must be able to
         # reach without an account.
         - { path: ^/about$,          roles: PUBLIC_ACCESS }
+        # A coding agent fetches the setup steps with curl, before any sign-in.
+        - { path: ^/setup\.md$,      roles: PUBLIC_ACCESS }
         # The policies have to be readable before signing up, since they are what
         # a visitor is agreeing to by signing up.
         - { path: ^/privacy$,        roles: PUBLIC_ACCESS }

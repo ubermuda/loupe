@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Security;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
@@ -28,7 +29,7 @@ final class ProjectScopedSubjectTest extends KernelTestCase
 {
     /**
      * The implementations known when this test was written. It is a floor, not
-     * a ceiling: a seventh one is still checked for uniqueness, and a discovery
+     * a ceiling: an eighth one is still checked for uniqueness, and a discovery
      * that stops finding these fails here rather than passing on a short list.
      *
      * @var list<class-string<ProjectScopedSubject>>
@@ -41,6 +42,7 @@ final class ProjectScopedSubjectTest extends KernelTestCase
         Project::class,
         Series::class,
         SiteReviewComment::class,
+        WorkerRun::class,
     ];
 
     public function test_every_implementation_is_discovered(): void

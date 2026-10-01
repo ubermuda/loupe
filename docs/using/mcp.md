@@ -8,10 +8,49 @@ and calls tools that create documents, revise them, and read back what humans
 said. A long-form plan then gets considered review instead of scrolling past in
 a terminal.
 
+## Set up with one prompt
+
+A coding agent can do the whole setup for you. A project's Connect page and
+the first-run wizard at `/welcome/connect` show a short prompt with a Copy
+button. Paste it into Claude Code or Codex, in the repository of the project:
+
+```text
+Set up Loupe for this repository. Run
+curl -fsSL "https://loupe.example.com/setup.md?project=<project id>"
+and follow the steps it prints, in order. Use curl, not a web fetch tool.
+```
+
+`/setup.md` is public and returns Markdown steps for an agent. The steps
+install the CLI with `/install.sh` when `loupe version` fails, and stop on
+Windows, which has no build. They sign in with `loupe login` and bind the repository with
+`loupe init`. Then they connect the MCP server, install the skills, and check
+the result with `loupe status`. The agent asks you when a step needs you, such
+as the browser approval of the sign-in. It never writes a token or a password.
+
+The `project` parameter fills the project id into the commands. The page
+accepts only a UUID and ignores any other value. With no valid id, the steps
+run `loupe init` and ask you which project to use.
+
+The two agents differ in two steps:
+
+| Step | Claude Code | Codex |
+|---|---|---|
+| MCP server | `loupe init --mcp` declares `loupe mcp` at user scope | `codex mcp add loupe -- loupe mcp --project <project id>` |
+| Skills | The Claude Code plugin, see [below](#the-claude-code-plugin) | A copy of `plugins/loupe/skills/` in `~/.agents/skills/` |
+
+Codex gets the project id in its server declaration, and Claude Code reads it
+from `.loupe.yaml`. At the end, the agent tells you to restart it. The new
+session then calls `project_current` and names the project.
+
+The prompt asks for curl because a web fetch tool can return a summary of the
+page instead of the page. An agent that follows a summary can skip a step or
+change a command.
+
 ## Connecting through the CLI
 
-This is the way to connect. One sign-in serves every repository, and each
-repository names its own project, so a new project needs no new login.
+This is the way to connect, and the setup prompt above does it for you. One
+sign-in serves every repository, and each repository names its own project, so
+a new project needs no new login.
 
 `loupe mcp` connects an agent to this endpoint with no token in any file. The
 CLI already holds a login, so the command signs each request with it, and the
@@ -20,6 +59,8 @@ project comes from the repository rather than from the credential.
 Install the CLI, sign in once, and name the project in each repository:
 
 ```bash
+curl -fsSL https://<your Loupe>/install.sh | sh
+# or, with Homebrew: brew install ubermuda/tap/loupe
 loupe login                  # a browser sign-in, once per machine
 cd ~/code/my-project
 loupe init                   # writes .loupe.yaml, choosing from your projects
@@ -87,6 +128,9 @@ loses its Loupe tools for the rest of the agent's run.
 One sign-in is enough. `loupe login` asks for `agent mcp projects`, so the same
 login serves `loupe bridge` and `loupe mcp`, and it covers every project you own
 including ones you create later. The approval page says so before you allow it.
+
+`loupe status` checks the setup. Run it in the repository. It calls
+`project_current` through the MCP server and prints the name of the project.
 
 ## Connecting by URL
 
@@ -173,7 +217,7 @@ claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-It installs ten skills, each covering one part of working a Loupe project:
+It installs eleven skills, each covering one part of working a Loupe project:
 
 | Skill | Covers |
 |---|---|
@@ -181,6 +225,7 @@ It installs ten skills, each covering one part of working a Loupe project:
 | `loupe:loupe-site-review` | Acting on widget comments and marking them addressed |
 | `loupe:loupe-board` | Reading a board, writing a card, linking a pull request |
 | `loupe:loupe-inbox` | Asking the project owner, and ending a turn on a blocking ask |
+| `loupe:loupe-workers` | Reading worker runs and bridges, and stopping, resuming or cancelling a run |
 | `loupe:product-design` | An interactive product design session with the owner, from a card or a one-line idea |
 | `loupe:loupe-stage-product-design` | One review round on a product document |
 | `loupe:loupe-stage-tech-design` | A card entering the tech design column |
@@ -240,6 +285,12 @@ Roughly in the order an agent uses them:
 | `inbox_list` | Read a page of inbox items, filtered by state, ask, session, card or document |
 | `inbox_get` | Read one inbox item, with its answer and its links |
 | `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
+| `worker_run_list` | Read a page of the worker runs, newest first, filtered by state, card, rule, bridge, words or the time a run ended, each with the reason it ended |
+| `worker_run_get` | Read one worker run in full, with every run of its series, its state changes, its output and the commands sent to its bridge |
+| `bridge_list` | List the bridges that follow the project, with their heartbeat, their pause, their worker pools and their open runs |
+| `worker_run_resume` | Ask the bridges to resume up to 50 ended worker runs, each resumed or refused on its own |
+| `worker_run_stop` | Ask the bridge to stop a queued or running worker run, which also holds the card |
+| `bridge_command_cancel` | Withdraw the resume or stop command that waits on a worker run, before its bridge reads it |
 
 ### Finding a document without reading every one
 

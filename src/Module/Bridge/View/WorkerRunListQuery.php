@@ -29,6 +29,18 @@ final readonly class WorkerRunListQuery
         public ?Uuid $bridgeId = null,
         /** Every open run, whatever its state. It shares the `outcome` word with $state, so at most one of them is set. */
         public bool $open = false,
+        /**
+         * The filters below reach the list through the MCP tools alone, so the
+         * page URL never carries them.
+         *
+         * @var list<WorkerRunState> any of these states; empty keeps every state
+         */
+        public array $states = [],
+        public ?int $cardNumber = null,
+        public ?string $rule = null,
+        /** Both bounds are inclusive, and read the end of a run, or the time of its first report when it has no end. */
+        public ?\DateTimeImmutable $endedAfter = null,
+        public ?\DateTimeImmutable $endedBefore = null,
     ) {
     }
 
@@ -64,7 +76,9 @@ final readonly class WorkerRunListQuery
     /** Whether the reader has narrowed the list, which separates "no runs yet" from "nothing matched". */
     public function isNarrowed(): bool
     {
-        return null !== $this->search || null !== $this->state || $this->open || null !== $this->bridgeId;
+        return null !== $this->search || null !== $this->state || $this->open || null !== $this->bridgeId
+            || [] !== $this->states || null !== $this->cardNumber || null !== $this->rule
+            || null !== $this->endedAfter || null !== $this->endedBefore;
     }
 
     /** @return array{page: int, search?: string, outcome?: string, bridge?: string} */

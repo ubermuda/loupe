@@ -10,11 +10,13 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\BoardColumnsChanged;
+use App\Module\Board\Event\CardBlockersRemoved;
 use App\Module\Board\Event\CardChanged;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\CardLinkResolver;
 use App\Module\Board\Service\CardLinkSync;
 use App\Module\Board\Service\CardMover;
@@ -221,9 +223,7 @@ final readonly class UpdateCardHandler
                 $trackedBefore = $this->pullRequestTracking->referencesOf($card);
                 $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
             }
-            if (null !== $relatedCards) {
-                $this->cardLinkSync->sync($card, $relatedCards);
-            }
+            $unblocked = null === $relatedCards ? [] : $this->cardLinkSync->sync($card, $relatedCards);
 
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
@@ -243,10 +243,14 @@ final readonly class UpdateCardHandler
             // commit: nothing survives a rollback, and nothing is lost when the
             // process dies after it.
             if (null !== $move) {
-                $this->events->dispatch(new CardMoved($card, $move, $command->actor, $command->cause));
+                $cause = $command->cause ?? (null === $openedRun ? null : CardEventCause::run($openedRun->id ?? throw new \LogicException('A persisted run has an id.'), $openedRun->ruleName));
+                $this->events->dispatch(new CardMoved($card, $move, $command->actor, $cause));
             }
             if ($parentChanged) {
                 $this->events->dispatch(new CardParentChanged($card, $oldParent, $card->parent, $command->actor));
+            }
+            if ([] !== $unblocked) {
+                $this->events->dispatch(new CardBlockersRemoved($card->project, $unblocked, $command->actor));
             }
 
             return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged, $parentChanged, $laneChanged, $lanesBefore !== $lanesAfter, $contentChanged, $openedRun);

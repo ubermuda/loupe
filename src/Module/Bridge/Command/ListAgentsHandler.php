@@ -8,7 +8,9 @@ use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\BridgeLiveness;
 use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Bridge\View\AgentConnection;
+use App\Module\Bridge\View\AgentHealthChip;
 use App\Module\Bridge\View\AgentUpdateChip;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 final readonly class ListAgentsHandler
 {
@@ -16,6 +18,7 @@ final readonly class ListAgentsHandler
         private BridgeRepository $bridges,
         private BridgeLiveness $liveness,
         private CliCompatibility $compatibility,
+        private UrlGeneratorInterface $urlGenerator,
     ) {
     }
 
@@ -31,13 +34,16 @@ final readonly class ListAgentsHandler
             array_map(static fn ($bridge) => $bridge->id, $bridges),
         );
 
+        $installScriptUrl = $this->urlGenerator->generate('app_install_script', referenceType: UrlGeneratorInterface::ABSOLUTE_URL);
+
         return new ListAgentsView(
             $command->project,
             array_map(
                 fn ($bridge): AgentConnection => new AgentConnection(
                     $bridge,
                     $statuses[$bridge->id->toRfc4122()],
-                    AgentUpdateChip::for($bridge, $this->compatibility->isCompatible($bridge->cliVersion)),
+                    AgentUpdateChip::for($bridge, $this->compatibility->isCompatible($bridge->cliVersion), $installScriptUrl),
+                    AgentHealthChip::for($bridge, $statuses[$bridge->id->toRfc4122()]),
                 ),
                 $bridges,
             ),

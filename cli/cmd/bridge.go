@@ -228,6 +228,10 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		defer b.close()
 		b.recovered = leftoverHandover(b.file, bl.log)
 	}
+	cursorFile, err := cursorPath(path)
+	if err != nil {
+		return err
+	}
 
 	r := &router{
 		log:        bl.log,
@@ -238,6 +242,10 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		update:     b,
 		hookRunner: newHookRunner(hookList, bridgeID, bl.log),
 		claude:     claude,
+		cursorFile: cursorFile,
+	}
+	if dir, err := config.Dir(); err == nil {
+		r.assumeAutoUpdate = migrateAutoUpdate(bl.log, dir, path, o.resumeFile != "")
 	}
 	r.set.Store(set)
 	// The cache is read before subscribe, whose adopt dispatches.
@@ -402,10 +410,11 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.ackCommand == nil {
 		r.ackCommand = apiClient(cfg).AckCommand
 	}
-	r.applyFlags(events)
-	if r.update != nil {
-		r.update.adoptInto(r)
+	if r.replay == nil {
+		r.replay = apiClient(cfg).Replay
 	}
+	r.applyFlags(events)
+	r.restoreState(events.Head)
 	var updates *updater
 	var watched <-chan struct{}
 	if r.bridgeID != "" {
@@ -421,13 +430,14 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 			if r.update != nil {
 				hook = r.update.handover(r, version)
 			}
-			updates = newUpdater(r.log, version, dir, func() bool { return r.rules().AutoUpdate() }, hook)
+			updates = newUpdater(r.log, version, dir, func() bool { return autoUpdateOn(r.rules(), r.assumeAutoUpdate) }, hook)
 			if r.update != nil {
 				updates.executable = r.update.installed
 				if r.update.crashedFrom != "" {
 					updates.markRolledBack(r.update.crashedFrom)
 				}
 			}
+			updates.install = installMethod(updates.executable)
 			hb.onRange, hb.update = updates.setRange, updates.state
 		}
 		if r.update != nil {

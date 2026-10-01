@@ -59,6 +59,8 @@ runs to a page.
 | **Resumed** | the ask the session waited on closed, and the bridge resumes the session |
 | **Skipped** | the session already read its answers, so the bridge did not resume it |
 | **Running** | the worker runs |
+| **Stopping** | a person asked the bridge to stop the run, and the worker is still ending |
+| **Stopped** | a person stopped the run, and the bridge does not resume it |
 | **Waiting for a person** | the rule's chain cap stopped the run, and a move by a person starts a new one |
 | **Dropped** | the bridge stopped, a rule died, or a reload removed the rule, before the run started |
 | **Succeeded** | the worker exited with code 0, with a structured result |
@@ -72,7 +74,7 @@ runs to a page.
 | **Lost** | the bridge reconnected, and it no longer holds the run |
 | **Closed** | the interactive session ended, or its card moved to another column |
 
-Queued, Resumed and Running are open states. A bridge that dies cannot close
+Queued, Resumed, Running and Stopping are open states. A bridge that dies cannot close
 its runs, so Loupe closes them. **Timed out** is a guess: a bridge can go quiet
 and come back, and a later report from it replaces the guess. **Lost** is a
 fact: the bridge came back without the run, so the run can no longer end. See
@@ -96,6 +98,68 @@ The bridge does not resume a **Blocked** run.
 The bridge also skips a resume when the card left the column that started the
 series. The ended run then keeps its own outcome, and its drawer says why the
 resume did not run.
+
+## Stop, resume and cancel
+
+The project owner can control a run from the runs section of a card page and
+from the drawer of a run. Other people see the labels and no controls. An
+interactive run has no controls, and its owner uses **Close session** instead.
+
+| Control | When it shows | What it does |
+|---|---|---|
+| **Stop** | the run is Queued, Resumed or Running | asks the bridge to stop the run |
+| **Resume** | the run ended as Blocked, Gave up, Failed, No result, Unfinished, Timed out, Lost, Stopped or Waiting for a person, and it has a session | asks the bridge to continue the session as a new run |
+| **Cancel request** | a stop or a resume still waits for the bridge | withdraws the request |
+
+A request waits until the bridge takes it. The row then shows **Stop requested**
+or **Resume requested**. When the bridge sends no heartbeat, the label ends
+with **, bridge offline**. A request that waits longer than the
+`bridge.command_ttl_minutes` flag expires. The flag is 15 minutes by default.
+See [Pause and commands](../reference/bridge-heartbeat.md#pause-and-commands).
+
+The row shows a notice when a request did not work. An expired stop shows
+**The stop request expired before the bridge took it.**, and an expired resume
+shows the same text for a resume. A refused request shows **The bridge
+refused:** and the reason the bridge gave, such as a session that is not on its
+machine. The notice goes when a person sends a new request, or when the control
+no longer applies to the run. A queued run of a paused bridge shows
+**Waiting: bridge paused**.
+
+A control can show and be disabled. Point at it to read the reason. Resume is
+disabled with **The card left** and the column slug when the card is no longer
+in the column of the rule that started the run. When the bridge does not
+report the `commands` capability, every control is disabled with **Update the
+bridge to 1.5.0 or later to control its runs.**
+
+A stop holds the card. No worker starts on a held card until its bridge takes
+a person's resume of one of its runs, or a person moves it to another column.
+A resume that the bridge never takes leaves the card held. A cancel
+of a stop that still waits releases the hold that the stop wrote, unless a stop
+of another run of the card still waits. See [The card page](board.md#the-card-page).
+
+A cancel works only while the bridge has not received the request. A bridge
+that is online receives a request in about a second, and a later cancel does
+not recall it. Cancel is for a request that waits on an offline bridge.
+
+A stop reaches the process group of the worker only. Work that the worker
+started in another process tree keeps running, such as a PHPUnit run inside a
+Docker container. A resume continues the session with a fixed prompt.
+
+### Through the MCP
+
+An agent can read the runs and the bridges, and stop, resume and cancel, through
+the [MCP endpoint](mcp.md#what-the-tools-do). `worker_run_list` and
+`worker_run_get` read the runs, and `bridge_list` reads the bridges.
+`worker_run_stop`, `worker_run_resume` and `bridge_command_cancel` send and
+withdraw requests. The connection acts as the project owner, on its own project
+only.
+
+The tools apply the same checks as the controls on this page. A resume needs a
+session, an ended run in a state that can resume, and a card still in the column
+that started the series. A run with a request that still waits refuses a second
+one, and so does a bridge that does not take commands. A refused run gives a
+code and a message, and `worker_run_resume` takes up to 50 runs in one call.
+There is no tool that pauses a bridge.
 
 ## A warning on the card
 
@@ -238,6 +302,19 @@ counts and their time. The counts cover every project that the bridge follows, n
 current project. A bridge that sends no pool report, such as an older bridge,
 shows no pools.
 
+The project owner can pause a bridge. Open the menu of the bridge card and
+select **Pause new work**. A paused bridge starts no queued run, and its
+running workers go on. **Resume new work** ends the pause. The server keeps the
+pause, so a bridge that is off applies it when it comes back. A restart of the
+bridge keeps the pause too.
+
+The health chip shows **Pausing** until the bridge reports the pause, and then
+it shows **Paused**. After **Resume new work**, it shows **Resuming new work**
+until the bridge reports the change. A quiet bridge shows **Stale** whatever its pause.
+A **Paused** block on the card gives the time of the pause and the person who
+asked for it. A bridge that does not report the `commands` capability cannot
+pause, and the menu says to update it to 1.5.0 or later.
+
 ## The output
 
 Select a row to open a read-only drawer without leaving the list.
@@ -250,7 +327,8 @@ Press Escape or select **Close** to return focus to the row.
 
 Select **Copy output** to copy the original output text.
 If the browser refuses clipboard access, the drawer keeps the text available for manual copying.
-The drawer has no Stop or Retry controls.
+The drawer of a run shows its controls, as
+[Stop, resume and cancel](#stop-resume-and-cancel) says.
 
 The drawer shows the worker's output in full, under **Output**. A run that
 succeeded shows its output the same way a run that failed does, because a
@@ -263,7 +341,9 @@ else the agent chose to say, and the server shows it as plain text.
 ## Live updates
 
 The list, the runs section of a card page and the board reload when a report
-or the timeout sweep changes a run of the project. They also reload after the page
+or the timeout sweep changes a run of the project. They also reload when a
+person sends or cancels a request, and when a bridge answers a request or a
+request expires. A pause or a bridge that reports its pause reloads them too. They also reload after the page
 reconnects to the hub, for any change the page missed. This needs a Mercure hub
 and the `live_updates.enabled` flag. Without them, the page shows a change on
 its next load.
@@ -279,7 +359,7 @@ Run IDs match without regard to letter case, and the outcome and bridge filters 
 
 Two filters narrow the list further:
 
-- **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=no-result`, `outcome=failed` or `outcome=not-started` still works. `outcome=closed` keeps the closed interactive runs. **Open runs** (`outcome=open`) keeps every queued, resumed and running run, of both kinds.
+- **Outcome** keeps one state. A link saved with `outcome=succeeded`, `outcome=no-result`, `outcome=failed` or `outcome=not-started` still works. `outcome=closed` keeps the closed interactive runs. **Open runs** (`outcome=open`) keeps every queued, resumed, running and stopping run, of both kinds.
 - **Bridge** keeps one bridge. It appears once a second bridge has reported.
 
 Every control lands in the URL, so a filtered view is a link you can share.

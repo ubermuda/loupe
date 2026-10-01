@@ -222,6 +222,11 @@ command forwards every message to `/mcp` on your Loupe instance over HTTPS, and
 adds the bearer token from your own `loupe login` plus the project. So no tool
 and no configuration file holds a credential.
 
+It also sends the session id from `LOUPE_SESSION_ID`, else from
+`CLAUDE_CODE_SESSION_ID`, in the `X-Loupe-Session` header. The bridge sets
+`LOUPE_SESSION_ID` for each worker, so the card history names the run that
+moved a card.
+
 It defines no tools of its own. It copies JSON-RPC messages and reads no method
 name except the two the handshake needs, so a tool Loupe adds reaches your agent
 with no new release of this CLI.
@@ -301,6 +306,43 @@ refuses a project your login does not cover rather than ignoring the header.
 `loupe login` asks for `agent mcp projects`. So one sign-in reaches the bridge
 endpoints and the MCP endpoint, and it covers every project you own, including
 ones you create later.
+
+## `loupe status`
+
+Checks the setup that `loupe mcp` depends on, with one real call.
+
+```bash
+loupe status                     # project from .loupe.yaml
+loupe status --project <uuid>    # project from the command line
+```
+
+It reads your login and resolves the project the same way `loupe mcp` does. It
+then opens one MCP session with your instance and calls `project_current`. The
+whole check stops after 30 seconds.
+
+```text
+Instance:    https://loupe.ac
+Project:     Acme site (acme, 01a0c0d9-905c-7922-a586-ccc8ce043704)
+Claude Code: starts `loupe mcp` for every project.
+loupe status: PASS
+```
+
+The `Claude Code:` line is a note, and it never fails the check. An agent other
+than Claude Code, such as Codex, keeps its own configuration.
+
+The last line on stdout is `loupe status: PASS` or `loupe status: FAIL`. A
+failure exits with status 1, and the error on stderr says what to run next.
+Read the exit status, because the error comes after the verdict when you merge
+the two streams:
+
+```text
+Claude Code: does not declare "loupe". Run `loupe init --mcp` to declare it. Other agents keep their own configuration.
+loupe status: FAIL
+error: not logged in: run `loupe login` first
+```
+
+An agent that sets Loupe up runs it before it asks for a restart, so a bad login
+or a wrong project shows up while the person is still there.
 
 ## `loupe bridge run`
 
@@ -434,13 +476,13 @@ refuses the file, because `defaults` is an unknown key there. Remove the block
 before you downgrade.
 
 `autoUpdate` at the top of the file turns [updates](#updates) on or off. It is
-on when the key is absent. `autoUpdate: false` stops the bridge from installing
-a release, and it then only logs `update_available`. A reload applies a change
-to the key. A CLI older than this key refuses the file, because `autoUpdate` is
-an unknown key there.
+off when the key is absent. With updates off, the bridge installs no release,
+and it only logs `update_available`. A reload applies a change to the key. A
+CLI older than this key refuses the file, because `autoUpdate` is an unknown key
+there. [`loupe update auto`](#loupe-update-auto) reads and sets the key.
 
 ```yaml
-autoUpdate: false
+autoUpdate: true
 ```
 
 `maxWorkers` at the top of the file is the number of workers the bridge runs at
@@ -1222,6 +1264,13 @@ with no cache. An update hands the pause to the new version directly. Each
 heartbeat sends `paused` with the state the bridge applies, and
 `capabilities: ["commands"]`.
 
+The project owner sends a stop, a resume or a pause from the web UI. Stop and
+Resume are in the runs section of a card page and in the drawer of a run on
+the **Runs** tab of the Activity page. **Pause new work** is in the menu of the
+bridge card on the agents page. These controls need a bridge of version 1.5.0
+or later, which reports the `commands` capability. The page disables them for
+an older bridge.
+
 The server can also ask the bridge to stop or resume one run. The command comes
 as a `bridge.command` event and again in each heartbeat reply, until the bridge
 answers it. The bridge acts on a command once, by its `commandId`, whichever
@@ -1294,9 +1343,9 @@ workers in flight keep running and the queue survives. When the new version
 does not connect and send a heartbeat within 60 seconds, the bridge goes back to
 the old version and skips the new one from then on.
 
-`autoUpdate: false` in the [rule file](#the-rule-file) turns this off. The
-bridge must also be able to write the directory of its binary, or it logs
-`update_blocked`. [Updates](../docs/extending/cli-bridge.md#updates) in the
+The bridge does this only with `autoUpdate: true` in the
+[rule file](#the-rule-file). The bridge must also be able to write the
+directory of its binary, or it logs `update_blocked`. [Updates](../docs/extending/cli-bridge.md#updates) in the
 bridge documentation gives every step, the rollback, the recovery after a crash
 and the files in the config directory.
 
@@ -1338,7 +1387,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `resume_skipped` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `message`: the session read every item of its ask, so no worker ran. For an unfinished run, the line adds `reason`: `card_moved`, `shutdown`, `rule_dead` or `reload`, at level `WARN` |
 | `resume_session_missing` | `card`, `project`, `rule`, `session_id`, `message`: a fix request named a session that this machine does not hold, so the bridge queues a new session. Level `WARN` |
 | `resume_check_failed` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `error`, `message`: the ask check failed, and the session resumes. Level `WARN` |
-| `card_read_failed` | `card`, `project`, `rule`, `error`, `message`: the card read before the resume of an unfinished run failed, and the session resumes. Level `WARN` |
+| `card_read_failed` | `card`, `project`, `rule`, `error`, `message`: the card read before the resume of an unfinished run, or before a replayed card move, failed. The session resumes, or the move runs. Level `WARN` |
 | `experiment_pin_failed` | `card`, `project`, `rule`, `experiment`, `variant`, `error`, `message`: the pin request for the card failed, so the worker runs `variant`, the variant the bridge drew. Level `WARN` |
 | `worker_resuming` | `card`, `project`, `rule`, `session_id`, `resume`, `max_resumes`, `reason`: the bridge resumes a run that did not finish. Level `WARN` |
 | `worker_gave_up` | `card`, `project`, `rule`, `resume`, `max_resumes`, `reason`, `message`: a run did not finish at the cap of `maxResumes`. Level `ERROR` |
@@ -1375,14 +1424,21 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `worker_stopped` | `card`, `project`, `rule`: the bridge reported a stopped run |
 | `card_held` | `card`, `project`, `rule`: the card is held, so the event starts nothing |
 | `card_hold_released` | `card_id`: the hold of the card ended |
-| `event_duplicate` | `id`: the hub sent an event again that the bridge already handled, as after a handover |
+| `event_duplicate` | `id`: the hub or the catch-up sent an event again that the bridge already handled, as after a handover |
+| `catch_up_done` | `after`: the cursor the catch-up read from, `events`: the events it received, `cursor`: the cursor after it |
+| `catch_up_failed` | `after`, `error`: a replay page failed, so the bridge reads the stream live. The saved cursor stays at `after` until a catch-up reads to the last page, so the next connect or a restart reads from there. Level `WARN` |
+| `event_stale` | `card`, `project`, `rule`, `column`: the column of the card now, `to`: the column of the replayed move. The card left that column, so no worker runs |
+| `cursor_unreadable` | `file`, `error`: the cursor file does not parse, so the bridge starts as with no file. Level `WARN` |
+| `cursor_save_failed` | `file`, `error`: the bridge could not write the cursor file, logged once until a write works again. Routing goes on. Level `WARN` |
 | `worker_adopted` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `pid`: the bridge took over a worker that an earlier version started |
 | `update_skipped` | `reason`: the bridge does not check for updates, for example a development build |
 | `update_check` | `from`, `range`: a check starts |
 | `update_check_failed` | `from`, `error`, and `to` for a failed download. Level `WARN` |
 | `update_state_unreadable` | `error`: `update.json` does not parse, so the check runs with an empty skip list. Level `WARN` |
+| `auto_update_migrated` | `rules`: a start added `autoUpdate: true` to the rule file, after a handover from a CLI that took a missing key as on, or after a pending try. `update.json` then lists the rule file in `defaultOff`, and no later start changes it |
+| `auto_update_migration_failed` | `rules`, `error`, and `line` when the rule file takes no new last line: add that line by hand. `update.json` lists the rule file in `autoUpdatePending`, updates stay on, and each start tries again. Level `WARN` |
 | `update_unavailable` | `from`, `range`, `message`: the running version is outside the range and no release can replace it. Logged once. Level `WARN` |
-| `update_available` | `from`, `to`: a release waits, and `autoUpdate` is `false`. Logged once for each version |
+| `update_available` | `from`, `to`: a release waits, and `autoUpdate` is not `true`. Logged once for each version |
 | `update_blocked` | `from`, `to`, `error`: the bridge cannot write the directory of its binary. Logged once for each version. Level `WARN` |
 | `update_download` | `from`, `to`, `url` |
 | `update_verified` | `from`, `to`: the archive matches `checksums.txt` |
@@ -1605,6 +1661,50 @@ The command prints one line for each bridge. A bridge that hands over prints
 When that `exec` fails, the line says `rejected` instead, and the command exits
 with status 1.
 
+The command does not update a binary that Homebrew installed, and it asks no
+bridge either. It prints
+`loupe was installed with Homebrew. Run: brew upgrade loupe`, changes nothing,
+and exits with status 1. A bridge that runs a Homebrew binary refuses the
+request of an older CLI with the same message, and stages nothing. Automatic
+updates with `autoUpdate: true` still run. The command finds such a binary by its
+path, with symlinks resolved: the path holds `/Cellar/loupe/`. A bridge reports
+the same install method in its heartbeat, so the agents page names
+`brew upgrade loupe`.
+
+### `loupe update auto`
+
+Shows or sets the `autoUpdate` key of the rule file.
+
+```bash
+loupe update auto
+loupe update auto on
+loupe update auto off --keep
+```
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--rules` | `rules.yaml` in your config dir | Read and write this rule file |
+| `--keep` | off | Keep a key that the file holds, whatever its value |
+
+With no argument, the command prints `Automatic updates: on`, `off`, or
+`off (default)` when the file has no key. With `on` or `off`, it adds the key
+as a new last line, and creates the file when it is absent. It then prints
+`Automatic updates: on` and the line it wrote. A running bridge reads the
+change on `loupe bridge reload`.
+
+When the key holds the value you ask for, the command prints that value. When
+the key holds the other value, the command changes the value on the line of the
+key, and every other byte of the file stays, comments included. It then prints
+the same two lines as for a new key. The value must be a plain `true` or
+`false` on the line of the key. In other cases, such as a flow mapping, the
+command changes nothing, exits with status 1, and names the line to edit.
+
+With `--keep`, a key that the file holds keeps its value, whatever it is. The
+command prints `Automatic updates: off (kept from <path>)` and exits with
+status 0. When a new last line would not be a top-level key, as in a flow
+mapping, the command changes nothing, exits with status 1, and names the line
+to add by hand.
+
 ## `loupe version`
 
 Prints the version and the commit the binary was built from, plus the Go
@@ -1679,5 +1779,19 @@ when you upgrade the server.
 
 The bridge sends the id of the last event it read as `Last-Event-ID` when it
 reconnects. The hub then replays the events published in the gap, for as long
-as the hub keeps its history. A bridge that you stop and start again reads no
-event from the time it was stopped.
+as the hub keeps its history.
+
+The bridge does not depend on that history. It keeps a cursor in
+`cursor-<hash>.json` in your config directory: the highest outbox sequence it
+handled. On every connect, before it reads the stream, it reads the events after
+the cursor from `GET /api/events/replay`. So a bridge that you stop and start
+again runs the events of the time it was stopped. It runs an event that it
+handled already only once.
+
+A bridge with no cursor file starts from the `head` that `GET /api/events`
+sends, and runs no event older than that start. A server that sends no `head`
+gives the bridge no cursor, and the bridge then catches up nothing. A replayed
+card move whose card left the column since does not start a worker, and logs
+`event_stale`. The
+[Replay section](../docs/extending/cli-bridge.md#replay) of the bridge
+documentation gives every rule.

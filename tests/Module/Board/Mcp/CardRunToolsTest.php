@@ -103,6 +103,21 @@ final class CardRunToolsTest extends KernelTestCase
         self::assertSame(['interactiveRun' => true, 'held' => false], $payload['card'] ?? null);
     }
 
+    public function test_open_with_a_status_names_the_opened_run_as_the_cause_of_the_move(): void
+    {
+        $created = $this->card('card-run-cause');
+
+        $result = ($this->open)((string) Uuid::v4(), self::SKILL, $created['cardId'], status: 'in-progress');
+
+        $rows = $this->em->getConnection()->fetchFirstColumn(
+            "SELECT detail FROM board_card_events WHERE card_id = :card AND kind = 'moved'",
+            ['card' => $created['cardId']],
+        );
+        self::assertCount(1, $rows);
+        $detail = json_decode((string) $rows[0], true, flags: \JSON_THROW_ON_ERROR);
+        self::assertEquals(['type' => 'run', 'run' => $result['run']['runId'], 'rule' => self::SKILL], $detail['cause']);
+    }
+
     public function test_close_closes_the_run_and_a_second_close_changes_nothing(): void
     {
         $created = $this->card('card-run-close');

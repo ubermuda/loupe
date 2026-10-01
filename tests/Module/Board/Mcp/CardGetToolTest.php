@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
 use App\Module\Board\Entity\CardAutomationAction;
@@ -13,6 +14,9 @@ use App\Module\Board\Mcp\CardGetTool;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Review\Command\CreateDocumentCommand;
+use App\Module\Review\Command\CreateDocumentHandler;
+use App\Module\Review\Entity\DocumentStatus;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Tests\Support\McpTokenScenario;
@@ -137,6 +141,32 @@ final class CardGetToolTest extends KernelTestCase
             [['cardId' => $blocked['cardId'], 'number' => 2, 'title' => 'Blocked', 'status' => 'backlog', 'kind' => 'blocks']],
             ($this->tool)($blocker['cardId'])['relatedCards'],
         );
+    }
+
+    public function test_an_approved_card_names_the_open_blockers_that_hold_it(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('card-get-held');
+        $this->em->persist(new BoardColumn(project: $project, label: 'Product design', slug: 'product-design', position: 4));
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+        $documentHandler = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $documentHandler);
+        $document = $documentHandler(new CreateDocumentCommand($project, 'A product', '# A product', tagNames: ['product']));
+        $document->status = DocumentStatus::Approved;
+        $this->em->flush();
+        $finished = ($this->createTool)('Finished', 'Body', 'feature', status: 'done');
+        $open = ($this->createTool)('Open', 'Body', 'feature');
+        $held = ($this->createTool)('Held', 'Body', 'feature', status: 'product-design', documentIds: [(string) $document->id], relatedCards: [
+            ['cardId' => $finished['cardId'], 'kind' => 'blocked-by'],
+            ['cardId' => $open['cardId'], 'kind' => 'blocked-by'],
+        ]);
+
+        self::assertSame(
+            [['cardId' => $open['cardId'], 'number' => 2, 'title' => 'Open', 'status' => 'backlog']],
+            ($this->tool)($held['cardId'])['heldBy'] ?? null,
+        );
+        self::assertSame([], ($this->tool)($open['cardId'])['heldBy'] ?? null);
     }
 
     public function test_a_card_in_another_project_is_not_reachable(): void

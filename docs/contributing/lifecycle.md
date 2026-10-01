@@ -93,9 +93,13 @@ the full format.
 The implementation worker picks one of three modes after it finds the tech
 design:
 
-1. Child: the card has a parent. The worker builds only the entry that the
-   card body names, from the tech design of the epic. A child skips product
-   design and tech design.
+1. Child: the card has a parent. A Breakdown child has the entry line in its
+   body. The worker builds only that entry, from the tech design of the epic.
+   A Breakdown child skips product design and tech design. A standalone child
+   has no entry line, for example a card moved under an epic by hand. The
+   worker builds its own approved tech design as a normal card. With no such
+   design, it stops with
+   `STAGE RESULT: blocked: needs its own tech design: move the card to Tech design`.
 2. Breakdown: the card is an epic, or its tech design has a `Breakdown`
    section. The worker writes no code and creates no worktree. It sets the type
    `epic`, creates each missing child in Backlog, and sets the blocked-by

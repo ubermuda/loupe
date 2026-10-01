@@ -831,6 +831,9 @@
     .lp-backlog-menu__item {
         @apply flex min-h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg border-0 bg-transparent px-2.5 text-left text-sm text-ink transition-colors hover:bg-tint-strong;
     }
+    .lp-backlog-menu__item:disabled {
+        @apply cursor-not-allowed text-fg-dim hover:bg-transparent;
+    }
     /* The bar that appears when a row is ticked. It sticks to the bottom of the view. */
     .lp-backlog-bulk {
         @apply sticky bottom-5 z-30 mx-auto mt-4 flex w-fit items-center gap-2 rounded-xl border border-chrome-line bg-chrome-raised py-1.5 pr-1.5 pl-4 text-sm text-chrome-fg shadow-xl;
@@ -1266,28 +1269,83 @@
     .lp-card-field dd {
         @apply m-0 text-sm font-semibold text-ink whitespace-nowrap;
     }
-    /* One agent run on the card: rule, when and how long, outcome. */
+    /* One agent run on the card. The pill column has a fixed width, so the pills and the action icons line up. */
+    .lp-card-run-row {
+        @apply relative grid items-center gap-3 rounded-lg border border-line px-3 py-2.5 text-sm text-ink transition-colors hover:bg-surface-2;
+        grid-template-columns: minmax(0, 1fr) calc(var(--spacing) * 40) auto;
+    }
+    .lp-card-run__main {
+        @apply flex min-w-0 items-center gap-2;
+    }
+    /* The link covers the row with its ::after, so a click anywhere opens the run. */
     .lp-card-run {
-        @apply flex items-center gap-3 rounded-lg border border-line px-3 py-2.5 text-sm text-ink no-underline transition-colors hover:bg-surface-2;
+        @apply flex min-w-0 flex-1 items-center gap-3 text-ink no-underline outline-none;
+    }
+    .lp-card-run::after {
+        content: '';
+        @apply absolute inset-0 rounded-lg;
+    }
+    .lp-card-run:focus-visible::after {
+        @apply outline-solid outline-2 -outline-offset-2 outline-accent-ink;
     }
     .lp-card-run__rule {
         @apply min-w-0 truncate font-semibold;
     }
     .lp-card-run__meta {
-        @apply shrink-0 text-xs text-fg-mute;
+        @apply min-w-0 truncate text-xs text-fg-mute;
+    }
+    /* No taller than a text-sm line, so a session row keeps the row height. */
+    .lp-card-run .lp-card-run__kind {
+        @apply shrink-0 py-0.5;
+    }
+    /* Sits above the row link, at the end of the main column. */
+    .lp-card-run__action {
+        @apply relative z-10 flex shrink-0;
+    }
+    .lp-card-run-row .lp-status-chip {
+        @apply ml-0 max-w-full justify-self-start overflow-hidden whitespace-nowrap;
     }
     .lp-card-run__chevron {
         @apply size-4 shrink-0 text-fg-dim;
     }
-    /* A run row with its close control beside the link, because a form cannot sit inside a link. */
-    .lp-card-run-row {
-        @apply flex items-center gap-2;
+    /* A card that a person stopped: no worker starts on it. */
+    .lp-card-held {
+        @apply m-0 flex items-center gap-2 rounded-lg bg-status-pending-bg px-3 py-2 text-sm text-status-pending-deep;
     }
-    .lp-card-run-row > .lp-card-run {
-        @apply min-w-0 flex-1;
+    .lp-card-held__icon {
+        @apply size-4 shrink-0;
     }
-    .lp-card-run__kind {
-        @apply shrink-0;
+    /* A run control the bridge cannot take now. Its title says why. */
+    .lp-card-run__action .lp-btn:disabled,
+    .lp-run-drawer__control .lp-btn:disabled {
+        @apply cursor-not-allowed opacity-50 hover:bg-transparent active:translate-none active:scale-100;
+    }
+    /* The state of a stop or resume request, beside the run state. */
+    .lp-worker-run-control-label {
+        @apply min-w-0 truncate text-xs text-fg-mute;
+    }
+    .lp-worker-run-control-label--warns {
+        @apply text-status-pending-deep;
+    }
+    /* The runs table outcome cell: the pill, with the request state under it. */
+    .lp-worker-run-outcome {
+        @apply flex min-w-0 flex-col items-start gap-0.5;
+    }
+    .lp-worker-run-outcome .lp-worker-run-control-label {
+        @apply max-w-full;
+    }
+    .lp-run-drawer__header .lp-worker-run-control-label {
+        @apply mt-2 block whitespace-normal;
+    }
+    /* A refused stop or resume, inside the frame that the request reloads. */
+    .lp-worker-run-flashes {
+        @apply flex flex-col gap-2;
+    }
+    .lp-worker-run-flashes .lp-flash {
+        @apply m-0;
+    }
+    .lp-worker-run-flashes--page {
+        @apply mb-4;
     }
     /* The spend of every run of the card, under its run list. */
     .lp-card-usage-total {
@@ -2190,6 +2248,10 @@
     }
     .lp-btn--icon:hover {
         @apply bg-tint-strong text-ink;
+    }
+    /* An icon button that fits a text-sm line, so a list row keeps its height. */
+    .lp-btn--compact {
+        @apply size-5 min-h-0 rounded-sm;
     }
     /* Open control on a linked-work row: labelled where the table has room,
        and a named icon button below `sm`, where the word costs a column. */
@@ -4211,6 +4273,10 @@
     }
     .lp-connect-tag {
         @apply inline-flex items-center rounded-full font-semibold bg-status-ok-bg text-status-ok-deep shrink-0 text-xs py-0.5 px-2;
+    }
+    /* An eyebrow with a tag beside it, such as the recommended way to connect. */
+    .lp-connect-block__heading {
+        @apply flex items-center gap-2;
     }
 
     /* A person or a record, on the paper: an icon or initial, a name, a quiet
@@ -7525,6 +7591,22 @@
     }
     .lp-agent-card__purpose {
         @apply my-4 text-sm leading-relaxed text-fg-mute;
+    }
+    /* The update command stays collapsed until the "Update available" chip opens it. */
+    .lp-agent-update-toggle {
+        @apply cursor-pointer;
+    }
+    .lp-agent-update-toggle__caret {
+        @apply w-3 h-3 shrink-0 transition-transform duration-100;
+    }
+    .disclosure-open .lp-agent-update-toggle__caret {
+        @apply rotate-180;
+    }
+    .lp-agent-update-command {
+        @apply hidden mt-4 overflow-hidden;
+    }
+    .lp-agent-update-command.open {
+        @apply flex;
     }
     .lp-agent-card__facts {
         @apply grid grid-cols-1 sm:grid-cols-2 gap-3 m-0;
