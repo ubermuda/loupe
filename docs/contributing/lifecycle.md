@@ -229,10 +229,11 @@ names one, and starts a new session otherwise. The round fixes the conflict,
 each failing check and each open review item, pushes, and reports `waiting`.
 The `merge-ready` rule merges only after it reads the pull request again: the
 same head, an approval, and every required check green. The approval must also
-cover every commit after it, read by time. A sync merge from the base passes. A
-conflict resolution or any other later commit stops the run as `not ready`.
-Loupe sends `ready_to_merge` without a look at the review, so the skill makes
-this check. The `sync-behind` rule
+cover every commit after it, read by time. A sync merge from the base passes,
+with or without a conflict resolution. Any other later commit stops the run as
+`not ready`. Loupe sends `ready_to_merge` only when an approval, if there is
+one, covers the head. The head can move after the event, so the skill makes
+this check again. The `sync-behind` rule
 updates the branch on GitHub with a merge commit, and reports `waiting`. It
 updates only a pull request whose approval covers the head, because each update
 costs a full CI run. An unapproved branch stops as `not ready`. Loupe sends

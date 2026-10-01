@@ -77,7 +77,7 @@ decision asks an agent to act.
 | `pull_request.merged` | fact | the pull request merged | none |
 | `pull_request.closed` | fact | the pull request closed without a merge | none |
 | `pull_request.fix_requested` | decision | after a failed `checks_concluded`, a `conflicted`, or a `changes-requested` review | `reason`, `checks-failed`, `conflict` or `changes-requested`. `sessionId` and `bridgeId`, under the Resume fix strategy only |
-| `pull_request.ready_to_merge` | decision | the pull request became ready to merge: open, not a draft, required checks passed, and GitHub lets it merge | none |
+| `pull_request.ready_to_merge` | decision | the pull request became ready to merge: open, not a draft, required checks passed, GitHub lets it merge, and an approval, when there is one, covers the head | none |
 
 Every event carries `cardId`, `cardNumber`, `forge`, `repository`,
 `pullRequestNumber`, `pullRequestUrl` and `headSha`. Loupe leaves out a
