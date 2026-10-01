@@ -10,6 +10,8 @@ use App\Module\Account\Registration\RegistrationPasses;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
+use App\Module\Billing\Command\Admin\RevokeCompCommand;
+use App\Module\Billing\Command\Admin\RevokeCompHandler;
 use App\Module\Billing\Entity\BetaInvite;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Entity\Subscription;
@@ -273,6 +275,24 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         self::assertSelectorNotExists('[data-beta-claim-form]');
         self::assertCount(1, $audit->records('billing.beta_invite_redeemed'));
         self::assertCount(1, $this->comps($client, $tester));
+    }
+
+    public function test_a_reload_after_an_admin_revoked_the_comp_does_not_promise_free_access(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $scenario = new BillingScenario($client->getContainer());
+        $tester = $scenario->verifiedUser('beta-revoked-comp');
+        $admin = $scenario->verifiedUser('beta-revoking-admin');
+        [, $token] = $this->seedInvite($client);
+
+        $client->loginUser($tester);
+        $this->claim($client, $token);
+        $client->getContainer()->get(RevokeCompHandler::class)(new RevokeCompCommand($tester, $admin));
+        $client->request(Request::METHOD_GET, '/beta/'.$token);
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSelectorExists('[data-beta-invite-invalid]');
     }
 
     public function test_a_link_another_user_redeemed_stays_invalid_for_a_signed_in_user(): void
