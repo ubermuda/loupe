@@ -20,7 +20,7 @@ use Psr\Log\LoggerInterface;
 final class GitHubPullRequestStateReader implements PullRequestStateReader
 {
     private const string QUERY = <<<'GRAPHQL'
-        query($owner:String!,$name:String!,$n:Int!,$after:String){repository(owner:$owner,name:$name){pullRequest(number:$n){state createdAt mergedAt isDraft headRefOid baseRefName mergeable mergeStateStatus reviewDecision latestOpinionatedReviews(first:100,writersOnly:true){nodes{state commit{oid}}} commits(last:1){nodes{commit{oid statusCheckRollup{contexts(first:100,after:$after){pageInfo{hasNextPage endCursor} nodes{__typename ... on CheckRun{name status conclusion isRequired(pullRequestNumber:$n)} ... on StatusContext{context state isRequired(pullRequestNumber:$n)}}}}}}}}}}
+        query($owner:String!,$name:String!,$n:Int!,$after:String){repository(owner:$owner,name:$name){pullRequest(number:$n){state createdAt mergedAt isDraft headRefOid baseRefName mergeable mergeStateStatus reviewDecision baseRepository{defaultBranchRef{name}} latestOpinionatedReviews(first:100,writersOnly:true){nodes{id state submittedAt commit{oid}}} commits(last:1){nodes{commit{oid parents(first:2){nodes{oid}} statusCheckRollup{contexts(first:100,after:$after){pageInfo{hasNextPage endCursor} nodes{__typename ... on CheckRun{name status conclusion isRequired(pullRequestNumber:$n)} ... on StatusContext{context state isRequired(pullRequestNumber:$n)}}}}}}}}}}
         GRAPHQL;
 
     private const string RULES_TTL = '+5 minutes';
