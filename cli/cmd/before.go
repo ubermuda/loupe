@@ -211,7 +211,7 @@ func beforeOutcome(dir, project string, killed, timedOut bool) beforeResult {
 	rest := stdout
 	if res.exitCode == 0 && !killed {
 		var folder string
-		folder, rest = lastLine(stdout)
+		folder, rest = lastOutputLine(stdout)
 		res.dir, res.reason = resolveFolder(folder, project)
 	}
 
@@ -275,9 +275,9 @@ func readTail(path string, limit int64) (string, error) {
 	return truncatedMark + string(b), nil
 }
 
-// lastLine splits stdout into its last non-empty line, trimmed, and what
+// lastOutputLine splits stdout into its last non-empty line, trimmed, and what
 // comes before that line.
-func lastLine(stdout string) (string, string) {
+func lastOutputLine(stdout string) (string, string) {
 	lines := strings.Split(stdout, "\n")
 	for i := len(lines) - 1; i >= 0; i-- {
 		if line := strings.TrimSpace(lines[i]); line != "" {
