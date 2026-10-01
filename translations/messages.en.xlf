@@ -4778,6 +4778,10 @@
                 <source>inbox.item.kind.wait</source>
                 <target>Waiting</target>
             </trans-unit>
+            <trans-unit id="inbox.item.kind.notice">
+                <source>inbox.item.kind.notice</source>
+                <target>Notice</target>
+            </trans-unit>
             <trans-unit id="inbox.item.dismiss">
                 <source>inbox.item.dismiss</source>
                 <target>Dismiss</target>
@@ -4845,6 +4849,10 @@
             <trans-unit id="inbox.item.error.closed_by_loupe">
                 <source>inbox.item.error.closed_by_loupe</source>
                 <target>Loupe closed this item, so it takes no response.</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.error.notice">
+                <source>inbox.item.error.notice</source>
+                <target>A notice takes no response. Loupe closes it when the fact ends.</target>
             </trans-unit>
             <trans-unit id="inbox.answer.pick_one">
                 <source>inbox.answer.pick_one</source>

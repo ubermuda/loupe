@@ -26,6 +26,7 @@ final readonly class InboxItemCloser
     public const string ERROR_FINAL = 'inbox.item.error.final';
     public const string ERROR_CLOSED_BY_AGENT = 'inbox.item.error.closed_by_agent';
     public const string ERROR_CLOSED_BY_LOUPE = 'inbox.item.error.closed_by_loupe';
+    public const string ERROR_NOTICE = 'inbox.item.error.notice';
 
     /** The refusal a caller gives when the item it acts on is already closed. */
     public const string ITEM_NOT_OPEN = 'inbox.item.error.not_open';
@@ -133,6 +134,9 @@ final readonly class InboxItemCloser
     /** Why the item takes no response now, or null when it does. */
     private function refusal(InboxItem $item): ?string
     {
+        if (InboxItemKind::Notice === $item->kind) {
+            return self::ERROR_NOTICE;
+        }
         if (InboxItemKind::Review === $item->kind && InboxItemState::Open !== $item->state) {
             return self::ERROR_FINAL;
         }
