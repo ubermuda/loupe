@@ -183,8 +183,9 @@ type router struct {
 	handled      map[string]time.Time
 	commanding   int
 	// stops holds each run a person stopped until its stopped report goes out.
-	// cardHolds holds the cards of those runs, which start no worker until the
-	// hold ends. stopWaits are the waits of the stop ladder.
+	// cardHolds holds the cards the server states as held, because a person
+	// paused their agents. A held card starts no worker until the hold ends.
+	// stopWaits are the waits of the stop ladder.
 	stops     map[string]bool
 	cardHolds map[string]bool
 	stopWaits stopWaits

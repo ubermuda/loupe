@@ -117,9 +117,9 @@ func TestARerunIsRefusedWhenTheCommandNeedsItsFirstEvent(t *testing.T) {
 	}
 }
 
-// A person stopped the earlier run, which held the card. The rerun is a
-// person acting on the card, so it ends the hold of this bridge.
-func TestARerunReleasesTheHoldOfTheCard(t *testing.T) {
+// A rerun of a held card passes, and its run waits in the queue until the
+// hold ends. The rerun keeps the hold.
+func TestARerunOfAHeldCardWaitsForTheHold(t *testing.T) {
 	h, f := withCommand(t, "1m")
 	h.router.mu.Lock()
 	h.router.holdCardLocked(cardUUID(87))
@@ -129,8 +129,18 @@ func TestARerunReleasesTheHoldOfTheCard(t *testing.T) {
 		t.Fatalf("rerun = %s %q", state, reason)
 	}
 
+	h.router.mu.Lock()
+	held := h.router.cardHolds[cardUUID(87)]
+	h.router.mu.Unlock()
+	if !held || len(f.recorded()) != 0 {
+		t.Fatalf("held = %v, commands = %d", held, len(f.recorded()))
+	}
+
+	h.router.dropHold(cardUUID(87))
+	h.router.dispatch()
+	h.router.wg.Wait()
 	if len(f.recorded()) != 1 {
-		t.Fatalf("commands = %d, want the rerun to run", len(f.recorded()))
+		t.Fatalf("commands = %d after the hold ends", len(f.recorded()))
 	}
 }
 
