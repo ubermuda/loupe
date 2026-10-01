@@ -21,6 +21,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Messenger\MoveAbandonedCard;
+use App\Module\Board\Service\BoardAutomation;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
@@ -425,6 +426,80 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
 
         self::assertSame('backlog', $this->slugOf($epic));
         self::assertSame([], $this->queuedAbandonedCards());
+    }
+
+    public function test_an_epic_with_an_abandoned_pull_request_queues_nothing_while_automation_is_off(): void
+    {
+        $project = $this->reviewProject('epic-abandoned-automation-off');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Closed);
+        $child = $this->card($project, parent: $epic);
+        $automation = self::getContainer()->get(BoardAutomation::class);
+        self::assertInstanceOf(BoardAutomation::class, $automation);
+        $automation->settingsForUpdate($this->reloadProject($project))->enabled = false;
+        $this->em->flush();
+        $this->em->clear();
+
+        $this->update($child, 'done');
+
+        self::assertSame('implementation', $this->slugOf($epic));
+        self::assertSame([], $this->queuedAbandonedCards());
+    }
+
+    public function test_a_finished_child_that_moves_between_terminal_columns_does_not_queue_again(): void
+    {
+        $project = $this->reviewProject('epic-abandoned-terminal-move');
+        $this->em->persist(new BoardColumn($this->reloadProject($project), 'Archive', 'archive', 10, terminal: true));
+        $this->em->flush();
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Closed);
+        $child = $this->card($project, parent: $epic);
+        $this->update($child, 'done');
+        self::assertSame([(string) $epic->id], $this->queuedAbandonedCards());
+
+        $this->update($child, 'archive');
+
+        self::assertSame([(string) $epic->id], $this->queuedAbandonedCards());
+    }
+
+    public function test_a_finished_child_that_leaves_the_epic_does_not_queue_again(): void
+    {
+        $project = $this->reviewProject('epic-abandoned-finished-leaves');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Closed);
+        $child = $this->card($project, parent: $epic);
+        $this->card($project, 'done', parent: $epic);
+        $this->update($child, 'done');
+        self::assertSame([(string) $epic->id], $this->queuedAbandonedCards());
+
+        $this->update($child, parentCardId: '');
+
+        self::assertSame([(string) $epic->id], $this->queuedAbandonedCards());
+    }
+
+    public function test_the_last_open_child_that_leaves_the_epic_queues_its_backlog_move(): void
+    {
+        $project = $this->reviewProject('epic-abandoned-open-leaves');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Closed);
+        $open = $this->card($project, parent: $epic);
+        $this->card($project, 'done', parent: $epic);
+        self::assertSame([], $this->queuedAbandonedCards());
+
+        $this->update($open, parentCardId: '');
+
+        self::assertSame([(string) $epic->id], $this->queuedAbandonedCards());
+    }
+
+    public function test_a_finished_first_child_queues_the_backlog_move(): void
+    {
+        $project = $this->reviewProject('epic-abandoned-finished-first');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Closed);
+
+        $this->card($project, 'done', parent: $epic);
+
+        self::assertSame([(string) $epic->id], $this->queuedAbandonedCards());
     }
 
     public function test_a_board_with_no_review_column_queues_the_backlog_move_of_an_epic_with_an_abandoned_pull_request(): void
