@@ -157,6 +157,7 @@ export default defineConfig({
           items: [
             { label: 'Overview', slug: 'adr' },
             { slug: 'adr/0001-app-over-worker' },
+            { slug: 'adr/0002-generic-stage-skills' },
           ],
         },
         { label: 'What runs in production', slug: 'architecture' },
