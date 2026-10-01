@@ -22,7 +22,7 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
    - A product document that is not approved: stop with `STAGE RESULT: product document not approved`.
    - No product document: the owner skipped product design. The requirement source is the card body. Say so in the first section of the design, and cite the card body where a decision would cite an `R` ID.
 8. Load `loupe-documents`. Load the tech design instructions and read the design inputs that the profile `Instruction files` section names. They are required inputs.
-9. Find the tech design among the linked documents, as the contract says. It has the tags `design` and `decisions`, or a title that starts `Tech design`.
+9. Find the tech design among the linked documents, as the contract says. It has the tags `design` and `decisions`, or a title that starts `Tech design`. Skip the tech design of the parent card, as `../loupe-stage-implementation/references/breakdown.md` "Build a child" says.
 10. When step 9 finds none, search `document_list` for the title `Tech design: <card title>`, as the contract says. The document to reference is the product document, when there is one.
 
 ### Revise, when step 9 or 10 finds the design
@@ -44,7 +44,7 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 1. Judge whether one pull request of normal size can build the design. A worker builds a small task with clear limits better than a large one.
 2. When the design needs more than one such pull request, add a Breakdown section. Each entry becomes one child card. Write it in the format of `../loupe-stage-implementation/references/breakdown.md`.
 3. Otherwise add no Breakdown section.
-4. Never write a Breakdown section for a card that has a parent. A child is built from one entry of its epic's design.
+4. Never write a Breakdown section for a card that has a parent, because epics do not nest. A child with no entry line of `../loupe-stage-implementation/references/breakdown.md` gets a design of its own, like any other card.
 
 Write the final reply as the contract says.
 

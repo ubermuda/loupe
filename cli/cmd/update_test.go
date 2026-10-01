@@ -320,8 +320,11 @@ func updateCmd(t *testing.T, self selfUpdate, args ...string) (string, error) {
 	return out.String(), err
 }
 
+// noSelfUpdate is a binary outside Homebrew that has no way to update itself.
 func noSelfUpdate(t *testing.T) selfUpdate {
-	return selfUpdate{apiBase: "http://127.0.0.1:1", version: "1.0.0", executable: func() (string, error) {
+	exe := filepath.Join(t.TempDir(), "loupe")
+
+	return selfUpdate{apiBase: "http://127.0.0.1:1", version: "1.0.0", executable: func() (string, error) { return exe, nil }, serverRange: func(context.Context) (string, error) {
 		t.Fatal("the command updated itself while a bridge runs")
 
 		return "", nil
@@ -707,4 +710,189 @@ func mustConfigDir(t *testing.T) string {
 	}
 
 	return dir
+}
+
+// Homebrew owns a binary in its keg, so the update in place leaves it to brew.
+func TestUpdateWithNoBridgeRefusesAHomebrewInstall(t *testing.T) {
+	shortConfigHome(t)
+	gh := newFakeGitHub(t, "new binary", "cli/v1.2.0")
+	self, _ := selfUpdateAgainst(t, gh, "1.0.0")
+	keg, link := homebrewBinary(t)
+	self.executable = func() (string, error) { return link, nil }
+
+	_, err := updateCmd(t, withServerRange(self, "^1.0"))
+	if err == nil || err.Error() != "loupe was installed with Homebrew. Run: brew upgrade loupe" {
+		t.Fatalf("err = %v", err)
+	}
+	if data, _ := os.ReadFile(keg); string(data) != "old" {
+		t.Fatalf("binary = %q", data)
+	}
+	if listed, downloads := gh.counts(); listed != 0 || downloads != 0 {
+		t.Fatalf("listed = %d, downloads = %d", listed, downloads)
+	}
+}
+
+// A running bridge would replace the binary in the keg, so the command asks
+// no bridge either.
+func TestUpdateRefusesAHomebrewInstallWhileABridgeRuns(t *testing.T) {
+	shortConfigHome(t)
+	serveUpdateTest(t, filepath.Join(t.TempDir(), "rules.yaml"), func(context.Context, func(updateResult)) updateResult {
+		t.Error("the bridge was asked")
+
+		return updateResult{}
+	})
+	self := noSelfUpdate(t)
+	_, link := homebrewBinary(t)
+	self.executable = func() (string, error) { return link, nil }
+
+	_, err := updateCmd(t, self)
+	if err == nil || err.Error() != "loupe was installed with Homebrew. Run: brew upgrade loupe" {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestUpdateAutoWorksUnderHomebrew(t *testing.T) {
+	shortConfigHome(t)
+	path := defaultRuleFile(t, "")
+	self := noSelfUpdate(t)
+	_, link := homebrewBinary(t)
+	self.executable = func() (string, error) { return link, nil }
+
+	if out, err := updateCmd(t, self, "auto", "on"); err != nil || !strings.HasPrefix(out, "Automatic updates: on\n") {
+		t.Fatalf("out = %q, err = %v", out, err)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "autoUpdate: true\n" {
+		t.Fatalf("file = %q", data)
+	}
+}
+
+// autoCmd runs `loupe update auto` with args.
+func autoCmd(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+
+	return updateCmd(t, noSelfUpdate(t), append([]string{"auto"}, args...)...)
+}
+
+// defaultRuleFile writes body to the default rule file. An empty body writes
+// nothing.
+func defaultRuleFile(t *testing.T, body string) string {
+	t.Helper()
+	path := filepath.Join(mustConfigDir(t), "rules.yaml")
+	if body == "" {
+		return path
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	return path
+}
+
+func TestUpdateAutoShowsTheValue(t *testing.T) {
+	shortConfigHome(t)
+	for _, tc := range []struct{ body, want string }{
+		{"", "Automatic updates: off (default)\n"},
+		{"maxWorkers: 2\n", "Automatic updates: off (default)\n"},
+		{"autoUpdate: true\n", "Automatic updates: on\n"},
+		{"autoUpdate: false\n", "Automatic updates: off\n"},
+	} {
+		path := defaultRuleFile(t, tc.body)
+		out, err := autoCmd(t)
+		if err != nil || out != tc.want {
+			t.Fatalf("%q: out = %q, err = %v", tc.body, out, err)
+		}
+		os.Remove(path)
+	}
+}
+
+func TestUpdateAutoWritesAMissingKey(t *testing.T) {
+	shortConfigHome(t)
+	path := defaultRuleFile(t, "")
+
+	out, err := autoCmd(t, "on")
+	if err != nil || out != "Automatic updates: on\nWrote autoUpdate: true to "+path+". A running bridge reads it on loupe bridge reload.\n" {
+		t.Fatalf("out = %q, err = %v", out, err)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "autoUpdate: true\n" {
+		t.Fatalf("file = %q", data)
+	}
+}
+
+func TestUpdateAutoTakesTheRulesFlag(t *testing.T) {
+	shortConfigHome(t)
+	path := filepath.Join(t.TempDir(), "other.yaml")
+
+	if out, err := autoCmd(t, "off", "--rules", path); err != nil || !strings.HasPrefix(out, "Automatic updates: off\n") {
+		t.Fatalf("out = %q, err = %v", out, err)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "autoUpdate: false\n" {
+		t.Fatalf("file = %q", data)
+	}
+}
+
+// The command changes the value on the key's line, and keeps the rest.
+func TestUpdateAutoFlipsAnExistingKey(t *testing.T) {
+	shortConfigHome(t)
+	path := defaultRuleFile(t, "# mine\nautoUpdate: false # asked at install\n")
+
+	out, err := autoCmd(t, "off")
+	if err != nil || out != "Automatic updates: off\n" {
+		t.Fatalf("same value: out = %q, err = %v", out, err)
+	}
+	out, err = autoCmd(t, "on")
+	if err != nil || out != "Automatic updates: on\nWrote autoUpdate: true to "+path+". A running bridge reads it on loupe bridge reload.\n" {
+		t.Fatalf("other value: out = %q, err = %v", out, err)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "# mine\nautoUpdate: true # asked at install\n" {
+		t.Fatalf("file = %q", data)
+	}
+}
+
+// A value that cannot change on its line alone is left to the user.
+func TestUpdateAutoNamesTheLineToEditWhenItCannotFlipTheKey(t *testing.T) {
+	shortConfigHome(t)
+	path := defaultRuleFile(t, "{autoUpdate: false}\n")
+
+	out, err := autoCmd(t, "on")
+	if err == nil || err.Error() != path+" already holds autoUpdate: false; edit that line to autoUpdate: true" || strings.Contains(out, "Automatic updates") {
+		t.Fatalf("out = %q, err = %v", out, err)
+	}
+	if data, _ := os.ReadFile(path); string(data) != "{autoUpdate: false}\n" {
+		t.Fatalf("file = %q", data)
+	}
+}
+
+func TestUpdateAutoKeepsAnyExistingKeyWithKeep(t *testing.T) {
+	shortConfigHome(t)
+	for _, arg := range []string{"on", "off"} {
+		path := defaultRuleFile(t, "autoUpdate: false\n")
+		out, err := autoCmd(t, arg, "--keep")
+		if err != nil || out != "Automatic updates: off (kept from "+path+")\n" {
+			t.Fatalf("%s: out = %q, err = %v", arg, out, err)
+		}
+		os.Remove(path)
+	}
+	if out, err := autoCmd(t, "on", "--keep"); err != nil || !strings.HasPrefix(out, "Automatic updates: on\nWrote ") {
+		t.Fatalf("no key: out = %q, err = %v", out, err)
+	}
+}
+
+func TestUpdateAutoRefusesAFileItCannotAppendTo(t *testing.T) {
+	shortConfigHome(t)
+	path := defaultRuleFile(t, "{maxWorkers: 2}\n")
+
+	_, err := autoCmd(t, "on")
+	if err == nil || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), `"autoUpdate: true"`) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestUpdateAutoRefusesAnUnknownValue(t *testing.T) {
+	shortConfigHome(t)
+	if _, err := autoCmd(t, "yes"); err == nil {
+		t.Fatal("yes must fail")
+	}
 }

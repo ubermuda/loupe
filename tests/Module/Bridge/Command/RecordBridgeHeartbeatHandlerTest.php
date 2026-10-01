@@ -12,6 +12,7 @@ use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
+use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
@@ -70,6 +71,21 @@ final class RecordBridgeHeartbeatHandlerTest extends KernelTestCase
         self::assertSame(CliCompatibility::RANGE, $result->cliRange);
         self::assertSame(CliUpdateState::Blocked, $result->bridge->updateState);
         self::assertSame('1.3.0', $result->bridge->updateVersion);
+    }
+
+    public function test_each_heartbeat_replaces_the_install_method(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'heartbeat-install-method@example.com');
+        $bridgeId = Uuid::v4();
+
+        $first = $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], '1.2.0', CliUpdateState::Off, '1.3.0', installMethod: CliInstallMethod::Homebrew));
+        self::assertSame(CliInstallMethod::Homebrew, $first->bridge->installMethod);
+
+        $second = $this->handler()(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], '1.2.0', CliUpdateState::Current));
+
+        self::assertNull($second->bridge->installMethod);
     }
 
     public function test_the_first_heartbeat_stores_the_hook_report(): void
