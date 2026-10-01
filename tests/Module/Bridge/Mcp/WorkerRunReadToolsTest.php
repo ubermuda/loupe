@@ -89,11 +89,11 @@ final class WorkerRunReadToolsTest extends KernelTestCase
     {
         [$project] = $this->projects('list-filters');
         $em = $this->em();
-        $kept = $this->seedRun($em, $project, cardNumber: 7, exitCode: 1, ruleName: 'plan', receivedAt: new \DateTimeImmutable('2026-09-02 00:00:00'));
+        $kept = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-02 00:00:00'), cardNumber: 7, exitCode: 1, ruleName: 'plan');
         $kept->endedAt = new \DateTimeImmutable('2026-09-10 12:00:00');
-        $second = $this->seedRun($em, $project, cardNumber: 7, state: WorkerRunState::GaveUp, ruleName: 'plan', receivedAt: new \DateTimeImmutable('2026-09-01 00:00:00'));
+        $second = $this->seedRun($em, $project, receivedAt: new \DateTimeImmutable('2026-09-01 00:00:00'), cardNumber: 7, ruleName: 'plan', state: WorkerRunState::GaveUp);
         $second->endedAt = new \DateTimeImmutable('2026-09-11 12:00:00');
-        $this->seedRun($em, $project, cardNumber: 7, state: WorkerRunState::Succeeded, ruleName: 'plan');
+        $this->seedRun($em, $project, cardNumber: 7, ruleName: 'plan', state: WorkerRunState::Succeeded);
         $this->seedRun($em, $project, cardNumber: 8, exitCode: 1, ruleName: 'plan');
         $em->flush();
         $this->actAsMcpTokenBoundTo($project);

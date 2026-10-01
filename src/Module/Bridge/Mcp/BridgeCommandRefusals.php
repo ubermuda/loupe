@@ -30,7 +30,7 @@ final readonly class BridgeCommandRefusals
      */
     public function refused(string $runId, DomainErrors $errors): array
     {
-        $key = array_values($errors->errors)[0];
+        $key = array_first($errors->errors);
         $segment = substr($key, (int) strrpos($key, '.') + 1);
 
         return [

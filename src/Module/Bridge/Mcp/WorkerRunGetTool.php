@@ -6,7 +6,6 @@ namespace App\Module\Bridge\Mcp;
 
 use App\Module\Bridge\Command\ShowWorkerRunSeriesCommand;
 use App\Module\Bridge\Command\ShowWorkerRunSeriesHandler;
-use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Security\McpBoundProjectVoter;
@@ -54,7 +53,7 @@ final readonly class WorkerRunGetTool
                     $view->runs,
                 ),
                 'commands' => array_map(
-                    fn (BridgeCommand $command): array => $this->payload->forCommand($command),
+                    $this->payload->forCommand(...),
                     $view->commands,
                 ),
             ];
