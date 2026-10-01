@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -132,5 +134,40 @@ final class ListRulesControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-rule-name="Send ready cards"]'));
         self::assertStringContainsString('Column ready is not configured.', $crawler->text());
         self::assertCount(0, $crawler->filter('[data-rule-name] form'));
+    }
+
+    #[TestWith([true, 1])]
+    #[TestWith([false, 0])]
+    public function test_a_live_behind_rule_races_the_app_sync_only_while_the_app_syncs(bool $syncBehind, int $racing): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $owner = new User(fullName: 'Owner', email: 'rules-racing@example.com', password: 'x');
+        $owner->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($owner, static::getContainer());
+        $project = new Project($owner, 'Racing rules');
+        $em->persist($owner);
+        $em->persist($project);
+        $em->persist(new BoardAutomationSettings($project, syncBehind: $syncBehind));
+        $em->persist(new BridgeRuleReport($project, Uuid::v4(), [
+            ['name' => 'Merge behind', 'on' => 'pull_request.behind', 'columns' => [], 'state' => BridgeRuleReport::STATE_LIVE, 'reason' => null],
+            ['name' => 'Stale behind', 'on' => 'pull_request.behind', 'columns' => [], 'state' => BridgeRuleReport::STATE_DEAD, 'reason' => 'unknown_event'],
+            ['name' => 'Merge ready', 'on' => 'pull_request.ready_to_merge', 'columns' => [], 'state' => BridgeRuleReport::STATE_LIVE, 'reason' => null],
+        ]));
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/rules');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(3, $crawler->filter('[data-rule-name]'));
+        $note = $crawler->filter('[data-rule-name="Merge behind"] [data-rule-races-sync]');
+        self::assertCount($racing, $note);
+        if (1 === $racing) {
+            self::assertSame('Races the app sync. Remove it from rules.yaml.', trim($note->text()));
+        }
+        self::assertCount($racing, $crawler->filter('[data-rule-races-sync]'));
     }
 }

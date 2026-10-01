@@ -1,8 +1,9 @@
-{# The dead bridge rules, for a manager of the project. Props: board (BoardView). #}
-{% if board.deadBridgeRules is not empty and is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), board.project) %}
+{# The dead bridge rules and the rules that race the app sync, for a manager of the project. Props: board (BoardView). #}
+{% if (board.deadBridgeRules is not empty or board.racingBridgeRules is not empty) and is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), board.project) %}
 <section class="lp-board-rules" role="status" data-testid="bridge-rules-banner">
     <twig:ux:icon name="lucide:triangle-alert" class="lp-board-rules__icon w-4 h-4" />
     <div class="lp-board-rules__body">
+        {% if board.deadBridgeRules is not empty %}
         <p class="lp-board-rules__title">{{ 'board.bridge_rules.title'|trans({'%count%': board.deadBridgeRules|length}) }}</p>
         <ul class="lp-board-rules__list">
             {% for rule in board.deadBridgeRules %}
@@ -16,6 +17,20 @@
             {% endfor %}
         </ul>
         <p class="lp-board-rules__hint">{{ 'board.bridge_rules.hint'|trans }}</p>
+        {% endif %}
+        {% if board.racingBridgeRules is not empty %}
+        <p class="lp-board-rules__title">{{ 'board.bridge_rules.racing_title'|trans({'%count%': board.racingBridgeRules|length}) }}</p>
+        <ul class="lp-board-rules__list">
+            {% for rule in board.racingBridgeRules %}
+            <li class="lp-board-rules__rule" data-racing-bridge-rule="{{ rule.name }}">
+                <code class="lp-board-rules__code">{{ rule.name }}</code>
+                <span>{{ 'board.bridge_rules.bridge'|trans }} <code class="lp-board-rules__code" title="{{ rule.bridgeId }}">{{ rule.bridgeId|slice(0, 8) }}</code></span>
+                <time datetime="{{ rule.reportedAt|date('c') }}">{{ 'board.bridge_rules.reported'|trans({'%date%': rule.reportedAt|date('M j, Y H:i')}) }}</time>
+            </li>
+            {% endfor %}
+        </ul>
+        <p class="lp-board-rules__hint">{{ 'board.bridge_rules.racing_hint'|trans }}</p>
+        {% endif %}
     </div>
 </section>
 {% endif %}

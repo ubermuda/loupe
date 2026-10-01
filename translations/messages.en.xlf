@@ -4778,6 +4778,10 @@
                 <source>inbox.item.kind.wait</source>
                 <target>Waiting</target>
             </trans-unit>
+            <trans-unit id="inbox.item.kind.notice">
+                <source>inbox.item.kind.notice</source>
+                <target>Notice</target>
+            </trans-unit>
             <trans-unit id="inbox.item.dismiss">
                 <source>inbox.item.dismiss</source>
                 <target>Dismiss</target>
@@ -4845,6 +4849,10 @@
             <trans-unit id="inbox.item.error.closed_by_loupe">
                 <source>inbox.item.error.closed_by_loupe</source>
                 <target>Loupe closed this item, so it takes no response.</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.error.notice">
+                <source>inbox.item.error.notice</source>
+                <target>A notice takes no response. Loupe closes it when the fact ends.</target>
             </trans-unit>
             <trans-unit id="inbox.answer.pick_one">
                 <source>inbox.answer.pick_one</source>
@@ -5762,6 +5770,14 @@
             <trans-unit id="board.bridge_rules.hint">
                 <source>board.bridge_rules.hint</source>
                 <target>A dead rule starts no agent. Fix the rule in rules.yaml, then restart the bridge.</target>
+            </trans-unit>
+            <trans-unit id="board.bridge_rules.racing_title">
+                <source>board.bridge_rules.racing_title</source>
+                <target>{0}No bridge rule races the app sync.|{1}1 bridge rule races the app sync|]1,Inf]%count% bridge rules race the app sync</target>
+            </trans-unit>
+            <trans-unit id="board.bridge_rules.racing_hint">
+                <source>board.bridge_rules.racing_hint</source>
+                <target>The app syncs a pull request that is behind. Remove each rule on pull_request.behind from rules.yaml.</target>
             </trans-unit>
             <trans-unit id="board.bridge_rules.columns">
                 <source>board.bridge_rules.columns</source>
@@ -6743,6 +6759,7 @@
             <trans-unit id="board.rules.live_count"><source>board.rules.live_count</source><target>{0} No live rules|{1} 1 live rule|]1,Inf[ %count% live rules</target></trans-unit>
             <trans-unit id="board.rules.status.live"><source>board.rules.status.live</source><target>Live</target></trans-unit>
             <trans-unit id="board.rules.status.dead"><source>board.rules.status.dead</source><target>Invalid</target></trans-unit>
+            <trans-unit id="board.rules.races_sync"><source>board.rules.races_sync</source><target>Races the app sync. Remove it from rules.yaml.</target></trans-unit>
             <trans-unit id="board.rules.event_description"><source>board.rules.event_description</source><target>Listens for %event%.</target></trans-unit>
             <trans-unit id="board.rules.flow_label"><source>board.rules.flow_label</source><target>Rule handoff</target></trans-unit>
             <trans-unit id="board.rules.reported_at"><source>board.rules.reported_at</source><target>Reported %time%</target></trans-unit>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Inbox\Mcp;
 
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Mcp\InboxAskTool;
 use App\Module\Inbox\Mcp\InboxGetTool;
 use App\Module\Inbox\Mcp\InboxListTool;
@@ -211,6 +212,30 @@ final class InboxGetToolTest extends KernelTestCase
         $record = $this->audit->record('inbox.mcp_access_denied');
         self::assertSame(McpBoundProjectVoter::INBOX_ITEM_READ, $record->context['attribute']);
         self::assertSame($theirs['items'][0]['itemId'], $record->context['subjectId']);
+    }
+
+    public function test_a_notice_reads_as_loupe_with_its_body_and_nothing_to_answer(): void
+    {
+        $this->enableInbox();
+        $project = $this->makeProject('inbox-get-notice');
+        $notice = new InboxItem(project: $project, number: 1, kind: InboxItemKind::Notice, title: 'A bridge rule races the app sync', blocking: false, body: 'Remove it.');
+        $this->em->persist($notice);
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $read = ($this->tool)((string) $notice->id);
+
+        self::assertSame('notice', $read['kind']);
+        self::assertSame('loupe', $read['origin']);
+        self::assertSame('open', $read['state']);
+        self::assertFalse($read['blocking']);
+        self::assertSame('Remove it.', $read['body']);
+        self::assertSame([], $read['options']);
+        self::assertSame([], $read['asks']);
+        self::assertSame([], $read['cards']);
+        self::assertNull($read['cardId']);
+        self::assertSame([], $read['waits']);
+        self::assertNull($read['review']);
     }
 
     public function test_a_malformed_id_is_reported_rather_than_fatal(): void

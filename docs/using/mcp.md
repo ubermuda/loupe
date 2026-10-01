@@ -530,7 +530,9 @@ a read, so filtering by another session's id leaves its answers unread.
 Every item row carries `origin`. The value is `agent` for an item that an agent
 asked, or `loupe` for an [automatic item](inbox.md#automatic-items). Loupe opens
 an automatic item with the kind `wait` while a card waits for a person, and
-closes it when the card stops waiting.
+closes it when the card stops waiting. It opens an item with the kind `notice`
+for a fact of the project, such as a bridge rule that races its sync. A notice
+holds no card and takes no answer.
 
 `inbox_get` also returns `cardId` and `waits`. For a `wait` item, `cardId` names
 the card, and `waits` lists each reason the card waited, current and ended, in
@@ -546,7 +548,8 @@ Loupe ask is null.
 
 `inbox_join` accepts an open `wait` item. Your ask then closes when Loupe
 closes the item. A bridge that started you then resumes you.
-`inbox_withdraw` refuses a `wait` item, because only Loupe closes it.
+`inbox_withdraw` refuses a `wait` item or a `notice`, because only Loupe closes
+it.
 
 With `readerSessionId`, each `inbox_list` row also carries the response:
 `options`, `selectedOptions`, `answerText`, `closeNote`, and `review`. Without it, a row is
