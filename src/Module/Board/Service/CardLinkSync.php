@@ -41,8 +41,12 @@ final readonly class CardLinkSync
         return $this->cards->countByIds($ids) < \count($ids);
     }
 
-    /** @param list<array{Card, CardLinkKind}> $wanted each other card with the kind the card reads it by */
-    public function sync(Card $card, array $wanted): void
+    /**
+     * @param list<array{Card, CardLinkKind}> $wanted each other card with the kind the card reads it by
+     *
+     * @return list<Card> the cards that lost a blocks row: a row removed, or given another kind or direction
+     */
+    public function sync(Card $card, array $wanted): array
     {
         // A card not yet flushed has no rows to read. A link loaded before the
         // lock may be stale, so the read starts from no managed link at all.
@@ -53,9 +57,14 @@ final readonly class CardLinkSync
         $existing = $unitOfWork->isScheduledForInsert($card) ? [] : $this->cardLinks->findForCard($card);
 
         $rows = [];
+        $blocked = [];
         foreach ($existing as $link) {
             $rows[(string) $link->otherThan($card)->id] = $link;
+            if (CardLinkKind::Blocks === $link->kind) {
+                $blocked[spl_object_id($link)] = $link->target;
+            }
         }
+        $unblocked = [];
 
         foreach ($wanted as [$other, $kind]) {
             $key = (string) $other->id;
@@ -75,15 +84,25 @@ final readonly class CardLinkSync
                 continue;
             }
 
+            $lost = $blocked[spl_object_id($row)] ?? null;
+            if (null !== $lost) {
+                $unblocked[spl_object_id($lost)] = $lost;
+            }
             $row->source = $source;
             $row->target = $target;
             $row->kind = $stored;
         }
 
         foreach ($rows as $row) {
+            $lost = $blocked[spl_object_id($row)] ?? null;
+            if (null !== $lost) {
+                $unblocked[spl_object_id($lost)] = $lost;
+            }
             $this->em->remove($row);
         }
 
         $this->em->flush();
+
+        return array_values($unblocked);
     }
 }

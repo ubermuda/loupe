@@ -552,6 +552,72 @@ class CardRepository extends ServiceEntityRepository
         )));
     }
 
+    /**
+     * The cards that block this one from a column that is not terminal, as the
+     * database holds them now, by number.
+     *
+     * @return list<Card>
+     */
+    public function findOpenBlockersOf(Card $card): array
+    {
+        return $this->cardsByIds($this->getEntityManager()->getConnection()->fetchFirstColumn(
+            "SELECT s.id FROM board_card_links l
+             JOIN board_cards s ON s.id = l.source_card_id
+             JOIN board_columns k ON k.id = s.column_id
+             WHERE l.target_card_id = :id AND l.kind = 'blocks' AND k.terminal = false
+             ORDER BY s.number",
+            ['id' => (string) $card->id],
+        ));
+    }
+
+    /**
+     * The cards this one blocks, as the database holds them now, by number.
+     *
+     * @return list<Card>
+     */
+    public function findBlockedBy(Card $blocker): array
+    {
+        return $this->findBlockedByAny([(string) $blocker->id]);
+    }
+
+    /**
+     * The cards any of these cards block, each once, as the database holds them now, by number.
+     *
+     * @param list<string> $blockerIds
+     *
+     * @return list<Card>
+     */
+    public function findBlockedByAny(array $blockerIds): array
+    {
+        if ([] === $blockerIds) {
+            return [];
+        }
+
+        return $this->cardsByIds($this->getEntityManager()->getConnection()->fetchFirstColumn(
+            "SELECT t.id FROM board_cards t
+             WHERE EXISTS (
+                 SELECT 1 FROM board_card_links l
+                 WHERE l.target_card_id = t.id AND l.kind = 'blocks' AND l.source_card_id IN (:ids)
+             )
+             ORDER BY t.number",
+            ['ids' => $blockerIds],
+            ['ids' => ArrayParameterType::STRING],
+        ));
+    }
+
+    /**
+     * @param list<mixed> $ids
+     *
+     * @return list<Card>
+     */
+    private function cardsByIds(array $ids): array
+    {
+        return array_values(array_filter(array_map(
+            fn (mixed $id): ?Card => \is_string($id) ? $this->getEntityManager()->find(Card::class, Uuid::fromString($id)) : null,
+            $ids,
+        )));
+    }
+
     /** Reads the title and body as the database holds them now, like refreshColumn(). */
     public function refreshContent(Card $card): void
     {

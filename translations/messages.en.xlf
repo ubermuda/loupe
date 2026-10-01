@@ -5949,6 +5949,7 @@
             <trans-unit id="board.card.automation.fix_requested"><source>board.card.automation.fix_requested</source><target>The automation asked for a fix.</target></trans-unit>
             <trans-unit id="board.card.automation.stopped"><source>board.card.automation.stopped</source><target>The automation stopped.</target></trans-unit>
             <trans-unit id="board.card.automation.ready_to_merge"><source>board.card.automation.ready_to_merge</source><target>The automation marked the pull request ready to merge.</target></trans-unit>
+            <trans-unit id="board.card.held_by"><source>board.card.held_by</source><target>Approved, and waits for its blockers:</target></trans-unit>
             <trans-unit id="board.card.automation.blocked"><source>board.card.automation.blocked</source><target>The automation is blocked: %reason%. The block clears when a person moves the card, when the checks pass, or when a reviewer approves or requests changes.</target></trans-unit>
             <trans-unit id="board.card.automation.reason.conflict"><source>board.card.automation.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
             <trans-unit id="board.card.automation.reason.checks_failed"><source>board.card.automation.reason.checks_failed</source><target>the checks fail</target></trans-unit>
