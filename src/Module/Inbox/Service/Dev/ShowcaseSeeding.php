@@ -15,6 +15,8 @@ final readonly class ShowcaseSeeding
         public bool $inboxEnabled,
         /** The open wait items of the project after the run. */
         public int $waitItems,
+        /** @var list<string> the page paths of the sync line cards this run wrote */
+        public array $syncCards = [],
     ) {
     }
 }

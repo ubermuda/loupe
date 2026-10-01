@@ -14,7 +14,8 @@ use App\Module\Forge\Entity\PullRequestState;
 final readonly class PullRequestStateView
 {
     /**
-     * @param list<string> $failedChecks
+     * @param list<string>         $failedChecks
+     * @param ?PullRequestSyncView $sync         null when the project does not sync a behind pull request, or the row has nothing to show
      */
     public function __construct(
         public PullRequestState $state,
@@ -25,10 +26,11 @@ final readonly class PullRequestStateView
         public PullRequestReview $review,
         public bool $readyToMerge,
         public ?\DateTimeImmutable $refreshedAt,
+        public ?PullRequestSyncView $sync = null,
     ) {
     }
 
-    public static function of(ForgePullRequest $row): self
+    public static function of(ForgePullRequest $row, ?PullRequestSyncView $sync = null): self
     {
         return new self(
             $row->state,
@@ -39,6 +41,7 @@ final readonly class PullRequestStateView
             $row->review,
             $row->readyToMerge,
             $row->refreshedAt,
+            $sync,
         );
     }
 }

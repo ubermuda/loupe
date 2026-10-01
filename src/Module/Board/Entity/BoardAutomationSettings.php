@@ -46,6 +46,10 @@ class BoardAutomationSettings
         /** Posts a comment on the pull request when a fix run is queued for it. */
         #[ORM\Column(options: ['default' => false])]
         public bool $commentOnFixQueued = false,
+
+        /** Brings an approved pull request that is behind its base up to date. */
+        #[ORM\Column(options: ['default' => false])]
+        public bool $syncBehind = false,
     ) {
     }
 }

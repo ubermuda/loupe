@@ -26,6 +26,7 @@ framework:
             App\Module\Billing\Messenger\CancelSubscriptionMessage: async
             App\Module\Board\Messenger\MoveAbandonedCard: async
             App\Module\Board\Messenger\PostFixRunComment: async
+            App\Module\Board\Messenger\SyncNextPullRequest: async
             App\Module\Forge\Messenger\RefreshPullRequestState: async
             App\Module\Inbox\Messenger\ReconcileCardWaits: async
 

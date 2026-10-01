@@ -90,8 +90,14 @@ final class SeedShowcaseDataCommand extends Command
         } elseif (!$seeding->waitItemOpen) {
             $io->note(\sprintf('The "%s" card has no open wait item. Its tech design is no longer in review, the card left Tech design, or someone dismissed the item.', ProjectShowcaseSeeder::WAITING_CARD_TITLE));
         }
+        if ([] !== $seeding->syncCards) {
+            $io->writeln(\sprintf('Added %d cards that show each sync status of a pull request:', \count($seeding->syncCards)));
+            foreach ($seeding->syncCards as $path) {
+                $io->writeln('  '.$path);
+            }
+        }
         if (!$seeding->written) {
-            $io->note(\sprintf('"%s" already holds the showcase, so this run added no other data.', $name));
+            $io->note(\sprintf('"%s" already holds the showcase, so this run added no %s data.', $name, [] === $seeding->syncCards ? 'other' : 'inbox, document or feedback'));
 
             return Command::SUCCESS;
         }
