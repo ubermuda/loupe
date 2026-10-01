@@ -8,7 +8,7 @@
 2. Read the repository profile at `.loupe/lifecycle.md` in the repository root. When the file, or a section a step needs, is missing, stop with `STAGE RESULT: blocked: no <section> in .loupe/lifecycle.md`.
 3. Pick the forge adapter as the next section says.
 
-The profile has these sections: `Instruction files`, `Worktree`, `Gate`, `Code review`, `Changelog`, `Pull request`, `Board` and `Merge`. The harness adapter covers these steps: connect to the Loupe tools, load an instruction, bind writes to the worktree, run a long command, dispatch a sub-agent, write a plan, and run the plan task by task.
+The profile has these sections: `Instruction files`, `Environment`, `Gate`, `Code review`, `Changelog`, `Pull request`, `Board` and `Merge`. The harness adapter covers these steps: connect to the Loupe tools, load an instruction, run a long command, dispatch a sub-agent, write a plan, and run the plan task by task.
 
 ## Pick the forge adapter
 
@@ -23,36 +23,29 @@ The stage skills name forge operations. An adapter file maps them to commands fo
 
 Slug a column label from the prompt: lowercase, with hyphens for spaces. Compare the slug with the card `status`.
 
-## Create the card worktree
+## Check the worker folder
 
-The profile `Worktree` section names the card worktree path and the command that provisions it. `<base>` is the base branch from the profile `Gate` section. `<short-slug>` is two to four lowercase words from the card title, joined with hyphens. `<cardId>` is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. A profile command may use `<cardId>`. Pass it as the command says, and never derive it from a branch name, a worktree name or a card number. Run these from the main checkout:
-
-```bash
-git fetch origin
-git worktree list --porcelain | grep -x "worktree $PWD/<card worktree>"
-```
-
-When the grep prints a line, the worktree exists. Skip `git worktree add`, and provision it only.
+The worker folder is the folder the worker starts in. The bridge rules make it, refresh it and remove it, and a stage never does. `<base>` is the base branch from the profile `Gate` section. Run this in the worker folder:
 
 ```bash
-git worktree add -b card-<number>-<short-slug> <card worktree> origin/<base>
+git branch --show-current
 ```
 
-When the branch exists and the worktree does not, drop `-b` and name the branch: `git worktree add <card worktree> card-<number>-<short-slug>`. Then provision the worktree as the profile says.
-
-## Bind writes and verify
-
-Bind writes to the card worktree as the harness adapter says. The working directory must be the worktree, and `git branch --show-current` must print the card branch. Otherwise stop with `STAGE RESULT: blocked: worktree binding failed`.
+1. When it prints nothing, HEAD is detached. Run `git switch -c card-<number>-<short-slug>`. `<short-slug>` is two to four lowercase words from the card title, joined with hyphens.
+2. When it prints a branch that starts `card-<number>-`, keep that branch.
+3. When it prints `<base>`, stop with `STAGE RESULT: blocked: no worker folder`. The worker started in the main checkout, because no rule made a folder for it.
+4. When it prints any other branch, stop with `STAGE RESULT: blocked: worker folder on branch <branch>`.
 
 ## Reruns
 
 1. A linked plan document whose `references` hold the tech design id is the plan. Reuse it, and create no second plan.
-2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch from `origin/<base>` for it. Restore its head branch with "Set up or refresh the worktree" in `../../loupe-stage-fix-round/references/pull-request-feedback.md`. Then run `git branch --show-current`. When it differs from the head branch, stop with `STAGE RESULT: blocked: worktree is not on the PR branch`. Otherwise resume at the gate.
-3. Before you create a pull request, list the open pull requests for the branch with the forge adapter. Link one it lists, and create none.
+2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch for it. Run `git branch --show-current`. When HEAD is detached, run `git fetch origin <head>` and `git switch <head>`. When no local branch has that name, run `git switch --track -c <head> origin/<head>` instead. When the current branch then differs from the head branch, stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
+3. Sync that branch with `git fetch origin <head>` and `git merge --ff-only origin/<head>`. When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push. Then resume at the gate.
+4. Before you create a pull request, list the open pull requests for the branch with the forge adapter. Link one it lists, and create none.
 
 ## The gate
 
-Run these in the worktree, in order:
+Run these in the worker folder, in order:
 
 ```bash
 git fetch origin
@@ -61,7 +54,7 @@ git merge origin/<base>
 
 When the merge conflicts, resolve it only when the conflict is mechanical and the gate then proves the result. Otherwise run `git merge --abort`, and stop with `STAGE RESULT: blocked: merge conflict with <base> in <files>`.
 
-When the merge brings commits, refresh the worktree as the profile `Worktree` section says.
+When the merge brings commits, run the refresh of the profile `Environment` section, when it names one. A profile command may use `<cardId>`. Take it from the prompt line `Card <number> (cardId <id>)`, or from the `cardId` of `card_get` when the prompt has none. Never derive it from a branch name, a folder name or a card number.
 
 Then run the commands of the profile `Gate` section in order. Run each long command as the harness adapter says. Poll it in the foreground until it exits, and never end the turn while it runs. Run the check of the profile `Changelog` section. Then run the review of the profile `Code review` section, and follow its pass rule.
 

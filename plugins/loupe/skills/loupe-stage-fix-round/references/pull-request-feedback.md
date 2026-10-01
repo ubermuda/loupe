@@ -1,6 +1,6 @@
 # Pull request feedback
 
-This file describes the feedback model in forge terms: pull request, review thread, review body, top-level comment, check, head branch and base repository. The commands for a forge live in its adapter. Pick the adapter as "Pick the forge adapter" in `../../loupe-stage-implementation/references/commands.md` says. The card worktree, its provisioning and its refresh come from the `Worktree` section of the repository profile.
+This file describes the feedback model in forge terms: pull request, review thread, review body, top-level comment, check, head branch and base repository. The commands for a forge live in its adapter. Pick the adapter as "Pick the forge adapter" in `../../loupe-stage-implementation/references/commands.md` says. The round works in the folder the worker starts in, the worker folder. The bridge rules make that folder, and the round never creates or removes it.
 
 ## Find the open pull request
 
@@ -8,9 +8,9 @@ Before any other query or reply, find and validate the pull request with the ada
 
 ## Read the mergeability first
 
-Read the mergeability of the pull request as "Check mergeability" in the forge adapter says. A conflicting pull request runs no checks. For a conflicting pull request, skip the next section and read the feedback items. Resolve the conflict after the worktree is set up.
+Read the mergeability of the pull request as "Check mergeability" in the forge adapter says. A conflicting pull request runs no checks. For a conflicting pull request, skip the next section and read the feedback items. Resolve the conflict after you check the worker folder.
 
-## Read the checks before a worktree exists
+## Read the checks before you change the folder
 
 Compare the checks against the head commit of the pull request only. Read them once, as "Read the checks" in the forge adapter says, and never wait for a pending check. The app reads the checks again after your push. Read the failed logs of each failing check with the adapter.
 
@@ -59,40 +59,30 @@ Fix every open item and every failing check first. Then post one marker reply fo
 
 Never resolve a thread. The reviewer resolves it.
 
-## Set up or refresh the worktree
+## Check the worker folder
 
-Run these from the main checkout. Find the worktree with the porcelain grep:
+Run this in the worker folder:
 
 ```bash
-git worktree list --porcelain | grep -x "worktree $PWD/<card worktree>"
+git branch --show-current
 ```
 
-When the grep prints nothing, create the worktree on the head branch:
+When it prints nothing, HEAD is detached. Run `git fetch origin <head branch>` and `git switch <head branch>`. When no local branch has that name, run `git switch --track -c <head branch> origin/<head branch>` instead. When the current branch then differs from the head branch, change nothing, and stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
+
+Sync the branch:
 
 ```bash
-git worktree prune
 git fetch origin <head branch>
-git worktree add <card worktree> <head branch>
-```
-
-When `git worktree add` finds no local branch, use `git worktree add --track -b <head branch> <card worktree> origin/<head branch>`.
-
-For an existing worktree, first run `git -C <card worktree> branch --show-current`. When it differs from the head branch, change nothing, and stop with `STAGE RESULT: blocked: worktree is not on the PR branch`.
-
-Sync the branch before you provision it, for a new or an existing worktree:
-
-```bash
-git -C <card worktree> fetch origin <head branch>
-git -C <card worktree> merge --ff-only origin/<head branch>
+git merge --ff-only origin/<head branch>
 ```
 
 When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push.
 
-Then provision it as the profile `Worktree` section says. When the sync brought commits, refresh it as that section says. A profile command may name `<cardId>`. It is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. Never derive it from a branch name, a worktree name or a card number. Bind writes to the worktree, and verify it, as "Bind writes and verify" in `../../loupe-stage-implementation/references/commands.md` says. The branch must be the head branch.
+When the sync brought commits, run the refresh of the profile `Environment` section, when it names one. A profile command may name `<cardId>`. It is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. Never derive it from a branch name, a folder name or a card number.
 
 ## Resolve a conflict with the base
 
-`<base>` is the base branch of the pull request, from the forge adapter. For a stacked pull request, it is the parent's branch. Run these in the worktree:
+`<base>` is the base branch of the pull request, from the forge adapter. For a stacked pull request, it is the parent's branch. Run these in the worker folder:
 
 ```bash
 git fetch origin

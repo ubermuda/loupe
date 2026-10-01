@@ -101,7 +101,7 @@ design:
    design, it stops with
    `STAGE RESULT: blocked: needs its own tech design: move the card to Tech design`.
 2. Breakdown: the card is an epic, or its tech design has a `Breakdown`
-   section. The worker writes no code and creates no worktree. It sets the type
+   section. The worker writes no code and changes no file. It sets the type
    `epic`, creates each missing child in Backlog, and sets the blocked-by
    links. Then it moves each child with no open blocker to Implementation. The
    result line is `STAGE RESULT: breakdown <n> children, <m> started`.
@@ -157,6 +157,9 @@ rules:
     project: loupe
     to: implementation
     permissionMode: bypassPermissions
+    before:
+      run: [bin/worktrees/bridge-before.sh, "{cardNumber}", "{cardId}"]
+      timeout: 15m
     prompt: |
       Use the loupe-stage-implementation skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered {to}.
@@ -180,6 +183,9 @@ rules:
     project: loupe
     resume: true
     permissionMode: bypassPermissions
+    before:
+      run: [bin/worktrees/bridge-before.sh, "{cardNumber}", "{cardId}", "{pullRequestNumber}"]
+      timeout: 15m
     prompt: |
       Use the loupe-stage-fix-round skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
@@ -195,7 +201,30 @@ rules:
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}).
       Pull request {pullRequestUrl} is ready to merge at {headSha}.
       Loupe instance https://loupe.ac.
+
+  - name: teardown
+    on: board.card_moved
+    project: loupe
+    to: done
+    action: command
+    run: [bin/worktrees/bridge-teardown.sh, "{cardNumber}"]
 ```
+
+The `before` command of the `implementation` and `fix-pr` rules makes or
+refreshes `.worktrees/card-<number>`, provisions it with `just worktree-up`,
+and prints its path. The worker starts in that folder, and the stage skills
+work there. The `fix-pr` rule also passes the pull request number, so the
+script can make a lost folder again from the head branch. The `teardown` rule
+runs `just worktree-down` with no agent when the card reaches Done.
+[Before command](../extending/cli-bridge.md#before-command) and
+[Command action](../extending/cli-bridge.md#command-action) describe both
+fields.
+
+Edit `rules.yaml` before the bridge loads a plugin of version 0.10.0 or later.
+A new skill that starts with no `before` rule runs in the main checkout, and
+it stops with `STAGE RESULT: blocked: no worker folder`. The reverse order has
+its own cost. An older skill that starts in the card folder tries to make its
+own worktree from there.
 
 The `fix-round` rule starts a document fix round when a person requests changes
 on a product or tech design document. The event names the linked card in the
@@ -246,8 +275,8 @@ The implementation rule and the three pull request rules use
 `bypassPermissions`. The gate and the `gh` calls run arbitrary
 commands, and a worker in `acceptEdits` cannot approve them, because nobody
 answers a permission prompt. This choice has a cost. The worker can run any
-command as the owner from the moment it starts. The worktree binds file edits,
-and it does not bind commands.
+command as the owner from the moment it starts. The worker folder is a separate
+tree, but a command can still reach any path on the machine.
 
 ## Repository profile and adapters
 
@@ -255,15 +284,14 @@ The stage skills hold the procedure, and three kinds of file hold the values
 that change from one setup to the next.
 
 1. The repository profile, `.loupe/lifecycle.md`, belongs to the repository. Its
-   sections are `Instruction files`, `Worktree`, `Gate`, `Code review`,
+   sections are `Instruction files`, `Environment`, `Gate`, `Code review`,
    `Changelog`, `Pull request`, `Board` and `Merge`. The profile of this repository names
    `just cs`, `just ci`, the Codex review, `changelog.d/`, the merge method and
    the column slugs that a stage moves a card to or reads. The slugs live there because a stage
    skill never reads the column list, which can be missing.
 2. A harness adapter maps the steps of a worker to the tools of one agent
-   harness: connect to Loupe, load an instruction, bind writes to a worktree,
-   run a long command, dispatch a sub-agent, and write and run a plan. The
-   generic adapter is
+   harness: connect to Loupe, load an instruction, run a long command,
+   dispatch a sub-agent, and write and run a plan. The generic adapter is
    `.agents/skills/loupe-stage-implementation/references/harnesses/generic.md`.
    The compatibility adapter for Claude Code is
    `.agents/skills/loupe-stage-implementation/references/harnesses/claude-code.md`.
@@ -297,9 +325,11 @@ at the same time interfere with each other.
 
 The `fix-pr` rule starts a pull request fix round. For a repository that the app
 does not read, run one by hand after review feedback arrives. Run it from the
-repository root, when no worker runs on the card:
+card worktree, when no worker runs on the card. The `before` script makes that
+worktree and prints its path:
 
 ```sh
+cd "$(bin/worktrees/bridge-before.sh <number> <id> <pull request number>)"
 claude -p --permission-mode bypassPermissions -- "Use the loupe-stage-fix-round skill. Card <number> (cardId <id>) in project loupe (projectId <id>), column in-review. Loupe instance https://loupe.ac."
 ```
 
@@ -349,7 +379,7 @@ These pieces are planned after this one. Entry 2 has an approved design, "An
 automated card lifecycle", and cards on the board. Entry 3 has shipped for
 GitHub.
 
-1. The bridge gets roles and bindings, with one worktree for each card.
+1. The bridge gets roles and bindings.
 2. An approval moves the card, and reaches the agent as its own event.
 3. A forge adapter reports reviews, checks and merges to Loupe. The adapter is
    per forge, and the events it emits name no forge.

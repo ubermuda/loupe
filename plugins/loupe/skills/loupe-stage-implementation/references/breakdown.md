@@ -29,7 +29,7 @@ Breakdown item B3 of card #214.
 
 ## Run the breakdown
 
-The breakdown changes the board only. It creates no worktree and writes no code. `<design>` is the approved tech design, and `<default>`, `<implementation>` and `<terminal>` are the slugs of the profile `Board` section.
+The breakdown changes the board only. It writes no code and no file. `<design>` is the approved tech design, and `<default>`, `<implementation>` and `<terminal>` are the slugs of the profile `Board` section.
 
 1. Note the type of the card. When it is not `epic`, set the type `epic` with `card_update`. `card_create` refuses a parent that is not an epic, so this step comes first.
 2. Read every page of `card_list` with `parentCardId` set to the card id and `full` set, so each row carries its body. Match each entry of the Breakdown section to a child, by the entry line, then by the exact title. A child that links a tech design other than `<design>` is standalone, and matches no entry by title. Leave a child that matches no entry as it is. A child that matches by title only has no entry line. Add the entry line to the top of its body with `card_update`, and send the rest of the body unchanged. When the body opens with `**Parked.**`, keep that line first and put the entry line after it.
