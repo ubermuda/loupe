@@ -12,9 +12,16 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\CardAutomationRepository;
+use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\AbandonedCardMoves;
+use App\Module\Board\Service\BoardAutomation;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\CardEventCause;
+use App\Module\Board\Service\LifecycleStages;
+use App\Module\Forge\Entity\PullRequestState;
+use App\Module\Forge\Repository\ForgePullRequestRepository;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
@@ -34,6 +41,12 @@ final readonly class ReconcileEpicOnCardChanged
         private BoardColumnRepository $boardColumns,
         private UpdateCardHandler $updateCard,
         private BoardAvailability $board,
+        private LifecycleStages $stages,
+        private CardPullRequestRepository $cardPullRequests,
+        private ForgePullRequestRepository $forgePullRequests,
+        private AbandonedCardMoves $abandonedMoves,
+        private BoardAutomation $automation,
+        private CardAutomationRepository $cardAutomations,
     ) {
     }
 
@@ -71,7 +84,11 @@ final readonly class ReconcileEpicOnCardChanged
         }
     }
 
-    /** Closes an epic whose children are all finished, and reopens a closed one with an open child. */
+    /**
+     * Closes an epic whose children are all finished, or holds it in review
+     * while its own pull request is open. An abandoned pull request queues its Backlog move.
+     * Reopens a closed or held epic with an open child.
+     */
     private function reconcile(Card $epic, int $childNumber): void
     {
         $columns = $this->boardColumns->findForProjectFresh($epic->project);
@@ -80,11 +97,28 @@ final readonly class ReconcileEpicOnCardChanged
             return;
         }
 
+        $stage = $this->stages->forPassedChecks();
+        $review = array_find($columns, static fn (BoardColumn $column): bool => $column->slug === $stage['to'] && !$column->terminal);
+        $inReview = null !== $review && $epic->column === $review;
         $open = [] !== $this->cards->openChildNumbers($epic);
+        $state = $open || $epic->column->terminal ? null : $this->pullRequestState($epic);
+        if (PullRequestState::Closed === $state) {
+            // The move queued at the close skips an epic with an open child, so queue it again.
+            // A token still set is a move that will act on its own, and a new one would delay it.
+            if (!$epic->column->backlog
+                && $this->automation->settingsOf($epic->project)->enabled
+                && null === $this->cardAutomations->findOrCreateForUpdate($epic)->abandonedMoveToken) {
+                $this->abandonedMoves->queue($epic);
+            }
+
+            return;
+        }
+
         $target = match (true) {
-            !$open && !$epic->column->terminal => array_find($columns, static fn (BoardColumn $column): bool => $column->terminal),
-            $open && $epic->column->terminal => self::reopenColumn($columns),
-            default => null,
+            $open => $epic->column->terminal || $inReview ? self::reopenColumn($columns) : null,
+            $epic->column->terminal => null,
+            PullRequestState::Open === $state => $inReview ? null : ($review ?? self::firstTerminal($columns)),
+            default => self::firstTerminal($columns),
         };
 
         if (null !== $target) {
@@ -108,6 +142,44 @@ final readonly class ReconcileEpicOnCardChanged
         foreach ($freed as $card) {
             $this->move($card, $target, CardEventCause::unblocked($blocker->number));
         }
+    }
+
+    /**
+     * Open when a link is open, Closed when every link closed and none merged,
+     * and null when the epic links nothing or one link merged. A link that
+     * Forge never read, or that no parser could read, counts as open.
+     */
+    private function pullRequestState(Card $epic): ?PullRequestState
+    {
+        $keys = [];
+        foreach ($this->cardPullRequests->findCurrentKeys($epic) as $link) {
+            if (null === $link['repository'] || null === $link['number']) {
+                return PullRequestState::Open;
+            }
+            $keys[] = ['forge' => $link['forge'], 'repository' => $link['repository'], 'number' => $link['number']];
+        }
+        if ([] === $keys) {
+            return null;
+        }
+
+        $projectId = $epic->project->id ?? throw new \LogicException('A stored card has a project id.');
+        $states = $this->forgePullRequests->findCurrentStatesByKeys($projectId, $keys);
+        $merged = false;
+        foreach ($keys as $key) {
+            $state = $states[ForgePullRequestRepository::stateKey($key['forge'], $key['repository'], $key['number'])] ?? null;
+            if (null === $state || PullRequestState::Open === $state) {
+                return PullRequestState::Open;
+            }
+            $merged = $merged || PullRequestState::Merged === $state;
+        }
+
+        return $merged ? null : PullRequestState::Closed;
+    }
+
+    /** @param list<BoardColumn> $columns */
+    private static function firstTerminal(array $columns): ?BoardColumn
+    {
+        return array_find($columns, static fn (BoardColumn $column): bool => $column->terminal);
     }
 
     private function move(Card $card, BoardColumn $column, CardEventCause $cause): void
