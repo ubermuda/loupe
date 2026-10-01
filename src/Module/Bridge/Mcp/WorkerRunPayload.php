@@ -13,8 +13,8 @@ use App\Module\Bridge\ValueObject\BridgeCommandState;
  * Shapes worker runs and bridge commands for an MCP tool result.
  *
  * @phpstan-type PendingCommand array{commandId: string, kind: string, state: string}
- * @phpstan-type WorkerRunRow array{runId: string, runKey: ?string, cardId: string, cardNumber: int, rule: string, state: string, sessionId: ?string, resumeIndex: ?int, resumeCap: ?int, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string}
- * @phpstan-type WorkerRunDetail array{runId: string, runKey: ?string, cardId: string, cardNumber: int, rule: string, state: string, sessionId: ?string, resumeIndex: ?int, resumeCap: ?int, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string, continuesRunId: ?string, receivedAt: string, triggerEventType: ?string, triggerForge: ?string, triggerRepository: ?string, triggerPullRequestNumber: ?int, triggerHeadSha: ?string, triggerReason: ?string, failureReason: ?string, output: string, stateChanges: list<array{state: string, at: string}>}
+ * @phpstan-type WorkerRunRow array{runId: string, runKey: ?string, kind: string, cardId: string, cardNumber: int, rule: string, state: string, sessionId: ?string, resumeIndex: ?int, resumeCap: ?int, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string}
+ * @phpstan-type WorkerRunDetail array{runId: string, runKey: ?string, kind: string, cardId: string, cardNumber: int, rule: string, state: string, sessionId: ?string, resumeIndex: ?int, resumeCap: ?int, startedAt: ?string, endedAt: ?string, exitCode: ?int, bridgeId: ?string, pendingCommand: PendingCommand|null, reason: ?string, continuesRunId: ?string, receivedAt: string, triggerEventType: ?string, triggerForge: ?string, triggerRepository: ?string, triggerPullRequestNumber: ?int, triggerHeadSha: ?string, triggerReason: ?string, failureReason: ?string, output: string, stateChanges: list<array{state: string, at: string}>}
  * @phpstan-type BridgeCommandRow array{commandId: string, runId: string, kind: string, state: string, reason: ?string, requestedAt: string, expiresAt: string, settledAt: ?string}
  */
 final readonly class WorkerRunPayload
@@ -27,6 +27,7 @@ final readonly class WorkerRunPayload
         return [
             'runId' => (string) $run->id,
             'runKey' => $run->runKey?->toRfc4122(),
+            'kind' => $run->kind->value,
             'cardId' => (string) $run->cardId,
             'cardNumber' => $run->cardNumber,
             'rule' => $run->ruleName,

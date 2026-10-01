@@ -764,6 +764,33 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$workerId.'"] [data-worker-run-command]'));
     }
 
+    public function test_a_failed_command_run_offers_to_run_again(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'command-rerun-owner@example.com');
+        $project = $this->project($em, $owner, 'Command Rerun');
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: Bridge::RERUN_SINCE_VERSION);
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $em->flush();
+        $run = $this->seedRun($em, $project, exitCode: -1, ruleName: 'sync', bridgeId: $bridge->id, runKey: Uuid::v4(), kind: WorkerRunKind::Command);
+
+        $projectId = (string) $project->id;
+        $runId = (string) $run->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $form = $crawler->filter('[data-worker-run-id="'.$runId.'"] form[data-worker-run-control="rerun"]');
+        self::assertCount(1, $form);
+        self::assertSame('/projects/'.$projectId.'/worker-runs/'.$runId.'/rerun', $form->attr('action'));
+        self::assertSame('Run again', trim($form->filter('button')->text()));
+        self::assertNull($form->filter('button')->attr('disabled'));
+    }
+
     public function test_an_interactive_run_a_bridge_launched_shows_the_bridge_and_the_kind(): void
     {
         $client = static::createClient();

@@ -95,6 +95,7 @@ final class AcknowledgeBridgeCommandHandlerTest extends KernelTestCase
         yield 'a resume the bridge took' => [BridgeCommandKind::ResumeRun, BridgeCommandState::Done, false];
         yield 'a resume the bridge refused' => [BridgeCommandKind::ResumeRun, BridgeCommandState::Refused, true];
         yield 'a stop the bridge took' => [BridgeCommandKind::StopRun, BridgeCommandState::Done, true];
+        yield 'a rerun the bridge took' => [BridgeCommandKind::RerunCommand, BridgeCommandState::Done, true];
     }
 
     #[DataProvider('holdCases')]
