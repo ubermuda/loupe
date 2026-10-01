@@ -43,7 +43,7 @@ final readonly class OpenCardRuns
 
     private static function view(WorkerRun $run): OpenCardRun
     {
-        $since = \in_array($run->state, [WorkerRunState::Running, WorkerRunState::Stopping], true) ? $run->startedAt ?? $run->receivedAt : $run->receivedAt;
+        $since = \in_array($run->state, [WorkerRunState::Preparing, WorkerRunState::Running, WorkerRunState::Stopping], true) ? $run->startedAt ?? $run->receivedAt : $run->receivedAt;
 
         return new OpenCardRun($run->cardId, $run->state, $run->kind, $run->ruleName, $since);
     }
