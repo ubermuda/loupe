@@ -12,6 +12,7 @@ final readonly class AgentConnection
         public Bridge $bridge,
         public BridgeStatus $status,
         public ?AgentUpdateChip $updateChip,
+        public AgentHealthChip $healthChip,
     ) {
     }
 }

@@ -7,12 +7,19 @@ namespace App\Module\Bridge\Command;
 use App\Exception\DomainErrors;
 use App\Module\Bridge\BridgeEventType;
 use App\Module\Bridge\Entity\BridgeCommand;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\BridgeCommandPayload;
 use App\Module\Bridge\Service\BridgeCommandTtl;
+use App\Module\Bridge\Service\CardColumnLookupInterface;
+use App\Module\Bridge\Service\CardHolds;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
+use App\Module\Bridge\ValueObject\BridgeCommandKind;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Outbox\OutboxWriter;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -21,7 +28,7 @@ use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Stores a person's request to the bridge that holds a worker run, and writes
- * the outbox event that carries it to the bridge.
+ * the outbox event that carries it to the bridge. A stop holds the card.
  */
 final readonly class RequestBridgeCommandHandler
 {
@@ -29,12 +36,21 @@ final readonly class RequestBridgeCommandHandler
     public const string UNKNOWN_BRIDGE = 'bridge.command.error.unknown_bridge';
     public const string PENDING = 'bridge.command.error.pending';
     public const string REASON_TOO_LONG = 'bridge.command.error.reason_too_long';
+    public const string NOT_CONTROLLABLE = 'bridge.command.error.not_controllable';
+    public const string NO_SESSION = 'bridge.command.error.no_session';
+    public const string NOT_RESUMABLE = 'bridge.command.error.not_resumable';
+    public const string CARD_LEFT = 'bridge.command.error.card_left';
+    public const string NOT_STOPPABLE = 'bridge.command.error.not_stoppable';
+    public const string BRIDGE_OUTDATED = 'bridge.command.error.bridge_outdated';
 
     public function __construct(
         private BridgeRepository $bridges,
         private BridgeCommandRepository $bridgeCommands,
         private BridgeCommandTtl $ttl,
         private OutboxWriter $outbox,
+        private CardColumnLookupInterface $cardColumns,
+        private CardHolds $cardHolds,
+        private WorkerRunChangedPublisher $runsChanged,
         private EntityManagerInterface $em,
         private ClockInterface $clock,
         private Auditor $auditor,
@@ -48,6 +64,10 @@ final readonly class RequestBridgeCommandHandler
         if (null === $bridgeId) {
             throw new DomainErrors(['run' => self::NO_BRIDGE]);
         }
+        $refusal = $this->refusalOf($run, $command->kind);
+        if (null !== $refusal) {
+            throw new DomainErrors(['run' => $refusal]);
+        }
         if (null !== $command->reason && mb_strlen($command->reason) > BridgeCommand::MAX_REASON_LENGTH) {
             throw new DomainErrors(['reason' => self::REASON_TOO_LONG]);
         }
@@ -60,9 +80,17 @@ final readonly class RequestBridgeCommandHandler
                 // The same lock the heartbeat takes, so two requests for one run
                 // cannot both miss the pending read.
                 $this->bridges->lockForWrite($ownerId, $bridgeId);
+                if (BridgeCommandKind::StopRun === $command->kind) {
+                    // The hold takes this lock later. Taking it before the insert, whose foreign key shares the row, keeps the order of a resume ack.
+                    $this->em->lock($run->project, LockMode::PESSIMISTIC_WRITE);
+                }
 
-                if (null === $this->bridges->findOneByOwnerAndId($owner, $bridgeId)) {
+                $bridge = $this->bridges->findOneByOwnerAndId($owner, $bridgeId);
+                if (null === $bridge) {
                     return self::UNKNOWN_BRIDGE;
+                }
+                if (!$bridge->takesCommands()) {
+                    return self::BRIDGE_OUTDATED;
                 }
                 if ($this->bridgeCommands->hasPendingForRun($run)) {
                     return self::PENDING;
@@ -85,6 +113,10 @@ final readonly class RequestBridgeCommandHandler
                 $this->em->flush();
                 $this->outbox->write($run->project, BridgeEventType::COMMAND, BridgeCommandPayload::of($bridgeCommand));
                 $this->em->flush();
+
+                if (BridgeCommandKind::StopRun === $command->kind) {
+                    $this->cardHolds->hold($run->project, $run->cardId, $run, $command->requestedBy);
+                }
 
                 return $bridgeCommand;
             });
@@ -113,7 +145,25 @@ final readonly class RequestBridgeCommandHandler
             ],
             new AuditSubject('bridge_command', (string) $result->id),
         );
+        $this->runsChanged->runsChanged($run->project);
 
         return $result;
+    }
+
+    private function refusalOf(WorkerRun $run, BridgeCommandKind $kind): ?string
+    {
+        if (WorkerRunKind::Interactive === $run->kind) {
+            return self::NOT_CONTROLLABLE;
+        }
+
+        return match ($kind) {
+            BridgeCommandKind::StopRun => $run->state->isStoppable() ? null : self::NOT_STOPPABLE,
+            BridgeCommandKind::ResumeRun => match (true) {
+                null === $run->sessionId => self::NO_SESSION,
+                !$run->state->isResumable() => self::NOT_RESUMABLE,
+                null !== $run->cardColumn && $this->cardColumns->columnOf($run->project, $run->cardId) !== $run->cardColumn => self::CARD_LEFT,
+                default => null,
+            },
+        };
     }
 }

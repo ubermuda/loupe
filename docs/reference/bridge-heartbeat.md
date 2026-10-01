@@ -173,7 +173,8 @@ run of that bridge that the list does not name. See
 ## Pause and commands
 
 The server can ask a bridge to take no new work, and to stop or resume one
-worker run. No page sends these requests yet.
+worker run. The project owner sends these requests from the web UI, as
+[Controls in the web UI](worker-runs.md#controls-in-the-web-ui) says.
 
 A pause is a state of the bridge row. `paused` in the heartbeat reply says
 whether the server asks the bridge to pause. `paused` in the heartbeat body says
