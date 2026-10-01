@@ -641,6 +641,14 @@ while the automation is on:
   terminal column. A link that Loupe never read, such as one on another forge,
   counts as open and holds the card back. An epic with an open child stays
   where it is.
+- When each pull request of the card is closed and none merged, the card
+  moves to the Backlog about ten minutes after the last close. Loupe checks the
+  links again at that time. An open, merged or unread pull request cancels the
+  move, so a reopen or a new open link keeps the card. A closed pull request
+  linked in that time does not cancel it. A card that a person moves
+  to a terminal column in that time stays there. An epic with an open child
+  stays where it is. The move is a system move, so it starts a bridge rule that
+  watches the Backlog.
 
 The system makes these moves, and a card in a terminal column never moves. For
 any other pull request, move the card yourself, or have your agent move it with
@@ -709,6 +717,11 @@ list in `columns`, beside its cards. The tools read columns and never write one.
 
 `card_run_open` and `card_run_close` record an interactive session on a card.
 See [Interactive sessions](worker-runs.md#interactive-sessions).
+
+A move that an agent makes through the MCP names its worker run in the card
+history. This works when the `loupe` CLI sends the session of the agent in the
+`X-Loupe-Session` header. A `card_run_open` call that moves the card names the
+run it opens.
 
 `status` takes a column slug on `card_create`, `card_update` and `card_list`. An
 unknown slug is refused. The error lists the slugs the board has, such as

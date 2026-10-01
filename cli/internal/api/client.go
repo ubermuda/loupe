@@ -11,6 +11,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -49,6 +50,9 @@ type Events struct {
 	// CliRange is the range of CLI versions the server supports. An older
 	// server sends none.
 	CliRange string `json:"cliRange"`
+	// Head is the highest outbox sequence of the caller's projects, and 0 when
+	// they hold no event. An older server sends none, which reads as nil.
+	Head *int64 `json:"head"`
 }
 
 // HeartbeatIntervalFlag is the flag that holds the seconds between two
@@ -100,12 +104,17 @@ const maxBody = 1 << 20
 
 // decodeBody decodes a success body of at most maxBody bytes into v.
 func decodeBody(body io.Reader, v any) error {
-	data, err := io.ReadAll(io.LimitReader(body, maxBody+1))
+	return decodeBodyUpTo(body, v, maxBody)
+}
+
+// decodeBodyUpTo decodes a success body of at most limit bytes into v.
+func decodeBodyUpTo(body io.Reader, v any, limit int) error {
+	data, err := io.ReadAll(io.LimitReader(body, int64(limit)+1))
 	if err != nil {
 		return err
 	}
-	if len(data) > maxBody {
-		return fmt.Errorf("the response body is larger than %d bytes", maxBody)
+	if len(data) > limit {
+		return fmt.Errorf("the response body is larger than %d bytes", limit)
 	}
 
 	return json.Unmarshal(data, v)
@@ -221,6 +230,60 @@ func (c *Client) Events(ctx context.Context) (Events, error) {
 	}
 	if out.Topic == "" {
 		return out, errors.New("GET /api/events returned no topic: the server is older than this bridge")
+	}
+
+	return out, nil
+}
+
+// ReplayEvent is one outbox event of GET /api/events/replay. ID holds the
+// outbox sequence as text, the same text the hub sends as the SSE id, and Data
+// the payload the hub sends.
+type ReplayEvent struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+	Data string `json:"data"`
+}
+
+// Replay is one page of GET /api/events/replay.
+type Replay struct {
+	Events  []ReplayEvent `json:"events"`
+	HasMore bool          `json:"hasMore"`
+}
+
+// maxReplayBody caps a replay page. A page holds up to 200 events above the
+// cursor and up to 200 repeated ones, so it can pass maxBody.
+const maxReplayBody = 16 << 20
+
+// Replay reads the page of outbox events that follows the sequence after.
+func (c *Client) Replay(ctx context.Context, after int64) (Replay, error) {
+	var out Replay
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/events/replay?after="+strconv.FormatInt(after, 10), nil)
+	if err != nil {
+		return out, err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.do(req)
+	if err != nil {
+		return out, fmt.Errorf("request replay: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return out, fmt.Errorf("credentials rejected (HTTP %d): the API token must have the agent scope", resp.StatusCode)
+	case http.StatusNotFound:
+		return out, errors.New("the server has no GET /api/events/replay endpoint: push is switched off on this Loupe instance, or the server is older than this bridge")
+	case http.StatusTooManyRequests:
+		return out, errors.New("the replay request hit its rate limit (HTTP 429)")
+	default:
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return out, fmt.Errorf("replay request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	if err := decodeBodyUpTo(resp.Body, &out, maxReplayBody); err != nil {
+		return out, fmt.Errorf("decode replay: %w", err)
 	}
 
 	return out, nil
@@ -585,6 +648,9 @@ type WorkerPoolReport struct {
 type HeartbeatUpdate struct {
 	State   string `json:"state"`
 	Version string `json:"version,omitempty"`
+	// Install is homebrew for a binary that Homebrew installed, and empty
+	// otherwise.
+	Install string `json:"install,omitempty"`
 }
 
 // HookReport is how the last run of one hook package on one event went.

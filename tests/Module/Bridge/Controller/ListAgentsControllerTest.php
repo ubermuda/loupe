@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge\Controller;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -89,6 +90,7 @@ final class ListAgentsControllerTest extends WebTestCase
     #[TestWith(['1.2.0', 'rolled-back', '1.3.0', 'Rolled back from 1.3.0'])]
     #[TestWith(['1.2.0', 'blocked', '1.3.0', 'Update blocked'])]
     #[TestWith(['1.2.0', 'off', null, null])]
+    #[TestWith(['1.2.0', 'off', '1.3.0', 'Update available: 1.3.0'])]
     #[TestWith(['1.2.0', 'dev', null, null])]
     #[TestWith(['1.2.0', null, null, null])]
     #[TestWith(['2.0.0', 'current', null, 'Needs ^1.0'])]
@@ -111,6 +113,75 @@ final class ListAgentsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $chips = $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"] [data-agent-update]')->each(static fn ($chip): string => trim($chip->text()));
         self::assertSame(null === $expected ? [] : [$expected], $chips);
+    }
+
+    #[TestWith([null, 'curl -fsSL http://localhost/install.sh | sh'])]
+    #[TestWith([CliInstallMethod::Homebrew, 'brew upgrade loupe'])]
+    public function test_an_available_update_shows_the_command_that_installs_it(?CliInstallMethod $method, string $expected): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'agents-available@example.com');
+        $project = $this->project($em, $owner, 'Available');
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: '1.2.0');
+        $bridge->updateState = CliUpdateState::Off;
+        $bridge->updateVersion = '1.3.0';
+        $bridge->installMethod = $method;
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        $commands = $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"] [data-agent-update-command]')->each(static fn ($node): string => trim($node->text()));
+        self::assertSame([$expected], $commands);
+    }
+
+    public function test_the_update_command_starts_collapsed_behind_the_chip(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'agents-collapsed@example.com');
+        $project = $this->project($em, $owner, 'Collapsed');
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: '1.2.0');
+        $bridge->updateState = CliUpdateState::Off;
+        $bridge->updateVersion = '1.3.0';
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        $card = $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"]');
+        $toggle = $card->filter('button[data-agent-update][data-action="disclosure#toggle"]');
+        self::assertCount(1, $toggle);
+        $panel = $card->filter('[id="'.$toggle->attr('aria-controls').'"]');
+        self::assertCount(1, $panel->filter('[data-agent-update-command]'));
+        self::assertStringNotContainsString(' open', ' '.$panel->attr('class'));
+        self::assertSame('content', $panel->attr('data-disclosure-target'));
+    }
+
+    public function test_no_command_shows_without_an_available_update(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'agents-no-command@example.com');
+        $project = $this->project($em, $owner, 'No command');
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: '1.2.0');
+        $bridge->updateState = CliUpdateState::Current;
+        $bridge->installMethod = CliInstallMethod::Homebrew;
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        $card = $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"]');
+        self::assertCount(1, $card->filter('[data-agent-update]'));
+        self::assertCount(0, $card->filter('[data-agent-update-command]'));
     }
 
     public function test_a_semver_version_is_shown_whole(): void

@@ -2367,7 +2367,11 @@
             </trans-unit>
             <trans-unit id="project.connect.loupe_cli.sub">
                 <source>project.connect.loupe_cli.sub</source>
-                <target>Sign in once, then write the config into the repository. Each repository names its own project in .loupe.yaml, so one login serves them all.</target>
+                <target>Install the CLI, sign in once, then write the config into the repository. Each repository names its own project in .loupe.yaml, so one login serves them all.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.loupe_cli.homebrew">
+                <source>project.connect.loupe_cli.homebrew</source>
+                <target>or, with Homebrew:</target>
             </trans-unit>
             <trans-unit id="project.connect.loupe_cli.label">
                 <source>project.connect.loupe_cli.label</source>
@@ -6472,6 +6476,7 @@
             <trans-unit id="bridge.agents.update.rolled_back"><source>bridge.agents.update.rolled_back</source><target>Rolled back from %version%</target></trans-unit>
             <trans-unit id="bridge.agents.update.blocked"><source>bridge.agents.update.blocked</source><target>Update blocked</target></trans-unit>
             <trans-unit id="bridge.agents.update.incompatible"><source>bridge.agents.update.incompatible</source><target>Needs %range%</target></trans-unit>
+            <trans-unit id="bridge.agents.update.available"><source>bridge.agents.update.available</source><target>Update available: %version%</target></trans-unit>
             <trans-unit id="bridge.agents.empty.action"><source>bridge.agents.empty.action</source><target>Connect a bridge</target></trans-unit>
             <trans-unit id="bridge.agents.status.paused"><source>bridge.agents.status.paused</source><target>Paused</target></trans-unit>
             <trans-unit id="bridge.agents.status.pausing"><source>bridge.agents.status.pausing</source><target>Pausing</target></trans-unit>

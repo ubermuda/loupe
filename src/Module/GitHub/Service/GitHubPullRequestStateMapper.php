@@ -39,6 +39,7 @@ final readonly class GitHubPullRequestStateMapper
         $draft = true === ($pullRequest['isDraft'] ?? null);
         $mergeable = $pullRequest['mergeable'] ?? null;
         $mergeStateStatus = $pullRequest['mergeStateStatus'] ?? null;
+        [$approvedAt, $approvalSha, $approvalId] = $this->approval($pullRequest);
         [$checks, $failedChecks] = $this->checks($pullRequest, $rules, 'BLOCKED' === $mergeStateStatus);
         $mergeability = match (true) {
             'CONFLICTING' === $mergeable, 'DIRTY' === $mergeStateStatus => PullRequestMergeability::Conflicting,
@@ -63,7 +64,65 @@ final readonly class GitHubPullRequestStateMapper
             changesRequestedSha: $this->changesRequestedSha($pullRequest, $headSha),
             openedAt: $this->time($pullRequest['createdAt'] ?? null),
             mergedAt: $this->time($pullRequest['mergedAt'] ?? null),
+            approvedAt: $approvedAt,
+            approvalSha: $approvalSha,
+            defaultBranch: $this->defaultBranch($pullRequest),
+            headParents: $this->headParents($pullRequest),
+            approvalId: $approvalId,
         );
+    }
+
+    /**
+     * The time, commit and review id of the oldest approval that stands.
+     *
+     * @param array<mixed> $pullRequest
+     *
+     * @return array{?\DateTimeImmutable, ?string, ?string}
+     */
+    private function approval(array $pullRequest): array
+    {
+        $nodes = $pullRequest['latestOpinionatedReviews']['nodes'] ?? [];
+        $oldest = [null, null, null];
+        foreach (\is_array($nodes) ? $nodes : [] as $node) {
+            if (!\is_array($node) || 'APPROVED' !== ($node['state'] ?? null)) {
+                continue;
+            }
+            $time = $this->time($node['submittedAt'] ?? null);
+            $oid = $node['commit']['oid'] ?? null;
+            $id = $node['id'] ?? null;
+            if (null !== $time && \is_string($oid) && '' !== $oid && \is_string($id) && '' !== $id && (null === $oldest[0] || $time < $oldest[0])) {
+                $oldest = [$time, $oid, $id];
+            }
+        }
+
+        return $oldest;
+    }
+
+    /** @param array<mixed> $pullRequest */
+    private function defaultBranch(array $pullRequest): ?string
+    {
+        $name = $pullRequest['baseRepository']['defaultBranchRef']['name'] ?? null;
+
+        return \is_string($name) && '' !== $name ? $name : null;
+    }
+
+    /**
+     * @param array<mixed> $pullRequest
+     *
+     * @return list<string>
+     */
+    private function headParents(array $pullRequest): array
+    {
+        $nodes = $pullRequest['commits']['nodes'][0]['commit']['parents']['nodes'] ?? [];
+        $oids = [];
+        foreach (\is_array($nodes) ? $nodes : [] as $node) {
+            $oid = \is_array($node) ? ($node['oid'] ?? null) : null;
+            if (\is_string($oid) && '' !== $oid) {
+                $oids[] = $oid;
+            }
+        }
+
+        return $oids;
     }
 
     /** A malformed time is null, because the times feed reports only and must not make the read unreadable. */
