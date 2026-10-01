@@ -215,7 +215,8 @@ the first eight characters of its bridge id. Remove each rule from the
 
 A notice does not block an agent and takes no answer. It holds no card. Loupe
 closes it as **done** when a bridge report or a change of the setting ends the
-conflict. Loupe reads the rules only when a bridge reports them, so a rule that
+conflict. Loupe reads the rules when a bridge reports them, and again in a
+check every 15 minutes. That check also opens or closes the notice. A rule that
 you remove stays in the notice until that bridge sends its next report.
 
 ### Pull request waits

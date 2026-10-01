@@ -53,6 +53,22 @@ class InboxItemRepository extends ServiceEntityRepository
         return $this->findOneBy(['project' => $project, 'kind' => InboxItemKind::Notice, 'state' => InboxItemState::Open], ['number' => 'ASC']);
     }
 
+    /** @return list<string> */
+    public function findProjectIdsWithOpenNotice(): array
+    {
+        /** @var list<Uuid|string> $ids */
+        $ids = $this->createQueryBuilder('i')
+            ->select('DISTINCT IDENTITY(i.project)')
+            ->andWhere('i.kind = :notice')
+            ->andWhere('i.state = :open')
+            ->setParameter('notice', InboxItemKind::Notice)
+            ->setParameter('open', InboxItemState::Open)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_map(static fn (Uuid|string $id): string => (string) $id, $ids);
+    }
+
     /**
      * The item's state as the database holds it, with the row locked for update.
      * The caller holds a transaction. A scalar read, because a refresh would
