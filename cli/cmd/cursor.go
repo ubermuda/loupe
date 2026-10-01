@@ -105,6 +105,18 @@ func (r *router) loadCursor(head *int64) {
 	}
 }
 
+// restoreState loads the cursor file, adopts what a former image handed over,
+// and seeds the resume point. The file comes first: an open gap then stops
+// adopt from trimming the ids, and the handover's newer ids land after the
+// file's. The handover's resume point wins over the cursor.
+func (r *router) restoreState(head *int64) {
+	r.loadCursor(head)
+	if r.update != nil {
+		r.update.adoptInto(r)
+	}
+	r.seedResumePoint()
+}
+
 // seedResumePoint starts the stream at the cursor when no handover gave a
 // resume point, so the hub sends what it holds after the cursor too.
 func (r *router) seedResumePoint() {

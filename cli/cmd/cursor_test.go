@@ -373,6 +373,50 @@ func TestAGapKeepsEveryIDItHandled(t *testing.T) {
 	}
 }
 
+// ids gives the ids from first to last as text, in order.
+func ids(first, last int) []string {
+	var out []string
+	for id := first; id <= last; id++ {
+		out = append(out, strconv.Itoa(id))
+	}
+
+	return out
+}
+
+// A handover in a gap brings more ids than recentLimit, and the cursor file
+// holds the same ids or older ones. The router loads the file before it adopts
+// the handover, so it keeps every id in handling order, and a close trims the
+// oldest.
+func TestAHandoverInAGapKeepsTheIDsInOrder(t *testing.T) {
+	last := recentLimit + 88
+	for name, saved := range map[string][]string{
+		"same ids":  ids(1, last),
+		"older ids": ids(1, last-30),
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t)
+			h.router.cursorFile = filepath.Join(t.TempDir(), "cursor.json")
+			if err := writeCursor(h.router.cursorFile, cursorState{Cursor: 0, RecentIDs: saved, Gap: true}); err != nil {
+				t.Fatal(err)
+			}
+			st := h.router.freeze()
+			h.router.resume()
+			st.RecentIDs, st.LastEventID = ids(1, last), strconv.Itoa(last)
+			h.router.update = &bridgeUpdate{resumed: &st}
+
+			h.router.restoreState(nil)
+
+			if !slices.Equal(h.router.recent, ids(1, last)) || h.router.lastEventID != strconv.Itoa(last) {
+				t.Fatalf("recent = %d ids from %v, last event id = %q", len(h.router.recent), h.router.recent[:1], h.router.lastEventID)
+			}
+			h.router.closeGap(int64(last))
+			if st := readCursorFile(t, h.router.cursorFile); !slices.Equal(st.RecentIDs, ids(last-recentLimit+1, last)) {
+				t.Fatalf("recent ids after the close = %d from %v", len(st.RecentIDs), st.RecentIDs[:1])
+			}
+		})
+	}
+}
+
 // A frozen router holds the events of a catch-up and runs none of them, so the
 // catch-up keeps the gap open.
 func TestAFrozenCatchUpKeepsTheGap(t *testing.T) {

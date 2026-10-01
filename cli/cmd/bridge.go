@@ -411,12 +411,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		r.replay = apiClient(cfg).Replay
 	}
 	r.applyFlags(events)
-	// A handover's resume point and recent ids win over the cursor file's.
-	r.loadCursor(events.Head)
-	if r.update != nil {
-		r.update.adoptInto(r)
-	}
-	r.seedResumePoint()
+	r.restoreState(events.Head)
 	var updates *updater
 	var watched <-chan struct{}
 	if r.bridgeID != "" {
