@@ -114,6 +114,7 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
 
         self::assertSame('in-progress', $this->storedColumnOf($card));
         self::assertSame([], $this->history($card));
+        self::assertNull($this->storedToken($card));
     }
 
     public function test_a_pull_request_reopened_since_the_close_keeps_the_card(): void
@@ -161,6 +162,7 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
 
         self::assertSame('done', $this->storedColumnOf($card));
         self::assertSame([], $this->history($card));
+        self::assertNull($this->storedToken($card));
     }
 
     public function test_disabled_automation_moves_nothing(): void
@@ -174,6 +176,7 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
         $this->handle($card);
 
         self::assertSame('in-progress', $this->storedColumnOf($card));
+        self::assertNull($this->storedToken($card));
     }
 
     public function test_the_board_off_moves_nothing(): void
@@ -198,6 +201,19 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
         $this->handle($epic);
 
         self::assertSame('in-progress', $this->storedColumnOf($epic));
+        self::assertNull($this->storedToken($epic));
+    }
+
+    public function test_an_older_queued_move_leaves_the_newer_token(): void
+    {
+        $card = $this->linkedCard('in-progress', PullRequestState::Closed);
+        $this->moveBehindTheEntity($card, 'done');
+        $older = $this->queueToken($card);
+        $newer = $this->queueToken($card);
+
+        $this->handleWith($card, $older);
+
+        self::assertSame($newer->toRfc4122(), $this->storedToken($card));
     }
 
     public function test_a_deleted_card_does_nothing(): void
@@ -215,6 +231,16 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
             "SELECT COUNT(*) FROM outbox_events WHERE project_id = :project AND type = 'board.card_moved'",
             ['project' => (string) $this->project->id],
         ));
+    }
+
+    private function storedToken(Card $card): ?string
+    {
+        $token = $this->em->getConnection()->fetchOne(
+            'SELECT abandoned_move_token FROM board_card_automations WHERE card_id = :card',
+            ['card' => (string) $card->id],
+        );
+
+        return \is_string($token) ? $token : null;
     }
 
     private function handle(Card $card): void

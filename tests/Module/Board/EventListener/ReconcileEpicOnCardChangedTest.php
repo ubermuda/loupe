@@ -491,6 +491,38 @@ final class ReconcileEpicOnCardChangedTest extends KernelTestCase
         self::assertSame([(string) $epic->id], $this->queuedAbandonedCards());
     }
 
+    public function test_a_child_that_finishes_and_leaves_in_one_update_queues_for_its_old_epic(): void
+    {
+        $project = $this->reviewProject('epic-abandoned-finish-and-leave');
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Closed);
+        $child = $this->card($project, parent: $epic);
+        $this->card($project, 'done', parent: $epic);
+
+        $this->update($child, 'done', parentCardId: '');
+
+        self::assertSame([(string) $epic->id], $this->queuedAbandonedCards());
+    }
+
+    public function test_a_consumed_move_lets_the_next_change_queue_again(): void
+    {
+        $project = $this->reviewProject('epic-abandoned-consumed');
+        $this->em->persist(new BoardColumn($this->reloadProject($project), 'Archive', 'archive', 10, terminal: true));
+        $this->em->flush();
+        $epic = $this->card($project, 'implementation', CardType::Epic);
+        $this->linkPullRequest($epic, 7, PullRequestState::Closed);
+        $child = $this->card($project, parent: $epic);
+        $this->update($child, 'done');
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_card_automations SET abandoned_move_token = NULL WHERE card_id = :card',
+            ['card' => (string) $epic->id],
+        );
+
+        $this->update($child, 'archive');
+
+        self::assertSame([(string) $epic->id, (string) $epic->id], $this->queuedAbandonedCards());
+    }
+
     public function test_a_finished_first_child_queues_the_backlog_move(): void
     {
         $project = $this->reviewProject('epic-abandoned-finished-first');

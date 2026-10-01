@@ -65,6 +65,13 @@ final readonly class ReturnAbandonedCardHandler
             // out a read that reopens a pull request, and reads the state it committed.
             $states = $this->forgePullRequests->findCurrentStatesByKeys($projectId, $keys, forUpdate: true);
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+            $automation = $this->cardAutomations->findOrCreateForUpdate($card);
+            if (!$command->token->equals($automation->abandonedMoveToken)) {
+                return;
+            }
+            // Consumed on every path, so a redelivered message cannot undo a later move by a
+            // person, and a null token tells the epic reconciler that no move is pending.
+            $automation->abandonedMoveToken = null;
             if (!$this->boardAutomation->settingsOf($project)->enabled) {
                 return;
             }
@@ -79,12 +86,6 @@ final readonly class ReturnAbandonedCardHandler
                 return;
             }
 
-            $automation = $this->cardAutomations->findOrCreateForUpdate($card);
-            if (!$command->token->equals($automation->abandonedMoveToken)) {
-                return;
-            }
-            // Consumed now, so a redelivered message cannot undo a later move by a person.
-            $automation->abandonedMoveToken = null;
             foreach ($keys as $key) {
                 $state = $states[ForgePullRequestRepository::stateKey($key['forge'], $key['repository'], $key['number'])] ?? null;
                 if (PullRequestState::Closed !== $state) {

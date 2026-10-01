@@ -12,6 +12,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Event\CardParentChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\AbandonedCardMoves;
@@ -45,6 +46,7 @@ final readonly class ReconcileEpicOnCardChanged
         private ForgePullRequestRepository $forgePullRequests,
         private AbandonedCardMoves $abandonedMoves,
         private BoardAutomation $automation,
+        private CardAutomationRepository $cardAutomations,
     ) {
     }
 
@@ -60,7 +62,7 @@ final readonly class ReconcileEpicOnCardChanged
         // The move itself does not read the parent under the lock.
         $this->cards->refreshTypeAndParent($card);
         if (null !== $card->parent) {
-            $this->reconcile($card->parent, $card->number, $card->column->terminal && !$event->move->fromColumn->terminal);
+            $this->reconcile($card->parent, $card->number);
         }
 
         if ($card->column->terminal && !$event->move->fromColumn->terminal) {
@@ -75,13 +77,10 @@ final readonly class ReconcileEpicOnCardChanged
             return;
         }
 
-        $card = $event->card;
-        if (null !== $event->oldParent) {
-            $this->reconcile($event->oldParent, $card->number, !$card->column->terminal);
-        }
-        if (null !== $event->newParent) {
-            // A finished card ends the open children of an epic only as its first child.
-            $this->reconcile($event->newParent, $card->number, $card->column->terminal && 1 === $this->cards->countChildren($event->newParent));
+        foreach ([$event->oldParent, $event->newParent] as $epic) {
+            if (null !== $epic) {
+                $this->reconcile($epic, $event->card->number);
+            }
         }
     }
 
@@ -90,7 +89,7 @@ final readonly class ReconcileEpicOnCardChanged
      * while its own pull request is open. An abandoned pull request queues its Backlog move.
      * Reopens a closed or held epic with an open child.
      */
-    private function reconcile(Card $epic, int $childNumber, bool $lastOpenChildMayHaveGone): void
+    private function reconcile(Card $epic, int $childNumber): void
     {
         $columns = $this->boardColumns->findForProjectFresh($epic->project);
         $this->cards->refreshColumn($epic);
@@ -105,8 +104,10 @@ final readonly class ReconcileEpicOnCardChanged
         $state = $open || $epic->column->terminal ? null : $this->pullRequestState($epic);
         if (PullRequestState::Closed === $state) {
             // The move queued at the close skips an epic with an open child, so queue it again.
-            // Only the change that ends the open children queues, so a later change cannot delay the move.
-            if ($lastOpenChildMayHaveGone && !$epic->column->backlog && $this->automation->settingsOf($epic->project)->enabled) {
+            // A token still set is a move that will act on its own, and a new one would delay it.
+            if (!$epic->column->backlog
+                && $this->automation->settingsOf($epic->project)->enabled
+                && null === $this->cardAutomations->findOrCreateForUpdate($epic)->abandonedMoveToken) {
                 $this->abandonedMoves->queue($epic);
             }
 
