@@ -73,8 +73,8 @@ final readonly class QueueStaleApprovalNoticeOnPullRequestStateChanged
         $key = StaleApprovalNoticeBody::key($head);
 
         // A DBAL transaction nests as a savepoint in the Forge one, so a failed insert leaves that one usable.
-        $noticeId = $this->em->getConnection()->transactional(function () use ($projectId, $pullRequestId, $key) {
-            $noticeId = $this->pullRequestNotices->insertIfMissing($projectId, $pullRequestId, $key, $this->clock->now());
+        $noticeId = $this->em->getConnection()->transactional(function () use ($projectId, $pullRequestId, $pullRequest, $key) {
+            $noticeId = $this->pullRequestNotices->insertIfMissing($projectId, $pullRequestId, $pullRequest->forge, $pullRequest->repository, $pullRequest->number, $key, $this->clock->now());
             if (null !== $noticeId) {
                 $this->bus->dispatch(new PostPullRequestNotice($noticeId));
             }

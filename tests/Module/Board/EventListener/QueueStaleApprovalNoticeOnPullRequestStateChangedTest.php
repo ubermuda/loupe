@@ -90,6 +90,26 @@ final class QueueStaleApprovalNoticeOnPullRequestStateChangedTest extends Kernel
         self::assertCount(1, $this->messages());
     }
 
+    public function test_a_pull_request_linked_again_under_a_new_row_inserts_nothing_for_the_same_head(): void
+    {
+        $this->settings(enabled: true, commentOnStaleApproval: true);
+        $this->dispatchChange();
+
+        $this->em->remove($this->pullRequest);
+        $this->em->flush();
+        $relinked = new ForgePullRequest($this->project, 'github', 'Acme/Widgets', 5);
+        $relinked->headSha = $relinked->uncoveredSha = self::HEAD;
+        $relinked->approvalId = 'review-1';
+        $relinked->approvalSha = $relinked->coveredSha = self::APPROVED;
+        $this->em->persist($relinked);
+        $this->em->flush();
+        $this->pullRequest = $relinked;
+        $this->dispatchChange();
+
+        self::assertCount(1, $this->notices());
+        self::assertCount(1, $this->messages());
+    }
+
     public function test_a_new_head_gets_its_own_notice(): void
     {
         $this->settings(enabled: true, commentOnStaleApproval: true);

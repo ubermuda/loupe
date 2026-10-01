@@ -20,16 +20,19 @@ class PullRequestNoticeRepository extends ServiceEntityRepository
     }
 
     /** Answers the id of the new pending row, or null when the pull request already has one for the key. */
-    public function insertIfMissing(Uuid $projectId, Uuid $forgePullRequestId, string $noticeKey, \DateTimeImmutable $createdAt): ?Uuid
+    public function insertIfMissing(Uuid $projectId, Uuid $forgePullRequestId, string $forge, string $repository, int $number, string $noticeKey, \DateTimeImmutable $createdAt): ?Uuid
     {
         $id = $this->getEntityManager()->getConnection()->fetchOne(
-            'INSERT INTO board_pull_request_notices (id, project_id, forge_pull_request_id, notice_key, state, attempts, created_at)
-             VALUES (:id, :project, :forgePullRequest, :noticeKey, :state, 0, :createdAt)
-             ON CONFLICT (forge_pull_request_id, notice_key) DO NOTHING RETURNING id',
+            'INSERT INTO board_pull_request_notices (id, project_id, forge_pull_request_id, forge, repository, number, notice_key, state, attempts, created_at)
+             VALUES (:id, :project, :forgePullRequest, :forge, :repository, :number, :noticeKey, :state, 0, :createdAt)
+             ON CONFLICT (project_id, forge, repository, number, notice_key) DO NOTHING RETURNING id',
             [
                 'id' => Uuid::v7()->toRfc4122(),
                 'project' => $projectId->toRfc4122(),
                 'forgePullRequest' => $forgePullRequestId->toRfc4122(),
+                'forge' => $forge,
+                'repository' => $repository,
+                'number' => $number,
                 'noticeKey' => $noticeKey,
                 'state' => PullRequestCommentState::Pending->value,
                 'createdAt' => $createdAt,

@@ -29,8 +29,6 @@ final readonly class DeliverPullRequestNoticeHandler
     /** The forge clock can run behind this one. */
     private const string LOOKUP_CLOCK_MARGIN = '-1 hour';
 
-    private const string LOOKUP_INCOMPLETE = 'lookup_incomplete';
-
     public function __construct(
         private PullRequestNoticeRepository $pullRequestNotices,
         private ForgePullRequestRepository $forgePullRequests,
@@ -69,26 +67,17 @@ final readonly class DeliverPullRequestNoticeHandler
             return;
         }
 
-        // A lost flush, or a pull request unlinked and linked again under a new row, can leave the comment already posted.
+        // An earlier try may have posted and then lost its flush, so a retry first looks for its marker.
         // The count is stored before the forge call, so a try that dies after the post still counts.
-        $firstTry = 0 === $notice->attempts;
+        $retry = $notice->attempts > 0;
         ++$notice->attempts;
         $this->em->flush();
-        $since = min($pullRequest->approvedAt ?? $notice->createdAt, $notice->createdAt);
         try {
-            try {
-                $found = $commenter->hasComment(
-                    $pullRequest,
-                    StaleApprovalNoticeBody::marker($notice->noticeKey),
-                    $since->modify(self::LOOKUP_CLOCK_MARGIN),
-                );
-            } catch (PullRequestCommentFailed $e) {
-                // A busy pull request outgrows the search. Only a retry risks its own duplicate, so a first try still posts.
-                if (!$firstTry || self::LOOKUP_INCOMPLETE !== $e->cause) {
-                    throw $e;
-                }
-                $found = false;
-            }
+            $found = $retry && $commenter->hasComment(
+                $pullRequest,
+                StaleApprovalNoticeBody::marker($notice->noticeKey),
+                $notice->createdAt->modify(self::LOOKUP_CLOCK_MARGIN),
+            );
             // After the lookup, so a retry of a notice that did post is not marked outdated.
             if (!$found && !StaleApprovalNoticeBody::stillHolds($notice, $pullRequest)) {
                 $this->fail($notice, 'outdated');

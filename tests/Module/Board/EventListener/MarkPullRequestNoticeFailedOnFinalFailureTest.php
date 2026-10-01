@@ -63,7 +63,7 @@ final class MarkPullRequestNoticeFailedOnFinalFailureTest extends KernelTestCase
 
     private function pending(?string $cause): PullRequestNotice
     {
-        $notice = new PullRequestNotice($this->project, Uuid::v7(), 'stale-approval:abc1234', $this->clock->now());
+        $notice = new PullRequestNotice($this->project, Uuid::v7(), 'github', 'acme/widgets', 5, 'stale-approval:abc1234', $this->clock->now());
         $notice->cause = $cause;
         $this->em->persist($notice);
         $this->em->flush();

@@ -155,9 +155,9 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
         $em->persist($owner);
         $doomed = $this->seedBoard($em, $owner, 'doomed');
         $spared = $this->seedBoard($em, $owner, 'spared');
-        foreach ([$doomed, $doomed, $spared] as $project) {
+        foreach ([[$doomed, 5], [$doomed, 6], [$spared, 5]] as [$project, $number]) {
             $em->persist(new PullRequestComment($project, Uuid::v7(), Uuid::v7(), 'github', 'acme/widgets', 5, null, null));
-            $em->persist(new PullRequestNotice($project, Uuid::v7(), 'stale-approval:abc1234'));
+            $em->persist(new PullRequestNotice($project, Uuid::v7(), 'github', 'acme/widgets', $number, 'stale-approval:abc1234'));
         }
         $em->flush();
 
