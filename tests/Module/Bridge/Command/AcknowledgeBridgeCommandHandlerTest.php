@@ -4,14 +4,24 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Command;
 
+use App\Mercure\LiveUpdatePublisher;
+use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\AcknowledgeBridgeCommandCommand;
 use App\Module\Bridge\Command\AcknowledgeBridgeCommandHandler;
 use App\Module\Bridge\Entity\BridgeCommand;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Service\CardHolds;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
+use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingAuditor;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Mercure\Jwt\StaticTokenProvider;
+use Symfony\Component\Mercure\MockHub;
+use Symfony\Component\Mercure\Update;
 use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\AuditOutcome;
 
@@ -77,6 +87,85 @@ final class AcknowledgeBridgeCommandHandlerTest extends KernelTestCase
 
         self::assertFalse($result->settled);
         self::assertSame(BridgeCommandState::Expired, $result->command?->state);
+    }
+
+    /** @return iterable<string, array{BridgeCommandKind, BridgeCommandState, bool}> */
+    public static function holdCases(): iterable
+    {
+        yield 'a resume the bridge took' => [BridgeCommandKind::ResumeRun, BridgeCommandState::Done, false];
+        yield 'a resume the bridge refused' => [BridgeCommandKind::ResumeRun, BridgeCommandState::Refused, true];
+        yield 'a stop the bridge took' => [BridgeCommandKind::StopRun, BridgeCommandState::Done, true];
+    }
+
+    #[DataProvider('holdCases')]
+    public function test_only_a_resume_the_bridge_took_releases_the_hold_of_the_card(BridgeCommandKind $kind, BridgeCommandState $state, bool $held): void
+    {
+        [$owner, $run, $command] = $this->heldScenario('ack-handler-hold-'.$kind->value.'-'.$state->value, $kind);
+
+        $result = $this->handler()(new AcknowledgeBridgeCommandCommand($owner, $command->bridgeId, self::idOf($command), $state, null));
+
+        self::assertTrue($result->settled);
+        self::assertSame($held, $this->holds()->isHeld($run->project, $run->cardId));
+    }
+
+    /** The bridge took the resume, and its ack arrived after a person cancelled the request. */
+    public function test_a_late_ack_of_a_taken_resume_releases_the_hold(): void
+    {
+        $published = [];
+        [$owner, $run, $command] = $this->heldScenario('ack-handler-hold-late', BridgeCommandKind::ResumeRun, $published);
+        $this->em()->getConnection()->executeStatement("UPDATE bridge_commands SET state = 'cancelled' WHERE id = ?", [(string) $command->id]);
+
+        $result = $this->handler()(new AcknowledgeBridgeCommandCommand($owner, $command->bridgeId, self::idOf($command), BridgeCommandState::Done, null));
+        $live = self::getContainer()->get(LiveUpdatePublisher::class);
+        self::assertInstanceOf(LiveUpdatePublisher::class, $live);
+        $live->publish();
+
+        self::assertFalse($result->settled);
+        self::assertFalse($this->holds()->isHeld($run->project, $run->cardId));
+        self::assertSame([WorkerRunChangedPublisher::TYPE], array_map(static fn (Update $update): mixed => json_decode($update->getData(), true)['type'] ?? null, $published));
+    }
+
+    /** A person stopped the resumed run before the ack of the resume arrived, and the stop kept the hold the card had. */
+    public function test_a_stop_asked_after_the_resume_keeps_the_hold(): void
+    {
+        [$owner, $run, $command] = $this->heldScenario('ack-handler-hold-later-stop', BridgeCommandKind::ResumeRun);
+        $this->seedCommand($this->em(), $run, BridgeCommandState::Done, new \DateTimeImmutable('2026-09-29 12:01:00'));
+
+        $result = $this->handler()(new AcknowledgeBridgeCommandCommand($owner, $command->bridgeId, self::idOf($command), BridgeCommandState::Done, null));
+
+        self::assertTrue($result->settled);
+        self::assertTrue($this->holds()->isHeld($run->project, $run->cardId));
+    }
+
+    /**
+     * @param list<Update> $published
+     *
+     * @return array{User, WorkerRun, BridgeCommand}
+     */
+    private function heldScenario(string $name, BridgeCommandKind $kind, array &$published = []): array
+    {
+        self::bootKernel();
+        // Before anything builds the hub, so the handler publishes through this one.
+        self::getContainer()->set('mercure.hub.default', new MockHub('http://mercure/.well-known/mercure', new StaticTokenProvider('token'), static function (Update $update) use (&$published): string {
+            $published[] = $update;
+
+            return 'id';
+        }));
+        $em = $this->em();
+        $owner = $this->user($em, $name.'@example.com');
+        $run = $this->seedRun($em, $this->project($em, $owner, 'Ack Handler Hold'));
+        $command = $this->seedCommand($em, $run, kind: $kind);
+        $this->holds()->hold($run->project, $run->cardId, $run, $owner);
+
+        return [$owner, $run, $command];
+    }
+
+    private function holds(): CardHolds
+    {
+        $holds = self::getContainer()->get(CardHolds::class);
+        self::assertInstanceOf(CardHolds::class, $holds);
+
+        return $holds;
     }
 
     public function test_an_unknown_command_answers_no_command(): void

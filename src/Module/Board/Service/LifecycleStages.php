@@ -31,17 +31,30 @@ final readonly class LifecycleStages
 
     /**
      * The move an approval of this document means, or null when its tags name
-     * no stage. A document carrying the tags of both stages is ambiguous, so it
-     * moves nothing.
+     * no stage.
      *
      * @return array{from: string, to: string}|null
      */
     public function forDocument(Document $document): ?array
     {
-        $names = array_map(
-            static fn (Tag $tag): string => mb_strtolower($tag->name),
+        return $this->forTagNames(array_values(array_map(
+            static fn (Tag $tag): string => $tag->name,
             $document->tags->toArray(),
-        );
+        )));
+    }
+
+    /**
+     * The move an approval of a document with these tag names means. A
+     * document carrying the tags of both stages is ambiguous, so it moves
+     * nothing.
+     *
+     * @param list<string> $names
+     *
+     * @return array{from: string, to: string}|null
+     */
+    public function forTagNames(array $names): ?array
+    {
+        $names = array_map(mb_strtolower(...), $names);
 
         $matches = [];
         foreach (self::STAGES as $stage) {

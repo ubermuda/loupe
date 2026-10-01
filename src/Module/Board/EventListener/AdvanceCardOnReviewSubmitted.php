@@ -7,15 +7,18 @@ namespace App\Module\Board\EventListener;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\CardEventCause;
 use App\Module\Board\Service\LifecycleStages;
+use App\Module\Board\Service\StageHold;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Event\ReviewSubmitted;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
@@ -31,6 +34,9 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
  * Nesting UpdateCardHandler's own transaction is safe. DBAL opens a SAVEPOINT
  * above the first level and releases it on commit, so the outer transaction
  * decides durability and an inner failure propagates.
+ *
+ * A card with an open blocker stays where it is and keeps the approval.
+ * AdvanceHeldCardOnBlockerFinished moves it when the last blocker goes.
  */
 #[AsEventListener]
 final readonly class AdvanceCardOnReviewSubmitted
@@ -41,6 +47,8 @@ final readonly class AdvanceCardOnReviewSubmitted
         private LifecycleStages $stages,
         private UpdateCardHandler $updateCard,
         private BoardAvailability $board,
+        private StageHold $hold,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -67,6 +75,17 @@ final readonly class AdvanceCardOnReviewSubmitted
 
         foreach ($this->cardDocuments->findForDocument($document) as $link) {
             if ($link->card->column->slug !== $stage['from']) {
+                continue;
+            }
+
+            // The approval runs under the project lock, so this read is fresh.
+            $blockers = $this->hold->openBlockers($link->card);
+            if ([] !== $blockers) {
+                $this->logger->info('board.card_advance_held', [
+                    'cardId' => (string) $link->card->id,
+                    'documentId' => (string) $document->id,
+                    'blockerNumbers' => array_map(static fn (Card $blocker): int => $blocker->number, $blockers),
+                ]);
                 continue;
             }
 

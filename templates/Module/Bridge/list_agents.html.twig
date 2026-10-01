@@ -21,14 +21,26 @@
         </a>
     </header>
 
+    {% set pauseFlashes = app.flashes('bridge-pause') %}
+    {% if pauseFlashes is not empty %}
+    <div class="lp-agent-flashes" data-bridge-pause-flash>
+        {% include '_flash_messages.html.twig' with {flashes: {error: pauseFlashes}} only %}
+    </div>
+    {% endif %}
+
+    {% do mercure_subscribe(worker_runs_topic(project)) %}
+    {% set canManage = is_granted('project.manage', project) %}
+    <div class="lp-live-frame" data-controller="worker-run-refresh">
+    <turbo-frame id="agents-frame" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
     {% if connections is not empty %}
     <div class="lp-agent-grid">
         {% for connection in connections %}
-        <article class="lp-agent-card" id="agent-connection-{{ connection.bridge.id }}" data-agent-connection-id="{{ connection.bridge.id }}" tabindex="-1">
+        {% set bridge = connection.bridge %}
+        <article class="lp-agent-card" id="agent-connection-{{ bridge.id }}" data-agent-connection-id="{{ bridge.id }}" tabindex="-1">
             <div class="lp-agent-card__art">
-                <span data-agent-health class="lp-status-chip {{ connection.status.quiet ? 'lp-status-chip--pending' : 'lp-status-chip--ok' }}">
+                <span data-agent-health data-agent-health-state="{{ connection.healthChip.state }}" class="lp-status-chip lp-status-chip--{{ connection.healthChip.tone }}">
                     <span class="lp-status-chip__dot"></span>
-                    {{ (connection.status.quiet ? 'bridge.agents.status.stale' : 'bridge.agents.status.healthy')|trans }}
+                    {{ connection.healthChip.label|trans }}
                 </span>
                 <twig:ux:icon name="lucide:bot" />
             </div>
@@ -36,14 +48,55 @@
                 <div class="lp-agent-card__heading">
                     <div>
                         <p class="lp-agent-card__eyebrow">{{ 'bridge.agents.connection_label'|trans }}</p>
-                        <h2 class="lp-agent-card__name">{{ connection.bridge.id|slice(-12) }}</h2>
+                        <h2 class="lp-agent-card__name">{{ bridge.id|slice(-12) }}</h2>
                     </div>
+                    {% if canManage %}
+                    <div class="lp-agent-card__menu" data-agent-menu data-controller="popover">
+                        <button type="button"
+                                class="lp-btn lp-btn--icon"
+                                aria-label="{{ 'bridge.agents.menu'|trans }}"
+                                aria-expanded="false"
+                                aria-controls="agent-menu-{{ bridge.id }}"
+                                data-popover-target="trigger"
+                                data-action="click->popover#toggle">
+                            <twig:ux:icon name="lucide:ellipsis" class="size-4" />
+                        </button>
+                        <div id="agent-menu-{{ bridge.id }}" class="lp-backlog-menu" data-popover-target="panel" hidden>
+                            {% if bridge.pauseRequested or bridge.takesCommands() %}
+                            {% set action = bridge.pauseRequested ? 'unpause' : 'pause' %}
+                            <form method="post" action="{{ path(action == 'pause' ? 'app_project_bridge_pause' : 'app_project_bridge_unpause', {id: project.id, bridgeId: bridge.id}) }}" data-turbo-frame="_top" data-agent-pause-control="{{ action }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token('bridge-pause') }}">
+                                <button type="submit" class="lp-backlog-menu__item">
+                                    {% if action == 'pause' %}<twig:ux:icon name="lucide:circle-pause" class="size-4" />{% else %}<twig:ux:icon name="lucide:circle-play" class="size-4" />{% endif %}
+                                    {{ (action == 'pause' ? 'bridge.agents.pause' : 'bridge.agents.unpause')|trans }}
+                                </button>
+                            </form>
+                            {% else %}
+                            {% set reason = 'bridge.agents.pause_outdated'|trans({'%version%': constant('App\\Module\\Bridge\\View\\WorkerRunControls::COMMANDS_SINCE_VERSION')}) %}
+                            <button type="button" class="lp-backlog-menu__item" title="{{ reason }}" data-agent-pause-control="pause" disabled>
+                                <twig:ux:icon name="lucide:circle-pause" class="size-4" />
+                                {{ 'bridge.agents.pause'|trans }}
+                                <span class="sr-only">{{ reason }}</span>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 <p class="lp-agent-card__purpose">{{ 'bridge.agents.project_connection'|trans({'%project%': project.name}) }}</p>
                 <div class="lp-agent-card__current">
                     <span>{{ 'bridge.agents.last_seen'|trans }}</span>
                     <strong>{{ connection.status.lastSeenAt ? connection.status.lastSeenAt|date('M j, H:i') : 'bridge.agents.never'|trans }}</strong>
                 </div>
+                {% if bridge.pauseRequested %}
+                <div class="lp-agent-card__current lp-agent-card__paused" data-agent-paused>
+                    <span>{{ (bridge.pausedReported ? 'bridge.agents.paused' : 'bridge.agents.pause_requested')|trans }}</span>
+                    {% if bridge.pauseRequestedAt %}
+                    {% set pausedAt = bridge.pauseRequestedAt|date('M j, H:i') %}
+                    <strong>{{ bridge.pauseRequestedBy ? 'bridge.agents.paused_by'|trans({'%time%': pausedAt, '%person%': bridge.pauseRequestedBy.fullName ?: bridge.pauseRequestedBy.email}) : pausedAt }}</strong>
+                    {% endif %}
+                </div>
+                {% endif %}
                 {% if connection.bridge.workerPools is not empty %}
                 <div class="lp-agent-card__current lp-agent-card__pools" data-agent-worker-pools>
                     <span>{{ 'bridge.agents.worker_pools.heading'|trans }}{% if connection.bridge.workerPoolsReportedAt %} · {{ 'bridge.agents.worker_pools.as_of'|trans({'%time%': connection.bridge.workerPoolsReportedAt|date('M j, H:i')}) }}{% endif %}</span>
@@ -92,5 +145,7 @@
         <a class="lp-btn lp-btn--primary" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'bridge.agents.empty.action'|trans }}</a>
     </div>
     {% endif %}
+    </turbo-frame>
+    </div>
 </div>
 {% endblock %}

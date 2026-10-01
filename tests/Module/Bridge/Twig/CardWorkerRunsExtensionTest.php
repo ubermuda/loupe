@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Twig;
 
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Twig\CardWorkerRunsExtension;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
+use App\Module\Bridge\View\WorkerRunAction;
 use App\Module\Bridge\View\WorkerRunListItem;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -58,6 +60,23 @@ final class CardWorkerRunsExtensionTest extends KernelTestCase
             ['queued', 'running', 'closed-5', 'closed-4', 'closed-3'],
             array_map(static fn (WorkerRunListItem $item): string => $item->run->ruleName, $runs),
         );
+    }
+
+    public function test_each_run_carries_its_control(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'card-controls@example.com');
+        $project = $this->project($em, $owner, 'Controls');
+        $bridge = $this->seedBridge($em, $owner);
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $cardId = Uuid::v7();
+        $this->seedRun($em, $project, bridgeId: $bridge->id, cardId: $cardId, state: WorkerRunState::Running);
+
+        $runs = self::getContainer()->get(CardWorkerRunsExtension::class)->cardWorkerRuns($project, (string) $cardId);
+
+        self::assertCount(1, $runs);
+        self::assertSame(WorkerRunAction::Stop, $runs[0]->control?->action);
     }
 
     public function test_a_card_with_no_runs_gets_an_empty_list(): void

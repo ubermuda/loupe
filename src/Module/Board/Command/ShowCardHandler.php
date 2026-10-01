@@ -15,6 +15,7 @@ use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\SyncLine;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use Psr\Clock\ClockInterface;
+use App\Module\Board\Service\StageHold;
 
 final readonly class ShowCardHandler
 {
@@ -26,6 +27,7 @@ final readonly class ShowCardHandler
         private BoardAutomationSettingsRepository $boardAutomationSettings,
         private ForgePullRequestRepository $forgePullRequests,
         private ClockInterface $clock,
+        private StageHold $hold,
     ) {
     }
 
@@ -51,6 +53,7 @@ final readonly class ShowCardHandler
             $this->pullRequestStates->forCards([$command->card], $this->syncLine($command->card)),
             $children,
             $progress,
+            $this->hold->heldBy($command->card),
         );
     }
 
