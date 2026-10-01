@@ -24,6 +24,7 @@ use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 use Symfony\Component\Uid\Uuid;
@@ -396,7 +397,8 @@ final class CardCrudControllerTest extends WebTestCase
         // A finished run with no usage leaves the overview with no runs section, and the frame stays for a live update.
         self::assertCount(0, $crawler->filter('[data-card-run="'.$runId.'"]'));
         self::assertCount(0, $crawler->filter('[data-card-runs]'));
-        self::assertCount(1, $crawler->filter('[data-controller="worker-run-refresh"] turbo-frame#card-worker-runs'));
+        self::assertCount(1, $crawler->filter('turbo-frame#card-worker-runs'));
+        self::assertCount(0, $crawler->filter('[data-controller~="worker-run-refresh"]'));
         self::assertSame('/projects/'.$project->id.'/board/cards/'.$cardId.'/edit', $crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('href'));
         self::assertNull($crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('data-turbo-frame'));
 
@@ -458,20 +460,94 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame('Total usage Usage unknown', $crawler->filter('[data-card-runs] [data-card-usage-total]')->text());
         self::assertSame('2026-03-04T05:06:00+00:00', $row->filter('time')->attr('datetime'));
         self::assertStringNotContainsString('·', $row->filter('.lp-card-run__meta')->text());
-        // A live update reloads the section from the Bridge fragment, not the whole card.
-        $refresh = $crawler->filter('[data-controller="worker-run-refresh"]');
-        self::assertSame('/projects/'.$project->id.'/worker-runs/card/'.$card->id, $refresh->attr('data-worker-run-refresh-url-value'));
-        self::assertCount(1, $refresh->filter('turbo-frame#card-worker-runs[data-worker-run-refresh-target="frame"] [data-card-runs]'));
-        self::assertNull($refresh->filter('turbo-frame#card-worker-runs')->attr('src'));
+        // A live update morphs the whole card in, run section included.
+        $live = $crawler->filter('[data-card-drawer-card-id="'.$card->id.'"]');
+        self::assertSame(['panel-tabs', 'card-live'], explode(' ', (string) $live->attr('data-controller')));
+        self::assertSame((string) $card->id, $live->attr('data-card-live-card-id-value'));
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$card->id, $live->attr('data-card-live-url-value'));
+        self::assertSame('false', $live->attr('data-card-live-frame-value'));
+        self::assertCount(1, $live->filter('turbo-frame#card-worker-runs [data-card-runs]'));
+        self::assertNull($live->filter('turbo-frame#card-worker-runs')->attr('src'));
+        self::assertNull($live->filter('turbo-frame#card-worker-runs')->attr('data-worker-run-refresh-target'));
         $topics = static::getContainer()->get(ProjectTopicBuilder::class);
         self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
-        $runTopic = $topics->forWorkerRuns($project->id ?? throw new \LogicException('project id after flush'));
-        self::assertContains($runTopic, $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value')));
+        $projectId = $project->id ?? throw new \LogicException('project id after flush');
+        $runTopic = $topics->forWorkerRuns($projectId);
+        $boardTopic = $topics->forBoard($projectId);
+        $pageTopics = $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn (Crawler $input): ?string => $input->attr('value'));
+        self::assertContains($runTopic, $pageTopics);
+        self::assertContains($boardTopic, $pageTopics);
 
-        // In the board drawer the board page holds the topic, so the frame response leaves the cookie alone.
-        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id, server: ['HTTP_TURBO_FRAME' => 'card-drawer-frame']);
+        // In the board drawer the board page holds the topics, so the frame response leaves the cookie alone.
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id, server: ['HTTP_TURBO_FRAME' => 'card-drawer-frame']);
         self::assertResponseIsSuccessful();
         self::assertNotContains($runTopic, self::subscribedTopics($client->getResponse()) ?? []);
+        self::assertNotContains($boardTopic, self::subscribedTopics($client->getResponse()) ?? []);
+        self::assertSame('true', $crawler->filter('[data-card-drawer-card-id]')->attr('data-card-live-frame-value'));
+    }
+
+    /** A live update fetches the card with the open tab, so the server renders that tab open. */
+    #[TestWith(['?tab=history', 'history'])]
+    #[TestWith(['?tab=nonsense', 'overview'])]
+    #[TestWith(['', 'overview'])]
+    public function test_the_card_page_renders_the_requested_tab_open(string $query, string $open): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'card-tab-'.md5($query).'@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Opens on a tab');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id.$query);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($open, $crawler->filter('[data-card-drawer-card-id]')->attr('data-panel-tabs-active-value'));
+        foreach (['overview', 'details', 'conversation', 'feedback', 'history'] as $tab) {
+            $selected = $tab === $open;
+            $button = $crawler->filter('[data-panel-tab="'.$tab.'"]');
+            self::assertSame($selected ? 'true' : 'false', $button->attr('aria-selected'), $tab);
+            self::assertSame($selected ? '0' : '-1', $button->attr('tabindex'), $tab);
+            self::assertSame($selected ? null : '', $crawler->filter('#card-panel-'.$tab)->attr('hidden'), $tab);
+        }
+    }
+
+    /**
+     * A live refresh renders no flash, so the flash waits for the page the reader opens next.
+     *
+     * @param array<string, string> $server
+     */
+    #[TestWith([[]])]
+    #[TestWith([['HTTP_TURBO_FRAME' => 'card-drawer-frame']])]
+    public function test_a_live_refresh_leaves_the_flashes_and_the_cookie_alone(array $server): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'card-live-refresh-'.\count($server).'@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Refreshes live');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $url = '/projects/'.$project->id.'/board/cards/'.$card->id;
+        $client->request(Request::METHOD_GET, $url);
+        $session = $client->getRequest()->getSession();
+        self::assertInstanceOf(FlashBagAwareSessionInterface::class, $session);
+        $session->getFlashBag()->add('success', 'Saved elsewhere');
+        $session->save();
+
+        $crawler = $client->request(Request::METHOD_GET, $url, server: $server + ['HTTP_X_LOUPE_LIVE_REFRESH' => '1']);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.lp-flash'));
+        self::assertNull(self::findMercureCookie($client->getResponse()));
+
+        $crawler = $client->request(Request::METHOD_GET, $url, server: $server);
+        self::assertStringContainsString('Saved elsewhere', $crawler->filter('.lp-flash')->text());
     }
 
     public function test_a_stranger_cannot_reach_a_card(): void
