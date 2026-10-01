@@ -705,6 +705,11 @@ list in `columns`, beside its cards. The tools read columns and never write one.
 `card_run_open` and `card_run_close` record an interactive session on a card.
 See [Interactive sessions](worker-runs.md#interactive-sessions).
 
+A move that an agent makes through the MCP names its worker run in the card
+history. This works when the `loupe` CLI sends the session of the agent in the
+`X-Loupe-Session` header. A `card_run_open` call that moves the card names the
+run it opens.
+
 `status` takes a column slug on `card_create`, `card_update` and `card_list`. An
 unknown slug is refused. The error lists the slugs the board has, such as
 `Unknown status "doing". Use one of: backlog, next, in-progress, done.`
