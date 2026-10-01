@@ -228,6 +228,10 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		defer b.close()
 		b.recovered = leftoverHandover(b.file, bl.log)
 	}
+	cursorFile, err := cursorPath(path)
+	if err != nil {
+		return err
+	}
 
 	r := &router{
 		log:        bl.log,
@@ -238,6 +242,7 @@ func runBridgeOn(cmd *cobra.Command, o bridgeRunOptions, defaults rules.Defaults
 		update:     b,
 		hookRunner: newHookRunner(hookList, bridgeID, bl.log),
 		claude:     claude,
+		cursorFile: cursorFile,
 	}
 	if dir, err := config.Dir(); err == nil {
 		r.assumeAutoUpdate = migrateAutoUpdate(bl.log, dir, path, o.resumeFile != "")
@@ -405,10 +410,11 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.ackCommand == nil {
 		r.ackCommand = apiClient(cfg).AckCommand
 	}
-	r.applyFlags(events)
-	if r.update != nil {
-		r.update.adoptInto(r)
+	if r.replay == nil {
+		r.replay = apiClient(cfg).Replay
 	}
+	r.applyFlags(events)
+	r.restoreState(events.Head)
 	var updates *updater
 	var watched <-chan struct{}
 	if r.bridgeID != "" {

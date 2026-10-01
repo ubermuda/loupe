@@ -442,6 +442,33 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * The run of a claude session most likely to act on the card: a run on
+     * that card first, then an open run, then the newest. Any kind counts.
+     */
+    public function findLikeliestOfSession(Project $project, Uuid $sessionId, Uuid $cardId): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->addSelect('CASE WHEN r.cardId = :cardId THEN 0 ELSE 1 END AS HIDDEN onCardFirst')
+            ->addSelect('CASE WHEN r.state IN (:openStates) THEN 0 ELSE 1 END AS HIDDEN openFirst')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.sessionId = :sessionId')
+            ->setParameter('project', $project)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('openStates', array_map(
+                static fn (WorkerRunState $state): string => $state->value,
+                WorkerRunState::openStates(),
+            ))
+            ->orderBy('onCardFirst', 'ASC')
+            ->addOrderBy('openFirst', 'ASC')
+            ->addOrderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /** @return list<WorkerRun> the card's open runs, then its latest runs, newest first */
     public function findRecentForCard(Project $project, Uuid $cardId, int $limit): array
     {
