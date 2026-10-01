@@ -70,7 +70,7 @@
                     {% if automation and automation.lastAction and (automation.lastAction.value != 'stopped' or automation.blockedReason) %}
                     <p class="lp-card-automation" data-card-automation>
                         <twig:ux:icon name="lucide:bot" class="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span>{{ {'fix-requested': 'board.card.automation.fix_requested', stopped: 'board.card.automation.stopped', 'ready-to-merge': 'board.card.automation.ready_to_merge'}[automation.lastAction.value]|trans }}</span>
+                        <span>{{ {'fix-requested': 'board.card.automation.fix_requested', stopped: 'board.card.automation.stopped', 'ready-to-merge': 'board.card.automation.ready_to_merge', synced: 'board.card.automation.synced'}[automation.lastAction.value]|trans }}</span>
                         {% if automation.lastActionAt %}<time datetime="{{ automation.lastActionAt|date('c') }}">{{ automation.lastActionAt|relative_time }}</time>{% endif %}
                     </p>
                     {% if automation.blockedReason and not card.column.terminal %}

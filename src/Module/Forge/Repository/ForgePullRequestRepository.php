@@ -157,6 +157,22 @@ final class ForgePullRequestRepository extends ServiceEntityRepository
         return $this->toUuids($query->getQuery()->getSingleColumnResult());
     }
 
+    /** @return list<ForgePullRequest> the open rows of one project, read with no lock */
+    public function findOpenForProject(Uuid $projectId): array
+    {
+        /** @var list<ForgePullRequest> $rows */
+        $rows = $this->createQueryBuilder('pr')
+            ->andWhere('pr.project = :project')
+            ->andWhere('pr.state = :open')
+            ->setParameter('project', $projectId, UuidType::NAME)
+            ->setParameter('open', PullRequestState::Open->value)
+            ->orderBy('pr.number', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $rows;
+    }
+
     /** Re-reads a row this entity manager already holds, so the lock never guards stale fields. */
     public function findForUpdate(Uuid $id): ?ForgePullRequest
     {
