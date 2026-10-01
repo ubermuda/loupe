@@ -550,7 +550,9 @@ final class ShowExperimentHandlerTest extends KernelTestCase
         $this->experimentRun($partial, 'a', at: '+2 hours', state: WorkerRunState::Failed);
         $queued = Uuid::v7();
         $this->seedUsage($this->em, $this->experimentRun($queued, 'a', at: '+3 hours'), costUsd: '2.000000');
-        $this->experimentRun($queued, 'a', at: '+4 hours', state: WorkerRunState::Queued);
+        $this->experimentRun($queued, 'a', at: '+4 hours', state: WorkerRunState::Queued)->startedAt = null;
+        $this->experimentRun($queued, 'a', at: '+5 hours', state: WorkerRunState::Stopped)->startedAt = null;
+        $this->em->flush();
         foreach ([$partial, $queued] as $card) {
             $this->outcomes[(string) $card] = new CardOutcome(merged: true);
         }

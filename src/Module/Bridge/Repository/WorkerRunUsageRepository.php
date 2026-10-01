@@ -8,7 +8,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunUsage;
 use App\Module\Bridge\ValueObject\CostSplit;
-use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -164,9 +163,9 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
             <<<'SQL'
                 SELECT
                     r.card_id,
-                    CASE WHEN BOOL_OR(r.usage_source IS NULL AND r.state NOT IN (:unstarted)) OR BOOL_OR(u.run_id IS NOT NULL AND u.cost_usd IS NULL)
+                    CASE WHEN BOOL_OR(r.usage_source IS NULL AND r.started_at IS NOT NULL) OR BOOL_OR(u.run_id IS NOT NULL AND u.cost_usd IS NULL)
                         THEN NULL ELSE SUM(ROUND(u.cost_usd * 1000000))::bigint END AS cost_micros,
-                    CASE WHEN BOOL_OR(r.usage_source IS NULL AND r.state NOT IN (:unstarted)) THEN NULL ELSE SUM(u.output_tokens) END AS output
+                    CASE WHEN BOOL_OR(r.usage_source IS NULL AND r.started_at IS NOT NULL) THEN NULL ELSE SUM(u.output_tokens) END AS output
                 FROM bridge_worker_runs r
                 LEFT JOIN bridge_worker_run_usage u ON u.run_id = r.id AND u.project_id = :project
                 WHERE r.project_id = :project AND r.experiment = :experiment
@@ -175,11 +174,7 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
             [
                 'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
                 'experiment' => $experiment,
-                'unstarted' => array_map(static fn (WorkerRunState $state): string => $state->value, [
-                    WorkerRunState::Queued, WorkerRunState::Replaced, WorkerRunState::Skipped, WorkerRunState::Dropped, WorkerRunState::NotStarted,
-                ]),
             ],
-            ['unstarted' => ArrayParameterType::STRING],
         );
 
         $sums = [];
