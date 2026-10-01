@@ -136,6 +136,30 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         self::assertNull($pullRequest->syncRequestedAt);
     }
 
+    public function test_a_permanent_failure_queues_a_pass_that_syncs_the_next_pull_request(): void
+    {
+        $this->behind(4, approvedAt: '-2 hours');
+        $second = $this->behind(5, approvedAt: '-1 hour');
+        $this->updater->failure = new PullRequestSyncFailed('refused', permanent: true);
+
+        $this->handle();
+
+        self::assertCount(1, $this->immediatePasses());
+        $this->updater->failure = null;
+        $this->handle();
+        self::assertCount(2, $this->updater->updates);
+        self::assertSame($second, $this->updater->updates[1][0]);
+    }
+
+    public function test_a_forge_with_no_updater_queues_a_pass(): void
+    {
+        $this->behind(5, forge: 'gitlab');
+
+        $this->handle();
+
+        self::assertCount(1, $this->immediatePasses());
+    }
+
     public function test_a_permanent_failure_after_the_head_moved_records_nothing(): void
     {
         $pullRequest = $this->behind(5);
@@ -153,6 +177,7 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         self::assertSame('moved01', $pullRequest->headSha);
         self::assertNull($pullRequest->syncFailedReason);
         self::assertNull($pullRequest->syncFromSha);
+        self::assertSame([], $this->immediatePasses());
     }
 
     public function test_a_transient_failure_clears_the_marker_and_rethrows(): void
@@ -408,6 +433,15 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         return array_values(array_filter(
             $transport->getSent(),
             static fn (Envelope $envelope): bool => $envelope->getMessage() instanceof SyncNextPullRequest,
+        ));
+    }
+
+    /** @return list<Envelope> the passes queued with no delay */
+    private function immediatePasses(): array
+    {
+        return array_values(array_filter(
+            $this->queuedPasses(),
+            static fn (Envelope $envelope): bool => null === $envelope->last(DelayStamp::class),
         ));
     }
 

@@ -69,7 +69,7 @@ final readonly class SyncNextPullRequestHandler
 
         $updater = $this->updaters->for($pullRequest->forge);
         if (null === $updater) {
-            $this->fail($id, $sha, 'no_updater');
+            $this->fail($id, $sha, 'no_updater', $command->projectId);
 
             return;
         }
@@ -78,7 +78,7 @@ final readonly class SyncNextPullRequestHandler
             $updater->update($pullRequest, $sha);
         } catch (PullRequestSyncFailed $e) {
             if ($e->permanent) {
-                $this->fail($id, $sha, $e->cause);
+                $this->fail($id, $sha, $e->cause, $command->projectId);
 
                 return;
             }
@@ -158,7 +158,7 @@ final readonly class SyncNextPullRequestHandler
     }
 
     /** Records the cause only while the head is the one Loupe asked to update, because a later head clears it anyway. */
-    private function fail(Uuid $id, string $sha, string $cause): void
+    private function fail(Uuid $id, string $sha, string $cause, Uuid $projectId): void
     {
         $recorded = $this->em->wrapInTransaction(function () use ($id, $sha, $cause): bool {
             $row = $this->forgePullRequests->findForUpdate($id);
@@ -172,5 +172,10 @@ final readonly class SyncNextPullRequestHandler
             return true;
         });
         $this->logger->warning('board.pull_request_sync_failed', ['pullRequestId' => (string) $id, 'fromSha' => $sha, 'cause' => $cause, 'recorded' => $recorded]);
+
+        // The failed row leaves the line, so the next pull request need not wait for the timeout pass.
+        if ($recorded) {
+            $this->bus->dispatch(new SyncNextPullRequest($projectId));
+        }
     }
 }
