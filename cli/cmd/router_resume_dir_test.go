@@ -282,3 +282,27 @@ func TestAResumeWhoseFolderCannotBeReadFails(t *testing.T) {
 		t.Fatalf("runs = %d", h.runs())
 	}
 }
+
+// A recorded folder under a parent that is now a file is gone, as a missing
+// folder is.
+func TestAResumeWhoseFolderParentIsAFileReadsAsGone(t *testing.T) {
+	h := newHarness(t)
+	rec := h.states()
+	h.transcripts(true)
+	file := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(file, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gone := filepath.Join(file, "sub")
+	withStartDirs(h, map[string]string{testSession: gone})
+
+	if state, reason := h.resume(resumeOf(endedRunKey)); state != api.CommandDone {
+		t.Fatalf("resume = %s %q", state, reason)
+	}
+
+	sent := rec.states()
+	wantStates(t, sent, api.RunQueued, api.RunFailed)
+	if failed := sent[1].report; !strings.Contains(failed.Output, gone+", which is gone") {
+		t.Fatalf("failed = %+v", failed)
+	}
+}

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 	"unicode"
 	"unicode/utf16"
@@ -1150,7 +1151,7 @@ func (r *router) resumeDir(p pending) (pending, string) {
 
 		return p, ""
 	}
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) && !errors.Is(err, syscall.ENOTDIR) {
 		return p, fmt.Sprintf("the bridge cannot read %s, where the conversation started: %s", recorded, err)
 	}
 	gone := fmt.Sprintf("the conversation started in %s, which is gone", recorded)
