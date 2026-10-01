@@ -33,6 +33,21 @@ class WorkerRunRepository extends ServiceEntityRepository
         parent::__construct($registry, WorkerRun::class);
     }
 
+    public function findOneByIdAndProjectId(string $runId, string $projectId): ?WorkerRun
+    {
+        if (!Uuid::isValid($runId) || !Uuid::isValid($projectId)) {
+            return null;
+        }
+
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.id = :runId')
+            ->andWhere('r.project = :projectId')
+            ->setParameter('runId', Uuid::fromString($runId), UuidType::NAME)
+            ->setParameter('projectId', Uuid::fromString($projectId), UuidType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /**
      * The first run of a claude session in the project: the earliest start, and
      * the lowest id on a tie. A resume of that session reports later runs.

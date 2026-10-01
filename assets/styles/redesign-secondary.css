@@ -45,6 +45,23 @@
     .lp-agent-card__pool {
         @apply m-0 flex flex-wrap items-baseline justify-between gap-x-3;
     }
+    /* A narrow card at a large text size wraps the menu under the label. */
+    .lp-redesign-agents .lp-agent-card__heading {
+        @apply flex-wrap;
+    }
+    /* The bridge menu at the right of the heading. Its panel opens under the button. */
+    .lp-agent-card__menu {
+        @apply relative ml-auto shrink-0;
+    }
+    .lp-agent-card__paused {
+        @apply mt-3;
+    }
+    .lp-agent-flashes {
+        @apply mb-4 flex flex-col gap-2;
+    }
+    .lp-agent-flashes .lp-flash {
+        @apply m-0;
+    }
     .lp-redesign-agents .lp-agent-card footer {
         @apply mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-fg-dim break-all;
     }

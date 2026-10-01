@@ -1227,6 +1227,13 @@ with no cache. An update hands the pause to the new version directly. Each
 heartbeat sends `paused` with the state the bridge applies, and
 `capabilities: ["commands"]`.
 
+The project owner sends a stop, a resume or a pause from the web UI. Stop and
+Resume are in the runs section of a card page and in the drawer of a run on
+the **Runs** tab of the Activity page. **Pause new work** is in the menu of the
+bridge card on the agents page. These controls need a bridge of version 1.5.0
+or later, which reports the `commands` capability. The page disables them for
+an older bridge.
+
 The server can also ask the bridge to stop or resume one run. The command comes
 as a `bridge.command` event and again in each heartbeat reply, until the bridge
 answers it. The bridge acts on a command once, by its `commandId`, whichever

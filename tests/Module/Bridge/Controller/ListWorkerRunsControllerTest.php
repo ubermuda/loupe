@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Controller;
 
 use App\Mercure\ProjectTopicBuilder;
+use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunStateChange;
+use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -438,7 +441,7 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
             $label = $translator->trans($state->translationKey());
             self::assertNotSame($state->translationKey(), $label);
-            foreach (['[data-worker-run-id] > .lp-status-chip', '.lp-run-drawer__header .lp-status-chip'] as $chip) {
+            foreach (['[data-worker-run-id] > .lp-worker-run-outcome > .lp-status-chip', '.lp-run-drawer__header .lp-status-chip'] as $chip) {
                 self::assertSame($label, $crawler->filter($chip)->text(), $state->value.' '.$chip);
                 self::assertStringContainsString('lp-status-chip--'.$state->chipModifier(), (string) $crawler->filter($chip)->attr('class'));
             }
@@ -794,10 +797,10 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$goneId.'"] .lp-data-table__title'));
         self::assertSame('#8', $crawler->filter('[data-worker-run-id="'.$goneId.'"] .lp-data-table__number')->text());
 
-        $chip = $crawler->filter('[data-worker-run-id="'.$failedId.'"] > .lp-status-chip');
+        $chip = $crawler->filter('[data-worker-run-id="'.$failedId.'"] > .lp-worker-run-outcome > .lp-status-chip');
         self::assertSame('The worker ran out of turns', $chip->filter('.lp-tooltip')->text());
         self::assertSame($chip->filter('.lp-tooltip')->attr('id'), $chip->attr('aria-describedby'));
-        self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$goneId.'"] > .lp-status-chip .lp-tooltip'));
+        self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$goneId.'"] > .lp-worker-run-outcome > .lp-status-chip .lp-tooltip'));
 
         $cells = $crawler->filter('[data-worker-run-id="'.$failedId.'"] > :not(dialog)');
         $rowText = implode(' ', $cells->each(static fn (Crawler $cell): string => $cell->text()));
@@ -835,6 +838,109 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-worker-run-id]'));
     }
 
+    public function test_the_drawer_footer_offers_resume_next_to_copy_output(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'runs-control-resume@example.com');
+        $project = $this->project($em, $owner, 'Runs control resume');
+        $bridge = $this->commandBridge($owner);
+        $run = $this->seedRun($em, $project, exitCode: 1, bridgeId: $bridge->id, state: WorkerRunState::Blocked);
+
+        $projectId = (string) $project->id;
+        $runId = (string) $run->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('[data-worker-run-id="'.$runId.'"]');
+        // The table row leaves the actions to the drawer.
+        self::assertCount(1, $row->filter('form[data-worker-run-control]'));
+        $form = $row->filter('dialog .lp-run-drawer__footer form[data-worker-run-control]');
+        self::assertCount(1, $form);
+        self::assertSame('/projects/'.$projectId.'/worker-runs/'.$runId.'/resume', $form->attr('action'));
+        self::assertSame('_top', $form->attr('data-turbo-frame'));
+        self::assertNotEmpty($form->filter('input[name="_csrf_token"]')->attr('value'));
+        self::assertSame('Resume', $form->filter('button')->text());
+        self::assertNull($form->filter('button')->attr('disabled'));
+        self::assertCount(1, $row->filter('.lp-run-drawer__footer [data-action="worker-run-output#copy"]'));
+    }
+
+    public function test_the_drawer_disables_an_action_the_bridge_cannot_take(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'runs-control-outdated@example.com');
+        $project = $this->project($em, $owner, 'Runs control outdated');
+        $bridge = $this->commandBridge($owner, null);
+        $run = $this->seedRun($em, $project, bridgeId: $bridge->id, state: WorkerRunState::Running);
+
+        $projectId = (string) $project->id;
+        $runId = (string) $run->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $button = $crawler->filter('[data-worker-run-id="'.$runId.'"] .lp-run-drawer__footer form[data-worker-run-control] button');
+        self::assertNotNull($button->attr('disabled'));
+        self::assertSame('Update the bridge to 1.5.0 or later to control its runs.', $button->attr('title'));
+        self::assertStringStartsWith('Stop', $button->text());
+    }
+
+    public function test_a_pending_command_shows_its_label_in_the_row_and_the_drawer(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'runs-control-pending@example.com');
+        $project = $this->project($em, $owner, 'Runs control pending');
+        $bridge = $this->commandBridge($owner);
+        $run = $this->seedRun($em, $project, bridgeId: $bridge->id, state: WorkerRunState::Running);
+        $this->seedCommand($em, $run, requestedAt: new \DateTimeImmutable(), kind: BridgeCommandKind::StopRun);
+
+        $projectId = (string) $project->id;
+        $runId = (string) $run->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('[data-worker-run-id="'.$runId.'"]');
+        self::assertSame(['Stop requested', 'Stop requested'], $row->filter('[data-worker-run-control-label]')->each(static fn (Crawler $label): string => $label->text()));
+        $form = $row->filter('.lp-run-drawer__footer form[data-worker-run-control]');
+        self::assertSame('/projects/'.$projectId.'/worker-runs/'.$runId.'/cancel-command', $form->attr('action'));
+        self::assertSame('Cancel request', $form->filter('button')->text());
+    }
+
+    public function test_a_refused_command_shows_its_reason_on_the_page(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'runs-control-refused@example.com');
+        $project = $this->project($em, $owner, 'Runs control refused');
+        $bridge = $this->commandBridge($owner);
+        $run = $this->seedRun($em, $project, bridgeId: $bridge->id, state: WorkerRunState::Running);
+
+        $url = '/projects/'.$project->id.'/worker-runs/'.$run->id.'/resume';
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_POST, $url, ['_csrf_token' => 'csrf-token'], [], ['HTTP_REFERER' => 'http://localhost'.$url]);
+        $crawler = $client->followRedirect();
+
+        self::assertResponseIsSuccessful();
+        $flash = $crawler->filter('turbo-frame#worker-runs-frame [data-worker-run-command-flash]');
+        self::assertStringContainsString('Only an ended run can resume.', $flash->text());
+    }
+
     public function test_another_users_project_is_refused(): void
     {
         $client = static::createClient();
@@ -860,6 +966,16 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/00000000-0000-0000-0000-000000000000/worker-runs');
 
         self::assertResponseRedirects('/login');
+    }
+
+    /** @param list<string>|null $capabilities */
+    private function commandBridge(User $owner, ?array $capabilities = [Bridge::CAPABILITY_COMMANDS]): Bridge
+    {
+        $bridge = $this->seedBridge($this->em(), $owner);
+        $bridge->capabilities = $capabilities;
+        $this->em()->flush();
+
+        return $bridge;
     }
 
     private function topics(): ProjectTopicBuilder
