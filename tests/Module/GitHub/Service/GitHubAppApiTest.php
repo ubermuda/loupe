@@ -216,6 +216,45 @@ final class GitHubAppApiTest extends TestCase
         self::assertSame(['body' => 'Hello'], json_decode($body, true, flags: \JSON_THROW_ON_ERROR));
     }
 
+    public function test_put_sends_a_json_body_with_the_installation_token_and_answers_an_accepted_body(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            new MockResponse('{"message":"Updating pull request branch."}', ['http_code' => 202]),
+        ]);
+
+        self::assertSame(['message' => 'Updating pull request branch.'], $api->put(42, '/repos/acme/widgets/pulls/7/update-branch', ['expected_head_sha' => 'abc']));
+        self::assertSame('PUT', $this->requests[1]['method']);
+        self::assertSame('https://api.github.com/repos/acme/widgets/pulls/7/update-branch', $this->requests[1]['url']);
+        self::assertSame(self::TOKEN, $this->bearer(1));
+        $body = $this->requests[1]['options']['body'] ?? null;
+        self::assertIsString($body);
+        self::assertSame(['expected_head_sha' => 'abc'], json_decode($body, true, flags: \JSON_THROW_ON_ERROR));
+    }
+
+    public function test_put_answers_an_empty_array_for_an_accepted_empty_body(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            new MockResponse('', ['http_code' => 202]),
+        ]);
+
+        self::assertSame([], $api->put(42, '/repos/acme/widgets/pulls/7/update-branch', ['expected_head_sha' => 'abc']));
+    }
+
+    public function test_put_names_the_status_of_a_refused_request(): void
+    {
+        $api = $this->api([
+            $this->created(['token' => self::TOKEN]),
+            new MockResponse('{"message":"expected head sha didn\'t match current head ref."}', ['http_code' => 422]),
+        ]);
+
+        $failure = $this->failure(static fn () => $api->put(42, '/repos/acme/widgets/pulls/7/update-branch', ['expected_head_sha' => 'abc']));
+
+        self::assertSame('http_status', $failure->reason);
+        self::assertSame(422, $failure->status);
+    }
+
     public function test_post_names_the_status_of_a_refused_request(): void
     {
         $api = $this->api([

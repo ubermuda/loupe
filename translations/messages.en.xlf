@@ -6154,6 +6154,16 @@
             <trans-unit id="board.card.link.mergeability.conflicting"><source>board.card.link.mergeability.conflicting</source><target>Conflict</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.behind"><source>board.card.link.mergeability.behind</source><target>Behind base</target></trans-unit>
             <trans-unit id="board.card.link.mergeability.blocked"><source>board.card.link.mergeability.blocked</source><target>Merge blocked</target></trans-unit>
+            <trans-unit id="board.card.link.sync.waits_for_approval"><source>board.card.link.sync.waits_for_approval</source><target>Waits for an approval</target></trans-unit>
+            <trans-unit id="board.card.link.sync.conflicts"><source>board.card.link.sync.conflicts</source><target>Conflicts with the base</target></trans-unit>
+            <trans-unit id="board.card.link.sync.waits_turn"><source>board.card.link.sync.waits_turn</source><target>Waits its turn behind #%number%</target></trans-unit>
+            <trans-unit id="board.card.link.sync.synced_checks_running"><source>board.card.link.sync.synced_checks_running</source><target>Synced, checks running</target></trans-unit>
+            <trans-unit id="board.card.link.sync.sync_failed"><source>board.card.link.sync.sync_failed</source><target>Sync failed: %reason%</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.permission"><source>board.card.link.sync.reason.permission</source><target>the app may not write to the repository</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.refused"><source>board.card.link.sync.reason.refused</source><target>the forge refused the update</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.timeout"><source>board.card.link.sync.reason.timeout</source><target>the update did not finish in time</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.no_updater"><source>board.card.link.sync.reason.no_updater</source><target>Loupe cannot update a pull request on this forge</target></trans-unit>
+            <trans-unit id="board.card.link.sync.reason.retries_exhausted"><source>board.card.link.sync.reason.retries_exhausted</source><target>the forge failed each try to update the branch</target></trans-unit>
             <trans-unit id="board.card.link.review.approved"><source>board.card.link.review.approved</source><target>Approved</target></trans-unit>
             <trans-unit id="board.card.link.review.changes_requested"><source>board.card.link.review.changes_requested</source><target>Changes requested</target></trans-unit>
             <trans-unit id="board.card.link.review.required"><source>board.card.link.review.required</source><target>Review required</target></trans-unit>
@@ -6161,6 +6171,7 @@
             <trans-unit id="board.card.automation.fix_requested"><source>board.card.automation.fix_requested</source><target>The automation asked for a fix.</target></trans-unit>
             <trans-unit id="board.card.automation.stopped"><source>board.card.automation.stopped</source><target>The automation stopped.</target></trans-unit>
             <trans-unit id="board.card.automation.ready_to_merge"><source>board.card.automation.ready_to_merge</source><target>The automation marked the pull request ready to merge.</target></trans-unit>
+            <trans-unit id="board.card.automation.synced"><source>board.card.automation.synced</source><target>The automation updated the pull request branch with its base.</target></trans-unit>
             <trans-unit id="board.card.held_by"><source>board.card.held_by</source><target>Approved, and waits for its blockers:</target></trans-unit>
             <trans-unit id="board.card.automation.blocked"><source>board.card.automation.blocked</source><target>The automation is blocked: %reason%. The block clears when a person moves the card, when the checks pass, or when a reviewer approves or requests changes.</target></trans-unit>
             <trans-unit id="board.card.automation.reason.conflict"><source>board.card.automation.reason.conflict</source><target>the pull request has a merge conflict</target></trans-unit>
@@ -6574,6 +6585,14 @@
                 <source>board.form.save_board_automation_settings_form.comment_on_fix_queued.help</source>
                 <target>Loupe posts a new comment on the GitHub pull request each time a bridge queues a fix run for it. The GitHub App needs "Pull requests: read and write". It needs a bridge that reports the event that queued a run. An older bridge sends none, so no comment posts.</target>
             </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.label">
+                <source>board.form.save_board_automation_settings_form.sync_behind.label</source>
+                <target>Sync an approved pull request that is behind</target>
+            </trans-unit>
+            <trans-unit id="board.form.save_board_automation_settings_form.sync_behind.help">
+                <source>board.form.save_board_automation_settings_form.sync_behind.help</source>
+                <target>Loupe updates the branch of the next approved pull request that is behind its base, one at a time. The GitHub App needs "Contents: read and write".</target>
+            </trans-unit>
             <trans-unit id="board.automation.comment_failure.summary">
                 <source>board.automation.comment_failure.summary</source>
                 <target>Loupe could not post the last fix run comment on %pull_request%</target>
@@ -6900,6 +6919,7 @@
             <trans-unit id="github.system_status.app_api.none_installed"><source>github.system_status.app_api.none_installed</source><target>GitHub accepts the App key. No account has installed the App yet.</target></trans-unit>
             <trans-unit id="github.system_status.app_api.missing_permissions"><source>github.system_status.app_api.missing_permissions</source><target>These installations do not grant each permission Loupe reads: %installations%. On GitHub, give the App read access to checks, contents, metadata, pull requests and commit statuses, then let each account accept the new permissions.</target></trans-unit>
             <trans-unit id="github.system_status.app_api.missing_comment_permission"><source>github.system_status.app_api.missing_comment_permission</source><target>The GitHub App cannot write to pull requests for the accounts %accounts%. Loupe cannot post fix run comments, or mark ready, draft or close an epic pull request. Grant Pull requests: read and write.</target></trans-unit>
+            <trans-unit id="github.system_status.app_api.missing_contents_write"><source>github.system_status.app_api.missing_contents_write</source><target>The GitHub App cannot write the contents of repositories for the accounts %accounts%. Loupe cannot sync a pull request branch that is behind its base for these accounts. Grant Contents: read and write to use the sync.</target></trans-unit>
             <trans-unit id="github.system_status.app_api.working"><source>github.system_status.app_api.working</source><target>{0}GitHub accepts the App key. No account has installed the App yet.|{1}GitHub accepts the App key, and its installation grants each permission Loupe reads.|]1,Inf[GitHub accepts the App key, and its %count% installations grant each permission Loupe reads.</target></trans-unit>
             <trans-unit id="check.github_hook_key.label"><source>check.github_hook_key.label</source><target>GitHub webhook secrets</target></trans-unit>
             <trans-unit id="github.system_status.hook_key.readable"><source>github.system_status.hook_key.readable</source><target>APP_ENCRYPTION_KEY is readable, so projects can create a GitHub webhook.</target></trans-unit>
