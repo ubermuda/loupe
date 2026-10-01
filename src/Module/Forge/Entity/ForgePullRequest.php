@@ -7,6 +7,7 @@ namespace App\Module\Forge\Entity;
 use App\Doctrine\Type\MicrosecondDateTimeImmutableType;
 use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Forge\Service\ApprovalCoverage;
 use App\Module\Project\Entity\Project;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -96,6 +97,10 @@ class ForgePullRequest
     #[ORM\Column(length: 64, nullable: true)]
     public ?string $coveredSha = null;
 
+    /** The last head that the forge found the approval does not cover, so it is not asked again. */
+    #[ORM\Column(length: 64, nullable: true)]
+    public ?string $uncoveredSha = null;
+
     #[ORM\Column(length: 255, nullable: true)]
     public ?string $defaultBranch = null;
 
@@ -158,6 +163,7 @@ class ForgePullRequest
         $headMoved = $this->headSha !== $snapshot->headSha;
         if ($approvalChanged) {
             $this->coveredSha = $snapshot->approvalSha;
+            $this->uncoveredSha = null;
             $this->syncFailedReason = null;
         }
         // After the approval reset, so an approval of the head Loupe asked to update still follows the sync in one read.
@@ -194,6 +200,15 @@ class ForgePullRequest
         $this->approvalId = $snapshot->approvalId;
         $this->defaultBranch = $snapshot->defaultBranch;
         $this->headParents = $snapshot->headParents;
+    }
+
+    public function recordCoverage(ApprovalCoverage $coverage): void
+    {
+        match ($coverage) {
+            ApprovalCoverage::Covered => $this->coveredSha = $this->headSha,
+            ApprovalCoverage::NotCovered => $this->uncoveredSha = $this->headSha,
+            ApprovalCoverage::Unknown => null,
+        };
     }
 
     public function snapshot(): PullRequestSnapshot

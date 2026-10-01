@@ -11,6 +11,7 @@ use App\Module\Forge\Entity\PullRequestMergeability;
 use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\PullRequestSnapshot;
+use App\Module\Forge\Service\ApprovalCoverage;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -278,6 +279,53 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertSame('approved1', $pullRequest->syncFromSha);
         self::assertEquals(new \DateTimeImmutable('2026-09-20 11:00:00'), $pullRequest->syncRequestedAt);
         self::assertSame('refused', $pullRequest->syncFailedReason);
+    }
+
+    public function test_a_covered_head_moves_the_covered_sha_to_the_head(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'merged1'));
+
+        $pullRequest->recordCoverage(ApprovalCoverage::Covered);
+
+        self::assertSame('merged1', $pullRequest->coveredSha);
+        self::assertNull($pullRequest->uncoveredSha);
+    }
+
+    public function test_a_head_that_is_not_covered_is_remembered(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'pushed1'));
+
+        $pullRequest->recordCoverage(ApprovalCoverage::NotCovered);
+
+        self::assertSame('approved1', $pullRequest->coveredSha);
+        self::assertSame('pushed1', $pullRequest->uncoveredSha);
+    }
+
+    public function test_an_unknown_coverage_stores_nothing(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'pushed1'));
+
+        $pullRequest->recordCoverage(ApprovalCoverage::Unknown);
+
+        self::assertSame('approved1', $pullRequest->coveredSha);
+        self::assertNull($pullRequest->uncoveredSha);
+    }
+
+    public function test_a_new_approval_forgets_the_head_that_was_not_covered(): void
+    {
+        $pullRequest = $this->pullRequest();
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'pushed1'));
+        $pullRequest->recordCoverage(ApprovalCoverage::NotCovered);
+
+        $pullRequest->apply($this->approved('review1', 'approved1', head: 'pushed1'));
+        self::assertSame('pushed1', $pullRequest->uncoveredSha);
+
+        $pullRequest->apply($this->approved('review2', 'pushed1', head: 'pushed1'));
+        self::assertNull($pullRequest->uncoveredSha);
+        self::assertSame('pushed1', $pullRequest->coveredSha);
     }
 
     public function test_equal_snapshots_are_equal(): void
