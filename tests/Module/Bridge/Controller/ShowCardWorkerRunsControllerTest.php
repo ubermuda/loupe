@@ -284,6 +284,29 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-worker-run-command-flash]'));
     }
 
+    public function test_a_refused_stop_of_a_run_that_just_ended_still_shows_its_reason(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'card-control-ended@example.com');
+        $project = $this->project($em, $owner, 'Control ended');
+        $bridge = $this->commandBridge($owner);
+        $cardId = Uuid::v7();
+        $run = $this->seedRun($em, $project, bridgeId: $bridge->id, cardId: $cardId);
+
+        $url = '/projects/'.$project->id.'/worker-runs/'.$run->id.'/stop';
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_POST, $url, ['_csrf_token' => 'csrf-token'], [], ['HTTP_REFERER' => 'http://localhost'.$url, 'HTTP_TURBO_FRAME' => 'card-worker-runs']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertCount(0, $crawler->filter('[data-card-run]'));
+        $flash = $crawler->filter('turbo-frame#card-worker-runs [data-worker-run-command-flash]');
+        self::assertStringContainsString('Only a queued or running run can stop.', $flash->text());
+    }
+
     /** @param list<string>|null $capabilities */
     private function commandBridge(User $owner, ?array $capabilities = [Bridge::CAPABILITY_COMMANDS]): Bridge
     {

@@ -3,8 +3,8 @@
 {% set held = card_held(project, cardId) %}
 {% set canManage = is_granted('project.manage', project) %}
 <turbo-frame id="card-worker-runs" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
-{# A card with no open run can still have usage, or be held. #}
-{% if runs is not empty or usage.known or held %}
+{# A card with no open run can still have usage, a hold or a refused command. #}
+{% if runs is not empty or usage.known or held or commandErrors|default([]) is not empty %}
 <section class="lp-card-overview__section" data-card-runs>
     <div class="lp-section-heading">
         <h2 class="lp-card-panel__title">{{ (runs is not empty ? 'board.card.runs.open_title' : 'board.card.runs.title')|trans }}</h2>

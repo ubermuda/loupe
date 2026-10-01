@@ -168,6 +168,10 @@ final readonly class CardHistoryEntry
         if (!\is_array($cause)) {
             return null;
         }
+        // Removed links and column changes finish no single blocker to name.
+        if ('unblocked' === ($cause['type'] ?? null) && !\array_key_exists('blocker', $cause)) {
+            return new TranslatableMessage('board.card.history.cause.unblocked_any');
+        }
         [$key, $field, $parameter] = match ($cause['type'] ?? null) {
             'merged' => ['board.card.history.cause.merged', 'pullRequest', '%pr%'],
             'checks-passed' => ['board.card.history.cause.checks_passed', 'pullRequest', '%pr%'],
