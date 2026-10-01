@@ -261,6 +261,23 @@ func TestACommandRunCountsNoChain(t *testing.T) {
 	}
 }
 
+// A chain count that a worker rule of the same name left before a reload
+// never refuses a command.
+func TestACommandIgnoresAChainCountLeftByAWorkerRule(t *testing.T) {
+	h, f := withCommand(t, "1m")
+	h.router.mu.Lock()
+	h.router.chains = map[string]map[string]int{cardUUID(87): {"teardown": 99}}
+	h.router.mu.Unlock()
+	rec := h.states()
+
+	h.send(movedPayload(87, "review", "done", "agent"))
+
+	wantStates(t, rec.states(), api.RunQueued, api.RunRunning, api.RunSucceeded)
+	if len(f.recorded()) != 1 {
+		t.Fatalf("commands = %d, want 1", len(f.recorded()))
+	}
+}
+
 // A person's stop reaches the process group of the command, and the run
 // reports stopped with no session.
 func TestAStopEndsACommandRun(t *testing.T) {

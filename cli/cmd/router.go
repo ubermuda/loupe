@@ -815,7 +815,9 @@ func (r *router) enqueue(p pending) {
 		return
 	}
 	p.column = r.columnLocked(p.event)
-	if p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
+	// A command never counts toward the cap, so a count left by a worker rule
+	// of the same name before a reload never refuses it.
+	if !p.isCommand() && p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
 		r.log.Warn("chain_capped", append(about(p.event, p.rule),
 			"worker_pool", p.pool,
 			"max_chain", p.maxChain,
