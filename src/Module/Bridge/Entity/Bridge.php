@@ -8,7 +8,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\ValueObject\CliInstallMethod;
 use App\Module\Bridge\ValueObject\CliUpdateState;
-use Composer\Semver\Semver;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -38,8 +37,8 @@ class Bridge
 
     public const string CAPABILITY_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
 
-    /** The first bridge release that runs a command run again. */
-    public const string RERUN_SINCE_VERSION = '1.6.0';
+    /** The capability of a bridge that runs a command run again. */
+    public const string CAPABILITY_RERUN_COMMAND = 'rerun-command';
 
     /** Null when the last heartbeat carried no update report. */
     #[ORM\Column(name: 'update_state', length: 20, nullable: true, enumType: CliUpdateState::class)]
@@ -130,13 +129,8 @@ class Bridge
         return \in_array(self::CAPABILITY_COMMANDS, $this->capabilities ?? [], true);
     }
 
-    /** A version that is not semver, such as the commit sha of a dev build, reads as too old. */
     public function takesReruns(): bool
     {
-        try {
-            return $this->takesCommands() && Semver::satisfies($this->cliVersion, '>='.self::RERUN_SINCE_VERSION);
-        } catch (\UnexpectedValueException) {
-            return false;
-        }
+        return $this->takesCommands() && \in_array(self::CAPABILITY_RERUN_COMMAND, $this->capabilities ?? [], true);
     }
 }

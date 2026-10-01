@@ -771,8 +771,8 @@ final class ListWorkerRunsControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'command-rerun-owner@example.com');
         $project = $this->project($em, $owner, 'Command Rerun');
-        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: Bridge::RERUN_SINCE_VERSION);
-        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id]);
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND];
         $em->flush();
         $run = $this->seedRun($em, $project, exitCode: -1, ruleName: 'sync', bridgeId: $bridge->id, runKey: Uuid::v4(), kind: WorkerRunKind::Command);
 

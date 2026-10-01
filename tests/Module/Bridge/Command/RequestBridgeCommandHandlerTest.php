@@ -292,7 +292,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
     public function test_a_rerun_of_an_ended_command_run_is_stored_and_holds_nothing(WorkerRunState $state): void
     {
         $this->boot();
-        [$owner, $run] = $this->scenario('command-rerun-'.$state->value, state: $state, kind: WorkerRunKind::Command, cliVersion: '1.6.0');
+        [$owner, $run] = $this->scenario('command-rerun-'.$state->value, state: $state, kind: WorkerRunKind::Command);
 
         $command = $this->request($run, BridgeCommandKind::RerunCommand, $owner);
 
@@ -309,7 +309,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
     public function test_a_rerun_of_a_worker_run_is_refused(): void
     {
         $this->boot();
-        [$owner, $run] = $this->scenario('command-rerun-worker', state: WorkerRunState::Failed, cliVersion: '1.6.0');
+        [$owner, $run] = $this->scenario('command-rerun-worker', state: WorkerRunState::Failed);
 
         $this->assertRefused(['run' => 'bridge.command.error.not_a_command'], $run, $owner, kind: BridgeCommandKind::RerunCommand);
     }
@@ -328,23 +328,15 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
     public function test_a_rerun_of_a_command_run_that_did_not_fail_is_refused(WorkerRunState $state): void
     {
         $this->boot();
-        [$owner, $run] = $this->scenario('command-rerun-not-'.$state->value, state: $state, kind: WorkerRunKind::Command, cliVersion: '1.6.0');
+        [$owner, $run] = $this->scenario('command-rerun-not-'.$state->value, state: $state, kind: WorkerRunKind::Command);
 
         $this->assertRefused(['run' => 'bridge.command.error.not_rerunnable'], $run, $owner, kind: BridgeCommandKind::RerunCommand);
     }
 
-    /** @return iterable<string, array{string}> */
-    public static function versionsBeforeReruns(): iterable
-    {
-        yield 'an older release' => ['1.5.9'];
-        yield 'a dev build' => ['b4e39aa7'];
-    }
-
-    #[DataProvider('versionsBeforeReruns')]
-    public function test_a_rerun_on_a_bridge_older_than_reruns_is_refused(string $cliVersion): void
+    public function test_a_rerun_on_a_bridge_that_does_not_report_reruns_is_refused(): void
     {
         $this->boot();
-        [$owner, $run] = $this->scenario('command-rerun-old-'.$cliVersion, state: WorkerRunState::Failed, kind: WorkerRunKind::Command, cliVersion: $cliVersion);
+        [$owner, $run] = $this->scenario('command-rerun-old', state: WorkerRunState::Failed, kind: WorkerRunKind::Command, capabilities: [Bridge::CAPABILITY_COMMANDS]);
 
         $this->assertRefused(['run' => 'bridge.command.error.bridge_outdated'], $run, $owner, kind: BridgeCommandKind::RerunCommand);
     }
@@ -352,7 +344,7 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
     public function test_a_resume_of_a_command_run_is_refused_for_its_missing_session(): void
     {
         $this->boot();
-        [$owner, $run] = $this->scenario('command-resume-command', state: WorkerRunState::Failed, kind: WorkerRunKind::Command, cliVersion: '1.6.0');
+        [$owner, $run] = $this->scenario('command-resume-command', state: WorkerRunState::Failed, kind: WorkerRunKind::Command);
 
         $this->assertRefused(['run' => 'bridge.command.error.no_session'], $run, $owner, kind: BridgeCommandKind::ResumeRun);
     }
@@ -414,7 +406,8 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
     }
 
     /**
-     * @param ?string $cardColumn with a value, the run's card sits in a board column of that slug
+     * @param ?string      $cardColumn   with a value, the run's card sits in a board column of that slug
+     * @param list<string> $capabilities
      *
      * @return array{User, WorkerRun}
      */
@@ -424,12 +417,12 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         WorkerRunState $state = WorkerRunState::Running,
         ?string $cardColumn = null,
         WorkerRunKind $kind = WorkerRunKind::Worker,
-        string $cliVersion = 'b4e39aa7',
+        array $capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND],
     ): array {
         $em = $this->em();
         $owner = $this->user($em, $name.'@example.com');
         $project = $this->project($em, $owner, 'Project '.substr(md5($name), 0, 8));
-        $bridge = $this->commandBridge($owner, $cliVersion);
+        $bridge = $this->commandBridge($owner, $capabilities);
         $cardId = null;
         if (null !== $cardColumn) {
             $card = new Card($project, new BoardColumn($project, ucfirst($cardColumn), $cardColumn, 0), 'Held card', '', 7);
@@ -443,10 +436,11 @@ final class RequestBridgeCommandHandlerTest extends KernelTestCase
         return [$owner, $run];
     }
 
-    private function commandBridge(User $owner, string $cliVersion = 'b4e39aa7'): Bridge
+    /** @param list<string> $capabilities */
+    private function commandBridge(User $owner, array $capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND]): Bridge
     {
-        $bridge = $this->seedBridge($this->em(), $owner, cliVersion: $cliVersion);
-        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $bridge = $this->seedBridge($this->em(), $owner, cliVersion: 'b4e39aa7');
+        $bridge->capabilities = $capabilities;
         $this->em()->flush();
 
         return $bridge;

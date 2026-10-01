@@ -5954,6 +5954,7 @@
             <trans-unit id="bridge.worker_runs.control.refused"><source>bridge.worker_runs.control.refused</source><target>The bridge refused: %reason%</target></trans-unit>
             <trans-unit id="bridge.worker_runs.control.refused_no_reason"><source>bridge.worker_runs.control.refused_no_reason</source><target>The bridge refused the request.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.control.bridge_outdated"><source>bridge.worker_runs.control.bridge_outdated</source><target>Update the bridge to %version% or later to control its runs.</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.rerun_outdated"><source>bridge.worker_runs.control.rerun_outdated</source><target>Update the bridge to run a command again.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.control.card_left"><source>bridge.worker_runs.control.card_left</source><target>The card left %column%.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.meta.shown">
                 <source>bridge.worker_runs.meta.shown</source>

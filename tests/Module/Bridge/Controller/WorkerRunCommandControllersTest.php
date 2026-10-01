@@ -255,8 +255,8 @@ final class WorkerRunCommandControllersTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'run-command-'.$name.'@example.com');
         $project = $this->project($em, $owner, 'Run command '.$name);
-        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: Bridge::RERUN_SINCE_VERSION);
-        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id]);
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND];
         $em->flush();
         $run = $this->seedRun($em, $project, exitCode: WorkerRunState::Failed === $state ? 1 : 0, bridgeId: $bridge->id, state: $state, runKey: Uuid::v4(), kind: $kind);
 

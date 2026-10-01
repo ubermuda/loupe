@@ -113,8 +113,7 @@ final readonly class WorkerRunControls
             $disabledParameters = ['%version%' => self::COMMANDS_SINCE_VERSION];
         }
         if (null === $disabledReason && WorkerRunAction::Rerun === $action && null !== $bridge && !$bridge->takesReruns()) {
-            $disabledReason = 'bridge.worker_runs.control.bridge_outdated';
-            $disabledParameters = ['%version%' => Bridge::RERUN_SINCE_VERSION];
+            $disabledReason = 'bridge.worker_runs.control.rerun_outdated';
         }
 
         return new WorkerRunControl(

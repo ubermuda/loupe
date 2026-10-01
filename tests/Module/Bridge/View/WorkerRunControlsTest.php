@@ -96,7 +96,7 @@ final class WorkerRunControlsTest extends KernelTestCase
     #[DataProvider('rerunnable')]
     public function test_an_ended_command_run_offers_rerun(WorkerRunState $state): void
     {
-        [$project, $bridge] = $this->scenario('controls-rerun-'.$state->value, cliVersion: '1.6.0');
+        [$project, $bridge] = $this->scenario('controls-rerun-'.$state->value);
         $run = $this->seedCommandRun($project, $bridge, $state);
 
         $control = $this->controlOf($project, $run);
@@ -108,14 +108,14 @@ final class WorkerRunControlsTest extends KernelTestCase
 
     public function test_a_running_command_run_offers_stop(): void
     {
-        [$project, $bridge] = $this->scenario('controls-command-stop', cliVersion: '1.6.0');
+        [$project, $bridge] = $this->scenario('controls-command-stop');
 
         self::assertSame(WorkerRunAction::Stop, $this->controlOf($project, $this->seedCommandRun($project, $bridge, WorkerRunState::Running))?->action);
     }
 
     public function test_a_succeeded_command_run_has_no_control(): void
     {
-        [$project, $bridge] = $this->scenario('controls-command-succeeded', cliVersion: '1.6.0');
+        [$project, $bridge] = $this->scenario('controls-command-succeeded');
 
         self::assertNull($this->controlOf($project, $this->seedCommandRun($project, $bridge, WorkerRunState::Succeeded)));
     }
@@ -123,7 +123,7 @@ final class WorkerRunControlsTest extends KernelTestCase
     /** A failed worker run with no session offers nothing, because only a command run runs again. */
     public function test_a_failed_worker_run_with_no_session_offers_no_rerun(): void
     {
-        [$project, $bridge] = $this->scenario('controls-worker-no-rerun', cliVersion: '1.6.0');
+        [$project, $bridge] = $this->scenario('controls-worker-no-rerun');
         $run = $this->seedWorkerRun($project, $bridge, WorkerRunState::Failed);
         $run->sessionId = null;
         $this->em()->flush();
@@ -131,30 +131,22 @@ final class WorkerRunControlsTest extends KernelTestCase
         self::assertNull($this->controlOf($project, $run));
     }
 
-    /** @return iterable<string, array{string}> */
-    public static function versionsBeforeReruns(): iterable
+    public function test_a_bridge_that_does_not_report_reruns_disables_the_rerun(): void
     {
-        yield 'an older release' => ['1.5.9'];
-        yield 'a dev build' => ['b4e39aa7'];
-    }
-
-    #[DataProvider('versionsBeforeReruns')]
-    public function test_a_bridge_older_than_reruns_disables_the_rerun(string $cliVersion): void
-    {
-        [$project, $bridge] = $this->scenario('controls-rerun-old-'.$cliVersion, cliVersion: $cliVersion);
+        [$project, $bridge] = $this->scenario('controls-rerun-old', capabilities: [Bridge::CAPABILITY_COMMANDS]);
         $run = $this->seedCommandRun($project, $bridge, WorkerRunState::Failed);
 
         $control = $this->controlOf($project, $run);
 
         self::assertSame(WorkerRunAction::Rerun, $control?->action);
         self::assertFalse($control->enabled);
-        self::assertSame('bridge.worker_runs.control.bridge_outdated', $control->disabledReason);
-        self::assertSame(['%version%' => Bridge::RERUN_SINCE_VERSION], $control->disabledParameters);
+        self::assertSame('bridge.worker_runs.control.rerun_outdated', $control->disabledReason);
+        self::assertSame([], $control->disabledParameters);
     }
 
     public function test_a_pending_rerun_offers_cancel(): void
     {
-        [$project, $bridge] = $this->scenario('controls-rerun-pending', cliVersion: '1.6.0');
+        [$project, $bridge] = $this->scenario('controls-rerun-pending');
         $run = $this->seedCommandRun($project, $bridge, WorkerRunState::Failed);
         $this->seedCommand($this->em(), $run, kind: BridgeCommandKind::RerunCommand);
 
@@ -166,7 +158,7 @@ final class WorkerRunControlsTest extends KernelTestCase
 
     public function test_a_pending_rerun_on_a_quiet_bridge_says_the_bridge_is_offline(): void
     {
-        [$project, $bridge] = $this->scenario('controls-rerun-offline', lastSeenAt: new \DateTimeImmutable('2026-09-28T12:00:00+00:00'), cliVersion: '1.6.0');
+        [$project, $bridge] = $this->scenario('controls-rerun-offline', lastSeenAt: new \DateTimeImmutable('2026-09-28T12:00:00+00:00'));
         $run = $this->seedCommandRun($project, $bridge, WorkerRunState::Failed);
         $this->seedCommand($this->em(), $run, kind: BridgeCommandKind::RerunCommand);
 
@@ -175,7 +167,7 @@ final class WorkerRunControlsTest extends KernelTestCase
 
     public function test_an_expired_rerun_warns_while_the_run_still_failed(): void
     {
-        [$project, $bridge] = $this->scenario('controls-rerun-expired', cliVersion: '1.6.0');
+        [$project, $bridge] = $this->scenario('controls-rerun-expired');
         $run = $this->seedCommandRun($project, $bridge, WorkerRunState::Failed);
         $this->seedCommand($this->em(), $run, state: BridgeCommandState::Expired, kind: BridgeCommandKind::RerunCommand);
 
@@ -472,20 +464,20 @@ final class WorkerRunControlsTest extends KernelTestCase
      *
      * @return array{Project, Bridge}
      */
-    private function scenario(string $name, ?array $capabilities = [Bridge::CAPABILITY_COMMANDS], \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable(self::NOW), string $cliVersion = 'b4e39aa7'): array
+    private function scenario(string $name, ?array $capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND], \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable(self::NOW)): array
     {
         $em = $this->em();
         $owner = $this->user($em, $name.'@example.com');
         $project = $this->project($em, $owner, 'Project '.substr(md5($name), 0, 8));
-        $bridge = $this->commandBridge($owner, $lastSeenAt, $capabilities, $cliVersion);
+        $bridge = $this->commandBridge($owner, $lastSeenAt, $capabilities);
 
         return [$project, $bridge];
     }
 
     /** @param list<string>|null $capabilities */
-    private function commandBridge(User $owner, \DateTimeImmutable $lastSeenAt, ?array $capabilities = [Bridge::CAPABILITY_COMMANDS], string $cliVersion = 'b4e39aa7'): Bridge
+    private function commandBridge(User $owner, \DateTimeImmutable $lastSeenAt, ?array $capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND]): Bridge
     {
-        $bridge = $this->seedBridge($this->em(), $owner, cliVersion: $cliVersion, lastSeenAt: $lastSeenAt);
+        $bridge = $this->seedBridge($this->em(), $owner, cliVersion: 'b4e39aa7', lastSeenAt: $lastSeenAt);
         $bridge->capabilities = $capabilities;
         $this->em()->flush();
 

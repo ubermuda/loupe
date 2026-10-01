@@ -307,7 +307,7 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         [$project, $other] = $this->projects('bridge-list');
         $em = $this->em();
         $live = $this->seedBridge($em, $project->owner, projects: [(string) $project->id], cliVersion: '1.6.0', workerPools: [['name' => 'default', 'size' => 2, 'inUse' => 1, 'queued' => 0]], workerPoolsReportedAt: new \DateTimeImmutable('2026-09-30 11:00:00'));
-        $live->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $live->capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND];
         $live->pauseRequested = true;
         $quiet = $this->seedBridge($em, $project->owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable('-1 day'));
         $this->seedBridge($em, $project->owner, projects: [(string) $other->id]);
@@ -329,11 +329,13 @@ final class WorkerRunReadToolsTest extends KernelTestCase
         self::assertTrue($row['pauseRequested']);
         self::assertNull($row['pausedReported']);
         self::assertTrue($row['takesCommands']);
+        self::assertTrue($row['takesReruns']);
         self::assertSame([['name' => 'default', 'size' => 2, 'inUse' => 1, 'queued' => 0]], $row['workerPools']);
         self::assertSame('2026-09-30T11:00:00+00:00', $row['workerPoolsReportedAt']);
         self::assertSame([['runId' => (string) $open->id, 'cardNumber' => 3, 'rule' => 'plan', 'state' => 'running']], $row['openRuns']);
         self::assertSame('quiet', $bridges[$quiet->id->toRfc4122()]['liveness']);
         self::assertFalse($bridges[$quiet->id->toRfc4122()]['takesCommands']);
+        self::assertFalse($bridges[$quiet->id->toRfc4122()]['takesReruns']);
         self::assertSame([], $bridges[$quiet->id->toRfc4122()]['openRuns']);
     }
 
