@@ -378,6 +378,19 @@ page to see a newer state. The board tiles update by themselves.
 The page also lists the card's five latest agent runs, with the rule that
 started each run, when it ran, how long it took and how it ended. A run opens
 its details on the **Runs** tab of the Activity page.
+The project owner can stop, resume and cancel runs from this list. See
+[Stop, resume and cancel](worker-runs.md#stop-resume-and-cancel).
+
+A stop of a run holds the card. The runs section then shows **Held: no worker
+starts on this card until you resume one of its runs or move it.** No bridge
+starts a worker on a held card. These actions release the hold:
+
+- A person resumes one of the runs of the card.
+- A person moves the card to another column. A move by an agent or by the
+  automation keeps the hold, and so does a move inside the same column.
+- A person cancels the stop while it still waits for the bridge. This releases
+  only the hold that this stop wrote.
+- A person deletes the column of the card, or the card.
 
 A card with links to other cards shows a **Linked cards** table. Each row gives
 the kind of link, the other card's number, its title and its column. A row opens

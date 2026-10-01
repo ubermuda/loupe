@@ -8,6 +8,7 @@ use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\Service\BridgeLiveness;
 use App\Module\Bridge\Service\CliCompatibility;
 use App\Module\Bridge\View\AgentConnection;
+use App\Module\Bridge\View\AgentHealthChip;
 use App\Module\Bridge\View\AgentUpdateChip;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -42,6 +43,7 @@ final readonly class ListAgentsHandler
                     $bridge,
                     $statuses[$bridge->id->toRfc4122()],
                     AgentUpdateChip::for($bridge, $this->compatibility->isCompatible($bridge->cliVersion), $installScriptUrl),
+                    AgentHealthChip::for($bridge, $statuses[$bridge->id->toRfc4122()]),
                 ),
                 $bridges,
             ),

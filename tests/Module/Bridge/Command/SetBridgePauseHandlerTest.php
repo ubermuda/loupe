@@ -27,6 +27,8 @@ final class SetBridgePauseHandlerTest extends KernelTestCase
         $audit = RecordingAuditor::installedIn(self::getContainer());
         $owner = $this->user($this->em(), 'pause-set@example.com');
         $bridge = $this->seedBridge($this->em(), $owner);
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS];
+        $this->em()->flush();
 
         $this->pause($owner, $bridge->id, true);
 
@@ -71,6 +73,37 @@ final class SetBridgePauseHandlerTest extends KernelTestCase
 
         self::assertSame('2026-09-28T08:00:00+00:00', $this->reload($owner, $bridge->id)->pauseRequestedAt?->format(\DateTimeInterface::ATOM));
         self::assertSame([], $audit->records('bridge.pause_changed'));
+    }
+
+    public function test_a_bridge_that_takes_no_commands_cannot_pause(): void
+    {
+        $this->boot();
+        $owner = $this->user($this->em(), 'pause-outdated@example.com');
+        $bridge = $this->seedBridge($this->em(), $owner);
+        $bridge->capabilities = null;
+        $this->em()->flush();
+
+        try {
+            $this->pause($owner, $bridge->id, true);
+            self::fail('Expected a refusal.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['bridge' => 'bridge.pause.error.bridge_outdated'], $e->errors);
+        }
+        self::assertFalse($this->reload($owner, $bridge->id)->pauseRequested);
+    }
+
+    public function test_a_bridge_that_takes_no_commands_can_still_unpause(): void
+    {
+        $this->boot();
+        $owner = $this->user($this->em(), 'unpause-outdated@example.com');
+        $bridge = $this->seedBridge($this->em(), $owner);
+        $bridge->capabilities = null;
+        $bridge->pauseRequested = true;
+        $this->em()->flush();
+
+        $this->pause($owner, $bridge->id, false);
+
+        self::assertFalse($this->reload($owner, $bridge->id)->pauseRequested);
     }
 
     public function test_a_bridge_the_owner_does_not_hold_is_refused(): void

@@ -5721,6 +5721,20 @@
             <trans-unit id="bridge.worker_runs.details.copy"><source>bridge.worker_runs.details.copy</source><target>Copy output</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.copied"><source>bridge.worker_runs.details.copied</source><target>Output copied.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.details.copy_failed"><source>bridge.worker_runs.details.copy_failed</source><target>The browser could not copy the output. Select and copy the text instead.</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.resume"><source>bridge.worker_runs.control.resume</source><target>Resume</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.stop"><source>bridge.worker_runs.control.stop</source><target>Stop</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.cancel"><source>bridge.worker_runs.control.cancel</source><target>Cancel request</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.resume_requested"><source>bridge.worker_runs.control.resume_requested</source><target>Resume requested</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.stop_requested"><source>bridge.worker_runs.control.stop_requested</source><target>Stop requested</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.resume_requested_offline"><source>bridge.worker_runs.control.resume_requested_offline</source><target>Resume requested, bridge offline</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.stop_requested_offline"><source>bridge.worker_runs.control.stop_requested_offline</source><target>Stop requested, bridge offline</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.waiting_paused"><source>bridge.worker_runs.control.waiting_paused</source><target>Waiting: bridge paused</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.resume_expired"><source>bridge.worker_runs.control.resume_expired</source><target>The resume request expired before the bridge took it.</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.stop_expired"><source>bridge.worker_runs.control.stop_expired</source><target>The stop request expired before the bridge took it.</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.refused"><source>bridge.worker_runs.control.refused</source><target>The bridge refused: %reason%</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.refused_no_reason"><source>bridge.worker_runs.control.refused_no_reason</source><target>The bridge refused the request.</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.bridge_outdated"><source>bridge.worker_runs.control.bridge_outdated</source><target>Update the bridge to %version% or later to control its runs.</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.control.card_left"><source>bridge.worker_runs.control.card_left</source><target>The card left %column%.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.meta.shown">
                 <source>bridge.worker_runs.meta.shown</source>
                 <target>%count% shown</target>
@@ -5916,6 +5930,7 @@
             <trans-unit id="board.card.runs.title"><source>board.card.runs.title</source><target>Agent runs</target></trans-unit>
             <trans-unit id="board.card.runs.all"><source>board.card.runs.all</source><target>Run history</target></trans-unit>
             <trans-unit id="board.card.runs.empty"><source>board.card.runs.empty</source><target>No agent has run on this card yet.</target></trans-unit>
+            <trans-unit id="board.card.runs.held"><source>board.card.runs.held</source><target>Held: no worker starts on this card until you resume one of its runs or move it.</target></trans-unit>
             <trans-unit id="board.card.runs.usage.total"><source>board.card.runs.usage.total</source><target>Total usage</target></trans-unit>
             <trans-unit id="board.card.runs.usage.tokens"><source>board.card.runs.usage.tokens</source><target>%input% input · %output% output · %cacheRead% cache read · %cacheWrite% cache write</target></trans-unit>
             <trans-unit id="board.card.runs.usage.estimated"><source>board.card.runs.usage.estimated</source><target>Estimated</target></trans-unit>
@@ -6451,10 +6466,28 @@
             <trans-unit id="bridge.agents.update.incompatible"><source>bridge.agents.update.incompatible</source><target>Needs %range%</target></trans-unit>
             <trans-unit id="bridge.agents.update.available"><source>bridge.agents.update.available</source><target>Update available: %version%</target></trans-unit>
             <trans-unit id="bridge.agents.empty.action"><source>bridge.agents.empty.action</source><target>Connect a bridge</target></trans-unit>
+            <trans-unit id="bridge.agents.status.paused"><source>bridge.agents.status.paused</source><target>Paused</target></trans-unit>
+            <trans-unit id="bridge.agents.status.pausing"><source>bridge.agents.status.pausing</source><target>Pausing</target></trans-unit>
+            <trans-unit id="bridge.agents.status.unpausing"><source>bridge.agents.status.unpausing</source><target>Resuming new work</target></trans-unit>
+            <trans-unit id="bridge.agents.paused"><source>bridge.agents.paused</source><target>Paused</target></trans-unit>
+            <trans-unit id="bridge.agents.pause_requested"><source>bridge.agents.pause_requested</source><target>Pause requested</target></trans-unit>
+            <trans-unit id="bridge.agents.paused_by"><source>bridge.agents.paused_by</source><target>%time% by %person%</target></trans-unit>
+            <trans-unit id="bridge.agents.menu"><source>bridge.agents.menu</source><target>Bridge actions</target></trans-unit>
+            <trans-unit id="bridge.agents.pause"><source>bridge.agents.pause</source><target>Pause new work</target></trans-unit>
+            <trans-unit id="bridge.agents.unpause"><source>bridge.agents.unpause</source><target>Resume new work</target></trans-unit>
+            <trans-unit id="bridge.agents.pause_outdated"><source>bridge.agents.pause_outdated</source><target>Update the bridge to %version% or later to pause it.</target></trans-unit>
             <trans-unit id="bridge.command.error.no_bridge"><source>bridge.command.error.no_bridge</source><target>No bridge runs this session, so no bridge can take the command.</target></trans-unit>
             <trans-unit id="bridge.command.error.unknown_bridge"><source>bridge.command.error.unknown_bridge</source><target>The bridge of this run is no longer connected to your account.</target></trans-unit>
             <trans-unit id="bridge.command.error.pending"><source>bridge.command.error.pending</source><target>This run already has a command that waits for its bridge.</target></trans-unit>
             <trans-unit id="bridge.command.error.reason_too_long"><source>bridge.command.error.reason_too_long</source><target>The reason is too long.</target></trans-unit>
+            <trans-unit id="bridge.command.error.not_controllable"><source>bridge.command.error.not_controllable</source><target>You cannot control an interactive session from here.</target></trans-unit>
+            <trans-unit id="bridge.command.error.no_session"><source>bridge.command.error.no_session</source><target>This run has no session to resume.</target></trans-unit>
+            <trans-unit id="bridge.command.error.not_resumable"><source>bridge.command.error.not_resumable</source><target>Only an ended run can resume.</target></trans-unit>
+            <trans-unit id="bridge.command.error.card_left"><source>bridge.command.error.card_left</source><target>The card left the column of this run.</target></trans-unit>
+            <trans-unit id="bridge.command.error.not_stoppable"><source>bridge.command.error.not_stoppable</source><target>Only a queued or running run can stop.</target></trans-unit>
+            <trans-unit id="bridge.command.error.bridge_outdated"><source>bridge.command.error.bridge_outdated</source><target>Update the bridge to control its runs.</target></trans-unit>
+            <trans-unit id="bridge.command.error.nothing_pending"><source>bridge.command.error.nothing_pending</source><target>This run has no command that waits.</target></trans-unit>
+            <trans-unit id="bridge.pause.error.bridge_outdated"><source>bridge.pause.error.bridge_outdated</source><target>Update the bridge to pause it.</target></trans-unit>
             <trans-unit id="bridge.pause.error.unknown_bridge"><source>bridge.pause.error.unknown_bridge</source><target>This bridge is not connected to your account.</target></trans-unit>
             <trans-unit id="board.rules.page.title"><source>board.rules.page.title</source><target>Rules</target></trans-unit>
             <trans-unit id="board.rules.nav"><source>board.rules.nav</source><target>Rules</target></trans-unit>

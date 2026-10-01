@@ -8,6 +8,7 @@ use App\Module\Bridge\Command\ExpireBridgeCommandsHandler;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Repository\BridgeCommandRepository;
 use App\Module\Bridge\Scheduler\ExpireBridgeCommandsTask;
+use App\Module\Bridge\Service\WorkerRunChangedPublisher;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Tests\Module\Bridge\BridgeScenario;
 use App\Tests\Support\RecordingLogger;
@@ -75,9 +76,11 @@ final class ExpireBridgeCommandsTaskTest extends KernelTestCase
     {
         $registry = self::getContainer()->get('doctrine');
         self::assertInstanceOf(ManagerRegistry::class, $registry);
+        $runsChanged = self::getContainer()->get(WorkerRunChangedPublisher::class);
+        self::assertInstanceOf(WorkerRunChangedPublisher::class, $runsChanged);
 
         return new ExpireBridgeCommandsTask(
-            new ExpireBridgeCommandsHandler(new BridgeCommandRepository($registry), new MockClock('2026-09-29 12:00:00')),
+            new ExpireBridgeCommandsHandler(new BridgeCommandRepository($registry), $runsChanged, new MockClock('2026-09-29 12:00:00')),
             $logger,
         );
     }
