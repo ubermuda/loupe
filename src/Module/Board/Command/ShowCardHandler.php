@@ -12,10 +12,10 @@ use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Board\Service\StageHold;
 use App\Module\Board\Service\SyncLine;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use Psr\Clock\ClockInterface;
-use App\Module\Board\Service\StageHold;
 
 final readonly class ShowCardHandler
 {
