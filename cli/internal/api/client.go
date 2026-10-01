@@ -832,7 +832,7 @@ func (c *Client) CheckAsk(ctx context.Context, handle, askID string) (AskState, 
 }
 
 // CardRead is the answer of the card endpoint: the column a card is in now,
-// and whether a person stopped the work on it. An older server sends no held
+// and whether a person paused the agents on it. An older server sends no held
 // key, which reads as false.
 type CardRead struct {
 	Column string

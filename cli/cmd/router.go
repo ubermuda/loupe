@@ -815,7 +815,7 @@ func (r *router) enqueue(p pending) {
 		p.set = current
 		p.apply(m)
 	}
-	// A person stopped the work on the card, so no rule starts anything on it.
+	// The server holds the card, so no rule starts anything on it.
 	if r.heldLocked(p.event) {
 		r.log.Info("card_held", about(p.event, p.rule)...)
 		r.mu.Unlock()
