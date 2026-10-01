@@ -155,10 +155,10 @@ If `loupe status` fails, show its output to the user and stop.
 This command prints the path of the rule file. The file is beside `config.json` of step 4:
 
 ```bash
-if [ -n "${LOUPE_RULES_FILE:-}" ]; then echo "$LOUPE_RULES_FILE"
-elif [ "$(uname -s)" = Darwin ]; then echo "$HOME/Library/Application Support/loupe/rules.yaml"
-else echo "${XDG_CONFIG_HOME:-$HOME/.config}/loupe/rules.yaml"; fi
+if [ "$(uname -s)" = Darwin ]; then echo "$HOME/Library/Application Support/loupe/rules.yaml"; else echo "${XDG_CONFIG_HOME:-$HOME/.config}/loupe/rules.yaml"; fi
 ```
+
+The bridge reads another file when it starts with `--rules <path>`. If the file above does not exist, ask the user whether they start the bridge with `--rules`. If they do, use that path.
 
 Read the file. Find the entry in `projects` whose `dir` is this repository. A `dir` can start with `~/`. The key of that entry is the project slug.
 
@@ -202,7 +202,7 @@ rules:
 
 `done` is the last column of a new board. You cannot read the board yet, so ask the user if their board gave that column another name. A command rule waits until a running worker of the same card ends. The bridge does not retry a failed command.
 
-Show the changed YAML to the user. Save the file only when the user agrees. Then run `loupe bridge reload`, with `--rules "$LOUPE_RULES_FILE"` when that variable is set. Show any error to the user. A socket error means that no bridge runs, and the bridge reads the file when it starts.
+Show the changed YAML to the user. Save the file only when the user agrees. Then run `loupe bridge reload`, with `--rules <path>` when the bridge uses another file. Show any error to the user. A socket error means that no bridge runs, and the bridge reads the file when it starts.
 
 ## 10. Finish
 
