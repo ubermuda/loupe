@@ -110,7 +110,8 @@ a comp that never expires. A person who already has an account opens the link
 and selects **Claim free beta access**, and their account gets the comp. If they
 are signed out, the link sends them to sign-up. They can sign in from there, and
 the link opens again for them to claim. When registration is switched off, the
-link answers 404.
+link creates no account, and it answers 404 to a signed-out visitor. A
+signed-in account can still claim it.
 
 The list shows each link as unused, used by an account on a date, or revoked on
 a date. Revoke an unused link with its **Revoke** button. A used link cannot be

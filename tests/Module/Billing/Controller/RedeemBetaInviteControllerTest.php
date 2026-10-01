@@ -472,6 +472,22 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         self::assertFalse($client->getRequest()->getSession()->has(RegistrationPasses::SESSION_KEY));
     }
 
+    public function test_a_signed_in_user_claims_the_link_when_sign_up_is_switched_off(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $client->getContainer()->get(EntityManagerInterface::class);
+        $em->persist(new FeatureFlag(name: RegistrationGate::ENABLED_FLAG, type: FeatureFlagType::Bool, value: false));
+        $em->flush();
+        $tester = new BillingScenario($client->getContainer())->verifiedUser('beta-switch-off');
+        [, $token] = $this->seedInvite($client);
+
+        $client->loginUser($tester);
+        $this->claim($client, $token);
+
+        self::assertNotNull($this->currentComp($client, $tester));
+    }
+
     /**
      * The GET first, as a browser does: it also gives BrowserKit the history
      * that lets the stateless CSRF sentinel pass as same-origin.
