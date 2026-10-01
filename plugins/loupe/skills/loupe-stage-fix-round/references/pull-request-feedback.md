@@ -78,7 +78,7 @@ git merge --ff-only origin/<head branch>
 
 When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push.
 
-When the sync brought commits, run the refresh of the profile `Environment` section, when it names one. A profile command may name `<cardId>`. It is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. Never derive it from a branch name, a folder name or a card number.
+When the switch or the sync brought commits, run the refresh of the profile `Environment` section, when it names one. A profile command may name `<cardId>`. It is the card id from the prompt line `Card <number> (cardId <id>)`, or the `cardId` of `card_get` when the prompt has none. Never derive it from a branch name, a folder name or a card number.
 
 ## Resolve a conflict with the base
 
