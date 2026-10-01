@@ -9,6 +9,7 @@ use App\Module\Board\Service\PullRequestReviewView;
 use App\Module\Board\Service\PullRequestStateView;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestReview;
+use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -30,6 +31,16 @@ final class PullRequestReviewViewTest extends TestCase
         $row = $this->row(PullRequestReview::Approved, head: 'approved1', approvalId: 'review1');
 
         self::assertSame(PullRequestReviewView::Approved, PullRequestReviewView::of($row));
+    }
+
+    public function test_a_merged_or_closed_pull_request_reads_approved_after_a_later_push(): void
+    {
+        foreach ([PullRequestState::Merged, PullRequestState::Closed] as $state) {
+            $row = $this->row(PullRequestReview::Approved, head: 'pushed1', approvalId: 'review1');
+            $row->state = $state;
+
+            self::assertSame(PullRequestReviewView::Approved, PullRequestReviewView::of($row));
+        }
     }
 
     /** @return iterable<string, array{PullRequestReview, PullRequestReviewView}> */
