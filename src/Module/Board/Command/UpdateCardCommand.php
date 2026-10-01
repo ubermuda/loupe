@@ -41,7 +41,8 @@ use App\Module\Board\Service\CardEventCause;
  * $onlyFromColumn and $onlyFromOpenColumn are checked under the lock too. A
  * card that no longer sits there is left alone, with no change and no error.
  *
- * $cause says why the app moved the card, for the card's history.
+ * $cause says why the card moved, for the card's history: an app rule or an agent's run.
+ * A move that opens an interactive run and names no cause names that run.
  */
 final readonly class UpdateCardCommand
 {

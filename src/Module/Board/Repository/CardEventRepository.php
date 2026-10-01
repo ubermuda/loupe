@@ -87,8 +87,8 @@ class CardEventRepository extends ServiceEntityRepository
         ));
     }
 
-    /** @return list<CardEvent> newest first, with the actor loaded */
-    public function findPageForCard(Card $card, ?\DateTimeImmutable $beforeAt, ?string $beforeId, int $limit): array
+    /** @return list<CardEvent> newest first, older than the given row when one is given, with the actor loaded */
+    public function findPageBeforeForCard(Card $card, ?\DateTimeImmutable $beforeAt, ?string $beforeId, int $limit): array
     {
         $query = $this->createQueryBuilder('e')
             ->addSelect('u')
@@ -113,5 +113,26 @@ class CardEventRepository extends ServiceEntityRepository
     public function findForCard(Card $card): array
     {
         return array_values($this->findBy(['card' => $card], ['occurredAt' => 'DESC', 'id' => 'DESC']));
+    }
+
+    /** @return list<CardEvent> newest first, each with its actor loaded */
+    public function findPageForCard(Card $card, int $offset, int $limit): array
+    {
+        return array_values($this->createQueryBuilder('e')
+            ->leftJoin('e.actorUser', 'u')
+            ->addSelect('u')
+            ->andWhere('e.card = :card')
+            ->setParameter('card', $card)
+            ->orderBy('e.occurredAt', 'DESC')
+            ->addOrderBy('e.id', 'DESC')
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult());
+    }
+
+    public function countForCard(Card $card): int
+    {
+        return $this->count(['card' => $card]);
     }
 }

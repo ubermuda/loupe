@@ -37,6 +37,9 @@ type router struct {
 	// set holds the rule set behind a pointer, so a reload can swap it. Each
 	// handler loads one snapshot and uses only that one.
 	set atomic.Pointer[rules.Set]
+	// assumeAutoUpdate takes a missing autoUpdate key as on, after the
+	// migration from an older image. It is fixed before subscribe.
+	assumeAutoUpdate bool
 	// projects names the mapped slugs in the connected line. A reload writes
 	// it under mu.
 	projects []string
@@ -63,6 +66,11 @@ type router struct {
 	// nil one resumes with no check. after is time.After, which tests replace.
 	readCard func(ctx context.Context, handle, cardID string) (api.CardRead, error)
 	after    func(time.Duration) <-chan time.Time
+	// replay reads a page of the outbox after a sequence, on each connect. A
+	// nil one catches up nothing. cursorFile keeps the cursor, and "" keeps
+	// none.
+	replay     func(ctx context.Context, after int64) (api.Replay, error)
+	cursorFile string
 	// resolvePin asks which variant of an experiment a card runs with, before
 	// its worker starts. A nil one runs the variant the bridge drew.
 	resolvePin func(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int) (string, string, error)
@@ -176,6 +184,19 @@ type router struct {
 	lastEventID string
 	recent      []string
 	recentSet   map[string]bool
+	// cursor is the highest outbox sequence handled, and floor the head the
+	// bridge started from with no cursor. hasCursor is off while neither is
+	// known. caughtUp holds the ids that catch-ups read, oldest first, which
+	// caughtUpSet indexes. cursorFailing is on while the cursor file cannot be
+	// written.
+	cursor, floor int64
+	hasCursor     bool
+	caughtUp      []string
+	caughtUpSet   map[string]bool
+	cursorFailing bool
+	// gap is on from a failed catch-up until one ends, and holds the cursor at
+	// the failed page.
+	gap bool
 	// eventMu keeps the events in order while resume replays the held ones. It
 	// is taken before mu, never under it.
 	eventMu sync.Mutex
@@ -411,6 +432,7 @@ func (r *router) handler() transport.Handler {
 			if r.update != nil {
 				r.update.markConnected()
 			}
+			r.catchUp()
 		},
 		OnError:     func(err error) { r.log.Error("stream_error", "error", err.Error()) },
 		OnEvent:     r.onEvent,
@@ -425,6 +447,12 @@ func (r *router) handler() transport.Handler {
 // an older binary never heard of, which is normal. A command goes to its own
 // intake.
 func (r *router) onData(data []byte) {
+	r.route(data, false)
+}
+
+// route is onData for a live payload or, when replayed, for one of a catch-up.
+// A replayed card move whose card left the column since does not run.
+func (r *router) route(data []byte, replayed bool) {
 	// Every bridge of the account receives an ask event, and only the one that
 	// started the session can resume it. Another bridge's event is not ours to
 	// validate, so it is dropped before Parse can log it.
@@ -468,9 +496,7 @@ func (r *router) onData(data []byte) {
 
 	m := set.Match(e)
 	if m.Skip == rules.Run {
-		p := pending{key: key, event: e, set: set}
-		p.apply(m)
-		r.enqueue(p)
+		r.accept(pending{key: key, event: e, set: set}, m, replayed)
 
 		return
 	}
@@ -484,9 +510,7 @@ func (r *router) onData(data []byte) {
 	r.mu.Unlock()
 	switch m.Skip {
 	case rules.Run:
-		p := pending{key: key, event: e, set: set}
-		p.apply(m)
-		r.enqueue(p)
+		r.accept(pending{key: key, event: e, set: set}, m, replayed)
 	case rules.Untrusted:
 		r.log.Warn("event_untrusted", about(e, m.Rule)...)
 	case rules.Unmapped:
@@ -494,6 +518,15 @@ func (r *router) onData(data []byte) {
 			r.log.Warn("project_unmapped", "project", e.ProjectID)
 		}
 	}
+}
+
+// accept queues the event of a match, unless it is replayed and stale.
+func (r *router) accept(p pending, m rules.Match, replayed bool) {
+	p.apply(m)
+	if replayed && r.stale(p) {
+		return
+	}
+	r.enqueue(p)
 }
 
 // markUnmappedLocked marks the project as unmapped, and reports whether it was

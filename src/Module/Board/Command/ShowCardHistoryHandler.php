@@ -22,7 +22,7 @@ final readonly class ShowCardHistoryHandler
 
     public function __invoke(ShowCardHistoryCommand $command): CardHistoryView
     {
-        $events = $this->cardEvents->findPageForCard($command->card, $command->beforeAt, $command->beforeId?->toRfc4122(), self::PAGE_SIZE + 1);
+        $events = $this->cardEvents->findPageBeforeForCard($command->card, $command->beforeAt, $command->beforeId?->toRfc4122(), self::PAGE_SIZE + 1);
         $hasOlder = \count($events) > self::PAGE_SIZE;
         $events = \array_slice($events, 0, self::PAGE_SIZE);
         $last = $hasOlder ? array_last($events) : null;

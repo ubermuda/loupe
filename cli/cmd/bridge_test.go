@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -181,6 +182,12 @@ type fakeLoupe struct {
 	// cardColumn answers the card read route. Empty answers 404.
 	cardColumn string
 	cardReads  []string
+	// head is the head GET /api/events sends, and "" sends none. replayRows
+	// are the card numbers the replay route holds, each its own sequence.
+	head         string
+	replayRows   []int
+	replayAfters []string
+	lastEventIDs []string
 }
 
 const (
@@ -209,11 +216,27 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		if f.flags != "" {
 			flags = `,"flags":` + f.flags
 		}
+		if f.head != "" {
+			flags += `,"head":` + f.head
+		}
 		fmt.Fprintf(w, `{"hubUrl":"http://%s/hub","jwt":"jwt-%d","topic":%q,"projects":[%s]%s}`, r.Host, n, userTopic, projects, flags)
+	case "/api/events/replay":
+		after, _ := strconv.Atoi(r.URL.Query().Get("after"))
+		f.mu.Lock()
+		f.replayAfters = append(f.replayAfters, r.URL.Query().Get("after"))
+		f.mu.Unlock()
+		var rows []api.ReplayEvent
+		for _, n := range f.replayRows {
+			if n > after {
+				rows = append(rows, row(n, "next"))
+			}
+		}
+		_ = json.NewEncoder(w).Encode(api.Replay{Events: rows})
 	case "/hub":
 		f.mu.Lock()
 		f.hubAuth = append(f.hubAuth, r.Header.Get("Authorization"))
 		f.hubTopics = append(f.hubTopics, r.URL.Query()["topic"])
+		f.lastEventIDs = append(f.lastEventIDs, r.Header.Get("Last-Event-ID"))
 		attempt, delay := len(f.hubAuth), f.hubDelay
 		f.mu.Unlock()
 		time.Sleep(delay)
@@ -709,5 +732,53 @@ func TestTheBridgeLoggerWritesJSONToEveryWriter(t *testing.T) {
 	}
 	if line["event"] != "worker_queued" || line["card"] != float64(87) {
 		t.Fatalf("line = %v", line)
+	}
+}
+
+// A bridge with no cursor file starts from the head of GET /api/events. On
+// connect it reads the outbox after the head, and the hub starts after it too.
+// An event that both send runs once, and the cursor file keeps the last id.
+func TestTheBridgeCatchesUpFromTheHead(t *testing.T) {
+	fake := &fakeLoupe{
+		head:       "10",
+		replayRows: []int{11},
+		cardColumn: "next",
+		sse:        "id: 11\ndata: " + cardMoved(11) + "\n\nid: 12\ndata: " + cardMoved(12) + "\n\n",
+	}
+	server := httptest.NewServer(http.HandlerFunc(fake.serve))
+	t.Cleanup(server.Close)
+	cfg := testLogin(server.URL)
+	set, _ := loadRules(t, defaultRules, rules.Defaults{})
+	log := &syncBuffer{}
+	worker := &fakeWorker{result: finishedRun}
+	r := withRules(&router{log: newBridgeLogger(log), worker: worker.ops()}, set)
+	r.cursorFile = filepath.Join(t.TempDir(), "cursor.json")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := &cobra.Command{}
+	cmd.SetContext(ctx)
+	done := make(chan error, 1)
+	go func() { done <- subscribe(cmd, cfg, r) }()
+
+	eventually(t, "both cards and a third connection", func() bool {
+		return len(worker.recorded()) == 2 && fake.connections() >= 3
+	})
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	st, ok, err := readCursor(r.cursorFile)
+	if err != nil || !ok || st.Cursor != 12 || st.Floor != 10 {
+		t.Fatalf("cursor = %+v, ok = %v, err = %v", st, ok, err)
+	}
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if fake.lastEventIDs[0] != "10" || fake.replayAfters[0] != "10" {
+		t.Fatalf("Last-Event-ID = %q, replay afters = %q", fake.lastEventIDs, fake.replayAfters)
+	}
+	if len(worker.recorded()) != 2 || len(fake.cardReads) != 1 {
+		t.Fatalf("workers = %+v, card reads = %v, log = %s", worker.recorded(), fake.cardReads, log.String())
 	}
 }

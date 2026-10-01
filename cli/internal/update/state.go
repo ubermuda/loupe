@@ -17,6 +17,12 @@ const stateFile = "update.json"
 type State struct {
 	Skips  []string          `json:"skip,omitempty"`
 	Staged map[string]string `json:"staged,omitempty"`
+	// DefaultOff lists the rule files, each an absolute resolved path, that an
+	// image which takes a missing autoUpdate key as off has started with.
+	DefaultOff []string `json:"defaultOff,omitempty"`
+	// AutoUpdatePending lists the rule files where that image could not add
+	// autoUpdate: true. A start of one tries again.
+	AutoUpdatePending []string `json:"autoUpdatePending,omitempty"`
 }
 
 // LoadState reads update.json in dir. A missing file is an empty state.

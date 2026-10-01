@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/update"
 )
 
@@ -78,10 +79,17 @@ func newUpdateCmdWith(self selfUpdate) *cobra.Command {
 		Short: "Update the CLI now, through each running bridge or in place",
 		Long: "Asks each running bridge to check for a CLI release now and to hand over " +
 			"to it. The check ignores the skip list and the autoUpdate key. With no running " +
-			"bridge, this command replaces the loupe binary in place. It exits with status 1 " +
-			"when a bridge or the update in place fails.",
+			"bridge, this command replaces the loupe binary in place. A binary that Homebrew " +
+			"installed is left to brew: the command then asks no bridge, prints the brew " +
+			"upgrade command, changes nothing and exits with status 1. A bridge that runs a " +
+			"Homebrew binary refuses the request too. The command also exits with status 1 " +
+			"when a bridge or the update in place fails. Automatic updates are off unless the rule " +
+			"file holds autoUpdate: true; see loupe update auto.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if installMethod(self.executable) == installHomebrew {
+				return errors.New(homebrewRefusal)
+			}
 			out := cmd.OutOrStdout()
 			bridges, err := runningBridges(rulesPath)
 			if err != nil {
@@ -118,8 +126,87 @@ func newUpdateCmdWith(self selfUpdate) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&rulesPath, "rules", "", "update only the bridge that reads this `path`")
+	cmd.AddCommand(newUpdateAutoCmd())
 
 	return cmd
+}
+
+func newUpdateAutoCmd() *cobra.Command {
+	var rulesPath string
+	var keep bool
+
+	cmd := &cobra.Command{
+		Use:   "auto [on|off]",
+		Short: "Show or set the autoUpdate key of the rule file",
+		Long: "With no argument, shows whether a bridge updates the CLI on its own. Automatic " +
+			"updates are off when the rule file has no autoUpdate key. With on or off, adds " +
+			"the key as a new last line of the rule file, and creates the file when it is absent. " +
+			"A key that holds the other value changes on its own line, and the rest of the file " +
+			"stays. When that line cannot change alone, the command exits with status 1 and names " +
+			"the line to edit. With --keep, a key that is there keeps its value, and the command " +
+			"exits with status 0. A running bridge reads the change on loupe bridge reload.",
+		Args:      cobra.MatchAll(cobra.MaximumNArgs(1), cobra.OnlyValidArgs),
+		ValidArgs: []string{"on", "off"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			out := cmd.OutOrStdout()
+			path, err := rulesPathOr(rulesPath)
+			if err != nil {
+				return err
+			}
+			if len(args) == 0 {
+				on, present, err := rules.ReadAutoUpdate(path)
+				if err != nil {
+					return fmt.Errorf("rule file %s: %w", path, err)
+				}
+				state := onOff(on)
+				if !present {
+					state += " (default)"
+				}
+				fmt.Fprintln(out, "Automatic updates: "+state)
+
+				return nil
+			}
+
+			on := args[0] == "on"
+			kept, err := rules.SetAutoUpdate(path, on)
+			switch {
+			case err != nil:
+				return fmt.Errorf("rule file %s: %w", path, err)
+			case kept != nil && keep:
+				fmt.Fprintf(out, "Automatic updates: %s (kept from %s)\n", onOff(*kept), path)
+
+				return nil
+			case kept != nil && *kept == on:
+				fmt.Fprintln(out, "Automatic updates: "+onOff(on))
+
+				return nil
+			case kept != nil:
+				err := rules.ReplaceAutoUpdate(path, on)
+				if errors.Is(err, rules.ErrEditRefused) {
+					return fmt.Errorf("%s already holds %s; edit that line to %s", path, rules.AutoUpdateLine(*kept), rules.AutoUpdateLine(on))
+				}
+				if err != nil {
+					return fmt.Errorf("rule file %s: %w", path, err)
+				}
+			}
+			fmt.Fprintln(out, "Automatic updates: "+onOff(on))
+			fmt.Fprintf(out, "Wrote %s to %s. A running bridge reads it on loupe bridge reload.\n", rules.AutoUpdateLine(on), path)
+
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&rulesPath, "rules", "", "read and write the rule file at this `path`; empty uses rules.yaml in your config directory")
+	cmd.Flags().BoolVar(&keep, "keep", false, "keep an autoUpdate key that the file holds, whatever its value")
+
+	return cmd
+}
+
+func onOff(on bool) string {
+	if on {
+		return "on"
+	}
+
+	return "off"
 }
 
 // absOr gives the absolute rulesPath, or rulesPath when it has none.

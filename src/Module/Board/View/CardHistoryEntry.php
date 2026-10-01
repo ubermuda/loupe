@@ -176,6 +176,7 @@ final readonly class CardHistoryEntry
             'unblocked' => ['board.card.history.cause.unblocked', 'blocker', '%blocker%'],
             'column-deleted' => ['board.card.history.cause.column_deleted', 'column', '%column%'],
             'abandoned' => ['board.card.history.cause.abandoned', null, null],
+            'run' => ['board.card.history.cause.run', 'rule', '%rule%'],
             default => [null, null, null],
         };
         if (null === $key) {

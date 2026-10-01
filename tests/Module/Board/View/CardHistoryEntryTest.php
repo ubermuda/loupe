@@ -77,6 +77,7 @@ final class CardHistoryEntryTest extends TestCase
         yield 'epic reconciled' => [['type' => 'epic-reconciled', 'child' => 7], new TranslatableMessage('board.card.history.cause.epic_reconciled', ['%child%' => 7])];
         yield 'unblocked' => [['type' => 'unblocked', 'blocker' => 3], new TranslatableMessage('board.card.history.cause.unblocked', ['%blocker%' => 3])];
         yield 'abandoned' => [['type' => 'abandoned'], new TranslatableMessage('board.card.history.cause.abandoned')];
+        yield 'run' => [['type' => 'run', 'run' => '01a0f000-0000-7000-8000-000000000001', 'rule' => 'implement'], new TranslatableMessage('board.card.history.cause.run', ['%rule%' => 'implement'])];
         yield 'column deleted' => [['type' => 'column-deleted', 'column' => 'board.column.next'], new TranslatableMessage('board.card.history.cause.column_deleted', ['%column%' => new TranslatableMessage('board.column.next')])];
         yield 'an unknown type' => [['type' => 'moon-phase'], null];
         yield 'a cause with its field missing' => [['type' => 'merged'], null];
