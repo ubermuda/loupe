@@ -237,9 +237,11 @@ final class ShowExperimentHandlerTest extends KernelTestCase
             $this->seedUsage($this->em, $run, costUsd: '1.000000');
             $this->outcomes[(string) $card] = $merged($fixRounds, 0 === $i ? null : 2.0);
             if (0 === $i) {
-                $this->experimentRun($card, 'a', at: '+20 hours', state: WorkerRunState::Blocked);
-                $this->experimentRun($card, 'a', at: '+21 hours', state: WorkerRunState::Failed);
-                $this->experimentRun($card, 'a', at: '+22 hours', state: WorkerRunState::Stopped);
+                foreach (['+20 hours' => WorkerRunState::Blocked, '+21 hours' => WorkerRunState::Failed, '+22 hours' => WorkerRunState::Stopped] as $at => $state) {
+                    $stopped = $this->experimentRun($card, 'a', at: $at, state: $state);
+                    $stopped->usageSource = WorkerRunUsageSource::Reported;
+                    $this->em->persist(new WorkerRunUsage($stopped, $run->project, $card, $stopped->ruleName, 'claude-opus-5-5', WorkerRunUsageSource::Reported, 0, 0, 0, 0, '0.000000'));
+                }
                 // Neither a row whose run is gone nor the usage of a run outside the experiment counts.
                 $this->em->persist(new WorkerRunUsage(null, $run->project, $card, 'build', 'claude-opus-5-5', WorkerRunUsageSource::Reported, 1, 1, 0, 0, '5.000000'));
                 $this->seedUsage($this->em, $this->plainRun($card, 'tech-design', '-1 hour'), costUsd: '5.000000');
@@ -539,6 +541,29 @@ final class ShowExperimentHandlerTest extends KernelTestCase
     private function managedProject(): Project
     {
         return $this->em->find(Project::class, $this->project->id) ?? throw new \LogicException('The project exists.');
+    }
+
+    public function test_a_started_run_with_no_usage_makes_its_card_cost_unknown(): void
+    {
+        $partial = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($partial, 'a', at: '+1 hour'), costUsd: '1.000000');
+        $this->experimentRun($partial, 'a', at: '+2 hours', state: WorkerRunState::Failed);
+        $queued = Uuid::v7();
+        $this->seedUsage($this->em, $this->experimentRun($queued, 'a', at: '+3 hours'), costUsd: '2.000000');
+        $this->experimentRun($queued, 'a', at: '+4 hours', state: WorkerRunState::Queued);
+        foreach ([$partial, $queued] as $card) {
+            $this->outcomes[(string) $card] = new CardOutcome(merged: true);
+        }
+
+        $view = $this->show();
+
+        self::assertNotNull($view);
+        self::assertSame([(string) $queued => 2_000_000, (string) $partial => null], array_combine(
+            array_map(static fn (ExperimentCard $row): string => (string) $row->cardId, $view->cards),
+            array_map(static fn (ExperimentCard $row): ?int => $row->costMicros, $view->cards),
+        ));
+        self::assertEquals(new Interval(2.0, 2.0, 2.0), $view->metrics[ExperimentMetric::COST]->for('a'));
+        self::assertEquals(new Interval(20.0, 20.0, 20.0), $view->metrics[ExperimentMetric::OUTPUT_TOKENS]->for('a'));
     }
 
     private function experimentRun(

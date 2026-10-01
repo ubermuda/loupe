@@ -51,7 +51,8 @@ value, and the **Likely range** around it.
 
 The cost and the output tokens use only the merged cards whose experiment runs
 reported usage. A card with no usage is not a card that cost nothing, so it
-stays out of these two samples. It still counts in the other metrics. A card
+stays out of these two samples. The same applies when one run of the card
+started and reported no usage, because the sum of the others is too low. It still counts in the other metrics. A card
 with a usage row for a model that has no price has an unknown cost, so it
 stays out of the cost sample and the variant total.
 
