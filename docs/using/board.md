@@ -322,6 +322,14 @@ that bridge id, as the [bridge page](../extending/cli-bridge.md) describes. The
 banner shows the first eight characters of the bridge id, and the full id is in
 their tooltip.
 
+A live rule on `pull_request.behind` races the app when the project has the
+automation and **Sync an approved pull request that is behind** on. Loupe and
+the worker of that rule then both update the same branch. The Rules page marks
+such a rule with "Races the app sync. Remove it from rules.yaml." The board
+banner lists it below the dead rules, and the inbox gets a
+[notice](inbox.md#notices). Remove the rule from the `rules.yaml` of its
+bridge. The mark goes away when that bridge sends its next report.
+
 The column dialog and the delete dialog in board settings warn before they save when a live rule
 watches that column's slug. A rename changes the slug, and a delete removes it,
 so the rule stops matching in both cases.
