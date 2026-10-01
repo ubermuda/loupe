@@ -710,7 +710,10 @@ nothing syncs.
 
 A pull request counts as approved when a person with write access approved its
 current head. An approval of a head that Loupe synced still counts, so a sync
-never needs a new review. A request for changes removes the pull request from
+needs no new review. The exception is a base branch whose rules dismiss stale
+approvals on a push. GitHub then removes the approval when Loupe syncs, and the
+pull request shows **Waits for an approval** until a person approves it again.
+A request for changes removes the pull request from
 the line. Loupe only updates the branch, and it never merges. The GitHub App
 must have Contents: read and write. See
 [Forge webhooks](../extending/forge-webhooks.md).
