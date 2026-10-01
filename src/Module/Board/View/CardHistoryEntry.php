@@ -50,6 +50,9 @@ final readonly class CardHistoryEntry
             CardEventKind::ReadyToMerge => \is_int($detail['pullRequest'] ?? null)
                 ? new self('lucide:git-merge', $event->occurredAt, $actor, new TranslatableMessage('board.card.history.ready_to_merge', ['%pr%' => $detail['pullRequest']]))
                 : null,
+            CardEventKind::Synced => \is_int($detail['pullRequest'] ?? null)
+                ? new self('lucide:git-compare', $event->occurredAt, $actor, new TranslatableMessage('board.card.history.synced', ['%actor%' => $actor, '%pr%' => $detail['pullRequest']]))
+                : null,
             CardEventKind::RunFinished => self::runFinished($event, $actor, $detail, $runExists),
         };
 
