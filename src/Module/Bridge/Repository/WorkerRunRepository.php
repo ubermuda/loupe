@@ -215,6 +215,24 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param list<string> $ids RFC 4122 strings
+     *
+     * @return list<WorkerRun>
+     */
+    public function findByIds(array $ids): array
+    {
+        if ([] === $ids) {
+            return [];
+        }
+
+        return array_values($this->createQueryBuilder('r')
+            ->andWhere('r.id IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * The owner id and the bridge id of each bridge these runs belong to, once
      * each and in a fixed order, so two callers lock them in the same order.
      *
@@ -431,6 +449,34 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getResult());
     }
 
+    /**
+     * The runs among $ids that the project still stores. The retention sweep deletes the others.
+     *
+     * @param list<Uuid> $ids
+     *
+     * @return list<string> RFC 4122 strings
+     */
+    public function findExistingIds(Project $project, array $ids): array
+    {
+        if ([] === $ids) {
+            return [];
+        }
+
+        $found = $this->createQueryBuilder('r')
+            ->select('r.id')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.id IN (:ids)')
+            ->setParameter('project', $project)
+            ->setParameter('ids', array_map(static fn (Uuid $id): string => $id->toRfc4122(), $ids))
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_map(
+            static fn (mixed $id): string => $id instanceof Uuid ? $id->toRfc4122() : Uuid::fromString(\is_string($id) ? $id : throw new \LogicException('A run id is a string.'))->toRfc4122(),
+            $found,
+        ));
+    }
+
     public function hasOpenInteractive(Project $project, Uuid $cardId): bool
     {
         return null !== $this->interactive($project)
@@ -529,21 +575,20 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** @return list<WorkerRun> the card's open runs, then its latest runs, newest first */
-    public function findRecentForCard(Project $project, Uuid $cardId, int $limit): array
+    /** @return list<WorkerRun> the card's open runs, newest first */
+    public function findOpenForCard(Project $project, Uuid $cardId, int $limit): array
     {
         return $this->createQueryBuilder('r')
-            ->addSelect('CASE WHEN r.state IN (:openStates) THEN 0 ELSE 1 END AS HIDDEN openFirst')
             ->andWhere('r.project = :project')
             ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.state IN (:openStates)')
             ->setParameter('project', $project)
             ->setParameter('cardId', $cardId, UuidType::NAME)
             ->setParameter('openStates', array_map(
                 static fn (WorkerRunState $state): string => $state->value,
                 WorkerRunState::openStates(),
             ))
-            ->orderBy('openFirst', 'ASC')
-            ->addOrderBy('r.receivedAt', 'DESC')
+            ->orderBy('r.receivedAt', 'DESC')
             ->addOrderBy('r.id', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()

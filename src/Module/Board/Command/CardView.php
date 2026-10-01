@@ -23,6 +23,7 @@ final readonly class CardView
         public array $siteReviewLinks,
         public array $relatedCards,
         public PullRequestStates $pullRequestStates,
+        public CardHistoryView $history,
         public array $children = [],
         public ?CardProgress $progress = null,
         public array $heldBy = [],

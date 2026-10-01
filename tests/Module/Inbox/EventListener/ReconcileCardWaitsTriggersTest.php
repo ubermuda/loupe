@@ -108,7 +108,7 @@ final class ReconcileCardWaitsTriggersTest extends KernelTestCase
 
     public function test_a_run_change_asks_for_its_cards(): void
     {
-        $this->dispatch(new WorkerRunChanged($this->projectId(), [(string) $this->card->id, (string) $this->other->id]));
+        $this->dispatch(new WorkerRunChanged($this->projectId(), [(string) $this->card->id, (string) $this->other->id], []));
 
         self::assertSame([[(string) $this->projectId(), $this->sortedIds($this->card, $this->other)]], $this->sent());
     }

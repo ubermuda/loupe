@@ -385,15 +385,20 @@ When an approval did not move the card because a blocker is open, the page says
 The card page and the drawer show the state from when they opened. Reload the
 page to see a newer state. The board tiles update by themselves.
 
-The page also lists the card's five latest agent runs, with the rule that
-started each run, when it ran, how long it took and how it ended. A run opens
-its details on the **Runs** tab of the Activity page.
-The project owner can stop, resume and cancel runs from this list. See
+The page also lists up to five agent runs of the card that are still in
+progress, with the rule that started each run, when it started and its state.
+A run opens its details on the **Runs** tab of the Activity page. A finished
+run leaves this list, and the **Run history** link shows it. A card with no
+run in progress, no usage and no hold shows no runs section.
+The project owner can stop a run in progress, or cancel a stop that still
+waits for the bridge, from this list. Resume a finished run on the **Runs**
+tab of the Activity page. See
 [Stop, resume and cancel](worker-runs.md#stop-resume-and-cancel).
 
 A stop of a run holds the card. The runs section then shows **Held: no worker
-starts on this card until you resume one of its runs or move it.** No bridge
-starts a worker on a held card. These actions release the hold:
+starts on this card until you resume one of its runs in Run history, or move
+it.** No bridge starts a worker on a held card. These actions release the
+hold:
 
 - A person resumes one of the runs of the card.
 - A person moves the card to another column. A move by an agent or by the
@@ -401,6 +406,24 @@ starts a worker on a held card. These actions release the hold:
 - A person cancels the stop while it still waits for the bridge. This releases
   only the hold that this stop wrote.
 - A person deletes the column of the card, or the card.
+
+The **History** tab lists what happened to the card, newest first, on a
+timeline. A row says who created the card and in which column, and who moved
+it from one column to another. When Loupe moved the card on its own, a line
+under the row says why, for example after a pull request merged. An agent's
+move inside a worker run names that run on the same line. The tab also
+records when the automation asked for a fix or stopped, with the reason, and
+when a pull request was ready to merge. A finished agent run shows its
+rule, its duration and its result, and it links to the run while the run is
+kept.
+
+A row names a person by their full name. An agent's change reads **Agent for**
+and the name of the person the agent works for. A change by the app reads
+**Loupe**. A change from the site-review widget reads **A reviewer**, because
+the widget does not name its visitor. A deleted account reads **A deleted
+user**. The tab shows 50 rows, and **Show older** loads the next 50 in
+place. Loupe records history from the version that added this tab, so an
+older card starts with an empty tab.
 
 A card with links to other cards shows a **Linked cards** table. Each row gives
 the kind of link, the other card's number, its title and its column. A row opens

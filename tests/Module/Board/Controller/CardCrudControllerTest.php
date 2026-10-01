@@ -321,8 +321,8 @@ final class CardCrudControllerTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame .lp-card-drawer'));
-        // Overview, Details, Conversation and Feedback.
-        self::assertCount(4, $crawler->filter('[role="tab"]'));
+        // Overview, Details, Conversation, Feedback and History.
+        self::assertCount(5, $crawler->filter('[role="tab"]'));
         // A missing translation renders its key, and the gate does not fail on that.
         self::assertDoesNotMatchRegularExpression('/\\bboard\\.card\\.[a-z_.]+/', $crawler->filter('main')->text());
         self::assertCount(1, $crawler->filter('a[data-action="card-drawer#close"]'));
@@ -393,13 +393,10 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSelectorTextContains('.lp-card-docs', 'Linked work');
         self::assertStringNotContainsString('board.', $crawler->filter('.lp-card-overview')->text());
         self::assertSame(['Status', 'Type', 'Reporter', 'Created', 'Updated'], $crawler->filter('.lp-card-fields dt')->each(static fn (Crawler $term): string => $term->text()));
-        // Each agent run links to its own drawer on the run history page.
-        $row = $crawler->filter('[data-card-runs] [data-card-run="'.$runId.'"]');
-        self::assertSame('/projects/'.$project->id.'/worker-runs?search='.$runId, $row->attr('href'));
-        self::assertStringContainsString('plan the card', $row->text());
-        self::assertStringContainsString('Failed', $crawler->filter('[data-card-run-row="'.$runId.'"] .lp-status-chip')->text());
-        // The run reported no usage, so the total says so rather than show $0.00.
-        self::assertSame('Total usage Usage unknown', $crawler->filter('[data-card-runs] [data-card-usage-total]')->text());
+        // A finished run with no usage leaves the overview with no runs section, and the frame stays for a live update.
+        self::assertCount(0, $crawler->filter('[data-card-run="'.$runId.'"]'));
+        self::assertCount(0, $crawler->filter('[data-card-runs]'));
+        self::assertCount(1, $crawler->filter('[data-controller="worker-run-refresh"] turbo-frame#card-worker-runs'));
         self::assertSame('/projects/'.$project->id.'/board/cards/'.$cardId.'/edit', $crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('href'));
         self::assertNull($crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('data-turbo-frame'));
 
@@ -419,9 +416,8 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame('in-progress', $moved->column->slug);
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$quiet->id);
-        self::assertCount(0, $crawler->filter('[data-card-runs] [data-card-run]'));
-        self::assertCount(0, $crawler->filter('[data-card-usage-total]'));
-        self::assertSelectorTextContains('[data-card-runs]', 'No agent has run on this card yet.');
+        self::assertCount(0, $crawler->filter('[data-card-runs]'));
+        self::assertCount(1, $crawler->filter('turbo-frame#card-worker-runs'));
     }
 
     /** A queued run has no session, no start and no end yet, and the card still lists it. */
@@ -454,7 +450,12 @@ final class CardCrudControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $row = $crawler->filter('[data-card-runs] [data-card-run="'.$runId.'"]');
+        self::assertSame('/projects/'.$project->id.'/worker-runs?search='.$runId, $row->attr('href'));
+        self::assertStringContainsString('queued rule', $row->text());
         self::assertSame('Queued', $crawler->filter('[data-card-run-row="'.$runId.'"] .lp-status-chip')->text());
+        self::assertSame('Runs in progress', $crawler->filter('[data-card-runs] h2')->text());
+        // The run reported no usage, so the total says so rather than show $0.00.
+        self::assertSame('Total usage Usage unknown', $crawler->filter('[data-card-runs] [data-card-usage-total]')->text());
         self::assertSame('2026-03-04T05:06:00+00:00', $row->filter('time')->attr('datetime'));
         self::assertStringNotContainsString('·', $row->filter('.lp-card-run__meta')->text());
         // A live update reloads the section from the Bridge fragment, not the whole card.
