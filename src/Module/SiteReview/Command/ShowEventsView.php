@@ -18,6 +18,7 @@ final readonly class ShowEventsView
         public string $topic,
         public array $projects,
         public array $flags,
+        public int $head,
     ) {
     }
 }

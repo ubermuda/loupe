@@ -1,0 +1,302 @@
+package cmd
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"slices"
+	"strconv"
+	"time"
+
+	"github.com/ubermuda/loupe/cli/internal/event"
+)
+
+// catchUpTimeout bounds the read of one replay page.
+const catchUpTimeout = 10 * time.Second
+
+// caughtUpLimit bounds the ids that catch-ups read. The hub can send them again
+// until the stream reads a live line, and only more than this many caught-up
+// events with no live line between them pass it.
+const caughtUpLimit = 20000
+
+// rememberCaughtUpLocked adds an id a catch-up read, and forgets the oldest
+// past caughtUpLimit. The caller holds mu.
+func (r *router) rememberCaughtUpLocked(id string) {
+	if r.caughtUpSet[id] {
+		return
+	}
+	if r.caughtUpSet == nil {
+		r.caughtUpSet = map[string]bool{}
+	}
+	r.caughtUp = append(r.caughtUp, id)
+	r.caughtUpSet[id] = true
+	if len(r.caughtUp) > caughtUpLimit {
+		delete(r.caughtUpSet, r.caughtUp[0])
+		r.caughtUp = slices.Delete(r.caughtUp, 0, 1)
+	}
+}
+
+// cursorState is the cursor file. Cursor is the highest outbox sequence the
+// bridge handled, and Floor the head it started from with no cursor. A
+// catch-up never runs an event at or below Floor, which happened before the
+// first start. RecentIDs are the ids handled last, and every id handled since
+// a gap opened while Gap is on.
+type cursorState struct {
+	Cursor    int64    `json:"cursor"`
+	Floor     int64    `json:"floor"`
+	RecentIDs []string `json:"recentIds"`
+	Gap       bool     `json:"gap,omitempty"`
+}
+
+// cursorStateLocked is the state the cursor file holds. The caller holds mu.
+func (r *router) cursorStateLocked() cursorState {
+	return cursorState{Cursor: r.cursor, Floor: r.floor, RecentIDs: slices.Clone(r.recent), Gap: r.gap}
+}
+
+// cursorPath names the cursor file of the bridge that reads rulesPath. It
+// shares the key of the lock, because the lock holder writes it.
+func cursorPath(rulesPath string) (string, error) {
+	key, err := lockKey(rulesPath)
+	if err != nil {
+		return "", err
+	}
+
+	return bridgeFile("cursor-", key, ".json")
+}
+
+// readCursor reads a cursor file. A missing file reports false and no error.
+func readCursor(path string) (cursorState, bool, error) {
+	var st cursorState
+	b, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return st, false, nil
+	}
+	if err != nil {
+		return st, false, fmt.Errorf("read cursor: %w", err)
+	}
+	if err := json.Unmarshal(b, &st); err != nil {
+		return cursorState{}, false, fmt.Errorf("parse cursor %s: %w", path, err)
+	}
+
+	return st, true, nil
+}
+
+// writeCursor writes the cursor through a temporary file and a rename, so a
+// reader never sees half of it.
+func writeCursor(path string, st cursorState) error {
+	b, err := json.Marshal(st)
+	if err != nil {
+		return err
+	}
+	if err := writeAtomic(path, ".cursor-*", b); err != nil {
+		return fmt.Errorf("write cursor: %w", err)
+	}
+
+	return nil
+}
+
+// loadCursor reads the cursor file before the first connect. With no file, the
+// bridge starts from head, which is also its floor. With no head either, as
+// from an older server, it keeps no cursor and catches up nothing. A file it
+// cannot read counts as no file.
+func (r *router) loadCursor(head *int64) {
+	if r.cursorFile == "" {
+		return
+	}
+	st, ok, err := readCursor(r.cursorFile)
+	if err != nil {
+		r.log.Warn("cursor_unreadable", "file", r.cursorFile, "error", err.Error())
+	}
+	r.mu.Lock()
+	switch {
+	case ok:
+		r.cursor, r.floor, r.hasCursor, r.gap = st.Cursor, st.Floor, true, st.Gap
+		for _, id := range st.RecentIDs {
+			r.rememberLocked(id)
+		}
+	case head != nil:
+		r.cursor, r.floor, r.hasCursor = *head, *head, true
+	}
+	st = r.cursorStateLocked()
+	r.mu.Unlock()
+	if !ok && head != nil {
+		r.saveCursor(st)
+	}
+}
+
+// restoreState loads the cursor file, adopts what a former image handed over,
+// and seeds the resume point. The file comes first: an open gap then stops
+// adopt from trimming the ids, and the handover's newer ids land after the
+// file's. The handover's resume point wins over the cursor.
+func (r *router) restoreState(head *int64) {
+	r.loadCursor(head)
+	if r.update != nil {
+		r.update.adoptInto(r)
+	}
+	r.seedResumePoint()
+}
+
+// seedResumePoint starts the stream at the cursor when no handover gave a
+// resume point, so the hub sends what it holds after the cursor too.
+func (r *router) seedResumePoint() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.lastEventID == "" && r.hasCursor {
+		r.lastEventID = strconv.FormatInt(r.cursor, 10)
+	}
+}
+
+// advanceCursor moves the cursor up to the id of an event the router handled,
+// and saves it with the recent ids. An id that is no sequence moves nothing.
+// While a gap is open, a live event moves nothing.
+func (r *router) advanceCursor(id string, replayed bool) {
+	if id == "" {
+		return
+	}
+	r.mu.Lock()
+	if !r.hasCursor {
+		r.mu.Unlock()
+
+		return
+	}
+	if n, err := strconv.ParseInt(id, 10, 64); err == nil {
+		if !r.gap || replayed {
+			r.cursor = max(r.cursor, n)
+		}
+	}
+	st := r.cursorStateLocked()
+	r.mu.Unlock()
+	r.saveCursor(st)
+}
+
+// saveCursor writes the cursor file, and logs the first failure of a streak.
+// Routing goes on either way.
+func (r *router) saveCursor(st cursorState) {
+	if r.cursorFile == "" {
+		return
+	}
+	err := writeCursor(r.cursorFile, st)
+	r.mu.Lock()
+	first := err != nil && !r.cursorFailing
+	r.cursorFailing = err != nil
+	r.mu.Unlock()
+	if first {
+		r.log.Warn("cursor_save_failed", "file", r.cursorFile, "error", err.Error())
+	}
+}
+
+// catchUp reads the outbox events after the cursor, page by page, and routes
+// each one above the floor as a replayed event. It stops at the last page, or
+// at a page that does not move past the one before. A failure opens a gap at
+// the failed page and ends it, and the stream then goes on live.
+func (r *router) catchUp() {
+	r.mu.Lock()
+	start, floor, ok := r.cursor, r.floor, r.hasCursor && r.replay != nil
+	r.mu.Unlock()
+	if !ok {
+		return
+	}
+
+	after, read, received := start, start, 0
+	for {
+		ctx, cancel := context.WithTimeout(r.workerContext(), catchUpTimeout)
+		page, err := r.replay(ctx, after)
+		cancel()
+		if err != nil {
+			r.log.Warn("catch_up_failed", "after", after, "error", err.Error())
+			r.openGap(after)
+
+			return
+		}
+		received += len(page.Events)
+		next := after
+		for _, e := range page.Events {
+			// A shut queue drops the row and the cursor passes it, so leave
+			// the rest to the next start.
+			if r.workerContext().Err() != nil {
+				return
+			}
+			if id, err := strconv.ParseInt(e.ID, 10, 64); err == nil {
+				next, read = max(next, id), max(read, id)
+				if id <= floor {
+					continue
+				}
+			}
+			r.takeEvent(e.ID, []byte(e.Data), true)
+		}
+		if !page.HasMore || next <= after {
+			break
+		}
+		after = next
+	}
+
+	cursor := r.closeGap(read)
+	r.log.Info("catch_up_done", "after", start, "events", received, "cursor", cursor)
+}
+
+// openGap holds the cursor at after, the start of a page that failed, so the
+// next catch-up and a restart read from there. Live events then move nothing,
+// and the router forgets no id it handles, so that catch-up runs none twice.
+func (r *router) openGap(after int64) {
+	r.mu.Lock()
+	r.gap, r.cursor = true, after
+	st := r.cursorStateLocked()
+	r.mu.Unlock()
+	r.saveCursor(st)
+}
+
+// closeGap ends a gap after a catch-up read to the last page. Every event up
+// to read, the highest id it read, then ran or was a duplicate, so the cursor
+// moves there, and the recent ids shrink back to recentLimit. A frozen router
+// holds replayed events it has not run, so it keeps the gap. closeGap returns
+// the cursor.
+func (r *router) closeGap(read int64) int64 {
+	r.mu.Lock()
+	if !r.gap || r.frozen {
+		defer r.mu.Unlock()
+
+		return r.cursor
+	}
+	r.gap = false
+	r.cursor = max(r.cursor, read)
+	r.trimRecentLocked()
+	st := r.cursorStateLocked()
+	r.mu.Unlock()
+	r.saveCursor(st)
+
+	return st.Cursor
+}
+
+// stale reports whether a replayed card move is out of date: its card has left
+// the column the move names. A failed card read runs the event.
+func (r *router) stale(p pending) bool {
+	e := p.event
+	cardID, _ := cardOf(e)
+	if e.Type != event.CardMovedType || r.readCard == nil || cardID == "" {
+		return false
+	}
+	timeout := r.checkTimeout
+	if timeout <= 0 {
+		timeout = askCheckTimeout
+	}
+	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
+	card, err := r.readCard(ctx, e.ProjectID, cardID)
+	cancel()
+	if err != nil {
+		r.log.Warn("card_read_failed", append(about(e, p.rule),
+			"error", err.Error(),
+			"message", "the bridge could not read the card, so it runs the replayed event",
+		)...)
+
+		return false
+	}
+	if card.Column == e.ToStatus {
+		return false
+	}
+	r.log.Info("event_stale", append(about(e, p.rule), "column", card.Column, "to", e.ToStatus)...)
+
+	return true
+}

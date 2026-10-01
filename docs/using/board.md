@@ -235,18 +235,19 @@ type, the epic, the count of pending feedback and the date the card was added.
 
 Above the list, search the title and the body, and filter by type and by epic.
 The epic filter offers **Any epic**, **No epic**, and each epic with a card in
-Backlog. **Sort** offers **Rank**, **Newest first**, **Oldest first** or
-**Recently updated**. **Clear** removes every filter, and a count shows how
-many cards match.
+Backlog. **Clear** removes every filter, and a count shows how many cards
+match.
 
-With the **Rank** sort, drag a row by its handle to change its rank. With a filter on,
-the card lands just above the visible row below it. The other sorts show no
-handle.
+The list shows the newest cards first. Click the **Type**, **Epic** or
+**Added** column header to sort by that column, and click it again to reverse
+the order. An arrow shows the current order. The **Epic** sort puts the cards
+with no epic last in both directions. A filter change keeps the sort.
 
 The **Move to** menu of a row sends the card to the end of a board column. Tick
 rows to show the bulk bar. It has a button for the first column that is not
 terminal, such as **Move to Next**, a **Move to** menu for any board column, and
-**Clear**. A bulk move takes the ticked cards of one page, in Backlog order.
+**Clear**. A bulk move takes the ticked cards of one page. They keep
+the rank that the board holds for them, whatever the sort of the page.
 When one move is refused, no card moves.
 
 An empty Backlog shows **The Backlog is empty**. Filters that match no card
@@ -627,6 +628,14 @@ while the automation is on:
   terminal column. A link that Loupe never read, such as one on another forge,
   counts as open and holds the card back. An epic with an open child stays
   where it is.
+- When each pull request of the card is closed and none merged, the card
+  moves to the Backlog about ten minutes after the last close. Loupe checks the
+  links again at that time. An open, merged or unread pull request cancels the
+  move, so a reopen or a new open link keeps the card. A closed pull request
+  linked in that time does not cancel it. A card that a person moves
+  to a terminal column in that time stays there. An epic with an open child
+  stays where it is. The move is a system move, so it starts a bridge rule that
+  watches the Backlog.
 
 The system makes these moves, and a card in a terminal column never moves. For
 any other pull request, move the card yourself, or have your agent move it with
@@ -695,6 +704,11 @@ list in `columns`, beside its cards. The tools read columns and never write one.
 
 `card_run_open` and `card_run_close` record an interactive session on a card.
 See [Interactive sessions](worker-runs.md#interactive-sessions).
+
+A move that an agent makes through the MCP names its worker run in the card
+history. This works when the `loupe` CLI sends the session of the agent in the
+`X-Loupe-Session` header. A `card_run_open` call that moves the card names the
+run it opens.
 
 `status` takes a column slug on `card_create`, `card_update` and `card_list`. An
 unknown slug is refused. The error lists the slugs the board has, such as

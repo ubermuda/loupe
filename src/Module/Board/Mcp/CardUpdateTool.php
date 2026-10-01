@@ -38,6 +38,7 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
         private ShowCardHandler $showCard,
         private CardPayload $payload,
         private BoardToolErrorMessages $errorMessages,
+        private AgentRunCause $runCause,
     ) {
     }
 
@@ -80,6 +81,7 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
 
         try {
             $card = $this->subjects->requireCardByIdOrNumber($cardId, $number, McpBoundProjectVoter::CARD_WRITE);
+            $column = $this->subjects->optionalColumn($card->project, $status);
 
             $card = ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
@@ -87,12 +89,13 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
                 title: $title,
                 body: $body,
                 type: $this->subjects->optionalType($type),
-                column: $this->subjects->optionalColumn($card->project, $status),
+                column: $column,
                 pullRequestUrls: null === $pullRequestUrls ? null : array_values($pullRequestUrls),
                 documentIds: null === $documentIds ? null : array_values($documentIds),
                 relatedCards: $this->subjects->optionalRelatedCards($relatedCards),
                 parentCardId: $parentCardId,
                 laneEnabled: $laneEnabled,
+                cause: null === $column ? null : $this->runCause->forCard($card),
             ))->card;
 
             $view = ($this->showCard)(new ShowCardCommand($card));

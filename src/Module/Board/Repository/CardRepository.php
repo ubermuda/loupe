@@ -933,7 +933,6 @@ class CardRepository extends ServiceEntityRepository
     public function findBacklogPage(BoardColumn $backlog, BacklogListQuery $listQuery, int $offset, int $limit): array
     {
         return array_values($this->backlogPage($backlog, $listQuery, $offset, $limit)
-            ->leftJoin('c.parent', 'parent')
             ->addSelect('parent')
             ->getQuery()
             ->getResult());
@@ -947,26 +946,33 @@ class CardRepository extends ServiceEntityRepository
      */
     public function findBacklogPageIds(BoardColumn $backlog, BacklogListQuery $listQuery, int $offset, int $limit): array
     {
-        $rows = $this->backlogPage($backlog, $listQuery, $offset, $limit)->select('c.id')->getQuery()->getArrayResult();
+        $rows = $this->backlogPage($backlog, $listQuery, $offset, $limit, 'c.id')->getQuery()->getArrayResult();
 
         return array_values(array_map(static fn (array $row): string => (string) $row['id'], $rows));
     }
 
-    private function backlogPage(BoardColumn $backlog, BacklogListQuery $listQuery, int $offset, int $limit): QueryBuilder
+    /** The select comes first, so the hidden sort column of the epic order survives it. */
+    private function backlogPage(BoardColumn $backlog, BacklogListQuery $listQuery, int $offset, int $limit, string $select = 'c'): QueryBuilder
     {
         $qb = $this->backlogMatching($backlog, $listQuery)
+            ->select($select)
+            ->leftJoin('c.parent', 'parent')
             ->setFirstResult($offset)
             ->setMaxResults($limit);
+        $dir = strtoupper($listQuery->dir->value);
 
-        // Each order ends on the id, so an offset page never repeats or skips a card.
         match ($listQuery->sort) {
-            BacklogSort::Rank => $qb->orderBy('c.position', 'ASC')->addOrderBy('c.createdAt', 'ASC')->addOrderBy('c.id', 'ASC'),
-            BacklogSort::Newest => $qb->orderBy('c.createdAt', 'DESC')->addOrderBy('c.id', 'DESC'),
-            BacklogSort::Oldest => $qb->orderBy('c.createdAt', 'ASC')->addOrderBy('c.id', 'ASC'),
-            BacklogSort::Updated => $qb->orderBy('c.updatedAt', 'DESC')->addOrderBy('c.id', 'DESC'),
+            BacklogSort::Created => $qb->orderBy('c.createdAt', $dir),
+            BacklogSort::Type => $qb->orderBy('c.type', $dir),
+            // Cards with no epic go last in both directions.
+            BacklogSort::Epic => $qb
+                ->addSelect('CASE WHEN parent.id IS NULL THEN 1 ELSE 0 END AS HIDDEN noEpic')
+                ->orderBy('noEpic', 'ASC')
+                ->addOrderBy('parent.number', $dir),
         };
 
-        return $qb;
+        // The id ends each order, so an offset page never repeats or skips a card.
+        return $qb->addOrderBy('c.id', $dir);
     }
 
     public function countBacklogMatching(BoardColumn $backlog, BacklogListQuery $listQuery): int

@@ -12,6 +12,7 @@ use App\Outbox\ActivityChangedPublisher;
 use App\Outbox\AgentPush;
 use App\Outbox\Command\DrainOutboxCommand;
 use App\Outbox\Command\DrainOutboxHandler;
+use App\Outbox\Entity\OutboxEvent;
 use App\Outbox\OutboxWriter;
 use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Support\AcceptedTerms;
@@ -264,6 +265,35 @@ final class ShowEventsControllerTest extends WebTestCase
         self::assertSame(2500, $flags[self::SIGKILL_FLAG]);
     }
 
+    public function test_head_is_zero_when_the_callers_projects_hold_no_event(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        [$raw] = $this->issue($client, 'events-head-none@example.com');
+        [, , $foreign] = $this->issue($client, 'events-head-none-other@example.com');
+        $this->outboxRow($foreign);
+
+        self::assertSame(0, $this->events($client, $raw)['head']);
+    }
+
+    public function test_head_is_the_highest_sequence_of_the_callers_projects_and_ignores_a_foreign_row(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $this->em();
+        [$raw, $user, $first] = $this->issue($client, 'events-head@example.com');
+        $second = new Project($user, 'Second Head Site');
+        $em->persist($second);
+        $em->flush();
+        [, , $foreign] = $this->issue($client, 'events-head-other@example.com');
+
+        $this->outboxRow($first);
+        $highest = $this->outboxRow($second);
+        $this->outboxRow($foreign);
+
+        self::assertSame((int) $highest->sequence, $this->events($client, $raw)['head']);
+    }
+
     public function test_push_disabled_hides_the_endpoint(): void
     {
         $client = static::createClient();
@@ -370,6 +400,17 @@ final class ShowEventsControllerTest extends WebTestCase
         self::assertIsArray($flags);
 
         return $flags;
+    }
+
+    private function outboxRow(Project $project): OutboxEvent
+    {
+        $em = $this->em();
+        $event = new OutboxEvent($project, 'test.event', 'topic', '{}');
+        $em->persist($event);
+        $em->flush();
+        self::assertNotNull($event->sequence);
+
+        return $event;
     }
 
     private function em(): EntityManagerInterface

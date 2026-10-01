@@ -669,9 +669,14 @@ project the token's user owns:
     "bridge.stop_sigterm_after_ms": 7500,
     "bridge.stop_sigkill_after_ms": 2500
   },
-  "cliRange": "^1.0"
+  "cliRange": "^1.0",
+  "head": 4812
 }
 ```
+
+`head` is the highest outbox sequence of the projects that the user owns, as a
+JSON integer. It is `0` when those projects hold no event. A bridge with no
+saved cursor can start from it, and replay nothing older.
 
 `cliRange` is the range of CLI versions that the server supports. `loupe update`
 reads it when no bridge runs. A running bridge reads the same range from the
@@ -732,6 +737,74 @@ receives no event there.
 
 This endpoint replaced `GET /api/projects/{handle}/stream`. A CLI binary built
 before the change calls the old route, gets `404`, and must be rebuilt.
+
+### Replay
+
+`GET /api/events/replay?after=<sequence>` returns the events that a client
+missed while it was stopped or reconnecting. It reads the outbox, which holds
+every event, so it does not depend on the history of the hub.
+
+```json
+{
+  "events": [
+    {"id": "4811", "type": "board.card_moved", "data": "{\"projectId\":\"0192f3a1-...\"}"},
+    {"id": "4812", "type": "inbox.ask_closed", "data": "{\"projectId\":\"0192f3a1-...\"}"}
+  ],
+  "hasMore": false
+}
+```
+
+1. `after` is a required integer, `0` or higher. A missing, non-integer or negative value answers `400`.
+2. `id` is a string, the same text that the hub sends as the SSE id. It holds the outbox sequence, so parse it as a 64-bit integer.
+3. `data` is the stored payload string, byte for byte what the hub sends.
+4. The list holds the events of the projects that the user owns, in sequence order.
+5. The route also returns events that the hub has not published yet.
+
+A page holds at most 200 events with a sequence above `after`. `hasMore` is
+`true` when more such events exist. Read the next page with the highest `id` of
+the page as `after`.
+
+The server takes a sequence at insert, and the row becomes visible at commit.
+So a row can become visible after a higher row was already delivered. To cover
+it, each page also repeats some events at or below `after`. The anchor is the
+event with the highest sequence at or below `after`, in any project. The page
+repeats the user's events at or below `after` that were created at most two
+minutes before the anchor, at most 200 of them. When no anchor exists, the page
+repeats nothing. A client must therefore drop an event whose `id` it already
+handled.
+
+The route needs an agent-scoped token, and answers `404` when push is switched
+off. It allows 60 calls per minute per token.
+
+#### How the bridge uses it
+
+The bridge keeps a cursor in `cursor-<hash>.json` in its config directory,
+beside the handover file. The file holds the highest sequence the bridge
+handled, the floor, and the ids of the last events it handled. The bridge
+writes it after each event it handles.
+
+On every connect, the bridge reads the pages after its cursor before it reads
+the stream. It drops an event whose `id` it handled already, and routes the
+others as the hub sends them. The hub can send the events of a catch-up again
+after it, so the bridge remembers the ids of the last 20000 events that
+catch-ups read, and none of them runs twice. The server can repeat an event at
+or below `after`, so the bridge never drops an event only because its `id` is
+below the cursor. When a page fails, for example with `429`, the bridge logs
+`catch_up_failed` and reads the stream live. The saved cursor then stays at the
+page that failed, also across a restart, while live events run. The next
+connect reads again from there, and a catch-up that reads to the last page
+moves the cursor to the highest id it read. While the gap is open, the file
+keeps the id of every event the bridge handled, so none of them runs twice.
+
+A bridge with no cursor file starts from `head`, which also becomes its floor.
+The bridge never runs a replayed event at or below the floor, so a first start
+does not run the events that happened before it. A server that sends no `head`
+gives the bridge no cursor, and the bridge then catches up nothing.
+
+A replayed event can be old. Before a replayed `board.card_moved` event starts
+a worker, the bridge reads the card. When the card is no longer in the column
+that the event names, the bridge drops the event and logs `event_stale`. When
+the read fails, the event runs.
 
 ## The inbox.ask_closed event
 

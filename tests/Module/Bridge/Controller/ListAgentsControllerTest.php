@@ -129,6 +129,31 @@ final class ListAgentsControllerTest extends WebTestCase
         self::assertSame([$expected], $commands);
     }
 
+    public function test_the_update_command_starts_collapsed_behind_the_chip(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'agents-collapsed@example.com');
+        $project = $this->project($em, $owner, 'Collapsed');
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: '1.2.0');
+        $bridge->updateState = CliUpdateState::Off;
+        $bridge->updateVersion = '1.3.0';
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        $card = $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"]');
+        $toggle = $card->filter('button[data-agent-update][data-action="disclosure#toggle"]');
+        self::assertCount(1, $toggle);
+        $panel = $card->filter('[id="'.$toggle->attr('aria-controls').'"]');
+        self::assertCount(1, $panel->filter('[data-agent-update-command]'));
+        self::assertStringNotContainsString(' open', ' '.$panel->attr('class'));
+        self::assertSame('content', $panel->attr('data-disclosure-target'));
+    }
+
     public function test_no_command_shows_without_an_available_update(): void
     {
         $client = static::createClient();
