@@ -186,6 +186,10 @@ The first line names the version and the commit, such as
 `loupe 1.0.0 (0f4a2c9b1d7e3f5a6b8c9d0e1f2a3b4c5d6e7f80)`. The second line names
 the Go version and the platform.
 
+After `loupe login` and `loupe init`, run `loupe status` in the repository. It
+asks Loupe for the project of the repository, through the MCP server, and
+prints the project name.
+
 Next, sign in with `loupe login` and write a rule file. After a script install,
 the rule file can already hold the `autoUpdate` line. Add your rules to that
 file.

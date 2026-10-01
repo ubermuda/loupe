@@ -136,7 +136,7 @@ final class ConnectAgentControllerTest extends WebTestCase
 
         // Three copyable configurations, each behind a disclosure that starts
         // shut. The step opens as a list of choices, not three stacked blocks.
-        self::assertCount(3, $crawler->filter('#agent-connection .lp-code-dark'));
+        self::assertCount(3, $crawler->filter('details.lp-install .lp-code-dark'));
         self::assertCount(3, $crawler->filter('details.lp-install'));
         self::assertCount(0, $crawler->filter('details.lp-install[open]'));
 
@@ -146,6 +146,31 @@ final class ConnectAgentControllerTest extends WebTestCase
 
         self::assertCount(2, $crawler->filter('.lp-skills__name'));
         self::assertNotEmpty($crawler->filter('.lp-tools__name'));
+    }
+
+    public function test_the_agent_step_offers_a_setup_prompt_that_names_the_project(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->user($em, 'connect-prompt@example.com');
+        $project = new Project($owner, 'connect-site-prompt');
+        $em->persist($project);
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/connect');
+
+        self::assertResponseIsSuccessful();
+        $prompt = $crawler->filter('[data-testid="setup-prompt"]');
+        self::assertCount(1, $prompt);
+        self::assertStringContainsString('curl -fsSL "http://localhost/setup.md?project='.$project->id.'"', $prompt->text());
+        self::assertStringContainsString('/setup.md?project='.$project->id, (string) $prompt->closest('[data-controller="clipboard"]')?->attr('data-clipboard-text-value'));
+
+        // One way in carries the recommended tag, and it is the prompt.
+        self::assertCount(1, $crawler->filter('.lp-connect-tag'));
+        self::assertCount(0, $crawler->filter('details.lp-install .lp-connect-tag'));
     }
 
     /** The Homebrew line is a shell comment, so a person who pastes the whole block does not install twice. */

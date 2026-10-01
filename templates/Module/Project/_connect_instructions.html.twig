@@ -1,7 +1,13 @@
-{#- MCP connect instructions: the endpoint, the three ways to wire it up, and the
-    two agent skills. Shared by the full connect page and the first-run wizard's
-    connect step. Props: mcpServerName (string). -#}
+{#- MCP connect instructions: the setup prompt, the endpoint, the three ways to
+    wire it up, and the two agent skills. Shared by the full connect page and the
+    first-run wizard's connect step. Props: mcpServerName (string), projectId
+    (string). -#}
 {%- set mcpUrl = url('_mcp_endpoint') -%}
+{%- set setupPrompt = [
+    'Set up Loupe for this repository. Run',
+    'curl -fsSL "' ~ url('app_setup_instructions', {project: projectId}) ~ '"',
+    'and follow the steps it prints, in order. Use curl, not a web fetch tool.'
+]|join("\n") -%}
 {%- set claudeCommand = [
     'claude mcp add --transport http ' ~ mcpServerName ~ ' ' ~ mcpUrl,
     'claude mcp login ' ~ mcpServerName
@@ -37,7 +43,7 @@
         sub: 'project.connect.loupe_cli.sub',
         label: 'project.connect.loupe_cli.label',
         command: loupeCommand,
-        recommended: true,
+        recommended: false,
     },
     {
         icon: 'lucide:code',
@@ -58,6 +64,22 @@
         recommended: false,
     },
 ] -%}
+
+<div class="lp-connect-block">
+    <div class="lp-connect-block__heading">
+        <p class="lp-eyebrow">{{ 'project.connect.setup_prompt.heading'|trans }}</p>
+        <span class="lp-connect-tag">{{ 'project.connect.methods.recommended'|trans }}</span>
+    </div>
+    <p class="lp-connect-hint">{{ 'project.connect.setup_prompt.hint'|trans }}</p>
+    <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ setupPrompt }}"
+         data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+        <div class="lp-code-dark__header">
+            <span class="lp-code-dark__label">{{ 'project.connect.setup_prompt.label'|trans }}</span>
+            <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+        </div>
+        <pre class="lp-code-dark__body"><code data-testid="setup-prompt">{{ setupPrompt }}</code></pre>
+    </div>
+</div>
 
 {# ── MCP endpoint (global; a request names the project it acts on) ── #}
 <div class="lp-connect-block">

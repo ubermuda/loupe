@@ -8,10 +8,49 @@ and calls tools that create documents, revise them, and read back what humans
 said. A long-form plan then gets considered review instead of scrolling past in
 a terminal.
 
+## Set up with one prompt
+
+A coding agent can do the whole setup for you. A project's Connect page and
+the first-run wizard at `/welcome/connect` show a short prompt with a Copy
+button. Paste it into Claude Code or Codex, in the repository of the project:
+
+```text
+Set up Loupe for this repository. Run
+curl -fsSL "https://loupe.example.com/setup.md?project=<project id>"
+and follow the steps it prints, in order. Use curl, not a web fetch tool.
+```
+
+`/setup.md` is public and returns Markdown steps for an agent. The steps
+install the CLI with `/install.sh` when `loupe version` fails, and stop on
+Windows, which has no build. They sign in with `loupe login` and bind the repository with
+`loupe init`. Then they connect the MCP server, install the skills, and check
+the result with `loupe status`. The agent asks you when a step needs you, such
+as the browser approval of the sign-in. It never writes a token or a password.
+
+The `project` parameter fills the project id into the commands. The page
+accepts only a UUID and ignores any other value. With no valid id, the steps
+run `loupe init` and ask you which project to use.
+
+The two agents differ in two steps:
+
+| Step | Claude Code | Codex |
+|---|---|---|
+| MCP server | `loupe init --mcp` declares `loupe mcp` at user scope | `codex mcp add loupe -- loupe mcp --project <project id>` |
+| Skills | The Claude Code plugin, see [below](#the-claude-code-plugin) | A copy of `plugins/loupe/skills/` in `~/.agents/skills/` |
+
+Codex gets the project id in its server declaration, and Claude Code reads it
+from `.loupe.yaml`. At the end, the agent tells you to restart it. The new
+session then calls `project_current` and names the project.
+
+The prompt asks for curl because a web fetch tool can return a summary of the
+page instead of the page. An agent that follows a summary can skip a step or
+change a command.
+
 ## Connecting through the CLI
 
-This is the way to connect. One sign-in serves every repository, and each
-repository names its own project, so a new project needs no new login.
+This is the way to connect, and the setup prompt above does it for you. One
+sign-in serves every repository, and each repository names its own project, so
+a new project needs no new login.
 
 `loupe mcp` connects an agent to this endpoint with no token in any file. The
 CLI already holds a login, so the command signs each request with it, and the
@@ -89,6 +128,9 @@ loses its Loupe tools for the rest of the agent's run.
 One sign-in is enough. `loupe login` asks for `agent mcp projects`, so the same
 login serves `loupe bridge` and `loupe mcp`, and it covers every project you own
 including ones you create later. The approval page says so before you allow it.
+
+`loupe status` checks the setup. Run it in the repository. It calls
+`project_current` through the MCP server and prints the name of the project.
 
 ## Connecting by URL
 
