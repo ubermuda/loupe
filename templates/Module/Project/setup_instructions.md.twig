@@ -158,7 +158,7 @@ This command prints the path of the rule file. The file is beside `config.json` 
 if [ "$(uname -s)" = Darwin ]; then echo "$HOME/Library/Application Support/loupe/rules.yaml"; else echo "${XDG_CONFIG_HOME:-$HOME/.config}/loupe/rules.yaml"; fi
 ```
 
-The bridge reads another file when it starts with `--rules <path>`. If the file above does not exist, ask the user whether they start the bridge with `--rules`. If they do, use that path.
+The bridge reads another file when it starts with `--rules <path>`. Ask the user whether they start the bridge with `--rules`. If they do, use that path.
 
 Read the file. Find the entry in `projects` whose `dir` is this repository. A `dir` can start with `~/`. The key of that entry is the project slug.
 
