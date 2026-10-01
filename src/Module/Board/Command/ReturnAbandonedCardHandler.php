@@ -51,15 +51,18 @@ final readonly class ReturnAbandonedCardHandler
 
             // Empty also when the card was deleted.
             $links = $this->cardPullRequests->findCurrentKeys($card);
-            if ([] === $links) {
-                return;
-            }
             $keys = [];
             foreach ($links as $link) {
-                if (null === $link['repository'] || null === $link['number']) {
-                    return;
+                if (null !== $link['repository'] && null !== $link['number']) {
+                    $keys[] = ['forge' => $link['forge'], 'repository' => $link['repository'], 'number' => $link['number']];
                 }
-                $keys[] = ['forge' => $link['forge'], 'repository' => $link['repository'], 'number' => $link['number']];
+            }
+            if ([] === $links || \count($keys) !== \count($links)) {
+                // No Forge row is read here, so the project lock alone guards the token.
+                $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+                $this->cardAutomations->consumeAbandonedMoveToken($card, $command->token);
+
+                return;
             }
             // A Forge read locks its row, then the project. Taking both in that order waits
             // out a read that reopens a pull request, and reads the state it committed.

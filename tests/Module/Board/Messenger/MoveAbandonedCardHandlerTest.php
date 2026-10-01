@@ -151,6 +151,46 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
         $this->handle($card);
 
         self::assertSame('in-progress', $this->storedColumnOf($card));
+        self::assertNull($this->storedToken($card));
+    }
+
+    public function test_an_older_move_leaves_the_newer_token_of_a_card_with_an_unparsed_link(): void
+    {
+        $card = $this->linkedCard('in-progress', PullRequestState::Closed);
+        $link = new CardPullRequest($card, 'https://git.example.com/acme/widgets/merge/6');
+        $card->pullRequests->add($link);
+        $this->em->persist($link);
+        $this->em->flush();
+        $older = $this->queueToken($card);
+        $newer = $this->queueToken($card);
+
+        $this->handleWith($card, $older);
+
+        self::assertSame($newer->toRfc4122(), $this->storedToken($card));
+    }
+
+    public function test_a_card_with_no_link_left_consumes_its_token(): void
+    {
+        $card = $this->linkedCard('in-progress', PullRequestState::Closed);
+        $token = $this->queueToken($card);
+        $this->removeLinks($card);
+
+        $this->handleWith($card, $token);
+
+        self::assertSame('in-progress', $this->storedColumnOf($card));
+        self::assertNull($this->storedToken($card));
+    }
+
+    public function test_an_older_move_leaves_the_newer_token_of_a_card_with_no_link_left(): void
+    {
+        $card = $this->linkedCard('in-progress', PullRequestState::Closed);
+        $older = $this->queueToken($card);
+        $newer = $this->queueToken($card);
+        $this->removeLinks($card);
+
+        $this->handleWith($card, $older);
+
+        self::assertSame($newer->toRfc4122(), $this->storedToken($card));
     }
 
     public function test_a_card_a_person_moved_to_a_terminal_column_stays(): void
@@ -231,6 +271,11 @@ final class MoveAbandonedCardHandlerTest extends KernelTestCase
             "SELECT COUNT(*) FROM outbox_events WHERE project_id = :project AND type = 'board.card_moved'",
             ['project' => (string) $this->project->id],
         ));
+    }
+
+    private function removeLinks(Card $card): void
+    {
+        $this->em->getConnection()->executeStatement('DELETE FROM board_card_pull_requests WHERE card_id = :card', ['card' => (string) $card->id]);
     }
 
     private function storedToken(Card $card): ?string
