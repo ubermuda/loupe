@@ -67,16 +67,16 @@ final readonly class DeliverPullRequestNoticeHandler
             return;
         }
 
-        // An earlier try may have posted and then lost its flush, so a retry first looks for its marker.
+        // A lost flush, or a pull request unlinked and linked again under a new row, can leave the comment already posted.
         // The count is stored before the forge call, so a try that dies after the post still counts.
-        $retry = $notice->attempts > 0;
         ++$notice->attempts;
         $this->em->flush();
+        $since = min($pullRequest->approvedAt ?? $notice->createdAt, $notice->createdAt);
         try {
-            $found = $retry && $commenter->hasComment(
+            $found = $commenter->hasComment(
                 $pullRequest,
                 StaleApprovalNoticeBody::marker($notice->noticeKey),
-                $notice->createdAt->modify(self::LOOKUP_CLOCK_MARGIN),
+                $since->modify(self::LOOKUP_CLOCK_MARGIN),
             );
             // After the lookup, so a retry of a notice that did post is not marked outdated.
             if (!$found && !StaleApprovalNoticeBody::stillHolds($notice, $pullRequest)) {

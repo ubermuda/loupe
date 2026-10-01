@@ -69,7 +69,7 @@ final class DeliverPullRequestNoticeHandlerTest extends KernelTestCase
             .'Not merged: commit `bbbbbbb` came after your approval. Approve the new head to merge.',
             $this->commenter->comments[0][1],
         );
-        self::assertSame([], $this->commenter->lookups);
+        self::assertCount(1, $this->commenter->lookups);
         $notice = $this->reload($notice);
         self::assertSame(PullRequestCommentState::Posted, $notice->state);
         self::assertEquals($this->clock->now(), $notice->postedAt);
@@ -96,6 +96,21 @@ final class DeliverPullRequestNoticeHandlerTest extends KernelTestCase
         self::assertSame(PullRequestCommentState::Posted, $notice->state);
         self::assertNull($notice->cause);
         self::assertSame(2, $notice->attempts);
+    }
+
+    public function test_a_first_try_finds_the_comment_of_an_earlier_row_since_the_approval(): void
+    {
+        $this->pullRequest->approvedAt = new \DateTimeImmutable('2026-09-30 08:00:00');
+        $this->em->flush();
+        $notice = $this->pending();
+        $marker = '<!-- loupe-notice: stale-approval:'.self::HEAD.' -->';
+        $this->commenter->existing = [$marker."\n\nA body that a row before an unlink posted"];
+
+        $this->handle($notice);
+
+        self::assertSame([], $this->commenter->comments);
+        self::assertEquals(new \DateTimeImmutable('2026-09-30 07:00:00'), $this->commenter->lookups[0][1]);
+        self::assertSame(PullRequestCommentState::Posted, $this->reload($notice)->state);
     }
 
     public function test_a_retry_that_finds_no_marker_posts(): void
