@@ -37,6 +37,9 @@ const (
 	// run and is no outcome, so it carries no exit code and no result.
 	RunStopping = "stopping"
 	RunStopped  = "stopped"
+	// RunPreparing is a run whose rule's before command runs. The agent has
+	// not started.
+	RunPreparing = "preparing"
 )
 
 // The reasons of a dropped run.

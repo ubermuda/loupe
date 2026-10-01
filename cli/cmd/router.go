@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"maps"
 	"net"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 	"unicode"
 	"unicode/utf16"
@@ -25,6 +27,7 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
+	"github.com/ubermuda/loupe/cli/internal/transcript"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
 
@@ -102,6 +105,9 @@ type router struct {
 	// findTranscript fails when this machine holds no transcript of the
 	// session. A nil one looks in the Claude Code config directory.
 	findTranscript func(sessionID string) error
+	// startDir is the folder a session started in, and "" when this machine
+	// holds no transcript of it. A nil one is transcriptStartDir.
+	startDir func(sessionID string) (string, error)
 
 	mu sync.Mutex
 	// reloading is on while a reload builds its set. reloadKills holds each
@@ -277,11 +283,12 @@ func (p *pending) apply(m rules.Match) {
 	p.experiment, p.pin = m.Experiment, runPin{}
 	if p.continues != "" {
 		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Schema
+		p.spec.before = m.Before
 
 		return
 	}
 	p.maxResumes = m.MaxResumes
-	p.spec = workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt, resume: m.Resume && !p.fresh}
+	p.spec = workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt, resume: m.Resume && !p.fresh, before: m.Before}
 }
 
 // sessionCard is the key a session's worker ran under, its card when the
@@ -1072,23 +1079,215 @@ func (r *router) start(p pending) {
 		if p.experiment != nil {
 			p.spec.model, p.pin = r.resolveVariant(p)
 		}
-		// The spawn time stands in for a process that never starts, because the
-		// old report needs a start. onStart runs on this goroutine, before run returns.
-		began := time.Now()
-		onStart := func(proc workerProc) {
-			began = time.Now()
-			r.mu.Lock()
-			defer r.mu.Unlock()
-			r.trackLocked(liveRun{p: p, began: began, proc: proc})
-			r.emitLocked(p, api.RunStateReport{State: api.RunRunning, SessionID: p.spec.sessionID, StartedAt: began})
-			// A stop that came while the worker spawned starts its ladder now.
-			if r.stops[p.runID] {
-				r.stopLiveLocked(r.live[p.runID])
-			}
+		if p.spec.before != nil {
+			r.prepare(p)
+
+			return
 		}
-		res := r.worker.run(r.workerContext(), p.spec, onStart)
-		r.settle(p, endedRun{res: res, began: began, elapsed: time.Since(began)})
+		r.runAgent(p, time.Time{}, "")
 	}()
+}
+
+// runAgent runs claude for the run and settles it. began is when the run's
+// before command started, and zero when the rule has none. beforeDir is the
+// run directory of that command.
+func (r *router) runAgent(p pending, began time.Time, beforeDir string) {
+	prepared := !began.IsZero()
+	// The spawn time stands in for a process that never starts, because the
+	// old report needs a start. onStart runs on this goroutine, before run returns.
+	if !prepared {
+		began = time.Now()
+	}
+	if p.spec.resume {
+		var reason string
+		if p, reason = r.resumeDir(p); reason != "" {
+			failed := workerResult{exitCode: -1, output: reason, dir: beforeDir, resumeGone: true}
+			r.settle(p, endedRun{res: failed, began: began, elapsed: time.Since(began)})
+
+			return
+		}
+	}
+	onStart := func(proc workerProc) {
+		if !prepared {
+			began = time.Now()
+		}
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.trackLocked(liveRun{p: p, began: began, proc: proc})
+		r.emitLocked(p, api.RunStateReport{State: api.RunRunning, SessionID: p.spec.sessionID, StartedAt: began})
+		// A stop that came while the worker spawned starts its ladder now.
+		if r.stops[p.runID] {
+			r.stopLiveLocked(r.live[p.runID])
+		}
+	}
+	res := r.worker.run(r.workerContext(), p.spec, onStart)
+	// A claude that never started made no run directory, so the files of the
+	// before command are what remains.
+	res.dir = cmp.Or(res.dir, beforeDir)
+	r.settle(p, endedRun{res: res, began: began, elapsed: time.Since(began)})
+}
+
+// resumeDir starts a resume in the folder its conversation started in, because
+// claude --resume finds the conversation only from there. When that folder is
+// gone, the run starts a new session in the folder it has, with the rule's
+// prompt. reason says why the run cannot start at all.
+func (r *router) resumeDir(p pending) (pending, string) {
+	lookup := r.startDir
+	if lookup == nil {
+		lookup = transcriptStartDir
+	}
+	recorded, err := lookup(p.spec.sessionID)
+	if err != nil {
+		r.log.Warn("resume_dir_unknown", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "error", err.Error())...)
+
+		return p, ""
+	}
+	if recorded == "" {
+		return p, ""
+	}
+	info, err := os.Stat(recorded)
+	if err == nil && info.IsDir() {
+		p.spec.dir = recorded
+
+		return p, ""
+	}
+	if err != nil && !errors.Is(err, fs.ErrNotExist) && !errors.Is(err, syscall.ENOTDIR) {
+		return p, fmt.Sprintf("the bridge cannot read %s, where the conversation started: %s", recorded, err)
+	}
+	gone := fmt.Sprintf("the conversation started in %s, which is gone", recorded)
+	// A person's resume carries nothing of the event that started the series,
+	// so the rule's prompt would hold its placeholders as text.
+	if p.event.Type == event.CommandType {
+		return p, gone + ", so the bridge cannot resume it"
+	}
+	r.mu.Lock()
+	m, ok := matchWorker(r.rules(), p.event, p.rule)
+	if !ok {
+		r.mu.Unlock()
+
+		return p, gone + ", and the rule no longer runs the event"
+	}
+	old := p.spec.sessionID
+	p.fresh, p.spec.resume, p.spec.sessionID, p.spec.prompt = true, false, r.worker.sessionID(), m.Prompt
+	if r.inbox {
+		p.spec.prompt += "\n" + directive.InboxLine(p.spec.sessionID, r.bridgeID)
+	}
+	if s, found := r.sessions[old]; found {
+		r.sessions[p.spec.sessionID] = s
+	}
+	r.mu.Unlock()
+	r.log.Warn("resume_dir_gone", append(about(p.event, p.rule),
+		"session_id", old, "new_session_id", p.spec.sessionID, "dir", p.spec.dir,
+		"message", gone+", so the bridge starts a new session",
+	)...)
+
+	return p, ""
+}
+
+// transcriptStartDir is the folder the session started in, from its transcript
+// in the Claude Code config directory, and "" when there is none.
+func transcriptStartDir(sessionID string) (string, error) {
+	dir, err := transcript.ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	path, err := transcript.Find(dir, sessionID)
+	if errors.Is(err, transcript.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return transcript.StartDir(path)
+}
+
+// prepare runs the before command of the run's rule in the project dir, in
+// the slot the run holds, and reports preparing once it exists. A person's
+// stop reaches it as it reaches a worker.
+func (r *router) prepare(p pending) {
+	began := time.Now()
+	onStart := func(proc workerProc) {
+		began = time.Now()
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.trackLocked(liveRun{p: p, began: began, proc: proc, before: true})
+		r.log.Info("before_started", append(about(p.event, p.rule), "worker_pool", p.slot, "pid", proc.pid)...)
+		r.emitLocked(p, api.RunStateReport{State: api.RunPreparing, StartedAt: began})
+		if r.stops[p.runID] {
+			r.stopLiveLocked(r.live[p.runID])
+		}
+	}
+	run := r.worker.before
+	if run == nil {
+		run = runBefore
+	}
+	timeout := cmp.Or(p.spec.before.Timeout, rules.DefaultBeforeTimeout)
+	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
+	res := run(ctx, beforeSpec{argv: p.spec.before.Argv, dir: p.spec.dir, runID: p.runID}, onStart)
+	cancel()
+	r.afterBefore(p, began, res)
+}
+
+// afterBefore starts claude in the folder the before command printed, or ends
+// the run when the command failed, a person stopped the run or the bridge
+// shuts down. A handover in progress holds the start back and keeps the run
+// in its before phase, so the next image adopts it from its files.
+func (r *router) afterBefore(p pending, began time.Time, res beforeResult) {
+	failure := res.failure()
+	r.quiesce.RLock()
+	r.mu.Lock()
+	stopped, shut := r.stops[p.runID], r.shut()
+	ok := failure == "" && !stopped && !shut
+	if ok && (r.paused || r.frozen) {
+		r.wg.Add(1)
+		r.heldFinishes = append(r.heldFinishes, func() {
+			go func() {
+				defer r.wg.Done()
+				r.afterBefore(p, began, res)
+			}()
+		})
+		r.mu.Unlock()
+		r.quiesce.RUnlock()
+
+		return
+	}
+	if ok {
+		if run, found := r.live[p.runID]; found {
+			close(run.ended)
+			delete(r.live, p.runID)
+		}
+	}
+	r.mu.Unlock()
+	r.quiesce.RUnlock()
+
+	if ok {
+		r.log.Info("before_finished", append(about(p.event, p.rule), "dir", res.dir, "output", res.output)...)
+		p.spec.dir = cmp.Or(res.dir, p.spec.dir)
+		r.runAgent(p, began, res.runDir)
+
+		return
+	}
+	if failure == "" && shut {
+		failure, res.killed = "the bridge shut down before the agent started", true
+	}
+	// The reason comes first, and the end of the output fills the room left.
+	out := &capWriter{limit: maxOutput}
+	_, _ = out.Write([]byte(failure))
+	sep := "\n"
+	if failure == "" {
+		sep = ""
+	}
+	if room := maxOutput - len(failure) - len(sep); res.output != "" && room > len(truncatedMark) {
+		_, _ = out.Write([]byte(sep + tailOf(res.output, room)))
+	}
+	// The server reads a failed run from a non-zero exit code alone.
+	code := res.exitCode
+	if code == 0 {
+		code = -1
+	}
+	failed := workerResult{exitCode: code, output: out.text(), killed: res.killed && !res.timedOut, dir: res.runDir, before: true}
+	r.settle(p, endedRun{res: failed, began: began, elapsed: time.Since(began)})
 }
 
 // resolveVariant is the model and the variant of a run in an experiment. The
@@ -1147,6 +1346,9 @@ type liveRun struct {
 	proc  workerProc
 	// ended closes when the worker exits, which wakes its stop ladder.
 	ended chan struct{}
+	// before says the process is the rule's before command, and claude has
+	// not started.
+	before bool
 }
 
 // trackLocked records a started worker. The caller holds mu.
@@ -1203,6 +1405,8 @@ type endedRun struct {
 // reason the run is worth a resume. An empty reason means no resume.
 func classify(res workerResult) (string, string) {
 	switch {
+	case res.before || res.resumeGone:
+		return api.RunFailed, ""
 	case res.err != nil:
 		return api.RunNotStarted, ""
 	case res.exitCode != 0:
@@ -1237,6 +1441,8 @@ func (r *router) end(p pending, e endedRun) {
 		return
 	}
 	switch {
+	case (e.res.before || e.res.resumeGone) && (e.res.killed || shut):
+		e.skipped = api.DropShutdown
 	case reason == "":
 	case e.res.killed || shut:
 		e.skipped = api.DropShutdown
@@ -1291,7 +1497,7 @@ const missingSessionOutput = "No conversation found with session ID"
 // event names failed because this machine has no such session.
 func sessionMissing(p pending, res workerResult) bool {
 	return p.event.Type == event.FixRequestedType && p.continues == "" && p.spec.resume && !p.fresh &&
-		res.err == nil && res.exitCode != 0 && !res.hasResult &&
+		!res.before && !res.resumeGone && res.err == nil && res.exitCode != 0 && !res.hasResult &&
 		strings.HasPrefix(strings.TrimSpace(res.output), missingSessionOutput)
 }
 
@@ -1635,7 +1841,7 @@ func (r *router) outcome(p pending, e endedRun) api.RunStateReport {
 
 	report := api.RunStateReport{
 		State:         e.state,
-		SessionID:     p.spec.sessionID,
+		SessionID:     sessionOf(p, e),
 		StartedAt:     e.began,
 		EndedAt:       e.began.Add(e.elapsed),
 		Output:        e.res.output,
@@ -1656,6 +1862,16 @@ func (r *router) outcome(p pending, e endedRun) api.RunStateReport {
 	report.Usage = r.usage(p, e.res.usage)
 
 	return report
+}
+
+// sessionOf is the session a report of the ended run names. A run whose
+// before command ended it started no new session, so it names none.
+func sessionOf(p pending, e endedRun) string {
+	if e.res.before && !p.spec.resume {
+		return ""
+	}
+
+	return p.spec.sessionID
 }
 
 // usage is the usage the server takes. The bridge sends none rather than one
@@ -1738,7 +1954,7 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 		return
 	}
 	switch report.State {
-	case api.RunQueued, api.RunResumed, api.RunRunning, api.RunStopping:
+	case api.RunQueued, api.RunResumed, api.RunPreparing, api.RunRunning, api.RunStopping:
 		if r.held == nil {
 			r.held = map[string]api.InventoryRun{}
 		}
@@ -1814,6 +2030,10 @@ func (r *router) logResult(p pending, res workerResult, elapsed time.Duration) {
 		"output", res.output,
 	)
 	switch {
+	case res.before:
+		r.log.Error("before_failed", append(about(p.event, p.rule), "exit", res.exitCode, "duration_ms", elapsed.Milliseconds(), "output", res.output)...)
+	case res.resumeGone:
+		r.log.Error("resume_failed", append(about(p.event, p.rule), "session_id", p.spec.sessionID, "output", res.output)...)
 	case res.killed:
 		r.log.Error("worker_finished", args...)
 	case !res.hasResult:

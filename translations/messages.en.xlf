@@ -6007,6 +6007,10 @@
                 <source>bridge.worker_runs.state.skipped</source>
                 <target>Skipped</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.state.preparing">
+                <source>bridge.worker_runs.state.preparing</source>
+                <target>Preparing</target>
+            </trans-unit>
             <trans-unit id="bridge.worker_runs.state.running">
                 <source>bridge.worker_runs.state.running</source>
                 <target>Running</target>

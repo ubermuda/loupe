@@ -20,7 +20,7 @@ final class WorkerRunStateTest extends TestCase
     public function test_every_state_has_its_backing_value(): void
     {
         self::assertSame(
-            ['queued', 'replaced', 'resumed', 'skipped', 'running', 'stopping', 'stopped', 'waiting-for-person', 'dropped', 'succeeded', 'failed', 'not-started', 'no-result', 'unfinished', 'blocked', 'waiting-on-forge', 'gave-up', 'timed-out', 'lost', 'closed'],
+            ['queued', 'replaced', 'resumed', 'skipped', 'preparing', 'running', 'stopping', 'stopped', 'waiting-for-person', 'dropped', 'succeeded', 'failed', 'not-started', 'no-result', 'unfinished', 'blocked', 'waiting-on-forge', 'gave-up', 'timed-out', 'lost', 'closed'],
             array_map(static fn (WorkerRunState $state): string => $state->value, WorkerRunState::cases()),
         );
     }
@@ -107,10 +107,10 @@ final class WorkerRunStateTest extends TestCase
         );
     }
 
-    public function test_only_queued_resumed_running_and_stopping_are_open(): void
+    public function test_only_queued_resumed_preparing_running_and_stopping_are_open(): void
     {
         self::assertSame(
-            [WorkerRunState::Queued, WorkerRunState::Resumed, WorkerRunState::Running, WorkerRunState::Stopping],
+            [WorkerRunState::Queued, WorkerRunState::Resumed, WorkerRunState::Preparing, WorkerRunState::Running, WorkerRunState::Stopping],
             WorkerRunState::openStates(),
         );
 
@@ -119,10 +119,11 @@ final class WorkerRunStateTest extends TestCase
         }
     }
 
-    public function test_the_rank_puts_queued_then_resumed_then_running_then_stopping_then_every_closed_state(): void
+    public function test_the_rank_puts_queued_then_resumed_then_preparing_then_running_then_stopping_then_every_closed_state(): void
     {
         self::assertLessThan(WorkerRunState::Resumed->rank(), WorkerRunState::Queued->rank());
-        self::assertLessThan(WorkerRunState::Running->rank(), WorkerRunState::Resumed->rank());
+        self::assertLessThan(WorkerRunState::Preparing->rank(), WorkerRunState::Resumed->rank());
+        self::assertLessThan(WorkerRunState::Running->rank(), WorkerRunState::Preparing->rank());
         self::assertLessThan(WorkerRunState::Stopping->rank(), WorkerRunState::Running->rank());
 
         foreach (WorkerRunState::cases() as $state) {
@@ -166,6 +167,16 @@ final class WorkerRunStateTest extends TestCase
         self::assertSame('pending', WorkerRunState::Stopping->chipModifier());
     }
 
+    /** The bridge runs the before command of the rule, and the agent has not started. */
+    public function test_preparing_is_open_and_reads_as_pending(): void
+    {
+        self::assertTrue(WorkerRunState::Preparing->isOpen());
+        self::assertFalse(WorkerRunState::Preparing->isOutcome());
+        self::assertFalse(WorkerRunState::Preparing->isInferred());
+        self::assertSame('bridge.worker_runs.state.preparing', WorkerRunState::Preparing->translationKey());
+        self::assertSame('pending', WorkerRunState::Preparing->chipModifier());
+    }
+
     /** A person closes an interactive run. No process exit or server guess lies behind it. */
     public function test_closed_is_neither_open_nor_an_outcome_nor_inferred(): void
     {
@@ -174,9 +185,9 @@ final class WorkerRunStateTest extends TestCase
         self::assertFalse(WorkerRunState::Closed->isInferred());
     }
 
-    public function test_a_queued_resumed_or_running_run_can_stop(): void
+    public function test_a_queued_resumed_preparing_or_running_run_can_stop(): void
     {
-        self::assertSame([WorkerRunState::Queued, WorkerRunState::Resumed, WorkerRunState::Running], WorkerRunState::stoppableStates());
+        self::assertSame([WorkerRunState::Queued, WorkerRunState::Resumed, WorkerRunState::Preparing, WorkerRunState::Running], WorkerRunState::stoppableStates());
         foreach (WorkerRunState::cases() as $state) {
             self::assertSame(\in_array($state, WorkerRunState::stoppableStates(), true), $state->isStoppable(), $state->value);
         }

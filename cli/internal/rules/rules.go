@@ -58,6 +58,13 @@ const ActionInteractive = "interactive"
 // DefaultLaunchTimeout bounds the launch command when the file sets no timeout.
 const DefaultLaunchTimeout = 10 * time.Second
 
+// DefaultBeforeTimeout bounds a before command when its rule sets no timeout.
+// MaxBeforeTimeout is the largest timeout a rule can set.
+const (
+	DefaultBeforeTimeout = 15 * time.Minute
+	MaxBeforeTimeout     = 60 * time.Minute
+)
+
 // launchPlaceholders are the names launch.command can hold.
 var launchPlaceholders = []string{"script", "dir", "sessionId", "cardNumber", "project"}
 
@@ -279,9 +286,26 @@ type Rule struct {
 	// Experiment names the experiment whose variants pick the model. A rule
 	// that sets it sets no model.
 	Experiment string `yaml:"experiment"`
+	// Before is a command that runs ahead of claude and prints the folder to
+	// start claude in. Nil runs claude in the project's dir.
+	Before *BeforeConfig `yaml:"before"`
 
 	schema     string
 	experiment *Experiment
+	// beforeTimeout has the default filled when Before is set.
+	beforeTimeout time.Duration
+}
+
+// BeforeConfig is the before block as written. No shell reads Run.
+type BeforeConfig struct {
+	Run     []string `yaml:"run"`
+	Timeout string   `yaml:"timeout"`
+}
+
+// Before is the before command of one match, with its placeholders filled.
+type Before struct {
+	Argv    []string
+	Timeout time.Duration
 }
 
 // CardCondition names the card state a rule needs. A nil field matches either
@@ -436,7 +460,7 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		}
 		names[r.Name] = true
 
-		if err := checkRule(r, f.Projects); err != nil {
+		if err := checkRule(&r, f.Projects); err != nil {
 			errs = append(errs, fmt.Errorf("rule %q: %w", r.Name, err))
 		}
 		if r.Action == "" {
@@ -677,6 +701,7 @@ func checkAction(r Rule) []error {
 		name string
 		set  bool
 	}{
+		{"before", r.Before != nil},
 		{"experiment", r.Experiment != ""},
 		{"maxChain", r.MaxChain != nil},
 		{"maxResumes", r.MaxResumes != nil},
@@ -694,8 +719,9 @@ func checkAction(r Rule) []error {
 	return errs
 }
 
-func checkRule(r Rule, projects map[string]Project) error {
-	errs := checkAction(r)
+// checkRule validates a rule and fills its before timeout.
+func checkRule(r *Rule, projects map[string]Project) error {
+	errs := checkAction(*r)
 	switch {
 	case r.On == "":
 		errs = append(errs, errors.New("on is required"))
@@ -754,7 +780,7 @@ func checkRule(r Rule, projects map[string]Project) error {
 	if event.IsPullRequest(r.On) {
 		allowed = placeholdersOf(r.On)
 	}
-	errs = append(errs, checkWhen(r)...)
+	errs = append(errs, checkWhen(*r)...)
 	if r.On == event.ReviewSubmittedType {
 		allowed = reviewSubmittedPlaceholders
 		if r.Verdict != "" && r.Verdict != event.VerdictApproved && r.Verdict != event.VerdictChangesRequested {
@@ -770,14 +796,11 @@ func checkRule(r Rule, projects map[string]Project) error {
 	if strings.TrimSpace(r.Prompt) == "" {
 		errs = append(errs, errors.New("prompt is required"))
 	}
-	for _, name := range directive.Placeholders(r.Prompt) {
-		switch {
-		case slices.Contains(allowed, name):
-		case knownPlaceholder(name):
-			errs = append(errs, fmt.Errorf("placeholder {%s} has no value for %s events; this type fills %s", name, r.On, braces(allowed)))
-		default:
-			errs = append(errs, fmt.Errorf("unknown placeholder {%s}; this type fills %s", name, braces(allowed)))
-		}
+	errs = append(errs, checkPlaceholders("", r.Prompt, r.On, allowed)...)
+	if r.Before != nil {
+		timeout, beforeErrs := checkBefore(*r.Before, r.On, allowed)
+		errs = append(errs, beforeErrs...)
+		r.beforeTimeout = timeout
 	}
 	if r.MaxChain != nil && *r.MaxChain < 1 {
 		errs = append(errs, fmt.Errorf("maxChain must be at least 1, got %d", *r.MaxChain))
@@ -789,6 +812,51 @@ func checkRule(r Rule, projects map[string]Project) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// checkPlaceholders refuses a placeholder of template that the rule's type
+// does not fill. prefix names the field in each error.
+func checkPlaceholders(prefix, template, on string, allowed []string) []error {
+	var errs []error
+	for _, name := range directive.Placeholders(template) {
+		switch {
+		case slices.Contains(allowed, name):
+		case knownPlaceholder(name):
+			errs = append(errs, fmt.Errorf("%splaceholder {%s} has no value for %s events; this type fills %s", prefix, name, on, braces(allowed)))
+		default:
+			errs = append(errs, fmt.Errorf("%sunknown placeholder {%s}; this type fills %s", prefix, name, braces(allowed)))
+		}
+	}
+
+	return errs
+}
+
+// checkBefore validates a before block and returns its timeout. The command
+// takes the placeholders of the prompt, because both read one event.
+func checkBefore(c BeforeConfig, on string, allowed []string) (time.Duration, []error) {
+	timeout := DefaultBeforeTimeout
+	var errs []error
+	if c.Timeout != "" {
+		d, err := time.ParseDuration(c.Timeout)
+		switch {
+		case err != nil:
+			errs = append(errs, fmt.Errorf("before.timeout %q is not a duration, such as 10m", c.Timeout))
+		case d <= 0:
+			errs = append(errs, fmt.Errorf("before.timeout must be positive, got %s", c.Timeout))
+		case d > MaxBeforeTimeout:
+			errs = append(errs, fmt.Errorf("before.timeout is %s, and the most it takes is %s", c.Timeout, MaxBeforeTimeout))
+		default:
+			timeout = d
+		}
+	}
+	if len(c.Run) == 0 || strings.TrimSpace(c.Run[0]) == "" {
+		errs = append(errs, errors.New("before.run is required, and its first element names the program"))
+	}
+	for _, arg := range c.Run {
+		errs = append(errs, checkPlaceholders("before.run: ", arg, on, allowed)...)
+	}
+
+	return timeout, errs
 }
 
 // checkWhen refuses a when on a type that takes none, a field the type does
@@ -1091,6 +1159,8 @@ type Match struct {
 	// Experiment is the experiment the rule joins, with its variants in file
 	// order, or nil. Model is empty when it is set.
 	Experiment *Experiment
+	// Before is the command that runs ahead of claude, or nil.
+	Before *Before
 }
 
 // Match picks the first rule, in file order, that the event triggers.
@@ -1196,6 +1266,15 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 	if r.experiment != nil {
 		experiment = r.experiment.clone()
 	}
+	v := values(e, slug)
+	var before *Before
+	if r.Action == "" && r.Before != nil {
+		// Each element is one argument, so a value never splits in two.
+		before = &Before{Argv: make([]string, len(r.Before.Run)), Timeout: r.beforeTimeout}
+		for i, arg := range r.Before.Run {
+			before.Argv[i] = directive.RenderArgument(arg, v)
+		}
+	}
 
 	return Match{
 		Skip:           Run,
@@ -1207,11 +1286,12 @@ func (s *Set) run(r Rule, slug string, e event.Event) Match {
 		Model:          r.Model,
 		MaxChain:       *r.MaxChain,
 		MaxResumes:     *r.MaxResumes,
-		Prompt:         render(r.Prompt, values(e, slug)),
+		Prompt:         render(r.Prompt, v),
 		Resume:         resume,
 		Schema:         schema,
 		Pool:           pool,
 		Experiment:     experiment,
+		Before:         before,
 	}
 }
 
@@ -1341,6 +1421,12 @@ func values(e event.Event, slug string) map[string]string {
 		v["column"] = e.Column
 		v["documentId"] = e.Subject.ID
 		v["verdict"] = e.Verdict
+	case event.CommandType:
+		v["cardId"] = e.Subject.ID
+		v["cardNumber"] = UnknownCard
+		if e.CardNumber > 0 {
+			v["cardNumber"] = strconv.Itoa(e.CardNumber)
+		}
 	}
 	if event.IsPullRequest(e.Type) {
 		v["cardId"] = e.CardID

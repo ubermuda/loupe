@@ -57,6 +57,24 @@ final class BridgeRunsApiTest extends WebTestCase
         self::assertSame(WorkerRunState::Stopping, $this->reload($held)->state);
     }
 
+    public function test_the_inventory_accepts_a_preparing_run(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'bridge-runs-preparing@example.com');
+        $project = $this->project($em, $owner, 'Bridge Runs Preparing');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = Uuid::v4();
+        $held = $this->seedRun($em, $project, bridgeId: $bridgeId, state: WorkerRunState::TimedOut, runKey: Uuid::v4());
+
+        $this->put($client, (string) $bridgeId, $raw, ['runs' => [
+            ['runId' => (string) $held->runKey, 'projectId' => (string) $project->id, 'state' => 'preparing'],
+        ]]);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame(WorkerRunState::Preparing, $this->reload($held)->state);
+    }
+
     public function test_an_empty_inventory_is_accepted(): void
     {
         $client = static::createClient();
