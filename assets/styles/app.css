@@ -6799,20 +6799,24 @@
         @apply m-0 text-base text-ink;
     }
     .lp-experiment-section {
-        @apply mt-8 mb-0 text-sm font-semibold text-ink;
+        @apply mt-8 mb-0 text-base font-semibold text-ink;
     }
+    /* The panel of a data table, for a real table with a header row. */
     .lp-experiment-table {
-        @apply mt-2 overflow-x-auto;
+        @apply mt-3 overflow-x-auto rounded-xl border border-line bg-white;
     }
     .lp-experiment-table__table {
-        @apply w-full text-sm text-fg border-collapse;
+        @apply w-full text-sm text-fg-mute border-collapse;
     }
     .lp-experiment-table__table th,
     .lp-experiment-table__table td {
-        @apply py-1.5 pr-3 border-b border-line-faint text-left align-middle;
+        @apply h-13 px-5 border-b border-line text-left align-middle;
+    }
+    .lp-experiment-table__table tbody tr:last-child > * {
+        @apply border-b-0;
     }
     .lp-experiment-table__table thead th {
-        @apply border-line text-xs font-semibold text-fg-label;
+        @apply h-10 bg-app text-xs font-semibold uppercase tracking-wider text-fg-dim;
     }
     .lp-experiment-table__table tbody th {
         @apply font-semibold text-ink;
@@ -6820,12 +6824,15 @@
     .lp-experiment-table__table .lp-experiment-table__number {
         @apply text-right tabular-nums whitespace-nowrap;
     }
+    .lp-experiment-table__table tbody .lp-experiment-table__number {
+        @apply font-mono text-xs;
+    }
     .lp-experiment-table__range {
         @apply text-fg-dim;
     }
     /* A row that splits the metric above it, such as the fix rounds of one reason. */
     .lp-experiment-table__table .lp-experiment-table__part th {
-        @apply pl-4 font-normal text-fg-mute;
+        @apply pl-9 font-normal text-fg-mute;
     }
     .lp-experiment-table__table .lp-status-chip {
         @apply ml-2;
