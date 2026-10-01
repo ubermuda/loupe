@@ -77,6 +77,7 @@ export default class extends Controller {
 
         let html;
         try {
+            // eslint-disable-next-line no-restricted-syntax -- a read-only GET of the card to morph, not a mutation.
             const response = await fetch(url.toString(), {
                 headers,
                 credentials: 'same-origin',
