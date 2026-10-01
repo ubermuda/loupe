@@ -2529,6 +2529,30 @@
                 <source>project.connect.tool.card_run_close</source>
                 <target>Close the interactive run a session opened on a card. A second call changes nothing.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.worker_run_list">
+                <source>project.connect.tool.worker_run_list</source>
+                <target>Read a page of the worker runs, newest first. Filter by state, card, rule, bridge, words or the time a run ended. Each row says why the run ended.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.worker_run_get">
+                <source>project.connect.tool.worker_run_get</source>
+                <target>Read one worker run in full, with every run of its series, the state changes, the output and the commands sent to its bridge.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.bridge_list">
+                <source>project.connect.tool.bridge_list</source>
+                <target>List the bridges that follow the project, with their heartbeat, their pause, their worker pools and their open runs.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.worker_run_resume">
+                <source>project.connect.tool.worker_run_resume</source>
+                <target>Ask the bridges to resume up to 50 ended worker runs. Each run succeeds or is refused on its own, with a reason.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.worker_run_stop">
+                <source>project.connect.tool.worker_run_stop</source>
+                <target>Ask the bridge to stop a queued or running worker run. The stop holds the card.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.bridge_command_cancel">
+                <source>project.connect.tool.bridge_command_cancel</source>
+                <target>Withdraw the resume or stop command that waits on a worker run, before its bridge reads it.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.inbox_ask">
                 <source>project.connect.tool.inbox_ask</source>
                 <target>Hand questions and to-dos to the project owner. The items go to the session's open ask, or to a new one, and each item gets a number.</target>

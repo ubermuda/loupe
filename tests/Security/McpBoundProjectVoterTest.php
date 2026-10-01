@@ -6,6 +6,8 @@ namespace App\Tests\Security;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
+use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Entity\Comment;
@@ -25,6 +27,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\AuditActorProviderInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -103,6 +106,47 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::CARD_WRITE, $card));
     }
 
+    private function runIn(Project $project): WorkerRun
+    {
+        $run = new WorkerRun($project, Uuid::v7(), Uuid::v7(), 1, 'plan', WorkerRunState::Running);
+        $this->em->persist($run);
+        $this->em->flush();
+
+        return $run;
+    }
+
+    public function test_grants_a_worker_run_of_the_bound_project(): void
+    {
+        $run = $this->runIn($this->project($this->user('run-voter-grant@example.com')));
+        $this->actAsMcpTokenBoundTo($run->project);
+
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_READ, $run));
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_WRITE, $run));
+    }
+
+    public function test_denies_a_worker_run_in_another_project_of_the_same_owner(): void
+    {
+        $owner = $this->user('run-voter-cross@example.com');
+        $run = $this->runIn($this->project($owner));
+        $this->actAsMcpTokenBoundTo($this->project($owner));
+
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_READ, $run));
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_WRITE, $run));
+    }
+
+    public function test_a_denied_worker_run_is_recorded_under_the_bridge_operation(): void
+    {
+        $owner = $this->user('run-voter-audit@example.com');
+        $run = $this->runIn($this->project($owner));
+        $this->actAsMcpTokenBoundTo($this->project($owner));
+
+        $record = $this->auditedVote(McpBoundProjectVoter::WORKER_RUN_WRITE, $run)->record('bridge.mcp_access_denied');
+
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+        self::assertSame('worker_run', $record->subject?->type);
+        self::assertSame((string) $run->id, $record->subject->id);
+    }
+
     public function test_denies_a_card_for_a_token_bound_to_no_project(): void
     {
         $owner = $this->user('card-voter-unbound@example.com');
@@ -134,7 +178,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
      */
     public static function pairings(): iterable
     {
-        $subjects = ['document', 'comment', 'series', 'card', 'project', 'site_review_comment'];
+        $subjects = ['document', 'comment', 'series', 'card', 'project', 'site_review_comment', 'worker_run'];
         $accepts = [
             McpBoundProjectVoter::DOCUMENT_READ => ['document'],
             McpBoundProjectVoter::DOCUMENT_WRITE => ['document'],
@@ -145,6 +189,8 @@ final class McpBoundProjectVoterTest extends KernelTestCase
             McpBoundProjectVoter::SITE_REVIEW_WRITE => ['project', 'site_review_comment'],
             McpBoundProjectVoter::CARD_READ => ['card'],
             McpBoundProjectVoter::CARD_WRITE => ['card'],
+            McpBoundProjectVoter::WORKER_RUN_READ => ['worker_run'],
+            McpBoundProjectVoter::WORKER_RUN_WRITE => ['worker_run'],
         ];
 
         foreach ($accepts as $attribute => $accepted) {
@@ -176,6 +222,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::CARD_READ, $this->subjectOfType('card', $project)));
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::SITE_REVIEW_READ, $this->subjectOfType('project', $project)));
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::SITE_REVIEW_WRITE, $this->subjectOfType('site_review_comment', $project)));
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_READ, $this->subjectOfType('worker_run', $project)));
     }
 
     private function subjectOfType(string $subjectType, Project $project): ProjectScopedSubject
@@ -188,6 +235,10 @@ final class McpBoundProjectVoterTest extends KernelTestCase
 
         if ('card' === $subjectType) {
             return $this->cardIn($project);
+        }
+
+        if ('worker_run' === $subjectType) {
+            return $this->runIn($project);
         }
 
         if ('series' === $subjectType) {
