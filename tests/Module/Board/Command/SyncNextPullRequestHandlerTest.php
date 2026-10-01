@@ -286,6 +286,32 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         self::assertSame([], $this->updater->updates);
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function retryLosses(): iterable
+    {
+        yield 'changes requested' => ["UPDATE forge_pull_requests SET review = 'changes-requested' WHERE id = :id"];
+        yield 'a draft' => ['UPDATE forge_pull_requests SET draft = true WHERE id = :id'];
+        yield 'closed' => ["UPDATE forge_pull_requests SET state = 'closed' WHERE id = :id"];
+        yield 'the approval is gone' => ['UPDATE forge_pull_requests SET approval_id = NULL, covered_sha = NULL WHERE id = :id'];
+        yield 'no longer behind' => ["UPDATE forge_pull_requests SET mergeability = 'mergeable', checks = 'failed' WHERE id = :id"];
+    }
+
+    #[DataProvider('retryLosses')]
+    public function test_a_retry_whose_pull_request_left_the_line_clears_its_marker_and_runs_a_pass(string $change): void
+    {
+        $target = $this->marked($this->behind(4, approvedAt: '-2 hours'));
+        $other = $this->behind(5, approvedAt: '-1 hour');
+        $this->em->getConnection()->executeStatement($change, ['id' => (string) $target->id]);
+
+        $this->handle(retry: $target, sha: 'head004', attempt: 1);
+
+        self::assertCount(1, $this->updater->updates);
+        self::assertSame($other, $this->updater->updates[0][0]);
+        $this->em->refresh($target);
+        self::assertNull($target->syncFromSha);
+        self::assertNull($target->syncRequestedAt);
+    }
+
     public function test_a_retry_while_the_setting_is_off_does_not_call_the_forge(): void
     {
         $pullRequest = $this->marked($this->behind(5));

@@ -151,7 +151,10 @@ final readonly class SyncNextPullRequestHandler
         ]);
     }
 
-    /** The pull request of a retry, while the setting is on and Loupe still waits to update the same head. */
+    /**
+     * The pull request of a retry, while the setting is on, Loupe still waits to update the same head, and the
+     * pull request is still in the line. A pull request that left the line drops its marker, so the line moves on.
+     */
     private function retryTarget(Project $project, SyncNextPullRequestCommand $command): ?ForgePullRequest
     {
         $settings = $this->boardAutomationSettings->findOneByProjectForUpdate($project);
@@ -159,7 +162,15 @@ final readonly class SyncNextPullRequestHandler
             return null;
         }
         $row = $this->forgePullRequests->findForUpdate($command->retryPullRequestId);
-        if (null === $row || $row->syncFromSha !== $command->retrySha || $row->headSha !== $command->retrySha) {
+        if (null === $row || $row->syncFromSha !== $command->retrySha) {
+            return null;
+        }
+        if ($row->headSha !== $command->retrySha || !SyncLine::isCandidate($row) || PullRequestMergeability::Behind !== $row->mergeability) {
+            $row->syncFromSha = null;
+            $row->syncRequestedAt = null;
+            $this->em->flush();
+            $this->logger->info('board.pull_request_sync_retry_dropped', ['pullRequestId' => (string) $row->id, 'fromSha' => $command->retrySha]);
+
             return null;
         }
 
