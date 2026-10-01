@@ -1401,6 +1401,11 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `worker_queued` | `card`, `project`, `rule`, `worker_pool`, `queue_depth`, `pool_depth` |
 | `worker_coalesced` | `card`, `project`, `rule`, `worker_pool`: the event replaced one that waits for the same card and rule |
 | `chain_capped` | `card`, `project`, `rule`, `worker_pool`, `max_chain`, `message`: the rule reached its cap on that card |
+| `before_started` | `card`, `project`, `rule`, `worker_pool`, `pid`: the rule's before command started |
+| `before_finished` | `card`, `project`, `rule`, `dir`, `output`: the before command printed the folder the worker starts in |
+| `before_failed` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output`: the before command failed, so no worker started. Level `ERROR` |
+| `resume_dir_gone` | `card`, `project`, `rule`, `session_id`, `new_session_id`, `dir`, `message`: the folder of the resumed session is gone, so the bridge starts a new session. Level `WARN` |
+| `resume_failed` | `card`, `project`, `rule`, `session_id`, `output`: a person's resume found the session's folder gone, so no worker started. Level `ERROR` |
 | `worker_started` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `ask` for the resume of an ask, and `resume` for the resume of an unfinished run |
 | `resume_skipped` | `card` or `subject`, `project`, `rule`, `ask`, `session_id`, `message`: the session read every item of its ask, so no worker ran. For an unfinished run, the line adds `reason`: `card_moved`, `shutdown`, `rule_dead` or `reload`, at level `WARN` |
 | `resume_session_missing` | `card`, `project`, `rule`, `session_id`, `message`: a fix request named a session that this machine does not hold, so the bridge queues a new session. Level `WARN` |
@@ -1444,6 +1449,7 @@ no card, `subject` is the ask id. A worker line for a review verdict also names
 | `card_hold_released` | `card_id`: the hold of the card ended |
 | `event_duplicate` | `id`: the hub sent an event again that the bridge already handled, as after a handover |
 | `worker_adopted` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `pid`: the bridge took over a worker that an earlier version started |
+| `before_adopted` | `card`, `project`, `rule`, `worker_pool`, `session_id`, `pid`: the bridge took over a before command that an earlier version started |
 | `update_skipped` | `reason`: the bridge does not check for updates, for example a development build |
 | `update_check` | `from`, `range`: a check starts |
 | `update_check_failed` | `from`, `error`, and `to` for a failed download. Level `WARN` |
