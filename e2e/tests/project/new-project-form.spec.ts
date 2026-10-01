@@ -57,6 +57,8 @@ test('project descriptions persist on tiles and can be edited or cleared', async
     page,
     request,
 }) => {
+    // Registration, five viewports and three form round trips outrun 30s on a slow runner.
+    test.slow();
     await suppressToolbar(page);
     await suppressWidget(page);
     await registerAndVerify(page, request, {
