@@ -44,6 +44,7 @@ class CardEventRepository extends ServiceEntityRepository
      * so a failed write leaves the entity manager and the caller's transaction usable.
      * A write that read an older state change than the row holds changes nothing,
      * and so does a write for a run that left the state it records, such as a reopen.
+     * The share lock waits for an open change to the run, then reads its new state.
      *
      * @param array<string, mixed> $detail with the `runId` and the `state`
      */
@@ -52,7 +53,7 @@ class CardEventRepository extends ServiceEntityRepository
         $this->getEntityManager()->getConnection()->transactional(static fn (Connection $connection): int|string => $connection->executeStatement(
             'INSERT INTO board_card_events (id, card_id, project_id, kind, actor_kind, actor_user_id, detail, occurred_at, run_id)
              SELECT ?::uuid, ?::uuid, ?::uuid, ?, ?, ?::uuid, ?::jsonb, ?::timestamp, r.id
-             FROM bridge_worker_runs r WHERE r.id = ?::uuid AND r.state = ?
+             FROM bridge_worker_runs r WHERE r.id = ?::uuid AND r.state = ? FOR SHARE OF r
              ON CONFLICT (card_id, run_id) DO UPDATE SET detail = EXCLUDED.detail, occurred_at = EXCLUDED.occurred_at
              WHERE board_card_events.detail IS DISTINCT FROM EXCLUDED.detail
                AND COALESCE((EXCLUDED.detail->>\'stateSequence\')::bigint, 0) >= COALESCE((board_card_events.detail->>\'stateSequence\')::bigint, 0)',
