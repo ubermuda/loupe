@@ -171,7 +171,7 @@ Ask the user whether each worker gets its own folder or works in the repository 
 If each worker gets its own folder, ask the user for two commands. One command makes or refreshes the folder of a card. The other command removes it. Tell the user the contract of the first command:
 
 - The bridge runs it as an argv list, with no shell, in the project `dir`.
-- Its elements can use `{cardNumber}` and `{cardId}`.
+- Its elements can use `{cardNumber}` and `{cardId}`. A rule on `inbox.ask_closed` takes `{cardNumber}` only, and the bridge refuses `{cardId}` there.
 - The last line of standard output that is not empty must be the folder path. A relative path resolves against the project `dir`.
 - An exit code that is not 0 fails the run, and no agent starts.
 - It runs again before each resume, so it must work when the folder already exists.
