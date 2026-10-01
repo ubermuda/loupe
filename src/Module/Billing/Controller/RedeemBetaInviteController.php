@@ -48,6 +48,11 @@ final class RedeemBetaInviteController extends AppController
             case BetaInviteOutcome::RegistrationDisabled:
                 throw $this->createNotFoundException();
             case BetaInviteOutcome::SignUp:
+                // A hover prefetch is not a visit, so it must not carry the link into a later sign-up.
+                if ('prefetch' === $request->headers->get('X-Sec-Purpose') || 'prefetch' === $request->headers->get('Sec-Purpose')) {
+                    return $this->redirectToRoute('app_register');
+                }
+
                 $session = $request->getSession();
                 $session->set(RegistrationPasses::SESSION_KEY, $token);
                 // A visitor who signs in to an existing account comes back here to claim it.

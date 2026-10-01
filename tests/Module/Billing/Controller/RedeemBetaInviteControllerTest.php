@@ -60,6 +60,19 @@ final class RedeemBetaInviteControllerTest extends WebTestCase
         self::assertSame($token, $client->getRequest()->getSession()->get(RegistrationPasses::SESSION_KEY));
     }
 
+    public function test_a_hover_prefetch_stores_no_token_for_a_signed_out_visitor(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->closeRegistration($client);
+        [, $token] = $this->seedInvite($client);
+
+        $client->request(Request::METHOD_GET, '/beta/'.$token, server: ['HTTP_X_SEC_PURPOSE' => 'prefetch']);
+
+        self::assertResponseRedirects('/register');
+        self::assertFalse($client->getRequest()->getSession()->has(RegistrationPasses::SESSION_KEY));
+    }
+
     public function test_at_cap_a_form_sign_up_with_a_beta_link_creates_the_account_and_a_comp(): void
     {
         $client = static::createClient();
