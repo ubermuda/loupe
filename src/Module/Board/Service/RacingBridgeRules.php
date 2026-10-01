@@ -27,10 +27,6 @@ final readonly class RacingBridgeRules
      */
     public function forProject(Project $project, array $reports): array
     {
-        if (!$this->appSyncsBehind($project)) {
-            return [];
-        }
-
         $racing = [];
         foreach ($reports as $report) {
             foreach ($report->rules as $rule) {
@@ -40,7 +36,8 @@ final readonly class RacingBridgeRules
             }
         }
 
-        return $racing;
+        // The settings cost a query, so a board with no behind rule never reads them.
+        return [] !== $racing && $this->appSyncsBehind($project) ? $racing : [];
     }
 
     public function appSyncsBehind(Project $project): bool
