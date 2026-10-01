@@ -97,6 +97,20 @@ final class RecordForgeDeliveryHandlerTest extends KernelTestCase
         self::assertSame('acme/new', $paths[(string) $otherKey->id]);
     }
 
+    public function test_a_move_that_collides_keeps_the_post_of_the_old_path(): void
+    {
+        $owner = $this->project('notice-collision');
+        $this->notice($owner, 'acme/old', 6, 'stale-approval:bbb');
+        $pending = $this->notice($owner, 'acme/new', 6, 'stale-approval:bbb', PullRequestCommentState::Pending);
+
+        $this->handle($owner, new ForgeDelivery(ForgeEventType::REPOSITORY_MOVED, 'github', 'acme/old', movedTo: 'acme/new'));
+
+        $this->em->clear();
+        $survivor = $this->em->find(PullRequestNotice::class, $pending->id);
+        self::assertNotNull($survivor);
+        self::assertSame(PullRequestCommentState::Posted, $survivor->state);
+    }
+
     public function test_a_delivery_without_state_reads_writes_a_bare_fact_row_and_one_with_state_reads_does_not(): void
     {
         $project = $this->project('installed');
@@ -198,10 +212,10 @@ final class RecordForgeDeliveryHandlerTest extends KernelTestCase
         return $project;
     }
 
-    private function notice(Project $project, string $repository, int $number, string $key): PullRequestNotice
+    private function notice(Project $project, string $repository, int $number, string $key, PullRequestCommentState $state = PullRequestCommentState::Posted): PullRequestNotice
     {
         $notice = new PullRequestNotice($project, Uuid::v7(), 'github', $repository, $number, $key);
-        $notice->state = PullRequestCommentState::Posted;
+        $notice->state = $state;
         $this->em->persist($notice);
         $this->em->flush();
 

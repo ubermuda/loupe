@@ -55,6 +55,14 @@ class PullRequestNoticeRepository extends ServiceEntityRepository
 
         $parameters = ['project' => $projectId->toRfc4122(), 'forge' => $forge, 'from' => mb_strtolower($from), 'to' => mb_strtolower($to)];
         $connection = $this->getEntityManager()->getConnection();
+        // The surviving row keeps a post that the old one made, so its own pending delivery does not post twice.
+        $connection->executeStatement(
+            'UPDATE board_pull_request_notices new SET state = :posted, posted_at = old.posted_at, failed_at = NULL, cause = NULL
+            FROM board_pull_request_notices old WHERE old.project_id = :project AND old.forge = :forge AND old.repository = :from
+            AND new.project_id = old.project_id AND new.forge = old.forge AND new.repository = :to AND new.number = old.number
+            AND new.notice_key = old.notice_key AND old.state = :posted AND new.state <> :posted',
+            $parameters + ['posted' => PullRequestCommentState::Posted->value],
+        );
         $connection->executeStatement(
             'DELETE FROM board_pull_request_notices old WHERE old.project_id = :project AND old.forge = :forge AND old.repository = :from
             AND EXISTS (SELECT 1 FROM board_pull_request_notices new WHERE new.project_id = old.project_id AND new.forge = old.forge
