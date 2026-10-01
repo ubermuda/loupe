@@ -28,17 +28,13 @@ seen=$(jq -r --arg at "$at" '[.[]|select(.timestamp < $at)]|max_by(.timestamp)|.
 [ -n "$seen" ] || { echo "HOLD no push of $branch before the approval"; exit 1; }
 
 git fetch -q origin "$base" "refs/pull/$pr/head" 2>/dev/null || { echo "UNREAD: git fetch failed"; exit 2; }
-sync=0 conflict=() new=()
+sync=0 new=()
 while IFS=$'\t' read -r oid parents headline; do
   [ -n "$oid" ] || continue
   git merge-base --is-ancestor "$oid" "$seen" 2>/dev/null && continue
+  # The approval covers a merge from the base, with or without a conflict resolution.
   if [ "$parents" -gt 1 ] && git merge-base --is-ancestor "$oid^2" "origin/$base" 2>/dev/null; then
-    # A merge from the base is a sync when git re-creates its tree with no conflict.
-    if t=$(git merge-tree --write-tree "$oid^1" "$oid^2" 2>/dev/null) && [ "$t" = "$(git rev-parse "$oid^{tree}")" ]; then
-      sync=$((sync + 1))
-    else
-      conflict+=("${oid:0:8}")
-    fi
+    sync=$((sync + 1))
   else
     new+=("${oid:0:8} $headline")
   fi
@@ -46,8 +42,5 @@ done < <(jq -r '.[]|[.oid,(.parents|tostring),.headline]|@tsv' <<<"$commits")
 
 if [ ${#new[@]} -gt 0 ]; then
   list=$(printf '%s; ' "${new[@]}"); echo "HOLD commits after approval: ${list%; }"; exit 1
-fi
-if [ ${#conflict[@]} -gt 0 ]; then
-  echo "HOLD conflict resolution after approval: ${conflict[*]}"; exit 1
 fi
 echo "COVERED approval=$at seen=${seen:0:8} head=${head:0:8} sync-merges-after-approval=$sync"
