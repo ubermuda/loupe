@@ -137,7 +137,7 @@ final readonly class ProjectShowcaseSeeder
     }
 
     /**
-     * Turns the sync of a behind pull request on, and links one pull request
+     * Turns the automation and the sync of a behind pull request on, and links one pull request
      * per sync status. The holder keeps the line busy, so no sync pass picks
      * a pull request of this showcase.
      *
@@ -146,6 +146,8 @@ final readonly class ProjectShowcaseSeeder
     private function seedSyncLine(Project $project): array
     {
         $settings = $this->boardAutomationSettings->findOneByProject($project) ?? new BoardAutomationSettings($project);
+        // The card page shows no sync status while the automation is off.
+        $settings->enabled = true;
         $settings->syncBehind = true;
         $this->em->persist($settings);
 
