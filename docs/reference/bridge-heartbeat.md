@@ -44,6 +44,7 @@ The path holds no project, because one bridge follows several projects.
 | `update` | optional. The state of the bridge's own [update](../extending/cli-bridge.md#updates) |
 | `update.state` | required in `update`. One of the states below |
 | `update.version` | optional. The release the state is about, at most 100 characters |
+| `update.install` | optional. How the CLI was installed. `homebrew` is the only value now. The server stores an unknown value as no value, and does not refuse the heartbeat |
 | `hooks` | optional. A list of at most 100 rows, one for each event of each [hook package](../extending/bridge-hooks.md) the bridge runs. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `workerPools` | optional. A list of at most 50 rows, one for each worker pool of the bridge. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `paused` | optional. `true` when the bridge takes no new work now. A missing or `null` value keeps the state the server holds. See [Pause and commands](#pause-and-commands) |
@@ -82,7 +83,7 @@ time. A bridge that never sent a `workerPools` list shows no pools.
 | `updating` | The bridge hands over to `version` now |
 | `rolled-back` | The bridge went back from `version`, and skips it |
 | `blocked` | The bridge cannot write the directory of its binary, so it cannot install `version` |
-| `off` | `autoUpdate` is `false`, and `version` waits |
+| `off` | `autoUpdate` is not `true`, and `version` waits |
 | `dev` | A development build, which never updates |
 
 The bridge sends no `update` until its first check has a state. Each heartbeat
@@ -90,7 +91,11 @@ replaces the stored state, and a heartbeat with no `update` clears it. The
 agents page shows a chip from the stored state: "Up to date", "Updating",
 "Rolled back from" and the version, or "Update blocked". It shows "Needs ^1.0"
 in place of all of them when `cliVersion` is outside the range, and a
-development build always is. `off` and `dev` show no chip.
+development build always is. `off` with a `version` shows "Update available"
+and the version, with the command that installs it: `brew upgrade loupe` when
+`update.install` is `homebrew`, and
+`curl -fsSL https://<your Loupe>/install.sh | sh` in all other cases. `off`
+with no `version` and `dev` show no chip.
 
 The server drops a project id it cannot match to one of the user's projects. It
 does not refuse the heartbeat. A project deleted while a bridge runs stays in
@@ -254,7 +259,7 @@ answer settles a command.
 ## Deletion and export
 
 Deleting an account deletes the rows of its bridges and their commands. The
-data export holds the bridges in `bridges.json`, with the stored update state
-and version, the hook rows, the worker pool rows with their report time, the
-pause state and the capabilities. It holds the commands in
+data export holds the bridges in `bridges.json`, with the stored update state,
+version and install method, the hook rows, the worker pool rows with their
+report time, the pause state and the capabilities. It holds the commands in
 `bridge_commands.json`.

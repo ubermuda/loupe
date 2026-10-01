@@ -62,6 +62,7 @@ final readonly class RecordBridgeHeartbeatHandler
 
             $bridge->updateState = $command->updateState;
             $bridge->updateVersion = $command->updateVersion;
+            $bridge->installMethod = $command->installMethod;
             if (null !== $command->workerPools) {
                 $bridge->workerPools = $command->workerPools;
                 $bridge->workerPoolsReportedAt = $now;

@@ -44,7 +44,7 @@
                 </span>
                 <twig:ux:icon name="lucide:bot" />
             </div>
-            <div class="lp-agent-card__body">
+            <div class="lp-agent-card__body"{% if connection.updateChip and connection.updateChip.command %} data-controller="disclosure"{% endif %}>
                 <div class="lp-agent-card__heading">
                     <div>
                         <p class="lp-agent-card__eyebrow">{{ 'bridge.agents.connection_label'|trans }}</p>
@@ -110,7 +110,14 @@
                 {% endif %}
                 <footer>
                     <span>{{ connection.bridge.cliVersion|short_sha }}</span>
-                    {% if connection.updateChip %}
+                    {% if connection.updateChip and connection.updateChip.command %}
+                    <button type="button" data-agent-update class="lp-status-chip lp-status-chip--{{ connection.updateChip.tone }} lp-agent-update-toggle"
+                            data-action="disclosure#toggle" data-disclosure-target="trigger" aria-controls="agent-update-{{ connection.bridge.id }}">
+                        <span class="lp-status-chip__dot"></span>
+                        {{ connection.updateChip.label|trans(connection.updateChip.parameters) }}
+                        <twig:ux:icon name="lucide:chevron-down" class="lp-agent-update-toggle__caret" />
+                    </button>
+                    {% elseif connection.updateChip %}
                     <span data-agent-update class="lp-status-chip lp-status-chip--{{ connection.updateChip.tone }}">
                         <span class="lp-status-chip__dot"></span>
                         {{ connection.updateChip.label|trans(connection.updateChip.parameters) }}
@@ -118,6 +125,14 @@
                     {% endif %}
                     <span>{{ 'bridge.agents.runtime'|trans }}</span>
                 </footer>
+                {% if connection.updateChip and connection.updateChip.command %}
+                <div id="agent-update-{{ connection.bridge.id }}" class="lp-connect-field lp-agent-update-command" data-disclosure-target="content" data-controller="clipboard" data-clipboard-text-value="{{ connection.updateChip.command }}"
+                     data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+                    <twig:ux:icon name="lucide:terminal" class="lp-connect-field__glyph w-4 h-4" />
+                    <code class="lp-connect-field__value" data-agent-update-command>{{ connection.updateChip.command }}</code>
+                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                </div>
+                {% endif %}
             </div>
         </article>
         {% endfor %}
