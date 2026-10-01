@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Service\Dev;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardAutomation;
@@ -14,6 +15,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -81,11 +83,15 @@ final readonly class ProjectShowcaseSeeder
         private InboxCardWatchRepository $inboxCardWatches,
         private InboxAvailability $inbox,
         private DocumentTagApplier $tagApplier,
+        private BoardAutomationSettingsRepository $boardAutomationSettings,
     ) {
     }
 
     /** The card in Tech design whose tech design in review gives the showcase its wait item. */
     public const string WAITING_CARD_TITLE = 'Board onboarding';
+
+    /** The title that says this project already holds the sync line cards. */
+    public const string SYNC_MARKER_TITLE = 'Faster search indexing';
 
     /**
      * A second run writes nothing but asks Loupe for the wait items again, so
@@ -106,9 +112,17 @@ final readonly class ProjectShowcaseSeeder
             $waitingCard = $this->cards->findOneBy(['project' => $project, 'title' => self::WAITING_CARD_TITLE]);
         }
 
+        // Its own marker lets a project that already holds the showcase gain these cards.
+        $syncCards = [];
+        if (!$this->cards->findOneBy(['project' => $project, 'title' => self::SYNC_MARKER_TITLE]) instanceof Card) {
+            $cards = $this->seedSyncLine($project);
+            $this->em->flush();
+            $syncCards = array_map(static fn (Card $card): string => '/projects/'.$project->id.'/board/cards/'.$card->id, $cards);
+        }
+
         $enabled = $this->inbox->isEnabled();
         if (!$waitingCard instanceof Card) {
-            return new ShowcaseSeeding($written, false, $enabled, 0);
+            return new ShowcaseSeeding($written, false, $enabled, 0, $syncCards);
         }
         $cardId = $waitingCard->id ?? throw new \LogicException('A stored card has an id.');
         $this->cardWaits->reconcile($project, null);
@@ -118,7 +132,65 @@ final readonly class ProjectShowcaseSeeder
             [] !== $this->inboxCardWatches->findOpenForCards($project, [$cardId]),
             $enabled,
             \count($this->inboxCardWatches->findOpenCardIds($project)),
+            $syncCards,
         );
+    }
+
+    /**
+     * Turns the sync of a behind pull request on, and links one pull request
+     * per sync status. The holder keeps the line busy, so no sync pass picks
+     * a pull request of this showcase.
+     *
+     * @return list<Card>
+     */
+    private function seedSyncLine(Project $project): array
+    {
+        $settings = $this->boardAutomationSettings->findOneByProject($project) ?? new BoardAutomationSettings($project);
+        $settings->syncBehind = true;
+        $this->em->persist($settings);
+
+        $columns = [];
+        foreach ($this->boardColumns->findForProject($project) as $column) {
+            $columns[$column->slug] = $column;
+        }
+        $column = $columns['in-review'] ?? $columns['in-progress'] ?? $columns['backlog'] ?? throw new \LogicException('The project has no backlog column.');
+        $number = $this->cards->nextNumber($project);
+        $cards = [];
+        foreach ([self::SYNC_MARKER_TITLE, 'Retry a failed webhook', 'Paginate the activity feed', 'Cache the board columns', 'Rename the export archive'] as $offset => $title) {
+            $cards[] = $card = new Card(project: $project, column: $column, title: $title, body: '', number: $number + $offset, type: CardType::Feature);
+            $this->em->persist($card);
+        }
+
+        $this->syncRow($cards[0], 452, PullRequestMergeability::Behind, null);
+        $this->syncRow($cards[1], 453, PullRequestMergeability::Conflicting, '-3 hours');
+        $this->syncRow($cards[2], 454, PullRequestMergeability::Behind, '-2 hours');
+        $holder = $this->syncRow($cards[3], 455, PullRequestMergeability::Mergeable, '-4 hours');
+        $holder->syncedSha = $holder->headSha;
+        $this->syncRow($cards[4], 456, PullRequestMergeability::Behind, '-1 hour')->syncFailedReason = 'permission';
+
+        return $cards;
+    }
+
+    /** A pull request whose base is the default branch, approved on its head when $approvedAt is set. */
+    private function syncRow(Card $card, int $number, PullRequestMergeability $mergeability, ?string $approvedAt): ForgePullRequest
+    {
+        [, $state] = $this->link($card, $number);
+        $state->headSha = hash('sha1', 'atlas-'.$number);
+        $state->baseBranch = 'main';
+        $state->defaultBranch = 'main';
+        $state->checks = PullRequestChecks::Pending;
+        $state->checksSha = $state->headSha;
+        $state->mergeability = $mergeability;
+        $state->review = PullRequestReview::Required;
+        $state->refreshedAt = new \DateTimeImmutable('-5 minutes');
+        if (null !== $approvedAt) {
+            $state->review = PullRequestReview::Approved;
+            $state->approvalId = 'atlas-review-'.$number;
+            $state->approvalSha = $state->coveredSha = $state->headSha;
+            $state->approvedAt = new \DateTimeImmutable($approvedAt);
+        }
+
+        return $state;
     }
 
     /** @return array{checkout: Card, history: Card, columns: Card, onboarding: Card, pullRequest: CardPullRequest} */
@@ -212,12 +284,7 @@ final readonly class ProjectShowcaseSeeder
      */
     private function linkPullRequest(Card $card, int $number, PullRequestChecks $checks, PullRequestMergeability $mergeability, PullRequestReview $review, array $failedChecks = []): CardPullRequest
     {
-        $links = $this->pullRequests->linksFor($card, ['https://github.com/example/atlas/pull/'.$number]);
-        $link = $links[0] ?? throw new \LogicException('The pull request resolver returned no link.');
-        $this->em->persist($link);
-
-        $state = $this->forgePullRequests->findOneBy(['project' => $card->project, 'forge' => 'github', 'repository' => 'example/atlas', 'number' => $number])
-            ?? new ForgePullRequest($card->project, 'github', 'example/atlas', $number);
+        [$link, $state] = $this->link($card, $number);
         $state->headSha = hash('sha1', 'atlas-'.$number);
         $state->baseBranch = 'main';
         $state->checks = $checks;
@@ -226,9 +293,22 @@ final readonly class ProjectShowcaseSeeder
         $state->mergeability = $mergeability;
         $state->review = $review;
         $state->refreshedAt = new \DateTimeImmutable('-5 minutes');
-        $this->em->persist($state);
 
         return $link;
+    }
+
+    /** @return array{CardPullRequest, ForgePullRequest} */
+    private function link(Card $card, int $number): array
+    {
+        $links = $this->pullRequests->linksFor($card, ['https://github.com/example/atlas/pull/'.$number]);
+        $link = $links[0] ?? throw new \LogicException('The pull request resolver returned no link.');
+        $this->em->persist($link);
+
+        $state = $this->forgePullRequests->findOneBy(['project' => $card->project, 'forge' => 'github', 'repository' => 'example/atlas', 'number' => $number])
+            ?? new ForgePullRequest($card->project, 'github', 'example/atlas', $number);
+        $this->em->persist($state);
+
+        return [$link, $state];
     }
 
     /** @return array{history: Document, rules: Document, onboarding: Document} */
