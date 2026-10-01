@@ -376,11 +376,11 @@ When an approval did not move the card because a blocker is open, the page says
 **Approved, and waits for its blockers:** and links to each open blocker. See
 [An approval waits for open blockers](#an-approval-waits-for-open-blockers).
 
-The card page and the drawer update live, with no reload. A move of the card, a
-change to one of its pull requests, an automation action or a change to a
-worker run updates them. The open tab stays open. A form
+The card page and the drawer update live, with no reload. They update when the
+card moves, when one of its pull requests changes, when the automation acts,
+and when a worker run of the project changes. The open tab stays open. A form
 with unsaved input keeps that input, and an open dialog holds the update until
-it closes. Live updates need the same hub and flag as the board, see
+it closes. Live updates need the same hub and flag as the board. See
 [Live changes](#live-changes).
 
 The page also lists up to five agent runs of the card that are still in
