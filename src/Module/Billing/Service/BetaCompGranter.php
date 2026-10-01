@@ -32,13 +32,7 @@ final readonly class BetaCompGranter
         $user = $invite->redeemedBy ?? throw new \LogicException('Only a redeemed beta invite grants a comp.');
         $context = ['betaInviteId' => (string) $invite->id, 'userId' => (string) $user->id];
 
-        $this->auditor->record(
-            'billing.beta_invite_redeemed',
-            AuditOutcome::Success,
-            $context,
-            new AuditSubject('beta_invite', (string) $invite->id),
-        );
-
+        // The audit record must not cost the tester the comp, so it comes second.
         try {
             ($this->grantComp)(new GrantCompCommand($user, $invite->createdBy));
         } catch (DomainErrors $e) {
@@ -46,5 +40,12 @@ final readonly class BetaCompGranter
         } catch (\Throwable $e) {
             $this->logger->warning('billing.beta_comp_failed', $context + ['error' => $e->getMessage()]);
         }
+
+        $this->auditor->record(
+            'billing.beta_invite_redeemed',
+            AuditOutcome::Success,
+            $context,
+            new AuditSubject('beta_invite', (string) $invite->id),
+        );
     }
 }
