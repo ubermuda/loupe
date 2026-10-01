@@ -14,8 +14,11 @@ vi.mock('../../assets/lib/live.js', () => ({
     },
 }));
 
-const { default: CardLiveController, DEBOUNCE_MILLISECONDS } =
-    await import('../../assets/controllers/card_live_controller.js');
+const {
+    default: CardLiveController,
+    DEBOUNCE_MILLISECONDS,
+    RETRY_MILLISECONDS,
+} = await import('../../assets/controllers/card_live_controller.js');
 
 const CARD = '0199aaaa-0000-7000-8000-000000000001';
 const URL_PATH = `/projects/p/board/cards/${CARD}`;
@@ -38,6 +41,7 @@ function cardHtml({
     flash = '',
     feedback = '<details class="lp-feedback"><summary>Entry</summary>Body</details>',
     body = '',
+    history = '',
 } = {}) {
     const tabs = ['overview', 'details', 'history']
         .map(
@@ -48,7 +52,7 @@ function cardHtml({
     const panels = ['overview', 'details', 'history']
         .map(
             (name) =>
-                `<section id="card-panel-${name}" role="tabpanel" data-panel-panel="${name}"${name === tab ? '' : ' hidden'}>${name === 'overview' ? feedback : ''}</section>`,
+                `<section id="card-panel-${name}" role="tabpanel" data-panel-panel="${name}"${name === tab ? '' : ' hidden'}>${name === 'overview' ? feedback : name === 'history' ? history : ''}</section>`,
         )
         .join('');
 
@@ -93,6 +97,33 @@ function cardChanged(change = {}) {
         own: false,
         ...change,
     });
+}
+
+function stubIntersectionObserver() {
+    vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+            observe() {}
+            unobserve() {}
+            disconnect() {}
+        },
+    );
+}
+
+function olderLink(id) {
+    return `<turbo-frame id="${id}" class="lp-card-history__older"><a href="/older">Show older</a></turbo-frame>`;
+}
+
+// A lazy frame waits for an intersection that never comes, so it fetches nothing.
+function loadedOlder(id) {
+    const frame = document.createElement('turbo-frame');
+    frame.id = id;
+    frame.className = 'lp-card-history__older';
+    frame.setAttribute('loading', 'lazy');
+    frame.setAttribute('src', '/older');
+    frame.textContent = 'Older entries';
+
+    return frame;
 }
 
 async function settle() {
@@ -152,29 +183,75 @@ it('loads the page again when the card on the standalone page is deleted', async
     });
 });
 
-it('keeps a tab where the reader loaded older history', async () => {
-    vi.stubGlobal(
-        'IntersectionObserver',
-        class {
-            observe() {}
-            unobserve() {}
-            disconnect() {}
-        },
+it('keeps the older history the reader loaded, and updates the newest rows', async () => {
+    stubIntersectionObserver();
+    const root = await mount({
+        tab: 'history',
+        history: '<p data-newest>Moved to Next</p>',
+    });
+    root.querySelector('#card-panel-history').append(loadedOlder('older-a'));
+    answer(
+        cardHtml({
+            tab: 'history',
+            history: `<p data-newest>Moved to Done</p>${olderLink('older-a')}`,
+        }),
     );
-    const root = await mount({ tab: 'history' });
-    const older = document.createElement('turbo-frame');
-    // A lazy frame waits for an intersection that never comes, so it fetches nothing.
-    older.setAttribute('loading', 'lazy');
-    older.setAttribute('src', '/older');
-    older.textContent = 'Older entries';
-    root.querySelector('#card-panel-history').append(older);
-    answer(cardHtml({ tab: 'history', column: 'Done' }));
     cardChanged();
     await settle();
-    expect(root.querySelector('[data-column]').textContent).toBe('Done');
-    expect(root.querySelector('#card-panel-history').textContent).toContain(
-        'Older entries',
+    const panel = root.querySelector('#card-panel-history');
+    expect(panel.querySelector('[data-newest]').textContent).toBe(
+        'Moved to Done',
     );
+    expect(panel.textContent).toContain('Older entries');
+    expect(panel.querySelector('#older-a').getAttribute('src')).toBe('/older');
+});
+
+it('shows the fresh first page when a new row moves where it ends', async () => {
+    stubIntersectionObserver();
+    const root = await mount({ tab: 'history' });
+    root.querySelector('#card-panel-history').append(loadedOlder('older-a'));
+    answer(cardHtml({ tab: 'history', history: olderLink('older-b') }));
+    cardChanged();
+    await settle();
+    const panel = root.querySelector('#card-panel-history');
+    expect(panel.querySelector('#older-a')).toBeNull();
+    expect(panel.querySelector('#older-b').textContent).toBe('Show older');
+});
+
+it('tries a failed read again after a growing wait', async () => {
+    const root = await mount();
+    responses.push({ ok: false, status: 503 });
+    cardChanged();
+    await settle();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    fetch.mockRejectedValueOnce(new TypeError('offline'));
+    await vi.advanceTimersByTimeAsync(RETRY_MILLISECONDS[0]);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    answer(cardHtml({ column: 'Done' }));
+    await vi.advanceTimersByTimeAsync(RETRY_MILLISECONDS[1]);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(root.querySelector('[data-column]').textContent).toBe('Done');
+});
+
+it('stops after the last retry, and does not retry a card it cannot see', async () => {
+    await mount();
+    responses.push(
+        ...Array.from({ length: 4 }, () => ({ ok: false, status: 500 })),
+    );
+    cardChanged();
+    await settle();
+    await vi.advanceTimersByTimeAsync(
+        RETRY_MILLISECONDS.reduce((sum, wait) => sum + wait, 0),
+    );
+    expect(fetch).toHaveBeenCalledTimes(1 + RETRY_MILLISECONDS.length);
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(fetch).toHaveBeenCalledTimes(1 + RETRY_MILLISECONDS.length);
+
+    responses.push({ ok: false, status: 404 });
+    cardChanged();
+    await settle();
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(fetch).toHaveBeenCalledTimes(2 + RETRY_MILLISECONDS.length);
 });
 
 it('fetches on the hub echo of a change this reader made elsewhere on the page', async () => {

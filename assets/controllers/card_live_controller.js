@@ -5,6 +5,9 @@ import { on } from '../lib/live.js';
 /** A move often arrives with the automation's next change close behind it. */
 export const DEBOUNCE_MILLISECONDS = 300;
 
+/** A failed read tries again after each wait, and a new change starts the count again. */
+export const RETRY_MILLISECONDS = [1000, 3000, 9000];
+
 /**
  * Morphs the card in again on a change to it or to a worker run, and after a
  * reconnect. An open dialog holds the update until it closes. A form with
@@ -69,7 +72,18 @@ export default class extends Controller {
         this.timeout = setTimeout(() => this.refresh(), DEBOUNCE_MILLISECONDS);
     }
 
-    async refresh() {
+    retry(attempt) {
+        if (attempt >= RETRY_MILLISECONDS.length) {
+            return;
+        }
+        clearTimeout(this.timeout);
+        this.timeout = setTimeout(
+            () => this.refresh(attempt + 1),
+            RETRY_MILLISECONDS[attempt],
+        );
+    }
+
+    async refresh(attempt = 0) {
         if (this.holding()) {
             return;
         }
@@ -94,10 +108,19 @@ export default class extends Controller {
                 signal: request.signal,
             });
             if (!response?.ok) {
+                // A card the reader may no longer see answers the same on every try.
+                if (response?.status >= 500) {
+                    this.retry(attempt);
+                }
+
                 return;
             }
             html = await response.text();
         } catch {
+            if (!request.signal.aborted) {
+                this.retry(attempt);
+            }
+
             return;
         }
         if (request.signal.aborted || this.holding()) {
@@ -117,6 +140,7 @@ export default class extends Controller {
             (element) => element.dataset.cardDrawerCardId === this.cardIdValue,
         );
         if (fresh) {
+            keepLoadedFrames(this.element, fresh);
             this.morph(fresh);
         }
     }
@@ -140,11 +164,7 @@ export default class extends Controller {
             const target = event.target;
             if (
                 target.classList?.contains('lp-flash') ||
-                (target instanceof HTMLFormElement &&
-                    hasUnsavedInput(target)) ||
-                // A tab where the reader loaded more, such as older history, keeps what it loaded.
-                (target.getAttribute?.('role') === 'tabpanel' &&
-                    target.querySelector('turbo-frame[src]') !== null)
+                (target instanceof HTMLFormElement && hasUnsavedInput(target))
             ) {
                 event.preventDefault();
             }
@@ -183,6 +203,22 @@ export default class extends Controller {
             );
         }
     }
+}
+
+/**
+ * Older history the reader loaded keeps its rows while the fresh first page
+ * still ends at the same row. A new row moves that row, and the fresh first
+ * page then shows it.
+ */
+function keepLoadedFrames(current, fresh) {
+    const loadedHistory =
+        '#card-panel-history turbo-frame.lp-card-history__older[src][id]';
+    current.querySelectorAll(loadedHistory).forEach((loaded) => {
+        const twin = fresh.querySelector(`turbo-frame[id="${loaded.id}"]`);
+        if (twin && !twin.hasAttribute('src')) {
+            twin.replaceWith(loaded.cloneNode(true));
+        }
+    });
 }
 
 function hasUnsavedInput(form) {
