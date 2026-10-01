@@ -74,6 +74,8 @@ type router struct {
 	// none.
 	replay     func(ctx context.Context, after int64) (api.Replay, error)
 	cursorFile string
+	// readHolds reads the held cards on each connect. A nil one reads none.
+	readHolds func(ctx context.Context) ([]api.CardHold, error)
 	// resolvePin asks which variant of an experiment a card runs with, before
 	// its worker starts. A nil one runs the variant the bridge drew.
 	resolvePin func(ctx context.Context, handle, experiment, cardID, candidate string, variants []string, weights []int) (string, string, error)
@@ -189,6 +191,8 @@ type router struct {
 	stops     map[string]bool
 	cardHolds map[string]bool
 	stopWaits stopWaits
+	// noHoldList is set once the server answers that it has no held list.
+	noHoldList bool
 	// lastEventID is the resume point of the stream, and recent the ids of the
 	// last events handled, oldest first, which recentSet indexes.
 	lastEventID string
@@ -455,6 +459,7 @@ func (r *router) handler() transport.Handler {
 				r.update.markConnected()
 			}
 			r.catchUp()
+			r.syncHolds()
 		},
 		OnError:     func(err error) { r.log.Error("stream_error", "error", err.Error()) },
 		OnEvent:     r.onEvent,

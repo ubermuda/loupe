@@ -289,6 +289,50 @@ func (c *Client) Replay(ctx context.Context, after int64) (Replay, error) {
 	return out, nil
 }
 
+// CardHold is one held card of GET /api/card-holds.
+type CardHold struct {
+	ProjectID string `json:"projectId"`
+	CardID    string `json:"cardId"`
+}
+
+// ErrNoCardHolds is the 404 of a server older than the held list.
+var ErrNoCardHolds = errors.New("the server has no GET /api/card-holds endpoint")
+
+// CardHolds reads the held cards of every project the token reaches.
+func (c *Client) CardHolds(ctx context.Context) ([]CardHold, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/card-holds", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request card holds: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return nil, fmt.Errorf("credentials rejected (HTTP %d): the API token must have the agent scope", resp.StatusCode)
+	case http.StatusNotFound:
+		return nil, ErrNoCardHolds
+	default:
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, fmt.Errorf("card holds request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var out struct {
+		Holds []CardHold `json:"holds"`
+	}
+	if err := decodeBody(resp.Body, &out); err != nil {
+		return nil, fmt.Errorf("decode card holds: %w", err)
+	}
+
+	return out.Holds, nil
+}
+
 // Column is one column of a project's board.
 type Column struct {
 	Slug     string `json:"slug"`
