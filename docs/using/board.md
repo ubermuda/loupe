@@ -322,6 +322,14 @@ that bridge id, as the [bridge page](../extending/cli-bridge.md) describes. The
 banner shows the first eight characters of the bridge id, and the full id is in
 their tooltip.
 
+A live rule on `pull_request.behind` races the app when the project has the
+automation and **Sync an approved pull request that is behind** on. Loupe and
+the worker of that rule then both update the same branch. The Rules page marks
+such a rule with "Races the app sync. Remove it from rules.yaml." The board
+banner lists it below the dead rules, and the inbox gets a
+[notice](inbox.md#notices). Remove the rule from the `rules.yaml` of its
+bridge. The mark goes away when that bridge sends its next report.
+
 The column dialog and the delete dialog in board settings warn before they save when a live rule
 watches that column's slug. A rename changes the slug, and a delete removes it,
 so the rule stops matching in both cases.
@@ -357,11 +365,16 @@ Each pull request link shows the last state that Loupe read, as chips. An open
 pull request shows **Open** or **Draft**, then its checks: **Checks passed**,
 **Checks pending** or **Checks failed**. A failed chip names the checks that
 failed. The row then shows **Conflict**, **Behind base** or **Merge blocked**
-when one applies, and the review: **Approved**, **Changes requested** or
-**Review required**. A merged or closed pull request shows **Merged** or
-**Closed** alone. A link that Loupe never read shows **Not reported**, and a link
+when one applies, and the review: **Approved**, **Approval outdated**,
+**Changes requested** or **Review required**. A merged or closed pull request
+shows **Merged** or **Closed** alone. A link that Loupe never read shows **Not reported**, and a link
 with no usable URL shows **Unavailable**. See
 [What GitHub tells a card](#what-github-tells-a-card).
+
+**Approval outdated** shows when the approval does not cover the newest commit.
+A merge from the base after the approval keeps it covered, as
+[Pull request waits](inbox.md#pull-request-waits) describes. A new approval of
+the newest commit shows **Approved** again.
 
 When the project syncs an approved pull request that is behind, each open pull
 request whose base is the default branch also shows one line about its sync. It shows
@@ -733,7 +746,7 @@ gets these requests. A card in a terminal column never gets one.
 | Setting | Default | Does |
 |---|---|---|
 | **Send fix and merge requests** | on | When off, Loupe sends no fix or merge request and moves no card. It still sends the pull request facts |
-| **Merge strategy** | Worker | Worker sends a ready-to-merge event when a pull request can merge. Off sends none |
+| **Merge strategy** | Worker | Worker sends a ready-to-merge event when a pull request can merge. When the pull request has an approval, the event waits for an approval that covers the newest commit. Off sends none |
 | **Fix strategy** | Fresh | Fresh starts a new worker for each fix. Resume asks the bridge to resume the last session of the card, and falls back to a new worker |
 | **Loop limit** | 3 | The number of fix requests a card gets in a row, from 1 to 20 |
 | **Comment on the pull request when a fix run is queued** | off | When on, Loupe posts a comment on the pull request each time a bridge queues a fix run for it |
@@ -867,6 +880,11 @@ carries `automation`, with
 the automation never acted on the card. `card_update`, `card_create`,
 `card_run_open` and `card_list` with `full` return the same two keys. A
 `card_list` row without `full` carries neither.
+
+`review` is `approved`, `approval-outdated`, `changes-requested`, `required` or
+`none`. `approval-outdated` means that the approval does not cover the newest
+commit. While a pull request has an approval, `readyToMerge` stays false until
+an approval covers the newest commit.
 
 `card_get` also returns `relatedCards`, the cards linked to this one. Each entry
 carries `cardId`, `number`, `title`, `status` and `kind`, where `kind` is how

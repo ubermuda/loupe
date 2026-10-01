@@ -17,6 +17,8 @@ final readonly class ShowcaseSeeding
         public int $waitItems,
         /** @var list<string> the page paths of the sync line cards this run wrote */
         public array $syncCards = [],
+        /** The page path of the card with an outdated approval, when this run wrote it. */
+        public ?string $outdatedCard = null,
     ) {
     }
 }

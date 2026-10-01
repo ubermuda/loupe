@@ -58,6 +58,7 @@ runs to a page.
 | **Replaced** | a newer event for the same card and rule took the place of this run |
 | **Resumed** | the ask the session waited on closed, and the bridge resumes the session |
 | **Skipped** | the session already read its answers, so the bridge did not resume it |
+| **Preparing** | the bridge runs the `before` command of the rule, and the worker has not started |
 | **Running** | the worker runs |
 | **Stopping** | a person asked the bridge to stop the run, and the worker is still ending |
 | **Stopped** | a person stopped the run, and the bridge does not resume it |
@@ -74,7 +75,7 @@ runs to a page.
 | **Lost** | the bridge reconnected, and it no longer holds the run |
 | **Closed** | the interactive session ended, or its card moved to another column |
 
-Queued, Resumed, Running and Stopping are open states. A bridge that dies cannot close
+Queued, Resumed, Preparing, Running and Stopping are open states. A bridge that dies cannot close
 its runs, so Loupe closes them. **Timed out** is a guess: a bridge can go quiet
 and come back, and a later report from it replaces the guess. **Lost** is a
 fact: the bridge came back without the run, so the run can no longer end. See
@@ -109,7 +110,7 @@ no controls, and its owner uses **Close session** instead.
 
 | Control | When it shows | What it does |
 |---|---|---|
-| **Stop** | the run is Queued, Resumed or Running | asks the bridge to stop the run |
+| **Stop** | the run is Queued, Resumed, Preparing or Running | asks the bridge to stop the run |
 | **Resume** | the run ended as Blocked, Gave up, Failed, No result, Unfinished, Timed out, Lost, Stopped or Waiting for a person, and it has a session | asks the bridge to continue the session as a new run |
 | **Cancel request** | a stop or a resume still waits for the bridge | withdraws the request |
 

@@ -16,6 +16,7 @@ use App\Module\Board\Service\BoardLanes;
 use App\Module\Board\Service\BoardStructureDigest;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\LaneDecks;
+use App\Module\Board\Service\RacingBridgeRules;
 use App\Module\Bridge\Service\CardRunWarnings;
 
 final readonly class ShowBoardHandler
@@ -34,6 +35,7 @@ final readonly class ShowBoardHandler
         private CardRunWarnings $runWarnings,
         private LaneDecks $laneDecks,
         private CardPullRequestStates $pullRequestStates,
+        private RacingBridgeRules $racingRules,
     ) {
     }
 
@@ -59,7 +61,9 @@ final readonly class ShowBoardHandler
 
         $deadRules = [];
         $watchedSlugs = [];
-        foreach ($this->bridgeRuleReports->findForProject($project) as $report) {
+        $reports = $this->bridgeRuleReports->findForProject($project);
+        $racingRules = $this->racingRules->forProject($project, $reports);
+        foreach ($reports as $report) {
             foreach ($report->rules as $rule) {
                 if (BridgeRuleReport::STATE_DEAD === $rule['state']) {
                     $deadRules[] = new DeadBridgeRuleView($rule['name'], $rule['columns'], $rule['reason'] ?? '', $report->receivedAt, (string) $report->bridgeId);
@@ -125,10 +129,11 @@ final readonly class ShowBoardHandler
             $otherCards,
             $progress,
             $shownCounts,
-            $this->structureDigest->forBoard($columns, $lanes, $deadRules),
+            $this->structureDigest->forBoard($columns, $lanes, $deadRules, $racingRules),
             $runWarnings,
             $this->laneDecks->forEpics($backlog, array_map(static fn (BoardLaneView $lane): string => (string) $lane->epic?->id, $lanes)),
             $badges,
+            $racingRules,
         );
     }
 }

@@ -54,6 +54,28 @@ class ExperimentPinRepository extends ServiceEntityRepository
             ->getResult());
     }
 
+    /**
+     * One row per experiment and card of the project's pins.
+     *
+     * @return list<array{experiment: string, cardId: string}>
+     */
+    public function findExperimentCardRows(Project $project): array
+    {
+        /** @var list<array{experiment: string, card_id: string}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT experiment, card_id FROM bridge_experiment_pins WHERE project_id = :project',
+            ['project' => ($project->id ?? throw new \LogicException('Project has no id.'))->toRfc4122()],
+        );
+
+        return array_map(static fn (array $row): array => ['experiment' => $row['experiment'], 'cardId' => $row['card_id']], $rows);
+    }
+
+    /** @return list<ExperimentPin> */
+    public function findOfExperiment(Project $project, string $experiment): array
+    {
+        return array_values($this->findBy(['project' => $project, 'experiment' => $experiment], ['createdAt' => 'ASC', 'id' => 'ASC']));
+    }
+
     public function deleteUpdatedBefore(\DateTimeImmutable $cutoff): int
     {
         return (int) $this->createQueryBuilder('pin')

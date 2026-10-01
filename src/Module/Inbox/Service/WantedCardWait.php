@@ -32,6 +32,13 @@ final readonly class WantedCardWait
         return new self(InboxCardWaitTrigger::PullRequestReady, mb_substr($reason, 0, InboxCardWait::MAX_REASON_LENGTH), pullRequestId: $pullRequestId, headSha: $headSha);
     }
 
+    public static function forPullRequestChangedAfterApproval(Uuid $pullRequestId, int $number, string $headSha): self
+    {
+        $reason = \sprintf('Pull request #%d has new commits after your approval (%s)', $number, substr($headSha, 0, 7));
+
+        return new self(InboxCardWaitTrigger::PullRequestReady, mb_substr($reason, 0, InboxCardWait::MAX_REASON_LENGTH), pullRequestId: $pullRequestId, headSha: $headSha);
+    }
+
     public static function forPullRequestFixStopped(Uuid $pullRequestId, int $number, string $headSha, ?string $blockedReason): self
     {
         $reason = \sprintf('Pull request #%d: fix loop stopped', $number);

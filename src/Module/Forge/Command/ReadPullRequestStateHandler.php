@@ -11,6 +11,7 @@ use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Event\PullRequestStateChanged;
 use App\Module\Forge\Messenger\RefreshPullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Forge\Service\ApprovalCoverageReaders;
 use App\Module\Forge\Service\PullRequestStateReaders;
 use App\Module\Forge\Service\PullRequestUnreadable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -35,6 +36,7 @@ final readonly class ReadPullRequestStateHandler
     public function __construct(
         private ForgePullRequestRepository $forgePullRequests,
         private PullRequestStateReaders $readers,
+        private ApprovalCoverageReaders $coverageReaders,
         private EntityManagerInterface $em,
         private MessageBusInterface $bus,
         private EventDispatcherInterface $events,
@@ -87,16 +89,21 @@ final readonly class ReadPullRequestStateHandler
                 return null;
             }
 
+            $coveredBefore = $pullRequest->coveredSha;
             $pullRequest->apply($current);
             $pullRequest->refreshedAt = $readStartedAt;
+            $this->judgeCoverage($pullRequest);
+            $pullRequest->settleReadyToMerge($current->readyToMerge);
+            $settled = $pullRequest->snapshot();
             $this->retryUnknownMergeability($pullRequest);
 
             // One event per read, so Board asks at most one fix for a verdict and a state change together.
             if (null !== $verdict && null !== $command->reviewId) {
                 $pullRequest->recordAnnouncedReview($command->reviewId);
             }
-            if (!$current->equals($previous) || null !== $verdict) {
-                $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $current, $verdict));
+            // The snapshot leaves the approval out, so a new approval of an unchanged head shows only in the covered head.
+            if (!$settled->equals($previous) || null !== $verdict || $pullRequest->coveredSha !== $coveredBefore) {
+                $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $settled, $verdict));
             }
 
             return null;
@@ -117,6 +124,20 @@ final readonly class ReadPullRequestStateHandler
             }
             $snapshot = $pullRequest->snapshot();
             $this->events->dispatch(new PullRequestStateChanged($pullRequest, $snapshot, $snapshot, $verdict));
+        }
+    }
+
+    /** A head that the forge already judged not covered is not asked again, until a new approval or a new head. */
+    private function judgeCoverage(ForgePullRequest $pullRequest): void
+    {
+        $head = $pullRequest->headSha;
+        if (PullRequestState::Open !== $pullRequest->state || null === $pullRequest->coveredSha || null === $head || $head === $pullRequest->coveredSha || $head === $pullRequest->uncoveredSha) {
+            return;
+        }
+
+        $reader = $this->coverageReaders->for($pullRequest->forge);
+        if (null !== $reader) {
+            $pullRequest->recordCoverage($reader->read($pullRequest));
         }
     }
 

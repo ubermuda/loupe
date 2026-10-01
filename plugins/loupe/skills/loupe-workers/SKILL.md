@@ -15,7 +15,7 @@ A bridge runs the workers of a project, and each worker is a run on one card. A 
 | `worker_run_get` | read one run with its series, output, state changes and commands |
 | `bridge_list` | check that each bridge is live and takes commands |
 | `worker_run_resume` | resume up to 50 ended runs by `runIds` |
-| `worker_run_stop` | stop one queued, resumed or running run |
+| `worker_run_stop` | stop one queued, resumed, preparing or running run |
 | `bridge_command_cancel` | withdraw the command that waits on one run |
 
 Pass `runId` values from `worker_run_list`, never a card number.
@@ -42,7 +42,7 @@ Pass `runId` values from `worker_run_list`, never a card number.
 | `no-session` | the run has no session to resume |
 | `not-resumable` | the run did not end, or it succeeded |
 | `card-left` | the card left the column of the run, so leave the run |
-| `not-stoppable` | the run is not queued, resumed or running |
+| `not-stoppable` | the run is not queued, resumed, preparing or running |
 | `reason-too-long` | the stop reason is over 1000 characters |
 | `nothing-pending` | no command waits, or the bridge already read it |
 

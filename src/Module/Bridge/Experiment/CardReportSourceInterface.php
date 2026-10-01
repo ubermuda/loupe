@@ -19,4 +19,17 @@ interface CardReportSourceInterface
      * @return array<string, CardColumn> card id => column
      */
     public function columnsFor(Project $project, array $cardIds): array;
+
+    /**
+     * The outcomes of the project's cards with these ids. A card that is gone,
+     * or that belongs to another project, has no key.
+     *
+     * @param list<Uuid> $cardIds
+     *
+     * @return array<string, CardOutcome> card id => outcome
+     */
+    public function outcomesFor(Project $project, array $cardIds): array;
+
+    /** When the project's card history starts. Null when it holds no row. */
+    public function historyStartFor(Project $project): ?\DateTimeImmutable;
 }

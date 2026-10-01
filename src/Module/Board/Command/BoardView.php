@@ -69,6 +69,8 @@ final readonly class BoardView
         public array $decks = [],
         /** @var array<string, non-empty-list<CardBadge>> card id => its badges; a card with none has no key */
         public array $badges = [],
+        /** @var list<RacingBridgeRuleView> */
+        public array $racingBridgeRules = [],
     ) {
     }
 }

@@ -31,6 +31,8 @@ Merge one card's pull request when it is ready, or bring a branch that is behind
 
 ### Update
 
+This step serves a project with the board automation setting "Sync an approved pull request that is behind" off. With it on, Loupe updates the branch itself, and a `pull_request.behind` rule races it.
+
 1. When `mergeable` is `CONFLICTING`, stop with `STAGE RESULT: not ready <url>: conflicting`. The app sends a fix request for a conflict.
 2. When the review decision is not `APPROVED`, stop with `STAGE RESULT: not ready <url>: not approved`. The merge would stop there too.
 3. Check that the approval covers the head, as "Merge" item 4 says. Use the head of step 6 in place of the SHA of the prompt. When there is no approval, stop with `STAGE RESULT: not ready <url>: not approved`. When the check holds for another reason, stop with `STAGE RESULT: not ready <url>: <reason>`. When it cannot read the approval, stop with `STAGE RESULT: blocked: approval unreadable <url>`. Each update costs a full CI run, and the base can move again before an approval arrives.
@@ -50,8 +52,7 @@ Merge only when every item holds. The first item that fails ends the run with `S
 
 Item 4 reads the approval by time. A forge can keep a review decision `APPROVED` after new commits arrive, so item 3 alone is not enough. A commit counts as later when it reached the branch after the earliest current approval. The forge adapter sorts each later commit:
 
-- A merge from the base that git re-creates with no conflict is a sync. The approval covers it.
-- A merge from the base that git cannot re-create is a conflict resolution. Stop with `STAGE RESULT: not ready <url>: conflict resolution after approval`. A person proves the resolution. You do not, because a worker cannot judge a resolution as well as a person.
+- A merge from the base is a sync, with or without a conflict resolution. The approval covers it.
 - Any other commit is new content, such as a review fix or a test fix. Stop with `STAGE RESULT: not ready <url>: commits after approval`.
 
 When the adapter cannot read the approval, stop with `STAGE RESULT: blocked: approval unreadable <url>`.

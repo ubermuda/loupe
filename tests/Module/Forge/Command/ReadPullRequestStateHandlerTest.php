@@ -17,9 +17,12 @@ use App\Module\Forge\Messenger\RefreshPullRequestState;
 use App\Module\Forge\Messenger\RefreshPullRequestStateHandler;
 use App\Module\Forge\PullRequestSnapshot;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
+use App\Module\Forge\Service\ApprovalCoverage;
+use App\Module\Forge\Service\ApprovalCoverageReaders;
 use App\Module\Forge\Service\PullRequestStateReaders;
 use App\Module\Forge\Service\PullRequestUnreadable;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Forge\FakeApprovalCoverageReader;
 use App\Tests\Module\Forge\FakePullRequestStateReader;
 use App\Tests\Support\RecordingLogger;
 use Doctrine\ORM\EntityManagerInterface;
@@ -37,6 +40,7 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
 
     private EntityManagerInterface $em;
     private FakePullRequestStateReader $reader;
+    private FakeApprovalCoverageReader $coverage;
     private MockClock $clock;
     private RecordingLogger $logger;
 
@@ -65,11 +69,13 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         });
 
         $this->reader = new FakePullRequestStateReader();
+        $this->coverage = new FakeApprovalCoverageReader();
         $this->clock = new MockClock(self::NOW);
         $this->logger = new RecordingLogger();
         $this->handler = new ReadPullRequestStateHandler(
             $forgePullRequests,
             new PullRequestStateReaders([$this->reader]),
+            new ApprovalCoverageReaders([$this->coverage]),
             $em,
             $bus,
             $events,
@@ -359,6 +365,199 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         self::assertEquals(new \DateTimeImmutable('2026-09-27 12:00:10'), $this->reload($row)->refreshedAt);
     }
 
+    public function test_a_head_that_the_approval_covers_moves_the_covered_sha(): void
+    {
+        $row = $this->approvedRow();
+        $this->reader->answers = [$this->approvedRead('merged1')];
+        $this->coverage->answers = [ApprovalCoverage::Covered];
+
+        $this->handle($row, self::NOW);
+
+        $fresh = $this->reload($row);
+        self::assertSame(1, $this->coverage->reads);
+        self::assertSame('merged1', $fresh->coveredSha);
+        self::assertNull($fresh->uncoveredSha);
+        self::assertCount(1, $this->changes);
+        self::assertSame('merged1', $this->changes[0]->pullRequest->coveredSha);
+    }
+
+    public function test_a_head_that_the_approval_does_not_cover_is_judged_once(): void
+    {
+        $row = $this->approvedRow();
+        $this->reader->answers = [$this->approvedRead('pushed1'), $this->approvedRead('pushed1')];
+        $this->coverage->answers = [ApprovalCoverage::NotCovered];
+
+        $this->handle($row, self::NOW);
+        $this->clock->modify('+1 minute');
+        $this->handle($row, '2026-09-27 12:00:30');
+
+        $fresh = $this->reload($row);
+        self::assertSame(2, $this->reader->reads);
+        self::assertSame(1, $this->coverage->reads);
+        self::assertSame('approved1', $fresh->coveredSha);
+        self::assertSame('pushed1', $fresh->uncoveredSha);
+    }
+
+    public function test_an_unknown_coverage_stores_nothing_and_is_asked_again(): void
+    {
+        $row = $this->approvedRow();
+        $this->reader->answers = [$this->approvedRead('pushed1'), $this->approvedRead('pushed1')];
+        $this->coverage->answers = [ApprovalCoverage::Unknown, ApprovalCoverage::Unknown];
+
+        $this->handle($row, self::NOW);
+        $fresh = $this->reload($row);
+        self::assertSame('approved1', $fresh->coveredSha);
+        self::assertNull($fresh->uncoveredSha);
+
+        $this->clock->modify('+1 minute');
+        $this->handle($row, '2026-09-27 12:00:30');
+
+        self::assertSame(2, $this->coverage->reads);
+    }
+
+    public function test_coverage_is_not_asked_without_a_head_after_an_open_approval(): void
+    {
+        $covered = $this->approvedRow();
+        $unapproved = $this->row();
+        $merged = $this->approvedRow();
+        $this->reader->answers = [
+            $this->approvedRead('approved1'),
+            new PullRequestSnapshot(headSha: 'pushed1', mergeability: PullRequestMergeability::Mergeable),
+            new PullRequestSnapshot(state: PullRequestState::Merged, headSha: 'pushed1', review: PullRequestReview::Approved, approvalSha: 'approved1', approvalId: 'review1'),
+        ];
+
+        $this->handle($covered, self::NOW);
+        $this->handle($unapproved, self::NOW);
+        $this->handle($merged, self::NOW);
+
+        self::assertSame(3, $this->reader->reads);
+        self::assertSame(0, $this->coverage->reads);
+    }
+
+    public function test_a_new_approval_that_moves_only_the_covered_sha_is_announced(): void
+    {
+        $row = $this->approvedRow();
+        $this->reader->answers = [
+            $this->approvedRead('pushed1'),
+            $this->approvedRead('pushed1', approvalId: 'review2', approvalSha: 'pushed1'),
+            $this->approvedRead('pushed1', approvalId: 'review2', approvalSha: 'pushed1'),
+        ];
+        $this->coverage->answers = [ApprovalCoverage::NotCovered];
+
+        $this->handle($row, self::NOW);
+        $this->clock->modify('+1 minute');
+        $this->handle($row, '2026-09-27 12:00:30');
+        self::assertCount(2, $this->changes);
+        self::assertTrue($this->changes[1]->current->equals($this->changes[1]->previous));
+        self::assertSame('pushed1', $this->changes[1]->pullRequest->coveredSha);
+        self::assertNull($this->changes[1]->pullRequest->uncoveredSha);
+
+        $this->clock->modify('+1 minute');
+        $this->handle($row, '2026-09-27 12:01:30');
+
+        self::assertCount(2, $this->changes);
+        self::assertSame(1, $this->coverage->reads);
+    }
+
+    public function test_a_head_that_the_approval_does_not_cover_is_stored_and_announced_not_ready(): void
+    {
+        $row = $this->approvedRow();
+        $this->reader->answers = [$this->approvedRead('pushed1', ready: true)];
+        $this->coverage->answers = [ApprovalCoverage::NotCovered];
+
+        $this->handle($row, self::NOW);
+
+        self::assertFalse($this->reload($row)->readyToMerge);
+        self::assertCount(1, $this->changes);
+        self::assertSame('pushed1', $this->changes[0]->current->headSha);
+        self::assertFalse($this->changes[0]->previous->readyToMerge);
+        self::assertFalse($this->changes[0]->current->readyToMerge);
+    }
+
+    public function test_a_head_that_the_approval_covers_keeps_the_forge_readiness(): void
+    {
+        $row = $this->approvedRow();
+        $this->reader->answers = [$this->approvedRead('merged1', ready: true)];
+        $this->coverage->answers = [ApprovalCoverage::Covered];
+
+        $this->handle($row, self::NOW);
+
+        self::assertTrue($this->reload($row)->readyToMerge);
+        self::assertCount(1, $this->changes);
+        self::assertTrue($this->changes[0]->current->readyToMerge);
+    }
+
+    public function test_the_merge_of_a_sync_from_the_covered_head_keeps_the_forge_readiness(): void
+    {
+        $row = $this->approvedRow();
+        $row->syncFromSha = 'approved1';
+        $this->em->flush();
+        $this->reader->answers = [new PullRequestSnapshot(headSha: 'merged1', mergeability: PullRequestMergeability::Mergeable, review: PullRequestReview::Approved, readyToMerge: true, approvalSha: 'approved1', headParents: ['approved1', 'base1'], approvalId: 'review1')];
+
+        $this->handle($row, self::NOW);
+
+        self::assertSame(0, $this->coverage->reads);
+        self::assertTrue($this->reload($row)->readyToMerge);
+        self::assertTrue($this->changes[0]->current->readyToMerge);
+    }
+
+    public function test_a_new_approval_of_the_head_announces_the_pull_request_ready(): void
+    {
+        $row = $this->approvedRow();
+        $this->reader->answers = [
+            $this->approvedRead('pushed1', ready: true),
+            $this->approvedRead('pushed1', approvalId: 'review2', approvalSha: 'pushed1', ready: true),
+        ];
+        $this->coverage->answers = [ApprovalCoverage::NotCovered];
+
+        $this->handle($row, self::NOW);
+        $this->clock->modify('+1 minute');
+        $this->handle($row, '2026-09-27 12:00:30');
+
+        self::assertTrue($this->reload($row)->readyToMerge);
+        self::assertCount(2, $this->changes);
+        self::assertFalse($this->changes[1]->previous->readyToMerge);
+        self::assertTrue($this->changes[1]->current->readyToMerge);
+    }
+
+    public function test_a_pull_request_with_no_approval_keeps_the_forge_readiness(): void
+    {
+        $row = $this->row();
+        $this->reader->answers = [new PullRequestSnapshot(headSha: 'abc', checks: PullRequestChecks::Passed, mergeability: PullRequestMergeability::Mergeable, readyToMerge: true)];
+
+        $this->handle($row, self::NOW);
+
+        self::assertSame(0, $this->coverage->reads);
+        self::assertTrue($this->reload($row)->readyToMerge);
+        self::assertTrue($this->changes[0]->current->readyToMerge);
+    }
+
+    public function test_an_unknown_coverage_holds_the_merge_until_a_later_read(): void
+    {
+        $row = $this->approvedRow();
+        $this->reader->answers = [$this->approvedRead('pushed1', ready: true)];
+        $this->coverage->answers = [ApprovalCoverage::Unknown];
+
+        $this->handle($row, self::NOW);
+
+        self::assertFalse($this->reload($row)->readyToMerge);
+        self::assertFalse($this->changes[0]->current->readyToMerge);
+    }
+
+    public function test_a_forge_readiness_that_the_stale_approval_holds_back_announces_nothing(): void
+    {
+        $row = $this->approvedRow();
+        $this->reader->answers = [$this->approvedRead('pushed1'), $this->approvedRead('pushed1', ready: true)];
+        $this->coverage->answers = [ApprovalCoverage::NotCovered];
+
+        $this->handle($row, self::NOW);
+        $this->clock->modify('+1 minute');
+        $this->handle($row, '2026-09-27 12:00:30');
+
+        self::assertCount(1, $this->changes);
+        self::assertFalse($this->reload($row)->readyToMerge);
+    }
+
     public function test_a_missing_row_and_a_forge_with_no_reader_are_skipped(): void
     {
         $gitlab = $this->row(forge: 'gitlab');
@@ -513,6 +712,21 @@ final class ReadPullRequestStateHandlerTest extends KernelTestCase
         $this->em->flush();
 
         return $row;
+    }
+
+    /** An open pull request approved by `review1` on its head `approved1`. */
+    private function approvedRow(): ForgePullRequest
+    {
+        $row = $this->row();
+        $row->apply($this->approvedRead('approved1'));
+        $this->em->flush();
+
+        return $row;
+    }
+
+    private function approvedRead(string $head, string $approvalId = 'review1', string $approvalSha = 'approved1', bool $ready = false): PullRequestSnapshot
+    {
+        return new PullRequestSnapshot(headSha: $head, mergeability: PullRequestMergeability::Mergeable, review: PullRequestReview::Approved, readyToMerge: $ready, approvalSha: $approvalSha, approvalId: $approvalId);
     }
 
     private function reload(ForgePullRequest $row): ForgePullRequest

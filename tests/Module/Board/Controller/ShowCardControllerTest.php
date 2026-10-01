@@ -76,6 +76,34 @@ final class ShowCardControllerTest extends WebTestCase
         self::assertStringContainsString('Not reported', $unreadRow->text());
     }
 
+    public function test_the_card_page_says_an_approval_of_an_older_head_is_outdated(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'card-pull-outdated@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Approved before a push');
+        $outdated = $this->link($card, 7);
+        $current = $this->link($card, 8);
+        $card->replacePullRequests($outdated, $current);
+        $stale = $this->approved($this->inLine($this->row($em, $project, 7)));
+        $stale->headSha = 'pushed7';
+        $stale->checks = PullRequestChecks::Passed;
+        $this->approved($this->inLine($this->row($em, $project, 8)))->checks = PullRequestChecks::Passed;
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$card->id);
+
+        self::assertResponseIsSuccessful();
+        $outdatedRow = $crawler->filter('[data-linked-pull-request="'.$outdated->id.'"]');
+        self::assertSame(['Open', 'Checks passed', 'Approval outdated'], $this->chips($outdatedRow));
+        self::assertSame(1, $outdatedRow->filter('.lp-status-chip--pending')->count());
+        self::assertSame(['Open', 'Checks passed', 'Approved'], $this->chips($crawler->filter('[data-linked-pull-request="'.$current->id.'"]')));
+    }
+
     public function test_the_card_page_says_not_reported_when_no_state_is_stored(): void
     {
         $client = static::createClient();

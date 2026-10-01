@@ -18,11 +18,11 @@ use App\Module\Board\Repository\CardLinkRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardPullRequestStates;
+use App\Module\Board\Service\PullRequestReviewView;
 use App\Module\Board\Service\PullRequestStates;
 use App\Module\Board\Service\PullRequestStateView;
 use App\Module\Forge\Entity\PullRequestChecks;
 use App\Module\Forge\Entity\PullRequestMergeability;
-use App\Module\Forge\Entity\PullRequestReview;
 use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\TestCase;
@@ -109,7 +109,7 @@ final class CardPayloadTest extends TestCase
                 PullRequestChecks::Failed,
                 ['phpunit'],
                 PullRequestMergeability::Conflicting,
-                PullRequestReview::ChangesRequested,
+                PullRequestReviewView::ChangesRequested,
                 false,
                 new \DateTimeImmutable('2026-09-27T11:00:00+00:00'),
             )],
@@ -158,7 +158,7 @@ final class CardPayloadTest extends TestCase
             PullRequestChecks::Pending,
             [],
             PullRequestMergeability::Unknown,
-            PullRequestReview::None,
+            PullRequestReviewView::None,
             false,
             null,
         )]));
