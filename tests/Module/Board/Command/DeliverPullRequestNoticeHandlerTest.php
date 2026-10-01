@@ -113,6 +113,32 @@ final class DeliverPullRequestNoticeHandlerTest extends KernelTestCase
         self::assertSame(PullRequestCommentState::Posted, $this->reload($notice)->state);
     }
 
+    public function test_a_first_try_posts_when_the_search_outgrows_its_cap(): void
+    {
+        $notice = $this->pending();
+        $this->commenter->lookupFailure = new PullRequestCommentFailed('lookup_incomplete', permanent: true);
+
+        $this->handle($notice);
+
+        self::assertCount(1, $this->commenter->comments);
+        self::assertSame(PullRequestCommentState::Posted, $this->reload($notice)->state);
+    }
+
+    public function test_a_retry_whose_search_outgrows_its_cap_fails_rather_than_risk_a_duplicate(): void
+    {
+        $notice = $this->pending();
+        $notice->attempts = 1;
+        $this->em->flush();
+        $this->commenter->lookupFailure = new PullRequestCommentFailed('lookup_incomplete', permanent: true);
+
+        $this->handle($notice);
+
+        self::assertSame([], $this->commenter->comments);
+        $notice = $this->reload($notice);
+        self::assertSame(PullRequestCommentState::Failed, $notice->state);
+        self::assertSame('lookup_incomplete', $notice->cause);
+    }
+
     public function test_a_retry_that_finds_no_marker_posts(): void
     {
         $notice = $this->pending();
