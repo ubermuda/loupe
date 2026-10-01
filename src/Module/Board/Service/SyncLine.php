@@ -18,7 +18,7 @@ use App\Module\Forge\Entity\PullRequestState;
 final readonly class SyncLine
 {
     /** A sync that has not moved the head after this long counts as failed. */
-    public const string MARKER_LIFETIME = '10 minutes';
+    public const int MARKER_LIFETIME_SECONDS = 600;
 
     public const string TIMEOUT = 'timeout';
 
@@ -36,7 +36,7 @@ final readonly class SyncLine
     /** @param list<ForgePullRequest> $rows the open rows of one project */
     public function __construct(array $rows, \DateTimeImmutable $now)
     {
-        $cutoff = $now->modify('-'.self::MARKER_LIFETIME);
+        $cutoff = $now->modify(\sprintf('-%d seconds', self::MARKER_LIFETIME_SECONDS));
         $fresh = static fn (ForgePullRequest $row): bool => null !== $row->syncFromSha && null !== $row->syncRequestedAt && $row->syncRequestedAt > $cutoff;
         $stale = static fn (ForgePullRequest $row): bool => null !== $row->syncFromSha && !$fresh($row);
 
@@ -98,7 +98,8 @@ final readonly class SyncLine
             && $row->baseBranch === $row->defaultBranch;
     }
 
-    private static function isCandidate(ForgePullRequest $row): bool
+    /** Whether the approval covers the head of an open pull request on the default branch. */
+    public static function isCandidate(ForgePullRequest $row): bool
     {
         return self::isInLine($row)
             && null !== $row->approvalId

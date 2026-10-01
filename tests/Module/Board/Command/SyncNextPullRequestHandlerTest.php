@@ -14,6 +14,7 @@ use App\Module\Board\Entity\CardEvent;
 use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardEventRepository;
@@ -32,11 +33,16 @@ use App\Module\Project\Repository\ProjectRepository;
 use App\Tests\Module\Board\FakePullRequestBranchUpdater;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 final class SyncNextPullRequestHandlerTest extends KernelTestCase
 {
@@ -89,6 +95,46 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
 
         self::assertNull($this->automationOf($doneCard));
         self::assertSame([], $this->cardEvents($doneCard));
+    }
+
+    public function test_a_marker_queues_a_pass_for_after_it_expires(): void
+    {
+        $this->behind(5);
+
+        $this->handle();
+
+        $passes = $this->queuedPasses();
+        self::assertCount(1, $passes);
+        $message = $passes[0]->getMessage();
+        self::assertInstanceOf(SyncNextPullRequest::class, $message);
+        self::assertEquals($this->project->id, $message->projectId);
+        $delay = $passes[0]->last(DelayStamp::class);
+        self::assertNotNull($delay);
+        self::assertSame((SyncLine::MARKER_LIFETIME_SECONDS + 30) * 1000, $delay->getDelay());
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function approvalLosses(): iterable
+    {
+        yield 'the approval is gone' => ['UPDATE forge_pull_requests SET approval_id = NULL WHERE id = :id'];
+        yield 'the approval covers another head' => ["UPDATE forge_pull_requests SET covered_sha = 'other01' WHERE id = :id"];
+        yield 'the pull request became a draft' => ['UPDATE forge_pull_requests SET draft = true WHERE id = :id'];
+        yield 'changes were requested' => ["UPDATE forge_pull_requests SET review = 'changes-requested' WHERE id = :id"];
+    }
+
+    #[DataProvider('approvalLosses')]
+    public function test_a_pull_request_that_left_the_line_after_the_read_is_not_marked(string $change): void
+    {
+        $pullRequest = $this->behind(5);
+        // The line reads the row this entity manager holds, and only the lock reads the database.
+        $this->em->getConnection()->executeStatement($change, ['id' => (string) $pullRequest->id]);
+
+        $this->handle();
+
+        self::assertSame([], $this->updater->updates);
+        self::assertSame([], $this->queuedPasses());
+        $this->em->refresh($pullRequest);
+        self::assertNull($pullRequest->syncFromSha);
     }
 
     public function test_a_card_that_links_the_pull_request_twice_hears_once(): void
@@ -221,6 +267,7 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
         $this->handle();
 
         self::assertSame([], $this->updater->updates);
+        self::assertSame([], $this->queuedPasses());
         $this->em->refresh($behind);
         self::assertNull($behind->syncFromSha);
     }
@@ -229,7 +276,7 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
     {
         $stale = $this->behind(4, approvedAt: '-3 hours');
         $stale->syncFromSha = $stale->headSha;
-        $stale->syncRequestedAt = $this->clock->now()->modify('-'.SyncLine::MARKER_LIFETIME);
+        $stale->syncRequestedAt = $this->clock->now()->modify(\sprintf('-%d seconds', SyncLine::MARKER_LIFETIME_SECONDS));
         $next = $this->behind(5, approvedAt: '-2 hours');
         $this->em->flush();
 
@@ -376,9 +423,22 @@ final class SyncNextPullRequestHandlerTest extends KernelTestCase
             events: $this->service(EventDispatcherInterface::class),
             clock: $this->clock,
             logger: new NullLogger(),
+            bus: $this->service(MessageBusInterface::class),
         );
 
         $handler(new SyncNextPullRequestCommand($this->project->id ?? throw new \LogicException('A flushed project has an id.')));
+    }
+
+    /** @return list<Envelope> */
+    private function queuedPasses(): array
+    {
+        $transport = self::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $transport);
+
+        return array_values(array_filter(
+            $transport->getSent(),
+            static fn (Envelope $envelope): bool => $envelope->getMessage() instanceof SyncNextPullRequest,
+        ));
     }
 
     /**

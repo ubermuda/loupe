@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardEventKind;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Event\CardChanged;
+use App\Module\Board\Messenger\SyncNextPullRequest;
 use App\Module\Board\Repository\BoardAutomationSettingsRepository;
 use App\Module\Board\Repository\CardAutomationRepository;
 use App\Module\Board\Repository\CardEventRepository;
@@ -18,7 +19,6 @@ use App\Module\Board\Service\BoardAvailability;
 use App\Module\Board\Service\SyncLine;
 use App\Module\Forge\Entity\ForgePullRequest;
 use App\Module\Forge\Entity\PullRequestMergeability;
-use App\Module\Forge\Entity\PullRequestState;
 use App\Module\Forge\Repository\ForgePullRequestRepository;
 use App\Module\Forge\Service\PullRequestBranchUpdaters;
 use App\Module\Forge\Service\PullRequestSyncFailed;
@@ -29,6 +29,8 @@ use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Exception\RecoverableMessageHandlingException;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -41,6 +43,9 @@ final readonly class SyncNextPullRequestHandler
 {
     /** Guards against a nonsense header only. GitHub can ask for more than an hour. */
     private const int MAX_RETRY_DELAY_SECONDS = 86_400;
+
+    /** Lets the pass after the lifetime find the marker stale, whatever the clock skew between workers. */
+    private const int EXPIRY_MARGIN_SECONDS = 30;
 
     public function __construct(
         private ProjectRepository $projects,
@@ -55,6 +60,7 @@ final readonly class SyncNextPullRequestHandler
         private EventDispatcherInterface $events,
         private ClockInterface $clock,
         private LoggerInterface $logger,
+        private MessageBusInterface $bus,
     ) {
     }
 
@@ -148,7 +154,7 @@ final readonly class SyncNextPullRequestHandler
         }
         $sha = $next->headSha;
         $locked = $this->forgePullRequests->findForUpdate($next->id ?? throw new \LogicException('A stored pull request has an id.'));
-        if (null === $locked || null === $sha || $locked->headSha !== $sha || PullRequestState::Open !== $locked->state
+        if (null === $locked || null === $sha || $locked->headSha !== $sha || !SyncLine::isCandidate($locked)
             || PullRequestMergeability::Behind !== $locked->mergeability || null !== $locked->syncFromSha || null !== $locked->syncFailedReason) {
             return null;
         }
@@ -156,6 +162,11 @@ final readonly class SyncNextPullRequestHandler
         $locked->syncFromSha = $sha;
         $locked->syncRequestedAt = $now;
         $this->em->flush();
+
+        // A head that never moves fires no other pass, so this one records the timeout. It commits with the marker.
+        $this->bus->dispatch(new SyncNextPullRequest($projectId), [
+            new DelayStamp((SyncLine::MARKER_LIFETIME_SECONDS + self::EXPIRY_MARGIN_SECONDS) * 1000),
+        ]);
 
         return $locked;
     }
