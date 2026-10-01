@@ -552,6 +552,32 @@ final class WorkerRunStatesApiTest extends WebTestCase
         self::assertNull($run->sessionId);
     }
 
+    /** A command prints no result line, so its result flag says nothing and a clean exit still succeeds. */
+    public function test_a_command_run_succeeds_with_a_false_result_flag(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-states-command-flag@example.com');
+        $project = $this->project($em, $owner, 'Run States Command Flag');
+        $raw = $this->agentToken($client, $owner);
+
+        $this->put($client, $this->path($project->id, (string) Uuid::v4()), $raw, $this->payload([
+            'kind' => 'command',
+            'state' => 'succeeded',
+            'at' => '2026-09-23T10:00:09+00:00',
+            'startedAt' => '2026-09-23T10:00:02+00:00',
+            'endedAt' => '2026-09-23T10:00:09+00:00',
+            'exitCode' => 0,
+            'hasResult' => false,
+            'output' => 'synced',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame(WorkerRunState::Succeeded, $run->state);
+        self::assertNull($run->hasResult);
+    }
+
     /** The first report sets the kind, so a later report that names another kind leaves it. */
     public function test_a_later_report_keeps_the_kind_of_the_first(): void
     {
@@ -762,6 +788,7 @@ final class WorkerRunStatesApiTest extends WebTestCase
         yield 'a worker kind running with no session' => [['kind' => 'worker', 'state' => 'running', 'startedAt' => '2026-09-23T10:00:00+00:00']];
         yield 'an interactive kind, which a bridge never reports' => [['kind' => 'interactive']];
         yield 'an unknown kind' => [['kind' => 'script']];
+        yield 'a command run with a result status' => [array_merge($outcome, ['kind' => 'command', 'state' => 'succeeded', 'hasResult' => true, 'resultStatus' => 'finished'])];
         yield 'running with no start' => [['state' => 'running', 'sessionId' => (string) Uuid::v4()]];
         yield 'an outcome with no end' => [array_merge($outcome, ['state' => 'succeeded', 'endedAt' => null])];
         yield 'an outcome with no output' => [array_merge($outcome, ['state' => 'succeeded', 'output' => null])];

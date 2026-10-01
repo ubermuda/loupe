@@ -230,15 +230,15 @@ final class ReportWorkerRunStateRequest
             $context->buildViolation('A run that exited has no failure reason.')->atPath('failureReason')->addViolation();
         }
 
-        if (null === $this->exitCode && null !== $this->hasResult) {
+        if (null === $this->exitCode && null !== $this->hasResult()) {
             $context->buildViolation('A run with no exit code has no result flag.')->atPath('hasResult')->addViolation();
         }
 
-        if (null !== $this->resultStatus && true !== $this->hasResult) {
+        if (null !== $this->resultStatus && true !== $this->hasResult()) {
             $context->buildViolation('A result status needs the result flag.')->atPath('resultStatus')->addViolation();
         }
 
-        $implied = WorkerRunState::fromOutcome($this->exitCode, $this->hasResult, $this->resultStatus);
+        $implied = WorkerRunState::fromOutcome($this->exitCode, $this->hasResult(), $this->resultStatus);
         $matches = WorkerRunState::GaveUp === $state
             ? \in_array($implied, [WorkerRunState::Failed, WorkerRunState::NoResult, WorkerRunState::Unfinished], true)
             : $implied === $state;
@@ -268,6 +268,12 @@ final class ReportWorkerRunStateRequest
     public function kind(): WorkerRunKind
     {
         return 'command' === $this->kind ? WorkerRunKind::Command : WorkerRunKind::Worker;
+    }
+
+    /** A command prints no result line, so the flag a bridge sends for it says nothing. */
+    public function hasResult(): ?bool
+    {
+        return WorkerRunKind::Command === $this->kind() ? null : $this->hasResult;
     }
 
     public function state(): WorkerRunState
