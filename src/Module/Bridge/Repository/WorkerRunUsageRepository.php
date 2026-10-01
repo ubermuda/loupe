@@ -149,6 +149,40 @@ class WorkerRunUsageRepository extends ServiceEntityRepository
     }
 
     /**
+     * The usage of each card's runs in one experiment, in millionths of a dollar.
+     * A row whose run is gone has no experiment, so it does not count.
+     *
+     * @return array<string, array{costMicros: int, outputTokens: int}> card id => sums
+     */
+    public function sumOfExperimentByCard(Project $project, string $experiment): array
+    {
+        /** @var list<array{card_id: string, cost_micros: int|string, output: int|string}> $rows */
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            <<<'SQL'
+                SELECT
+                    u.card_id,
+                    COALESCE(SUM(ROUND(u.cost_usd * 1000000)), 0)::bigint AS cost_micros,
+                    SUM(u.output_tokens) AS output
+                FROM bridge_worker_run_usage u
+                JOIN bridge_worker_runs r ON r.id = u.run_id
+                WHERE u.project_id = :project AND r.project_id = :project AND r.experiment = :experiment
+                GROUP BY u.card_id
+                SQL,
+            [
+                'project' => (string) ($project->id ?? throw new \LogicException('Project has no id.')),
+                'experiment' => $experiment,
+            ],
+        );
+
+        $sums = [];
+        foreach ($rows as $row) {
+            $sums[$row['card_id']] = ['costMicros' => (int) $row['cost_micros'], 'outputTokens' => (int) $row['output']];
+        }
+
+        return $sums;
+    }
+
+    /**
      * The rule names and the models of every usage row of the project, sorted.
      *
      * @return array{rules: list<string>, models: list<string>}
