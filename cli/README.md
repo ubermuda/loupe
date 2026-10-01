@@ -416,6 +416,7 @@ Each entry in `rules` takes these fields:
 | `card` | no | A block that limits the rule by the state of its card. Only a rule on `board.card_moved` or `document.review_submitted` can set it. See [A card in an interactive session](#a-card-in-an-interactive-session) |
 | `action` | no | `interactive` opens an interactive session in a terminal instead of a worker. Omitted, the rule is a worker rule. See [Opening an interactive session](#opening-an-interactive-session) |
 | `workerPool` | no | The worker pool the rule's workers take a slot from. A pool name from `workerPools`, or `default`. Omitted, the rule uses `default`. An interactive rule cannot set it. See [The queue](#the-queue) |
+| `before` | no | A command that runs ahead of the worker and prints the folder the worker starts in. It holds `run`, an argv list, and `timeout`, which defaults to `15m` and is at most `60m`. An interactive rule cannot set it. See [The before command](#the-before-command) |
 | `experiment` | no | An experiment name from `experiments`. The variant of the card picks the model, so the rule cannot set `model`, and `defaults.model` does not apply. An interactive rule cannot set it. See below |
 
 The optional `defaults:` block sets `permissionMode` and `model` for every rule
@@ -880,6 +881,58 @@ The key lives in the bridge process. Two bridges that map one project each keep
 their own, so they can both start a worker for the same card. Map each project
 in one bridge only. One rule file also serves one bridge only, because a second
 bridge on the same file refuses to start.
+
+### The before command
+
+A worker rule can run a command before its worker starts. The command makes or
+refreshes the folder the worker runs in, such as a git worktree for the card:
+
+```yaml
+rules:
+  - name: implementation
+    on: board.card_moved
+    project: my-app
+    to: implementation
+    before:
+      run: [bin/worktree-for-card.sh, "{cardNumber}", "{cardId}"]
+      timeout: 15m
+    prompt: |
+      Card {cardNumber} entered implementation.
+```
+
+`run` is an argv list, and no shell reads it. Each element takes the
+placeholders that the rule's `prompt` takes for its event type. A placeholder
+that the event cannot fill becomes an empty string. The command runs in the
+project's `dir`, with the bridge's own environment.
+
+The bridge reads the last line of standard output that is not empty. That line
+names the folder where the worker starts. A relative path resolves against the
+project's `dir`. When the command prints nothing, the worker starts in the
+project's `dir`. Claude Code's `WorktreeCreate` hook uses the same contract, so
+one script can serve both.
+
+The command runs after the run leaves the queue. It holds the run's worker slot
+and its card, so no other run of the card starts while it runs. Other cards
+still use the other slots. The run reports the state `preparing` while the
+command runs, and `running` once claude starts.
+
+`timeout` defaults to `15m`, and the bridge refuses more than `60m`. The run
+fails, and claude does not start, when the command exits with a code that is
+not 0, runs past its timeout, or prints a path that is not an existing
+directory. The failed run reports the exit code, or `-1`, and the end of the
+command's output. The bridge does not resume it. Move the card out of the
+column and back to run it again. A person's stop during `preparing` ends the
+command's process group, and the run reports `stopped`.
+
+The command runs again before each resume, so it can refresh the folder. A
+resumed conversation starts in the folder where it began, because `claude
+--resume` finds a conversation only from that folder. The bridge reads that
+folder from the `cwd` field of the session's transcript. It uses the folder
+that the command printed only when the recorded folder no longer exists. Then
+the run starts a new conversation in the printed folder.
+
+A command that still runs when the bridge updates itself is handed over. The
+new image waits for it, then starts claude, as it does for a worker.
 
 ### The structured result
 
