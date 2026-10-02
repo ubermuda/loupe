@@ -222,16 +222,21 @@ class WorkRequestRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** @return list<WorkRequest> */
-    public function findByOwner(User $user): array
+    /**
+     * Streamed, because no sweep deletes old requests.
+     *
+     * @return iterable<WorkRequest>
+     */
+    public function findByOwner(User $user): iterable
     {
-        return array_values($this->createQueryBuilder('w')
+        return $this->createQueryBuilder('w')
+            ->addSelect('p')
             ->join('w.project', 'p')
             ->andWhere('p.owner = :user')
             ->setParameter('user', $user)
             ->orderBy('w.createdAt', 'ASC')
             ->addOrderBy('w.id', 'ASC')
             ->getQuery()
-            ->getResult());
+            ->toIterable();
     }
 }
