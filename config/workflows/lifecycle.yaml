@@ -110,7 +110,7 @@ rules:
           all:
               - pr.stacked: {}
               - pr.parent_merged: {}
-      then: { forge_write: { write: change-base, fallback: rebase-stacked } }
+      then: { forge-write: { write: change-base, fallback: rebase-stacked } }
 
     - id: update-behind
       slot: in-review
@@ -118,13 +118,12 @@ rules:
           all:
               - pr.behind: {}
               - pr.approval_covers_head: { min: 1 }
-      then: { forge_write: { write: update-branch, fallback: sync } }
+      then: { forge-write: { write: update-branch, fallback: sync } }
 
     - id: merge-ready
       slot: in-review
       when:
           all:
-              - not: { card.type: { type: epic } }
               - pr.open: {}
               - not: { pr.draft: {} }
               - pr.checks_passed: {}
@@ -132,7 +131,7 @@ rules:
               - pr.base_is_merge_target: {}
               - not: { pr.conflicting: {} }
               - not: { pr.changes_requested: {} }
-      then: { forge_write: { write: merge, fallback: merge } }
+      then: { forge-write: { write: merge, fallback: merge } }
 
     - id: epic-to-review
       slot: implementation
@@ -142,6 +141,7 @@ rules:
               - card.has_children: {}
               - card.children_finished: {}
               - pr.open: {}
+              - not: { pr.draft: {} }
       then: { move: { to: in-review } }
 
     - id: epic-to-done

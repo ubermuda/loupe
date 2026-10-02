@@ -8,8 +8,7 @@ enum ActionType: string
 {
     case Move = 'move';
     case Request = 'request';
-    // The value is the action key of the template format, which every stored template copy also uses.
-    case ForgeWrite = 'forge_write'; // @phpstan-ignore enum.notKebabCase
+    case ForgeWrite = 'forge-write';
     case Pause = 'pause';
     case Release = 'release';
 }

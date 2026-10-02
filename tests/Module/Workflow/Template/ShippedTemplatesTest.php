@@ -133,6 +133,28 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertNotContainsEquals($merge, $this->actions($unapproved));
     }
 
+    public function test_an_epic_with_a_draft_pull_request_stays_in_implementation(): void
+    {
+        $toReview = new ActionCall(ActionType::Move, ['to' => 'in-review']);
+        $epic = FactsMother::card(slot: 'implementation', type: 'epic', childCount: 2);
+
+        $ready = FactsMother::facts(card: $epic, pullRequest: FactsMother::pullRequest());
+        self::assertContainsEquals($toReview, $this->actions($ready));
+
+        $draft = FactsMother::facts(card: $epic, pullRequest: FactsMother::pullRequest(draft: true));
+        self::assertNotContainsEquals($toReview, $this->actions($draft));
+    }
+
+    public function test_the_ready_pull_request_of_an_epic_asks_for_the_merge_write(): void
+    {
+        $facts = FactsMother::facts(
+            card: FactsMother::card(slot: 'in-review', type: 'epic', childCount: 2),
+            pullRequest: FactsMother::pullRequest(checks: ChecksState::Passed, approvalsCoveringHead: 1),
+        );
+
+        self::assertContainsEquals(new ActionCall(ActionType::ForgeWrite, ['write' => 'merge', 'fallback' => 'merge']), $this->actions($facts));
+    }
+
     private function shipped(): ShippedTemplates
     {
         return static::getContainer()->get(ShippedTemplates::class);

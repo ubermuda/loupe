@@ -76,7 +76,7 @@ final class TemplateParserTest extends TestCase
                     'id' => 'merge',
                     'slot' => 'review',
                     'when' => ['pr.approval_covers_head' => ['min' => 1]],
-                    'then' => ['forge_write' => ['write' => 'merge', 'fallback' => 'merge']],
+                    'then' => ['forge-write' => ['write' => 'merge', 'fallback' => 'merge']],
                 ],
                 [
                     'id' => 'wait',
@@ -270,10 +270,10 @@ final class TemplateParserTest extends TestCase
             return $t;
         }, 'rules[0] (start) then.request: parameter "limit" must be an integer'];
         yield 'unknown forge write' => [static function (array $t): array {
-            $t['rules'][2]['then']['forge_write']['write'] = 'squash';
+            $t['rules'][2]['then']['forge-write']['write'] = 'squash';
 
             return $t;
-        }, 'rules[2] (merge) then.forge_write: parameter "write" must be one of merge, update-branch, change-base, comment, draft, ready, close'];
+        }, 'rules[2] (merge) then.forge-write: parameter "write" must be one of merge, update-branch, change-base, comment, draft, ready, close'];
         yield 'until outside a pause' => [static function (array $t): array {
             $t['rules'][4]['then']['release']['until'] = ['pr.open' => []];
 

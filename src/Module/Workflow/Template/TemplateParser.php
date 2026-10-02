@@ -38,25 +38,25 @@ final readonly class TemplateParser
 
         $key = $source['key'] ?? null;
         if (!\is_string($key) || '' === $key) {
-            $errors[] = self::topLevelError($source, 'key', 'must be a non-empty string'); // @translation-check-ignore
+            $errors[] = self::topLevelError($source, 'key', 'must be a non-empty string');
             $key = '';
         }
 
         $version = $source['version'] ?? null;
         if (!\is_int($version)) {
-            $errors[] = self::topLevelError($source, 'version', 'must be an integer'); // @translation-check-ignore
+            $errors[] = self::topLevelError($source, 'version', 'must be an integer');
             $version = 0;
         }
 
         $workTimeoutMinutes = $source['workTimeoutMinutes'] ?? null;
         if (!\is_int($workTimeoutMinutes) || $workTimeoutMinutes < 1) {
-            $errors[] = self::topLevelError($source, 'workTimeoutMinutes', 'must be a positive integer'); // @translation-check-ignore
+            $errors[] = self::topLevelError($source, 'workTimeoutMinutes', 'must be a positive integer');
             $workTimeoutMinutes = 0;
         }
 
         $backoffMinutes = self::backoffMinutes($source['backoffMinutes'] ?? null);
         if (null === $backoffMinutes) {
-            $errors[] = self::topLevelError($source, 'backoffMinutes', 'must be a list of positive integers'); // @translation-check-ignore
+            $errors[] = self::topLevelError($source, 'backoffMinutes', 'must be a list of positive integers');
             $backoffMinutes = [];
         }
 
@@ -87,7 +87,7 @@ final readonly class TemplateParser
             $key = \is_array($entry) ? ($entry['key'] ?? null) : null;
             $label = \is_array($entry) ? ($entry['label'] ?? null) : null;
             if (!\is_string($key) || '' === $key || !\is_string($label) || '' === $label) {
-                $errors[] = $where.': must be a map with a string "key" and a string "label"'; // @translation-check-ignore
+                $errors[] = $where.': must be a map with a string "key" and a string "label"';
                 continue;
             }
             if (str_starts_with($key, '@')) {
@@ -124,7 +124,7 @@ final readonly class TemplateParser
             $from = \is_array($entry) ? ($entry['from'] ?? null) : null;
             $to = \is_array($entry) ? ($entry['to'] ?? null) : null;
             if (!\is_string($from) || !\is_string($to)) {
-                $errors[] = $where.': must be a map with a string "from" and a string "to"'; // @translation-check-ignore
+                $errors[] = $where.': must be a map with a string "from" and a string "to"';
                 continue;
             }
             $valid = true;
@@ -163,7 +163,7 @@ final readonly class TemplateParser
 
             $id = $entry['id'] ?? null;
             if (!\is_string($id) || '' === $id) {
-                $errors[] = $where.' id: must be a non-empty string'; // @translation-check-ignore
+                $errors[] = $where.' id: must be a non-empty string';
                 $id = '';
             } else {
                 $where .= \sprintf(' (%s)', $id);
@@ -182,7 +182,7 @@ final readonly class TemplateParser
             $slot = $entry['slot'] ?? null;
             if (\array_key_exists('slot', $entry)) {
                 if (!\is_string($slot)) {
-                    $errors[] = $where.' slot: must be a string'; // @translation-check-ignore
+                    $errors[] = $where.' slot: must be a string';
                 } elseif (!self::isColumn($slot, $slotKeys, false)) {
                     $errors[] = \sprintf('%s slot: unknown slot "%s"', $where, $slot);
                 }
@@ -192,14 +192,14 @@ final readonly class TemplateParser
             if (\array_key_exists('when', $entry)) {
                 $when = $this->expression($entry['when'], $where.' when', $slotKeys, $errors);
             } else {
-                $errors[] = $where.' when: is missing'; // @translation-check-ignore
+                $errors[] = $where.' when: is missing';
             }
 
             $then = null;
             if (\array_key_exists('then', $entry)) {
                 $then = $this->action($entry['then'], $where.' then', $slotKeys, $errors);
             } else {
-                $errors[] = $where.' then: is missing'; // @translation-check-ignore
+                $errors[] = $where.' then: is missing';
             }
 
             if (\count($errors) === $errorCount && null !== $when && null !== $then && (null === $slot || \is_string($slot))) {
@@ -342,7 +342,7 @@ final readonly class TemplateParser
         foreach ($declared as $param => $required) {
             if (!\array_key_exists($param, $value)) {
                 if (ActionType::Pause === $type && 'until' === $param) {
-                    $errors[] = $where.': a pause must carry an "until" expression'; // @translation-check-ignore
+                    $errors[] = $where.': a pause must carry an "until" expression';
                 } elseif ($required) {
                     $errors[] = \sprintf('%s: missing parameter "%s"', $where, $param);
                 }
@@ -354,7 +354,7 @@ final readonly class TemplateParser
                 continue;
             }
             $error = match ($param) {
-                'limit' => \is_int($given) ? null : 'parameter "limit" must be an integer', // @translation-check-ignore
+                'limit' => \is_int($given) ? null : 'parameter "limit" must be an integer',
                 'write' => \is_string($given) && null !== ForgeWriteKind::tryFrom($given) ? null : \sprintf(
                     'parameter "write" must be one of %s',
                     implode(', ', array_map(static fn (ForgeWriteKind $kind): string => $kind->value, ForgeWriteKind::cases())),
@@ -416,7 +416,7 @@ final readonly class TemplateParser
         if (\is_array($value) && array_is_list($value)) {
             return $value;
         }
-        $errors[] = self::topLevelError($source, $key, 'must be a list'); // @translation-check-ignore
+        $errors[] = self::topLevelError($source, $key, 'must be a list');
 
         return [];
     }
@@ -441,6 +441,6 @@ final readonly class TemplateParser
     /** @param array<mixed> $source */
     private static function topLevelError(array $source, string $key, string $expectation): string
     {
-        return $key.': '.(\array_key_exists($key, $source) ? $expectation : 'is missing'); // @translation-check-ignore
+        return $key.': '.(\array_key_exists($key, $source) ? $expectation : 'is missing');
     }
 }
