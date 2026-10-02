@@ -27,7 +27,6 @@ use App\Module\Workflow\Template\ActionType;
 use App\Module\Workflow\Template\Rule;
 use App\Module\Workflow\Template\TemplateMissing;
 use App\Module\Workflow\Template\TemplateSource;
-use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
@@ -81,13 +80,13 @@ final readonly class Engine
 
     private function evaluateLocked(Uuid $cardId, \DateTimeImmutable $now): ?Evaluation
     {
+        // Advisory, because an outbox insert takes a key-share lock on the project row,
+        // and a FOR UPDATE on that row would deadlock against a claim or a settle.
+        $this->workflowRuleStates->lockCard($cardId);
         $card = $this->cards->find($cardId);
         if (null === $card) {
             return null;
         }
-        // UpdateCardHandler locks the project row before it writes the card row, so the project goes first here too.
-        $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
-        $this->em->lock($card, LockMode::PESSIMISTIC_WRITE);
         $this->cards->refreshColumn($card);
         $this->cards->refreshTypeAndParent($card);
 

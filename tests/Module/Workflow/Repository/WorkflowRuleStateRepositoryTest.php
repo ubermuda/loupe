@@ -9,7 +9,9 @@ use App\Module\Project\Entity\Project;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Repository\WorkflowRuleStateRepository;
 use App\Tests\Module\Workflow\WorkflowProjects;
+use Doctrine\DBAL\DriverManager;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class WorkflowRuleStateRepositoryTest extends KernelTestCase
 {
@@ -32,6 +34,24 @@ final class WorkflowRuleStateRepositoryTest extends KernelTestCase
 
         self::assertSame(['open-review', 'start-design'], $this->sortedKeys($states));
         self::assertSame((string) $card->id, (string) $states['start-design']->card->id);
+    }
+
+    /** The test transaction holds the lock, so a second session cannot take it. */
+    public function test_lock_card_holds_an_advisory_lock_on_the_card_until_the_transaction_ends(): void
+    {
+        self::bootKernel();
+        $cardId = Uuid::v7();
+        $this->repository()->lockCard($cardId);
+        $other = DriverManager::getConnection($this->em()->getConnection()->getParams());
+
+        try {
+            self::assertNotSame($this->em()->getConnection()->fetchOne('SELECT pg_backend_pid()'), $other->fetchOne('SELECT pg_backend_pid()'));
+            $tryLock = static fn (string $key): bool => (bool) $other->fetchOne('SELECT pg_try_advisory_xact_lock(hashtext(?))', [$key]);
+            self::assertFalse($tryLock('workflow_card:'.$cardId->toRfc4122()));
+            self::assertTrue($tryLock('workflow_card:'.Uuid::v7()->toRfc4122()));
+        } finally {
+            $other->close();
+        }
     }
 
     public function test_find_due_card_ids_gives_each_due_card_once_most_overdue_first_up_to_the_limit(): void

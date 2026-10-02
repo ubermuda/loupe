@@ -9,6 +9,7 @@ use App\Module\Workflow\Entity\WorkflowRuleState;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\Uid\Uuid;
 
 /** @extends ServiceEntityRepository<WorkflowRuleState> */
 class WorkflowRuleStateRepository extends ServiceEntityRepository
@@ -16,6 +17,15 @@ class WorkflowRuleStateRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, WorkflowRuleState::class);
+    }
+
+    /** Serialises the evaluations of one card until the transaction ends. */
+    public function lockCard(Uuid $cardId): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'SELECT pg_advisory_xact_lock(hashtext(?))',
+            ['workflow_card:'.$cardId->toRfc4122()],
+        );
     }
 
     /** @return array<string, WorkflowRuleState> keyed by rule id */

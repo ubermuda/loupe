@@ -260,6 +260,30 @@ final class EngineTest extends KernelTestCase
         self::assertSame([], $this->liveRequests($card));
     }
 
+    public function test_a_live_request_whose_rule_left_the_template_is_cancelled(): void
+    {
+        $card = $this->boundCard([]);
+        $request = new WorkRequest($card->project, $card->id ?? throw new \LogicException('A flushed card has an id.'), $card->number, 'implement', null, 'gone', new \DateTimeImmutable(self::NOON));
+        $this->em()->persist($request);
+        $this->em()->flush();
+
+        $this->evaluate($card);
+
+        self::assertSame(WorkRequestState::Cancelled, $request->state);
+    }
+
+    public function test_a_pause_whose_rule_left_the_template_is_released(): void
+    {
+        $card = $this->boundCard([]);
+        $pause = new CardPause($card, $card->project, 'on-hold', 'gone', CardPauseKind::Rule, new \DateTimeImmutable(self::NOON));
+        $this->em()->persist($pause);
+        $this->em()->flush();
+
+        $this->evaluate($card);
+
+        self::assertSame('rule-removed', $pause->releaseReason);
+    }
+
     public function test_a_project_with_no_workflow_is_left_alone(): void
     {
         self::bootKernel();
