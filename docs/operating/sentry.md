@@ -27,8 +27,8 @@ as a failure. They check the DSN format only, and never call Sentry.
 
 ## Browser
 
-Loupe can also load the Sentry browser SDK on the app pages and the sign-in
-pages. The admin area and the error pages do not load it. It is off until you
+Loupe can also load the Sentry browser SDK on every page, the admin area and
+the error pages included. It is off until you
 set `SENTRY_BROWSER_DSN`. These variables control it:
 
 | Variable | Default | Purpose |
@@ -80,8 +80,9 @@ a run of repeated queries, and Sentry's N+1 query detector then misses it.
   the instance.
 - A console command line.
 - The arguments of a function in a stack trace.
-- Trace headers. Loupe adds none to an outbound request, so other hosts learn
-  nothing about the trace.
+- Trace headers. Loupe adds none to a request to another host, so other hosts
+  learn nothing about the trace. The browser SDK adds them only to requests to
+  the instance itself.
 
 ## Stay within a Sentry quota
 
