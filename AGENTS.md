@@ -63,6 +63,8 @@ Finish a card by moving it to a terminal column, which is `done` on a board with
 
 Worktrees live in `.worktrees/`, which is gitignored. Every worktree is a full application of its own. Run `just worktree-up` and it gets its own URL at `https://<name>.loupe.dev.localhost`, its own migrated and seeded database, and its own compiled CSS. Log in with `dev@loupe.test` and `password`, or `admin@loupe.test` and `password` for the admin area.
 
+A bridge worker starts in its card worktree, `.worktrees/card-<number>`, which the bridge `before` rule makes. The rule below covers the main session only.
+
 **The main session never moves into a worktree.** If you are the session running in the main checkout, do not bind the session to a worktree and do not change its persistent working directory to `.worktrees/`. Only a session created to work in one enters it. Three things bite, all of them silently:
 
 - Write access is single-valued per agent, and a plain subagent inherits the parent's current worktree. A main session that moves in binds every subagent it later dispatches to that same worktree. Work aimed at any other tree is then rejected, or lands in the wrong one.
