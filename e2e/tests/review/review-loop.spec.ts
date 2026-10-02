@@ -884,19 +884,9 @@ test('a stale withdrawal preserves the verdict from another tab', async ({
     await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
 });
 
-test('requesting changes shows the verdict on the project dashboard', async ({
+test('requesting changes asks for a note and keeps it across Cancel', async ({
     page,
-    review,
 }) => {
-    // A verdict is reached on a document that has been commented on, so the
-    // thread is part of the state under test, not incidental setup.
-    await postComment(page);
-    await expectThreadVisible(page);
-    await page.getByRole('button', { name: 'Resolve' }).click();
-    await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
-        timeout: coverageScaled(10000),
-    });
-
     await page
         .getByRole('button', { name: 'Finish review', exact: true })
         .click();
@@ -918,6 +908,33 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     await expect(
         page.getByRole('textbox', { name: 'Review note' }),
     ).toHaveValue('Explain the retry behaviour.');
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    await expect(page.locator('.lp-review-verdict-note')).toHaveText(
+        'Explain the retry behaviour.',
+        { timeout: coverageScaled(10000) },
+    );
+});
+
+test('requesting changes shows the verdict on the project dashboard', async ({
+    page,
+    review,
+}) => {
+    // A verdict is reached on a document that has been commented on, so the
+    // thread is part of the state under test, not incidental setup.
+    await postComment(page);
+    await expectThreadVisible(page);
+    await page.getByRole('button', { name: 'Resolve' }).click();
+    await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
+        timeout: coverageScaled(10000),
+    });
+
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await page.getByRole('radio', { name: 'Request changes' }).check();
+    await page
+        .getByRole('textbox', { name: 'Review note' })
+        .fill('Explain the retry behaviour.');
     await page.getByRole('button', { name: 'Submit review' }).click();
 
     // The form POSTs (Turbo Drive) and redirects back to the *same* review URL,

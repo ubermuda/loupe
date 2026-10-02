@@ -20,23 +20,21 @@ final class CardHoldsTest extends KernelTestCase
 
     private const string NOW = '2026-09-29 12:00:00';
 
-    public function test_hold_creates_a_hold_with_its_run_and_holder(): void
+    public function test_hold_creates_a_hold_with_its_holder(): void
     {
         self::bootKernel();
         $em = $this->em();
         $owner = $this->user($em, 'hold-create@example.com');
         $project = $this->project($em, $owner, 'Held Project');
         $cardId = Uuid::v7();
-        $run = $this->seedRun($em, $project, cardId: $cardId);
 
-        $hold = $this->holds()->hold($project, $cardId, $run, $owner);
+        $hold = $this->holds()->hold($project, $cardId, $owner);
 
         $em->clear();
         $stored = $em->find(CardHold::class, $hold->id);
         self::assertNotNull($stored);
         self::assertSame((string) $project->id, (string) $stored->project->id);
         self::assertTrue($cardId->equals($stored->cardId));
-        self::assertSame((string) $run->id, (string) $stored->stoppedRun?->id);
         self::assertSame((string) $owner->id, (string) $stored->heldBy?->id);
         self::assertEquals(new \DateTimeImmutable(self::NOW), $stored->heldAt);
     }
@@ -49,13 +47,13 @@ final class CardHoldsTest extends KernelTestCase
         $project = $this->project($em, $owner, 'Held Twice');
         $cardId = Uuid::v7();
 
-        $first = $this->holds()->hold($project, $cardId, null, $owner);
+        $first = $this->holds()->hold($project, $cardId, $owner);
         $em->clear();
         $project = $this->reload($project);
-        $second = $this->holds()->hold($project, $cardId, $this->seedRun($em, $project, cardId: $cardId), null);
+        $second = $this->holds()->hold($project, $cardId, null);
 
         self::assertSame((string) $first->id, (string) $second->id);
-        self::assertNull($second->stoppedRun);
+        self::assertSame((string) $owner->id, (string) $second->heldBy?->id);
         self::assertSame(1, $this->countHolds());
     }
 
@@ -68,9 +66,9 @@ final class CardHoldsTest extends KernelTestCase
         $other = $this->project($em, $owner, 'Other Project');
         $released = Uuid::v7();
         $kept = Uuid::v7();
-        $this->holds()->hold($project, $released, null, null);
-        $this->holds()->hold($project, $kept, null, null);
-        $this->holds()->hold($other, $released, null, null);
+        $this->holds()->hold($project, $released, null);
+        $this->holds()->hold($project, $kept, null);
+        $this->holds()->hold($other, $released, null);
 
         self::assertSame(1, $this->holds()->release($project, [$released, Uuid::v7()]));
 
@@ -84,7 +82,7 @@ final class CardHoldsTest extends KernelTestCase
         self::bootKernel();
         $em = $this->em();
         $project = $this->project($em, $this->user($em, 'hold-release-none@example.com'), 'Nothing Released');
-        $this->holds()->hold($project, Uuid::v7(), null, null);
+        $this->holds()->hold($project, Uuid::v7(), null);
 
         self::assertSame(0, $this->holds()->release($project, []));
         self::assertSame(1, $this->countHolds());
@@ -105,10 +103,10 @@ final class CardHoldsTest extends KernelTestCase
         $em = $this->em();
         $project = $this->project($em, $this->user($em, 'hold-again@example.com'), 'Held Again');
         $cardId = Uuid::v7();
-        $first = $this->holds()->hold($project, $cardId, null, null);
+        $first = $this->holds()->hold($project, $cardId, null);
         $this->holds()->release($project, [$cardId]);
 
-        $second = $this->holds()->hold($project, $cardId, null, null);
+        $second = $this->holds()->hold($project, $cardId, null);
 
         self::assertNotSame((string) $first->id, (string) $second->id);
         self::assertTrue($this->holds()->isHeld($project, $cardId));
