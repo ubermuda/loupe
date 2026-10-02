@@ -13,6 +13,7 @@ use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\ValueObject\WorkRequestRefusal;
 use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Tests\Module\Bridge\BridgeScenario;
+use Doctrine\DBAL\DriverManager;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\MockClock;
@@ -34,6 +35,26 @@ final class ClaimWorkRequestHandlerTest extends KernelTestCase
         self::assertSame(1, $result->request->claims);
         self::assertSame('2026-10-01T12:32:00+00:00', $result->request->leaseUntil?->format(\DateTimeInterface::ATOM));
         self::assertNotNull($result->request->claimToken);
+    }
+
+    /**
+     * The test transaction holds the heartbeat lock of the bridge after the
+     * claim, so a heartbeat cannot change the bridge between the checks and the claim.
+     */
+    public function test_a_claim_takes_the_heartbeat_lock_of_the_bridge(): void
+    {
+        [$owner, $bridge, $request] = $this->scenario('claim-handler-lock', WorkRequestState::Open);
+        $this->claim($owner, $bridge, $request);
+        $other = DriverManager::getConnection($this->em()->getConnection()->getParams());
+
+        try {
+            self::assertFalse((bool) $other->fetchOne(
+                'SELECT pg_try_advisory_xact_lock(hashtext(?))',
+                ['bridge:'.$owner->id?->toRfc4122().':'.$bridge->id->toRfc4122()],
+            ));
+        } finally {
+            $other->close();
+        }
     }
 
     /** @return iterable<string, array{WorkRequestState}> */

@@ -39,23 +39,27 @@ final readonly class ClaimWorkRequestHandler
 
     public function __invoke(ClaimWorkRequestCommand $command): ClaimWorkRequestResult
     {
-        $bridge = $this->bridges->findOneByOwnerAndId($command->owner, $command->bridgeId);
-        if (null === $bridge) {
-            return new ClaimWorkRequestResult(null, WorkRequestRefusal::UnknownBridge);
-        }
+        $ownerId = (string) ($command->owner->id ?? throw new \LogicException('An authenticated user always has an id.'));
 
-        $request = $this->workRequests->find($command->workRequestId);
-        if (null === $request || !self::isOffered($request, $command, $bridge->projects)) {
-            return new ClaimWorkRequestResult(null, WorkRequestRefusal::NotFound);
-        }
-        if (!$bridge->canRun($request->capability)) {
-            return new ClaimWorkRequestResult(null, WorkRequestRefusal::CapabilityMissing);
-        }
+        $claimed = $this->em->wrapInTransaction(function () use ($command, $ownerId): WorkRequest|WorkRequestRefusal {
+            // The lock a heartbeat takes, so the projects and capabilities read here stay current until the claim commits.
+            $this->bridges->lockForWrite($ownerId, $command->bridgeId);
+            $bridge = $this->bridges->findOneByOwnerAndId($command->owner, $command->bridgeId);
+            if (null === $bridge) {
+                return WorkRequestRefusal::UnknownBridge;
+            }
 
-        $claimed = $this->em->wrapInTransaction(function () use ($command): ?WorkRequest {
+            $request = $this->workRequests->find($command->workRequestId);
+            if (null === $request || !self::isOffered($request, $command, $bridge->projects)) {
+                return WorkRequestRefusal::NotFound;
+            }
+            if (!$bridge->canRun($request->capability)) {
+                return WorkRequestRefusal::CapabilityMissing;
+            }
+
             $leaseUntil = $this->lease->until($this->clock->now());
             if (!$this->workRequests->claim($command->workRequestId, $command->bridgeId, Uuid::v4(), $leaseUntil)) {
-                return null;
+                return WorkRequestRefusal::AlreadyClaimed;
             }
             // The claim writes with native SQL, so the managed copy is stale until this read.
             $claimed = $this->workRequests->findOneLocked($command->workRequestId)
@@ -65,8 +69,8 @@ final readonly class ClaimWorkRequestHandler
 
             return $claimed;
         });
-        if (null === $claimed) {
-            return new ClaimWorkRequestResult(null, WorkRequestRefusal::AlreadyClaimed);
+        if ($claimed instanceof WorkRequestRefusal) {
+            return new ClaimWorkRequestResult(null, $claimed);
         }
 
         // Ids only. The claim token proves the claim, so it stays out of the trail.
