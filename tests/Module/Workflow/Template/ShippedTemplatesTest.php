@@ -242,6 +242,26 @@ final class ShippedTemplatesTest extends KernelTestCase
             ['merge-ready', 'merge-ready-epic-child'],
             'merge-ready',
         ];
+
+        $finishedEpic = FactsMother::card(slot: 'implementation', type: 'epic', childCount: 2);
+        yield 'an epic with closed unmerged pull requests returns to the backlog, not to done' => [
+            FactsMother::facts(card: $finishedEpic, pullRequest: $closed, pullRequests: [$closed]),
+            ['epic-to-done', 'closed-unmerged'],
+            'closed-unmerged',
+        ];
+
+        yield 'an epic with no pull request moves to done' => [
+            FactsMother::facts(card: $finishedEpic),
+            ['epic-to-done', 'merged'],
+            'epic-to-done',
+        ];
+
+        $mergedStacked = FactsMother::pullRequest(state: PullRequestState::Merged, stacked: true, parentMerged: true, closedAt: new \DateTimeImmutable('2026-10-01 11:00:00'));
+        yield 'a merged stacked pull request asks for no base change' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'in-review'), pullRequest: $mergedStacked, pullRequests: [$mergedStacked]),
+            ['rebase-stacked', 'merged'],
+            'merged',
+        ];
     }
 
     public function test_an_epic_child_pull_request_merges_into_the_epic_branch_with_no_approval(): void

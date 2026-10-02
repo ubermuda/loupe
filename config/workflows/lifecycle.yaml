@@ -114,6 +114,7 @@ rules:
       slot: in-review
       when:
           all:
+              - pr.open: {}
               - pr.stacked: {}
               - pr.parent_merged: {}
       then: { forge-write: { write: change-base, fallback: rebase-stacked } }
@@ -175,7 +176,7 @@ rules:
               - card.type: { type: epic }
               - card.has_children: {}
               - card.children_finished: {}
-              - not: { pr.open: {} }
+              - not: { pr.linked: {} }
       then: { move: { to: '@terminal' } }
 
     - id: epic-reopened-from-review
