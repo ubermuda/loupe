@@ -25,6 +25,26 @@ writes a debug log line, so nothing goes to Sentry. The *Sentry* row on
 `/admin/status`, and `bin/console health-check:status`, report a malformed DSN
 as a failure. They check the DSN format only, and never call Sentry.
 
+## Browser
+
+Loupe can also load the Sentry browser SDK on every page. It is off until you
+set `SENTRY_BROWSER_DSN`. Two variables control it:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SENTRY_BROWSER_DSN` | empty | Where browser events go. It is not a secret, because every page shows it. Empty loads no SDK. |
+| `SENTRY_BROWSER_TRACES_SAMPLE_RATE` | `1.0` | The share of page loads that the browser SDK traces, from `0.0` to `1.0`. |
+
+The browser sends page loads, Web Vitals and JavaScript errors. It posts them
+directly to the ingest origin of the DSN, which Loupe adds to the
+Content-Security-Policy `connect-src` list. Loupe scrubs each browser event
+before it leaves the page. Every item in
+[What Sentry never receives](#what-sentry-never-receives) stays true for the
+browser: no URL or query string, no user content and no user identity.
+
+The *Sentry in the browser* row on `/admin/status` reports a malformed
+`SENTRY_BROWSER_DSN` as a failure, in the same way as the *Sentry* row.
+
 ## What Sentry receives
 
 - A trace for each sampled web request, with a span for each Doctrine query and
