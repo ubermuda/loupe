@@ -118,10 +118,23 @@ final readonly class RacingRuleNoticeReconciler
     private static function body(array $racing, array $names): string
     {
         $lines = array_map(
-            static fn (RacingBridgeRuleView $rule): string => \sprintf('- `%s` on bridge `%s`', $rule->name, $names[$rule->bridgeId] ?? mb_substr($rule->bridgeId, -12)),
+            static fn (RacingBridgeRuleView $rule): string => \sprintf('- %s on bridge %s', self::code($rule->name), self::code($names[$rule->bridgeId] ?? mb_substr($rule->bridgeId, -12))),
             $racing,
         );
 
         return implode("\n", $lines)."\n\nThe app syncs a pull request that is behind. Remove each rule on `pull_request.behind` from rules.yaml.";
+    }
+
+    /** A Markdown code span that a backtick in the bridge-written text cannot close. */
+    private static function code(string $text): string
+    {
+        preg_match_all('/`+/', $text, $runs);
+        $longest = max([0, ...array_map(strlen(...), $runs[0])]);
+        if (0 === $longest) {
+            return '`'.$text.'`';
+        }
+        $fence = str_repeat('`', $longest + 1);
+
+        return $fence.' '.$text.' '.$fence;
     }
 }

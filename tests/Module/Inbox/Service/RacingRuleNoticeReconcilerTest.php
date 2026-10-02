@@ -87,6 +87,18 @@ final class RacingRuleNoticeReconcilerTest extends KernelTestCase
         self::assertStringStartsWith("- `sync-behind` on bridge `homelab`\n\n", (string) $this->onlyNotice()->body);
     }
 
+    public function test_a_backtick_in_a_bridge_name_cannot_close_its_code_span(): void
+    {
+        $bridge = new Bridge($this->project->owner, Uuid::fromString(self::BRIDGE), [(string) $this->project->id], 'b4e39aa7', new \DateTimeImmutable());
+        $bridge->name = 'a` [Open](https://example.com) `b';
+        $this->em->persist($bridge);
+        $this->report(['sync-behind']);
+
+        $this->reconciler->reconcile($this->project);
+
+        self::assertStringStartsWith("- `sync-behind` on bridge `` a` [Open](https://example.com) `b ``\n\n", (string) $this->onlyNotice()->body);
+    }
+
     public function test_a_second_reconcile_changes_nothing(): void
     {
         $this->report(['sync-behind']);
