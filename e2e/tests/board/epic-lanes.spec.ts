@@ -216,10 +216,10 @@ async function dragCardToCell(
     card: Card,
     target: ReturnType<typeof cell>,
 ): Promise<void> {
-    const grip = page.locator(
+    const title = page.locator(
         `${CARD}[data-card-id="${card.id}"] .lp-board-card__title`,
     );
-    const from = await grip.boundingBox();
+    const from = await title.boundingBox();
     const to = await target.boundingBox();
     expect(from).not.toBeNull();
     expect(to).not.toBeNull();
@@ -363,6 +363,9 @@ test('an epic in the Backlog keeps its lane on the board', async ({
         lane(page, epic.id).locator('[data-lane-progress]'),
     ).toHaveText('0/2 done');
     await expect(page.locator('.lp-board-backlog__count')).toHaveText('2');
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    await expect(page.locator('.lp-board-list')).toBeVisible();
+    await expect(page.locator(`#board-row-${child.id}`)).toHaveCount(1);
     await expect(page.locator(`#board-row-${epic.id}`)).toHaveCount(0);
 });
 

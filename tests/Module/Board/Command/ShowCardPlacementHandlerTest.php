@@ -12,6 +12,7 @@ use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Command\ShowCardPlacementCommand;
 use App\Module\Board\Command\ShowCardPlacementHandler;
+use App\Module\Board\Entity\BoardAutomationSettings;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardType;
@@ -108,7 +109,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
     public function test_a_terminal_card_outside_the_window_is_gone_and_the_counts_skip_it(): void
     {
         $old = $this->card('Old', 'done', 0);
-        $old->completedAt = new \DateTimeImmutable(\sprintf('-%d days', ShowBoardHandler::TERMINAL_WINDOW_DAYS + 1));
+        $old->completedAt = new \DateTimeImmutable('-4 days');
         $this->card('Recent', 'done', 0);
         $this->em->flush();
 
@@ -117,6 +118,30 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         self::assertNull($view->card);
         self::assertNull($view->column);
         self::assertSame(1, $view->counts[(string) $this->column($this->project, 'done')->id]);
+    }
+
+    public function test_the_board_shows_the_finished_cards_of_the_window_the_project_set(): void
+    {
+        $settings = new BoardAutomationSettings($this->project);
+        $settings->terminalWindowDays = 10;
+        $this->em->persist($settings);
+        $older = $this->card('Older', 'done', 0);
+        $older->completedAt = new \DateTimeImmutable('-5 days');
+        $tooOld = $this->card('Too old', 'done', 0);
+        $tooOld->completedAt = new \DateTimeImmutable('-11 days');
+        $this->em->flush();
+
+        $view = ($this->placement)(new ShowCardPlacementCommand($this->project, $older));
+        self::assertSame($older, $view->card);
+        self::assertSame(1, $view->counts[(string) $this->column($this->project, 'done')->id]);
+
+        $showBoard = self::getContainer()->get(ShowBoardHandler::class);
+        self::assertInstanceOf(ShowBoardHandler::class, $showBoard);
+        $board = $showBoard(new ShowBoardCommand($this->project));
+        self::assertSame(10, $board->terminalWindowDays);
+        $done = array_find($board->columns, static fn (BoardColumnView $view): bool => 'done' === $view->column->slug);
+        self::assertNotNull($done);
+        self::assertSame([$older], $done->cards);
     }
 
     public function test_a_deleted_card_is_gone_and_still_carries_every_column_count(): void
@@ -256,7 +281,7 @@ final class ShowCardPlacementHandlerTest extends KernelTestCase
         $this->boardCard('Done tie two', 'done', 0, $created, $finished);
         $doneEpic = $this->boardCard('Done epic', 'done', 0, completedAt: $second(10800), type: CardType::Epic);
         $this->boardCard('Child of the done epic', 'done', 0, completedAt: $second(3600), parent: $doneEpic);
-        $this->boardCard('Done too long ago', 'done', 0, completedAt: $second(86400 * (ShowBoardHandler::TERMINAL_WINDOW_DAYS + 1)));
+        $this->boardCard('Done too long ago', 'done', 0, completedAt: $second(86400 * 4));
         $this->boardCard('Child of the open epic', 'done', 0, completedAt: $second(14400), parent: $openEpic);
         $this->boardCard('Later child of the open epic', 'done', 0, completedAt: $second(5400), parent: $openEpic);
 

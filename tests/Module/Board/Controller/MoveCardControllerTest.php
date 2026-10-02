@@ -76,7 +76,7 @@ final class MoveCardControllerTest extends WebTestCase
         self::assertSame(0, $moved->position);
     }
 
-    public function test_the_move_form_on_the_board_face_moves_its_card(): void
+    public function test_the_one_move_form_of_the_board_moves_the_card_it_is_named_after(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -86,8 +86,7 @@ final class MoveCardControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
         $this->card($em, $project, 'Stays', 'in-progress', 0);
         $mover = $this->card($em, $project, 'Mover', 'in-progress', 1);
-        $moverId = $mover->id;
-        $name = MoveCardFormType::nameFor($mover);
+        $moverId = (string) $mover->id;
         $target = (string) $this->column($project, 'next')->id;
         $boardUrl = '/projects/'.$project->id.'/board';
         $em->clear();
@@ -96,19 +95,24 @@ final class MoveCardControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, $boardUrl);
         self::assertResponseIsSuccessful();
 
-        $html = (string) $client->getResponse()->getContent();
-        $forms = $crawler->filter('form[data-board-drag-target="moveForm"]');
-        self::assertCount(2, $forms);
-        self::assertCount(2, $crawler->filter('form[data-board-drag-target="moveForm"] select[name^="move_card_"][name$="[column]"]'));
-        self::assertSame(1, substr_count($html, 'name="'.$name.'[column]"'));
-        preg_match_all('/move_card_[0-9a-f-]+/', $html, $names);
-        self::assertSame([], array_values(array_filter(
-            $names[0],
-            static fn (string $found): bool => !preg_match('/^move_card_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $found),
-        )));
+        self::assertCount(1, $crawler->filter('form[data-board-drag-target="moveForm"]'));
+        $face = $crawler->filter('#board > form[hidden][data-board-drag-target="moveForm"]');
+        self::assertCount(1, $face);
+        $placeholder = MoveCardFormType::PLACEHOLDER_CARD_ID;
+        self::assertSame($placeholder, $face->attr('data-move-card-id'));
 
-        $form = $crawler->filter('#board-card-'.$moverId.' form[data-board-drag-target="moveForm"]')->form();
-        $client->submit($form, [$name.'[column]' => $target], ['HTTP_REFERER' => 'http://localhost'.$boardUrl]);
+        // The drag controller swaps the dropped card's id for the placeholder, then submits.
+        $prototype = 'move_card_'.$placeholder;
+        $fields = $face->form()->getPhpValues()[$prototype];
+        self::assertIsArray($fields);
+        $fields['column'] = $target;
+        $client->request(
+            Request::METHOD_POST,
+            str_replace('/'.$placeholder.'/', '/'.$moverId.'/', (string) $face->attr('action')),
+            ['move_card_'.$moverId => $fields],
+            [],
+            ['HTTP_REFERER' => 'http://localhost'.$boardUrl],
+        );
 
         self::assertResponseRedirects();
         $em->clear();

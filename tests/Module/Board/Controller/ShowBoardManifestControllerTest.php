@@ -540,8 +540,8 @@ final class ShowBoardManifestControllerTest extends WebTestCase
 
     /**
      * The digest of each card face on the board page, the lane of each face, the
-     * ids of the list rows in order with their digests, the structure digest,
-     * and the total of each history link.
+     * ids of the list rows in order with their digests from the list view, the
+     * structure digest, and the total of each history link.
      *
      * @return array{cards: array<string, string>, lanes: array<string, ?string>, laneDigests: array<string, string>, rows: list<string>, rowDigests: array<string, string>, structure: string, historyTotals: array<string, int>}
      */
@@ -567,7 +567,7 @@ final class ShowBoardManifestControllerTest extends WebTestCase
         }
 
         $rowDigests = [];
-        foreach ($crawler->filter('[id^="board-row-"]') as $row) {
+        foreach ($client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/list')->filter('[id^="board-row-"]') as $row) {
             self::assertInstanceOf(\DOMElement::class, $row);
             $rowDigests[$row->getAttribute('data-card-id')] = $row->getAttribute('data-card-digest');
         }

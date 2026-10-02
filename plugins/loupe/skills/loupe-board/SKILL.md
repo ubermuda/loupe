@@ -169,8 +169,9 @@ page, or through the widget when they delete the note that created it.
 
 `card_list` applies no time window to a terminal column, so every finished card
 is on the board it pages through, however old it is. The board screen shows the
-last 7 days of each terminal column and puts the rest on a history page. A
-person therefore sees fewer finished cards than you do.
+last 3 days of each terminal column by default and puts the rest on a history
+page. The owner sets this window in board settings. A person therefore sees
+fewer finished cards than you do.
 
 ## An epic groups child cards
 
