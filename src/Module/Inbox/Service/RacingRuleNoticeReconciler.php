@@ -7,6 +7,7 @@ namespace App\Module\Inbox\Service;
 use App\Module\Board\Command\RacingBridgeRuleView;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Service\RacingBridgeRules;
+use App\Module\Bridge\Service\BridgeNames;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
@@ -31,6 +32,7 @@ final readonly class RacingRuleNoticeReconciler
         private InboxSearchIndexer $searchIndexer,
         private InboxOpenCountPublisher $openCount,
         private InboxAvailability $inbox,
+        private BridgeNames $bridgeNames,
     ) {
     }
 
@@ -55,7 +57,10 @@ final readonly class RacingRuleNoticeReconciler
             }
 
             $title = self::title($racing);
-            $body = self::body($racing);
+            $body = self::body($racing, $this->bridgeNames->forOwner($project->owner, array_values(array_unique(array_map(
+                static fn (RacingBridgeRuleView $rule): string => $rule->bridgeId,
+                $racing,
+            )))));
             if (null === $notice) {
                 $notice = new InboxItem(
                     project: $project,
@@ -104,11 +109,16 @@ final readonly class RacingRuleNoticeReconciler
         return 1 === \count($racing) ? 'A bridge rule races the app sync' : \sprintf('%d bridge rules race the app sync', \count($racing));
     }
 
-    /** @param non-empty-list<RacingBridgeRuleView> $racing */
-    private static function body(array $racing): string
+    /**
+     * Names a bridge by its name, or by the tail of its id, because the head of a uuid v7 is a timestamp that two bridges can share.
+     *
+     * @param non-empty-list<RacingBridgeRuleView> $racing
+     * @param array<string, string>                $names  bridge id => the name it holds
+     */
+    private static function body(array $racing, array $names): string
     {
         $lines = array_map(
-            static fn (RacingBridgeRuleView $rule): string => \sprintf('- `%s` on bridge `%s`', $rule->name, mb_substr($rule->bridgeId, 0, 8)),
+            static fn (RacingBridgeRuleView $rule): string => \sprintf('- `%s` on bridge `%s`', $rule->name, $names[$rule->bridgeId] ?? mb_substr($rule->bridgeId, -12)),
             $racing,
         );
 
