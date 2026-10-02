@@ -25,7 +25,7 @@ Merge one card's pull request when it is ready, or bring a branch that is behind
 3. Read the prompt. The line `Pull request <url> is ready to merge at <sha>.` asks for a merge. The line `Pull request <url> is behind its base.` asks for an update. Any other prompt: stop with `STAGE RESULT: blocked: no merge request in the prompt`.
 4. The URL must be one of the card `pullRequests`. Otherwise stop with `STAGE RESULT: blocked: pull request not linked to the card`.
 5. Find and validate the pull request with the forge adapter. When it is outside this repository, stop with `STAGE RESULT: blocked: pull request outside this repository`. When its state is `MERGED`, stop with `STAGE RESULT: merged <url>`. When it is `CLOSED`, stop with `STAGE RESULT: no open pull request`.
-6. Read the merge state with the forge adapter.
+6. Read the merge state with the forge adapter. From this step on, post the refusal comment before each `not ready` or `blocked:` stop. Follow "Post a refusal comment" in `../loupe-stage-implementation/references/commands.md`.
 7. When the base differs from the base branch that the profile `Merge` section names, stop with `STAGE RESULT: not ready <url>: stacked on <base>`. A stacked pull request never merges into its parent.
 8. For an update, take "Update". For a merge, take "Merge".
 
@@ -63,6 +63,6 @@ Then:
 2. Read the state again. When it is not `MERGED`, stop with `STAGE RESULT: blocked: merge refused <url>: <message>`, and record the block as "Record a block" in `../loupe-stage-implementation/references/commands.md` says.
 3. Stop with `STAGE RESULT: merged <url>`.
 
-A `not ready` run changes nothing. The app reads the pull request again, and sends the next event when the state changes.
+A `not ready` run posts at most one refusal comment, and changes nothing else. The app reads the pull request again, and sends the next event when the state changes.
 
 Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences. Set the structured result as the table in `../loupe-stage-product-design/references/stage-contract.md` "Final reply" says.

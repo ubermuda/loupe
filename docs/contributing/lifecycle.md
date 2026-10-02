@@ -321,6 +321,13 @@ failed run, up to the rule's `maxResumes`, two by default. A run at that cap
 shows **Gave up**. A **Gave up** or **Blocked** run puts a warning on its card
 until a later run of the card ends another way, or the card moves.
 
+A worker that ends `not ready` or `blocked:` on a pull request posts a refusal
+comment there. The comment gives the reason and the next step of a person. A
+hidden marker holds the head commit and the reason, so a repeat for the same
+head and reason posts nothing. A machine fault that an approver cannot fix,
+such as `worktree binding failed`, posts no comment. The worker leaves the
+comment in place when the block clears.
+
 ## Owner checklist
 
 1. Deploy a release with configurable columns. Check that the Loupe MCP lists

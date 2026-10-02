@@ -90,6 +90,7 @@ final readonly class ReadPullRequestStateHandler
             }
 
             $coveredBefore = $pullRequest->coveredSha;
+            $uncoveredBefore = $pullRequest->uncoveredSha;
             $pullRequest->apply($current);
             $pullRequest->refreshedAt = $readStartedAt;
             $this->judgeCoverage($pullRequest);
@@ -101,8 +102,8 @@ final readonly class ReadPullRequestStateHandler
             if (null !== $verdict && null !== $command->reviewId) {
                 $pullRequest->recordAnnouncedReview($command->reviewId);
             }
-            // The snapshot leaves the approval out, so a new approval of an unchanged head shows only in the covered head.
-            if (!$settled->equals($previous) || null !== $verdict || $pullRequest->coveredSha !== $coveredBefore) {
+            // The snapshot leaves the approval out, so a new approval or a late judgement of an unchanged head shows only in the coverage.
+            if (!$settled->equals($previous) || null !== $verdict || $pullRequest->coveredSha !== $coveredBefore || $pullRequest->uncoveredSha !== $uncoveredBefore) {
                 $this->events->dispatch(new PullRequestStateChanged($pullRequest, $previous, $settled, $verdict));
             }
 

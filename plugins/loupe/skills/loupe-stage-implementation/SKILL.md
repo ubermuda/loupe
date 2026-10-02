@@ -45,6 +45,6 @@ Build the approved tech design of one card into a ready, linked pull request. An
 12. Run the gate in `references/commands.md`.
 13. Push, open or link the pull request, add its changelog entry, and push. Link it (contract rule 5).
 14. Stop with `STAGE RESULT: waiting <pr url>`. Never wait for CI, and never move the card. The app reads the checks of the pushed head. It sends a fix request when a check fails, and it moves the card when the checks pass.
-15. When a step above cannot go on, record the block as `references/commands.md` says. Stop with `STAGE RESULT: blocked: <reason>`.
+15. When a step above cannot go on, record the block as `references/commands.md` says. When a pull request exists, post the refusal comment as it says. Stop with `STAGE RESULT: blocked: <reason>`.
 
 Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences. Set the structured result as the table in `../loupe-stage-product-design/references/stage-contract.md` "Final reply" says.
