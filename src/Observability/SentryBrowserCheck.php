@@ -21,7 +21,7 @@ final readonly class SentryBrowserCheck implements DiagnosticInterface
     #[\Override]
     public static function priority(): int
     {
-        return 5;
+        return 4;
     }
 
     #[\Override]

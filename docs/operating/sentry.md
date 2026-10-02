@@ -28,7 +28,7 @@ as a failure. They check the DSN format only, and never call Sentry.
 ## Browser
 
 Loupe can also load the Sentry browser SDK on every page. It is off until you
-set `SENTRY_BROWSER_DSN`. Two variables control it:
+set `SENTRY_BROWSER_DSN`. These variables control it:
 
 | Variable | Default | Purpose |
 |---|---|---|
