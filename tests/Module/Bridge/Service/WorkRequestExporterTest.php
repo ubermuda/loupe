@@ -60,6 +60,7 @@ final class WorkRequestExporterTest extends KernelTestCase
                 'leaseUntil' => '2026-10-01T12:05:00+00:00',
                 'reason' => null,
                 'createdAt' => '2026-10-01T12:00:00+00:00',
+                'reopenedAt' => null,
                 'settledAt' => null,
             ],
             [
@@ -76,6 +77,7 @@ final class WorkRequestExporterTest extends KernelTestCase
                 'leaseUntil' => null,
                 'reason' => 'no-capacity',
                 'createdAt' => '2026-10-01T12:10:00+00:00',
+                'reopenedAt' => null,
                 'settledAt' => '2026-10-01T12:11:00+00:00',
             ],
         ], $rows);
