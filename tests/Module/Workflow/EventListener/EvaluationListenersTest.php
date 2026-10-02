@@ -77,7 +77,7 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->persist(new CardLink($card, $blocked, CardLinkKind::Blocks));
         $this->em()->flush();
 
-        new EvaluateCardsOnCardMoved($this->service(CardRepository::class), $this->trigger())(
+        new EvaluateCardsOnCardMoved($this->service(CardRepository::class), $this->trigger(), new EngineSwitch(true))(
             new CardMoved($card, new CardMove($this->column($this->project, 'in-progress')), CardReporter::Human),
         );
 
@@ -125,10 +125,10 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->flush();
         $documentId = $document->id ?? throw new \LogicException('A flushed document has an id.');
 
-        new EvaluateCardsOnDocumentStatusChanged($this->service(CardDocumentRepository::class), $this->trigger())(new DocumentStatusChanged($this->projectId(), $documentId));
+        new EvaluateCardsOnDocumentStatusChanged($this->service(CardDocumentRepository::class), $this->trigger(), new EngineSwitch(true))(new DocumentStatusChanged($this->projectId(), $documentId));
         $statusSent = $this->sent();
         $this->transport()->reset();
-        new EvaluateCardsOnReviewSubmitted($this->service(CardDocumentRepository::class), $this->trigger())(new ReviewSubmitted(new Review($version, Verdict::Approved, $this->project->owner)));
+        new EvaluateCardsOnReviewSubmitted($this->service(CardDocumentRepository::class), $this->trigger(), new EngineSwitch(true))(new ReviewSubmitted(new Review($version, Verdict::Approved, $this->project->owner)));
 
         self::assertEqualsCanonicalizing($this->ids($one, $two), $statusSent);
         self::assertEqualsCanonicalizing($this->ids($one, $two), $this->sent());
@@ -145,12 +145,28 @@ final class EvaluationListenersTest extends KernelTestCase
         $this->em()->persist($pullRequest);
         $this->em()->persist($unknown);
         $this->em()->flush();
-        $listener = new EvaluateCardsOnPullRequestStateChanged($this->service(CardPullRequestRepository::class), $this->trigger());
+        $listener = new EvaluateCardsOnPullRequestStateChanged($this->service(CardPullRequestRepository::class), $this->trigger(), new EngineSwitch(true));
 
         $listener(new PullRequestStateChanged($pullRequest, $pullRequest->snapshot(), $pullRequest->snapshot()));
         $listener(new PullRequestStateChanged($unknown, $unknown->snapshot(), $unknown->snapshot()));
 
         self::assertEqualsCanonicalizing($this->ids($one, $two), $this->sent());
+    }
+
+    public function test_an_engine_that_is_off_reads_no_blocked_card_and_no_pull_request_link(): void
+    {
+        $card = $this->card($this->project, 'next');
+        $pullRequest = new ForgePullRequest($this->project, 'github', 'acme/widgets', 5);
+        $cards = $this->createMock(CardRepository::class);
+        $cards->expects($this->never())->method('findBlockedBy');
+        $links = $this->createMock(CardPullRequestRepository::class);
+        $links->expects($this->never())->method('findForPullRequest');
+        $off = new EngineSwitch(false);
+
+        new EvaluateCardsOnCardMoved($cards, $this->trigger(), $off)(new CardMoved($card, new CardMove($this->column($this->project, 'in-progress')), CardReporter::Human));
+        new EvaluateCardsOnPullRequestStateChanged($links, $this->trigger(), $off)(new PullRequestStateChanged($pullRequest, $pullRequest->snapshot(), $pullRequest->snapshot()));
+
+        self::assertSame([], $this->sent());
     }
 
     public function test_a_run_change_asks_for_its_cards(): void

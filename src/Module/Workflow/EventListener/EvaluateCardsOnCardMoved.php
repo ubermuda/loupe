@@ -7,6 +7,7 @@ namespace App\Module\Workflow\EventListener;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Workflow\Engine\EngineSwitch;
 use App\Module\Workflow\Service\EvaluationTrigger;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
@@ -17,11 +18,17 @@ final readonly class EvaluateCardsOnCardMoved
     public function __construct(
         private CardRepository $cards,
         private EvaluationTrigger $trigger,
+        private EngineSwitch $engine,
     ) {
     }
 
     public function __invoke(CardMoved $event): void
     {
+        // The read below runs on every event, so an engine that is off skips it.
+        if (!$this->engine->isOn()) {
+            return;
+        }
+
         $card = $event->card;
         $this->trigger->forCards(array_values(array_filter(
             [$card->id, $card->parent?->id, ...array_map(static fn (Card $blocked) => $blocked->id, $this->cards->findBlockedBy($card))],
