@@ -122,6 +122,7 @@ rules:
       slot: in-review
       when:
           all:
+              - pr.open: {}
               - pr.behind: {}
               - any:
                     - pr.approval_covers_head: { min: 1 }

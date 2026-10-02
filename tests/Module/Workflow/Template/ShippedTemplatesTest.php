@@ -269,6 +269,9 @@ final class ShippedTemplatesTest extends KernelTestCase
 
         $intoDefault = FactsMother::pullRequest(checks: ChecksState::Passed, behind: true);
         self::assertNotContainsEquals($update, $this->actions(FactsMother::facts(card: $child, pullRequest: $intoDefault, pullRequests: [$intoDefault])));
+
+        $merged = FactsMother::pullRequest(state: PullRequestState::Merged, checks: ChecksState::Passed, approvalsCoveringHead: 1, behind: true, baseIsEpicBranch: true);
+        self::assertNotContainsEquals($update, $this->actions(FactsMother::facts(card: $child, pullRequest: $merged, pullRequests: [$merged])));
     }
 
     private function shipped(): ShippedTemplates
