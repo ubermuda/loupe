@@ -2,7 +2,7 @@
 {% set usage = card_usage_total(project, cardId) %}
 {% set held = card_held(project, cardId) %}
 {% set canManage = is_granted('project.manage', project) %}
-<turbo-frame id="card-worker-runs" class="lp-live-frame" target="_top" data-worker-run-refresh-target="frame">
+<turbo-frame id="card-worker-runs" class="lp-live-frame" target="_top">
 {# A card with no open run can still have usage, a hold or a refused command. #}
 {% if runs is not empty or usage.known or held or commandErrors|default([]) is not empty %}
 <section class="lp-card-overview__section" data-card-runs>
@@ -25,6 +25,7 @@
             <a class="lp-card-run" href="{{ path('app_project_worker_runs', {id: project.id, search: item.run.id}) }}" data-turbo-frame="_top" data-card-run="{{ item.run.id }}">
                 <span class="lp-card-run__rule">{{ item.run.ruleName }}</span>
                 {% if item.interactive %}<span class="lp-tag lp-tag--neutral lp-card-run__kind">{{ 'bridge.worker_runs.interactive'|trans }}</span>{% endif %}
+                {% if item.command %}<span class="lp-tag lp-tag--neutral lp-card-run__kind" data-worker-run-command>{{ 'bridge.worker_runs.command'|trans }}</span>{% endif %}
                 {% set shownAt = item.run.startedAt ?? item.run.receivedAt %}
                 <span class="lp-card-run__meta"><time datetime="{{ shownAt|date('c') }}">{{ shownAt|relative_time }}</time>{% if item.duration() is not null %} · {% if item.interactive and item.state.isOpen() %}{{ 'bridge.worker_runs.running_for'|trans({'%duration%': item.duration()}) }}{% else %}{{ item.duration() }}{% endif %}{% endif %}{% if item.isResume %} · <span data-worker-run-resume>{{ 'bridge.worker_runs.resume'|trans({'%index%': item.run.resumeIndex, '%cap%': item.run.resumeCap}) }}</span>{% endif %}</span>
                 {% if control and control.label %}{% set controlLabel = control.label|trans(control.labelParameters) %}<span class="lp-worker-run-control-label{{ control.labelWarns ? ' lp-worker-run-control-label--warns' : '' }}" title="{{ controlLabel }}" data-worker-run-control-label>{{ controlLabel }}</span>{% endif %}

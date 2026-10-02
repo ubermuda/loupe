@@ -12,7 +12,9 @@ A rule on `inbox.ask_closed` resumes the session of a worker that asked the
 owner a question, as [Resume action](#resume-action) describes. A rule on
 `document.review_submitted` can start a fix round on the card of a reviewed
 document. A rule with `action: interactive` opens an interactive session in a
-terminal instead, as [Interactive action](#interactive-action) describes.
+terminal instead, as [Interactive action](#interactive-action) describes. A
+rule with `action: command` runs a command with no agent, as
+[Command action](#command-action) describes.
 [Installing the CLI](../getting-started/cli.md) says how to install a release,
 and `just cli-build` builds one from source. See
 [`cli/README.md`](../../cli/README.md) for the commands, the flags and the rule
@@ -610,9 +612,9 @@ its fields, the failure events included.
 
 ## Pause, stop and resume
 
-The server can pause a bridge, and stop or resume one of its runs. Each
-heartbeat tells the server that the bridge takes these commands, with
-`capabilities: ["commands"]`.
+The server can pause a bridge, stop or resume one of its runs, and run a
+failed command run again. Each heartbeat tells the server that the bridge takes
+these commands, with `capabilities: ["commands", "rerun-command"]`.
 [Pause and commands](../reference/bridge-heartbeat.md#pause-and-commands)
 describes the protocol.
 
@@ -633,8 +635,19 @@ Docker container.
 A resume continues the session of a run that ended, with a fixed prompt. The
 bridge refuses it when the card left the column of the run, or when this
 machine holds no transcript of the session. The new run reports the trigger
-`bridge.command`. [Pause and commands](../../cli/README.md#pause-and-commands)
-in `cli/README.md` gives every rule and log event.
+`bridge.command`.
+
+A rerun runs the command of a [command run](#command-action) again, after the
+run ended as `failed`, `timed-out` or `lost`. The person selects **Run again**
+on the run. The bridge queues the command as a new run that continues the
+failed run, with the trigger `bridge.command`. It refuses the rerun when the
+rule of the run is gone or no longer runs a command, and when the card has a
+run that is open on this bridge. It also refuses a command that reads a value
+of its first event other than the card and the project, because a rerun has no
+such value. A bridge that does not report the
+`rerun-command` capability gets no rerun, and the web UI disables the control.
+[Pause and commands](../../cli/README.md#pause-and-commands) in `cli/README.md`
+gives every rule and log event.
 
 ## Before command
 
@@ -652,6 +665,49 @@ only when the session has no transcript on this machine, or when the recorded
 folder is gone. A recorded folder that the bridge cannot read fails the resume.
 [The before command](../../cli/README.md#the-before-command) in
 `cli/README.md` gives the fields, the timeouts and the folder contract.
+
+## Command action
+
+A rule with `action: command` runs a command for the card, and starts no agent.
+Use it for a step that needs no judgement, such as the teardown of a card's
+worktree when the card reaches `done`:
+
+```yaml
+rules:
+  - name: teardown
+    on: board.card_moved
+    project: my-app
+    to: done
+    action: command
+    run: ["bin/teardown.sh", "{cardNumber}"]
+```
+
+`run` is an argv list, and no shell reads it. Each element takes the
+placeholders that a prompt takes for the rule's event type. The command runs in
+the project's `dir`, with the bridge's environment. `timeout` defaults to `10m`,
+and the rule check refuses more than `60m`.
+
+The action works on `board.card_moved`, `document.review_submitted` and the
+`pull_request.*` events, because its run needs a card. The rule check refuses
+`prompt`, `model`, `permissionMode`, `resume`, `resultFields`, `experiment`,
+`workerPool`, `maxResumes` and `before` on a command rule. A command run never
+counts toward `maxChain`.
+
+A command takes no worker slot. It holds its card, so it waits for a worker of
+the card that runs, and a worker that arrives later waits for it. Commands on
+different cards run at the same time. The run reports `queued`, then `running`
+with no session. It ends as `succeeded` on exit code 0, and as `failed`
+otherwise. A timeout, a kill, or a command that never starts gives the exit
+code `-1`. The output of a failed run starts with the reason, and the end of the
+command's output follows. Each report carries `"kind": "command"`, as
+[Reporting a run state](../reference/worker-runs.md#reporting-a-run-state)
+says.
+
+The bridge does not retry a failed command. A person can select **Run again**,
+as [Pause, stop and resume](#pause-stop-and-resume) says. A command that runs
+when the bridge updates itself is handed over, and the new image waits for it.
+[The command action](../../cli/README.md#the-command-action) in
+`cli/README.md` gives every field and the queue rules.
 
 ## Hooks
 

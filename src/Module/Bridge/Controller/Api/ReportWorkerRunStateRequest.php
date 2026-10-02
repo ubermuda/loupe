@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Bridge\Controller\Api;
 
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -19,6 +20,9 @@ final class ReportWorkerRunStateRequest
 {
     /** The bridge sends these when a run is dropped. */
     public const array DROP_REASONS = ['shutdown', 'rule_dead', 'reload'];
+
+    /** The kinds a bridge reports. A person opens an interactive run, never a bridge. */
+    public const array BRIDGE_KINDS = ['worker', 'command'];
 
     /** The status a worker gives in its structured result. */
     public const array RESULT_STATUSES = ['finished', 'blocked', 'unfinished', 'waiting'];
@@ -126,6 +130,10 @@ final class ReportWorkerRunStateRequest
         /** Null from a bridge that predates triggers, and on any report but the first queued one. */
         #[Assert\Valid]
         public ?WorkerRunTriggerInput $trigger = null,
+
+        /** Null from a bridge that predates command rules, which runs workers alone. */
+        #[Assert\Choice(choices: self::BRIDGE_KINDS)]
+        public ?string $kind = null,
     ) {
     }
 
@@ -148,7 +156,7 @@ final class ReportWorkerRunStateRequest
             return;
         }
 
-        if (null === $this->sessionId || '' === $this->sessionId) {
+        if (WorkerRunKind::Command !== $this->kind() && (null === $this->sessionId || '' === $this->sessionId)) {
             $context->buildViolation('A running run names its session.')->atPath('sessionId')->addViolation();
         }
 
@@ -222,15 +230,15 @@ final class ReportWorkerRunStateRequest
             $context->buildViolation('A run that exited has no failure reason.')->atPath('failureReason')->addViolation();
         }
 
-        if (null === $this->exitCode && null !== $this->hasResult) {
+        if (null === $this->exitCode && null !== $this->hasResult()) {
             $context->buildViolation('A run with no exit code has no result flag.')->atPath('hasResult')->addViolation();
         }
 
-        if (null !== $this->resultStatus && true !== $this->hasResult) {
+        if (null !== $this->resultStatus && true !== $this->hasResult()) {
             $context->buildViolation('A result status needs the result flag.')->atPath('resultStatus')->addViolation();
         }
 
-        $implied = WorkerRunState::fromOutcome($this->exitCode, $this->hasResult, $this->resultStatus);
+        $implied = WorkerRunState::fromOutcome($this->exitCode, $this->hasResult(), $this->resultStatus);
         $matches = WorkerRunState::GaveUp === $state
             ? \in_array($implied, [WorkerRunState::Failed, WorkerRunState::NoResult, WorkerRunState::Unfinished], true)
             : $implied === $state;
@@ -254,6 +262,18 @@ final class ReportWorkerRunStateRequest
         if (null !== $this->startedAt && null !== $end && $end < $this->startedAt) {
             $context->buildViolation('A run cannot end before it starts.')->atPath(null === $this->endedAt ? 'at' : 'endedAt')->addViolation();
         }
+    }
+
+    /** A kind outside the choice reads as a worker, which matters only to a callback that runs before the choice fails. */
+    public function kind(): WorkerRunKind
+    {
+        return 'command' === $this->kind ? WorkerRunKind::Command : WorkerRunKind::Worker;
+    }
+
+    /** A command prints no result line, so the flag a bridge sends for it says nothing. */
+    public function hasResult(): ?bool
+    {
+        return WorkerRunKind::Command === $this->kind() ? null : $this->hasResult;
     }
 
     public function state(): WorkerRunState

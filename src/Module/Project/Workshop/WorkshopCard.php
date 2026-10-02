@@ -21,6 +21,8 @@ final readonly class WorkshopCard
         public ?string $kind,
         /** When the open run started, or when it began to wait for a start. */
         public \DateTimeImmutable $since,
+        /** The open run is a command that a rule runs with no agent. */
+        public bool $command = false,
     ) {
     }
 }

@@ -37,6 +37,9 @@ class Bridge
 
     public const string CAPABILITY_PATTERN = '/^[a-z][a-z0-9-]{0,39}$/D';
 
+    /** The capability of a bridge that runs a command run again. */
+    public const string CAPABILITY_RERUN_COMMAND = 'rerun-command';
+
     /** Null when the last heartbeat carried no update report. */
     #[ORM\Column(name: 'update_state', length: 20, nullable: true, enumType: CliUpdateState::class)]
     public ?CliUpdateState $updateState = null;
@@ -124,5 +127,10 @@ class Bridge
     public function takesCommands(): bool
     {
         return \in_array(self::CAPABILITY_COMMANDS, $this->capabilities ?? [], true);
+    }
+
+    public function takesReruns(): bool
+    {
+        return $this->takesCommands() && \in_array(self::CAPABILITY_RERUN_COMMAND, $this->capabilities ?? [], true);
     }
 }

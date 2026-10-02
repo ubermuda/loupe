@@ -369,7 +369,7 @@ func TestTheHeartbeatCarriesThePauseAndTheCapabilities(t *testing.T) {
 	defer client.mu.Unlock()
 	var got []bool
 	for i, hb := range client.sent {
-		if hb.Paused == nil || !slices.Equal(hb.Capabilities, []string{"commands"}) {
+		if hb.Paused == nil || !slices.Equal(hb.Capabilities, []string{"commands", "rerun-command"}) {
 			t.Fatalf("heartbeat %d = %+v", i, hb)
 		}
 		got = append(got, *hb.Paused)

@@ -61,7 +61,7 @@ final class ReportWorkerRunStateController extends AppController
             startedAt: $payload->startedAt(),
             endedAt: $payload->endedAt(),
             exitCode: $payload->exitCode,
-            hasResult: $payload->hasResult,
+            hasResult: $payload->hasResult(),
             failureReason: $payload->failureReason(),
             output: $payload->output,
             resultStatus: $payload->resultStatus,
@@ -78,6 +78,7 @@ final class ReportWorkerRunStateController extends AppController
             requestedModel: $payload->requestedModel,
             switchedFrom: $payload->switchedFrom,
             trigger: $payload->trigger?->trigger(),
+            kind: $payload->kind(),
         ));
 
         if (null === $result->run) {

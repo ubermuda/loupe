@@ -73,7 +73,7 @@ func withStartDirs(h *harness, dirs map[string]string) *startDirs {
 func TestAResumeStartsInTheFolderItsConversationStartedIn(t *testing.T) {
 	h := newHarnessWith(t, resumeDirRules, rules.Defaults{})
 	recorded := t.TempDir()
-	f := &fakeBefore{result: beforeResult{dir: t.TempDir()}}
+	f := &fakeBefore{result: procResult{dir: t.TempDir()}}
 	h.router.worker.before = f.run
 	lookups := withStartDirs(h, map[string]string{askSession: recorded})
 
@@ -95,7 +95,7 @@ func TestAResumeWhoseFolderIsGoneStartsAFreshSession(t *testing.T) {
 	h := newHarnessWith(t, resumeDirRules, rules.Defaults{})
 	rec := h.states()
 	folder := t.TempDir()
-	f := &fakeBefore{result: beforeResult{dir: folder}}
+	f := &fakeBefore{result: procResult{dir: folder}}
 	h.router.worker.before = f.run
 	withStartDirs(h, map[string]string{askSession: filepath.Join(t.TempDir(), "gone")})
 
@@ -133,7 +133,7 @@ func TestAResumeWhoseFolderIsGoneStartsAFreshSession(t *testing.T) {
 func TestAResumeWithNoTranscriptStartsInTheBeforeFolder(t *testing.T) {
 	h := newHarnessWith(t, resumeDirRules, rules.Defaults{})
 	folder := t.TempDir()
-	h.router.worker.before = (&fakeBefore{result: beforeResult{dir: folder}}).run
+	h.router.worker.before = (&fakeBefore{result: procResult{dir: folder}}).run
 	withStartDirs(h, nil)
 
 	h.send(fix{card: 87, session: askSession, bridge: testBridgeID}.payload())
@@ -159,7 +159,7 @@ func TestAResumeWithNoBeforeStartsInTheRecordedFolder(t *testing.T) {
 // A run that starts a new session never reads a transcript.
 func TestANewSessionNeverReadsATranscript(t *testing.T) {
 	h := newHarnessWith(t, resumeDirRules, rules.Defaults{})
-	h.router.worker.before = (&fakeBefore{result: beforeResult{dir: t.TempDir()}}).run
+	h.router.worker.before = (&fakeBefore{result: procResult{dir: t.TempDir()}}).run
 	lookups := withStartDirs(h, nil)
 
 	h.send(cardMoved(87))
@@ -175,7 +175,7 @@ func TestANewSessionNeverReadsATranscript(t *testing.T) {
 func TestAnUnfinishedRunWhoseFolderIsGoneStartsAFreshSession(t *testing.T) {
 	h := newHarnessWith(t, resumeDirRules, rules.Defaults{})
 	folder := t.TempDir()
-	h.router.worker.before = (&fakeBefore{result: beforeResult{dir: folder}}).run
+	h.router.worker.before = (&fakeBefore{result: procResult{dir: folder}}).run
 	withStartDirs(h, map[string]string{testSession: filepath.Join(t.TempDir(), "gone")})
 	h.worker.results = []workerResult{unfinishedRun}
 	h.worker.result = finishedRun
@@ -216,7 +216,7 @@ func TestAnAdoptedResumeStartsInTheFolderItsConversationStartedIn(t *testing.T) 
 	h2.states()
 	recorded := t.TempDir()
 	withStartDirs(h2, map[string]string{askSession: recorded})
-	h2.router.worker.adoptBefore = func(context.Context, string) beforeResult { return beforeResult{dir: t.TempDir()} }
+	h2.router.worker.adoptBefore = func(context.Context, string) procResult { return procResult{dir: t.TempDir()} }
 	h2.router.adopt(st)
 	h2.router.wg.Wait()
 

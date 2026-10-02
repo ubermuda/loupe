@@ -82,6 +82,7 @@ final readonly class ReportWorkerRunStateHandler
                     resumeIndex: $command->resumeIndex,
                     resumeCap: $command->resumeCap,
                     cardColumn: $command->cardColumn,
+                    kind: $command->kind,
                 );
                 if (null !== $command->trigger) {
                     self::recordTrigger($run, $command->trigger);

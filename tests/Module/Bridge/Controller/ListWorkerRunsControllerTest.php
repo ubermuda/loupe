@@ -736,6 +736,61 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         self::assertStringStartsWith('running for ', trim($openRow->text()));
     }
 
+    /** A command run has no agent, so its row says so and its drawer shows no session. */
+    public function test_a_command_run_shows_the_command_tag_and_no_session(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'command-run-owner@example.com');
+        $project = $this->project($em, $owner, 'Command Runs');
+        $command = $this->seedRun($em, $project, cardNumber: 12, exitCode: -1, ruleName: 'sync', runKey: Uuid::v4(), kind: WorkerRunKind::Command);
+        $worker = $this->seedRun($em, $project, cardNumber: 13);
+
+        $projectId = (string) $project->id;
+        $commandId = (string) $command->id;
+        $workerId = (string) $worker->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $row = $crawler->filter('[data-worker-run-id="'.$commandId.'"]');
+        self::assertSame('Command', $row->filter('.lp-data-table__primary [data-worker-run-command]')->text());
+        self::assertCount(1, $row->filter('dialog [data-worker-run-command]'));
+        self::assertStringNotContainsString('Session', $row->filter('.lp-run-drawer__metadata')->text());
+        self::assertStringNotContainsString('bridge does not report', $row->filter('dialog')->text());
+        self::assertCount(0, $crawler->filter('[data-worker-run-id="'.$workerId.'"] [data-worker-run-command]'));
+    }
+
+    public function test_a_failed_command_run_offers_to_run_again(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+
+        $owner = $this->user($em, 'command-rerun-owner@example.com');
+        $project = $this->project($em, $owner, 'Command Rerun');
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id]);
+        $bridge->capabilities = [Bridge::CAPABILITY_COMMANDS, Bridge::CAPABILITY_RERUN_COMMAND];
+        $em->flush();
+        $run = $this->seedRun($em, $project, exitCode: -1, ruleName: 'sync', bridgeId: $bridge->id, runKey: Uuid::v4(), kind: WorkerRunKind::Command);
+
+        $projectId = (string) $project->id;
+        $runId = (string) $run->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+
+        self::assertResponseIsSuccessful();
+        $form = $crawler->filter('[data-worker-run-id="'.$runId.'"] form[data-worker-run-control="rerun"]');
+        self::assertCount(1, $form);
+        self::assertSame('/projects/'.$projectId.'/worker-runs/'.$runId.'/rerun', $form->attr('action'));
+        self::assertSame('Run again', trim($form->filter('button')->text()));
+        self::assertNull($form->filter('button')->attr('disabled'));
+    }
+
     public function test_an_interactive_run_a_bridge_launched_shows_the_bridge_and_the_kind(): void
     {
         $client = static::createClient();

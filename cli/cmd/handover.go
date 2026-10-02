@@ -69,6 +69,8 @@ type handoverPending struct {
 	SessionID string `json:"sessionId,omitempty"`
 	Prompt    string `json:"prompt,omitempty"`
 	Pool      string `json:"pool,omitempty"`
+	// Action is the action of the rule, and empty for a worker.
+	Action string `json:"action,omitempty"`
 }
 
 // handoverSeries is where a run stands in its series of resumes.
@@ -115,7 +117,8 @@ type handoverRun struct {
 	// runPin is the variant of a run in an experiment, which its outcome names.
 	runPin
 	// Phase is phaseBefore while the rule's before command runs, with what
-	// claude takes once it ends. An older image writes no phase.
+	// claude takes once it ends, and phaseCommand for the command of a command
+	// rule. An older image writes no phase.
 	Phase          string `json:"phase,omitempty"`
 	Prompt         string `json:"prompt,omitempty"`
 	PermissionMode string `json:"permissionMode,omitempty"`
@@ -123,8 +126,12 @@ type handoverRun struct {
 	Schema         string `json:"schema,omitempty"`
 }
 
-// phaseBefore is the phase of a run whose before command runs.
-const phaseBefore = "before"
+// phaseBefore is the phase of a run whose before command runs, and
+// phaseCommand the phase of a command run.
+const (
+	phaseBefore  = "before"
+	phaseCommand = "command"
+)
 
 // heldEvent is a stream event that arrived after a freeze. replayed marks an
 // event of a catch-up.
@@ -271,7 +278,7 @@ func (r *router) drain(ctx context.Context, timeout time.Duration) error {
 
 func (r *router) inFlight() (reports, checks, gates, starting, launches, stops, commands int) {
 	r.mu.Lock()
-	checks, gates, starting, launches, stops, commands = r.checking, r.gating, r.usedLocked()-len(r.live), r.launching, len(r.stops), r.commanding
+	checks, gates, starting, launches, stops, commands = r.checking, r.gating, r.usedLocked()+r.commandRuns-len(r.live), r.launching, len(r.stops), r.commanding
 	r.mu.Unlock()
 	if r.reports != nil {
 		reports = r.reports.Pending()
@@ -319,7 +326,7 @@ func (r *router) freeze() handoverState {
 	for _, p := range r.queue {
 		q := handoverPending{
 			Event: p.event, Rule: p.rule, Key: p.key, RunID: p.runID, Seq: p.seq, Checked: p.checked, DropReason: p.dropReason, Fresh: p.fresh,
-			Pool: p.pool, handoverSeries: seriesOf(p),
+			Pool: p.pool, handoverSeries: seriesOf(p), Action: p.action,
 		}
 		if p.continues != "" {
 			q.SessionID, q.Prompt = p.spec.sessionID, p.spec.prompt
@@ -332,7 +339,10 @@ func (r *router) freeze() handoverState {
 			Began: run.began, PID: run.proc.pid, Dir: run.proc.dir, Seq: run.p.seq, Resume: run.p.spec.resume, Fresh: run.p.fresh,
 			Pool: run.p.slot, handoverSeries: seriesOf(run.p), runPin: run.p.pin,
 		}
-		if run.before {
+		switch {
+		case run.p.isCommand():
+			h.Phase = phaseCommand
+		case run.before:
 			h.Phase, h.Prompt, h.PermissionMode, h.Model, h.Schema = phaseBefore, run.p.spec.prompt, run.p.spec.permissionMode, run.p.spec.model, run.p.spec.schema
 		}
 		st.Live = append(st.Live, h)
@@ -372,7 +382,7 @@ func (r *router) adopt(st handoverState) {
 	for _, q := range st.Queue {
 		p := pending{
 			key: q.Key, rule: q.Rule, event: q.Event, runID: q.RunID, seq: q.Seq, checked: q.Checked, dropReason: q.DropReason, fresh: q.Fresh,
-			pool: q.Pool,
+			pool: q.Pool, action: q.Action,
 		}
 		q.applyTo(&p)
 		if p.continues != "" {
@@ -397,6 +407,15 @@ func (r *router) adoptLocked(run handoverRun) {
 	p := pending{key: run.Key, rule: run.Rule, event: run.Event, runID: run.RunID, seq: run.Seq, fresh: run.Fresh, pin: run.runPin}
 	run.applyTo(&p)
 	p.spec.sessionID, p.spec.resume = run.SessionID, run.Resume
+	// A command run takes no slot.
+	if run.Phase == phaseCommand {
+		p.action = rules.ActionCommand
+		r.hold(p.key)
+		r.commandRuns++
+		r.adoptCommandLocked(p, run)
+
+		return
+	}
 	p.pool = run.Pool
 	if p.pool == "" {
 		m, _ := r.rules().MatchRule(run.Event, run.Rule)

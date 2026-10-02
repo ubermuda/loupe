@@ -142,13 +142,69 @@ The loop does not replace a skill that exists. For each `exists:` line, ask the 
 
 ## 8. Check
 
-Run `loupe status`. It asks Loupe for the current project and prints its name. It checks the sign-in and the project of this repository. It does not check the command that your agent starts, so step 9 is still necessary.
+Run `loupe status`. It asks Loupe for the current project and prints its name. It checks the sign-in and the project of this repository. It does not check the command that your agent starts, so step 10 is still necessary.
 
 If the command is unknown, run `loupe update`, then run `loupe status` again. If it is still unknown, skip this step.
 
 If `loupe status` fails, show its output to the user and stop.
 
-## 9. Finish
+## 9. Worker folders
+
+`loupe bridge` starts workers from the rules in a rule file. A worker can run in its own folder, such as a git worktree for each card. This step adds a command that makes that folder to the rules of this repository.
+
+This command prints the path of the rule file. The file is beside `config.json` of step 4:
+
+```bash
+if [ "$(uname -s)" = Darwin ]; then echo "$HOME/Library/Application Support/loupe/rules.yaml"; else echo "${XDG_CONFIG_HOME:-$HOME/.config}/loupe/rules.yaml"; fi
+```
+
+The bridge reads another file when it starts with `--rules <path>`. Ask the user whether they start the bridge with `--rules`. If they do, use that path.
+
+Read the file. Find the entry in `projects` whose `dir` is this repository. A `dir` can start with `~/`. The key of that entry is the project slug.
+
+Find the worker rules whose `project` is that slug. A worker rule has no `action`. A rule with `action: interactive` or `action: command` is not a worker rule, and it cannot take `before`.
+
+If the file, the entry or a worker rule does not exist, change nothing. Tell the user that `loupe bridge` runs workers from rules. Give them https://github.com/ubermuda/loupe/blob/main/cli/README.md#the-before-command for worker folders. Go to step 10.
+
+Ask the user whether each worker gets its own folder or works in the repository folder. If the answer is the repository folder, change nothing and go to step 10.
+
+If each worker gets its own folder, ask the user for two commands. One command makes or refreshes the folder of a card. The other command removes it. Tell the user the contract of the first command:
+
+- The bridge runs it as an argv list, with no shell, in the project `dir`.
+- Its elements can use `{cardNumber}` and `{cardId}`. A rule on `inbox.ask_closed` takes `{cardNumber}` only, and the bridge refuses `{cardId}` there.
+- The last line of standard output that is not empty must be the folder path. A relative path resolves against the project `dir`.
+- An exit code that is not 0 fails the run, and no agent starts.
+- It runs again before each resume, so it must work when the folder already exists.
+
+If the command does not print the path, tell the user. Agree on a fix with the user, such as a small script, before you continue.
+
+Add `before` with `run` to each worker rule that edits code. An implementation rule and a fix-round rule with `resume: true` usually edit code. If the prompt of a rule does not show that, show the rule to the user and ask. If a rule already has `before`, show it to the user and ask before you replace it. The timeout is `15m` by default and `60m` at most. Add `timeout` only when the user says that the setup takes longer. Tell the user that a resumed session still starts in the folder where it began. So a session that began in the repository folder stays there, and new workers use the new folders.
+
+Add one rule that removes the folder. Name it `teardown`, or use another name when a rule already has that name. For example:
+
+```yaml
+rules:
+  - name: implementation
+    on: board.card_moved
+    project: my-app
+    to: implementation
+    before:
+      run: [bin/worktree-for-card.sh, "{cardNumber}", "{cardId}"]
+    prompt: |
+      Card {cardNumber} entered implementation.
+  - name: teardown
+    on: board.card_moved
+    project: my-app
+    to: done
+    action: command
+    run: [bin/remove-worktree.sh, "{cardNumber}"]
+```
+
+`done` is the last column of a new board. You cannot read the board yet, so ask the user if their board gave that column another name. A command rule waits until a running worker of the same card ends. The bridge does not retry a failed command.
+
+Show the changed YAML to the user. Save the file only when the user agrees. Then run `loupe bridge reload`, with `--rules <path>` when the bridge uses another file. Show any error to the user. A socket error means that no bridge runs, and the bridge reads the file when it starts.
+
+## 10. Finish
 
 Tell the user to restart the agent, because an agent reads its MCP servers when it starts. The new session does not see these steps, so give the user this prompt to paste into it:
 

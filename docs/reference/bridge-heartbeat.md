@@ -48,7 +48,7 @@ The path holds no project, because one bridge follows several projects.
 | `hooks` | optional. A list of at most 100 rows, one for each event of each [hook package](../extending/bridge-hooks.md) the bridge runs. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `workerPools` | optional. A list of at most 50 rows, one for each worker pool of the bridge. A missing or `null` value keeps the rows the server holds, and an empty list clears them |
 | `paused` | optional. `true` when the bridge takes no new work now. A missing or `null` value keeps the state the server holds. See [Pause and commands](#pause-and-commands) |
-| `capabilities` | optional. A list of at most 20 names of features the bridge supports. Each name starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens. `commands` says that the bridge takes commands. A missing or `null` value keeps the list the server holds |
+| `capabilities` | optional. A list of at most 20 names of features the bridge supports. Each name starts with a lower-case letter, and holds 1 to 40 lower-case letters, digits and hyphens. `commands` says that the bridge takes commands. `rerun-command` says that the bridge takes a command of the kind `rerun-command`. A missing or `null` value keeps the list the server holds |
 
 Each row of `hooks` holds these fields:
 
@@ -172,8 +172,8 @@ run of that bridge that the list does not name. See
 
 ## Pause and commands
 
-The server can ask a bridge to take no new work, and to stop or resume one
-worker run. The project owner sends these requests from the web UI, as
+The server can ask a bridge to take no new work, to stop or resume one worker
+run, and to run the command of a failed command run again. The project owner sends these requests from the web UI, as
 [Controls in the web UI](worker-runs.md#controls-in-the-web-ui) says.
 
 A pause is a state of the bridge row. `paused` in the heartbeat reply says
@@ -181,7 +181,7 @@ whether the server asks the bridge to pause. `paused` in the heartbeat body says
 what the bridge does now. A pause never expires, so a bridge that was off
 applies it when it comes back.
 
-A stop or a resume is a command. The server stores it as pending and sends a
+A stop, a resume or a rerun is a command. The server stores it as pending and sends a
 `bridge.command` event on the topic of the project. The heartbeat reply lists
 the pending commands of the bridge again in `commands`, so a bridge that missed
 the event gets it at its next heartbeat. The bridge ignores a command it already
@@ -193,7 +193,7 @@ holds, by `commandId`. Each command carries these fields:
 | `projectId` | the project of the run |
 | `subject` | `{"type":"bridge-command","id":<commandId>}` |
 | `commandId` | the id of the command |
-| `kind` | `stop-run` or `resume-run` |
+| `kind` | `stop-run`, `resume-run` or `rerun-command` |
 | `bridgeId` | the bridge that must act. Another bridge drops the event |
 | `runKey`, `sessionId` | the run and its session, or `null` when the run has none |
 | `cardId`, `cardNumber`, `ruleName`, `cardColumn` | the card and the rule of the run |
@@ -206,6 +206,12 @@ and you change it at **`/admin/feature-flags`**. The default is 15 minutes, from
 below 1 reads as the default. A task runs each minute and marks each pending
 command past its time `expired`. `app.bridge.command_expiry_schedule` in the
 same file sets when that task runs.
+
+A `rerun-command` command names a command run that ended as `failed`,
+`timed-out` or `lost`. The bridge runs the command of the run's rule again, as
+a new run that continues that run. The server sends a rerun only to a bridge
+that reports both the `commands` and the `rerun-command` capabilities. A rerun
+holds no card, because the bridge starts a new run.
 
 ### Stop timings
 
@@ -243,6 +249,16 @@ as the heartbeat.
 
 A pending command takes the state. A command that is already `done`, `refused`,
 `expired` or `cancelled` keeps its state, so a second answer changes nothing.
+A `done` answer to a resume or a rerun ends the hold of the card, unless a stop
+of the card followed the request.
+
+The bridge refuses a rerun with one of these reasons:
+
+| Reason | When |
+|---|---|
+| The rule of the run no longer runs a command on this bridge. | the rule is gone, or it no longer has `action: command` |
+| The card has a run that is still open on this bridge. | a run of the card runs or waits in the queue, a rerun of the same run included |
+| The command of the rule needs values that only its first event held: `{to}` | the `run` of the rule names a placeholder other than `{cardId}`, `{cardNumber}`, `{projectId}` and `{project}`, and the reason lists each one |
 The server writes a `bridge.command_settled` record to the audit log when an
 answer settles a command.
 

@@ -84,7 +84,7 @@ trait BridgeScenario
             ruleName: $ruleName,
             state: $state ?? WorkerRunState::fromOutcome($exitCode, $hasResult),
             runKey: $runKey,
-            sessionId: Uuid::v4(),
+            sessionId: WorkerRunKind::Command === $kind ? null : Uuid::v4(),
             startedAt: new \DateTimeImmutable('2026-01-01 10:00:00'),
             endedAt: new \DateTimeImmutable('2026-01-01 10:05:00'),
             exitCode: $exitCode,

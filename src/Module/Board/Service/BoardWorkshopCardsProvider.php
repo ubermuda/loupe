@@ -59,6 +59,7 @@ final readonly class BoardWorkshopCardsProvider implements WorkshopCardsProvider
                 $run->state->chipModifier(),
                 WorkerRunKind::Interactive === $run->kind ? null : trim($run->ruleName),
                 $run->since,
+                WorkerRunKind::Command === $run->kind,
             );
         }
 

@@ -135,8 +135,11 @@ type router struct {
 	busy bool
 	// inUse counts the worker slots taken in each pool, by the pool the run
 	// started in.
-	inUse  map[string]int
-	closed bool
+	inUse map[string]int
+	// commandRuns counts the command runs that hold their card, from dispatch
+	// to their end. They take no slot.
+	commandRuns int
+	closed      bool
 	// claude is the absolute path a launch script runs, which a reload swaps
 	// with the set. launching counts the launches whose report is not queued.
 	claude    string
@@ -283,12 +286,15 @@ func (p *pending) apply(m rules.Match) {
 	p.experiment, p.pin = m.Experiment, runPin{}
 	if p.continues != "" {
 		p.spec.dir, p.spec.permissionMode, p.spec.model, p.spec.schema = m.Dir, m.PermissionMode, m.Model, m.Schema
-		p.spec.before = m.Before
+		p.spec.before, p.spec.command = m.Before, m.Command
 
 		return
 	}
 	p.maxResumes = m.MaxResumes
-	p.spec = workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt, resume: m.Resume && !p.fresh, before: m.Before}
+	p.spec = workerSpec{
+		dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, schema: m.Schema, prompt: m.Prompt, resume: m.Resume && !p.fresh,
+		before: m.Before, command: m.Command,
+	}
 }
 
 // sessionCard is the key a session's worker ran under, its card when the
@@ -312,11 +318,19 @@ const resumeDelay = time.Minute
 const maxResultFields = 4000
 
 // matchWorker matches a run against its rule by name. A rule that now opens an
-// interactive session starts no worker, so the run no longer matches.
+// interactive session or runs a command starts no worker, so the run no
+// longer matches.
 func matchWorker(set *rules.Set, e event.Event, name string) (rules.Match, bool) {
+	return matchAction(set, e, name, "")
+}
+
+// matchAction matches a run against its rule by name, and only while the rule
+// keeps the action of the run. A queued worker never turns into a command, nor
+// a command into a worker.
+func matchAction(set *rules.Set, e event.Event, name, action string) (rules.Match, bool) {
 	m, ok := set.MatchRule(e, name)
 
-	return m, ok && m.Action != rules.ActionInteractive
+	return m, ok && m.Action == action
 }
 
 // keyFor keys the running worker and the chain counters by the subject id,
@@ -801,7 +815,9 @@ func (r *router) enqueue(p pending) {
 		return
 	}
 	p.column = r.columnLocked(p.event)
-	if p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
+	// A command never counts toward the cap, so a count left by a worker rule
+	// of the same name before a reload never refuses it.
+	if !p.isCommand() && p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
 		r.log.Warn("chain_capped", append(about(p.event, p.rule),
 			"worker_pool", p.pool,
 			"max_chain", p.maxChain,
@@ -896,6 +912,16 @@ func (r *router) dispatchLocked() []pending {
 			r.queue = slices.Delete(r.queue, i, i+1)
 			r.hold(next.key)
 			r.check(next)
+
+			continue
+		}
+		// A command takes no worker slot and never counts toward the chain
+		// cap. It holds its card, so a worker of the card waits for it.
+		if next.isCommand() {
+			r.queue = slices.Delete(r.queue, i, i+1)
+			r.hold(next.key)
+			r.commandRuns++
+			r.start(next)
 
 			continue
 		}
@@ -1039,6 +1065,16 @@ func (r *router) countChain(key, rule string) {
 // admits the next worker runs before wg.Done, so a waiter never sees the count
 // reach zero between two queued workers.
 func (r *router) start(p pending) {
+	if p.isCommand() {
+		p.spec.runID, p.spec.rule, p.spec.key = p.runID, p.rule, p.key
+		r.wg.Add(1)
+		go func() {
+			defer r.wg.Done()
+			r.execute(p)
+		}()
+
+		return
+	}
 	args := append(about(p.event, p.rule), "worker_pool", p.slot)
 	switch {
 	case p.continues != "":
@@ -1224,7 +1260,7 @@ func (r *router) prepare(p pending) {
 	}
 	timeout := cmp.Or(p.spec.before.Timeout, rules.DefaultBeforeTimeout)
 	ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
-	res := run(ctx, beforeSpec{argv: p.spec.before.Argv, dir: p.spec.dir, runID: p.runID}, onStart)
+	res := run(ctx, procSpec{argv: p.spec.before.Argv, dir: p.spec.dir, runID: p.runID}, onStart)
 	cancel()
 	r.afterBefore(p, began, res)
 }
@@ -1233,7 +1269,7 @@ func (r *router) prepare(p pending) {
 // the run when the command failed, a person stopped the run or the bridge
 // shuts down. A handover in progress holds the start back and keeps the run
 // in its before phase, so the next image adopts it from its files.
-func (r *router) afterBefore(p pending, began time.Time, res beforeResult) {
+func (r *router) afterBefore(p pending, began time.Time, res procResult) {
 	failure := res.failure()
 	r.quiesce.RLock()
 	r.mu.Lock()
@@ -1271,22 +1307,12 @@ func (r *router) afterBefore(p pending, began time.Time, res beforeResult) {
 	if failure == "" && shut {
 		failure, res.killed = "the bridge shut down before the agent started", true
 	}
-	// The reason comes first, and the end of the output fills the room left.
-	out := &capWriter{limit: maxOutput}
-	_, _ = out.Write([]byte(failure))
-	sep := "\n"
-	if failure == "" {
-		sep = ""
-	}
-	if room := maxOutput - len(failure) - len(sep); res.output != "" && room > len(truncatedMark) {
-		_, _ = out.Write([]byte(sep + tailOf(res.output, room)))
-	}
 	// The server reads a failed run from a non-zero exit code alone.
 	code := res.exitCode
 	if code == 0 {
 		code = -1
 	}
-	failed := workerResult{exitCode: code, output: out.text(), killed: res.killed && !res.timedOut, dir: res.runDir, before: true}
+	failed := workerResult{exitCode: code, output: failedOutput(failure, res.output), killed: res.killed && !res.timedOut, dir: res.runDir, before: true}
 	r.settle(p, endedRun{res: failed, began: began, elapsed: time.Since(began)})
 }
 
@@ -1405,7 +1431,9 @@ type endedRun struct {
 // reason the run is worth a resume. An empty reason means no resume.
 func classify(res workerResult) (string, string) {
 	switch {
-	case res.before || res.resumeGone:
+	case res.command && res.exitCode == 0:
+		return api.RunSucceeded, ""
+	case res.command, res.before, res.resumeGone:
 		return api.RunFailed, ""
 	case res.err != nil:
 		return api.RunNotStarted, ""
@@ -1466,11 +1494,22 @@ func (r *router) end(p pending, e endedRun) {
 	}
 	r.emitLocked(p, r.outcome(p, e))
 	delete(r.running, p.key)
-	r.releaseLocked(p.slot)
+	r.freeLocked(p)
 	dropped := r.dispatchLocked()
 	r.mu.Unlock()
 
 	r.logDropped(dropped)
+}
+
+// freeLocked gives back what the run held to run: its worker slot, or its
+// count as a command run. The caller holds mu.
+func (r *router) freeLocked(p pending) {
+	if p.isCommand() {
+		r.commandRuns--
+
+		return
+	}
+	r.releaseLocked(p.slot)
 }
 
 // endStoppedLocked reports a run that a person stopped as stopped, however it
@@ -1480,7 +1519,7 @@ func (r *router) endStoppedLocked(p pending, e endedRun) bool {
 	if !r.stops[p.runID] {
 		return false
 	}
-	r.releaseLocked(p.slot)
+	r.freeLocked(p)
 	r.closeStoppedLocked(p, r.stoppedReport(p, e), true)
 	dropped := r.dispatchLocked()
 	r.mu.Unlock()
@@ -1986,6 +2025,9 @@ func (r *router) emitLocked(p pending, report api.RunStateReport) {
 	report.BridgeID, report.At = r.bridgeID, time.Now()
 	report.CardID, report.CardNumber, report.RuleName = cardID, cardNumber, p.rule
 	report.WorkerPool = cmp.Or(p.slot, p.pool)
+	if p.isCommand() {
+		report.Kind = api.RunKindCommand
+	}
 	// The pin is known once the run starts, so a queued run sends none.
 	if report.State == api.RunRunning || api.IsOutcome(report.State) {
 		report.Experiment, report.Variant = p.pin.Experiment, p.pin.Variant
@@ -2030,6 +2072,10 @@ func (r *router) logResult(p pending, res workerResult, elapsed time.Duration) {
 		"output", res.output,
 	)
 	switch {
+	case res.command && res.exitCode == 0:
+		r.log.Info("command_finished", append(about(p.event, p.rule), "exit", res.exitCode, "duration_ms", elapsed.Milliseconds(), "output", res.output)...)
+	case res.command:
+		r.log.Error("command_failed", append(about(p.event, p.rule), "exit", res.exitCode, "duration_ms", elapsed.Milliseconds(), "output", res.output)...)
 	case res.before:
 		r.log.Error("before_failed", append(about(p.event, p.rule), "exit", res.exitCode, "duration_ms", elapsed.Milliseconds(), "output", res.output)...)
 	case res.resumeGone:

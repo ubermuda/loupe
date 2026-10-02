@@ -9,6 +9,7 @@ enum WorkerRunAction: string
 {
     case Resume = 'resume';
     case Stop = 'stop';
+    case Rerun = 'rerun';
     case Cancel = 'cancel';
 
     public function translationKey(): string

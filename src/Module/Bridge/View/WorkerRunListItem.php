@@ -19,6 +19,9 @@ final readonly class WorkerRunListItem
 
     public bool $interactive;
 
+    /** A command run has no agent, so it has no session and no cost. */
+    public bool $command;
+
     /** A person may close a running interactive session, and nothing else. */
     public bool $closable;
 
@@ -37,6 +40,7 @@ final readonly class WorkerRunListItem
     ) {
         $this->state = $run->state;
         $this->interactive = WorkerRunKind::Interactive === $run->kind;
+        $this->command = WorkerRunKind::Command === $run->kind;
         $this->closable = $this->interactive && WorkerRunState::Running === $run->state;
         $end = $run->state->isOpen() ? $now : $run->endedAt;
         $this->durationSeconds = null === $run->startedAt || null === $end
