@@ -9,6 +9,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Bridge\Mcp\CardHoldTool;
 use App\Module\Bridge\Mcp\CardReleaseTool;
 use App\Module\Bridge\Repository\CardHoldRepository;
+use App\Module\Bridge\Service\CardColumnLookupInterface;
 use App\Module\Bridge\Service\CardHolds;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -144,6 +145,38 @@ final class CardHoldToolsTest extends KernelTestCase
     public function test_a_release_of_an_unknown_card_is_not_found(): void
     {
         self::assertSame('not-found', $this->release()(number: 4)['code'] ?? null);
+    }
+
+    public function test_a_release_of_a_card_deleted_during_the_call_is_not_found(): void
+    {
+        // The setup builds the lookup, and a built service cannot be replaced.
+        self::ensureKernelShutdown();
+        self::bootKernel();
+        self::getContainer()->set(CardColumnLookupInterface::class, new class implements CardColumnLookupInterface {
+            private int $reads = 0;
+
+            #[\Override]
+            public function columnOf(Project $project, Uuid $cardId): ?string
+            {
+                return 1 === ++$this->reads ? 'implementation' : null;
+            }
+
+            #[\Override]
+            public function cardIdOfNumber(Project $project, int $number): ?Uuid
+            {
+                return null;
+            }
+        });
+        $this->project = $this->em()->find(Project::class, $this->project->id) ?? throw new \LogicException('The setup project exists.');
+        $this->actAsMcpTokenBoundTo($this->project);
+        $cardId = (string) Uuid::v7();
+
+        self::assertSame([
+            'cardId' => $cardId,
+            'outcome' => 'refused',
+            'code' => 'not-found',
+            'message' => \sprintf('Card "%s" not found or not accessible.', $cardId),
+        ], $this->release()($cardId));
     }
 
     public function test_both_arguments_or_neither_are_refused(): void

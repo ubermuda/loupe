@@ -47,6 +47,11 @@ final readonly class CardReleaseTool
 
                 return ['cardId' => (string) $id, 'outcome' => 'released'];
             } catch (DomainErrors $e) {
+                // A card deleted during the call takes its hold with it, which reads as not paused.
+                if (null === $this->subjects->findCardId((string) $id, null)) {
+                    return $this->refusals->cardNotFound((string) $id, null);
+                }
+
                 return $this->refusals->cardRefused((string) $id, $e);
             }
         } catch (ToolCallException $e) {
