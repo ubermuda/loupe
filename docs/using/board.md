@@ -639,6 +639,12 @@ with no changes, so the stage cannot open it earlier. From then on, the epic
 pull request behaves as the section above says. You approve it once, and the
 merge stage squash-merges it into `main`.
 
+A profile can also name an epic preview, a local copy of the app that runs the
+code of `epic/<n>`. After each child merge, the merge stage creates or refreshes
+the preview. It then copies the preview links of the child into the epic pull
+request, each with the result of its check. A link reads "not proved" when the
+data the child seeded for it is missing from the preview.
+
 When the epic pull request falls behind `main`, Loupe merges `main` into
 `epic/<n>`, as for any pull request. Your approval covers that merge. A fix
 round on the epic pull request pushes to `epic/<n>` directly. An open child
