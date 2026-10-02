@@ -232,6 +232,28 @@ final class EngineTest extends KernelTestCase
         self::assertSame(1, $this->ruleState($card, 'work')->fires);
     }
 
+    public function test_a_release_rule_that_was_true_before_the_pause_still_releases_it(): void
+    {
+        $card = $this->boundCard([
+            ['id' => 'unhold', 'when' => ['card.type' => ['type' => 'bug']], 'then' => ['release' => ['reason' => 'on-hold']]],
+            [
+                'id' => 'hold',
+                'slot' => 'one',
+                'when' => ['card.type' => ['type' => 'bug']],
+                'then' => ['pause' => ['reason' => 'on-hold', 'until' => ['card.type' => ['type' => 'epic']]]],
+            ],
+        ]);
+        $this->setType($card, CardType::Bug);
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+        self::assertTrue($this->ruleState($card, 'unhold')->truth);
+
+        $this->evaluate($card, '2026-10-02 12:30:00');
+
+        self::assertSame(ReleasePause::RELEASE_REASON, $pause->releaseReason);
+    }
+
     public function test_a_pause_ends_the_evaluation_before_the_release_check_and_any_move(): void
     {
         $card = $this->boundCard([

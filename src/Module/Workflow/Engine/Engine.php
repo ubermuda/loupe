@@ -16,7 +16,9 @@ use App\Module\Bridge\Command\WithdrawWorkRequestCommand;
 use App\Module\Bridge\Command\WithdrawWorkRequestHandler;
 use App\Module\Bridge\Repository\WorkRequestRepository;
 use App\Module\Bridge\ValueObject\WorkRequestState;
+use App\Module\Workflow\Action\ActionOutcome;
 use App\Module\Workflow\Action\ActionOutcomeKind;
+use App\Module\Workflow\Action\ActionParams;
 use App\Module\Workflow\Action\Actions;
 use App\Module\Workflow\Entity\WorkflowRuleState;
 use App\Module\Workflow\Event\CardPaused;
@@ -227,6 +229,10 @@ final readonly class Engine
         }
 
         $fire = !$state->truth || ($state->attempts > 0 && ((null !== $state->dueAt && $state->dueAt <= $run->now) || $state->fingerprint !== $fingerprint));
+        // A release rule that turned true before its pause existed would otherwise wait for a new edge.
+        if (!$fire && ActionType::Release === $rule->then->type) {
+            $fire = $this->cardPauses->findActiveForCard($run->card)?->reason === ActionOutcome::code(ActionParams::string($rule, 'reason'));
+        }
         $state->truth = true;
         $state->fingerprint = $fingerprint;
         if (!$fire) {
