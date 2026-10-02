@@ -61,17 +61,27 @@ judge_just() {
     done
 }
 
+# Skips assignments and the wrappers that run the command after them.
+skip_prefix() {
+    while :; do
+        case "${words[i]:-}" in
+            time|nice|env|-i) i=$((i + 1)) ;;
+            -u) i=$((i + 2)) ;;
+            *) [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || return; i=$((i + 1)) ;;
+        esac
+    done
+}
+
 judge_command() {
     local -a words=("$@")
     local i=0
-    while [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do i=$((i + 1)); done
+    skip_prefix
 
     case "${words[i]:-}" in
         just) judge_just "${words[@]:i+1}"; return ;;
         bin/worktrees/compose-exec.sh|./bin/worktrees/compose-exec.sh) i=$((i + 1)) ;;
     esac
-    [ "${words[i]:-}" = env ] && i=$((i + 1))
-    while [[ "${words[i]:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; do i=$((i + 1)); done
+    skip_prefix
     [ "${words[i]:-}" = php ] && i=$((i + 1))
     if is_phpunit "${words[i]:-}"; then
         targeted "${words[@]:i+1}" || deny "$full_phpunit"
