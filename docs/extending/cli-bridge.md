@@ -965,10 +965,10 @@ the read fails, the event runs.
 
 ### Held cards
 
-A person or an agent pauses the agents on a card, and Loupe then holds the
-card. A stop of a run holds nothing. Loupe writes a `board.card_held` event when
-a person selects **Pause agents** or an agent calls `card_hold`. It writes a
-`board.card_released` event when a person selects **Let agents run** or an agent
+A person or an agent makes a card unmanaged, and Loupe then holds the card. A
+stop of a run holds nothing. Loupe writes a `board.card_held` event when a
+person selects **Make unmanaged** or an agent calls `card_hold`. It writes a
+`board.card_released` event when a person selects **Manage again** or an agent
 calls `card_release`. The two events have the same payload.
 
 ```json
