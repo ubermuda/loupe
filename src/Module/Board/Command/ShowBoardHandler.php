@@ -17,7 +17,7 @@ use App\Module\Board\Service\BoardStructureDigest;
 use App\Module\Board\Service\CardPullRequestStates;
 use App\Module\Board\Service\LaneDecks;
 use App\Module\Board\Service\RacingBridgeRules;
-use App\Module\Bridge\Service\BridgeNames;
+use App\Module\Bridge\Service\BridgeLabels;
 use App\Module\Bridge\Service\CardRunWarnings;
 
 final readonly class ShowBoardHandler
@@ -37,7 +37,7 @@ final readonly class ShowBoardHandler
         private LaneDecks $laneDecks,
         private CardPullRequestStates $pullRequestStates,
         private RacingBridgeRules $racingRules,
-        private BridgeNames $bridgeNames,
+        private BridgeLabels $bridgeLabels,
     ) {
     }
 
@@ -137,7 +137,7 @@ final readonly class ShowBoardHandler
             $badges,
             $racingRules,
             // Empty ids skip the query, so a board with no problem rule pays nothing.
-            $this->bridgeNames->forOwner($project->owner, array_values(array_unique(array_map(
+            $this->bridgeLabels->forOwner($project->owner, array_values(array_unique(array_map(
                 static fn (DeadBridgeRuleView|RacingBridgeRuleView $rule): string => $rule->bridgeId,
                 [...$deadRules, ...$racingRules],
             )))),

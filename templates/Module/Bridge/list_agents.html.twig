@@ -48,7 +48,7 @@
                 <div class="lp-agent-card__heading">
                     <div>
                         <p class="lp-agent-card__eyebrow">{{ 'bridge.agents.connection_label'|trans }}</p>
-                        <h2 class="lp-agent-card__name">{% include '@Bridge/_bridge_label.html.twig' with {id: bridge.id, name: bridge.name} only %}</h2>
+                        <h2 class="lp-agent-card__name"><span title="{{ bridge.id }}" data-bridge-label>{{ bridge.label }}</span></h2>
                     </div>
                     {% if canManage %}
                     <div class="lp-agent-card__menu" data-agent-menu data-controller="popover">

@@ -10,7 +10,7 @@ use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Service\RacingBridgeRules;
 use App\Module\Board\View\ReportedRule;
-use App\Module\Bridge\Service\BridgeNames;
+use App\Module\Bridge\Service\BridgeLabels;
 use Symfony\Component\Uid\Uuid;
 
 final readonly class ListRulesHandler
@@ -19,7 +19,7 @@ final readonly class ListRulesHandler
         private BridgeRuleReportRepository $bridgeRuleReports,
         private BoardColumnRepository $boardColumns,
         private RacingBridgeRules $racingRules,
-        private BridgeNames $bridgeNames,
+        private BridgeLabels $bridgeLabels,
     ) {
     }
 
@@ -51,7 +51,7 @@ final readonly class ListRulesHandler
             count(array_filter($rules, static fn (ReportedRule $rule): bool => BridgeRuleReport::STATE_LIVE === $rule->state)),
             array_column(array_map(static fn (BoardColumn $column): array => [$column->slug, $column->label], $this->boardColumns->findBoardColumns($command->project)), 1, 0),
             $search,
-            $this->bridgeNames->forOwner($command->project->owner, array_map(static fn (BridgeRuleReport $report): Uuid => $report->bridgeId, $reports)),
+            $this->bridgeLabels->forOwner($command->project->owner, array_map(static fn (BridgeRuleReport $report): Uuid => $report->bridgeId, $reports)),
         );
     }
 }

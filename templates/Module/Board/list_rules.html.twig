@@ -52,7 +52,7 @@
                     {%- if rule.columns is not empty %}{% for slug in rule.columns %}{{ (columnLabels[slug] ?? slug)|trans }}{{ not loop.last ? ', ' }}{% endfor %}{% else %}{{ eventLabel|trim }}{% endif -%}
                 </span>
                 <twig:ux:icon name="lucide:chevron-right" class="lp-rule-flow__arrow" />
-                <span title="{{ rule.bridgeId }}" data-rule-bridge><twig:ux:icon name="lucide:cable" />{% include '@Bridge/_bridge_label.html.twig' with {id: rule.bridgeId, name: bridgeNames[rule.bridgeId.toRfc4122()] ?? null, text: true} only %}</span>
+                <span title="{{ rule.bridgeId }}" data-rule-bridge><twig:ux:icon name="lucide:cable" />{{ bridgeLabels[rule.bridgeId.toRfc4122()] }}</span>
             </div>
             <span class="lp-status-chip lp-rule-row__state {{ rule.state == 'live' ? 'lp-status-chip--ok' : 'lp-status-chip--failed' }}">
                 <span class="lp-status-chip__dot"></span>
@@ -87,7 +87,7 @@
         <div class="lp-rule-list" data-bridge-hooks="{{ bridge.id }}">
             <p class="lp-hook-bridge">
                 <twig:ux:icon name="lucide:cable" />
-                <span title="{{ bridge.id }}" data-hook-bridge-label>{% include '@Bridge/_bridge_label.html.twig' with {id: bridge.id, name: bridge.name, text: true} only %}</span>
+                <span title="{{ bridge.id }}" data-hook-bridge-label>{{ bridge.label }}</span>
                 <time datetime="{{ bridge.lastSeenAt|date('c') }}">{{ 'board.rules.hooks.last_seen'|trans({'%time%': bridge.lastSeenAt|date('M j, H:i')}) }}</time>
             </p>
             {% for hook in bridge.hooks %}
@@ -100,7 +100,7 @@
                 <div class="lp-rule-flow" aria-label="{{ 'board.rules.hooks.flow_label'|trans }}">
                     <span><twig:ux:icon name="lucide:radio" />{{ ('board.rules.hooks.event.' ~ hook.event)|trans }}</span>
                     <twig:ux:icon name="lucide:chevron-right" class="lp-rule-flow__arrow" />
-                    <span title="{{ bridge.id }}"><twig:ux:icon name="lucide:cable" />{% include '@Bridge/_bridge_label.html.twig' with {id: bridge.id, name: bridge.name, text: true} only %}</span>
+                    <span title="{{ bridge.id }}"><twig:ux:icon name="lucide:cable" />{{ bridge.label }}</span>
                 </div>
                 <span class="lp-status-chip lp-rule-row__state {{ outcomeChips[hook.outcome] ?? 'lp-status-chip--neutral' }}">
                     <span class="lp-status-chip__dot"></span>

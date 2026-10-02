@@ -113,6 +113,11 @@ class Bridge
     #[ORM\Column(name: 'requested_name', length: self::MAX_NAME_LENGTH, nullable: true)]
     public ?string $requestedName = null;
 
+    /** What a page calls the bridge. */
+    public string $label {
+        get => self::labelFor($this->id, $this->name);
+    }
+
     /**
      * @param list<string> $projects
      */
@@ -153,5 +158,11 @@ class Bridge
     public function nameClashes(): bool
     {
         return null !== $this->requestedName && null === $this->name;
+    }
+
+    /** The name the bridge holds, or the tail of its id, because the head of a uuid v7 is a timestamp that two bridges can share. */
+    public static function labelFor(Uuid|string $id, ?string $name): string
+    {
+        return $name ?? mb_substr(mb_strtolower((string) $id), -12);
     }
 }

@@ -1,4 +1,0 @@
-{#- A bridge's name, or the tail of its id while it holds none. The tail, because the head of a uuid v7 is a timestamp that two bridges can share.
-    Props: id (Uuid or string), name (null when the bridge holds none), text (true where the wrapper already titles the id, or holds no markup). -#}
-{%- set label = name ?? (id ~ '')|slice(-12) -%}
-{%- if text ?? false -%}{{ label }}{%- else -%}<span title="{{ id }}" data-bridge-label>{{ label }}</span>{%- endif -%}

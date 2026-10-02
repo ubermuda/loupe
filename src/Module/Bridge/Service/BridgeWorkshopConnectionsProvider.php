@@ -33,7 +33,7 @@ final readonly class BridgeWorkshopConnectionsProvider implements WorkshopConnec
                 $connection->bridge->cliVersion,
                 $connection->status->quiet,
                 $url.'#agent-connection-'.$id,
-                $connection->bridge->name,
+                $connection->bridge->label,
             );
         }
 

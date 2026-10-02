@@ -11,8 +11,8 @@ final readonly class WorkshopConnection
         public string $cliVersion,
         public bool $quiet,
         public string $url,
-        /** The name the bridge holds. Null while it holds none. */
-        public ?string $name = null,
+        /** What a page calls the bridge: its name, or the tail of its id. */
+        public string $label,
     ) {
     }
 }
