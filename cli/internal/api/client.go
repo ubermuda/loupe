@@ -666,6 +666,9 @@ type Heartbeat struct {
 	// server holds.
 	Paused       *bool    `json:"paused,omitempty"`
 	Capabilities []string `json:"capabilities,omitzero"`
+	// WorkClaims are the claims whose leases the heartbeat renews. Nil sends
+	// no key. The client sends at most MaxWorkClaims of them.
+	WorkClaims []WorkClaim `json:"workClaims,omitzero"`
 }
 
 // HeartbeatReply is what the server answers to a heartbeat. Paused is nil when
@@ -676,6 +679,11 @@ type HeartbeatReply struct {
 	// Commands are decoded and not checked. Run each through
 	// event.CheckCommand before use.
 	Commands []Command
+	// WorkRequests are the open offers, decoded and not checked. Run each
+	// through event.CheckWorkRequest before use. LostClaims are the ids of
+	// the claims this bridge no longer holds, in lower case.
+	WorkRequests []WorkRequest
+	LostClaims   []string
 }
 
 // WorkerPoolReport is the size of one worker pool, the slots its runs take,
@@ -742,6 +750,9 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (
 		}
 		hb.Hooks = rows
 	}
+	if len(hb.WorkClaims) > MaxWorkClaims {
+		hb.WorkClaims = hb.WorkClaims[:MaxWorkClaims]
+	}
 	body, err := json.Marshal(hb)
 	if err != nil {
 		return HeartbeatReply{}, err
@@ -764,13 +775,21 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) (
 	case resp.StatusCode == http.StatusOK:
 		// The heartbeat landed, so a reply it cannot read is not a failure.
 		var reply struct {
-			CLIRange string            `json:"cliRange"`
-			Paused   *bool             `json:"paused"`
-			Commands []json.RawMessage `json:"commands"`
+			CLIRange     string            `json:"cliRange"`
+			Paused       *bool             `json:"paused"`
+			Commands     []json.RawMessage `json:"commands"`
+			WorkRequests []json.RawMessage `json:"workRequests"`
+			LostClaims   []json.RawMessage `json:"lostClaims"`
 		}
 		_ = decodeBody(resp.Body, &reply)
 
-		return HeartbeatReply{CLIRange: strings.TrimSpace(reply.CLIRange), Paused: reply.Paused, Commands: decodeCommands(reply.Commands)}, nil
+		return HeartbeatReply{
+			CLIRange:     strings.TrimSpace(reply.CLIRange),
+			Paused:       reply.Paused,
+			Commands:     decodeCommands(reply.Commands),
+			WorkRequests: decodeWorkRequests(reply.WorkRequests),
+			LostClaims:   decodeLostClaims(reply.LostClaims),
+		}, nil
 	case resp.StatusCode == http.StatusNoContent:
 		return HeartbeatReply{}, nil
 	case resp.StatusCode == http.StatusNotFound:

@@ -64,6 +64,8 @@ type workerResult struct {
 	// command says the process was the command of a command rule, which
 	// succeeds on exit code 0 and never resumes.
 	command bool
+	// timedOut says the command ran past its timeout, so the bridge killed it.
+	timedOut bool
 	// reported is the modelUsage claude printed, which counts the whole session.
 	// usage is what this process spent, and nil when unknown.
 	reported transcript.Usage
