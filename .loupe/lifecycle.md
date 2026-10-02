@@ -69,7 +69,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 1. The epic branch of epic card `<n>` is `epic/<n>`. The breakdown pushes it from `origin/main`.
 2. A child of an epic whose `epic/<n>` branch exists cuts its worktree from `origin/epic/<n>`, and its pull request targets `epic/<n>`. An epic with no such branch keeps the flow of `main` for its children.
 3. A child merges into `epic/<n>` with `squash` and no approval, once its required checks pass.
-4. The `Epics` ruleset of GitHub covers `refs/heads/epic/*`. It requires the checks of `main`, is not strict, and takes every change through a pull request. A direct push and `gh pr update-branch` into `epic/<n>` fail.
+4. The `Epics` ruleset of GitHub covers `refs/heads/epic/*`. It requires the checks of `main`, is not strict, and takes every change through a pull request. A direct push and `gh pr update-branch` into `epic/<n>` fail. The rule also applies on create, so the breakdown pushes a `main` commit whose required checks passed.
 5. The epic pull request goes from `epic/<n>` to `main`, and merges as the `Merge` section says.
 
 ## Merge

@@ -57,7 +57,7 @@ Bind writes to the card worktree as the harness adapter says. The working direct
 ## Reruns
 
 1. A linked plan document whose `references` hold the tech design id is the plan. Reuse it, and create no second plan.
-2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch from `origin/<base>` for it. Restore its head branch with "Set up or refresh the worktree" in `../../loupe-stage-fix-round/references/pull-request-feedback.md`. Then run `git branch --show-current`. When it differs from the head branch, stop with `STAGE RESULT: blocked: worktree is not on the PR branch`. Otherwise resume at the gate.
+2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch from `origin/<base>` for it. `<base>` is the base branch of that pull request. Restore its head branch with "Set up or refresh the worktree" in `../../loupe-stage-fix-round/references/pull-request-feedback.md`. Then run `git branch --show-current`. When it differs from the head branch, stop with `STAGE RESULT: blocked: worktree is not on the PR branch`. Otherwise resume at the gate.
 3. Before you create a pull request, list the open pull requests for the branch with the forge adapter. Link one it lists, and create none.
 
 ## The gate

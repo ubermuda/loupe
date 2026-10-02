@@ -102,7 +102,7 @@ When `gh pr create` fails because the pull request already exists, run `gh pr li
 gh api repos/<nameWithOwner>/compare/<base>...<head sha> --jq .behind_by
 ```
 
-`behind_by` counts the commits of the base that the head does not hold. A value above 0 means the branch is behind. GitHub reports `mergeStateStatus` `CLEAN` for a behind pull request when no strict rule covers its base, so read the compare in that case.
+`behind_by` counts the commits of the base that the head does not hold. A value above 0 means the branch is behind. When no strict rule covers the base, GitHub reports `CLEAN` for a behind pull request. Read the compare in that case.
 
 ## Check mergeability
 
