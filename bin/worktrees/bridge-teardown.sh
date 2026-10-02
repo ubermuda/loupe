@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bridge teardown command: remove the card's worktree, sidecars and databases.
+# Bridge teardown command: remove the card's worktree, and an epic's preview, with sidecars and databases.
 # Usage: bridge-teardown.sh <cardNumber>
 set -euo pipefail
 
@@ -15,11 +15,24 @@ main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/slug.sh"
 
 # The teardown names its resources by slug, so a sibling with the same slug would lose them.
-owners=$(worktree_slug_index "$main" | awk -v s="card-$number" '$1 == s {n++; if ($2 != s) n += 1} END {print n + 0}')
-if [ "$owners" -gt 1 ]; then
-    echo "bridge-teardown: another worktree owns the slug card-$number. Remove it by hand." >&2
-    exit 1
+owned_once() {
+    local owners
+    owners=$(worktree_slug_index "$main" | awk -v s="$1" '$1 == s {n++; if ($2 != s) n += 1} END {print n + 0}')
+    if [ "$owners" -gt 1 ]; then
+        echo "bridge-teardown: another worktree owns the slug $1. Remove it by hand." >&2
+        exit 1
+    fi
+}
+
+owned_once "card-$number"
+preview=0
+if git worktree list --porcelain | grep -qxF "worktree $main/.worktrees/epic-$number"; then
+    owned_once "epic-$number"
+    preview=1
 fi
 
 cd "$main"
 just worktree-down "card-$number"
+if [ "$preview" -eq 1 ]; then
+    just worktree-down "epic-$number"
+fi
