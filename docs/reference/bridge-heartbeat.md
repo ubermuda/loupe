@@ -294,6 +294,14 @@ request can also name a capability that the bridge must report, such as
 `interactive`. A request with no capability goes to each bridge that reports
 `work-requests`.
 
+The `loupe` CLI always reports `commands` and `rerun-command`. It reports
+`work-requests` when the `work:` map of its rule file has an entry, and
+`interactive` when an entry has `action: interactive`. Each heartbeat sends
+`workClaims`, with a row for each claim the CLI holds. A CLI that holds no
+claim leaves the key out.
+[The work map](../../cli/README.md#the-work-map) says how the CLI runs a
+request.
+
 The server offers a request to each bridge that follows the project of the
 request and can run it. It sends a `bridge.work_request` event on the topic of
 the project. The heartbeat reply lists the open requests again in

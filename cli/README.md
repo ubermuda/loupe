@@ -436,6 +436,9 @@ you do not own, the start check lists the slugs you do own.
 When a mapped project is deleted or stops being yours, the bridge logs one
 `project_gone` line that names the rules that stop working.
 
+The file needs `rules`, [`work`](#the-work-map), or both. `rules` stays until
+the cutover to the workflow engine, and a later CLI release removes it.
+
 Each entry in `rules` takes these fields:
 
 | Field | Required | Purpose |
@@ -871,6 +874,130 @@ old rules, and the bridge runs on.
 The server resolves a key as a project id or a project slug, never as a
 project name. A project with no slug yet comes back with no slug, and the
 bridge accepts that.
+
+### The work map
+
+`work:` at the top of the rule file maps each kind of work request to what the
+bridge runs. A work request is one piece of work on one card that the server
+offers to the bridges. One bridge claims it, runs it, and posts the result. No
+part of the app opens a work request yet, so the map stays idle until the
+cutover to the workflow engine.
+[Work requests](../docs/reference/bridge-heartbeat.md#work-requests) gives the
+protocol.
+
+```yaml
+launch:
+  command: ["open", "-a", "Terminal", "{script}"]
+
+work:
+  implement:
+    prompt: Implement card {cardNumber} in project {project}.
+    before:
+      run: ["bin/worktree-up.sh", "{cardNumber}"]
+    variants:
+      - name: opus
+        weight: 1
+        model: opus
+      - name: sonnet
+        weight: 1
+        model: claude-sonnet-5-5
+  product-design:
+    action: interactive
+    prompt: /loupe:product-design {cardNumber}
+  teardown:
+    action: command
+    run: ["bin/teardown.sh", "{cardNumber}"]
+```
+
+Each key is a kind, as the server names it in the request. A kind is 1 to 40
+lowercase letters, digits and hyphens, and starts with a letter. The bridge
+finds the project of a request in `projects` through the project id. It
+ignores a request for a project the file does not map, and logs one
+`project_unmapped` line. It skips a request of a kind the map does not hold.
+
+Each entry takes these fields:
+
+| Field | Required | Purpose |
+|---|---|---|
+| `action` | no | Omitted, the entry runs a worker. `interactive` opens an interactive session, as [Opening an interactive session](#opening-an-interactive-session) says. `command` runs a command with no agent, as [The command action](#the-command-action) says |
+| `prompt` | yes, except on a command entry | The prompt, with placeholders. A command entry cannot set it |
+| `model` | no | As on a rule. A worker entry defaults to `defaults.model`, then to `--model`. An interactive entry takes no default. A command entry cannot set it |
+| `permissionMode` | no | As on a rule, with the same defaults as `model`. A command entry cannot set it |
+| `before` | no | A command that runs ahead of the worker, as [The before command](#the-before-command) says. Only a worker entry can set it |
+| `workerPool` | no | The worker pool the run takes a slot from. Omitted, the entry uses `default`. Only a worker entry can set it |
+| `variants` | no | The variants of an experiment that the kind names. Only a worker entry can set it. See below |
+| `run` | for `action: command` | The argv list of the command, with placeholders. Only a command entry can set it |
+| `timeout` | no | How long the command can run. Defaults to `10m`, and is at most `60m`. Only a command entry can set it |
+
+An interactive entry needs the top-level `launch` block, and works on macOS and
+Linux only. The prompt of a worker entry gets the same footer as the prompt of
+a worker rule. An interactive prompt gets none.
+
+`prompt`, `run` and `before.run` take these placeholders:
+
+| Placeholder | Value |
+|---|---|
+| `{cardId}` | the id of the card |
+| `{cardNumber}` | the number of the card |
+| `{projectId}` | the id of the project |
+| `{project}` | the slug of the project in `projects` |
+| `{kind}` | the kind of the request |
+| `{ruleId}` | the id of the rule that opened the request |
+| `{workRequestId}` | the id of the request |
+
+A worker entry with `variants` runs an experiment that the kind names. The
+variants take the format of the variants of `experiments`, and they pick the
+model. The entry therefore sets no `model`. A kind with variants cannot share
+its name with an experiment of `experiments`, because the two would share the
+variant of each card. The server pins the variant of each card, as it does
+for a rule.
+
+An open request waits in [the queue](#the-queue) like an event. The bridge
+claims it when the run gets its worker slot and its card, just before the
+`before` command. A command entry claims when its card is free. An interactive
+entry claims at once, and then opens the session. A paused bridge claims no
+request. The bridge holds at most 200 claims.
+
+When another bridge won the claim, the bridge runs nothing and reports no run.
+A request that waits in the queue sends no run report either. A reload drops a
+queued request that the new file no longer runs.
+
+Each heartbeat renews the lease of each claim the bridge holds, in
+`workClaims`. The bridge stops the run of a claim and posts no result when:
+
+- the heartbeat reply names the claim in `lostClaims`
+- the server sends the state `cancelled` or `expired` for the request
+- a person stops the run
+- the bridge shuts down
+
+At the end of a run, the bridge posts the result of the request:
+
+| The run | State | Reason |
+|---|---|---|
+| ends with the status `finished` or `waiting` | `done` | none |
+| ends with the status `blocked` | `refused` | the `reason` of the result, else `blocked` |
+| ends with the status `unfinished` | `refused` | the `reason` of the result, else `unfinished` |
+| fails, or ends with no structured result | `refused` | the `reason` of the result, else `failed` |
+| runs past the timeout of its command or its `before` command | `refused` | `timeout` |
+| is a command that exits with code 0 | `done` | none |
+| is a command that exits with another code | `refused` | `failed` |
+| opens an interactive session | `done` | none |
+| cannot open an interactive session | `refused` | `failed` |
+
+The `reason` of a result counts only when it is a code. A code starts with a
+lowercase letter, and holds 1 to 40 lowercase letters, digits and hyphens. The
+bridge retries a post that fails on the network, and renews the claim until
+the post lands or the bridge gives up on it. A work run never resumes, because a request takes one result.
+Each run report names the rule `work:<kind>`, such as `work:implement`.
+
+The bridge reports the capability `work-requests` when the map has an entry,
+and `interactive` when an entry has `action: interactive`. A
+`project.renamed` event, or a mapped project that is gone, marks the work of
+that project dead, as [Dead rules](#dead-rules) says for rules. Fix the file and
+run `loupe bridge reload`. A column rename leaves the work map alone.
+
+A CLI older than this key refuses the file, because `work` is an unknown key
+there.
 
 ### Workers
 

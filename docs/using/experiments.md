@@ -17,7 +17,8 @@ run comes first. Select a name to open the comparison of that experiment.
 
 A project with no experiment shows how to start one. Declare the experiment and
 its variants in `rules.yaml`, and make a worker rule join it with
-`experiment:`.
+`experiment:`. A worker entry of the `work:` map lists its variants itself, and
+the kind of the entry names the experiment.
 
 ## The comparison
 
