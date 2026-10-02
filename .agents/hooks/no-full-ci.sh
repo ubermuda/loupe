@@ -29,7 +29,7 @@ targeted() {
     for word in "$@"; do
         [ "$skip" = 1 ] && { skip=0; continue; }
         case "${word%/}" in
-            tests|./tests) ;;
+            tests|./tests|*/.|*/..|*/./*|*/../*) ;;
             -c|--configuration|--bootstrap|--cache-directory|--log-junit|--log-otr|--log-teamcity|--log-events-text|\
                 --log-events-verbose-text|--testdox-html|--testdox-text|--coverage-clover|--coverage-cobertura|\
                 --coverage-crap4j|--coverage-html|--coverage-openclover|--coverage-php|--coverage-xml|--coverage-filter) skip=1 ;;
