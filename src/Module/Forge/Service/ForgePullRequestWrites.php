@@ -10,10 +10,10 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 
 /**
- * Asks the forge to merge a pull request or to change its base, and records
- * the expected effect on the row first, so a later read can tell the effect
- * apart. The forge call runs outside any transaction, so a slow forge holds no
- * lock. A failed call clears the marker it set.
+ * Asks the forge to merge a pull request or to change its base. A marker on
+ * the row first says that a write by Loupe is in flight. A read that shows any
+ * such change settles it. The forge call holds no lock. A permanent failure
+ * clears the marker, and a transient one keeps it, because the write may have landed.
  */
 final readonly class ForgePullRequestWrites
 {
@@ -64,13 +64,15 @@ final readonly class ForgePullRequestWrites
         try {
             $merger->merge($pullRequest, $method, $sha);
         } catch (PullRequestWriteFailed $e) {
-            $this->em->wrapInTransaction(function () use ($id, $sha): void {
-                $row = $this->forgePullRequests->findForUpdate($id);
-                if (null !== $row && $row->mergeRequestedSha === $sha) {
-                    $row->mergeRequestedSha = null;
-                    $row->mergeRequestedAt = null;
-                }
-            });
+            if ($e->permanent) {
+                $this->em->wrapInTransaction(function () use ($id, $sha): void {
+                    $row = $this->forgePullRequests->findForUpdate($id);
+                    if (null !== $row && $row->mergeRequestedSha === $sha) {
+                        $row->mergeRequestedSha = null;
+                        $row->mergeRequestedAt = null;
+                    }
+                });
+            }
 
             throw $e;
         }
@@ -99,13 +101,15 @@ final readonly class ForgePullRequestWrites
         try {
             $changer->changeBase($pullRequest, $base);
         } catch (PullRequestWriteFailed $e) {
-            $this->em->wrapInTransaction(function () use ($id, $base): void {
-                $row = $this->forgePullRequests->findForUpdate($id);
-                if (null !== $row && $row->baseChangeRequestedTo === $base) {
-                    $row->baseChangeRequestedTo = null;
-                    $row->baseChangeRequestedAt = null;
-                }
-            });
+            if ($e->permanent) {
+                $this->em->wrapInTransaction(function () use ($id, $base): void {
+                    $row = $this->forgePullRequests->findForUpdate($id);
+                    if (null !== $row && $row->baseChangeRequestedTo === $base) {
+                        $row->baseChangeRequestedTo = null;
+                        $row->baseChangeRequestedAt = null;
+                    }
+                });
+            }
 
             throw $e;
         }

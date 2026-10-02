@@ -125,14 +125,14 @@ class ForgePullRequest
     #[ORM\Column(length: 64, nullable: true)]
     public ?string $syncedSha = null;
 
-    /** The head Loupe asked the forge to merge. A read clears it when the head moves or the pull request leaves the open state. */
+    /** The head of a merge by Loupe in flight. A read clears it when the head moves or the pull request leaves the open state. */
     #[ORM\Column(length: 64, nullable: true)]
     public ?string $mergeRequestedSha = null;
 
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $mergeRequestedAt = null;
 
-    /** The base Loupe asked the forge to set. A read clears it when the base matches or the pull request leaves the open state. */
+    /** The base of a base change by Loupe in flight. A read clears it when the base changes, matches, or the pull request leaves the open state. */
     #[ORM\Column(length: 255, nullable: true)]
     public ?string $baseChangeRequestedTo = null;
 
@@ -204,7 +204,7 @@ class ForgePullRequest
             $this->mergeRequestedSha = null;
             $this->mergeRequestedAt = null;
         }
-        if (!$open || $snapshot->baseBranch === $this->baseChangeRequestedTo) {
+        if (!$open || $snapshot->baseBranch !== $this->baseBranch || $snapshot->baseBranch === $this->baseChangeRequestedTo) {
             $this->baseChangeRequestedTo = null;
             $this->baseChangeRequestedAt = null;
         }

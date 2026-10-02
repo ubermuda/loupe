@@ -419,6 +419,16 @@ final class PullRequestSnapshotTest extends TestCase
         self::assertNotNull($pullRequest->baseChangeRequestedAt);
     }
 
+    public function test_a_base_that_a_person_changed_to_another_branch_clears_the_base_marker(): void
+    {
+        $pullRequest = $this->requested();
+
+        $pullRequest->apply(new PullRequestSnapshot(headSha: 'head1', baseBranch: 'release'));
+
+        self::assertNull($pullRequest->baseChangeRequestedTo);
+        self::assertNull($pullRequest->baseChangeRequestedAt);
+    }
+
     public function test_a_read_of_the_requested_base_clears_the_base_marker(): void
     {
         $pullRequest = $this->requested();

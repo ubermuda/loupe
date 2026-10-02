@@ -85,6 +85,34 @@ final class ForgePullRequestWritesTest extends KernelTestCase
         self::assertSame([null, null], $this->stored($row));
     }
 
+    public function test_a_transient_merge_failure_keeps_the_marker_and_rethrows(): void
+    {
+        $row = $this->row();
+        $failure = new PullRequestWriteFailed('api_failed_http_status_502', permanent: false);
+        $this->merger->failure = $failure;
+
+        try {
+            $this->writes->merge($row, 'merge');
+            self::fail('Expected PullRequestWriteFailed.');
+        } catch (PullRequestWriteFailed $e) {
+            self::assertSame($failure, $e);
+        }
+
+        self::assertSame(['head1', self::NOW], $this->stored($row));
+    }
+
+    public function test_a_merge_of_a_row_that_is_gone_fails_and_asks_nothing(): void
+    {
+        $row = $this->row();
+        $this->deleteBehind($row);
+
+        $failure = $this->failure(fn () => $this->writes->merge($row, 'merge'));
+
+        self::assertSame('not_found', $failure->cause);
+        self::assertTrue($failure->permanent);
+        self::assertSame([], $this->merger->merges);
+    }
+
     public function test_a_failed_merge_keeps_a_marker_that_another_request_set(): void
     {
         $row = $this->row();
@@ -171,6 +199,29 @@ final class ForgePullRequestWritesTest extends KernelTestCase
         self::assertSame([null, null], $this->storedBase($row));
     }
 
+    public function test_a_transient_base_change_failure_keeps_the_marker_and_rethrows(): void
+    {
+        $row = $this->row();
+        $this->changer->failure = new PullRequestWriteFailed('api_failed_rate_limited', permanent: false, retryAfterSeconds: 60);
+
+        $failure = $this->failure(fn () => $this->writes->changeBase($row, 'main'));
+
+        self::assertSame('api_failed_rate_limited', $failure->cause);
+        self::assertSame(['main', self::NOW], $this->storedBase($row));
+    }
+
+    public function test_a_base_change_of_a_row_that_is_gone_fails_and_asks_nothing(): void
+    {
+        $row = $this->row();
+        $this->deleteBehind($row);
+
+        $failure = $this->failure(fn () => $this->writes->changeBase($row, 'main'));
+
+        self::assertSame('not_found', $failure->cause);
+        self::assertTrue($failure->permanent);
+        self::assertSame([], $this->changer->changes);
+    }
+
     public function test_a_failed_base_change_keeps_a_marker_that_another_request_set(): void
     {
         $row = $this->row();
@@ -220,6 +271,12 @@ final class ForgePullRequestWritesTest extends KernelTestCase
         $this->em->flush();
 
         return $row;
+    }
+
+    /** Deletes the row in the database only, so the caller still holds the entity with its id. */
+    private function deleteBehind(ForgePullRequest $row): void
+    {
+        $this->em->getConnection()->executeStatement('DELETE FROM forge_pull_requests WHERE id = ?', [$row->id?->toRfc4122()]);
     }
 
     private function locked(ForgePullRequest $row): ForgePullRequest
