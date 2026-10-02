@@ -74,8 +74,8 @@ final class McpBoundProjectVoter extends Voter
         self::CARD_WRITE => ['operation' => 'board.mcp_access_denied', 'subjectTypes' => ['card']],
         self::INBOX_ITEM_READ => ['operation' => 'inbox.mcp_access_denied', 'subjectTypes' => ['inbox_item']],
         self::INBOX_ITEM_WRITE => ['operation' => 'inbox.mcp_access_denied', 'subjectTypes' => ['inbox_item']],
-        self::WORKER_RUN_READ => ['operation' => 'bridge.mcp_access_denied', 'subjectTypes' => ['worker_run']],
-        self::WORKER_RUN_WRITE => ['operation' => 'bridge.mcp_access_denied', 'subjectTypes' => ['worker_run']],
+        self::WORKER_RUN_READ => ['operation' => 'bridge.mcp_access_denied', 'subjectTypes' => ['project', 'worker_run']],
+        self::WORKER_RUN_WRITE => ['operation' => 'bridge.mcp_access_denied', 'subjectTypes' => ['project', 'worker_run']],
     ];
 
     public function __construct(

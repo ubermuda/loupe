@@ -134,6 +134,25 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_WRITE, $run));
     }
 
+    public function test_grants_the_bound_project_for_the_worker_attributes(): void
+    {
+        $project = $this->project($this->user('run-voter-project-grant@example.com'));
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_READ, $project));
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_WRITE, $project));
+    }
+
+    public function test_denies_another_project_of_the_same_owner_for_the_worker_attributes(): void
+    {
+        $owner = $this->user('run-voter-project-cross@example.com');
+        $project = $this->project($owner);
+        $this->actAsMcpTokenBoundTo($this->project($owner));
+
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_READ, $project));
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_WRITE, $project));
+    }
+
     public function test_a_denied_worker_run_is_recorded_under_the_bridge_operation(): void
     {
         $owner = $this->user('run-voter-audit@example.com');
@@ -189,8 +208,8 @@ final class McpBoundProjectVoterTest extends KernelTestCase
             McpBoundProjectVoter::SITE_REVIEW_WRITE => ['project', 'site_review_comment'],
             McpBoundProjectVoter::CARD_READ => ['card'],
             McpBoundProjectVoter::CARD_WRITE => ['card'],
-            McpBoundProjectVoter::WORKER_RUN_READ => ['worker_run'],
-            McpBoundProjectVoter::WORKER_RUN_WRITE => ['worker_run'],
+            McpBoundProjectVoter::WORKER_RUN_READ => ['project', 'worker_run'],
+            McpBoundProjectVoter::WORKER_RUN_WRITE => ['project', 'worker_run'],
         ];
 
         foreach ($accepts as $attribute => $accepted) {
@@ -223,6 +242,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::SITE_REVIEW_READ, $this->subjectOfType('project', $project)));
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::SITE_REVIEW_WRITE, $this->subjectOfType('site_review_comment', $project)));
         self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_READ, $this->subjectOfType('worker_run', $project)));
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::WORKER_RUN_WRITE, $this->subjectOfType('project', $project)));
     }
 
     private function subjectOfType(string $subjectType, Project $project): ProjectScopedSubject
