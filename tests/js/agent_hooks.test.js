@@ -54,6 +54,8 @@ describe('no-full-ci.sh', () => {
         ['( cd .worktrees/x && just ci )', 'deny'],
         ['just phpunit --log-junit tests/results.xml', 'deny'],
         ['just phpunit --log-junit=var/junit.xml tests/Module/Board', 'allow'],
+        ['just phpunit --testdox-summary tests/Module/Board', 'allow'],
+        ['just phpunit --coverage-text tests/Module/Board', 'allow'],
         ['just phpunit --filter FooTest', 'allow'],
         ['just phpunit --filter=FooTest', 'allow'],
         ['just phpunit --group slow', 'allow'],

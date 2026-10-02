@@ -29,8 +29,10 @@ targeted() {
     for word in "$@"; do
         [ "$skip" = 1 ] && { skip=0; continue; }
         case "${word%/}" in
-            tests|./tests|--log-*=*|--coverage-*=*|--testdox-*=*) ;;
-            -c|--configuration|--bootstrap|--cache-directory|--log-*|--coverage-*|--testdox-*) skip=1 ;;
+            tests|./tests) ;;
+            -c|--configuration|--bootstrap|--cache-directory|--log-junit|--log-teamcity|--log-events-text|\
+                --log-events-verbose-text|--testdox-html|--testdox-text|--coverage-clover|--coverage-cobertura|\
+                --coverage-crap4j|--coverage-html|--coverage-php|--coverage-xml|--coverage-filter) skip=1 ;;
             tests/*|*/tests/*|*Test.php|--filter|--filter=*|--group|--group=*) return 0 ;;
         esac
     done
