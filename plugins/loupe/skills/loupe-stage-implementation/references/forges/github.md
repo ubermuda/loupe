@@ -96,6 +96,20 @@ gh pr create --head <branch> --base <base> --title "<title>" --body-file <file> 
 
 When `gh pr create` fails because the pull request already exists, run `gh pr list` again, and link the one it returns. GitHub refuses a pull request with no commits between the two branches.
 
+## Read the pull request body
+
+```bash
+gh pr view <url> --json body -q .body
+```
+
+## Replace the pull request body
+
+```bash
+gh pr edit <url> --body-file <file>
+```
+
+The new body replaces the whole body. Read it first, change only your part, and write the rest back unchanged.
+
 ## Compare with the base
 
 ```bash
