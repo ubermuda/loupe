@@ -36,7 +36,14 @@ final class CardHoldReleaseTest extends KernelTestCase
 
     protected function setUp(): void
     {
+        $this->start(false);
+    }
+
+    /** Reboots the kernel, because a handler built before the switch is set keeps the old switch. */
+    private function start(bool $engineOn): void
+    {
         self::bootKernel();
+        self::getContainer()->set(EngineSwitch::class, new EngineSwitch($engineOn));
 
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
@@ -70,7 +77,7 @@ final class CardHoldReleaseTest extends KernelTestCase
 
     public function test_with_the_engine_on_a_human_move_keeps_the_hold(): void
     {
-        self::getContainer()->set(EngineSwitch::class, new EngineSwitch(true));
+        $this->start(true);
         $card = $this->heldCard('next');
 
         $this->updateCard()(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $this->column($this->project, 'in-progress')));

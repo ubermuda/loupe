@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Service;
 
 use App\Module\Bridge\Entity\CardHold;
+use App\Module\Bridge\Event\CardHeld;
 use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Repository\CardHoldRepository;
 use App\Module\Bridge\Service\CardHolds;
@@ -58,6 +59,22 @@ final class CardHoldsTest extends KernelTestCase
         self::assertSame((string) $first->id, (string) $second->id);
         self::assertSame((string) $owner->id, (string) $second->heldBy?->id);
         self::assertSame(1, $this->countHolds());
+    }
+
+    public function test_a_new_hold_is_announced_once(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'hold-announced@example.com'), 'Held Announced');
+        $cardId = Uuid::v7();
+        $events = DispatchedEvents::of(self::getContainer(), CardHeld::class);
+
+        $this->holds()->hold($project, $cardId, null);
+        $this->holds()->hold($project, $cardId, null);
+
+        self::assertCount(1, $events->events());
+        self::assertSame((string) $project->id, (string) $events->events()[0]->projectId);
+        self::assertTrue($cardId->equals($events->events()[0]->cardId));
     }
 
     public function test_release_removes_only_the_named_cards_of_that_project(): void

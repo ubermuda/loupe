@@ -47,6 +47,16 @@ class CardHoldRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** @return list<string> the RFC 4122 ids of the held cards of the project */
+    public function findCardIdsOfProject(Project $project): array
+    {
+        return array_map(strval(...), $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT card_id FROM bridge_card_holds WHERE project_id = :project',
+            ['project' => $project->id],
+            ['project' => UuidType::NAME],
+        ));
+    }
+
     /**
      * One statement, so it joins a caller's transaction.
      *

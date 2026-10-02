@@ -6276,7 +6276,7 @@
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;
     }
-    /* The pull request and automation problems of a card, on its tile and its list row. */
+    /* The pull request and automation problems and the workflow markers of a card, on its tile and its list row. */
     .lp-board-card__badges {
         @apply flex flex-wrap items-center gap-1;
     }

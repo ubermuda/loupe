@@ -6,6 +6,7 @@ namespace App\Module\Bridge\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\CardHold;
+use App\Module\Bridge\Event\CardHeld;
 use App\Module\Bridge\Event\CardHoldsReleased;
 use App\Module\Bridge\Repository\CardHoldRepository;
 use App\Module\Project\Entity\Project;
@@ -49,6 +50,7 @@ final readonly class CardHolds
             $hold = new CardHold($project, $cardId, $heldBy, $this->clock->now());
             $this->em->persist($hold);
             $this->em->flush();
+            $this->events->dispatch(new CardHeld($project->id ?? throw new \LogicException('A persisted project has an id.'), $cardId));
 
             return $hold;
         });
