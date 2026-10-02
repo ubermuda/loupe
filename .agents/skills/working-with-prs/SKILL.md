@@ -356,7 +356,9 @@ so the body becomes the permanent commit message, and a signed
 `*.dev.localhost` link points at a worktree that is torn down within hours. Name
 the commit the preview was built from, so a later reader knows which code the
 links showed. Never write "this branch's head": the phrase is true of every
-branch at every moment, so no reader can check it.
+branch at every moment, so no reader can check it. An epic child keeps its
+`## Preview` section, because the merge stage copies its links to the epic pull
+request after the merge.
 
 The same rule covers a branch with no worktree of its own: link the page on
 whatever instance does serve it, rather than describing the route and leaving
@@ -828,7 +830,7 @@ After each child merge, the merge stage refreshes the epic preview at
 the `## Preview` section of the epic pull request. It re-mints each signed link
 from its `to` and `email` parameters. So write each Preview line of a child with
 a signed link and its marker in backticks. The child's seeded state stays in the
-child's database, so a carried line can read "not proved". Seed that state on
+child's database, so a carried line can read "not proved" or "not minted". Seed that state on
 the epic preview by hand before you review the epic.
 
 ## Running several branches at once
