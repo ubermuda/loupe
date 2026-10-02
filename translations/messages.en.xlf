@@ -2547,15 +2547,15 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.worker_run_stop">
                 <source>project.connect.tool.worker_run_stop</source>
-                <target>Ask the bridge to stop a queued or running worker run. The stop ends this run only. Call card_hold to pause the agents on the card.</target>
+                <target>Ask the bridge to stop a queued or running worker run. The stop ends this run only. Call card_hold to make the card unmanaged.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_hold">
                 <source>project.connect.tool.card_hold</source>
-                <target>Pause the agents on a card. No bridge starts a worker on the card until the pause ends.</target>
+                <target>Make a card unmanaged. The workflow makes no move and starts no work on the card, and no bridge starts a worker on it, until card_release.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_release">
                 <source>project.connect.tool.card_release</source>
-                <target>Let the agents run on a paused card. The queued runs on the card then start.</target>
+                <target>Manage an unmanaged card again. The queued runs on the card then start.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.bridge_command_cancel">
                 <source>project.connect.tool.bridge_command_cancel</source>
@@ -6336,9 +6336,9 @@
             <trans-unit id="board.card.runs.title"><source>board.card.runs.title</source><target>Agent runs</target></trans-unit>
             <trans-unit id="board.card.runs.all"><source>board.card.runs.all</source><target>Run history</target></trans-unit>
             <trans-unit id="board.card.runs.open_title"><source>board.card.runs.open_title</source><target>Runs in progress</target></trans-unit>
-            <trans-unit id="board.card.runs.held"><source>board.card.runs.held</source><target>Agents paused: no worker starts on this card until you let agents run or move it.</target></trans-unit>
-            <trans-unit id="board.card.runs.pause"><source>board.card.runs.pause</source><target>Pause agents</target></trans-unit>
-            <trans-unit id="board.card.runs.release"><source>board.card.runs.release</source><target>Let agents run</target></trans-unit>
+            <trans-unit id="board.card.runs.held"><source>board.card.runs.held</source><target>Unmanaged: the workflow makes no move and starts no work on this card.</target></trans-unit>
+            <trans-unit id="board.card.runs.pause"><source>board.card.runs.pause</source><target>Make unmanaged</target></trans-unit>
+            <trans-unit id="board.card.runs.release"><source>board.card.runs.release</source><target>Manage again</target></trans-unit>
             <trans-unit id="board.card.runs.usage.total"><source>board.card.runs.usage.total</source><target>Total usage</target></trans-unit>
             <trans-unit id="board.card.runs.usage.tokens"><source>board.card.runs.usage.tokens</source><target>%input% input · %output% output · %cacheRead% cache read · %cacheWrite% cache write</target></trans-unit>
             <trans-unit id="board.card.runs.usage.estimated"><source>board.card.runs.usage.estimated</source><target>Estimated</target></trans-unit>
@@ -6516,8 +6516,8 @@
             <trans-unit id="activity.event_type.pull_request.fix_requested"><source>activity.event_type.pull_request.fix_requested</source><target>Fix requested</target></trans-unit>
             <trans-unit id="activity.event_type.pull_request.ready_to_merge"><source>activity.event_type.pull_request.ready_to_merge</source><target>Ready to merge</target></trans-unit>
             <trans-unit id="activity.event_type.inbox.ask_closed"><source>activity.event_type.inbox.ask_closed</source><target>Question closed</target></trans-unit>
-            <trans-unit id="activity.event_type.board.card_held"><source>activity.event_type.board.card_held</source><target>Agents paused on a card</target></trans-unit>
-            <trans-unit id="activity.event_type.board.card_released"><source>activity.event_type.board.card_released</source><target>Agents released on a card</target></trans-unit>
+            <trans-unit id="activity.event_type.board.card_held"><source>activity.event_type.board.card_held</source><target>Card made unmanaged</target></trans-unit>
+            <trans-unit id="activity.event_type.board.card_released"><source>activity.event_type.board.card_released</source><target>Card managed again</target></trans-unit>
             <trans-unit id="activity.event_type.bridge.command"><source>activity.event_type.bridge.command</source><target>Command sent to a bridge</target></trans-unit>
             <trans-unit id="activity.event_type.bridge.work_request"><source>activity.event_type.bridge.work_request</source><target>Work requested from a bridge</target></trans-unit>
             <trans-unit id="activity.event_type.project.renamed"><source>activity.event_type.project.renamed</source><target>Project renamed</target></trans-unit>
@@ -6947,9 +6947,9 @@
             <trans-unit id="bridge.command.error.not_controllable"><source>bridge.command.error.not_controllable</source><target>You cannot control an interactive session from here.</target></trans-unit>
             <trans-unit id="bridge.command.error.no_session"><source>bridge.command.error.no_session</source><target>This run has no session to resume.</target></trans-unit>
             <trans-unit id="bridge.command.error.not_resumable"><source>bridge.command.error.not_resumable</source><target>Only an ended run can resume.</target></trans-unit>
-            <trans-unit id="bridge.command.error.card_held"><source>bridge.command.error.card_held</source><target>Agents are paused on this card. Let agents run first.</target></trans-unit>
-            <trans-unit id="bridge.card_hold.error.already_paused"><source>bridge.card_hold.error.already_paused</source><target>Agents are already paused on this card.</target></trans-unit>
-            <trans-unit id="bridge.card_hold.error.not_paused"><source>bridge.card_hold.error.not_paused</source><target>Agents are not paused on this card.</target></trans-unit>
+            <trans-unit id="bridge.command.error.card_held"><source>bridge.command.error.card_held</source><target>This card is unmanaged. Select Manage again first.</target></trans-unit>
+            <trans-unit id="bridge.card_hold.error.already_paused"><source>bridge.card_hold.error.already_paused</source><target>This card is already unmanaged.</target></trans-unit>
+            <trans-unit id="bridge.card_hold.error.not_paused"><source>bridge.card_hold.error.not_paused</source><target>This card is already managed.</target></trans-unit>
             <trans-unit id="bridge.card_hold.error.card_gone"><source>bridge.card_hold.error.card_gone</source><target>This card no longer exists.</target></trans-unit>
             <trans-unit id="bridge.command.error.card_left"><source>bridge.command.error.card_left</source><target>The card left the column of this run.</target></trans-unit>
             <trans-unit id="bridge.command.error.not_stoppable"><source>bridge.command.error.not_stoppable</source><target>Only a queued or running run can stop.</target></trans-unit>
@@ -7300,6 +7300,44 @@
             <trans-unit id="workflow.bind.error.foreign_column"><source>workflow.bind.error.foreign_column</source><target>This column is not a column of the project.</target></trans-unit>
             <trans-unit id="workflow.bind.error.column_reused"><source>workflow.bind.error.column_reused</source><target>Another slot already uses this column.</target></trans-unit>
             <trans-unit id="workflow.bind.error.flag_column"><source>workflow.bind.error.flag_column</source><target>A slot cannot use the Backlog or a terminal column.</target></trans-unit>
+            <trans-unit id="workflow.panel.title"><source>workflow.panel.title</source><target>Workflow</target></trans-unit>
+            <trans-unit id="workflow.panel.management.managed"><source>workflow.panel.management.managed</source><target>Managed: the card follows the workflow template of the project.</target></trans-unit>
+            <trans-unit id="workflow.panel.management.unmanaged"><source>workflow.panel.management.unmanaged</source><target>Unmanaged: the workflow makes no move and starts no work on this card.</target></trans-unit>
+            <trans-unit id="workflow.panel.management.no_template"><source>workflow.panel.management.no_template</source><target>No workflow: this project runs no workflow template.</target></trans-unit>
+            <trans-unit id="workflow.panel.paused"><source>workflow.panel.paused</source><target>Paused: %kind%.</target></trans-unit>
+            <trans-unit id="workflow.panel.pause_kind.rule"><source>workflow.panel.pause_kind.rule</source><target>a rule of the template paused the card</target></trans-unit>
+            <trans-unit id="workflow.panel.pause_kind.retries"><source>workflow.panel.pause_kind.retries</source><target>too many attempts were refused</target></trans-unit>
+            <trans-unit id="workflow.panel.pause_kind.work_limit"><source>workflow.panel.pause_kind.work_limit</source><target>the rule reached its work limit</target></trans-unit>
+            <trans-unit id="workflow.panel.pause_kind.work_timeout"><source>workflow.panel.pause_kind.work_timeout</source><target>no bridge took the work in time</target></trans-unit>
+            <trans-unit id="workflow.panel.release.left_slot"><source>workflow.panel.release.left_slot</source><target>The pause ends when the card leaves its slot.</target></trans-unit>
+            <trans-unit id="workflow.panel.release.facts_changed"><source>workflow.panel.release.facts_changed</source><target>The pause ends when the facts that the rule reads change.</target></trans-unit>
+            <trans-unit id="workflow.panel.release.next_evaluation"><source>workflow.panel.release.next_evaluation</source><target>The workflow ends the pause when it next evaluates the card.</target></trans-unit>
+            <trans-unit id="workflow.panel.release.met"><source>workflow.panel.release.met</source><target>The release condition is met. The workflow ends the pause when it next evaluates the card.</target></trans-unit>
+            <trans-unit id="workflow.panel.slot.label"><source>workflow.panel.slot.label</source><target>Slot</target></trans-unit>
+            <trans-unit id="workflow.panel.slot.none"><source>workflow.panel.slot.none</source><target>No slot</target></trans-unit>
+            <trans-unit id="workflow.panel.slot.backlog"><source>workflow.panel.slot.backlog</source><target>Backlog</target></trans-unit>
+            <trans-unit id="workflow.panel.slot.terminal"><source>workflow.panel.slot.terminal</source><target>Terminal column</target></trans-unit>
+            <trans-unit id="workflow.panel.next_action"><source>workflow.panel.next_action</source><target>Next action</target></trans-unit>
+            <trans-unit id="workflow.panel.waiting"><source>workflow.panel.waiting</source><target>Condition</target></trans-unit>
+            <trans-unit id="workflow.panel.last_refusal"><source>workflow.panel.last_refusal</source><target>Last refusal</target></trans-unit>
+            <trans-unit id="workflow.panel.attempts"><source>workflow.panel.attempts</source><target>{0}No attempt|{1}1 attempt|]1,Inf[%count% attempts</target></trans-unit>
+            <trans-unit id="workflow.panel.action.move"><source>workflow.panel.action.move</source><target>Move the card to %slot%</target></trans-unit>
+            <trans-unit id="workflow.panel.action.move_backlog"><source>workflow.panel.action.move_backlog</source><target>Move the card to the Backlog</target></trans-unit>
+            <trans-unit id="workflow.panel.action.move_terminal"><source>workflow.panel.action.move_terminal</source><target>Move the card to a terminal column</target></trans-unit>
+            <trans-unit id="workflow.panel.action.request"><source>workflow.panel.action.request</source><target>Request %kind% work from a bridge</target></trans-unit>
+            <trans-unit id="workflow.panel.action.forge_write"><source>workflow.panel.action.forge_write</source><target>Write %write% to the pull request</target></trans-unit>
+            <trans-unit id="workflow.panel.action.pause"><source>workflow.panel.action.pause</source><target>Pause the card</target></trans-unit>
+            <trans-unit id="workflow.panel.action.release"><source>workflow.panel.action.release</source><target>End the pause of the card</target></trans-unit>
+            <trans-unit id="workflow.pause.no-bridge-took-work"><source>workflow.pause.no-bridge-took-work</source><target>No bridge took the requested work in time.</target></trans-unit>
+            <trans-unit id="workflow.pause.work-limit-reached"><source>workflow.pause.work-limit-reached</source><target>The rule requested the most work that it may request for this card.</target></trans-unit>
+            <trans-unit id="workflow.refusal.move-refused"><source>workflow.refusal.move-refused</source><target>The board refused the move.</target></trans-unit>
+            <trans-unit id="workflow.refusal.epic-children-open"><source>workflow.refusal.epic-children-open</source><target>The epic still has open child cards.</target></trans-unit>
+            <trans-unit id="workflow.refusal.workflow-slot-missing"><source>workflow.refusal.workflow-slot-missing</source><target>No column of the board is linked to the target slot.</target></trans-unit>
+            <trans-unit id="workflow.refusal.no-pull-request"><source>workflow.refusal.no-pull-request</source><target>The card has no pull request.</target></trans-unit>
+            <trans-unit id="workflow.refusal.unsupported-write"><source>workflow.refusal.unsupported-write</source><target>The forge cannot do this write.</target></trans-unit>
+            <trans-unit id="workflow.refusal.no-parent-base"><source>workflow.refusal.no-parent-base</source><target>The parent pull request has no base branch.</target></trans-unit>
+            <trans-unit id="workflow.refusal.no-head"><source>workflow.refusal.no-head</source><target>The pull request has no head commit.</target></trans-unit>
+            <trans-unit id="workflow.refusal.invalid-work-request"><source>workflow.refusal.invalid-work-request</source><target>The app refused to open the work request.</target></trans-unit>
         </body>
     </file>
 </xliff>

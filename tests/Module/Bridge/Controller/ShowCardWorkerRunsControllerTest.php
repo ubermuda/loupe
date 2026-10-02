@@ -277,14 +277,14 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame(
-            'Agents paused: no worker starts on this card until you let agents run or move it.',
+            'Unmanaged: the workflow makes no move and starts no work on this card.',
             $crawler->filter('turbo-frame#card-worker-runs [data-card-held]')->text(),
         );
         self::assertCount(0, $crawler->filter('[data-card-agents-pause]'));
         $release = $crawler->filter('turbo-frame#card-worker-runs form[data-card-agents-release]');
         self::assertSame('/projects/'.$projectId.'/worker-runs/card/'.$cardId.'/release', $release->attr('action'));
         self::assertSame('card-worker-runs', $release->attr('data-turbo-frame'));
-        self::assertSame('Let agents run', trim($release->filter('button')->text()));
+        self::assertSame('Manage again', trim($release->filter('button')->text()));
         self::assertNotEmpty($release->filter('input[name="_csrf_token"]')->attr('value'));
     }
 
@@ -308,7 +308,7 @@ final class ShowCardWorkerRunsControllerTest extends WebTestCase
         self::assertSame('Agent runs', $crawler->filter('[data-card-runs] h2')->text());
         $pause = $crawler->filter('turbo-frame#card-worker-runs [data-card-runs] form[data-card-agents-pause]');
         self::assertSame('/projects/'.$projectId.'/worker-runs/card/'.$cardId.'/pause', $pause->attr('action'));
-        self::assertSame('Pause agents', trim($pause->filter('button')->text()));
+        self::assertSame('Make unmanaged', trim($pause->filter('button')->text()));
     }
 
     public function test_a_refused_command_shows_its_reason_in_the_frame_once(): void

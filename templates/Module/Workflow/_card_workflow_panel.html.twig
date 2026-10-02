@@ -1,0 +1,24 @@
+{# The Workflow panel of a card page and its drawer. Props: panel (CardWorkflowPanel). #}
+<section class="lp-card-overview__section" data-workflow-panel data-workflow-management="{{ panel.management.value }}">
+    <h2 class="lp-card-panel__title">{{ 'workflow.panel.title'|trans }}</h2>
+    <p class="lp-workflow-panel__state" data-workflow-state>{{ panel.management.translationKey|trans }}</p>
+    {% if panel.pause %}
+    <div class="lp-workflow-panel__pause" data-workflow-pause="{{ panel.pause.code }}">
+        <p class="lp-workflow-panel__pause-title"><twig:ux:icon name="lucide:circle-pause" class="lp-card-held__icon" />{{ 'workflow.panel.paused'|trans({'%kind%': panel.pause.kind}) }} <time datetime="{{ panel.pause.since|date('c') }}">{{ panel.pause.since|relative_time }}</time></p>
+        <p class="lp-workflow-panel__line">{{ panel.pause.reason }}</p>
+        <p class="lp-workflow-panel__line" data-workflow-release>{{ panel.pause.release }}</p>
+    </div>
+    {% endif %}
+    {% if panel.progress %}
+    {% set progress = panel.progress %}
+    <dl class="lp-card-fields">
+        <div class="lp-card-field" data-workflow-slot><dt>{{ 'workflow.panel.slot.label'|trans }}</dt><dd>{{ progress.slot }}</dd></div>
+        {% if progress.nextAction %}<div class="lp-card-field lp-card-field--prose" data-workflow-next-action><dt>{{ 'workflow.panel.next_action'|trans }}</dt><dd>{{ progress.nextAction }}</dd></div>{% endif %}
+        {% if progress.waiting %}<div class="lp-card-field lp-card-field--wide lp-card-field--prose" data-workflow-waiting><dt>{{ 'workflow.panel.waiting'|trans }}</dt><dd>{{ progress.waiting }}</dd></div>{% endif %}
+        {% if progress.lastRefusal %}
+        {% set refusal = progress.lastRefusal %}
+        <div class="lp-card-field lp-card-field--wide lp-card-field--prose" data-workflow-last-refusal="{{ refusal.code }}"><dt>{{ 'workflow.panel.last_refusal'|trans }}</dt><dd>{{ refusal.reason }} · <time datetime="{{ refusal.at|date('c') }}">{{ refusal.at|relative_time }}</time> · {{ 'workflow.panel.attempts'|trans({'%count%': refusal.attempts}) }}</dd></div>
+        {% endif %}
+    </dl>
+    {% endif %}
+</section>

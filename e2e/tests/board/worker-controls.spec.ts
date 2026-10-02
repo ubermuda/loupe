@@ -102,24 +102,24 @@ test('the owner stops a run, which holds nothing, then pauses and releases the a
 
     const runs = page.locator('turbo-frame#card-worker-runs');
     await runs
-        .getByRole('button', { name: 'Pause agents', exact: true })
+        .getByRole('button', { name: 'Make unmanaged', exact: true })
         .click();
     await expect(held).toBeVisible();
     await expect(held).toContainText(
-        'Agents paused: no worker starts on this card until you let agents run or move it.',
+        'Unmanaged: the workflow makes no move and starts no work on this card.',
     );
     const release = runs.getByRole('button', {
-        name: 'Let agents run',
+        name: 'Manage again',
         exact: true,
     });
     await expect(release).toBeVisible();
     await expect(
-        runs.getByRole('button', { name: 'Pause agents', exact: true }),
+        runs.getByRole('button', { name: 'Make unmanaged', exact: true }),
     ).toHaveCount(0);
 
     await release.click();
     await expect(held).toHaveCount(0);
     await expect(
-        runs.getByRole('button', { name: 'Pause agents', exact: true }),
+        runs.getByRole('button', { name: 'Make unmanaged', exact: true }),
     ).toBeVisible();
 });
