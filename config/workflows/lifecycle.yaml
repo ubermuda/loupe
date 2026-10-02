@@ -218,10 +218,14 @@ rules:
     - id: merged
       when:
           all:
+              - not: { card.in_slot: { slot: '@terminal' } }
               - pr.all_finished_one_merged: {}
               - card.children_finished: {}
       then: { move: { to: '@terminal' } }
 
     - id: closed-unmerged
-      when: { pr.all_closed_unmerged: { minutes: 10 } }
+      when:
+          all:
+              - not: { card.in_slot: { slot: '@backlog' } }
+              - pr.all_closed_unmerged: { minutes: 10 }
       then: { move: { to: '@backlog' } }

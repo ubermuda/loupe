@@ -156,6 +156,28 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertContainsEquals(new ActionCall(ActionType::ForgeWrite, ['write' => 'merge', 'fallback' => 'merge']), $this->actions($facts));
     }
 
+    #[DataProvider('shippedKeys')]
+    public function test_a_global_move_does_not_match_in_its_target_column(string $key): void
+    {
+        $template = $this->template($key);
+        $merged = FactsMother::pullRequest(state: PullRequestState::Merged, closedAt: new \DateTimeImmutable('2026-10-01 11:00:00'));
+        $closed = FactsMother::pullRequest(state: PullRequestState::Closed, closedAt: new \DateTimeImmutable('2026-10-01 11:00:00'));
+
+        foreach ([['@terminal', $merged], ['@backlog', $closed]] as [$slot, $pullRequest]) {
+            $facts = FactsMother::facts(card: FactsMother::card(slot: $slot), pullRequest: $pullRequest, pullRequests: [$pullRequest]);
+            foreach ($template->rulesFor(null) as $rule) {
+                self::assertFalse($rule->when->evaluate($facts) && $slot === ($rule->then->params['to'] ?? null), $key.' '.$rule->id.' in '.$slot);
+            }
+        }
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function shippedKeys(): iterable
+    {
+        yield 'lifecycle' => ['lifecycle'];
+        yield 'simple' => ['simple'];
+    }
+
     public function test_an_epic_with_a_reopened_child_does_not_merge(): void
     {
         $facts = FactsMother::facts(
