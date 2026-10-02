@@ -647,7 +647,9 @@ A profile can also name an epic preview, a local copy of the app that runs the
 code of `epic/<n>`. After each child merge, the merge stage creates or refreshes
 the preview. It then copies the preview links of the child into the epic pull
 request, each with the result of its check. A link reads "not proved" when the
-data the child seeded for it is missing from the preview.
+data the child seeded for it is missing from the preview. It reads "not minted",
+with a path and no link, when the account of the link is missing from the
+preview.
 
 When the epic pull request falls behind `main`, Loupe merges `main` into
 `epic/<n>`, as for any pull request. Your approval covers that merge. A fix

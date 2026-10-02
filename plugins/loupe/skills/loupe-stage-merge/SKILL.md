@@ -93,15 +93,18 @@ When a step fails, record the block on the epic card. The child merge stands, so
 
 The epic preview serves the code of the epic branch, so the owner can try every merged child in one place. This section applies only when the profile `Epics` section names an epic preview. Take it only when the epic pull request is open and linked.
 
+Two child merges can run this section at the same time. Take the epic preview lock of the profile `Epics` section before step 1, and release it after step 7, also when a step fails. When the lock does not come, record the block, and skip the section. With the lock held, read the epic with `card_get` again. When its `status` is a terminal column, release the lock and skip the section, because a finished epic needs no preview.
+
 1. Create the epic preview, or refresh it when it exists, as the profile says. Run a long command as the harness adapter says. Never bind writes to the preview.
-2. Read the body of the merged child pull request with the forge adapter. In the preview section that the profile `Pull request` section names, take each link of the form that the profile `Epics` section carries, with its label and its marker. A child with no such link carries nothing, so the section ends here.
-3. For each link, mint a link on the epic preview and prove it, as the profile says. The mint or the proof can fail, because the child seeded its state into its own database. Write such a line as not proved, and go on.
-4. Read the body of the epic pull request with the forge adapter, just before you write it. Another child can merge at the same time.
+2. Read the body of the merged child pull request with the forge adapter. In the preview section that the profile `Pull request` section names, take each link of the form that the profile `Epics` section carries, with its label and its marker. A child with no such link carries nothing, so release the lock and end the section.
+3. For each link, mint a link on the epic preview and prove it, as the profile says. The mint or the proof can fail, because the child seeded its state into its own database. Write such a line as not minted or not proved, and go on.
+4. Read the body of the epic pull request with the forge adapter, just before you write it.
 5. In its preview section, replace the lines that start with `#<child number>:`, and keep every other line. When the body has no such section, add it at the top. Write one line per link:
    - `#<child number>: <label> <link> (proved: <marker>)`
    - `#<child number>: <label> <link> (not proved: <marker>)`
+   - `#<child number>: <label> <path> (not minted: <marker>)`, when the mint failed. `<path>` is the decoded target path, because the link of the child is signed for the child host.
 6. Replace the body of the epic pull request with the forge adapter. Write the body to a temporary file outside the repository with a file tool, not with the shell.
-7. Read the body again. When the lines of this child are missing, another merge wrote over them. Do steps 4 to 6 once more.
+7. Read the body again. When the lines of this child are missing, record the block.
 
 When a step fails, record the block on the epic card, with the epic pull request URL. A link that fails its mint or its proof is no failure of a step. The child merge stands, so the run still stops with `STAGE RESULT: merged <url>`.
 
