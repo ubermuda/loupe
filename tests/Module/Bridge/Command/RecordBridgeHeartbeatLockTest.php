@@ -87,6 +87,18 @@ final class RecordBridgeHeartbeatLockTest extends KernelTestCase
         }
     }
 
+    public function test_a_bridge_that_releases_its_name_waits_for_the_name_lock(): void
+    {
+        [$handler, $owner, $bridgeId] = $this->nameLockHeld('heartbeat-lock-name-release@example.com');
+
+        try {
+            $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', name: ''));
+            self::fail('The release did not wait for the name lock another session holds.');
+        } catch (\Doctrine\DBAL\Exception $e) {
+            self::assertStringContainsString('lock timeout', $e->getMessage());
+        }
+    }
+
     /**
      * Names the bridge "laptop", then holds the owner's name lock in another session.
      *
