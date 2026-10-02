@@ -19,7 +19,9 @@ rules:
     - id: product-design-session
       slot: product-design
       when:
-          not: { card.document_approved: { tag: product } }
+          all:
+              - not: { card.document_approved: { tag: product } }
+              - not: { card.document_changes_requested: { tag: product } }
       then: { request: { kind: product-design, capability: interactive } }
 
     - id: product-design-revise
@@ -35,7 +37,9 @@ rules:
     - id: tech-design-write
       slot: tech-design
       when:
-          not: { card.document_approved: { tag: design } }
+          all:
+              - not: { card.document_approved: { tag: design } }
+              - not: { card.document_changes_requested: { tag: design } }
       then: { request: { kind: tech-design } }
 
     - id: tech-design-revise
@@ -56,7 +60,7 @@ rules:
       when:
           all:
               - not: { card.type: { type: epic } }
-              - not: { pr.open: {} }
+              - not: { pr.linked: {} }
       then: { request: { kind: implement } }
 
     - id: breakdown
@@ -75,6 +79,8 @@ rules:
               - pr.open: {}
               - not: { pr.draft: {} }
               - pr.checks_passed: {}
+              - not: { pr.conflicting: {} }
+              - not: { pr.changes_requested: {} }
       then: { move: { to: in-review } }
 
     - id: fix-in-implementation
@@ -131,6 +137,7 @@ rules:
               - pr.base_is_merge_target: {}
               - not: { pr.conflicting: {} }
               - not: { pr.changes_requested: {} }
+              - not: { pr.behind: {} }
       then: { forge-write: { write: merge, fallback: merge } }
 
     - id: epic-to-review

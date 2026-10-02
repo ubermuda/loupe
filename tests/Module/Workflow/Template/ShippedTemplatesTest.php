@@ -172,6 +172,64 @@ final class ShippedTemplatesTest extends KernelTestCase
         self::assertNotContainsEquals($toImplementation, $this->actions($inBacklog));
     }
 
+    /** @param list<string> $pair */
+    #[DataProvider('overlaps')]
+    public function test_only_one_rule_of_an_overlapping_pair_fires(Facts $facts, array $pair, string $fires): void
+    {
+        self::assertSame([$fires], array_values(array_intersect($this->firingRuleIds($facts), $pair)));
+    }
+
+    /** @return iterable<string, array{Facts, list<string>, string}> */
+    public static function overlaps(): iterable
+    {
+        $merged = FactsMother::pullRequest(state: PullRequestState::Merged, closedAt: new \DateTimeImmutable('2026-10-01 11:00:00'));
+        yield 'a merged pull request does not ask for an implementation' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'implementation'), pullRequest: $merged, pullRequests: [$merged]),
+            ['implement', 'merged'],
+            'merged',
+        ];
+
+        $closed = FactsMother::pullRequest(state: PullRequestState::Closed, closedAt: new \DateTimeImmutable('2026-10-01 11:45:00'));
+        yield 'a closed pull request does not ask for an implementation' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'implementation'), pullRequest: $closed, pullRequests: [$closed]),
+            ['implement', 'closed-unmerged'],
+            'closed-unmerged',
+        ];
+
+        yield 'a product design with changes requested asks only for a revision' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'product-design', documents: [new DocumentFacts(tags: ['product'], status: 'changes-requested')])),
+            ['product-design-session', 'product-design-revise'],
+            'product-design-revise',
+        ];
+
+        yield 'a tech design with changes requested asks only for a revision' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'tech-design', documents: [new DocumentFacts(tags: ['design'], status: 'changes-requested')])),
+            ['tech-design-write', 'tech-design-revise'],
+            'tech-design-revise',
+        ];
+
+        $conflicting = FactsMother::pullRequest(checks: ChecksState::Passed, conflicting: true);
+        yield 'a conflicting pull request asks for a fix and does not move' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'implementation'), pullRequest: $conflicting, pullRequests: [$conflicting]),
+            ['reviewable', 'fix-in-implementation'],
+            'fix-in-implementation',
+        ];
+
+        $changesRequested = FactsMother::pullRequest(checks: ChecksState::Passed, changesRequested: true);
+        yield 'a pull request with changes requested asks for a fix and does not move' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'implementation'), pullRequest: $changesRequested, pullRequests: [$changesRequested]),
+            ['reviewable', 'fix-in-implementation'],
+            'fix-in-implementation',
+        ];
+
+        $behind = FactsMother::pullRequest(checks: ChecksState::Passed, behind: true, approvalsCoveringHead: 1);
+        yield 'an approved pull request that is behind updates and does not merge' => [
+            FactsMother::facts(card: FactsMother::card(slot: 'in-review'), pullRequest: $behind, pullRequests: [$behind]),
+            ['merge-ready', 'update-behind'],
+            'update-behind',
+        ];
+    }
+
     private function shipped(): ShippedTemplates
     {
         return static::getContainer()->get(ShippedTemplates::class);
@@ -185,6 +243,19 @@ final class ShippedTemplatesTest extends KernelTestCase
     private function lifecycle(): Template
     {
         return $this->template('lifecycle');
+    }
+
+    /** @return list<string> the id of every Lifecycle rule that matches the facts */
+    private function firingRuleIds(Facts $facts): array
+    {
+        $ids = [];
+        foreach ($this->lifecycle()->rulesFor($facts->card->slot) as $rule) {
+            if ($rule->when->evaluate($facts)) {
+                $ids[] = $rule->id;
+            }
+        }
+
+        return $ids;
     }
 
     /** @return list<ActionCall> the actions of every Lifecycle rule that matches the facts */

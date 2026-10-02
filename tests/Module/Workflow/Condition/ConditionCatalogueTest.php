@@ -34,6 +34,7 @@ final class ConditionCatalogueTest extends KernelTestCase
             'pr.checks_passed',
             'pr.conflicting',
             'pr.draft',
+            'pr.linked',
             'pr.open',
             'pr.parent_merged',
             'pr.stacked',

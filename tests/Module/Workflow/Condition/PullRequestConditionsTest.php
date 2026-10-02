@@ -13,6 +13,7 @@ use App\Module\Workflow\Condition\PullRequestChecksFailed;
 use App\Module\Workflow\Condition\PullRequestChecksPassed;
 use App\Module\Workflow\Condition\PullRequestConflicting;
 use App\Module\Workflow\Condition\PullRequestDraft;
+use App\Module\Workflow\Condition\PullRequestLinked;
 use App\Module\Workflow\Condition\PullRequestOpen;
 use App\Module\Workflow\Condition\PullRequestParentMerged;
 use App\Module\Workflow\Condition\PullRequestsAllClosedUnmerged;
@@ -87,6 +88,11 @@ final class PullRequestConditionsTest extends TestCase
         yield 'all finished, none merged' => [new PullRequestsAllFinishedOneMerged(), [], self::all([$closedAnHourAgo]), false];
         yield 'all finished, none linked' => [new PullRequestsAllFinishedOneMerged(), [], self::all([]), false];
 
+        yield 'linked, open' => [new PullRequestLinked(), [], self::all([$open]), true];
+        yield 'linked, merged' => [new PullRequestLinked(), [], self::all([$merged]), true];
+        yield 'linked, closed' => [new PullRequestLinked(), [], self::all([$closedAnHourAgo]), true];
+        yield 'linked, none' => [new PullRequestLinked(), [], self::all([]), false];
+
         yield 'all closed unmerged, 10 minutes ago' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], self::all([$closedAnHourAgo, self::closedMinutesAgo(10)]), true];
         yield 'all closed unmerged, 9 minutes ago' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], self::all([$closedAnHourAgo, self::closedMinutesAgo(9)]), false];
         yield 'all closed unmerged, one merged' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], self::all([$closedAnHourAgo, $merged]), false];
@@ -160,6 +166,7 @@ final class PullRequestConditionsTest extends TestCase
         yield 'pr.base_is_merge_target' => [new PullRequestBaseIsMergeTarget(), [], [], $one];
         yield 'pr.stacked' => [new PullRequestStacked(), [], [], $one];
         yield 'pr.parent_merged' => [new PullRequestParentMerged(), [], [], $one];
+        yield 'pr.linked' => [new PullRequestLinked(), [], [], [FactKey::PullRequests]];
         yield 'pr.all_finished_one_merged' => [new PullRequestsAllFinishedOneMerged(), [], [], [FactKey::PullRequests]];
         yield 'pr.all_closed_unmerged' => [new PullRequestsAllClosedUnmerged(), ['minutes' => 10], ['%minutes%' => '10'], [FactKey::PullRequests]];
     }
