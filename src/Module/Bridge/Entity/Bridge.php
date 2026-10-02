@@ -37,8 +37,8 @@ class Bridge
 
     public const int MAX_NAME_LENGTH = 40;
 
-    /** Refuses control, format and unassigned code points, so a name cannot hide or reorder its text. Empty matches, because a blank name clears it. */
-    public const string NAME_PATTERN = '/^\P{C}*$/uD';
+    /** Refuses control characters alone, as the CLI does before it sends, because a refused name fails the whole heartbeat. Empty matches, because a blank name clears it. */
+    public const string NAME_PATTERN = '/^\P{Cc}*$/uD';
 
     /** The capability of a bridge that reads commands from the outbox and the heartbeat reply. */
     public const string CAPABILITY_COMMANDS = 'commands';

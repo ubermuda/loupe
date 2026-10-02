@@ -78,10 +78,13 @@ final readonly class RecordBridgeHeartbeatHandler
                 $bridge->name = null;
                 $bridge->requestedName = null;
             } elseif (null !== $command->name) {
-                // Always taken after the bridge lock, so two heartbeats never wait on each other in reverse.
-                $this->bridges->lockNamesForWrite($ownerId);
                 $bridge->requestedName = $command->name;
-                $bridge->name = $this->bridges->isNameHeldByOther($command->owner, $command->bridgeId, $command->name) ? null : $command->name;
+                // The unique index keeps a held name off every other bridge, so only a new claim needs the check.
+                if ($bridge->name !== $command->name) {
+                    // Always taken after the bridge lock, so two heartbeats never wait on each other in reverse.
+                    $this->bridges->lockNamesForWrite($ownerId);
+                    $bridge->name = $this->bridges->isNameHeldByOther($command->owner, $command->bridgeId, $command->name) ? null : $command->name;
+                }
             }
 
             // Read under the lock a new command takes, so the reply misses no command stored before it.

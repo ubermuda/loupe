@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\Command;
 
+use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\RecordBridgeHeartbeatCommand;
 use App\Module\Bridge\Command\RecordBridgeHeartbeatHandler;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -62,5 +63,50 @@ final class RecordBridgeHeartbeatLockTest extends KernelTestCase
         } catch (\Doctrine\DBAL\Exception $e) {
             self::assertStringContainsString('lock timeout', $e->getMessage());
         }
+    }
+
+    public function test_a_bridge_that_holds_its_name_skips_the_name_lock(): void
+    {
+        $handler = $this->handlerWithNameLockHeld('heartbeat-lock-name-held@example.com', $owner, $bridgeId);
+
+        $result = $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', name: 'laptop'));
+
+        self::assertSame('laptop', $result->bridge->name);
+        self::assertSame('laptop', $result->bridge->requestedName);
+    }
+
+    public function test_a_bridge_that_asks_for_a_new_name_waits_for_the_name_lock(): void
+    {
+        $handler = $this->handlerWithNameLockHeld('heartbeat-lock-name-new@example.com', $owner, $bridgeId);
+
+        try {
+            $handler(new RecordBridgeHeartbeatCommand($owner, $bridgeId, [], 'b4e39aa7', name: 'desktop'));
+            self::fail('The heartbeat did not wait for the name lock another session holds.');
+        } catch (\Doctrine\DBAL\Exception $e) {
+            self::assertStringContainsString('lock timeout', $e->getMessage());
+        }
+    }
+
+    /** Names the bridge "laptop", then holds the owner's name lock in another session. */
+    private function handlerWithNameLockHeld(string $email, ?User &$owner, ?Uuid &$bridgeId): RecordBridgeHeartbeatHandler
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, $email);
+        $bridgeId = Uuid::v4();
+        // Seeded rather than sent, because a heartbeat would hold the name lock until the test ends.
+        $bridge = $this->seedBridge($em, $owner, $bridgeId);
+        $bridge->name = 'laptop';
+        $bridge->requestedName = 'laptop';
+        $em->flush();
+        $handler = self::getContainer()->get(RecordBridgeHeartbeatHandler::class);
+        self::assertInstanceOf(RecordBridgeHeartbeatHandler::class, $handler);
+
+        $this->other = DriverManager::getConnection($em->getConnection()->getParams());
+        $this->other->beginTransaction();
+        $this->other->executeStatement('SELECT pg_advisory_xact_lock(hashtext(?))', ['bridge-name:'.$owner->id]);
+        $em->getConnection()->executeStatement("SET LOCAL lock_timeout = '300ms'");
+
+        return $handler;
     }
 }

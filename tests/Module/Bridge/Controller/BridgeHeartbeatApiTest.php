@@ -518,6 +518,20 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         self::assertSame(str_repeat('a', Bridge::MAX_NAME_LENGTH), $bridge->requestedName);
     }
 
+    /** The CLI refuses only control characters, and a refused name fails the whole heartbeat, so the server refuses no more. */
+    public function test_a_name_with_a_format_character_is_accepted(): void
+    {
+        $client = static::createClient();
+        $owner = $this->user($this->em(), 'heartbeat-name-format@example.com');
+        $raw = $this->agentToken($client, $owner);
+        $bridgeId = (string) Uuid::v4();
+
+        $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7', 'name' => "lap\u{200D}top"]);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame("lap\u{200D}top", $this->bridge($owner, $bridgeId)->name);
+    }
+
     public function test_a_blank_name_clears_both_names(): void
     {
         $client = static::createClient();
