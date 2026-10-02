@@ -94,6 +94,7 @@ func TestParseRefusesAnInvalidWorkEntry(t *testing.T) {
 		"kind too long":                {entry(strings.Repeat("a", 41), "prompt: x"), "a kind is"},
 		"unknown action":               {entry("x", "action: launch\nprompt: x"), `work "x": action "launch" is not interactive or command`},
 		"unknown field":                {entry("x", "prompt: x\nmaxChain: 2"), "field maxChain not found"},
+		"allowUntrusted":               {entry("x", "prompt: x\nallowUntrusted: true"), "field allowUntrusted not found"},
 		"worker without prompt":        {entry("x", "model: opus"), `work "x": prompt is required`},
 		"worker with a blank prompt":   {entry("x", "prompt: '  '"), "prompt is required"},
 		"interactive without prompt":   {entry("x", "action: interactive"), "prompt is required"},
@@ -309,9 +310,15 @@ func TestARenamedColumnKeepsTheWork(t *testing.T) {
 func TestAGoneProjectKillsItsWork(t *testing.T) {
 	s := checked(t, workFile)
 
+	if !s.HasWork() || s.WorkDead("loupe") != "" {
+		t.Fatalf("has work = %v, dead = %q before the kill", s.HasWork(), s.WorkDead("loupe"))
+	}
 	s.KillProject("loupe", api.ReasonProjectGone)
 	if m := s.MatchWork(workRequest("implement")); m.Skip != NoRule {
 		t.Fatalf("match = %+v", m)
+	}
+	if got := s.WorkDead("loupe"); got != api.ReasonProjectGone {
+		t.Fatalf("dead = %q", got)
 	}
 }
 

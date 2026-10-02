@@ -34,7 +34,6 @@ type WorkEntry struct {
 	Prompt         string        `yaml:"prompt"`
 	Model          string        `yaml:"model"`
 	PermissionMode string        `yaml:"permissionMode"`
-	AllowUntrusted bool          `yaml:"allowUntrusted"`
 	Before         *BeforeConfig `yaml:"before"`
 	WorkerPool     string        `yaml:"workerPool"`
 	// Variants pick the model, as the variants of an experiment named after
@@ -186,6 +185,20 @@ func (s *Set) MatchWork(w api.WorkRequest) Match {
 	}
 
 	return m
+}
+
+// HasWork reports whether the set has a work map.
+func (s *Set) HasWork() bool {
+	return len(s.work) > 0
+}
+
+// WorkDead is the reason the work of a mapped project died, and "" while it
+// lives.
+func (s *Set) WorkDead(slug string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.deadWork[slug]
 }
 
 // Capabilities lists what the work map lets the bridge claim: work-requests
