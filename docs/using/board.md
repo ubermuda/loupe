@@ -631,6 +631,8 @@ Each child of the epic starts from `epic/<n>`, and its pull request targets
 branch already holds their code. Before a merge, the merge stage updates the
 child branch when it is behind `epic/<n>`. When the required checks pass, the
 stage squash-merges the child into `epic/<n>`. That merge needs no approval.
+GitHub has no rule for `epic/<n>`, so the stage checks the child against the
+required checks of `main`, by name.
 
 A merged child moves to `done` as any card does. Its code is on `epic/<n>`, and
 not yet on `main`. The epic card stays open until its own pull request merges.
@@ -647,12 +649,10 @@ the preview. It then copies the preview links of the child into the epic pull
 request, each with the result of its check. A link reads "not proved" when the
 data the child seeded for it is missing from the preview.
 
-Two cases do not work yet. The stage that meets one records a block on the
-epic card:
-
-- The epic pull request falls behind `main`. Loupe does not update it yet.
-- The epic pull request gets review feedback. A fix round cannot push to
-  `epic/<n>`, because the branch accepts changes through pull requests only.
+When the epic pull request falls behind `main`, Loupe merges `main` into
+`epic/<n>`, as for any pull request. Your approval covers that merge. A fix
+round on the epic pull request pushes to `epic/<n>` directly. An open child
+then falls behind `epic/<n>`, and the merge stage updates it before its merge.
 
 An epic with one child can close before the stage links its pull request. The
 merge stage then records a block on the epic card.
