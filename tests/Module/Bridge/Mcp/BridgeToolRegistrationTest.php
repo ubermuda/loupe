@@ -10,6 +10,8 @@ use App\Module\Board\Mcp\CardRunCloseTool;
 use App\Module\Bridge\Command\ListWorkerRunsHandler;
 use App\Module\Bridge\Mcp\BridgeCommandCancelTool;
 use App\Module\Bridge\Mcp\BridgeListTool;
+use App\Module\Bridge\Mcp\CardHoldTool;
+use App\Module\Bridge\Mcp\CardReleaseTool;
 use App\Module\Bridge\Mcp\WorkerRunGetTool;
 use App\Module\Bridge\Mcp\WorkerRunListTool;
 use App\Module\Bridge\Mcp\WorkerRunResumeTool;
@@ -51,6 +53,8 @@ final class BridgeToolRegistrationTest extends KernelTestCase
         yield 'bridge_list' => [BridgeListTool::NAME, BridgeListTool::class];
         yield 'worker_run_resume' => [WorkerRunResumeTool::NAME, WorkerRunResumeTool::class];
         yield 'worker_run_stop' => [WorkerRunStopTool::NAME, WorkerRunStopTool::class];
+        yield 'card_hold' => [CardHoldTool::NAME, CardHoldTool::class];
+        yield 'card_release' => [CardReleaseTool::NAME, CardReleaseTool::class];
         yield 'bridge_command_cancel' => [BridgeCommandCancelTool::NAME, BridgeCommandCancelTool::class];
     }
 
@@ -104,8 +108,8 @@ final class BridgeToolRegistrationTest extends KernelTestCase
         self::assertIsInt($start);
 
         self::assertSame(
-            [WorkerRunListTool::NAME, WorkerRunGetTool::NAME, BridgeListTool::NAME, WorkerRunResumeTool::NAME, WorkerRunStopTool::NAME, BridgeCommandCancelTool::NAME],
-            \array_slice($names, $start, 6),
+            [WorkerRunListTool::NAME, WorkerRunGetTool::NAME, BridgeListTool::NAME, WorkerRunResumeTool::NAME, WorkerRunStopTool::NAME, CardHoldTool::NAME, CardReleaseTool::NAME, BridgeCommandCancelTool::NAME],
+            \array_slice($names, $start, 8),
         );
         $close = array_search(CardRunCloseTool::NAME, $names, true);
         self::assertIsInt($close);
@@ -136,6 +140,17 @@ final class BridgeToolRegistrationTest extends KernelTestCase
         self::assertSame(1, $properties['cardNumber']['minimum']);
         self::assertSame(ListWorkerRunsHandler::PER_PAGE, $properties['perPage']['default']);
         self::assertSame([], $schema['required'] ?? []);
+    }
+
+    public function test_the_card_hold_tools_take_a_card_id_or_a_number(): void
+    {
+        foreach ([CardHoldTool::NAME, CardReleaseTool::NAME] as $toolName) {
+            $schema = $this->registry->getTool($toolName)->tool->inputSchema;
+
+            self::assertSame([], $schema['required'] ?? [], $toolName);
+            self::assertArrayHasKey('cardId', $schema['properties'], $toolName);
+            self::assertSame(1, $schema['properties']['number']['minimum'], $toolName);
+        }
     }
 
     public function test_the_single_run_tools_require_a_run_id(): void

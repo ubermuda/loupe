@@ -64,6 +64,8 @@ final class AdvertisedTools
         'bridge_list',
         'worker_run_resume',
         'worker_run_stop',
+        'card_hold',
+        'card_release',
         'bridge_command_cancel',
         'inbox_ask',
         'inbox_search',

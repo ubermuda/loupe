@@ -2549,6 +2549,14 @@
                 <source>project.connect.tool.worker_run_stop</source>
                 <target>Ask the bridge to stop a queued or running worker run.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.card_hold">
+                <source>project.connect.tool.card_hold</source>
+                <target>Pause the agents on a card. No bridge starts a worker on the card until the pause ends.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.card_release">
+                <source>project.connect.tool.card_release</source>
+                <target>Let the agents run on a paused card. The queued runs on the card then start.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.bridge_command_cancel">
                 <source>project.connect.tool.bridge_command_cancel</source>
                 <target>Withdraw the resume or stop command that waits on a worker run, before its bridge reads it.</target>
