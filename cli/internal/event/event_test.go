@@ -286,3 +286,31 @@ func parseErr(t *testing.T, payload string, extra map[string]bool) error {
 
 	return err
 }
+
+// The hold events parse with no rule naming them, because the bridge follows
+// the hold of every card.
+func TestParseTheHoldEvents(t *testing.T) {
+	for _, typ := range []string{CardHeldType, CardReleasedType} {
+		e := parseOK(t, `{"type":"`+typ+`","subject":{"type":"card","id":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7"},`+projectField+`,"cardNumber":42,"actor":"human"}`, nil)
+		if e.Type != typ || e.Subject.ID != "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7" || e.CardNumber != 42 {
+			t.Fatalf("%s: %+v", typ, e)
+		}
+	}
+}
+
+func TestParseRejectsAHoldEventWithABadField(t *testing.T) {
+	for _, typ := range []string{CardHeldType, CardReleasedType} {
+		for name, payload := range map[string]string{
+			"no subject id":  `{"type":"` + typ + `","subject":{"type":"card"},` + projectField + `,"actor":"human"}`,
+			"bad subject id": `{"type":"` + typ + `","subject":{"type":"card","id":"card-uuid"},` + projectField + `,"actor":"human"}`,
+			"not a card":     `{"type":"` + typ + `","subject":{"type":"project","id":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"},` + projectField + `,"actor":"human"}`,
+			"no projectId":   `{"type":"` + typ + `",` + subjectField + `,"actor":"human"}`,
+			"bad projectId":  `{"type":"` + typ + `",` + subjectField + `,"projectId":"not-a-uuid","actor":"human"}`,
+			"unknown actor":  `{"type":"` + typ + `",` + subjectField + `,` + projectField + `,"actor":"bot"}`,
+		} {
+			if err := parseErr(t, payload, nil); errors.Is(err, ErrUnknownType) {
+				t.Fatalf("%s %s: must be malformed, not unknown", typ, name)
+			}
+		}
+	}
+}

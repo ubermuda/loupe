@@ -30,7 +30,7 @@ const recentLimit = 512
 // lock file at LockPath and of the control socket, and OldVersion and
 // OldBinary the image that froze it, for a rollback. NewVersion is the image
 // the exec runs, which a recovery skips when it died before its health. Holds
-// lists the cards a person stopped.
+// lists the cards the server states as held.
 type handoverState struct {
 	Format   int                         `json:"format"`
 	Queue    []handoverPending           `json:"queue"`

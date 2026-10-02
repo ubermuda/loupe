@@ -166,11 +166,11 @@ func stopWait(events api.Events, flag string, fallback time.Duration) time.Durat
 	return fallback
 }
 
-// stopRun stops the run a command names, and holds its card. A queued run
-// closes at once. A live worker gets the stop ladder, and its end reports
-// stopped. A run in an ask check, in the resume gate or in its spawn is
-// marked, and the next step of that run reports stopped. The answer is done
-// once the stop is under way, and does not wait for the worker to exit.
+// stopRun stops the run a command names. A queued run closes at once. A live
+// worker gets the stop ladder, and its end reports stopped. A run in an ask
+// check, in the resume gate or in its spawn is marked, and the next step of
+// that run reports stopped. The answer is done once the stop is under way. With
+// an older server it also holds the card.
 func (r *router) stopRun(c api.Command) (state, reason string) {
 	r.quiesce.RLock()
 	defer r.quiesce.RUnlock()
@@ -190,7 +190,9 @@ func (r *router) stopRun(c api.Command) (state, reason string) {
 
 		return api.CommandRefused, noOpenRun
 	}
-	r.holdCardLocked(c.CardID)
+	if !r.holdList {
+		r.holdCardLocked(c.CardID)
+	}
 	if r.stops == nil {
 		r.stops = map[string]bool{}
 	}
@@ -320,9 +322,17 @@ func (r *router) heldLocked(e event.Event) bool {
 	return id != "" && r.cardHolds[id]
 }
 
-// releaseHold ends the hold of a card, and starts its queued runs.
+// releaseHold ends the hold of a card and starts its queued runs, until the
+// bridge reads the held list once. The list then owns every hold.
 func (r *router) releaseHold(cardID string) {
-	if r.dropHold(cardID) {
+	r.mu.Lock()
+	held := !r.holdList && r.cardHolds[cardID]
+	if held {
+		delete(r.cardHolds, cardID)
+	}
+	r.mu.Unlock()
+	if held {
+		r.log.Info("card_hold_released", "card_id", cardID)
 		r.dispatch()
 	}
 }
@@ -343,12 +353,22 @@ func (r *router) dropHold(cardID string) bool {
 	return true
 }
 
-// noteCardHold keeps the hold the server states for the card of the event. An
-// event with no held key changes nothing. A column delete ends the hold of each
-// card it moved, as the server does. It reports whether the event ended a hold,
-// and starts nothing, so the event can replace a stale queued run first.
+// noteCardHold keeps the hold the server states for the card of the event. A
+// hold event or a held key states it, and another event changes nothing. A
+// column delete ends the hold of each card it moved, as the server does. It
+// reports whether the event ended a hold, and starts nothing, so the event can
+// replace a stale queued run first.
 func (r *router) noteCardHold(e event.Event) bool {
-	if e.Type == event.ColumnDeletedType {
+	switch e.Type {
+	case event.CardReleasedType:
+		return r.dropHold(e.Subject.ID)
+	case event.CardHeldType:
+		r.mu.Lock()
+		r.holdCardLocked(e.Subject.ID)
+		r.mu.Unlock()
+
+		return false
+	case event.ColumnDeletedType:
 		released := false
 		for _, id := range e.MovedCardIDs {
 			released = r.dropHold(strings.ToLower(id)) || released
@@ -383,9 +403,9 @@ const (
 
 // resumeRun queues a resume of the session of a run that ended, as its next
 // run. The resume waits for the card and a worker slot, and a pause keeps it
-// queued. A held card passes, because the person's resume ends the hold on the
-// server, and resumeRun ends the hold of this bridge. The automatic resumes of
-// the new run count from zero again.
+// queued. A held card passes, and the resume waits until the hold ends. With
+// an older server the resume ends the hold. The automatic resumes of the new
+// run count from zero again.
 func (r *router) resumeRun(c api.Command) (state, reason string) {
 	if c.SessionID == "" {
 		return api.CommandRefused, noSession
@@ -485,9 +505,9 @@ const (
 
 // rerunCommand queues the command of a failed command run again, as a new run
 // that continues it. It refuses while the card has a run that holds it or
-// waits in the queue, the rerun of this run included. A held card passes,
-// because a person's rerun acts on the card, and rerunCommand ends the hold of
-// this bridge.
+// waits in the queue, the rerun of this run included. A held card passes, and
+// the rerun waits until the hold ends. With an older server the rerun ends the
+// hold.
 func (r *router) rerunCommand(c api.Command) (state, reason string) {
 	e := event.Event{
 		Type: event.CommandType, Subject: event.Subject{Type: "card", ID: c.CardID}, ProjectID: c.ProjectID,
