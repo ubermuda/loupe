@@ -100,6 +100,9 @@ type router struct {
 	ackCommand func(ctx context.Context, bridgeID, commandID, state, reason string) (string, error)
 	pauseFile  string
 	baseURL    string
+	// workAPI claims and settles work requests. A nil one, as in most tests,
+	// claims none.
+	workAPI workClient
 	// signal sends one step of the stop ladder to the process group of a
 	// worker, and stopAfter times the waits between two steps. A nil one is
 	// signalGroup or time.After, which tests replace.
@@ -159,6 +162,9 @@ type router struct {
 	// held maps the id of each open run the bridge reported to its project and
 	// state. Each connect sends it as the run inventory.
 	held map[string]api.InventoryRun
+	// claims maps the id of each work request the bridge claims or holds to
+	// its claim.
+	claims map[string]*heldClaim
 
 	// unmapped remembers the projects already logged as unmapped, and gone the
 	// mapped projects already logged as gone. Both hold project ids, because a
@@ -277,6 +283,11 @@ type pending struct {
 	// the run resolved at start.
 	experiment *rules.Experiment
 	pin        runPin
+	// work is the work request the run does, and empty for an event's run.
+	// claimToken is set once the bridge holds its claim. A queued offer holds
+	// none, and reports nothing.
+	work       api.WorkRequest
+	claimToken string
 }
 
 // runPin is the variant a run in an experiment runs with, as its reports
@@ -382,7 +393,7 @@ func (r *router) resolve(e event.Event) (event.Event, string) {
 // cardOf is the card a run of the event reports against. A number below 1
 // means the event names no card.
 func cardOf(e event.Event) (string, int) {
-	if e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType || event.IsPullRequest(e.Type) {
+	if e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType || event.IsPullRequest(e.Type) || e.Type == event.WorkRequestType {
 		return e.CardID, e.CardNumber
 	}
 
@@ -418,7 +429,7 @@ func (r *router) columnLocked(e event.Event) string {
 // label names an event's aggregate to a reader: its card number when the event
 // carries one, and its subject id otherwise.
 func label(e event.Event) (string, any) {
-	if e.Type == event.CardMovedType || e.Type == event.CommandType || ((e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType || event.IsPullRequest(e.Type)) && e.CardNumber > 0) {
+	if e.Type == event.CardMovedType || e.Type == event.CommandType || e.Type == event.WorkRequestType || ((e.Type == event.AskClosedType || e.Type == event.ReviewSubmittedType || event.IsPullRequest(e.Type)) && e.CardNumber > 0) {
 		return "card", e.CardNumber
 	}
 
@@ -435,6 +446,8 @@ func about(e event.Event, rule string) []any {
 		out = append(out, "ask", e.Subject.ID, "session_id", e.SessionID)
 	case event.ReviewSubmittedType:
 		out = append(out, "document", e.Subject.ID, "verdict", e.Verdict)
+	case event.WorkRequestType:
+		out = append(out, "work_request", e.Subject.ID)
 	}
 
 	return out
@@ -501,6 +514,11 @@ func (r *router) route(data []byte, replayed bool) {
 	if err != nil {
 		if e.Type == event.CommandType {
 			r.onCommandEvent(data)
+
+			return
+		}
+		if e.Type == event.WorkRequestType {
+			r.onWorkRequestEvent(data)
 
 			return
 		}
@@ -601,7 +619,9 @@ func (r *router) kill(e event.Event, do func(*rules.Set) []rules.Dead) ([]rules.
 		r.reloadKills = append(r.reloadKills, e)
 	}
 
-	return r.dropDeadLocked(do(r.rules()))
+	dead, dropped := r.dropDeadLocked(do(r.rules()))
+
+	return dead, append(dropped, r.dropDeadWorkLocked()...)
 }
 
 // goneMark is a project a refresh found gone, with the stamp of its answer.
@@ -642,7 +662,7 @@ func (r *router) markGone(id string, seq uint64) ([]rules.Dead, []pending, bool)
 	r.gone[id] = true
 	dead, dropped := r.dropDeadLocked(killGone(r.rules(), id))
 
-	return dead, dropped, true
+	return dead, append(dropped, r.dropDeadWorkLocked()...), true
 }
 
 // dropDeadLocked reports the health of the killed rules and removes their
@@ -809,6 +829,9 @@ func (r *router) enqueue(p pending) {
 	// this event reached it. The event matches again as it arrived.
 	if current := r.rules(); p.set != current {
 		m := current.Match(p.event)
+		if p.isWork() {
+			m = current.MatchWork(p.work)
+		}
 		switch m.Skip {
 		case rules.Untrusted:
 			r.log.Warn("event_untrusted", about(p.event, m.Rule)...)
@@ -825,6 +848,13 @@ func (r *router) enqueue(p pending) {
 		p.set = current
 		p.apply(m)
 	}
+	// One work request waits once, whichever channel offered it. A frozen
+	// router takes no offer, so the next image claims it.
+	if p.isWork() && (r.frozen || r.knownWorkLocked(p.work.WorkRequestID)) {
+		r.mu.Unlock()
+
+		return
+	}
 	// The server holds the card, so no rule starts anything on it.
 	if r.heldLocked(p.event) {
 		r.log.Info("card_held", about(p.event, p.rule)...)
@@ -834,7 +864,15 @@ func (r *router) enqueue(p pending) {
 	}
 	// A match of an interactive rule opens a session and never waits in the queue.
 	if p.action == rules.ActionInteractive {
-		r.launchLocked(p)
+		if p.isWork() {
+			r.launching++
+			r.claimThenLocked(p, func(p pending) {
+				r.launching--
+				r.launchLocked(p)
+			}, func() { r.launching-- })
+		} else {
+			r.launchLocked(p)
+		}
 		r.mu.Unlock()
 
 		return
@@ -854,10 +892,11 @@ func (r *router) enqueue(p pending) {
 		return
 	}
 	// A queued resume of an unfinished run, or a fresh run, is never replaced,
-	// so the new event waits behind it.
+	// so the new event waits behind it. Two work requests never replace each
+	// other.
 	if i := slices.IndexFunc(r.queue, func(q pending) bool {
-		return q.continues == "" && !q.fresh && q.key == p.key && q.rule == p.rule && askOf(q.event) == askOf(p.event)
-	}); i >= 0 {
+		return q.continues == "" && !q.fresh && !q.isWork() && q.key == p.key && q.rule == p.rule && askOf(q.event) == askOf(p.event)
+	}); !p.isWork() && i >= 0 {
 		p.checked, p.seq = r.queue[i].checked, r.queue[i].seq
 		r.emitLocked(r.queue[i], api.RunStateReport{State: api.RunReplaced, ReplacedBy: p.runID})
 		r.queue[i] = p
@@ -946,7 +985,7 @@ func (r *router) dispatchLocked() []pending {
 			r.queue = slices.Delete(r.queue, i, i+1)
 			r.hold(next.key)
 			r.commandRuns++
-			r.start(next)
+			r.begin(next)
 
 			continue
 		}
@@ -977,7 +1016,7 @@ func (r *router) dispatchLocked() []pending {
 		if next.continues == "" && !next.fresh && next.event.Actor == event.ActorAgent {
 			r.countChain(next.key, next.rule)
 		}
-		r.start(next)
+		r.begin(next)
 	}
 
 	return nil
@@ -1080,6 +1119,20 @@ func (r *router) countChain(key, rule string) {
 		r.chains[key] = map[string]int{}
 	}
 	r.chains[key][rule]++
+}
+
+// begin starts a run that holds its card and its slot. A work request is
+// claimed first, and a failed claim gives both back. The caller holds mu.
+func (r *router) begin(p pending) {
+	if !p.isWork() {
+		r.start(p)
+
+		return
+	}
+	r.claimThenLocked(p, r.start, func() {
+		delete(r.running, p.key)
+		r.freeLocked(p)
+	})
 }
 
 // start runs one worker, as a new claude session, as the resume of the session
@@ -1337,7 +1390,7 @@ func (r *router) afterBefore(p pending, began time.Time, res procResult) {
 	if code == 0 {
 		code = -1
 	}
-	failed := workerResult{exitCode: code, output: failedOutput(failure, res.output), killed: res.killed && !res.timedOut, dir: res.runDir, before: true}
+	failed := workerResult{exitCode: code, output: failedOutput(failure, res.output), killed: res.killed && !res.timedOut, timedOut: res.timedOut, dir: res.runDir, before: true}
 	r.settle(p, endedRun{res: failed, began: began, elapsed: time.Since(began)})
 }
 
@@ -1489,6 +1542,10 @@ func (r *router) end(p pending, e endedRun) {
 	r.mu.Unlock()
 	var reason string
 	e.state, reason = classify(e.res)
+	// A work request takes one result, so its run never resumes.
+	if p.isWork() {
+		reason = ""
+	}
 
 	if !e.res.killed && !shut && sessionMissing(p, e.res) && r.startFresh(p, e) {
 		return
@@ -1520,10 +1577,14 @@ func (r *router) end(p pending, e endedRun) {
 	r.emitLocked(p, r.outcome(p, e))
 	delete(r.running, p.key)
 	r.freeLocked(p)
+	state, why, post := r.workResultLocked(p, e.res, shut || r.shut())
 	dropped := r.dispatchLocked()
 	r.mu.Unlock()
 
 	r.logDropped(dropped)
+	if post {
+		r.settleWork(p, state, why)
+	}
 }
 
 // freeLocked gives back what the run held to run: its worker slot, or its
@@ -1545,6 +1606,9 @@ func (r *router) endStoppedLocked(p pending, e endedRun) bool {
 		return false
 	}
 	r.freeLocked(p)
+	if p.isWork() {
+		r.dropClaimLocked(p.work.WorkRequestID, p.claimToken)
+	}
 	r.closeStoppedLocked(p, r.stoppedReport(p, e), true)
 	dropped := r.dispatchLocked()
 	r.mu.Unlock()
@@ -2028,7 +2092,7 @@ func (r *router) emit(p pending, report api.RunStateReport) {
 // card sends nothing.
 func (r *router) emitLocked(p pending, report api.RunStateReport) {
 	cardID, cardNumber := cardOf(p.event)
-	if !r.reporting() || cardNumber < 1 {
+	if !r.reporting() || cardNumber < 1 || (p.isWork() && p.claimToken == "") {
 		return
 	}
 	switch report.State {

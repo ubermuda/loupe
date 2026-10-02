@@ -410,6 +410,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if r.ackCommand == nil {
 		r.ackCommand = apiClient(cfg).AckCommand
 	}
+	if r.workAPI == nil {
+		r.workAPI = apiClient(cfg)
+	}
 	if r.replay == nil {
 		r.replay = apiClient(cfg).Replay
 	}
@@ -453,6 +456,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		hb.paused = r.personPaused
 		r.heartbeat = hb
 		r.notePoolsLocked()
+		r.noteClaimsLocked()
 		r.mu.Unlock()
 		r.hookRunner.attach(r.heartbeat)
 		r.heartbeat.start()
@@ -532,15 +536,15 @@ func startEvents(ctx context.Context, cfg config.Config, set *rules.Set) (api.Ev
 	return events, nil
 }
 
-// heartbeatBody names the projects the rule file maps, by id, and the CLI
-// version.
+// heartbeatBody names the projects the rule file maps, by id, the CLI
+// version, and the capabilities of the work map.
 func heartbeatBody(set *rules.Set) api.Heartbeat {
 	ids := []string{}
 	for _, slug := range set.Projects() {
 		ids = append(ids, set.ProjectID(slug))
 	}
 
-	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion()}
+	return api.Heartbeat{Projects: ids, CLIVersion: cliVersion(), Capabilities: set.Capabilities()}
 }
 
 // missingProjects names the mapped projects that GET /api/events does not list:

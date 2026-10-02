@@ -224,12 +224,20 @@ func (r *router) runLaunch(l launch) {
 	}
 
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.launching--
 	cardID, number := cardOf(p.event)
-	if !r.reporting() || number < 1 {
-		return
+	if r.reporting() && number >= 1 {
+		report.BridgeID, report.CardID, report.CardNumber, report.RuleName, report.At = r.bridgeID, cardID, number, p.rule, time.Now()
+		r.reports.Enqueue(r.runs.launch(p.event.ProjectID, p.spec.sessionID, report))
 	}
-	report.BridgeID, report.CardID, report.CardNumber, report.RuleName, report.At = r.bridgeID, cardID, number, p.rule, time.Now()
-	r.reports.Enqueue(r.runs.launch(p.event.ProjectID, p.spec.sessionID, report))
+	// A launch of a work request is its whole run, so its result follows.
+	launched := workerResult{command: true}
+	if reason != "" {
+		launched.exitCode = -1
+	}
+	state, why, post := r.workResultLocked(p, launched, false)
+	r.mu.Unlock()
+	if post {
+		r.settleWork(p, state, why)
+	}
 }
