@@ -43,57 +43,66 @@ final readonly class BindWorkflowTemplateHandler
         }
         $template = $this->parser->parse($source);
 
-        $errors = [];
-        $columns = [];
-        $usedColumnIds = [];
-        foreach ($template->slots as $slot) {
-            $field = self::field($slot->key);
-            $columnId = $command->slotColumns[$slot->key] ?? null;
-            if (null === $columnId) {
-                $errors[$field] = 'workflow.bind.error.slot_unlinked';
-                continue;
-            }
-            $column = $this->boardColumns->findOneByIdAndProjectId($columnId->toRfc4122(), $projectId->toRfc4122());
-            if (null === $column) {
-                $errors[$field] = 'workflow.bind.error.foreign_column';
-                continue;
-            }
-            if (isset($usedColumnIds[$columnId->toRfc4122()])) {
-                $errors[$field] = 'workflow.bind.error.column_reused';
-                continue;
-            }
-            $usedColumnIds[$columnId->toRfc4122()] = true;
-            $columns[$slot->key] = $column;
-        }
-        foreach (array_keys($command->slotColumns) as $slotKey) {
-            if (null === $template->slot((string) $slotKey)) {
-                $errors[self::field((string) $slotKey)] = 'workflow.bind.error.unknown_slot';
-            }
-        }
-        if ([] !== $errors) {
-            throw new DomainErrors($errors);
-        }
+        // A refusal leaves the closure as a value: a throw inside it closes the EntityManager.
+        $result = $this->em->wrapInTransaction(
+            /** @return WorkflowBinding|non-empty-array<string, string> */
+            function () use ($command, $project, $projectId, $template, $source): WorkflowBinding|array {
+                // Column writers take the same lock, so the columns read below stay as they are until the commit.
+                $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+                if (null !== $this->workflowBindings->findOneByProjectId($projectId)) {
+                    return ['project' => 'workflow.bind.error.already_bound'];
+                }
 
-        // The refusal leaves the closure as a value: a throw inside it closes the EntityManager.
-        $binding = $this->em->wrapInTransaction(function () use ($project, $projectId, $template, $source, $columns): ?WorkflowBinding {
-            $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
-            if (null !== $this->workflowBindings->findOneByProjectId($projectId)) {
-                return null;
-            }
+                $projectColumns = [];
+                foreach ($this->boardColumns->findForProjectFresh($project) as $column) {
+                    $projectColumns[(string) $column->id?->toRfc4122()] = $column;
+                }
 
-            $binding = new WorkflowBinding($project, $template->key, $template->version, $source);
-            $this->em->persist($binding);
-            foreach ($columns as $slotKey => $column) {
-                $this->em->persist(new WorkflowSlotLink($project, $slotKey, $column));
-            }
-            $this->em->flush();
+                $errors = [];
+                $links = [];
+                $usedColumnIds = [];
+                foreach ($template->slots as $slot) {
+                    $field = self::field($slot->key);
+                    $columnId = $command->slotColumns[$slot->key] ?? null;
+                    $column = null === $columnId ? null : ($projectColumns[$columnId->toRfc4122()] ?? null);
+                    $error = match (true) {
+                        null === $columnId => 'workflow.bind.error.slot_unlinked',
+                        null === $column => 'workflow.bind.error.foreign_column',
+                        $column->backlog || $column->terminal => 'workflow.bind.error.flag_column',
+                        isset($usedColumnIds[$columnId->toRfc4122()]) => 'workflow.bind.error.column_reused',
+                        default => null,
+                    };
+                    if (null !== $error) {
+                        $errors[$field] = $error;
+                        continue;
+                    }
+                    $usedColumnIds[$columnId->toRfc4122()] = true;
+                    $links[] = new WorkflowSlotLink($project, $slot->key, $column);
+                }
+                foreach (array_keys($command->slotColumns) as $slotKey) {
+                    if (null === $template->slot((string) $slotKey)) {
+                        $errors[self::field((string) $slotKey)] = 'workflow.bind.error.unknown_slot';
+                    }
+                }
+                if ([] !== $errors) {
+                    return $errors;
+                }
 
-            return $binding;
-        });
+                $binding = new WorkflowBinding($project, $template->key, $template->version, $source);
+                $this->em->persist($binding);
+                foreach ($links as $link) {
+                    $this->em->persist($link);
+                }
+                $this->em->flush();
 
-        if (null === $binding) {
-            throw new DomainErrors(['project' => 'workflow.bind.error.already_bound']);
+                return $binding;
+            },
+        );
+
+        if (\is_array($result)) {
+            throw new DomainErrors($result);
         }
+        $binding = $result;
 
         $this->auditor->record(
             'workflow.template_bound',

@@ -132,6 +132,43 @@ final class BindWorkflowTemplateHandlerTest extends KernelTestCase
         );
     }
 
+    public function test_it_refuses_a_slot_on_the_backlog(): void
+    {
+        $columns = $this->lifecycleColumns($this->project);
+        $columns['next'] = $this->column($this->project, 'backlog')->id ?? throw new \LogicException();
+
+        $this->assertRefused(
+            ['slotColumns[next]' => 'workflow.bind.error.flag_column'],
+            new BindWorkflowTemplateCommand($this->project, 'lifecycle', $columns),
+        );
+    }
+
+    public function test_it_refuses_a_slot_on_a_column_that_another_request_made_terminal(): void
+    {
+        $columns = $this->lifecycleColumns($this->project);
+        $inReview = $this->column($this->project, 'in-review');
+        self::assertFalse($inReview->terminal);
+
+        $this->em()->getConnection()->executeStatement('UPDATE board_columns SET terminal = true WHERE id = :id', ['id' => (string) $inReview->id]);
+
+        $this->assertRefused(
+            ['slotColumns[in-review]' => 'workflow.bind.error.flag_column'],
+            new BindWorkflowTemplateCommand($this->project, 'lifecycle', $columns),
+        );
+    }
+
+    public function test_it_refuses_a_column_that_another_request_deleted(): void
+    {
+        $columns = $this->lifecycleColumns($this->project);
+        $this->em()->getConnection()->executeStatement('DELETE FROM board_columns WHERE id = :id', ['id' => $columns['in-review']->toRfc4122()]);
+
+        $this->assertRefused(
+            ['slotColumns[in-review]' => 'workflow.bind.error.foreign_column'],
+            new BindWorkflowTemplateCommand($this->project, 'lifecycle', $columns),
+        );
+        self::assertTrue($this->em()->isOpen());
+    }
+
     public function test_a_deleted_column_leaves_the_link_with_no_column(): void
     {
         $this->bindLifecycle($this->project);
