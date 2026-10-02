@@ -67,7 +67,7 @@ When the profile `Environment` section names a folder check, run it first. When 
 git branch --show-current
 ```
 
-When it prints nothing, HEAD is detached. When it prints the base branch of the profile `Gate` section, treat it the same way. Run `git fetch origin <head branch>` and `git switch <head branch>`. When no local branch has that name, run `git switch --track -c <head branch> origin/<head branch>` instead. When the current branch then differs from the head branch, change nothing, and stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
+When it prints nothing, HEAD is detached. When it prints the base branch of the profile `Gate` section, treat it the same way. When it prints another `card-<number>-` branch and `git status --porcelain` prints nothing, treat it the same way too. Run `git fetch origin <head branch>` and `git switch <head branch>`. When no local branch has that name, run `git switch --track -c <head branch> origin/<head branch>` instead. When the current branch then differs from the head branch, change nothing, and stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
 
 Sync the branch:
 
