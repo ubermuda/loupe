@@ -414,6 +414,8 @@ notes cannot be saved here." For such a branch, pass no marker, or pass
 
 The marker is a formal argument all the way. The bridge `before` rule passes
 `{cardId}` to `bin/worktrees/bridge-before.sh`, which passes it to bootstrap.
+The script passes no marker when the worktree's `SITE_REVIEW_WIDGET_BACKEND`
+differs from the main checkout's, so a widget branch keeps the marker it set.
 On a refresh, the stage skill reads it from the prompt line
 `Card <number> (cardId <id>)`. When the prompt lacks it, take
 `cardId` from `card_get`. Never derive the marker from a branch name, a worktree

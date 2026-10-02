@@ -61,8 +61,18 @@ else
     fi
 fi
 
+widget_backend() {
+    [ -f "$1" ] && grep -E '^SITE_REVIEW_WIDGET_BACKEND=' "$1" | tail -1 | cut -d= -f2- | tr -d '"'"'"
+}
+# A widget branch points its backend at its own host, where a production card id names no card.
+context="card:$card_id"
+if [ -f "$root/.env.local" ] && [ "$(widget_backend "$root/.env.local")" != "$(widget_backend "$main/.env.local")" ]; then
+    echo "bridge-before: $name has its own widget backend; keeping its card marker." >&2
+    context=""
+fi
+
 # From main: bootstrap's bare `docker compose` calls resolve their file from the cwd.
-if ! (cd "$main" && just worktree-up "$name" "card:$card_id"); then
+if ! (cd "$main" && just worktree-up "$name" $context); then
     echo "bridge-before: could not provision $name (reason above)." >&2
     # The tree stays, so the next run provisions it again and the teardown removes it.
     exit 1
