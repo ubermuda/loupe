@@ -153,11 +153,11 @@ bridge. It refuses when the command of the rule reads a value of its first
 event, such as `{to}`, because a rerun knows only the card and the project.
 The bridge never runs a failed command again by itself.
 
-A stop holds the card. No worker starts on a held card until its bridge takes
-a person's resume or rerun of one of its runs, or a person moves it to another
-column. A resume that the bridge never takes leaves the card held. A cancel
-of a stop that still waits releases the hold that the stop wrote, unless a stop
-of another run of the card still waits. See [The card page](board.md#the-card-page).
+A stop ends one run and holds nothing. The next event of the card can start a
+new worker on it. To keep agents off the card, select **Pause agents** on the
+card page. Loupe refuses a resume of a run while the agents on its card are
+paused, with **Agents are paused on this card. Let agents run first.** See
+[Pause the agents on a card](board.md#pause-the-agents-on-a-card).
 
 A cancel works only while the bridge has not received the request. A bridge
 that is online receives a request in about a second, and a later cancel does

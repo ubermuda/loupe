@@ -28,7 +28,6 @@ final readonly class CardHoldExporter implements UserDataExporterInterface
             yield [
                 'project' => $hold->project->name,
                 'cardId' => (string) $hold->cardId,
-                'stoppedRunId' => $hold->stoppedRun?->id?->toRfc4122(),
                 'heldAt' => $hold->heldAt->format(\DateTimeInterface::ATOM),
             ];
         }

@@ -16,7 +16,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type Refusal from BridgeCommandRefusals
  */
-#[McpTool(name: self::NAME, description: 'Withdraw the resume or stop command that waits on a worker run, before its bridge reads it. Pass runId, from worker_run_list. When the withdrawn command was the stop that held the card, and no other stop of the card waits, the card hold goes. results has one row. A row with outcome cancelled carries commandId, the id of the withdrawn command. A row with outcome refused carries code and message. The codes are: not-found (no run of this project has this id) and nothing-pending (no command waits on the run, or its bridge already read it).')]
+#[McpTool(name: self::NAME, description: 'Withdraw the resume or stop command that waits on a worker run, before its bridge reads it. Pass runId, from worker_run_list. results has one row. A row with outcome cancelled carries commandId, the id of the withdrawn command. A row with outcome refused carries code and message. The codes are: not-found (no run of this project has this id) and nothing-pending (no command waits on the run, or its bridge already read it).')]
 final readonly class BridgeCommandCancelTool
 {
     public const string NAME = 'bridge_command_cancel';

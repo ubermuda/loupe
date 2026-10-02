@@ -131,7 +131,7 @@ final class CardHoldReleaseTest extends KernelTestCase
     private function heldCard(string $column): Card
     {
         $card = $this->card($column);
-        $this->holds->hold($this->project, $this->idOf($card), null, null);
+        $this->holds->hold($this->project, $this->idOf($card), null);
         self::assertTrue($this->holds->isHeld($this->project, $this->idOf($card)));
 
         return $card;
