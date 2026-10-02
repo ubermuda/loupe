@@ -9,12 +9,14 @@ use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\BridgeCommand;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Entity\WorkerRunUsage;
+use App\Module\Bridge\Entity\WorkRequest;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Bridge\ValueObject\BridgeCommandKind;
 use App\Module\Bridge\ValueObject\BridgeCommandState;
 use App\Module\Bridge\ValueObject\WorkerRunKind;
 use App\Module\Bridge\ValueObject\WorkerRunState;
 use App\Module\Bridge\ValueObject\WorkerRunUsageSource;
+use App\Module\Bridge\ValueObject\WorkRequestState;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\AgentCredential;
@@ -177,6 +179,31 @@ trait BridgeScenario
     private function countCommands(EntityManagerInterface $em): int
     {
         return (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM bridge_commands');
+    }
+
+    private function seedWorkRequest(
+        EntityManagerInterface $em,
+        Project $project,
+        ?Uuid $cardId = null,
+        string $kind = 'implement',
+        ?string $capability = null,
+        WorkRequestState $state = WorkRequestState::Open,
+        \DateTimeImmutable $createdAt = new \DateTimeImmutable('2026-10-01 12:00:00'),
+    ): WorkRequest {
+        $request = new WorkRequest(
+            project: AgentCredential::managed($em, $project, $project->id),
+            cardId: $cardId ?? Uuid::v7(),
+            cardNumber: 7,
+            kind: $kind,
+            capability: $capability,
+            ruleId: 'implement-on-entry',
+            createdAt: $createdAt,
+        );
+        $request->state = $state;
+        $em->persist($request);
+        $em->flush();
+
+        return $request;
     }
 
     private function searchIndexer(): WorkerRunSearchIndexer
