@@ -58,9 +58,9 @@ page:
 A submit or a visit sends its trace headers with its request, so the PHP
 transaction joins the same trace. While the page load trace is still open, the
 request joins the page load trace instead. A span with no end after 10 seconds ends
-then, with the status `deadline_exceeded`. A Turbo stream that another part of
-the page renders during a submit can end the submit span before its own
-response paints.
+then, with the status `deadline_exceeded`. A Turbo stream or a frame that another
+part of the page renders during a submit can end the submit span before its
+own response paints.
 
 Each span has two attributes:
 
