@@ -538,6 +538,23 @@ final class EngineTest extends KernelTestCase
         self::assertCount(1, $this->liveRequests($card));
     }
 
+    public function test_the_release_baseline_ends_a_retries_pause_whose_facts_changed_while_held(): void
+    {
+        $card = $this->boundCard([self::moveRule('stuck', 'three', self::NOT_EPIC)], backoffMinutes: []);
+        $this->evaluate($card);
+        $pause = $this->activePause($card);
+        self::assertNotNull($pause);
+        $this->hold($card);
+        $this->setType($card, CardType::Bug);
+
+        $this->releaseHold($card);
+        $this->evaluate($card, '2026-10-02 12:01:00');
+        $this->evaluate($card, '2026-10-02 12:02:00');
+
+        self::assertSame('facts-changed', $pause->releaseReason);
+        self::assertNull($this->activePause($card));
+    }
+
     public function test_a_card_held_again_before_its_baseline_keeps_it_for_the_next_release(): void
     {
         $card = $this->boundCard([self::requestRule('work', self::ALWAYS)]);

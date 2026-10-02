@@ -112,6 +112,8 @@ final readonly class Engine
         $run = new Evaluation($card, $template, $this->factsBuilder->build($card, $now), $this->workflowRuleStates->findForCard($card), $now);
         if ($baseline) {
             $this->settleWorkRequests($run, $cardId, expire: false);
+            // Before the baseline, which replaces the fingerprint a retries pause compares against.
+            $this->stillPaused($run);
             $this->baseline($run);
             $this->em->flush();
 
