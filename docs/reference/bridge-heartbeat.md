@@ -364,7 +364,8 @@ A task runs each minute and opens again each claimed request whose lease ran
 out. It clears the bridge and the token of the claim, and sends a
 `bridge.work_request` event with the state `open`. Another bridge can then claim
 the work of a bridge that stopped. `app.bridge.work_request_reopen_schedule` in
-the same file sets when that task runs.
+the same file sets when that task runs. `app:reopen-lapsed-work-requests` runs
+the same sweep once by hand.
 
 The claim stays with its holder after `leaseUntil` passes, until that task
 opens the request again. Until then, the holder can still renew or settle the

@@ -9,7 +9,10 @@ use App\Module\Bridge\Command\ReopenLapsedWorkRequestsHandler;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Scheduler\Attribute\AsCronTask;
 
-/** Opens again the work requests whose claim lease ran out, every minute. */
+/**
+ * Opens again the work requests whose claim lease ran out, every minute.
+ * `app:reopen-lapsed-work-requests` is the manual backstop.
+ */
 #[AsCronTask('%app.bridge.work_request_reopen_schedule%')]
 final readonly class ReopenLapsedWorkRequestsTask
 {
