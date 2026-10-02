@@ -606,6 +606,40 @@ The reverse also applies. When you close the epic pull request on GitHub and
 none merged, the card goes back to the Backlog after about ten minutes, as for
 any card.
 
+### The epic branch
+
+A repository profile can give each epic its own branch. Its `.loupe/lifecycle.md`
+file then holds an `Epics` section. Under that profile, the breakdown of epic
+number n pushes a branch `epic/<n>` from `main`.
+
+Each child of the epic starts from `epic/<n>`, and its pull request targets
+`epic/<n>`. A child that waits on blockers starts when they are done, so its
+branch already holds their code. Before a merge, the merge stage updates the
+child branch when it is behind `epic/<n>`. When the required checks pass, the
+stage squash-merges the child into `epic/<n>`. That merge needs no approval.
+
+A merged child moves to `done` as any card does. Its code is on `epic/<n>`, and
+not yet on `main`. The epic card stays open until its own pull request merges.
+
+After the first child merge, the merge stage opens a draft pull request from
+`epic/<n>` to `main` and links it to the epic. GitHub refuses a pull request
+with no changes, so the stage cannot open it earlier. From then on, the epic
+pull request behaves as the section above says. You approve it once, and the
+merge stage squash-merges it into `main`.
+
+Two cases do not work yet. The stage that meets one records a block on the
+epic card:
+
+- The epic pull request falls behind `main`. Loupe does not update it yet.
+- The epic pull request gets review feedback. A fix round cannot push to
+  `epic/<n>`, because the branch accepts changes through pull requests only.
+
+An epic with one child can close before the stage links its pull request. The
+merge stage then records a block on the epic card.
+
+An epic whose breakdown ran before its profile had an `Epics` section has no
+`epic/<n>` branch. Its children keep their pull requests to `main`.
+
 ## What a card holds
 
 | Field | What it is |

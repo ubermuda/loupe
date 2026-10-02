@@ -34,11 +34,11 @@ Build the approved tech design of one card into a ready, linked pull request. An
 5. Choose the mode, in this order, per `references/breakdown.md`:
    - A Breakdown child builds only the entry that its body names, from step 6 on.
    - A standalone child builds its own tech design as any other card, from step 6 on.
-   - An epic, or a card whose tech design has a Breakdown section, runs the breakdown. It writes no code, and nothing in the worker folder. Run the five breakdown steps. Their last step moves each child with no open blocker from the default column to `implementation`. Those are the only moves this mode makes (contract rule 4). Stop with `STAGE RESULT: breakdown <n> children, <m> started`.
+   - An epic, or a card whose tech design has a Breakdown section, runs the breakdown. It writes no code, and nothing in the worker folder. Run the six breakdown steps, which push the epic branch when the profile has an `Epics` section. Their last step moves each child with no open blocker from the default column to `implementation`. Those are the only moves this mode makes (contract rule 4). Stop with `STAGE RESULT: breakdown <n> children, <m> started`.
    - Every other card continues at step 6.
 6. Read each linked pull request with the forge adapter. An open one on a `card-<number>-` branch: take step 7, restore it per "Reruns", and skip to the gate. Any other open one: stop with `STAGE RESULT: open pull request exists <url>`.
 7. Read `references/commands.md` and the profile, and load its `Instruction files`.
-8. Check the worker folder, and put it on a `card-<number>-<short-slug>` branch, per `references/commands.md`.
+8. Find the base branch. Check the worker folder, and put it on a `card-<number>-<short-slug>` branch, per `references/commands.md`. A child of an epic with an epic branch takes that branch as its base.
 9. Load `loupe-documents`. Write the plan, and submit it tagged `plan`, referencing the tech design id. Link it (contract rule 5).
 10. Run the plan task by task. Dispatch a sub-agent for each implementer and reviewer (contract rule 6).
 11. Run the gate in `references/commands.md`.

@@ -12,7 +12,7 @@ The profile has these sections: `Instruction files`, `Environment`, `Gate`, `Cod
 
 ## Pick the forge adapter
 
-The stage skills name forge operations. An adapter file maps them to commands for one forge. The operations are these: find and validate a pull request, list feedback items, reply to a thread, post a top-level comment, and post a refusal comment. Also read checks and failed logs, create a pull request, and check mergeability. The merge stage adds four more: read the merge state, check the approval covers the head, update the branch, and merge.
+The stage skills name forge operations. An adapter file maps them to commands for one forge. The operations are these: find and validate a pull request, list feedback items, reply to a thread, post a top-level comment, and post a refusal comment. Also read checks and failed logs, create a pull request, and check mergeability. The merge stage adds five more: read the merge state, check the approval covers the head, compare with the base, update the branch, and merge.
 
 1. Read the forge from `pullRequests[].forge` in `card_get`: `github`, `gitlab`, `bitbucket` or `other`.
 2. Before a pull request exists, read the host of `git remote get-url origin`. `github.com` is `github`, a `gitlab` host is `gitlab`, `bitbucket.org` is `bitbucket`, and any other host is `other`.
@@ -23,9 +23,19 @@ The stage skills name forge operations. An adapter file maps them to commands fo
 
 Slug a column label from the prompt: lowercase, with hyphens for spaces. Compare the slug with the card `status`.
 
+## Find the base branch
+
+`<base>` is the base branch from the profile `Gate` section, with one exception. A card whose `card_get` `parent` is not null can belong to an epic branch, when the profile has an `Epics` section. Fill the epic branch pattern of that section with `parent.number`, and run this:
+
+```bash
+git ls-remote --exit-code origin refs/heads/<epic branch>
+```
+
+Exit 0 means the epic branch exists, so `<base>` is the epic branch. Any other exit means the epic started before its branch existed, so `<base>` stays the profile base branch. A profile with no `Epics` section, and a card with no parent, keep the profile base branch.
+
 ## Check the worker folder
 
-The worker folder is the folder the worker starts in. The bridge rules make it and remove it, and a stage never does. A worker with no rule for its folder starts in the project directory. `<base>` is the base branch from the profile `Gate` section.
+The worker folder is the folder the worker starts in. The bridge rules make it and remove it, and a stage never does. A worker with no rule for its folder starts in the project directory. `<base>` comes from "Find the base branch".
 
 When the profile `Environment` section names a folder check, run it first. When the check fails, stop with `STAGE RESULT: blocked: no worker folder`. Then run this in the worker folder:
 
@@ -33,7 +43,7 @@ When the profile `Environment` section names a folder check, run it first. When 
 git branch --show-current
 ```
 
-1. When it prints nothing, HEAD is detached. Run `git switch -c card-<number>-<short-slug>`. `<short-slug>` is two to four lowercase words from the card title, joined with hyphens.
+1. When it prints nothing, HEAD is detached. Run `git fetch origin <base>` and `git switch -c card-<number>-<short-slug> origin/<base>`. The bridge can detach a new folder on another branch than `<base>`, so the new branch starts from `origin/<base>`. When the switch moves HEAD, run the refresh of the profile `Environment` section, when it names one. `<short-slug>` is two to four lowercase words from the card title, joined with hyphens.
 2. When it prints `<base>`, run the same `git switch -c` command.
 3. When it prints a branch that starts `card-<number>-`, keep that branch.
 4. When it prints any other branch, stop with `STAGE RESULT: blocked: worker folder on branch <branch>`.
@@ -41,7 +51,7 @@ git branch --show-current
 ## Reruns
 
 1. A linked plan document whose `references` hold the tech design id is the plan. Reuse it, and create no second plan.
-2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch for it. Run `git branch --show-current`. When HEAD is detached, or on another `card-<number>-` branch and `git status --porcelain` prints nothing, run `git fetch origin <head>` and `git switch <head>`. When no local branch has that name, run `git switch --track -c <head> origin/<head>` instead. When the current branch then differs from the head branch, stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
+2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch for it. `<base>` is the base branch of that pull request. Run `git branch --show-current`. When HEAD is detached, or on another `card-<number>-` branch and `git status --porcelain` prints nothing, run `git fetch origin <head>` and `git switch <head>`. When no local branch has that name, run `git switch --track -c <head> origin/<head>` instead. When the current branch then differs from the head branch, stop with `STAGE RESULT: blocked: worker folder is not on the PR branch`.
 3. Sync that branch with `git fetch origin <head>` and `git merge --ff-only origin/<head>`. When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push. When the switch or the sync brought commits, run the refresh of the profile `Environment` section, when it names one. Then resume at the gate.
 4. Before you create a pull request, list the open pull requests for the branch with the forge adapter. Link one it lists, and create none.
 
@@ -62,7 +72,9 @@ Then run the commands of the profile `Gate` section in order. Run each long comm
 
 ## Open the pull request
 
-Push the branch, and create the pull request with the forge adapter. Follow the profile `Pull request` section for the title, the body and the ready state.
+Push the branch, and create the pull request with the forge adapter, against `<base>`. Follow the profile `Pull request` section for the title, the body and the ready state.
+
+A pull request into an epic branch is not a stacked pull request. Write `Child of epic #<parent number>, merges into <base>.` in the body. The merge stage merges it into the epic branch, and the epic pull request carries the work to the profile base branch.
 
 A branch that holds the commits of another open pull request stacks on it. The test is `git merge-base --is-ancestor origin/<parent branch> HEAD`, which exits 0, while that pull request is open. Then create the pull request with `<base>` set to the parent's head branch, never the profile base branch. Write `Stacks on #<parent>. Merge #<parent> first.` in the body.
 
