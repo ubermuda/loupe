@@ -280,7 +280,7 @@ final class BoardLanesTest extends WebTestCase
             \array_slice($waiting, 0, LaneDecks::DECK_SIZE),
             $deck->filter('[data-board-drag-target="card"]')->each(static fn (Crawler $card): string => (string) $card->attr('data-card-id')),
         );
-        self::assertCount(LaneDecks::DECK_SIZE, $deck->filter('[data-board-drag-target="card"] form[data-board-drag-target="moveForm"]'));
+        self::assertCount(0, $deck->filter('form'));
         self::assertCount(0, $deck->filter('[id^="board-card-"], [data-card-digest]'));
         $more = $deck->filter('.lp-deck__more');
         self::assertNull($more->attr('hidden'));

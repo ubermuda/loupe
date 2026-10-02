@@ -143,16 +143,16 @@ final class ShowBoardControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
 
         self::assertResponseIsSuccessful();
-        // The drag submits this form, so the fields are on the face. Dragging is
-        // the only interaction the face offers, so nothing renders a control.
+        // Dragging is the only interaction the face offers, so nothing renders a
+        // control. The drop submits the board's one hidden move form.
         $face = $crawler->filter('[data-card-id="'.$cardId.'"]');
         self::assertStringContainsString('pointerdown->board-drag#press', (string) $face->attr('data-action'));
         // Hovering the whole card hands the prefetch to the title link.
         self::assertStringContainsString('mouseenter->card-prefetch#enter', (string) $face->attr('data-action'));
         self::assertCount(1, $face->filter('a.lp-board-card__title[data-card-prefetch-target="link"]'));
         self::assertCount(1, $crawler->filter('#board [data-board-drag-target="message"]'));
-        self::assertCount(1, $face->filter('form[hidden][data-board-drag-target="moveForm"]'));
-        self::assertCount(1, $face->filter('select[name$="[column]"]'));
+        self::assertCount(0, $face->filter('form'));
+        self::assertCount(1, $crawler->filter('#board > form[hidden][data-board-drag-target="moveForm"] select[name$="[column]"]'));
         self::assertCount(0, $face->filter('details'));
         self::assertCount(0, $face->filter('button'));
     }

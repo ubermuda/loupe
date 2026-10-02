@@ -35,28 +35,14 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\View\DocumentListItem;
 use Symfony\Component\Form\FormFactoryInterface;
-use Symfony\Component\Form\FormRenderer;
 use Symfony\Component\Form\FormView;
-use Symfony\Contracts\Service\ResetInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use Twig\Environment;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
 
-/**
- * The board face renders the move fields of one prototype form per project,
- * then puts each card's own form name in place of the prototype's name.
- */
-final class BoardExtension extends AbstractExtension implements ResetInterface
+final class BoardExtension extends AbstractExtension
 {
-    private const array MOVE_FIELDS = ['_token', 'column', 'position', 'parent', 'beforeCardId', 'afterCardId'];
-
-    private readonly string $prototypeName;
-
-    /** @var array<string, string> project id => rendered prototype fields */
-    private array $moveFields = [];
-
     public function __construct(
         private readonly FormFactoryInterface $formFactory,
         private readonly MarkdownRenderer $markdown,
@@ -66,13 +52,6 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
         private readonly BoardColumnTonePicker $tonePicker,
         private readonly CardDigest $digest,
     ) {
-        $this->prototypeName = 'move_card_'.bin2hex(random_bytes(8));
-    }
-
-    #[\Override]
-    public function reset(): void
-    {
-        $this->moveFields = [];
     }
 
     #[\Override]
@@ -80,7 +59,7 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
     {
         return [
             new TwigFunction('card_move_form', $this->cardMoveForm(...)),
-            new TwigFunction('card_move_fields', $this->cardMoveFields(...), ['needs_environment' => true, 'is_safe' => ['html']]),
+            new TwigFunction('board_move_form', $this->boardMoveForm(...)),
             new TwigFunction('card_lane_form', $this->cardLaneForm(...)),
             // The Backlog page writes this form by hand, so 25 rows build no column choices.
             new TwigFunction('backlog_move_form_name', MoveBacklogCardFormType::nameFor(...)),
@@ -119,24 +98,11 @@ final class BoardExtension extends AbstractExtension implements ResetInterface
     }
 
     /** The column select is left unselected, because the drag controller writes it before it submits. */
-    public function cardMoveFields(Environment $env, Card $card): string
+    public function boardMoveForm(Project $project): FormView
     {
-        $html = $this->moveFields[(string) $card->project->id] ??= $this->renderMovePrototype($env, $card->project);
-
-        return str_replace($this->prototypeName, MoveCardFormType::nameFor($card), $html);
-    }
-
-    private function renderMovePrototype(Environment $env, Project $project): string
-    {
-        $view = $this->formFactory
-            ->createNamed($this->prototypeName, MoveCardFormType::class, new MoveCardRequest(), ['project' => $project])
+        return $this->formFactory
+            ->createNamed(MoveCardFormType::nameForId(MoveCardFormType::PLACEHOLDER_CARD_ID), MoveCardFormType::class, new MoveCardRequest(), ['project' => $project])
             ->createView();
-        $renderer = $env->getRuntime(FormRenderer::class);
-
-        return implode('', array_map(
-            static fn (string $field): string => $renderer->searchAndRenderBlock($view[$field], 'widget'),
-            self::MOVE_FIELDS,
-        ));
     }
 
     /** A form that asks for the opposite of the lane setting the epic holds now. */

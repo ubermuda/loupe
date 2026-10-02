@@ -6279,8 +6279,8 @@
         @apply inline-flex items-center gap-1 text-xs font-semibold text-fg-mute;
     }
 
-    /* The move controls, on the card's own page. The board face carries the
-       same form with no controls, because dragging is its one interaction. */
+    /* The move controls, on the card's own page. The board carries one hidden
+       copy of the form, because dragging is its one interaction. */
     /* Status is the move control: a column select and Move. */
     .lp-card-move__form {
         @apply flex flex-wrap items-center gap-2;

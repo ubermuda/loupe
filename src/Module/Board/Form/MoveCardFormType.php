@@ -13,7 +13,8 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
- * The board's move form. One per card, so it is created under a per-card name.
+ * A card's move form, created under a per-card name. The board renders one form
+ * under the placeholder card, and the drag controller renames it for each drop.
  *
  * The column select is what a keyboard reaches, and it is also the field the
  * drag controller writes before it submits the form. The rank is hidden,
@@ -23,10 +24,18 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
  */
 final class MoveCardFormType extends AbstractType
 {
+    /** A version 4 UUID, because the move route takes no other shape of card id. */
+    public const string PLACEHOLDER_CARD_ID = '00000000-0000-4000-8000-000000000000';
+
     /** Both the board and the receiving controller build the form under this name. */
     public static function nameFor(Card $card): string
     {
-        return 'move_card_'.($card->id?->toRfc4122() ?? '');
+        return self::nameForId($card->id?->toRfc4122() ?? '');
+    }
+
+    public static function nameForId(string $cardId): string
+    {
+        return 'move_card_'.$cardId;
     }
 
     #[\Override]

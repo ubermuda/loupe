@@ -37,12 +37,6 @@
                href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
                data-turbo-frame="card-drawer-frame"
                data-action="click->card-drawer#prepare">{{ card.title }}</a>
-            <form hidden
-                  method="post"
-                  action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}"
-                  data-board-drag-target="moveForm">
-                {{ card_move_fields(card) }}
-            </form>
         </article>
         {% endfor %}
         <a class="lp-deck__card lp-deck__more"

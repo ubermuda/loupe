@@ -498,9 +498,10 @@ export default class extends Controller {
     }
 
     /**
-     * Fills the card's own hidden move form and submits it, which lets Turbo
-     * carry the request and the eager CSRF controller stamp the token. A
-     * hand-rolled fetch would have to re-implement both.
+     * Names the board's one hidden move form after the card, fills it and
+     * submits it, which lets Turbo carry the request and the eager CSRF
+     * controller stamp the token. A hand-rolled fetch would have to
+     * re-implement both.
      *
      * The card has already moved in the page. Any answer but a 2xx stream is
      * kept from rendering, so no error page replaces the board, and the card
@@ -508,10 +509,11 @@ export default class extends Controller {
      * renders after `turbo:submit-end`, so the next drag waits for it.
      */
     submitMove(card, group, position, origin, lanePayload) {
-        const form = card.querySelector('[data-board-drag-target="moveForm"]');
-        if (form === null) {
+        if (!this.hasMoveFormTarget) {
             return;
         }
+        const form = this.moveFormTarget;
+        this.nameMoveForm(form, card.dataset.cardId);
 
         const column = form.querySelector('select[name$="[column]"]');
         const rank = form.querySelector('input[name$="[position]"]');
@@ -575,6 +577,30 @@ export default class extends Controller {
         form.addEventListener('turbo:before-fetch-response', answered);
         form.addEventListener('turbo:submit-end', finished);
         form.requestSubmit();
+    }
+
+    /**
+     * The form renders under a placeholder card id, in its action, its field
+     * names and its field ids. Each drop swaps the last id for this card's.
+     */
+    nameMoveForm(form, cardId) {
+        const previous = form.dataset.moveCardId;
+        const swap = (value, before, after) =>
+            value.replace(
+                `${before}${previous}${after}`,
+                `${before}${cardId}${after}`,
+            );
+        form.setAttribute(
+            'action',
+            swap(form.getAttribute('action'), '/', '/'),
+        );
+        for (const field of form.elements) {
+            field.name = swap(field.name, '_', '[');
+            if (field.id !== '') {
+                field.id = swap(field.id, '_', '_');
+            }
+        }
+        form.dataset.moveCardId = cardId;
     }
 
     /**

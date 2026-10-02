@@ -79,6 +79,18 @@
        data-message="{{ 'board.drag.failed'|trans }}"
        role="status"
        aria-live="polite"></p>
+    {# Dragging is the only interaction a card face offers, so this form has no
+       controls. A drop names it after the card, fills it and submits it. The
+       card page carries the same form with its labels, for a keyboard. #}
+    {% set movePlaceholder = constant('App\\Module\\Board\\Form\\MoveCardFormType::PLACEHOLDER_CARD_ID') %}
+    {% set moveForm = board_move_form(board.project) %}
+    <form hidden
+          method="post"
+          action="{{ path('app_board_card_move', {projectId: board.project.id, cardId: movePlaceholder}) }}"
+          data-board-drag-target="moveForm"
+          data-move-card-id="{{ movePlaceholder }}">
+        {% for field in moveForm %}{{ form_widget(field) }}{% endfor %}
+    </form>
     {% if board.lanes is empty %}
     {% include '@Board/_board_plain_columns.html.twig' with {board: board, runWarnings: runWarnings} only %}
     {% else %}

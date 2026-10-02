@@ -82,16 +82,4 @@
         {% endif %}
     </div>
     {% endif %}
-    {# Dragging is the only interaction a card face offers. These fields carry
-       no controls: the drag controller fills them and submits, which keeps
-       Turbo and the CSRF controller in the path. The same form is on the card
-       page with its labels, where a keyboard reaches it. #}
-    {% if not static %}
-    <form hidden
-          method="post"
-          action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}"
-          data-board-drag-target="moveForm">
-        {{ card_move_fields(card) }}
-    </form>
-    {% endif %}
 </article>
